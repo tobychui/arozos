@@ -313,6 +313,8 @@ function showImage(object){
     fullsizeImageLoaded = false;
     
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
+    _currentCastFilepath = fd.filepath;
+    if (_photoCastConnected()) _photoCastSendPhoto(fd.filepath);
     $("#info-dimensions").text("Calculating...");
     // Check if we should use compression (only for JPG/PNG > 5MB)
     const useCompression = shouldUseCompression(fd.filepath, fd.filesize);
@@ -865,6 +867,214 @@ window.addEventListener('load', () => {
             } catch (e) {
                 console.error('Invalid hash data', e);
             }
-        }   
+        }
      }, 100);
+});
+
+// ── Arozcast Photo Cast ───────────────────────────────────────────────────────
+
+let _photoCastWs = null;
+let _photoCastCode = null;
+let _photoCastPingTimer = null;
+let _photoCastWatchTimer = null;
+let _photoCastLastSeen = 0;
+let _currentCastFilepath = null;
+let _photoCastReconnectTimer = null;
+let _photoCastReconnectCount = 0;
+let _photoCastPendingCode    = null;
+
+function _photoCastConnected() { return _photoCastWs !== null && _photoCastWs.readyState === WebSocket.OPEN; }
+
+function openPhotoCastDialog() {
+    const modal = document.getElementById('cast-photo-modal');
+    const inp   = document.getElementById('cast-photo-code');
+    const err   = document.getElementById('cast-photo-error');
+    const stat  = document.getElementById('cast-photo-status');
+    const connBtn = document.getElementById('cast-photo-conn-btn');
+    const discBtn = document.getElementById('cast-photo-disc-btn');
+
+    err.textContent = '';
+    if (_photoCastConnected()) {
+        inp.style.display = 'none';
+        stat.style.display = 'block';
+        stat.textContent = 'Connected to room ' + _photoCastCode;
+        connBtn.style.display = 'none';
+        discBtn.style.display = '';
+    } else {
+        inp.style.display = '';
+        inp.value = '';
+        stat.style.display = 'none';
+        connBtn.style.display = '';
+        discBtn.style.display = 'none';
+    }
+    modal.classList.add('visible');
+    if (inp.style.display !== 'none') inp.focus();
+}
+
+function closePhotoCastDialog() {
+    document.getElementById('cast-photo-modal').classList.remove('visible');
+}
+
+function connectPhotoCast() {
+    const inp  = document.getElementById('cast-photo-code');
+    const err  = document.getElementById('cast-photo-error');
+    const code = inp.value.trim();
+    if (code.length !== 4) { err.textContent = 'Enter a 4-digit room code.'; return; }
+    err.textContent = '';
+
+    fetch(ao_root + 'api/arozcast/ping?code=' + code)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.exists) { err.textContent = 'Room not found. Is Arozcast running?'; return; }
+
+            // Disconnect any existing photo cast session
+            if (_photoCastWs) {
+                _photoCastWs.onclose = null;
+                _photoCastWs.close();
+                _photoCastWs = null;
+            }
+            clearInterval(_photoCastPingTimer);
+            clearInterval(_photoCastWatchTimer);
+            // Cancel any pending auto-reconnect to the old room — user is opening a new session
+            clearTimeout(_photoCastReconnectTimer); _photoCastReconnectTimer = null;
+            _photoCastReconnectCount = 0; _photoCastPendingCode = null;
+
+            // Signal other apps (e.g. Musicify) to yield the cast session
+            try { new BroadcastChannel('arozcast').postMessage({ type: 'arozcast.takeover' }); } catch(e) {}
+
+            _photoCastCode = code;
+            const wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+            wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(wsUrl.toString());
+            _photoCastWs = ws;
+
+            ws.onopen = function() {
+                _photoCastLastSeen = Date.now();
+                ws.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
+                if (_currentCastFilepath) _photoCastSendPhoto(_currentCastFilepath);
+                _photoCastPingTimer = setInterval(function() {
+                    if (_photoCastConnected()) ws.send(JSON.stringify({ topic: 'peer.heartbeat', payload: {} }));
+                }, 5000);
+                _photoCastWatchTimer = setInterval(function() {
+                    if (Date.now() - _photoCastLastSeen > 12000) { ws.close(); }
+                }, 4000);
+                // Update modal to connected state
+                document.getElementById('cast-photo-status').style.display = 'block';
+                document.getElementById('cast-photo-status').textContent = 'Connected to room ' + code;
+                document.getElementById('cast-photo-code').style.display = 'none';
+                document.getElementById('cast-photo-conn-btn').style.display = 'none';
+                document.getElementById('cast-photo-disc-btn').style.display = '';
+                document.getElementById('cast-photo-btn').classList.add('casting');
+            };
+
+            ws.onmessage = function() { _photoCastLastSeen = Date.now(); };
+
+            ws.onclose = function() {
+                clearInterval(_photoCastPingTimer);
+                clearInterval(_photoCastWatchTimer);
+                var savedCode = _photoCastCode;
+                _photoCastWs = null;
+                _photoCastCode = null;
+                document.getElementById('cast-photo-btn').classList.remove('casting');
+                _startPhotoCastReconnect(savedCode);
+            };
+
+            ws.onerror = function() { err.textContent = 'Connection error.'; };
+
+            closePhotoCastDialog();
+        })
+        .catch(function() { err.textContent = 'Network error.'; });
+}
+
+function disconnectPhotoCast() {
+    // Cancel any pending auto-reconnect before tearing down
+    clearTimeout(_photoCastReconnectTimer); _photoCastReconnectTimer = null;
+    _photoCastReconnectCount = 0; _photoCastPendingCode = null;
+    if (_photoCastWs) {
+        _photoCastWs.onclose = null;   // suppress reconnect trigger
+        _photoCastWs.close();
+        _photoCastWs = null;
+    }
+    clearInterval(_photoCastPingTimer);
+    clearInterval(_photoCastWatchTimer);
+    _photoCastCode = null;
+    document.getElementById('cast-photo-btn').classList.remove('casting');
+    closePhotoCastDialog();
+}
+
+function _photoCastSendPhoto(filepath) {
+    if (!_photoCastConnected()) return;
+    var fileUrl = ao_root + 'media?file=' + encodeURIComponent(filepath);
+    _photoCastWs.send(JSON.stringify({
+        topic: 'media.load',
+        payload: { filepath: filepath, name: filepath.split('/').pop(), type: 'photo', src: fileUrl }
+    }));
+}
+
+// ── Arozcast photo auto-reconnect ─────────────────────────────────────────────
+var _PHOTO_CAST_RECONNECT_DELAYS = [2000, 5000, 12000];
+
+function _startPhotoCastReconnect(code) {
+    if (!code || _photoCastReconnectCount >= _PHOTO_CAST_RECONNECT_DELAYS.length) {
+        _photoCastReconnectCount = 0; _photoCastPendingCode = null;
+        return;
+    }
+    _photoCastPendingCode = code;
+    var delay = _PHOTO_CAST_RECONNECT_DELAYS[_photoCastReconnectCount++];
+    clearTimeout(_photoCastReconnectTimer);
+    _photoCastReconnectTimer = setTimeout(function() {
+        _photoCastReconnectTimer = null;
+        _attemptPhotoCastReconnect();
+    }, delay);
+}
+
+function _attemptPhotoCastReconnect() {
+    if (!_photoCastPendingCode) return;
+    var code = _photoCastPendingCode;
+    var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+    wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws = new WebSocket(wsUrl.toString());
+    var openTimer = setTimeout(function() {
+        ws.onopen = ws.onclose = ws.onerror = null; ws.close();
+        _startPhotoCastReconnect(code);
+    }, 8000);
+    ws.onopen  = function() { clearTimeout(openTimer); _photoCastPendingCode = null; _photoCastDidReconnect(ws, code); };
+    ws.onerror = function() {};
+    ws.onclose = function() { clearTimeout(openTimer); _startPhotoCastReconnect(code); };
+}
+
+function _photoCastDidReconnect(ws, code) {
+    _photoCastWs = ws;
+    _photoCastCode = code;
+    _photoCastLastSeen = Date.now();
+    ws.onmessage = function() { _photoCastLastSeen = Date.now(); _photoCastReconnectCount = 0; }; // any reply = receiver alive — reset retry counter
+    ws.onclose = function() {
+        clearInterval(_photoCastPingTimer); clearInterval(_photoCastWatchTimer);
+        var savedCode = _photoCastCode;
+        _photoCastWs = null; _photoCastCode = null;
+        document.getElementById('cast-photo-btn').classList.remove('casting');
+        _startPhotoCastReconnect(savedCode);
+    };
+    // Re-announce and re-push the current photo
+    ws.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
+    if (_currentCastFilepath) _photoCastSendPhoto(_currentCastFilepath);
+    clearInterval(_photoCastPingTimer); clearInterval(_photoCastWatchTimer);
+    _photoCastPingTimer = setInterval(function() {
+        if (_photoCastConnected()) ws.send(JSON.stringify({ topic: 'peer.heartbeat', payload: {} }));
+    }, 5000);
+    _photoCastWatchTimer = setInterval(function() {
+        if (Date.now() - _photoCastLastSeen > 12000) { ws.close(); }
+    }, 4000);
+    document.getElementById('cast-photo-btn').classList.add('casting');
+    var stat = document.getElementById('cast-photo-status');
+    if (stat) { stat.style.display = 'block'; stat.textContent = 'Reconnected to room ' + code; }
+}
+
+// When the user returns to this tab after the phone was asleep, reconnect immediately
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && _photoCastPendingCode) {
+        clearTimeout(_photoCastReconnectTimer);
+        _photoCastReconnectTimer = null;
+        _attemptPhotoCastReconnect();
+    }
 });

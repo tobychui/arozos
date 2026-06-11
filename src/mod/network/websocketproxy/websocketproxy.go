@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var (
@@ -67,14 +68,14 @@ func NewProxy(target *url.URL) *WebsocketProxy {
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if w.Backend == nil {
-		websocketproxyLogger.PrintAndLog("Websocketproxy", "websocketproxy: backend function is not defined", nil)
+		logger.PrintAndLog("Websocketproxy", "websocketproxy: backend function is not defined", nil)
 		http.Error(rw, "internal server error (code: 1)", http.StatusInternalServerError)
 		return
 	}
 
 	backendURL := w.Backend(req)
 	if backendURL == nil {
-		websocketproxyLogger.PrintAndLog("Websocketproxy", "websocketproxy: backend URL is nil", nil)
+		logger.PrintAndLog("Websocketproxy", "websocketproxy: backend URL is nil", nil)
 		http.Error(rw, "internal server error (code: 2)", http.StatusInternalServerError)
 		return
 	}
@@ -136,13 +137,13 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// http://tools.ietf.org/html/draft-ietf-hybi-websocket-multiplexing-01
 	connBackend, resp, err := dialer.Dial(backendURL.String(), requestHeader)
 	if err != nil {
-		websocketproxyLogger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't dial to remote backend url %s", err), nil)
+		logger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't dial to remote backend url %s", err), nil)
 		if resp != nil {
 			// If the WebSocket handshake fails, ErrBadHandshake is returned
 			// along with a non-nil *http.Response so that callers can handle
 			// redirects, authentication, etcetera.
 			if err := copyResponse(rw, resp); err != nil {
-				websocketproxyLogger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't write response after failed remote backend handshake: %s", err), nil)
+				logger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't write response after failed remote backend handshake: %s", err), nil)
 			}
 		} else {
 			http.Error(rw, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
@@ -170,7 +171,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	connPub, err := upgrader.Upgrade(rw, req, upgradeHeader)
 	if err != nil {
-		websocketproxyLogger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't upgrade %s", err), nil)
+		logger.PrintAndLog("Websocketproxy", fmt.Sprintf("websocketproxy: couldn't upgrade %s", err), nil)
 		return
 	}
 	defer connPub.Close()
@@ -211,7 +212,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	}
 	if e, ok := err.(*websocket.CloseError); !ok || e.Code == websocket.CloseAbnormalClosure {
-		websocketproxyLogger.PrintAndLog("Websocketproxy", fmt.Sprintf(message, err), nil)
+		logger.PrintAndLog("Websocketproxy", fmt.Sprintf(message, err), nil)
 	}
 }
 

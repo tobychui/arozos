@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/dynamicproxy/dpcore"
 	"imuslab.com/arozos/mod/network/reverseproxy"
 )
@@ -85,7 +86,7 @@ func (router *Router) StartProxyService() error {
 	router.Running = true
 	go func() {
 		err := router.server.ListenAndServe()
-		dynamicproxyLogger.PrintAndLog("Dynamicproxy", "[DynamicProxy] "+err.Error(), nil)
+		logger.PrintAndLog("Dynamicproxy", "[DynamicProxy] "+err.Error(), nil)
 	}()
 
 	return nil
@@ -137,7 +138,7 @@ func (router *Router) AddProxyService(rootname string, domain string, requireTLS
 		Proxy:      proxy,
 	})
 
-	dynamicproxyLogger.PrintAndLog("Dynamicproxy", fmt.Sprint("Adding Proxy Rule: ", rootname+" to "+domain), nil)
+	logger.PrintAndLog("Dynamicproxy", fmt.Sprint("Adding Proxy Rule: ", rootname+" to "+domain), nil)
 	return nil
 }
 

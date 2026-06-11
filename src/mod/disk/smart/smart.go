@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"runtime"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 	//"time"
 )
@@ -35,7 +36,7 @@ type SMARTListener struct {
 func NewSmartListener() (*SMARTListener, error) {
 	smartExec := getBinary()
 
-	smartLogger.PrintAndLog("Smart", "Starting SMART mointoring", nil)
+	logger.PrintAndLog("Smart", "Starting SMART mointoring", nil)
 
 	if smartExec == "" {
 		return &SMARTListener{}, errors.New("not supported platform")
@@ -139,12 +140,12 @@ func (s *SMARTListener) GetSMART(w http.ResponseWriter, r *http.Request) {
 func getBinary() string {
 	// Prefer system-installed smartctl (more up-to-date, supports newer drives).
 	if path, err := exec.LookPath("smartctl"); err == nil {
-		smartLogger.PrintAndLog("Smart", fmt.Sprint("[SMART] Using system-installed smartctl:", path), nil)
+		logger.PrintAndLog("Smart", fmt.Sprint("[SMART] Using system-installed smartctl:", path), nil)
 		return path
 	}
 
 	// Fall back to the pre-built binary bundled with arozos.
-	smartLogger.PrintAndLog("Smart", "[SMART] System smartctl not found, falling back to bundled binary", nil)
+	logger.PrintAndLog("Smart", "[SMART] System smartctl not found, falling back to bundled binary", nil)
 	switch runtime.GOOS {
 	case "windows":
 		return ".\\system\\disk\\smart\\win\\smartctl.exe"

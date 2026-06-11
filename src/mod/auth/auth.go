@@ -37,6 +37,7 @@ import (
 	"imuslab.com/arozos/mod/auth/authlogger"
 	"imuslab.com/arozos/mod/auth/explogin"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -85,7 +86,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 	store := sessions.NewCookieStore(key)
 	err := sysdb.NewTable("auth")
 	if err != nil {
-		authLogger.PrintAndLog("Auth", "Failed to create auth database. Terminating.", nil)
+		logger.PrintAndLog("Auth", "Failed to create auth database. Terminating.", nil)
 		panic(err)
 	}
 
@@ -178,7 +179,7 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		//Username not defined
-		authLogger.PrintAndLog("Auth", "[System Auth] Someone trying to login with username: "+username, nil)
+		logger.PrintAndLog("Auth", "[System Auth] Someone trying to login with username: "+username, nil)
 		//Write to log
 		a.Logger.LogAuth(r, false)
 		sendErrorResponse(w, "Username not defined or empty.")
@@ -232,12 +233,12 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		a.SwitchableAccountManager.MatchPoolCreatorOrResetPoolID(username, w, r)
 
 		//Print the login message to console
-		authLogger.PrintAndLog("Auth", username+" logged in.", nil)
+		logger.PrintAndLog("Auth", username+" logged in.", nil)
 		a.Logger.LogAuth(r, true)
 		sendOK(w)
 	} else {
 		//Password incorrect
-		authLogger.PrintAndLog("Auth", username+" login request rejected: "+rejectionReason, nil)
+		logger.PrintAndLog("Auth", username+" login request rejected: "+rejectionReason, nil)
 
 		//Add to retry count
 		a.ExpDelayHandler.AddUserRetrycount(username, r)
@@ -332,7 +333,7 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 func (a *AuthAgent) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	username, _ := a.GetUserName(w, r)
 	if username != "" {
-		authLogger.PrintAndLog("Auth", username+" logged out.", nil)
+		logger.PrintAndLog("Auth", username+" logged out.", nil)
 	}
 
 	//Clear user switchable account pools
@@ -431,7 +432,7 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	//Return to the client with OK
 	sendOK(w)
-	authLogger.PrintAndLog("Auth", "[System Auth] New user "+newusername+" added to system.", nil)
+	logger.PrintAndLog("Auth", "[System Auth] New user "+newusername+" added to system.", nil)
 	return
 }
 
@@ -478,7 +479,7 @@ func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request) {
 
 	//Return to the client with OK
 	sendOK(w)
-	authLogger.PrintAndLog("Auth", "[system_auth] User "+username+" has been removed from the system.", nil)
+	logger.PrintAndLog("Auth", "[system_auth] User "+username+" has been removed from the system.", nil)
 	return
 }
 
@@ -515,7 +516,7 @@ func (a *AuthAgent) GetUserCounts() int {
 	}
 
 	if usercount == 0 {
-		authLogger.PrintAndLog("Auth", "There are no user in the database.", nil)
+		logger.PrintAndLog("Auth", "There are no user in the database.", nil)
 	}
 	return usercount
 }

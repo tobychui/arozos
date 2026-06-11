@@ -7,7 +7,7 @@ package iot
 	(aka this is just a wrapper class. See independent IoT module for more information)
 */
 
-//Defination of a control endpoint
+// Defination of a control endpoint
 type Endpoint struct {
 	RelPath string //Relative path for this endpoint. If the access path is 192.168.0.100:8080/api1, then this value should be /api1
 	Name    string //Name of the this endpoint. E.g. "Toggle Light"
@@ -23,7 +23,7 @@ type Endpoint struct {
 	Steps float64
 }
 
-//Defination of an IoT device
+// Defination of an IoT device
 type Device struct {
 	Name         string //Name of the device
 	Port         int    //The communication port on the device. -1 for N/A

@@ -10,7 +10,7 @@
 <body style="margin:0;padding:0;background:transparent;">
 <style>
 #dt-root {
-    --dt-bg:          #ffffff;
+    --dt-bg:          #f3f3f3;
     --dt-bg2:         #f5f5f7;
     --dt-border:      #d2d2d7;
     --dt-text:        #1d1d1f;
@@ -31,7 +31,7 @@
 }
 
 #dt-root.dark {
-    --dt-bg:          #1c1c1e;
+    --dt-bg:          #1f1f1f;
     --dt-bg2:         #2c2c2e;
     --dt-border:      #3a3a3c;
     --dt-text:        #f2f2f7;
@@ -670,14 +670,17 @@
     /* ── Theme ── */
     try {
         if (typeof(preferredTheme) != "undefined" && preferredTheme === "dark") {
-            // Ajax loaded into System Settings, use already known theme if possible to avoid flash
-            document.getElementById('dt-root').classList.toggle('dark',  true);
-        }else if (typeof ao_module_getSystemThemeColor === 'function') {
+            document.getElementById('dt-root').classList.toggle('dark', true);
+        } else if (typeof ao_module_getSystemThemeColor === 'function') {
             ao_module_getSystemThemeColor(function (c) {
                 document.getElementById('dt-root').classList.toggle('dark', c !== 'whiteTheme');
             });
         }
     } catch (e) {}
+
+    window.detailPageThemeCallback = function(isDark) {
+        document.getElementById('dt-root').classList.toggle('dark', isDark);
+    };
 
     /* ── Tab switching ── */
     window.dtTab = function (el) {

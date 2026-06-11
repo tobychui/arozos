@@ -546,6 +546,8 @@ try {
     ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); });
 }
 
+window.detailPageThemeCallback = function(isDark) { applyTheme(isDark); };
+
 /* ================================================================
    Applocale + init
    ================================================================ */

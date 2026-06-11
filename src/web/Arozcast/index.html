@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <title>Arozcast</title>
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <script src="../script/alpine.min.js" defer></script>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:     #000;
+            --accent: #b0b0b0;
+            --text:   #f0f0f5;
+            --text2:  #9090a8;
+            --bar-bg: rgba(10, 10, 15, 0.82);
+        }
+
+        html, body {
+            height: 100%; overflow: hidden;
+            background: var(--bg); color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+        }
+
+        #app {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+
+        /* ── Background layer ────────────────────────────────────────── */
+        .bg-layer {
+            position: absolute; inset: 0; z-index: 0;
+            background: #000;
+            transition: opacity .6s ease;
+        }
+        .bg-layer img {
+            width: 100%; height: 100%; object-fit: cover;
+            filter: blur(32px) brightness(0.35) saturate(1.4);
+            transform: scale(1.08);
+        }
+
+        /* ── Waiting screen ─────────────────────────────────────────── */
+        .waiting-screen {
+            position: relative; z-index: 10;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 0;
+            text-align: center;
+            padding: 32px;
+        }
+
+        .brand-logo {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 40px;
+        }
+        .brand-icon {
+            width: 48px; height: 48px;
+        }
+        .brand-name {
+            font-size: 28px; font-weight: 800;
+            letter-spacing: -0.5px; color: var(--text);
+        }
+
+        .code-label {
+            font-size: 13px; text-transform: uppercase; letter-spacing: .15em;
+            color: var(--text2); margin-bottom: 16px;
+        }
+
+        .code-display {
+            display: flex; gap: 12px; margin-bottom: 32px;
+        }
+        .code-digit {
+            width: 72px; height: 88px;
+            background: rgba(255,255,255,.07);
+            border: 1.5px solid rgba(255,255,255,.12);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums;
+            color: var(--text);
+            backdrop-filter: blur(8px);
+        }
+
+        .waiting-hint {
+            font-size: 14px; color: var(--text2); max-width: 320px; line-height: 1.6;
+        }
+
+        .peer-count {
+            margin-top: 24px;
+            font-size: 12px; color: var(--text2);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .peer-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 6px #22c55e;
+        }
+        .peer-dot.idle { background: var(--text2); box-shadow: none; }
+
+        /* ── Audio/cover mode ───────────────────────────────────────── */
+        .cover-display {
+            position: relative; z-index: 10;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 20px;
+            padding-bottom: 80px;
+        }
+        .cover-art {
+            width: min(55vw, 55vh);
+            height: min(55vw, 55vh);
+            border-radius: 18px;
+            object-fit: cover;
+            box-shadow: 0 24px 64px rgba(0,0,0,.7);
+        }
+        .track-meta {
+            text-align: center;
+        }
+        .track-name {
+            font-size: 22px; font-weight: 700; color: var(--text);
+            max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .track-artist {
+            font-size: 15px; color: var(--text2); margin-top: 4px;
+        }
+
+        /* ── Video mode ─────────────────────────────────────────────── */
+        #acVideo {
+            position: absolute; inset: 0; z-index: 8;
+            width: 100%; height: 100%; object-fit: contain;
+            background: #000;
+        }
+
+        /* ── Photo mode ─────────────────────────────────────────────── */
+        .photo-display {
+            position: absolute; inset: 0; z-index: 8;
+            display: flex; align-items: center; justify-content: center;
+            background: #000;
+        }
+        .photo-display img {
+            max-width: 100%; max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* ── Hidden audio ───────────────────────────────────────────── */
+        #acAudio { display: none; }
+
+        /* ── Bottom toolbar ─────────────────────────────────────────── */
+        .toolbar {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            z-index: 200;
+            display: flex; align-items: center; gap: 8px;
+            background: var(--bar-bg);
+            backdrop-filter: blur(20px) saturate(1.5);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 40px;
+            padding: 8px 16px;
+            min-width: 200px; max-width: 480px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.5);
+            transition: opacity .3s ease;
+        }
+        .toolbar.hidden { opacity: 0; pointer-events: none; }
+
+        .tb-btn {
+            flex-shrink: 0;
+            width: 36px; height: 36px;
+            background: rgba(255,255,255,.08);
+            border: none; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text); transition: background .15s;
+            padding: 0;
+        }
+        .tb-btn:hover { background: rgba(255,255,255,.18); }
+        .tb-btn svg { width: 18px; height: 18px; fill: currentColor; }
+        .tb-btn.active { background: rgba(176,176,176,.28); }
+        .tb-btn.active img { filter: brightness(1.4) saturate(1.6); }
+
+        .tb-filename {
+            flex: 1; text-align: center;
+            font-size: 13px; font-weight: 500;
+            color: var(--text);
+            overflow: hidden;
+            padding: 0 4px;
+            display: flex; flex-direction: column; align-items: center; gap: 1px;
+        }
+        .tb-filename-main {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            max-width: 100%;
+        }
+        .tb-roomcode {
+            font-size: 10px; opacity: 0.5; letter-spacing: 0.07em;
+            white-space: nowrap;
+        }
+
+        /* ── Disconnected banner (sender dropped; media still playing) ── */
+        .disconnected-banner {
+            position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 300;
+            background: rgba(20,20,30,0.82);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 20px;
+            padding: 6px 18px;
+            font-size: 11px; color: rgba(255,255,255,0.75);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* ── Disconnected notice ────────────────────────────────────── */
+        .disconnected-notice {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 2px; margin-bottom: 8px; padding: 16px 24px;
+            background: rgba(239,68,68,.08);
+            border: 1px solid rgba(239,68,68,.2);
+            border-radius: 12px; color: #fca5a5;
+            max-width: 320px; text-align: center;
+        }
+
+        /* ── Loading indicator ──────────────────────────────────────── */
+        .loading-ring {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Toast ───────────────────────────────────────────────────── */
+        .toast {
+            position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+            z-index: 300;
+            background: rgba(30,30,40,.95);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 13px; color: var(--text);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 4px 24px rgba(0,0,0,.4);
+            transition: opacity .3s ease;
+            pointer-events: none;
+        }
+        .toast.hidden { opacity: 0; }
+
+        /* ── Progress bar (audio/video) ─────────────────────────────── */
+        .media-progress {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 3px; z-index: 201;
+            background: rgba(255,255,255,.1);
+        }
+        .media-progress-fill {
+            height: 100%; background: var(--accent);
+            transition: width .5s linear;
+        }
+    </style>
+</head>
+<body>
+<div id="app" x-data="arozcastApp()" x-init="init()">
+
+    <!-- Background art (blurred) for audio mode -->
+    <div class="bg-layer" x-show="mediaType === 'audio' && currentTrack">
+        <img :src="coverSrc" alt="" @error="$event.target.style.display='none'">
+    </div>
+
+    <!-- ── Waiting / idle screen ─────────────────────────────────── -->
+    <div class="waiting-screen" x-show="!currentTrack && !loading">
+        <div class="brand-logo">
+            <svg class="brand-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="48" height="48" rx="12" fill="#b0b0b0"/>
+                <path d="M34 14H14a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4v-2h-4V16h20v4h2v-4a2 2 0 0 0-2-2Z" fill="white"/>
+                <path d="M10 36v-4a6 6 0 0 1 6 6h-4a2 2 0 0 0-2-2Zm0 4h4a10 10 0 0 0-4-8v4a6 6 0 0 1 4 4Zm0 0h-2v-2h2v2Z" fill="white" fill-opacity="0.8"/>
+                <path d="M22 38h-4a14 14 0 0 0-14-14v4a10 10 0 0 1 10 10h4a14 14 0 0 0-14-14v-4a18 18 0 0 1 18 18Z" fill="white" fill-opacity="0.5"/>
+            </svg>
+            <span class="brand-name">Arozcast</span>
+        </div>
+
+        <div class="code-label">Connection code</div>
+        <div class="code-display">
+            <template x-for="d in codeDigits" :key="d.i">
+                <div class="code-digit" x-text="d.v"></div>
+            </template>
+        </div>
+
+        <div class="waiting-hint" x-show="senderState !== 'disconnected'">
+            Enter this code in Musicify on your phone or another device to start casting.
+        </div>
+
+        <div class="disconnected-notice" x-show="senderState === 'disconnected'">
+            <img src="./img/disconnected.svg" style="width:32px;height:32px;margin-bottom:12px;" alt="Disconnected">
+            <div style="font-size:15px;font-weight:600;color:var(--text);">Sender disconnected</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:4px;">Enter the code above in Musicify to reconnect.</div>
+        </div>
+
+        <div class="peer-count">
+            <div class="peer-dot" :class="{idle: senderState !== 'connected'}"></div>
+            <span x-text="senderState === 'connected' ? '1 sender connected' : senderState === 'disconnected' ? 'Waiting for reconnect...' : 'Waiting for sender...'"></span>
+        </div>
+    </div>
+
+    <!-- ── Loading spinner ───────────────────────────────────────── -->
+    <div class="waiting-screen" x-show="loading">
+        <div class="loading-ring"></div>
+        <div class="waiting-hint" x-text="loadingMsg"></div>
+    </div>
+
+    <!-- ── Audio / cover mode ────────────────────────────────────── -->
+    <div class="cover-display" x-show="currentTrack && mediaType === 'audio'">
+        <img class="cover-art" :src="coverSrc" alt="Cover"
+             @error="coverSrc = 'img/music_placeholder.png'">
+        <div class="track-meta">
+            <div class="track-name" x-text="currentTrack ? currentTrack.name : ''"></div>
+            <div class="track-artist" x-text="currentTrack ? (currentTrack.artist || '') : ''"></div>
+        </div>
+    </div>
+
+    <!-- ── Video mode ────────────────────────────────────────────── -->
+    <video id="acVideo" x-show="currentTrack && mediaType === 'video'"
+           playsinline
+           @timeupdate="onVideoTimeUpdate()"
+           @loadedmetadata="onVideoMeta()"
+           @ended="onMediaEnded()">
+    </video>
+
+    <!-- ── Photo mode ────────────────────────────────────────────── -->
+    <div class="photo-display" x-show="currentTrack && mediaType === 'photo'">
+        <img :src="photoSrc" alt="Photo">
+    </div>
+
+    <!-- Hidden audio element for audio mode -->
+    <audio id="acAudio"
+           @timeupdate="onAudioTimeUpdate()"
+           @loadedmetadata="onAudioMeta()"
+           @ended="onMediaEnded()">
+    </audio>
+
+    <!-- ── Disconnected banner (sender dropped but media still playing) ── -->
+    <div class="disconnected-banner"
+         x-show="currentTrack && senderState === 'disconnected'"
+         x-text="'Sender disconnected · room ' + roomCode + ' · playback continues'">
+    </div>
+
+    <!-- ── Bottom toolbar ────────────────────────────────────────── -->
+    <div class="toolbar" :class="{hidden: toolbarHidden && currentTrack && mediaType !== 'photo'}"
+         @mousemove="showToolbar()" @mouseenter="showToolbar()">
+
+        <!-- Fullscreen toggle -->
+        <button class="tb-btn" @click="toggleFullscreen()" title="Toggle fullscreen">
+            <img :src="isFullscreen ? 'img/fullscreen_exit.svg' : 'img/fullscreen.svg'" style="width:20px;height:20px;">
+        </button>
+
+        <!-- Filename + room code -->
+        <span class="tb-filename">
+            <span class="tb-filename-main" x-text="currentTrack ? currentTrack.name : 'Arozcast'"></span>
+            <span class="tb-roomcode" x-show="roomCode" x-text="'Room ' + roomCode"></span>
+        </span>
+
+        <!-- Mute toggle -->
+        <button class="tb-btn" @click="toggleMute()" :title="isMuted ? 'Unmute' : 'Mute'">
+            <img :src="isMuted ? 'img/mute.svg' : 'img/unmute.svg'" style="width:20px;height:20px;">
+        </button>
+
+        <!-- Repeat indicator (controlled by sender) -->
+        <button class="tb-btn" :class="{active: repeatMode !== 'none'}"
+                :title="repeatMode === 'none' ? 'Repeat: off' : repeatMode === 'one' ? 'Repeat: one' : 'Repeat: all'"
+                x-show="currentTrack" style="pointer-events:none;">
+            <img src="img/repeat.svg" style="width:20px;height:20px;">
+        </button>
+    </div>
+
+    <!-- ── Progress bar ───────────────────────────────────────────── -->
+    <div class="media-progress" x-show="currentTrack && (mediaType === 'audio' || mediaType === 'video')">
+        <div class="media-progress-fill" :style="'width:' + progressPct + '%'"></div>
+    </div>
+
+    <!-- ── Toast ─────────────────────────────────────────────────── -->
+    <div class="toast" :class="{hidden: !toastVisible}" x-text="toastMsg"></div>
+
+</div>
+
+<script>
+function arozcastApp() {
+    return {
+        // State
+        roomCode: '',
+        codeDigits: [],
+        loading: true,
+        loadingMsg: 'Creating room...',
+
+        // Connection
+        ws: null,
+        peerCount: 0,
+        senderState: 'none',   // 'none' | 'connected' | 'disconnected'
+        _statusInterval: null,
+        _peerTimer: null,
+        _closing: false,
+
+        // Media
+        currentTrack: null,
+        mediaType: 'audio',   // 'audio' | 'video' | 'photo'
+        coverSrc: '',
+        photoSrc: '',
+        defaultCover: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e1e26'/%3E%3C/svg%3E",
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+        volume: 100,
+        isMuted: false,
+        repeatMode: 'none',   // 'none' | 'one' | 'all' — set by sender via media.repeat
+
+        // Toolbar
+        isFullscreen: false,
+        toolbarHidden: false,
+        _toolbarTimer: null,
+
+        // Toast
+        toastMsg: '',
+        toastVisible: false,
+        _toastTimer: null,
+
+        get progressPct() {
+            if (!this.duration) return 0;
+            return Math.min((this.currentTime / this.duration) * 100, 100);
+        },
+
+        // ── Init ─────────────────────────────────────────────────────
+        async init() {
+            this._audio = document.getElementById('acAudio');
+            this._video = document.getElementById('acVideo');
+
+            // Fullscreen change listener
+            const self = this;
+            document.addEventListener('fullscreenchange', () => {
+                self.isFullscreen = !!document.fullscreenElement;
+            });
+
+            // Auto-hide toolbar
+            document.addEventListener('mousemove', () => self.showToolbar());
+
+            // Create room
+            try {
+                const res = await fetch(ao_root + 'api/arozcast/create', { method: 'POST' });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                this.roomCode = data.code;
+                this.codeDigits = this.roomCode.split('').map((v, i) => ({ v, i }));
+                this.loading = false;
+                this._connectWs();
+            } catch(e) {
+                this.loadingMsg = 'Failed to create room: ' + e.message;
+            }
+
+            // Close room when window unloads
+            window.addEventListener('beforeunload', () => {
+                self._closing = true;
+                if (this.roomCode) {
+                    navigator.sendBeacon(ao_root + 'api/arozcast/close?code=' + this.roomCode);
+                }
+                if (this.ws) this.ws.close();
+            });
+        },
+
+        // ── WebSocket connection ──────────────────────────────────────
+        _connectWs() {
+            const wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + this.roomCode, window.location.href);
+            wsUrl.protocol = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+            const url = wsUrl.toString();
+            const self = this;
+
+            // Detach stale handlers from the old socket before replacing it.
+            // This prevents a dying connection from firing onmessage if it
+            // receives a relayed frame during the server-side cleanup window.
+            if (this.ws) {
+                this.ws.onopen    = null;
+                this.ws.onclose   = null;
+                this.ws.onmessage = null;
+            }
+
+            this.ws = new WebSocket(url);
+            this.ws.onopen = () => {
+                // Start periodic status broadcast
+                self._startStatusBroadcast();
+            };
+            this.ws.onclose = () => {
+                clearInterval(self._statusInterval);
+                if (!self._closing && self.roomCode) {
+                    setTimeout(() => { self._connectWs(); }, 2000);
+                }
+            };
+            this.ws.onmessage = (evt) => {
+                try {
+                    const msg = JSON.parse(evt.data);
+                    self._handleMessage(msg);
+                } catch(e) {}
+            };
+        },
+
+        _startStatusBroadcast() {
+            const self = this;
+            clearInterval(this._statusInterval);
+            this._statusInterval = setInterval(() => {
+                self._sendStatus();
+            }, 3000);
+        },
+
+        _sendStatus() {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+            this.ws.send(JSON.stringify({
+                topic: 'status.update',
+                payload: {
+                    currentTime: this.currentTime,
+                    duration: this.duration,
+                    isPlaying: this.isPlaying,
+                    volume: this.volume,
+                    isMuted: this.isMuted,
+                    peerCount: this.peerCount
+                }
+            }));
+        },
+
+        // ── Message handler ───────────────────────────────────────────
+        _handleMessage(msg) {
+            // _touchPeer() is called ONLY for sender-originated topics.
+            // The receiver emits 'status.update' and 'media.ended' itself; receiving
+            // those (e.g. via a brief double-connection during WS reconnect) must
+            // not be mistaken for a connected sender.
+            switch(msg.topic) {
+                case 'media.load':
+                    this._touchPeer();
+                    this._loadMedia(msg.payload);
+                    break;
+                case 'media.play':
+                    this._touchPeer();
+                    this._play();
+                    break;
+                case 'media.pause':
+                    this._touchPeer();
+                    this._pause();
+                    break;
+                case 'media.seek':
+                    this._touchPeer();
+                    this._seek(msg.payload.time);
+                    break;
+                case 'media.seekrel': {
+                    this._touchPeer();
+                    const el = this.mediaType === 'audio' ? this._audio : this._video;
+                    const t = Math.max(0, Math.min((el.duration || 0), el.currentTime + (msg.payload.delta || 0)));
+                    this._seek(t);
+                    break;
+                }
+                case 'media.volume':
+                    this._touchPeer();
+                    this._setVolume(msg.payload.volume, msg.payload.muted);
+                    break;
+                case 'media.repeat':
+                    this._touchPeer();
+                    this._setRepeat(msg.payload.mode || 'none');
+                    break;
+                case 'media.stop':
+                    this._touchPeer();
+                    this._stop();
+                    break;
+                case 'peer.hello':
+                    this._touchPeer();
+                    this.peerCount = 1;
+                    break;
+                case 'peer.heartbeat':
+                    this._touchPeer();
+                    break;
+                // 'status.update' and 'media.ended' are sent BY this receiver —
+                // ignore silently if received (loopback via duplicate connection).
+            }
+        },
+
+        _touchPeer() {
+            const self = this;
+            this.peerCount = 1;
+            this.senderState = 'connected';
+            clearTimeout(this._peerTimer);
+            this._peerTimer = setTimeout(() => {
+                self.peerCount = 0;
+                self.senderState = 'disconnected';
+                // Intentionally do NOT stop playback — sender may be reconnecting
+                self._showToast('Sender disconnected — playback continues');
+            }, 12000);
+        },
+
+        // ── Media controls ────────────────────────────────────────────
+        _loadMedia(track) {
+            this.currentTrack = track;
+            this.currentTime = 0;
+            this.duration = 0;
+            this.isPlaying = false;
+
+            const type = track.type || 'audio';
+            this.mediaType = type;
+
+            // Prefer the URL provided by the sender (respects transcoding API etc.);
+            // fall back to direct media API if not supplied.
+            const fileUrl = track.src || (ao_root + 'media?file=' + encodeURIComponent(track.filepath));
+
+            const startTime = parseFloat(track.startTime) || 0;
+            const self = this;
+
+            if (type === 'audio') {
+                this.coverSrc = ao_root + 'system/file_system/loadThumbnail?bytes=true&vpath=' + encodeURIComponent(track.filepath);
+                this._audio.loop = (this.repeatMode === 'one');
+                this._audio.src = fileUrl;
+                this._audio.load();
+                // Apply volume and seek inside loadedmetadata so browser-assigned
+                // defaults cannot overwrite our values after load() returns.
+                this._audio.addEventListener('loadedmetadata', () => {
+                    self._audio.volume = self.volume / 100;
+                    self._audio.muted  = self.isMuted;
+                    if (startTime > 0) self._audio.currentTime = startTime;
+                }, { once: true });
+                this._audio.play().catch(() => {});
+                this.isPlaying = true;
+                this._video.pause();
+                this._video.removeAttribute('src');
+            } else if (type === 'video') {
+                this._video.loop = (this.repeatMode === 'one');
+                this._video.src = fileUrl;
+                this._video.load();
+                this._video.addEventListener('loadedmetadata', () => {
+                    self._video.volume = self.volume / 100;
+                    self._video.muted  = self.isMuted;
+                    if (startTime > 0) self._video.currentTime = startTime;
+                }, { once: true });
+                this._video.play().catch(() => {});
+                this.isPlaying = true;
+                this._audio.pause();
+                this._audio.removeAttribute('src');
+            } else if (type === 'photo') {
+                this.photoSrc = fileUrl;
+                this._audio.pause();
+                this._audio.removeAttribute('src');
+                this._video.pause();
+                this._video.removeAttribute('src');
+                this.isPlaying = false;
+            }
+
+            this._showToast('Now showing: ' + track.name);
+        },
+
+        _play() {
+            if (this.mediaType === 'audio') {
+                this._audio.play().catch(() => {});
+            } else if (this.mediaType === 'video') {
+                this._video.play().catch(() => {});
+            }
+            this.isPlaying = true;
+        },
+
+        _pause() {
+            if (this.mediaType === 'audio') this._audio.pause();
+            else if (this.mediaType === 'video') this._video.pause();
+            this.isPlaying = false;
+        },
+
+        _seek(time) {
+            if (this.mediaType === 'audio') {
+                this._audio.currentTime = time;
+            } else if (this.mediaType === 'video') {
+                this._video.currentTime = time;
+            }
+            this.currentTime = time;
+        },
+
+        _setVolume(vol, muted) {
+            this.volume = vol;
+            this.isMuted = muted;
+            const v = vol / 100;
+            this._audio.volume = v;
+            this._audio.muted = muted;
+            this._video.volume = v;
+            this._video.muted = muted;
+        },
+
+        _setRepeat(mode) {
+            this.repeatMode = mode;
+            // Native browser loop only for single-track repeat — the browser
+            // suppresses the 'ended' event when loop=true, which is fine for 'one'
+            // (no sender action needed). For 'all', the sender drives playlist
+            // advancement via media.ended → nextTrack, so we must NOT set loop=true.
+            const loop = (mode === 'one');
+            this._audio.loop = loop;
+            this._video.loop = loop;
+        },
+
+        _stop() {
+            this._audio.pause();
+            this._audio.removeAttribute('src');
+            this._video.pause();
+            this._video.removeAttribute('src');
+            this.currentTrack = null;
+            this.isPlaying = false;
+            this.currentTime = 0;
+            this.duration = 0;
+        },
+
+        // ── Audio/Video event handlers ────────────────────────────────
+        onAudioTimeUpdate() {
+            this.currentTime = this._audio.currentTime;
+        },
+        onAudioMeta() {
+            this.duration = this._audio.duration || 0;
+        },
+        onVideoTimeUpdate() {
+            this.currentTime = this._video.currentTime;
+        },
+        onVideoMeta() {
+            this.duration = this._video.duration || 0;
+        },
+
+        sendStatus() { this._sendStatus(); },
+
+        onMediaEnded() {
+            this.isPlaying = false;
+            this._sendStatus();
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ topic: 'media.ended', payload: {} }));
+            }
+        },
+
+        // ── Toolbar & UI ─────────────────────────────────────────────
+        showToolbar() {
+            this.toolbarHidden = false;
+            clearTimeout(this._toolbarTimer);
+            const self = this;
+            this._toolbarTimer = setTimeout(() => {
+                if (self.currentTrack && self.mediaType === 'video') {
+                    self.toolbarHidden = true;
+                }
+            }, 3000);
+        },
+
+        toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        },
+
+        toggleMute() {
+            this.isMuted = !this.isMuted;
+            this._audio.muted = this.isMuted;
+            this._video.muted = this.isMuted;
+        },
+
+        // ── Toast ─────────────────────────────────────────────────────
+        _showToast(msg) {
+            this.toastMsg = msg;
+            this.toastVisible = true;
+            clearTimeout(this._toastTimer);
+            const self = this;
+            this._toastTimer = setTimeout(() => { self.toastVisible = false; }, 3000);
+        },
+    };
+}
+</script>
+</body>
+</html>

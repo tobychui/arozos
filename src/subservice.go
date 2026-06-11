@@ -75,7 +75,7 @@ func SubserviceInit() {
 	}
 }
 
-//Stop all the subprocess correctly
+// Stop all the subprocess correctly
 func SubserviceHandleShutdown() {
 	if ssRouter != nil {
 		ssRouter.Close()

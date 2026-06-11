@@ -95,10 +95,10 @@ func (f *sftpFsFile) WriteString(s string) (n int, err error) {
 }
 
 /*
-	SFTP DirEntry
+SFTP DirEntry
 
-	Converting the legacy os.FileInfo into arozos required
-	fs.DirEntry for sftp client readDir returned values
+Converting the legacy os.FileInfo into arozos required
+fs.DirEntry for sftp client readDir returned values
 */
 type SftpDirEntry struct {
 	finfo fs.FileInfo

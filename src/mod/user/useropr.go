@@ -1,6 +1,10 @@
 package user
 
-import "fmt"
+import (
+	"fmt"
+
+	"imuslab.com/arozos/mod/info/logger"
+)
 
 // Get the user's handler
 func (u *User) Parent() *UserHandler {
@@ -10,7 +14,7 @@ func (u *User) Parent() *UserHandler {
 // Remove the current user
 func (u *User) RemoveUser() {
 	//Remove the user storage quota settings
-	userLogger.PrintAndLog("User", fmt.Sprint("Removing User Quota: ", u.Username), nil)
+	logger.PrintAndLog("User", fmt.Sprint("Removing User Quota: ", u.Username), nil)
 	u.StorageQuota.RemoveUserQuota()
 
 	//Remove the user authentication register

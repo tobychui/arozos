@@ -147,7 +147,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 	for _, thisFsh := range allFsh {
 		err := thisFsh.FileSystemAbstraction.Heartbeat()
 		if err != nil {
-			systemWideLogger.PrintAndLog("System", "[Storage] File System Abstraction from " + thisFsh.Name + " report an error: " + err.Error(), nil)
+			systemWideLogger.PrintAndLog("System", "[Storage] File System Abstraction from "+thisFsh.Name+" report an error: "+err.Error(), nil)
 			//Retreive the old startup config and close the pool
 			originalStartOption := filesystem.FileSystemOption{}
 			js, _ := json.Marshal(thisFsh.StartOptions)
@@ -158,7 +158,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 				LocalBufferPath: *tmp_directory,
 			})
 			if err != nil {
-				systemWideLogger.PrintAndLog("System", "[Storage] Unable to reconnect " + thisFsh.Name + ": " + err.Error(), nil)
+				systemWideLogger.PrintAndLog("System", "[Storage] Unable to reconnect "+thisFsh.Name+": "+err.Error(), nil)
 				continue
 			} else {
 				//New fsh created. Close the old one
@@ -179,7 +179,7 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 			for _, pool := range parentsp {
 				err := pool.AttachFsHandler(newfsh)
 				if err != nil {
-					systemWideLogger.PrintAndLog("System", "[Storage] Attach fsh to pool failed: " + err.Error(), nil)
+					systemWideLogger.PrintAndLog("System", "[Storage] Attach fsh to pool failed: "+err.Error(), nil)
 				}
 			}
 		}

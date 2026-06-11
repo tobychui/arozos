@@ -14,6 +14,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Toggle WiFi On Off. Only allow on sudo mode
@@ -30,7 +32,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//No interface found on the system
-		wifiLogger.PrintAndLog("Wifi", string(out), nil)
+		logger.PrintAndLog("Wifi", string(out), nil)
 		return []WiFiInfo{}, errors.New(string(out))
 	}
 
@@ -131,7 +133,7 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//No interface found on the system
-		wifiLogger.PrintAndLog("Wifi", string(out), nil)
+		logger.PrintAndLog("Wifi", string(out), nil)
 		return []string{}, err
 	}
 	output := string(out)
@@ -163,7 +165,7 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//No interface found on the system
-		wifiLogger.PrintAndLog("Wifi", string(out), nil)
+		logger.PrintAndLog("Wifi", string(out), nil)
 		return "", "", nil
 	}
 	output := string(out)

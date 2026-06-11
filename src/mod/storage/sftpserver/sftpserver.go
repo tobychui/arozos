@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/sftp"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/ssh"
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -62,7 +63,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	sftpserverLogger.PrintAndLog("Sftpserver", fmt.Sprintf("[SFTP] Listening on %v\n", listener.Addr()), nil)
+	logger.PrintAndLog("Sftpserver", fmt.Sprintf("[SFTP] Listening on %v\n", listener.Addr()), nil)
 
 	//Setup a closer handler for this instance
 	closeChan := make(chan bool)
@@ -99,7 +100,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 				if err != nil {
 					return err
 				}
-				sftpserverLogger.PrintAndLog("Sftpserver", fmt.Sprint("[SFTP] User Connected: ", cx.User()), nil)
+				logger.PrintAndLog("Sftpserver", fmt.Sprint("[SFTP] User Connected: ", cx.User()), nil)
 
 				userinfo, err := sftpConfig.UserManager.GetUserInfoFromUsername(cx.User())
 				if err != nil {
@@ -167,10 +168,10 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 					if err := server.Serve(); err == io.EOF {
 						kickChan <- true
 						//server.Close()
-						sftpserverLogger.PrintAndLog("Sftpserver", "sftp client exited session.", nil)
+						logger.PrintAndLog("Sftpserver", "sftp client exited session.", nil)
 					} else if err != nil {
 						kickChan <- false
-						sftpserverLogger.PrintAndLog("Sftpserver", fmt.Sprint("sftp server completed with error:", err), nil)
+						logger.PrintAndLog("Sftpserver", fmt.Sprint("sftp server completed with error:", err), nil)
 					}
 
 				}
@@ -186,5 +187,5 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 func (i *Instance) Close() {
 	i.closer <- true
 	i.Closed = true
-	sftpserverLogger.PrintAndLog("Sftpserver", "[SFTP] SFTP Server Closed", nil)
+	logger.PrintAndLog("Sftpserver", "[SFTP] SFTP Server Closed", nil)
 }

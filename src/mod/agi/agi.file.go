@@ -16,6 +16,7 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem/fssort"
 	"imuslab.com/arozos/mod/filesystem/hidden"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -30,7 +31,7 @@ import (
 func (g *Gateway) FileLibRegister() {
 	err := g.RegisterLib("filelib", g.injectFileLibFunctions)
 	if err != nil {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
@@ -282,7 +283,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 			}
 
 			if !fssort.SortModeIsSupported(userSortMode) {
-				agiLogger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
+				logger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
 				userSortMode = "default"
 			}
 
@@ -360,7 +361,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		}
 
 		if !fssort.SortModeIsSupported(userSortMode) {
-			agiLogger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
+			logger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
 			userSortMode = "default"
 		}
 
@@ -437,7 +438,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		}
 
 		if !fssort.SortModeIsSupported(userSortMode) {
-			agiLogger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
+			logger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
 			userSortMode = "default"
 		}
 
@@ -625,14 +626,14 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the path to realpath
 		fsh, rdir, err := static.VirtualPathToRealPath(vdir, u)
 		if err != nil {
-			agiLogger.PrintAndLog("Agi", err.Error(), nil)
+			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
 		//Create the directory at rdir location
 		err = fsh.FileSystemAbstraction.MkdirAll(rdir, 0755)
 		if err != nil {
-			agiLogger.PrintAndLog("Agi", err.Error(), nil)
+			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
@@ -732,13 +733,13 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			agiLogger.PrintAndLog("Agi", err.Error(), nil)
+			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
 		info, err := fsh.FileSystemAbstraction.Stat(rpath)
 		if err != nil {
-			agiLogger.PrintAndLog("Agi", err.Error(), nil)
+			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
@@ -780,7 +781,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get the target vpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			agiLogger.PrintAndLog("Agi", err.Error(), nil)
+			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 

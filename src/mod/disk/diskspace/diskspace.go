@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -38,7 +40,7 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 		cmd := exec.Command("wmic", "logicaldisk", "get", "caption,size,freespace")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			diskspaceLogger.PrintAndLog("Diskspace", "wmic not supported.", nil)
+			logger.PrintAndLog("Diskspace", "wmic not supported.", nil)
 			return []LogicalDiskSpaceInfo{}
 		}
 		lines := strings.Split(string(out), "\n")

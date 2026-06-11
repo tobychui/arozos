@@ -12,6 +12,7 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -29,17 +30,17 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 
 	//File system and path related
 	vm.Set("decodeVirtualPath", func(call otto.FunctionCall) otto.Value {
-		agiLogger.PrintAndLog("Agi", "Call to deprecated function decodeVirtualPath", nil)
+		logger.PrintAndLog("Agi", "Call to deprecated function decodeVirtualPath", nil)
 		return otto.FalseValue()
 	})
 
 	vm.Set("decodeAbsoluteVirtualPath", func(call otto.FunctionCall) otto.Value {
-		agiLogger.PrintAndLog("Agi", "Call to deprecated function decodeAbsoluteVirtualPath", nil)
+		logger.PrintAndLog("Agi", "Call to deprecated function decodeAbsoluteVirtualPath", nil)
 		return otto.FalseValue()
 	})
 
 	vm.Set("encodeRealPath", func(call otto.FunctionCall) otto.Value {
-		agiLogger.PrintAndLog("Agi", "Call to deprecated function encodeRealPath", nil)
+		logger.PrintAndLog("Agi", "Call to deprecated function encodeRealPath", nil)
 		return otto.FalseValue()
 	})
 
@@ -229,7 +230,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 				return otto.TrueValue()
 			} else {
 				//Lib not exists
-				agiLogger.PrintAndLog("Agi", "Lib not found: "+libname, nil)
+				logger.PrintAndLog("Agi", "Lib not found: "+libname, nil)
 				return otto.FalseValue()
 			}
 		}
@@ -275,7 +276,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed
-				agiLogger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
+				logger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)
 			}
 		}()

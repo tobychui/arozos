@@ -27,6 +27,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/hidden"
+	"imuslab.com/arozos/mod/info/logger"
 
 	archiver "github.com/mholt/archiver/v3"
 )
@@ -510,6 +511,227 @@ func ArozZipFileWithCompressionLevel(sourceFshs []*FileSystemHandler, filelist [
 	return nil
 }
 
+// ArozZipFileWithProgressAndCompression combines compression level control with real-time progress updates.
+// Accepts nil fsh entries for locally-buffered source paths.
+func ArozZipFileWithProgressAndCompression(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int, progressHandler func(string, int, int, float64) int) error {
+	// Count total files for progress calculation
+	totalFileCount := 0
+	for i, srcpath := range filelist {
+		thisFsh := sourceFshs[i]
+		if thisFsh == nil {
+			if IsDir(srcpath) {
+				filepath.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
+					if !info.IsDir() {
+						totalFileCount++
+					}
+					return nil
+				})
+			} else {
+				totalFileCount++
+			}
+		} else {
+			fshAbs := thisFsh.FileSystemAbstraction
+			if fshAbs.IsDir(srcpath) {
+				fshAbs.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
+					if !info.IsDir() {
+						totalFileCount++
+					}
+					return nil
+				})
+			} else {
+				totalFileCount++
+			}
+		}
+	}
+
+	var file arozfs.File
+	var err error
+	if outputFsh != nil {
+		file, err = outputFsh.FileSystemAbstraction.Create(outputfile)
+	} else {
+		file, err = os.Create(outputfile)
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := zip.NewWriter(file)
+	defer writer.Close()
+	writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, compressionLevel)
+	})
+
+	currentFileCount := 0
+
+	for i, srcpath := range filelist {
+		thisFsh := sourceFshs[i]
+
+		if thisFsh == nil {
+			// Local filesystem path (e.g. after buffering a remote FS)
+			if IsDir(srcpath) {
+				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+				err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if info.IsDir() {
+						return nil
+					}
+					if insideHiddenFolder(path) {
+						return nil
+					}
+
+					thisFile, err := os.Open(path)
+					if err != nil {
+						return err
+					}
+					defer thisFile.Close()
+
+					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
+					if includeTopLevelFolder {
+						relativePath = topLevelFolderName + "/" + relativePath
+					} else {
+						relativePath = arozfs.Base(srcpath) + "/" + relativePath
+					}
+
+					f, err := writer.Create(relativePath)
+					if err != nil {
+						return err
+					}
+					if _, err = io.Copy(f, thisFile); err != nil {
+						return err
+					}
+
+					currentFileCount++
+					statusCode := progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+					for statusCode == 1 {
+						time.Sleep(time.Second)
+						statusCode = progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+					}
+					if statusCode == 2 {
+						return errors.New("Operation cancelled by user")
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+			} else {
+				thisFile, err := os.Open(srcpath)
+				if err != nil {
+					return err
+				}
+				defer thisFile.Close()
+
+				relativePath := arozfs.Base(srcpath)
+				if includeTopLevelFolder {
+					relativePath = arozfs.Base(filepath.Dir(srcpath)) + "/" + relativePath
+				}
+				f, err := writer.Create(relativePath)
+				if err != nil {
+					return err
+				}
+				if _, err = io.Copy(f, thisFile); err != nil {
+					return err
+				}
+
+				currentFileCount++
+				statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+				for statusCode == 1 {
+					time.Sleep(time.Second)
+					statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+				}
+				if statusCode == 2 {
+					return errors.New("Operation cancelled by user")
+				}
+			}
+		} else {
+			// FileSystemHandler abstraction (remote FS)
+			fshAbs := thisFsh.FileSystemAbstraction
+			if fshAbs.IsDir(srcpath) {
+				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+				err = fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if info.IsDir() {
+						return nil
+					}
+					if insideHiddenFolder(path) {
+						return nil
+					}
+
+					thisFile, err := fshAbs.ReadStream(path)
+					if err != nil {
+						return err
+					}
+					defer thisFile.Close()
+
+					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
+					if includeTopLevelFolder {
+						relativePath = topLevelFolderName + "/" + relativePath
+					} else {
+						relativePath = arozfs.Base(srcpath) + "/" + relativePath
+					}
+
+					f, err := writer.Create(relativePath)
+					if err != nil {
+						return err
+					}
+					if _, err = io.Copy(f, thisFile); err != nil {
+						return err
+					}
+
+					currentFileCount++
+					statusCode := progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+					for statusCode == 1 {
+						time.Sleep(time.Second)
+						statusCode = progressHandler(arozfs.Base(path), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+					}
+					if statusCode == 2 {
+						return errors.New("Operation cancelled by user")
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+			} else {
+				thisFile, err := fshAbs.ReadStream(srcpath)
+				if err != nil {
+					return err
+				}
+				defer thisFile.Close()
+
+				relativePath := arozfs.Base(srcpath)
+				if includeTopLevelFolder {
+					relativePath = arozfs.Base(filepath.Dir(srcpath)) + "/" + relativePath
+				}
+				f, err := writer.Create(relativePath)
+				if err != nil {
+					return err
+				}
+				if _, err = io.Copy(f, thisFile); err != nil {
+					return err
+				}
+
+				currentFileCount++
+				statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+				for statusCode == 1 {
+					time.Sleep(time.Second)
+					statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, float64(currentFileCount)/float64(totalFileCount)*100)
+				}
+				if statusCode == 2 {
+					return errors.New("Operation cancelled by user")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func insideHiddenFolder(path string) bool {
 	FileIsHidden, err := hidden.IsHidden(path, true)
 	if err != nil {
@@ -747,7 +969,7 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 			time.Sleep(1 * time.Second)
 			os.Remove(src)
 			counter++
-			filesystemLogger.PrintAndLog("Filesystem", "Retrying to remove file: "+src, nil)
+			logger.PrintAndLog("Filesystem", "Retrying to remove file: "+src, nil)
 			if counter > 10 {
 				return errors.New("Source file remove failed.")
 			}
@@ -820,7 +1042,7 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 			//Move the file using BLFC
 			f, err := srcFshAbs.ReadStream(fileSrc)
 			if err != nil {
-				filesystemLogger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
+				logger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
 				return err
 			}
 			defer f.Close()
@@ -917,7 +1139,7 @@ func IsDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		filesystemLogger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
 		os.Exit(1)
 		return false
 	}

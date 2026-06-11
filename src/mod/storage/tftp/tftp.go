@@ -10,6 +10,7 @@ import (
 
 	tftplib "github.com/pin/tftp/v3"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -65,12 +66,12 @@ func NewTFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, 
 func (h *Handler) Start() error {
 	if h.server != nil {
 		addr := ":" + strconv.Itoa(h.Port)
-		tftpLogger.PrintAndLog("Tftp", "[TFTP] Server Started, listening at: "+strconv.Itoa(h.Port), nil)
+		logger.PrintAndLog("Tftp", "[TFTP] Server Started, listening at: "+strconv.Itoa(h.Port), nil)
 
 		go func() {
 			err := h.server.ListenAndServe(addr)
 			if err != nil {
-				tftpLogger.PrintAndLog("Tftp", fmt.Sprint("[TFTP] Server error:", err), nil)
+				logger.PrintAndLog("Tftp", fmt.Sprint("[TFTP] Server error:", err), nil)
 			}
 		}()
 
@@ -117,7 +118,7 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 	// Open file for reading
 	file, err := afs.Open(filename)
 	if err != nil {
-		tftpLogger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Failed to open %s: %v", filename, err), nil)
+		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Failed to open %s: %v", filename, err), nil)
 		return err
 	}
 	defer file.Close()
@@ -136,11 +137,11 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 
 	n, err := rf.ReadFrom(file)
 	if err != nil {
-		tftpLogger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Transfer error for %s: %v", filename, err), nil)
+		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Transfer error for %s: %v", filename, err), nil)
 		return err
 	}
 
-	tftpLogger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Sent %s (%d bytes)", filename, n), nil)
+	logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] READ: Sent %s (%d bytes)", filename, n), nil)
 	return nil
 }
 
@@ -171,17 +172,17 @@ func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) error {
 	// Check if user can write
 	file, err := afs.Create(filename)
 	if err != nil {
-		tftpLogger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Failed to create %s: %v", filename, err), nil)
+		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Failed to create %s: %v", filename, err), nil)
 		return err
 	}
 	defer file.Close()
 
 	n, err := wt.WriteTo(file)
 	if err != nil {
-		tftpLogger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Transfer error for %s: %v", filename, err), nil)
+		logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Transfer error for %s: %v", filename, err), nil)
 		return err
 	}
 
-	tftpLogger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Received %s (%d bytes)", filename, n), nil)
+	logger.PrintAndLog("Tftp", fmt.Sprintf("[TFTP] WRITE: Received %s (%d bytes)", filename, n), nil)
 	return nil
 }

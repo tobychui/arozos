@@ -276,7 +276,7 @@ html, body {
 #detail::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
 
 #detail-inner {
-    padding: 20px 24px;
+    /* padding: 20px 24px; */
     min-height: 100%;
 }
 

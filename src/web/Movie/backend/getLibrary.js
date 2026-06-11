@@ -332,7 +332,28 @@ function scanRoot(rootPath) {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+var CACHE_FILE = "user:/.appdata/Movie/library_cache.json";
+var STALE_MS   = 8 * 60 * 60 * 1000;  // 8 hours
+
 function main() {
+    // ── Serve from cache if it is still fresh and no force-refresh was requested ──
+    // POST param forceRefresh=1 bypasses this check (sent by the manual Refresh button).
+    var forced = (typeof forceRefresh !== "undefined" && forceRefresh === "1");
+
+    if (!forced && filelib.fileExists(CACHE_FILE)) {
+        var raw = filelib.readFile(CACHE_FILE);
+        if (raw && raw !== false && raw.length > 10) {
+            try {
+                var cached = JSON.parse(raw);
+                if (cached && cached.ts && Array.isArray(cached.data) &&
+                    (new Date().getTime() - cached.ts) < STALE_MS) {
+                    sendJSONResp(JSON.stringify(cached.data));
+                    return;  // skip the full scan — cache is still fresh
+                }
+            } catch (e) {}
+        }
+    }
+
     var allAlbums = [];
     var roots     = filelib.glob("/");
     if (!roots) { roots = []; }
@@ -348,10 +369,10 @@ function main() {
     // client closes the tab before the response arrives.
     try {
         if (!filelib.fileExists("user:/Document/"))           { filelib.mkdir("user:/Document/"); }
-        if (!filelib.fileExists("user:/Document/Appdata/"))   { filelib.mkdir("user:/Document/Appdata/"); }
-        if (!filelib.fileExists("user:/Document/Appdata/Movie/")) { filelib.mkdir("user:/Document/Appdata/Movie/"); }
+        if (!filelib.fileExists("user:/.appdata/"))   { filelib.mkdir("user:/.appdata/"); }
+        if (!filelib.fileExists("user:/.appdata/Movie/")) { filelib.mkdir("user:/.appdata/Movie/"); }
         filelib.writeFile(
-            "user:/Document/Appdata/Movie/library_cache.json",
+            "user:/.appdata/Movie/library_cache.json",
             JSON.stringify({ ts: new Date().getTime(), data: allAlbums })
         );
     } catch (e) {}  // never let a cache-write failure break the response

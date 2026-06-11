@@ -537,10 +537,20 @@ html, body {
 .sidebar-ep-num { flex-shrink: 0; width: 24px; text-align: center; color: var(--text-sub); font-size: 12px; }
 .sidebar-ep-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-#player-back {
+/* ─── Player top bar (back btn + small-screen extras) ────────────────────────── */
+#player-topbar {
     position: absolute;
-    top: 14px; left: 14px;
+    top: 0; left: 0; right: 0;
     z-index: 10;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    gap: 8px;
+    /* transparent on large screens — only back button visible */
+}
+
+#player-back {
+    flex-shrink: 0;
     background: rgba(0,0,0,0.55);
     backdrop-filter: blur(8px);
     border: none; cursor: pointer;
@@ -552,6 +562,36 @@ html, body {
     outline: none;
 }
 #player-back:hover { background: var(--accent); }
+
+/* Title + list + cast buttons shown only in topbar on small screens */
+#topbar-title {
+    display: none;
+    flex: 1;
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #fff;
+    margin: 0 2px;
+}
+#ctrl-cast-top, #ctrl-list-top { display: none; }
+
+@media (max-width: 600px) {
+    #player-topbar {
+        background: rgba(0,0,0,0.88);
+        backdrop-filter: blur(10px);
+    }
+    #topbar-title, #ctrl-cast-top, #ctrl-list-top { display: flex; align-items: center; }
+    #topbar-title { display: block; }
+    /* Hide these from the bottom controls bar */
+    #now-playing-title, #ctrl-list, #ctrl-cast { display: none !important; }
+    /* Shrink volume slider to save space */
+    #volume-slider { width: 56px; }
+    #time-display { font-size: 11px; }
+}
+
+/* Fullscreen: hide entire topbar */
+#view-player:fullscreen #player-topbar,
+#view-player:-webkit-full-screen #player-topbar,
+#view-player:-moz-full-screen #player-topbar { display: none !important; }
 
 /* ─── Toast notification ─────────────────────────────────────────────────────── */
 #toast {
@@ -793,10 +833,7 @@ html, body {
     outline-offset: 2px !important;
 }
 
-/* Hide back button when in fullscreen */
-#view-player:fullscreen #player-back,
-#view-player:-webkit-full-screen #player-back,
-#view-player:-moz-full-screen #player-back { display: none; }
+
 
 /* ─── Load More button ───────────────────────────────────────────────────────── */
 .load-more-wrap { text-align: center; padding: 16px 0 24px; }
@@ -936,6 +973,47 @@ html, body {
 .info-row:last-child { border-bottom: none; }
 .info-label { color: var(--text-sub); flex-shrink: 0; width: 110px; }
 .info-value { color: var(--text); word-break: break-all; }
+
+/* ─── Arozcast cast ──────────────────────────────────────────────────────────── */
+#ctrl-cast img, #ctrl-cast-top img { opacity: 0.8; }
+#ctrl-cast.casting img, #ctrl-cast-top.casting img { filter: none; opacity: 1; }
+#ctrl-cast.casting, #ctrl-cast-top.casting { background: rgba(231,76,60,0.25); }
+
+#cast-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.65);
+    align-items: center; justify-content: center;
+}
+#cast-modal.active { display: flex; }
+.cast-dialog {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.4em 1.8em;
+    min-width: 260px;
+    color: var(--text);
+    font-family: inherit;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.cast-dialog h4 { margin: 0 0 0.9em; font-size: 1em; font-weight: 600; }
+.cast-dialog input[type=text] {
+    width: 100%; padding: 0.45em 0.7em;
+    border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+    background: var(--surface2); color: var(--text);
+    font-size: 1.5em; letter-spacing: 0.35em; text-align: center;
+    box-sizing: border-box; margin-bottom: 0.7em; outline: none;
+}
+.cast-dialog input[type=text]:focus { border-color: var(--accent); }
+.cast-err { color: #e74c3c; font-size: 0.82em; min-height: 1.2em; margin-bottom: 0.5em; }
+.cast-status-line { font-size: 0.85em; color: var(--text-sub); margin-bottom: 0.7em; }
+.cast-actions { display: flex; gap: 0.5em; justify-content: flex-end; }
+.cast-actions button {
+    padding: 0.4em 1em; border-radius: 8px; border: none;
+    cursor: pointer; font-size: 0.88em; font-family: inherit;
+}
+.btn-cast-connect { background: var(--accent); color: #fff; }
+.btn-cast-cancel  { background: var(--surface2); color: var(--text-sub); }
+.btn-cast-disc    { background: #444; color: var(--text); }
 </style>
 </head>
 <body>
@@ -1079,7 +1157,12 @@ html, body {
     <!-- ═══════════════ PLAYER VIEW ════════════════════════════════════════ -->
     <div id="view-player" class="view">
         <div id="video-container">
-            <button id="player-back" onclick="closePlayer()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
+            <div id="player-topbar">
+                <button id="player-back" onclick="closePlayer()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
+                <span id="topbar-title"></span>
+                <button class="ctrl-btn" id="ctrl-list-top" onclick="toggleSidebar()" title="Episode list"><img src="img/icons/menu_white.svg" alt="" width="18" height="18"></button>
+                <button class="ctrl-btn" id="ctrl-cast-top" title="Cast to Arozcast" onclick="openCastDialog()"><img src="img/icons/cast_white.svg" alt="" width="18" height="18"></button>
+            </div>
             <video id="main-video" preload="metadata"></video>
 
             <!-- Resume-from-last-position popup -->
@@ -1140,6 +1223,7 @@ html, body {
                     <span id="time-display">0:00 / 0:00</span>
                     <span id="now-playing-title"></span>
                     <button class="ctrl-btn" id="ctrl-list"   title="Episode list (L)"><img src="img/icons/menu_white.svg" alt=""></button>
+                    <button class="ctrl-btn" id="ctrl-cast"   title="Cast to Arozcast" onclick="openCastDialog()"><img src="img/icons/cast_white.svg" alt="" width="18" height="18"></button>
                     <button class="ctrl-btn" id="ctrl-fs"     title="Fullscreen (F)"><img src="img/icons/fullscreen_white.svg" alt=""></button>
                 </div>
             </div>
@@ -1165,13 +1249,30 @@ html, body {
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Arozcast cast modal -->
+<div id="cast-modal">
+    <div class="cast-dialog">
+        <h4>Cast to Arozcast</h4>
+        <div id="cast-status-line" class="cast-status-line" style="display:none;"></div>
+        <input type="text" id="cast-code-input" maxlength="4" placeholder="1234"
+               oninput="this.value=this.value.replace(/\D/g,'')"
+               onkeydown="if(event.key==='Enter') connectCast()">
+        <div id="cast-err" class="cast-err"></div>
+        <div class="cast-actions">
+            <button class="btn-cast-cancel" onclick="closeCastDialog()">Cancel</button>
+            <button class="btn-cast-disc" id="cast-disc-btn" style="display:none;" onclick="disconnectCast()">Disconnect</button>
+            <button class="btn-cast-connect" id="cast-conn-btn" onclick="connectCast()">Connect</button>
+        </div>
+    </div>
+</div>
+
 <!-- ═══════════════ JAVASCRIPT ════════════════════════════════════════════════ -->
 <script>
 // ─── All configurable paths come from backend/common.js ──────────────────────
 // (SCRIPT_GET_LIBRARY, SCRIPT_GET_EPISODES, SCRIPT_GET_THUMBNAIL, MEDIA_API)
 
 // ─── Library cache ────────────────────────────────────────────────────────────
-// Cache is stored server-side (user:/Document/Appdata/Movie/library_cache.json)
+// Cache is stored server-side (user:/.appdata/Movie/library_cache.json)
 // so it is shared across devices for the same user account.
 var libraryNeedsRedraw = false; // set when bg-refresh finishes outside the library view
 
@@ -1208,6 +1309,259 @@ var countdownTimer  = null;
 
 // Single-repeat
 var repeatSingle = false;
+
+// ─── Arozcast cast state ──────────────────────────────────────────────────────
+var castWs          = null;
+var castCode        = null;
+var castMode        = false;
+var castPingTimer   = null;
+var castWatchTimer  = null;
+var castLastSeen    = 0;
+var castCurrentTime = 0;
+var castDuration    = 0;
+var castIsPlaying   = false;
+var castReconnectTimer  = null;   // setTimeout handle for next reconnect attempt
+var castReconnectCount  = 0;      // number of attempts made so far
+var castPendingCode     = null;   // room code kept alive during reconnect
+
+function _castConnected() {
+    return castWs !== null && castWs.readyState === WebSocket.OPEN;
+}
+
+function _castSend(topic, payload) {
+    if (!_castConnected()) { return; }
+    castWs.send(JSON.stringify({ topic: topic, payload: payload || {} }));
+}
+
+function openCastDialog() {
+    var $inp  = $('#cast-code-input');
+    var $stat = $('#cast-status-line');
+    var $err  = $('#cast-err');
+    $('#cast-err').text('');
+    if (_castConnected()) {
+        $inp.hide();
+        $stat.show().text('Casting to room ' + castCode);
+        $('#cast-conn-btn').hide();
+        $('#cast-disc-btn').show();
+    } else {
+        $inp.show().val('');
+        $stat.hide();
+        $('#cast-conn-btn').show();
+        $('#cast-disc-btn').hide();
+    }
+    $('#cast-modal').addClass('active');
+    if ($inp.is(':visible')) { setTimeout(function(){ $inp.focus(); }, 50); }
+}
+
+function closeCastDialog() { $('#cast-modal').removeClass('active'); }
+
+function connectCast() {
+    var code = $('#cast-code-input').val().trim();
+    if (code.length !== 4) { $('#cast-err').text('Enter a 4-digit room code.'); return; }
+    $('#cast-err').text('');
+
+    fetch(ao_root + 'api/arozcast/ping?code=' + code)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.exists) { $('#cast-err').text('Room not found. Is Arozcast running?'); return; }
+
+            if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
+            clearInterval(castPingTimer); clearInterval(castWatchTimer);
+            // Cancel any pending auto-reconnect to the old room — user is opening a new session
+            clearTimeout(castReconnectTimer); castReconnectTimer = null;
+            castReconnectCount = 0; castPendingCode = null;
+
+            // Signal other apps (Musicify, Photo) to yield the cast room
+            try { new BroadcastChannel('arozcast').postMessage({ type: 'arozcast.takeover' }); } catch(e) {}
+
+            castCode = code;
+            var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+            wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            castWs = new WebSocket(wsUrl.toString());
+
+            castWs.onopen = function() {
+                castLastSeen = Date.now();
+                castMode = true;
+                castWs.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
+
+                var vid = document.getElementById('main-video');
+
+                // Load current episode on Arozcast; stop local playback
+                if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
+                    var ep  = currentEpisodes[playingIndex];
+                    var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+                    var src = isWebPlayable(ext)
+                        ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
+                        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+                    _castSend('media.load', {
+                        filepath: ep.filepath, name: ep.name, type: 'video',
+                        src: src, startTime: vid.currentTime || 0
+                    });
+                    // Volume after load, before play — ensures it overrides any default
+                    // the Arozcast side might apply during media initialisation.
+                    _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+                    _castSend(vid.paused ? 'media.pause' : 'media.play', {});
+                    // Stop local video to avoid dual transcoding
+                    vid.pause();
+                    vid.removeAttribute('src');
+                }
+
+                castPingTimer  = setInterval(function() { _castSend('peer.heartbeat', {}); }, 5000);
+                castWatchTimer = setInterval(function() {
+                    if (Date.now() - castLastSeen > 12000 && castWs) { castWs.close(); }
+                }, 4000);
+
+                $('#ctrl-cast, #ctrl-cast-top').addClass('casting');
+                closeCastDialog();
+                showToast('Casting to room ' + code);
+            };
+
+            castWs.onmessage = function(evt) {
+                castLastSeen = Date.now();
+                try { _handleCastMessage(JSON.parse(evt.data)); } catch(e) {}
+            };
+
+            castWs.onclose = function() {
+                clearInterval(castPingTimer); clearInterval(castWatchTimer);
+                castPingTimer = castWatchTimer = null;
+                var wasActive = castMode;
+                var savedCode = castCode;
+                castMode = false; castCode = null; castWs = null;
+                $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+                if (wasActive) { _startCastReconnect(savedCode); }
+            };
+
+            castWs.onerror = function() {
+                $('#cast-err').text('Connection error.');
+                openCastDialog();
+            };
+        })
+        .catch(function() { $('#cast-err').text('Network error.'); });
+}
+
+function disconnectCast() {
+    // Cancel any pending auto-reconnect before tearing down
+    clearTimeout(castReconnectTimer); castReconnectTimer = null;
+    castReconnectCount = 0; castPendingCode = null;
+    if (_castConnected()) { _castSend('media.stop', {}); }
+    if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
+    clearInterval(castPingTimer); clearInterval(castWatchTimer);
+    castPingTimer = castWatchTimer = null;
+    castMode = false; castCode = null;
+    $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+    closeCastDialog();
+    _castResumeLocally();
+}
+
+function _castResumeLocally() {
+    if (playingIndex < 0 || !currentEpisodes || !currentEpisodes[playingIndex]) { return; }
+    var ep  = currentEpisodes[playingIndex];
+    var pos = castCurrentTime;
+    var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+    var src = isWebPlayable(ext)
+        ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
+        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+    var vid = document.getElementById('main-video');
+    vid.src = src;
+    vid.load();
+    if (pos > 0) {
+        $(vid).one('loadedmetadata.castresume', function() { vid.currentTime = pos; });
+    }
+    $('#play-icon').attr('src', 'img/icons/play_white.svg');
+    showToast('Arozcast disconnected — click play to resume');
+}
+
+// ── Arozcast auto-reconnect ───────────────────────────────────────────────────
+var _CAST_RECONNECT_DELAYS = [2000, 5000, 12000];
+
+function _startCastReconnect(code) {
+    if (!code || castReconnectCount >= _CAST_RECONNECT_DELAYS.length) {
+        if (castReconnectCount > 0) { _castResumeLocally(); }
+        castReconnectCount = 0; castPendingCode = null;
+        return;
+    }
+    castPendingCode = code;
+    var delay = _CAST_RECONNECT_DELAYS[castReconnectCount++];
+    clearTimeout(castReconnectTimer);
+    castReconnectTimer = setTimeout(function() {
+        castReconnectTimer = null;
+        _attemptCastReconnect();
+    }, delay);
+    showToast('Arozcast disconnected — reconnecting…');
+}
+
+function _attemptCastReconnect() {
+    if (!castPendingCode) return;
+    var code = castPendingCode;
+    var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+    wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws = new WebSocket(wsUrl.toString());
+    // If the socket doesn't open within 8 s, count as a failed attempt
+    var openTimer = setTimeout(function() {
+        ws.onopen = ws.onclose = ws.onerror = null; ws.close();
+        _startCastReconnect(code);
+    }, 8000);
+    ws.onopen  = function() { clearTimeout(openTimer); castPendingCode = null; _castDidReconnect(ws, code); };
+    ws.onerror = function() {};   // let onclose handle it
+    ws.onclose = function() { clearTimeout(openTimer); _startCastReconnect(code); };
+}
+
+function _castDidReconnect(ws, code) {
+    castWs = ws; castCode = code; castMode = true; castLastSeen = Date.now();
+    ws.onmessage = function(evt) {
+        castLastSeen = Date.now();
+        try { _handleCastMessage(JSON.parse(evt.data)); } catch(e) {}
+    };
+    ws.onclose = function() {
+        clearInterval(castPingTimer); clearInterval(castWatchTimer);
+        castPingTimer = castWatchTimer = null;
+        var wasActive = castMode;
+        var savedCode = castCode;
+        castMode = false; castCode = null; castWs = null;
+        $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+        if (wasActive) { _startCastReconnect(savedCode); }
+    };
+    // Re-announce presence and sync volume only — do NOT resend media.load.
+    // Arozcast kept playing while the phone was asleep; its next status.update
+    // will immediately sync castCurrentTime to the live remote position.
+    _castSend('peer.hello', {});
+    var vid = document.getElementById('main-video');
+    _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+    castPingTimer  = setInterval(function() { _castSend('peer.heartbeat', {}); }, 5000);
+    castWatchTimer = setInterval(function() {
+        if (Date.now() - castLastSeen > 12000 && castWs) { castWs.close(); }
+    }, 4000);
+    $('#ctrl-cast, #ctrl-cast-top').addClass('casting');
+    showToast('Arozcast reconnected');
+}
+
+function _handleCastMessage(msg) {
+    if (msg.topic === 'status.update') {
+        castReconnectCount = 0; // receiver confirmed alive — reset retry counter
+        castCurrentTime = msg.payload.currentTime || 0;
+        castDuration    = msg.payload.duration    || 0;
+        castIsPlaying   = msg.payload.isPlaying   || false;
+        if (castDuration > 0) {
+            var pct = (castCurrentTime / castDuration) * 100;
+            $('#progress-bar').css('width', pct + '%');
+            $('#progress-thumb').css('left', 'calc(' + pct + '% - 7px)');
+            $('#time-display').text(formatTime(castCurrentTime) + ' / ' + formatTime(castDuration));
+        }
+        $('#play-icon').attr('src', castIsPlaying
+            ? 'img/icons/pause_white.svg' : 'img/icons/play_white.svg');
+    } else if (msg.topic === 'media.ended') {
+        cancelCountdown();
+        if (repeatSingle) {
+            _castSend('media.seek', { time: 0 });
+            _castSend('media.play', {});
+        } else if (playingIndex < currentEpisodes.length - 1 && autoplayEnabled) {
+            startNextCountdown();
+        } else {
+            castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        }
+    }
+}
 
 // Movie info panel
 var currentMovieAlbum  = null;
@@ -1636,6 +1990,31 @@ $(document).ready(function () {
         autoplayEnabled = $(this).is(':checked');
         localStorage.setItem('movie_autoplay', autoplayEnabled ? '1' : '0');
     });
+
+    // Yield cast session to other apps (Photo, Musicify) if they take over
+    try {
+        var _acCh = new BroadcastChannel('arozcast');
+        _acCh.onmessage = function(evt) {
+            if (evt.data && evt.data.type === 'arozcast.takeover' && castMode) {
+                disconnectCast();
+            }
+        };
+    } catch(e) {}
+
+    // When the user returns to this tab after the phone was asleep, reconnect immediately
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && castPendingCode) {
+            clearTimeout(castReconnectTimer);
+            castReconnectTimer = null;
+            _attemptCastReconnect();
+        }
+    });
+
+    // Close WS cleanly on page unload — do NOT send media.stop so Arozcast keeps playing.
+    // Only an explicit disconnectCast() call should stop remote playback.
+    window.addEventListener('beforeunload', function() {
+        if (castWs) { castWs.onclose = null; castWs.close(); }
+    });
 });
 
 // ─── Library status bar helpers ────────────────────────────────────────────────
@@ -1742,11 +2121,11 @@ function loadLibrary() {
 }
 
 // ─── Manual refresh (Refresh button) ──────────────────────────────────────────
-// Triggers a full scan; getLibrary.js saves the cache file automatically.
+// Passes forceRefresh=1 to bypass the 8-hour staleness guard in getLibrary.js.
 function refreshLibrary() {
     $('#library-refresh-btn').prop('disabled', true);
     setLibraryStatus('Refreshing…', true);
-    ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+    ao_module_agirun(SCRIPT_GET_LIBRARY, { forceRefresh: '1' }, function (data) {
         $('#library-refresh-btn').prop('disabled', false);
         if (!data || data.error) {
             showToast('Failed to refresh library');
@@ -2053,10 +2432,24 @@ function startPlayback(index) {
         : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
 
     var vid = document.getElementById('main-video');
-    vid.src = src;
-    vid.play();
 
-    $('#now-playing-title').text(ep.name);
+    if (castMode && _castConnected()) {
+        // Don't load locally — avoids transcoding the same file twice
+        vid.pause();
+        _castSend('media.load', {
+            filepath: ep.filepath, name: ep.name, type: 'video',
+            src: src, startTime: 0
+        });
+        // Volume after load, before play — guarantees device volume overrides
+        // whatever Arozcast was previously playing at.
+        _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+        _castSend('media.play', {});
+    } else {
+        vid.src = src;
+        vid.play();
+    }
+
+    $('#now-playing-title, #topbar-title').text(ep.name);
     ao_module_setWindowTitle('Movie – ' + ep.name);
 
     renderSidebar(currentEpisodes, index);
@@ -2102,23 +2495,7 @@ function renderSidebar(episodes, playing) {
         row.data('idx', i);
         row.on('click', function () {
             cancelCountdown();
-            var idx = $(this).data('idx');
-            playingIndex = idx;
-            var e2 = currentEpisodes[idx];
-            var ext = e2.ext ? e2.ext.toLowerCase().replace(/^\./, '') : '';
-            var src = '';
-            if (isWebPlayable(ext)) {
-                src = MEDIA_API + '?file=' + encodeURIComponent(e2.filepath);
-            } else {
-                src = TRANSCODE_API + '?file=' + encodeURIComponent(e2.filepath);
-            }
-            var vid = document.getElementById('main-video');
-            vid.src = src;
-            vid.play();
-            $('#now-playing-title').text(e2.name);
-            ao_module_setWindowTitle('Movie – ' + e2.name);
-            highlightPlayingEpisode(idx);
-            renderSidebar(currentEpisodes, idx);
+            startPlayback($(this).data('idx'));
         });
         $list.append(row);
     });
@@ -2135,12 +2512,24 @@ function highlightPlayingEpisode(idx) {
 }
 
 function closePlayer() {
+    // Always cancel any pending auto-reconnect
+    clearTimeout(castReconnectTimer); castReconnectTimer = null;
+    castReconnectCount = 0; castPendingCode = null;
+    if (castMode) {
+        // Do NOT send media.stop — Arozcast will keep playing.
+        // Only disconnectCast() (explicit user action) stops remote playback.
+        if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
+        clearInterval(castPingTimer); clearInterval(castWatchTimer);
+        castPingTimer = castWatchTimer = null;
+        castMode = false; castCode = null;
+        $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+    }
     saveWatchPosition();
     cancelCountdown();
     if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
     var vid = document.getElementById('main-video');
     vid.pause();
-    vid.src = '';
+    vid.removeAttribute('src');
     $('#resume-popup').removeClass('active');
     var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime' || currentAlbum.type === 'collection'))
         ? 'detail'
@@ -2198,7 +2587,11 @@ function initVideoControls() {
 
     // Play/Pause
     $('#ctrl-play').on('click', function () { togglePlay(); });
-    $('#ctrl-mute').on('click', function () { vid.muted = !vid.muted; updateMuteIcon(); });
+    $('#ctrl-mute').on('click', function () {
+        vid.muted = !vid.muted;
+        updateMuteIcon();
+        if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+    });
     $('#ctrl-prev').on('click', function () { playOffset(-1); });
     $('#ctrl-next').on('click', function () { playOffset(1); });
     $('#ctrl-fs').on('click', function () { toggleFullscreen(); });
@@ -2207,10 +2600,22 @@ function initVideoControls() {
     $('#volume-slider').on('input', function () {
         vid.volume = parseFloat($(this).val());
         updateMuteIcon();
+        if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
     });
 
     // Progress bar click / drag
     $('#progress-wrap').on('click', function (e) {
+        if (castMode && _castConnected()) {
+            if (castDuration > 0) {
+                var pct = e.offsetX / $(this).width();
+                var seekTo = pct * castDuration;
+                _castSend('media.seek', { time: seekTo });
+                // Optimistic update — reflect position immediately
+                castCurrentTime = seekTo;
+                _castUpdateProgressUI();
+            }
+            return;
+        }
         if (vid.duration) {
             var pct = e.offsetX / $(this).width();
             vid.currentTime = pct * vid.duration;
@@ -2264,10 +2669,10 @@ function initVideoControls() {
 
     // Hide back button when in fullscreen (JS reinforcement)
     document.addEventListener('fullscreenchange', function () {
-        $('#player-back').toggle(!document.fullscreenElement);
+        $('#player-topbar').toggle(!document.fullscreenElement);
     });
     document.addEventListener('webkitfullscreenchange', function () {
-        $('#player-back').toggle(!document.webkitFullscreenElement);
+        $('#player-topbar').toggle(!document.webkitFullscreenElement);
     });
 
     function updateMuteIcon() {
@@ -2277,8 +2682,30 @@ function initVideoControls() {
     }
 }
 
+// Optimistic UI sync for cast mode — call immediately after sending a seek/play/pause command
+// so the user sees instant feedback instead of waiting up to 3 s for status.update.
+function _castUpdateProgressUI() {
+    if (!castDuration) return;
+    var pct = (castCurrentTime / castDuration) * 100;
+    $('#progress-bar').css('width', pct + '%');
+    $('#progress-thumb').css('left', 'calc(' + pct + '% - 7px)');
+    $('#time-display').text(formatTime(castCurrentTime) + ' / ' + formatTime(castDuration));
+}
+
 function togglePlay() {
     $('#resume-popup').removeClass('active');
+    if (castMode && _castConnected()) {
+        if (castIsPlaying) {
+            _castSend('media.pause', {});
+            castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        } else {
+            _castSend('media.play', {});
+            castIsPlaying = true;
+            $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        }
+        return;
+    }
     var vid = document.getElementById('main-video');
     if (vid.paused) { vid.play(); } else { vid.pause(); }
 }
@@ -2294,8 +2721,8 @@ function showControls() {
     $('#video-controls').removeClass('hidden');
     clearTimeout(controlsTimer);
     controlsTimer = setTimeout(function () {
-        var vid = document.getElementById('main-video');
-        if (!vid.paused) { $('#video-controls').addClass('hidden'); }
+        var isPlaying = castMode ? castIsPlaying : !document.getElementById('main-video').paused;
+        if (isPlaying) { $('#video-controls').addClass('hidden'); }
     }, 3000);
 }
 
@@ -2347,7 +2774,7 @@ function initContextMenu() {
         if (playingIndex < 0) { return; }
 
         // Update item disabled / active states
-        var paused = vid.paused;
+        var paused = castMode ? !castIsPlaying : vid.paused;
         $('#ctx-play').toggleClass('ctx-disabled', !paused);
         $('#ctx-pause').toggleClass('ctx-disabled', paused);
         $('#ctx-prev').toggleClass('ctx-disabled', playingIndex <= 0);
@@ -2375,8 +2802,20 @@ function initContextMenu() {
         if (e.key === 'Escape') { $ctx.hide(); closeVideoInfo(); }
     });
 
-    $('#ctx-play').on('click',   function () { vid.play();               $ctx.hide(); });
-    $('#ctx-pause').on('click',  function () { vid.pause();              $ctx.hide(); });
+    $('#ctx-play').on('click', function () {
+        if (castMode && _castConnected()) {
+            _castSend('media.play', {}); castIsPlaying = true;
+            $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        } else { vid.play(); }
+        $ctx.hide();
+    });
+    $('#ctx-pause').on('click', function () {
+        if (castMode && _castConnected()) {
+            _castSend('media.pause', {}); castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        } else { vid.pause(); }
+        $ctx.hide();
+    });
     $('#ctx-prev').on('click',   function () { cancelCountdown(); playOffset(-1); $ctx.hide(); });
     $('#ctx-next').on('click',   function () { cancelCountdown(); playOffset(1);  $ctx.hide(); });
     $('#ctx-repeat').on('click', function () { repeatSingle = !repeatSingle;      $ctx.hide(); });
@@ -2483,19 +2922,37 @@ function initKeyboard() {
                 case 'k':
                     e.preventDefault(); togglePlay(); showControls(); break;
                 case 'ArrowRight':
-                    e.preventDefault(); vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); showControls(); break;
+                    e.preventDefault();
+                    if (castMode && _castConnected()) {
+                        _castSend('media.seekrel', { delta: 10 });
+                        castCurrentTime = Math.min(castDuration, castCurrentTime + 10);
+                        _castUpdateProgressUI();
+                    } else { vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); }
+                    showControls(); break;
                 case 'ArrowLeft':
-                    e.preventDefault(); vid.currentTime = Math.max(0, vid.currentTime - 10); showControls(); break;
+                    e.preventDefault();
+                    if (castMode && _castConnected()) {
+                        _castSend('media.seekrel', { delta: -10 });
+                        castCurrentTime = Math.max(0, castCurrentTime - 10);
+                        _castUpdateProgressUI();
+                    } else { vid.currentTime = Math.max(0, vid.currentTime - 10); }
+                    showControls(); break;
                 case 'ArrowUp':
-                    e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1); showControls(); break;
+                    e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1);
+                    if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+                    showControls(); break;
                 case 'ArrowDown':
-                    e.preventDefault(); vid.volume = Math.max(0, vid.volume - 0.1); showControls(); break;
+                    e.preventDefault(); vid.volume = Math.max(0, vid.volume - 0.1);
+                    if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+                    showControls(); break;
                 case 'f':
                 case 'F':
                     e.preventDefault(); toggleFullscreen(); break;
                 case 'm':
                 case 'M':
-                    e.preventDefault(); vid.muted = !vid.muted; break;
+                    e.preventDefault(); vid.muted = !vid.muted;
+                    if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+                    break;
                 case 'l':
                 case 'L':
                     e.preventDefault(); toggleSidebar(); break;

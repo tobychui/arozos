@@ -12,6 +12,7 @@ import (
 	"github.com/robertkrimen/otto"
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -37,6 +38,25 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	// EXECUTION_ID is a UUIDv4 that uniquely identifies this script invocation.
 	// Available in every AGI script — use it for log correlation, deduplication, etc.
 	vm.Set("EXECUTION_ID", execID)
+
+	// Override otto's built-in console.log (which maps to fmt.Println) so that
+	// script output goes through the structured logger and carries the execID.
+	// Use the system-wide logger (with file output) when available; fall back to
+	// a tmp stdout-only logger if the Gateway was created without one.
+	scriptLogger := g.Option.Logger
+	if scriptLogger == nil {
+		scriptLogger, _ = logger.NewTmpLogger()
+	}
+	vm.Set("_agi_console_log", func(call otto.FunctionCall) otto.Value {
+		parts := make([]string, 0, len(call.ArgumentList))
+		for _, arg := range call.ArgumentList {
+			str, _ := arg.ToString()
+			parts = append(parts, str)
+		}
+		scriptLogger.PrintAndLog("AGI", "["+execID+"] "+strings.Join(parts, " "), nil)
+		return otto.UndefinedValue()
+	})
+	vm.Run(`var console = { log: _agi_console_log, warn: _agi_console_log, error: _agi_console_log, info: _agi_console_log };`) //nolint:errcheck
 
 	//Response related
 	vm.Set("sendResp", func(call otto.FunctionCall) otto.Value {
@@ -337,7 +357,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed
-				agiLogger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
+				logger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}

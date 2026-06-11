@@ -116,7 +116,7 @@ func (s *ShareEntryTable) CreateNewShare(srcFsh *filesystem.FileSystemHandler, v
 	}
 }
 
-//Delete the share on this vpath
+// Delete the share on this vpath
 func (s *ShareEntryTable) DeleteShareByPathHash(pathhash string) error {
 	//Check if the share already exists. If yes, use the previous link
 	val, ok := s.FileToUrlMap.Load(pathhash)

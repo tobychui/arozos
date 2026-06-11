@@ -44,7 +44,7 @@ func (gp *PermissionGroup) SetCronJobPermission(allow bool) {
 	gp.parent.database.Write("permission", "canCreateCronJob/"+gp.Name, allowStr)
 }
 
-//Remove this permission group
+// Remove this permission group
 func (gp *PermissionGroup) Remove() {
 	db := gp.parent.database
 

@@ -11,6 +11,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/agi/static/ffmpegutil"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -27,13 +28,13 @@ import (
 func (g *Gateway) FFmpegLibRegister() {
 	_, err := exec.LookPath("ffmpeg")
 	if err != nil {
-		agiLogger.PrintAndLog("Agi", "ffmpeg not found in PATH", nil)
-		os.Exit(1)
+		logger.PrintAndLog("Agi", "ffmpeg not found in PATH", nil)
+		return
 	}
 	err = g.RegisterLib("ffmpeg", g.injectFFmpegFunctions)
 	if err != nil {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
-		os.Exit(1)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		return
 	}
 }
 

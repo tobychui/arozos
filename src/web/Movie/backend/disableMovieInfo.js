@@ -10,7 +10,7 @@
 includes("common.js");
 requirelib("filelib");
 
-var CACHE_DIR = "user:/Document/Appdata/Movie/";
+var CACHE_DIR = "user:/.appdata/Movie/";
 
 // Must stay in sync with the sanitize() function in getMovieInfo.js
 function sanitize(str) {
@@ -25,11 +25,18 @@ function sanitize(str) {
     return out.substring(0, 80);
 }
 
+function mkdirIfMissing(path) {
+    if (!filelib.fileExists(path)) { filelib.mkdir(path); }
+}
+
 function main() {
     if (!movie || movie === "undefined" || movie.length === 0) {
         sendJSONResp(JSON.stringify({ error: "Missing movie name" }));
         return;
     }
+
+    mkdirIfMissing("user:/.appdata/");
+    mkdirIfMissing(CACHE_DIR);
 
     var cacheFile = CACHE_DIR + sanitize(movie) + ".json";
     filelib.writeFile(cacheFile, JSON.stringify({ _disabled: true }));

@@ -637,6 +637,96 @@
       color: var(--muted);
       font-size: 0.9rem;
     }
+
+    /* --- Async zip progress modal --- */
+    #zip-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #zip-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(2px);
+    }
+
+    #zip-dialog {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 30px 24px;
+      min-width: 300px;
+      max-width: 460px;
+      width: calc(100% - 40px);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #zip-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    #zip-status-text {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    #zip-bar-wrap {
+      height: 7px;
+      background: var(--surface2);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    #zip-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+
+    #zip-bar.error { background: #ef4444; }
+
+    #zip-current-file {
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: 1.2em;
+    }
+
+    #zip-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+
+    #zip-cancel-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text);
+      transition: border-color var(--trans), color var(--trans);
+    }
+
+    #zip-cancel-btn:hover { border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
@@ -672,10 +762,10 @@
         <div class="divider"></div>
 
         <div class="action-stack">
-          <a class="btn btn-primary" href="{{downloadurl}}" id="downloadLink">
+          <button class="btn btn-primary" id="downloadAllBtn" onclick="startDownloadAll()">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span>Download All</span>
-          </a>
+          </button>
           <button class="btn btn-secondary" id="sharebtn" onclick="doShare()">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             <span>Share Link</span>
@@ -720,6 +810,20 @@
   </footer>
 
   <div id="thumb-popup"><img id="thumb-img" src="" alt=""></div>
+
+  <!-- Async zip progress modal -->
+  <div id="zip-modal">
+    <div id="zip-backdrop" onclick="cancelZip()"></div>
+    <div id="zip-dialog">
+      <div id="zip-title">Preparing Download</div>
+      <div id="zip-status-text">Starting archive...</div>
+      <div id="zip-bar-wrap"><div id="zip-bar"></div></div>
+      <div id="zip-current-file"></div>
+      <div id="zip-actions">
+        <button id="zip-cancel-btn" onclick="cancelZip()">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <div id="preview-overlay">
     <div id="preview-backdrop" onclick="closePreview()"></div>
@@ -799,10 +903,91 @@
       }).catch(function(){});
     }
 
-    document.getElementById('uncompressedCheck').addEventListener('change', function() {
-      var link = document.getElementById('downloadLink');
-      link.href = this.checked ? '{{downloadurl}}?compression_level=0' : '{{downloadurl}}';
-    });
+    // Compression level is read at download time from the checkbox state, no need to update a link href.
+
+    // --- Async zip download logic ---
+    var _zipPollInterval = null;
+    var _zipJobId = null;
+
+    function startDownloadAll() {
+      var compressionParam = document.getElementById('uncompressedCheck').checked ? '?compression_level=0' : '';
+      var prepareUrl = '../../share/prepare-zip/' + downloadUUID + compressionParam;
+
+      document.getElementById('zip-bar').className = '';
+      document.getElementById('zip-bar').style.width = '0%';
+      document.getElementById('zip-status-text').textContent = 'Starting archive...';
+      document.getElementById('zip-current-file').textContent = '';
+      document.getElementById('zip-cancel-btn').textContent = 'Cancel';
+      document.getElementById('zip-cancel-btn').onclick = cancelZip;
+      document.getElementById('zip-modal').style.display = 'flex';
+
+      fetch(prepareUrl)
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+          if (!data.jobId) { showZipError('Server did not return a job ID'); return; }
+          _zipJobId = data.jobId;
+          _zipPollInterval = setInterval(_pollZipStatus, 600);
+        })
+        .catch(function() { showZipError('Network error — please try again.'); });
+    }
+
+    function _pollZipStatus() {
+      if (!_zipJobId) return;
+      fetch('../../share/zip-status/' + _zipJobId)
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+          if (data.status === 'buffering') {
+            document.getElementById('zip-status-text').textContent = 'Reading remote files…';
+            document.getElementById('zip-bar').style.width = '4%';
+          } else if (data.status === 'zipping') {
+            var pct = Math.max(2, Math.round(data.progress || 0));
+            document.getElementById('zip-status-text').textContent = 'Compressing… ' + pct + '%';
+            document.getElementById('zip-bar').style.width = pct + '%';
+            document.getElementById('zip-current-file').textContent = data.currentFile ? '↳ ' + data.currentFile : '';
+          } else if (data.status === 'done') {
+            clearInterval(_zipPollInterval);
+            _zipPollInterval = null;
+            document.getElementById('zip-bar').style.width = '100%';
+            document.getElementById('zip-status-text').textContent = 'Archive ready — downloading…';
+            document.getElementById('zip-current-file').textContent = '';
+            document.getElementById('zip-cancel-btn').textContent = 'Close';
+            document.getElementById('zip-cancel-btn').onclick = closeZipModal;
+            var jobId = _zipJobId;
+            setTimeout(function() {
+              window.location.href = '../../share/zip-download/' + jobId;
+              setTimeout(closeZipModal, 2500);
+            }, 300);
+          } else if (data.status === 'error') {
+            clearInterval(_zipPollInterval);
+            _zipPollInterval = null;
+            showZipError(data.error || 'Unknown error');
+          } else if (data.error) {
+            clearInterval(_zipPollInterval);
+            _zipPollInterval = null;
+            showZipError(data.error);
+          }
+        })
+        .catch(function() { /* transient network hiccup — keep polling */ });
+    }
+
+    function showZipError(msg) {
+      document.getElementById('zip-status-text').textContent = 'Error: ' + msg;
+      document.getElementById('zip-bar').style.width = '100%';
+      document.getElementById('zip-bar').className = 'error';
+      document.getElementById('zip-current-file').textContent = '';
+      document.getElementById('zip-cancel-btn').textContent = 'Close';
+      document.getElementById('zip-cancel-btn').onclick = closeZipModal;
+    }
+
+    function cancelZip() {
+      if (_zipPollInterval) { clearInterval(_zipPollInterval); _zipPollInterval = null; }
+      _zipJobId = null;
+      closeZipModal();
+    }
+
+    function closeZipModal() {
+      document.getElementById('zip-modal').style.display = 'none';
+    }
 
     var treeFileList = {{treelist}};
     var downloadUUID = '{{downloaduuid}}';
@@ -1076,7 +1261,6 @@
 
       if (totalSize > 0 && compressedSize / totalSize >= 0.5) {
         document.getElementById('uncompressedCheck').checked = true;
-        document.getElementById('downloadLink').href = '{{downloadurl}}?compression_level=0';
       }
     })();
 

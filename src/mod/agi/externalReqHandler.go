@@ -10,6 +10,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -212,7 +213,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !fsh.FileSystemAbstraction.FileExists(realPath) {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint("[Remote AGI] ", pathFromDb, " cannot be found on "+realPath), nil)
+		logger.PrintAndLog("Agi", fmt.Sprint("[Remote AGI] ", pathFromDb, " cannot be found on "+realPath), nil)
 		http.Error(w, "invalid request: backend script not exists", http.StatusBadRequest)
 		return
 	}
@@ -227,7 +228,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	g.recordExecution(endpointUUID, pathFromDb, execID, r.Method, durationMs, execErr)
 
 	if execErr != nil {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint("[Remote AGI] ", pathFromDb, " failed to execute", execErr.Error()), nil)
+		logger.PrintAndLog("Agi", fmt.Sprintf("[Remote AGI][%s] %s failed to execute: %s", execID, pathFromDb, execErr.Error()), nil)
 		utils.SendErrorResponse(w, execErr.Error())
 		return
 	}

@@ -14,8 +14,8 @@ type mockAgent struct {
 	returnErr    error
 }
 
-func (m *mockAgent) Name() string  { return m.name }
-func (m *mockAgent) Desc() string  { return "mock agent" }
+func (m *mockAgent) Name() string     { return m.name }
+func (m *mockAgent) Desc() string     { return "mock agent" }
 func (m *mockAgent) IsConsumer() bool { return m.isConsumer }
 func (m *mockAgent) IsProducer() bool { return m.isProducer }
 

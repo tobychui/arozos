@@ -44,7 +44,7 @@ func (v *Viewer) HandleListLog(w http.ResponseWriter, r *http.Request) {
 }
 
 // Read log of a given catergory and filename
-//Require GET varaible: file and catergory
+// Require GET varaible: file and catergory
 func (v *Viewer) HandleReadLog(w http.ResponseWriter, r *http.Request) {
 	filename, err := utils.GetPara(r, "file")
 	if err != nil {

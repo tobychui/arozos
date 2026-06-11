@@ -401,8 +401,7 @@
 <script>
 (function () {
     var quotaLocale = NewAppLocale();
-
-    /* macOS-style colour palette */
+    
     var QUOTA_COLORS = [
         '#5ac8fa', '#007aff', '#34c759', '#ff9f0a',
         '#ff3b30', '#af52de', '#ff2d55', '#5856d6',
@@ -673,6 +672,10 @@
 
     /* ── Boot ── */
     quotaApplyTheme();
+    window.detailPageThemeCallback = function(isDark) {
+        var el = document.getElementById('quota-root');
+        if (el) el.classList.toggle('dark', isDark);
+    };
     quotaLocale.init('../locale/users/quota.json', function () {
         quotaLocale.translate();
         quotaInitBar();

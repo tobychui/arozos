@@ -2,6 +2,8 @@ package notification
 
 import (
 	"container/list"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -72,11 +74,11 @@ func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) 
 		//Send this notification via this agent
 		err := thisAgent.ConsumerNotification(message)
 		if err != nil {
-			notificationLogger.PrintAndLog("Notification", "[Notification] Unable to send message via notification agent: "+thisAgent.Name(), nil)
+			logger.PrintAndLog("Notification", "[Notification] Unable to send message via notification agent: "+thisAgent.Name(), nil)
 		}
 
 	}
 
-	notificationLogger.PrintAndLog("Notification", "[Notification] Message titled: "+message.Title+" (ID: "+message.ID+") broadcasted", nil)
+	logger.PrintAndLog("Notification", "[Notification] Message titled: "+message.Title+" (ID: "+message.ID+") broadcasted", nil)
 	return nil
 }

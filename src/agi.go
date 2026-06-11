@@ -22,6 +22,7 @@ func AGIInit() {
 		ModuleRegisterParser: moduleHandler.RegisterModuleFromAGI,
 		ModuleListProvider:   moduleHandler.GetModuleListJSONForUser,
 		PackageManager:       packageManager,
+		Logger:               systemWideLogger,
 		UserHandler:          userHandler,
 		StartupRoot:          "./web",
 		ActivateScope:        []string{"./web", "./subservice"},

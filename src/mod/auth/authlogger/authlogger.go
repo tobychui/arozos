@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -112,8 +113,8 @@ func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timest
 	entryKey := strconv.Itoa(int(time.Now().UnixNano()))
 	err := l.database.Write(tableName, entryKey, thisRecord)
 	if err != nil {
-		authloggerLogger.PrintAndLog("Authlogger", "*ERROR* Failed to write authentication log. Is the storage fulled?", nil)
-		authloggerLogger.PrintAndLog("Authlogger", err.Error(), nil)
+		logger.PrintAndLog("Authlogger", "*ERROR* Failed to write authentication log. Is the storage fulled?", nil)
+		logger.PrintAndLog("Authlogger", err.Error(), nil)
 		return err
 	}
 

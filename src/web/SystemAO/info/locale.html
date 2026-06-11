@@ -7,7 +7,7 @@
     <script type="application/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
     <style>
-/* ─── Scoped to #lc-root — macOS Settings aesthetic ─── */
+/* ─── Scoped to #lc-root ─── */
 #lc-root {
     --lc-text:        #1d1d1f;
     --lc-dim:         #6e6e73;
@@ -17,7 +17,7 @@
     --lc-active:      rgba(0,0,0,0.09);
     --lc-accent:      #0071e3;
     --lc-soft:        #f5f5f7;
-    --lc-bg:          #ffffff;
+    --lc-bg:          #f3f3f3;
     --lc-card-bg:     #f5f5f7;
     --lc-card-border: #e5e5ea;
     --lc-shadow:      rgba(0,0,0,0.10);
@@ -42,7 +42,7 @@
     --lc-active:      rgba(255,255,255,0.12);
     --lc-accent:      #2997ff;
     --lc-soft:        #1c1c1e;
-    --lc-bg:          #2b2b2b;
+    --lc-bg:          #1f1f1f;
     --lc-card-bg:     #3a3a3c;
     --lc-card-border: #48484a;
     --lc-shadow:      rgba(0,0,0,0.45);
@@ -67,7 +67,7 @@
     margin: 18px 0 6px;
 }
 
-/* List card — macOS Settings style */
+/* List card */
 .lc-list {
     border: 1px solid var(--lc-divider);
     border-radius: 10px;
@@ -97,7 +97,7 @@
     min-width: 0;
 }
 
-/* macOS-style select */
+/* Select */
 #lc-language-select {
     font-size: 13px;
     font-family: inherit;
@@ -326,10 +326,9 @@
         lcLocale.translate();
     });
 
-    /* ── Theme detection (same pattern as clientInfo.html) ── */
+    /* ── Theme detection ── */
     (function() {
         if (typeof(preferredTheme) != "undefined" && preferredTheme === "dark") {
-            // Ajax loaded into System Settings, use already known theme if possible to avoid flash
             document.getElementById('lc-root').classList.add('dark');
             return;
         }
@@ -344,6 +343,10 @@
             }
         } catch(e) {}
     })();
+
+    window.detailPageThemeCallback = function(isDark) {
+        document.getElementById('lc-root').classList.toggle('dark', isDark);
+    };
 
     /* ── Restore saved language ── */
     var savedLang = localStorage.getItem('global_language');

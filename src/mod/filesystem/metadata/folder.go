@@ -14,6 +14,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -108,7 +109,7 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 		//Fail to decode the image. Try to remove the damaged iamge file
 		image3.Close()
 		fshAbs.Remove(contentCache[0])
-		metadataLogger.PrintAndLog("Metadata", "Failed to decode cahce image for: "+contentCache[0]+". Removing thumbnail cache", nil)
+		logger.PrintAndLog("Metadata", "Failed to decode cahce image for: "+contentCache[0]+". Removing thumbnail cache", nil)
 		return "", errors.New("failed to decode: " + err.Error())
 	}
 	defer image3.Close()
@@ -119,7 +120,7 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 
 	outfile, err := fshAbs.Create(filepath.Join(cacheFolder, filepath.Base(file)+".png"))
 	if err != nil {
-		metadataLogger.PrintAndLog("Metadata", fmt.Sprintf("failed to create: %s", err), nil)
+		logger.PrintAndLog("Metadata", fmt.Sprintf("failed to create: %s", err), nil)
 		os.Exit(1)
 	}
 	png.Encode(outfile, resultThumbnail)

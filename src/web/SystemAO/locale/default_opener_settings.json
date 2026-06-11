@@ -12,7 +12,9 @@
                 "defaultOpener/TryAgain": "請再次嘗試開啟檔案以檢查是否正常",
                 "defaultOpener/FileExtension": "副檔名",
                 "defaultOpener/CurrentDefault": "目前預設",
-                "defaultOpener/ModifyDefault": "修改預設（更改即儲存）"
+                "defaultOpener/ModifyDefault": "修改預設（更改即儲存）",
+                "defaultOpener/EmptyTitle": "未定義預設開啟模組",
+                "defaultOpener/EmptyDesc": "尚未設定任何副檔名關聯。請安裝支援特定檔案類型的應用程式以設定預設開啟模組。"
             }
         },
         "zh-hk": {
@@ -25,7 +27,9 @@
                 "defaultOpener/TryAgain": "請再次嘗試開啟檔案以檢查是否正常",
                 "defaultOpener/FileExtension": "副檔名",
                 "defaultOpener/CurrentDefault": "目前預設",
-                "defaultOpener/ModifyDefault": "修改預設（更改即儲存）"
+                "defaultOpener/ModifyDefault": "修改預設（更改即儲存）",
+                "defaultOpener/EmptyTitle": "未定義預設開啟模組",
+                "defaultOpener/EmptyDesc": "尚未設定任何副檔名關聯。請安裝支援特定檔案類型的應用程式以設定預設開啟模組。"
             }
         },
         "zh-cn": {
@@ -38,7 +42,9 @@
                 "defaultOpener/TryAgain": "请再次尝试打开文件以检查是否正常",
                 "defaultOpener/FileExtension": "扩展名",
                 "defaultOpener/CurrentDefault": "当前默认",
-                "defaultOpener/ModifyDefault": "修改默认（更改即保存）"
+                "defaultOpener/ModifyDefault": "修改默认（更改即保存）",
+                "defaultOpener/EmptyTitle": "未定义默认打开模块",
+                "defaultOpener/EmptyDesc": "尚未配置任何扩展名关联。请安装支持特定文件类型的应用程序以设置默认打开模块。"
             }
         },
         "en-us": {
@@ -51,7 +57,9 @@
                 "defaultOpener/TryAgain": "Try to open your file again and see if it is working",
                 "defaultOpener/FileExtension": "File Extension",
                 "defaultOpener/CurrentDefault": "Current Default",
-                "defaultOpener/ModifyDefault": "Modify Default (Save on Change)"
+                "defaultOpener/ModifyDefault": "Modify Default (Save on Change)",
+                "defaultOpener/EmptyTitle": "No default openers defined",
+                "defaultOpener/EmptyDesc": "No file type associations have been configured yet. Install apps that support file types to set default openers."
             }
         },
         "ja-jp": {
@@ -64,7 +72,9 @@
                 "defaultOpener/TryAgain": "もう一度ファイルを開いて動作を確認してください",
                 "defaultOpener/FileExtension": "拡張子",
                 "defaultOpener/CurrentDefault": "現在のデフォルト",
-                "defaultOpener/ModifyDefault": "デフォルトを変更（変更時に保存）"
+                "defaultOpener/ModifyDefault": "デフォルトを変更（変更時に保存）",
+                "defaultOpener/EmptyTitle": "デフォルトのオープンモジュールが未定義",
+                "defaultOpener/EmptyDesc": "ファイルタイプの関連付けがまだ設定されていません。ファイルタイプに対応したアプリをインストールしてデフォルトを設定してください。"
             }
         },
         "ko-kr": {
@@ -77,7 +87,9 @@
                 "defaultOpener/TryAgain": "파일을 다시 열어 정상 동작하는지 확인하세요",
                 "defaultOpener/FileExtension": "확장자",
                 "defaultOpener/CurrentDefault": "현재 기본값",
-                "defaultOpener/ModifyDefault": "기본값 수정(변경 시 저장)"
+                "defaultOpener/ModifyDefault": "기본값 수정(변경 시 저장)",
+                "defaultOpener/EmptyTitle": "기본 열기 모듈이 정의되지 않음",
+                "defaultOpener/EmptyDesc": "아직 파일 형식 연결이 설정되지 않았습니다. 파일 형식을 지원하는 앱을 설치하여 기본 열기 모듈을 설정하세요."
             }
         }
     }

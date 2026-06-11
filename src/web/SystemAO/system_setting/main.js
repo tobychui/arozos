@@ -28,6 +28,10 @@ window.desktopThemeChanged = function (theme) {
     var isDark = (theme === 'dark');
     document.body.classList.toggle('dark', isDark);
     preferredTheme = isDark ? 'dark' : 'light';
+    /* Forward to any currently-loaded detail page that has its own scoped root */
+    if (typeof window.detailPageThemeCallback === 'function') {
+        window.detailPageThemeCallback(isDark);
+    }
 };
 
 /* ── Bootstrap ── */

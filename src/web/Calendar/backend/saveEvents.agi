@@ -1,0 +1,50 @@
+/*
+    Calendar - Save (merge) an array of events (used for ICS import).
+    POST: eventsData (JSON array string)
+*/
+requirelib("filelib");
+
+var evPath = "user:/Document/Calendar/events.json";
+
+var incoming;
+try {
+    incoming = JSON.parse(eventsData);
+} catch (e) {
+    sendJSONResp({ error: "Invalid events data" });
+}
+
+if (incoming && Array.isArray(incoming)) {
+    // Read existing events
+    var events = [];
+    if (filelib.fileExists(evPath)) {
+        try {
+            var raw    = filelib.readFile(evPath);
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) events = parsed;
+        } catch (e) {}
+    }
+
+    // Build index of existing events by id
+    var idx = {};
+    for (var i = 0; i < events.length; i++) {
+        idx[events[i].id] = i;
+    }
+
+    var added = 0;
+    var ts = new Date().getTime();
+    for (var j = 0; j < incoming.length; j++) {
+        var ev = incoming[j];
+        if (!ev.id || ev.id === "") {
+            ev.id = "ev_" + (ts + j).toString(36) + Math.random().toString(36).slice(2, 7);
+        }
+        if (idx[ev.id] !== undefined) {
+            events[idx[ev.id]] = ev;
+        } else {
+            events.push(ev);
+            added++;
+        }
+    }
+
+    filelib.writeFile(evPath, JSON.stringify(events));
+    sendJSONResp({ ok: true, added: added, total: events.length });
+}

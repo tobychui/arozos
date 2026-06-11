@@ -10,6 +10,7 @@ import (
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/disk/diskspace"
+	"imuslab.com/arozos/mod/info/logger"
 	usageinfo "imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/netstat"
 )
@@ -41,7 +42,7 @@ var (
 func (g *Gateway) SysinfoLibRegister() {
 	err := g.RegisterLib("sysinfo", g.injectSysinfoLibFunctions)
 	if err != nil {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }

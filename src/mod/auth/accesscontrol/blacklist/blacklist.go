@@ -6,6 +6,7 @@ import (
 
 	"imuslab.com/arozos/mod/auth/accesscontrol"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -30,7 +31,7 @@ func NewBlacklistManager(sysdb *db.Database) *BlackList {
 	if sysdb.KeyExists("ipblacklist", "enable") {
 		err := sysdb.Read("ipblacklist", "enable", &blacklistEnabled)
 		if err != nil {
-			blacklistLogger.PrintAndLog("Blacklist", "[Auth/Blacklist] Unable to load previous enable state from database. Using default.", nil)
+			logger.PrintAndLog("Blacklist", "[Auth/Blacklist] Unable to load previous enable state from database. Using default.", nil)
 		}
 	}
 

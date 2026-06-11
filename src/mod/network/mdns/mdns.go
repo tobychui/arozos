@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/grandcat/zeroconf"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type MDNSHost struct {
@@ -43,13 +44,13 @@ func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 	if err == nil {
 		macAddressBoardcast = strings.Join(macAddress, ",")
 	} else {
-		mdnsLogger.PrintAndLog("Mdns", fmt.Sprint("[mDNS] Unable to get MAC Address: ", err.Error()), nil)
+		logger.PrintAndLog("Mdns", fmt.Sprint("[mDNS] Unable to get MAC Address: ", err.Error()), nil)
 	}
 
 	//Register the mds services
 	server, err := zeroconf.Register(config.HostName, "_http._tcp", "local.", config.Port, []string{"version_build=" + config.BuildVersion, "version_minor=" + config.MinorVersion, "vendor=" + config.Vendor, "model=" + config.Model, "uuid=" + config.UUID, "domain=" + config.Domain, "mac_addr=" + macAddressBoardcast}, nil)
 	if err != nil {
-		mdnsLogger.PrintAndLog("Mdns", fmt.Sprint("[mDNS] Error when registering zeroconf broadcast message", err.Error()), nil)
+		logger.PrintAndLog("Mdns", fmt.Sprint("[mDNS] Error when registering zeroconf broadcast message", err.Error()), nil)
 		return &MDNSHost{}, err
 	}
 
@@ -59,7 +60,7 @@ func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 		ifaceIp := ""
 		ifaces, err := net.Interfaces()
 		if err != nil {
-			mdnsLogger.PrintAndLog("Mdns", "[mDNS] Unable to override iface MAC: "+err.Error()+". Resuming with default iface", nil)
+			logger.PrintAndLog("Mdns", "[mDNS] Unable to override iface MAC: "+err.Error()+". Resuming with default iface", nil)
 		}
 
 		foundMatching := false
@@ -96,9 +97,9 @@ func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 		}
 
 		if !foundMatching {
-			mdnsLogger.PrintAndLog("Mdns", "[mDNS] Unable to find the target iface with MAC address: "+MacOverride+". Resuming with default iface", nil)
+			logger.PrintAndLog("Mdns", "[mDNS] Unable to find the target iface with MAC address: "+MacOverride+". Resuming with default iface", nil)
 		} else {
-			mdnsLogger.PrintAndLog("Mdns", "[mDNS] Entering force MAC address mode, listening on: "+MacOverride+"(IP address: "+ifaceIp+")", nil)
+			logger.PrintAndLog("Mdns", "[mDNS] Entering force MAC address mode, listening on: "+MacOverride+"(IP address: "+ifaceIp+")", nil)
 		}
 	}
 
@@ -127,7 +128,7 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 
 	resolver, err := zeroconf.NewResolver(zcoption)
 	if err != nil {
-		mdnsLogger.PrintAndLog("Mdns", fmt.Sprint("Failed to initialize resolver:", err.Error()), nil)
+		logger.PrintAndLog("Mdns", fmt.Sprint("Failed to initialize resolver:", err.Error()), nil)
 		os.Exit(1)
 	}
 
@@ -222,7 +223,7 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 	defer cancel()
 	err = resolver.Browse(ctx, "_http._tcp", "local.", entries)
 	if err != nil {
-		mdnsLogger.PrintAndLog("Mdns", fmt.Sprint("Failed to browse:", err.Error()), nil)
+		logger.PrintAndLog("Mdns", fmt.Sprint("Failed to browse:", err.Error()), nil)
 		os.Exit(1)
 	}
 

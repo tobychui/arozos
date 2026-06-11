@@ -13,7 +13,7 @@
 includes("common.js");
 requirelib("filelib");
 
-var CACHE_FILE = "user:/Document/Appdata/Musicify/artists_cache.json";
+var CACHE_FILE = "user:/.appdata/Musicify/artists_cache.json";
 
 function main() {
     if (!filelib.fileExists(CACHE_FILE)) {

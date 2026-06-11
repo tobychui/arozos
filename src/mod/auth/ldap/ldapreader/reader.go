@@ -14,7 +14,7 @@ type LdapReader struct {
 	basedn   string
 }
 
-//NewOauthHandler xxx
+// NewOauthHandler xxx
 func NewLDAPReader(username string, password string, server string, basedn string) *LdapReader {
 
 	LDAPHandler := LdapReader{

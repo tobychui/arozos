@@ -340,6 +340,8 @@ try {
     ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); });
 }
 
+window.detailPageThemeCallback = function(isDark) { applyTheme(isDark); };
+
 /* ── Locale + init ── */
 var _loc = null;
 

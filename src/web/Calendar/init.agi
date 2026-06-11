@@ -1,0 +1,19 @@
+/*
+    Calendar Module Registration
+*/
+
+var moduleLaunchInfo = {
+    Name: "Calendar",
+    Desc: "A calendar app for scheduling and managing events",
+    Group: "Office",
+    IconPath: "Calendar/img/icon.svg",
+    Version: "1.0",
+    StartDir: "Calendar/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Calendar/index.html",
+    SupportEmb: false,
+    InitFWSize: [1100, 700],
+    SupportedExt: [".ics"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
