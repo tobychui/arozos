@@ -21,7 +21,6 @@ import (
 
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/info/logger"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -255,7 +254,7 @@ func (g *Gateway) AIModelLibRegister() {
 
 	err := g.RegisterLib("aimodel", g.injectAIModelFunctions)
 	if err != nil {
-		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }
@@ -995,7 +994,7 @@ func (g *Gateway) recordAIModelUsage(model string, promptTokens int64, completio
 	metrics.WindowCost += cost
 
 	if err := sysdb.Write(aiModelDBTable, "metrics", metrics); err != nil {
-		logger.PrintAndLog("Agi", "[AGI] Failed to persist AI model metrics: "+err.Error(), nil)
+		agiLogger.PrintAndLog("Agi", "[AGI] Failed to persist AI model metrics: "+err.Error(), nil)
 	}
 }
 
