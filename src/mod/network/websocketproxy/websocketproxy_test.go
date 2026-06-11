@@ -40,7 +40,7 @@ func TestProxy(t *testing.T) {
 	mux.Handle("/proxy", proxy)
 	go func() {
 		if err := http.ListenAndServe(":7777", mux); err != nil {
-			t.Fatal("ListenAndServe: ", err)
+			t.Errorf("ListenAndServe: %v", err)
 		}
 	}()
 
@@ -75,7 +75,7 @@ func TestProxy(t *testing.T) {
 
 		err := http.ListenAndServe(":8888", mux2)
 		if err != nil {
-			t.Fatal("ListenAndServe: ", err)
+			t.Errorf("ListenAndServe: %v", err)
 		}
 	}()
 

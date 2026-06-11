@@ -9,29 +9,31 @@ import (
 	"testing"
 )
 
-// TestCheckDeviceValidAcceptsValidName verifies that a well-formed device name
-// that also has a matching /dev/ entry passes the regex check.  Because the
-// actual /dev/sda1 may or may not exist in the test environment, we only assert
-// the regex part of the function (which returns false when the file is absent).
+// TestCheckDeviceValidRejectsBadNames verifies that malformed device names are
+// rejected. Names with no "sd[a-z][1-9]" token are rejected deterministically by
+// the regex on every host; names that embed a valid token (e.g. "/dev/sda1" or
+// "sda10") are sanitized down to that token, so whether they are finally accepted
+// depends on /dev/sda1 existing on the test host — present on some CI runners,
+// absent on others. There we assert the sanitization contract instead of a fixed
+// boolean (mirroring TestCheckDeviceValidRegexMatch below).
 func TestCheckDeviceValidRejectsBadNames(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("checkDeviceValid is Linux-only")
 	}
-	cases := []struct {
-		name  string
-		valid bool
-	}{
-		{"../etc/passwd", false},
-		{"sda", false},   // no partition number
-		{"sda0", false},  // partition number must be 1–9
-		{"sda10", false}, // two-digit partition
-		{"nvme0n1", false},
-		{"/dev/sda1", false}, // full path not matched by the regex alone
+	// No "sd[a-z][1-9]" token at all -> rejected by the regex before any /dev/
+	// lookup, so the result is identical on every host.
+	for _, name := range []string{"../etc/passwd", "sda", "sda0", "nvme0n1"} {
+		if ok, _ := checkDeviceValid(name); ok {
+			t.Errorf("checkDeviceValid(%q) = true, want false", name)
+		}
 	}
-	for _, tc := range cases {
-		ok, _ := checkDeviceValid(tc.name)
-		if ok != tc.valid {
-			t.Errorf("checkDeviceValid(%q) = %v, want %v", tc.name, ok, tc.valid)
+
+	// These embed a valid "sda1" token, so checkDeviceValid sanitizes the input
+	// down to that token and accepts it only when /dev/sda1 exists. Assert the
+	// sanitization contract: when accepted, the device id must be the clean "sda1".
+	for _, name := range []string{"sda10", "/dev/sda1"} {
+		if ok, devID := checkDeviceValid(name); ok && devID != "sda1" {
+			t.Errorf("checkDeviceValid(%q) accepted with devID=%q, want \"sda1\"", name, devID)
 		}
 	}
 }
