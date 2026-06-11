@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bodgit/sevenzip"
 	"github.com/mholt/archiver/v3"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
@@ -594,6 +595,17 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.NullValue()
 		}
 
+		// Dispatch 7z archives to the dedicated helper
+		if strings.EqualFold(filepath.Ext(rpath), ".7z") {
+			jsonStr, err := sz7zListContentsJSON(rpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			reply, _ := vm.ToValue(jsonStr)
+			return reply
+		}
+
 		r, err := zip.OpenReader(rpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -675,6 +687,17 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
+		}
+
+		// Dispatch 7z archives to the dedicated helper
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			filelist, err := szListDir(zipRpath, dirPath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			reply, _ := vm.ToValue(filelist)
+			return reply
 		}
 
 		// Open zip file
@@ -772,6 +795,50 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
+		}
+
+		// Dispatch 7z archives
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			r7z, err := sevenzip.OpenReader(zipRpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			defer r7z.Close()
+
+			var target7z *sevenzip.File
+			for _, f := range r7z.File {
+				if filepath.ToSlash(f.Name) == filepath.ToSlash(fileInZip) {
+					target7z = f
+					break
+				}
+			}
+			if target7z == nil {
+				g.RaiseError(errors.New("File not found in archive: " + fileInZip))
+				return otto.NullValue()
+			}
+
+			tmpFsh7z, err := u.GetFileSystemHandlerFromVirtualPath("tmp:/")
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			tmpFilename7z := arozfs.Base(fileInZip)
+			tmpVpath7z := "tmp:/" + tmpFilename7z
+			tmpRpath7z, _ := tmpFsh7z.FileSystemAbstraction.VirtualPathToRealPath(tmpVpath7z, u.Username)
+			rc7z, err := target7z.Open()
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			defer rc7z.Close()
+			if err = tmpFsh7z.FileSystemAbstraction.WriteStream(tmpRpath7z, rc7z, 0755); err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			u.SetOwnerOfFile(tmpFsh7z, tmpVpath7z)
+			reply, _ := vm.ToValue(tmpVpath7z)
+			return reply
 		}
 
 		// Open zip file
@@ -923,6 +990,23 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
+		// 7z is not handled by the archiver library; dispatch separately
+		if strings.EqualFold(filepath.Ext(srcRpath), ".7z") {
+			if err = sz7zExtractAll(srcRpath, destFsh, destRpath); err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			destFsh.FileSystemAbstraction.Walk(destRpath, func(path string, info os.FileInfo, err error) error {
+				if err == nil && !info.IsDir() {
+					vp, _ := static.RealpathToVirtualpath(destFsh, path, u)
+					u.SetOwnerOfFile(destFsh, vp)
+				}
+				return nil
+			})
+			reply, _ := vm.ToValue(true)
+			return reply
+		}
+
 		// Detect format
 		format, err := archiver.ByExtension(srcRpath)
 		if err != nil {
@@ -1072,29 +1156,8 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		zipVpath = static.RelativeVpathRewrite(scriptFsh, zipVpath, vm, u)
 		destVpath = static.RelativeVpathRewrite(scriptFsh, destVpath, vm, u)
 
-		var targetPaths []string
-		switch v := pathsObj.(type) {
-		case []interface{}:
-			for _, s := range v {
-				if str, ok := s.(string); ok {
-					targetPaths = append(targetPaths, filepath.ToSlash(strings.TrimPrefix(str, "/")))
-				}
-			}
-		case string:
-			// Accept either a JSON array string or a single path
-			v = strings.TrimSpace(v)
-			if strings.HasPrefix(v, "[") {
-				var arr []string
-				if json.Unmarshal([]byte(v), &arr) == nil {
-					for _, s := range arr {
-						targetPaths = append(targetPaths, filepath.ToSlash(strings.TrimPrefix(s, "/")))
-					}
-				}
-			}
-			if len(targetPaths) == 0 && v != "" {
-				targetPaths = append(targetPaths, filepath.ToSlash(strings.TrimPrefix(v, "/")))
-			}
-		default:
+		targetPaths := szParsePathsArg(pathsObj)
+		if targetPaths == nil {
 			g.RaiseError(errors.New("invalid paths format"))
 			return otto.FalseValue()
 		}
@@ -1117,6 +1180,41 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
+		// Dispatch 7z archives
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			r7z, err := sevenzip.OpenReader(zipRpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			defer r7z.Close()
+
+			for _, f := range r7z.File {
+				outRelPath := szMatchPartialPath(filepath.ToSlash(f.Name), targetPaths)
+				if outRelPath == "" {
+					continue
+				}
+				outPath := filepath.Join(destRpath, filepath.FromSlash(outRelPath))
+				if f.FileInfo().IsDir() {
+					destFsh.FileSystemAbstraction.MkdirAll(outPath, 0755)
+					continue
+				}
+				destFsh.FileSystemAbstraction.MkdirAll(filepath.Dir(outPath), 0755)
+				rc, err := f.Open()
+				if err != nil {
+					continue
+				}
+				destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
+				rc.Close()
+				vp, err := static.RealpathToVirtualpath(destFsh, outPath, u)
+				if err == nil {
+					u.SetOwnerOfFile(destFsh, vp)
+				}
+			}
+			reply, _ := vm.ToValue(true)
+			return reply
+		}
+
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -1125,51 +1223,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		defer r.Close()
 
 		for _, f := range r.File {
-			fName := filepath.ToSlash(f.Name)
-			var outRelPath string
-
-			for _, target := range targetPaths {
-				if target == "" || target == "/" {
-					// Extract everything, preserve full zip structure
-					outRelPath = fName
-					break
-				}
-
-				isFolderTarget := strings.HasSuffix(target, "/")
-				normalizedTarget := strings.TrimSuffix(target, "/")
-
-				if isFolderTarget {
-					// Folder selection: strip the parent prefix so the selected
-					// folder name becomes the top-level output directory.
-					// e.g. target="music/a/" fName="music/a/b.mp3" → "a/b.mp3"
-					if strings.HasPrefix(fName, target) || fName == target || fName == normalizedTarget {
-						lastSlash := strings.LastIndex(normalizedTarget, "/")
-						parent := ""
-						if lastSlash >= 0 {
-							parent = normalizedTarget[:lastSlash+1]
-						}
-						outRelPath = strings.TrimPrefix(fName, parent)
-						break
-					}
-				} else {
-					// File selection: extract flat (just the filename, no dirs).
-					if fName == target {
-						outRelPath = filepath.Base(fName)
-						break
-					}
-					// Target without trailing slash that is actually a directory
-					if strings.HasPrefix(fName, normalizedTarget+"/") {
-						lastSlash := strings.LastIndex(normalizedTarget, "/")
-						parent := ""
-						if lastSlash >= 0 {
-							parent = normalizedTarget[:lastSlash+1]
-						}
-						outRelPath = strings.TrimPrefix(fName, parent)
-						break
-					}
-				}
-			}
-
+			outRelPath := szMatchPartialPath(filepath.ToSlash(f.Name), targetPaths)
 			if outRelPath == "" {
 				continue
 			}
@@ -1360,6 +1414,16 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.NullValue()
 		}
 
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			jsonStr, err := sz7zGetFileInfo(zipRpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			reply, _ := vm.ToValue(jsonStr)
+			return reply
+		}
+
 		r, err := zip.OpenReader(zipRpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -1413,7 +1477,7 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		ziplib.listZipFileDir = _ziplib_listZipFileDir; // List contents of specific directory in zip
 		ziplib.getFileFromZip = _ziplib_getFileFromZip; // Get specific file from zip, stored temporary at tmp:/
 		ziplib.getCompressFileType = _ziplib_getCompressFileType;
-		ziplib.extractAnyFile = _ziplib_extractAnyFile; // Extract zip, tar, targz, gz based on file type
+		ziplib.extractAnyFile = _ziplib_extractAnyFile; // Extract zip, tar, targz, gz, 7z based on file type
 		ziplib.createAnyZipFile = _ziplib_createAnyZipFile; // Create zip, tar, targz, gz based on input
 
 		// Zip-specific advanced functions
@@ -1421,6 +1485,9 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		ziplib.addFileToZip = _ziplib_addFileToZip;           // Add file or folder to existing zip
 		ziplib.getZipFileInfo = _ziplib_getZipFileInfo;       // Get metadata (counts, sizes) about a zip
 	`)
+
+	// Extend ziplib with 7z support
+	g.inject7zLibFunctions(payload)
 }
 
 /*
