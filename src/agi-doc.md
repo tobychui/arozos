@@ -678,15 +678,18 @@ http.redirect("https://example.com", 307); //Redirect to target with status code
 
 ### aimodel
 
-The aimodel library lets AGI scripts call any OpenAI-compatible chat completion
+The aimodel library lets AGI scripts call an OpenAI-compatible chat completion
 endpoint (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio, llama.cpp server,
-vLLM, etc.). It supports both plain text prompts and file based prompts (images
-for vision models, or text documents inlined into the conversation).
+vLLM, etc.) **or** the Anthropic (Claude) Messages API. It supports both plain
+text prompts and file based prompts (images for vision models, or text documents
+inlined into the conversation).
 
-The endpoint, global API key and default model are configured by an administrator
-in `System Settings > Developer Options > AI Model`. Per-model pricing is also set
-there, and every call's token usage and computed cost are accumulated into a
-metrics board on the same page.
+The API format (`openai` / `anthropic`), endpoint, global API key and default
+model are configured by an administrator in
+`System Settings > AI Integration > AI Model`. Per-model pricing and an optional
+usage quota are also set there, and every call's token usage and computed cost
+are accumulated into a metrics board on the same page. When the quota is reached,
+new requests fail with a quota error until the window resets or the cap is raised.
 
 ```
 //Include the library
@@ -729,11 +732,26 @@ console.log(usage.totalTokens, usage.totalCost);
 
 //Configured models (the models that have pricing defined) and the default.
 var models = aimodel.models(); // { default: "gpt-4o-mini", models: ["...", ...] }
+
+//Models advertised by the live endpoint (best effort, hits /models).
+var live = aimodel.listModels(); // { models: ["...", ...] } or { error: "..." }
+
+//Build OpenAI-style content parts from virtual file path(s). Useful for adding
+//attachments to a specific message in a aimodel.request() messages array.
+var parts = aimodel.fileParts(["user:/Photo/cat.png"]);
+var res2 = aimodel.request([
+    {role: "user", content: [{type:"text", text:"What is this?"}].concat(parts)}
+]);
 ```
 
-On error (missing configuration, network failure, or an error returned by the
-endpoint), the call throws a JavaScript exception that can be caught with
-`try { ... } catch(e) { ... }`.
+The same calls work regardless of the configured API format — when Anthropic is
+selected, system prompts, image attachments and token usage are translated to and
+from the Anthropic Messages API automatically. Per-call you can override the format
+with the `apiFormat` option (`"openai"` or `"anthropic"`).
+
+On error (missing configuration, network failure, an error returned by the
+endpoint, or an exceeded usage quota), the call throws a JavaScript exception that
+can be caught with `try { ... } catch(e) { ... }`.
 
 ### websocket
 

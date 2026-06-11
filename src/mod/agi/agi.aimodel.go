@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,13 @@ const (
 
 	//aiModelRequestTimeout is the maximum time to wait for a completion.
 	aiModelRequestTimeout = 120 * time.Second
+
+	//aiModelAnthropicVersion is the API version header sent to the Anthropic API.
+	aiModelAnthropicVersion = "2023-06-01"
+
+	//aiModelAnthropicDefaultMaxTokens is used when a script does not specify
+	//max_tokens; the Anthropic Messages API requires this field.
+	aiModelAnthropicDefaultMaxTokens = 4096
 )
 
 // aiModelMetricsMux guards read-modify-write cycles on the metrics record so
@@ -63,10 +71,32 @@ var aiModelMetricsMux sync.Mutex
 
 // AIModelConfig holds the global, admin-configured connection settings.
 type AIModelConfig struct {
-	Endpoint     string `json:"endpoint"`     //OpenAI-compatible base URL, e.g. https://api.openai.com/v1
-	APIKey       string `json:"apikey"`       //Bearer token sent in the Authorization header
+	Endpoint     string `json:"endpoint"`     //Base URL, e.g. https://api.openai.com/v1 or https://api.anthropic.com
+	APIKey       string `json:"apikey"`       //API key (Bearer for OpenAI, x-api-key for Anthropic)
 	DefaultModel string `json:"defaultModel"` //Model used when a script does not specify one
+	APIFormat    string `json:"apiFormat"`    //Wire format: "openai" (default) or "anthropic"
 	Currency     string `json:"currency"`     //Currency label used by the metrics board (default USD)
+}
+
+// AIModelQuota defines an optional cap on token / cost consumption so the
+// system cannot keep spending once a budget is reached.
+type AIModelQuota struct {
+	Enabled   bool    `json:"enabled"`   //When true, requests are blocked once a cap is hit
+	MaxTokens int64   `json:"maxTokens"` //Total token cap for the period (0 = no token cap)
+	MaxCost   float64 `json:"maxCost"`   //Total cost cap for the period (0 = no cost cap)
+	Period    string  `json:"period"`    //Reset window: "total" (never), "daily" or "monthly"
+}
+
+// periodLabel returns a human-friendly label for the quota period.
+func (q AIModelQuota) periodLabel() string {
+	switch q.Period {
+	case "daily":
+		return "day"
+	case "monthly":
+		return "month"
+	default:
+		return "total"
+	}
 }
 
 // AIModelPricing defines the price per 1,000,000 tokens for a given model.
@@ -94,6 +124,11 @@ type AIModelMetrics struct {
 	PerModel              map[string]*AIModelUsageRecord `json:"perModel"`
 	Currency              string                         `json:"currency"`
 	UpdatedAt             int64                          `json:"updatedAt"`
+
+	//Windowed usage used for quota enforcement (reset per quota period).
+	WindowStart  int64   `json:"windowStart"`  //Unix time the current quota window began
+	WindowTokens int64   `json:"windowTokens"` //Tokens consumed in the current window
+	WindowCost   float64 `json:"windowCost"`   //Cost consumed in the current window
 }
 
 // ── OpenAI-compatible wire structures ────────────────────────────────────────
@@ -148,8 +183,55 @@ type aiChatOptions struct {
 	System      string   `json:"system"`      //Optional system prompt
 	Endpoint    string   `json:"endpoint"`    //Override the global endpoint
 	APIKey      string   `json:"apikey"`      //Override the global API key
+	APIFormat   string   `json:"apiFormat"`   //Override the wire format ("openai"/"anthropic")
 	Temperature *float64 `json:"temperature"` //Sampling temperature
 	MaxTokens   *int     `json:"max_tokens"`  //Maximum tokens to generate
+}
+
+// ── Anthropic-compatible wire structures ─────────────────────────────────────
+
+type anthropicImageSource struct {
+	Type      string `json:"type"`                 //"base64" or "url"
+	MediaType string `json:"media_type,omitempty"` //e.g. image/png (base64 only)
+	Data      string `json:"data,omitempty"`       //base64 payload (base64 only)
+	URL       string `json:"url,omitempty"`        //remote URL (url source only)
+}
+
+type anthropicContentBlock struct {
+	Type   string                `json:"type"` //"text" or "image"
+	Text   string                `json:"text,omitempty"`
+	Source *anthropicImageSource `json:"source,omitempty"`
+}
+
+type anthropicMessage struct {
+	Role    string      `json:"role"`    //"user" or "assistant"
+	Content interface{} `json:"content"` //string or []anthropicContentBlock
+}
+
+type anthropicRequest struct {
+	Model       string             `json:"model"`
+	MaxTokens   int                `json:"max_tokens"`
+	System      string             `json:"system,omitempty"`
+	Messages    []anthropicMessage `json:"messages"`
+	Temperature *float64           `json:"temperature,omitempty"`
+	Stream      bool               `json:"stream"`
+}
+
+type anthropicResponse struct {
+	Model   string `json:"model"`
+	Content []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"content"`
+	Usage struct {
+		InputTokens  int64 `json:"input_tokens"`
+		OutputTokens int64 `json:"output_tokens"`
+	} `json:"usage"`
+	StopReason string `json:"stop_reason"`
+	Error      *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error,omitempty"`
 }
 
 // ── Library registration ─────────────────────────────────────────────────────
@@ -274,6 +356,43 @@ func (g *Gateway) injectAIModelFunctions(payload *static.AgiLibInjectionPayload)
 		return reply
 	})
 
+	//aimodel.listModels() => { models: [...] } from the live endpoint (JSON string)
+	vm.Set("_aimodel_listModels", func(call otto.FunctionCall) otto.Value {
+		cfg := g.getAIModelConfig()
+		result := map[string]interface{}{"models": []string{}}
+		models, err := g.aiModelListEndpointModels(cfg.Endpoint, cfg.APIKey, cfg.APIFormat)
+		if err != nil {
+			result["error"] = err.Error()
+		} else {
+			result["models"] = models
+		}
+		out, _ := json.Marshal(result)
+		reply, _ := vm.ToValue(string(out))
+		return reply
+	})
+
+	//aimodel.fileParts(files) => JSON array of OpenAI-style content parts for
+	//the given virtual file path(s). Images become image_url data URIs, text
+	//documents are inlined. Scripts can embed these into a message's content.
+	vm.Set("_aimodel_fileParts", func(call otto.FunctionCall) otto.Value {
+		filesJSON := getOttoStringArg(call, 0)
+		var vpaths []string
+		if err := json.Unmarshal([]byte(filesJSON), &vpaths); err != nil {
+			panic(vm.MakeCustomError("AIModelError", "invalid files array: "+err.Error()))
+		}
+		parts := []aiContentPart{}
+		for _, vp := range vpaths {
+			fp, err := g.aiModelBuildFileParts(scriptFsh, vm, u, vp)
+			if err != nil {
+				panic(vm.MakeCustomError("AIModelError", err.Error()))
+			}
+			parts = append(parts, fp...)
+		}
+		out, _ := json.Marshal(parts)
+		reply, _ := vm.ToValue(string(out))
+		return reply
+	})
+
 	//Wrap the native functions into a clean aimodel class
 	vm.Run(`
 		var aimodel = {};
@@ -293,35 +412,78 @@ func (g *Gateway) injectAIModelFunctions(payload *static.AgiLibInjectionPayload)
 		aimodel.models = function(){
 			return JSON.parse(_aimodel_models());
 		};
+		aimodel.listModels = function(){
+			return JSON.parse(_aimodel_listModels());
+		};
+		aimodel.fileParts = function(files){
+			if (typeof files === "string"){ files = [files]; }
+			return JSON.parse(_aimodel_fileParts(JSON.stringify(files || [])));
+		};
 	`)
 }
 
 // ── Core request logic ───────────────────────────────────────────────────────
 
-// aiModelDoRequest performs an OpenAI-compatible chat completion call,
-// records the resulting token usage / cost and returns the parsed response.
+// aiModelDoRequest resolves the connection settings, enforces any usage quota,
+// dispatches to the configured wire format (OpenAI or Anthropic), records the
+// resulting token usage / cost and returns a unified response.
 func (g *Gateway) aiModelDoRequest(model string, messages []aiChatMessage, opt aiChatOptions) (*aiChatResponse, error) {
 	cfg := g.getAIModelConfig()
 
 	endpoint := strings.TrimSpace(cfg.Endpoint)
 	apikey := cfg.APIKey
+	format := cfg.APIFormat
 	if strings.TrimSpace(opt.Endpoint) != "" {
 		endpoint = strings.TrimSpace(opt.Endpoint)
 	}
 	if strings.TrimSpace(opt.APIKey) != "" {
 		apikey = strings.TrimSpace(opt.APIKey)
 	}
+	if strings.TrimSpace(opt.APIFormat) != "" {
+		format = strings.TrimSpace(opt.APIFormat)
+	}
+	if format == "" {
+		format = "openai"
+	}
 	if strings.TrimSpace(model) == "" {
 		model = cfg.DefaultModel
 	}
 
 	if endpoint == "" {
-		return nil, errors.New("AI model endpoint is not configured (System Settings > Developer Options > AI Model)")
+		return nil, errors.New("AI model endpoint is not configured (System Settings > AI Integration > AI Model)")
 	}
 	if strings.TrimSpace(model) == "" {
 		return nil, errors.New("no model specified and no default model configured")
 	}
 
+	//Enforce the usage quota before spending any tokens.
+	if err := g.aiModelCheckQuota(); err != nil {
+		return nil, err
+	}
+
+	var parsed *aiChatResponse
+	var err error
+	if format == "anthropic" {
+		parsed, err = g.aiModelDoRequestAnthropic(endpoint, apikey, model, messages, opt)
+	} else {
+		parsed, err = g.aiModelDoRequestOpenAI(endpoint, apikey, model, messages, opt)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	//Record usage. Prefer the model echoed back by the server.
+	usedModel := model
+	if strings.TrimSpace(parsed.Model) != "" {
+		usedModel = parsed.Model
+	}
+	g.recordAIModelUsage(usedModel, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens)
+
+	return parsed, nil
+}
+
+// aiModelDoRequestOpenAI performs an OpenAI-compatible chat completion call.
+func (g *Gateway) aiModelDoRequestOpenAI(endpoint, apikey, model string, messages []aiChatMessage, opt aiChatOptions) (*aiChatResponse, error) {
 	reqStruct := aiChatRequest{
 		Model:       model,
 		Messages:    messages,
@@ -334,7 +496,10 @@ func (g *Gateway) aiModelDoRequest(model string, messages []aiChatMessage, opt a
 		return nil, err
 	}
 
-	requestURL := strings.TrimRight(endpoint, "/") + "/chat/completions"
+	requestURL := strings.TrimRight(endpoint, "/")
+	if !strings.HasSuffix(requestURL, "/chat/completions") {
+		requestURL += "/chat/completions"
+	}
 	req, err := http.NewRequest("POST", requestURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -359,10 +524,81 @@ func (g *Gateway) aiModelDoRequest(model string, messages []aiChatMessage, opt a
 
 	parsed := &aiChatResponse{}
 	if err := json.Unmarshal(respBody, parsed); err != nil {
-		//Could not parse as a chat completion. Surface the raw payload.
 		return nil, fmt.Errorf("unexpected response (HTTP %d): %s", resp.StatusCode, aiModelTruncate(string(respBody), 300))
 	}
+	if parsed.Error != nil && parsed.Error.Message != "" {
+		return nil, errors.New("AI endpoint error: " + parsed.Error.Message)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("AI endpoint returned HTTP %d: %s", resp.StatusCode, aiModelTruncate(string(respBody), 300))
+	}
+	return parsed, nil
+}
 
+// aiModelDoRequestAnthropic performs an Anthropic Messages API call and maps
+// the result back into the unified aiChatResponse shape.
+func (g *Gateway) aiModelDoRequestAnthropic(endpoint, apikey, model string, messages []aiChatMessage, opt aiChatOptions) (*aiChatResponse, error) {
+	//Anthropic takes the system prompt as a top-level field, not a message.
+	system := strings.TrimSpace(opt.System)
+	amsgs := []anthropicMessage{}
+	for _, m := range messages {
+		if m.Role == "system" {
+			if s, ok := m.Content.(string); ok {
+				if system != "" {
+					system += "\n\n"
+				}
+				system += s
+			}
+			continue
+		}
+		amsgs = append(amsgs, anthropicMessage{Role: m.Role, Content: toAnthropicContent(m.Content)})
+	}
+
+	maxTokens := aiModelAnthropicDefaultMaxTokens
+	if opt.MaxTokens != nil && *opt.MaxTokens > 0 {
+		maxTokens = *opt.MaxTokens
+	}
+
+	reqStruct := anthropicRequest{
+		Model:       model,
+		MaxTokens:   maxTokens,
+		System:      system,
+		Messages:    amsgs,
+		Temperature: opt.Temperature,
+		Stream:      false,
+	}
+	body, err := json.Marshal(reqStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", aiModelAnthropicURL(endpoint), bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "arozos-aimodel-client/1.0")
+	req.Header.Set("anthropic-version", aiModelAnthropicVersion)
+	if apikey != "" {
+		req.Header.Set("x-api-key", apikey)
+	}
+
+	client := &http.Client{Timeout: aiModelRequestTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.New("request to AI endpoint failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	parsed := &anthropicResponse{}
+	if err := json.Unmarshal(respBody, parsed); err != nil {
+		return nil, fmt.Errorf("unexpected response (HTTP %d): %s", resp.StatusCode, aiModelTruncate(string(respBody), 300))
+	}
 	if parsed.Error != nil && parsed.Error.Message != "" {
 		return nil, errors.New("AI endpoint error: " + parsed.Error.Message)
 	}
@@ -370,14 +606,163 @@ func (g *Gateway) aiModelDoRequest(model string, messages []aiChatMessage, opt a
 		return nil, fmt.Errorf("AI endpoint returned HTTP %d: %s", resp.StatusCode, aiModelTruncate(string(respBody), 300))
 	}
 
-	//Record usage. Prefer the model echoed back by the server.
-	usedModel := model
-	if strings.TrimSpace(parsed.Model) != "" {
-		usedModel = parsed.Model
+	//Map the Anthropic response onto the unified aiChatResponse.
+	var text strings.Builder
+	for _, block := range parsed.Content {
+		if block.Type == "text" {
+			text.WriteString(block.Text)
+		}
 	}
-	g.recordAIModelUsage(usedModel, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens)
+	unified := &aiChatResponse{Model: parsed.Model}
+	unified.Choices = append(unified.Choices, struct {
+		Index   int `json:"index"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
+	}{})
+	unified.Choices[0].Message.Role = "assistant"
+	unified.Choices[0].Message.Content = text.String()
+	unified.Choices[0].FinishReason = parsed.StopReason
+	unified.Usage.PromptTokens = parsed.Usage.InputTokens
+	unified.Usage.CompletionTokens = parsed.Usage.OutputTokens
+	unified.Usage.TotalTokens = parsed.Usage.InputTokens + parsed.Usage.OutputTokens
+	return unified, nil
+}
 
-	return parsed, nil
+// aiModelAnthropicURL builds the Messages endpoint URL from a base URL,
+// tolerating bases with or without a trailing /v1 or /messages.
+func aiModelAnthropicURL(endpoint string) string {
+	base := strings.TrimRight(endpoint, "/")
+	if strings.HasSuffix(base, "/messages") {
+		return base
+	}
+	if strings.HasSuffix(base, "/v1") {
+		return base + "/messages"
+	}
+	return base + "/v1/messages"
+}
+
+// toAnthropicContent converts unified message content (a plain string or an
+// array of OpenAI-style content parts) into Anthropic content blocks.
+func toAnthropicContent(content interface{}) interface{} {
+	switch v := content.(type) {
+	case string:
+		return v
+	case []aiContentPart:
+		blocks := make([]anthropicContentBlock, 0, len(v))
+		for _, p := range v {
+			if p.Type == "text" {
+				blocks = append(blocks, anthropicContentBlock{Type: "text", Text: p.Text})
+			} else if p.Type == "image_url" && p.ImageURL != nil {
+				blocks = append(blocks, anthropicImageBlock(p.ImageURL.URL))
+			}
+		}
+		return blocks
+	case []interface{}:
+		blocks := make([]anthropicContentBlock, 0, len(v))
+		for _, raw := range v {
+			m, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			t, _ := m["type"].(string)
+			if t == "text" {
+				txt, _ := m["text"].(string)
+				blocks = append(blocks, anthropicContentBlock{Type: "text", Text: txt})
+			} else if t == "image_url" {
+				if iu, ok := m["image_url"].(map[string]interface{}); ok {
+					url, _ := iu["url"].(string)
+					blocks = append(blocks, anthropicImageBlock(url))
+				}
+			}
+		}
+		return blocks
+	default:
+		b, _ := json.Marshal(v)
+		return string(b)
+	}
+}
+
+// anthropicImageBlock converts an image URL (data URI or remote) into an
+// Anthropic image content block.
+func anthropicImageBlock(url string) anthropicContentBlock {
+	if strings.HasPrefix(url, "data:") {
+		meta := url[len("data:"):]
+		if comma := strings.Index(meta, ","); comma >= 0 {
+			head := meta[:comma]
+			data := meta[comma+1:]
+			mediaType := strings.TrimSuffix(head, ";base64")
+			if mediaType == "" {
+				mediaType = "image/png"
+			}
+			return anthropicContentBlock{Type: "image", Source: &anthropicImageSource{Type: "base64", MediaType: mediaType, Data: data}}
+		}
+	}
+	return anthropicContentBlock{Type: "image", Source: &anthropicImageSource{Type: "url", URL: url}}
+}
+
+// aiModelListEndpointModels lists model IDs exposed by the endpoint, branching
+// by wire format. Used by the connectivity test and by scripts.
+func (g *Gateway) aiModelListEndpointModels(endpoint, apikey, format string) ([]string, error) {
+	base := strings.TrimRight(endpoint, "/")
+	var requestURL string
+	if format == "anthropic" {
+		if strings.HasSuffix(base, "/models") {
+			requestURL = base
+		} else if strings.HasSuffix(base, "/v1") {
+			requestURL = base + "/models"
+		} else {
+			requestURL = base + "/v1/models"
+		}
+	} else {
+		if strings.HasSuffix(base, "/models") {
+			requestURL = base
+		} else {
+			requestURL = base + "/models"
+		}
+	}
+
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if apikey != "" {
+		if format == "anthropic" {
+			req.Header.Set("x-api-key", apikey)
+			req.Header.Set("anthropic-version", aiModelAnthropicVersion)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+apikey)
+		}
+	}
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.New("connection failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("endpoint returned HTTP %d: %s", resp.StatusCode, aiModelTruncate(string(respBody), 200))
+	}
+
+	//Both OpenAI and Anthropic return a {"data":[{"id":...}]} shape.
+	var modelList struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	json.Unmarshal(respBody, &modelList)
+	models := []string{}
+	for _, m := range modelList.Data {
+		if strings.TrimSpace(m.ID) != "" {
+			models = append(models, m.ID)
+		}
+	}
+	return models, nil
 }
 
 // aiModelBuildFileParts reads a file from the user's virtual file system and
@@ -429,15 +814,75 @@ func (g *Gateway) aiModelBuildFileParts(scriptFsh *filesystem.FileSystemHandler,
 // ── Persistence helpers ──────────────────────────────────────────────────────
 
 func (g *Gateway) getAIModelConfig() AIModelConfig {
-	cfg := AIModelConfig{Currency: "USD"}
+	cfg := AIModelConfig{Currency: "USD", APIFormat: "openai"}
 	sysdb := g.Option.UserHandler.GetDatabase()
 	if sysdb.KeyExists(aiModelDBTable, "config") {
 		sysdb.Read(aiModelDBTable, "config", &cfg)
 		if strings.TrimSpace(cfg.Currency) == "" {
 			cfg.Currency = "USD"
 		}
+		if strings.TrimSpace(cfg.APIFormat) == "" {
+			cfg.APIFormat = "openai"
+		}
 	}
 	return cfg
+}
+
+func (g *Gateway) getAIModelQuota() AIModelQuota {
+	q := AIModelQuota{Period: "total"}
+	sysdb := g.Option.UserHandler.GetDatabase()
+	if sysdb.KeyExists(aiModelDBTable, "quota") {
+		sysdb.Read(aiModelDBTable, "quota", &q)
+		if strings.TrimSpace(q.Period) == "" {
+			q.Period = "total"
+		}
+	}
+	return q
+}
+
+// aiModelWindowExpired reports whether a quota window that started at startUnix
+// has rolled over for the given period as of now.
+func aiModelWindowExpired(startUnix int64, period string, now time.Time) bool {
+	if startUnix <= 0 {
+		return true
+	}
+	start := time.Unix(startUnix, 0).UTC()
+	n := now.UTC()
+	switch period {
+	case "daily":
+		return start.YearDay() != n.YearDay() || start.Year() != n.Year()
+	case "monthly":
+		return start.Month() != n.Month() || start.Year() != n.Year()
+	default: //"total" never expires
+		return false
+	}
+}
+
+// aiModelCurrentWindowUsage returns the effective token / cost usage for the
+// active quota window (zero if the window has rolled over).
+func (g *Gateway) aiModelCurrentWindowUsage() (int64, float64) {
+	q := g.getAIModelQuota()
+	m := g.getAIModelMetrics()
+	if aiModelWindowExpired(m.WindowStart, q.Period, time.Now()) {
+		return 0, 0
+	}
+	return m.WindowTokens, m.WindowCost
+}
+
+// aiModelCheckQuota returns an error when a configured quota has been reached.
+func (g *Gateway) aiModelCheckQuota() error {
+	q := g.getAIModelQuota()
+	if !q.Enabled {
+		return nil
+	}
+	usedTokens, usedCost := g.aiModelCurrentWindowUsage()
+	if q.MaxTokens > 0 && usedTokens >= q.MaxTokens {
+		return fmt.Errorf("AI usage quota reached: %d / %d tokens used this %s — new requests are blocked until the quota resets or is raised", usedTokens, q.MaxTokens, q.periodLabel())
+	}
+	if q.MaxCost > 0 && usedCost >= q.MaxCost {
+		return fmt.Errorf("AI cost quota reached: %.4f / %.4f used this %s — new requests are blocked until the quota resets or is raised", usedCost, q.MaxCost, q.periodLabel())
+	}
+	return nil
 }
 
 func (g *Gateway) getAIModelPricing() map[string]AIModelPricing {
@@ -500,6 +945,18 @@ func (g *Gateway) recordAIModelUsage(model string, promptTokens int64, completio
 	metrics.TotalRequests++
 	metrics.UpdatedAt = time.Now().Unix()
 
+	//Maintain the windowed usage used for quota enforcement. Reset the window
+	//first if it has rolled over for the configured quota period.
+	now := time.Now()
+	period := g.getAIModelQuota().Period
+	if metrics.WindowStart == 0 || aiModelWindowExpired(metrics.WindowStart, period, now) {
+		metrics.WindowStart = now.Unix()
+		metrics.WindowTokens = 0
+		metrics.WindowCost = 0
+	}
+	metrics.WindowTokens += promptTokens + completionTokens
+	metrics.WindowCost += cost
+
 	if err := sysdb.Write(aiModelDBTable, "metrics", metrics); err != nil {
 		logger.PrintAndLog("Agi", "[AGI] Failed to persist AI model metrics: "+err.Error(), nil)
 	}
@@ -516,6 +973,7 @@ func (g *Gateway) HandleAIModelConfig(w http.ResponseWriter, r *http.Request) {
 		js, _ := json.Marshal(map[string]interface{}{
 			"endpoint":     cfg.Endpoint,
 			"defaultModel": cfg.DefaultModel,
+			"apiFormat":    cfg.APIFormat,
 			"currency":     cfg.Currency,
 			"hasKey":       cfg.APIKey != "",
 			"keyHint":      aiModelMaskKey(cfg.APIKey),
@@ -530,6 +988,12 @@ func (g *Gateway) HandleAIModelConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := g.getAIModelConfig()
 	cfg.Endpoint = strings.TrimSpace(r.Form.Get("endpoint"))
 	cfg.DefaultModel = strings.TrimSpace(r.Form.Get("defaultModel"))
+	if format := strings.TrimSpace(r.Form.Get("apiFormat")); format == "anthropic" || format == "openai" {
+		cfg.APIFormat = format
+	}
+	if cfg.APIFormat == "" {
+		cfg.APIFormat = "openai"
+	}
 	if currency := strings.TrimSpace(r.Form.Get("currency")); currency != "" {
 		cfg.Currency = currency
 	}
@@ -603,17 +1067,21 @@ func (g *Gateway) HandleAIModelMetricsReset(w http.ResponseWriter, r *http.Reque
 }
 
 // HandleAIModelTest performs a lightweight connectivity check by listing the
-// models exposed at {endpoint}/models. It does not consume any tokens.
-// POST /system/aimodel/test  (optional: endpoint, apikey to test unsaved values)
+// models exposed by the endpoint. It does not consume any tokens.
+// POST /system/aimodel/test  (optional: endpoint, apikey, apiFormat to test unsaved values)
 func (g *Gateway) HandleAIModelTest(w http.ResponseWriter, r *http.Request) {
 	cfg := g.getAIModelConfig()
 	endpoint := cfg.Endpoint
 	apikey := cfg.APIKey
+	format := cfg.APIFormat
 	if ep := strings.TrimSpace(r.FormValue("endpoint")); ep != "" {
 		endpoint = ep
 	}
 	if k := r.FormValue("apikey"); k != "" && k != aiModelKeyMask {
 		apikey = k
+	}
+	if f := strings.TrimSpace(r.FormValue("apiFormat")); f == "openai" || f == "anthropic" {
+		format = f
 	}
 
 	if strings.TrimSpace(endpoint) == "" {
@@ -621,41 +1089,10 @@ func (g *Gateway) HandleAIModelTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestURL := strings.TrimRight(endpoint, "/") + "/models"
-	req, err := http.NewRequest("GET", requestURL, nil)
+	models, err := g.aiModelListEndpointModels(endpoint, apikey, format)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
-	}
-	if apikey != "" {
-		req.Header.Set("Authorization", "Bearer "+apikey)
-	}
-
-	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		utils.SendErrorResponse(w, "connection failed: "+err.Error())
-		return
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		utils.SendErrorResponse(w, fmt.Sprintf("endpoint returned HTTP %d: %s", resp.StatusCode, aiModelTruncate(string(respBody), 200)))
-		return
-	}
-
-	var modelList struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	json.Unmarshal(respBody, &modelList)
-	models := []string{}
-	for _, m := range modelList.Data {
-		if strings.TrimSpace(m.ID) != "" {
-			models = append(models, m.ID)
-		}
 	}
 
 	out, _ := json.Marshal(map[string]interface{}{
@@ -664,6 +1101,50 @@ func (g *Gateway) HandleAIModelTest(w http.ResponseWriter, r *http.Request) {
 		"models":     models,
 	})
 	utils.SendJSONResponse(w, string(out))
+}
+
+// HandleAIModelQuota serves GET (quota + current window usage) and POST (save).
+// GET  /system/aimodel/quota
+// POST /system/aimodel/quota  (enabled, maxTokens, maxCost, period)
+func (g *Gateway) HandleAIModelQuota(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		q := g.getAIModelQuota()
+		usedTokens, usedCost := g.aiModelCurrentWindowUsage()
+		js, _ := json.Marshal(map[string]interface{}{
+			"enabled":    q.Enabled,
+			"maxTokens":  q.MaxTokens,
+			"maxCost":    q.MaxCost,
+			"period":     q.Period,
+			"usedTokens": usedTokens,
+			"usedCost":   usedCost,
+			"currency":   g.getAIModelConfig().Currency,
+		})
+		utils.SendJSONResponse(w, string(js))
+		return
+	}
+
+	r.ParseForm()
+	q := g.getAIModelQuota()
+	q.Enabled, _ = utils.PostBool(r, "enabled")
+
+	q.MaxTokens = 0
+	if n, err := strconv.ParseInt(strings.TrimSpace(r.Form.Get("maxTokens")), 10, 64); err == nil && n >= 0 {
+		q.MaxTokens = n
+	}
+	q.MaxCost = 0
+	if f, err := strconv.ParseFloat(strings.TrimSpace(r.Form.Get("maxCost")), 64); err == nil && f >= 0 {
+		q.MaxCost = f
+	}
+	if p := strings.TrimSpace(r.Form.Get("period")); p == "total" || p == "daily" || p == "monthly" {
+		q.Period = p
+	}
+
+	sysdb := g.Option.UserHandler.GetDatabase()
+	if err := sysdb.Write(aiModelDBTable, "quota", q); err != nil {
+		utils.SendErrorResponse(w, "failed to save quota: "+err.Error())
+		return
+	}
+	utils.SendOK(w)
 }
 
 // ── Small helpers ────────────────────────────────────────────────────────────

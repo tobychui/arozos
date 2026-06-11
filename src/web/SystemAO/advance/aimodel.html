@@ -1,377 +1,451 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>AI Model</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
-        <script src="../../script/jquery.min.js"></script>
-        <script src="../../script/semantic/semantic.js"></script>
-        <style>
-            #sys-setting-page { padding: 20px; }
+<style>
+#aim-root {
+    --aim-bg: #ffffff;
+    --aim-border: #e5e5e5;
+    --aim-text: #1f1f1f;
+    --aim-dim: #676767;
+    --aim-soft: #f5f5f5;
+    --aim-soft2: #efefef;
+    --aim-accent: #4d6bff;
+    --aim-accent-text: #ffffff;
+    --aim-ok: #107c10;
+    --aim-danger: #c42b1c;
+    --aim-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    background: var(--aim-bg);
+    border: 1px solid var(--aim-border);
+    border-radius: 12px;
+    box-shadow: var(--aim-shadow);
+    color: var(--aim-text);
+    padding: 16px;
+    margin-bottom: 4px;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+}
+body.dark #aim-root {
+    --aim-bg: #2b2b2b;
+    --aim-border: #3b3b3b;
+    --aim-text: #ececec;
+    --aim-dim: #aaaaaa;
+    --aim-soft: #343434;
+    --aim-soft2: #3c3c3c;
+    --aim-accent: #5a78ff;
+    --aim-ok: #2ecc71;
+    --aim-danger: #ff6b5e;
+    --aim-shadow: 0 8px 22px rgba(0,0,0,0.3);
+}
 
-            .metric-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 12px;
-                margin-bottom: 8px;
-            }
-            .metric-card {
-                border: 1px solid rgba(34,36,38,0.12);
-                border-radius: 6px;
-                padding: 14px 16px;
-                background: #fff;
-            }
-            .metric-card .label {
-                font-size: 0.82em;
-                color: #888;
-                text-transform: uppercase;
-                letter-spacing: 0.4px;
-            }
-            .metric-card .value {
-                font-size: 1.6em;
-                font-weight: 600;
-                margin-top: 4px;
-                word-break: break-all;
-            }
-            .metric-card.cost .value { color: #21ba45; }
+#aim-root * { box-sizing: border-box; }
+.aim-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+.aim-head .aim-title { font-size: 17px; font-weight: 600; }
+.aim-head .aim-sub { font-size: 12px; color: var(--aim-dim); margin-top: 2px; }
+.aim-head .aim-badge { margin-left:auto; font-size:11px; color:var(--aim-dim); display:inline-flex; align-items:center; gap:6px; }
+.aim-dot { width:8px; height:8px; border-radius:50%; background: var(--aim-dim); }
+.aim-dot.ok { background: var(--aim-ok); }
+.aim-dot.off { background: var(--aim-danger); }
 
-            .pricing-table input { width: 100%; }
-            #toast {
-                display: none;
-                position: fixed;
-                bottom: 24px;
-                right: 24px;
-                z-index: 9999;
-                min-width: 220px;
-            }
-            .muted { color: #999; font-size: 0.9em; }
-            .section-divider { margin-top: 34px !important; }
-            .keyhint { font-family: monospace; color: #888; }
-        </style>
-    </head>
-    <body>
-        <div id="sys-setting-page">
+.aim-card {
+    border: 1px solid var(--aim-border);
+    border-radius: 10px;
+    background: var(--aim-soft);
+    padding: 14px;
+    margin-bottom: 12px;
+}
+.aim-card-title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; display:flex; align-items:center; gap:8px; }
+.aim-card-desc { font-size: 11.5px; color: var(--aim-dim); margin-bottom: 12px; line-height: 1.5; }
 
-            <!-- Page header -->
-            <div class="ui basic segment" style="padding-bottom:0">
-                <div class="ui header">
-                    <i class="robot icon"></i>
-                    <div class="content">
-                        AI Model
-                        <div class="sub header">
-                            Connect ArozOS AGI scripts to any OpenAI-compatible chat completion endpoint,
-                            define per-model pricing and track token usage &amp; cost.
-                        </div>
-                    </div>
-                </div>
+.aim-field { margin-bottom: 12px; }
+.aim-field:last-child { margin-bottom: 0; }
+.aim-field > label { display:block; font-size:12px; font-weight:600; color: var(--aim-dim); margin-bottom: 5px; }
+.aim-field .hint { font-size: 11px; color: var(--aim-dim); margin-top: 5px; line-height: 1.5; }
+.aim-row { display:flex; gap:10px; }
+.aim-row > .aim-field { flex:1; }
+
+#aim-root input[type=text], #aim-root input[type=password], #aim-root input[type=number],
+#aim-root select, #aim-root textarea {
+    width: 100%;
+    background: var(--aim-bg);
+    border: 1px solid var(--aim-border);
+    color: var(--aim-text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+}
+#aim-root input:focus, #aim-root select:focus, #aim-root textarea:focus { border-color: var(--aim-accent); }
+#aim-root code { background: var(--aim-soft2); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+
+.aim-btn {
+    border: 1px solid var(--aim-border);
+    background: var(--aim-bg);
+    color: var(--aim-text);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: .12s;
+}
+.aim-btn:hover { background: var(--aim-soft2); }
+.aim-btn.primary { background: var(--aim-accent); color: var(--aim-accent-text); border-color: var(--aim-accent); }
+.aim-btn.primary:hover { filter: brightness(1.06); }
+.aim-btn.danger { color: var(--aim-danger); border-color: var(--aim-danger); }
+.aim-btn.danger:hover { background: rgba(196,43,28,0.08); }
+.aim-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top: 4px; }
+.aim-result { font-size: 12px; color: var(--aim-dim); }
+
+.aim-checkbox { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; }
+.aim-checkbox input { width:auto; }
+
+/* Pricing / metrics tables */
+.aim-table { width:100%; border-collapse: collapse; font-size: 12.5px; }
+.aim-table th { text-align:left; font-size:11px; color:var(--aim-dim); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--aim-border); }
+.aim-table td { padding:6px 8px; border-bottom:1px solid var(--aim-border); }
+.aim-table input { padding:6px 8px !important; }
+.aim-del { cursor:pointer; color:var(--aim-dim); font-weight:700; }
+.aim-del:hover { color: var(--aim-danger); }
+
+/* Metric grid (overview style) */
+.aim-grid { display:grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap:8px; margin-bottom: 12px; }
+.aim-metric { border:1px solid var(--aim-border); border-radius:10px; background:var(--aim-bg); padding:10px; }
+.aim-metric .lab { font-size:11px; color:var(--aim-dim); margin-bottom:4px; }
+.aim-metric .val { font-size:16px; font-weight:600; line-height:1.3; word-break:break-word; }
+.aim-metric.cost .val { color: var(--aim-ok); }
+@media (max-width: 920px){ .aim-grid { grid-template-columns: repeat(2, minmax(110px,1fr)); } }
+
+/* Quota progress */
+.aim-bar { height:8px; border-radius:5px; background:var(--aim-soft2); overflow:hidden; margin-top:8px; }
+.aim-bar > span { display:block; height:100%; background:var(--aim-accent); width:0%; transition:.3s; }
+.aim-bar.warn > span { background:#e0a000; }
+.aim-bar.over > span { background:var(--aim-danger); }
+.aim-quota-usage { font-size:11.5px; color:var(--aim-dim); margin-top:6px; }
+
+#aim-toast {
+    display:none; position:fixed; bottom:24px; right:24px; z-index:99999;
+    padding:11px 16px; border-radius:9px; font-size:12.5px; font-weight:600;
+    color:#fff; box-shadow:var(--aim-shadow);
+}
+</style>
+
+<div id="aim-root">
+    <div class="aim-head">
+        <div>
+            <div class="aim-title">AI Model</div>
+            <div class="aim-sub">Connect AGI scripts to an OpenAI- or Anthropic-compatible model, set pricing &amp; quota, and track usage.</div>
+        </div>
+        <div class="aim-badge"><span class="aim-dot" id="aim-conn-dot"></span><span id="aim-conn-text">Checking…</span></div>
+    </div>
+
+    <!-- Connection -->
+    <div class="aim-card">
+        <div class="aim-card-title">Connection</div>
+        <div class="aim-card-desc">The endpoint and API key used by every AI request on this server.</div>
+        <div class="aim-row">
+            <div class="aim-field">
+                <label>API Format</label>
+                <select id="aim-format">
+                    <option value="openai">OpenAI compatible</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                </select>
             </div>
-
-            <div class="ui divider"></div>
-
-            <!-- ── Connection settings ───────────────────────────── -->
-            <h3 class="ui header"><i class="plug icon"></i> Connection</h3>
-            <form class="ui form" id="configForm" onsubmit="return false;">
-                <div class="field">
-                    <label>Endpoint Base URL</label>
-                    <input type="text" id="endpoint" placeholder="https://api.openai.com/v1">
-                    <div class="muted">OpenAI-compatible base URL. Examples: <code>https://api.openai.com/v1</code>,
-                        <code>https://openrouter.ai/api/v1</code>, <code>http://localhost:11434/v1</code> (Ollama).
-                        The path <code>/chat/completions</code> is appended automatically.</div>
-                </div>
-                <div class="field">
-                    <label>API Key</label>
-                    <input type="password" id="apikey" placeholder="sk-...">
-                    <div class="muted">Sent as <code>Authorization: Bearer &lt;key&gt;</code>. Leave blank to keep the
-                        saved key. <span id="keyStatus"></span></div>
-                    <div class="ui checkbox" style="margin-top:6px;">
-                        <input type="checkbox" id="clearkey">
-                        <label>Remove saved API key</label>
-                    </div>
-                </div>
-                <div class="two fields">
-                    <div class="field">
-                        <label>Default Model</label>
-                        <input type="text" id="defaultModel" list="modelList" placeholder="gpt-4o-mini">
-                        <datalist id="modelList"></datalist>
-                    </div>
-                    <div class="field">
-                        <label>Currency Label</label>
-                        <input type="text" id="currency" placeholder="USD">
-                    </div>
-                </div>
-                <button class="ui primary button" onclick="saveConfig()"><i class="save icon"></i> Save Connection</button>
-                <button class="ui basic button" onclick="testConnection()"><i class="plug icon"></i> Test Connection</button>
-                <span id="testResult" class="muted" style="margin-left:8px;"></span>
-            </form>
-
-            <!-- ── Per-model pricing ─────────────────────────────── -->
-            <div class="ui divider section-divider"></div>
-            <h3 class="ui header"><i class="dollar sign icon"></i> Per-Model Pricing</h3>
-            <p class="muted">Prices are per <b>1,000,000 tokens</b> in your chosen currency. These rates are used to
-                compute the running cost shown in the metrics board below.</p>
-            <table class="ui celled compact table pricing-table">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th style="width:180px">Input price / 1M</th>
-                        <th style="width:180px">Output price / 1M</th>
-                        <th style="width:60px"></th>
-                    </tr>
-                </thead>
-                <tbody id="pricingBody"></tbody>
-            </table>
-            <button class="ui basic button" onclick="addPricingRow()"><i class="plus icon"></i> Add Model</button>
-            <button class="ui basic button" id="importModelsBtn" onclick="importDiscoveredModels()" style="display:none;">
-                <i class="download icon"></i> Import models from endpoint</button>
-            <button class="ui primary button" onclick="savePricing()"><i class="save icon"></i> Save Pricing</button>
-
-            <!-- ── Usage metrics ─────────────────────────────────── -->
-            <div class="ui divider section-divider"></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-                <h3 class="ui header" style="margin:0;"><i class="chart bar icon"></i> Usage Metrics</h3>
-                <div>
-                    <span id="updatedAt" class="muted" style="margin-right:10px;"></span>
-                    <button class="ui tiny basic blue button" onclick="loadMetrics()"><i class="refresh icon"></i> Refresh</button>
-                    <button class="ui tiny basic red button" onclick="resetMetrics()"><i class="trash icon"></i> Reset</button>
-                </div>
+            <div class="aim-field">
+                <label>Default Model</label>
+                <input type="text" id="aim-model" list="aim-modellist" placeholder="e.g. gpt-4o-mini">
+                <datalist id="aim-modellist"></datalist>
             </div>
+        </div>
+        <div class="aim-field">
+            <label>Endpoint Base URL</label>
+            <input type="text" id="aim-endpoint" placeholder="https://api.openai.com/v1">
+            <div class="hint" id="aim-endpoint-hint">The request path is appended automatically.</div>
+        </div>
+        <div class="aim-field">
+            <label>API Key</label>
+            <input type="password" id="aim-key" placeholder="sk-...">
+            <div class="hint"><span id="aim-key-hint"></span> Leave blank to keep the saved key.</div>
+            <label class="aim-checkbox" style="margin-top:7px;"><input type="checkbox" id="aim-clearkey"> Remove saved API key</label>
+        </div>
+        <div class="aim-actions">
+            <button class="aim-btn primary" id="aim-save-conn">Save Connection</button>
+            <button class="aim-btn" id="aim-test">Test Connection</button>
+            <span class="aim-result" id="aim-test-result"></span>
+        </div>
+    </div>
 
-            <div class="metric-grid" style="margin-top:14px;">
-                <div class="metric-card"><div class="label">Total Tokens</div><div class="value" id="m_total">0</div></div>
-                <div class="metric-card"><div class="label">Prompt Tokens</div><div class="value" id="m_prompt">0</div></div>
-                <div class="metric-card"><div class="label">Completion Tokens</div><div class="value" id="m_completion">0</div></div>
-                <div class="metric-card cost"><div class="label">Total Cost</div><div class="value" id="m_cost">0</div></div>
-                <div class="metric-card"><div class="label">Requests</div><div class="value" id="m_requests">0</div></div>
+    <!-- Pricing -->
+    <div class="aim-card">
+        <div class="aim-card-title">Per-Model Pricing</div>
+        <div class="aim-card-desc">Prices are per <b>1,000,000 tokens</b> in your chosen currency. Used to compute the cost below.</div>
+        <table class="aim-table">
+            <thead><tr><th>Model</th><th style="width:160px;">Input / 1M</th><th style="width:160px;">Output / 1M</th><th style="width:36px;"></th></tr></thead>
+            <tbody id="aim-pricing-body"></tbody>
+        </table>
+        <div class="aim-actions" style="margin-top:12px;">
+            <div class="aim-field" style="margin:0; width:110px;">
+                <input type="text" id="aim-currency" placeholder="USD" title="Currency label">
             </div>
+            <button class="aim-btn" id="aim-add-model">+ Add Model</button>
+            <button class="aim-btn" id="aim-import-models" style="display:none;">Import from endpoint</button>
+            <button class="aim-btn primary" id="aim-save-pricing">Save Pricing</button>
+        </div>
+    </div>
 
-            <table class="ui celled striped compact table" style="margin-top:8px;">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Requests</th>
-                        <th>Prompt</th>
-                        <th>Completion</th>
-                        <th>Total Tokens</th>
-                        <th>Cost</th>
-                    </tr>
-                </thead>
-                <tbody id="metricsBody">
-                    <tr><td colspan="6" style="text-align:center;color:#aaa;">No usage recorded yet.</td></tr>
-                </tbody>
-            </table>
+    <!-- Quota -->
+    <div class="aim-card">
+        <div class="aim-card-title">Usage Quota</div>
+        <div class="aim-card-desc">Stop the system from spending beyond a budget. When a cap is reached, new AI requests are blocked until the window resets or the cap is raised.</div>
+        <label class="aim-checkbox" style="margin-bottom:12px;"><input type="checkbox" id="aim-quota-enabled"> Enable usage quota</label>
+        <div class="aim-row">
+            <div class="aim-field">
+                <label>Reset Period</label>
+                <select id="aim-quota-period">
+                    <option value="total">Total (never resets)</option>
+                    <option value="daily">Daily</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="aim-field">
+                <label>Max Tokens</label>
+                <input type="number" id="aim-quota-tokens" min="0" step="1" placeholder="0 = no limit">
+            </div>
+            <div class="aim-field">
+                <label>Max Cost</label>
+                <input type="number" id="aim-quota-cost" min="0" step="any" placeholder="0 = no limit">
+            </div>
+        </div>
+        <div class="aim-quota-usage" id="aim-quota-usage"></div>
+        <div class="aim-bar" id="aim-quota-bar"><span></span></div>
+        <div class="aim-actions" style="margin-top:12px;">
+            <button class="aim-btn primary" id="aim-save-quota">Save Quota</button>
+        </div>
+    </div>
 
-            <div class="ui divider section-divider"></div>
-            <h3 class="ui header"><i class="code icon"></i> Using it from an AGI script</h3>
-            <pre style="background:#f7f7f7;padding:14px;border-radius:6px;overflow:auto;">requirelib("aimodel");
+    <!-- Metrics -->
+    <div class="aim-card">
+        <div class="aim-card-title" style="justify-content:space-between;">
+            <span>Usage Metrics</span>
+            <span style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                <span class="aim-result" id="aim-updated"></span>
+                <button class="aim-btn" id="aim-refresh-metrics">Refresh</button>
+                <button class="aim-btn danger" id="aim-reset-metrics">Reset</button>
+            </span>
+        </div>
+        <div class="aim-grid" style="margin-top:12px;">
+            <div class="aim-metric"><div class="lab">Total Tokens</div><div class="val" id="aim-m-total">0</div></div>
+            <div class="aim-metric"><div class="lab">Prompt</div><div class="val" id="aim-m-prompt">0</div></div>
+            <div class="aim-metric"><div class="lab">Completion</div><div class="val" id="aim-m-completion">0</div></div>
+            <div class="aim-metric cost"><div class="lab">Total Cost</div><div class="val" id="aim-m-cost">0</div></div>
+            <div class="aim-metric"><div class="lab">Requests</div><div class="val" id="aim-m-requests">0</div></div>
+        </div>
+        <table class="aim-table">
+            <thead><tr><th>Model</th><th>Requests</th><th>Prompt</th><th>Completion</th><th>Total</th><th>Cost</th></tr></thead>
+            <tbody id="aim-metrics-body"><tr><td colspan="6" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr></tbody>
+        </table>
+    </div>
+</div>
+<div id="aim-toast"></div>
 
-// Plain text prompt
-var answer = aimodel.chat("Summarize the theory of relativity in one sentence.");
+<script>
+(function () {
+    var API = "../../system/aimodel/";
+    var $root = $("#aim-root");
+    var discovered = [];
+    var currency = "USD";
 
-// With options (override model / add a system prompt)
-var reply = aimodel.chat("Translate to French: good morning", {
-    model: "gpt-4o-mini",
-    system: "You are a professional translator.",
-    temperature: 0.2
-});
-
-// File based (image for vision models, or a text document)
-var caption = aimodel.chatWithFile("Describe this image", "user:/Photo/cat.png");
-var review  = aimodel.chatWithFile("Review this code", ["user:/Desktop/main.go"]);
-
-// Low-level call returning the full response (incl. usage)
-var res = aimodel.request([{role:"user", content:"Hello"}], {model:"gpt-4o-mini"});
-console.log(res.usage.total_tokens);
-
-// Current aggregated usage / configured models
-var usage  = aimodel.usage();
-var models = aimodel.models();</pre>
-
-        </div><!-- #sys-setting-page -->
-
-        <div id="toast" class="ui message"></div>
-
-        <script>
-            var API = "../../system/aimodel/";
-            var discoveredModels = [];
-            var currencyLabel = "USD";
-
-            $(document).ready(function() {
-                $('.ui.checkbox').checkbox();
-                loadConfig();
-                loadPricing();
-                loadMetrics();
-            });
-
-            /* ── Connection config ──────────────────────────────────── */
-            function loadConfig() {
-                $.ajax({ url: API + "config", method: "GET", success: function(d) {
-                    $("#endpoint").val(d.endpoint || "");
-                    $("#defaultModel").val(d.defaultModel || "");
-                    $("#currency").val(d.currency || "USD");
-                    currencyLabel = d.currency || "USD";
-                    if (d.hasKey) {
-                        $("#apikey").attr("placeholder", d.keyHint || "(saved)");
-                        $("#keyStatus").html('Saved key: <span class="keyhint">' + esc(d.keyHint || "") + '</span>');
-                    } else {
-                        $("#keyStatus").text("No API key saved.");
-                    }
-                }, error: function(){ showToast("Failed to load configuration (admin only).", "red"); }});
+    /* ── theme (match overview.html) ── */
+    (function applyTheme() {
+        try {
+            if (typeof preferredTheme !== 'undefined') {
+                document.body.classList.toggle('dark', (preferredTheme === 'dark' || preferredTheme === 'darkTheme'));
+                return;
             }
+        } catch (e) {}
+        if (typeof ao_module_getSystemThemeColor === 'function') {
+            ao_module_getSystemThemeColor(function (c) { document.body.classList.toggle('dark', c !== 'whiteTheme'); });
+        }
+    })();
 
-            function saveConfig() {
-                var payload = {
-                    endpoint: $("#endpoint").val().trim(),
-                    defaultModel: $("#defaultModel").val().trim(),
-                    currency: ($("#currency").val().trim() || "USD"),
-                    clearkey: $("#clearkey").is(":checked") ? "true" : "false"
-                };
-                var key = $("#apikey").val();
-                if (key && key.length > 0) { payload.apikey = key; }
-                $.ajax({ url: API + "config", method: "POST", data: payload, success: function(r) {
-                    if (r && r.error) { showToast("Error: " + r.error, "red"); return; }
-                    showToast("Connection settings saved.", "green");
-                    $("#apikey").val("");
-                    $("#clearkey").prop("checked", false);
-                    loadConfig();
-                }, error: function(){ showToast("Failed to save configuration.", "red"); }});
-            }
+    function el(id){ return document.getElementById(id); }
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function numfmt(n){ return Number(n||0).toLocaleString(); }
+    function money(n){ n = Number(n||0); return currency + " " + (n < 1 ? n.toFixed(4) : n.toFixed(2)); }
+    function toast(msg, ok){
+        var t = el("aim-toast"); t.textContent = msg;
+        t.style.background = ok === false ? "#c42b1c" : (ok === true ? "#107c10" : "#4d6bff");
+        t.style.display = "block"; setTimeout(function(){ t.style.display = "none"; }, 3200);
+    }
+    function setConn(state, text){
+        var d = el("aim-conn-dot"); d.className = "aim-dot" + (state===true?" ok":state===false?" off":"");
+        el("aim-conn-text").textContent = text;
+    }
+    function endpointHint(){
+        var f = el("aim-format").value;
+        el("aim-endpoint").setAttribute("placeholder", f === "anthropic" ? "https://api.anthropic.com" : "https://api.openai.com/v1");
+        el("aim-endpoint-hint").innerHTML = f === "anthropic"
+            ? "Anthropic Messages API. <code>/v1/messages</code> is appended automatically; key sent as <code>x-api-key</code>."
+            : "OpenAI-compatible. <code>/chat/completions</code> is appended automatically; key sent as <code>Bearer</code>.";
+    }
 
-            function testConnection() {
-                $("#testResult").text("Testing…").css("color", "#999");
-                var data = {
-                    endpoint: $("#endpoint").val().trim(),
-                    apikey: $("#apikey").val()
-                };
-                $.ajax({ url: API + "test", method: "POST", data: data, success: function(r) {
-                    if (r && r.error) {
-                        $("#testResult").text("✗ " + r.error).css("color", "#db2828");
-                        return;
-                    }
-                    discoveredModels = r.models || [];
-                    $("#testResult").text("✓ Connected — " + r.modelCount + " model(s) available").css("color", "#21ba45");
-                    var dl = discoveredModels.map(function(m){ return '<option value="' + esc(m) + '">'; }).join("");
-                    $("#modelList").html(dl);
-                    $("#importModelsBtn").toggle(discoveredModels.length > 0);
-                }, error: function(){ $("#testResult").text("✗ Request failed").css("color", "#db2828"); }});
-            }
+    /* ── Connection ── */
+    function loadConfig(){
+        $.get(API + "config", function(d){
+            el("aim-format").value = (d.apiFormat === "anthropic") ? "anthropic" : "openai";
+            el("aim-endpoint").value = d.endpoint || "";
+            el("aim-model").value = d.defaultModel || "";
+            el("aim-currency").value = d.currency || "USD";
+            currency = d.currency || "USD";
+            el("aim-key-hint").textContent = d.hasKey ? ("Saved key: " + (d.keyHint||"")) : "No API key saved.";
+            endpointHint();
+        }).fail(function(){ setConn(false, "Admin only"); toast("Failed to load configuration (admin only).", false); });
+    }
+    function saveConfig(){
+        var data = {
+            apiFormat: el("aim-format").value,
+            endpoint: el("aim-endpoint").value.trim(),
+            defaultModel: el("aim-model").value.trim(),
+            currency: (el("aim-currency").value.trim() || "USD"),
+            clearkey: el("aim-clearkey").checked ? "true" : "false"
+        };
+        var key = el("aim-key").value;
+        if (key) data.apikey = key;
+        $.post(API + "config", data, function(r){
+            if (r && r.error){ toast("Error: " + r.error, false); return; }
+            toast("Connection saved.", true);
+            el("aim-key").value = ""; el("aim-clearkey").checked = false;
+            loadConfig();
+        }).fail(function(){ toast("Failed to save connection.", false); });
+    }
+    function testConnection(){
+        el("aim-test-result").textContent = "Testing…";
+        $.post(API + "test", { endpoint: el("aim-endpoint").value.trim(), apikey: el("aim-key").value, apiFormat: el("aim-format").value }, function(r){
+            if (r && r.error){ el("aim-test-result").textContent = "✗ " + r.error; setConn(false, "Error"); return; }
+            discovered = r.models || [];
+            el("aim-test-result").textContent = "✓ Connected — " + r.modelCount + " model(s)";
+            setConn(true, r.modelCount + " model(s)");
+            el("aim-modellist").innerHTML = discovered.map(function(m){ return '<option value="'+esc(m)+'">'; }).join("");
+            el("aim-import-models").style.display = discovered.length ? "" : "none";
+        }).fail(function(){ el("aim-test-result").textContent = "✗ Request failed"; setConn(false, "Unreachable"); });
+    }
 
-            /* ── Pricing editor ─────────────────────────────────────── */
-            function loadPricing() {
-                $.ajax({ url: API + "pricing", method: "GET", success: function(d) {
-                    var body = $("#pricingBody").empty();
-                    var names = Object.keys(d || {}).sort();
-                    if (names.length === 0) { addPricingRow(); return; }
-                    names.forEach(function(name) {
-                        addPricingRow(name, d[name].inputPrice, d[name].outputPrice);
-                    });
-                }, error: function(){ showToast("Failed to load pricing.", "red"); }});
-            }
+    /* ── Pricing ── */
+    function loadPricing(){
+        $.get(API + "pricing", function(d){
+            var body = el("aim-pricing-body"); body.innerHTML = "";
+            var names = Object.keys(d||{}).sort();
+            if (names.length === 0){ addPricingRow(); return; }
+            names.forEach(function(n){ addPricingRow(n, d[n].inputPrice, d[n].outputPrice); });
+        }).fail(function(){ toast("Failed to load pricing.", false); });
+    }
+    function addPricingRow(model, inP, outP){
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+            '<td><input type="text" class="p-model" placeholder="model-name" value="'+esc(model||"")+'"></td>'+
+            '<td><input type="number" step="any" min="0" class="p-in" value="'+(inP!=null?inP:"")+'"></td>'+
+            '<td><input type="number" step="any" min="0" class="p-out" value="'+(outP!=null?outP:"")+'"></td>'+
+            '<td style="text-align:center;"><span class="aim-del">✕</span></td>';
+        tr.querySelector(".aim-del").addEventListener("click", function(){ tr.remove(); });
+        el("aim-pricing-body").appendChild(tr);
+    }
+    function importModels(){
+        var have = {}; $root.find(".p-model").each(function(){ have[this.value.trim()] = true; });
+        var added = 0;
+        discovered.forEach(function(m){ if(!have[m]){ addPricingRow(m, 0, 0); added++; } });
+        toast(added + " model(s) added — set prices and save.");
+    }
+    function savePricing(){
+        var pricing = {}, ok = true;
+        $root.find("#aim-pricing-body tr").each(function(){
+            var name = this.querySelector(".p-model").value.trim();
+            if (!name) return;
+            var i = parseFloat(this.querySelector(".p-in").value)||0;
+            var o = parseFloat(this.querySelector(".p-out").value)||0;
+            if (i < 0 || o < 0) ok = false;
+            pricing[name] = { inputPrice:i, outputPrice:o };
+        });
+        if (!ok){ toast("Prices cannot be negative.", false); return; }
+        currency = el("aim-currency").value.trim() || "USD";
+        $.post(API + "config", { apiFormat: el("aim-format").value, endpoint: el("aim-endpoint").value.trim(), defaultModel: el("aim-model").value.trim(), currency: currency }, function(){
+            $.post(API + "pricing", { pricing: JSON.stringify(pricing) }, function(r){
+                if (r && r.error){ toast("Error: " + r.error, false); return; }
+                toast("Pricing saved.", true); loadMetrics(); loadQuota();
+            }).fail(function(){ toast("Failed to save pricing.", false); });
+        });
+    }
 
-            function addPricingRow(model, inPrice, outPrice) {
-                var row = $(
-                    '<tr>' +
-                        '<td><input type="text" class="p-model" placeholder="model-name" value="' + esc(model || "") + '"></td>' +
-                        '<td><input type="number" step="any" min="0" class="p-in" value="' + (inPrice != null ? inPrice : "") + '"></td>' +
-                        '<td><input type="number" step="any" min="0" class="p-out" value="' + (outPrice != null ? outPrice : "") + '"></td>' +
-                        '<td style="text-align:center;"><i class="red trash alternate outline link icon" onclick="$(this).closest(\'tr\').remove();"></i></td>' +
-                    '</tr>'
-                );
-                $("#pricingBody").append(row);
-            }
+    /* ── Quota ── */
+    function loadQuota(){
+        $.get(API + "quota", function(q){
+            currency = q.currency || currency;
+            el("aim-quota-enabled").checked = !!q.enabled;
+            el("aim-quota-period").value = q.period || "total";
+            el("aim-quota-tokens").value = q.maxTokens ? q.maxTokens : "";
+            el("aim-quota-cost").value = q.maxCost ? q.maxCost : "";
+            renderQuotaUsage(q);
+        }).fail(function(){});
+    }
+    function renderQuotaUsage(q){
+        var usage = el("aim-quota-usage"), bar = el("aim-quota-bar"), span = bar.firstElementChild;
+        if (!q.enabled || (!q.maxTokens && !q.maxCost)){
+            usage.textContent = q.enabled ? "Quota enabled with no cap set." : "Quota disabled.";
+            span.style.width = "0%"; bar.className = "aim-bar"; return;
+        }
+        var pct = 0, parts = [];
+        if (q.maxTokens){ var pt = q.usedTokens/q.maxTokens*100; pct = Math.max(pct, pt);
+            parts.push(numfmt(q.usedTokens) + " / " + numfmt(q.maxTokens) + " tokens"); }
+        if (q.maxCost){ var pc = q.usedCost/q.maxCost*100; pct = Math.max(pct, pc);
+            parts.push(money(q.usedCost) + " / " + money(q.maxCost)); }
+        usage.textContent = "Used this " + (q.period==="daily"?"day":q.period==="monthly"?"month":"period") + ": " + parts.join("  ·  ");
+        span.style.width = Math.min(100, pct).toFixed(1) + "%";
+        bar.className = "aim-bar" + (pct >= 100 ? " over" : pct >= 80 ? " warn" : "");
+    }
+    function saveQuota(){
+        $.post(API + "quota", {
+            enabled: el("aim-quota-enabled").checked ? "true" : "false",
+            period: el("aim-quota-period").value,
+            maxTokens: el("aim-quota-tokens").value || "0",
+            maxCost: el("aim-quota-cost").value || "0"
+        }, function(r){
+            if (r && r.error){ toast("Error: " + r.error, false); return; }
+            toast("Quota saved.", true); loadQuota();
+        }).fail(function(){ toast("Failed to save quota.", false); });
+    }
 
-            function importDiscoveredModels() {
-                var existing = {};
-                $("#pricingBody .p-model").each(function(){ existing[$(this).val().trim()] = true; });
-                var added = 0;
-                discoveredModels.forEach(function(m){
-                    if (!existing[m]) { addPricingRow(m, 0, 0); added++; }
-                });
-                showToast(added + " model(s) added — set prices and Save Pricing.", "blue");
-            }
+    /* ── Metrics ── */
+    function loadMetrics(){
+        $.get(API + "metrics", function(m){
+            currency = m.currency || currency;
+            el("aim-m-total").textContent = numfmt(m.totalTokens);
+            el("aim-m-prompt").textContent = numfmt(m.totalPromptTokens);
+            el("aim-m-completion").textContent = numfmt(m.totalCompletionTokens);
+            el("aim-m-cost").textContent = money(m.totalCost);
+            el("aim-m-requests").textContent = numfmt(m.totalRequests);
+            el("aim-updated").textContent = (m.updatedAt > 0) ? ("Updated " + new Date(m.updatedAt*1000).toLocaleString()) : "";
+            var per = m.perModel || {}, names = Object.keys(per).sort();
+            if (names.length === 0){ el("aim-metrics-body").innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr>'; return; }
+            el("aim-metrics-body").innerHTML = names.map(function(n){ var r = per[n];
+                return '<tr><td>'+esc(n)+'</td><td>'+numfmt(r.requests)+'</td><td>'+numfmt(r.promptTokens)+'</td><td>'+numfmt(r.completionTokens)+'</td><td>'+numfmt(r.totalTokens)+'</td><td>'+money(r.cost)+'</td></tr>';
+            }).join("");
+        }).fail(function(){ toast("Failed to load metrics.", false); });
+    }
+    function resetMetrics(){
+        if (!confirm("Reset all usage metrics to zero? This cannot be undone.")) return;
+        $.post(API + "metrics/reset", {}, function(r){
+            if (r && r.error){ toast("Error: " + r.error, false); return; }
+            toast("Metrics reset.", true); loadMetrics(); loadQuota();
+        }).fail(function(){ toast("Failed to reset metrics.", false); });
+    }
 
-            function savePricing() {
-                var pricing = {};
-                var ok = true;
-                $("#pricingBody tr").each(function() {
-                    var name = $(this).find(".p-model").val().trim();
-                    if (name === "") return;
-                    var inP = parseFloat($(this).find(".p-in").val()) || 0;
-                    var outP = parseFloat($(this).find(".p-out").val()) || 0;
-                    if (inP < 0 || outP < 0) { ok = false; }
-                    pricing[name] = { inputPrice: inP, outputPrice: outP };
-                });
-                if (!ok) { showToast("Prices cannot be negative.", "red"); return; }
-                $.ajax({ url: API + "pricing", method: "POST", data: { pricing: JSON.stringify(pricing) }, success: function(r) {
-                    if (r && r.error) { showToast("Error: " + r.error, "red"); return; }
-                    showToast("Pricing saved.", "green");
-                    loadMetrics();
-                }, error: function(){ showToast("Failed to save pricing.", "red"); }});
-            }
+    /* ── Bind ── */
+    el("aim-format").addEventListener("change", endpointHint);
+    el("aim-save-conn").addEventListener("click", saveConfig);
+    el("aim-test").addEventListener("click", testConnection);
+    el("aim-add-model").addEventListener("click", function(){ addPricingRow(); });
+    el("aim-import-models").addEventListener("click", importModels);
+    el("aim-save-pricing").addEventListener("click", savePricing);
+    el("aim-save-quota").addEventListener("click", saveQuota);
+    el("aim-refresh-metrics").addEventListener("click", loadMetrics);
+    el("aim-reset-metrics").addEventListener("click", resetMetrics);
 
-            /* ── Metrics ────────────────────────────────────────────── */
-            function loadMetrics() {
-                $.ajax({ url: API + "metrics", method: "GET", success: function(m) {
-                    currencyLabel = m.currency || currencyLabel;
-                    $("#m_total").text(numfmt(m.totalTokens));
-                    $("#m_prompt").text(numfmt(m.totalPromptTokens));
-                    $("#m_completion").text(numfmt(m.totalCompletionTokens));
-                    $("#m_cost").text(money(m.totalCost));
-                    $("#m_requests").text(numfmt(m.totalRequests));
-
-                    if (m.updatedAt && m.updatedAt > 0) {
-                        $("#updatedAt").text("Updated " + new Date(m.updatedAt * 1000).toLocaleString());
-                    } else {
-                        $("#updatedAt").text("");
-                    }
-
-                    var per = m.perModel || {};
-                    var names = Object.keys(per).sort();
-                    if (names.length === 0) {
-                        $("#metricsBody").html('<tr><td colspan="6" style="text-align:center;color:#aaa;">No usage recorded yet.</td></tr>');
-                        return;
-                    }
-                    $("#metricsBody").html(names.map(function(name) {
-                        var r = per[name];
-                        return '<tr>' +
-                            '<td>' + esc(name) + '</td>' +
-                            '<td>' + numfmt(r.requests) + '</td>' +
-                            '<td>' + numfmt(r.promptTokens) + '</td>' +
-                            '<td>' + numfmt(r.completionTokens) + '</td>' +
-                            '<td>' + numfmt(r.totalTokens) + '</td>' +
-                            '<td>' + money(r.cost) + '</td>' +
-                        '</tr>';
-                    }).join(""));
-                }, error: function(){ showToast("Failed to load metrics.", "red"); }});
-            }
-
-            function resetMetrics() {
-                if (!confirm("Reset all usage metrics to zero? This cannot be undone.")) return;
-                $.ajax({ url: API + "metrics/reset", method: "POST", success: function(r) {
-                    if (r && r.error) { showToast("Error: " + r.error, "red"); return; }
-                    showToast("Metrics reset.", "green");
-                    loadMetrics();
-                }, error: function(){ showToast("Failed to reset metrics.", "red"); }});
-            }
-
-            /* ── Helpers ────────────────────────────────────────────── */
-            function numfmt(n) { return Number(n || 0).toLocaleString(); }
-            function money(n) {
-                n = Number(n || 0);
-                return currencyLabel + " " + n.toFixed(n < 1 ? 4 : 2);
-            }
-            function showToast(msg, color) {
-                var t = document.getElementById("toast");
-                t.className = "ui " + (color || "blue") + " message";
-                t.textContent = msg;
-                t.style.display = "block";
-                setTimeout(function() { t.style.display = "none"; }, 3500);
-            }
-            function esc(s) {
-                return String(s == null ? "" : s)
-                    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-            }
-        </script>
-    </body>
-</html>
+    loadConfig(); loadPricing(); loadQuota(); loadMetrics();
+})();
+</script>

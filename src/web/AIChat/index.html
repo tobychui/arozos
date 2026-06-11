@@ -78,7 +78,7 @@
     .icon-btn svg{width:18px;height:18px;}
 
     /* ── Main ──────────────────────────────── */
-    .main{display:flex; flex-direction:column; min-width:0; position:relative;}
+    .main{display:flex; flex-direction:column; min-width:0; min-height:0; position:relative;}
     .topbar{
         height:56px; flex:none; display:flex; align-items:center; gap:12px;
         padding:0 16px; border-bottom:1px solid var(--border); background:var(--panel);
@@ -88,8 +88,11 @@
     .model-input{
         background:var(--panel-2); border:1px solid var(--border); color:var(--text);
         border-radius:9px; padding:7px 12px; font-size:13.5px; font-weight:600; min-width:230px;
-        outline:none;
+        max-width:340px; outline:none; cursor:pointer;
     }
+    select.model-input{appearance:none;-webkit-appearance:none;
+        background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
+        background-repeat:no-repeat; background-position:right 10px center; padding-right:30px;}
     .model-input:focus{border-color:var(--accent);}
     .topbar .spacer{flex:1;}
     .tok-badge{
@@ -98,7 +101,7 @@
     }
     .tok-badge b{color:var(--text);}
 
-    .messages{flex:1; overflow-y:auto; padding:24px 0 8px;}
+    .messages{flex:1; min-height:0; overflow-y:auto; padding:24px 0 8px;}
     .mwrap{max-width:820px; margin:0 auto; padding:0 24px;}
     .msg{display:flex; gap:14px; padding:16px 0; align-items:flex-start;}
     .msg + .msg{border-top:1px solid var(--border);}
@@ -167,6 +170,21 @@
         background:var(--panel-2);color:var(--text);cursor:pointer;font-size:13px;font-weight:600;display:none;align-items:center;gap:7px;}
     .stop-btn:hover{border-color:var(--danger);color:var(--danger);}
     .hint{max-width:820px;margin:8px auto 0;padding:0 24px;font-size:11px;color:var(--text-faint);text-align:center;}
+    .attach-btn{flex:none;width:38px;height:38px;border-radius:11px;border:1px solid var(--border);
+        background:transparent;color:var(--text-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s;}
+    .attach-btn:hover{background:var(--panel-2);color:var(--text);border-color:var(--accent);}
+    .attach-btn svg{width:18px;height:18px;}
+    .attachments{max-width:820px;margin:0 auto 8px;padding:0 24px;display:flex;flex-wrap:wrap;gap:8px;}
+    .attach-chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--border);
+        border-radius:9px;padding:6px 9px;font-size:12px;color:var(--text);max-width:240px;}
+    .attach-chip .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .attach-chip .rm{cursor:pointer;color:var(--text-faint);font-weight:700;flex:none;}
+    .attach-chip .rm:hover{color:var(--danger);}
+    .attach-chip svg{width:14px;height:14px;flex:none;color:var(--accent);}
+    .msg-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+    .msg-files .mf{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);
+        border-radius:8px;padding:4px 9px;font-size:11.5px;color:var(--text-dim);}
+    .msg-files .mf svg{width:13px;height:13px;color:var(--accent);}
 
     /* Settings drawer */
     .scrim{position:absolute;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.2s;z-index:20;}
@@ -226,7 +244,7 @@
         <div class="topbar">
             <div class="model-pick">
                 <span class="lab">Model</span>
-                <input class="model-input" id="modelInput" list="modelList" placeholder="e.g. gpt-4o-mini" autocomplete="off">
+                <select class="model-input" id="modelSelect" onchange="onModelChange()"></select>
                 <datalist id="modelList"></datalist>
                 <button class="icon-btn" title="Reload models" onclick="loadModels()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
@@ -239,8 +257,12 @@
         <div class="messages" id="messages"></div>
 
         <div class="composer-wrap">
+            <div class="attachments" id="attachments" style="display:none;"></div>
             <div class="composer">
                 <div class="composer-box">
+                    <button class="attach-btn" id="attachBtn" onclick="pickFiles()" title="Attach file (image or text document)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
                     <textarea id="composer" rows="1" placeholder="Send a message…"></textarea>
                     <button class="stop-btn" id="stopBtn" onclick="stopGenerating()">
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> Stop
@@ -250,7 +272,7 @@
                     </button>
                 </div>
             </div>
-            <div class="hint">Enter to send · Shift+Enter for a new line · Configure the endpoint in System Settings → Developer Options → AI Model</div>
+            <div class="hint">Enter to send · Shift+Enter for a new line · Attach images for vision models or text documents · Configure the endpoint in System Settings → AI Integration → AI Model</div>
         </div>
 
         <!-- Settings drawer -->
@@ -301,6 +323,8 @@ var state = { conversations: [], currentId: null,
     settings: { model:"", system:"", temperature:0.7, maxTokens:"", theme:"dark" } };
 
 var generating = false, revealTimer = null, cancelReveal = false;
+var availableModels = [];          // models known from the backend
+var pendingFiles = [];             // [{filepath, filename}] attached to the next message
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function persist(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
@@ -337,21 +361,54 @@ function loadModels(){
     setConn(null, "Checking…");
     ao_module_agirun("AIChat/backend/models.agi", {}, function(data){
         var r; try{ r = (typeof data==="string")?JSON.parse(data):data; }catch(e){ r = {default:"",models:[]}; }
-        var models = (r && r.models) ? r.models : [];
-        var dl = $("#modelList").empty();
-        models.forEach(function(m){ dl.append('<option value="'+esc(m)+'">'); });
+        availableModels = (r && r.models) ? r.models : [];
         // pick a default model if none chosen yet
         if(!state.settings.model){
-            state.settings.model = (r && r["default"]) ? r["default"] : (models[0] || "");
-            persist(); syncSettingsUI();
+            state.settings.model = (r && r["default"]) ? r["default"] : (availableModels[0] || "");
+            persist();
         }
-        if(models.length > 0 || (r && r["default"])){
-            setConn(true, models.length + " model" + (models.length===1?"":"s") + " configured");
+        renderModelOptions();
+        // datalist for the drawer's model text input
+        $("#modelList").html(availableModels.map(function(m){ return '<option value="'+esc(m)+'">'; }).join(""));
+        if(availableModels.length > 0 || state.settings.model){
+            setConn(true, availableModels.length + " model" + (availableModels.length===1?"":"s") + " available");
         } else {
             setConn(false, "No model configured");
         }
         renderMessages();
     }, function(){ setConn(false, "Backend unreachable"); });
+}
+
+// Build the <select> options from availableModels (+ the current model and a
+// "Custom…" entry), and select the active model.
+function renderModelOptions(){
+    var sel = document.getElementById("modelSelect");
+    var cur = (state.settings.model || "").trim();
+    var list = availableModels.slice();
+    if(cur && list.indexOf(cur) === -1) list.unshift(cur);
+    var html = list.map(function(m){
+        return '<option value="'+esc(m)+'"'+(m===cur?' selected':'')+'>'+esc(m)+'</option>';
+    }).join("");
+    if(list.length === 0){
+        html = '<option value="" disabled'+(cur?'':' selected')+'>No models — pick Custom…</option>';
+    }
+    html += '<option value="__custom__">✏️ Custom model…</option>';
+    sel.innerHTML = html;
+    sel.value = cur || (list[0] || "__custom__");
+}
+
+function onModelChange(){
+    var sel = document.getElementById("modelSelect");
+    if(sel.value === "__custom__"){
+        var name = (prompt("Enter the model name:", state.settings.model || "") || "").trim();
+        if(name){
+            if(availableModels.indexOf(name) === -1) availableModels.push(name);
+            state.settings.model = name;
+        }
+        persist(); renderModelOptions(); syncSettingsUI(); return;
+    }
+    state.settings.model = sel.value.trim();
+    persist(); syncSettingsUI();
 }
 function setConn(ok, text){
     var d = $("#connDot").removeClass("on off");
@@ -414,8 +471,15 @@ function buildMessage(m, index){
     $('<div class="avatar"></div>').text(isUser ? "You" : "AI").appendTo(row);
     var main = $('<div class="msg-main"></div>').appendTo(row);
     $('<div class="msg-role"></div>').text(isUser ? "You" : (m.model ? ("Assistant · " + m.model) : "Assistant")).appendTo(main);
+    if(isUser && m.files && m.files.length){
+        var fb = $('<div class="msg-files"></div>').appendTo(main);
+        m.files.forEach(function(f){
+            $('<span class="mf"></span>').html(fileIconSvg()).append($('<span></span>').text(f.filename)).attr("title", f.filepath).appendTo(fb);
+        });
+    }
     var bubble = $('<div class="bubble"></div>').appendTo(main);
     if(m.error){ bubble.html('<div class="err">'+esc(m.content)+'</div>'); }
+    else if(isUser){ bubble.text(m.content); }
     else { bubble.html(renderMarkdown(m.content)); }
 
     if(!isUser && !m.error){
@@ -438,9 +502,9 @@ function emptyState(){
     var e = $('<div class="empty"></div>');
     e.append('<img src="img/icon.svg" alt="">');
     e.append('<h1>How can I help you today?</h1>');
-    e.append('<p>Start a conversation with your configured OpenAI-compatible model. Messages, files and pricing run through the ArozOS <code>aimodel</code> AGI library.</p>');
+    e.append('<p>Start a conversation with your configured OpenAI- or Anthropic-compatible model. Messages, attachments and pricing run through the ArozOS <code>aimodel</code> AGI library.</p>');
     if(noModel){
-        e.append('<div class="warn">No model is configured yet. An administrator can set the endpoint, API key and default model in <b>System Settings → Developer Options → AI Model</b>. You can still type a model name above and try.</div>');
+        e.append('<div class="warn">No model is configured yet. An administrator can set the endpoint, API key and default model in <b>System Settings → AI Integration → AI Model</b>. You can still pick a Custom model above and try.</div>');
     }
     var sug = $('<div class="suggest"></div>').appendTo(e);
     ["Explain quantum computing in simple terms",
@@ -450,6 +514,47 @@ function emptyState(){
         $('<div class="chip"></div>').text(t).on("click", function(){ $("#composer").val(t); autoGrow(); sendMessage(); }).appendTo(sug);
     });
     return e;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   File attachments (via the ArozOS file selector)
+   ───────────────────────────────────────────────────────────── */
+function fileIconSvg(){
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+}
+function pickFiles(){
+    if(typeof ao_module_openFileSelector !== "function"){
+        showToast("File selector is only available inside the ArozOS desktop.", "red");
+        return;
+    }
+    // The callback is referenced by name in virtual-desktop mode, so it must be
+    // a named global function (defined below as aichatFileSelected).
+    ao_module_openFileSelector(aichatFileSelected, "user:/", "file", true);
+}
+// Global callback invoked by the ArozOS file selector with the chosen files.
+function aichatFileSelected(files){
+    if(!files || !files.length) return;
+    files.forEach(function(f){
+        var fp = f.filepath || f.path || "";
+        var fn = f.filename || (fp ? fp.split("/").pop() : "file");
+        if(fp && !pendingFiles.some(function(p){ return p.filepath === fp; })){
+            pendingFiles.push({ filepath: fp, filename: fn });
+        }
+    });
+    renderAttachments();
+}
+function removeAttachment(i){ pendingFiles.splice(i,1); renderAttachments(); }
+function renderAttachments(){
+    var box = $("#attachments");
+    if(pendingFiles.length === 0){ box.hide().empty(); return; }
+    box.empty().show();
+    pendingFiles.forEach(function(f, i){
+        var chip = $('<div class="attach-chip"></div>');
+        chip.append(fileIconSvg());
+        chip.append($('<span class="fn"></span>').text(f.filename).attr("title", f.filepath));
+        $('<span class="rm">✕</span>').on("click", function(){ removeAttachment(i); }).appendTo(chip);
+        box.append(chip);
+    });
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -467,9 +572,12 @@ function sendMessage(){
     if(generating) return;
     var conv = currentConv(); if(!conv) return;
     var text = $("#composer").val().replace(/\s+$/,"");
-    if(!text.trim()) return;
-    conv.messages.push({ role:"user", content:text });
-    if(!conv.titleSet){ conv.title = text.slice(0,42); conv.titleSet = true; renderSidebar(); }
+    if(!text.trim() && pendingFiles.length === 0) return;
+    var msg = { role:"user", content:text };
+    if(pendingFiles.length > 0){ msg.files = pendingFiles.slice(); }
+    conv.messages.push(msg);
+    if(!conv.titleSet && text.trim()){ conv.title = text.slice(0,42); conv.titleSet = true; renderSidebar(); }
+    pendingFiles = []; renderAttachments();
     $("#composer").val(""); autoGrow(); persist();
     renderMessages();
     generate(conv);
@@ -480,7 +588,12 @@ function generate(conv){
     var typing = showTyping();
     var payload = conv.messages.map(function(m){ return { role:m.role, content:m.content }; });
     var opts = buildOptions();
-    callBackend(payload, opts, function(resp){
+    // Attachments belong to the latest user message (chat.agi merges them in).
+    var files = [];
+    for(var i = conv.messages.length - 1; i >= 0; i--){
+        if(conv.messages[i].role === "user"){ files = (conv.messages[i].files || []).map(function(f){ return f.filepath; }); break; }
+    }
+    callBackend(payload, opts, files, function(resp){
         typing.remove();
         if(!resp || !resp.ok){
             pushAssistant(conv, { role:"assistant", content:(resp && resp.error) ? resp.error : "Request failed.", error:true });
@@ -570,9 +683,9 @@ function regenerateFrom(index){
 /* ─────────────────────────────────────────────────────────────
    Backend bridge
    ───────────────────────────────────────────────────────────── */
-function callBackend(messages, opts, ok, fail){
+function callBackend(messages, opts, files, ok, fail){
     ao_module_agirun("AIChat/backend/chat.agi",
-        { messages: JSON.stringify(messages), options: JSON.stringify(opts) },
+        { messages: JSON.stringify(messages), options: JSON.stringify(opts), files: JSON.stringify(files || []) },
         function(data){
             var resp; try{ resp = (typeof data==="string")?JSON.parse(data):data; }
             catch(e){ resp = { ok:false, error:"Unexpected response from server" }; }
@@ -589,9 +702,6 @@ function bindComposer(){
     ta.addEventListener("input", autoGrow);
     ta.addEventListener("keydown", function(e){
         if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); }
-    });
-    document.getElementById("modelInput").addEventListener("change", function(){
-        state.settings.model = this.value.trim(); persist(); syncSettingsUI();
     });
 }
 function autoGrow(){
@@ -620,7 +730,7 @@ function openDrawer(){ syncSettingsUI(); $("#scrim,#drawer").addClass("open"); }
 function closeDrawer(){ $("#scrim,#drawer").removeClass("open"); }
 function syncSettingsUI(){
     var s = state.settings;
-    $("#modelInput").val(s.model||"");
+    renderModelOptions();
     $("#setModel").val(s.model||"");
     $("#setSystem").val(s.system||"");
     $("#setTempRange").val(s.temperature); $("#tempVal").text(Number(s.temperature).toFixed(1));
