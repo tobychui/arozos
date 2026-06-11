@@ -112,6 +112,12 @@ func system_setting_getSettingGroups() []settingGroup {
 			Desc:     "Advance configs for developers",
 		},
 		{
+			Name:     "AI Integration",
+			Group:    "AInteg",
+			IconPath: "SystemAO/system_setting/img/ai.svg",
+			Desc:     "Connect AI models, manage pricing, quota and usage",
+		},
+		{
 			Name:     "About ArOZ",
 			Group:    "About",
 			IconPath: "SystemAO/system_setting/img/info.svg",

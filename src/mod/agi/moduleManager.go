@@ -55,6 +55,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.SysinfoLibRegister()
 	//g.AudioLibRegister() //work in progress
 	g.ZipLibRegister()
+	g.AIModelLibRegister()
 	g.SQLiteLibRegister()
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed

@@ -37,7 +37,7 @@ import (
 */
 
 var (
-	AgiVersion string = "3.0" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "3.2" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")

@@ -676,6 +676,84 @@ http.getCode("http://redirect.example.com"); //Get response code for the target 
 http.redirect("https://example.com", 307); //Redirect to target with status code
 ```
 
+### aimodel
+
+The aimodel library lets AGI scripts call an OpenAI-compatible chat completion
+endpoint (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio, llama.cpp server,
+vLLM, etc.) **or** the Anthropic (Claude) Messages API. It supports both plain
+text prompts and file based prompts (images for vision models, or text documents
+inlined into the conversation).
+
+The API format (`openai` / `anthropic`), endpoint, global API key and default
+model are configured by an administrator in
+`System Settings > AI Integration > AI Model`. Per-model pricing and an optional
+usage quota are also set there, and every call's token usage and computed cost
+are accumulated into a metrics board on the same page. When the quota is reached,
+new requests fail with a quota error until the window resets or the cap is raised.
+
+```
+//Include the library
+requirelib("aimodel");
+```
+
+#### aimodel functions
+
+```
+//Plain text prompt. Returns the assistant reply as a string.
+var answer = aimodel.chat("Summarize the theory of relativity in one sentence.");
+
+//With options. All option fields are optional and fall back to the global config.
+var reply = aimodel.chat("Translate to French: good morning", {
+    model: "gpt-4o-mini",            //override the default model
+    system: "You are a translator.", //optional system prompt
+    temperature: 0.2,
+    max_tokens: 256,
+    endpoint: "http://localhost:11434/v1", //override the global endpoint
+    apikey: "sk-..."                 //override the global API key
+});
+
+//File based prompt. Pass a single vpath or an array of vpaths.
+//Images are sent as vision image_url parts; text documents are inlined.
+var caption = aimodel.chatWithFile("Describe this image", "user:/Photo/cat.png");
+var review  = aimodel.chatWithFile("Review this code", ["user:/Desktop/main.go"], {model:"gpt-4o"});
+
+//Low-level call. Pass a full messages array, returns the parsed response object
+//(including usage info and finish reason).
+var res = aimodel.request([
+    {role: "system", content: "You are a helpful assistant."},
+    {role: "user", content: "Hello!"}
+], {model: "gpt-4o-mini"});
+console.log(res.choices[0].message.content);
+console.log(res.usage.total_tokens);
+console.log(res.usage.tokens_per_second); //generation speed (completion tokens / sec)
+
+//Aggregated usage metrics (tokens + cost) accumulated by the system.
+var usage = aimodel.usage();
+console.log(usage.totalTokens, usage.totalCost);
+
+//Configured models (the models that have pricing defined) and the default.
+var models = aimodel.models(); // { default: "gpt-4o-mini", models: ["...", ...] }
+
+//Models advertised by the live endpoint (best effort, hits /models).
+var live = aimodel.listModels(); // { models: ["...", ...] } or { error: "..." }
+
+//Build OpenAI-style content parts from virtual file path(s). Useful for adding
+//attachments to a specific message in a aimodel.request() messages array.
+var parts = aimodel.fileParts(["user:/Photo/cat.png"]);
+var res2 = aimodel.request([
+    {role: "user", content: [{type:"text", text:"What is this?"}].concat(parts)}
+]);
+```
+
+The same calls work regardless of the configured API format — when Anthropic is
+selected, system prompts, image attachments and token usage are translated to and
+from the Anthropic Messages API automatically. Per-call you can override the format
+with the `apiFormat` option (`"openai"` or `"anthropic"`).
+
+On error (missing configuration, network failure, an error returned by the
+endpoint, or an exceeded usage quota), the call throws a JavaScript exception that
+can be caught with `try { ... } catch(e) { ... }`.
+
 ### websocket
 
 websocket library provide request upgrade from normal HTTP request to WebSocket connections. 
