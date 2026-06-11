@@ -29,6 +29,12 @@ if (typeof action === "undefined" || action === "") {
     exit(0);
 }
 
+// available — no db required; lets callers probe library support before opening a file
+if (action === "available") {
+    respond({available: true});
+    exit(0);
+}
+
 if (typeof db === "undefined" || db === "") {
     respond({error: "Missing parameter: db"});
     exit(0);

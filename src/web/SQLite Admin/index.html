@@ -477,6 +477,21 @@
         }
         #toast.show { opacity: 1; }
         #toast.error { background: var(--danger); }
+
+        /* ── SQLite-unavailable banner ───────────────────── */
+        #not-supported-banner {
+            display: none;
+            margin: 0 0 12px 0;
+            padding: 12px 16px;
+            background: #fff3cd; color: #7d5800;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: center;
+        }
+        #not-supported-banner.show { display: block; }
+        #not-supported-banner strong { display: block; margin-bottom: 4px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -512,6 +527,10 @@
 
         <!-- Welcome screen (shown before any DB is open) -->
         <div id="welcome">
+            <div id="not-supported-banner">
+                <strong>SQLite not available on this platform</strong>
+                The SQLite library could not be loaded on this server. This feature requires a platform supported by the SQLite backend (linux/amd64, linux/arm64, darwin, windows/amd64, windows/arm64, and others). OpenWRT (linux/mipsle) and other embedded targets are not supported.
+            </div>
             <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <ellipse cx="12" cy="5" rx="9" ry="3"/>
                 <path d="M21 12c0 1.657-4.03 3-9 3s-9-1.343-9-3"/>
@@ -661,6 +680,21 @@ function api(params, cb) {
         cb(new Error("Request failed: " + xhr.status), null);
     });
 }
+
+// Probe SQLite availability on load; show banner and disable open button if unsupported
+(function checkSQLiteAvailability() {
+    api({action: 'available'}, function(err, data) {
+        var unavailable = (err) ||
+                          (data && data.error &&
+                           data.error.indexOf('not available') !== -1);
+        if (unavailable) {
+            document.getElementById('not-supported-banner').classList.add('show');
+            document.getElementById('btn-open-db').disabled = true;
+            document.getElementById('btn-open-db').title =
+                'SQLite is not supported on this platform';
+        }
+    });
+}());
 
 function escapeHtml(s) {
     if (s === null || s === undefined) return '';

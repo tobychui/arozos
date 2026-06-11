@@ -1,3 +1,5 @@
+//go:build !(linux && mipsle) && !(windows && arm)
+
 package agi
 
 import (
