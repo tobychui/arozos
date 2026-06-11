@@ -1,4 +1,4 @@
-//go:build !(linux && mipsle) && !(windows && arm)
+//go:build !(linux && mipsle) && !(windows && arm) && !(windows && 386)
 
 package agi
 
