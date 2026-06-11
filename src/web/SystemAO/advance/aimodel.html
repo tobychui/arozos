@@ -106,7 +106,7 @@ body.dark #aim-root {
 .aim-del:hover { color: var(--aim-danger); }
 
 /* Metric grid (overview style) */
-.aim-grid { display:grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap:8px; margin-bottom: 12px; }
+.aim-grid { display:grid; grid-template-columns: repeat(6, minmax(100px, 1fr)); gap:8px; margin-bottom: 12px; }
 .aim-metric { border:1px solid var(--aim-border); border-radius:10px; background:var(--aim-bg); padding:10px; }
 .aim-metric .lab { font-size:11px; color:var(--aim-dim); margin-bottom:4px; }
 .aim-metric .val { font-size:16px; font-weight:600; line-height:1.3; word-break:break-word; }
@@ -236,10 +236,11 @@ body.dark #aim-root {
             <div class="aim-metric"><div class="lab">Completion</div><div class="val" id="aim-m-completion">0</div></div>
             <div class="aim-metric cost"><div class="lab">Total Cost</div><div class="val" id="aim-m-cost">0</div></div>
             <div class="aim-metric"><div class="lab">Requests</div><div class="val" id="aim-m-requests">0</div></div>
+            <div class="aim-metric"><div class="lab">Avg Speed</div><div class="val" id="aim-m-speed">—</div></div>
         </div>
         <table class="aim-table">
-            <thead><tr><th>Model</th><th>Requests</th><th>Prompt</th><th>Completion</th><th>Total</th><th>Cost</th></tr></thead>
-            <tbody id="aim-metrics-body"><tr><td colspan="6" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr></tbody>
+            <thead><tr><th>Model</th><th>Requests</th><th>Prompt</th><th>Completion</th><th>Total</th><th>Cost</th><th>tok/s</th></tr></thead>
+            <tbody id="aim-metrics-body"><tr><td colspan="7" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr></tbody>
         </table>
     </div>
 </div>
@@ -269,6 +270,7 @@ body.dark #aim-root {
     function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
     function numfmt(n){ return Number(n||0).toLocaleString(); }
     function money(n){ n = Number(n||0); return currency + " " + (n < 1 ? n.toFixed(4) : n.toFixed(2)); }
+    function speed(tokens, ms){ tokens = Number(tokens||0); ms = Number(ms||0); if (tokens <= 0 || ms <= 0) return "—"; return (tokens / (ms/1000)).toFixed(1) + " tok/s"; }
     function toast(msg, ok){
         var t = el("aim-toast"); t.textContent = msg;
         t.style.background = ok === false ? "#c42b1c" : (ok === true ? "#107c10" : "#4d6bff");
@@ -419,11 +421,12 @@ body.dark #aim-root {
             el("aim-m-completion").textContent = numfmt(m.totalCompletionTokens);
             el("aim-m-cost").textContent = money(m.totalCost);
             el("aim-m-requests").textContent = numfmt(m.totalRequests);
+            el("aim-m-speed").textContent = speed(m.totalCompletionTokens, m.totalGenerationMs);
             el("aim-updated").textContent = (m.updatedAt > 0) ? ("Updated " + new Date(m.updatedAt*1000).toLocaleString()) : "";
             var per = m.perModel || {}, names = Object.keys(per).sort();
-            if (names.length === 0){ el("aim-metrics-body").innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr>'; return; }
+            if (names.length === 0){ el("aim-metrics-body").innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr>'; return; }
             el("aim-metrics-body").innerHTML = names.map(function(n){ var r = per[n];
-                return '<tr><td>'+esc(n)+'</td><td>'+numfmt(r.requests)+'</td><td>'+numfmt(r.promptTokens)+'</td><td>'+numfmt(r.completionTokens)+'</td><td>'+numfmt(r.totalTokens)+'</td><td>'+money(r.cost)+'</td></tr>';
+                return '<tr><td>'+esc(n)+'</td><td>'+numfmt(r.requests)+'</td><td>'+numfmt(r.promptTokens)+'</td><td>'+numfmt(r.completionTokens)+'</td><td>'+numfmt(r.totalTokens)+'</td><td>'+money(r.cost)+'</td><td>'+speed(r.completionTokens, r.generationMs)+'</td></tr>';
             }).join("");
         }).fail(function(){ toast("Failed to load metrics.", false); });
     }

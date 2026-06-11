@@ -112,6 +112,7 @@ type AIModelUsageRecord struct {
 	TotalTokens      int64   `json:"totalTokens"`
 	Cost             float64 `json:"cost"`
 	Requests         int64   `json:"requests"`
+	GenerationMs     int64   `json:"generationMs"` //total generation time, for average tok/s
 }
 
 // AIModelMetrics is the aggregated consumption across every model.
@@ -121,6 +122,7 @@ type AIModelMetrics struct {
 	TotalTokens           int64                          `json:"totalTokens"`
 	TotalCost             float64                        `json:"totalCost"`
 	TotalRequests         int64                          `json:"totalRequests"`
+	TotalGenerationMs     int64                          `json:"totalGenerationMs"` //for average tok/s
 	PerModel              map[string]*AIModelUsageRecord `json:"perModel"`
 	Currency              string                         `json:"currency"`
 	UpdatedAt             int64                          `json:"updatedAt"`
@@ -167,9 +169,11 @@ type aiChatResponse struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens     int64 `json:"prompt_tokens"`
-		CompletionTokens int64 `json:"completion_tokens"`
-		TotalTokens      int64 `json:"total_tokens"`
+		PromptTokens     int64   `json:"prompt_tokens"`
+		CompletionTokens int64   `json:"completion_tokens"`
+		TotalTokens      int64   `json:"total_tokens"`
+		TokensPerSecond  float64 `json:"tokens_per_second"` //completion tokens / generation time
+		GenerationMs     int64   `json:"generation_ms"`     //wall-clock duration of the request
 	} `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
@@ -463,6 +467,7 @@ func (g *Gateway) aiModelDoRequest(model string, messages []aiChatMessage, opt a
 
 	var parsed *aiChatResponse
 	var err error
+	start := time.Now()
 	if format == "anthropic" {
 		parsed, err = g.aiModelDoRequestAnthropic(endpoint, apikey, model, messages, opt)
 	} else {
@@ -471,13 +476,20 @@ func (g *Gateway) aiModelDoRequest(model string, messages []aiChatMessage, opt a
 	if err != nil {
 		return nil, err
 	}
+	elapsed := time.Since(start)
+
+	//Compute generation speed (tokens per second) from completion tokens.
+	parsed.Usage.GenerationMs = elapsed.Milliseconds()
+	if parsed.Usage.CompletionTokens > 0 && elapsed.Seconds() > 0 {
+		parsed.Usage.TokensPerSecond = float64(parsed.Usage.CompletionTokens) / elapsed.Seconds()
+	}
 
 	//Record usage. Prefer the model echoed back by the server.
 	usedModel := model
 	if strings.TrimSpace(parsed.Model) != "" {
 		usedModel = parsed.Model
 	}
-	g.recordAIModelUsage(usedModel, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens)
+	g.recordAIModelUsage(usedModel, parsed.Usage.PromptTokens, parsed.Usage.CompletionTokens, elapsed.Milliseconds())
 
 	return parsed, nil
 }
@@ -909,8 +921,15 @@ func (g *Gateway) getAIModelMetrics() *AIModelMetrics {
 }
 
 // recordAIModelUsage atomically adds the given token counts (and their
-// computed cost from the configured pricing) into the persisted metrics.
-func (g *Gateway) recordAIModelUsage(model string, promptTokens int64, completionTokens int64) {
+// computed cost from the configured pricing) into the persisted metrics. The
+// optional genMs argument is the request's generation time, accumulated so the
+// metrics board can report an average tokens-per-second.
+func (g *Gateway) recordAIModelUsage(model string, promptTokens int64, completionTokens int64, genMs ...int64) {
+	var generationMs int64
+	if len(genMs) > 0 {
+		generationMs = genMs[0]
+	}
+
 	aiModelMetricsMux.Lock()
 	defer aiModelMetricsMux.Unlock()
 
@@ -937,12 +956,14 @@ func (g *Gateway) recordAIModelUsage(model string, promptTokens int64, completio
 	rec.TotalTokens += promptTokens + completionTokens
 	rec.Cost += cost
 	rec.Requests++
+	rec.GenerationMs += generationMs
 
 	metrics.TotalPromptTokens += promptTokens
 	metrics.TotalCompletionTokens += completionTokens
 	metrics.TotalTokens += promptTokens + completionTokens
 	metrics.TotalCost += cost
 	metrics.TotalRequests++
+	metrics.TotalGenerationMs += generationMs
 	metrics.UpdatedAt = time.Now().Unix()
 
 	//Maintain the windowed usage used for quota enforcement. Reset the window

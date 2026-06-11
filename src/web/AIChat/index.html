@@ -485,9 +485,10 @@ function buildMessage(m, index){
     if(!isUser && !m.error){
         var foot = $('<div class="msg-footer" style="display:flex;"></div>').appendTo(main);
         if(m.usage && (m.usage.total_tokens || m.usage.completion_tokens)){
-            $('<span class="usage"></span>').text(
-                "↑ " + (m.usage.prompt_tokens||0) + "  ↓ " + (m.usage.completion_tokens||0) +
-                "  · " + (m.usage.total_tokens||0) + " tokens").appendTo(foot);
+            var u = "↑ " + (m.usage.prompt_tokens||0) + "  ↓ " + (m.usage.completion_tokens||0) +
+                "  · " + (m.usage.total_tokens||0) + " tokens";
+            if(m.usage.tokens_per_second > 0){ u += "  · " + m.usage.tokens_per_second.toFixed(1) + " tok/s"; }
+            $('<span class="usage"></span>').text(u).appendTo(foot);
         }
         $('<button class="mini-btn">⧉ Copy</button>').on("click", function(){ copyText(m.content, this); }).appendTo(foot);
         $('<button class="mini-btn">↻ Regenerate</button>').on("click", function(){ regenerateFrom(index); }).appendTo(foot);

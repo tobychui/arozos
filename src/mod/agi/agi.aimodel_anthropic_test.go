@@ -145,6 +145,38 @@ func TestAIModelDoRequestBlockedByQuota(t *testing.T) {
 	}
 }
 
+func TestAIModelRecordsTokensPerSecond(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(25 * time.Millisecond) //ensure a measurable generation time
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"model":"m","choices":[{"message":{"role":"assistant","content":"hello world"}}],
+			"usage":{"prompt_tokens":5,"completion_tokens":20,"total_tokens":25}}`)
+	}))
+	defer srv.Close()
+
+	g := dbGateway(t)
+	g.Option.UserHandler.GetDatabase().Write(aiModelDBTable, "config", AIModelConfig{Endpoint: srv.URL, DefaultModel: "m", APIFormat: "openai"})
+
+	resp, err := g.aiModelDoRequest("", []aiChatMessage{{Role: "user", Content: "hi"}}, aiChatOptions{})
+	if err != nil {
+		t.Fatalf("request errored: %v", err)
+	}
+	if resp.Usage.GenerationMs <= 0 {
+		t.Errorf("expected generation_ms > 0, got %d", resp.Usage.GenerationMs)
+	}
+	if resp.Usage.TokensPerSecond <= 0 {
+		t.Errorf("expected tokens_per_second > 0, got %v", resp.Usage.TokensPerSecond)
+	}
+
+	m := g.getAIModelMetrics()
+	if m.TotalGenerationMs <= 0 {
+		t.Errorf("expected total generation ms recorded, got %d", m.TotalGenerationMs)
+	}
+	if rec := m.PerModel["m"]; rec == nil || rec.GenerationMs <= 0 {
+		t.Errorf("per-model generation ms not recorded: %+v", rec)
+	}
+}
+
 func TestAIModelWindowExpired(t *testing.T) {
 	now := time.Date(2026, 6, 11, 12, 0, 0, 0, time.UTC)
 	if !aiModelWindowExpired(0, "daily", now) {

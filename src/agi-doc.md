@@ -725,6 +725,7 @@ var res = aimodel.request([
 ], {model: "gpt-4o-mini"});
 console.log(res.choices[0].message.content);
 console.log(res.usage.total_tokens);
+console.log(res.usage.tokens_per_second); //generation speed (completion tokens / sec)
 
 //Aggregated usage metrics (tokens + cost) accumulated by the system.
 var usage = aimodel.usage();
