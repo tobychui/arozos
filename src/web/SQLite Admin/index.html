@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SQLite Admin</title>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../script/ao.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <style>
+        :root {
+            --accent:   #4a6cf7;
+            --accent-h: #3557e0;
+            --sidebar:  #1e2233;
+            --side-txt: #c8cfdf;
+            --side-muted: #6b7490;
+            --bg:       #f4f6fb;
+            --surface:  #ffffff;
+            --border:   #e2e6f0;
+            --text:     #1a1f36;
+            --muted:    #6b7a99;
+            --danger:   #e84444;
+            --success:  #2ecc71;
+            --null-col: #a0a8bf;
+            --pk-col:   #f0f4ff;
+            --row-hover:#f7f9ff;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Toolbar ─────────────────────────────────────── */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 14px;
+            height: 44px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        #toolbar .logo {
+            display: flex; align-items: center; gap: 7px;
+            font-weight: 700; font-size: 14px; color: var(--text);
+        }
+        #toolbar .logo svg { opacity: .85; }
+        #toolbar .db-path {
+            flex: 1;
+            font-size: 12px; color: var(--muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            padding: 0 8px;
+        }
+        #toolbar button {
+            padding: 5px 12px;
+            border-radius: 6px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text);
+            cursor: pointer; font-size: 12px; font-weight: 500;
+            transition: background .15s;
+        }
+        #toolbar button:hover { background: var(--bg); }
+        #toolbar button.primary {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        #toolbar button.primary:hover { background: var(--accent-h); }
+
+        /* ── Layout ──────────────────────────────────────── */
+        #layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ─────────────────────────────────────── */
+        #sidebar {
+            width: 200px;
+            flex-shrink: 0;
+            background: var(--sidebar);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #sidebar-header {
+            padding: 12px 14px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--side-muted);
+            border-bottom: 1px solid rgba(255,255,255,.06);
+        }
+        #table-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px 0;
+        }
+        #table-list::-webkit-scrollbar { width: 4px; }
+        #table-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 2px; }
+        .table-item {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 14px;
+            color: var(--side-txt);
+            cursor: pointer;
+            border-radius: 0;
+            transition: background .12s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .table-item:hover { background: rgba(255,255,255,.07); }
+        .table-item.active {
+            background: var(--accent);
+            color: #fff;
+        }
+        .table-item svg { flex-shrink: 0; opacity: .7; }
+        .table-item.active svg { opacity: 1; }
+        .table-item .tbl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+        .tbl-drop-btn {
+            display: none;
+            flex-shrink: 0;
+            background: none; border: none; padding: 2px 4px;
+            color: rgba(255,255,255,.45); cursor: pointer; border-radius: 3px;
+            line-height: 1; font-size: 13px;
+            transition: color .12s, background .12s;
+        }
+        .table-item:hover .tbl-drop-btn { display: flex; align-items: center; }
+        .tbl-drop-btn:hover { color: #ff7070; background: rgba(255,100,100,.15); }
+        .table-item.active .tbl-drop-btn { color: rgba(255,255,255,.5); }
+        .table-item.active .tbl-drop-btn:hover { color: #fff; background: rgba(255,255,255,.2); }
+        #sidebar-empty {
+            padding: 20px 14px;
+            color: var(--side-muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        /* ── Main content ────────────────────────────────── */
+        #content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        /* ── Tab bar ─────────────────────────────────────── */
+        #tab-bar {
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 2px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            height: 40px;
+        }
+        .tab-btn {
+            padding: 6px 14px;
+            border: none; background: none;
+            cursor: pointer; font-size: 12px; font-weight: 500;
+            color: var(--muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: color .12s, border-color .12s;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        #tab-title {
+            margin-left: auto;
+            font-size: 12px; color: var(--muted);
+        }
+
+        /* ── Tab panels ──────────────────────────────────── */
+        .tab-panel {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        .tab-panel.visible { display: flex; }
+
+        /* ── Welcome screen ──────────────────────────────── */
+        #welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            gap: 12px;
+        }
+        #welcome svg { opacity: .25; }
+        #welcome h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--muted); }
+        #welcome p  { margin: 0; font-size: 13px; }
+
+        /* ── Browse tab ──────────────────────────────────── */
+        #browse-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px;
+            flex-shrink: 0;
+        }
+        #browse-toolbar .row-count {
+            font-size: 12px; color: var(--muted);
+            margin-right: auto;
+        }
+        #browse-toolbar button {
+            padding: 5px 11px;
+            border-radius: 6px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text);
+            cursor: pointer; font-size: 12px; font-weight: 500;
+            transition: background .12s;
+        }
+        #browse-toolbar button:hover { background: var(--bg); }
+        #browse-toolbar button.primary {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        #browse-toolbar button.primary:hover { background: var(--accent-h); }
+
+        #table-wrapper {
+            flex: 1;
+            overflow: auto;
+            padding: 0 16px;
+        }
+        #table-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+        #table-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: var(--surface);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+        }
+        table.data-table thead th {
+            background: #f8f9fc;
+            padding: 9px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            user-select: none;
+        }
+        table.data-table thead th.sortable {
+            cursor: pointer;
+        }
+        table.data-table thead th.sortable:hover { color: var(--text); }
+        table.data-table thead th.sort-active { color: var(--accent); }
+        .sort-icon { margin-left: 4px; font-style: normal; opacity: .6; }
+        th.sort-active .sort-icon { opacity: 1; }
+        table.data-table thead th.pk { background: var(--pk-col); }
+        #browse-toolbar select.limit-select {
+            padding: 5px 8px;
+            border-radius: 6px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text);
+            cursor: pointer; font-size: 12px;
+        }
+        table.data-table thead th.actions { width: 90px; text-align: center; }
+        table.data-table tbody tr { border-bottom: 1px solid var(--border); }
+        table.data-table tbody tr:last-child { border-bottom: none; }
+        table.data-table tbody tr:hover { background: var(--row-hover); }
+        table.data-table td {
+            padding: 8px 12px;
+            max-width: 260px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+        table.data-table td.pk { background: var(--pk-col); font-weight: 600; }
+        table.data-table td .null { color: var(--null-col); font-style: italic; }
+        table.data-table td.actions {
+            text-align: center; white-space: nowrap; padding: 4px 8px;
+        }
+        .btn-edit, .btn-del {
+            padding: 3px 8px;
+            border-radius: 4px; border: 1px solid var(--border);
+            cursor: pointer; font-size: 11px; font-weight: 500;
+            background: var(--surface);
+            transition: background .12s;
+        }
+        .btn-edit:hover { background: var(--bg); color: var(--accent); border-color: var(--accent); }
+        .btn-del  { color: var(--danger); }
+        .btn-del:hover  { background: #fff0f0; border-color: var(--danger); }
+
+        #pagination {
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; padding: 12px 16px;
+            flex-shrink: 0;
+        }
+        .page-btn {
+            padding: 4px 10px;
+            border-radius: 5px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text);
+            cursor: pointer; font-size: 12px;
+            transition: background .12s;
+        }
+        .page-btn:hover:not(:disabled) { background: var(--bg); }
+        .page-btn:disabled { opacity: .4; cursor: default; }
+        .page-btn.current { background: var(--accent); color: #fff; border-color: var(--accent); }
+        #page-info { font-size: 12px; color: var(--muted); padding: 0 4px; }
+
+        /* ── Structure tab ───────────────────────────────── */
+        #structure-wrap {
+            flex: 1; overflow: auto; padding: 16px;
+        }
+        table.schema-table {
+            width: 100%; border-collapse: collapse;
+            font-size: 12px;
+            background: var(--surface);
+            border-radius: 8px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,.06);
+        }
+        table.schema-table thead th {
+            background: #f8f9fc; padding: 9px 14px;
+            text-align: left; font-weight: 600; color: var(--muted);
+            font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+        table.schema-table tbody tr { border-bottom: 1px solid var(--border); }
+        table.schema-table tbody tr:last-child { border-bottom: none; }
+        table.schema-table td { padding: 9px 14px; vertical-align: middle; }
+        .badge {
+            display: inline-block; padding: 2px 6px;
+            border-radius: 3px; font-size: 10px; font-weight: 600;
+            letter-spacing: .04em; text-transform: uppercase;
+        }
+        .badge-pk  { background: #e8eeff; color: var(--accent); }
+        .badge-nn  { background: #fff3e0; color: #e67e22; }
+        .badge-type { background: #f0f4ff; color: #5566aa; }
+
+        /* ── SQL Editor tab ──────────────────────────────── */
+        #sql-wrap {
+            flex: 1; display: flex; flex-direction: column;
+            padding: 14px 16px; gap: 10px; overflow: hidden;
+        }
+        #sql-editor {
+            flex: 0 0 140px;
+            resize: vertical;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 10px 12px;
+            font-family: "Fira Code", "Cascadia Code", "Consolas", monospace;
+            font-size: 12.5px;
+            line-height: 1.6;
+            background: var(--surface);
+            color: var(--text);
+            outline: none;
+            transition: border-color .15s;
+            min-height: 80px;
+            max-height: 300px;
+        }
+        #sql-editor:focus { border-color: var(--accent); }
+        #sql-exec-bar {
+            display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+        }
+        #sql-exec-bar button {
+            padding: 6px 16px;
+            border-radius: 6px; border: none;
+            background: var(--accent); color: #fff;
+            cursor: pointer; font-size: 12px; font-weight: 600;
+            transition: background .12s;
+        }
+        #sql-exec-bar button:hover { background: var(--accent-h); }
+        #sql-exec-bar .hint { font-size: 11px; color: var(--muted); }
+        #sql-results {
+            flex: 1; overflow: auto; border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+        }
+        #sql-results::-webkit-scrollbar { width: 6px; height: 6px; }
+        #sql-results::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .sql-error {
+            padding: 12px 14px;
+            color: var(--danger);
+            font-family: monospace; font-size: 12px; line-height: 1.5;
+            background: #fff5f5; border-radius: 7px;
+        }
+        .sql-ok-msg {
+            padding: 12px 14px;
+            color: var(--success); font-size: 12px;
+        }
+
+        /* ── Modal ───────────────────────────────────────── */
+        #modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.45);
+            z-index: 900;
+            align-items: center; justify-content: center;
+        }
+        #modal-overlay.open { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border-radius: 10px;
+            padding: 22px 24px;
+            width: 400px; max-width: 95vw;
+            max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 12px 40px rgba(0,0,0,.2);
+        }
+        .modal-box h3 { margin: 0 0 16px; font-size: 15px; font-weight: 700; }
+        .modal-field { margin-bottom: 12px; }
+        .modal-field label {
+            display: block; font-size: 11px; font-weight: 600;
+            color: var(--muted); margin-bottom: 4px;
+            text-transform: uppercase; letter-spacing: .04em;
+        }
+        .modal-field input, .modal-field textarea {
+            width: 100%; padding: 7px 10px;
+            border: 1px solid var(--border); border-radius: 6px;
+            font-size: 13px; background: var(--bg);
+            color: var(--text); outline: none;
+            transition: border-color .15s;
+        }
+        .modal-field input:focus, .modal-field textarea:focus {
+            border-color: var(--accent); background: var(--surface);
+        }
+        .modal-field .pk-note { font-size: 11px; color: var(--muted); margin-top: 3px; }
+        .modal-actions {
+            display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
+        }
+        .modal-actions button {
+            padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+            cursor: pointer; font-size: 12px; font-weight: 600;
+            transition: background .12s;
+        }
+        .modal-actions .btn-cancel { background: var(--surface); color: var(--text); }
+        .modal-actions .btn-cancel:hover { background: var(--bg); }
+        .modal-actions .btn-save {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        .modal-actions .btn-save:hover { background: var(--accent-h); }
+        .modal-actions .btn-danger {
+            background: var(--danger); color: #fff; border-color: var(--danger);
+        }
+
+        /* ── Loading spinner ─────────────────────────────── */
+        .spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin .6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-overlay {
+            display: none; position: absolute; inset: 0;
+            background: rgba(244,246,251,.6);
+            align-items: center; justify-content: center;
+            z-index: 50;
+        }
+        #loading-overlay.show { display: flex; }
+        #content { position: relative; }
+
+        /* ── Notification toast ──────────────────────────── */
+        #toast {
+            position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+            background: #1e2233; color: #fff;
+            padding: 9px 18px; border-radius: 7px;
+            font-size: 12px; font-weight: 500;
+            opacity: 0; pointer-events: none;
+            transition: opacity .2s;
+            z-index: 999;
+        }
+        #toast.show { opacity: 1; }
+        #toast.error { background: var(--danger); }
+
+        /* ── SQLite-unavailable banner ───────────────────── */
+        #not-supported-banner {
+            display: none;
+            margin: 0 0 12px 0;
+            padding: 12px 16px;
+            background: #fff3cd; color: #7d5800;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: center;
+        }
+        #not-supported-banner.show { display: block; }
+        #not-supported-banner strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+    <div class="logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a6cf7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M21 12c0 1.657-4.03 3-9 3s-9-1.343-9-3"/>
+            <path d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5"/>
+        </svg>
+        SQLite Admin
+    </div>
+    <span id="db-path-label" class="db-path">No database selected</span>
+    <button id="btn-open-db" class="primary">Open Database&hellip;</button>
+</div>
+
+<!-- Layout -->
+<div id="layout">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div id="sidebar-header">Tables</div>
+        <div id="table-list">
+            <div id="sidebar-empty">Open a <code>.sqlite</code> file to begin.</div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content">
+        <div id="loading-overlay"><div class="spinner"></div></div>
+
+        <!-- Welcome screen (shown before any DB is open) -->
+        <div id="welcome">
+            <div id="not-supported-banner">
+                <strong>SQLite not available on this platform</strong>
+                The SQLite library could not be loaded on this server. This feature requires a platform supported by the SQLite backend (linux/amd64, linux/arm64, darwin, windows/amd64, windows/arm64, and others). OpenWRT (linux/mipsle) and other embedded targets are not supported.
+            </div>
+            <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M21 12c0 1.657-4.03 3-9 3s-9-1.343-9-3"/>
+                <path d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5"/>
+            </svg>
+            <h2>SQLite Admin</h2>
+            <p>Click <strong>Open Database&hellip;</strong> to select a <code>.sqlite</code> file.</p>
+        </div>
+
+        <!-- Main area (hidden until DB is open) -->
+        <div id="main-area" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+
+            <!-- Tab bar -->
+            <div id="tab-bar">
+                <button class="tab-btn active" data-tab="browse">Browse</button>
+                <button class="tab-btn" data-tab="structure">Structure</button>
+                <button class="tab-btn" data-tab="sql">SQL Editor</button>
+                <span id="tab-title"></span>
+            </div>
+
+            <!-- Browse panel -->
+            <div id="tab-browse" class="tab-panel visible">
+                <div id="browse-toolbar">
+                    <span id="row-count" class="row-count"></span>
+                    <select id="limit-select" class="limit-select" title="Rows per page">
+                        <option value="25">25 rows</option>
+                        <option value="50" selected>50 rows</option>
+                        <option value="100">100 rows</option>
+                        <option value="200">200 rows</option>
+                    </select>
+                    <button id="btn-refresh">&#8635; Refresh</button>
+                    <button id="btn-add-row" class="primary">+ Add Row</button>
+                </div>
+                <div id="table-wrapper">
+                    <div id="browse-placeholder" style="padding:40px;text-align:center;color:var(--muted);">
+                        Select a table from the sidebar.
+                    </div>
+                    <table id="data-table" class="data-table" style="display:none;">
+                        <thead id="data-thead"></thead>
+                        <tbody id="data-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="pagination"></div>
+            </div>
+
+            <!-- Structure panel -->
+            <div id="tab-structure" class="tab-panel">
+                <div id="structure-wrap">
+                    <div id="structure-placeholder" style="padding:40px;text-align:center;color:var(--muted);">
+                        Select a table from the sidebar.
+                    </div>
+                    <table id="schema-table" class="schema-table" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Column</th>
+                                <th>Type</th>
+                                <th>Flags</th>
+                                <th>Default</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schema-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SQL Editor panel -->
+            <div id="tab-sql" class="tab-panel">
+                <div id="sql-wrap">
+                    <textarea id="sql-editor" placeholder="Enter SQL statements…&#10;&#10;Examples:&#10;  SELECT * FROM tablename LIMIT 10;&#10;  CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT);&#10;  INSERT INTO test VALUES (1, 'hello');"></textarea>
+                    <div id="sql-exec-bar">
+                        <button id="btn-exec-sql">&#9654; Execute</button>
+                        <span class="hint">Ctrl+Enter to run &bull; SELECT returns rows &bull; Other statements return row count</span>
+                    </div>
+                    <div id="sql-results"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit / Insert Modal -->
+<div id="modal-overlay">
+    <div class="modal-box">
+        <h3 id="modal-title">Edit Row</h3>
+        <div id="modal-fields"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="modal-cancel">Cancel</button>
+            <button class="btn-save" id="modal-save">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Dialog (shared for row delete and table drop) -->
+<div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center;">
+    <div class="modal-box" style="width:360px;">
+        <h3 id="confirm-title">Delete Row</h3>
+        <p id="confirm-body" style="font-size:13px;color:var(--muted);margin:0 0 16px;">Are you sure you want to delete this row? This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="del-cancel">Cancel</button>
+            <button class="btn-danger" id="del-confirm">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+var App = {
+    db:             null,   // current db virtual path
+    table:          null,   // current table name
+    schema:         [],     // current table schema (array of col info)
+    page:           1,
+    limit:          50,
+    total:          0,
+    sortCol:        null,   // active sort column name or null
+    sortDir:        'ASC',  // 'ASC' or 'DESC'
+    pendingDelete:  null,   // {pkCol, pkVal}
+    pendingDrop:    null,   // table name to drop
+    pendingEditRow: null    // row data for modal
+};
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function toast(msg, isError) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (isError ? ' error' : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function() { el.className = ''; }, 2800);
+}
+
+function loading(on) {
+    document.getElementById('loading-overlay').className = on ? 'show' : '';
+}
+
+function api(params, cb) {
+    ao_module_agirun("SQLite Admin/backend/api.agi", params, function(raw) {
+        try {
+            var data = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+            cb(null, data);
+        } catch(e) {
+            cb(e, null);
+        }
+    }, function(xhr) {
+        cb(new Error("Request failed: " + xhr.status), null);
+    });
+}
+
+// Probe SQLite availability on load; show banner and disable open button if unsupported
+(function checkSQLiteAvailability() {
+    api({action: 'available'}, function(err, data) {
+        var unavailable = (err) ||
+                          (data && data.error &&
+                           data.error.indexOf('not available') !== -1);
+        if (unavailable) {
+            document.getElementById('not-supported-banner').classList.add('show');
+            document.getElementById('btn-open-db').disabled = true;
+            document.getElementById('btn-open-db').title =
+                'SQLite is not supported on this platform';
+        }
+    });
+}());
+
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function pkCol() {
+    for (var i = 0; i < App.schema.length; i++) {
+        if (App.schema[i].pk > 0) return App.schema[i].name;
+    }
+    // fallback: use rowid or first column
+    return App.schema.length > 0 ? App.schema[0].name : null;
+}
+
+// ─── Database open ────────────────────────────────────────────────────────────
+// Named global so virtual-desktop mode can locate the callback by name
+window.onSQLiteFileSelected = function(files) {
+    if (!files || files.length === 0) return;
+    var vpath = files[0].filepath || files[0];
+    openDatabase(vpath);
+};
+
+document.getElementById('btn-open-db').addEventListener('click', function() {
+    ao_module_openFileSelector(
+        window.onSQLiteFileSelected,
+        "user:/", "file", false,
+        {filter: ["sqlite", "sqlite3", "db"], fnameOverride: "onSQLiteFileSelected"}
+    );
+});
+
+function openDatabase(vpath) {
+    loading(true);
+    api({action: 'tables', db: vpath}, function(err, data) {
+        loading(false);
+        if (err || data.error) {
+            toast(err ? err.message : data.error, true);
+            return;
+        }
+        App.db    = vpath;
+        App.table = null;
+        App.page  = 1;
+
+        document.getElementById('db-path-label').textContent = vpath;
+        document.getElementById('welcome').style.display = 'none';
+        document.getElementById('main-area').style.display = 'flex';
+        renderTableList(data.tables);
+
+        // Auto-select first table
+        if (data.tables && data.tables.length > 0) {
+            selectTable(data.tables[0]);
+        }
+    });
+}
+
+// ─── Table list ───────────────────────────────────────────────────────────────
+function renderTableList(tables) {
+    var list = document.getElementById('table-list');
+    list.innerHTML = '';
+    if (!tables || tables.length === 0) {
+        list.innerHTML = '<div id="sidebar-empty">Database has no tables.</div>';
+        return;
+    }
+    tables.forEach(function(name) {
+        var isInternal = name.indexOf('sqlite_') === 0;
+        var item = document.createElement('div');
+        item.className = 'table-item';
+        item.dataset.table = name;
+        var dropBtnHtml = isInternal ? '' :
+            '<button class="tbl-drop-btn" title="Drop table">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>' +
+            '<path d="M10 11v6"/><path d="M14 11v6"/>' +
+            '<path d="M9 6V4h6v2"/>' +
+            '</svg>' +
+            '</button>';
+        item.innerHTML =
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<rect x="3" y="3" width="18" height="18" rx="2"/>' +
+            '<line x1="3" y1="9" x2="21" y2="9"/>' +
+            '<line x1="3" y1="15" x2="21" y2="15"/>' +
+            '<line x1="9" y1="3" x2="9" y2="21"/>' +
+            '</svg>' +
+            '<span class="tbl-name">' + escapeHtml(name) + '</span>' +
+            dropBtnHtml;
+
+        item.addEventListener('click', function(e) {
+            if (e.target.closest('.tbl-drop-btn')) return;
+            selectTable(name);
+        });
+        if (!isInternal) {
+            item.querySelector('.tbl-drop-btn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                openDropTableConfirm(name);
+            });
+        }
+        list.appendChild(item);
+    });
+}
+
+function selectTable(name) {
+    App.table   = name;
+    App.page    = 1;
+    App.sortCol = null;
+    App.sortDir = 'ASC';
+
+    // Highlight sidebar item
+    document.querySelectorAll('.table-item').forEach(function(el) {
+        el.classList.toggle('active', el.dataset.table === name);
+    });
+
+    document.getElementById('tab-title').textContent = name;
+
+    var activeTab = document.querySelector('.tab-btn.active');
+    var tab = activeTab ? activeTab.dataset.tab : 'browse';
+
+    if (tab === 'browse')     loadBrowse();
+    else if (tab === 'structure') loadStructure();
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('visible'); });
+        document.getElementById('tab-' + tab).classList.add('visible');
+
+        if (!App.table) return;
+        if (tab === 'browse')     loadBrowse();
+        else if (tab === 'structure') loadStructure();
+    });
+});
+
+// ─── Browse ───────────────────────────────────────────────────────────────────
+document.getElementById('btn-refresh').addEventListener('click', function() {
+    if (App.table) loadBrowse();
+});
+
+document.getElementById('limit-select').addEventListener('change', function() {
+    App.limit = parseInt(this.value) || 50;
+    App.page  = 1;
+    if (App.table) loadBrowse();
+});
+
+function loadBrowse() {
+    if (!App.db || !App.table) return;
+    loading(true);
+    var params = {
+        action: 'query', db: App.db,
+        table: App.table, page: App.page, limit: App.limit
+    };
+    if (App.sortCol) {
+        params.sort_col = App.sortCol;
+        params.sort_dir = App.sortDir;
+    }
+    api(params, function(err, data) {
+        loading(false);
+        if (err || data.error) { toast(err ? err.message : data.error, true); return; }
+        App.total  = data.total;
+        App.schema = data.schema || [];
+        renderTable(data.rows, data.schema);
+        renderPagination(data.page, data.total, data.limit);
+        document.getElementById('row-count').textContent =
+            data.total + ' row' + (data.total === 1 ? '' : 's') + ' total';
+    });
+}
+
+function renderTable(rows, schema) {
+    var placeholder = document.getElementById('browse-placeholder');
+    var table       = document.getElementById('data-table');
+    var thead       = document.getElementById('data-thead');
+    var tbody       = document.getElementById('data-tbody');
+
+    if (!rows || rows.length === 0 && (!schema || schema.length === 0)) {
+        placeholder.textContent = 'No data in this table.';
+        placeholder.style.display = '';
+        table.style.display = 'none';
+        return;
+    }
+    placeholder.style.display = 'none';
+    table.style.display = '';
+
+    // Column order from schema
+    var cols = schema.map(function(c) { return c.name; });
+    var pkName = pkColFromSchema(schema);
+
+    // Header
+    thead.innerHTML = '';
+    var hr = document.createElement('tr');
+    cols.forEach(function(c) {
+        var th = document.createElement('th');
+        var classes = ['sortable'];
+        if (c === pkName) classes.push('pk');
+        if (c === App.sortCol) classes.push('sort-active');
+        th.className = classes.join(' ');
+
+        var label = document.createElement('span');
+        label.textContent = c;
+        th.appendChild(label);
+
+        var icon = document.createElement('i');
+        icon.className = 'sort-icon';
+        if (c === App.sortCol) {
+            icon.textContent = App.sortDir === 'DESC' ? '▼' : '▲';
+        } else {
+            icon.textContent = '⇅';
+        }
+        th.appendChild(icon);
+
+        (function(col) {
+            th.addEventListener('click', function() {
+                if (App.sortCol === col) {
+                    App.sortDir = App.sortDir === 'ASC' ? 'DESC' : 'ASC';
+                } else {
+                    App.sortCol = col;
+                    App.sortDir = 'ASC';
+                }
+                App.page = 1;
+                loadBrowse();
+            });
+        })(c);
+
+        hr.appendChild(th);
+    });
+    var thAct = document.createElement('th');
+    thAct.className = 'actions';
+    thAct.textContent = 'Actions';
+    hr.appendChild(thAct);
+    thead.appendChild(hr);
+
+    // Rows
+    tbody.innerHTML = '';
+    rows.forEach(function(row) {
+        var tr = document.createElement('tr');
+        cols.forEach(function(c) {
+            var td  = document.createElement('td');
+            var val = row[c];
+            if (val === null || val === undefined) {
+                td.innerHTML = '<span class="null">NULL</span>';
+            } else {
+                td.textContent = String(val);
+                td.title = String(val);
+            }
+            if (c === pkName) td.className = 'pk';
+            tr.appendChild(td);
+        });
+
+        // Actions
+        var tdAct = document.createElement('td');
+        tdAct.className = 'actions';
+        var pkVal = pkName ? row[pkName] : null;
+
+        var editBtn = document.createElement('button');
+        editBtn.className = 'btn-edit';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', (function(r) {
+            return function() { openEditModal(r, schema, pkName); };
+        })(row));
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'btn-del';
+        delBtn.textContent = 'Del';
+        delBtn.addEventListener('click', (function(pv) {
+            return function() { openDeleteConfirm(pkName, pv); };
+        })(pkVal));
+
+        tdAct.appendChild(editBtn);
+        tdAct.appendChild(document.createTextNode(' '));
+        tdAct.appendChild(delBtn);
+        tr.appendChild(tdAct);
+        tbody.appendChild(tr);
+    });
+}
+
+function pkColFromSchema(schema) {
+    if (!schema) return null;
+    for (var i = 0; i < schema.length; i++) {
+        if (schema[i].pk > 0) return schema[i].name;
+    }
+    return schema.length > 0 ? schema[0].name : null;
+}
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+function renderPagination(page, total, limit) {
+    var pages = Math.max(1, Math.ceil(total / limit));
+    var el = document.getElementById('pagination');
+    el.innerHTML = '';
+    if (pages <= 1) return;
+
+    var prev = document.createElement('button');
+    prev.className = 'page-btn';
+    prev.textContent = '‹ Prev';
+    prev.disabled = (page <= 1);
+    prev.addEventListener('click', function() { App.page = page - 1; loadBrowse(); });
+    el.appendChild(prev);
+
+    var start = Math.max(1, page - 2);
+    var end   = Math.min(pages, start + 4);
+    start = Math.max(1, end - 4);
+
+    for (var p = start; p <= end; p++) {
+        var pb = document.createElement('button');
+        pb.className = 'page-btn' + (p === page ? ' current' : '');
+        pb.textContent = p;
+        (function(pp) {
+            pb.addEventListener('click', function() { App.page = pp; loadBrowse(); });
+        })(p);
+        el.appendChild(pb);
+    }
+
+    var info = document.createElement('span');
+    info.id = 'page-info';
+    info.textContent = 'of ' + pages;
+    el.appendChild(info);
+
+    var next = document.createElement('button');
+    next.className = 'page-btn';
+    next.textContent = 'Next ›';
+    next.disabled = (page >= pages);
+    next.addEventListener('click', function() { App.page = page + 1; loadBrowse(); });
+    el.appendChild(next);
+}
+
+// ─── Structure ────────────────────────────────────────────────────────────────
+function loadStructure() {
+    if (!App.db || !App.table) return;
+    loading(true);
+    api({action: 'schema', db: App.db, table: App.table}, function(err, data) {
+        loading(false);
+        if (err || data.error) { toast(err ? err.message : data.error, true); return; }
+        renderStructure(data.schema);
+    });
+}
+
+function renderStructure(schema) {
+    var placeholder = document.getElementById('structure-placeholder');
+    var table       = document.getElementById('schema-table');
+    var tbody       = document.getElementById('schema-tbody');
+
+    if (!schema || schema.length === 0) {
+        placeholder.textContent = 'No schema information.';
+        placeholder.style.display = '';
+        table.style.display = 'none';
+        return;
+    }
+    placeholder.style.display = 'none';
+    table.style.display = '';
+    tbody.innerHTML = '';
+
+    schema.forEach(function(col) {
+        var tr = document.createElement('tr');
+        var badges = '';
+        if (col.pk > 0)      badges += '<span class="badge badge-pk">PK</span> ';
+        if (col.notnull > 0) badges += '<span class="badge badge-nn">NOT NULL</span> ';
+        var dflt = (col.dflt_value !== null && col.dflt_value !== undefined)
+                    ? escapeHtml(String(col.dflt_value))
+                    : '<span style="color:var(--null-col);font-style:italic">NULL</span>';
+        tr.innerHTML =
+            '<td style="color:var(--muted);font-size:11px;">' + col.cid + '</td>' +
+            '<td><strong>' + escapeHtml(col.name) + '</strong></td>' +
+            '<td><span class="badge badge-type">' + escapeHtml(col.type || 'ANY') + '</span></td>' +
+            '<td>' + badges + '</td>' +
+            '<td style="font-size:12px;">' + dflt + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+// ─── Add Row ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-add-row').addEventListener('click', function() {
+    if (!App.table) { toast('Select a table first.', true); return; }
+    openInsertModal(App.schema);
+});
+
+function openInsertModal(schema) {
+    App.pendingEditRow = null;
+    document.getElementById('modal-title').textContent = 'Add Row — ' + App.table;
+    var fields = document.getElementById('modal-fields');
+    fields.innerHTML = '';
+
+    schema.forEach(function(col) {
+        var div = document.createElement('div');
+        div.className = 'modal-field';
+        var label = document.createElement('label');
+        label.textContent = col.name;
+        if (col.pk > 0) {
+            label.textContent += ' (PK)';
+        }
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = col.name;
+        input.placeholder = col.type || '';
+        if (col.pk > 0 && col.type && col.type.toUpperCase().indexOf('INTEGER') >= 0) {
+            input.placeholder = 'auto-increment';
+        }
+        div.appendChild(label);
+        div.appendChild(input);
+        fields.appendChild(div);
+    });
+
+    document.getElementById('modal-save').onclick = doInsert;
+    openModal();
+}
+
+function doInsert() {
+    var inputs = document.querySelectorAll('#modal-fields input');
+    var row = {};
+    inputs.forEach(function(inp) {
+        if (inp.value !== '') row[inp.name] = inp.value;
+    });
+    if (Object.keys(row).length === 0) { toast('Enter at least one value.', true); return; }
+    loading(true);
+    api({action: 'insert', db: App.db, table: App.table, row: JSON.stringify(row)},
+    function(err, data) {
+        loading(false);
+        closeModal();
+        if (err || data.error) { toast(err ? err.message : data.error, true); return; }
+        toast('Row inserted.');
+        loadBrowse();
+    });
+}
+
+// ─── Edit Row ─────────────────────────────────────────────────────────────────
+function openEditModal(row, schema, pkName) {
+    App.pendingEditRow = {row: row, pkName: pkName};
+    document.getElementById('modal-title').textContent = 'Edit Row — ' + App.table;
+    var fields = document.getElementById('modal-fields');
+    fields.innerHTML = '';
+
+    schema.forEach(function(col) {
+        var div = document.createElement('div');
+        div.className = 'modal-field';
+        var label = document.createElement('label');
+        label.textContent = col.name;
+        if (col.pk > 0) label.textContent += ' (PK)';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = col.name;
+        var val = row[col.name];
+        input.value = (val !== null && val !== undefined) ? String(val) : '';
+        if (col.pk > 0) {
+            input.readOnly = true;
+            input.style.opacity = '.6';
+            var note = document.createElement('div');
+            note.className = 'pk-note';
+            note.textContent = 'Primary key — read-only';
+            div.appendChild(label);
+            div.appendChild(input);
+            div.appendChild(note);
+        } else {
+            div.appendChild(label);
+            div.appendChild(input);
+        }
+        fields.appendChild(div);
+    });
+
+    document.getElementById('modal-save').onclick = doUpdate;
+    openModal();
+}
+
+function doUpdate() {
+    if (!App.pendingEditRow) return;
+    var pkName = App.pendingEditRow.pkName;
+    var pkVal  = App.pendingEditRow.row[pkName];
+    var inputs = document.querySelectorAll('#modal-fields input:not([readonly])');
+    var promises = [];
+
+    inputs.forEach(function(inp) {
+        promises.push({col: inp.name, val: inp.value});
+    });
+
+    if (promises.length === 0) { closeModal(); return; }
+
+    var done = 0;
+    var errors = [];
+    loading(true);
+
+    function finish() {
+        done++;
+        if (done === promises.length) {
+            loading(false);
+            closeModal();
+            if (errors.length > 0) toast(errors[0], true);
+            else { toast('Row updated.'); loadBrowse(); }
+        }
+    }
+
+    promises.forEach(function(p) {
+        api({action: 'update', db: App.db, table: App.table,
+             pk_col: pkName, pk_val: pkVal, col: p.col, val: p.val},
+        function(err, data) {
+            if (err || data.error) errors.push(err ? err.message : data.error);
+            finish();
+        });
+    });
+}
+
+// ─── Delete Row ───────────────────────────────────────────────────────────────
+function openDeleteConfirm(pkCol, pkVal) {
+    if (!pkCol || pkVal === null || pkVal === undefined) {
+        toast('Cannot identify row to delete (no primary key).', true);
+        return;
+    }
+    App.pendingDelete = {pkCol: pkCol, pkVal: pkVal};
+    App.pendingDrop   = null;
+    document.getElementById('confirm-title').textContent = 'Delete Row';
+    document.getElementById('confirm-body').textContent  =
+        'Are you sure you want to delete this row? This action cannot be undone.';
+    document.getElementById('del-confirm').textContent = 'Delete';
+    document.getElementById('confirm-overlay').style.display = 'flex';
+}
+
+function openDropTableConfirm(tableName) {
+    App.pendingDrop   = tableName;
+    App.pendingDelete = null;
+    document.getElementById('confirm-title').textContent = 'Drop Table';
+    document.getElementById('confirm-body').innerHTML =
+        'Are you sure you want to drop <strong>' + escapeHtml(tableName) + '</strong>? ' +
+        'All data in this table will be permanently deleted and cannot be recovered.';
+    document.getElementById('del-confirm').textContent = 'Drop Table';
+    document.getElementById('confirm-overlay').style.display = 'flex';
+}
+
+function closeConfirm() {
+    App.pendingDelete = null;
+    App.pendingDrop   = null;
+    document.getElementById('confirm-overlay').style.display = 'none';
+}
+
+document.getElementById('del-cancel').addEventListener('click', closeConfirm);
+
+document.getElementById('del-confirm').addEventListener('click', function() {
+    if (App.pendingDrop) {
+        var tbl = App.pendingDrop;
+        closeConfirm();
+        loading(true);
+        api({action: 'droptable', db: App.db, table: tbl}, function(err, data) {
+            loading(false);
+            if (err || data.error) { toast(err ? err.message : data.error, true); return; }
+            toast('Table "' + tbl + '" dropped.');
+            // Clear selection if the dropped table was active
+            if (App.table === tbl) {
+                App.table = null;
+                document.getElementById('tab-title').textContent = '';
+                document.getElementById('data-table').style.display = 'none';
+                document.getElementById('browse-placeholder').textContent = 'Select a table from the sidebar.';
+                document.getElementById('browse-placeholder').style.display = '';
+                document.getElementById('pagination').innerHTML = '';
+                document.getElementById('row-count').textContent = '';
+            }
+            // Refresh sidebar table list
+            api({action: 'tables', db: App.db}, function(err2, d2) {
+                if (!err2 && !d2.error) renderTableList(d2.tables);
+            });
+        });
+    } else if (App.pendingDelete) {
+        var d = App.pendingDelete;
+        closeConfirm();
+        loading(true);
+        api({action: 'delete', db: App.db, table: App.table,
+             pk_col: d.pkCol, pk_val: d.pkVal},
+        function(err, data) {
+            loading(false);
+            if (err || data.error) { toast(err ? err.message : data.error, true); return; }
+            toast('Row deleted.');
+            loadBrowse();
+        });
+    }
+});
+
+// ─── SQL Editor ───────────────────────────────────────────────────────────────
+document.getElementById('btn-exec-sql').addEventListener('click', executeSql);
+document.getElementById('sql-editor').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); executeSql(); }
+});
+
+function executeSql() {
+    var sql = document.getElementById('sql-editor').value.trim();
+    if (!sql || !App.db) return;
+    loading(true);
+    api({action: 'exec', db: App.db, sql: sql}, function(err, data) {
+        loading(false);
+        var out = document.getElementById('sql-results');
+        if (err) {
+            out.innerHTML = '<div class="sql-error">Error: ' + escapeHtml(err.message) + '</div>';
+            return;
+        }
+        if (data.error) {
+            out.innerHTML = '<div class="sql-error">Error: ' + escapeHtml(data.error) + '</div>';
+            return;
+        }
+        if (data.rows && data.rows.length > 0) {
+            renderSqlResultTable(data.rows, out);
+        } else if (data.result) {
+            out.innerHTML = '<div class="sql-ok-msg">✓ OK — ' +
+                data.result.rowsAffected + ' row(s) affected, last insert ID: ' +
+                data.result.lastInsertId + '</div>';
+            // Refresh table list and current table if schema might have changed
+            refreshAfterExec(sql);
+        } else {
+            out.innerHTML = '<div class="sql-ok-msg">✓ Query executed, no rows returned.</div>';
+            refreshAfterExec(sql);
+        }
+    });
+}
+
+function renderSqlResultTable(rows, container) {
+    if (!rows || rows.length === 0) {
+        container.innerHTML = '<div class="sql-ok-msg">No rows returned.</div>';
+        return;
+    }
+    var cols = Object.keys(rows[0]);
+    var html = '<table class="data-table" style="margin:0;border-radius:0;box-shadow:none;">';
+    html += '<thead><tr>' + cols.map(function(c) {
+        return '<th>' + escapeHtml(c) + '</th>';
+    }).join('') + '</tr></thead><tbody>';
+    rows.forEach(function(row) {
+        html += '<tr>' + cols.map(function(c) {
+            var v = row[c];
+            if (v === null || v === undefined) return '<td><span class="null">NULL</span></td>';
+            return '<td title="' + escapeHtml(String(v)) + '">' + escapeHtml(String(v)) + '</td>';
+        }).join('') + '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function refreshAfterExec(sql) {
+    var upper = sql.trim().toUpperCase();
+    // Reload table list if DDL was likely executed
+    if (upper.indexOf('CREATE') === 0 || upper.indexOf('DROP') === 0 ||
+        upper.indexOf('ALTER') === 0) {
+        api({action: 'tables', db: App.db}, function(err, data) {
+            if (!err && !data.error) renderTableList(data.tables);
+        });
+    }
+    // Refresh current browse view if a table is selected
+    if (App.table) loadBrowse();
+}
+
+// ─── Modal helpers ────────────────────────────────────────────────────────────
+function openModal() {
+    document.getElementById('modal-overlay').classList.add('open');
+    var first = document.querySelector('#modal-fields input');
+    if (first) setTimeout(function() { first.focus(); }, 50);
+}
+function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+});
+</script>
+</body>
+</html>

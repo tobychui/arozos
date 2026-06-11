@@ -46,6 +46,8 @@ func mediaServer_init() {
 	if ffmpegInstalled {
 		//ffmpeg installed. allow transcode
 		http.HandleFunc("/media/transcode/", mediaServer.ServeVideoWithTranscode)
+		http.HandleFunc("/media/transcode/audio/", mediaServer.ServeAudioWithTranscode)
+		http.HandleFunc("/media/duration/", mediaServer.GetAudioDuration)
 	} else {
 		//ffmpeg not installed. Redirect transcode endpoint back to /media/
 		http.HandleFunc("/media/transcode/", func(w http.ResponseWriter, r *http.Request) {

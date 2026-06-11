@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/bodgit/sevenzip"
 	"github.com/mholt/archiver/v3"
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
@@ -593,6 +595,17 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.NullValue()
 		}
 
+		// Dispatch 7z archives to the dedicated helper
+		if strings.EqualFold(filepath.Ext(rpath), ".7z") {
+			jsonStr, err := sz7zListContentsJSON(rpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			reply, _ := vm.ToValue(jsonStr)
+			return reply
+		}
+
 		r, err := zip.OpenReader(rpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -674,6 +687,17 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
+		}
+
+		// Dispatch 7z archives to the dedicated helper
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			filelist, err := szListDir(zipRpath, dirPath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			reply, _ := vm.ToValue(filelist)
+			return reply
 		}
 
 		// Open zip file
@@ -771,6 +795,50 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		if err != nil {
 			g.RaiseError(err)
 			return otto.NullValue()
+		}
+
+		// Dispatch 7z archives
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			r7z, err := sevenzip.OpenReader(zipRpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			defer r7z.Close()
+
+			var target7z *sevenzip.File
+			for _, f := range r7z.File {
+				if filepath.ToSlash(f.Name) == filepath.ToSlash(fileInZip) {
+					target7z = f
+					break
+				}
+			}
+			if target7z == nil {
+				g.RaiseError(errors.New("File not found in archive: " + fileInZip))
+				return otto.NullValue()
+			}
+
+			tmpFsh7z, err := u.GetFileSystemHandlerFromVirtualPath("tmp:/")
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			tmpFilename7z := arozfs.Base(fileInZip)
+			tmpVpath7z := "tmp:/" + tmpFilename7z
+			tmpRpath7z, _ := tmpFsh7z.FileSystemAbstraction.VirtualPathToRealPath(tmpVpath7z, u.Username)
+			rc7z, err := target7z.Open()
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			defer rc7z.Close()
+			if err = tmpFsh7z.FileSystemAbstraction.WriteStream(tmpRpath7z, rc7z, 0755); err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			u.SetOwnerOfFile(tmpFsh7z, tmpVpath7z)
+			reply, _ := vm.ToValue(tmpVpath7z)
+			return reply
 		}
 
 		// Open zip file
@@ -922,6 +990,23 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 			return otto.FalseValue()
 		}
 
+		// 7z is not handled by the archiver library; dispatch separately
+		if strings.EqualFold(filepath.Ext(srcRpath), ".7z") {
+			if err = sz7zExtractAll(srcRpath, destFsh, destRpath); err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			destFsh.FileSystemAbstraction.Walk(destRpath, func(path string, info os.FileInfo, err error) error {
+				if err == nil && !info.IsDir() {
+					vp, _ := static.RealpathToVirtualpath(destFsh, path, u)
+					u.SetOwnerOfFile(destFsh, vp)
+				}
+				return nil
+			})
+			reply, _ := vm.ToValue(true)
+			return reply
+		}
+
 		// Detect format
 		format, err := archiver.ByExtension(srcRpath)
 		if err != nil {
@@ -1050,9 +1135,333 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		return reply
 	})
 
+	// extractPartialZip(zipVpath, filePathsInZip, destVpath) => Extract specific files or folders from a zip
+	vm.Set("_ziplib_extractPartialZip", func(call otto.FunctionCall) otto.Value {
+		zipVpath, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		pathsObj, err := call.Argument(1).Export()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		destVpath, err := call.Argument(2).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		zipVpath = static.RelativeVpathRewrite(scriptFsh, zipVpath, vm, u)
+		destVpath = static.RelativeVpathRewrite(scriptFsh, destVpath, vm, u)
+
+		targetPaths := szParsePathsArg(pathsObj)
+		if targetPaths == nil {
+			g.RaiseError(errors.New("invalid paths format"))
+			return otto.FalseValue()
+		}
+
+		if !u.CanRead(zipVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+zipVpath))
+		}
+		if !u.CanWrite(destVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
+		}
+
+		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		// Dispatch 7z archives
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			r7z, err := sevenzip.OpenReader(zipRpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			defer r7z.Close()
+
+			for _, f := range r7z.File {
+				outRelPath := szMatchPartialPath(filepath.ToSlash(f.Name), targetPaths)
+				if outRelPath == "" {
+					continue
+				}
+				outPath := filepath.Join(destRpath, filepath.FromSlash(outRelPath))
+				if f.FileInfo().IsDir() {
+					destFsh.FileSystemAbstraction.MkdirAll(outPath, 0755)
+					continue
+				}
+				destFsh.FileSystemAbstraction.MkdirAll(filepath.Dir(outPath), 0755)
+				rc, err := f.Open()
+				if err != nil {
+					continue
+				}
+				destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
+				rc.Close()
+				vp, err := static.RealpathToVirtualpath(destFsh, outPath, u)
+				if err == nil {
+					u.SetOwnerOfFile(destFsh, vp)
+				}
+			}
+			reply, _ := vm.ToValue(true)
+			return reply
+		}
+
+		r, err := zip.OpenReader(zipRpath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		defer r.Close()
+
+		for _, f := range r.File {
+			outRelPath := szMatchPartialPath(filepath.ToSlash(f.Name), targetPaths)
+			if outRelPath == "" {
+				continue
+			}
+
+			outPath := filepath.Join(destRpath, filepath.FromSlash(outRelPath))
+			if f.FileInfo().IsDir() {
+				destFsh.FileSystemAbstraction.MkdirAll(outPath, 0755)
+				continue
+			}
+			destFsh.FileSystemAbstraction.MkdirAll(filepath.Dir(outPath), 0755)
+
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+			destFsh.FileSystemAbstraction.WriteStream(outPath, rc, 0755)
+			rc.Close()
+
+			vp, err := static.RealpathToVirtualpath(destFsh, outPath, u)
+			if err == nil {
+				u.SetOwnerOfFile(destFsh, vp)
+			}
+		}
+
+		reply, _ := vm.ToValue(true)
+		return reply
+	})
+
+	// addFileToZip(zipVpath, sourceVpath) => Add a file or folder to an existing zip by rebuilding it
+	vm.Set("_ziplib_addFileToZip", func(call otto.FunctionCall) otto.Value {
+		zipVpath, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		srcVpath, err := call.Argument(1).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		zipVpath = static.RelativeVpathRewrite(scriptFsh, zipVpath, vm, u)
+		srcVpath = static.RelativeVpathRewrite(scriptFsh, srcVpath, vm, u)
+
+		if !u.CanRead(zipVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+zipVpath))
+		}
+		if !u.CanWrite(zipVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+zipVpath))
+		}
+		if !u.CanRead(srcVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+srcVpath))
+		}
+
+		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		// Open existing zip for reading
+		r, err := zip.OpenReader(zipRpath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		// Create temp file in the same directory to allow os.Rename
+		tmpFile, err := os.CreateTemp(filepath.Dir(zipRpath), "arozos_zip_*.tmp")
+		if err != nil {
+			r.Close()
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		tmpPath := tmpFile.Name()
+
+		w := zip.NewWriter(tmpFile)
+
+		// Copy all existing entries preserving compression
+		for _, f := range r.File {
+			if err := w.Copy(f); err != nil {
+				w.Close()
+				tmpFile.Close()
+				r.Close()
+				os.Remove(tmpPath)
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+		}
+		r.Close()
+
+		// Collect new entries from source (file or directory)
+		type addEntry struct {
+			arcName string
+			rpath   string
+		}
+		var entries []addEntry
+		srcBase := arozfs.Base(srcRpath)
+
+		if srcFsh.FileSystemAbstraction.IsDir(srcRpath) {
+			srcFsh.FileSystemAbstraction.Walk(srcRpath, func(path string, info os.FileInfo, werr error) error {
+				if werr != nil || info.IsDir() {
+					return nil
+				}
+				rel, err := filepath.Rel(filepath.Dir(srcRpath), path)
+				if err != nil {
+					rel = filepath.Join(srcBase, info.Name())
+				}
+				entries = append(entries, addEntry{arcName: filepath.ToSlash(rel), rpath: path})
+				return nil
+			})
+		} else {
+			entries = append(entries, addEntry{arcName: srcBase, rpath: srcRpath})
+		}
+
+		for _, entry := range entries {
+			fw, err := w.Create(entry.arcName)
+			if err != nil {
+				w.Close()
+				tmpFile.Close()
+				os.Remove(tmpPath)
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			rc, err := srcFsh.FileSystemAbstraction.ReadStream(entry.rpath)
+			if err != nil {
+				w.Close()
+				tmpFile.Close()
+				os.Remove(tmpPath)
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			_, copyErr := io.Copy(fw, rc)
+			rc.Close()
+			if copyErr != nil {
+				w.Close()
+				tmpFile.Close()
+				os.Remove(tmpPath)
+				g.RaiseError(copyErr)
+				return otto.FalseValue()
+			}
+		}
+
+		w.Close()
+		tmpFile.Close()
+
+		// Replace original zip with temp file
+		if renameErr := os.Rename(tmpPath, zipRpath); renameErr != nil {
+			// Fallback to copy+delete if rename fails (cross-device)
+			content, readErr := os.ReadFile(tmpPath)
+			os.Remove(tmpPath)
+			if readErr != nil {
+				g.RaiseError(renameErr)
+				return otto.FalseValue()
+			}
+			if writeErr := os.WriteFile(zipRpath, content, 0644); writeErr != nil {
+				g.RaiseError(writeErr)
+				return otto.FalseValue()
+			}
+		}
+
+		reply, _ := vm.ToValue(true)
+		return reply
+	})
+
+	// getZipFileInfo(zipVpath) => Return JSON with file count, dir count, compressed/uncompressed sizes
+	vm.Set("_ziplib_getZipFileInfo", func(call otto.FunctionCall) otto.Value {
+		zipVpath, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+
+		zipVpath = static.RelativeVpathRewrite(scriptFsh, zipVpath, vm, u)
+
+		if !u.CanRead(zipVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+zipVpath))
+		}
+
+		_, zipRpath, err := static.VirtualPathToRealPath(zipVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+
+		if strings.EqualFold(filepath.Ext(zipRpath), ".7z") {
+			jsonStr, err := sz7zGetFileInfo(zipRpath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			reply, _ := vm.ToValue(jsonStr)
+			return reply
+		}
+
+		r, err := zip.OpenReader(zipRpath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		defer r.Close()
+
+		type ZipInfo struct {
+			FileCount             int   `json:"fileCount"`
+			DirCount              int   `json:"dirCount"`
+			TotalUncompressedSize int64 `json:"totalUncompressedSize"`
+			TotalCompressedSize   int64 `json:"totalCompressedSize"`
+		}
+
+		info := ZipInfo{}
+		for _, f := range r.File {
+			if f.FileInfo().IsDir() {
+				info.DirCount++
+			} else {
+				info.FileCount++
+				info.TotalUncompressedSize += int64(f.UncompressedSize64)
+				info.TotalCompressedSize += int64(f.CompressedSize64)
+			}
+		}
+
+		jsonData, err := json.Marshal(info)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+
+		reply, _ := vm.ToValue(string(jsonData))
+		return reply
+	})
+
 	vm.Run(`
 		var ziplib = {};
-		
+
 		ziplib.extractZipFile = _ziplib_extractZipFile;
 		ziplib.createZipFile = _ziplib_createZipFile;
 		ziplib.createTarFile = _ziplib_createTarFile;
@@ -1068,9 +1477,17 @@ func (g *Gateway) injectZipFileLibFunctions(payload *static.AgiLibInjectionPaylo
 		ziplib.listZipFileDir = _ziplib_listZipFileDir; // List contents of specific directory in zip
 		ziplib.getFileFromZip = _ziplib_getFileFromZip; // Get specific file from zip, stored temporary at tmp:/
 		ziplib.getCompressFileType = _ziplib_getCompressFileType;
-		ziplib.extractAnyFile = _ziplib_extractAnyFile; // Extract zip, tar, targz, gz based on file type
+		ziplib.extractAnyFile = _ziplib_extractAnyFile; // Extract zip, tar, targz, gz, 7z based on file type
 		ziplib.createAnyZipFile = _ziplib_createAnyZipFile; // Create zip, tar, targz, gz based on input
+
+		// Zip-specific advanced functions
+		ziplib.extractPartialZip = _ziplib_extractPartialZip; // Extract selected files/folders from zip to dest
+		ziplib.addFileToZip = _ziplib_addFileToZip;           // Add file or folder to existing zip
+		ziplib.getZipFileInfo = _ziplib_getZipFileInfo;       // Get metadata (counts, sizes) about a zip
 	`)
+
+	// Extend ziplib with 7z support
+	g.inject7zLibFunctions(payload)
 }
 
 /*

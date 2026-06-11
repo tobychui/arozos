@@ -3,6 +3,9 @@
     Modern music player for ArozOS
 */
 
+// Set to true to enable verbose playback debug logging in the browser console.
+const MUSICIFY_DEBUG = false;
+
 
 
 // ─── Default cover art SVG (music note) ──────────────────────────────────────
@@ -98,6 +101,12 @@ function musicifyApp() {
         // ── Helpers (accessible from Alpine template expressions) ─────────────
         isSidebarDesktop() { return window.innerWidth > 768; },
 
+        // ── Transcode ────────────────────────────────────────────────────────
+        transcodeMode: '48',           // 'disabled' | '16' | '24' | '48' (kHz)
+        _transcodeSeekOffset: 0,       // seconds already seeked past in current transcode stream
+        _currentTrackTranscoded: false,// true when current track is served via transcode endpoint
+        _transcodeEndFallbackTimer: null, // guards against 'ended' not firing on Safari
+
         // ── Arozcast ─────────────────────────────────────────────────────────
         castMode: false,
         castConnected: false,
@@ -125,13 +134,53 @@ function musicifyApp() {
             const self = this;
 
             this._audio.addEventListener('timeupdate', () => {
-                if (!self.isSeeking) self.currentTime = self._audio.currentTime;
+                if (!self.isSeeking) {
+                    self.currentTime = self._audio.currentTime + self._transcodeSeekOffset;
+                }
+                // Near-end handling for transcoded streams:
+                // - Log when within 3 s of the pre-fetched duration for debugging.
+                // - Arm a fallback timer so _onEnded fires even if the browser never
+                //   emits 'ended' (common on iOS Safari with chunked MP3 streams).
+                if (self._currentTrackTranscoded && self.duration > 0 && !self._suppressEnded) {
+                    var displayTime = self._audio.currentTime + self._transcodeSeekOffset;
+                    var remaining = self.duration - displayTime;
+                    if (MUSICIFY_DEBUG && remaining >= 0 && remaining <= 3) {
+                        console.log('[Musicify transcode] near-end timeupdate – pos:', displayTime.toFixed(2), '/ dur:', self.duration.toFixed(2), '| remaining:', remaining.toFixed(2));
+                    }
+                    if (remaining >= 0 && remaining <= 2) {
+                        if (self._transcodeEndFallbackTimer) clearTimeout(self._transcodeEndFallbackTimer);
+                        self._transcodeEndFallbackTimer = setTimeout(function() {
+                            self._transcodeEndFallbackTimer = null;
+                            if (!self._currentTrackTranscoded || self._suppressEnded) return;
+                            if (MUSICIFY_DEBUG) console.log('[Musicify transcode] end fallback fired – ended event did not arrive in time');
+                            self._onEnded();
+                        }, (remaining + 1.5) * 1000);
+                    }
+                }
             });
             this._audio.addEventListener('loadedmetadata', () => {
-                self.duration = self._audio.duration || 0;
+                var d = self._audio.duration;
+                if (self._currentTrackTranscoded) {
+                    // Don't override the pre-fetched duration for transcoded streams
+                    if (!self.duration && d && isFinite(d) && d > 0) self.duration = d;
+                } else {
+                    self.duration = (d && isFinite(d)) ? d : 0;
+                }
             });
-            this._audio.addEventListener('ended', () => { self._onEnded(); });
-            this._audio.addEventListener('error', () => { self._onError(); });
+            this._audio.addEventListener('ended', () => {
+                if (MUSICIFY_DEBUG) console.log('[Musicify] audio ended – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
+                self._onEnded();
+            });
+            this._audio.addEventListener('error', () => {
+                if (MUSICIFY_DEBUG) console.warn('[Musicify] audio error – code:', self._audio.error && self._audio.error.code, self._audio.error && self._audio.error.message);
+                self._onError();
+            });
+            this._audio.addEventListener('stalled', () => {
+                if (MUSICIFY_DEBUG) console.log('[Musicify] audio stalled – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
+            });
+            this._audio.addEventListener('waiting', () => {
+                if (MUSICIFY_DEBUG) console.log('[Musicify] audio waiting – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
+            });
             this._audio.addEventListener('play',  () => { self.isPlaying = true; self._suppressEnded = false; self._updateMediaSession(); });
             this._audio.addEventListener('pause', () => { self.isPlaying = false; self._updateMediaSession(); });
 
@@ -157,6 +206,10 @@ function musicifyApp() {
                     try { self.recentlyPlayed = JSON.parse(val).slice(0, 12); } catch(e) {}
                 }
             });
+            var _savedTranscode = localStorage.getItem('musicify_transcodeMode');
+            if (_savedTranscode === 'disabled' || _savedTranscode === '16' || _savedTranscode === '24' || _savedTranscode === '48') {
+                this.transcodeMode = _savedTranscode;
+            }
 
             // MediaSession
             this._setupMediaSession();
@@ -864,10 +917,16 @@ function musicifyApp() {
         _loadTrack(song) {
             if (!song) return;
             this._suppressEnded = true;
+            if (this._transcodeEndFallbackTimer) {
+                clearTimeout(this._transcodeEndFallbackTimer);
+                this._transcodeEndFallbackTimer = null;
+            }
             this.currentTrack = song;
             this.coverError = false;
             this.currentTime = 0;
             this.duration = 0;
+            this._transcodeSeekOffset = 0;
+            this._currentTrackTranscoded = false;
             if (this.castMode) {
                 this._castSend('media.load', {
                     filepath: song.filepath,
@@ -879,9 +938,20 @@ function musicifyApp() {
                 this._audio.pause();
                 this.isPlaying = true;
             } else {
-                this._audio.src = ao_root + 'media?file=' + encodeURIComponent(song.filepath);
+                this._currentTrackTranscoded = (this.transcodeMode !== 'disabled' && this._needsTranscode(song));
+                this._audio.src = this._getAudioSrc(song);
                 this._audio.load();
                 this._audio.play().catch(() => {});
+                if (this._currentTrackTranscoded) {
+                    var _prefetchSong = song;
+                    fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(song.filepath))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.duration > 0 && this.currentTrack && this.currentTrack.filepath === _prefetchSong.filepath) {
+                                this.duration = data.duration;
+                            }
+                        }).catch(() => {});
+                }
             }
             this._saveRecentlyPlayed(song);
             this._setupMediaSession();
@@ -947,12 +1017,22 @@ function musicifyApp() {
         },
 
         seekTo(val) {
+            val = parseFloat(val);
             if (this.castMode) {
-                this._castSend('media.seek', { time: parseFloat(val) });
-                this.currentTime = parseFloat(val);
+                this._castSend('media.seek', { time: val });
+                this.currentTime = val;
                 return;
             }
-            this._audio.currentTime = parseFloat(val);
+            if (this._currentTrackTranscoded && this.currentTrack) {
+                // Seek by reloading the transcode stream from the new position
+                this._transcodeSeekOffset = val;
+                this.currentTime = val;
+                this._audio.src = this._getAudioSrc(this.currentTrack, val);
+                this._audio.load();
+                this._audio.play().catch(() => {});
+                return;
+            }
+            this._audio.currentTime = val;
             this.currentTime = this._audio.currentTime;
         },
 
@@ -995,12 +1075,101 @@ function musicifyApp() {
             }
         },
 
+        // ════════════════════════════════════════════════════════════════════
+        //  TRANSCODE HELPERS
+        // ════════════════════════════════════════════════════════════════════
+        _needsTranscode(song) {
+            if (!song || !song.ext) return false;
+            var nonNative = ['flac', 'ogg', 'wma', 'webm', 'opus'];
+            return nonNative.indexOf(song.ext.toLowerCase()) !== -1;
+        },
+
+        // Returns the playback URL for a song, using the transcode endpoint when needed.
+        // startTime (seconds) is only appended when seeking a transcoded stream.
+        _getAudioSrc(song, startTime) {
+            if (!song) return '';
+            if (this.transcodeMode !== 'disabled' && this._needsTranscode(song)) {
+                var url = ao_root + 'media/transcode/audio/?file=' + encodeURIComponent(song.filepath) +
+                    '&samplerate=' + this.transcodeMode + '000';
+                if (startTime && startTime > 0.001) url += '&start=' + parseFloat(startTime).toFixed(3);
+                return url;
+            }
+            return ao_root + 'media?file=' + encodeURIComponent(song.filepath);
+        },
+
+        saveTranscodeMode() {
+            localStorage.setItem('musicify_transcodeMode', this.transcodeMode);
+
+            // If a non-native track is currently loaded, reload it immediately at the
+            // current position so seeks work correctly under the new mode.
+            if (this.currentTrack && this._needsTranscode(this.currentTrack) && !this.castMode) {
+                if (this._transcodeEndFallbackTimer) {
+                    clearTimeout(this._transcodeEndFallbackTimer);
+                    this._transcodeEndFallbackTimer = null;
+                }
+                var resumeAt = this.currentTime; // already includes _transcodeSeekOffset
+                var wasPlaying = this.isPlaying;
+                var willTranscode = (this.transcodeMode !== 'disabled');
+
+                this._suppressEnded = true;
+                this._transcodeSeekOffset = 0;
+                this._currentTrackTranscoded = willTranscode;
+                this.duration = 0;
+
+                if (willTranscode && resumeAt > 0.001) {
+                    // Transcoded seek: bake the position into the stream URL
+                    this._transcodeSeekOffset = resumeAt;
+                    this._audio.src = this._getAudioSrc(this.currentTrack, resumeAt);
+                } else {
+                    this._audio.src = this._getAudioSrc(this.currentTrack);
+                }
+                this._audio.load();
+
+                if (willTranscode) {
+                    // Re-fetch duration for the transcoded stream
+                    var _song = this.currentTrack;
+                    fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(_song.filepath))
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.duration > 0 && this.currentTrack && this.currentTrack.filepath === _song.filepath) {
+                                this.duration = data.duration;
+                            }
+                        }).catch(() => {});
+                } else if (resumeAt > 0) {
+                    // Native audio: seek to position after metadata is ready
+                    var self = this;
+                    this._audio.addEventListener('loadedmetadata', function() {
+                        self._audio.currentTime = resumeAt;
+                    }, { once: true });
+                }
+
+                if (wasPlaying) {
+                    this._audio.play().catch(() => {});
+                }
+            }
+
+            this._showToast('Transcode: ' + (this.transcodeMode === 'disabled' ? 'disabled' : this.transcodeMode + ' kHz'));
+        },
+
         _onEnded() {
             if (this._suppressEnded) return;
+            // Clear any pending end-fallback timer — the real ended path is now running
+            if (this._transcodeEndFallbackTimer) {
+                clearTimeout(this._transcodeEndFallbackTimer);
+                this._transcodeEndFallbackTimer = null;
+            }
             if (this.repeat === 'one') {
                 if (this.castMode) {
                     this._castSend('media.seek', { time: 0 });
                     this._castSend('media.play', {});
+                } else if (this._currentTrackTranscoded && this.currentTrack) {
+                    // Transcoded streams can't seek natively — reload from the beginning
+                    this._suppressEnded = true;
+                    this._transcodeSeekOffset = 0;
+                    this.currentTime = 0;
+                    this._audio.src = this._getAudioSrc(this.currentTrack);
+                    this._audio.load();
+                    this._audio.play().catch(() => {});
                 } else {
                     this._audio.currentTime = 0;
                     this._audio.play().catch(() => {});
@@ -1394,11 +1563,19 @@ function musicifyApp() {
                     // All retries exhausted — fall back to local playback
                     if (this.currentTrack) {
                         var resumeAt = this.currentTime;
-                        this._audio.src = ao_root + 'media?file=' + encodeURIComponent(this.currentTrack.filepath);
+                        var self = this;
+                        this._currentTrackTranscoded = (this.transcodeMode !== 'disabled' && this._needsTranscode(this.currentTrack));
+                        this._transcodeSeekOffset = 0;
+                        if (this._currentTrackTranscoded && resumeAt > 0.001) {
+                            this._transcodeSeekOffset = resumeAt;
+                            this._audio.src = this._getAudioSrc(this.currentTrack, resumeAt);
+                        } else {
+                            this._audio.src = this._getAudioSrc(this.currentTrack);
+                        }
                         this._audio.volume = this.volume / 100;
                         this._audio.muted = this.isMuted;
                         this._audio.load();
-                        if (resumeAt > 0) {
+                        if (!this._currentTrackTranscoded && resumeAt > 0) {
                             this._audio.addEventListener('loadedmetadata', function() {
                                 self._audio.currentTime = resumeAt;
                             }, { once: true });
@@ -1511,11 +1688,18 @@ function musicifyApp() {
             if (this.currentTrack) {
                 var resumeAt = this.currentTime;
                 var self = this;
-                this._audio.src = ao_root + 'media?file=' + encodeURIComponent(this.currentTrack.filepath);
+                this._currentTrackTranscoded = (this.transcodeMode !== 'disabled' && this._needsTranscode(this.currentTrack));
+                this._transcodeSeekOffset = 0;
+                if (this._currentTrackTranscoded && resumeAt > 0.001) {
+                    this._transcodeSeekOffset = resumeAt;
+                    this._audio.src = this._getAudioSrc(this.currentTrack, resumeAt);
+                } else {
+                    this._audio.src = this._getAudioSrc(this.currentTrack);
+                }
                 this._audio.volume = this.volume / 100;
                 this._audio.muted = this.isMuted;
                 this._audio.load();
-                if (resumeAt > 0) {
+                if (!this._currentTrackTranscoded && resumeAt > 0) {
                     this._audio.addEventListener('loadedmetadata', function() {
                         self._audio.currentTime = resumeAt;
                     }, { once: true });

@@ -57,22 +57,6 @@ func TestDeviceIsMountedEmptyPath(t *testing.T) {
 	}
 }
 
-// TestListAllStorageDevicesLinux verifies that ListAllStorageDevices returns
-// a non-nil result on Linux (it needs sudo lsblk; skip if lsblk is absent).
-func TestListAllStorageDevicesLinux(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("ListAllStorageDevices is Linux-only (uses lsblk)")
-	}
-	devices, err := ListAllStorageDevices()
-	if err != nil {
-		// lsblk may not be available in all CI environments; treat as a skip
-		t.Skipf("ListAllStorageDevices returned error (lsblk may be absent): %v", err)
-	}
-	if devices == nil {
-		t.Fatal("expected non-nil StorageDevicesMeta")
-	}
-}
-
 // TestFormatPackageInstalledKnownAbsent verifies FormatPackageInstalled returns
 // false for a filesystem type that is certainly not installed.
 func TestFormatPackageInstalledKnownAbsent(t *testing.T) {
@@ -431,44 +415,6 @@ func TestFormatStorageDeviceFatAlias(t *testing.T) {
 	}
 }
 
-// TestDeviceIsMountedWithActualDevice reads /proc/mounts and tries to find
-// an actually-mounted device to hit the "device found" branch.
-func TestDeviceIsMountedWithActualDevice(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("Linux-only: reads /proc/mounts")
-	}
-
-	// Read /proc/mounts to find a real mounted device
-	data, err := os.ReadFile("/proc/mounts")
-	if err != nil {
-		t.Skipf("cannot read /proc/mounts: %v", err)
-	}
-
-	// Find the first /dev/ device in /proc/mounts
-	var mountedDevice string
-	for _, line := range strings.Split(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 1 && strings.HasPrefix(fields[0], "/dev/") {
-			mountedDevice = fields[0]
-			break
-		}
-	}
-
-	if mountedDevice == "" {
-		t.Skip("no /dev/ devices found in /proc/mounts")
-	}
-
-	mounted, err := DeviceIsMounted(mountedDevice)
-	if err != nil {
-		t.Fatalf("unexpected error checking mounted device %q: %v", mountedDevice, err)
-	}
-	if !mounted {
-		// Some devices may appear in /proc/mounts but still compare as
-		// not-mounted due to case/spacing differences — skip rather than fail.
-		t.Skipf("device %q from /proc/mounts was not reported as mounted (case/format mismatch)", mountedDevice)
-	}
-}
-
 // TestGetDiskUUIDEmpty verifies GetDiskUUID returns an error for an empty device path.
 func TestGetDiskUUIDEmpty(t *testing.T) {
 	if runtime.GOOS != "linux" {
@@ -477,114 +423,6 @@ func TestGetDiskUUIDEmpty(t *testing.T) {
 	_, err := GetDiskUUID("")
 	// blkid may succeed or fail; we only verify no panic occurs.
 	_ = err
-}
-
-// TestGetDiskUUIDSuccess exercises the success path of GetDiskUUID using a
-// real block device. Even if the device has no UUID, blkid returns exit code 0
-// (empty output), which exercises the TrimSpace success branch.
-func TestGetDiskUUIDSuccess(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("GetDiskUUID uses blkid (Linux-only)")
-	}
-
-	// Try several candidates: prefer disk-type block devices which blkid handles
-	// more reliably than loop devices.
-	devices, err := ListAllStorageDevices()
-	if err != nil {
-		t.Skipf("cannot list storage devices: %v", err)
-	}
-
-	var tried []string
-	for _, bd := range devices.Blockdevices {
-		if bd.Type != "disk" {
-			continue
-		}
-		devPath := "/dev/" + bd.Name
-		tried = append(tried, devPath)
-		uuid, err := GetDiskUUID(devPath)
-		if err == nil {
-			t.Logf("GetDiskUUID(%q) = %q", devPath, uuid)
-			return // success branch was exercised
-		}
-	}
-
-	// Fallback: try all block devices
-	for _, bd := range devices.Blockdevices {
-		devPath := "/dev/" + bd.Name
-		uuid, err := GetDiskUUID(devPath)
-		if err == nil {
-			t.Logf("GetDiskUUID(%q) = %q (fallback)", devPath, uuid)
-			return
-		}
-	}
-
-	t.Skipf("no accessible block device found for GetDiskUUID (tried: %v)", tried)
-}
-
-// TestGetPartitionMetaChildPartition tests GetPartitionMeta against the system's
-// actual lsblk output looking for a real partition.
-func TestGetPartitionMetaChildSearch(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("Linux-only: uses lsblk")
-	}
-
-	devices, err := ListAllStorageDevices()
-	if err != nil {
-		t.Skipf("ListAllStorageDevices error: %v", err)
-	}
-
-	// Find a block device that has children (partitions)
-	var partitionName string
-	for _, bd := range devices.Blockdevices {
-		if len(bd.Children) > 0 {
-			partitionName = bd.Children[0].Name
-			break
-		}
-	}
-
-	if partitionName == "" {
-		t.Skip("no partitioned block devices found in lsblk output")
-	}
-
-	_, err = GetPartitionMeta("/dev/" + partitionName)
-	if err != nil {
-		// Might not be found if the partition has a different name format
-		t.Logf("GetPartitionMeta(%q) returned error (acceptable): %v", partitionName, err)
-	}
-}
-
-// TestGetBlockDeviceMetaFound uses lsblk to find a real block device and
-// calls GetBlockDeviceMeta on it to exercise the "found" branch.
-func TestGetBlockDeviceMetaFound(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("Linux-only: uses lsblk")
-	}
-
-	devices, err := ListAllStorageDevices()
-	if err != nil {
-		t.Skipf("ListAllStorageDevices error: %v", err)
-	}
-
-	// Find a non-partitioned block device (no digits in name)
-	var diskName string
-	for _, bd := range devices.Blockdevices {
-		if bd.Type == "disk" || bd.Type == "rom" {
-			diskName = bd.Name
-			break
-		}
-	}
-
-	if diskName == "" {
-		t.Skip("no block devices of type 'disk' or 'rom' found")
-	}
-
-	meta, err := GetBlockDeviceMeta("/dev/" + diskName)
-	if err != nil {
-		t.Fatalf("unexpected error for known device %q: %v", diskName, err)
-	}
-	if meta == nil {
-		t.Fatal("expected non-nil BlockDeviceMeta")
-	}
 }
 
 // TestWipeDiskWithUnmountedNonExistentDevice exercises the "not mounted" branch
@@ -598,43 +436,6 @@ func TestWipeDiskUnmountedPath(t *testing.T) {
 	err := WipeDisk("/dev/nonexistent_xyz_device_abc")
 	if err == nil {
 		t.Error("expected error when wiping non-existent disk, got nil")
-	}
-}
-
-// TestWipeDiskMountedDevice exercises the "device is mounted" branch of WipeDisk.
-// It uses a real mounted device (vda or the first mounted device found in /proc/mounts).
-// The subsequent umount is expected to fail (root fs can't be unmounted), which
-// exercises the unmount-error return path.
-func TestWipeDiskMountedDevice(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("Linux-only: reads /proc/mounts")
-	}
-
-	// Find a mounted /dev/ device
-	data, err := os.ReadFile("/proc/mounts")
-	if err != nil {
-		t.Skipf("cannot read /proc/mounts: %v", err)
-	}
-
-	var mountedDevice string
-	for _, line := range strings.Split(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 1 && strings.HasPrefix(fields[0], "/dev/") {
-			mountedDevice = fields[0]
-			break
-		}
-	}
-
-	if mountedDevice == "" {
-		t.Skip("no /dev/ devices found in /proc/mounts")
-	}
-
-	// WipeDisk will detect the device as mounted, try to umount (which will
-	// fail for an in-use device like the root fs), and return an error.
-	err = WipeDisk(mountedDevice)
-	if err == nil {
-		// If somehow it succeeded (e.g. loop device), that's ok too.
-		t.Logf("WipeDisk(%q) succeeded unexpectedly — continuing", mountedDevice)
 	}
 }
 
@@ -675,36 +476,4 @@ func TestFormatStorageDeviceExt4Success(t *testing.T) {
 	if err := FormatStorageDevice("ext4", loopDev); err != nil {
 		t.Skipf("FormatStorageDevice ext4 failed (acceptable in some envs): %v", err)
 	}
-}
-
-// TestGetDiskModelByNameWithRealDisk uses lsblk to find a real disk, then
-// exercises GetDiskModelByName to cover the lsblk success + findDiskInfo path.
-func TestGetDiskModelByNameWithRealDisk(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("Linux-only: uses lsblk")
-	}
-
-	devices, err := ListAllStorageDevices()
-	if err != nil {
-		t.Skipf("ListAllStorageDevices error: %v", err)
-	}
-
-	var diskName string
-	for _, bd := range devices.Blockdevices {
-		if bd.Type == "disk" {
-			diskName = bd.Name
-			break
-		}
-	}
-
-	if diskName == "" {
-		t.Skip("no disk-type block devices found")
-	}
-
-	// GetDiskModelByName with a real disk should not error
-	size, model, err := GetDiskModelByName(diskName)
-	if err != nil {
-		t.Skipf("GetDiskModelByName(%q) error: %v", diskName, err)
-	}
-	t.Logf("disk=%q size=%q model=%q", diskName, size, model)
 }

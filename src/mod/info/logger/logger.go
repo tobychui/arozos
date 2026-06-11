@@ -98,6 +98,11 @@ func (l *Logger) getLogFilepath() string {
 
 // PrintAndLog will log the message to file and print the log to STDOUT
 func (l *Logger) PrintAndLog(title string, message string, originalError error) {
+	if l == nil {
+		// Not initiated yet, just print to console
+		log.Println("[" + title + "] " + message)
+		return
+	}
 	go func() {
 		l.Log(title, message, originalError)
 	}()

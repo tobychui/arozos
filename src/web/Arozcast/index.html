@@ -146,6 +146,13 @@
             object-fit: contain;
         }
 
+        /* ── Screen share mode (WebRTC) ─────────────────────────────── */
+        #acScreen {
+            position: absolute; inset: 0; z-index: 9;
+            width: 100%; height: 100%; object-fit: contain;
+            background: #000;
+        }
+
         /* ── Hidden audio ───────────────────────────────────────────── */
         #acAudio { display: none; }
 
@@ -287,7 +294,9 @@
         </div>
 
         <div class="waiting-hint" x-show="senderState !== 'disconnected'">
-            Enter this code in Musicify on your phone or another device to start casting.
+            Enter this code in Musicify on your phone or another device to start casting,
+            or use <a href="screenshare.html" target="_blank" style="color:var(--accent);text-decoration:underline;text-underline-offset:3px;">Screen Share</a>
+            to stream your desktop to this display.
         </div>
 
         <div class="disconnected-notice" x-show="senderState === 'disconnected'">
@@ -330,6 +339,11 @@
     <div class="photo-display" x-show="currentTrack && mediaType === 'photo'">
         <img :src="photoSrc" alt="Photo">
     </div>
+
+    <!-- ── Screen share mode (WebRTC) ───────────────────────────── -->
+    <video id="acScreen" x-show="currentTrack && mediaType === 'screen'"
+           playsinline autoplay>
+    </video>
 
     <!-- Hidden audio element for audio mode -->
     <audio id="acAudio"
@@ -422,6 +436,10 @@ function arozcastApp() {
         toastVisible: false,
         _toastTimer: null,
 
+        // Screen share (WebRTC)
+        _pc: null,
+        _iceQueue: [],
+
         get progressPct() {
             if (!this.duration) return 0;
             return Math.min((this.currentTime / this.duration) * 100, 100);
@@ -429,8 +447,9 @@ function arozcastApp() {
 
         // ── Init ─────────────────────────────────────────────────────
         async init() {
-            this._audio = document.getElementById('acAudio');
-            this._video = document.getElementById('acVideo');
+            this._audio  = document.getElementById('acAudio');
+            this._video  = document.getElementById('acVideo');
+            this._screen = document.getElementById('acScreen');
 
             // Fullscreen change listener
             const self = this;
@@ -571,6 +590,30 @@ function arozcastApp() {
                 case 'peer.heartbeat':
                     this._touchPeer();
                     break;
+                case 'screen.start':
+                    this._touchPeer();
+                    this._prepareScreen();
+                    break;
+                case 'webrtc.offer':
+                    this._touchPeer();
+                    this._handleOffer(msg.payload);
+                    break;
+                case 'webrtc.ice':
+                    this._touchPeer();
+                    if (this._pc) {
+                        if (this._pc.remoteDescription) {
+                            this._pc.addIceCandidate(msg.payload.candidate).catch(() => {});
+                        } else {
+                            this._iceQueue.push(msg.payload.candidate);
+                        }
+                    } else {
+                        this._iceQueue.push(msg.payload.candidate);
+                    }
+                    break;
+                case 'screen.stop':
+                    this._touchPeer();
+                    this._stopScreen();
+                    break;
                 // 'status.update' and 'media.ended' are sent BY this receiver —
                 // ignore silently if received (loopback via duplicate connection).
             }
@@ -703,6 +746,95 @@ function arozcastApp() {
             this.duration = 0;
         },
 
+        // ── Screen share (WebRTC) ─────────────────────────────────────
+        _prepareScreen() {
+            if (this._pc) { this._pc.close(); this._pc = null; }
+            this._iceQueue = [];
+            this._audio.pause();
+            this._audio.removeAttribute('src');
+            this._video.pause();
+            this._video.removeAttribute('src');
+            this.currentTrack = { name: 'Screen Share', type: 'screen' };
+            this.mediaType    = 'screen';
+            this.isPlaying    = false;
+            this.currentTime  = 0;
+            this.duration     = 0;
+        },
+
+        async _handleOffer(payload) {
+            const self = this;
+            if (this._pc) { this._pc.close(); }
+            this._iceQueue = [];
+
+            const pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                ]
+            });
+            // Assign early so arriving webrtc.ice messages are queued correctly
+            this._pc = pc;
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate && self.ws && self.ws.readyState === WebSocket.OPEN) {
+                    self.ws.send(JSON.stringify({
+                        topic: 'webrtc.ice',
+                        payload: { candidate: e.candidate.toJSON() }
+                    }));
+                }
+            };
+
+            pc.ontrack = (e) => {
+                if (!self._screen.srcObject) {
+                    self._screen.srcObject = e.streams[0];
+                    self._screen.muted = self.isMuted;
+                    self._screen.play().catch(() => {});
+                    self._showToast('Screen share started');
+                }
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    self._stopScreen();
+                }
+            };
+
+            try {
+                await pc.setRemoteDescription({ type: payload.type, sdp: payload.sdp });
+
+                // Drain ICE candidates that arrived before setRemoteDescription completed
+                for (const c of this._iceQueue) {
+                    await pc.addIceCandidate(c).catch(() => {});
+                }
+                this._iceQueue = [];
+
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                if (self.ws && self.ws.readyState === WebSocket.OPEN) {
+                    self.ws.send(JSON.stringify({
+                        topic: 'webrtc.answer',
+                        payload: { sdp: answer.sdp, type: answer.type }
+                    }));
+                }
+            } catch (e) {
+                self._showToast('Screen share setup failed');
+                self._stopScreen();
+            }
+        },
+
+        _stopScreen() {
+            if (this._pc) { this._pc.close(); this._pc = null; }
+            this._iceQueue = [];
+            if (this._screen) { this._screen.srcObject = null; }
+            this.currentTrack = null;
+            this.mediaType    = 'audio';
+            this.isPlaying    = false;
+            this.currentTime  = 0;
+            this.duration     = 0;
+            this._showToast('Screen share ended');
+        },
+
         // ── Audio/Video event handlers ────────────────────────────────
         onAudioTimeUpdate() {
             this.currentTime = this._audio.currentTime;
@@ -733,7 +865,7 @@ function arozcastApp() {
             clearTimeout(this._toolbarTimer);
             const self = this;
             this._toolbarTimer = setTimeout(() => {
-                if (self.currentTrack && self.mediaType === 'video') {
+                if (self.currentTrack && (self.mediaType === 'video' || self.mediaType === 'screen')) {
                     self.toolbarHidden = true;
                 }
             }, 3000);
@@ -749,8 +881,9 @@ function arozcastApp() {
 
         toggleMute() {
             this.isMuted = !this.isMuted;
-            this._audio.muted = this.isMuted;
-            this._video.muted = this.isMuted;
+            this._audio.muted  = this.isMuted;
+            this._video.muted  = this.isMuted;
+            this._screen.muted = this.isMuted;
         },
 
         // ── Toast ─────────────────────────────────────────────────────
