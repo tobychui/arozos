@@ -16,7 +16,7 @@ var moduleLaunchInfo = {
 	LaunchFWDir: "Zip File Manager/index.html",
 	SupportEmb: false,
 	InitFWSize: [1024, 640],
-	SupportedExt: [".zip"]
+	SupportedExt: [".zip", ".7z"]
 }
 
 registerModule(JSON.stringify(moduleLaunchInfo));
