@@ -910,7 +910,7 @@
             <div id="display">
                 <!-- Search bar (iOS-style tags input with autocomplete) -->
                 <div id="search-header">
-                    <div class="search-input-wrap">
+                    <div class="search-input-wrap" x-on:click.outside="showSuggestions = false">
                         <div id="search-box" :class="{ 'focused': showSuggestions }"
                             x-on:click="$refs.searchInput.focus()">
                             <i class="search icon"></i>
@@ -936,8 +936,7 @@
                         </div>
 
                         <!-- Autocomplete dropdown -->
-                        <div id="search-suggestions" x-show="showSuggestions"
-                            x-on:click.outside="showSuggestions = false">
+                        <div id="search-suggestions" x-show="showSuggestions">
                             <template x-for="(s, i) in suggestions" :key="i">
                                 <div class="suggest-item" :class="{ 'active': i === suggestIndex }"
                                     x-on:mousedown.prevent="applySuggestion(s)"

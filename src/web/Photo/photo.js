@@ -336,9 +336,12 @@ function photoListObject() {
         },
 
         runSearch() {
+            // NOTE: this is also the live/debounced search fired while typing, so it
+            // must NOT close the autocomplete dropdown — only explicit actions
+            // (pick/commit/Escape/click-outside/clear) hide it. Closing it here made
+            // the dropdown flash and vanish ~400ms after each keystroke.
             clearTimeout(this._searchTimer);
             const q = this.currentQuery();
-            this.showSuggestions = false;
             if (q.length === 0) {
                 // Nothing to search — fall back to normal folder browsing.
                 if (this.searchMode) { this.searchMode = false; this.searchTotal = 0; this.getFolderInfo(); }
