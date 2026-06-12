@@ -505,7 +505,9 @@ function parseRange(s) {
     return { min: v, max: v };
 }
 
-// Date token => unix seconds. endOfDay pads to the end of the given period.
+// Date token => unix seconds. endOfDay pads to the *end* of the given period
+// (end of year / month / day) so "2023", "2023-06" and "2023-06-15" all bound
+// their period correctly regardless of how many days the month has.
 function parseDateToUnix(s, endOfDay) {
     s = ("" + s).trim();
     var m = s.match(/^(\d{4})(?:[\-\/](\d{1,2}))?(?:[\-\/](\d{1,2}))?$/);
@@ -515,16 +517,23 @@ function parseDateToUnix(s, endOfDay) {
     var y = parseInt(m[1]);
     var hasMonth = m[2] !== undefined;
     var hasDay = m[3] !== undefined;
-    var mo = hasMonth ? parseInt(m[2]) - 1 : (endOfDay ? 11 : 0);
-    var d = hasDay ? parseInt(m[3]) : (endOfDay ? 31 : 1);
-    var hh = endOfDay ? 23 : 0;
-    var mm = endOfDay ? 59 : 0;
-    var ss = endOfDay ? 59 : 0;
-    var t = Date.UTC(y, mo, d, hh, mm, ss);
-    if (isNaN(t)) {
-        return null;
+    var mo = hasMonth ? parseInt(m[2]) - 1 : 0;
+    var d = hasDay ? parseInt(m[3]) : 1;
+
+    if (!endOfDay) {
+        var t0 = Date.UTC(y, mo, d, 0, 0, 0);
+        return isNaN(t0) ? null : Math.floor(t0 / 1000);
     }
-    return Math.floor(t / 1000);
+    // End of the specified period: start of the next period minus one second.
+    var t;
+    if (!hasMonth) {
+        t = Date.UTC(y + 1, 0, 1, 0, 0, 0) - 1000;        // end of year
+    } else if (!hasDay) {
+        t = Date.UTC(y, mo + 1, 1, 0, 0, 0) - 1000;       // end of month
+    } else {
+        t = Date.UTC(y, mo, d, 23, 59, 59);               // end of day
+    }
+    return isNaN(t) ? null : Math.floor(t / 1000);
 }
 
 function parseDateRange(s) {
@@ -573,6 +582,49 @@ function mergeDate(filter, field, r) {
     }
     if (r.max !== null && r.max !== undefined) {
         filter[field].max = r.max;
+    }
+}
+
+var MONTH_NAMES = ["january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"];
+var MONTH_ABBR = ["jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"];
+
+// Whether a bare word is a month name / abbreviation (not a number).
+function isMonthName(s) {
+    s = ("" + s).trim().toLowerCase();
+    return MONTH_NAMES.indexOf(s) >= 0 || MONTH_ABBR.indexOf(s) >= 0;
+}
+
+// Month name / abbreviation / number => 1..12, or null.
+function monthNameToNum(s) {
+    s = ("" + s).trim().toLowerCase();
+    var i = MONTH_NAMES.indexOf(s);
+    if (i >= 0) {
+        return i + 1;
+    }
+    i = MONTH_ABBR.indexOf(s);
+    if (i >= 0) {
+        return i + 1;
+    }
+    var n = parseInt(s);
+    if (!isNaN(n) && n >= 1 && n <= 12) {
+        return n;
+    }
+    return null;
+}
+
+// Month is a calendar-month filter (matches across all years). Stored as a list
+// so several months can be OR-ed together (handy with a tags input).
+function mergeMonth(filter, mnum) {
+    if (!mnum || mnum < 1 || mnum > 12) {
+        return;
+    }
+    if (!filter.month) {
+        filter.month = [];
+    }
+    if (filter.month.indexOf(mnum) < 0) {
+        filter.month.push(mnum);
     }
 }
 
@@ -637,6 +689,10 @@ function classifyToken(filter, token) {
         filter.orientation = lower;
         return;
     }
+    if (colon < 0 && isMonthName(lower)) {
+        mergeMonth(filter, monthNameToNum(lower));
+        return;
+    }
     if (colon < 0 && /^\d{4}$/.test(lower)) {
         mergeDate(filter, "taken", parseDateRange(lower));
         return;
@@ -689,6 +745,12 @@ function classifyToken(filter, token) {
                 return;
             case "orientation":
                 filter.orientation = val.toLowerCase();
+                return;
+            case "month":
+                var monthVals = val.split(",");
+                for (var mvi = 0; mvi < monthVals.length; mvi++) {
+                    mergeMonth(filter, monthNameToNum(monthVals[mvi]));
+                }
                 return;
             case "taken":
             case "date":
@@ -768,6 +830,12 @@ function applyExplicitFilters(filter, f) {
     if (f.modified) {
         mergeDate(filter, "modified", f.modified);
     }
+    if (f.month) {
+        var fmonths = Array.isArray(f.month) ? f.month : [f.month];
+        for (var fmi = 0; fmi < fmonths.length; fmi++) {
+            mergeMonth(filter, monthNameToNum(fmonths[fmi]));
+        }
+    }
 }
 
 function addRangeClause(clauses, args, col, r) {
@@ -833,6 +901,14 @@ function buildWhere(filter) {
     if (filter.orientation) {
         clauses.push("orientation = ?");
         args.push(filter.orientation);
+    }
+    if (filter.month && filter.month.length) {
+        var mph = [];
+        for (i = 0; i < filter.month.length; i++) {
+            mph.push("?");
+            args.push(filter.month[i]);
+        }
+        clauses.push("CAST(strftime('%m', taken_date, 'unixepoch') AS INTEGER) IN (" + mph.join(",") + ")");
     }
 
     addRangeClause(clauses, args, "iso", filter.iso);

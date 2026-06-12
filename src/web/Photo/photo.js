@@ -108,8 +108,9 @@ function photoListObject() {
         isLoadingMore: false, // guard: blocks new batch until DOM has updated
         sidebarOpen: !isMobile,  // start hidden on mobile, visible on desktop
 
-        // search state
-        searchQuery: '',
+        // search state (tags input)
+        searchTags: [],         // committed filter chips: {label, value, type}
+        searchInput: '',        // text currently being typed in the box
         searchMode: false,      // true while showing search results instead of a folder
         suggestions: [],
         showSuggestions: false,
@@ -118,6 +119,7 @@ function photoListObject() {
         indexing: false,
         indexStatusText: '',
         _suggestTimer: null,
+        _searchTimer: null,
 
         // init
         init() {
@@ -264,12 +266,24 @@ function photoListObject() {
 
         suggestIcon(type) { return photoSuggestIcon(type); },
 
-        // Debounced autocomplete on every keystroke.
+        // The committed query is the chips; currentQuery also folds in the text
+        // still being typed so results update live.
+        committedQuery() { return this.searchTags.map(t => t.value).join(' '); },
+        currentQuery() {
+            let q = this.committedQuery();
+            const inp = this.searchInput.trim();
+            if (inp) q = (q ? q + ' ' : '') + inp;
+            return q;
+        },
+        searchActive() { return this.searchTags.length > 0 || this.searchInput.trim().length > 0; },
+
+        // Debounced autocomplete + live search on every keystroke.
         onSearchInput() {
             this.suggestIndex = -1;
-            const q = this.searchQuery;
+            const q = this.searchInput;
             clearTimeout(this._suggestTimer);
             this._suggestTimer = setTimeout(() => { this.fetchSuggestions(q); }, 150);
+            this.scheduleSearch();
         },
 
         fetchSuggestions(q) {
@@ -282,27 +296,54 @@ function photoListObject() {
             });
         },
 
-        // Replace the active (last) token with the chosen suggestion, then search.
-        applySuggestion(s) {
-            if (s.type === 'file') {
-                // File-name suggestions are absolute — they replace the whole query.
-                this.searchQuery = s.value;
-            } else {
-                const parts = this.searchQuery.split(/\s+/);
-                parts[parts.length - 1] = s.value;
-                this.searchQuery = parts.join(' ') + ' ';
-            }
+        scheduleSearch() {
+            clearTimeout(this._searchTimer);
+            this._searchTimer = setTimeout(() => { this.runSearch(); }, 400);
+        },
+
+        // Add a chip from an explicit {label, value, type}.
+        addTag(tag) {
+            if (!tag || !tag.value) return;
+            this.searchTags.push({ label: tag.label, value: tag.value, type: tag.type || 'search' });
+            this.searchInput = '';
+            this.suggestions = [];
             this.showSuggestions = false;
             this.suggestIndex = -1;
             this.runSearch();
         },
 
-        runSearch() {
-            const q = this.searchQuery.trim();
-            this.showSuggestions = false;
-            this.suggestIndex = -1;
-            if (q.length === 0) { this.clearSearch(); return; }
+        // A picked autocomplete suggestion becomes a chip.
+        applySuggestion(s) { this.addTag({ label: s.label, value: s.value, type: s.type }); },
 
+        // Commit whatever text is in the box as a chip (Enter / Space).
+        commitInput() {
+            const text = this.searchInput.trim();
+            if (text.length === 0) return;
+            this.addTag(photoParseTagToken(text));
+        },
+
+        removeTag(i) {
+            this.searchTags.splice(i, 1);
+            this.runSearch();
+            this.$nextTick(() => { const el = document.getElementById('photo-search-input'); if (el) el.focus(); });
+        },
+
+        removeLastTag() {
+            if (this.searchTags.length > 0) {
+                this.searchTags.pop();
+                this.runSearch();
+            }
+        },
+
+        runSearch() {
+            clearTimeout(this._searchTimer);
+            const q = this.currentQuery();
+            this.showSuggestions = false;
+            if (q.length === 0) {
+                // Nothing to search — fall back to normal folder browsing.
+                if (this.searchMode) { this.searchMode = false; this.searchTotal = 0; this.getFolderInfo(); }
+                return;
+            }
             this.searchMode = true;
             aoPhotoBackend("Photo/backend/searchPhotos.js", {
                 q: q,
@@ -323,12 +364,14 @@ function photoListObject() {
         },
 
         clearSearch() {
-            this.searchQuery = '';
-            this.searchMode = false;
+            this.searchTags = [];
+            this.searchInput = '';
             this.suggestions = [];
             this.showSuggestions = false;
             this.suggestIndex = -1;
             this.searchTotal = 0;
+            this.searchMode = false;
+            clearTimeout(this._searchTimer);
             this.getFolderInfo();   // restore normal folder browsing
         },
 
@@ -337,8 +380,21 @@ function photoListObject() {
                 e.preventDefault();
                 if (this.showSuggestions && this.suggestIndex >= 0 && this.suggestions[this.suggestIndex]) {
                     this.applySuggestion(this.suggestions[this.suggestIndex]);
+                } else if (this.searchInput.trim().length > 0) {
+                    this.commitInput();
                 } else {
                     this.runSearch();
+                }
+            } else if (e.key === ' ') {
+                // Space turns the current token into a chip (unless mid-quote/"key:").
+                if (photoInputCommittable(this.searchInput)) {
+                    e.preventDefault();
+                    this.commitInput();
+                }
+            } else if (e.key === 'Backspace') {
+                if (this.searchInput.length === 0 && this.searchTags.length > 0) {
+                    e.preventDefault();
+                    this.removeLastTag();
                 }
             } else if (e.key === 'ArrowDown') {
                 if (this.showSuggestions) {
@@ -352,7 +408,7 @@ function photoListObject() {
                 }
             } else if (e.key === 'Escape') {
                 if (this.showSuggestions) { this.showSuggestions = false; }
-                else if (this.searchMode) { this.clearSearch(); }
+                else if (this.searchActive()) { this.clearSearch(); }
             }
         },
 

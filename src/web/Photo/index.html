@@ -255,43 +255,89 @@
             border-bottom: 1px solid #2a2a2a;
             flex-shrink: 0;
         }
+        .search-input-wrap { position: relative; }
         #search-box {
             display: flex;
             align-items: center;
             background: #252525;
             border: 1px solid #3a3a3a;
             border-radius: 8px;
-            padding: 0.5em 0.8em;
+            padding: 0.4em 0.7em;
             transition: border-color 0.15s;
+            cursor: text;
         }
         #search-box.focused,
         #search-box:focus-within {
             border-color: #f76c5d;
         }
-        #search-box > i.search.icon { color: #888; margin-right: 0.5em; }
-        #search-box input {
+        #search-box > i.search.icon { color: #888; margin-right: 0.5em; flex-shrink: 0; align-self: center; }
+
+        /* Tags / chips */
+        .search-tags {
             flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.3em;
+            min-width: 0;
+        }
+        .search-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3em;
+            background: rgba(247, 108, 93, 0.16);
+            border: 1px solid rgba(247, 108, 93, 0.4);
+            color: #f7b3aa;
+            border-radius: 5px;
+            padding: 0.1em 0.2em 0.1em 0.45em;
+            font-size: 0.82em;
+            line-height: 1.6;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+        .search-tag > span { overflow: hidden; text-overflow: ellipsis; }
+        .search-tag > i.icon { margin: 0; font-size: 0.85em; color: #f76c5d; flex-shrink: 0; }
+        .search-tag .tag-remove {
+            cursor: pointer;
+            color: #f7b3aa;
+            opacity: 0.7;
+            margin: 0 0.05em;
+            font-size: 0.8em;
+        }
+        .search-tag .tag-remove:hover { opacity: 1; color: #fff; }
+        /* Per-type chip accents */
+        .search-tag.tag-camera { background: rgba(86, 156, 214, 0.16); border-color: rgba(86, 156, 214, 0.4); color: #9ccbf0; }
+        .search-tag.tag-camera > i.icon, .search-tag.tag-camera .tag-remove { color: #569cd6; }
+        .search-tag.tag-date { background: rgba(201, 162, 39, 0.18); border-color: rgba(201, 162, 39, 0.45); color: #e0c068; }
+        .search-tag.tag-date > i.icon, .search-tag.tag-date .tag-remove { color: #c9a227; }
+        .search-tag.tag-lens { background: rgba(137, 200, 100, 0.16); border-color: rgba(137, 200, 100, 0.4); color: #b6dd9a; }
+        .search-tag.tag-lens > i.icon, .search-tag.tag-lens .tag-remove { color: #89c864; }
+
+        #search-box .search-tags input {
+            flex: 1 1 90px;
             background: transparent;
             border: none;
             outline: none;
             color: #eee;
             font-size: 0.95em;
-            min-width: 0;
+            min-width: 90px;
+            padding: 0.18em 0;
         }
-        #search-box input::placeholder { color: #666; }
+        #search-box .search-tags input::placeholder { color: #666; }
         .search-clear {
             color: #888;
             cursor: pointer;
             margin-left: 0.5em;
             flex-shrink: 0;
+            align-self: center;
         }
         .search-clear:hover { color: #f76c5d; }
 
         #search-suggestions {
             position: absolute;
-            left: 0.8em;
-            right: 0.8em;
-            top: 3.1em;
+            left: 0;
+            right: 0;
+            top: calc(100% + 4px);
             background: #222;
             border: 1px solid #3a3a3a;
             border-radius: 8px;
@@ -862,32 +908,46 @@
             </div><!-- /#sidebar -->
 
             <div id="display">
-                <!-- Search bar (iOS-style with autocomplete) -->
+                <!-- Search bar (iOS-style tags input with autocomplete) -->
                 <div id="search-header">
-                    <div id="search-box" :class="{ 'focused': showSuggestions }">
-                        <i class="search icon"></i>
-                        <input type="text" id="photo-search-input" autocomplete="off" spellcheck="false"
-                            placeholder="Search photos — name, camera, ISO, f/2.8, 2023, landscape…"
-                            x-model="searchQuery"
-                            x-on:input="onSearchInput()"
-                            x-on:keydown="onSearchKeydown($event)"
-                            x-on:focus="onSearchInput()">
-                        <i class="times circle icon search-clear" x-show="searchQuery.length > 0"
-                            x-on:click="clearSearch()"></i>
-                    </div>
-
-                    <!-- Autocomplete dropdown -->
-                    <div id="search-suggestions" x-show="showSuggestions"
-                        x-on:click.outside="showSuggestions = false">
-                        <template x-for="(s, i) in suggestions" :key="i">
-                            <div class="suggest-item" :class="{ 'active': i === suggestIndex }"
-                                x-on:mousedown.prevent="applySuggestion(s)"
-                                x-on:mouseenter="suggestIndex = i">
-                                <i class="icon" :class="suggestIcon(s.type)"></i>
-                                <span class="suggest-label" x-text="s.label"></span>
-                                <span class="suggest-hint" x-text="s.hint"></span>
+                    <div class="search-input-wrap">
+                        <div id="search-box" :class="{ 'focused': showSuggestions }"
+                            x-on:click="$refs.searchInput.focus()">
+                            <i class="search icon"></i>
+                            <div class="search-tags">
+                                <template x-for="(tag, ti) in searchTags" :key="ti">
+                                    <span class="search-tag" :class="'tag-' + tag.type">
+                                        <i class="icon" :class="suggestIcon(tag.type)"></i>
+                                        <span x-text="tag.label"></span>
+                                        <i class="times icon tag-remove" x-on:click.stop="removeTag(ti)"></i>
+                                    </span>
+                                </template>
+                                <input type="text" id="photo-search-input" x-ref="searchInput"
+                                    autocomplete="off" spellcheck="false"
+                                    :placeholder="searchTags.length ? '' : 'Search — name, camera, ISO, f/2.8, June, 2023, landscape…'"
+                                    x-model="searchInput"
+                                    x-on:input="onSearchInput()"
+                                    x-on:keydown="onSearchKeydown($event)"
+                                    x-on:focus="onSearchInput()">
                             </div>
-                        </template>
+                            <i class="times circle icon search-clear"
+                                x-show="searchTags.length > 0 || searchInput.length > 0"
+                                x-on:click.stop="clearSearch()"></i>
+                        </div>
+
+                        <!-- Autocomplete dropdown -->
+                        <div id="search-suggestions" x-show="showSuggestions"
+                            x-on:click.outside="showSuggestions = false">
+                            <template x-for="(s, i) in suggestions" :key="i">
+                                <div class="suggest-item" :class="{ 'active': i === suggestIndex }"
+                                    x-on:mousedown.prevent="applySuggestion(s)"
+                                    x-on:mouseenter="suggestIndex = i">
+                                    <i class="icon" :class="suggestIcon(s.type)"></i>
+                                    <span class="suggest-label" x-text="s.label"></span>
+                                    <span class="suggest-hint" x-text="s.hint"></span>
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
                     <!-- Result count / indexing status -->
@@ -909,7 +969,7 @@
                         <div class="content">
                             <span x-text="searchMode ? 'No matching photos' : 'Empty Folder'">Empty Folder</span>
                             <div class="sub header" x-show="!searchMode">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
-                            <div class="sub header" x-show="searchMode">Try a different name, camera, ISO, f-number, year or orientation.</div>
+                            <div class="sub header" x-show="searchMode">Try a different name, camera, ISO, f-number, month, year or orientation.</div>
                         </div>
                     </h4>
                 </div>

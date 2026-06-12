@@ -120,6 +120,19 @@ function buildSuggestions(db, q) {
         }
     }
 
+    // Months (match by name prefix; the filter matches that month across all years).
+    if (/^[a-z]+$/.test(lastToken)) {
+        var MN = ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"];
+        for (a = 0; a < MN.length; a++) {
+            if (MN[a].toLowerCase().indexOf(lastToken) === 0) {
+                var mc = db.queryRow("SELECT COUNT(*) AS c FROM photos WHERE taken_date IS NOT NULL" +
+                    " AND CAST(strftime('%m', taken_date, 'unixepoch') AS INTEGER) = ?", [a + 1]);
+                add("date", MN[a], withPrefix("month:" + (a + 1)), (mc && mc.c ? mc.c + " photos" : ""));
+            }
+        }
+    }
+
     // File types.
     if (lastToken.charAt(0) === "." || lastToken.length <= 4) {
         var ex = lastToken.replace(/^\./, "");
