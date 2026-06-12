@@ -15,6 +15,7 @@
     <script src="../script/ao_module.js"></script>
     <script src="constants.js"></script>
     <script src="histogram.js"></script>
+    <script src="search.js"></script>
     <script src="photo.js"></script>
     <style>
         #main {
@@ -210,6 +211,8 @@
             overflow: hidden;
             background: #1a1a1a;
             min-width: 0;
+            display: flex;
+            flex-direction: column;
         }
         
         body {
@@ -238,10 +241,109 @@
         }
 
         #viewboxContainer{
-            height: 100%;
+            flex: 1;
+            min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
         }
+
+        /* ── Search bar ──────────────────────────────────────────────────── */
+        #search-header {
+            position: relative;
+            padding: 0.6em 0.8em 0.45em 0.8em;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            flex-shrink: 0;
+        }
+        #search-box {
+            display: flex;
+            align-items: center;
+            background: #252525;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 0.5em 0.8em;
+            transition: border-color 0.15s;
+        }
+        #search-box.focused,
+        #search-box:focus-within {
+            border-color: #f76c5d;
+        }
+        #search-box > i.search.icon { color: #888; margin-right: 0.5em; }
+        #search-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #eee;
+            font-size: 0.95em;
+            min-width: 0;
+        }
+        #search-box input::placeholder { color: #666; }
+        .search-clear {
+            color: #888;
+            cursor: pointer;
+            margin-left: 0.5em;
+            flex-shrink: 0;
+        }
+        .search-clear:hover { color: #f76c5d; }
+
+        #search-suggestions {
+            position: absolute;
+            left: 0.8em;
+            right: 0.8em;
+            top: 3.1em;
+            background: #222;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            z-index: 30;
+            max-height: 340px;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .suggest-item {
+            display: flex;
+            align-items: center;
+            padding: 0.55em 0.85em;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 0.9em;
+        }
+        .suggest-item:hover,
+        .suggest-item.active { background: #2d2d2d; color: #fff; }
+        .suggest-item > i.icon { width: 1.4em; color: #f76c5d; flex-shrink: 0; }
+        .suggest-label {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .suggest-hint {
+            color: #777;
+            font-size: 0.8em;
+            margin-left: 0.6em;
+            flex-shrink: 0;
+        }
+
+        #search-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.9em;
+            padding: 0.5em 0.3em 0.1em 0.3em;
+            color: #aaa;
+            font-size: 0.82em;
+        }
+        .search-clear-link { color: #f76c5d; cursor: pointer; }
+        .search-clear-link:hover { text-decoration: underline; }
+        #index-chip {
+            margin-left: auto;
+            color: #888;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 0.35em;
+        }
+        #index-chip .reindex-link { color: #888; cursor: pointer; }
+        #index-chip .reindex-link:hover { color: #f76c5d; }
 
         #fadeplate{
             position: absolute;
@@ -760,11 +862,54 @@
             </div><!-- /#sidebar -->
 
             <div id="display">
+                <!-- Search bar (iOS-style with autocomplete) -->
+                <div id="search-header">
+                    <div id="search-box" :class="{ 'focused': showSuggestions }">
+                        <i class="search icon"></i>
+                        <input type="text" id="photo-search-input" autocomplete="off" spellcheck="false"
+                            placeholder="Search photos — name, camera, ISO, f/2.8, 2023, landscape…"
+                            x-model="searchQuery"
+                            x-on:input="onSearchInput()"
+                            x-on:keydown="onSearchKeydown($event)"
+                            x-on:focus="onSearchInput()">
+                        <i class="times circle icon search-clear" x-show="searchQuery.length > 0"
+                            x-on:click="clearSearch()"></i>
+                    </div>
+
+                    <!-- Autocomplete dropdown -->
+                    <div id="search-suggestions" x-show="showSuggestions"
+                        x-on:click.outside="showSuggestions = false">
+                        <template x-for="(s, i) in suggestions" :key="i">
+                            <div class="suggest-item" :class="{ 'active': i === suggestIndex }"
+                                x-on:mousedown.prevent="applySuggestion(s)"
+                                x-on:mouseenter="suggestIndex = i">
+                                <i class="icon" :class="suggestIcon(s.type)"></i>
+                                <span class="suggest-label" x-text="s.label"></span>
+                                <span class="suggest-hint" x-text="s.hint"></span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Result count / indexing status -->
+                    <div id="search-meta" x-show="searchMode || indexStatusText.length > 0">
+                        <span x-show="searchMode"
+                            x-text="searchTotal + ' result' + (searchTotal === 1 ? '' : 's')"></span>
+                        <a class="search-clear-link" x-show="searchMode" x-on:click="clearSearch()">Clear search</a>
+                        <span id="index-chip" x-show="indexStatusText.length > 0">
+                            <i class="loading spinner icon" x-show="indexing"></i>
+                            <span x-text="indexStatusText"></span>
+                            <a class="reindex-link" x-show="!indexing" x-on:click="rebuildIndex()"
+                                title="Rebuild the search index">Rebuild</a>
+                        </span>
+                    </div>
+                </div>
+
                 <div id="noimg" class="ui basic inverted segment" style="display:none;">
                     <h4 class="ui header">
                         <div class="content">
-                            Empty Folder
-                            <div class="sub header">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+                            <span x-text="searchMode ? 'No matching photos' : 'Empty Folder'">Empty Folder</span>
+                            <div class="sub header" x-show="!searchMode">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+                            <div class="sub header" x-show="searchMode">Try a different name, camera, ISO, f-number, year or orientation.</div>
                         </div>
                     </h4>
                 </div>

@@ -108,6 +108,17 @@ function photoListObject() {
         isLoadingMore: false, // guard: blocks new batch until DOM has updated
         sidebarOpen: !isMobile,  // start hidden on mobile, visible on desktop
 
+        // search state
+        searchQuery: '',
+        searchMode: false,      // true while showing search results instead of a folder
+        suggestions: [],
+        showSuggestions: false,
+        suggestIndex: -1,       // keyboard-highlighted suggestion (-1 = none)
+        searchTotal: 0,
+        indexing: false,
+        indexStatusText: '',
+        _suggestTimer: null,
+
         // init
         init() {
             this.getFolderInfo();
@@ -116,6 +127,10 @@ function photoListObject() {
             updateImageSizes();
             this.restored = false;
             this.$nextTick(() => { this.setupInfiniteScroll(); });
+
+            // Kick off background (auto) indexing shortly after the first paint so
+            // it doesn't compete with the initial folder load.
+            setTimeout(() => { this.startAutoIndex(); }, 1200);
 
             const MOBILE_BP = 768;
             let _prevMobile = window.innerWidth <= MOBILE_BP;
@@ -243,6 +258,150 @@ function photoListObject() {
                     this.loadMoreImages();
                 }
             });
+        },
+
+        // ── Search ────────────────────────────────────────────────────────────
+
+        suggestIcon(type) { return photoSuggestIcon(type); },
+
+        // Debounced autocomplete on every keystroke.
+        onSearchInput() {
+            this.suggestIndex = -1;
+            const q = this.searchQuery;
+            clearTimeout(this._suggestTimer);
+            this._suggestTimer = setTimeout(() => { this.fetchSuggestions(q); }, 150);
+        },
+
+        fetchSuggestions(q) {
+            aoPhotoBackend("Photo/backend/searchSuggest.js", { q: q }).then(data => {
+                this.suggestions = (data && data.suggestions) ? data.suggestions : [];
+                this.showSuggestions = this.suggestions.length > 0;
+            }).catch(() => {
+                this.suggestions = [];
+                this.showSuggestions = false;
+            });
+        },
+
+        // Replace the active (last) token with the chosen suggestion, then search.
+        applySuggestion(s) {
+            if (s.type === 'file') {
+                // File-name suggestions are absolute — they replace the whole query.
+                this.searchQuery = s.value;
+            } else {
+                const parts = this.searchQuery.split(/\s+/);
+                parts[parts.length - 1] = s.value;
+                this.searchQuery = parts.join(' ') + ' ';
+            }
+            this.showSuggestions = false;
+            this.suggestIndex = -1;
+            this.runSearch();
+        },
+
+        runSearch() {
+            const q = this.searchQuery.trim();
+            this.showSuggestions = false;
+            this.suggestIndex = -1;
+            if (q.length === 0) { this.clearSearch(); return; }
+
+            this.searchMode = true;
+            aoPhotoBackend("Photo/backend/searchPhotos.js", {
+                q: q,
+                sort: 'taken_desc',
+                limit: 1000
+            }).then(data => {
+                const results = (data && data.results) ? data.results : [];
+                this.searchTotal = (data && typeof data.total === 'number') ? data.total : results.length;
+                // Reuse the existing grid: it only needs {filepath, filesize}.
+                this.allImages = results.map(r => ({ filepath: r.filepath, filesize: r.filesize }));
+                this.images = this.allImages.slice(0, PAGE_SIZE);
+                this.hasMoreImages = this.allImages.length > PAGE_SIZE;
+                this.isLoadingMore = false;
+                this.folders = [];
+                if (this.allImages.length == 0) { $("#noimg").show(); } else { $("#noimg").hide(); }
+                this.$nextTick(() => { updateImageSizes(); });
+            }).catch(() => { /* leave current view untouched on error */ });
+        },
+
+        clearSearch() {
+            this.searchQuery = '';
+            this.searchMode = false;
+            this.suggestions = [];
+            this.showSuggestions = false;
+            this.suggestIndex = -1;
+            this.searchTotal = 0;
+            this.getFolderInfo();   // restore normal folder browsing
+        },
+
+        onSearchKeydown(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.showSuggestions && this.suggestIndex >= 0 && this.suggestions[this.suggestIndex]) {
+                    this.applySuggestion(this.suggestions[this.suggestIndex]);
+                } else {
+                    this.runSearch();
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (this.showSuggestions) {
+                    e.preventDefault();
+                    this.suggestIndex = Math.min(this.suggestIndex + 1, this.suggestions.length - 1);
+                }
+            } else if (e.key === 'ArrowUp') {
+                if (this.showSuggestions) {
+                    e.preventDefault();
+                    this.suggestIndex = Math.max(this.suggestIndex - 1, -1);
+                }
+            } else if (e.key === 'Escape') {
+                if (this.showSuggestions) { this.showSuggestions = false; }
+                else if (this.searchMode) { this.clearSearch(); }
+            }
+        },
+
+        // ── Auto indexing ─────────────────────────────────────────────────────
+        // Loops indexPhotos.js in the background until the whole library is
+        // indexed. Incremental, so steady-state runs finish in a single pass.
+        startAutoIndex() {
+            if (this.indexing) return;
+            this.indexing = true;
+            const step = () => {
+                aoPhotoBackend("Photo/backend/indexPhotos.js", { mode: 'incremental' }).then(data => {
+                    if (data && data.error) { this.indexing = false; this.indexStatusText = ''; return; }
+                    const total = (data && data.total) ? data.total : 0;
+                    if (data && data.hasMore) {
+                        this.indexStatusText = 'Indexing… ' + total + ' photos';
+                        setTimeout(step, 50);
+                    } else {
+                        this.indexing = false;
+                        this.indexStatusText = total ? (total + ' photos indexed') : '';
+                        setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
+                    }
+                }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
+            };
+            step();
+        },
+
+        // Force a full re-index (used by the "Rebuild" action). The first request
+        // wipes the index ("full"); subsequent rounds loop incrementally so the
+        // batch loop advances to completion.
+        rebuildIndex() {
+            if (this.indexing) return;
+            this.indexing = true;
+            this.indexStatusText = 'Rebuilding index…';
+            const step = (mode) => {
+                aoPhotoBackend("Photo/backend/indexPhotos.js", { mode: mode }).then(data => {
+                    if (data && data.error) { this.indexing = false; this.indexStatusText = ''; return; }
+                    const total = (data && data.total) ? data.total : 0;
+                    if (data && data.hasMore) {
+                        this.indexStatusText = 'Rebuilding… ' + total + ' photos';
+                        setTimeout(() => step('incremental'), 50);
+                    } else {
+                        this.indexing = false;
+                        this.indexStatusText = total ? (total + ' photos indexed') : '';
+                        if (this.searchMode) this.runSearch();
+                        setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
+                    }
+                }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
+            };
+            step('full');
         }
     }
 }
