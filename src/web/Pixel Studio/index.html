@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Studio</title>
+    <link rel="icon" href="img/module_icon.png">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Top menu bar -->
+    <div id="menubar"></div>
+
+    <!-- Tool options bar (content depends on the active tool) -->
+    <div id="optionsbar"></div>
+
+    <div id="main">
+        <!-- Left tool bar -->
+        <div id="toolbar">
+            <div id="toolbar-buttons"></div>
+            <div id="color-wells" title="Foreground / background color (X to swap, D to reset)">
+                <div id="bg-well"></div>
+                <div id="fg-well"></div>
+                <input type="color" id="fg-input">
+                <input type="color" id="bg-input">
+            </div>
+        </div>
+
+        <!-- Center workspace -->
+        <div id="workspace-holder">
+            <div id="workspace">
+                <div id="canvas-wrap">
+                    <div id="canvas-positioner">
+                        <canvas id="doc-canvas" width="1" height="1"></canvas>
+                    </div>
+                </div>
+            </div>
+            <canvas id="overlay-canvas"></canvas>
+            <div id="text-edit-host"></div>
+        </div>
+
+        <!-- Right panels -->
+        <div id="sidebar">
+            <div class="panel" id="panel-color">
+                <div class="panel-title">Color</div>
+                <div class="panel-body" id="panel-color-body"></div>
+            </div>
+            <div class="panel" id="panel-history">
+                <div class="panel-title">History</div>
+                <div class="panel-body" id="panel-history-body"></div>
+            </div>
+            <div class="panel grow" id="panel-layers">
+                <div class="panel-title">Layers</div>
+                <div class="panel-body" id="panel-layers-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom status bar -->
+    <div id="statusbar">
+        <span id="status-doc"></span>
+        <span id="status-pos"></span>
+        <span id="status-hint"></span>
+        <span class="spacer"></span>
+        <select id="status-zoom">
+            <option value="0.125">12.5%</option>
+            <option value="0.25">25%</option>
+            <option value="0.5">50%</option>
+            <option value="1" selected>100%</option>
+            <option value="2">200%</option>
+            <option value="4">400%</option>
+            <option value="8">800%</option>
+            <option value="fit">Fit</option>
+        </select>
+    </div>
+
+    <div id="dialog-host"></div>
+    <div id="toast-host"></div>
+
+    <script src="js/editor.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/layers.js"></script>
+    <script src="js/selection.js"></script>
+    <script src="js/tools.js"></script>
+    <script src="js/text.js"></script>
+    <script src="js/filters.js"></script>
+    <script src="js/fileio.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/hotkeys.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
