@@ -555,34 +555,37 @@ function parseDateRange(s) {
     return { min: single, max: parseDateToUnix(s, true) };
 }
 
-function mergeRange(filter, field, r) {
+// Append one numeric range condition to a category list. Each token contributes
+// its own {min,max}; ranges within a category are OR-ed together at build time.
+function pushRange(filter, field, r) {
     if (!r) {
         return;
     }
+    var hasMin = r.min !== null && r.min !== undefined && !isNaN(r.min);
+    var hasMax = r.max !== null && r.max !== undefined && !isNaN(r.max);
+    if (!hasMin && !hasMax) {
+        return;
+    }
     if (!filter[field]) {
-        filter[field] = { min: null, max: null };
+        filter[field] = [];
     }
-    if (r.min !== null && r.min !== undefined && !isNaN(r.min)) {
-        filter[field].min = r.min;
-    }
-    if (r.max !== null && r.max !== undefined && !isNaN(r.max)) {
-        filter[field].max = r.max;
-    }
+    filter[field].push({ min: hasMin ? r.min : null, max: hasMax ? r.max : null });
 }
 
-function mergeDate(filter, field, r) {
+// Append one date range condition to a category list (OR-ed at build time).
+function pushDate(filter, field, r) {
     if (!r) {
         return;
     }
+    var hasMin = r.min !== null && r.min !== undefined;
+    var hasMax = r.max !== null && r.max !== undefined;
+    if (!hasMin && !hasMax) {
+        return;
+    }
     if (!filter[field]) {
-        filter[field] = { min: null, max: null };
+        filter[field] = [];
     }
-    if (r.min !== null && r.min !== undefined) {
-        filter[field].min = r.min;
-    }
-    if (r.max !== null && r.max !== undefined) {
-        filter[field].max = r.max;
-    }
+    filter[field].push({ min: hasMin ? r.min : null, max: hasMax ? r.max : null });
 }
 
 var MONTH_NAMES = ["january", "february", "march", "april", "may", "june",
@@ -616,7 +619,7 @@ function monthNameToNum(s) {
 
 // Month is a calendar-month filter (matches across all years). Stored as a list
 // so several months can be OR-ed together (handy with a tags input).
-function mergeMonth(filter, mnum) {
+function pushMonth(filter, mnum) {
     if (!mnum || mnum < 1 || mnum > 12) {
         return;
     }
@@ -628,8 +631,16 @@ function mergeMonth(filter, mnum) {
     }
 }
 
+// Every category is a list. Within a category the values are OR-ed; across
+// categories they are AND-ed (see buildWhere). `raw` is the single boolean
+// exception (a shorthand that expands into the RAW extensions).
 function newFilter() {
-    return { text: [], ext: [] };
+    return {
+        text: [], filename: [], ext: [], raw: false,
+        model: [], make: [], lens: [], orientation: [], month: [],
+        iso: [], aperture: [], focal: [], mp: [], width: [], height: [],
+        taken: [], modified: []
+    };
 }
 
 // Split a query string into tokens, honouring `key:"quoted value"` and "quoted".
@@ -662,14 +673,14 @@ function classifyToken(filter, token) {
     // f/2.8 or f2.8 (aperture shorthand)
     var fm = lower.match(/^f\/?(\d+(?:\.\d+)?)$/);
     if (colon < 0 && fm) {
-        mergeRange(filter, "aperture", { min: parseFloat(fm[1]), max: parseFloat(fm[1]) });
+        pushRange(filter, "aperture", { min: parseFloat(fm[1]), max: parseFloat(fm[1]) });
         return;
     }
 
     // 50mm (focal length shorthand)
     var fmm = lower.match(/^(\d+(?:\.\d+)?)mm$/);
     if (colon < 0 && fmm) {
-        mergeRange(filter, "focal", { min: parseFloat(fmm[1]), max: parseFloat(fmm[1]) });
+        pushRange(filter, "focal", { min: parseFloat(fmm[1]), max: parseFloat(fmm[1]) });
         return;
     }
 
@@ -686,54 +697,54 @@ function classifyToken(filter, token) {
         return;
     }
     if (colon < 0 && (lower === "landscape" || lower === "portrait" || lower === "square")) {
-        filter.orientation = lower;
+        filter.orientation.push(lower);
         return;
     }
     if (colon < 0 && isMonthName(lower)) {
-        mergeMonth(filter, monthNameToNum(lower));
+        pushMonth(filter, monthNameToNum(lower));
         return;
     }
     if (colon < 0 && /^\d{4}$/.test(lower)) {
-        mergeDate(filter, "taken", parseDateRange(lower));
+        pushDate(filter, "taken", parseDateRange(lower));
         return;
     }
 
     if (colon > 0) {
         switch (key) {
             case "iso":
-                mergeRange(filter, "iso", parseRange(val));
+                pushRange(filter, "iso", parseRange(val));
                 return;
             case "f":
             case "aperture":
             case "fnumber":
-                mergeRange(filter, "aperture", parseRange(val.replace(/^\//, "")));
+                pushRange(filter, "aperture", parseRange(val.replace(/^\//, "")));
                 return;
             case "focal":
             case "fl":
-                mergeRange(filter, "focal", parseRange(val.replace(/mm$/i, "")));
+                pushRange(filter, "focal", parseRange(val.replace(/mm$/i, "")));
                 return;
             case "mp":
             case "megapixels":
-                mergeRange(filter, "mp", parseRange(val));
+                pushRange(filter, "mp", parseRange(val));
                 return;
             case "width":
             case "w":
-                mergeRange(filter, "width", parseRange(val));
+                pushRange(filter, "width", parseRange(val));
                 return;
             case "height":
             case "h":
-                mergeRange(filter, "height", parseRange(val));
+                pushRange(filter, "height", parseRange(val));
                 return;
             case "model":
             case "camera":
-                filter.model = val;
+                filter.model.push(val);
                 return;
             case "make":
             case "brand":
-                filter.make = val;
+                filter.make.push(val);
                 return;
             case "lens":
-                filter.lens = val;
+                filter.lens.push(val);
                 return;
             case "ext":
             case "type":
@@ -741,31 +752,31 @@ function classifyToken(filter, token) {
                 return;
             case "name":
             case "filename":
-                filter.filename = val;
+                filter.filename.push(val);
                 return;
             case "orientation":
-                filter.orientation = val.toLowerCase();
+                filter.orientation.push(val.toLowerCase());
                 return;
             case "month":
                 var monthVals = val.split(",");
                 for (var mvi = 0; mvi < monthVals.length; mvi++) {
-                    mergeMonth(filter, monthNameToNum(monthVals[mvi]));
+                    pushMonth(filter, monthNameToNum(monthVals[mvi]));
                 }
                 return;
             case "taken":
             case "date":
             case "year":
-                mergeDate(filter, "taken", parseDateRange(val));
+                pushDate(filter, "taken", parseDateRange(val));
                 return;
             case "modified":
             case "mtime":
-                mergeDate(filter, "modified", parseDateRange(val));
+                pushDate(filter, "modified", parseDateRange(val));
                 return;
             case "before":
-                mergeDate(filter, "taken", { min: null, max: parseDateToUnix(val, true) });
+                pushDate(filter, "taken", { min: null, max: parseDateToUnix(val, true) });
                 return;
             case "after":
-                mergeDate(filter, "taken", { min: parseDateToUnix(val, false), max: null });
+                pushDate(filter, "taken", { min: parseDateToUnix(val, false), max: null });
                 return;
             default:
                 filter.text.push(token);
@@ -791,24 +802,29 @@ function parseSearchQuery(q) {
 }
 
 // Merge an explicit structured filter object (from the UI) onto a parsed one.
+// String fields accept a single value or an array (OR-ed within the category).
 function applyExplicitFilters(filter, f) {
     if (!f || typeof f !== "object") {
         return;
     }
-    if (f.filename) {
-        filter.filename = f.filename;
+    function pushStrings(field, v) {
+        if (v === undefined || v === null) {
+            return;
+        }
+        var list = Array.isArray(v) ? v : [v];
+        for (var k = 0; k < list.length; k++) {
+            filter[field].push("" + list[k]);
+        }
     }
-    if (f.model) {
-        filter.model = f.model;
-    }
-    if (f.make) {
-        filter.make = f.make;
-    }
-    if (f.lens) {
-        filter.lens = f.lens;
-    }
+    pushStrings("filename", f.filename);
+    pushStrings("model", f.model);
+    pushStrings("make", f.make);
+    pushStrings("lens", f.lens);
     if (f.orientation) {
-        filter.orientation = ("" + f.orientation).toLowerCase();
+        var orients = Array.isArray(f.orientation) ? f.orientation : [f.orientation];
+        for (var o = 0; o < orients.length; o++) {
+            filter.orientation.push(("" + orients[o]).toLowerCase());
+        }
     }
     if (f.raw) {
         filter.raw = true;
@@ -820,88 +836,147 @@ function applyExplicitFilters(filter, f) {
     }
     var ranges = ["iso", "aperture", "focal", "mp", "width", "height"];
     for (var r = 0; r < ranges.length; r++) {
-        if (f[ranges[r]]) {
-            mergeRange(filter, ranges[r], f[ranges[r]]);
+        var rv = f[ranges[r]];
+        if (rv) {
+            var rlist = Array.isArray(rv) ? rv : [rv];
+            for (var ri = 0; ri < rlist.length; ri++) {
+                pushRange(filter, ranges[r], rlist[ri]);
+            }
         }
     }
     if (f.taken) {
-        mergeDate(filter, "taken", f.taken);
+        var tlist = Array.isArray(f.taken) ? f.taken : [f.taken];
+        for (var ti = 0; ti < tlist.length; ti++) {
+            pushDate(filter, "taken", tlist[ti]);
+        }
     }
     if (f.modified) {
-        mergeDate(filter, "modified", f.modified);
+        var mlist = Array.isArray(f.modified) ? f.modified : [f.modified];
+        for (var mi = 0; mi < mlist.length; mi++) {
+            pushDate(filter, "modified", mlist[mi]);
+        }
     }
     if (f.month) {
         var fmonths = Array.isArray(f.month) ? f.month : [f.month];
         for (var fmi = 0; fmi < fmonths.length; fmi++) {
-            mergeMonth(filter, monthNameToNum(fmonths[fmi]));
+            pushMonth(filter, monthNameToNum(fmonths[fmi]));
         }
     }
 }
 
-function addRangeClause(clauses, args, col, r) {
-    if (!r) {
+// Wrap a list of OR-ed fragments as a single AND clause (parenthesised if >1).
+function pushOrGroup(clauses, fragments) {
+    if (!fragments.length) {
         return;
     }
-    if (r.min !== null && r.min !== undefined) {
-        clauses.push(col + " >= ?");
-        args.push(r.min);
+    clauses.push(fragments.length > 1 ? "(" + fragments.join(" OR ") + ")" : fragments[0]);
+}
+
+// OR group of LIKE conditions on a NOT NULL column (e.g. filename_lc).
+function addLikeGroup(clauses, args, col, list) {
+    if (!list || !list.length) {
+        return;
     }
-    if (r.max !== null && r.max !== undefined) {
-        clauses.push(col + " <= ?");
-        args.push(r.max);
+    var ors = [];
+    for (var i = 0; i < list.length; i++) {
+        ors.push(col + " LIKE ?");
+        args.push("%" + ("" + list[i]).toLowerCase() + "%");
     }
+    pushOrGroup(clauses, ors);
+}
+
+// OR group of LIKE conditions on a nullable column.
+function addNullableLikeGroup(clauses, args, col, list) {
+    if (!list || !list.length) {
+        return;
+    }
+    var ors = [];
+    for (var i = 0; i < list.length; i++) {
+        ors.push("LOWER(IFNULL(" + col + ",'')) LIKE ?");
+        args.push("%" + ("" + list[i]).toLowerCase() + "%");
+    }
+    pushOrGroup(clauses, ors);
+}
+
+// Equality OR group expressed as IN (...).
+function addInGroup(clauses, args, col, list) {
+    if (!list || !list.length) {
+        return;
+    }
+    var ph = [];
+    for (var i = 0; i < list.length; i++) {
+        ph.push("?");
+        args.push(list[i]);
+    }
+    clauses.push(col + " IN (" + ph.join(",") + ")");
+}
+
+// OR group of numeric/date ranges. Each {min,max} becomes
+// "(col >= min AND col <= max)"; the ranges within one category are OR-ed.
+function addRangeGroup(clauses, args, col, list) {
+    if (!list || !list.length) {
+        return;
+    }
+    var ors = [];
+    for (var i = 0; i < list.length; i++) {
+        var r = list[i];
+        if (!r) {
+            continue;
+        }
+        var parts = [];
+        if (r.min !== null && r.min !== undefined) {
+            parts.push(col + " >= ?");
+            args.push(r.min);
+        }
+        if (r.max !== null && r.max !== undefined) {
+            parts.push(col + " <= ?");
+            args.push(r.max);
+        }
+        if (!parts.length) {
+            continue;
+        }
+        ors.push(parts.length > 1 ? "(" + parts.join(" AND ") + ")" : parts[0]);
+    }
+    pushOrGroup(clauses, ors);
 }
 
 // Build the parameterised WHERE clause + args for a structured filter.
+// Within a category multiple values are OR-ed; categories are AND-ed together.
 function buildWhere(filter) {
     var clauses = [];
     var args = [];
     var i;
 
+    // Free text: OR across terms, each term matching any of several columns.
     if (filter.text && filter.text.length) {
+        var textOrs = [];
         for (i = 0; i < filter.text.length; i++) {
             var term = "%" + filter.text[i].toLowerCase() + "%";
-            clauses.push("(filename_lc LIKE ? OR LOWER(IFNULL(camera_model,'')) LIKE ?" +
+            textOrs.push("(filename_lc LIKE ? OR LOWER(IFNULL(camera_model,'')) LIKE ?" +
                 " OR LOWER(IFNULL(lens_model,'')) LIKE ? OR LOWER(IFNULL(camera_make,'')) LIKE ?)");
             args.push(term, term, term, term);
         }
+        pushOrGroup(clauses, textOrs);
     }
-    if (filter.filename) {
-        clauses.push("filename_lc LIKE ?");
-        args.push("%" + filter.filename.toLowerCase() + "%");
-    }
-    if (filter.ext && filter.ext.length) {
-        var ph = [];
-        for (i = 0; i < filter.ext.length; i++) {
-            ph.push("?");
-            args.push(filter.ext[i].toLowerCase());
-        }
-        clauses.push("ext IN (" + ph.join(",") + ")");
-    }
+
+    addLikeGroup(clauses, args, "filename_lc", filter.filename);
+    addNullableLikeGroup(clauses, args, "camera_model", filter.model);
+    addNullableLikeGroup(clauses, args, "camera_make", filter.make);
+    addNullableLikeGroup(clauses, args, "lens_model", filter.lens);
+    addInGroup(clauses, args, "orientation", filter.orientation);
+
+    // Extensions (plus the RAW shorthand) are all OR-ed through a single IN.
+    var extList = (filter.ext || []).slice();
     if (filter.raw) {
-        var rph = [];
         for (i = 0; i < RAW_EXTENSIONS.length; i++) {
-            rph.push("?");
-            args.push(RAW_EXTENSIONS[i]);
+            if (extList.indexOf(RAW_EXTENSIONS[i]) < 0) {
+                extList.push(RAW_EXTENSIONS[i]);
+            }
         }
-        clauses.push("ext IN (" + rph.join(",") + ")");
     }
-    if (filter.model) {
-        clauses.push("LOWER(IFNULL(camera_model,'')) LIKE ?");
-        args.push("%" + filter.model.toLowerCase() + "%");
-    }
-    if (filter.make) {
-        clauses.push("LOWER(IFNULL(camera_make,'')) LIKE ?");
-        args.push("%" + filter.make.toLowerCase() + "%");
-    }
-    if (filter.lens) {
-        clauses.push("LOWER(IFNULL(lens_model,'')) LIKE ?");
-        args.push("%" + filter.lens.toLowerCase() + "%");
-    }
-    if (filter.orientation) {
-        clauses.push("orientation = ?");
-        args.push(filter.orientation);
-    }
+    addInGroup(clauses, args, "ext", extList);
+
+    // Calendar months (matched across all years), OR-ed via IN.
     if (filter.month && filter.month.length) {
         var mph = [];
         for (i = 0; i < filter.month.length; i++) {
@@ -911,14 +986,14 @@ function buildWhere(filter) {
         clauses.push("CAST(strftime('%m', taken_date, 'unixepoch') AS INTEGER) IN (" + mph.join(",") + ")");
     }
 
-    addRangeClause(clauses, args, "iso", filter.iso);
-    addRangeClause(clauses, args, "aperture", filter.aperture);
-    addRangeClause(clauses, args, "focal_length", filter.focal);
-    addRangeClause(clauses, args, "megapixels", filter.mp);
-    addRangeClause(clauses, args, "width", filter.width);
-    addRangeClause(clauses, args, "height", filter.height);
-    addRangeClause(clauses, args, "taken_date", filter.taken);
-    addRangeClause(clauses, args, "modified_date", filter.modified);
+    addRangeGroup(clauses, args, "iso", filter.iso);
+    addRangeGroup(clauses, args, "aperture", filter.aperture);
+    addRangeGroup(clauses, args, "focal_length", filter.focal);
+    addRangeGroup(clauses, args, "megapixels", filter.mp);
+    addRangeGroup(clauses, args, "width", filter.width);
+    addRangeGroup(clauses, args, "height", filter.height);
+    addRangeGroup(clauses, args, "taken_date", filter.taken);
+    addRangeGroup(clauses, args, "modified_date", filter.modified);
 
     return { clause: clauses.length ? clauses.join(" AND ") : "1=1", args: args };
 }

@@ -304,6 +304,12 @@ function photoListObject() {
         // Add a chip from an explicit {label, value, type}.
         addTag(tag) {
             if (!tag || !tag.value) return;
+            // Ignore exact duplicates (same token already a chip).
+            if (this.searchTags.some(t => t.value === tag.value)) {
+                this.searchInput = '';
+                this.showSuggestions = false;
+                return;
+            }
             this.searchTags.push({ label: tag.label, value: tag.value, type: tag.type || 'search' });
             this.searchInput = '';
             this.suggestions = [];
