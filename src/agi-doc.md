@@ -599,8 +599,23 @@ imagelib.getImageDimension("user:/Desktop/test.jpg");                           
 imagelib.resizeImage("user:/Desktop/input.png", "user:/Desktop/output.png", 500, 300);     //Resize input.png to 500 x 300 pixal and write to output.png
 imagelib.loadThumbString("user:/Desktop/test.jpg"); //Load the given file's thumbnail as base64 string, return false if failed
 imagelib.cropImage("user:/Desktop/test.jpg", "user:/Desktop/out.jpg",100,100,200,200)); 
+//Convert a RAW photo to a normal JPEG, return true on success and false on failure
+imagelib.rawToJPEG("user:/Desktop/photo.ARW", "user:/Desktop/photo.jpg");
 //Classify an image using neural network, since v1.119
 imagelib.classify("tmp:/classify.jpg", "yolo3"); 
+```
+
+#### Convert RAW to JPEG
+
+```
+Convert a camera RAW photo into a standard JPEG by extracting its embedded
+full-size preview. Supported RAW formats: .arw, .cr2, .dng, .nef, .raf, .orf
+
+1) Input file (virtual path to the RAW photo)
+2) Output file (virtual path, must end in .jpg or .jpeg, overwritten if exists)
+
+return true if success, false if failed (e.g. input is not a supported RAW
+format, or no embedded preview could be extracted)
 ```
 
 #### Crop Image Options
