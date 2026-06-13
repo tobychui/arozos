@@ -19,8 +19,8 @@ import (
 	apt "imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
-	"imuslab.com/arozos/mod/info/logger"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/time/nightly"
@@ -317,11 +317,22 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	defer func() {
 		g.vmReg.unregister(execID)
 		if caught := recover(); caught != nil {
-			if caught == errForceStop {
+			switch caught {
+			case errForceStop:
 				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM %s force-stopped (script: %s, user: %s)", execID, scriptFile, username), nil)
 				w.WriteHeader(http.StatusServiceUnavailable)
 				w.Write([]byte("503 - Script execution was force-terminated"))
-			} else {
+			case errExitcall:
+				// exit() in AGI script — clean early termination, not an error.
+				// check anything else in the buffered response and send it before returning, if needed.
+				value, err := vm.Get("HTTP_RESP")
+				if err == nil {
+					valueString, err := value.ToString()
+					if err == nil && valueString != "" {
+						w.Write([]byte(valueString))
+					}
+				}
+			default:
 				panic(caught) // re-panic anything we don't own
 			}
 		}
