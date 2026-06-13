@@ -1,4 +1,5 @@
 requirelib("filelib")
+includes("imagedb.js")
 
 
 function getExt(filename){
@@ -121,9 +122,27 @@ function main(){
     // Filter out JPG duplicates when RAW files exist
     files = filterDuplicates(files);
 
-    // Add filesize + modification time to each file. mtime (unix seconds) lets
-    // the front-end group the grid into Year / Month sections without a second
-    // round-trip to the search index.
+    // Year / Month grouping must follow the EXIF shoot time, not the file's
+    // last-modified time. The per-user photo index (imagedb.js) already stores
+    // taken_date = EXIF DateTimeOriginal for every indexed photo, so resolve it
+    // with one folder-scoped query instead of decoding EXIF per file per request.
+    var takenMap = {};
+    var db = openIndexDB();
+    if (db != null) {
+        // `folder` is the request wildcard ("user:/Photo/*"); its dirname is the
+        // folder being listed, which is exactly how the index keys its rows.
+        var rows = db.query("SELECT filepath, taken_date FROM photos WHERE folder = ?", [dirname(folder)]);
+        for (var ri = 0; ri < rows.length; ri++) {
+            if (rows[ri].taken_date) {
+                takenMap[rows[ri].filepath] = rows[ri].taken_date;
+            }
+        }
+        db.close();
+    }
+
+    // Add filesize + dates to each file. taken_date (unix seconds, from EXIF)
+    // drives the Year / Month grid sections; mtime is the fallback for photos
+    // the background indexer has not reached yet.
     var filesWithSize = [];
     for (var i = 0; i < files.length; i++){
         var filepath = files[i];
@@ -135,7 +154,8 @@ function main(){
         filesWithSize.push({
             filepath: filepath,
             filesize: filesize,
-            mtime: mtime
+            mtime: mtime,
+            taken_date: takenMap[filepath] || null
         });
     }
 

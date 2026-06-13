@@ -88,8 +88,9 @@ function showGridZoomHint(cols){
 }
 
 // ── Date grouping (Google-Photos-style Year / Month sections) ──────────────────
-// Best-effort capture date for a grid item: EXIF taken date (search results) →
-// file mtime (folder listing) → file modified date.
+// Capture date for a grid item: the EXIF shoot time (taken_date, supplied by
+// both search results and folder listings via the photo index) with file mtime
+// as the fallback for photos the background indexer has not reached yet.
 function photoImageDateUnix(img){
     if (!img) return null;
     if (img.taken_date) return img.taken_date;
@@ -588,16 +589,24 @@ function photoListObject() {
         startAutoIndex() {
             if (this.indexing) return;
             this.indexing = true;
+            let indexedThisRun = 0;
             const step = () => {
                 aoPhotoBackend("Photo/backend/indexPhotos.js", { mode: 'incremental' }).then(data => {
                     if (data && data.error) { this.indexing = false; this.indexStatusText = ''; return; }
                     const total = (data && data.total) ? data.total : 0;
+                    indexedThisRun += (data && data.indexed) ? data.indexed : 0;
                     if (data && data.hasMore) {
                         this.indexStatusText = 'Indexing… ' + total + ' photos';
                         setTimeout(step, 50);
                     } else {
                         this.indexing = false;
                         this.indexStatusText = total ? (total + ' photos indexed') : '';
+                        // Newly indexed photos may carry EXIF shoot times the
+                        // current grid grouped without (mtime fallback) — reload
+                        // the view so the Year/Month sections use them.
+                        if (indexedThisRun > 0 && this.groupByDate && !this.searchMode) {
+                            this.getFolderInfo();
+                        }
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
                     }
                 }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
@@ -622,7 +631,8 @@ function photoListObject() {
                     } else {
                         this.indexing = false;
                         this.indexStatusText = total ? (total + ' photos indexed') : '';
-                        if (this.searchMode) this.runSearch();
+                        if (this.searchMode) { this.runSearch(); }
+                        else if (this.groupByDate) { this.getFolderInfo(); } // refresh EXIF shoot times
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
                     }
                 }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
