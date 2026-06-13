@@ -184,10 +184,12 @@ PS.runFilter = function (f) {
         return;
     }
 
-    // parametric filter: slider dialog with live preview
+    // parametric filter: draggable, non-modal slider panel with live preview
+    // so the user can reposition it off the area being edited
     var layer = PS.activeLayer();
     var value = f.param.value;
     var previewTimer = null;
+    var applied = false;
 
     function updatePreview() {
         if (previewTimer) { return; }
@@ -198,7 +200,15 @@ PS.runFilter = function (f) {
         }, 60);
     }
 
-    PS.dialog({
+    function revertPreview() {
+        if (previewTimer) { clearTimeout(previewTimer); previewTimer = null; }
+        if (PS.layerOverride && PS.layerOverride.layer === layer) {
+            PS.layerOverride = null;
+            PS.requestRender();
+        }
+    }
+
+    PS.floatingPanel({
         title: f.label.replace("...", ""),
         build: function (body) {
             var row = document.createElement("div");
@@ -229,6 +239,8 @@ PS.runFilter = function (f) {
             {
                 label: "Apply", primary: true,
                 action: function () {
+                    applied = true;
+                    if (previewTimer) { clearTimeout(previewTimer); previewTimer = null; }
                     PS.layerOverride = null;
                     PS.applyFilterToLayer(f.label.replace("...", ""), function (src) {
                         return f.render(src, value);
@@ -237,10 +249,8 @@ PS.runFilter = function (f) {
             }
         ],
         onClose: function () {
-            if (PS.layerOverride && PS.layerOverride.layer === layer) {
-                PS.layerOverride = null;
-                PS.requestRender();
-            }
+            // Cancel / close button: drop the preview without applying
+            if (!applied) { revertPreview(); }
         }
     });
 };

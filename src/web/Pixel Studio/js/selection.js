@@ -430,3 +430,293 @@ PS.clearSelectedOnLayer = function (layer) {
         ctx.clearRect(0, 0, d.width, d.height);
     }
 };
+
+/* ---------- selection transform (resize handles) ---------- */
+
+PS.selTransform = (function () {
+    var HANDLE_PX = 8;    // handle square size, screen pixels
+    var PAD_PX    = 6;    // gap between selection bounds and box edge, screen pixels
+
+    var SEL_TOOLS = ["marquee-rect", "marquee-ellipse", "lasso", "lasso-poly", "wand"];
+
+    var CURSOR = {
+        nw: "nwse-resize", n: "ns-resize",   ne: "nesw-resize",
+        e:  "ew-resize",   se: "nwse-resize", s:  "ns-resize",
+        sw: "nesw-resize", w: "ew-resize"
+    };
+
+    // Ordered list for iteration
+    var HANDLE_IDS = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+
+    var state = null;
+    // state: {
+    //   handle, origBounds, origMask, origSelection, startPt, lastBounds, lastMask,
+    //   // content-transform fields (null when the active layer can't be transformed):
+    //   layer, before, base, float, preview
+    // }
+
+    function isSelTool() {
+        return SEL_TOOLS.indexOf(PS.tool) >= 0;
+    }
+
+    // True when the active layer's selected pixels can be scaled along with
+    // the selection (raster + visible). Text/hidden layers fall back to a
+    // selection-only resize.
+    function canTransformContent(layer) {
+        return !!layer && layer.type === "raster" && layer.visible;
+    }
+
+    // Returns 8 handle positions in doc coords for a given bounds object
+    function handlePositions(b) {
+        var z = PS.zoom;
+        var pad = PAD_PX / z;
+        var x = b.x - pad, y = b.y - pad;
+        var r = b.x + b.w + pad, bot = b.y + b.h + pad;
+        var mx = (x + r) / 2, my = (y + bot) / 2;
+        return {
+            nw: { x: x,  y: y   }, n: { x: mx, y: y   }, ne: { x: r,  y: y   },
+            e:  { x: r,  y: my  },                         se: { x: r,  y: bot },
+            s:  { x: mx, y: bot }, sw: { x: x,  y: bot }, w:  { x: x,  y: my  }
+        };
+    }
+
+    // Returns the handle id under pt (doc coords), or null
+    function hitHandle(pt) {
+        if (!isSelTool() || !PS.doc || !PS.doc.selection) { return null; }
+        var positions = handlePositions(PS.doc.selection.bounds);
+        var hitR = (HANDLE_PX / 2 + 3) / PS.zoom;
+        for (var i = 0; i < HANDLE_IDS.length; i++) {
+            var id = HANDLE_IDS[i];
+            var h = positions[id];
+            if (Math.abs(pt.x - h.x) <= hitR && Math.abs(pt.y - h.y) <= hitR) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    // Compute new bounds from a handle drag delta
+    function computeBounds(handle, orig, delta) {
+        var x = orig.x, y = orig.y, r = x + orig.w, bot = y + orig.h;
+        var dx = delta.x, dy = delta.y;
+
+        if (handle === "nw") { x += dx; y += dy; }
+        else if (handle === "n")  { y += dy; }
+        else if (handle === "ne") { r += dx; y += dy; }
+        else if (handle === "e")  { r += dx; }
+        else if (handle === "se") { r += dx; bot += dy; }
+        else if (handle === "s")  { bot += dy; }
+        else if (handle === "sw") { x += dx; bot += dy; }
+        else if (handle === "w")  { x += dx; }
+
+        var MIN = 2;
+        if (r - x < MIN) {
+            if (handle.indexOf("e") >= 0) { r = x + MIN; } else { x = r - MIN; }
+        }
+        if (bot - y < MIN) {
+            if (handle.indexOf("s") >= 0) { bot = y + MIN; } else { y = bot - MIN; }
+        }
+
+        return { x: Math.round(x), y: Math.round(y),
+                 w: Math.round(r - x), h: Math.round(bot - y) };
+    }
+
+    // Scale origMask (doc-sized) from origBounds region to newBounds
+    function scaleMask(origMask, origBounds, newBounds) {
+        var mask = PS.makeMaskCanvas();
+        if (newBounds.w <= 0 || newBounds.h <= 0) { return mask; }
+        var ctx = mask.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(origMask,
+            origBounds.x, origBounds.y, origBounds.w, origBounds.h,
+            newBounds.x,  newBounds.y,  newBounds.w,  newBounds.h);
+        return mask;
+    }
+
+    return {
+        get dragging() { return !!state; },
+
+        // Returns CSS cursor string for the handle under pt, or null
+        getCursor: function (pt) {
+            if (!pt) { return null; }
+            var h = hitHandle(pt);
+            return h ? CURSOR[h] : null;
+        },
+
+        // Call on pointerdown; returns true if a handle was grabbed
+        onDown: function (pt) {
+            if (!isSelTool() || !PS.doc || !PS.doc.selection) { return false; }
+            var h = hitHandle(pt);
+            if (!h) { return false; }
+            var sel = PS.doc.selection;
+            var layer = PS.activeLayer();
+
+            state = {
+                handle:        h,
+                origBounds:    sel.bounds,
+                origMask:      PS.cloneCanvas(sel.mask),
+                origSelection: sel,
+                startPt:       pt,
+                lastBounds:    null,
+                lastMask:      null,
+                layer:         null,
+                before:        null,
+                base:          null,
+                float:         null,
+                preview:       null
+            };
+
+            if (canTransformContent(layer)) {
+                state.layer = layer;
+                state.before = PS.snapshotLayer(layer);
+
+                // base = the layer with the selected region erased
+                var base = PS.cloneCanvas(layer.canvas);
+                var bctx = base.getContext("2d");
+                bctx.globalCompositeOperation = "destination-out";
+                bctx.drawImage(state.origMask, 0, 0);
+                bctx.globalCompositeOperation = "source-over";
+                state.base = base;
+
+                // float = the selected pixels cropped to the selection bounds
+                var ob = state.origBounds;
+                var selPx = PS.getSelectedPixels(layer.canvas).canvas;
+                var fl = PS.createCanvas(ob.w, ob.h);
+                fl.getContext("2d").drawImage(selPx, -ob.x, -ob.y);
+                state.float = fl;
+
+                state.preview = PS.createCanvas(PS.doc.width, PS.doc.height);
+            }
+            return true;
+        },
+
+        // Call on pointermove while dragging; updates live selection +
+        // (when possible) a live preview of the scaled content
+        onMove: function (pt) {
+            if (!state) { return; }
+            var delta = { x: pt.x - state.startPt.x, y: pt.y - state.startPt.y };
+            var nb = computeBounds(state.handle, state.origBounds, delta);
+            state.lastBounds = nb;
+            var mask = scaleMask(state.origMask, state.origBounds, nb);
+            state.lastMask = mask;
+            // Live selection preview (no history)
+            PS.doc.selection = PS.buildSelectionObject(mask);
+
+            if (state.layer) {
+                var pctx = state.preview.getContext("2d");
+                pctx.clearRect(0, 0, state.preview.width, state.preview.height);
+                pctx.drawImage(state.base, 0, 0);
+                if (nb.w > 0 && nb.h > 0) {
+                    pctx.imageSmoothingEnabled = true;
+                    pctx.imageSmoothingQuality = "high";
+                    pctx.drawImage(state.float, nb.x, nb.y, nb.w, nb.h);
+                }
+                PS.layerOverride = { layer: state.layer, canvas: state.preview };
+            }
+            PS.requestRender();
+        },
+
+        // Call on pointerup; bakes the scaled content + selection to history
+        onUp: function () {
+            if (!state) { return false; }
+            var s = state;
+            state = null;
+
+            if (!s.lastMask) {
+                // No movement — restore cleanly without a history entry
+                PS.doc.selection = s.origSelection;
+                if (s.layer) { PS.layerOverride = null; }
+                PS.requestRender();
+                return true;
+            }
+
+            if (s.layer) {
+                // Bake base + scaled content into the layer, then record one
+                // history entry restoring both the pixels and the selection.
+                PS.layerOverride = null;
+                var nb = s.lastBounds;
+                var lctx = s.layer.canvas.getContext("2d");
+                lctx.clearRect(0, 0, s.layer.canvas.width, s.layer.canvas.height);
+                lctx.drawImage(s.base, 0, 0);
+                if (nb.w > 0 && nb.h > 0) {
+                    lctx.imageSmoothingEnabled = true;
+                    lctx.imageSmoothingQuality = "high";
+                    lctx.drawImage(s.float, nb.x, nb.y, nb.w, nb.h);
+                }
+
+                var layer = s.layer;
+                var beforeCanvas = s.before;
+                var afterCanvas = PS.cloneCanvas(layer.canvas);
+                var beforeSel = s.origSelection;
+                var afterSel = PS.buildSelectionObject(s.lastMask);
+                PS.doc.selection = afterSel;
+                PS.pushHistory("Scale Selection",
+                    function () {
+                        PS.restoreLayerCanvas(layer, beforeCanvas);
+                        PS.doc.selection = beforeSel;
+                    },
+                    function () {
+                        PS.restoreLayerCanvas(layer, afterCanvas);
+                        PS.doc.selection = afterSel;
+                    });
+                PS.requestRender();
+            } else {
+                // Selection-only resize (text/hidden layer)
+                PS.doc.selection = s.origSelection;
+                PS.setSelection(s.lastMask, "replace", "Scale Selection");
+            }
+            return true;
+        },
+
+        // Draw the bounding box + 8 white handles on the overlay canvas
+        drawOverlay: function (ctx) {
+            if (!isSelTool() || !PS.doc || !PS.doc.selection) { return; }
+            var b = PS.doc.selection.bounds;
+            var z = PS.zoom;
+            var origin = PS.docToOverlay(0, 0);
+            var pad = PAD_PX;
+
+            // Bounding box in screen coords
+            var sx = origin.x + b.x * z - pad;
+            var sy = origin.y + b.y * z - pad;
+            var sw = b.w * z + 2 * pad;
+            var sh = b.h * z + 2 * pad;
+
+            // Blue dashed bounding box
+            ctx.save();
+            ctx.strokeStyle = "rgba(100,160,255,0.85)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(Math.round(sx) + 0.5, Math.round(sy) + 0.5,
+                           Math.round(sw), Math.round(sh));
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // White handle squares at 8 positions
+            var hs = HANDLE_PX, hh = hs / 2;
+            var pts = [
+                { x: sx,          y: sy          },
+                { x: sx + sw / 2, y: sy          },
+                { x: sx + sw,     y: sy          },
+                { x: sx + sw,     y: sy + sh / 2 },
+                { x: sx + sw,     y: sy + sh     },
+                { x: sx + sw / 2, y: sy + sh     },
+                { x: sx,          y: sy + sh     },
+                { x: sx,          y: sy + sh / 2 }
+            ];
+
+            ctx.save();
+            for (var i = 0; i < pts.length; i++) {
+                var hp = pts[i];
+                var hx = Math.round(hp.x), hy = Math.round(hp.y);
+                // Dark border
+                ctx.fillStyle = "rgba(30,30,30,0.75)";
+                ctx.fillRect(hx - hh - 1, hy - hh - 1, hs + 2, hs + 2);
+                // White fill
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(hx - hh, hy - hh, hs, hs);
+            }
+            ctx.restore();
+        }
+    };
+}());

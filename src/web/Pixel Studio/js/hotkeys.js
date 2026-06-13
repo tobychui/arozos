@@ -6,6 +6,36 @@
 PS.bindHotkeys = function () {
     document.addEventListener("keydown", PS.handleKeyDown);
     document.addEventListener("keyup", PS.handleKeyUp);
+    // Ctrl+V is handled via the native paste event so we can read an image
+    // out of the system clipboard (clipboardData is only populated here).
+    document.addEventListener("paste", PS.handlePaste);
+};
+
+// Paste from the system clipboard: an image becomes a new layer; otherwise
+// fall back to the in-app clipboard.
+PS.handlePaste = function (e) {
+    if (!PS.doc) { return; }
+    if (PS.el("dialog-host").children.length > 0) { return; }
+    if (PS.isTypingTarget(e)) { return; }
+
+    var items = (e.clipboardData && e.clipboardData.items) || null;
+    var imageItem = null;
+    if (items) {
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type && items[i].type.indexOf("image") === 0) {
+                imageItem = items[i];
+                break;
+            }
+        }
+    }
+
+    e.preventDefault();
+    if (imageItem) {
+        var blob = imageItem.getAsFile();
+        if (blob) { PS.loadImageBlobAsLayer(blob); return; }
+    }
+    // no system image: use the in-app clipboard
+    PS.pasteClipboard();
 };
 
 PS._toolGroups = {
@@ -70,11 +100,14 @@ PS.handleKeyDown = function (e) {
         else if (key === "c" && e.shiftKey) { PS.copySelection(false, true); }
         else if (key === "c") { PS.copySelection(false, false); }
         else if (key === "x") { PS.copySelection(true, false); }
-        else if (key === "v") { PS.pasteClipboard(); }
+        // Ctrl+V intentionally falls through to the document "paste" handler
+        // (PS.handlePaste) so the system clipboard image can be read.
+        else if (key === "v") { return; }
         else if (key === "=" || key === "+") { PS.zoomBy(1.25); }
         else if (key === "-") { PS.zoomBy(1 / 1.25); }
         else if (key === "0") { PS.zoomFit(); }
         else if (key === "1") { PS.zoomActual(); }
+        else if (key === "r") { PS.toggleRulers(); }
         else if (key === "backspace") { PS.fillWithColor(PS.bg, "Fill Background"); }
         else { handled = false; }
         if (handled) { e.preventDefault(); }

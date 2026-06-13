@@ -24,49 +24,67 @@ PS.dirOf = function (vpath) {
 
 /* ---------- new document ---------- */
 
-PS.fileNewDialog = function () {
+// opts.mandatory: used at startup — if the user closes without creating and
+// there is still no document, fall back to a default canvas so the app is
+// never left in a document-less state.
+PS.fileNewDialog = function (opts) {
+    opts = opts || {};
     PS.confirmDiscard(function () {
-        var wIn, hIn, bgIn, presetIn;
-        PS.dialog({
-            title: "New Document",
-            build: function (body) {
-                presetIn = PS.dialogRow(body, "Preset", PS.selectInput([
-                    { v: "custom", l: "Custom" },
-                    { v: "800x600", l: "800 x 600" },
-                    { v: "1024x768", l: "1024 x 768" },
-                    { v: "1280x720", l: "1280 x 720 (HD)" },
-                    { v: "1920x1080", l: "1920 x 1080 (Full HD)" },
-                    { v: "2480x3508", l: "A4 print (2480 x 3508)" },
-                    { v: "1080x1080", l: "Square (1080 x 1080)" }
-                ], "custom"));
-                wIn = PS.dialogRow(body, "Width (px)", PS.numberInput(1000, 1, 8192));
-                hIn = PS.dialogRow(body, "Height (px)", PS.numberInput(700, 1, 8192));
-                bgIn = PS.dialogRow(body, "Background", PS.selectInput([
-                    { v: "white", l: "White" },
-                    { v: "bgcolor", l: "Background color" },
-                    { v: "transparent", l: "Transparent" }
-                ], "white"));
-                presetIn.addEventListener("change", function () {
-                    if (presetIn.value === "custom") { return; }
-                    var p = presetIn.value.split("x");
-                    wIn.value = p[0];
-                    hIn.value = p[1];
-                });
-            },
-            buttons: [
-                { label: "Cancel" },
-                {
-                    label: "Create", primary: true,
-                    action: function () {
-                        PS.newDocument({
-                            width: parseInt(wIn.value, 10) || 1000,
-                            height: parseInt(hIn.value, 10) || 700,
-                            background: bgIn.value
-                        });
-                    }
+        PS._showNewDocPanel(opts);
+    });
+};
+
+PS._showNewDocPanel = function (opts) {
+    var wIn, hIn, bgIn, presetIn;
+    var created = false;
+
+    PS.floatingPanel({
+        title: "New Document",
+        x: Math.round(window.innerWidth / 2 - 150),
+        y: 110,
+        build: function (body) {
+            presetIn = PS.dialogRow(body, "Preset", PS.selectInput([
+                { v: "custom", l: "Custom" },
+                { v: "800x600", l: "800 x 600" },
+                { v: "1024x768", l: "1024 x 768" },
+                { v: "1280x720", l: "1280 x 720 (HD)" },
+                { v: "1920x1080", l: "1920 x 1080 (Full HD)" },
+                { v: "2480x3508", l: "A4 print (2480 x 3508)" },
+                { v: "1080x1080", l: "Square (1080 x 1080)" }
+            ], "custom"));
+            wIn = PS.dialogRow(body, "Width (px)", PS.numberInput(1000, 1, 8192));
+            hIn = PS.dialogRow(body, "Height (px)", PS.numberInput(700, 1, 8192));
+            bgIn = PS.dialogRow(body, "Background", PS.selectInput([
+                { v: "white", l: "White" },
+                { v: "bgcolor", l: "Background color" },
+                { v: "transparent", l: "Transparent" }
+            ], "white"));
+            presetIn.addEventListener("change", function () {
+                if (presetIn.value === "custom") { return; }
+                var p = presetIn.value.split("x");
+                wIn.value = p[0];
+                hIn.value = p[1];
+            });
+        },
+        buttons: [
+            { label: "Cancel" },
+            {
+                label: "Create", primary: true,
+                action: function () {
+                    created = true;
+                    PS.newDocument({
+                        width: parseInt(wIn.value, 10) || 1000,
+                        height: parseInt(hIn.value, 10) || 700,
+                        background: bgIn.value
+                    });
                 }
-            ]
-        });
+            }
+        ],
+        onClose: function () {
+            if (!created && opts.mandatory && !PS.doc) {
+                PS.newDocument({ width: 1000, height: 700, background: "white" });
+            }
+        }
     });
 };
 
@@ -173,6 +191,9 @@ PS.serializeProject = function () {
         width: d.width,
         height: d.height,
         active: d.activeLayer,
+        guides: d.guides || { h: [], v: [] },
+        rulers: !!PS.rulersOn,
+        customColors: PS.customColors || [],
         layers: d.layers.map(function (layer) {
             var out = {
                 name: layer.name,
@@ -235,6 +256,9 @@ PS.loadProject = function (data, filepath, filename) {
             filePath: filepath || "",
             fileName: filename || "Untitled.pxs",
             format: "pxs",
+            guides: (data.guides && data.guides.h && data.guides.v)
+                ? { h: data.guides.h.slice(), v: data.guides.v.slice() }
+                : { h: [], v: [] },
             dirty: false
         };
         PS.history.stack = [];
@@ -242,6 +266,16 @@ PS.loadProject = function (data, filepath, filename) {
         PS.pushHistory("Open Project", null, null);
         PS.strokePreview = null;
         PS.layerOverride = null;
+
+        // restore the file's custom palette and ruler state
+        if (Array.isArray(data.customColors) && data.customColors.length) {
+            data.customColors.forEach(function (c) {
+                if (PS.customColors.indexOf(c) < 0) { PS.customColors.push(c); }
+            });
+            PS.renderColorPanel();
+        }
+        if (typeof data.rulers === "boolean") { PS.setRulers(data.rulers); }
+
         PS.updateCanvasSize();
         PS.zoomFit();
         PS.refreshUI();
@@ -659,6 +693,60 @@ PS.pasteClipboard = function () {
     full.getContext("2d").drawImage(PS.clipboard.canvas, PS.clipboard.x, PS.clipboard.y);
     PS.addLayer("Pasted Layer", { canvas: full });
     PS.requestRender();
+};
+
+// Drop an Image (from the system clipboard) onto a new, centered layer.
+// Content larger than the document is clipped to the canvas.
+PS.pasteImageAsLayer = function (img) {
+    if (!PS.doc) { return; }
+    var d = PS.doc;
+    var canvas = PS.createCanvas(d.width, d.height);
+    var x = Math.round((d.width - img.naturalWidth) / 2);
+    var y = Math.round((d.height - img.naturalHeight) / 2);
+    canvas.getContext("2d").drawImage(img, x, y);
+    PS.addLayer("Pasted Image", { canvas: canvas });
+    PS.requestRender();
+    PS.toast("Pasted image as new layer");
+};
+
+// Menu "Paste": try the async system clipboard for an image first, then fall
+// back to the in-app clipboard. (The Ctrl+V key path uses the paste event.)
+PS.pasteFromClipboard = function () {
+    if (navigator.clipboard && navigator.clipboard.read) {
+        navigator.clipboard.read().then(function (items) {
+            for (var i = 0; i < items.length; i++) {
+                var types = items[i].types || [];
+                for (var j = 0; j < types.length; j++) {
+                    if (types[j].indexOf("image") === 0) {
+                        items[i].getType(types[j]).then(function (blob) {
+                            PS.loadImageBlobAsLayer(blob);
+                        });
+                        return;
+                    }
+                }
+            }
+            PS.pasteClipboard();
+        }).catch(function () {
+            PS.pasteClipboard();
+        });
+    } else {
+        PS.pasteClipboard();
+    }
+};
+
+// Load an image Blob and place it on a new layer (shared by paste paths)
+PS.loadImageBlobAsLayer = function (blob) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function () {
+        URL.revokeObjectURL(url);
+        PS.pasteImageAsLayer(img);
+    };
+    img.onerror = function () {
+        URL.revokeObjectURL(url);
+        PS.toast("Could not read pasted image", true);
+    };
+    img.src = url;
 };
 
 /* ---------- edit helpers used by menu/hotkeys ---------- */

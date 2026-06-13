@@ -23,11 +23,14 @@ window.addEventListener("DOMContentLoaded", function () {
     PS.buildMenubar();
     PS.bindHotkeys();
     PS.bindChrome();
+    PS.bindGuides();
     PS.renderColorPanel();
 
     PS.loadPrefs(function () {
         PS.setFg(PS.fg, true);
         PS.setBg(PS.bg);
+        if (PS.prefs && PS.prefs.snapToGuides === false) { PS.snapToGuides = false; }
+        PS.setRulers(!!(PS.prefs && PS.prefs.rulersOn));
 
         // fonts load in the background; refresh the text options when done
         PS.loadFonts(function () {
@@ -40,26 +43,20 @@ window.addEventListener("DOMContentLoaded", function () {
 
         PS.startOverlayLoop();
 
-        // file passed from the file manager ("open with")?
-        if (!PS.openLaunchFiles()) {
-            PS.newDocument({ width: 1000, height: 700, background: "white" });
-        }
+        // file passed from the file manager ("open with")? otherwise start
+        // with an empty editor (dark background) until the user picks
+        // File > New or File > Open — no document is created on launch
+        PS.openLaunchFiles();
     });
 });
 
 // wire static chrome: color wells, zoom select
 PS.bindChrome = function () {
     PS.el("fg-well").addEventListener("click", function () {
-        PS.el("fg-input").click();
+        PS.openColorPicker("fg");
     });
     PS.el("bg-well").addEventListener("click", function () {
-        PS.el("bg-input").click();
-    });
-    PS.el("fg-input").addEventListener("input", function (e) {
-        PS.setFg(e.target.value);
-    });
-    PS.el("bg-input").addEventListener("input", function (e) {
-        PS.setBg(e.target.value);
+        PS.openColorPicker("bg");
     });
 
     PS.el("status-zoom").addEventListener("change", function (e) {

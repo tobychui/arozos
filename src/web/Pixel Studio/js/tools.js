@@ -19,6 +19,38 @@ PS.toolOpts = {
     zoom: {}
 };
 
+/* ---------- toolbar grouping (fly-out submenus) ---------- */
+
+// Toolbar entries: single tools, tool groups (one button + right-click
+// fly-out), and the shape picker (fly-out chooses the shape kind visually).
+PS.toolbarLayout = [
+    { kind: "single", tool: "move" },
+    { kind: "group", id: "select", tools: ["marquee-rect", "marquee-ellipse", "lasso", "lasso-poly"] },
+    { kind: "single", tool: "wand" },
+    { kind: "group", id: "paint", tools: ["brush", "pencil"] },
+    { kind: "single", tool: "eraser" },
+    { kind: "single", tool: "fill" },
+    { kind: "single", tool: "eyedropper" },
+    { kind: "single", tool: "text" },
+    { kind: "shape" },
+    { kind: "single", tool: "hand" },
+    { kind: "single", tool: "zoom" }
+];
+
+// Last-selected member shown on each group's toolbar button.
+PS.groupRep = { select: "marquee-rect", paint: "brush" };
+
+// Per-shape-kind icons for the shape fly-out and toolbar button.
+PS.shapeIcons = {
+    rect: '<svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="4" y="6" width="16" height="12"/></svg>',
+    rounded: '<svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="4" y="6" width="16" height="12" rx="3.5"/></svg>',
+    ellipse: '<svg viewBox="0 0 24 24" stroke-width="1.6"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg>',
+    line: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M5 19 19 5"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M4 20 20 4M20 4h-6M20 4v6"/></svg>',
+    triangle: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M12 5 20 19H4z"/></svg>',
+    star: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M12 3.5l2.5 5.6 6.1.6-4.6 4 1.4 6-5.4-3.2L6.1 19.7l1.4-6L2.9 9.7l6.1-.6z"/></svg>'
+};
+
 /* ---------- framework ---------- */
 
 PS.registerTool = function (id, def) {
@@ -29,9 +61,16 @@ PS.registerTool = function (id, def) {
 PS.setTool = function (id) {
     if (!PS.tools[id]) { return; }
     if (PS.commitTextEdit) { PS.commitTextEdit(); }
+    PS.closeToolFlyout();
     var old = PS.tools[PS.tool];
     if (old && old.deactivate) { old.deactivate(); }
     PS.tool = id;
+    // remember this tool as its toolbar group's representative
+    PS.toolbarLayout.forEach(function (entry) {
+        if (entry.kind === "group" && entry.tools.indexOf(id) >= 0) {
+            PS.groupRep[entry.id] = id;
+        }
+    });
     PS.renderToolbar();
     PS.renderOptionsBar();
     var ws = PS.el("workspace");
@@ -42,16 +81,141 @@ PS.setTool = function (id) {
 PS.renderToolbar = function () {
     var host = PS.el("toolbar-buttons");
     host.innerHTML = "";
-    PS.toolOrder.forEach(function (id) {
-        var def = PS.tools[id];
-        if (!def) { return; }
-        var btn = document.createElement("button");
-        btn.className = "tool-btn" + (PS.tool === id ? " active" : "");
-        btn.title = def.name + (def.key ? " (" + def.key.toUpperCase() + ")" : "");
-        btn.innerHTML = def.icon;
-        btn.addEventListener("click", function () { PS.setTool(id); });
-        host.appendChild(btn);
+    PS.toolbarLayout.forEach(function (entry) {
+        if (entry.kind === "single") {
+            host.appendChild(PS._singleToolBtn(entry.tool));
+        } else if (entry.kind === "group") {
+            host.appendChild(PS._groupToolBtn(entry));
+        } else if (entry.kind === "shape") {
+            host.appendChild(PS._shapeToolBtn());
+        }
     });
+};
+
+// build the base toolbar button (icon, active state, optional fly-out triangle)
+PS._toolBtn = function (icon, title, active, hasFlyout) {
+    var btn = document.createElement("button");
+    btn.className = "tool-btn" + (active ? " active" : "");
+    btn.title = title;
+    btn.innerHTML = icon;
+    if (hasFlyout) {
+        var tri = document.createElement("span");
+        tri.className = "flyout-tri";
+        btn.appendChild(tri);
+    }
+    return btn;
+};
+
+PS._singleToolBtn = function (id) {
+    var def = PS.tools[id];
+    var btn = PS._toolBtn(def.icon,
+        def.name + (def.key ? " (" + def.key.toUpperCase() + ")" : ""),
+        PS.tool === id, false);
+    btn.addEventListener("click", function () { PS.setTool(id); });
+    return btn;
+};
+
+PS._groupToolBtn = function (entry) {
+    var inGroup = entry.tools.indexOf(PS.tool) >= 0;
+    var rep = inGroup ? PS.tool : PS.groupRep[entry.id];
+    if (entry.tools.indexOf(rep) < 0) { rep = entry.tools[0]; }
+    var def = PS.tools[rep];
+    var btn = PS._toolBtn(def.icon,
+        def.name + " — right-click for more", inGroup, true);
+    btn.addEventListener("click", function () { PS.setTool(rep); });
+    btn.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        PS.openToolFlyout(btn, entry.tools.map(function (t) {
+            var d = PS.tools[t];
+            return {
+                icon: d.icon, label: d.name, active: PS.tool === t,
+                onSelect: function () { PS.setTool(t); }
+            };
+        }));
+    });
+    return btn;
+};
+
+PS._shapeToolBtn = function () {
+    var kind = PS.toolOpts.shape.kind;
+    var icon = PS.shapeIcons[kind] || PS.tools.shape.icon;
+    var btn = PS._toolBtn(icon, "Shape — right-click to pick a shape",
+        PS.tool === "shape", true);
+    btn.addEventListener("click", function () { PS.setTool("shape"); });
+    btn.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        PS.openToolFlyout(btn, PS.shapeKinds.map(function (k) {
+            return {
+                icon: PS.shapeIcons[k.v] || PS.tools.shape.icon,
+                label: k.l,
+                active: PS.tool === "shape" && PS.toolOpts.shape.kind === k.v,
+                onSelect: function () {
+                    PS.toolOpts.shape.kind = k.v;
+                    PS.setTool("shape");
+                    PS.savePrefsDebounced();
+                }
+            };
+        }));
+    });
+    return btn;
+};
+
+/* ---------- tool fly-out submenu ---------- */
+
+PS._toolFlyout = null;
+
+PS.openToolFlyout = function (btn, items) {
+    PS.closeToolFlyout();
+    var fly = document.createElement("div");
+    fly.className = "tool-flyout";
+    items.forEach(function (it) {
+        var row = document.createElement("div");
+        row.className = "tool-flyout-item" + (it.active ? " active" : "");
+        var ic = document.createElement("span");
+        ic.className = "tfi-icon";
+        ic.innerHTML = it.icon;
+        var lb = document.createElement("span");
+        lb.className = "tfi-label";
+        lb.textContent = it.label;
+        row.appendChild(ic);
+        row.appendChild(lb);
+        row.addEventListener("click", function (e) {
+            e.stopPropagation();
+            PS.closeToolFlyout();
+            it.onSelect();
+        });
+        fly.appendChild(row);
+    });
+    document.body.appendChild(fly);
+
+    // open to the right of the button, top edge aligned with the button top
+    var r = btn.getBoundingClientRect();
+    fly.style.left = Math.round(r.right + 2) + "px";
+    fly.style.top = Math.round(r.top) + "px";
+    var fr = fly.getBoundingClientRect();
+    if (fr.bottom > window.innerHeight - 4) {
+        fly.style.top = Math.max(4, window.innerHeight - fr.height - 4) + "px";
+    }
+
+    PS._toolFlyout = fly;
+    setTimeout(function () {
+        document.addEventListener("pointerdown", PS._flyoutOutside, true);
+        document.addEventListener("keydown", PS._flyoutKey, true);
+    }, 0);
+};
+
+PS.closeToolFlyout = function () {
+    if (PS._toolFlyout) { PS._toolFlyout.remove(); PS._toolFlyout = null; }
+    document.removeEventListener("pointerdown", PS._flyoutOutside, true);
+    document.removeEventListener("keydown", PS._flyoutKey, true);
+};
+
+PS._flyoutOutside = function (e) {
+    if (PS._toolFlyout && !PS._toolFlyout.contains(e.target)) { PS.closeToolFlyout(); }
+};
+
+PS._flyoutKey = function (e) {
+    if (e.key === "Escape") { PS.closeToolFlyout(); }
 };
 
 PS.renderOptionsBar = function () {
@@ -98,14 +262,26 @@ PS.bindWorkspaceEvents = function () {
             return;
         }
 
+        var raw = PS.eventToDoc(e);
+        var pt = PS.snapDocPoint(raw);
+        if (PS.selTransform.onDown(pt, e)) {
+            e.preventDefault();
+            return;
+        }
+        // grab an existing guide (Move tool) before handing off to the tool
+        if (PS.guideDragStart(raw)) {
+            e.preventDefault();
+            return;
+        }
         var def = PS.tools[PS.tool];
-        if (def && def.onDown) { def.onDown(PS.eventToDoc(e), e); }
+        if (def && def.onDown) { def.onDown(pt, e); }
         e.preventDefault();
     });
 
     ws.addEventListener("pointermove", function (e) {
         if (!PS.doc) { return; }
-        PS.cursorPos = PS.eventToDoc(e);
+        var raw = PS.eventToDoc(e);
+        PS.cursorPos = PS.snapDocPoint(raw);
         PS.updateCursorStatus();
 
         if (PS._pointer.panning) {
@@ -114,6 +290,27 @@ PS.bindWorkspaceEvents = function () {
             ws.scrollTop = p.st - (e.clientY - p.y);
             return;
         }
+
+        if (PS.guidesDragging()) {
+            PS.guideDragMove(raw);
+            return;
+        }
+
+        if (PS.selTransform.dragging) {
+            PS.selTransform.onMove(PS.cursorPos);
+            return;
+        }
+
+        // Update cursor for handle / guide hover (only when not mid-stroke/drag)
+        if (!PS._pointer.down) {
+            var tCursor = PS.selTransform.getCursor(PS.cursorPos);
+            if (!tCursor) {
+                var gh = PS.guideHitTest(raw);
+                if (gh) { tCursor = (gh.orient === "h") ? "row-resize" : "col-resize"; }
+            }
+            ws.style.cursor = tCursor || (PS.tools[PS.tool] || {}).cursor || "crosshair";
+        }
+
         var def = PS.tools[PS.tool];
         if (def && def.onMove) { def.onMove(PS.cursorPos, e); }
     });
@@ -123,9 +320,15 @@ PS.bindWorkspaceEvents = function () {
         if (PS._pointer.panning) {
             PS._pointer.panning = false;
             ws.style.cursor = (PS.tools[PS.tool] || {}).cursor || "crosshair";
+        } else if (PS.guidesDragging()) {
+            PS.guideDragEnd(PS.eventToDoc(e));
+            ws.style.cursor = (PS.tools[PS.tool] || {}).cursor || "crosshair";
+        } else if (PS.selTransform.dragging) {
+            PS.selTransform.onUp();
+            ws.style.cursor = (PS.tools[PS.tool] || {}).cursor || "crosshair";
         } else if (PS._pointer.down) {
             var def = PS.tools[PS.tool];
-            if (def && def.onUp) { def.onUp(PS.eventToDoc(e), e); }
+            if (def && def.onUp) { def.onUp(PS.snapDocPoint(PS.eventToDoc(e)), e); }
         }
         PS._pointer.down = false;
     }
@@ -183,7 +386,7 @@ PS.sampleColorAt = function (pt, comp, toBg) {
     if (x < 0 || y < 0 || x >= PS.doc.width || y >= PS.doc.height) { return; }
     var d = comp.getContext("2d").getImageData(x, y, 1, 1).data;
     if (d[3] === 0) { return; }
-    var hex = PS.rgbToHex(d[0], d[1], d[2]);
+    var hex = PS.rgbToHex(d[0], d[1], d[2], d[3]);
     if (toBg) { PS.setBg(hex); } else { PS.setFg(hex); }
 };
 
@@ -224,10 +427,18 @@ PS.beginStroke = function (kind, pt, e) {
     if (!layer) { return; }
     var opts = PS.toolOpts[kind];
 
+    // Stamps are drawn opaque into the buffer; the foreground color's alpha is
+    // applied (with the stroke opacity) at composite time so self-overlap
+    // within a stroke does not darken.
+    var rgb = PS.hexToRgb(PS.fg) || { r: 0, g: 0, b: 0, a: 255 };
+    var colorAlpha = (kind === "eraser") ? 1 : (rgb.a === undefined ? 1 : rgb.a / 255);
+
     PS._stroke = {
         kind: kind,
         layer: layer,
         opts: opts,
+        color: (kind === "eraser") ? "#000000" : PS.rgbToHex(rgb.r, rgb.g, rgb.b),
+        colorAlpha: colorAlpha,
         before: PS.snapshotLayer(layer),
         canvas: PS.createCanvas(PS.doc.width, PS.doc.height),
         last: pt,
@@ -238,7 +449,7 @@ PS.beginStroke = function (kind, pt, e) {
     PS.strokePreview = {
         layer: layer,
         canvas: PS._stroke.canvas,
-        opacity: opts.opacity,
+        opacity: opts.opacity * colorAlpha,
         erase: kind === "eraser"
     };
 
@@ -267,7 +478,7 @@ PS.endStroke = function () {
     }
 
     var ctx = s.layer.canvas.getContext("2d");
-    ctx.globalAlpha = s.opts.opacity;
+    ctx.globalAlpha = s.opts.opacity * (s.colorAlpha === undefined ? 1 : s.colorAlpha);
     ctx.globalCompositeOperation = (s.kind === "eraser") ? "destination-out" : "source-over";
     ctx.drawImage(buf, 0, 0);
     ctx.globalAlpha = 1;
@@ -286,7 +497,7 @@ PS.stampSegment = function (from, to) {
     var opts = s.opts;
     var ctx = s.ctx;
     var size = opts.size;
-    var color = (s.kind === "eraser") ? "#000000" : PS.fg;
+    var color = s.color;
 
     if (s.kind === "pencil") {
         // crisp pixel stamps along the line
@@ -913,8 +1124,9 @@ PS.floodFillLayer = function (layer, pt, hex, opts) {
             Math.abs(px[i + 2] - sb) <= tol && Math.abs(px[i + 3] - sa) <= tol;
     }
 
+    var fillA = (rgb.a === undefined) ? 255 : rgb.a;
     function paint(i) {
-        px[i] = rgb.r; px[i + 1] = rgb.g; px[i + 2] = rgb.b; px[i + 3] = 255;
+        px[i] = rgb.r; px[i + 1] = rgb.g; px[i + 2] = rgb.b; px[i + 3] = fillA;
     }
 
     var visited = new Uint8Array(w * h);
@@ -1087,9 +1299,9 @@ PS.floodFillLayer = function (layer, pt, hex, opts) {
         icon: '<svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="3" y="3" width="12" height="12" rx="1"/><circle cx="16" cy="16" r="5.5"/></svg>',
         options: function (host) {
             var o = PS.toolOpts.shape;
-            PS.ui.select(host, "Shape", PS.shapeKinds, o.kind, function (v) {
-                o.kind = v; PS.savePrefsDebounced(); PS.renderOptionsBar();
-            });
+            var kindLabel = o.kind;
+            PS.shapeKinds.forEach(function (k) { if (k.v === o.kind) { kindLabel = k.l; } });
+            PS.ui.label(host, "Shape: " + kindLabel + " (right-click the Shape tool to change)");
             if (o.kind !== "line" && o.kind !== "arrow") {
                 PS.ui.select(host, "Mode", [
                     { v: "fill", l: "Fill (FG)" },

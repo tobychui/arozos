@@ -42,10 +42,7 @@ PS.menus = function () {
                 { label: "Cut", shortcut: "Ctrl+X", action: function () { PS.copySelection(true, false); } },
                 { label: "Copy", shortcut: "Ctrl+C", action: function () { PS.copySelection(false, false); } },
                 { label: "Copy Merged", shortcut: "Ctrl+Shift+C", action: function () { PS.copySelection(false, true); } },
-                {
-                    label: "Paste", shortcut: "Ctrl+V", action: PS.pasteClipboard,
-                    enabled: function () { return !!PS.clipboard; }
-                },
+                { label: "Paste", shortcut: "Ctrl+V", action: function () { PS.pasteFromClipboard(); } },
                 { sep: true },
                 { label: "Fill with Foreground", shortcut: "Alt+Backspace", action: function () { PS.fillWithColor(PS.fg, "Fill Foreground"); } },
                 { label: "Fill with Background", shortcut: "Ctrl+Backspace", action: function () { PS.fillWithColor(PS.bg, "Fill Background"); } },
@@ -59,7 +56,7 @@ PS.menus = function () {
                 { label: "Canvas Size...", action: PS.resizeCanvasDialog },
                 {
                     label: "Crop to Selection", action: PS.cropToSelection,
-                    enabled: function () { return !!PS.doc.selection; }
+                    enabled: function () { return !!(PS.doc && PS.doc.selection); }
                 },
                 { sep: true },
                 { label: "Flip Horizontal", action: function () { PS.flipImage(true); } },
@@ -78,7 +75,7 @@ PS.menus = function () {
                 { sep: true },
                 {
                     label: "Merge Down", shortcut: "Ctrl+E", action: PS.mergeDown,
-                    enabled: function () { return PS.doc.activeLayer > 0; }
+                    enabled: function () { return !!(PS.doc && PS.doc.activeLayer > 0); }
                 },
                 { label: "Flatten Image", shortcut: "Ctrl+Shift+E", action: PS.flattenImage },
                 { sep: true },
@@ -94,13 +91,13 @@ PS.menus = function () {
                 { label: "All", shortcut: "Ctrl+A", action: PS.selectAll },
                 {
                     label: "Deselect", shortcut: "Ctrl+D", action: PS.deselect,
-                    enabled: function () { return !!PS.doc.selection; }
+                    enabled: function () { return !!(PS.doc && PS.doc.selection); }
                 },
                 { label: "Inverse", shortcut: "Ctrl+Shift+I", action: PS.invertSelection },
                 { sep: true },
                 {
                     label: "Feather...",
-                    enabled: function () { return !!PS.doc.selection; },
+                    enabled: function () { return !!(PS.doc && PS.doc.selection); },
                     action: function () {
                         var rIn;
                         PS.dialog({
@@ -135,7 +132,20 @@ PS.menus = function () {
                 { label: "Zoom In", shortcut: "Ctrl++", action: function () { PS.zoomBy(1.25); } },
                 { label: "Zoom Out", shortcut: "Ctrl+-", action: function () { PS.zoomBy(1 / 1.25); } },
                 { label: "Fit on Screen", shortcut: "Ctrl+0", action: PS.zoomFit },
-                { label: "Actual Pixels", shortcut: "Ctrl+1", action: PS.zoomActual }
+                { label: "Actual Pixels", shortcut: "Ctrl+1", action: PS.zoomActual },
+                { sep: true },
+                {
+                    label: "Rulers", shortcut: "Ctrl+R", action: PS.toggleRulers,
+                    checked: function () { return PS.rulersOn; }
+                },
+                {
+                    label: "Snap to Guides", action: PS.toggleSnap,
+                    checked: function () { return PS.snapToGuides; }
+                },
+                {
+                    label: "Clear Guides", action: PS.clearGuides,
+                    enabled: function () { return PS.hasGuides(); }
+                }
             ]
         },
         {
@@ -195,7 +205,8 @@ PS.openMenu = function (root, menu) {
         div.className = "menu-item";
         if (item.enabled && !item.enabled()) { div.className += " disabled"; }
         var lab = document.createElement("span");
-        lab.textContent = item.label;
+        var isChecked = item.checked && item.checked();
+        lab.textContent = (isChecked ? "✓ " : "") + item.label;
         div.appendChild(lab);
         if (item.shortcut) {
             var sc = document.createElement("span");
