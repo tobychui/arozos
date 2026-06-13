@@ -269,7 +269,8 @@ Registered library IDs:
 - `iot`
 - `appdata`
 - `sysinfo`
-- `ziplib`
+- `ziplib` (includes 7z support via `ziplib.extract7zFile`, `ziplib.list7zFileContents`, etc.)
+- `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
 - `aimodel` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
 - `ffmpeg` (only when ffmpeg exists on host)
 
@@ -725,6 +726,279 @@ ziplib.extractAnyFile("user:/archive.any", "user:/out/");
 ```javascript
 ziplib.createAnyZipFile(["user:/folder"], "user:/bundle.tar.gz", "tar.gz");
 ```
+
+### 7z support (extensions on ziplib)
+
+The following functions are registered alongside the standard ziplib functions and
+operate on `.7z` archives. Load `ziplib` with `requirelib("ziplib")` as normal.
+
+### `ziplib.extract7zFile(src, destDir)` → bool
+Extracts all files from a 7z archive to `destDir`.
+
+```javascript
+requirelib("ziplib");
+ziplib.extract7zFile("user:/archive.7z", "user:/out/");
+```
+
+### `ziplib.list7zFileDir(src, dirPathIn7z)` → string[]
+Lists immediate children of a directory inside a 7z archive.
+Directories are returned with a trailing `/`.
+
+```javascript
+requirelib("ziplib");
+var items = ziplib.list7zFileDir("user:/archive.7z", "docs");
+```
+
+### `ziplib.list7zFileContents(src)` → string (JSON tree)
+Returns the full contents of a 7z archive as a JSON tree (same schema as
+`listZipFileContents`).
+
+```javascript
+requirelib("ziplib");
+var tree = JSON.parse(ziplib.list7zFileContents("user:/archive.7z"));
+```
+
+### `ziplib.getFileFrom7z(src, filePathIn7z)` → string (vpath)
+Extracts a single file from a 7z archive to `tmp:/` and returns its virtual path.
+
+```javascript
+requirelib("ziplib");
+var tmp = ziplib.getFileFrom7z("user:/archive.7z", "docs/readme.txt");
+```
+
+### `ziplib.extractPartial7z(src, paths, destDir)` → bool
+Extracts selected files or folders from a 7z archive.
+`paths` may be a JS array or a JSON string array.
+For folder selections the parent prefix is stripped; for file selections the file
+is placed flat in `destDir` (matching `extractPartialZip` semantics).
+
+```javascript
+requirelib("ziplib");
+ziplib.extractPartial7z("user:/archive.7z", ["docs/", "README.md"], "user:/out/");
+```
+
+### `ziplib.get7zFileInfo(src)` → string (JSON)
+Returns metadata about a 7z archive:
+`{ fileCount, dirCount, totalUncompressedSize, totalCompressedSize }`.
+`totalCompressedSize` is always `0` because 7z uses solid compression.
+
+```javascript
+requirelib("ziplib");
+var info = JSON.parse(ziplib.get7zFileInfo("user:/archive.7z"));
+console.log(info.fileCount + " files, " + info.totalUncompressedSize + " bytes");
+```
+
+## sqlite API
+
+Load:
+
+```javascript
+requirelib("sqlite");
+```
+
+> **Platform note:** the sqlite library is not available on `linux/mipsle`,
+> `windows/arm`, or `windows/386` builds (excluded at compile time).
+
+`sqlite.open()` returns a connection object. All SQL operations go through that
+object. Connections are automatically closed when the script exits; you may also
+call `db.close()` explicitly to release the handle early.
+
+### `sqlite.open(vpath)` → db
+Opens (or creates) a SQLite database file at the given virtual path.
+Throws a `SQLiteError` on failure.
+
+```javascript
+requirelib("sqlite");
+var db = sqlite.open("user:/.appdata/myapp/data.sqlite");
+```
+
+### `db.exec(sql, params)` → `{lastInsertId, rowsAffected}`
+Executes a statement that does not return rows (INSERT, UPDATE, DELETE, CREATE …).
+`params` is an optional JS array of bound values.
+
+```javascript
+db.exec("CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, body TEXT)");
+db.exec("INSERT INTO notes (body) VALUES (?)", ["Hello world"]);
+```
+
+### `db.query(sql, params)` → object[]
+Executes a SELECT and returns all matching rows as an array of plain objects.
+
+```javascript
+var rows = db.query("SELECT * FROM notes WHERE id > ?", [0]);
+rows.forEach(function(r) { console.log(r.id, r.body); });
+```
+
+### `db.queryRow(sql, params)` → object | null
+Like `db.query()` but returns only the first row, or `null` if no rows matched.
+
+```javascript
+var row = db.queryRow("SELECT * FROM notes WHERE id = ?", [1]);
+if (row) sendJSONResp(row);
+```
+
+### `db.tables()` → string[]
+Returns the names of all user-created tables in the database.
+
+```javascript
+var tables = db.tables();
+sendJSONResp(tables);
+```
+
+### `db.schema(tableName)` → object[]
+Returns column metadata for the table as an array of
+`{ cid, name, type, notnull, dflt_value, pk }` objects (from `PRAGMA table_info`).
+
+```javascript
+var cols = db.schema("notes");
+sendJSONResp(cols);
+```
+
+### `db.close()` → bool
+Closes the database connection and releases the handle.
+
+```javascript
+db.close();
+```
+
+### Full sqlite example
+
+```javascript
+requirelib("sqlite");
+
+var db = sqlite.open("user:/.appdata/myapp/tasks.sqlite");
+db.exec("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT, done INTEGER DEFAULT 0)");
+
+// Insert
+var res = db.exec("INSERT INTO tasks (title) VALUES (?)", ["Buy milk"]);
+console.log("new id:", res.lastInsertId);
+
+// Query
+var pending = db.query("SELECT * FROM tasks WHERE done = 0");
+sendJSONResp(pending);
+
+db.close();
+```
+
+## aimodel API
+
+Load:
+
+```javascript
+requirelib("aimodel");
+```
+
+The `aimodel` library connects to any OpenAI-compatible or Anthropic endpoint
+configured by an admin in **System Settings > AI Integration > AI Model**.
+Per-model pricing and an optional token/cost quota are also defined there.
+
+### `aimodel.chat(prompt, options)` → string
+Sends a single-turn text prompt and returns the assistant's reply.
+`options` is an optional object (see Options below).
+
+```javascript
+requirelib("aimodel");
+var reply = aimodel.chat("What is the capital of France?");
+sendResp(reply);
+```
+
+With a system prompt and model override:
+
+```javascript
+requirelib("aimodel");
+var reply = aimodel.chat("Summarise this in one sentence.", {
+    system: "You are a concise summariser.",
+    model:  "gpt-4o-mini"
+});
+sendResp(reply);
+```
+
+### `aimodel.chatWithFile(prompt, files, options)` → string
+Like `aimodel.chat()` but attaches one or more virtual-path files to the message.
+Images are sent as base64 vision parts; text files are inlined as labelled text.
+`files` may be a single vpath string or an array.
+
+```javascript
+requirelib("aimodel");
+var reply = aimodel.chatWithFile(
+    "Describe what you see in this image.",
+    "user:/Photos/holiday.jpg"
+);
+sendResp(reply);
+```
+
+### `aimodel.request(messages, options)` → object
+Low-level call. Accepts the full OpenAI-style messages array and returns the
+raw response object (including `usage` and `choices`).
+
+```javascript
+requirelib("aimodel");
+var resp = aimodel.request([
+    { role: "system",    content: "You are helpful." },
+    { role: "user",      content: "Hi!" },
+    { role: "assistant", content: "Hello! How can I help?" },
+    { role: "user",      content: "Tell me a joke." }
+]);
+sendResp(resp.choices[0].message.content);
+```
+
+### `aimodel.usage()` → object
+Returns accumulated token / cost metrics across all models.
+
+```javascript
+requirelib("aimodel");
+var u = aimodel.usage();
+sendJSONResp(u);
+// { totalTokens, totalCost, totalRequests, perModel: { ... }, currency, ... }
+```
+
+### `aimodel.models()` → object
+Returns the configured default model name and a list of models that have
+pricing entries defined in System Settings.
+
+```javascript
+requirelib("aimodel");
+var m = aimodel.models();
+sendJSONResp(m);
+// { default: "gpt-4o", models: ["gpt-4o", "gpt-4o-mini", ...] }
+```
+
+### `aimodel.listModels()` → object
+Queries the live endpoint for available models (does not consume tokens).
+
+```javascript
+requirelib("aimodel");
+var m = aimodel.listModels();
+sendJSONResp(m.models);
+```
+
+### `aimodel.fileParts(files)` → object[]
+Converts virtual-path file(s) into OpenAI-style content parts that can be
+embedded in a `messages` array for `aimodel.request()`.
+Images become `image_url` data-URI parts; text files become `text` parts.
+
+```javascript
+requirelib("aimodel");
+var parts = aimodel.fileParts(["user:/report.txt"]);
+var resp  = aimodel.request([
+    { role: "user", content: parts }
+]);
+sendResp(resp.choices[0].message.content);
+```
+
+### Options object
+
+All functions that accept `options` support the following fields (all optional):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Override the configured default model |
+| `system` | string | System prompt (prepended as a `system` role message) |
+| `endpoint` | string | Override the global endpoint URL |
+| `apikey` | string | Override the global API key |
+| `apiFormat` | string | Wire format: `"openai"` (default) or `"anthropic"` |
+| `temperature` | number | Sampling temperature |
+| `max_tokens` | number | Maximum tokens to generate |
 
 ## ffmpeg API
 

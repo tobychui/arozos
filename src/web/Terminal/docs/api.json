@@ -566,6 +566,162 @@
           "desc": "Extract one file to tmp:/ and return its virtual path.",
           "ret": "string (vpath)",
           "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFromZip(\"user:/a.zip\", \"docs/readme.txt\");"
+        },
+        {
+          "name": "ziplib.extract7zFile",
+          "sig": "ziplib.extract7zFile(src, destDir)",
+          "desc": "Extract all files from a 7z archive into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extract7zFile(\"user:/archive.7z\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.list7zFileDir",
+          "sig": "ziplib.list7zFileDir(src, dirPathIn7z)",
+          "desc": "List immediate children of a directory inside a 7z archive. Directories are returned with a trailing /.",
+          "ret": "string[]",
+          "example": "requirelib(\"ziplib\");\nvar items = ziplib.list7zFileDir(\"user:/archive.7z\", \"docs\");"
+        },
+        {
+          "name": "ziplib.list7zFileContents",
+          "sig": "ziplib.list7zFileContents(src)",
+          "desc": "Return the full contents of a 7z archive as a JSON tree string (same schema as listZipFileContents).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.list7zFileContents(\"user:/archive.7z\"));"
+        },
+        {
+          "name": "ziplib.getFileFrom7z",
+          "sig": "ziplib.getFileFrom7z(src, filePathIn7z)",
+          "desc": "Extract a single file from a 7z archive to tmp:/ and return its virtual path.",
+          "ret": "string (vpath)",
+          "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFrom7z(\"user:/archive.7z\", \"docs/readme.txt\");"
+        },
+        {
+          "name": "ziplib.extractPartial7z",
+          "sig": "ziplib.extractPartial7z(src, paths, destDir)",
+          "desc": "Extract selected files/folders from a 7z archive. paths is a JS array or JSON array string. Folder paths strip their parent prefix; file paths are placed flat in destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractPartial7z(\"user:/archive.7z\", [\"docs/\", \"README.md\"], \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.get7zFileInfo",
+          "sig": "ziplib.get7zFileInfo(src)",
+          "desc": "Return metadata about a 7z archive: { fileCount, dirCount, totalUncompressedSize, totalCompressedSize }. totalCompressedSize is always 0 (solid compression).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar info = JSON.parse(ziplib.get7zFileInfo(\"user:/archive.7z\"));\nconsole.log(info.fileCount + \" files\");"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "name": "sqlite",
+      "desc": "SQLite database access for scripts. Not available on linux/mipsle or windows/arm/386.",
+      "load": "requirelib(\"sqlite\");",
+      "functions": [
+        {
+          "name": "sqlite.open",
+          "sig": "sqlite.open(vpath)",
+          "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, and close methods. Throws SQLiteError on failure.",
+          "ret": "object (db)",
+          "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
+        },
+        {
+          "name": "db.exec",
+          "sig": "db.exec(sql, params)",
+          "desc": "Execute a non-SELECT statement. params is an optional JS array of bound values. Returns { lastInsertId, rowsAffected }.",
+          "ret": "object",
+          "example": "db.exec(\"INSERT INTO t (name) VALUES (?)\", [\"Alice\"]);"
+        },
+        {
+          "name": "db.query",
+          "sig": "db.query(sql, params)",
+          "desc": "Execute a SELECT and return all matching rows as an array of plain objects.",
+          "ret": "object[]",
+          "example": "var rows = db.query(\"SELECT * FROM t WHERE id > ?\", [0]);\nrows.forEach(function(r) { console.log(r.id, r.name); });"
+        },
+        {
+          "name": "db.queryRow",
+          "sig": "db.queryRow(sql, params)",
+          "desc": "Like db.query() but returns only the first row object, or null if no rows matched.",
+          "ret": "object | null",
+          "example": "var row = db.queryRow(\"SELECT * FROM t WHERE id = ?\", [1]);\nif (row) sendJSONResp(row);"
+        },
+        {
+          "name": "db.tables",
+          "sig": "db.tables()",
+          "desc": "Return the names of all user-created tables in the database.",
+          "ret": "string[]",
+          "example": "var tables = db.tables();\nsendJSONResp(tables);"
+        },
+        {
+          "name": "db.schema",
+          "sig": "db.schema(tableName)",
+          "desc": "Return column metadata for a table as an array of { cid, name, type, notnull, dflt_value, pk } objects (from PRAGMA table_info).",
+          "ret": "object[]",
+          "example": "var cols = db.schema(\"t\");\nsendJSONResp(cols);"
+        },
+        {
+          "name": "db.close",
+          "sig": "db.close()",
+          "desc": "Close the database connection and release the handle.",
+          "ret": "bool",
+          "example": "db.close();"
+        }
+      ]
+    },
+    {
+      "id": "aimodel",
+      "name": "aimodel",
+      "desc": "Call any OpenAI-compatible or Anthropic LLM endpoint. Endpoint, API key, default model, pricing, and usage quota are configured in System Settings > AI Integration > AI Model.",
+      "load": "requirelib(\"aimodel\");",
+      "functions": [
+        {
+          "name": "aimodel.chat",
+          "sig": "aimodel.chat(prompt, options)",
+          "desc": "Send a single-turn text prompt and return the assistant reply string. options is optional (see aimodel options).",
+          "ret": "string",
+          "example": "requirelib(\"aimodel\");\nvar reply = aimodel.chat(\"What is 2 + 2?\");\nsendResp(reply);"
+        },
+        {
+          "name": "aimodel.chatWithFile",
+          "sig": "aimodel.chatWithFile(prompt, files, options)",
+          "desc": "Like aimodel.chat() but attaches virtual-path files. Images become vision parts; text files are inlined. files may be a single vpath string or an array.",
+          "ret": "string",
+          "example": "requirelib(\"aimodel\");\nvar reply = aimodel.chatWithFile(\n    \"Describe this image.\",\n    \"user:/Photos/holiday.jpg\"\n);\nsendResp(reply);"
+        },
+        {
+          "name": "aimodel.request",
+          "sig": "aimodel.request(messages, options)",
+          "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar resp = aimodel.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
+        },
+        {
+          "name": "aimodel.usage",
+          "sig": "aimodel.usage()",
+          "desc": "Return accumulated token/cost metrics: { totalTokens, totalCost, totalRequests, perModel, currency, ... }.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar u = aimodel.usage();\nsendJSONResp(u);"
+        },
+        {
+          "name": "aimodel.models",
+          "sig": "aimodel.models()",
+          "desc": "Return the configured default model and list of models with pricing entries: { default, models }.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar m = aimodel.models();\nsendJSONResp(m);"
+        },
+        {
+          "name": "aimodel.listModels",
+          "sig": "aimodel.listModels()",
+          "desc": "Query the live endpoint for available models (no tokens consumed). Returns { models: [...] }.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar m = aimodel.listModels();\nsendJSONResp(m.models);"
+        },
+        {
+          "name": "aimodel.fileParts",
+          "sig": "aimodel.fileParts(files)",
+          "desc": "Convert virtual-path file(s) into OpenAI-style content parts for use in aimodel.request(). Images → image_url data URIs; text files → text parts.",
+          "ret": "object[]",
+          "example": "requirelib(\"aimodel\");\nvar parts = aimodel.fileParts([\"user:/report.txt\"]);\nvar resp = aimodel.request([{ role: \"user\", content: parts }]);\nsendResp(resp.choices[0].message.content);"
         }
       ]
     },
