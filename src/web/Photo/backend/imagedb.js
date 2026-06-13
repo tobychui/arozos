@@ -68,6 +68,22 @@ function db_dirname(filepath) {
     return t.join("/");
 }
 
+// Hidden path: any dot-prefixed segment, e.g. the ArozOS ".metadata/.cache"
+// thumbnail folders that the file manager generates inside every browsed
+// directory, or AppleDouble "._*" files. These are caches — never user
+// photos — and the Photo UI hides dot-folders from browsing, so the indexer
+// must skip them too or cached thumbnails pollute search and date grouping.
+function db_isHiddenPath(filepath) {
+    var parts = ("" + filepath).split("/");
+    // parts[0] is the vroot ("user:"), which is never dot-prefixed.
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i].charAt(0) === ".") {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* ------------------------------------------------------------------ *
  *  Schema + open/migrate
  * ------------------------------------------------------------------ */

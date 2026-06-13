@@ -113,7 +113,9 @@ function main(){
             }
 
         }else{
-            if (isImage(thisFile)){
+            // Hidden dot-files (e.g. AppleDouble "._IMG.jpg" sidecars) are
+            // cache/system artifacts, not photos — same rule as for folders.
+            if (isImage(thisFile) && !isHiddenFile(thisFile)){
                 files.push(thisFile);
             }
         }
