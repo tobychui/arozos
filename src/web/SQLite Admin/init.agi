@@ -6,7 +6,8 @@ var moduleLaunchInfo = {
     StartDir: "SQLite Admin/index.html",
     SupportFW: true,
     LaunchFWDir: "SQLite Admin/index.html",
-    InitFWSize: [1100, 680]
+    InitFWSize: [1100, 680],
+    SupportedExt: [".sqlite", ".sqlite3", ".db"]
 }
 
 registerModule(JSON.stringify(moduleLaunchInfo));

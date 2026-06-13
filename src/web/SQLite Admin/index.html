@@ -681,7 +681,8 @@ function api(params, cb) {
     });
 }
 
-// Probe SQLite availability on load; show banner and disable open button if unsupported
+// Probe SQLite availability on load; show banner and disable open button if unsupported.
+// If a file was passed in via double-click, open it once availability is confirmed.
 (function checkSQLiteAvailability() {
     api({action: 'available'}, function(err, data) {
         var unavailable = (err) ||
@@ -692,6 +693,12 @@ function api(params, cb) {
             document.getElementById('btn-open-db').disabled = true;
             document.getElementById('btn-open-db').title =
                 'SQLite is not supported on this platform';
+            return;
+        }
+        var inputFiles = ao_module_loadInputFiles();
+        if (inputFiles && inputFiles.length > 0) {
+            var vpath = inputFiles[0].filepath || inputFiles[0];
+            if (vpath) openDatabase(vpath);
         }
     });
 }());
