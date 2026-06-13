@@ -884,7 +884,8 @@ function musicifyApp() {
             if (this.shuffle) this._buildShuffledQueue(startIndex);
             this._loadTrack(this._effectiveQueue()[this._effectiveIndex(startIndex)]);
             // Starting playback brings up the full-screen Now Playing view
-            this.openNowPlaying();
+            // only in mobile / small-screen mode, not on desktop.
+            if (window.innerWidth <= 768) this.openNowPlaying();
         },
 
         playSong(song, sourceList, event) {
@@ -1082,6 +1083,21 @@ function musicifyApp() {
             this._audio.muted = this.isMuted;
         },
 
+        toggleQueue(){
+            this.showQueue = !this.showQueue;
+            this.updateQueuePanelPosition();
+        },
+
+        updateQueuePanelPosition(){
+            var bottomPos = window.innerHeight - document.getElementsByClassName("player-bar")[0].getBoundingClientRect().top;
+            var queueEl = document.getElementById("queue-panel");
+            if (this.showQueue) {
+                queueEl.style.bottom = bottomPos + "px";
+            } else {
+                queueEl.style.bottom = -queueEl.offsetHeight + "px";
+            }
+        },
+
         toggleShuffle() {
             this.shuffle = !this.shuffle;
             ao_module_storage.setStorage("Musicify", "shuffle", String(this.shuffle));
@@ -1146,6 +1162,11 @@ function musicifyApp() {
                 body: JSON.stringify({ file: song.filepath, samplerate: self.transcodeMode })
             }).then(r => r.json()).then(data => {
                 self._fullBufferLoading = false;
+                this.$nextTick(() => {
+                     this.$nextTick(() => {
+                        _fullBufferLoading = false; // prevent racing for cached media file
+                    });
+                }); 
                 // Abort if the user already switched to a different track
                 if (!self.currentTrack || self.currentTrack.filepath !== _bufSong.filepath) return;
                 if (data.error || !data.path) {
@@ -1500,7 +1521,9 @@ function musicifyApp() {
                 var c = overlay ? overlay.querySelector('.np-content') : null;
                 if (c) c.scrollTop = 0;
                 if (overlay) overlay.style.top = (mc.scrollTop) + 'px'; // readjust after content is revealed
+                this.updateQueuePanelPosition();
             });
+            
         },
 
         toggleNowPlaying() {
@@ -1517,6 +1540,9 @@ function musicifyApp() {
             this._npSwipeDir = '';
             var mc = document.getElementById('mainContent');
             if (mc) mc.style.overflow = '';
+            this.$nextTick(() => {
+                this.updateQueuePanelPosition();
+            });
         },
 
         npTouchStart(e) {

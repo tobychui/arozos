@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <link rel="icon" type="image/png" href="img/module_icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, height=device-height, minimum-scale=1.0, user-scalable=0">
     <meta name="theme-color" content="#a855f7">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -164,9 +164,6 @@
             }
             .sidebar.open { transform: translateX(0); }
             .sidebar-overlay { display: block; }
-            .queue-panel{
-                bottom: calc(var(--player-h-mobile)) !important;
-            }
         }
 
         /* ── Main Content ────────────────────────────────────────────────── */
@@ -1456,7 +1453,7 @@
                     <div class="settings-section">
                         <div class="settings-section-title">Transcode</div>
                         <div class="settings-section-desc">
-                            Automatically transcode audio formats not supported by your browser (FLAC, OGG, WMA, Opus, WebM) to MP3 using the server's FFmpeg. Recommended for iPhone and Safari users.
+                            Automatically transcode audio formats not supported by your browser (FLAC, OGG, WMA, Opus, WebM) to MP3 using the server's FFmpeg. Recommended for mobile users.
                         </div>
 
                         <label class="transcode-option" :class="{selected: transcodeMode==='disabled'}">
@@ -1503,7 +1500,7 @@
                     <div class="settings-section">
                         <div class="settings-section-title">Full Buffer Mode</div>
                         <div class="settings-section-desc">
-                            Buffer the entire track on the server before playback begins. This prevents iOS from resetting the audio stream mid-track, at the cost of a short wait before the song starts. Enabled automatically on iPhone &amp; iPad.
+                            Buffer the entire track on the server before playback begins. This prevents iOS from resetting the audio stream mid-track, at the cost of a short wait before the song starts. Enabled automatically on iPhone and iPad.
                         </div>
                         <div class="settings-toggle-row">
                             <div>
@@ -1529,7 +1526,7 @@
         </main><!-- /.main-content -->
 
         <!-- ═══ QUEUE PANEL ════════════════════════════════════════════════ -->
-        <aside class="queue-panel" x-show="showQueue">
+        <aside id="queue-panel" class="queue-panel" x-show="showQueue">
             <div class="queue-header">
                 <span>Queue <span style="color:var(--text3);font-size:12px;" x-text="'(' + queue.length + ')'"></span></span>
                 <button class="ctrl-btn" style="width:26px;height:26px;font-size:13px;" x-on:click="showQueue=false">
@@ -1650,7 +1647,7 @@
                 x-on:input="setVolume($event.target.value)">
 
             <!-- Queue toggle -->
-            <button class="ctrl-btn" :class="{active: showQueue}" x-on:click="showQueue = !showQueue" title="Queue">
+            <button class="ctrl-btn" :class="{active: showQueue}" x-on:click="toggleQueue()" title="Queue">
                 <i class="ui list icon" style="margin:0;"></i>
             </button>
 
