@@ -121,14 +121,21 @@ function main(){
     // Filter out JPG duplicates when RAW files exist
     files = filterDuplicates(files);
 
-    // Add filesize information to each file
+    // Add filesize + modification time to each file. mtime (unix seconds) lets
+    // the front-end group the grid into Year / Month sections without a second
+    // round-trip to the search index.
     var filesWithSize = [];
     for (var i = 0; i < files.length; i++){
         var filepath = files[i];
         var filesize = filelib.filesize(filepath);
+        var mtime = filelib.mtime(filepath, true);
+        if (mtime === false){
+            mtime = 0;
+        }
         filesWithSize.push({
             filepath: filepath,
-            filesize: filesize
+            filesize: filesize,
+            mtime: mtime
         });
     }
 

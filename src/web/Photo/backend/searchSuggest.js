@@ -57,6 +57,12 @@ function buildSuggestions(db, q) {
         for (var k = 0; k < exts.length; k++) {
             add("type", "." + exts[k].ext, "." + exts[k].ext, exts[k].c + " photos");
         }
+
+        // Top-rated quick facet — only shown once the user has rated something.
+        var topRated = db.queryRow("SELECT COUNT(*) AS c FROM photo_ratings WHERE rating >= 4");
+        if (topRated && topRated.c > 0) {
+            add("rating", "4★ & up", "rating:>=4", topRated.c + " photos");
+        }
         return out;
     }
 
@@ -84,6 +90,13 @@ function buildSuggestions(db, q) {
         for (a = 0; a < list.length; a++) {
             var av = Math.round(list[a].aperture * 10) / 10;
             add("filter", "f/" + av, withPrefix("f/" + av), "");
+        }
+    }
+    // Star-rating completions: "rating", "star(s)" or a run of asterisks.
+    if (lastToken.indexOf("rating") === 0 || lastToken.indexOf("star") === 0 || /^\*+$/.test(lastToken)) {
+        for (var rs = 5; rs >= 1; rs--) {
+            var rc = db.queryRow("SELECT COUNT(*) AS c FROM photo_ratings WHERE rating >= ?", [rs]);
+            add("rating", rs + "★ & up", withPrefix("rating:>=" + rs), (rc && rc.c ? rc.c + " photos" : ""));
         }
     }
 

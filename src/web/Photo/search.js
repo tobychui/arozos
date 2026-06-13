@@ -40,6 +40,8 @@ function photoSuggestIcon(type) {
             return 'image outline';
         case 'filter':
             return 'filter';
+        case 'rating':
+            return 'star';
         default:
             return 'search';
     }
@@ -93,6 +95,17 @@ function photoParseTagToken(token) {
     if (colon > 0) {
         switch (key) {
             case 'iso': return { label: 'ISO ' + val, value: 'iso:' + val, type: 'filter' };
+            case 'rating': case 'stars': case 'star': {
+                var rv = unq(val).replace(/★|\*/g, '').trim();
+                var label;
+                var mge = rv.match(/^>=?\s*(\d)/);
+                var mle = rv.match(/^<=?\s*(\d)/);
+                if (mge) { label = '★ ≥ ' + mge[1]; }
+                else if (mle) { label = '★ ≤ ' + mle[1]; }
+                else if (/^\d$/.test(rv)) { label = rv + '★'; }
+                else { label = 'Rating ' + rv; }
+                return { label: label, value: 'rating:' + rv, type: 'rating' };
+            }
             case 'f': case 'aperture': case 'fnumber': return { label: 'f/' + val.replace(/^\//, ''), value: token, type: 'filter' };
             case 'focal': case 'fl': return { label: val.replace(/mm$/i, '') + 'mm', value: token, type: 'filter' };
             case 'mp': case 'megapixels': return { label: val + ' MP', value: token, type: 'filter' };

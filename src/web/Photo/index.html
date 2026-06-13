@@ -165,6 +165,13 @@
             outline: none;
         }
 
+        .sidebar-select:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            border-color: #3a3a3a;
+            color: #777;
+        }
+
         .sidebar-select option {
             background: #252525;
             color: #bbb;
@@ -824,6 +831,144 @@
             z-index: 10;
             display: none;
         }
+
+        /* ── Date-grouped grid sections (Google-Photos style) ─────────────── */
+        #viewbox {
+            display: block;
+        }
+        .photo-date-group {
+            margin-bottom: 0.3em;
+        }
+        .photo-date-header {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: #1a1a1a;
+            color: #e3e3e3;
+            font-size: 0.95em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            padding: 0.75em 0.6em 0.5em 0.6em;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .photo-date-cards {
+            margin: 0 !important;
+        }
+
+        /* ── Grid zoom hint snackbar (Ctrl/⌘ + wheel) ────────────────────── */
+        #grid-zoom-snackbar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(0, 0, 0, 0.78);
+            color: #fff;
+            padding: 7px 16px;
+            border-radius: 18px;
+            font-size: 13px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            z-index: 900;
+        }
+        #grid-zoom-snackbar.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ── Sidebar: view toggle + rating filter ────────────────────────── */
+        .sidebar-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            padding: 0.25em 0.5em;
+            color: #bbb;
+            font-size: 0.87em;
+            cursor: pointer;
+            user-select: none;
+        }
+        .sidebar-toggle:hover { color: #fff; }
+        .sidebar-toggle input { cursor: pointer; accent-color: #f76c5d; }
+        .sidebar-zoom-hint {
+            padding: 0.4em 0.5em 0;
+            color: #666;
+            font-size: 0.74em;
+            line-height: 1.4;
+        }
+        .sidebar-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.05em;
+            padding: 0.1em 0.4em 0;
+        }
+        .sidebar-rating .star.icon {
+            cursor: pointer;
+            margin: 0;
+            color: #f6c350;
+            transition: transform 0.08s;
+        }
+        .sidebar-rating .star.outline.icon { color: #666; }
+        .sidebar-rating .star.icon:hover { transform: scale(1.18); }
+        .sidebar-rating-clear {
+            margin-left: 0.5em;
+            color: #f76c5d;
+            font-size: 0.78em;
+            cursor: pointer;
+        }
+        .sidebar-rating-clear:hover { text-decoration: underline; }
+        .sidebar-rating-hint {
+            padding: 0.35em 0.5em 0;
+            color: #888;
+            font-size: 0.78em;
+        }
+
+        /* ── Viewer: download button + star rating ───────────────────────── */
+        .download-photo-btn {
+            position: absolute;
+            top: 1.3em;
+            right: 9.7em;
+            background: #222222;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .download-photo-btn svg { width: 18px; height: 18px; }
+        .download-photo-btn:hover { background: #f76c5d; }
+
+        .photo-rating-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            margin: 0.1em 0 1.1em 0;
+        }
+        .photo-rating-stars {
+            display: inline-flex;
+            gap: 2px;
+            cursor: pointer;
+            font-size: 1.45em;
+            line-height: 1;
+        }
+        .photo-rating-stars .photo-star {
+            color: #555;
+            font-style: normal;
+            transition: color 0.12s, transform 0.08s;
+        }
+        .photo-rating-stars .photo-star:hover { transform: scale(1.15); }
+        .photo-rating-stars .photo-star.filled { color: #f6c350; }
+        .photo-rating-stars .photo-star.hover { color: #f7d98a; }
+        .photo-rating-label {
+            color: #aaa;
+            font-size: 0.85em;
+        }
     </style>
 
 </head>
@@ -846,7 +991,8 @@
                 <div class="sidebar-section">
                     <div class="sidebar-section-title">Sort By</div>
                     <div style="padding: 0 0.4em;">
-                        <select class="sidebar-select" x-model="sortOrder" x-on:change="getFolderInfo();">
+                        <select class="sidebar-select" x-model="sortOrder" x-on:change="getFolderInfo();"
+                                :disabled="groupByDate" :title="groupByDate ? 'Turn off Group by date to sort manually' : ''">
                             <option value="smart">Natural Order</option>
                             <option value="mostRecent">Newest First</option>
                             <option value="leastRecent">Oldest First</option>
@@ -858,6 +1004,34 @@
                             <option value="fileTypeDesc">Extension Z→A</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">View</div>
+                    <label class="sidebar-toggle" title="Split the grid into Year / Month sections">
+                        <input type="checkbox" x-model="groupByDate" x-on:change="onGroupByDateChange();">
+                        <span>Group by date</span>
+                    </label>
+                    <div class="sidebar-zoom-hint">Hold Ctrl / ⌘ and scroll to resize photos</div>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Filter by Rating</div>
+                    <div class="sidebar-rating">
+                        <template x-for="n in [1,2,3,4,5]" :key="n">
+                            <i class="star icon" :class="{ 'outline': n > ratingFilter }"
+                               x-on:click="setRatingFilter(n)"
+                               :title="'Rating ' + n + ' and up'"></i>
+                        </template>
+                        <span class="sidebar-rating-clear" x-show="ratingFilter > 0"
+                              x-on:click="setRatingFilter(0)">Clear</span>
+                    </div>
+                    <div class="sidebar-rating-hint" x-show="ratingFilter > 0"
+                         x-text="'Showing ' + ratingFilter + '★ & up'"></div>
                 </div>
 
                 <div class="sidebar-divider"></div>
@@ -973,12 +1147,22 @@
                     </h4>
                 </div>
                 <div id="viewboxContainer">
-                    <div id="viewbox" class="ui six cards viewbox">
-                        <template x-for="image in images">
-                            <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
-                                <a class="image" x-init="updateImageSizes();">
-                                    <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
-                                </a>
+                    <div id="viewbox">
+                        <!-- Photos are split into Year / Month sections (Google-Photos style).
+                             When "Group by date" is off, groupedImages() returns one
+                             unlabelled group, so this renders as a single flat grid. -->
+                        <template x-for="group in groupedImages()" :key="group.key">
+                            <div class="photo-date-group">
+                                <div class="photo-date-header" x-show="group.label !== ''" x-text="group.label"></div>
+                                <div class="ui six cards photo-date-cards">
+                                    <template x-for="image in group.images" :key="image.filepath">
+                                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
+                                            <a class="image" x-init="updateImageSizes();">
+                                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
+                                            </a>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </template>
                     </div>
@@ -987,6 +1171,8 @@
                         <i class="loading spinner icon"></i> Loading more photos...
                     </div>
                 </div>
+                <!-- Grid zoom hint (shown briefly while Ctrl/⌘ + wheel resizes the grid) -->
+                <div id="grid-zoom-snackbar"></div>
             </div>
 
         </div><!-- /#content-area -->
@@ -1003,6 +1189,9 @@
                 <img id="fullImage" src="img/loading.png" />
                 <button class="close-btn" onclick="closeViewer()">×</button>
                 <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
+                <button class="download-photo-btn" id="download-photo-btn" onclick="downloadCurrentPhoto()" title="Download photo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+                </button>
                 <button class="cast-photo-btn" id="cast-photo-btn" onclick="openPhotoCastDialog()" title="Cast to Arozcast">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-480Zm320 320H600q0-20-1.5-40t-4.5-40h206v-480H160v46q-20-3-40-4.5T80-680v-40q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160Zm-720 0v-120q50 0 85 35t35 85H80Zm200 0q0-83-58.5-141.5T80-360v-80q117 0 198.5 81.5T360-160h-80Zm160 0q0-75-28.5-140.5t-77-114q-48.5-48.5-114-77T80-520v-80q91 0 171 34.5T391-471q60 60 94.5 140T520-160h-80Z"/></svg>
                 </button>
@@ -1029,6 +1218,16 @@
                 </div>
                 <div class="info-panel">
                     <h3>Photo Information</h3>
+                    <div class="photo-rating-row">
+                        <div id="photo-rating-stars" class="photo-rating-stars">
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                            <i class="photo-star">★</i>
+                        </div>
+                        <span id="photo-rating-label" class="photo-rating-label">Rate</span>
+                    </div>
                     <table class="ui very basic compact table inverted">
                         <tbody>
                             <tr>
@@ -1382,60 +1581,66 @@
         panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
     }
 
-    // Initialize zoom and pan when photo viewer is shown
+    // Initialize zoom and pan when photo viewer is shown. The pointer listeners
+    // are attached once (they read live module-level state), so re-opening the
+    // viewer only resets the zoom rather than stacking duplicate handlers.
+    let viewerInteractionsInit = false;
     function initZoomPan() {
+        // Reset zoom state on every open
+        resetZoom();
+        if (viewerInteractionsInit) return;
+
         const img = document.getElementById('fullImage');
         const container = document.querySelector('.viewer-left');
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        // Reset zoom state
-        resetZoom();
 
         // Only enable custom zoom/pan on desktop
-        if (!isMobile) {
-            let handleMouseDown = function(e) {
-                if (zoomLevel > 1) {
-                    e.preventDefault();
-                    isDragging = true;
-                    lastMouseX = e.clientX;
-                    lastMouseY = e.clientY;
-                    img.classList.add('dragging');
-                }
-            };
+        if (isMobile) { viewerInteractionsInit = true; return; }
 
-            let handleMouseMove = function(e) {
-                if (isDragging && zoomLevel > 1) {
-                    const deltaX = e.clientX - lastMouseX;
-                    const deltaY = e.clientY - lastMouseY;
-                    
-                    panX += deltaX / zoomLevel;
-                    panY += deltaY / zoomLevel;
-                    
-                    constrainPan();
-                    updateImageTransform();
-                    
-                    lastMouseX = e.clientX;
-                    lastMouseY = e.clientY;
-                }
-            };
+        img.addEventListener('mousedown', function(e) {
+            if (zoomLevel > 1) {
+                e.preventDefault();
+                isDragging = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                img.classList.add('dragging');
+            }
+        });
 
-            let handleMouseUp = function() {
-                if (isDragging) {
-                    isDragging = false;
-                    img.classList.remove('dragging');
-                }
-            };
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging && zoomLevel > 1) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
 
-            // Remove existing listeners to prevent double triggering
-            img.removeEventListener('mousedown', handleMouseDown);
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+                panX += deltaX / zoomLevel;
+                panY += deltaY / zoomLevel;
 
-            // Add listeners back
-            img.addEventListener('mousedown', handleMouseDown);
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        }
+                constrainPan();
+                updateImageTransform();
+
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                img.classList.remove('dragging');
+            }
+        });
+
+        // Mouse-wheel zoom, anchored at the cursor (complements the +/- buttons).
+        container.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const step = e.deltaY < 0 ? 0.2 : -0.2;
+            const newZoom = Math.max(1, Math.min(5, zoomLevel + step));
+            if (newZoom !== zoomLevel) {
+                zoomAtPoint(newZoom, e.clientX, e.clientY);
+            }
+        }, { passive: false });
+
+        viewerInteractionsInit = true;
     }
 
     // Initialize zoom and pan when modal is shown
