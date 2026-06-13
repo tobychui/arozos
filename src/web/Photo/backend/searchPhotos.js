@@ -39,6 +39,7 @@
       2023  year:2023    taken in year
       taken:2023-01..2023-06   taken date range  (before:/after: also work)
       modified:>2024-01-01     file modified date
+      rating:>=4  rating:5  rating:3-5   user star rating (0 = unrated)
 */
 
 includes("imagedb.js");
@@ -80,13 +81,19 @@ function main() {
     var w = buildWhere(filter);
     var orderBy = buildOrderBy(sort);
 
-    var countRow = db.queryRow("SELECT COUNT(*) AS c FROM photos WHERE " + w.clause, w.args);
+    // LEFT JOIN the per-user ratings so a `rating:` filter resolves and every
+    // result carries its star rating (0 = unrated). `filepath` exists in both
+    // tables, so it must be qualified.
+    var from = "FROM photos LEFT JOIN photo_ratings ON photo_ratings.filepath = photos.filepath";
+
+    var countRow = db.queryRow("SELECT COUNT(*) AS c " + from + " WHERE " + w.clause, w.args);
     var total = countRow ? countRow.c : 0;
 
     var rows = db.query(
-        "SELECT filepath, filename, filesize, ext, width, height, megapixels, orientation," +
+        "SELECT photos.filepath AS filepath, filename, filesize, ext, width, height, megapixels, orientation," +
         " taken_date, modified_date, camera_make, camera_model, lens_model, focal_length," +
-        " aperture, shutter, shutter_label, iso, has_exif FROM photos WHERE " + w.clause +
+        " aperture, shutter, shutter_label, iso, has_exif," +
+        " IFNULL(photo_ratings.rating, 0) AS rating " + from + " WHERE " + w.clause +
         " ORDER BY " + orderBy + " LIMIT ? OFFSET ?",
         w.args.concat([limit, offset])
     );

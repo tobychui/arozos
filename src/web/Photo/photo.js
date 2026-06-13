@@ -14,6 +14,8 @@ let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
 let currentPhotoAllIndex = -1; // index of current photo in allImages (full server list)
+let currentPhotoFilepath = null; // filepath of the photo open in the viewer (download / rating)
+let currentPhotoRating = 0;      // star rating (0-5) of the open photo
 let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // Check if image should use compression (only JPG/PNG)
@@ -31,37 +33,85 @@ function getViewableImageUrl(filepath, callback) {
     callback(imageUrl, true, false, isRawImage(filepath) ? 'backend_raw' : 'direct');
 }
 
+// Grid zoom: 0 = responsive (auto column count by width); a positive value pins
+// the number of columns, set by the user with Ctrl/⌘ + mouse wheel over the grid
+// (Google-Photos-style gallery zoom). Smaller column count => larger thumbnails.
+let photoGridColumns = 0;
+const PHOTO_GRID_MIN_COLS = 2;
+const PHOTO_GRID_MAX_COLS = 12;
+
+function getContainerWidth(){
+    const container = document.getElementById('viewboxContainer');
+    return container ? container.clientWidth : (window.innerWidth - 210);
+}
+
+// Responsive column count for a given container width (used until the user
+// pins a zoom level via the mouse wheel).
+function autoColumnCount(containerWidth){
+    if (containerWidth < 400) return 2;
+    if (containerWidth < 600) return 3;
+    if (containerWidth < 900) return 4;
+    if (containerWidth < 1100) return 5;
+    if (containerWidth < 1400) return 6;
+    return 8;
+}
+
+function getColumnCount(){
+    if (photoGridColumns > 0) return photoGridColumns;
+    return autoColumnCount(getContainerWidth());
+}
+
 function getImageWidth(){
     // Use the actual viewbox container width so the sidebar and scrollbar are
     // already subtracted — this prevents gaps when the window is resized.
-    const container = document.getElementById('viewboxContainer');
-    const containerWidth = container ? container.clientWidth : (window.innerWidth - 210);
-
-    let boxCount;
-    if (containerWidth < 400) {
-        boxCount = 2;
-    } else if (containerWidth < 600) {
-        boxCount = 3;
-    } else if (containerWidth < 900) {
-        boxCount = 4;
-    } else if (containerWidth < 1100) {
-        boxCount = 5;
-    } else if (containerWidth < 1400) {
-        boxCount = 6;
-    } else {
-        boxCount = 8;
-    }
-
-    return Math.floor(containerWidth / boxCount);
+    return Math.floor(getContainerWidth() / getColumnCount());
 }
 
 function updateImageSizes(){
     let newImageWidth = getImageWidth();
-    console.log(newImageWidth, $("#viewbox").width());
     //Updates all the size of the images
     $(".imagecard").css({
         width: newImageWidth,
         height: newImageWidth
+    });
+}
+
+// Briefly show the current columns-per-row while zooming the grid.
+let _gridZoomHintTimer = null;
+function showGridZoomHint(cols){
+    const el = document.getElementById('grid-zoom-snackbar');
+    if (!el) return;
+    el.textContent = cols + ' per row';
+    el.classList.add('visible');
+    clearTimeout(_gridZoomHintTimer);
+    _gridZoomHintTimer = setTimeout(function(){ el.classList.remove('visible'); }, 1100);
+}
+
+// ── Date grouping (Google-Photos-style Year / Month sections) ──────────────────
+// Capture date for a grid item: the EXIF shoot time (taken_date, supplied by
+// both search results and folder listings via the photo index) with file mtime
+// as the fallback for photos the background indexer has not reached yet.
+function photoImageDateUnix(img){
+    if (!img) return null;
+    if (img.taken_date) return img.taken_date;
+    if (img.mtime) return img.mtime;
+    if (img.modified_date) return img.modified_date;
+    return null;
+}
+
+// "June 2023" style header for a unix-second timestamp (PHOTO_MONTHS: search.js).
+function photoGroupLabel(unixSec){
+    if (!unixSec) return 'Undated';
+    var d = new Date(unixSec * 1000);
+    if (isNaN(d.getTime())) return 'Undated';
+    return PHOTO_MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+// Newest-first ordering so each Year/Month section is contiguous regardless of
+// the folder's own sort order.
+function sortImagesByDateDesc(arr){
+    return arr.slice().sort(function(a, b){
+        return (photoImageDateUnix(b) || 0) - (photoImageDateUnix(a) || 0);
     });
 }
 
@@ -103,6 +153,8 @@ function photoListObject() {
         images: [],           // currently displayed slice
         folders: [],
         sortOrder: 'smart',
+        groupByDate: true,    // Google-Photos-style Year / Month grid sections
+        ratingFilter: 0,      // active "rating ≥ N stars" quick filter (0 = off)
         restored: false,
         hasMoreImages: false,
         isLoadingMore: false, // guard: blocks new batch until DOM has updated
@@ -128,7 +180,7 @@ function photoListObject() {
             this.renderSize = getImageWidth();
             updateImageSizes();
             this.restored = false;
-            this.$nextTick(() => { this.setupInfiniteScroll(); });
+            this.$nextTick(() => { this.setupInfiniteScroll(); this.setupGridZoom(); });
 
             // Kick off background (auto) indexing shortly after the first paint so
             // it doesn't compete with the initial folder load.
@@ -194,6 +246,9 @@ function photoListObject() {
                     console.log(data);
                     this.folders = data[0];
                     this.allImages = data[1];
+                    // Date grouping reads cleanest newest-first; sort the loaded
+                    // list so Year/Month sections are contiguous as you scroll.
+                    if (this.groupByDate) { this.allImages = sortImagesByDateDesc(this.allImages); }
                     this.images = this.allImages.slice(0, PAGE_SIZE);
                     this.hasMoreImages = this.allImages.length > PAGE_SIZE;
                     this.isLoadingMore = false;
@@ -260,6 +315,106 @@ function photoListObject() {
                     this.loadMoreImages();
                 }
             });
+        },
+
+        // ── Grid zoom (Ctrl/⌘ + mouse wheel) ───────────────────────────────────
+
+        // Recompute the tile size from the current column count and push it to
+        // both the reactive binding and the already-rendered cards.
+        applyRenderSize() {
+            this.renderSize = getImageWidth();
+            updateImageSizes();
+        },
+
+        // Ctrl/⌘ + wheel (and trackpad pinch, which also sets ctrlKey) zooms the
+        // whole grid; a plain wheel keeps scrolling the gallery.
+        setupGridZoom() {
+            const container = document.getElementById('viewboxContainer');
+            if (!container) return;
+            container.addEventListener('wheel', (e) => {
+                if (!e.ctrlKey && !e.metaKey) return;
+                e.preventDefault();
+                this.zoomGrid(e.deltaY < 0 ? 1 : -1);
+            }, { passive: false });
+        },
+
+        // direction: +1 = zoom in (fewer columns, larger photos), -1 = zoom out.
+        zoomGrid(direction) {
+            const cur = getColumnCount();
+            let next = cur - direction;
+            if (next < PHOTO_GRID_MIN_COLS) next = PHOTO_GRID_MIN_COLS;
+            if (next > PHOTO_GRID_MAX_COLS) next = PHOTO_GRID_MAX_COLS;
+            if (next === cur) return;
+            photoGridColumns = next;
+            this.applyRenderSize();
+            showGridZoomHint(next);
+        },
+
+        // ── Date grouping ──────────────────────────────────────────────────────
+
+        // Split the loaded slice into contiguous Year/Month sections for the grid.
+        // Returns a single unlabelled group when grouping is disabled.
+        groupedImages() {
+            const imgs = this.images;
+            if (!this.groupByDate) {
+                return [{ key: 'all', label: '', images: imgs }];
+            }
+            const groups = [];
+            let cur = null;
+            for (let i = 0; i < imgs.length; i++) {
+                const img = imgs[i];
+                const d = photoImageDateUnix(img);
+                let key, label;
+                if (d) {
+                    const dt = new Date(d * 1000);
+                    key = dt.getFullYear() + '-' + (dt.getMonth() + 1);
+                    label = photoGroupLabel(d);
+                } else {
+                    key = 'undated';
+                    label = 'Undated';
+                }
+                if (!cur || cur.key !== key) {
+                    cur = { key: key, label: label, images: [] };
+                    groups.push(cur);
+                }
+                cur.images.push(img);
+            }
+            return groups;
+        },
+
+        // Re-fetch the current view so the new ordering / headers take effect.
+        onGroupByDateChange() {
+            if (this.searchMode) { this.runSearch(); }
+            else { this.getFolderInfo(); }
+        },
+
+        // ── Rating quick-filter (sidebar stars) ────────────────────────────────
+
+        // Select "rating ≥ n" (tapping the active level again clears it). Driven
+        // through the same search-chip pipeline as every other filter.
+        setRatingFilter(n) {
+            n = parseInt(n, 10) || 0;
+            if (n === this.ratingFilter) n = 0;
+            this.ratingFilter = n;
+            this.searchTags = this.searchTags.filter(function (t) { return t.type !== 'rating'; });
+            if (n > 0) {
+                this.searchTags.push({ label: '★ ≥ ' + n, value: 'rating:>=' + n, type: 'rating' });
+            }
+            this.runSearch();
+        },
+
+        // Keep the sidebar stars in step with whatever rating chip is present
+        // (a chip may also be typed, picked from autocomplete or removed by hand).
+        syncRatingFilterFromTags() {
+            let found = 0;
+            for (let i = 0; i < this.searchTags.length; i++) {
+                const t = this.searchTags[i];
+                if (t.type === 'rating') {
+                    const m = ('' + t.value).match(/(\d)/);
+                    if (m) found = parseInt(m[1], 10);
+                }
+            }
+            this.ratingFilter = found;
         },
 
         // ── Search ────────────────────────────────────────────────────────────
@@ -347,6 +502,7 @@ function photoListObject() {
             // (pick/commit/Escape/click-outside/clear) hide it. Closing it here made
             // the dropdown flash and vanish ~400ms after each keystroke.
             clearTimeout(this._searchTimer);
+            this.syncRatingFilterFromTags();
             const q = this.currentQuery();
             if (q.length === 0) {
                 // Nothing to search — fall back to normal folder browsing.
@@ -361,8 +517,13 @@ function photoListObject() {
             }).then(data => {
                 const results = (data && data.results) ? data.results : [];
                 this.searchTotal = (data && typeof data.total === 'number') ? data.total : results.length;
-                // Reuse the existing grid: it only needs {filepath, filesize}.
-                this.allImages = results.map(r => ({ filepath: r.filepath, filesize: r.filesize }));
+                // Carry the date + rating through so the grid can group by month
+                // and the viewer can show the star rating without a refetch.
+                this.allImages = results.map(r => ({
+                    filepath: r.filepath, filesize: r.filesize,
+                    taken_date: r.taken_date, modified_date: r.modified_date, rating: r.rating
+                }));
+                if (this.groupByDate) { this.allImages = sortImagesByDateDesc(this.allImages); }
                 this.images = this.allImages.slice(0, PAGE_SIZE);
                 this.hasMoreImages = this.allImages.length > PAGE_SIZE;
                 this.isLoadingMore = false;
@@ -380,6 +541,7 @@ function photoListObject() {
             this.suggestIndex = -1;
             this.searchTotal = 0;
             this.searchMode = false;
+            this.ratingFilter = 0;
             clearTimeout(this._searchTimer);
             this.getFolderInfo();   // restore normal folder browsing
         },
@@ -427,16 +589,24 @@ function photoListObject() {
         startAutoIndex() {
             if (this.indexing) return;
             this.indexing = true;
+            let indexedThisRun = 0;
             const step = () => {
                 aoPhotoBackend("Photo/backend/indexPhotos.js", { mode: 'incremental' }).then(data => {
                     if (data && data.error) { this.indexing = false; this.indexStatusText = ''; return; }
                     const total = (data && data.total) ? data.total : 0;
+                    indexedThisRun += (data && data.indexed) ? data.indexed : 0;
                     if (data && data.hasMore) {
                         this.indexStatusText = 'Indexing… ' + total + ' photos';
                         setTimeout(step, 50);
                     } else {
                         this.indexing = false;
                         this.indexStatusText = total ? (total + ' photos indexed') : '';
+                        // Newly indexed photos may carry EXIF shoot times the
+                        // current grid grouped without (mtime fallback) — reload
+                        // the view so the Year/Month sections use them.
+                        if (indexedThisRun > 0 && this.groupByDate && !this.searchMode) {
+                            this.getFolderInfo();
+                        }
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
                     }
                 }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
@@ -461,7 +631,8 @@ function photoListObject() {
                     } else {
                         this.indexing = false;
                         this.indexStatusText = total ? (total + ' photos indexed') : '';
-                        if (this.searchMode) this.runSearch();
+                        if (this.searchMode) { this.runSearch(); }
+                        else if (this.groupByDate) { this.getFolderInfo(); } // refresh EXIF shoot times
                         setTimeout(() => { if (!this.indexing) this.indexStatusText = ''; }, 4000);
                     }
                 }).catch(() => { this.indexing = false; this.indexStatusText = ''; });
@@ -538,6 +709,8 @@ function showImage(object){
     
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
     _currentCastFilepath = fd.filepath;
+    currentPhotoFilepath = fd.filepath;
+    fetchPhotoRating(fd.filepath);
     if (_photoCastConnected()) _photoCastSendPhoto(fd.filepath);
     $("#info-dimensions").text("Calculating...");
     // Check if we should use compression (only for JPG/PNG > 5MB)
@@ -691,6 +864,89 @@ function loadFullSizeImageInBackground(fullSizeUrl, fileData) {
     const fullImage = document.getElementById('fullImage');
     fullImage.src = fullSizeUrl;
 }
+
+// ── Download current photo ─────────────────────────────────────────────────────
+// Streams the *original* file (RAW included) via the media server's download
+// mode, which sets a Content-Disposition: attachment header.
+function downloadCurrentPhoto() {
+    if (!currentPhotoFilepath) return;
+    var url = ao_root + 'media?download=true&file=' + encodeURIComponent(currentPhotoFilepath);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = currentPhotoFilepath.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// ── Star rating (viewer) ───────────────────────────────────────────────────────
+
+// Paint the 1-5 star widget to reflect `rating` (and remember it).
+function renderPhotoRating(rating) {
+    currentPhotoRating = rating || 0;
+    var container = document.getElementById('photo-rating-stars');
+    if (container) {
+        var stars = container.querySelectorAll('.photo-star');
+        for (var i = 0; i < stars.length; i++) {
+            stars[i].classList.toggle('filled', (i + 1) <= currentPhotoRating);
+            stars[i].classList.remove('hover');
+        }
+    }
+    var label = document.getElementById('photo-rating-label');
+    if (label) label.textContent = currentPhotoRating ? (currentPhotoRating + ' / 5') : 'Rate';
+}
+
+// Persist a new rating for the open photo (tapping the current value clears it).
+function setPhotoRating(n) {
+    if (!currentPhotoFilepath) return;
+    if (n === currentPhotoRating) n = 0;
+    renderPhotoRating(n); // optimistic update
+    var target = currentPhotoFilepath;
+    fetch(ao_root + "system/ajgi/interface?script=Photo/backend/setRating.js", {
+        method: 'POST',
+        cache: 'no-cache',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filepath: target, rating: n })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+        if (target !== currentPhotoFilepath) return; // user already moved on
+        if (data && typeof data.rating === 'number') renderPhotoRating(data.rating);
+    }).catch(function () { /* keep the optimistic value */ });
+}
+
+// Load the stored rating for a freshly-opened photo.
+function fetchPhotoRating(filepath) {
+    renderPhotoRating(0);
+    fetch(ao_root + "system/ajgi/interface?script=Photo/backend/getRating.js", {
+        method: 'POST',
+        cache: 'no-cache',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filepath: filepath })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+        if (filepath !== currentPhotoFilepath) return; // raced past this photo
+        renderPhotoRating(data && data.rating ? data.rating : 0);
+    }).catch(function () { renderPhotoRating(0); });
+}
+
+// Wire click + hover-preview on the star widget once.
+function initPhotoRatingWidget() {
+    var container = document.getElementById('photo-rating-stars');
+    if (!container) return;
+    var stars = container.querySelectorAll('.photo-star');
+    for (var i = 0; i < stars.length; i++) {
+        (function (star, value) {
+            star.addEventListener('click', function () { setPhotoRating(value); });
+            star.addEventListener('mouseenter', function () {
+                for (var j = 0; j < stars.length; j++) {
+                    stars[j].classList.toggle('hover', j < value);
+                }
+            });
+        })(stars[i], i + 1);
+    }
+    container.addEventListener('mouseleave', function () {
+        for (var k = 0; k < stars.length; k++) stars[k].classList.remove('hover');
+    });
+}
+document.addEventListener('DOMContentLoaded', initPhotoRatingWidget);
 
 $(document).on("keydown", function(e){
     if (e.keyCode == 27){ // Escape

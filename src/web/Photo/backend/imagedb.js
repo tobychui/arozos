@@ -68,6 +68,22 @@ function db_dirname(filepath) {
     return t.join("/");
 }
 
+// Hidden path: any dot-prefixed segment, e.g. the ArozOS ".metadata/.cache"
+// thumbnail folders that the file manager generates inside every browsed
+// directory, or AppleDouble "._*" files. These are caches — never user
+// photos — and the Photo UI hides dot-folders from browsing, so the indexer
+// must skip them too or cached thumbnails pollute search and date grouping.
+function db_isHiddenPath(filepath) {
+    var parts = ("" + filepath).split("/");
+    // parts[0] is the vroot ("user:"), which is never dot-prefixed.
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i].charAt(0) === ".") {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* ------------------------------------------------------------------ *
  *  Schema + open/migrate
  * ------------------------------------------------------------------ */
@@ -110,6 +126,68 @@ function ensureSchema(db) {
     db.exec("CREATE INDEX IF NOT EXISTS idx_photos_folder ON photos(folder)");
 
     db.exec("CREATE TABLE IF NOT EXISTS index_meta (key TEXT PRIMARY KEY, value TEXT)");
+
+    // User-assigned star ratings (0-5). Kept in a *separate* table keyed by the
+    // virtual path so it survives a photos-table rebuild / schema bump / full
+    // re-index — those only ever drop & repopulate the derived `photos` cache,
+    // never the user's own ratings.
+    db.exec(
+        "CREATE TABLE IF NOT EXISTS photo_ratings (" +
+        "filepath TEXT PRIMARY KEY NOT NULL," +
+        "rating INTEGER NOT NULL," +          // 1..5 (a 0 rating is stored as "no row")
+        "updated_at INTEGER" +                // unix sec the rating was last set
+        ")"
+    );
+}
+
+/* ------------------------------------------------------------------ *
+ *  User-assigned star ratings
+ * ------------------------------------------------------------------ */
+
+// Clamp an arbitrary input to an integer in the 0..5 star range.
+function db_clampRating(v) {
+    var n = parseInt(v, 10);
+    if (isNaN(n)) {
+        return 0;
+    }
+    if (n < 0) {
+        return 0;
+    }
+    if (n > 5) {
+        return 5;
+    }
+    return n;
+}
+
+// Return the star rating (0 = unrated) for a single photo.
+function db_getRating(db, filepath) {
+    if (db == null || !filepath) {
+        return 0;
+    }
+    var row = db.queryRow("SELECT rating FROM photo_ratings WHERE filepath = ?", [filepath]);
+    if (row && row.rating) {
+        return db_clampRating(row.rating);
+    }
+    return 0;
+}
+
+// Set (or, when rating <= 0, clear) the star rating for a single photo.
+// Returns the stored rating (0 when cleared).
+function db_setRating(db, filepath, rating) {
+    if (db == null || !filepath) {
+        return 0;
+    }
+    var r = db_clampRating(rating);
+    if (r <= 0) {
+        db.exec("DELETE FROM photo_ratings WHERE filepath = ?", [filepath]);
+        return 0;
+    }
+    db.exec(
+        "INSERT INTO photo_ratings (filepath, rating, updated_at) VALUES (?,?,?) " +
+        "ON CONFLICT(filepath) DO UPDATE SET rating = excluded.rating, updated_at = excluded.updated_at",
+        [filepath, r, Math.floor(Date.now() / 1000)]
+    );
+    return r;
 }
 
 function metaGet(db, key, fallback) {
@@ -639,7 +717,7 @@ function newFilter() {
         text: [], filename: [], ext: [], raw: false,
         model: [], make: [], lens: [], orientation: [], month: [],
         iso: [], aperture: [], focal: [], mp: [], width: [], height: [],
-        taken: [], modified: []
+        taken: [], modified: [], rating: []
     };
 }
 
@@ -713,6 +791,11 @@ function classifyToken(filter, token) {
         switch (key) {
             case "iso":
                 pushRange(filter, "iso", parseRange(val));
+                return;
+            case "rating":
+            case "stars":
+            case "star":
+                pushRange(filter, "rating", parseRange(val.replace(/\*/g, "")));
                 return;
             case "f":
             case "aperture":
@@ -834,7 +917,7 @@ function applyExplicitFilters(filter, f) {
             filter.ext.push(("" + f.ext[i]).toLowerCase().replace(/^\./, ""));
         }
     }
-    var ranges = ["iso", "aperture", "focal", "mp", "width", "height"];
+    var ranges = ["iso", "aperture", "focal", "mp", "width", "height", "rating"];
     for (var r = 0; r < ranges.length; r++) {
         var rv = f[ranges[r]];
         if (rv) {
@@ -994,6 +1077,8 @@ function buildWhere(filter) {
     addRangeGroup(clauses, args, "height", filter.height);
     addRangeGroup(clauses, args, "taken_date", filter.taken);
     addRangeGroup(clauses, args, "modified_date", filter.modified);
+    // Rating lives in the joined photo_ratings table; unrated photos count as 0.
+    addRangeGroup(clauses, args, "IFNULL(photo_ratings.rating, 0)", filter.rating);
 
     return { clause: clauses.length ? clauses.join(" AND ") : "1=1", args: args };
 }

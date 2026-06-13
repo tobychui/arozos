@@ -92,6 +92,12 @@ function main() {
             if (!db_isImageFile(fp)) {
                 continue;
             }
+            // Skip cache / hidden paths (e.g. the ".metadata/.cache" thumbnail
+            // folders). Checked before `present` is marked so previously indexed
+            // cache files are pruned by the delete sweep below.
+            if (db_isHiddenPath(fp)) {
+                continue;
+            }
             if (isExcluded(fp, excludeList)) {
                 continue;
             }
