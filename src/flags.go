@@ -33,12 +33,13 @@ var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.2.026"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
+var internal_version = "3.0.0"                         //Internal build version, [fork_id].[major_release_no].[minor_release_no]
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
 var deviceModel = "AR100"                              //Hardware Model of the system
 var deviceModelDesc = "General Purpose Cloud Platform" //Device Model Description
+var vendorWebExists = false                            //Flag to indicate if the vendor web directory exists, this is used to determine if the system should serve vendor customized web resources or not
 var vendorResRoot = "./vendor-res/"                    //Root folder for vendor overwrite resources
 
 // =========== RUNTTIME RELATED ================
@@ -111,5 +112,4 @@ var nightlyTaskRunTime = flag.Int("ntt", 3, "Nightly tasks execution time. Defau
 var maxTempFileKeepTime = flag.Int("tmp_time", 86400, "Time before tmp file will be deleted in seconds. Default 86400 seconds = 24 hours")
 
 // Flags related to ArozOS Cluster services
-var allow_clustering = flag.Bool("allow_cluster", true, "Enable cluster operations within LAN. Require allow_mdns=true flag")
 var allow_iot = flag.Bool("allow_iot", true, "Enable IoT related APIs and scanner. Require MDNS enabled")

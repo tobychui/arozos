@@ -6,8 +6,10 @@ package main
 */
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
@@ -15,9 +17,51 @@ import (
 	"imuslab.com/arozos/mod/info/logger"
 )
 
+// vendorInfo holds optional vendor overrides loaded from vendor_info.json.
+type vendorInfo struct {
+	Vendor    string `json:"vendor"`
+	VendorURL string `json:"url"`
+	Model     string `json:"model"`
+	ModelDesc string `json:"desc"`
+}
+
+// loadVendorInfo reads vendor_info.json from vendorResRoot and overrides the
+// deviceVendor / deviceVendorURL / deviceModel / deviceModelDesc globals when
+// the file is present and valid.  Missing fields are left at their defaults.
+func loadVendorInfo() {
+	vendorInfoPath := filepath.Join(vendorResRoot, "vendor_info.json")
+	if !fs.FileExists(vendorInfoPath) {
+		return
+	}
+	content, err := os.ReadFile(vendorInfoPath)
+	if err != nil {
+		logger.PrintAndLog("Vendor", "Failed to read vendor_info.json", err)
+		return
+	}
+	var info vendorInfo
+	if err := json.Unmarshal(content, &info); err != nil {
+		logger.PrintAndLog("Vendor", "Failed to parse vendor_info.json", err)
+		return
+	}
+	if info.Vendor != "" {
+		deviceVendor = info.Vendor
+	}
+	if info.VendorURL != "" {
+		deviceVendorURL = info.VendorURL
+	}
+	if info.Model != "" {
+		deviceModel = info.Model
+	}
+	if info.ModelDesc != "" {
+		deviceModelDesc = info.ModelDesc
+	}
+	logger.PrintAndLog("Vendor", "Vendor info loaded from "+vendorInfoPath, nil)
+}
+
 func RunStartup() {
 	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
 	logger.SetDefaultLogger(systemWideLogger)
+	loadVendorInfo()
 	//1. Initiate the main system database
 
 	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user

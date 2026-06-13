@@ -12,6 +12,7 @@ import (
 	"time"
 
 	console "imuslab.com/arozos/mod/console"
+	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/info/logger"
 )
 
@@ -110,9 +111,27 @@ func main() {
 	Run_Test()
 
 	//Initiate all the static files transfer
-	fs := http.FileServer(http.Dir("./web"))
+	baseFileServer := http.FileServer(http.Dir("./web"))
+	vendorWebDir := filepath.Join(vendorResRoot, "web")
+	// Wrap the base file server: serve from vendorResRoot/web/ when a matching
+	// file exists there, falling through to ./web/ otherwise.
+	fileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vendorPath := filepath.Join(vendorWebDir, filepath.FromSlash(r.URL.Path))
+		if !vendorWebExists {
+			// Early exit if the vendor web directory doesn't exist, to avoid unnecessary file existence checks on every request.
+			baseFileServer.ServeHTTP(w, r)
+			return
+		}
+		if info, err := os.Stat(vendorPath); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, vendorPath)
+			return
+		}
+		baseFileServer.ServeHTTP(w, r)
+	})
+	vendorWebExists = fs.FileExists(vendorWebDir)
+
 	//Updates 2022-09-06: Gzip handler moved inside the master router
-	http.Handle("/", mrouter(fs))
+	http.Handle("/", mrouter(fileServer))
 
 	//Setup handler for Ctrl +C
 	SetupCloseHandler()
