@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <link rel="icon" type="image/png" href="img/module_icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="theme-color" content="#a855f7">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -399,7 +399,7 @@
         }
         .player-cover {
             width: 50px; height: 50px; border-radius: 6px; overflow: hidden;
-            flex-shrink: 0; background: var(--bg3);
+            flex-shrink: 0; background: var(--bg3); position: relative;
         }
         .player-cover img { width: 100%; height: 100%; object-fit: cover; }
         .player-track-info { min-width: 0; }
@@ -505,7 +505,10 @@
         }
 
         @media (max-width: 768px) {
-            .player-bar { height: 120px; padding: 8px 10px 0; flex-wrap: wrap; align-items: flex-start; gap: 0 10px; }
+            .player-bar { height: 120px; padding: 8px 16px 0; flex-wrap: wrap; align-items: flex-start; gap: 0 10px; }
+            .player-bar.android { height: 140px; padding-bottom: 46px; }
+            .np-open .player-bar { height: 100px; padding-bottom: 54px; }
+            .np-open .player-bar.android { height: 120px; padding-bottom: 64px; }
             .player-track { width: auto; flex: 1; align-self: center; }
             .player-controls { display: none; }
             .player-extras { width: auto; gap: 2px; align-self: center; }
@@ -517,9 +520,12 @@
                 display: flex !important; align-items: center; gap: 4px;
             }
             .content-body { padding: 14px 12px 12px}
-            .track-info-overlay {
+            .now-playing-overlay {
                 height: calc(100vh - var(--player-h) - 52px) !important;  /* compensate for mobile bar */
             }
+            .np-content { padding: 12px 16px 18px; gap: 10px; }
+            .np-art-wrap { width: min(68vw, 300px, 38vh); }
+            .np-title { font-size: 18px; }
         }
         .mobile-player-controls { display: none; }
         .mobile-seek-row { display: none; width: 100%; align-items: center; gap: 6px; padding: 2px 0 8px; }
@@ -629,42 +635,76 @@
         /* ── Drag‑style progress bar update (JS-driven CSS var) ─────────── */
         input[type=range] { cursor: pointer; }
 
-        /* ── Track Info Overlay ──────────────────────────────────────────── */
+        /* ── Overlay base (shared by the Now Playing overlay) ────────────── */
         .main-content { position: relative; }
-        .track-info-overlay {
+
+        /* ── Now Playing full-screen overlay ─────────────────────────────── */
+        .now-playing-overlay {
             position: absolute; inset: 0;
-            background: var(--bg); z-index: 80;
-            overflow-y: auto; display: flex; flex-direction: column;
-            height: calc(100vh - var(--player-h)); /* prevent overlay from covering player bar */
+            z-index: 85; overflow: hidden;
+            background: var(--bg);
+            height: calc(100vh - var(--player-h));
         }
-        .track-info-overlay::-webkit-scrollbar { width: 6px; }
-        .track-info-overlay::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-        .track-info-header {
-            display: flex; align-items: center; gap: 12px;
-            padding: 14px 20px; border-bottom: 1px solid var(--border);
-            flex-shrink: 0; position: sticky; top: 0;
-            background: var(--bg); z-index: 1;
+        .now-playing-overlay .np-bg {
+            position: absolute; inset: 0; z-index: 0;
+            background-size: cover; background-position: center;
+            filter: blur(48px) brightness(.45) saturate(1.3);
+            transform: scale(1.35); opacity: .6; pointer-events: none;
         }
-        .track-info-header-title { font-size: 15px; font-weight: 700; color: var(--text); }
-        .track-info-body {
-            padding: 28px 24px 48px; display: flex;
-            flex-direction: column; align-items: center;
-            max-width: 520px; margin: 0 auto; width: 100%;
+        .now-playing-overlay::before {
+            content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+            background: linear-gradient(180deg, rgba(17,17,20,.45) 0%, rgba(17,17,20,.82) 100%);
         }
-        .track-info-cover-wrap {
-            width: min(240px, 70vw); height: min(240px, 70vw);
-            border-radius: 16px; overflow: hidden;
-            box-shadow: 0 8px 40px rgba(0,0,0,.55);
-            background: var(--bg3); margin-bottom: 22px; flex-shrink: 0;
+        .np-content {
+            position: relative; z-index: 2;
+            height: 100%; display: flex; flex-direction: column; align-items: center;
+            padding: 14px 22px 42px; gap: 14px; overflow-y: auto;
         }
-        .track-info-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .track-info-name {
-            font-size: 20px; font-weight: 800; color: var(--text);
-            text-align: center; margin-bottom: 4px; line-height: 1.3;
+        .np-slide-left  { animation: npSlideL .28s ease; }
+        .np-slide-right { animation: npSlideR .28s ease; }
+        @keyframes npSlideL { from { transform: translateX(60px); opacity: .25; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes npSlideR { from { transform: translateX(-60px); opacity: .25; } to { transform: translateX(0); opacity: 1; } }
+        .np-header {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0;
         }
-        .track-info-artist {
-            font-size: 14px; color: var(--text2); text-align: center; margin-bottom: 22px;
+        .np-header-title { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text2); }
+        .np-art-wrap {
+            position: relative; margin-top: auto;
+            width: min(74vw, 360px, 40vh); aspect-ratio: 1 / 1;
+            border-radius: 14px; overflow: hidden;
+            background: var(--bg3); box-shadow: 0 14px 50px rgba(0,0,0,.55);
+            flex-shrink: 0;
         }
+        .np-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .np-art-loading {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,.5); backdrop-filter: blur(2px); color: #fff;
+        }
+        .np-art-loading i.icon { margin: 0; font-size: 34px; }
+        .np-title {
+            width: 100%; text-align: center; font-size: 20px; font-weight: 700; color: var(--text);
+            line-height: 1.3; max-height: 2.6em; overflow: hidden; flex-shrink: 0;
+        }
+        .np-artist { width: 100%; text-align: center; font-size: 14px; color: var(--text2); margin-top: -8px; flex-shrink: 0; }
+        .np-seek { width: 100%; max-width: 460px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .np-seek .seek-bar-wrap { flex: 1; }
+        .np-controls {
+            width: 100%; max-width: 460px; display: flex; align-items: center; justify-content: center;
+            gap: 18px; margin-bottom: auto; flex-shrink: 0;
+        }
+        .np-controls .ctrl-btn { width: 46px; height: 46px; }
+        .np-controls .ctrl-btn i.icon { font-size: 18px; }
+        .np-controls .np-play { width: 60px; height: 60px; }
+        .np-controls .np-play i.icon { font-size: 24px; }
+        .np-hint { font-size: 11px; color: var(--text3); text-align: center; flex-shrink: 0; }
+        /* Docked song-info section at the bottom of the overlay */
+        .np-info { width: 100%; max-width: 460px; flex-shrink: 0; padding-bottom: 8px; }
+        .np-info .track-info-divider { margin: 6px 0 16px; }
+        /* When Now Playing is open, hide the duplicated transport/seek controls elsewhere */
+        .np-open .player-controls,
+        .np-open .mobile-seek-row,
+        .np-open .mobile-player-controls { display: none !important; }
         .track-info-meta {
             width: 100%; background: var(--bg2); border: 1px solid var(--border);
             border-radius: 10px; overflow: hidden; margin-bottom: 20px;
@@ -746,6 +786,41 @@
         .transcode-option-label { flex: 1; }
         .transcode-option-label strong { font-size: 13.5px; color: var(--text); font-weight: 600; }
         .transcode-option-label span { display: block; font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+        /* ── Settings toggle switch ──────────────────────────────────────── */
+        .settings-toggle-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid var(--border);
+        }
+        .settings-toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .settings-toggle-label { font-size: 13.5px; color: var(--text); font-weight: 600; }
+        .settings-toggle-desc  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+        .toggle-switch {
+            position: relative; width: 40px; height: 22px; flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: var(--bg3);
+            border: 1px solid var(--border); border-radius: 22px;
+            cursor: pointer; transition: background .2s, border-color .2s;
+        }
+        .toggle-slider::before {
+            content: ''; position: absolute;
+            width: 16px; height: 16px; left: 2px; top: 2px;
+            background: var(--text3); border-radius: 50%;
+            transition: transform .2s, background .2s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+
+        /* ── Full-buffer loading overlay on album art ────────────────────── */
+        .player-cover-loading {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,.5); backdrop-filter: blur(1px);
+            color: #fff;
+        }
+        .player-cover-loading i.icon { margin: 0; font-size: 20px; }
     </style>
     <script>
         // ─── Global helpers (must be defined before Alpine evaluates templates) ───────
@@ -753,7 +828,7 @@
     </script>
 </head>
 <body>
-<div id="app" x-data="musicifyApp()" x-init="init()">
+<div id="app" x-data="musicifyApp()" x-init="init()" :class="{ 'np-open': showNowPlaying }">
 
     <!-- Hidden audio element -->
     <audio id="musicPlayer" preload="metadata"></audio>
@@ -1252,69 +1327,124 @@
                 </div>
             </div>
 
-            <!-- ── TRACK INFO OVERLAY ───────────────────────────────────────── -->
-            <div x-show="showTrackInfo && trackInfoSong" class="track-info-overlay">
-                <!-- Sticky back header -->
-                <div class="track-info-header">
-                    <button class="ctrl-btn" x-on:click="closeTrackInfo()" style="width:32px;height:32px;" title="Back">
-                        <i class="ui arrow left icon" style="margin:0;"></i>
-                    </button>
-                    <span class="track-info-header-title">Song Info</span>
-                </div>
-                <!-- Body -->
-                <div class="track-info-body">
+            <!-- ── NOW PLAYING OVERLAY ──────────────────────────────────────── -->
+            <div x-show="showNowPlaying" class="now-playing-overlay"
+                 x-on:touchstart="npTouchStart($event)"
+                 x-on:touchend="npTouchEnd($event)">
+                <!-- Blurred album art backdrop -->
+                <div class="np-bg"
+                     :style="currentTrack ? ('background-image:url(\'' + getCoverUrl(currentTrack) + '\')') : ''"></div>
+
+                <div class="np-content" :class="{'np-slide-left': _npSwipeDir==='left', 'np-slide-right': _npSwipeDir==='right'}">
+                    <!-- Header -->
+                    <div class="np-header">
+                        <button class="ctrl-btn" x-on:click="closeNowPlaying()" title="Close">
+                            <i class="ui chevron down icon" style="margin:0;"></i>
+                        </button>
+                        <span class="np-header-title">Now Playing</span>
+                        <button class="ctrl-btn" :class="{active: showTrackInfo}" x-on:click="toggleTrackInfo()" title="Song info">
+                            <i class="ui info circle icon" style="margin:0;"></i>
+                        </button>
+                    </div>
+
                     <!-- Large cover art -->
-                    <div class="track-info-cover-wrap">
-                        <img class="track-info-cover"
-                             :src="trackInfoSong ? getCoverUrl(trackInfoSong) : 'img/placeholder.png'"
+                    <div class="np-art-wrap">
+                        <img class="np-art"
+                             :src="currentTrack ? getCoverUrl(currentTrack) : 'img/placeholder.png'"
                              x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"
                              alt="Cover">
-                    </div>
-                    <!-- Song title & artist -->
-                    <div class="track-info-name"   x-text="trackInfoSong ? trackInfoSong.name : ''"></div>
-                    <div class="track-info-artist" x-text="trackInfoSong ? getArtistLabel(trackInfoSong) : ''"></div>
-                    <!-- Metadata table -->
-                    <div class="track-info-meta">
-                        <div class="track-meta-row">
-                            <span class="track-meta-label">Format</span>
-                            <span class="track-meta-value" x-text="trackInfoSong && trackInfoSong.ext ? trackInfoSong.ext.toUpperCase() : '—'"></span>
-                        </div>
-                        <div class="track-meta-row">
-                            <span class="track-meta-label">Size</span>
-                            <span class="track-meta-value" x-text="trackInfoSong ? trackInfoSong.hsize : '—'"></span>
-                        </div>
-                        <div class="track-meta-row">
-                            <span class="track-meta-label">Path</span>
-                            <span class="track-meta-value track-meta-path" x-text="trackInfoSong ? trackInfoSong.filepath : ''"></span>
+                        <div class="np-art-loading" x-show="_fullBufferLoading">
+                            <i class="ui spinner loading icon"></i>
                         </div>
                     </div>
-                    <!-- Divider -->
-                    <div class="track-info-divider"></div>
-                    <!-- Action buttons -->
-                    <div class="track-info-actions">
-                        <button class="track-action-btn" x-on:click="downloadSong(trackInfoSong)">
-                            <i class="ui download icon"></i>
-                            <span>Download to Local Device</span>
+
+                    <!-- Title + artist -->
+                    <div class="np-title"  x-text="currentTrack ? currentTrack.name : ''"></div>
+                    <div class="np-artist" x-text="currentTrack ? getArtistLabel(currentTrack) : ''"></div>
+
+                    <!-- Seek bar -->
+                    <div class="np-seek">
+                        <span class="seek-time" x-text="formatTime(currentTime)"></span>
+                        <div class="seek-bar-wrap">
+                            <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
+                                :value="Math.floor(currentTime)"
+                                :style="'--progress:' + progressPercent() + '%'"
+                                x-on:mousedown="beginSeek()"
+                                x-on:touchstart.stop="beginSeek()"
+                                x-on:touchmove.stop="currentTime = parseFloat($event.target.value)"
+                                x-on:touchend.stop="endSeek($event.target.value)"
+                                x-on:touchcancel.stop="endSeek($event.target.value)"
+                                x-on:change="endSeek($event.target.value)"
+                                x-on:input="currentTime = parseFloat($event.target.value)">
+                        </div>
+                        <span class="seek-time right" x-text="(_currentTrackTranscoded && !duration) ? '--:--' : formatTime(duration)"></span>
+                    </div>
+
+                    <!-- Transport controls -->
+                    <div class="np-controls">
+                        <button class="ctrl-btn" :class="{active: shuffle}" x-on:click="toggleShuffle()" title="Shuffle">
+                            <i class="ui random icon" style="margin:0;"></i>
                         </button>
-                        <button class="track-action-btn" x-on:click="searchOnYoutube(trackInfoSong)">
-                            <i class="ui youtube icon"></i>
-                            <span>Search on YouTube</span>
+                        <button class="ctrl-btn" x-on:click="prevTrack()" title="Previous">
+                            <i class="ui step backward icon" style="margin:0;"></i>
                         </button>
-                        <button class="track-action-btn" x-on:click="copyTrackTitle(trackInfoSong)">
-                            <i class="ui copy outline icon"></i>
-                            <span>Copy Song Title</span>
+                        <button class="ctrl-btn play-btn np-play" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
+                            <i :class="isPlaying ? 'pause' : 'play'" class="ui icon" style="margin:0;"></i>
                         </button>
-                        <button class="track-action-btn" x-on:click="openInFileManager(trackInfoSong)">
-                            <i class="ui folder open icon"></i>
-                            <span>Open in File Manager</span>
+                        <button class="ctrl-btn" x-on:click="nextTrack()" title="Next">
+                            <i class="ui step forward icon" style="margin:0;"></i>
                         </button>
-                        <button id="open-in-embedded" class="track-action-btn" x-on:click="openInEmbedded(trackInfoSong)">
-                            <i class="ui compress alternate icon"></i>
-                            <span>Open in Player View</span>
+                        <button class="ctrl-btn" :class="{active: repeat !== 'none'}" x-on:click="cycleRepeat()" :title="repeatTitle()">
+                            <i :class="repeatIcon()" class="ui icon" style="margin:0;"></i>
+                            <span x-show="repeat==='one'" style="position:absolute;font-size:9px;font-weight:900;line-height:1;bottom:3px;right:3px;color:var(--accent);">1</span>
                         </button>
+                    </div>
+
+                    <div class="np-hint">Swipe left / right to change track</div>
+
+                    <!-- Song info (revealed by the info button; scrolls into view) -->
+                    <div class="np-info" x-show="showTrackInfo">
+                        <div class="track-info-divider"></div>
+                        <!-- Metadata table -->
+                        <div class="track-info-meta">
+                            <div class="track-meta-row">
+                                <span class="track-meta-label">Format</span>
+                                <span class="track-meta-value" x-text="trackInfoSong && trackInfoSong.ext ? trackInfoSong.ext.toUpperCase() : '—'"></span>
+                            </div>
+                            <div class="track-meta-row">
+                                <span class="track-meta-label">Size</span>
+                                <span class="track-meta-value" x-text="trackInfoSong ? trackInfoSong.hsize : '—'"></span>
+                            </div>
+                            <div class="track-meta-row">
+                                <span class="track-meta-label">Path</span>
+                                <span class="track-meta-value track-meta-path" x-text="trackInfoSong ? trackInfoSong.filepath : ''"></span>
+                            </div>
+                        </div>
+                        <!-- Action buttons -->
+                        <div class="track-info-actions">
+                            <button class="track-action-btn" x-on:click="downloadSong(trackInfoSong)">
+                                <i class="ui download icon"></i>
+                                <span>Download to Local Device</span>
+                            </button>
+                            <button class="track-action-btn" x-on:click="searchOnYoutube(trackInfoSong)">
+                                <i class="ui youtube icon"></i>
+                                <span>Search on YouTube</span>
+                            </button>
+                            <button class="track-action-btn" x-on:click="copyTrackTitle(trackInfoSong)">
+                                <i class="ui copy outline icon"></i>
+                                <span>Copy Song Title</span>
+                            </button>
+                            <button class="track-action-btn" x-on:click="openInFileManager(trackInfoSong)">
+                                <i class="ui folder open icon"></i>
+                                <span>Open in File Manager</span>
+                            </button>
+                            <button id="open-in-embedded" class="track-action-btn" x-on:click="openInEmbedded(trackInfoSong)">
+                                <i class="ui compress alternate icon"></i>
+                                <span>Open in Player View</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <br><br><br>
             </div>
 
             <!-- ── SETTINGS ──────────────────────────────────────────────────── -->
@@ -1369,6 +1499,30 @@
                         </div>
                     </div>
 
+                    <!-- Full Buffer Mode subsection -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Full Buffer Mode</div>
+                        <div class="settings-section-desc">
+                            Buffer the entire track on the server before playback begins. This prevents iOS from resetting the audio stream mid-track, at the cost of a short wait before the song starts. Enabled automatically on iPhone &amp; iPad.
+                        </div>
+                        <div class="settings-toggle-row">
+                            <div>
+                                <div class="settings-toggle-label">Enable Full Buffer Mode</div>
+                                <div class="settings-toggle-desc" x-text="fullBufferMode ? 'Active – tracks will be fully transcoded before playback' : 'Inactive – using streaming transcode'"></div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" x-model="fullBufferMode" x-on:change="saveFullBufferMode()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
+                            <span style="font-size:12px;color:var(--text3);">
+                                <i class="ui info circle icon" style="color:var(--accent);"></i>
+                                Only applies when Transcode is enabled. The buffered file is cached for 24 hours so repeated listens are instant.
+                            </span>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1411,15 +1565,20 @@
         <!-- Left: Track info -->
         <div class="player-track">
             <div class="player-cover"
-                 x-on:click="currentTrack && openTrackInfo(currentTrack, $event)"
-                 :style="currentTrack ? 'cursor:pointer;' : ''">
+                 x-on:click="currentTrack && toggleNowPlaying()"
+                 :style="currentTrack ? 'cursor:pointer;' : ''" title="Now Playing">
                 <img :src="currentTrack ? getCoverUrl(currentTrack) : 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='"
                      x-on:error="handleCoverError($event)" alt="Cover">
+                <div class="player-cover-loading" x-show="_fullBufferLoading" title="Buffering…">
+                    <i class="ui spinner loading icon"></i>
+                </div>
             </div>
             <div class="player-track-info" x-show="currentTrack"
-                 x-on:click="openTrackInfo(currentTrack, $event)"
-                 style="cursor:pointer;" title="Song info">
-                <div class="player-track-name"   x-text="currentTrack ? currentTrack.name : ''"></div>
+                 x-on:click="openNowPlaying()"
+                 style="cursor:pointer;" title="Now Playing">
+                <div class="player-track-name">
+                    <span x-text="currentTrack ? currentTrack.name : ''"></span>
+                </div>
                 <div class="player-track-artist" x-text="currentTrack ? getArtistLabel(currentTrack) : ''"></div>
             </div>
             <div x-show="!currentTrack" style="color:var(--text3);font-size:13px;">No track playing</div>

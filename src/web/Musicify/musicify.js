@@ -95,6 +95,13 @@ function musicifyApp() {
         showTrackInfo: false,
         trackInfoSong: null,
 
+        // ── Now Playing full-screen overlay ──────────────────────────────────
+        showNowPlaying: false,
+        _npTouchStartX: 0,
+        _npTouchStartY: 0,
+        _npSwiping: false,
+        _npSwipeDir: '',        // 'left' | 'right' | '' — drives the slide animation
+
         // ── Internal playback guard ──────────────────────────────────────────
         _suppressEnded: false,  // true while a new track is loading (prevents double-skip)
 
@@ -106,6 +113,10 @@ function musicifyApp() {
         _transcodeSeekOffset: 0,       // seconds already seeked past in current transcode stream
         _currentTrackTranscoded: false,// true when current track is served via transcode endpoint
         _transcodeEndFallbackTimer: null, // guards against 'ended' not firing on Safari
+
+        // ── Full Buffer Mode ─────────────────────────────────────────────────
+        fullBufferMode: false,         // true = buffer entire track before playback (iOS default)
+        _fullBufferLoading: false,     // true while waiting for server-side buffer to finish
 
         // ── Arozcast ─────────────────────────────────────────────────────────
         castMode: false,
@@ -181,7 +192,7 @@ function musicifyApp() {
             this._audio.addEventListener('waiting', () => {
                 if (MUSICIFY_DEBUG) console.log('[Musicify] audio waiting – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
             });
-            this._audio.addEventListener('play',  () => { self.isPlaying = true; self._suppressEnded = false; self._updateMediaSession(); });
+            this._audio.addEventListener('play',  () => { self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._updateMediaSession(); });
             this._audio.addEventListener('pause', () => { self.isPlaying = false; self._updateMediaSession(); });
 
             // Restore volume
@@ -209,6 +220,15 @@ function musicifyApp() {
             var _savedTranscode = localStorage.getItem('musicify_transcodeMode');
             if (_savedTranscode === 'disabled' || _savedTranscode === '16' || _savedTranscode === '24' || _savedTranscode === '48') {
                 this.transcodeMode = _savedTranscode;
+            }
+
+            // Full Buffer Mode: auto-enable on iOS, otherwise restore from localStorage
+            var _savedFBM = localStorage.getItem('musicify_fullBufferMode');
+            if (_savedFBM !== null) {
+                this.fullBufferMode = (_savedFBM === 'true');
+            } else {
+                // Auto-detect iOS and enable by default
+                this.fullBufferMode = this._isIOS();
             }
 
             // MediaSession
@@ -256,6 +276,11 @@ function musicifyApp() {
                 }
             });
 
+            // Android player-bar class
+            if (this._isAndroid()) {
+                document.querySelector('.player-bar').classList.add('android');
+            }
+
             // Responsive sidebar
             this.sidebarOpen = window.innerWidth > 768;
             var resizeT;
@@ -285,6 +310,9 @@ function musicifyApp() {
             } else if (v === 'recent' && this.recentSongs.length === 0) {
                 this._loadRecent();
             }
+
+            //Close playing overlay if open
+            if (this.showNowPlaying) this.closeNowPlaying();
         },
 
         openPlaylistView(name) {
@@ -855,6 +883,8 @@ function musicifyApp() {
             this.queueIndex = startIndex;
             if (this.shuffle) this._buildShuffledQueue(startIndex);
             this._loadTrack(this._effectiveQueue()[this._effectiveIndex(startIndex)]);
+            // Starting playback brings up the full-screen Now Playing view
+            this.openNowPlaying();
         },
 
         playSong(song, sourceList, event) {
@@ -938,19 +968,12 @@ function musicifyApp() {
                 this._audio.pause();
                 this.isPlaying = true;
             } else {
-                this._currentTrackTranscoded = (this.transcodeMode !== 'disabled' && this._needsTranscode(song));
-                this._audio.src = this._getAudioSrc(song);
-                this._audio.load();
-                this._audio.play().catch(() => {});
-                if (this._currentTrackTranscoded) {
-                    var _prefetchSong = song;
-                    fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(song.filepath))
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.duration > 0 && this.currentTrack && this.currentTrack.filepath === _prefetchSong.filepath) {
-                                this.duration = data.duration;
-                            }
-                        }).catch(() => {});
+                var willTranscode = (this.transcodeMode !== 'disabled' && this._needsTranscode(song));
+                this._currentTrackTranscoded = willTranscode;
+                if (willTranscode && this.fullBufferMode) {
+                    this._playViaFullBuffer(song, 0, true);
+                } else {
+                    this._playViaStream(song, 0, true);
                 }
             }
             this._saveRecentlyPlayed(song);
@@ -1084,6 +1107,14 @@ function musicifyApp() {
             return nonNative.indexOf(song.ext.toLowerCase()) !== -1;
         },
 
+        _isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        },
+
+        _isAndroid() {
+            return /Android/.test(navigator.userAgent);
+        },
+
         // Returns the playback URL for a song, using the transcode endpoint when needed.
         // startTime (seconds) is only appended when seeking a transcoded stream.
         _getAudioSrc(song, startTime) {
@@ -1097,11 +1128,128 @@ function musicifyApp() {
             return ao_root + 'media?file=' + encodeURIComponent(song.filepath);
         },
 
+        // Full Buffer Mode: ask the server to transcode the WHOLE track to a static
+        // MP3 first, then play that completed file. A complete file (served via /media
+        // with byte-range support) behaves like a native source, so iOS can seek it and
+        // never resets the stream to t=0 mid-playback.
+        //   resumeAt   – seconds to seek to once loaded (0 = from start)
+        //   wasPlaying – auto-play after the source is ready
+        _playViaFullBuffer(song, resumeAt, wasPlaying) {
+            var self = this;
+            var _bufSong = song;
+            resumeAt = resumeAt || 0;
+            this._fullBufferLoading = true;
+            if (MUSICIFY_DEBUG) console.log('[Musicify FBM] requesting server buffer:', song.filepath, '@', this.transcodeMode + 'kHz', 'resumeAt:', resumeAt);
+            fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/fullbuffer.js', {
+                method: 'POST', cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file: song.filepath, samplerate: self.transcodeMode })
+            }).then(r => r.json()).then(data => {
+                self._fullBufferLoading = false;
+                // Abort if the user already switched to a different track
+                if (!self.currentTrack || self.currentTrack.filepath !== _bufSong.filepath) return;
+                if (data.error || !data.path) {
+                    if (MUSICIFY_DEBUG) console.warn('[Musicify FBM] server buffer failed:', data.error || '(no path returned)');
+                    self._showToast('Full buffer failed – streaming instead', 'error');
+                    self._playViaStream(_bufSong, resumeAt, wasPlaying);
+                    return;
+                }
+                if (MUSICIFY_DEBUG) console.log('[Musicify FBM] buffered file ready:', data.path);
+                // Completed static MP3 — behaves like a native file (iOS-safe, seekable)
+                self._currentTrackTranscoded = false;
+                self._transcodeSeekOffset = 0;
+                self.duration = 0;
+                self._audio.src = ao_root + 'media?file=' + encodeURIComponent(data.path);
+                self._audio.load();
+                if (resumeAt > 0) {
+                    self._audio.addEventListener('loadedmetadata', function() {
+                        try { self._audio.currentTime = resumeAt; } catch (e) {}
+                    }, { once: true });
+                }
+                if (wasPlaying) {
+                    // On iOS the audio element must already be unlocked by a prior
+                    // gesture-initiated play; if not, play() rejects and we reflect the
+                    // paused state so the user can tap play.
+                    self._audio.play().catch(function() { self.isPlaying = false; });
+                }
+            }).catch(() => {
+                self._fullBufferLoading = false;
+                if (!self.currentTrack || self.currentTrack.filepath !== _bufSong.filepath) return;
+                if (MUSICIFY_DEBUG) console.warn('[Musicify FBM] network error contacting fullbuffer.js');
+                self._showToast('Full buffer error – streaming instead', 'error');
+                self._playViaStream(_bufSong, resumeAt, wasPlaying);
+            });
+        },
+
+        // Stream a track through the realtime transcode endpoint (or directly via /media
+        // for web-native formats). Used for non-FBM playback and as the FBM fallback.
+        //   resumeAt   – seconds to seek to once loaded (0 = from start)
+        //   wasPlaying – auto-play after the source is ready (default true)
+        _playViaStream(song, resumeAt, wasPlaying) {
+            var self = this;
+            resumeAt = resumeAt || 0;
+            if (wasPlaying === undefined) wasPlaying = true;
+            this._currentTrackTranscoded = (this.transcodeMode !== 'disabled' && this._needsTranscode(song));
+            this._transcodeSeekOffset = 0;
+            this.duration = 0;
+            if (this._currentTrackTranscoded && resumeAt > 0.001) {
+                this._transcodeSeekOffset = resumeAt;
+                this._audio.src = this._getAudioSrc(song, resumeAt);
+            } else {
+                this._audio.src = this._getAudioSrc(song);
+            }
+            this._audio.load();
+            if (this._currentTrackTranscoded) {
+                // Transcoded streams have no Content-Length — pre-fetch duration for the seek bar
+                var _song = song;
+                fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(_song.filepath))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.duration > 0 && self.currentTrack && self.currentTrack.filepath === _song.filepath) {
+                            self.duration = data.duration;
+                        }
+                    }).catch(() => {});
+            } else if (resumeAt > 0) {
+                // Native source: seek once metadata is ready
+                this._audio.addEventListener('loadedmetadata', function() {
+                    try { self._audio.currentTime = resumeAt; } catch (e) {}
+                }, { once: true });
+            }
+            if (wasPlaying) {
+                this._audio.play().catch(() => {});
+            }
+        },
+
+        saveFullBufferMode() {
+            localStorage.setItem('musicify_fullBufferMode', String(this.fullBufferMode));
+            this._showToast('Full Buffer Mode: ' + (this.fullBufferMode ? 'enabled' : 'disabled'));
+
+            // Reload the current track immediately so the change takes effect now
+            // (not just on the next track). Preserves the current playback position.
+            if (this.currentTrack && this._needsTranscode(this.currentTrack) &&
+                    this.transcodeMode !== 'disabled' && !this.castMode) {
+                if (this._transcodeEndFallbackTimer) {
+                    clearTimeout(this._transcodeEndFallbackTimer);
+                    this._transcodeEndFallbackTimer = null;
+                }
+                var resumeAt = this.currentTime;
+                var wasPlaying = this.isPlaying;
+                this._suppressEnded = true;
+                if (MUSICIFY_DEBUG) console.log('[Musicify FBM] toggle ->', this.fullBufferMode ? 'buffer' : 'stream', 'reloading at', resumeAt);
+                if (this.fullBufferMode) {
+                    this._playViaFullBuffer(this.currentTrack, resumeAt, wasPlaying);
+                } else {
+                    this._playViaStream(this.currentTrack, resumeAt, wasPlaying);
+                }
+            }
+        },
+
         saveTranscodeMode() {
             localStorage.setItem('musicify_transcodeMode', this.transcodeMode);
 
             // If a non-native track is currently loaded, reload it immediately at the
-            // current position so seeks work correctly under the new mode.
+            // current position so the new sample rate (and seeking) take effect now.
+            // Honour Full Buffer Mode: re-buffer at the new rate when it is enabled.
             if (this.currentTrack && this._needsTranscode(this.currentTrack) && !this.castMode) {
                 if (this._transcodeEndFallbackTimer) {
                     clearTimeout(this._transcodeEndFallbackTimer);
@@ -1109,42 +1257,11 @@ function musicifyApp() {
                 }
                 var resumeAt = this.currentTime; // already includes _transcodeSeekOffset
                 var wasPlaying = this.isPlaying;
-                var willTranscode = (this.transcodeMode !== 'disabled');
-
                 this._suppressEnded = true;
-                this._transcodeSeekOffset = 0;
-                this._currentTrackTranscoded = willTranscode;
-                this.duration = 0;
-
-                if (willTranscode && resumeAt > 0.001) {
-                    // Transcoded seek: bake the position into the stream URL
-                    this._transcodeSeekOffset = resumeAt;
-                    this._audio.src = this._getAudioSrc(this.currentTrack, resumeAt);
+                if (this.transcodeMode !== 'disabled' && this.fullBufferMode) {
+                    this._playViaFullBuffer(this.currentTrack, resumeAt, wasPlaying);
                 } else {
-                    this._audio.src = this._getAudioSrc(this.currentTrack);
-                }
-                this._audio.load();
-
-                if (willTranscode) {
-                    // Re-fetch duration for the transcoded stream
-                    var _song = this.currentTrack;
-                    fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(_song.filepath))
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.duration > 0 && this.currentTrack && this.currentTrack.filepath === _song.filepath) {
-                                this.duration = data.duration;
-                            }
-                        }).catch(() => {});
-                } else if (resumeAt > 0) {
-                    // Native audio: seek to position after metadata is ready
-                    var self = this;
-                    this._audio.addEventListener('loadedmetadata', function() {
-                        self._audio.currentTime = resumeAt;
-                    }, { once: true });
-                }
-
-                if (wasPlaying) {
-                    this._audio.play().catch(() => {});
+                    this._playViaStream(this.currentTrack, resumeAt, wasPlaying);
                 }
             }
 
@@ -1345,29 +1462,90 @@ function musicifyApp() {
         // ════════════════════════════════════════════════════════════════════
         //  TRACK INFO PANEL
         // ════════════════════════════════════════════════════════════════════
-        openTrackInfo(song, event) {
-            if (event) event.stopPropagation();
-            if (!song) return;
-            var mc = document.getElementById('mainContent');
-            // Pin overlay to the current visible top before Alpine shows it
-            var overlay = mc ? mc.querySelector('.track-info-overlay') : null;
-            if (overlay) overlay.style.top = (mc.scrollTop) + 'px';
-            if (mc) mc.style.overflow = 'hidden';
-            this.trackInfoSong = song;
-            this.showTrackInfo = true;
-            if (!ao_module_virtualDesktop){
-                // Not in webdesktop mode, so "Open in Embedded Player" option doesn't make sense – hide it
-                $("#open-in-embedded").hide();
-            }else{
-                $("#open-in-embedded").show();
+        // Toggle the song-info section docked at the bottom of the Now Playing
+        // overlay. Revealing it scrolls the overlay down to bring it into view.
+        toggleTrackInfo() {
+            if (!this.currentTrack) return;
+            this.trackInfoSong = this.currentTrack;
+            this.showTrackInfo = !this.showTrackInfo;
+            if (this.showTrackInfo) {
+                if (!ao_module_virtualDesktop){
+                    // Not in webdesktop mode, so "Open in Player View" doesn't make sense – hide it
+                    $("#open-in-embedded").hide();
+                }else{
+                    $("#open-in-embedded").show();
+                }
+                this.$nextTick(() => {
+                    var c = document.querySelector('.now-playing-overlay .np-content');
+                    if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+                });
             }
         },
 
-        closeTrackInfo() {
+        // ════════════════════════════════════════════════════════════════════
+        //  NOW PLAYING FULL-SCREEN OVERLAY
+        // ════════════════════════════════════════════════════════════════════
+        openNowPlaying() {
+            if (!this.currentTrack) return;
+            var mc = document.getElementById('mainContent');
+            // Pin the overlay to the current scroll position before Alpine shows it,
+            // then freeze scrolling underneath.
+            var overlay = mc ? mc.querySelector('.now-playing-overlay') : null;
+            if (overlay) overlay.style.top = (mc.scrollTop) + 'px';
+            if (mc) mc.style.overflow = 'hidden';
+            this.showTrackInfo = false;   // start collapsed
+            this.trackInfoSong = this.currentTrack;
+            this.showNowPlaying = true;
+            this.$nextTick(() => {
+                var c = overlay ? overlay.querySelector('.np-content') : null;
+                if (c) c.scrollTop = 0;
+                if (overlay) overlay.style.top = (mc.scrollTop) + 'px'; // readjust after content is revealed
+            });
+        },
+
+        toggleNowPlaying() {
+            if (this.showNowPlaying) {
+                this.closeNowPlaying();
+            } else {
+                this.openNowPlaying();
+            }
+        },
+
+        closeNowPlaying() {
+            this.showNowPlaying = false;
             this.showTrackInfo = false;
-            this.trackInfoSong = null;
+            this._npSwipeDir = '';
             var mc = document.getElementById('mainContent');
             if (mc) mc.style.overflow = '';
+        },
+
+        npTouchStart(e) {
+            var t = e.changedTouches ? e.changedTouches[0] : e;
+            this._npTouchStartX = t.clientX;
+            this._npTouchStartY = t.clientY;
+            this._npSwiping = true;
+        },
+
+        npTouchEnd(e) {
+            if (!this._npSwiping) return;
+            this._npSwiping = false;
+            var t = e.changedTouches ? e.changedTouches[0] : e;
+            var dx = t.clientX - this._npTouchStartX;
+            var dy = t.clientY - this._npTouchStartY;
+            // Horizontal swipe → change track; vertical swipe down → close
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+                if (dx < 0) {
+                    this._npSwipeDir = 'left';
+                    this.nextTrack();
+                } else {
+                    this._npSwipeDir = 'right';
+                    this.prevTrack();
+                }
+                var self = this;
+                setTimeout(function() { self._npSwipeDir = ''; }, 280);
+            } else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) {
+                //this.closeNowPlaying();
+            }
         },
 
         copyTrackTitle(song) {
