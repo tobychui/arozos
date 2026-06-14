@@ -3,427 +3,1236 @@
 	<head>
 		<meta charset="UTF-8">
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-		<meta name="theme-color" content="#4b75ff">
-		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
+		<meta name="theme-color" content="#000000">
 		<script src="../script/jquery.min.js"></script>
-		<script src="../script/semantic/semantic.min.js"></script>
 		<script src="../script/ao_module.js"></script>
-
 		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
 		<title>Camera</title>
 		<style>
-			body{
-				background-color: #000000;
+			:root{
+				--accent: #ffd60a;        /* iOS camera yellow */
+				--rec: #ff3b30;           /* record red */
+				--panel: rgba(28,28,30,0.72);
+				--safe-top: env(safe-area-inset-top, 0px);
+				--safe-bottom: env(safe-area-inset-bottom, 0px);
 			}
 
-			.previewer{
+			*{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+			html, body{
+				margin: 0;
+				padding: 0;
+				height: 100%;
 				width: 100%;
-				max-height: 100%;
+				background: #000;
+				color: #fff;
+				overflow: hidden;
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+				user-select: none;
+				-webkit-user-select: none;
+				touch-action: none;
 			}
 
-			.previewer.mirror{
-				-webkit-transform: scaleX(-1);
-  				transform: scaleX(-1);
-			}
-
-			#controls{
+			#app{
 				position: fixed;
-				left: 0px;
-				bottom: 0px;
-				width: 100%;
-				padding: 12px;
-				padding-bottom: 20px;
-				
-			}
-
-			#verticalUI .shutterContainer{
+				inset: 0;
 				display: flex;
-				justify-content: space-evenly;
+				flex-direction: column;
 			}
 
-			#verticalUI .shutter.image{
-				width: 5em;
-			}
-
-			#verticalUI .settingButton{
+			/* ===== Viewfinder ===== */
+			.viewfinderArea{
 				position: absolute;
-				bottom: 2em;
-				left: 1em;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: #000;
 			}
 
-			#verticalUI .cameraFunctionPanel{
-				position: fixed;
+			.viewfinder{
+				position: relative;
+				/* explicit width/height are set in px by applyAspect() so the
+				   viewfinder fits inside the available area in BOTH orientations */
 				width: 100%;
-				top:0px;
-				left: 0px;
-			}
-
-			#verticalUI .cameraFunctionPanel .camswitch{
-				position: absolute;
-				top: 1em;
-				right: 1em;
-				box-shadow: none;
-				background-color: transparent !important;
-			}
-
-			#sidewayUI .shutterContainer{
-				position: fixed;
-				right: 0px;
 				height: 100%;
-				top:0px;
-				width: 5em;
-			}
-			
-			#sidewayUI .shutter.image{
-				position: absolute;
-				right: 20px;
-				width: 5em;
-				top: 50%;
-				-ms-transform: translateY(-50%);
-				transform: translateY(-50%);
+				overflow: hidden;
+				background: #000;
+				transition: border-radius .2s ease;
 			}
 
-			#sidewayUI .settingButton{
-				position: fixed;
-				top: 2em;
-				right: 1em;
-			}
-
-			#sidewayUI .cameraFunctionPanel{
-				position: fixed;
+			#camera{
+				width: 100%;
 				height: 100%;
-				top:0px;
-				left: 0px;
+				object-fit: cover;
+				display: block;
+				background: #000;
 			}
 
-			#sidewayUI .cameraFunctionPanel .camswitch{
-				position: absolute;
-				top: 1em;
-				left: 1em;
-				box-shadow: none;
-				background-color: transparent !important;
+			#camera.mirror{
+				transform: scaleX(-1);
 			}
 
-
+			/* flash on capture */
 			#shutterCover{
 				position: fixed;
-				top:0px;
-				left: 0px;
-				width: 100%;
-				height: 100%;
-				background-color: black;
-				display:none;
+				inset: 0;
+				background: #000;
+				opacity: 0;
+				pointer-events: none;
+				z-index: 4000;
+			}
+			#shutterCover.flash{
+				animation: flashAnim .35s ease;
+			}
+			@keyframes flashAnim{
+				0%{ opacity: 0; }
+				15%{ opacity: 1; }
+				100%{ opacity: 0; }
 			}
 
-			#albumn{
-				position: fixed;
-				bottom: 2em;
-				right: 1em;
+			/* grid overlay */
+			.gridOverlay{
+				position: absolute;
+				inset: 0;
+				pointer-events: none;
+				display: none;
+				background-image:
+					linear-gradient(to right, rgba(255,255,255,.28) 1px, transparent 1px),
+					linear-gradient(to bottom, rgba(255,255,255,.28) 1px, transparent 1px);
+				background-size: 33.33% 33.33%;
+				z-index: 5;
+			}
+			.gridOverlay.show{ display: block; }
+
+			/* focus ring (tap to focus) */
+			.focusRing{
+				position: absolute;
+				width: 70px; height: 70px;
+				border: 1.5px solid var(--accent);
+				border-radius: 8px;
+				transform: translate(-50%, -50%) scale(1.4);
+				opacity: 0;
+				pointer-events: none;
+				z-index: 6;
+			}
+			.focusRing.animate{ animation: focusPulse .6s ease; }
+			@keyframes focusPulse{
+				0%{ opacity: 0; transform: translate(-50%,-50%) scale(1.5); }
+				20%{ opacity: 1; }
+				60%{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+				100%{ opacity: 0; transform: translate(-50%,-50%) scale(1); }
 			}
 
-			.ablumnpreview{
-				width: 3em;
+			/* ===== Top bar ===== */
+			.topBar{
+				position: relative;
+				z-index: 30;
+				padding-top: calc(var(--safe-top) + 6px);
+				padding-left: 14px;
+				padding-right: 14px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				min-height: 44px;
+				background: linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0));
+			}
+
+			.iconBtn{
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 40px; height: 40px;
+				border-radius: 50%;
+				cursor: pointer;
+				color: #fff;
+				background: transparent;
+				border: none;
+				transition: background .15s ease;
+			}
+			.iconBtn:active{ background: rgba(255,255,255,.12); }
+			.iconBtn svg{ width: 22px; height: 22px; }
+			.iconBtn.active{ color: var(--accent); }
+
+			.chevronBtn{
+				width: 46px; height: 26px;
+				border-radius: 13px;
+				display: inline-flex; align-items: center; justify-content: center;
+				background: rgba(40,40,40,.55);
+				cursor: pointer;
+			}
+			.chevronBtn svg{ width: 16px; height: 16px; transition: transform .25s ease; }
+			.chevronBtn.open svg{ transform: rotate(180deg); }
+
+			/* ===== Expandable control tray ===== */
+			.tray{
+				position: relative;
+				z-index: 25;
+				overflow: hidden;
+				max-height: 0;
+				transition: max-height .28s ease;
+				background: rgba(0,0,0,.35);
+			}
+			.tray.open{ max-height: 60px; }
+			.trayInner{
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				padding: 8px 14px;
+				overflow-x: auto;
+				scrollbar-width: none;
+			}
+			.trayInner::-webkit-scrollbar{ display: none; }
+
+			.chip{
+				flex: 0 0 auto;
+				padding: 7px 13px;
+				border-radius: 16px;
+				background: rgba(60,60,60,.6);
+				color: #fff;
+				font-size: 13px;
+				font-weight: 600;
+				cursor: pointer;
+				white-space: nowrap;
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.chip.active{ background: var(--accent); color: #000; }
+			.chip svg{ width: 15px; height: 15px; }
+
+			/* ===== ISO / adjustment slider ===== */
+			.adjustOverlay{
+				position: absolute;
+				left: 0; right: 0;
+				bottom: calc(var(--safe-bottom) + 200px);
+				display: none;
+				flex-direction: column;
+				align-items: center;
+				z-index: 35;
+				padding: 0 30px;
+			}
+			.adjustOverlay.show{ display: flex; }
+			.adjustLabel{
+				font-size: 13px;
+				font-weight: 700;
+				color: var(--accent);
+				margin-bottom: 8px;
+				background: rgba(0,0,0,.5);
+				padding: 3px 10px;
+				border-radius: 10px;
+			}
+			.adjustOverlay input[type=range]{ width: 100%; max-width: 360px; }
+
+			input[type=range]{
+				-webkit-appearance: none;
+				appearance: none;
+				height: 3px;
+				border-radius: 2px;
+				background: rgba(255,255,255,.4);
+				outline: none;
+			}
+			input[type=range]::-webkit-slider-thumb{
+				-webkit-appearance: none;
+				appearance: none;
+				width: 22px; height: 22px;
+				border-radius: 50%;
+				background: #fff;
+				box-shadow: 0 1px 4px rgba(0,0,0,.5);
+				cursor: pointer;
+			}
+			input[type=range]::-moz-range-thumb{
+				width: 22px; height: 22px;
+				border: none;
+				border-radius: 50%;
+				background: #fff;
 				cursor: pointer;
 			}
 
-			.latestPreview{
-				width: 3em !important;
-				height: 3em !important;
+			/* ===== Filter strip ===== */
+			.filterStrip{
+				position: relative;
+				z-index: 25;
+				display: none;
+				gap: 12px;
+				padding: 10px 16px 4px 16px;
+				overflow-x: auto;
+				scrollbar-width: none;
+			}
+			.filterStrip.show{ display: flex; }
+			.filterStrip::-webkit-scrollbar{ display: none; }
+			.filterItem{
+				flex: 0 0 auto;
+				text-align: center;
+				cursor: pointer;
+			}
+			.filterSwatch{
+				width: 54px; height: 54px;
+				border-radius: 12px;
+				background-image: linear-gradient(135deg,#f7b733,#fc4a1a 40%,#4776E6 75%,#8E54E9);
+				border: 2px solid transparent;
+				margin: 0 auto 5px auto;
+			}
+			.filterItem.active .filterSwatch{ border-color: var(--accent); }
+			.filterName{
+				font-size: 11px;
+				color: #ddd;
+			}
+			.filterItem.active .filterName{ color: var(--accent); font-weight: 700; }
+
+			/* ===== Recording timer ===== */
+			.recTimer{
+				position: absolute;
+				top: calc(var(--safe-top) + 54px);
+				left: 50%;
+				transform: translateX(-50%);
+				display: none;
+				align-items: center;
+				gap: 7px;
+				background: rgba(0,0,0,.55);
+				padding: 5px 12px;
+				border-radius: 14px;
+				font-size: 15px;
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+				z-index: 40;
+			}
+			.recTimer.show{ display: flex; }
+			.recDot{
+				width: 10px; height: 10px;
+				border-radius: 50%;
+				background: var(--rec);
+				animation: blink 1s steps(2,start) infinite;
+			}
+			@keyframes blink{ 50%{ opacity: .2; } }
+
+			/* zoom pill */
+			.zoomPill{
+				position: absolute;
+				bottom: 6px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0,0,0,.45);
+				color: #fff;
+				font-size: 13px;
+				font-weight: 700;
+				padding: 6px 12px;
+				border-radius: 16px;
+				z-index: 12;
+				display: none;
+				cursor: pointer;
+			}
+			.zoomPill.show{ display: block; }
+			.zoomPill.active{ color: var(--accent); }
+
+			/* ===== Bottom controls ===== */
+			.bottomBar{
+				position: relative;
+				z-index: 30;
+				margin-top: auto;       /* push controls to the bottom of the flex column */
+				padding-bottom: calc(var(--safe-bottom) + 10px);
+				background: linear-gradient(to top, rgba(0,0,0,.7), rgba(0,0,0,0));
 			}
 
-			.zoombarcontainer{
-				width: 100%;
-				padding-bottom: 8px;
-				padding-left: 20px;
-				padding-right: 20px;
-			}
-
-			.sideway.zoombarcontainer{
+			.modeSelector{
 				display: flex;
-				justify-content: space-evenly;
+				align-items: center;
+				justify-content: center;
+				gap: 26px;
+				padding: 10px 0 14px 0;
+			}
+			.modeItem{
+				font-size: 13px;
+				font-weight: 700;
+				letter-spacing: .5px;
+				color: rgba(255,255,255,.65);
+				text-transform: uppercase;
+				cursor: pointer;
+				padding: 4px 2px;
+				transition: color .15s ease;
+			}
+			.modeItem.active{ color: var(--accent); }
+
+			.controlsRow{
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 0 26px 6px 26px;
 			}
 
-			#zoombar{
-				width: 100%;
+			.albumThumb{
+				width: 52px; height: 52px;
+				border-radius: 9px;
+				overflow: hidden;
+				background: #222;
+				border: 1px solid rgba(255,255,255,.25);
+				cursor: pointer;
+				flex: 0 0 auto;
+			}
+			.albumThumb img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+
+			/* Shutter */
+			.shutter{
+				width: 72px; height: 72px;
+				border-radius: 50%;
+				background: #fff;
+				border: 4px solid #000;
+				box-shadow: 0 0 0 3px #fff;
+				cursor: pointer;
+				flex: 0 0 auto;
+				transition: transform .1s ease, background .2s ease;
+			}
+			.shutter:active{ transform: scale(.92); }
+			.shutter.video{ background: var(--rec); box-shadow: 0 0 0 3px #fff; }
+			.shutter.video.recording{
+				border-radius: 22%;
+				width: 40px; height: 40px;
+				margin: 16px;
 			}
 
-			#zoombar.sideway{
-				width: 50% !important;
+			.flipBtn{
+				width: 52px; height: 52px;
+				border-radius: 50%;
+				background: rgba(60,60,60,.65);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+				flex: 0 0 auto;
 			}
+			.flipBtn svg{ width: 26px; height: 26px; color: #fff; }
+			.flipBtn:active{ transform: rotate(180deg); transition: transform .3s ease; }
+
+			.hidden{ display: none !important; }
+
+			/* keeps the chevron centred even when flash/format are hidden */
+			.topSlot{
+				width: 44px;
+				display: flex;
+				align-items: center;
+			}
+			.topSlot.left{ justify-content: flex-start; }
+			.topSlot.right{ justify-content: flex-end; }
+
+			/* ============================================================
+			   Landscape layout — rotate the control bars to the edges
+			   so the shutter sits on the right, like the iPhone camera.
+			   Toggled by JS via body.landscape.
+			   ============================================================ */
+			body.landscape #app{ flex-direction: row; }
+
+			/* top bar -> vertical strip on the LEFT edge */
+			body.landscape .topBar{
+				flex-direction: column;
+				width: auto;
+				min-width: 52px;
+				min-height: 0;
+				height: 100%;
+				padding: calc(var(--safe-top) + 12px) 6px 12px calc(env(safe-area-inset-left, 0px) + 6px);
+				background: linear-gradient(to right, rgba(0,0,0,.55), rgba(0,0,0,0));
+			}
+			body.landscape .topSlot{ width: auto; height: 40px; justify-content: center; }
+
+			/* the tray slides out sideways in landscape, so the chevron
+			   points right (closed) / left (open) instead of down / up */
+			body.landscape .chevronBtn svg{ transform: rotate(-90deg); }
+			body.landscape .chevronBtn.open svg{ transform: rotate(90deg); }
+
+			/* control tray -> slides out as a column from the left */
+			body.landscape .tray{
+				max-height: none;
+				max-width: 0;
+				height: 100%;
+				transition: max-width .28s ease;
+			}
+			body.landscape .tray.open{ max-width: 96px; }
+			body.landscape .trayInner{
+				flex-direction: column;
+				align-items: stretch;
+				width: 96px;
+				height: 100%;
+				overflow-x: hidden;
+				overflow-y: auto;
+				padding: 12px 8px;
+			}
+			body.landscape .chip{ justify-content: center; }
+
+			/* filter strip -> vertical column */
+			body.landscape .filterStrip{
+				flex-direction: column;
+				width: auto;
+				height: 100%;
+				overflow-x: hidden;
+				overflow-y: auto;
+				padding: 12px 10px;
+			}
+
+			/* bottom controls -> vertical strip on the RIGHT edge */
+			body.landscape .bottomBar{
+				margin-top: 0;
+				margin-left: auto;
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+				width: auto;
+				height: 100%;
+				padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) 0 0;
+				background: linear-gradient(to left, rgba(0,0,0,.7), rgba(0,0,0,0));
+			}
+			body.landscape .modeSelector{
+				flex-direction: column;
+				gap: 18px;
+				padding: 0 10px;
+			}
+			body.landscape .controlsRow{
+				flex-direction: column;
+				justify-content: center;
+				gap: 28px;
+				height: 100%;
+				padding: 0 6px;
+			}
+
+			/* adjustment slider -> vertically centred, clear of the right controls */
+			body.landscape .adjustOverlay{
+				top: 50%;
+				bottom: auto;
+				left: 70px;
+				right: 130px;
+				transform: translateY(-50%);
+			}
+
+			/* toast */
+			.toast{
+				position: fixed;
+				top: calc(var(--safe-top) + 90px);
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0,0,0,.78);
+				color: #fff;
+				padding: 9px 16px;
+				border-radius: 14px;
+				font-size: 13px;
+				z-index: 5000;
+				opacity: 0;
+				transition: opacity .25s ease;
+				pointer-events: none;
+				max-width: 80%;
+				text-align: center;
+			}
+			.toast.show{ opacity: 1; }
 		</style>
 	</head>
 	<body>
-		<video id="camera" class="previewer" autoplay></video>
-		<div id="shutterCover"></div>
-		<canvas id="canvas" style="display:none;"></canvas>
-		<div id="controls">
-			<div class="zoombarcontainer">
-				<input id="zoombar" type="range" min="1" max="100" value="50">
-			</div>
-			<div></div>
-			<div id="verticalUI">
-				<div class="cameraFunctionPanel">
-					<div class="ui button small icon basic camswitch" onclick="switchCamera();">
-						<img src="img/icons/camswitch.svg">
-					</div>
-				</div>
-				<div class="shutterContainer">
-					<div onclick="takePicture();" ontouchdown="takePicture();">
-						<img class="ui shutter image" src="img/shutter.png">
-					</div>
-				</div>
-				<div class="settingButton">
-					<div>
-						<img class="ui tiny image savemodebutton"  style="cursor: pointer;" onclick="toggleSaveFormat();" src="img/icons/jpg-mode.svg"/>
-					</div>
+		<div id="app">
+			<!-- Viewfinder -->
+			<div class="viewfinderArea">
+				<div class="viewfinder" id="viewfinder">
+					<video id="camera" class="mirror-target" autoplay playsinline muted></video>
+					<div class="gridOverlay" id="gridOverlay"></div>
+					<div class="focusRing" id="focusRing"></div>
+					<div class="zoomPill" id="zoomPill" onclick="toggleZoomSlider();">1.0×</div>
 				</div>
 			</div>
-			<div id="sidewayUI">
-				<div class="cameraFunctionPanel">
-					<div class="ui button small icon basic camswitch" onclick="switchCamera();">
-						<img src="img/icons/camswitch.svg">
-					</div>
+
+			<canvas id="canvas" class="hidden"></canvas>
+			<canvas id="recCanvas" class="hidden"></canvas>
+			<div id="shutterCover"></div>
+
+			<div class="recTimer" id="recTimer">
+				<span class="recDot"></span><span id="recTime">00:00</span>
+			</div>
+
+			<!-- Top bar -->
+			<div class="topBar">
+				<div class="topSlot left">
+					<button class="iconBtn hidden" id="flashBtn" onclick="toggleTorch();" title="Flash">
+						<!-- flash off icon -->
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/><line class="flashSlash hidden" x1="3" y1="3" x2="21" y2="21" stroke-width="2"/></svg>
+					</button>
 				</div>
-				<div class="shutterContainer">
-					<div onclick="takePicture();" ontouchdown="takePicture();">
-						<img class="ui shutter image" src="img/shutter.png">
-					</div>
+
+				<div class="chevronBtn" id="chevronBtn" onclick="toggleTray();">
+					<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
 				</div>
-				<div class="settingButton">
-					<div>
-						<img class="ui tiny image savemodebutton" style="cursor: pointer;"  onclick="toggleSaveFormat();"  src="img/icons/jpg-mode.svg"/>
-					</div>
+
+				<div class="topSlot right">
+					<button class="iconBtn" id="formatBtn" onclick="toggleSaveFormat();" title="Format">
+						<span style="font-size:12px;font-weight:800;letter-spacing:.5px;" id="formatLabel">JPG</span>
+					</button>
 				</div>
 			</div>
-			<div id="albumn">
-				<div class="ablumnpreview" onclick="openImageView();">
-					<img class="ui fluid image latestPreview" src="img/module_icon.png"> 
+
+			<!-- Control tray -->
+			<div class="tray" id="tray">
+				<div class="trayInner">
+					<div class="chip" id="gridChip" onclick="toggleGrid();">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+						Grid
+					</div>
+					<div class="chip" id="aspectChip" onclick="cycleAspect();">4:3</div>
+					<div class="chip" id="filterChip" onclick="toggleFilterStrip();">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>
+						Filters
+					</div>
+					<div class="chip hidden" id="isoChip" onclick="toggleIsoSlider();">ISO</div>
+				</div>
+			</div>
+
+			<!-- Filter strip -->
+			<div class="filterStrip" id="filterStrip"></div>
+
+			<!-- ISO / adjustment overlay -->
+			<div class="adjustOverlay" id="adjustOverlay">
+				<div class="adjustLabel" id="adjustLabel">ISO</div>
+				<input type="range" id="adjustSlider" min="0" max="100" value="50">
+			</div>
+
+			<!-- Bottom controls -->
+			<div class="bottomBar">
+				<div class="modeSelector" id="modeSelector">
+					<div class="modeItem active" data-mode="photo" onclick="setMode('photo');">Photo</div>
+					<div class="modeItem" data-mode="video" onclick="setMode('video');">Video</div>
+				</div>
+				<div class="controlsRow">
+					<div class="albumThumb" id="albumThumb" onclick="openImageView();">
+						<img id="albumImg" src="img/module_icon.png">
+					</div>
+					<div class="shutter" id="shutter" onclick="onShutter();"></div>
+					<div class="flipBtn" id="flipBtn" onclick="switchCamera();">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v3"/><path d="M20 6l-3.5 3.5"/><path d="M9 20H6a2 2 0 0 1-2-2v-3"/><path d="M4 18l3.5-3.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+					</div>
 				</div>
 			</div>
 		</div>
+
+		<div class="toast" id="toast"></div>
+
 		<script>
-			let isMobile = false;
-			let saveFolder = "user:/Photo/DCIM";
-			let cameraFacingBackground = true;
-			let videoStream = null;
-			let saveFormat = "jpg";
-			if( /Android|webOS|iPhone|iPad|Mac|Macintosh|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
-				isMobile = true;
-			}
+		/* ============================================================
+		   ArozOS Camera — modernized iPhone-style camera
+		   ============================================================ */
 
-			$(document).ready(function(){
-				ao_module_agirun("Camera/backend/readydir.js", {savetarget: saveFolder}, function(){
-					//Folder structure ready
-					initcamera();
-				});
-				loadAblumnPreview();
-				initVideoDeviceConstraints();
+		const FILTERS = [
+			{ id:"none",     name:"Original", css:"none" },
+			{ id:"vivid",    name:"Vivid",    css:"saturate(1.5) contrast(1.08)" },
+			{ id:"warm",     name:"Warm",     css:"sepia(0.25) saturate(1.35) brightness(1.03)" },
+			{ id:"cool",     name:"Cool",     css:"hue-rotate(-12deg) saturate(1.2) brightness(1.02)" },
+			{ id:"mono",     name:"Mono",     css:"grayscale(1) contrast(1.08)" },
+			{ id:"noir",     name:"Noir",     css:"grayscale(1) contrast(1.45) brightness(0.92)" },
+			{ id:"fade",     name:"Fade",     css:"saturate(0.78) contrast(0.92) brightness(1.1) sepia(0.12)" },
+			{ id:"chrome",   name:"Chrome",   css:"saturate(1.3) contrast(1.22)" },
+			{ id:"instant",  name:"Instant",  css:"sepia(0.4) saturate(1.6) contrast(0.9) hue-rotate(-8deg)" },
+			{ id:"dramatic", name:"Dramatic", css:"contrast(1.5) brightness(0.95) saturate(1.1)" }
+		];
+
+		const ASPECTS = ["4:3", "16:9", "1:1"];
+
+		// ----- State -----
+		let saveFolder = "user:/Photo/DCIM";
+		let saveFormat = "jpg";
+		let facingBack = true;            // true = environment (rear)
+		let videoStream = null;
+		let videoTrack = null;
+		let trackCapabilities = {};
+		let trackSettings = {};
+		let mode = "photo";               // photo | video
+		let currentFilter = FILTERS[0];
+		let currentAspect = "4:3";
+		let gridOn = false;
+		let torchOn = false;
+		let currentZoom = 1;
+
+		// recording
+		let mediaRecorder = null;
+		let recChunks = [];
+		let recRAF = null;
+		let recStartTime = 0;
+		let recTimerInterval = null;
+		let isRecording = false;
+
+		const supportsRecording = (typeof MediaRecorder !== "undefined") &&
+			(typeof HTMLCanvasElement.prototype.captureStream === "function");
+
+		// ----- Boot -----
+		$(document).ready(function(){
+			buildFilterStrip();
+			onViewportChange();
+			ao_module_agirun("Camera/backend/readydir.js", { savetarget: saveFolder }, function(){
+				initCamera();
 			});
+			loadAlbumPreview();
 
-			function openImageView(){
-				window.location.href = "preview.html";
+			if (!supportsRecording){
+				$('.modeItem[data-mode="video"]').addClass("hidden");
 			}
+			window.addEventListener("resize", onViewportChange);
+			window.addEventListener("orientationchange", function(){ setTimeout(onViewportChange, 250); });
+		});
 
-			$(window).on("resize", function(){
-				handleWindowResize();
-			});	
+		// Toggle the landscape layout (controls move to the edges) and
+		// refresh the viewfinder aspect ratio whenever the viewport changes.
+		function onViewportChange(){
+			document.body.classList.toggle("landscape", window.innerWidth > window.innerHeight);
+			applyAspect();
+		}
 
-			handleWindowResize();
+		// ----- Toast helper -----
+		let toastTimer = null;
+		function toast(msg){
+			const t = $("#toast");
+			t.text(msg).addClass("show");
+			clearTimeout(toastTimer);
+			toastTimer = setTimeout(()=> t.removeClass("show"), 1800);
+		}
 
-			function handleWindowResize(){
-				var width = window.innerWidth;
-				var height = window.innerHeight;
-				if (width > height){
-					//Using the phone sideway
-					$("#verticalUI").hide();
-					$("#sidewayUI").show();
+		// ============================================================
+		//  Camera init / switching
+		// ============================================================
+		function initCamera(withAudio){
+			const facing = facingBack ? "environment" : "user";
+			const constraints = {
+				video: {
+					width: { ideal: 2560 },
+					height: { ideal: 1440 },
+					facingMode: facing
+				},
+				audio: withAudio === true
+			};
 
-					$(".zoombarcontainer").addClass("sideway");
-					$("#zoombar").addClass("sideway");
-				}else{
-					//Use the phone vertically
-					$("#verticalUI").show();
-					$("#sidewayUI").hide();
-					$(".zoombarcontainer").removeClass("sideway");
-					$("#zoombar").removeClass("sideway");
+			const video = document.getElementById("camera");
+			video.pause();
+			video.srcObject = null;
+
+			navigator.mediaDevices.getUserMedia(constraints).then((stream)=>{
+				videoStream = stream;
+				videoTrack = stream.getVideoTracks()[0];
+				video.srcObject = stream;
+				// keep preview muted to avoid echo even when audio captured
+				video.muted = true;
+				video.play();
+
+				try{
+					trackCapabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+					trackSettings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+				}catch(e){
+					trackCapabilities = {}; trackSettings = {};
 				}
-			}
 
-			function loadAblumnPreview(){
-				ao_module_agirun("Camera/backend/loadLatestPhoto.js", {savetarget: saveFolder}, function(data){
-					if (data.error !== undefined){
-						console.log(data.error);
-					}else if (data != ""){
-						$(".latestPreview").attr("src", `../media/?file=${data}`);
-						console.log(data);
-					}
-					
+				setupZoom();
+				setupTorchAvailability();
+				setupIsoAvailability();
+				applyFilter();
+			}).catch((err)=>{
+				console.error(err);
+				toast("Cannot access camera: " + err.name);
+			});
+		}
+
+		function switchCamera(){
+			if (isRecording) return;
+			if (videoStream){
+				videoStream.getTracks().forEach(t => t.stop());
+			}
+			facingBack = !facingBack;
+			const video = document.getElementById("camera");
+			// mirror the preview only for the front (selfie) camera
+			video.classList.toggle("mirror", !facingBack);
+			torchOn = false;
+			updateTorchIcon();
+			initCamera(mode === "video");
+		}
+
+		// ============================================================
+		//  Zoom
+		// ============================================================
+		function setupZoom(){
+			const pill = $("#zoomPill");
+			if (trackCapabilities && "zoom" in trackCapabilities && trackCapabilities.zoom){
+				currentZoom = trackSettings.zoom || trackCapabilities.zoom.min || 1;
+				pill.addClass("show").text(formatZoom(currentZoom));
+			}else{
+				pill.removeClass("show");
+			}
+		}
+
+		function formatZoom(z){
+			return (Math.round(z * 10) / 10) + "×";
+		}
+
+		let zoomSliderEl = null;
+		function toggleZoomSlider(){
+			if (!(trackCapabilities && "zoom" in trackCapabilities)) return;
+			const cap = trackCapabilities.zoom;
+			// Repurpose the adjust overlay for zoom
+			showAdjust("ZOOM", cap.min, cap.max, cap.step || 0.1, currentZoom, function(val){
+				currentZoom = parseFloat(val);
+				videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }).catch(()=>{});
+				$("#zoomPill").text(formatZoom(currentZoom));
+			}, "x");
+		}
+
+		// ============================================================
+		//  Torch / flash
+		// ============================================================
+		function setupTorchAvailability(){
+			const has = trackCapabilities && trackCapabilities.torch === true;
+			$("#flashBtn").toggleClass("hidden", !has);
+			updateTorchIcon();
+		}
+		function updateTorchIcon(){
+			const slash = $("#flashBtn .flashSlash");
+			if (torchOn){ $("#flashBtn").addClass("active"); slash.addClass("hidden"); }
+			else { $("#flashBtn").removeClass("active"); slash.removeClass("hidden"); }
+		}
+		function toggleTorch(){
+			if (!(trackCapabilities && trackCapabilities.torch === true)){
+				toast("Flash not supported on this camera");
+				return;
+			}
+			torchOn = !torchOn;
+			videoTrack.applyConstraints({ advanced: [{ torch: torchOn }] })
+				.then(updateTorchIcon)
+				.catch(()=>{ torchOn = !torchOn; toast("Flash unavailable"); });
+		}
+
+		// ============================================================
+		//  ISO / exposure
+		// ============================================================
+		let isoMode = null;  // "iso" | "exposure" | null
+		function setupIsoAvailability(){
+			const chip = $("#isoChip");
+			if (trackCapabilities && trackCapabilities.iso){
+				isoMode = "iso"; chip.removeClass("hidden").text("ISO");
+			}else if (trackCapabilities && trackCapabilities.exposureCompensation){
+				isoMode = "exposure"; chip.removeClass("hidden").text("EV");
+			}else{
+				isoMode = null; chip.addClass("hidden");
+			}
+		}
+
+		function toggleIsoSlider(){
+			if (!isoMode){ toast("Manual exposure not supported"); return; }
+			if (isoMode === "iso"){
+				const cap = trackCapabilities.iso;
+				// switch to manual exposure mode if available so ISO sticks
+				try{ videoTrack.applyConstraints({ advanced:[{ exposureMode:"manual" }] }); }catch(e){}
+				const cur = (trackSettings.iso) || cap.min;
+				showAdjust("ISO", cap.min, cap.max, cap.step || 1, cur, function(val){
+					videoTrack.applyConstraints({ advanced: [{ iso: parseFloat(val) }] }).catch(()=>{});
+					$("#adjustLabel").text("ISO " + Math.round(val));
+				}, "");
+			}else{
+				const cap = trackCapabilities.exposureCompensation;
+				const cur = (trackSettings.exposureCompensation) || 0;
+				showAdjust("EV", cap.min, cap.max, cap.step || 0.1, cur, function(val){
+					videoTrack.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(val) }] }).catch(()=>{});
+					$("#adjustLabel").text("EV " + (Math.round(val*10)/10));
+				}, "");
+			}
+		}
+
+		// Generic adjustment overlay (shared by ISO / EV / zoom)
+		let adjustVisible = false;
+		function showAdjust(label, min, max, step, value, oninput, unit){
+			const ov = $("#adjustOverlay");
+			// tapping the same control again closes the overlay
+			if (adjustVisible && $("#adjustLabel").data("kind") === label){
+				ov.removeClass("show"); adjustVisible = false; return;
+			}
+			const display = (unit === "x") ? formatZoom(value) : (Math.round(value*10)/10);
+			$("#adjustLabel").text(label + " " + display).data("kind", label);
+			const s = document.getElementById("adjustSlider");
+			s.min = min; s.max = max; s.step = step; s.value = value;
+			s.oninput = function(e){ oninput(e.target.value); };
+			ov.addClass("show"); adjustVisible = true;
+		}
+
+		// ============================================================
+		//  Filters
+		// ============================================================
+		function buildFilterStrip(){
+			const strip = $("#filterStrip");
+			strip.empty();
+			FILTERS.forEach((f, idx)=>{
+				const item = $(`
+					<div class="filterItem ${idx===0?"active":""}" data-id="${f.id}">
+						<div class="filterSwatch" style="filter:${f.css==='none'?'none':f.css}"></div>
+						<div class="filterName">${f.name}</div>
+					</div>`);
+				item.on("click", function(){ selectFilter(f.id); });
+				strip.append(item);
+			});
+		}
+
+		function selectFilter(id){
+			currentFilter = FILTERS.find(f=>f.id===id) || FILTERS[0];
+			$(".filterItem").removeClass("active");
+			$(`.filterItem[data-id="${id}"]`).addClass("active");
+			applyFilter();
+		}
+
+		function applyFilter(){
+			const css = currentFilter.css === "none" ? "" : currentFilter.css;
+			document.getElementById("camera").style.filter = css;
+		}
+
+		function toggleFilterStrip(){
+			const strip = $("#filterStrip");
+			const on = strip.toggleClass("show").hasClass("show");
+			$("#filterChip").toggleClass("active", on);
+		}
+
+		// ============================================================
+		//  Aspect ratio
+		// ============================================================
+		function cycleAspect(){
+			const i = ASPECTS.indexOf(currentAspect);
+			currentAspect = ASPECTS[(i + 1) % ASPECTS.length];
+			$("#aspectChip").text(currentAspect);
+			applyAspect();
+		}
+
+		function aspectValue(){
+			// returns displayed width/height ratio based on orientation
+			const isLandscape = window.innerWidth > window.innerHeight;
+			let base;
+			if (currentAspect === "1:1") return 1;
+			if (currentAspect === "4:3") base = 4/3;
+			else base = 16/9;
+			return isLandscape ? base : (1 / base);
+		}
+
+		function applyAspect(){
+			const area = document.querySelector(".viewfinderArea");
+			const vf = document.getElementById("viewfinder");
+			const r = aspectValue();                 // desired width / height
+			const aw = area.clientWidth, ah = area.clientHeight;
+			if (!aw || !ah) return;
+			// largest box with ratio r that fits inside the area (letterbox)
+			let w = aw, h = w / r;
+			if (h > ah){ h = ah; w = h * r; }
+			vf.style.width = Math.round(w) + "px";
+			vf.style.height = Math.round(h) + "px";
+			// square gets gentle rounded corners like iOS
+			vf.style.borderRadius = (currentAspect === "1:1") ? "6px" : "0";
+		}
+
+		// ============================================================
+		//  Grid
+		// ============================================================
+		function toggleGrid(){
+			gridOn = !gridOn;
+			$("#gridOverlay").toggleClass("show", gridOn);
+			$("#gridChip").toggleClass("active", gridOn);
+		}
+
+		// ============================================================
+		//  Tray / format
+		// ============================================================
+		function toggleTray(){
+			const open = $("#tray").toggleClass("open").hasClass("open");
+			$("#chevronBtn").toggleClass("open", open);
+		}
+
+		function toggleSaveFormat(){
+			saveFormat = (saveFormat === "jpg") ? "png" : "jpg";
+			$("#formatLabel").text(saveFormat.toUpperCase());
+		}
+
+		// ============================================================
+		//  Mode switching (photo / video)
+		// ============================================================
+		function setMode(m){
+			if (m === mode || isRecording) return;
+			if (m === "video" && !supportsRecording){ toast("Recording not supported"); return; }
+			mode = m;
+			$(".modeItem").removeClass("active");
+			$(`.modeItem[data-mode="${m}"]`).addClass("active");
+			const shutter = $("#shutter");
+			if (m === "video"){
+				shutter.addClass("video");
+				// re-init stream with audio for recording
+				if (videoStream) videoStream.getTracks().forEach(t=>t.stop());
+				initCamera(true);
+			}else{
+				shutter.removeClass("video");
+				if (videoStream) videoStream.getTracks().forEach(t=>t.stop());
+				initCamera(false);
+			}
+		}
+
+		function onShutter(){
+			if (mode === "photo"){
+				takePicture();
+			}else{
+				if (!isRecording) startRecording();
+				else stopRecording();
+			}
+		}
+
+		// ============================================================
+		//  Crop math (cover-fit replication)
+		// ============================================================
+		function computeCrop(video){
+			const vw = video.videoWidth, vh = video.videoHeight;
+			const R = aspectValue(); // displayed ratio width/height
+			let sw, sh, sx, sy;
+			if (vw / vh > R){
+				sh = vh; sw = Math.round(vh * R); sx = Math.round((vw - sw) / 2); sy = 0;
+			}else{
+				sw = vw; sh = Math.round(vw / R); sx = 0; sy = Math.round((vh - sh) / 2);
+			}
+			return { sx, sy, sw, sh };
+		}
+
+		// ============================================================
+		//  Photo capture
+		// ============================================================
+		function takePicture(){
+			const video = document.getElementById("camera");
+			if (!video.videoWidth){ toast("Camera not ready"); return; }
+
+			$("#shutterCover").removeClass("flash"); void document.getElementById("shutterCover").offsetWidth;
+			$("#shutterCover").addClass("flash");
+
+			const crop = computeCrop(video);
+			const canvas = document.getElementById("canvas");
+			canvas.width = crop.sw;
+			canvas.height = crop.sh;
+			const ctx = canvas.getContext("2d");
+
+			ctx.save();
+			if (!facingBack){
+				// mirror selfie to match preview
+				ctx.translate(canvas.width, 0);
+				ctx.scale(-1, 1);
+			}
+			ctx.filter = currentFilter.css === "none" ? "none" : currentFilter.css;
+			ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.sw, crop.sh);
+			ctx.restore();
+
+			const mime = (saveFormat === "png") ? "image/png" : "image/jpeg";
+			const quality = (saveFormat === "png") ? undefined : 0.95;
+			canvas.toBlob(function(blob){
+				const filename = makeFilename(saveFormat);
+				uploadImageToServer(filename, blob, function(){
+					loadAlbumPreview();
 				});
+			}, mime, quality);
+		}
+
+		// ============================================================
+		//  Video recording (canvas pipeline bakes filter + crop)
+		// ============================================================
+		function startRecording(){
+			const video = document.getElementById("camera");
+			if (!video.videoWidth){ toast("Camera not ready"); return; }
+
+			const crop = computeCrop(video);
+			// cap encoding resolution for performance
+			const maxSide = 1280;
+			let cw = crop.sw, ch = crop.sh;
+			const scale = Math.min(1, maxSide / Math.max(cw, ch));
+			cw = Math.round(cw * scale); ch = Math.round(ch * scale);
+
+			const rec = document.getElementById("recCanvas");
+			rec.width = cw; rec.height = ch;
+			const rctx = rec.getContext("2d");
+
+			const filterCss = currentFilter.css === "none" ? "none" : currentFilter.css;
+			const mirror = !facingBack;
+
+			function drawFrame(){
+				rctx.save();
+				if (mirror){ rctx.translate(cw, 0); rctx.scale(-1, 1); }
+				rctx.filter = filterCss;
+				rctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
+				rctx.restore();
+				recRAF = requestAnimationFrame(drawFrame);
 			}
-			
-			function toggleSaveFormat(){
-				if (saveFormat == "jpg"){
-					//Switch to png mode
-					saveFormat = "png";
-					$(".savemodebutton").attr('src','img/icons/png-mode.svg');
-				}else{
-					//Switch to jpg mode
-					saveFormat = "jpg";
-					$(".savemodebutton").attr('src','img/icons/jpg-mode.svg');
+			drawFrame();
+
+			const canvasStream = rec.captureStream(30);
+			// attach audio if available
+			const audioTracks = videoStream ? videoStream.getAudioTracks() : [];
+			if (audioTracks.length){ canvasStream.addTrack(audioTracks[0]); }
+
+			const { mimeType, ext } = pickVideoMime();
+			try{
+				mediaRecorder = mimeType ? new MediaRecorder(canvasStream, { mimeType })
+				                         : new MediaRecorder(canvasStream);
+			}catch(e){
+				toast("Recorder init failed"); cancelAnimationFrame(recRAF); return;
+			}
+			recChunks = [];
+			mediaRecorder.ondataavailable = function(e){ if (e.data && e.data.size) recChunks.push(e.data); };
+			mediaRecorder.onstop = function(){
+				cancelAnimationFrame(recRAF);
+				const blob = new Blob(recChunks, { type: mimeType || "video/webm" });
+				const filename = makeFilename(ext);
+				toast("Saving video…");
+				uploadImageToServer(filename, blob, function(){ loadAlbumPreview(); });
+			};
+			mediaRecorder.start();
+
+			isRecording = true;
+			$("#shutter").addClass("recording");
+			$("#flipBtn, #modeSelector, .albumThumb").css("pointer-events","none").css("opacity",".4");
+			startRecTimer();
+		}
+
+		function stopRecording(){
+			if (!mediaRecorder) return;
+			isRecording = false;
+			$("#shutter").removeClass("recording");
+			$("#flipBtn, #modeSelector, .albumThumb").css("pointer-events","").css("opacity","");
+			stopRecTimer();
+			try{ mediaRecorder.stop(); }catch(e){}
+		}
+
+		function pickVideoMime(){
+			const candidates = [
+				{ mimeType:"video/mp4;codecs=h264", ext:"mp4" },
+				{ mimeType:"video/mp4", ext:"mp4" },
+				{ mimeType:"video/webm;codecs=vp9,opus", ext:"webm" },
+				{ mimeType:"video/webm;codecs=vp8,opus", ext:"webm" },
+				{ mimeType:"video/webm", ext:"webm" }
+			];
+			for (const c of candidates){
+				if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c.mimeType)){
+					return c;
 				}
 			}
+			return { mimeType:"", ext:"webm" };
+		}
 
+		function startRecTimer(){
+			recStartTime = Date.now();
+			$("#recTimer").addClass("show");
+			$("#recTime").text("00:00");
+			recTimerInterval = setInterval(function(){
+				const s = Math.floor((Date.now() - recStartTime) / 1000);
+				const mm = String(Math.floor(s/60)).padStart(2,"0");
+				const ss = String(s%60).padStart(2,"0");
+				$("#recTime").text(mm + ":" + ss);
+			}, 500);
+		}
+		function stopRecTimer(){
+			clearInterval(recTimerInterval);
+			$("#recTimer").removeClass("show");
+		}
 
-			function takePicture(){
-				$("#shutterCover").show(0);
-				setTimeout(function(){
-					$("#shutterCover").hide();
-				}, 500);
-				var canvas = document.getElementById('canvas');     
-				var video = document.getElementById('camera');
-				canvas.width = video.videoWidth;
-				canvas.height = video.videoHeight;
-				canvas.getContext('2d').drawImage(video, 0, 0, video.videoWidth, video.videoHeight);  
-				var mime = "image/jpeg";
-				if (saveFormat == "png"){
-					mime = "image/png";
-				}
-				
-				canvas.toBlob(function(blob){
-					//const img = new Image();
-					//img.src = URL.createObjectURL(blob);
-					//window.open(img.src);
+		// ============================================================
+		//  Filenames + upload
+		// ============================================================
+		function pad(n){ return String(n).padStart(2, "0"); }
+		function makeFilename(ext){
+			const d = new Date();
+			const stamp = d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) +
+				"_" + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+			const prefix = (ext === "mp4" || ext === "webm") ? "VID_" : "DSC_";
+			return prefix + stamp + "." + ext;
+		}
 
-					//Generate a filename for this photo
-					var d = new Date();
-					var filename = "DSC_" + d.getFullYear() + d.getMonth() +  d.getDate() + "_" + d.getHours()  + d.getMinutes() + d.getSeconds() + "." + saveFormat;
+		function uploadImageToServer(filename, blob, callback){
+			const file = ao_module_utils.blobToFile(blob, filename, blob.type);
+			uploadFile(file, saveFolder, callback);
+		}
 
-					//Upload it to server
-					uploadImageToServer(filename, blob, function(){
-						//Update the image preview
-						loadAblumnPreview();
-					});
-				}, mime);
-			}
-
-			//Upload the file to server
-			function uploadFile(file, uploadPath, callback=undefined){
-				let url = '../../system/file_system/upload'
-				let formData = new FormData()
-                let xhr = new XMLHttpRequest()
-                formData.append('file', file);
-                formData.append('path', uploadPath);
-				xhr.open('POST', url, true)
-				xhr.upload.addEventListener("progress", function(e) {
-					var progress = (e.loaded * 100.0 / e.total) || 100;
-					console.log(progress);
-				});
-
-				xhr.addEventListener('readystatechange', function(e) {
-                    if (xhr.readyState == 4 && xhr.status == 200) {
-						//Uplaod process ok
-						var resp = JSON.parse(e.target.response);
-						if (callback != undefined){
-							callback(resp);
-						}
+		function uploadFile(file, uploadPath, callback){
+			const url = "../../system/file_system/upload";
+			const formData = new FormData();
+			const xhr = new XMLHttpRequest();
+			formData.append("file", file);
+			formData.append("path", uploadPath);
+			xhr.open("POST", url, true);
+			xhr.addEventListener("readystatechange", function(e){
+				if (xhr.readyState === 4){
+					if (xhr.status === 200){
+						let resp = {};
+						try{ resp = JSON.parse(e.target.response); }catch(_){}
+						if (callback) callback(resp);
 					}else{
-						//Upload failed
-						if (callback != undefined){
-							callback({
-								error: "File upload failed"
-							});
-						}
+						toast("Upload failed");
+						if (callback) callback({ error:"File upload failed" });
 					}
-				});
-				xhr.send(formData);
-			}
-
-			function uploadImageToServer(filename, blob, callback){
-				var imageFile = ao_module_utils.blobToFile(blob, filename, blob.type);
-				uploadFile(imageFile, "user:/Photo/DCIM", callback);
-			}
-
-			function initVideoDeviceConstraints(){
-				let supports = navigator.mediaDevices.getSupportedConstraints();
-				console.log(supports);
-				if( supports['facingMode'] == false ) {
-					$(".camswitch").addClass("disabled");
 				}
-			}
+			});
+			xhr.send(formData);
+		}
 
-			function switchCamera(){
-				//Stop all the previous streams
-				videoStream.getTracks().forEach(t => {
-					t.stop();
-				});
-
-				//Toggle the new camera
-				cameraFacingBackground = !cameraFacingBackground;
-				if (cameraFacingBackground){
-					//Use environment
-					$(".previewer").removeClass("mirror");
-					initcamera();
+		// ============================================================
+		//  Album preview
+		// ============================================================
+		const VIDEO_EXT = ["mp4","webm"];
+		function loadAlbumPreview(){
+			ao_module_agirun("Camera/backend/loadLatestPhoto.js", { savetarget: saveFolder }, function(data){
+				if (!data || data.error !== undefined || data === ""){ return; }
+				const ext = ("" + data).split(".").pop().toLowerCase();
+				if (VIDEO_EXT.indexOf(ext) >= 0){
+					// show a film icon overlay for video; thumbnail can't render directly
+					$("#albumImg").attr("src", "img/module_icon.png");
 				}else{
-					//Use user
-					$(".previewer").addClass("mirror");
-					initcamera('user');
+					$("#albumImg").attr("src", "../media/?file=" + encodeURIComponent(data));
 				}
+			});
+		}
+
+		function openImageView(){
+			window.location.href = "preview.html";
+		}
+
+		// Tap-to-focus visual (and attempt real focus point if supported)
+		document.getElementById("viewfinder").addEventListener("click", function(e){
+			if (e.target.closest(".zoomPill")) return;
+			const ring = document.getElementById("focusRing");
+			const rect = this.getBoundingClientRect();
+			ring.style.left = (e.clientX - rect.left) + "px";
+			ring.style.top = (e.clientY - rect.top) + "px";
+			ring.classList.remove("animate"); void ring.offsetWidth; ring.classList.add("animate");
+		});
+
+		// ----- Pinch to zoom -----
+		let pinchStartDist = 0, pinchStartZoom = 1;
+		document.querySelector(".viewfinderArea").addEventListener("touchstart", function(e){
+			if (e.touches.length === 2 && trackCapabilities && "zoom" in trackCapabilities){
+				pinchStartDist = touchDist(e.touches);
+				pinchStartZoom = currentZoom;
 			}
-
-			function initcamera(facingmode = 'environment'){
-				//Define the camera constraints
-				const constraints = {
-					video: {
-						width: { ideal: 2048 },
-						height: { ideal: 1080 }, 
-						zoom: true,
-						facingMode: facingmode
-					},
-					audio: false
-				};
-				
-				let video = document.querySelector("video");
-				//Just to make sure it is oaused when starting 
-				video.pause()
-				video.srcObject = null
-
-				navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
-					const [track] = stream.getVideoTracks();
-					videoStream = stream;
-					try{
-						const capabilities = track.getCapabilities();
-						const settings = track.getSettings();
-						console.log(track, settings);
-						//alert(JSON.stringify(settings));
-						video.srcObject = stream;
-						video.play();
-
-						//Check if zoom exists. If yes, allow zoom
-						if (!('zoom' in settings)) {
-							$("#zoombar").hide();
-						}else{
-							var input = $("#zoombar")[0];
-							input.min = capabilities.zoom.min;
-							input.max = capabilities.zoom.max;
-							input.step = capabilities.zoom.step;
-							input.value = settings.zoom;
-							input.oninput = function(event) {
-								track.applyConstraints({
-									advanced: [ {zoom: event.target.value} ]
-								});
-							}
-						}
-
-					}catch(ex){
-						//This video input support nothing
-						$("#zoombar").hide();
-						video.srcObject = stream;
-					}
-				
-				});
+		}, { passive:true });
+		document.querySelector(".viewfinderArea").addEventListener("touchmove", function(e){
+			if (e.touches.length === 2 && pinchStartDist && trackCapabilities && "zoom" in trackCapabilities){
+				const cap = trackCapabilities.zoom;
+				const ratio = touchDist(e.touches) / pinchStartDist;
+				let z = pinchStartZoom * ratio;
+				z = Math.max(cap.min, Math.min(cap.max, z));
+				currentZoom = z;
+				videoTrack.applyConstraints({ advanced:[{ zoom:z }] }).catch(()=>{});
+				$("#zoomPill").text(formatZoom(z));
 			}
-			
+		}, { passive:true });
+		function touchDist(touches){
+			const dx = touches[0].clientX - touches[1].clientX;
+			const dy = touches[0].clientY - touches[1].clientY;
+			return Math.hypot(dx, dy);
+		}
+
+		// ----- Swipe between photo/video on bottom area -----
+		let swipeX = null;
+		document.getElementById("modeSelector").addEventListener("touchstart", function(e){
+			swipeX = e.touches[0].clientX;
+		}, { passive:true });
+		document.getElementById("modeSelector").addEventListener("touchend", function(e){
+			if (swipeX === null) return;
+			const dx = e.changedTouches[0].clientX - swipeX;
+			if (Math.abs(dx) > 40){
+				if (dx < 0) setMode("video"); else setMode("photo");
+			}
+			swipeX = null;
+		}, { passive:true });
 		</script>
 	</body>
-</html>	
+</html>

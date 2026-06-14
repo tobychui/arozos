@@ -20,7 +20,8 @@
     }],
   "start_url": "index.html",
   "display": "fullscreen",
+  "orientation": "portrait",
   "scope": "./",
-  "background_color": "#2a2d2d",
-  "theme_color": "#3b3632"
+  "background_color": "#000000",
+  "theme_color": "#000000"
 }
