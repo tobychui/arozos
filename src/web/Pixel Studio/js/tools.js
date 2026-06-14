@@ -12,6 +12,7 @@ PS.toolOpts = {
     pencil: { size: 3, opacity: 1 },
     eraser: { size: 30, opacity: 1, type: "round" },
     fill: { tolerance: 32, contiguous: true },
+    gradient: { preset: "fg-bg", style: "linear", reverse: false, opacity: 1, stops: [] },
     wand: { tolerance: 32, contiguous: true, smart: true, edgeThreshold: 60 },
     marquee: { feather: 0 },
     shape: { kind: "rect", mode: "both", strokeWidth: 6, radius: 12, points: 5 },
@@ -29,7 +30,7 @@ PS.toolbarLayout = [
     { kind: "single", tool: "wand" },
     { kind: "group", id: "paint", tools: ["brush", "pencil"] },
     { kind: "single", tool: "eraser" },
-    { kind: "single", tool: "fill" },
+    { kind: "group", id: "bucket", tools: ["fill", "gradient"] },
     { kind: "single", tool: "eyedropper" },
     { kind: "single", tool: "text" },
     { kind: "shape" },
@@ -38,7 +39,7 @@ PS.toolbarLayout = [
 ];
 
 // Last-selected member shown on each group's toolbar button.
-PS.groupRep = { select: "marquee-rect", paint: "brush" };
+PS.groupRep = { select: "marquee-rect", paint: "brush", bucket: "fill" };
 
 // Per-shape-kind icons for the shape fly-out and toolbar button.
 PS.shapeIcons = {

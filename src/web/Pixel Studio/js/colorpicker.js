@@ -63,11 +63,15 @@ PS.cmykToRgb = function (c, m, y, k) {
 
 PS._colorPicker = null;
 
-PS.openColorPicker = function (target) {
-    target = (target === "bg") ? "bg" : "fg";
+// target: "fg" | "bg" | (any other value = custom, then opts = {initial, title,
+// onChange(hex), onClose}). Custom mode lets callers (e.g. the gradient editor)
+// reuse the wheel to pick an arbitrary color with alpha.
+PS.openColorPicker = function (target, opts) {
+    opts = opts || {};
+    var custom = (target !== "fg" && target !== "bg");
     if (PS._colorPicker) { PS._colorPicker.close(); }
 
-    var startHex = (target === "fg") ? PS.fg : PS.bg;
+    var startHex = custom ? (opts.initial || "#000000") : ((target === "fg") ? PS.fg : PS.bg);
     var rgb0 = PS.hexToRgb(startHex) || { r: 0, g: 0, b: 0, a: 255 };
     var hsv0 = PS.rgbToHsv(rgb0.r, rgb0.g, rgb0.b);
     var state = { h: hsv0.h, s: hsv0.s, v: hsv0.v, a: (rgb0.a === undefined ? 255 : rgb0.a) };
@@ -79,7 +83,7 @@ PS.openColorPicker = function (target) {
     var wheelCacheV = null, wheelCacheImg = null;
 
     var panel = PS.floatingPanel({
-        title: "Color Picker — " + (target === "fg" ? "Foreground" : "Background"),
+        title: custom ? (opts.title || "Select Color") : ("Color Picker — " + (target === "fg" ? "Foreground" : "Background")),
         x: Math.round(window.innerWidth / 2 - 150),
         y: 90,
         build: function (body) {
@@ -173,7 +177,8 @@ PS.openColorPicker = function (target) {
         buttons: [{ label: "Done", primary: true }],
         onClose: function () {
             PS._colorPicker = null;
-            if (target === "fg") { PS.pushRecentColor(PS.fg); }
+            if (custom) { if (opts.onClose) { opts.onClose(); } }
+            else if (target === "fg") { PS.pushRecentColor(PS.fg); }
         }
     });
     PS._colorPicker = panel;
@@ -318,7 +323,9 @@ PS.openColorPicker = function (target) {
     function apply() {
         var rgb = PS.hsvToRgb(state.h, state.s, state.v);
         var hex = PS.rgbToHex(rgb.r, rgb.g, rgb.b, state.a);
-        if (target === "fg") { PS.setFg(hex, true); } else { PS.setBg(hex); }
+        if (custom) { if (opts.onChange) { opts.onChange(hex); } }
+        else if (target === "fg") { PS.setFg(hex, true); }
+        else { PS.setBg(hex); }
     }
 
     function refresh() {

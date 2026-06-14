@@ -41,7 +41,8 @@ PS.handlePaste = function (e) {
 PS._toolGroups = {
     m: ["marquee-rect", "marquee-ellipse"],
     l: ["lasso", "lasso-poly"],
-    b: ["brush", "pencil"]
+    b: ["brush", "pencil"],
+    g: ["fill", "gradient"]
 };
 
 PS._toolKeys = {
