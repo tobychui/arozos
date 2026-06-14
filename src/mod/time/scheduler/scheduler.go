@@ -159,7 +159,7 @@ func (a *Scheduler) executeJob(thisJob *Job) {
 		}
 		go func(job Job, realPath string, u *user.User) {
 			job.lastExecutionTime = time.Now().Unix()
-			// fsh == nil → ExecuteAGIScriptAsUser reads via os.ReadFile
+			// fsh == nil --> ExecuteAGIScriptAsUser reads via os.ReadFile
 			execID, resp, execErr := a.options.Gateway.ExecuteAGIScriptAsUser(nil, realPath, u, nil, nil)
 			if execErr != nil {
 				a.cronlogError("["+execID+"] "+job.Name+" execution error: "+execErr.Error(), execErr)
@@ -288,7 +288,7 @@ func (a *Scheduler) AppJobExists(appName, creator, taskName string) bool {
 // When appName is non-empty and scriptVpath does not contain ":" (i.e. it is not
 // a user virtual path), the script is treated as app-root-relative:
 //
-//	scriptVpath = "cron.agi"  →  stored as "appName/cron.agi", FshID = WebRootFshID
+//	scriptVpath = "cron.agi"  -->  stored as "appName/cron.agi", FshID = WebRootFshID
 //
 // Otherwise scriptVpath must be a full virtual path (e.g. "user:/path/to/script.agi")
 // and is resolved through the creator's storage pool as usual.

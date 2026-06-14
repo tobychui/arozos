@@ -31,7 +31,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
 
-	// list7zFileDir(srcVpath, dirPath) → string[]
+	// list7zFileDir(srcVpath, dirPath) --> string[]
 	// List the immediate children of a directory inside a 7z archive.
 	vm.Set("_ziplib_list7zFileDir", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
@@ -64,7 +64,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 		return reply
 	})
 
-	// list7zFileContents(srcVpath) → JSON string (tree)
+	// list7zFileContents(srcVpath) --> JSON string (tree)
 	// Return the full JSON tree of all entries in a 7z archive.
 	vm.Set("_ziplib_list7zFileContents", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
@@ -93,7 +93,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 		return reply
 	})
 
-	// getFileFrom7z(srcVpath, filePathIn7z) → vpath of extracted file in tmp:/
+	// getFileFrom7z(srcVpath, filePathIn7z) --> vpath of extracted file in tmp:/
 	// Extract a single file from a 7z archive to a temporary location.
 	vm.Set("_ziplib_getFileFrom7z", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
@@ -163,7 +163,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 		return reply
 	})
 
-	// extract7zFile(srcVpath, destVpath) → bool
+	// extract7zFile(srcVpath, destVpath) --> bool
 	// Extract all files from a 7z archive to destVpath.
 	vm.Set("_ziplib_extract7zFile", func(call otto.FunctionCall) otto.Value {
 		srcVpath, err := call.Argument(0).ToString()
@@ -217,7 +217,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 		return reply
 	})
 
-	// extractPartial7z(srcVpath, filePathsIn7z, destVpath) → bool
+	// extractPartial7z(srcVpath, filePathsIn7z, destVpath) --> bool
 	// Extract selected files/folders from a 7z archive; strips parent prefix for
 	// folder selections, extracts flat for file selections (same semantics as
 	// extractPartialZip).
@@ -302,7 +302,7 @@ func (g *Gateway) inject7zLibFunctions(payload *static.AgiLibInjectionPayload) {
 		return reply
 	})
 
-	// get7zFileInfo(srcVpath) → JSON string {fileCount, dirCount, totalUncompressedSize, totalCompressedSize}
+	// get7zFileInfo(srcVpath) --> JSON string {fileCount, dirCount, totalUncompressedSize, totalCompressedSize}
 	vm.Set("_ziplib_get7zFileInfo", func(call otto.FunctionCall) otto.Value {
 		zipVpath, err := call.Argument(0).ToString()
 		if err != nil {

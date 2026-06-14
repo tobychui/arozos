@@ -27,19 +27,19 @@ New functions exposed to AGI scripts:
     Upgrades the connection and overrides delay() with a message-pumping version
     so that websocket.onMessage fires naturally during pauses.
 
-  websocket.send(text)         → bool
-  websocket.read(timeoutMs?)   → string | null | false
-    timeoutMs = 0 / omitted → block until message arrives or connection closes
-    timeoutMs > 0           → return null on timeout (connection still open)
-    returns false           → connection is closed
+  websocket.send(text)         --> bool
+  websocket.read(timeoutMs?)   --> string | null | false
+    timeoutMs = 0 / omitted --> block until message arrives or connection closes
+    timeoutMs > 0           --> return null on timeout (connection still open)
+    returns false           --> connection is closed
 
-  websocket.available()        → int
+  websocket.available()        --> int
     Number of messages currently waiting in the inbound buffer. Non-blocking.
 
-  websocket.isClosed()         → bool
+  websocket.isClosed()         --> bool
     true when the connection is no longer active.
 
-  websocket.onMessage          → assign function(msg) to receive messages
+  websocket.onMessage          --> assign function(msg) to receive messages
     msg = { data: string, timestamp: int64 ms, type: int }
     Fired inside delay() on the script's own goroutine — Otto-safe.
 
@@ -244,8 +244,8 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 	})
 
 	// ── websocket.read(timeout ms) ───────────────────────────────────────────
-	// timeoutMs = 0 or omitted → block until a message arrives or socket closes
-	// timeoutMs > 0            → return null if no message within that many ms
+	// timeoutMs = 0 or omitted --> block until a message arrives or socket closes
+	// timeoutMs > 0            --> return null if no message within that many ms
 	// Returns: string on message · null on timeout · false if connection closed
 	vm.Set("_websocket_read", func(call otto.FunctionCall) otto.Value {
 		timeoutMs, _ := call.Argument(0).ToInteger()

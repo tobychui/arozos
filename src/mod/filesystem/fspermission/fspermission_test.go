@@ -194,7 +194,7 @@ func TestSetFilePermisson_NonExistentFile(t *testing.T) {
 	fsh, dir := newTestFSH(t)
 	target := filepath.Join(dir, "nonexistent.txt")
 
-	// File doesn't exist → should return ErrOperationNotSupported
+	// File doesn't exist --> should return ErrOperationNotSupported
 	err := SetFilePermisson(fsh, target, "0644")
 	if err == nil {
 		t.Fatal("expected error for non-existent file, got nil")

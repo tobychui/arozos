@@ -418,7 +418,7 @@ func TestHandleLogin_DisabledReturnsText(t *testing.T) {
 	coredb, cleanup := newTestDB(t)
 	defer cleanup()
 	oh := minimalOauthHandler(coredb)
-	// "enabled" not set → disabled
+	// "enabled" not set --> disabled
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
@@ -550,7 +550,7 @@ func buildMockOIDCStack(
 	return tokenSrv.URL, userinfoSrv.URL, closeFn
 }
 
-// TestExchangeCodeForUsername_Success runs the token exchange → userinfo fetch
+// TestExchangeCodeForUsername_Success runs the token exchange --> userinfo fetch
 // pipeline against real mock HTTP servers.
 func TestExchangeCodeForUsername_Success(t *testing.T) {
 	const fakeToken = "exchange-tok-abc123"
@@ -871,7 +871,7 @@ func TestHandleAuthorize_WithSyncDB_DisabledReturnsText(t *testing.T) {
 	coredb, cleanup := newTestDB(t)
 	defer cleanup()
 	oh := minimalOauthHandlerWithSyncDB(coredb)
-	// enabled not set → "OAuth disabled"
+	// enabled not set --> "OAuth disabled"
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth/authorize", nil)
 	w := httptest.NewRecorder()

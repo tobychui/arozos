@@ -388,7 +388,7 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 }
 
 // FFmpeg_conv_with_progress passes the input directly to ffmpeg without any format-detection
-// logic.  Suitable for cross-media-type conversions (e.g. MP4 → GIF) or any format pair
+// logic.  Suitable for cross-media-type conversions (e.g. MP4 --> GIF) or any format pair
 // that FFmpeg_conv does not recognise.
 //
 //   - progressFile – real filesystem path to write JSON progress updates; "" disables tracking.

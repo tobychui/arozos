@@ -278,7 +278,7 @@ func TestHandleListLog(t *testing.T) {
 		t.Fatal("HandleListLog returned empty body")
 	}
 
-	// Response should be a JSON object (map of category → []LogFile).
+	// Response should be a JSON object (map of category --> []LogFile).
 	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(body), &result); err != nil {
 		t.Fatalf("HandleListLog returned invalid JSON: %v\nbody: %s", err, body)

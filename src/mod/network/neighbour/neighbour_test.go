@@ -340,7 +340,7 @@ func TestHandleScanningRequest_Loopback(t *testing.T) {
 	host := stubMDNSHost() // UUID = "test-uuid-1234"
 	d := NewDiscoverer(host, db)
 	d.NearbyHosts = []*mdns.NetworkHost{
-		{HostName: "test-host", UUID: "test-uuid-1234"}, // same UUID → loopback
+		{HostName: "test-host", UUID: "test-uuid-1234"}, // same UUID --> loopback
 		{HostName: "other-host", UUID: "other-uuid"},
 	}
 

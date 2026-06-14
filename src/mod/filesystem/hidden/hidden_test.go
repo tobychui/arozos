@@ -108,7 +108,7 @@ func TestIsHidden_Recursive_EmptyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Empty path: all chunks are empty, all skipped → not hidden
+	// Empty path: all chunks are empty, all skipped --> not hidden
 	if hidden {
 		t.Error("expected empty path to NOT be hidden")
 	}

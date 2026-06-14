@@ -57,7 +57,7 @@ func toVMInfo(rec *VMRecord) VMInfo {
 	}
 }
 
-// vmRegistry is a goroutine-safe map of execID → *VMRecord.
+// vmRegistry is a goroutine-safe map of execID --> *VMRecord.
 type vmRegistry struct {
 	mu      sync.RWMutex
 	records map[string]*VMRecord

@@ -158,7 +158,7 @@ func TestCalculateCPUUsage(t *testing.T) {
 		softirq: 0,
 	}
 	usage := calculateCPUUsage(prev, current)
-	// totalDiff = 100, idleDiff = 80 → usage = (100-80)/100 * 100 = 20%
+	// totalDiff = 100, idleDiff = 80 --> usage = (100-80)/100 * 100 = 20%
 	if usage < 0 || usage > 100 {
 		t.Errorf("calculateCPUUsage() = %v, expected [0, 100]", usage)
 	}

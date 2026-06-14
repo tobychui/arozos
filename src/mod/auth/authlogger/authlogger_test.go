@@ -417,7 +417,7 @@ func TestGetIpAddressFromRequest_RemoteAddr(t *testing.T) {
 	if lastHop != "10.0.0.1:8080" {
 		t.Errorf("expected lastHop='10.0.0.1:8080', got %q", lastHop)
 	}
-	// No X-Forwarded-For header → sources slice contains one empty string
+	// No X-Forwarded-For header --> sources slice contains one empty string
 	_ = sources
 }
 

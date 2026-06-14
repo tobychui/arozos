@@ -124,7 +124,7 @@ func TestHandleSetWhitelistEnable_GetStatus(t *testing.T) {
 	wl, teardown := setupWLTest(t)
 	defer teardown()
 
-	// No 'enable' param → return current status
+	// No 'enable' param --> return current status
 	req := httptest.NewRequest(http.MethodPost, "/whitelist/enable", nil)
 	rr := httptest.NewRecorder()
 	wl.HandleSetWhitelistEnable(rr, req)

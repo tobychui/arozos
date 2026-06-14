@@ -548,7 +548,7 @@ func TestGetSizeForType_AllTypes(t *testing.T) {
 		{11, 4}, // FLOAT
 		{12, 8}, // DOUBLE
 		{0, 0},  // index 0 = 0
-		{99, 1}, // unknown type → default 1
+		{99, 1}, // unknown type --> default 1
 	}
 	for _, tc := range tests {
 		got := getSizeForType(tc.fieldType)
