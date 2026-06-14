@@ -473,6 +473,9 @@ function newChat(){
 function selectChat(id){ if(generating) stopGenerating(); state.currentId = id; persist(); renderSidebar(); renderMessages(); closeSidebar(); }
 function deleteChat(id, ev){
     if(ev) ev.stopPropagation();
+    var conv = state.conversations.find(function(c){ return c.id === id; });
+    var name = (conv && conv.title) ? conv.title : "this chat";
+    if(!confirm('Delete "' + name + '"? This cannot be undone.')) return;
     state.conversations = state.conversations.filter(function(c){ return c.id !== id; });
     if(state.currentId === id){ state.currentId = state.conversations[0] ? state.conversations[0].id : null; }
     if(state.conversations.length === 0) return newChat();
