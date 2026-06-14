@@ -17,23 +17,105 @@ In this codebase **AGI** stands for **ArOZ Online JavaScript Gateway Interface**
 — *not* "Artificial General Intelligence". It is the server-side JavaScript
 runtime that powers ArozOS web apps: module scripts with a `.agi` (or `.js`)
 extension are executed inside a sandboxed [Otto](https://github.com/robertkrimen/otto)
-JavaScript VM, one fresh VM per request, with permission-checked access to
-ArozOS functions (file system, database, sharing, IoT, image/zip/ffmpeg helpers,
-WebSockets, an LLM-chat library, and more).
-
-Key points:
+JavaScript VM, **one fresh VM per request/script**, with permission-checked
+access to ArozOS functions (file system, database, sharing, IoT, image/zip/
+ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
 
 - **Where it lives:** [`src/mod/agi/`](src/mod/agi/) (`agi*.go`); the runtime
   version is the `AgiVersion` constant in [`src/mod/agi/agi.go`](src/mod/agi/agi.go).
-- **What it runs:** a web app's `init.agi` (startup/registration), backend
-  scripts called from the front end, nightly tasks, and user-approved scheduled
-  (cron) tasks — each scoped to the permissions of the invoking user.
-- **How scripts talk to the host:** core globals (`USERNAME`, `HTTP_RESP`, …)
-  and built-in functions (`sendJSONResp`, `requirelib`, `includes`, `execd`, …);
-  libraries are pulled in on demand with `requirelib("filelib")` and friends.
+  The gateway is constructed in [`src/agi.go`](src/agi.go) (`AGIInit`, run from
+  [`src/startup.go`](src/startup.go)) via `agi.NewGateway(agi.AgiSysInfo{…})`.
+- **Built-in globals & functions:** core globals (`USERNAME`, `USERICON`,
+  `HTTP_RESP`, `LOADED_MODULES`, …) and functions (`sendResp`, `sendJSONResp`,
+  `registerModule`, `requirelib`, `includes`, `execd`, the `…DBItem` DB helpers,
+  …) are injected per VM by `injectStandardLibs` / `injectUserFunctions`
+  ([`src/mod/agi/agi.user.go`](src/mod/agi/agi.user.go)).
+- **Loadable libraries** — pulled in on demand with `requirelib("name")`;
+  registered in `LoadAllFunctionalModules`
+  ([`src/mod/agi/moduleManager.go`](src/mod/agi/moduleManager.go)): `filelib`,
+  `imagelib`, `http`, `share`, `iot`, `appdata`, `sysinfo`, `ziplib` (incl. 7z),
+  `sqlite`, `aimodel`, and `ffmpeg` (only when ffmpeg is on the host), plus
+  `websocket` and `scheduler` which are injected only in an HTTP request context.
+- **Execution entry points:**
+  - **`init.agi`** — a web app's startup/registration script, scanned at boot
+    from `./web/*/init.agi` (`InitiateAllWebAppModules`) and run with **system
+    scope only** (no user functions); used to `registerModule(…)`.
+  - **Front-end calls** — `/system/ajgi/interface` (logged-in users) and
+    `/api/ajgi/interface` (token auth; this is the `-rpt` callback subservices
+    receive). Both run scripts scoped to the invoking user's permissions.
+  - **Serverless / external endpoints**, plus nightly tasks and user-approved
+    scheduled (cron) tasks.
 - **Full API reference:** [`src/mod/agi/README.md`](src/mod/agi/README.md). When
   you change AGI functions or signatures, also update the in-app help data file
-  [`src/web/Terminal/docs/api.json`](src/web/Terminal/docs/api.json) to match.
+  [`src/web/Terminal/docs/api.json`](src/web/Terminal/docs/api.json) to match
+  (one object per library section; the README's maintainer note explains how).
+
+## What a WebApp is
+
+A **WebApp** (a.k.a. a *module*) is a user-facing application that shows up on
+the ArozOS desktop. Each one is a folder under [`src/web/`](src/web/) — e.g.
+`Photo/`, `Music/`, `NotepadA/`, `Calendar/`, `Code Studio/` — holding the
+front-end assets (HTML/JS/CSS) plus an optional `init.agi` and any backend
+`.agi` scripts it calls.
+
+- **Registration:** a web app announces itself from its `init.agi` by calling
+  `registerModule(JSON.stringify(moduleLaunchInfo))`. The launch-info object
+  maps field-for-field to the `ModuleInfo` struct in
+  [`src/mod/modules/module.go`](src/mod/modules/module.go): `Name`, `Desc`,
+  `Group`, `IconPath`, `Version`, `StartDir`, `SupportFW`/`LaunchFWDir`,
+  `SupportEmb`/`LaunchEmb`, `InitFWSize`, `InitEmbSize`, `SupportedExt`. See
+  [`src/web/Photo/init.agi`](src/web/Photo/init.agi) for a minimal example.
+- **Launch modes:** full page (`StartDir`), **floatWindow** (`SupportFW` +
+  `LaunchFWDir`, sized by `InitFWSize`), and **embedded** (`SupportEmb` +
+  `LaunchEmb`, sized by `InitEmbSize`) — embedded is what loads when a file is
+  opened *with* the module. `SupportedExt` registers the file-type associations
+  that let the module become a default opener.
+- **Go-side handling:** `ModuleHandler`
+  ([`src/mod/modules/module.go`](src/mod/modules/module.go)) holds the
+  loaded-module list; `RegisterModuleFromAGI` is the hook `init.agi` drives, and
+  module visibility is filtered per user by `GetModuleListJSONForUser` (users
+  only see modules they have permission for).
+- **Scope reminder:** `init.agi` runs with **system scope** (registration /
+  system functions only — don't call user or file functions there); backend
+  `.agi` scripts invoked from the front end run with the **invoking user's**
+  scope. Subservices (below) also register through `ModuleInfo`, so they appear
+  on the desktop just like WebApps.
+
+## What a SubService is
+
+A **SubService** lets ArozOS launch an **independent binary web server** (written
+in any language) as a child process and **reverse-proxy it under the main
+server**, so it appears as a normal ArozOS module. Reach for it when a feature
+needs a real native binary rather than a sandboxed AGI script — heavy compute,
+an existing Go/Rust/… server, or third-party software such as Syncthing.
+
+- **Where it lives:** package [`src/mod/subservice/`](src/mod/subservice/)
+  (`SubService`, `SubServiceRouter`); wiring + boot-time scan in
+  [`src/subservice.go`](src/subservice.go) (`SubserviceInit`, run from
+  [`src/startup.go`](src/startup.go)). Disable it all with the
+  `-disable_subservice` flag; reverse-proxy ports start at `subserviceBasePort`
+  (`12810`, [`src/flags.go`](src/flags.go)).
+- **Folder convention:** drop the binary in `./subservice/<name>/`, named for
+  its platform — `<name>.exe` (Windows) or `<name>_<GOOS>_<GOARCH>` (e.g.
+  `demo_linux_amd64`); on Linux an apt-installed binary on `PATH` is preferred.
+- **Lifecycle:** ArozOS probes the binary with `<bin> -info` (it must print its
+  `ModuleInfo` as JSON — or ship a `moduleInfo.json` instead), then launches it
+  as `<bin> -port <port> -rpt http://localhost:<parentPort>/api/ajgi/interface`
+  (the `-rpt` URL is the AGI callback so the service can call ArozOS APIs back).
+  The reverse-proxy URL prefix is the directory part of `StartDir` and must not
+  collide with a reserved path (`web`, `system`, `ws`, …,
+  [`src/subservice.go`](src/subservice.go)). A failed proxy is auto-restarted.
+- **Auth:** proxied requests are permission-checked (per-module access) and get
+  `aouser`, `aotoken` and `X-Forwarded-Host` headers injected; routing happens
+  in the authenticated branch of [`src/main.router.go`](src/main.router.go).
+- **Marker files** (next to the binary): `.disabled` (skip at boot; toggle in
+  the admin UI), `.noproxy` (run but don't proxy — compatibility mode),
+  `.startscript` (launch `start.sh`/`start.bat` instead of the binary),
+  `.intport` (pass the port without a leading `:`), `moduleInfo.json` (static
+  info, skips the `-info` probe).
+- **Admin endpoints:** `/system/subservice/{list,kill,start}` (admin only).
+  Full guide: the "Subservice Logics and Configuration" section of
+  [`src/README.md`](src/README.md).
 
 ## Build, run and test
 
@@ -188,5 +270,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/info/logger/`](src/mod/info/logger/) — the system logger (rule 1).
 - [`src/mod/prouter/`](src/mod/prouter/) — permission/auth router (rule 4).
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
-- [`src/web/`](src/web/) — front-end assets and web apps.
+- [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
+- [`src/mod/subservice/`](src/mod/subservice/) — reverse-proxied binary subservices (see "What a SubService is"); wired up in [`src/subservice.go`](src/subservice.go).
+- [`src/web/`](src/web/) — front-end assets and WebApps (one folder per module; see "What a WebApp is").
 - [`src/system/`](src/system/) — runtime data and config (not shipped in release).
