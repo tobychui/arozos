@@ -986,6 +986,66 @@
 		}
 
 		// ============================================================
+		//  Pixel-level filter engine for photo capture
+		//  ctx.filter is a no-op on iOS Safari < 18, so we replicate
+		//  the CSS filter chain via ImageData manipulation instead.
+		// ============================================================
+		function _applyPixelFilter(ctx, w, h, filterCss) {
+			if (!filterCss || filterCss === "none") return;
+			const re = /([\w-]+)\(([^)]+)\)/g;
+			let m;
+			const parsed = [];
+			while ((m = re.exec(filterCss)) !== null) {
+				const nm = m[1], v = parseFloat(m[2]);
+				if (nm === "hue-rotate") {
+					const rad = v * Math.PI / 180, c = Math.cos(rad), s = Math.sin(rad);
+					parsed.push(["hue",
+						0.213+c*0.787-s*0.213, 0.715-c*0.715-s*0.715, 0.072-c*0.072+s*0.928,
+						0.213-c*0.213+s*0.143, 0.715+c*0.285+s*0.140, 0.072-c*0.072-s*0.283,
+						0.213-c*0.213-s*0.787, 0.715-c*0.715+s*0.715, 0.072+c*0.928+s*0.072
+					]);
+				} else {
+					parsed.push([nm, v]);
+				}
+			}
+			if (!parsed.length) return;
+			const id = ctx.getImageData(0, 0, w, h);
+			const data = id.data;
+			const clamp = x => x < 0 ? 0 : x > 255 ? 255 : x;
+			for (let i = 0, n = data.length; i < n; i += 4) {
+				let r = data[i], g = data[i+1], b = data[i+2];
+				for (const p of parsed) {
+					const t = p[0];
+					let nr, ng, nb;
+					if (t === "grayscale") {
+						const a = Math.min(1, p[1]), lum = 0.2126*r + 0.7152*g + 0.0722*b;
+						nr = r+(lum-r)*a; ng = g+(lum-g)*a; nb = b+(lum-b)*a;
+					} else if (t === "sepia") {
+						const a = Math.min(1, p[1]);
+						nr = r*(1-.607*a)+g*.769*a+b*.189*a;
+						ng = r*.349*a+g*(1-.314*a)+b*.168*a;
+						nb = r*.272*a+g*.534*a+b*(1-.869*a);
+					} else if (t === "saturate") {
+						const v = p[1], lum = 0.2126*r+0.7152*g+0.0722*b;
+						nr = lum+(r-lum)*v; ng = lum+(g-lum)*v; nb = lum+(b-lum)*v;
+					} else if (t === "brightness") {
+						nr = r*p[1]; ng = g*p[1]; nb = b*p[1];
+					} else if (t === "contrast") {
+						const v = p[1], off = 128*(1-v);
+						nr = r*v+off; ng = g*v+off; nb = b*v+off;
+					} else if (t === "hue") {
+						nr = r*p[1]+g*p[2]+b*p[3];
+						ng = r*p[4]+g*p[5]+b*p[6];
+						nb = r*p[7]+g*p[8]+b*p[9];
+					} else { continue; }
+					r = clamp(nr); g = clamp(ng); b = clamp(nb);
+				}
+				data[i] = r+.5|0; data[i+1] = g+.5|0; data[i+2] = b+.5|0;
+			}
+			ctx.putImageData(id, 0, 0);
+		}
+
+		// ============================================================
 		//  Crop math (cover-fit replication)
 		// ============================================================
 		function computeCrop(video){
@@ -1022,9 +1082,11 @@
 				ctx.translate(canvas.width, 0);
 				ctx.scale(-1, 1);
 			}
-			ctx.filter = currentFilter.css === "none" ? "none" : currentFilter.css;
 			ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.sw, crop.sh);
 			ctx.restore();
+			// Bake the active filter via pixel manipulation — ctx.filter is a
+			// no-op on iOS Safari < 18, so this is the only reliable path.
+			_applyPixelFilter(ctx, crop.sw, crop.sh, currentFilter.css);
 
 			const mime = (saveFormat === "png") ? "image/png" : "image/jpeg";
 			const quality = (saveFormat === "png") ? undefined : 0.95;
