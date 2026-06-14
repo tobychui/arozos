@@ -130,6 +130,26 @@ func main() {
 }
 ```
 
+### Webapp vs. subservice
+
+Both a **webapp** and a **subservice** register the same `ModuleInfo` and, once
+loaded, look identical on the desktop. The difference is *what runs the code* and
+*where it lives*:
+
+| | Webapp | Subservice |
+|---|---|---|
+| **What it is** | Static front-end (HTML/CSS/JS) plus optional server-side AGI scripts | A standalone compiled binary (any language) |
+| **Lives in** | `src/web/<AppName>/`, served by the core's static file server | `./subservice/<name>/`, run as its own executable |
+| **Process model** | No process of its own — backend logic runs as JavaScript *inside* the core's Otto VM (one fresh VM per request) | Its own OS process on its own port, reached through a reverse proxy |
+| **How it registers** | An `init.agi` startup script calls `registerModule(...)` from inside the VM | The core reads `-info` / `moduleInfo.json` when it launches the binary |
+| **Talks to the host via** | AGI globals/libraries in-VM (`requirelib("filelib")`, …) | HTTP calls back to the `-rpt` AGI gateway endpoint |
+| **Reach for it when** | A standard ArozOS app whose logic fits the AGI/JS sandbox | You need native code, heavy/long-running work, a non-Go runtime, or to wrap an existing third-party server |
+
+In short: a **webapp** is front-end assets + JavaScript executed *inside* ArozOS
+through AGI, while a **subservice** is an *external* program ArozOS launches,
+supervises and reverse-proxies. Use a webapp by default; reach for a subservice
+when the work doesn't fit the in-core JavaScript sandbox.
+
 ## Build, run and test
 
 All Go commands run from `src/`:
