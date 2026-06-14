@@ -559,6 +559,28 @@
             word-break: break-all;
         }
 
+        /* Top-right toolbar: keeps close / info / cast / download evenly spaced */
+        .viewer-toolbar {
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            z-index: 500;
+            display: flex;
+            flex-direction: row-reverse;
+            align-items: center;
+            gap: 0.6em;
+        }
+
+        /* Inside the toolbar, layout is handled by flex, not per-button offsets */
+        .viewer-toolbar .close-btn,
+        .viewer-toolbar .show-info-btn,
+        .viewer-toolbar .cast-photo-btn,
+        .viewer-toolbar .download-photo-btn {
+            position: static;
+            top: auto;
+            right: auto;
+        }
+
         .close-btn {
             position: absolute;
             top: 1em;
@@ -1187,14 +1209,16 @@
             <div class="viewer-left">
                 <img id="compressedImage" src="" style="display: none;" />
                 <img id="fullImage" src="img/loading.png" />
-                <button class="close-btn" onclick="closeViewer()">×</button>
-                <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
-                <button class="download-photo-btn" id="download-photo-btn" onclick="downloadCurrentPhoto()" title="Download photo">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
-                </button>
-                <button class="cast-photo-btn" id="cast-photo-btn" onclick="openPhotoCastDialog()" title="Cast to Arozcast">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-480Zm320 320H600q0-20-1.5-40t-4.5-40h206v-480H160v46q-20-3-40-4.5T80-680v-40q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160Zm-720 0v-120q50 0 85 35t35 85H80Zm200 0q0-83-58.5-141.5T80-360v-80q117 0 198.5 81.5T360-160h-80Zm160 0q0-75-28.5-140.5t-77-114q-48.5-48.5-114-77T80-520v-80q91 0 171 34.5T391-471q60 60 94.5 140T520-160h-80Z"/></svg>
-                </button>
+                <div class="viewer-toolbar">
+                    <button class="close-btn" onclick="closeViewer()">×</button>
+                    <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
+                    <button class="cast-photo-btn" id="cast-photo-btn" onclick="openPhotoCastDialog()" title="Cast to Arozcast">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-480Zm320 320H600q0-20-1.5-40t-4.5-40h206v-480H160v46q-20-3-40-4.5T80-680v-40q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160Zm-720 0v-120q50 0 85 35t35 85H80Zm200 0q0-83-58.5-141.5T80-360v-80q117 0 198.5 81.5T360-160h-80Zm160 0q0-75-28.5-140.5t-77-114q-48.5-48.5-114-77T80-520v-80q91 0 171 34.5T391-471q60 60 94.5 140T520-160h-80Z"/></svg>
+                    </button>
+                    <button class="download-photo-btn" id="download-photo-btn" onclick="downloadCurrentPhoto()" title="Download photo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+                    </button>
+                </div>
                 
                 <!-- Loading Progress -->
                 <div id="loading-progress" class="loading-progress"><i class="loading spinner icon"></i> Loading</div>
