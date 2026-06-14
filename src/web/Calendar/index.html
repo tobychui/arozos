@@ -460,7 +460,7 @@ function applyDark(dark){
   document.body.classList.toggle('dark',dark);
   // Use innerHTML so we can swap between moon/sun SVGs
   document.getElementById('darkToggle').innerHTML=dark?SVG_SUN:SVG_MOON;
-  if(typeof ao_module_setWindowTheme==='function') ao_module_setWindowTheme(dark?'dark':'white');
+  //if(typeof ao_module_setWindowTheme==='function') ao_module_setWindowTheme(dark?'dark':'white');
 }
 function toggleDark(){ applyDark(!S.dark); }
 
