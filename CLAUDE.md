@@ -35,6 +35,101 @@ Key points:
   you change AGI functions or signatures, also update the in-app help data file
   [`src/web/Terminal/docs/api.json`](src/web/Terminal/docs/api.json) to match.
 
+## What subservices are
+
+A **subservice** is a *separate* program — usually a small Go web server, but it
+can be any binary — that ArozOS launches as a child process and stitches into the
+desktop through an authenticated reverse proxy. Subservices are how you extend
+ArozOS in the language/runtime of your choice, or wrap an existing third-party web
+app (e.g. Syncthing), *without* touching the core binary. Contrast with AGI, which
+runs JavaScript *inside* the core: a subservice runs *outside* it as its own OS
+process and only talks back through the gateway.
+
+A complete, buildable example is the "demo" service at
+[aroz-online/ArozOS-Subservice-Example](https://github.com/aroz-online/ArozOS-Subservice-Example).
+The canonical reference is the **"Subservice Logics and Configuration"** section of
+[`src/README.md`](src/README.md).
+
+Key points:
+
+- **Where it lives in code:** the launcher, reverse proxy and lifecycle logic are
+  in [`src/mod/subservice/`](src/mod/subservice/); the wiring (scan directory,
+  admin endpoints, graceful shutdown) is in
+  [`src/subservice.go`](src/subservice.go). Disable the whole subsystem with the
+  `-disable_subservice` flag.
+- **Where services live on disk:** one folder per service under
+  `./subservice/<name>/` at the ArozOS root. The executable must be named after
+  the folder with a platform suffix — `<name>_<GOOS>_<GOARCH>` (e.g.
+  `demo_linux_amd64`) or `<name>.exe` on Windows. (On Linux, a system-installed
+  binary found via `which <name>` is used if present.)
+- **Startup handshake:** the core first reads the module's metadata — from a
+  `moduleInfo.json` in the folder, or by running `<binary> -info` and parsing the
+  JSON it prints — then relaunches the binary as a long-running web server with
+  `-port :<port>` (the next free port from base `12810`) and
+  `-rpt "http://localhost:<arozosPort>/api/ajgi/interface"` (the AGI gateway the
+  subservice calls back into for filesystem/user access).
+- **Routing & desktop integration:** the reverse-proxy endpoint is the *directory*
+  of `StartDir`, so `StartDir: "demo/home.html"` proxies `/demo/*` to the service.
+  The metadata is registered as a normal module, so the service appears on the
+  desktop like a built-in app, gated by per-module permission. The endpoint must
+  not collide with reserved paths (`web`, `system`, `SystemAO`, `img`, `ws`, …).
+  If the proxied process stops responding, the core kills and restarts it.
+- **Control files** (empty marker files dropped in the service folder):
+  `.disabled` (skip at boot — an admin can re-enable it in System Settings),
+  `.noproxy` (compatibility mode: just run the binary, no port/proxy injection),
+  `.startscript` (run `start.sh`/`start.bat` instead of the binary, e.g. to wrap
+  Syncthing), `.intport` (pass the port as `12810` instead of `:12810`).
+- **Admin control at runtime:** the endpoints
+  `/system/subservice/{list,kill,start}` and the UI in
+  [`src/web/SystemAO/modules/subservices.html`](src/web/SystemAO/modules/subservices.html)
+  let an admin start and stop services without restarting ArozOS.
+
+Minimal example — a `./subservice/demo/` folder with a binary and its metadata:
+
+```
+subservice/demo/
+├── demo_linux_amd64        # binary, named <folder>_<GOOS>_<GOARCH>
+├── demo.exe                # a Windows build (optional, one per target)
+└── moduleInfo.json         # metadata — OR print the same JSON on `-info`
+```
+
+```json
+{
+    "Name": "Demo Subservice",
+    "Desc": "A simple subservice showing how subservices work in ArozOS",
+    "Group": "Development",
+    "IconPath": "demo/icon.png",
+    "Version": "0.0.1",
+    "StartDir": "demo/home.html",
+    "SupportFW": true,
+    "LaunchFWDir": "demo/home.html",
+    "SupportEmb": true,
+    "LaunchEmb": "demo/embedded.html",
+    "InitFWSize": [720, 480],
+    "InitEmbSize": [720, 480],
+    "SupportedExt": [".txt", ".md"]
+}
+```
+
+```go
+// The binary answers -info (and exits), then serves its web UI on -port.
+func main() {
+    info := flag.Bool("info", false, "Print module info as JSON and exit")
+    port := flag.String("port", ":8000", "Listen address assigned by ArozOS")
+    flag.String("rpt", "", "ArozOS AGI gateway endpoint for callbacks")
+    flag.Parse()
+
+    if *info {
+        // Same JSON as moduleInfo.json above; StartDir's dir ("demo") is the proxy endpoint.
+        fmt.Println(`{"Name":"Demo Subservice","Group":"Development","StartDir":"demo/home.html","Version":"0.0.1"}`)
+        return
+    }
+
+    http.Handle("/demo/", http.StripPrefix("/demo/", http.FileServer(http.Dir("./web"))))
+    http.ListenAndServe(*port, nil) // ArozOS reverse-proxies /demo/* here
+}
+```
+
 ## Build, run and test
 
 All Go commands run from `src/`:
