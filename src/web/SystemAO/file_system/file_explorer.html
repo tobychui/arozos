@@ -601,6 +601,9 @@
                 return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
             }
 
+            //Module-registered extension icons (ext without dot → web-root-relative path)
+            var extIconRegistry = {};
+
             //File Sharing related
             let shareEditingObject = "";
             let shareEditingUUID = "";
@@ -622,6 +625,12 @@
                 
                 //Function to complete initialization after applocale is ready
                 function completeInitialization(){
+                    //Fetch module-registered extension icons once so the grid view can use them
+                    $.get("/system/modules/exticons", function(data) {
+                        if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                        if (data && typeof data === "object") { extIconRegistry = data; }
+                    });
+
                     initRootDirs();
                     initSystemInfo();
                     initUploadMode();
@@ -1350,6 +1359,10 @@
                     }else if (viewMode == "grid"){
                         //Update the icon path depends on the type of file
                         var imagePath = "../../img/desktop/files_icon/" + filesIconTheme + "/" + icon + ".png";
+                        //Use module-registered icon for proprietary/unrecognised extensions
+                        if (icon === "file outline" && extIconRegistry[ext]) {
+                            imagePath = "../../" + extIconRegistry[ext];
+                        }
                         var displayName = JSON.parse(JSON.stringify(filename));
                         if (ext == "shortcut"){
                             //This is a shortcut file. Treat it specially

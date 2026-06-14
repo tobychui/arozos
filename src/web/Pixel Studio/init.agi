@@ -25,3 +25,6 @@ var moduleLaunchInfo = {
 
 //Register the module
 registerModule(JSON.stringify(moduleLaunchInfo));
+
+//Register a custom icon for .pxs files so the file manager shows it instead of a generic icon
+registerExtensionIcon(".pxs", "img/file_icon.png");

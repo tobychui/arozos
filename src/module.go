@@ -37,6 +37,9 @@ func ModuleServiceInit() {
 	http.HandleFunc("/system/modules/getLaunchPara", func(w http.ResponseWriter, r *http.Request) {
 		authAgent.HandleCheckAuth(w, r, moduleHandler.GetLaunchParameter)
 	})
+	http.HandleFunc("/system/modules/exticons", func(w http.ResponseWriter, r *http.Request) {
+		authAgent.HandleCheckAuth(w, r, moduleHandler.HandleGetExtIcons)
+	})
 
 	adminRouter.HandleFunc("/system/modules/reload", func(w http.ResponseWriter, r *http.Request) {
 		moduleHandler.ReloadAllModules(AGIGateway)
