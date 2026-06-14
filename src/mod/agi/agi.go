@@ -63,8 +63,9 @@ type AgiSysInfo struct {
 	UserHandler          *user.UserHandler
 	ReservedTables       []string
 	PackageManager       *apt.AptPackageManager
-	ModuleRegisterParser func(string) error
-	ModuleListProvider   func(username string) string //Returns JSON of accessible modules for a user
+	ModuleRegisterParser  func(string) error
+	ModuleListProvider    func(username string) string //Returns JSON of accessible modules for a user
+	ExtIconRegisterParser func(ext, iconPath string)   //Called when registerExtensionIcon() fires in an init.agi
 	FileSystemRender     *metadata.RenderHandler
 	IotManager           *iot.Manager
 	ShareManager         *share.Manager
