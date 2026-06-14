@@ -14,6 +14,8 @@ let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
 let currentPhotoAllIndex = -1; // index of current photo in allImages (full server list)
+let currentViewerFilepath = null; // filepath of the photo currently open in the viewer
+let currentViewerFilename = null; // filename of the photo currently open in the viewer
 let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // Check if image should use compression (only JPG/PNG)
@@ -518,6 +520,22 @@ function closeViewer(){
     }, 300);
 }
 
+// Download the photo currently open in the viewer to the user's device
+function downloadCurrentPhoto(){
+    if (currentViewerFilepath == null || currentViewerFilepath === ""){
+        return;
+    }
+    var url = ao_root + "media?file=" + encodeURIComponent(currentViewerFilepath) + "&download=true";
+    var a = document.createElement("a");
+    a.href = url;
+    if (currentViewerFilename){
+        a.download = currentViewerFilename;
+    }
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
 let compressedImageLoaded = false;
 let fullsizeImageLoaded = false;
 
@@ -538,6 +556,8 @@ function showImage(object){
     
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
     _currentCastFilepath = fd.filepath;
+    currentViewerFilepath = fd.filepath;
+    currentViewerFilename = fd.filename;
     if (_photoCastConnected()) _photoCastSendPhoto(fd.filepath);
     $("#info-dimensions").text("Calculating...");
     // Check if we should use compression (only for JPG/PNG > 5MB)
