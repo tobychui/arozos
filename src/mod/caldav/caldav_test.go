@@ -251,3 +251,45 @@ func TestHrefsToIDSet(t *testing.T) {
 		t.Errorf("hrefsToIDSet: expected 2 IDs, got %d", len(ids))
 	}
 }
+
+func TestHrefsToIDSet_URLEncoded(t *testing.T) {
+	// iOS sends percent-encoded @ (%40) in hrefs for usernames like admin@example.com
+	body := `<B:calendar-multiget xmlns:B="urn:ietf:params:xml:ns:caldav">
+  <A:href xmlns:A="DAV:">/caldav/admin%40example.com/calendar/ev_abc.ics</A:href>
+</B:calendar-multiget>`
+	calHref := "/caldav/admin@example.com/calendar/"
+	ids := hrefsToIDSet(body, calHref)
+	if !ids["ev_abc"] {
+		t.Errorf("hrefsToIDSet: URL-encoded href not matched; got %v", ids)
+	}
+}
+
+func TestParseICSDateTime_TZID(t *testing.T) {
+	// iOS sends DTSTART;TZID=Asia/Tokyo:20260616T110000
+	// This should resolve to 02:00 UTC (JST = UTC+9, so 11:00 JST = 02:00 UTC)
+	key := "DTSTART;TZID=Asia/Tokyo"
+	val := "20260616T110000"
+	got, allDay := parseICSDateTime(key, val)
+	if allDay {
+		t.Error("TZID datetime should not be all-day")
+	}
+	wantHour := 2 // 11:00 JST = 02:00 UTC
+	if got.UTC().Hour() != wantHour {
+		t.Errorf("TZID parse: got UTC hour %d, want %d (full time: %s)", got.UTC().Hour(), wantHour, got.UTC())
+	}
+}
+
+func TestExtractTZID(t *testing.T) {
+	cases := []struct{ key, want string }{
+		{"DTSTART;TZID=Asia/Tokyo", "Asia/Tokyo"},
+		{"DTEND;TZID=America/New_York", "America/New_York"},
+		{"DTSTART", ""},
+		{"DTSTART;VALUE=DATE", ""},
+	}
+	for _, tc := range cases {
+		got := extractTZID(tc.key)
+		if got != tc.want {
+			t.Errorf("extractTZID(%q): got %q want %q", tc.key, got, tc.want)
+		}
+	}
+}

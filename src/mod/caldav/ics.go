@@ -172,13 +172,18 @@ func splitICSLine(line string) (string, string) {
 
 func parseICSDateTime(key, val string) (time.Time, bool) {
 	val = strings.TrimSpace(val)
-	if strings.Contains(strings.ToUpper(key), "VALUE=DATE") {
+	keyUpper := strings.ToUpper(key)
+
+	// All-day: VALUE=DATE
+	if strings.Contains(keyUpper, "VALUE=DATE") {
 		t, err := time.Parse("20060102", val)
 		if err != nil {
 			return time.Now().UTC(), true
 		}
 		return t.UTC(), true
 	}
+
+	// UTC: trailing Z
 	if strings.HasSuffix(val, "Z") {
 		t, err := time.Parse("20060102T150405Z", val)
 		if err != nil {
@@ -186,11 +191,35 @@ func parseICSDateTime(key, val string) (time.Time, bool) {
 		}
 		return t.UTC(), false
 	}
+
+	// TZID-parameterized local time, e.g. DTSTART;TZID=Asia/Tokyo:20260616T110000
+	if tzid := extractTZID(key); tzid != "" {
+		loc, err := time.LoadLocation(tzid)
+		if err == nil {
+			t, err := time.ParseInLocation("20060102T150405", val, loc)
+			if err == nil {
+				return t.UTC(), false
+			}
+		}
+	}
+
+	// Floating local time – treat as UTC
 	t, err := time.Parse("20060102T150405", val)
 	if err != nil {
 		return time.Now().UTC(), false
 	}
 	return t.UTC(), false
+}
+
+// extractTZID pulls the TZID value out of an ICS property key such as
+// "DTSTART;TZID=Asia/Tokyo" or "DTEND;VALUE=DATE;TZID=America/New_York".
+func extractTZID(key string) string {
+	for _, param := range strings.Split(key, ";") {
+		if strings.HasPrefix(strings.ToUpper(param), "TZID=") {
+			return param[5:]
+		}
+	}
+	return ""
 }
 
 // escapeICSText escapes special characters per RFC 5545 §3.3.11.

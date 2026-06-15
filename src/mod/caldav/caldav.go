@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -587,27 +588,43 @@ func extractEventID(path string) string {
 	return strings.TrimSuffix(parts[2], ".ics")
 }
 
-// hrefsToIDSet parses <D:href> elements from a calendar-multiget body and
-// returns the set of event IDs (filename without the .ics extension).
+// hrefsToIDSet parses href elements from a calendar-multiget body and
+// returns the set of event IDs (filename without .ics).
+// iOS URL-encodes special characters (e.g. %40 for @) and may include
+// namespace attributes on the element, so we match by tag name suffix
+// and URL-decode before comparing against calHref.
 func hrefsToIDSet(body string, calHref string) map[string]bool {
 	result := make(map[string]bool)
-	// Simple string scanning avoids an XML dependency just for href extraction.
 	for _, chunk := range strings.Split(body, "<") {
-		var rest string
-		switch {
-		case strings.HasPrefix(chunk, "D:href>"):
-			rest = strings.TrimPrefix(chunk, "D:href>")
-		case strings.HasPrefix(chunk, "href>"):
-			rest = strings.TrimPrefix(chunk, "href>")
-		default:
+		// Skip closing tags
+		if strings.HasPrefix(chunk, "/") {
 			continue
 		}
-		href := strings.SplitN(rest, "<", 2)[0]
-		href = strings.TrimSpace(href)
-		if !strings.HasSuffix(href, ".ics") {
+		// Determine the tag name (everything before the first space or ">")
+		tagEnd := strings.IndexAny(chunk, " >")
+		if tagEnd < 0 {
 			continue
 		}
-		id := strings.TrimSuffix(strings.TrimPrefix(href, calHref), ".ics")
+		tagName := strings.ToLower(chunk[:tagEnd])
+		// Match any *:href or bare "href" element
+		if tagName != "href" && !strings.HasSuffix(tagName, ":href") {
+			continue
+		}
+		// Content starts after the closing ">" of the opening tag
+		gtIdx := strings.Index(chunk, ">")
+		if gtIdx < 0 {
+			continue
+		}
+		raw := strings.TrimSpace(strings.SplitN(chunk[gtIdx+1:], "<", 2)[0])
+		// Decode percent-encoding (iOS sends %40 for @, etc.)
+		decoded, err := url.PathUnescape(raw)
+		if err != nil {
+			decoded = raw
+		}
+		if !strings.HasSuffix(decoded, ".ics") {
+			continue
+		}
+		id := strings.TrimSuffix(strings.TrimPrefix(decoded, calHref), ".ics")
 		if id != "" && !strings.Contains(id, "/") {
 			result[id] = true
 		}
