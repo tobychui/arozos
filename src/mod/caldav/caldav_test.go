@@ -80,14 +80,14 @@ func TestEventToICS_Reminder(t *testing.T) {
 
 func TestICSToEvent_RoundTrip(t *testing.T) {
 	original := CalendarEvent{
-		ID:      "ev_rt1",
-		Title:   "Round Trip",
-		AllDay:  false,
-		Start:   time.Date(2024, 6, 1, 9, 30, 0, 0, time.UTC).UnixMilli(),
-		End:     time.Date(2024, 6, 1, 10, 30, 0, 0, time.UTC).UnixMilli(),
-		Address: "Main Hall",
-		Notes:   "Test notes",
-		Color:   "green",
+		ID:       "ev_rt1",
+		Title:    "Round Trip",
+		AllDay:   false,
+		Start:    time.Date(2024, 6, 1, 9, 30, 0, 0, time.UTC).UnixMilli(),
+		End:      time.Date(2024, 6, 1, 10, 30, 0, 0, time.UTC).UnixMilli(),
+		Address:  "Main Hall",
+		Notes:    "Test notes",
+		Color:    "green",
 		Reminder: &EventReminder{Value: 30, Unit: "mins"},
 	}
 
@@ -150,7 +150,7 @@ func TestTriggerToReminder(t *testing.T) {
 		{"-PT15M", &EventReminder{Value: 15, Unit: "mins"}},
 		{"-PT2H", &EventReminder{Value: 2, Unit: "hours"}},
 		{"-P1D", &EventReminder{Value: 1, Unit: "days"}},
-		{"PT15M", nil},  // positive trigger – ignore
+		{"PT15M", nil}, // positive trigger – ignore
 		{"invalid", nil},
 	}
 	for _, tc := range cases {
