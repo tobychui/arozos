@@ -325,7 +325,7 @@ func TestGetUserInfoFromEndpoint_DefaultsToEmailField(t *testing.T) {
 	defer close()
 	defer withMockClient(srv)()
 
-	// Pass empty usernameField → should default to "email"
+	// Pass empty usernameField --> should default to "email"
 	username, err := getUserInfoFromEndpoint("tok-def", srv.URL, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

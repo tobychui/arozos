@@ -376,7 +376,7 @@ func TestWmicGetinfoNonWindows(t *testing.T) {
 	if len(result) == 0 {
 		t.Error("expected at least one element from wmicGetinfo (even on non-Windows)")
 	}
-	// On non-Windows, wmic doesn't exist → result should be ["Undefined"]
+	// On non-Windows, wmic doesn't exist --> result should be ["Undefined"]
 	if result[0] != "Undefined" {
 		t.Logf("wmicGetinfo returned %v (expected Undefined on non-Windows)", result)
 	}

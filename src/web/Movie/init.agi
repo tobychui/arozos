@@ -11,10 +11,10 @@ var moduleLaunchInfo = {
     StartDir: "Movie/index.html",
     SupportFW: true,
     LaunchFWDir: "Movie/index.html",
-    SupportEmb: false,
-    LaunchEmb: "Movie/index.html",
+    SupportEmb: true,
+    LaunchEmb: "Movie/embedded.html",
     InitFWSize: [1280, 800],
-    InitEmbSize: [1280, 800],
+    InitEmbSize: [700, 424],
     SupportedExt: [".mp4", ".webm", ".ogg", ".mkv", ".avi", ".mov", ".m4v", ".wmv", ".flv", ".rmvb", ".ts"]
 }
 

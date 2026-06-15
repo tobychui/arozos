@@ -6,7 +6,7 @@ var moduleLaunchInfo = {
     Name: "Calendar",
     Desc: "A calendar app for scheduling and managing events",
     Group: "Office",
-    IconPath: "Calendar/img/icon.svg",
+    IconPath: "Calendar/img/module_icon.png",
     Version: "1.0",
     StartDir: "Calendar/index.html",
     SupportFW: true,

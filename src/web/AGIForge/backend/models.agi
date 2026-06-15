@@ -1,0 +1,38 @@
+/*
+    AGI Forge — models backend
+    Returns the default model plus the union of configured (priced) models and
+    the models advertised by the live endpoint, for the model picker.
+    Shape: { "default": "gpt-4o-mini", "models": ["gpt-4o-mini", ...] }
+*/
+
+requirelib("aimodel");
+
+var out = { "default": "", "models": [] };
+
+try {
+	var cfg = aimodel.models(); // { default, models:[pricing keys] }
+	out["default"] = cfg["default"] || "";
+
+	var set = {};
+	var list = cfg.models || [];
+	for (var i = 0; i < list.length; i++) { set[list[i]] = true; }
+
+	//Merge in the live models advertised by the endpoint (best effort)
+	try {
+		var live = aimodel.listModels(); // { models:[...] } or { error }
+		var lm = live.models || [];
+		for (var j = 0; j < lm.length; j++) { set[lm[j]] = true; }
+	} catch (e) { /* endpoint unreachable - keep configured list */ }
+
+	//Always include the default model in the list
+	if (out["default"]) { set[out["default"]] = true; }
+
+	var merged = [];
+	for (var k in set) { if (set.hasOwnProperty(k)) { merged.push(k); } }
+	merged.sort();
+	out.models = merged;
+} catch (e) {
+	out.error = "" + e;
+}
+
+sendJSONResp(JSON.stringify(out));

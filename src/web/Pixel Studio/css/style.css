@@ -581,6 +581,108 @@ input, select, button, textarea {
 }
 .cp-hexrow { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .cp-hexrow label { font-size: 11px; color: var(--text-dim); width: 30px; }
+
+/* ---- gradient tool ---- */
+.grad-opt-preview {
+    width: 90px;
+    height: 18px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.grad-opt-preview:hover { outline: 1px solid var(--accent); }
+
+.grad-editor { padding: 12px; user-select: none; width: 320px; }
+.grad-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 12px;
+}
+.grad-thumb {
+    width: 52px;
+    height: 20px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.grad-thumb:hover { outline: 1px solid #fff; }
+.grad-thumb.active { outline: 2px solid var(--accent); }
+
+.grad-bar-wrap { position: relative; margin: 4px 0 22px 0; }
+.grad-bar {
+    width: 100%;
+    height: 26px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: copy;
+    display: block;
+}
+.grad-track { position: absolute; left: 0; right: 0; top: 28px; height: 14px; }
+.grad-stop {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 14px;
+    cursor: ew-resize;
+}
+.grad-stop::before {
+    content: "";
+    position: absolute;
+    top: -5px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid var(--text-dim);
+}
+.grad-stop.selected::before { border-bottom-color: #fff; }
+.grad-stop i {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #000;
+    outline: 1px solid #888;
+    border-radius: 2px;
+}
+.grad-stop.selected i { outline: 1px solid var(--accent); }
+
+.grad-stop-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    min-height: 26px;
+}
+.grad-stop-well {
+    width: 30px;
+    height: 22px;
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.grad-pos { display: flex; align-items: center; gap: 6px; }
+.grad-pos label { font-size: 11px; color: var(--text-dim); }
+.grad-pos input {
+    width: 56px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 6px;
+    color: var(--text);
+}
+.grad-del {
+    margin-left: auto;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px 12px;
+    cursor: pointer;
+    color: var(--text);
+}
+.grad-del:hover:not(:disabled) { background: #7a2a2a; border-color: #7a2a2a; color: #fff; }
+.grad-del:disabled { opacity: 0.4; cursor: default; }
 .cp-hex {
     flex: 1 1 auto;
     background: var(--bg-input);

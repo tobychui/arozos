@@ -157,7 +157,7 @@ func TestInstallIfNotExists_EnabledNonExistentPkg(t *testing.T) {
 	}
 	pm := NewPackageManager(true)
 	// This package doesn't exist, so apt-get install will fail (we may not be root)
-	// but the code path from PackageExists → cmd.Run is exercised
+	// but the code path from PackageExists --> cmd.Run is exercised
 	_ = pm.InstallIfNotExists("thispackagedoesnotexist99999", false)
 	// We don't assert on error here — it depends on whether we're root
 }

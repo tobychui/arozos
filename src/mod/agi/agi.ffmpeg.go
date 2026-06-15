@@ -400,7 +400,7 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 
 	// _ffmpeg_conv_with_progress(input, output, progressFile)
 	// Passes input directly to ffmpeg without format detection.
-	// Suitable for cross-media conversions (e.g. mp4→gif) or unknown format pairs.
+	// Suitable for cross-media conversions (e.g. mp4-->gif) or unknown format pairs.
 	// progressFile: virtual path for the JSON progress file; omit or pass "" to disable.
 	vm.Set("_ffmpeg_conv_with_progress", func(call otto.FunctionCall) otto.Value {
 		vinput, err := call.Argument(0).ToString()

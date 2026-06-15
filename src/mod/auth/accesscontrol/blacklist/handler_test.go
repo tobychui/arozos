@@ -115,7 +115,7 @@ func TestHandleSetBlacklistEnable_GetStatus(t *testing.T) {
 	bl, teardown := newBLWithDB(t)
 	defer teardown()
 
-	// No 'enable' param → return current status
+	// No 'enable' param --> return current status
 	req := httptest.NewRequest(http.MethodPost, "/blacklist/enable", nil)
 	rr := httptest.NewRecorder()
 	bl.HandleSetBlacklistEnable(rr, req)

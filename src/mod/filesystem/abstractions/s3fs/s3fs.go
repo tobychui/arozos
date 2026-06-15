@@ -36,10 +36,10 @@ import (
 	standard pattern for S3-compatible services.
 
 	Large-file / low-memory design
-	  ReadStream  → s3.GetObject returns resp.Body, an io.ReadCloser that streams
+	  ReadStream  --> s3.GetObject returns resp.Body, an io.ReadCloser that streams
 	                directly from S3.  No data is buffered in RAM until the caller
 	                calls Read().
-	  WriteStream → manager.Uploader wraps PutObject and automatically switches to
+	  WriteStream --> manager.Uploader wraps PutObject and automatically switches to
 	                multipart upload for payloads above the configurable threshold
 	                (default 5 MiB per part).  The entire file is never held in
 	                memory, making this safe on RAM-constrained devices.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>AI Chat</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <script src="../script/jquery.min.js"></script>
 <script src="../script/ao_module.js"></script>
 <style>
@@ -29,7 +29,7 @@
         background:var(--bg); color:var(--text); overflow:hidden;
         -webkit-font-smoothing:antialiased;
     }
-    .app{display:grid; grid-template-columns:268px 1fr; height:100vh;}
+    .app{display:grid; grid-template-columns:268px 1fr; height:100vh; height:100dvh;}
 
     /* ── Sidebar ───────────────────────────── */
     .sidebar{
@@ -211,12 +211,52 @@
     .danger-btn:hover{background:rgba(255,93,108,.08);}
     .messages::-webkit-scrollbar,.chat-list::-webkit-scrollbar,.drawer-body::-webkit-scrollbar,.codeblock pre::-webkit-scrollbar{width:9px;height:9px;}
     .messages::-webkit-scrollbar-thumb,.chat-list::-webkit-scrollbar-thumb,.drawer-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;}
+
+    /* ── Mobile / responsive ───────────────────── */
+    .menu-btn{display:none;}              /* hamburger — only shown on narrow screens */
+    .sidebar-scrim{display:none;}         /* backdrop behind the off-canvas sidebar */
+    @media (max-width:768px){
+        /* Single column; the sidebar floats above the content instead */
+        .app{grid-template-columns:1fr;}
+        .sidebar{
+            position:fixed; top:0; left:0; z-index:40;
+            height:100vh; height:100dvh;
+            width:82vw; max-width:300px;
+            transform:translateX(-100%); transition:transform .22s ease;
+        }
+        .sidebar.open{transform:translateX(0);}
+        .sidebar-scrim{
+            display:block; position:fixed; inset:0; z-index:39; background:rgba(0,0,0,.5);
+            opacity:0; pointer-events:none; transition:opacity .2s;
+        }
+        .sidebar-scrim.open{opacity:1; pointer-events:auto;}
+        .menu-btn{display:inline-flex;}
+        .icon-btn{width:40px; height:40px;}   /* roomier tap targets on touch */
+        /* Top bar: drop the static label/spacer so the model picker can grow */
+        .topbar{padding:0 10px; gap:8px;}
+        .topbar .spacer{display:none;}
+        .model-pick{flex:1; min-width:0;}
+        .model-pick .lab{display:none;}
+        .model-input{flex:1 1 auto; min-width:0; max-width:none;}
+        .tok-badge{flex:none;}
+        /* Tighter content gutters */
+        .mwrap{padding:0 14px;}
+        .msg{gap:10px;}
+        .composer{padding:0 12px;}
+        #composer{font-size:16px;}            /* 16px keeps iOS from zooming on focus */
+        .attachments{padding:0 12px;}
+        .composer-wrap{padding:10px 0 12px;}
+        .hint{padding:0 12px;}
+        /* Touch devices have no hover — keep these affordances visible */
+        .chat-item .del{opacity:1;}
+        .copy-code{opacity:1;}
+    }
 </style>
 </head>
 <body>
 <div class="app">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sb-head">
             <img src="img/icon.svg" alt="">
             <div class="name">AI Chat<small>OpenAI-compatible</small></div>
@@ -242,6 +282,9 @@
     <!-- Main -->
     <section class="main">
         <div class="topbar">
+            <button class="icon-btn menu-btn" title="Conversations" onclick="toggleSidebar()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
             <div class="model-pick">
                 <span class="lab">Model</span>
                 <select class="model-input" id="modelSelect" onchange="onModelChange()"></select>
@@ -312,6 +355,9 @@
             </div>
         </div>
     </section>
+
+    <!-- Backdrop for the mobile off-canvas sidebar -->
+    <div class="sidebar-scrim" id="sidebarScrim" onclick="closeSidebar()"></div>
 </div>
 
 <script>
@@ -422,11 +468,14 @@ function setConn(ok, text){
 function newChat(){
     var c = { id: uid(), title:"New Chat", titleSet:false, messages:[] };
     state.conversations.unshift(c); state.currentId = c.id; persist();
-    renderSidebar(); renderMessages(); $("#composer").focus();
+    renderSidebar(); renderMessages(); closeSidebar(); $("#composer").focus();
 }
-function selectChat(id){ if(generating) stopGenerating(); state.currentId = id; persist(); renderSidebar(); renderMessages(); }
+function selectChat(id){ if(generating) stopGenerating(); state.currentId = id; persist(); renderSidebar(); renderMessages(); closeSidebar(); }
 function deleteChat(id, ev){
     if(ev) ev.stopPropagation();
+    var conv = state.conversations.find(function(c){ return c.id === id; });
+    var name = (conv && conv.title) ? conv.title : "this chat";
+    if(!confirm('Delete "' + name + '"? This cannot be undone.')) return;
     state.conversations = state.conversations.filter(function(c){ return c.id !== id; });
     if(state.currentId === id){ state.currentId = state.conversations[0] ? state.conversations[0].id : null; }
     if(state.conversations.length === 0) return newChat();
@@ -727,7 +776,7 @@ function updateTokenBadge(){
 /* ─────────────────────────────────────────────────────────────
    Settings drawer
    ───────────────────────────────────────────────────────────── */
-function openDrawer(){ syncSettingsUI(); $("#scrim,#drawer").addClass("open"); }
+function openDrawer(){ closeSidebar(); syncSettingsUI(); $("#scrim,#drawer").addClass("open"); }
 function closeDrawer(){ $("#scrim,#drawer").removeClass("open"); }
 function syncSettingsUI(){
     var s = state.settings;
@@ -746,6 +795,13 @@ $(document).on("change", "#setTheme", function(){ applyTheme(this.value); state.
 
 function toggleTheme(){ var t = (state.settings.theme === "dark") ? "light" : "dark"; applyTheme(t); state.settings.theme = t; persist(); syncSettingsUI(); }
 function applyTheme(t){ document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark"); }
+
+/* ─────────────────────────────────────────────────────────────
+   Mobile sidebar (off-canvas) — no-op on desktop where the
+   sidebar is a static grid column.
+   ───────────────────────────────────────────────────────────── */
+function toggleSidebar(){ $("#sidebar,#sidebarScrim").toggleClass("open"); }
+function closeSidebar(){ $("#sidebar,#sidebarScrim").removeClass("open"); }
 
 /* ─────────────────────────────────────────────────────────────
    Markdown rendering (safe: escape first)

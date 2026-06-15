@@ -126,7 +126,7 @@ func getNetworkUsage() (rxRate float64, txRate float64, rxTotal int64, txTotal i
 	if err != nil {
 		return 0, 0, 0, 0
 	}
-	// Convert accumulated bits → bytes
+	// Convert accumulated bits --> bytes
 	rx := rxBits / 8
 	tx := txBits / 8
 

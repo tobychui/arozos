@@ -15,9 +15,9 @@ import (
 var (
 	// status: active  /  status: inactive
 	reDarwinStatus = regexp.MustCompile(`(?m)^\s*status:\s*(\S+)`)
-	// 10Gbase-SR, 25Gbase-LR, etc.  → Gbps
+	// 10Gbase-SR, 25Gbase-LR, etc.  --> Gbps
 	reDarwinGig = regexp.MustCompile(`(?i)(\d+)[Gg]base`)
-	// 1000baseT, 100baseTX, 10baseT  → Mbps
+	// 1000baseT, 100baseTX, 10baseT  --> Mbps
 	reDarwinMeg = regexp.MustCompile(`(?i)(\d+)base`)
 	// <full-duplex> or <half-duplex>
 	reDarwinDuplex = regexp.MustCompile(`(?i)<(full|half)-duplex>`)

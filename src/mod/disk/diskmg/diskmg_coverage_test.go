@@ -37,7 +37,7 @@ func TestCheckDeviceMounted_ExistingDeviceName(t *testing.T) {
 	}
 	// "vda" is a real device on this system visible in lsblk output.
 	// grep "vda" will succeed (exit 0) with partial lines that are NOT valid JSON,
-	// so json.Unmarshal will fail → return false, error.
+	// so json.Unmarshal will fail --> return false, error.
 	// This covers the json.Unmarshal error path.
 	_, err := checkDeviceMounted("vda")
 	// Either (false, err) or (false, nil) is acceptable - we exercise the path.
@@ -216,7 +216,7 @@ func TestHandleMountLinuxValidFormatValidMountPoint(t *testing.T) {
 	cleanup := createFakeSda1(t)
 	defer cleanup()
 
-	// /tmp exists → passes mount point check → reaches umount param check → mount attempt
+	// /tmp exists --> passes mount point check --> reaches umount param check --> mount attempt
 	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ntfs&mnt=/tmp", nil)
 	rr := httptest.NewRecorder()
 	HandleMount(rr, req, nil)
@@ -273,7 +273,7 @@ func TestHandleFormatLinuxNtfsPath(t *testing.T) {
 	HandleFormat(rr, req, nil)
 	resp := rr.Body.String()
 	// checkDeviceMounted("sda1") will fail (grep finds nothing in lsblk for fake device)
-	// → "Failed to check disk mount status"
+	// --> "Failed to check disk mount status"
 	if resp == "" {
 		t.Error("expected non-empty response")
 	}

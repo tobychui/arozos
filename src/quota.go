@@ -140,7 +140,7 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Build reverse lookup: extension → category
+	// Build reverse lookup: extension --> category
 	extToCategory := make(map[string]string, 300)
 	for category, exts := range fileExtensions {
 		for _, ext := range exts {

@@ -30,9 +30,10 @@ type ModuleInfo struct {
 }
 
 type ModuleHandler struct {
-	LoadedModule []*ModuleInfo
-	userHandler  *user.UserHandler
-	tmpDirectory string
+	LoadedModule    []*ModuleInfo
+	userHandler     *user.UserHandler
+	tmpDirectory    string
+	extIconRegistry map[string]string // lowercased ext (no dot) --> web-root-relative icon path
 
 	// OnModuleUninstall is an optional hook called when a module is uninstalled.
 	// The hook receives the module name and can be used to clean up associated resources
@@ -42,10 +43,24 @@ type ModuleHandler struct {
 
 func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *ModuleHandler {
 	return &ModuleHandler{
-		LoadedModule: []*ModuleInfo{},
-		userHandler:  userHandler,
-		tmpDirectory: tmpFolderPath,
+		LoadedModule:    []*ModuleInfo{},
+		userHandler:     userHandler,
+		tmpDirectory:    tmpFolderPath,
+		extIconRegistry: map[string]string{},
 	}
+}
+
+// RegisterExtIcon stores a web-root-relative icon path for the given file extension.
+// ext may include or omit a leading dot; it is normalised to lowercase without dot.
+func (m *ModuleHandler) RegisterExtIcon(ext, iconPath string) {
+	ext = strings.ToLower(strings.TrimPrefix(ext, "."))
+	m.extIconRegistry[ext] = iconPath
+}
+
+// HandleGetExtIcons serves the extension-to-icon registry as a JSON object.
+func (m *ModuleHandler) HandleGetExtIcons(w http.ResponseWriter, r *http.Request) {
+	js, _ := json.Marshal(m.extIconRegistry)
+	utils.SendJSONResponse(w, string(js))
 }
 
 // Register endpoint. Provide moduleInfo datastructure or unparsed json

@@ -352,9 +352,9 @@ func TestConstructRelativePathFromRequestURL(t *testing.T) {
 	}{
 		// Root level: only one slash, no prepend
 		{"/page", "index.html", "index.html"},
-		// One level deep: one extra slash → one "../"
+		// One level deep: one extra slash --> one "../"
 		{"/section/page", "index.html", "../index.html"},
-		// Two levels deep: two extra slashes → two "../"
+		// Two levels deep: two extra slashes --> two "../"
 		{"/a/b/page", "index.html", "../../index.html"},
 	}
 

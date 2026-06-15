@@ -3,280 +3,753 @@
 	<head>
 		<meta charset="UTF-8">
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-		<meta name="theme-color" content="#4b75ff">
-		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="Camera" />
+		<meta name="application-name" content="Camera" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"/>
+		<meta name="theme-color" content="#000000">
 		<script src="../script/jquery.min.js"></script>
-		<script src="../script/semantic/semantic.min.js"></script>
 		<script src="../script/ao_module.js"></script>
-        <title>Camera</title>
-        <style>
-            body{
-                background-color: black;
-            }
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<!-- iOS home-screen icons (iOS ignores the manifest icons) -->
+		<link rel="apple-touch-icon" href="img/pwa/apple-touch-180.png">
+		<link rel="apple-touch-icon" sizes="180x180" href="img/pwa/apple-touch-180.png">
+		<link rel="apple-touch-icon" sizes="167x167" href="img/pwa/apple-touch-167.png">
+		<link rel="apple-touch-icon" sizes="152x152" href="img/pwa/apple-touch-152.png">
+		<link rel="apple-touch-icon" sizes="120x120" href="img/pwa/apple-touch-120.png">
+		<!-- Generic / Android favicon fallbacks -->
+		<link rel="icon" type="image/png" sizes="192x192" href="img/pwa/192.png">
+		<link rel="icon" type="image/png" sizes="512x512" href="img/pwa/512.png">
+		<link rel="shortcut icon" href="img/pwa/192.png">
+		<title>Camera</title>
+		<style>
+			:root{
+				--accent: #ffd60a;
+				--rec: #ff3b30;
+				--pill: rgba(40,40,42,0.78);
+				--safe-top: env(safe-area-inset-top, 0px);
+				--safe-bottom: env(safe-area-inset-bottom, 0px);
+			}
+			*{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+			html, body{
+				margin: 0; padding: 0; height: 100%; width: 100%;
+				background: #000; color: #fff; overflow: hidden;
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+				user-select: none; -webkit-user-select: none;
+			}
 
-            .topcontrol{
-                position: fixed;
-                top: 0px;
-                left: 0px;
-                width: 100%;
-                padding: 8px;
-                z-index: 1000;
-            }
+			#app{ position: fixed; inset: 0; display: flex; flex-direction: column; }
 
-            .clickable{
-                width: 3em;
-                cursor: pointer;
-            }
+			/* ===== Top bar ===== */
+			.topbar{
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				padding: calc(var(--safe-top) + 8px) 12px 8px 12px;
+				z-index: 30;
+			}
+			.pillBtn{
+				display: inline-flex; align-items: center; justify-content: center;
+				min-width: 38px; height: 38px; padding: 0 10px;
+				border-radius: 19px;
+				background: var(--pill);
+				color: #fff; cursor: pointer; border: none;
+				backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+			}
+			.pillBtn:active{ background: rgba(70,70,72,.85); }
+			.pillBtn svg{ width: 20px; height: 20px; }
 
-            .right-floated{
-                position: absolute;
-                right: 8px;
-                top: 8px;
-                display: inline-block;
-            }
+			.dateHeader{
+				flex: 1 1 auto;
+				display: flex; flex-direction: column; align-items: center;
+				justify-content: center;
+				background: var(--pill);
+				border-radius: 19px;
+				padding: 4px 14px;
+				min-height: 38px;
+				backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+				max-width: 60%;
+				margin: 0 auto;
+			}
+			.dateHeader .d1{ font-size: 14px; font-weight: 600; line-height: 1.1; }
+			.dateHeader .d2{ font-size: 11px; color: #b9b9bd; line-height: 1.2; }
 
-            .imgwrapper{
-                position: fixed;
-                top: 0px;
-                left: 0px;
-                width: 100%;
-                height: 100%;
-                z-index: 10;
-            }
-            .imgbox {
-                display: grid;
-                height: 100%;
-                z-index: 10 !important;
-            }
-            .center-fit {
-                max-width: 100%;
-                max-height: 100vh;
-                margin: auto;
-                z-index: 10;
-            }
+			.counter{ font-size: 12px; color: #c8c8cc; min-width: 38px; text-align: right; }
 
-            .rightarrow{
-                position: fixed;
-                top: calc(50% - 1.5em);
-                right: 1em;
-                z-index: 1000;
-            }
+			/* ===== Image stage ===== */
+			.stage{
+				position: relative;
+				flex: 1 1 auto;
+				min-height: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				overflow: hidden;
+			}
+			#viewpoint, #videopoint{
+				max-width: 100%;
+				max-height: 100%;
+				margin: auto;
+				display: block;
+				object-fit: contain;
+			}
 
-            .leftarrow{
-                position: fixed;
-                top: calc(50% - 1.5em);
-                left: 1em;
-                z-index: 1000;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="topcontrol">
-            <div class="clickable" onclick="backToCamera();">
-                <img class="ui mini image" src="img/icons/back-arrow.svg"/>
-            </div>
-            <div class="right-floated">
-                <div class="clickable" onclick="openInFolder();" style="display: inline-block;">
-                    <img class="ui mini image" src="img/icons/folder.svg"/>
-                </div>
-                <div class="clickable" onclick="confirmDelete();" style="display: inline-block;">
-                    <img class="ui mini image" src="img/icons/delete.svg"/>
-                </div>
-            </div>
-        </div>
-        <div class="desktopcontrols">
-            <div class="rightarrow">
-                <img  onclick="nextPhoto();" style="width: 3em; cursor: pointer;" src="img/icons/right.svg">
-            </div>
-            <div class="leftarrow">
-                <img  onclick="previousPhoto();" style="width: 3em; cursor: pointer;" src="img/icons/left.svg">
-            </div>
-        </div>
-        <div class="imgwrapper">
-            <div class="imgbox">
-                <img id="viewpoint" class="center-fit" src='img/place-holder.png'>
-            </div>
-        </div>
+			.navArrow{
+				position: absolute;
+				top: 50%; transform: translateY(-50%);
+				width: 40px; height: 40px; border-radius: 50%;
+				background: rgba(0,0,0,.35);
+				display: none; align-items: center; justify-content: center;
+				cursor: pointer; z-index: 12;
+			}
+			.navArrow svg{ width: 22px; height: 22px; color: #fff; }
+			.navArrow.left{ left: 10px; }
+			.navArrow.right{ right: 10px; }
+			body.hasmouse .navArrow{ display: flex; }
 
-        <div id="confirmDelete" class="ui basic modal">
-            <div class="ui icon header">
-              <i class="red remove icon"></i>
-              <span id="confirmmsg"></span>
-            </div>
-            <div class="content" align="center">
-              <p>This operation is not reversible. Are you sure you want to delete this photo?</p>
-            </div>
-            <div class="actions">
-              <div class="ui red basic cancel inverted button">
-                <i class="remove icon"></i>
-                No
-              </div>
-              <div class="ui red ok button" onclick="deleteThis();">
-                <i class="trash icon"></i>
-                Yes
-              </div>
-            </div>
-          </div>
-        
-        <script>
-            let photoList = [];
-            let currentViewingPhoto = 0; //The index of current viewing photo
-            let saveTarget = "user:/Photo/DCIM/";
-            
-            function backToCamera(){
-                window.location.href = "index.html";
-            }
+			/* ===== Filmstrip ===== */
+			.filmstrip{
+				flex: 0 0 auto;
+				display: flex;
+				gap: 4px;
+				padding: 8px 10px;
+				overflow-x: auto;
+				overflow-y: hidden;
+				scrollbar-width: none;
+				-webkit-overflow-scrolling: touch;
+			}
+			.filmstrip::-webkit-scrollbar{ display: none; }
+			.thumb{
+				flex: 0 0 auto;
+				width: 46px; height: 46px;
+				border-radius: 6px;
+				overflow: hidden;
+				background: #1c1c1e;
+				cursor: pointer;
+				position: relative;
+				opacity: .72;
+				transition: width .15s ease, height .15s ease, opacity .15s ease;
+			}
+			.thumb img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+			.thumb.active{
+				width: 54px; height: 54px;
+				opacity: 1;
+				outline: 2px solid #fff;
+				outline-offset: -2px;
+			}
+			.thumb .vbadge{
+				position: absolute; right: 2px; bottom: 2px;
+				width: 14px; height: 14px;
+				display: flex; align-items: center; justify-content: center;
+				color: #fff;
+				filter: drop-shadow(0 0 1px rgba(0,0,0,.8));
+			}
+			.thumb .vbadge svg{ width: 13px; height: 13px; }
 
-            $(document).on("keydown", function(e){
-                if (e.keyCode == 39){
-                    nextPhoto();
-                }else if (e.keyCode == 37){
-                    previousPhoto();
-                }
-            });
+			/* ===== Bottom toolbar ===== */
+			.toolbar{
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 10px 28px calc(var(--safe-bottom) + 12px) 28px;
+			}
+			.toolBtn{
+				display: inline-flex; align-items: center; justify-content: center;
+				width: 44px; height: 44px; border-radius: 50%;
+				cursor: pointer; color: #fff; background: transparent; border: none;
+			}
+			.toolBtn:active{ background: rgba(255,255,255,.12); }
+			.toolBtn svg{ width: 26px; height: 26px; }
+			.toolBtn.danger{ color: #ff5b50; }
 
-            $(document).ready(function(){
-                //Load the latest image
-                initPhotoList();
-            });
+			/* ===== Confirm dialog (iOS-style) ===== */
+			.overlay{
+				position: fixed; inset: 0;
+				background: rgba(0,0,0,.55);
+				display: none; align-items: center; justify-content: center;
+				z-index: 6000;
+			}
+			.overlay.show{ display: flex; }
+			.sheet{
+				width: 280px; max-width: 84%;
+				background: rgba(44,44,46,.95);
+				border-radius: 16px;
+				overflow: hidden;
+				text-align: center;
+				backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+			}
+			.sheet .body{ padding: 18px 18px 14px 18px; }
+			.sheet .title{ font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+			.sheet .msg{ font-size: 13px; color: #c8c8cc; line-height: 1.35; }
+			.sheet .row{ display: flex; border-top: 1px solid rgba(255,255,255,.12); }
+			.sheet .row .act{
+				flex: 1; padding: 13px 0; font-size: 16px; cursor: pointer; color: #0a84ff;
+			}
+			.sheet .row .act:active{ background: rgba(255,255,255,.08); }
+			.sheet .row .act.destructive{ color: #ff453a; font-weight: 700; }
+			.sheet .row .act + .act{ border-left: 1px solid rgba(255,255,255,.12); }
 
-            function initPhotoList(overrideIndex = 0){
-                ao_module_agirun("Camera/backend/listPhoto.js",{
-                    savetarget: saveTarget,
-                }, function(data){
-                    if (data.error !== undefined || data == ""){
-                        //No photo
-                    }else{
-                        //Load it
-                        currentViewingPhoto = overrideIndex;
-                        photoList = data;
-                        if (overrideIndex > photoList.length - 1){
-                            overrideIndex = photoList.length - 1;
-                        }
-                        $("#viewpoint").attr('src', '../media/?file=' + data[overrideIndex]);
-                    }
-                });
-            }
+			/* ===== Editor ===== */
+			.editor{
+				position: fixed; inset: 0;
+				background: #000;
+				display: none; flex-direction: column;
+				z-index: 5000;
+			}
+			.editor.show{ display: flex; }
+			.editTop{
+				display: flex; align-items: center; justify-content: space-between;
+				padding: calc(var(--safe-top) + 10px) 18px 10px 18px;
+			}
+			.editTop .txtBtn{
+				font-size: 16px; cursor: pointer; padding: 6px 4px;
+			}
+			.editTop .txtBtn.cancel{ color: #fff; }
+			.editTop .txtBtn.save{ color: var(--accent); font-weight: 700; }
+			.editTop .editTitle{ font-size: 15px; font-weight: 600; color: #fff; }
 
-            function confirmDelete(){
-                //Generate a confirm message
-                var filedata = photoList[currentViewingPhoto].split("/");
-                var filename = filedata.pop();
-                $("#confirmmsg").text("Confirm Delete " + filename + "?")
+			.editStage{
+				flex: 1 1 auto; min-height: 0;
+				display: flex; align-items: center; justify-content: center;
+				padding: 16px;
+				overflow: hidden;
+			}
+			.imgWrap{ position: relative; touch-action: none; }
+			#editImg{ display: block; width: 100%; height: 100%; }
+			.cropBox{
+				position: absolute;
+				border: 1px solid rgba(255,255,255,.95);
+				box-shadow: 0 0 0 9999px rgba(0,0,0,.55);
+				box-sizing: border-box;
+				touch-action: none;
+				cursor: move;
+			}
+			/* rule-of-thirds guides inside crop box */
+			.cropBox::before, .cropBox::after{
+				content: ""; position: absolute; background: rgba(255,255,255,.35);
+			}
+			.cropBox::before{ left: 33.33%; right: 33.33%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,.3); border-right: 1px solid rgba(255,255,255,.3); background: transparent; }
+			.cropBox::after{ top: 33.33%; bottom: 33.33%; left: 0; right: 0; border-top: 1px solid rgba(255,255,255,.3); border-bottom: 1px solid rgba(255,255,255,.3); background: transparent; }
+			.cropHandle{
+				position: absolute; width: 26px; height: 26px;
+				touch-action: none; z-index: 2;
+			}
+			.cropHandle::after{
+				content: ""; position: absolute; width: 18px; height: 18px;
+				border: 3px solid #fff;
+			}
+			.cropHandle.tl{ left: -13px; top: -13px; cursor: nwse-resize; }
+			.cropHandle.tl::after{ left: 8px; top: 8px; border-right: none; border-bottom: none; }
+			.cropHandle.tr{ right: -13px; top: -13px; cursor: nesw-resize; }
+			.cropHandle.tr::after{ right: 8px; top: 8px; border-left: none; border-bottom: none; }
+			.cropHandle.bl{ left: -13px; bottom: -13px; cursor: nesw-resize; }
+			.cropHandle.bl::after{ left: 8px; bottom: 8px; border-right: none; border-top: none; }
+			.cropHandle.br{ right: -13px; bottom: -13px; cursor: nwse-resize; }
+			.cropHandle.br::after{ right: 8px; bottom: 8px; border-left: none; border-top: none; }
 
-                $("#confirmDelete").modal('show');
-            }
+			.editTools{
+				flex: 0 0 auto;
+				display: flex; align-items: center; justify-content: center;
+				gap: 30px;
+				padding: 14px 0 calc(var(--safe-bottom) + 18px) 0;
+			}
+			.editTool{
+				display: flex; flex-direction: column; align-items: center; gap: 4px;
+				cursor: pointer; color: #fff;
+			}
+			.editTool svg{ width: 26px; height: 26px; }
+			.editTool span{ font-size: 11px; color: #c8c8cc; }
 
-            function deleteThis(){
-                var filedata = photoList[currentViewingPhoto].split("/");
-                var filename = filedata.pop();
+			.toast{
+				position: fixed; top: calc(var(--safe-top) + 70px); left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0,0,0,.8); color: #fff;
+				padding: 9px 16px; border-radius: 14px; font-size: 13px;
+				z-index: 9000; opacity: 0; transition: opacity .25s ease;
+				pointer-events: none; max-width: 80%; text-align: center;
+			}
+			.toast.show{ opacity: 1; }
+			.hidden{ display: none !important; }
+		</style>
+	</head>
+	<body>
+		<div id="app">
+			<!-- Top bar -->
+			<div class="topbar">
+				<div class="pillBtn" onclick="backToCamera();" title="Back">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+				</div>
+				<div class="dateHeader" id="dateHeader">
+					<div class="d1" id="dateLine1">Camera</div>
+					<div class="d2" id="dateLine2"></div>
+				</div>
+				<div class="counter" id="counter"></div>
+			</div>
 
-                ao_module_agirun("Camera/backend/delPhoto.js", {
-                    savetarget: saveTarget,
-                    filename: filename
-                }, function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        //OK. Reload the list
-                        initPhotoList(currentViewingPhoto);
-                    }
-                })
-            }
+			<!-- Image stage -->
+			<div class="stage" id="stage">
+				<img id="viewpoint" src="img/place-holder.png">
+				<video id="videopoint" controls playsinline class="hidden"></video>
+				<div class="navArrow left" onclick="previousPhoto();">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+				</div>
+				<div class="navArrow right" onclick="nextPhoto();">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+				</div>
+			</div>
 
-            function openInFolder(){
-                if (currentViewingPhoto == ""){
-                    //Unknown error. open the DCIM folder
-                    ao_module_openPath(saveTarget);
-                }else{
-                    //Open the folder and highlight the picture
-                    var filedata = photoList[currentViewingPhoto].split("/");
-                    var filename = filedata.pop();
-                    var fileRoot = filedata.join("/");
-                    ao_module_openPath(fileRoot, filename);
-                }
-                
-            }
+			<!-- Filmstrip -->
+			<div class="filmstrip" id="filmstrip"></div>
 
+			<!-- Bottom toolbar -->
+			<div class="toolbar">
+				<div class="toolBtn" onclick="openInFolder();" title="Show in File Manager">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+				</div>
+				<div class="toolBtn" id="editBtn" onclick="openEditor();" title="Edit">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>
+				</div>
+				<div class="toolBtn danger" onclick="confirmDelete();" title="Delete">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+				</div>
+			</div>
+		</div>
 
-            function nextPhoto(){
-                if (currentViewingPhoto == photoList.length - 1){
-                    //Already the last photo
-                }else{
-                    renderPhotoByPath(currentViewingPhoto + 1);
-                }
-            }
+		<!-- Delete confirm -->
+		<div class="overlay" id="confirmOverlay">
+			<div class="sheet">
+				<div class="body">
+					<div class="title">Delete Photo</div>
+					<div class="msg" id="confirmMsg">This operation is not reversible. Are you sure you want to delete this item?</div>
+				</div>
+				<div class="row">
+					<div class="act" onclick="hideConfirm();">Cancel</div>
+					<div class="act destructive" onclick="deleteThis();">Delete</div>
+				</div>
+			</div>
+		</div>
 
-            function previousPhoto(){
-                if (currentViewingPhoto == 0){
-                    //Already the firs photo
-                }else{
-                    renderPhotoByPath(currentViewingPhoto - 1);
-                }
-                
-            }
+		<!-- Editor -->
+		<div class="editor" id="editor">
+			<div class="editTop">
+				<div class="txtBtn cancel" onclick="closeEditor();">Cancel</div>
+				<div class="editTitle">Edit</div>
+				<div class="txtBtn save" onclick="saveEdit();">Save</div>
+			</div>
+			<div class="editStage" id="editStage">
+				<div class="imgWrap" id="imgWrap">
+					<img id="editImg">
+					<div class="cropBox" id="cropBox">
+						<div class="cropHandle tl" data-h="tl"></div>
+						<div class="cropHandle tr" data-h="tr"></div>
+						<div class="cropHandle bl" data-h="bl"></div>
+						<div class="cropHandle br" data-h="br"></div>
+					</div>
+				</div>
+			</div>
+			<div class="editTools">
+				<div class="editTool" onclick="rotateImage(-90);">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+					<span>Left</span>
+				</div>
+				<div class="editTool" onclick="rotateImage(90);">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+					<span>Right</span>
+				</div>
+				<div class="editTool" onclick="flipImage();">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 8l4 4-4 4z" fill="currentColor"/><path d="M21 8l-4 4 4 4z" fill="none"/></svg>
+					<span>Flip</span>
+				</div>
+				<div class="editTool" onclick="resetCrop();">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
+					<span>Reset</span>
+				</div>
+			</div>
+		</div>
 
-            function renderPhotoByPath(index){
-                if (photoList[index] != undefined){
-                    currentViewingPhoto = index;
-                    $("#viewpoint").attr('src', '../media/?file=' + photoList[index]);
-                }
-                
-            }
+		<div class="toast" id="toast"></div>
 
-            /*
-                Special code to handle swipe left and right
-                
-            */
+		<script>
+			/* ========================================================
+			   ArozOS Camera — iPhone-style photo viewer + basic editor
+			   ======================================================== */
+			let photoList = [];               // [{path, mtime, isVideo}]
+			let currentViewingPhoto = 0;
+			let saveTarget = "user:/Photo/DCIM/";
+			const VIDEO_EXT = ["mp4", "webm"];
 
-            document.addEventListener('touchstart', handleTouchStart, false);        
-            document.addEventListener('touchmove', handleTouchMove, false);
+			function isVideoPath(p){ return VIDEO_EXT.indexOf(("" + p).split(".").pop().toLowerCase()) >= 0; }
 
-            var xDown = null;                                                        
-            var yDown = null;
+			// rough pointer-device detection to show desktop nav arrows
+			if (window.matchMedia && window.matchMedia("(pointer: fine)").matches){
+				document.body.classList.add("hasmouse");
+			}
 
-            function getTouches(evt) {
-            return evt.touches ||             // browser API
-                    evt.originalEvent.touches; // jQuery
-            }                                                     
+			let toastTimer = null;
+			function toast(msg){
+				const t = $("#toast");
+				t.text(msg).addClass("show");
+				clearTimeout(toastTimer);
+				toastTimer = setTimeout(()=> t.removeClass("show"), 1800);
+			}
 
-            function handleTouchStart(evt) {
-                const firstTouch = getTouches(evt)[0];                                      
-                xDown = firstTouch.clientX;                                      
-                yDown = firstTouch.clientY;                                      
-            };                                                
+			function backToCamera(){ window.location.href = "index.html"; }
 
-            function handleTouchMove(evt) {
-                if ( ! xDown || ! yDown ) {
-                    return;
-                }
+			$(document).ready(function(){ initPhotoList(0); });
 
-                var xUp = evt.touches[0].clientX;                                    
-                var yUp = evt.touches[0].clientY;
+			$(document).on("keydown", function(e){
+				if ($("#editor").hasClass("show")) return;
+				if (e.keyCode == 39) nextPhoto();
+				else if (e.keyCode == 37) previousPhoto();
+			});
 
-                var xDiff = xDown - xUp;
-                var yDiff = yDown - yUp;
+			// ----- Load list -----
+			function initPhotoList(overrideIndex = 0){
+				ao_module_agirun("Camera/backend/listPhoto.js", { savetarget: saveTarget }, function(data){
+					if (!data || data.error !== undefined || data === "" || data.length === 0){
+						photoList = [];
+						$("#viewpoint").attr("src", "img/no-photo.png");
+						$("#dateLine1").text("No Photos");
+						$("#dateLine2").text("");
+						$("#counter").text("");
+						$("#filmstrip").empty();
+						return;
+					}
+					// normalize entries
+					photoList = data.map(function(it){
+						return { path: it.path, mtime: it.mtime, isVideo: isVideoPath(it.path) };
+					});
+					if (overrideIndex > photoList.length - 1) overrideIndex = photoList.length - 1;
+					if (overrideIndex < 0) overrideIndex = 0;
+					currentViewingPhoto = overrideIndex;
+					buildFilmstrip();
+					showPhoto(currentViewingPhoto);
+				});
+			}
 
-                if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
-                    if ( xDiff > 0 ) {
-                        /* left swipe */ 
-                        nextPhoto();
-                    } else {
-                        /* right swipe */
-                        previousPhoto();
-                    }                       
-                } else {
-                    if ( yDiff > 0 ) {
-                        /* up swipe */ 
-                    } else { 
-                        /* down swipe */
-                    }                                                                 
-                }
-                /* reset values */
-                xDown = null;
-                yDown = null;                                             
-            };
-        </script>
-    </body>
+			// ----- Render current media -----
+			function showPhoto(index){
+				if (photoList[index] === undefined) return;
+				currentViewingPhoto = index;
+				const item = photoList[index];
+				const src = "../media/?file=" + encodeURIComponent(item.path);
+				const img = document.getElementById("viewpoint");
+				const vid = document.getElementById("videopoint");
+				if (item.isVideo){
+					img.classList.add("hidden");
+					vid.classList.remove("hidden");
+					vid.src = src;
+				}else{
+					vid.pause(); vid.removeAttribute("src"); vid.load();
+					vid.classList.add("hidden");
+					img.classList.remove("hidden");
+					img.src = src;
+				}
+				updateDateHeader(item);
+				$("#counter").text((index + 1) + " / " + photoList.length);
+				$("#editBtn").css("opacity", item.isVideo ? ".35" : "1");
+				highlightThumb(index);
+			}
+
+			function updateDateHeader(item){
+				if (!item.mtime){ $("#dateLine1").text(""); $("#dateLine2").text(""); return; }
+				const d = new Date(item.mtime * 1000);
+				let weekday, time, datepart;
+				try{
+					weekday = d.toLocaleDateString(undefined, { weekday: "long" });
+					datepart = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+					time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+				}catch(e){
+					weekday = d.toDateString(); datepart = ""; time = d.toLocaleTimeString();
+				}
+				$("#dateLine1").text(weekday);
+				$("#dateLine2").text(datepart + " · " + time);
+			}
+
+			// ----- Filmstrip -----
+			function buildFilmstrip(){
+				const strip = $("#filmstrip");
+				strip.empty();
+				photoList.forEach(function(item, idx){
+					const thumb = $('<div class="thumb" data-idx="' + idx + '"></div>');
+					if (item.isVideo){
+						thumb.append('<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1c1c1e;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#888"><path d="M4 6h12v12H4z"/><path d="M16 9l5-3v12l-5-3z"/></svg></div>');
+						thumb.append('<div class="vbadge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h11v12H4z"/><path d="M16 9l5-3v12l-5-3z"/></svg></div>');
+					}else{
+						// Prefer the server-cached thumbnail; fall back to the
+						// full image if a thumbnail hasn't been generated yet.
+						var enc = encodeURIComponent(item.path);
+						thumb.append('<img loading="lazy" src="../../system/file_system/loadThumbnail?vpath=' + enc + '&bytes=true" onerror="this.onerror=null;this.src=\'../media/?file=' + enc + '\'">');
+					}
+					thumb.on("click", function(){ showPhoto(idx); });
+					strip.append(thumb);
+				});
+			}
+
+			function highlightThumb(index){
+				$(".thumb").removeClass("active");
+				const el = $('.thumb[data-idx="' + index + '"]');
+				el.addClass("active");
+				const node = el.get(0);
+				if (node && node.scrollIntoView){
+					node.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+				}
+			}
+
+			function nextPhoto(){ if (currentViewingPhoto < photoList.length - 1) showPhoto(currentViewingPhoto + 1); }
+			function previousPhoto(){ if (currentViewingPhoto > 0) showPhoto(currentViewingPhoto - 1); }
+
+			// ----- Open in File Manager -----
+			function openInFolder(){
+				if (photoList.length === 0){ ao_module_openPath(saveTarget); return; }
+				const parts = photoList[currentViewingPhoto].path.split("/");
+				const filename = parts.pop();
+				const fileRoot = parts.join("/");
+				ao_module_openPath(fileRoot, filename);
+			}
+
+			// ----- Delete -----
+			function confirmDelete(){
+				if (photoList.length === 0) return;
+				const filename = photoList[currentViewingPhoto].path.split("/").pop();
+				$("#confirmMsg").text('"' + filename + '" will be permanently deleted. This cannot be undone.');
+				$("#confirmOverlay").addClass("show");
+			}
+			function hideConfirm(){ $("#confirmOverlay").removeClass("show"); }
+			function deleteThis(){
+				hideConfirm();
+				if (photoList.length === 0) return;
+				const filename = photoList[currentViewingPhoto].path.split("/").pop();
+				ao_module_agirun("Camera/backend/delPhoto.js", { savetarget: saveTarget, filename: filename }, function(data){
+					if (data && data.error !== undefined){ toast(data.error); }
+					else { initPhotoList(currentViewingPhoto); }
+				});
+			}
+
+			/* ========================================================
+			   Built-in editor — crop & rotate
+			   ======================================================== */
+			let edRotation = 0;       // 0 / 90 / 180 / 270
+			let edFlipH = false;
+			let edBaseCanvas = null;  // full-res rotated+flipped image
+			let edDispScale = 1;      // base px per displayed px
+			let edCrop = { x:0, y:0, w:0, h:0 };  // displayed px, relative to image
+			let edNaturalImg = null;
+			let edExt = "jpg";
+
+			function openEditor(){
+				if (photoList.length === 0) return;
+				const item = photoList[currentViewingPhoto];
+				if (item.isVideo){ toast("Editing is only available for photos"); return; }
+				edExt = (item.path.split(".").pop().toLowerCase() === "png") ? "png" : "jpg";
+				edRotation = 0; edFlipH = false;
+				const img = new Image();
+				img.crossOrigin = "anonymous";
+				img.onload = function(){
+					edNaturalImg = img;
+					$("#editor").addClass("show");
+					requestAnimationFrame(function(){ renderBase(true); });
+				};
+				img.onerror = function(){ toast("Could not load image for editing"); };
+				img.src = "../media/?file=" + encodeURIComponent(item.path);
+			}
+
+			function closeEditor(){ $("#editor").removeClass("show"); edNaturalImg = null; edBaseCanvas = null; }
+
+			function rotateImage(delta){
+				edRotation = (edRotation + delta + 360) % 360;
+				renderBase(true);
+			}
+			function flipImage(){ edFlipH = !edFlipH; renderBase(true); }
+			function resetCrop(){ setCropFull(); }
+
+			// Build the rotated/flipped base canvas + fit it onto the stage
+			function renderBase(resetCropBox){
+				if (!edNaturalImg) return;
+				const iw = edNaturalImg.naturalWidth, ih = edNaturalImg.naturalHeight;
+				const swap = (edRotation === 90 || edRotation === 270);
+				const c = document.createElement("canvas");
+				c.width = swap ? ih : iw;
+				c.height = swap ? iw : ih;
+				const ctx = c.getContext("2d");
+				ctx.save();
+				ctx.translate(c.width / 2, c.height / 2);
+				ctx.rotate(edRotation * Math.PI / 180);
+				if (edFlipH) ctx.scale(-1, 1);
+				ctx.drawImage(edNaturalImg, -iw / 2, -ih / 2);
+				ctx.restore();
+				edBaseCanvas = c;
+
+				// fit into stage
+				const stage = document.getElementById("editStage");
+				const availW = stage.clientWidth - 32;
+				const availH = stage.clientHeight - 32;
+				const scale = Math.min(availW / c.width, availH / c.height);
+				const dispW = Math.max(1, Math.round(c.width * scale));
+				const dispH = Math.max(1, Math.round(c.height * scale));
+				const wrap = document.getElementById("imgWrap");
+				wrap.style.width = dispW + "px";
+				wrap.style.height = dispH + "px";
+				document.getElementById("editImg").src = c.toDataURL("image/png");
+				edDispScale = c.width / dispW;
+
+				if (resetCropBox) setCropFull();
+				else applyCropRect();
+			}
+
+			function setCropFull(){
+				const wrap = document.getElementById("imgWrap");
+				edCrop = { x:0, y:0, w: wrap.clientWidth, h: wrap.clientHeight };
+				applyCropRect();
+			}
+
+			function applyCropRect(){
+				const box = document.getElementById("cropBox");
+				box.style.left = edCrop.x + "px";
+				box.style.top = edCrop.y + "px";
+				box.style.width = edCrop.w + "px";
+				box.style.height = edCrop.h + "px";
+			}
+
+			// ----- Crop box drag / resize (pointer events) -----
+			(function setupCropInteractions(){
+				const box = document.getElementById("cropBox");
+				const wrap = document.getElementById("imgWrap");
+				let mode = null;       // 'move' | handle id
+				let startX = 0, startY = 0;
+				let startRect = null;
+				const MIN = 40;
+
+				function bounds(){ return { w: wrap.clientWidth, h: wrap.clientHeight }; }
+
+				function onDown(e, m){
+					mode = m;
+					const p = pointFromEvent(e);
+					startX = p.x; startY = p.y;
+					startRect = Object.assign({}, edCrop);
+					e.preventDefault();
+					e.stopPropagation();
+					window.addEventListener("pointermove", onMove);
+					window.addEventListener("pointerup", onUp);
+				}
+				function onMove(e){
+					if (!mode) return;
+					const p = pointFromEvent(e);
+					let dx = p.x - startX, dy = p.y - startY;
+					const b = bounds();
+					let r = Object.assign({}, startRect);
+
+					if (mode === "move"){
+						r.x = clamp(startRect.x + dx, 0, b.w - startRect.w);
+						r.y = clamp(startRect.y + dy, 0, b.h - startRect.h);
+					}else{
+						let left = startRect.x, top = startRect.y, right = startRect.x + startRect.w, bottom = startRect.y + startRect.h;
+						if (mode.indexOf("l") >= 0) left = clamp(startRect.x + dx, 0, right - MIN);
+						if (mode.indexOf("r") >= 0) right = clamp(startRect.x + startRect.w + dx, left + MIN, b.w);
+						if (mode.indexOf("t") >= 0) top = clamp(startRect.y + dy, 0, bottom - MIN);
+						if (mode.indexOf("b") >= 0) bottom = clamp(startRect.y + startRect.h + dy, top + MIN, b.h);
+						r.x = left; r.y = top; r.w = right - left; r.h = bottom - top;
+					}
+					edCrop = r;
+					applyCropRect();
+				}
+				function onUp(){
+					mode = null;
+					window.removeEventListener("pointermove", onMove);
+					window.removeEventListener("pointerup", onUp);
+				}
+
+				box.addEventListener("pointerdown", function(e){ onDown(e, "move"); });
+				["tl","tr","bl","br"].forEach(function(h){
+					box.querySelector(".cropHandle." + h).addEventListener("pointerdown", function(e){ onDown(e, h); });
+				});
+
+				function pointFromEvent(e){ return { x: e.clientX, y: e.clientY }; }
+				function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+			})();
+
+			// ----- Save edited image -----
+			function saveEdit(){
+				if (!edBaseCanvas){ return; }
+				const sx = Math.round(edCrop.x * edDispScale);
+				const sy = Math.round(edCrop.y * edDispScale);
+				const sw = Math.max(1, Math.round(edCrop.w * edDispScale));
+				const sh = Math.max(1, Math.round(edCrop.h * edDispScale));
+
+				const out = document.createElement("canvas");
+				out.width = sw; out.height = sh;
+				out.getContext("2d").drawImage(edBaseCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+				const mime = (edExt === "png") ? "image/png" : "image/jpeg";
+				const quality = (edExt === "png") ? undefined : 0.95;
+				const filename = editedFilename(photoList[currentViewingPhoto].path);
+				toast("Saving…");
+				out.toBlob(function(blob){
+					const file = ao_module_utils.blobToFile(blob, filename, mime);
+					uploadFile(file, rootOf(saveTarget), function(resp){
+						if (resp && resp.error){ toast("Save failed"); return; }
+						closeEditor();
+						toast("Saved as " + filename);
+						initPhotoList(0);   // newest first -> jump to the edited copy
+					});
+				}, mime, quality);
+			}
+
+			function rootOf(p){ return p.replace(/\/+$/,""); }
+
+			function editedFilename(origPath){
+				const name = origPath.split("/").pop();
+				const dot = name.lastIndexOf(".");
+				const base = dot >= 0 ? name.substring(0, dot) : name;
+				const d = new Date();
+				const p = function(n){ return String(n).padStart(2, "0"); };
+				const stamp = p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+				return base + "_edited_" + stamp + "." + edExt;
+			}
+
+			// ----- Upload helper -----
+			function uploadFile(file, uploadPath, callback){
+				const url = "../../system/file_system/upload";
+				const formData = new FormData();
+				const xhr = new XMLHttpRequest();
+				formData.append("file", file);
+				formData.append("path", uploadPath);
+				xhr.open("POST", url, true);
+				xhr.addEventListener("readystatechange", function(e){
+					if (xhr.readyState === 4){
+						if (xhr.status === 200){
+							let resp = {};
+							try{ resp = JSON.parse(e.target.response); }catch(_){}
+							if (callback) callback(resp);
+						}else if (callback){
+							callback({ error: "File upload failed" });
+						}
+					}
+				});
+				xhr.send(formData);
+			}
+
+			/* ----- Swipe navigation on the image stage ----- */
+			(function setupSwipe(){
+				const stage = document.getElementById("stage");
+				let xDown = null, yDown = null;
+				stage.addEventListener("touchstart", function(evt){
+					const t = evt.touches[0]; xDown = t.clientX; yDown = t.clientY;
+				}, { passive: true });
+				stage.addEventListener("touchend", function(evt){
+					if (xDown === null) return;
+					// ignore swipes that land on video controls
+					const t = evt.changedTouches[0];
+					const dx = t.clientX - xDown, dy = t.clientY - yDown;
+					if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)){
+						if (dx < 0) nextPhoto(); else previousPhoto();
+					}
+					xDown = null; yDown = null;
+				}, { passive: true });
+			})();
+		</script>
+	</body>
 </html>

@@ -405,7 +405,7 @@ func TestCheckDeviceMounted_InvalidDevice(t *testing.T) {
 		t.Skip("Linux-only")
 	}
 	// A device name that almost certainly does not exist will cause lsblk grep
-	// to exit with status 1 (grep found nothing) → checkDeviceMounted returns error.
+	// to exit with status 1 (grep found nothing) --> checkDeviceMounted returns error.
 	mounted, err := checkDeviceMounted("nonexistentxyz999")
 	if err == nil && mounted {
 		t.Error("expected checkDeviceMounted to return false or error for non-existent device")
@@ -447,7 +447,7 @@ func TestGetDeviceMountPoint_EmptyName(t *testing.T) {
 	}
 	_, err := getDeviceMountPoint("")
 	// Empty string: lsblk output piped through grep "" prints everything.
-	// json.Unmarshal will fail → error expected.
+	// json.Unmarshal will fail --> error expected.
 	t.Logf("getDeviceMountPoint(''): err=%v", err)
 }
 

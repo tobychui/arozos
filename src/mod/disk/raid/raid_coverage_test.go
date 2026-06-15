@@ -39,7 +39,7 @@ func TestGetRAIDUsedSizePathPrefix(t *testing.T) {
 // /proc/mdstat, we test the logic path via a non-existent device.
 func TestIsSafeToRemoveReturnsFalseOnError(t *testing.T) {
 	m := &Manager{}
-	// A non-existent RAID device → GetRAIDDeviceByDevicePath errors → return false
+	// A non-existent RAID device --> GetRAIDDeviceByDevicePath errors --> return false
 	result := m.IsSafeToRemove("/dev/md_nonexistent", "/dev/sda1")
 	if result {
 		t.Error("expected false for non-existent RAID device")
@@ -408,7 +408,7 @@ func TestCreateVirtualPartitionSmall(t *testing.T) {
 	imgPath := "/tmp/raid_test_create_partition.img"
 	defer os.Remove(imgPath)
 
-	// totalSize=0 → count = "0M" → dd creates empty file quickly
+	// totalSize=0 --> count = "0M" --> dd creates empty file quickly
 	err := CreateVirtualPartition(imgPath, 0)
 	if err != nil {
 		t.Logf("CreateVirtualPartition error (may be expected): %v", err)

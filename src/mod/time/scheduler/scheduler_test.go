@@ -939,7 +939,7 @@ func TestHandleAddJob_MissingName(t *testing.T) {
 	defer env.cleanup()
 
 	cookie := env.loginCookie(t)
-	// No "name" param → "Invalid task name"
+	// No "name" param --> "Invalid task name"
 	body := url.Values{}
 	req := newAuthReq(http.MethodPost, "/scheduler/add", cookie, body)
 	rr := httptest.NewRecorder()
@@ -1440,7 +1440,7 @@ func TestHandleAppRegisterJob_DefaultScriptName(t *testing.T) {
 	os.WriteFile(webDir+"/cron.agi", []byte("sendOK();"), 0644)
 
 	cookie := env.loginCookie(t)
-	// No "scriptname" param → defaults to "cron.agi"
+	// No "scriptname" param --> defaults to "cron.agi"
 	body := url.Values{
 		"appname":  {"MyApp5"},
 		"taskname": {"DefaultScriptTask"},
@@ -1798,14 +1798,14 @@ func TestCreateTicker_TriggersExecuteJob(t *testing.T) {
 	env := newAuthTestEnv(t)
 	defer env.cleanup()
 
-	// interval=1 means (now - 0) % 1 == 0 always → executeJob fires on first tick
+	// interval=1 means (now - 0) % 1 == 0 always --> executeJob fires on first tick
 	env.scheduler.jobs = append(env.scheduler.jobs, &Job{
 		Name:              "TickerExecuteJob",
 		Creator:           "admin",
 		ExecutionInterval: 1, // fires every second
 		BaseTime:          0, // (now - 0) % 1 == 0 always
 		FshID:             WebRootFshID,
-		ScriptVpath:       "NoSuchApp/missing.agi", // script doesn't exist → job removed
+		ScriptVpath:       "NoSuchApp/missing.agi", // script doesn't exist --> job removed
 	})
 
 	stopChan := env.scheduler.createTicker(50 * time.Millisecond)

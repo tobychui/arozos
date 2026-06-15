@@ -222,7 +222,7 @@ func TestCleanExpiredVersionBackups_RemovesOldVersions(t *testing.T) {
 		t.Fatalf("CreateFileSnapshot failed: %v", err)
 	}
 
-	// maxReserveTime = -1 → all files are guaranteed "too old" (now - mtime > -1 always true)
+	// maxReserveTime = -1 --> all files are guaranteed "too old" (now - mtime > -1 always true)
 	// Using a negative value ensures time.Now().Unix()-mtime > maxReserveTime is always true.
 	CleanExpiredVersionBackups(fsh, dir, -1)
 
@@ -249,7 +249,7 @@ func TestCleanExpiredVersionBackups_KeepsRecentVersions(t *testing.T) {
 		t.Fatalf("CreateFileSnapshot failed: %v", err)
 	}
 
-	// maxReserveTime = 1 year → nothing should be removed
+	// maxReserveTime = 1 year --> nothing should be removed
 	CleanExpiredVersionBackups(fsh, dir, 365*24*3600)
 
 	vl, err := GetFileVersionData(fsh, target)

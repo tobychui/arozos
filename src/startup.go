@@ -142,13 +142,12 @@ func RunStartup() {
 	AuthSettingsInit()        //Authentication Settings Handler, must be start after user Handler
 	AdvanceSettingInit()      //System Advance Settings
 	AIModelSettingInit()      //AI Model (OpenAI / Anthropic) config, pricing, quota & usage metrics
-	AGIRuntimeManagerInit()   //AGI VM lifecycle monitor (Developer Options tab)
+	AGIRuntimeManagerInit()  //AGI VM lifecycle monitor (Developer Options tab)
 	StartupFlagsInit()        //System BootFlag settibg
 	HardwarePowerInit()       //Start host power manager
 	RegisterStorageSettings() //Storage Settings
 
 	//10. Startup network services and schedule services
-	CalDAVInit()         //CalDAV calendar sync server (iOS bidirectional sync)
 	NetworkServiceInit() //Initalize network serves (ssdp / mdns etc)
 	WiFiInit()           //Inialize WiFi management module
 

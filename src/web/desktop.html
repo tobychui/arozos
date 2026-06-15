@@ -1468,6 +1468,9 @@
         var backgroundIntervalCounter; //The interval object for background changer
         var desktopThemeColor = ""; //The current desktop theme color, which renders to the status bar and suchs
 
+        //Module-registered extension icons (ext without dot → web-root-relative path)
+        var extIconRegistry = {};
+
         //Desktop icon realted
         var desktopIconSize = "medium"; //Size of desktop icons. Allow {small / medium / big}
         var desktopIconPack = "default"; //Desktop icon pack to be used. Located under desktop/file_icon/{pack-name}
@@ -1571,6 +1574,12 @@
 
 
         function initDesktop(){
+            //Fetch module-registered extension icons once so the desktop can use them
+            $.get("system/modules/exticons", function(data) {
+                if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                if (data && typeof data === "object") { extIconRegistry = data; }
+            });
+
             //Initiation functions
             initDesktopTheme();
             initDesktopHostInfo();
@@ -3990,6 +3999,10 @@
             //Get the icon from extension
             var icon = ao_module_utils.getIconFromExt(filedata.Ext.substring(1, filedata.Ext.length));
             var imagePath = "img/desktop/files_icon/" + desktopIconPack + "/" + icon + ".png";
+            //Use module-registered icon for proprietary/unrecognised extensions
+            if (icon === "file outline" && extIconRegistry[filedata.Ext.substring(1).toLowerCase()]) {
+                imagePath = extIconRegistry[filedata.Ext.substring(1).toLowerCase()];
+            }
             //Handle special icon types here
             var size = desktopIconSize;
             var filename = JSON.parse(JSON.stringify(filedata.Filename));

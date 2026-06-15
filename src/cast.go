@@ -9,11 +9,11 @@ package main
 	commands in real time using a shared 4-digit room code.
 
 	Endpoints (all require login):
-	  POST /api/arozcast/create              → {"code":"1234"}
-	  GET  /api/arozcast/close?code=XXXX    → "OK"
-	  GET  /api/arozcast/ping?code=XXXX     → {"exists":true/false}
-	  POST /api/arozcast/publish            → "OK"  (code=, msg=)
-	  GET  /api/arozcast/ws?code=XXXX       → WebSocket upgrade
+	  POST /api/arozcast/create              --> {"code":"1234"}
+	  GET  /api/arozcast/close?code=XXXX    --> "OK"
+	  GET  /api/arozcast/ping?code=XXXX     --> {"exists":true/false}
+	  POST /api/arozcast/publish            --> "OK"  (code=, msg=)
+	  GET  /api/arozcast/ws?code=XXXX       --> WebSocket upgrade
 
 	Room lifecycle / idle timeouts
 	──────────────────────────────
