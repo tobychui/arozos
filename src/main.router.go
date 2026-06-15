@@ -64,6 +64,16 @@ func mrouter(h http.Handler) http.Handler {
 			}
 			h.ServeHTTP(w, r)
 
+		} else if len(r.URL.Path) >= len("/caldav") && r.URL.Path[:7] == "/caldav" {
+			//CalDAV sub-router (bidirectional calendar sync for iOS)
+			if CalDAVHandler == nil {
+				errorHandleInternalServerError(w, r)
+				return
+			}
+			CalDAVHandler.ServeHTTP(w, r)
+		} else if r.URL.Path == "/.well-known/caldav" {
+			//CalDAV service discovery redirect (RFC 6764)
+			http.Redirect(w, r, "/caldav/", http.StatusMovedPermanently)
 		} else if len(r.URL.Path) >= len("/webdav") && r.URL.Path[:7] == "/webdav" {
 			//WebDAV sub-router
 			if WebDAVManager == nil {
