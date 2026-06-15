@@ -53,6 +53,7 @@
             </div>
             <button class="fileOprBtn tabletAndDesktopOnly" title="Delete" onclick="deleteFile();"><img class="opricon" src="img/opr/delete.svg"><p class="oprtxt" locale="fileopr/Delete">Delete</p></button>
             <button class="fileOprBtn" title="Share File" onclick="shareFile();"><img class="opricon" src="img/opr/share.svg"><p class="oprtxt wideScreenOnly" locale="fileopr/Share">Share</p></button>
+            <button class="fileOprBtn" title="Upload Link" onclick="showUploadLinkManager(); exitMultiSelectMode();"><i class="upload icon" style="font-size: 24px; padding-top: 9px; color:#0f766e;"></i><p class="oprtxt wideScreenOnly" locale="fileopr/Upload Link">Upload Link</p></button>
             <div class="fileoprGroupDivider" style="display: inline-block; vertical-align: top;"></div>
             <button class="mobileOnly mobileFileOprMenu" onclick="toggleMobileSidebar(true);">
                 <i class="ui large bars icon"></i>
@@ -106,6 +107,7 @@
                 <button class="fileoprSmallBtnMobile" title="Refresh" onclick="refreshList(); toggleMobileSidebar(false);"><i class="green refresh icon"></i> <span locale="fileopr/Refresh">Refresh</span></button><br>
                 <button class="fileoprSmallBtnMobile" title="Home" onclick="openHomeDir(); toggleMobileSidebar(false, exitMultiSelectMode);"><i class="home icon"></i> <span locale="fileopr/Home">Home</span></button><br>
                 <button class="fileoprSmallBtnMobile" title="File Info" onclick="showFileProperties(); toggleMobileSidebar(false, exitMultiSelectMode);"><i class="blue info circle icon"></i> <span locale="fileopr/File Info">File Info</span></button><br>
+                <button class="fileoprSmallBtnMobile" title="Upload Link" onclick="showUploadLinkManager(); toggleMobileSidebar(false, exitMultiSelectMode);"><i class="upload icon"></i> <span locale="fileopr/Upload Link">Upload Link</span></button><br>
             </div>
             <br>
             <!-- Directoy navigations -->
@@ -378,6 +380,27 @@
             </div>
         </div>
 
+        <!-- Upload Link Dialog-->
+        <div id="uploadLinkManager" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="upload icon"></i> <span locale="opr/uploadlink/title">Upload Link</span>
+                <div class="popupcloser" onclick="hideUploadLinkManager();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div>
+                <iframe id="uploadLinkEmbedded" style="border: 0px solid transparent; width: 100%; height: 70vh;" allowtransparency="true">
+
+                </iframe>
+            </div>
+            <div style="padding:12px;">
+                <div class="ui divider"></div>
+                <div class="popupbuttons allowHover" onclick="hideUploadLinkManager();">
+                    <i class="checkmark icon"></i> <span locale="opr/share/ok">OK</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Open With Dialog-->
         <div id="openWith" class="popup" style="display:none;">
             <div class="popupheader">
@@ -456,6 +479,12 @@
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="upload();">
                 <i class="upload icon"></i>  <span locale="contextmenu/upload">Upload</span>
+            </div>
+            <div class="item noSelectionOnly" onclick="showUploadLinkManager(currentPath);">
+                <i class="cloud upload icon"></i> <span locale="contextmenu/uploadlink">Create Upload Link</span>
+            </div>
+            <div class="item folderonly singleObjectOnlyHide" onclick="showUploadLinkManager(getSelectedUploadLinkTarget());">
+                <i class="cloud upload icon"></i> <span locale="contextmenu/uploadlink">Create Upload Link</span>
             </div>
             <div class="item" onclick="zipFile();">
                 <i class="zip file icon"></i> <span locale="contextmenu/zip">Create Zip</span>
@@ -3719,6 +3748,7 @@
 
                 //Resize the share iframe
                 resizeShareIframe()
+                resizeUploadLinkIframe()
 
                 //Resize the path display content
                 if (!pathInputMode){
@@ -3744,6 +3774,10 @@
 
             function resizeShareIframe(){
                 $("#shareFileEmbedded").css("height", $("#shareFile").height() - 126 + "px");
+            }
+
+            function resizeUploadLinkIframe(){
+                $("#uploadLinkEmbedded").css("height", $("#uploadLinkManager").height() - 126 + "px");
             }
             
             function shareFile(){
@@ -3855,6 +3889,39 @@
             function hideShare(){
                 hideAllPopupWindows();
                 $("#shareFileEmbedded").attr("src", "");
+            }
+
+            function getSelectedUploadLinkTarget(){
+                var selectedFolder = $(".fileObject.selected[type='folder']").first();
+                if (selectedFolder.length > 0){
+                    return selectedFolder.attr("filepath");
+                }
+                return currentPath;
+            }
+
+            function showUploadLinkManager(targetPath=undefined){
+                if (targetPath == undefined || targetPath == ""){
+                    targetPath = currentPath;
+                }
+
+                var selectedFileObject = {
+                    "filename": targetPath.split("/").filter(function(segment){
+                        return segment != "";
+                    }).pop() || targetPath,
+                    "filepath": targetPath
+                };
+                var payload = encodeURIComponent(JSON.stringify([selectedFileObject]));
+                $("#uploadLinkEmbedded").attr("src", "file_upload_link.html#" + payload);
+                resizeUploadLinkIframe();
+
+                hideAllPopupWindows();
+                showPopupWrapper();
+                $("#uploadLinkManager").transition('slide left');
+            }
+
+            function hideUploadLinkManager(){
+                hideAllPopupWindows();
+                $("#uploadLinkEmbedded").attr("src", "");
             }
 
             function exitMultiSelectMode(){
@@ -5488,6 +5555,9 @@
             $('body').css("overflow","");
             if($("#shareFile").is(":visible")){
                 $("#shareFileEmbedded").attr("src", "");
+            }
+            if($("#uploadLinkManager").is(":visible")){
+                $("#uploadLinkEmbedded").attr("src", "");
             }
         }
 

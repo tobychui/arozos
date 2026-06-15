@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Upload Link</title>
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="../../script/ao.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.min.js"></script>
+        <script src="../../script/ao_module.js"></script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <style>
+            body {
+                background: var(--body_background) !important;
+                padding: 10px;
+            }
+            .darkTheme:not(a) {
+                color: #eeeeee;
+            }
+            .linkText {
+                word-break: break-all;
+                overflow-wrap: anywhere;
+                font-size: 0.92em;
+            }
+            .usageMeta {
+                color: #666;
+                font-size: 0.86em;
+                margin-top: 0.35em;
+            }
+            .darkTheme .usageMeta {
+                color: #bbb;
+            }
+            .ui.segment {
+                border-radius: 8px !important;
+            }
+            .inlineFields {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+                gap: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ui small header">
+            <i class="upload icon"></i>
+            <div class="content">
+                Anonymous Upload Links
+                <div id="targetPath" class="sub header"></div>
+            </div>
+        </div>
+
+        <div class="ui form">
+            <div class="inlineFields">
+                <div class="field">
+                    <label>TTL (hours)</label>
+                    <input id="ttlHours" type="number" min="1" value="24">
+                </div>
+                <div class="field">
+                    <label>File count</label>
+                    <input id="maxFileCount" type="number" min="1" value="10">
+                </div>
+                <div class="field">
+                    <label>Max file (MB)</label>
+                    <input id="maxFileSizeMB" type="number" min="1" value="100">
+                </div>
+                <div class="field">
+                    <label>Total size (MB)</label>
+                    <input id="maxTotalSizeMB" type="number" min="1" value="1024">
+                </div>
+            </div>
+            <button id="createButton" class="ui primary button" onclick="createUploadLink();">
+                <i class="add icon"></i> Create Link
+            </button>
+            <button class="ui basic button" onclick="loadUploadLinks();">
+                <i class="refresh icon"></i> Refresh
+            </button>
+        </div>
+
+        <div class="ui divider"></div>
+        <div id="message" class="ui message" style="display:none;"></div>
+        <div id="linkList" class="ui relaxed divided list"></div>
+
+        <script>
+            var targetInfo = {};
+            var relpath = "../../";
+
+            if ($(parent) && $(parent.document).find("body").hasClass("darkTheme")){
+                $("body").addClass("darkTheme");
+                $(".ui.message").addClass("inverted");
+            }
+
+            $(document).ready(function(){
+                $(".dropdown").dropdown();
+                loadTargetInfo();
+                loadUploadLinks();
+            });
+
+            function loadTargetInfo(){
+                if (window.location.hash == ""){
+                    showMessage("No target folder selected.", true);
+                    return;
+                }
+                try {
+                    var decoded = decodeURIComponent(window.location.hash.substring(1));
+                    var payload = JSON.parse(decoded);
+                    if (Array.isArray(payload)){
+                        targetInfo = payload[0] || {};
+                    }else{
+                        targetInfo = payload || {};
+                    }
+                } catch (e){
+                    showMessage("Unable to read target folder.", true);
+                    return;
+                }
+                $("#targetPath").text(targetInfo.filepath || "");
+            }
+
+            function createUploadLink(){
+                if (!targetInfo.filepath){
+                    showMessage("No target folder selected.", true);
+                    return;
+                }
+                $("#createButton").addClass("loading disabled");
+                $.ajax({
+                    url: relpath + "../system/file_system/share/upload/new",
+                    method: "POST",
+                    data: {
+                        path: targetInfo.filepath,
+                        ttl: Math.max(1, Number($("#ttlHours").val() || 24)) * 3600,
+                        maxFileCount: Math.max(1, Number($("#maxFileCount").val() || 10)),
+                        maxFileSize: Math.max(1, Number($("#maxFileSizeMB").val() || 100)) * 1048576,
+                        maxTotalSize: Math.max(1, Number($("#maxTotalSizeMB").val() || 1024)) * 1048576
+                    },
+                    success: function(data){
+                        $("#createButton").removeClass("loading disabled");
+                        if (data.error !== undefined){
+                            showMessage(data.error, true);
+                            return;
+                        }
+                        showMessage("Upload link created.", false);
+                        loadUploadLinks();
+                    },
+                    error: function(){
+                        $("#createButton").removeClass("loading disabled");
+                        showMessage("Failed to create upload link.", true);
+                    }
+                });
+            }
+
+            function loadUploadLinks(){
+                if (!targetInfo.filepath){
+                    return;
+                }
+                $("#linkList").html(`<div class="item"><i class="loading spinner icon"></i> Loading</div>`);
+                $.ajax({
+                    url: relpath + "../system/file_system/share/upload/list",
+                    method: "GET",
+                    data: { path: targetInfo.filepath },
+                    success: function(data){
+                        if (data.error !== undefined){
+                            showMessage(data.error, true);
+                            $("#linkList").empty();
+                            return;
+                        }
+                        renderUploadLinks(data);
+                    },
+                    error: function(){
+                        showMessage("Failed to load upload links.", true);
+                        $("#linkList").empty();
+                    }
+                });
+            }
+
+            function renderUploadLinks(links){
+                $("#linkList").empty();
+                if (!links || links.length == 0){
+                    $("#linkList").html(`<div class="item"><div class="content"><div class="description">No upload links for this folder.</div></div></div>`);
+                    return;
+                }
+                links.forEach(function(link){
+                    var disabled = link.Disabled ? " disabled" : "";
+                    var expired = link.ExpiresUnix > 0 && Date.now() > link.ExpiresUnix * 1000;
+                    var status = link.Disabled ? "Disabled" : (expired ? "Expired" : "Active");
+                    var item = $(`
+                        <div class="item">
+                            <i class="large upload middle aligned icon"></i>
+                            <div class="content">
+                                <div class="header">${status}</div>
+                                <a class="linkText" href="${escapeAttr(link.URL)}" target="_blank">${escapeHtml(link.URL)}</a>
+                                <div class="usageMeta">
+                                    ${link.UploadedFileCount}/${link.MaxFileCount} files,
+                                    ${formatBytes(link.UploadedBytes)} / ${formatBytes(link.MaxTotalSize)},
+                                    max file ${formatBytes(link.MaxFileSize)},
+                                    expires ${formatTime(link.ExpiresUnix)}
+                                </div>
+                                <div style="margin-top: 0.7em;">
+                                    <button class="ui mini basic button" onclick="copyUploadLink('${link.UUID}')"><i class="copy icon"></i> Copy</button>
+                                    <button class="ui mini negative basic button${disabled}" onclick="deleteUploadLink('${link.UUID}')"><i class="remove icon"></i> Revoke</button>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    item.data("url", link.URL);
+                    item.attr("id", "upload-link-" + link.UUID);
+                    $("#linkList").append(item);
+                });
+            }
+
+            function deleteUploadLink(uuid){
+                $.ajax({
+                    url: relpath + "../system/file_system/share/upload/delete",
+                    method: "POST",
+                    data: { uuid: uuid },
+                    success: function(data){
+                        if (data.error !== undefined){
+                            showMessage(data.error, true);
+                            return;
+                        }
+                        showMessage("Upload link revoked.", false);
+                        loadUploadLinks();
+                    },
+                    error: function(){
+                        showMessage("Failed to revoke upload link.", true);
+                    }
+                });
+            }
+
+            function copyUploadLink(uuid){
+                var url = $("#upload-link-" + uuid).data("url");
+                if (navigator.clipboard){
+                    navigator.clipboard.writeText(url);
+                }else{
+                    var input = document.createElement("input");
+                    input.value = url;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(input);
+                }
+                showMessage("Upload link copied.", false);
+            }
+
+            function showMessage(message, isError){
+                $("#message").removeClass("red green");
+                $("#message").addClass(isError ? "red" : "green");
+                $("#message").text(message).show();
+            }
+
+            function formatBytes(bytes){
+                if (bytes < 0) return "Unlimited";
+                var units = ["B", "KB", "MB", "GB", "TB"];
+                var value = Number(bytes);
+                var unit = 0;
+                while (value >= 1024 && unit < units.length - 1){
+                    value = value / 1024;
+                    unit++;
+                }
+                return value.toFixed(value >= 10 || unit == 0 ? 0 : 1) + " " + units[unit];
+            }
+
+            function formatTime(unix){
+                if (!unix || unix <= 0) return "Never";
+                return new Date(unix * 1000).toLocaleString();
+            }
+
+            function escapeHtml(input){
+                return String(input).replace(/[&<>"']/g, function(char){
+                    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[char];
+                });
+            }
+
+            function escapeAttr(input){
+                return escapeHtml(input);
+            }
+        </script>
+    </body>
+</html>

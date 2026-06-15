@@ -48,8 +48,10 @@ type Options struct {
 	AuthAgent       *auth.AuthAgent
 	UserHandler     *user.UserHandler
 	ShareEntryTable *shareEntry.ShareEntryTable
+	UploadLinkTable *shareEntry.UploadLinkTable
 	HostName        string
 	TmpFolder       string
+	MaxUploadSize   int64
 }
 
 // ZipJob tracks the state of an async zip operation
@@ -66,15 +68,18 @@ type ZipJob struct {
 }
 
 type Manager struct {
-	options Options
-	zipJobs sync.Map // map[string]*ZipJob
+	options             Options
+	zipJobs             sync.Map // map[string]*ZipJob
+	uploadNameMu        sync.Mutex
+	uploadReservedNames map[string]bool
 }
 
 // Create a new Share Manager
 func NewShareManager(options Options) *Manager {
 	//Return a new manager object
 	return &Manager{
-		options: options,
+		options:             options,
+		uploadReservedNames: map[string]bool{},
 	}
 }
 
@@ -282,6 +287,10 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	{
 		cleanParts := strings.Split(strings.TrimPrefix(filepath.ToSlash(filepath.Clean(r.URL.Path)), "/"), "/")
 		if len(cleanParts) >= 3 {
+			if cleanParts[1] == "upload" {
+				s.HandleUploadLinkAccess(w, r, cleanParts)
+				return
+			}
 			switch cleanParts[1] {
 			case "zip-status":
 				s.handleZipStatus(w, r, cleanParts[2])
@@ -290,6 +299,10 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				s.handleZipDownload(w, r, cleanParts[2])
 				return
 			}
+		}
+		if len(cleanParts) >= 2 && cleanParts[1] == "upload" {
+			s.HandleUploadLinkAccess(w, r, cleanParts)
+			return
 		}
 	}
 
