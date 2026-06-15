@@ -250,6 +250,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sa
         <span locale="calendar/sidebar/export-ics">Export as .ics</span>
       </button>
     </div>
+    <div class="sb-section">
+      <div class="sb-section-title">Sync</div>
+      <button class="sb-btn" onclick="openCalDAVModal()" title="Sync with iOS via CalDAV">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        <span>Sync with iOS / macOS</span>
+      </button>
+    </div>
   </aside>
   <div id="viewArea"></div>
 </div>
@@ -1235,6 +1242,90 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
     });
   }
 })();
+
+// ── CalDAV Sync Modal ──────────────────────────────────────────────────
+function openCalDAVModal(){
+  var modal = document.getElementById('caldavModal');
+  modal.classList.remove('hidden');
+  var statusEl = document.getElementById('caldavStatus');
+  var urlEl    = document.getElementById('caldavURL');
+  var userEl   = document.getElementById('caldavUser');
+  var passEl   = document.getElementById('caldavPass');
+  statusEl.textContent = 'Loading credentials…';
+  urlEl.value = ''; userEl.value = ''; passEl.value = '';
+  ao_module_api('/api/caldav/credentials', function(resp){
+    try {
+      var data = typeof resp === 'string' ? JSON.parse(resp) : resp;
+      if(data.error){ statusEl.textContent = 'Error: ' + data.error; return; }
+      urlEl.value  = data.serverURL;
+      userEl.value = data.username;
+      passEl.value = data.token;
+      statusEl.textContent = '';
+    } catch(e){ statusEl.textContent = 'Failed to load credentials.'; }
+  }, function(){ statusEl.textContent = 'Request failed.'; });
+}
+function closeCalDAVModal(){ document.getElementById('caldavModal').classList.add('hidden'); }
+function copyCalDAVField(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.select(); el.setSelectionRange(0,9999);
+  try{ document.execCommand('copy'); snack('Copied!'); }
+  catch(e){ snack('Copy failed'); }
+}
 </script>
+
+<!-- CalDAV Sync Modal -->
+<div class="modal-back hidden" id="caldavModal" onclick="if(event.target===this)closeCalDAVModal()">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-hdr" style="padding-bottom:12px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+      <span style="font-size:17px;font-weight:600;margin-left:4px">Sync with iOS / macOS</span>
+    </div>
+    <div class="modal-body" style="padding-bottom:8px">
+      <p style="margin:0 0 14px;font-size:13px;color:var(--text2)">
+        Enter these details in <strong>iOS Settings → Calendar → Accounts → Add Account → Other → Add CalDAV Account</strong>.
+      </p>
+      <p id="caldavStatus" style="color:var(--text2);font-size:13px;min-height:16px"></p>
+      <div class="f-row" style="margin-bottom:10px">
+        <span class="f-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg></span>
+        <div class="f-body">
+          <div class="f-lbl">Server</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="caldavURL" readonly style="flex:1;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:monospace">
+            <button class="tb-btn" onclick="copyCalDAVField('caldavURL')" title="Copy">&#x2398;</button>
+          </div>
+        </div>
+      </div>
+      <div class="f-row" style="margin-bottom:10px">
+        <span class="f-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <div class="f-body">
+          <div class="f-lbl">Username</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="caldavUser" readonly style="flex:1;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:monospace">
+            <button class="tb-btn" onclick="copyCalDAVField('caldavUser')" title="Copy">&#x2398;</button>
+          </div>
+        </div>
+      </div>
+      <div class="f-row" style="margin-bottom:4px">
+        <span class="f-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+        <div class="f-body">
+          <div class="f-lbl">Password (auto-login token)</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="caldavPass" readonly type="password" style="flex:1;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:monospace">
+            <button class="tb-btn" onclick="copyCalDAVField('caldavPass')" title="Copy">&#x2398;</button>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin:10px 0 0">
+        The password is your ArozOS auto-login token. Keep it private — it grants access to your account.
+      </p>
+    </div>
+    <div class="modal-foot">
+      <div class="mf-spacer"></div>
+      <button class="cancel-btn" onclick="closeCalDAVModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
