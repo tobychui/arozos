@@ -1,22 +1,32 @@
 package caldav
 
 /*
-	caldav.go - CalDAV server for ArozOS Calendar
+	caldav.go - CalDAV server for ArozOS Calendar and Reminders
 
 	Implements a subset of RFC 4791 (CalDAV) sufficient for bidirectional
-	sync with iOS Calendar.  Events are stored in the same JSON file used
-	by the Calendar web-app (user:/Document/Calendar/events.json) so both
-	interfaces share the same data without any migration.
+	sync with iOS Calendar and iOS Reminders.  Two calendar collections are
+	exposed under one principal:
+
+	  - "calendar"  : VEVENT components, backed by the Calendar web-app file
+	                  (user:/Document/Calendar/events.json)
+	  - "reminders" : VTODO components, backed by the Reminders web-app file
+	                  (user:/Document/Reminders/data.json)
+
+	Both share the same data files used by their web-apps, so the desktop
+	and iOS stay in sync without any migration.  Recurring events and
+	reminders are supported by passing RRULE through in both directions.
 
 	Authentication: HTTP Basic Auth where
 	  username = ArozOS username
 	  password = an ArozOS auto-login token for that user
 
 	URL layout:
-	  /caldav/                                  service root (principal discovery)
-	  /caldav/{username}/                       user principal
-	  /caldav/{username}/calendar/              calendar collection
-	  /caldav/{username}/calendar/{id}.ics      individual event resource
+	  /caldav/                                   service root (principal discovery)
+	  /caldav/{username}/                        user principal & calendar home
+	  /caldav/{username}/calendar/               event collection (VEVENT)
+	  /caldav/{username}/calendar/{id}.ics       individual event resource
+	  /caldav/{username}/reminders/              reminder collection (VTODO)
+	  /caldav/{username}/reminders/{id}.ics      individual reminder resource
 */
 
 import (
@@ -46,6 +56,7 @@ type CalendarEvent struct {
 	Notes    string         `json:"notes,omitempty"`
 	Reminder *EventReminder `json:"reminder,omitempty"`
 	Color    string         `json:"color,omitempty"`
+	RRule    string         `json:"rrule,omitempty"` // RFC 5545 recurrence rule, e.g. "FREQ=WEEKLY"
 }
 
 // EventReminder matches the reminder sub-object in events.json.
@@ -158,9 +169,11 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request, path st
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
 		}
-		h.propfindPrincipal(w, username)
+		h.propfindPrincipal(w, username, depth)
 	case len(parts) == 2 && parts[1] == "calendar":
 		h.propfindCalendar(w, username, depth)
+	case len(parts) == 2 && parts[1] == "reminders":
+		h.propfindReminders(w, username, depth)
 	default:
 		http.Error(w, "Not Found", http.StatusNotFound)
 	}
@@ -183,24 +196,44 @@ func (h *Handler) propfindRoot(w http.ResponseWriter, username string) {
 	writeXML(w, body)
 }
 
-func (h *Handler) propfindPrincipal(w http.ResponseWriter, username string) {
+// propfindPrincipal answers PROPFIND on /caldav/{username}/.  This URL doubles
+// as both the user principal and the calendar-home-set; a Depth:1 request
+// enumerates the child calendar collections (events + reminders) so iOS can
+// discover both the Calendar and Reminders services from a single account.
+func (h *Handler) propfindPrincipal(w http.ResponseWriter, username string, depth string) {
 	principalHref := h.prefix + "/" + username + "/"
-	calHomeHref := h.prefix + "/" + username + "/calendar/"
-	body := xmlHeader() +
-		`<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` + "\n" +
-		`  <D:response>` + "\n" +
-		`    <D:href>` + principalHref + `</D:href>` + "\n" +
-		`    <D:propstat>` + "\n" +
-		`      <D:prop>` + "\n" +
-		`        <D:displayname>` + xmlEsc(username) + `</D:displayname>` + "\n" +
-		`        <D:principal-URL><D:href>` + principalHref + `</D:href></D:principal-URL>` + "\n" +
-		`        <C:calendar-home-set><D:href>` + calHomeHref + `</D:href></C:calendar-home-set>` + "\n" +
-		`      </D:prop>` + "\n" +
-		`      <D:status>HTTP/1.1 200 OK</D:status>` + "\n" +
-		`    </D:propstat>` + "\n" +
-		`  </D:response>` + "\n" +
-		`</D:multistatus>`
-	writeXML(w, body)
+
+	var sb strings.Builder
+	sb.WriteString(xmlHeader())
+	sb.WriteString(`<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/">` + "\n")
+	sb.WriteString(`  <D:response>` + "\n")
+	sb.WriteString(`    <D:href>` + principalHref + `</D:href>` + "\n")
+	sb.WriteString(`    <D:propstat>` + "\n")
+	sb.WriteString(`      <D:prop>` + "\n")
+	sb.WriteString(`        <D:resourcetype><D:collection/><D:principal/></D:resourcetype>` + "\n")
+	sb.WriteString(`        <D:displayname>` + xmlEsc(username) + `</D:displayname>` + "\n")
+	sb.WriteString(`        <D:current-user-principal><D:href>` + principalHref + `</D:href></D:current-user-principal>` + "\n")
+	sb.WriteString(`        <D:principal-URL><D:href>` + principalHref + `</D:href></D:principal-URL>` + "\n")
+	sb.WriteString(`        <C:calendar-home-set><D:href>` + principalHref + `</D:href></C:calendar-home-set>` + "\n")
+	sb.WriteString(`      </D:prop>` + "\n")
+	sb.WriteString(`      <D:status>HTTP/1.1 200 OK</D:status>` + "\n")
+	sb.WriteString(`    </D:propstat>` + "\n")
+	sb.WriteString(`  </D:response>` + "\n")
+
+	if depth != "0" {
+		// Enumerate the two calendar collections so clients see both.
+		if events, err := h.loadEvents(username); err == nil {
+			sb.WriteString(calendarCollectionResponse(
+				h.prefix+"/"+username+"/calendar/", "ArozOS Calendar", "VEVENT", collectionCTag(events)))
+		}
+		if reminders, err := h.loadReminders(username); err == nil {
+			sb.WriteString(calendarCollectionResponse(
+				h.prefix+"/"+username+"/reminders/", "ArozOS Reminders", "VTODO", remindersCTag(reminders)))
+		}
+	}
+
+	sb.WriteString(`</D:multistatus>`)
+	writeXML(w, sb.String())
 }
 
 func (h *Handler) propfindCalendar(w http.ResponseWriter, username string, depth string) {
@@ -212,23 +245,11 @@ func (h *Handler) propfindCalendar(w http.ResponseWriter, username string, depth
 	}
 
 	calHref := h.prefix + "/" + username + "/calendar/"
-	ctag := collectionCTag(events)
 
 	var sb strings.Builder
 	sb.WriteString(xmlHeader())
 	sb.WriteString(`<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/">` + "\n")
-	sb.WriteString(`  <D:response>` + "\n")
-	sb.WriteString(`    <D:href>` + calHref + `</D:href>` + "\n")
-	sb.WriteString(`    <D:propstat>` + "\n")
-	sb.WriteString(`      <D:prop>` + "\n")
-	sb.WriteString(`        <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` + "\n")
-	sb.WriteString(`        <D:displayname>ArozOS Calendar</D:displayname>` + "\n")
-	sb.WriteString(`        <C:supported-calendar-component-set><C:comp name="VEVENT"/></C:supported-calendar-component-set>` + "\n")
-	sb.WriteString(`        <CS:getctag>` + ctag + `</CS:getctag>` + "\n")
-	sb.WriteString(`      </D:prop>` + "\n")
-	sb.WriteString(`      <D:status>HTTP/1.1 200 OK</D:status>` + "\n")
-	sb.WriteString(`    </D:propstat>` + "\n")
-	sb.WriteString(`  </D:response>` + "\n")
+	sb.WriteString(calendarCollectionResponse(calHref, "ArozOS Calendar", "VEVENT", collectionCTag(events)))
 
 	if depth != "0" {
 		for _, ev := range events {
@@ -238,6 +259,49 @@ func (h *Handler) propfindCalendar(w http.ResponseWriter, username string, depth
 
 	sb.WriteString(`</D:multistatus>`)
 	writeXML(w, sb.String())
+}
+
+// propfindReminders answers PROPFIND on the VTODO (reminders) collection.
+func (h *Handler) propfindReminders(w http.ResponseWriter, username string, depth string) {
+	reminders, err := h.loadReminders(username)
+	if err != nil {
+		logger.PrintAndLog("CalDAV", "load reminders for "+username, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	remHref := h.prefix + "/" + username + "/reminders/"
+
+	var sb strings.Builder
+	sb.WriteString(xmlHeader())
+	sb.WriteString(`<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/">` + "\n")
+	sb.WriteString(calendarCollectionResponse(remHref, "ArozOS Reminders", "VTODO", remindersCTag(reminders)))
+
+	if depth != "0" {
+		for _, rm := range reminders {
+			sb.WriteString(eventPropfindResponse(remHref+rm.ID+".ics", reminderETag(rm)))
+		}
+	}
+
+	sb.WriteString(`</D:multistatus>`)
+	writeXML(w, sb.String())
+}
+
+// calendarCollectionResponse renders the <D:response> for a calendar collection
+// advertising the given supported component (VEVENT or VTODO).
+func calendarCollectionResponse(href, displayName, compName, ctag string) string {
+	return `  <D:response>` + "\n" +
+		`    <D:href>` + href + `</D:href>` + "\n" +
+		`    <D:propstat>` + "\n" +
+		`      <D:prop>` + "\n" +
+		`        <D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` + "\n" +
+		`        <D:displayname>` + xmlEsc(displayName) + `</D:displayname>` + "\n" +
+		`        <C:supported-calendar-component-set><C:comp name="` + compName + `"/></C:supported-calendar-component-set>` + "\n" +
+		`        <CS:getctag>` + ctag + `</CS:getctag>` + "\n" +
+		`      </D:prop>` + "\n" +
+		`      <D:status>HTTP/1.1 200 OK</D:status>` + "\n" +
+		`    </D:propstat>` + "\n" +
+		`  </D:response>` + "\n"
 }
 
 func eventPropfindResponse(href, etag string) string {
@@ -258,7 +322,12 @@ func eventPropfindResponse(href, etag string) string {
 
 func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path string, username string) {
 	parts := splitURLPath(path)
-	if len(parts) < 2 || parts[1] != "calendar" {
+	if len(parts) < 2 {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	collection := parts[1]
+	if collection != "calendar" && collection != "reminders" {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
@@ -268,38 +337,56 @@ func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path stri
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
-
-	events, err := h.loadEvents(username)
-	if err != nil {
-		logger.PrintAndLog("CalDAV", "load events for "+username, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	calHref := h.prefix + "/" + username + "/calendar/"
 	bodyStr := string(body)
+
+	collHref := h.prefix + "/" + username + "/" + collection + "/"
 
 	// For calendar-multiget, only return the requested hrefs.
 	var filterIDs map[string]bool
 	if strings.Contains(bodyStr, "calendar-multiget") {
-		filterIDs = hrefsToIDSet(bodyStr, calHref)
+		filterIDs = hrefsToIDSet(bodyStr, collHref)
+	}
+
+	// (id, etag, ics) tuples for the requested collection.
+	type resource struct{ id, etag, ics string }
+	var resources []resource
+
+	if collection == "reminders" {
+		reminders, err := h.loadReminders(username)
+		if err != nil {
+			logger.PrintAndLog("CalDAV", "load reminders for "+username, err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		for _, rm := range reminders {
+			resources = append(resources, resource{rm.ID, reminderETag(rm), reminderToICS(rm)})
+		}
+	} else {
+		events, err := h.loadEvents(username)
+		if err != nil {
+			logger.PrintAndLog("CalDAV", "load events for "+username, err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		for _, ev := range events {
+			resources = append(resources, resource{ev.ID, eventETag(ev), eventToICS(ev)})
+		}
 	}
 
 	var sb strings.Builder
 	sb.WriteString(xmlHeader())
 	sb.WriteString(`<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` + "\n")
 
-	for _, ev := range events {
-		if filterIDs != nil && !filterIDs[ev.ID] {
+	for _, res := range resources {
+		if filterIDs != nil && !filterIDs[res.id] {
 			continue
 		}
-		icsData := eventToICS(ev)
 		sb.WriteString(`  <D:response>` + "\n")
-		sb.WriteString(`    <D:href>` + calHref + ev.ID + `.ics</D:href>` + "\n")
+		sb.WriteString(`    <D:href>` + collHref + res.id + `.ics</D:href>` + "\n")
 		sb.WriteString(`    <D:propstat>` + "\n")
 		sb.WriteString(`      <D:prop>` + "\n")
-		sb.WriteString(`        <D:getetag>` + eventETag(ev) + `</D:getetag>` + "\n")
-		sb.WriteString(`        <C:calendar-data>` + xmlEsc(icsData) + `</C:calendar-data>` + "\n")
+		sb.WriteString(`        <D:getetag>` + res.etag + `</D:getetag>` + "\n")
+		sb.WriteString(`        <C:calendar-data>` + xmlEsc(res.ics) + `</C:calendar-data>` + "\n")
 		sb.WriteString(`      </D:prop>` + "\n")
 		sb.WriteString(`      <D:status>HTTP/1.1 200 OK</D:status>` + "\n")
 		sb.WriteString(`    </D:propstat>` + "\n")
@@ -313,9 +400,13 @@ func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path stri
 // ── GET / HEAD ────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, path string, username string) {
-	eventID := extractEventID(path)
+	collection, eventID := parseResourcePath(path)
 	if eventID == "" {
 		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	if collection == "reminders" {
+		h.handleGetReminder(w, r, eventID, username)
 		return
 	}
 
@@ -345,7 +436,7 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, path string,
 // ── PUT ───────────────────────────────────────────────────────────────────────
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, path string, username string) {
-	eventID := extractEventID(path)
+	collection, eventID := parseResourcePath(path)
 	if eventID == "" {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -354,6 +445,11 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, path string,
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	if collection == "reminders" {
+		h.handlePutReminder(w, string(body), eventID, username)
 		return
 	}
 
@@ -404,9 +500,13 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, path string,
 // ── DELETE ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request, path string, username string) {
-	eventID := extractEventID(path)
+	collection, eventID := parseResourcePath(path)
 	if eventID == "" {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	if collection == "reminders" {
+		h.handleDeleteReminder(w, eventID, username)
 		return
 	}
 
@@ -527,11 +627,25 @@ func splitURLPath(path string) []string {
 // extractEventID returns the event ID encoded in a path like
 // /{username}/calendar/{id}.ics, or "" if the path is not an event URL.
 func extractEventID(path string) string {
-	parts := splitURLPath(path)
-	if len(parts) != 3 || parts[1] != "calendar" {
+	collection, id := parseResourcePath(path)
+	if collection != "calendar" {
 		return ""
 	}
-	return strings.TrimSuffix(parts[2], ".ics")
+	return id
+}
+
+// parseResourcePath splits a resource URL such as /{username}/{collection}/{id}.ics
+// into its collection ("calendar" or "reminders") and resource ID.  Both are
+// returned empty when the path does not address a known resource.
+func parseResourcePath(path string) (collection string, id string) {
+	parts := splitURLPath(path)
+	if len(parts) != 3 {
+		return "", ""
+	}
+	if parts[1] != "calendar" && parts[1] != "reminders" {
+		return "", ""
+	}
+	return parts[1], strings.TrimSuffix(parts[2], ".ics")
 }
 
 // hrefsToIDSet parses href elements from a calendar-multiget body and
