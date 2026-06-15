@@ -40,3 +40,4 @@ src/mod/**/system/auth/authlog.db.lock
 src/launcher.exe
 .DS_Store
 src/ffmpeg
+/src/dist
