@@ -34,6 +34,14 @@ warn() { printf '  [WARN]  %s\n' "$1" >&2; warns=$((warns + 1)); }
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
+# emoji_bytes is the UTF-8 lead-byte pair (0xF0 0x9F) shared by the pictographic
+# emoji planes U+1F000–U+1FFFF (faces, objects, symbols, regional-indicator
+# flags) — i.e. the colourful emoji people actually paste. Matching just these
+# two bytes keeps the check byte-oriented and free of false positives on smart
+# quotes / em-dashes (which live in the 0xE2 range), and portable across
+# BusyBox/BSD/GNU grep (rule 5: no system dependencies).
+emoji_bytes=$(printf '\360\237')
+
 # is_platform_file returns success when a Go file is scoped to a single OS/arch
 # by its filename suffix (e.g. foo_linux.go, bar_windows_amd64.go). Such files
 # are the project's sanctioned home for platform-specific code, so the
@@ -90,6 +98,19 @@ check_lines() {
 	fi
 }
 
+# check_emoji flags literal Unicode emoji in a stream of source lines on stdin.
+# $1 is the file the lines belong to. Emoji are never allowed in the program
+# (rule 6): draw an inline SVG or use one of the project's icon libraries
+# instead. Applies to both Go and front-end (HTML/JS/CSS) sources.
+check_emoji() {
+	file=$1
+	scan=$(grep -v 'arozos-lint-ignore' || true)
+	hits=$(printf '%s\n' "$scan" | LC_ALL=C grep -c "$emoji_bytes" 2>/dev/null || true)
+	if [ -n "$hits" ] && [ "$hits" != "0" ]; then
+		err "$file: contains a literal Unicode emoji. Emoji are not allowed — draw an inline SVG or use a project icon library (Semantic UI <i class=\"... icon\"> first, else a local SVG); see \"Icon and emoji policy\" in CLAUDE.md (rule 6)."
+	fi
+}
+
 # check_file applies the file-level rules to a single Go source file path.
 check_file() {
 	file=$1
@@ -127,13 +148,18 @@ scan_one() {
 		license_reminder
 		return
 		;;
-	*.go) ;;
+	*.go)
+		# Single-file / hook mode scans the whole file content.
+		check_lines "$file" <"$file"
+		check_emoji "$file" <"$file"
+		check_file "$file"
+		;;
+	*.html | *.htm | *.js | *.mjs | *.css)
+		# Front-end sources: emoji policy only (rule 6).
+		check_emoji "$file" <"$file"
+		;;
 	*) return ;;
 	esac
-
-	# Single-file / hook mode scans the whole file content.
-	check_lines "$file" <"$file"
-	check_file "$file"
 }
 
 mode=${1:---help}
@@ -162,7 +188,7 @@ case "$mode" in
 		exit 1
 	fi
 	cd "$repo_root" || exit 1
-	changed=$(git diff --name-only --diff-filter=ACM "$base" -- '*.go' 'go.mod' 'go.sum' '**/go.mod' '**/go.sum')
+	changed=$(git diff --name-only --diff-filter=ACM "$base" -- '*.go' 'go.mod' 'go.sum' '**/go.mod' '**/go.sum' '*.html' '*.htm' '*.js' '*.mjs' '*.css')
 	[ -z "$changed" ] && {
 		echo "No Go/module changes to check." >&2
 		exit 0
@@ -174,20 +200,25 @@ case "$mode" in
 	printf '%s\n' "$changed" >"$tmp"
 	while IFS= read -r f; do
 		[ -n "$f" ] || continue
+		emoji_only=""
 		case "$f" in
 		go.mod | go.sum | */go.mod | */go.sum)
 			license_reminder
 			continue
 			;;
 		*.go) ;;
+		*.html | *.htm | *.js | *.mjs | *.css) emoji_only=1 ;;
 		*) continue ;;
 		esac
 		printf 'Checking %s\n' "$f" >&2
 		# Diff mode only scans *added* lines for the per-line rules. Feed them
-		# via redirection (not a pipe) so check_lines runs in this shell.
+		# via redirection (not a pipe) so the checks run in this shell.
 		git diff -U0 "$base" -- "$f" | grep -E '^\+' | grep -Ev '^\+\+\+' | sed 's/^+//' >"$added"
-		check_lines "$f" <"$added"
-		check_file "$f"
+		check_emoji "$f" <"$added"
+		if [ -z "$emoji_only" ]; then
+			check_lines "$f" <"$added"
+			check_file "$f"
+		fi
 	done <"$tmp"
 	rm -f "$tmp" "$added"
 	;;
