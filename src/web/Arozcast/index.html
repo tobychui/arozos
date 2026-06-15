@@ -264,6 +264,27 @@
             height: 100%; background: var(--accent);
             transition: width .5s linear;
         }
+
+        /* ── Mobile / responsive ─────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .waiting-screen { padding: 24px; }
+            .brand-logo { margin-bottom: 28px; gap: 10px; }
+            .brand-name { font-size: 22px; }
+            .brand-logo .cast-icon { width: 48px !important; }
+            .code-label { font-size: 12px; margin-bottom: 12px; }
+            .code-display { gap: 8px; margin-bottom: 24px; }
+            /* Shrink the code tiles so three of them never overflow a phone screen */
+            .code-digit { width: 18vw; max-width: 64px; height: 24vw; max-height: 80px; font-size: 11vw; border-radius: 11px; }
+            .waiting-hint { font-size: 13px; }
+            .track-name { font-size: 18px; max-width: 80vw; }
+            .track-artist { font-size: 13px; }
+            /* Toolbar hugs the screen width with a small inset on each side */
+            .toolbar { bottom: 16px; gap: 6px; padding: 7px 12px; min-width: 0; max-width: none; width: calc(100vw - 24px); }
+            .tb-btn { width: 34px; height: 34px; }
+            .tb-filename { font-size: 12px; }
+            .disconnected-banner { font-size: 10px; padding: 5px 14px; max-width: calc(100vw - 24px); white-space: normal; text-align: center; }
+            .disconnected-notice { max-width: calc(100vw - 48px); }
+        }
     </style>
 </head>
 <body>

@@ -118,6 +118,17 @@
         #codeInput{
             width: 100%;
         }
+
+        /* ── Mobile / responsive ─────────────────────────────────────── */
+        @media (max-width: 420px) {
+            html, body { padding: 16px; }
+            .header { margin-bottom: 24px; gap: 12px; }
+            .card { padding: 18px; }
+            .code-input { font-size: 24px; padding: 11px 12px; }
+            /* Stack the share controls so the labels never get clipped */
+            .controls-row { flex-wrap: wrap; }
+            .controls-row .btn { flex: 1 1 100%; }
+        }
     </style>
 </head>
 <body>

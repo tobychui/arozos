@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <title>Calendar</title>
 <script src="../script/jquery.min.js"></script>
 <script src="../script/ao_module.js"></script>
@@ -31,7 +31,11 @@ body.dark{
   --ev-purple-bg:rgba(168,85,247,.18);--ev-purple-bd:#c084fc;--ev-purple-tx:#d8b4fe;
   --ev-teal-bg:rgba(20,184,166,.18);--ev-teal-bd:#2dd4bf;--ev-teal-tx:#5eead4;
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:grid;grid-template-rows:52px 1fr}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-rows:52px 1fr}
+
+/* HAMBURGER — only shown on narrow screens (see media query) */
+.menu-btn{display:none;background:none;border:none;cursor:pointer;padding:5px 6px;border-radius:var(--r3);color:var(--accent);line-height:1;align-items:center}
+.menu-btn:hover{background:var(--hover2)}
 
 /* TOOLBAR */
 #toolbar{display:flex;align-items:center;gap:6px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--bg2);user-select:none;flex-shrink:0}
@@ -209,11 +213,45 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sa
 /* SNACKBAR */
 #snackbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);padding:8px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9999;background:var(--text);color:var(--bg);white-space:nowrap}
 #snackbar.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* SIDEBAR BACKDROP (mobile off-canvas) */
+#sidebarScrim{display:none}
+
+/* ── MOBILE / RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width:768px){
+  /* Toolbar: drop the title, let it wrap so the view switcher gets its own row */
+  body{grid-template-rows:auto 1fr}
+  #toolbar{flex-wrap:wrap;padding:6px 10px;gap:5px 6px}
+  .app-title{display:none}
+  .menu-btn{display:inline-flex}
+  .period-label{flex:1;min-width:0;font-size:14px;text-align:left}
+  .tb-spacer{display:none}
+  /* The view switcher wraps to a full-width second row */
+  .view-switcher{order:1;flex:1 1 100%}
+  .view-btn{flex:1;text-align:center}
+  .tb-btn{font-size:21px;padding:5px 6px}
+
+  /* Main area becomes single-column; sidebar slides in over the content */
+  #main{grid-template-columns:1fr}
+  #sidebar{position:fixed;top:0;left:0;z-index:40;height:100vh;height:100dvh;width:80vw;max-width:280px;transform:translateX(-100%);transition:transform .22s ease;box-shadow:var(--shadow)}
+  #sidebar.open{transform:translateX(0)}
+  #sidebarScrim{display:block;position:fixed;inset:0;z-index:39;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s}
+  #sidebarScrim.open{opacity:1;pointer-events:auto}
+
+  /* Roomier cells / tap targets */
+  .month-cell{min-height:0;padding:3px}
+  .wk-dd{font-size:18px}
+  .sb-btn{padding:9px 8px}
+  .modal{width:100%;max-width:calc(100vw - 24px)}
+}
 </style>
 </head>
 <body>
 
 <header id="toolbar">
+  <button class="menu-btn" title="Menu" onclick="toggleSidebar()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
   <span class="app-title" locale="calendar/app/title">Calendar</span>
   <button class="today-btn" onclick="goToday()" locale="calendar/btn/today">Today</button>
   <button class="tb-btn" onclick="navPrev()">&#8249;</button>
@@ -253,6 +291,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sa
   </aside>
   <div id="viewArea"></div>
 </div>
+
+<!-- Backdrop for the mobile off-canvas sidebar -->
+<div id="sidebarScrim" onclick="closeSidebar()"></div>
 
 <!-- Event Modal -->
 <div class="modal-back hidden" id="eventModal">
@@ -464,6 +505,10 @@ function applyDark(dark){
 }
 function toggleDark(){ applyDark(!S.dark); }
 
+// ── Mobile off-canvas sidebar (no-op on desktop where it's a static column) ──
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarScrim').classList.toggle('open'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarScrim').classList.remove('open'); }
+
 // ── Mini calendar ─────────────────────────────────────────────────────
 function renderMiniCal(){
   var a=S.miniCalAnchor, y=a.getFullYear(), mo=a.getMonth();
@@ -493,7 +538,7 @@ function getViewDays(){
 }
 function mcPrev(){ S.miniCalAnchor=new Date(S.miniCalAnchor.getFullYear(),S.miniCalAnchor.getMonth()-1,1); renderMiniCal(); }
 function mcNext(){ S.miniCalAnchor=new Date(S.miniCalAnchor.getFullYear(),S.miniCalAnchor.getMonth()+1,1); renderMiniCal(); }
-function mcDayClick(y,mo,day){ S.anchor=new Date(y,mo,day); S.miniCalAnchor=new Date(y,mo,1); render(); }
+function mcDayClick(y,mo,day){ S.anchor=new Date(y,mo,day); S.miniCalAnchor=new Date(y,mo,1); render(); closeSidebar(); }
 
 // ── Navigation ────────────────────────────────────────────────────────
 function goToday(){ S.anchor=new Date(); S.miniCalAnchor=new Date(S.anchor.getFullYear(),S.anchor.getMonth(),1); render(); }
@@ -1146,6 +1191,7 @@ function exportICS(){
     lines.push('END:VEVENT');
   });
   lines.push('END:VCALENDAR');
+  closeSidebar();
   var blob=new Blob([lines.join('\r\n')],{type:'text/calendar;charset=utf-8'});
   var url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url; a.download='calendar.ics'; document.body.appendChild(a); a.click();
@@ -1153,12 +1199,14 @@ function exportICS(){
   snack(L('calendar/snack/exported-n','Exported {n} event(s)').replace('{n}',S.events.length));
 }
 function importFromComputer(){
+  closeSidebar();
   ao_module_selectFiles(function(files){
     if(!files||!files.length) return;
     var r=new FileReader(); r.onload=function(ev){ processICSText(ev.target.result); }; r.readAsText(files[0]);
   },'file','.ics',false);
 }
 function importFromFiles(){
+  closeSidebar();
   ao_module_openFileSelector(function(sel){
     if(!sel||!sel.length) return;
     apiImportIcs(sel[0].filepath||sel[0],function(resp){
