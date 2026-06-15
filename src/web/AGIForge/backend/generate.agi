@@ -1,0 +1,175 @@
+/*
+    AGI Forge — script generation backend
+    =====================================
+    Turns a plain-language request into a ready-to-run AGI script using the
+    configured AI model. The model is grounded with:
+        - the authoritative AGI API reference (Terminal/docs/api.json)
+        - the list of ao_modules (apps) installed on this server
+        - the AGI Forge output / runtime conventions
+
+    POST parameters:
+        prompt   : the user's natural language request (string)
+        history  : JSON array of prior turns [{role:"user"|"assistant", content}]
+        options  : JSON object { model, temperature }
+
+    Response (JSON):
+        { ok:true,  explanation:"...", script:"...", model:"...", usage:{...} }
+        { ok:false, error:"..." }
+*/
+
+requirelib("aimodel");
+requirelib("appdata");
+
+/* ── helpers ─────────────────────────────────────────────────────────────── */
+
+function trim(s) { return ("" + s).replace(/^\s+/, "").replace(/\s+$/, ""); }
+
+//Build a compact, token-friendly API reference from the canonical api.json.
+function buildApiRef() {
+	var raw = "";
+	try { raw = appdata.readFile("Terminal/docs/api.json"); } catch (e) { return ""; }
+	var doc; try { doc = JSON.parse(raw); } catch (e) { return ""; }
+	if (!doc || !doc.sections) return "";
+
+	var lines = [];
+	for (var i = 0; i < doc.sections.length; i++) {
+		var s = doc.sections[i];
+		var head = "## " + s.name;
+		if (s.load) {
+			head += "  (load: " + s.load + ")";
+		} else if (s.id && s.id != "core" && s.id != "db" && s.id != "user") {
+			head += "  (requirelib(\"" + s.id + "\"))";
+		}
+		lines.push(head);
+		var fns = s.functions || [];
+		for (var j = 0; j < fns.length; j++) {
+			var f = fns[j];
+			var l = "  " + (f.sig || f.name);
+			if (f.ret && f.ret != "void") l += " -> " + f.ret;
+			if (f.desc) l += "   // " + f.desc;
+			lines.push(l);
+		}
+	}
+	return lines.join("\n");
+}
+
+//List the installed modules so the model knows what apps exist on this server.
+function buildModuleList() {
+	var mods = [];
+	try { mods = appdata.getModuleList() || []; } catch (e) { return ""; }
+	var out = [];
+	for (var i = 0; i < mods.length; i++) {
+		var m = mods[i];
+		if (!m) continue;
+		var name = m.Name || m.name || "";
+		if (name == "") continue;
+		var grp = m.Group || m.group || "";
+		var desc = m.Desc || m.desc || "";
+		out.push("  - " + name + (grp ? " [" + grp + "]" : "") + (desc ? ": " + desc : ""));
+	}
+	return out.join("\n");
+}
+
+//Pull <explanation> and <script> out of the model reply (robust to stray fences).
+function parseReply(text) {
+	var explanation = "", script = "";
+	var em = /<explanation>([\s\S]*?)<\/explanation>/i.exec(text);
+	var sm = /<script>([\s\S]*?)<\/script>/i.exec(text);
+	if (em) explanation = trim(em[1]);
+	if (sm) script = trim(sm[1]);
+
+	if (script == "") {
+		var fm = /```(?:javascript|js|agi)?\s*([\s\S]*?)```/i.exec(text);
+		if (fm) script = trim(fm[1]);
+	}
+	if (explanation == "" && script == "") explanation = trim(text);
+
+	//Strip any leftover markdown fences that slipped into the script body
+	script = script.replace(/^```(?:javascript|js|agi)?\s*/i, "").replace(/```\s*$/, "");
+	return { explanation: explanation, script: trim(script) };
+}
+
+/* ── read inputs ─────────────────────────────────────────────────────────── */
+
+var userPrompt = (typeof prompt !== "undefined") ? "" + prompt : "";
+var rawHistory = (typeof history !== "undefined") ? history : "[]";
+var rawOptions = (typeof options !== "undefined") ? options : "{}";
+
+var hist = []; try { hist = JSON.parse(rawHistory) || []; } catch (e) { hist = []; }
+var opts = {}; try { opts = JSON.parse(rawOptions) || {}; } catch (e) { opts = {}; }
+
+if (trim(userPrompt) == "") {
+	sendJSONResp(JSON.stringify({ ok: false, error: "Empty request" }));
+	exit();
+}
+
+/* ── build the grounding system prompt ───────────────────────────────────── */
+
+var apiRef = buildApiRef();
+var modList = buildModuleList();
+
+var systemPrompt = [
+	"You are AGI Forge, an expert assistant that writes ArozOS AGI scripts to accomplish a user's task.",
+	"An AGI script is server-side JavaScript executed inside a sandboxed Otto VM on the user's self-hosted ArozOS server, running with that user's own file and system permissions.",
+	"",
+	"=== HARD RULES ===",
+	"1. Otto supports ECMAScript 5 ONLY. Do NOT use let, const, arrow functions (=>), template literals (backticks), async/await, Promise, class, destructuring, spread/rest, for...of, Map, or Set. Use var, classic function expressions, and string concatenation with +.",
+	"2. Load any non-core library before using it, e.g. requirelib(\"filelib\"); . Core and DB functions need no requirelib.",
+	"3. Return a result the user can read with sendResp(text), echo(text) or sendJSONResp(obj). Use console.log(...) for progress/diagnostic lines. Always finish with a short, human-readable summary via sendResp or echo.",
+	"4. Use ArozOS VIRTUAL paths only, never real OS paths: user:/ is the user's home, tmp:/ is temporary storage. Example: \"user:/Desktop/notes.txt\". Never write a literal path like /home/... or C:/...",
+	"5. To give the user a downloadable file: write it (e.g. filelib.writeFile(path, content), or have a library produce it), then call provideOutputFile(path) so AGI Forge shows a download link. A pre-created destination folder is available in the global variable OUTPUT_DIR. Example: requirelib(\"filelib\"); filelib.writeFile(OUTPUT_DIR + \"report.csv\", csv); provideOutputFile(OUTPUT_DIR + \"report.csv\");",
+	"6. The script must be SELF-CONTAINED and run start to finish with NO user interaction. Do NOT call websocket.upgrade(). Avoid infinite loops and long delay() calls.",
+	"7. Validate inputs and wrap risky operations in try/catch; on failure report a clear message via sendResp instead of throwing.",
+	"8. Only use functions documented in the API reference below. Do not invent functions or libraries.",
+	"",
+	"=== AGI API REFERENCE (authoritative) ===",
+	(apiRef != "" ? apiRef : "(reference unavailable — rely on the core functions sendResp, sendJSONResp, echo, console.log, requirelib and the filelib/http/imagelib libraries)"),
+	"",
+	"=== INSTALLED ao_modules (apps on this server, for context) ===",
+	(modList != "" ? modList : "  (module list unavailable)"),
+	"",
+	"=== RESPONSE FORMAT (MANDATORY) ===",
+	"Reply with EXACTLY these two blocks and nothing else — no markdown, no prose outside the tags:",
+	"<explanation>",
+	"One or two short plain sentences describing what the script does (no code here).",
+	"</explanation>",
+	"<script>",
+	"// the complete, ready-to-run AGI script",
+	"</script>",
+	"Do NOT wrap the script in markdown code fences. If the request is impossible or unsafe, explain why inside <explanation> and leave <script> empty."
+].join("\n");
+
+/* ── assemble the conversation ───────────────────────────────────────────── */
+
+var messages = [{ role: "system", content: systemPrompt }];
+for (var i = 0; i < hist.length; i++) {
+	var h = hist[i];
+	if (h && h.role && typeof h.content != "undefined" && (h.role == "user" || h.role == "assistant")) {
+		messages.push({ role: h.role, content: "" + h.content });
+	}
+}
+messages.push({ role: "user", content: userPrompt });
+
+var callOpts = { temperature: (typeof opts.temperature == "number") ? opts.temperature : 0.2 };
+if (opts.model && trim(opts.model) != "") callOpts.model = opts.model;
+
+/* ── call the model ──────────────────────────────────────────────────────── */
+
+try {
+	var res = aimodel.request(messages, callOpts);
+	var text = "";
+	if (res && res.choices && res.choices.length > 0 && res.choices[0].message) {
+		text = res.choices[0].message.content || "";
+	}
+
+	var parsed = parseReply(text);
+	sendJSONResp(JSON.stringify({
+		ok: true,
+		explanation: parsed.explanation,
+		script: parsed.script,
+		model: (res && res.model) ? res.model : (callOpts.model || ""),
+		usage: (res && res.usage) ? res.usage : null
+	}));
+} catch (e) {
+	sendJSONResp(JSON.stringify({ ok: false, error: "" + e }));
+}

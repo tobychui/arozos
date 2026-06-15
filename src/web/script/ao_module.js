@@ -175,7 +175,29 @@ function ao_module_setWindowTheme(newtheme="dark"){
         return;
     }
     parent.setFloatWindowTheme(ao_module_windowID, newtheme);
-}   
+}
+
+// ao_module_getSystemThemeColor(callback) => Get the global theme color of current system, and return the color value in callback function.
+function ao_module_getSystemThemeColor(callback){
+    $.get("../../system/file_system/preference?key=file_explorer/theme",function(data){
+            callback(data);
+    });
+}
+
+// ao_module_setSystemThemeColor(color, callback) => Set the global theme color of current system, and return the result in callback function if provided.
+function ao_module_setSystemThemeColor(color, callback=undefined){
+    $.ajax({
+        url:"../../system/file_system/preference?key=file_explorer/theme&value=" + color,
+        success: function(data){
+            if (data.error !== undefined){
+                console.log(data);
+            }
+            if (callback !== undefined){
+                callback(data);
+            }
+        }
+    });
+}
 
 //Check if there are any windows with the same path. 
 //If yes, replace its hash content and reload to the new one and close the current floatWindow
@@ -305,7 +327,82 @@ function ao_module_openPath(path, filename=undefined){
    
 }
 
-//Open a particular tab using System Setting module. Require 
+/*
+    ao_module_requestSchedulerPermission(options, callback)
+
+    Show a permission dialog asking the user to allow the calling app to register
+    a background scheduled task on their behalf.
+
+    options = {
+        appName:     "My App",           // Display name of the requesting app
+        appIcon:     "MyApp/img/icon.png", // Optional icon path (relative to web root)
+        taskName:    "MyApp_DailySync",  // Unique task identifier (max 32 chars)
+        scriptName:  "cron.agi",         // Filename inside the app folder (next to init.agi); defaults to "cron.agi"
+        interval:    86400,              // Execution interval in seconds
+        base:        0,                  // Base unix timestamp (0 = now)
+        description: "Daily sync task"   // Optional description shown in popup
+    }
+
+    callback(result):
+        result.allowed  => true if the user approved and the scheduler was registered
+        result.taskName => the task name that was registered
+*/
+function ao_module_requestSchedulerPermission(options, callback) {
+    if (!options || !options.taskName) {
+        console.error("[ao_module] requestSchedulerPermission: missing required options (taskName)");
+        if (typeof callback === 'function') callback({allowed: false, error: "invalid options"});
+        return;
+    }
+    if (!options.scriptName) options.scriptName = "cron.agi";
+    if (!options.appName)    options.appName    = document.title || "Application";
+    if (!options.interval)   options.interval   = 86400;
+    if (!options.base)       options.base       = Math.floor(Date.now() / 1000);
+    if (!options.description) options.description = "";
+
+    var callbackFnName = "_spCallback_" + Date.now();
+    window[callbackFnName] = function(result) {
+        delete window[callbackFnName];
+        if (typeof callback === 'function') callback(result);
+    };
+
+    var encoded = encodeURIComponent(JSON.stringify(options));
+    var url = "SystemAO/arsm/scheduler_permission.html#" + encoded;
+
+    if (ao_module_virtualDesktop) {
+        ao_module_newfw({
+            url: url,
+            width: 400,
+            height: 480,
+            appicon: "SystemAO/arsm/img/scheduler.png",
+            title: "Scheduler Permission",
+            parent: ao_module_windowID,
+            callback: callbackFnName
+        });
+    } else {
+        // Non-desktop mode: open popup window and poll localStorage
+        var listenerKey = "spResult_" + Date.now();
+        var popupWin = window.open(ao_root + url, "_blank", "width=400,height=480");
+        var pollInterval = setInterval(function() {
+            var stored = localStorage.getItem(listenerKey);
+            if (stored !== null && stored !== undefined) {
+                clearInterval(pollInterval);
+                localStorage.removeItem(listenerKey);
+                try {
+                    var result = JSON.parse(stored);
+                    if (typeof callback === 'function') callback(result);
+                } catch(e) {
+                    if (typeof callback === 'function') callback({allowed: false});
+                }
+            }
+            if (popupWin && popupWin.closed) {
+                clearInterval(pollInterval);
+                if (typeof callback === 'function') callback({allowed: false});
+            }
+        }, 300);
+    }
+}
+
+//Open a particular tab using System Setting module. Require
 //1) Setting Group
 //2) Setting Name
 function ao_module_openSetting(group, name){
@@ -529,8 +626,13 @@ function ao_module_parentCallback(data=""){
 
 
 function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined, timeout=0){
+    let devmode = (typeof AGI_DEV !== 'undefined' && AGI_DEV === true);
+    let url = ao_root + "system/ajgi/interface?script=" + scriptpath;
+    if (devmode) {
+        url += "&agi_devmode=true";
+    }
     $.ajax({
-        url: ao_root + "system/ajgi/interface?script=" + scriptpath,
+        url: url,
         method: "POST",
         data: data,
         success: function(data){
@@ -538,9 +640,21 @@ function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined
                 callback(data);
             }
         },
-        error: function(){
+        error: function(xhr){
+            if (devmode) {
+                try {
+                    let errInfo = JSON.parse(xhr.responseText);
+                    console.error("[AGI Dev] Error in script: " + scriptpath);
+                    console.error("[AGI Dev] Message: " + errInfo.message);
+                    if (errInfo.stacktrace && errInfo.stacktrace !== errInfo.message) {
+                        console.error("[AGI Dev] Stack Trace:\n" + errInfo.stacktrace);
+                    }
+                } catch(e) {
+                    console.error("[AGI Dev] Error in script: " + scriptpath + "\n" + xhr.responseText);
+                }
+            }
             if (typeof(failedcallback) != "undefined"){
-                failedcallback();
+                failedcallback(xhr);
             }
         },
         timeout: timeout
@@ -586,188 +700,191 @@ function ao_module_uploadFile(file, targetPath, callback=undefined, progressCall
     ao_module_storage.setStorage(moduleName, configName,configValue);
     ao_module_storage.loadStorage(moduleName, configName);
 */
-class ao_module_storage {
-    static setStorage(moduleName, configName,configValue){
-    	$.ajax({
-    	  type: 'GET',
-    	  url: ao_root + "system/file_system/preference",
-    	  data: {key: moduleName + "/" + configName,value:configValue},
-    	  success: function(data){},
-    	  async:true
-    	});
-    	return true;
-    }
-    
-    static loadStorage(moduleName, configName, callback=undefined){
-        var result = "";
-        if (callback == undefined){
-            //Do not use async
+if (typeof window.ao_module_storage === 'undefined') {
+    window.ao_module_storage = class {
+        static setStorage(moduleName, configName,configValue){
             $.ajax({
-                type: 'GET',
-                url: ao_root + "system/file_system/preference",
-                data: {key: moduleName + "/" + configName},
-                success: function(data){
-                        if (data.error !== undefined){
-                            result = "";
-                        }else{
-                            result = data;
-                        }
-                    },
-                error: function(data){result = "";},
-                async:false,
-                timeout: 3000
+            type: 'GET',
+            url: ao_root + "system/file_system/preference",
+            data: {key: moduleName + "/" + configName,value:configValue},
+            success: function(data){},
+            async:true
             });
-              return result;
-        }else{
-            //Use sync method
-            $.ajax({
-                type: 'GET',
-                url: ao_root + "system/file_system/preference",
-                data: {key: moduleName + "/" + configName},
-                success: function(data){
-                        if (data.error !== undefined){
-                            callback("");
-                        }else{
-                            callback(data);
-                        }
-                    },
-                error: function(evt){
-                    callback("");
-                },
-                timeout: 30000
-            });
+            return true;
         }
-    	
-    	
+        
+        static loadStorage(moduleName, configName, callback=undefined){
+            var result = "";
+            if (callback == undefined){
+                //Do not use async
+                $.ajax({
+                    type: 'GET',
+                    url: ao_root + "system/file_system/preference",
+                    data: {key: moduleName + "/" + configName},
+                    success: function(data){
+                            if (data.error !== undefined){
+                                result = "";
+                            }else{
+                                result = data;
+                            }
+                        },
+                    error: function(data){result = "";},
+                    async:false,
+                    timeout: 3000
+                });
+                return result;
+            }else{
+                //Use sync method
+                $.ajax({
+                    type: 'GET',
+                    url: ao_root + "system/file_system/preference",
+                    data: {key: moduleName + "/" + configName},
+                    success: function(data){
+                            if (data.error !== undefined){
+                                callback("");
+                            }else{
+                                callback(data);
+                            }
+                        },
+                    error: function(evt){
+                        callback("");
+                    },
+                    timeout: 30000
+                });
+            }
+            
+            
+        }
+    }
+}
+if (typeof window.ao_module_codec === 'undefined') {
+    window.ao_module_codec = class {
+        //Decode umfilename into standard filename in utf-8, which umfilename usually start with "inith"
+        //Example: ao_module_codec.decodeUmFilename(umfilename_here);
+        static decodeUmFilename(umfilename){
+            if (umfilename.includes("inith")){
+                var data = umfilename.split(".");
+                if (data.length == 1){
+                    //This is a filename without extension
+                    data = data[0].replace("inith","");
+                    var decodedname = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(data));
+                    if (decodedname != "false"){
+                        //This is a umfilename
+                        return decodedname;
+                    }else{
+                        //This is not a umfilename
+                        return umfilename;
+                    }
+                }else{
+                    //This is a filename with extension
+                    var extension = data.pop();
+                    var filename = data[0];
+                    filename = filename.replace("inith",""); //Javascript replace only remove the first instances (i.e. the first inith in filename)
+                    var decodedname = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(filename));
+                    if (decodedname != "false"){
+                        //This is a umfilename
+                        return decodedname + "." + extension;
+                    }else{
+                        //This is not a umfilename
+                        return umfilename;
+                    }
+                }
+            }else{
+                //This is not umfilename as it doesn't have the inith prefix
+                return umfilename;
+            }
+        }
+        
+        //Encode filename to UMfilename
+        //Example: ao_module_codec.encodeUMFilename("test.stl");
+        static encodeUMFilename(filename){
+            if (filename.substring(0,5) != "inith"){
+                //Check if the filename include extension. 
+                if (filename.includes(".")){
+                    //Filename with extension. pop it out first.
+                    var info = filename.split(".");
+                    var ext = info.pop();
+                    var filenameOnly = info.join(".");
+                    var encodedFilename = "inith" + ao_module_codec.decode_utf8(ao_module_codec.bin2hex(filenameOnly)) + "." + ext;
+                    return encodedFilename;
+                }else{
+                    //Filename with no extension. Convert the whole name into UMfilename
+                    var encodedFilename = "inith" + ao_module_codec.decode_utf8(ao_module_codec.bin2hex(filename));
+                    return encodedFilename;
+                }
+            }else{
+                //This is already a UMfilename. return the raw filename.
+                return filename;
+            }
+        }
+        
+        //Decode hexFoldername into standard foldername in utf-8, return the original name if it is not a hex foldername
+        //Example: ao_module_codec.decodeHexFoldername(hexFolderName_here);
+        static decodeHexFoldername(folderName, prefix=true){
+            var decodedFoldername = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(folderName));
+            if (decodedFoldername == "false"){
+                //This is not a hex encoded foldername
+                decodedFoldername = folderName;
+            }else{
+                //This is a hex encoded foldername
+                if (prefix){
+                        decodedFoldername = "*" + decodedFoldername;
+                }else{
+                        decodedFoldername =decodedFoldername;
+                }
+            }
+            return decodedFoldername;
+        }
+        
+        //Encode foldername into hexfoldername
+        //Example: ao_module_codec.encodeHexFoldername("test");
+        static encodeHexFoldername(folderName){
+            var encodedFilename = "";
+            if (ao_module_codec.decodeHexFoldername(folderName) == folderName){
+                //This is not hex foldername. Encode it
+                encodedFilename = ao_module_codec.decode_utf8(ao_module_codec.bin2hex(folderName));
+            }else{
+                //This folder name already encoded. Return the original value
+                encodedFilename = folderName;
+            }
+            
+            return encodedFilename;
+        }
+        static hex2bin(s){
+        var ret = []
+        var i = 0
+        var l
+        s += ''
+        for (l = s.length; i < l; i += 2) {
+            var c = parseInt(s.substr(i, 1), 16)
+            var k = parseInt(s.substr(i + 1, 1), 16)
+            if (isNaN(c) || isNaN(k)) return false
+            ret.push((c << 4) | k)
+        }
+        
+        return String.fromCharCode.apply(String, ret)
+        }
+        
+        static bin2hex(s){
+            var i
+            var l
+            var o = ''
+            var n
+            s += ''
+            for (i = 0, l = s.length; i < l; i++) {
+                n = s.charCodeAt(i)
+                .toString(16)
+                o += n.length < 2 ? '0' + n : n
+            }
+            return o
+        }
+        
+        static decode_utf8(s) {
+        return decodeURIComponent(escape(s));
+        }
     }
 }
 
-class ao_module_codec{
-	//Decode umfilename into standard filename in utf-8, which umfilename usually start with "inith"
-	//Example: ao_module_codec.decodeUmFilename(umfilename_here);
-    static decodeUmFilename(umfilename){
-		if (umfilename.includes("inith")){
-			var data = umfilename.split(".");
-			if (data.length == 1){
-				//This is a filename without extension
-				data = data[0].replace("inith","");
-				var decodedname = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(data));
-				if (decodedname != "false"){
-					//This is a umfilename
-					return decodedname;
-				}else{
-					//This is not a umfilename
-					return umfilename;
-				}
-			}else{
-				//This is a filename with extension
-				var extension = data.pop();
-				var filename = data[0];
-				filename = filename.replace("inith",""); //Javascript replace only remove the first instances (i.e. the first inith in filename)
-				var decodedname = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(filename));
-				if (decodedname != "false"){
-					//This is a umfilename
-					return decodedname + "." + extension;
-				}else{
-					//This is not a umfilename
-					return umfilename;
-				}
-			}
-			
-		}else{
-			//This is not umfilename as it doesn't have the inith prefix
-			return umfilename;
-		}
-	}
-	
-	//Encode filename to UMfilename
-	//Example: ao_module_codec.encodeUMFilename("test.stl");
-	static encodeUMFilename(filename){
-	    if (filename.substring(0,5) != "inith"){
-	        //Check if the filename include extension. 
-	        if (filename.includes(".")){
-	            //Filename with extension. pop it out first.
-	            var info = filename.split(".");
-	            var ext = info.pop();
-	            var filenameOnly = info.join(".");
-	            var encodedFilename = "inith" + ao_module_codec.decode_utf8(ao_module_codec.bin2hex(filenameOnly)) + "." + ext;
-	            return encodedFilename;
-	        }else{
-	            //Filename with no extension. Convert the whole name into UMfilename
-	            var encodedFilename = "inith" + ao_module_codec.decode_utf8(ao_module_codec.bin2hex(filename));
-	            return encodedFilename;
-	        }
-	    }else{
-	        //This is already a UMfilename. return the raw filename.
-	        return filename;
-	    }
-	}
-	
-	//Decode hexFoldername into standard foldername in utf-8, return the original name if it is not a hex foldername
-	//Example: ao_module_codec.decodeHexFoldername(hexFolderName_here);
-	static decodeHexFoldername(folderName, prefix=true){
-	    var decodedFoldername = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(folderName));
-		if (decodedFoldername == "false"){
-			//This is not a hex encoded foldername
-			decodedFoldername = folderName;
-		}else{
-			//This is a hex encoded foldername
-			if (prefix){
-			    	decodedFoldername = "*" + decodedFoldername;
-			}else{
-			    	decodedFoldername =decodedFoldername;
-			}
-		}
-		return decodedFoldername;
-	}
-    
-    //Encode foldername into hexfoldername
-    //Example: ao_module_codec.encodeHexFoldername("test");
-    static encodeHexFoldername(folderName){
-        var encodedFilename = "";
-        if (ao_module_codec.decodeHexFoldername(folderName) == folderName){
-            //This is not hex foldername. Encode it
-            encodedFilename = ao_module_codec.decode_utf8(ao_module_codec.bin2hex(folderName));
-        }else{
-            //This folder name already encoded. Return the original value
-            encodedFilename = folderName;
-        }
-        
-        return encodedFilename;
-    }
-    static hex2bin(s){
-      var ret = []
-      var i = 0
-      var l
-      s += ''
-      for (l = s.length; i < l; i += 2) {
-        var c = parseInt(s.substr(i, 1), 16)
-        var k = parseInt(s.substr(i + 1, 1), 16)
-        if (isNaN(c) || isNaN(k)) return false
-        ret.push((c << 4) | k)
-      }
-    
-      return String.fromCharCode.apply(String, ret)
-    }
-    
-    static bin2hex(s){
-         var i
-          var l
-          var o = ''
-          var n
-          s += ''
-          for (i = 0, l = s.length; i < l; i++) {
-            n = s.charCodeAt(i)
-              .toString(16)
-            o += n.length < 2 ? '0' + n : n
-          }
-          return o
-    }
-    
-    static decode_utf8(s) {
-      return decodeURIComponent(escape(s));
-    }
-}
 
 
 /**
@@ -787,207 +904,210 @@ class ao_module_codec{
     ao_module_utils.getWebSocketEndpoint() //Build server websocket endpoint root, e.g. wss://192.168.1.100:8080/
     ao_module_utils.formatBytes(bytes, decimalPlace=2) //Convert and rounds bytes into KB, MB, GB or TB
 **/
-class ao_module_utils{
-    
-    //Two simple functions for converting any Javascript object into string that can be put into the attr value of an DOM object
-    static objectToAttr(object){
-       return encodeURIComponent(JSON.stringify(object));
-    }
-    
-    static attrToObject(attr){
-        return JSON.parse(decodeURIComponent(attr));
-    }
-    
-    //Get a random id for a new floatWindow, use with var uid = ao_module_utils.getRandomUID();
-    static getRandomUID(){
-        return new Date().getTime();
-    }
 
-    static stringToBlob(text, mimetype="text/plain"){
-        var blob = new Blob([text], { type: mimetype });
-        return blob
-    }
-
-    static blobToFile(blob, filename, mimetype="text/plain"){
-        var file = new File([blob], filename, {type: mimetype});
-        return file
-    }
-    
-    //Get the icon of a file with given extension (ext), use with ao_module_utils.getIconFromExt("ext");
-    static getIconFromExt(ext){
-        var ext = ext.toLowerCase().trim();
-        var iconList={
-            md:"file text outline",
-            txt:"file text outline",
-            pdf:"file pdf outline",
-            doc:"file word outline",
-            docx:"file word outline",
-            odt:"file word outline",
-            xlsx:"file excel outline",
-            ods:"file excel outline",
-            ppt:"file powerpoint outline",
-            pptx:"file powerpoint outline",
-            odp:"file powerpoint outline",
-            jpg:"file image outline",
-            png:"file image outline",
-            jpeg:"file image outline",
-            gif:"file image outline",
-            odg:"file image outline",
-            psd:"file image outline",
-            zip:"file archive outline",
-            '7z':"file archive outline",
-            rar:"file archive outline",
-            tar:"file archive outline",
-            mp3:"file audio outline",
-            m4a:"file audio outline",
-            flac:"file audio outline",
-            wav:"file audio outline",
-            aac:"file audio outline",
-            mp4:"file video outline",
-            webm:"file video outline",
-            php:"file code outline",
-            html:"file code outline",
-            htm:"file code outline",
-            js:"file code outline",
-            css:"file code outline",
-            xml:"file code outline",
-            json:"file code outline",
-            csv:"file code outline",
-            odf:"file code outline",
-            bmp:"file image outline",
-            rtf:"file text outline",
-            wmv:"file video outline",
-            mkv:"file video outline",
-            ogg:"file audio outline",
-            stl:"cube",
-            obj:"cube",
-            "3ds":"cube",
-            fbx:"cube",
-            collada:"cube",
-            step:"cube",
-            iges:"cube",
-            gcode:"cube",
-            shortcut:"external square",
-            opus:"file audio outline",
-            agi: "file code outline",
-            apscene:"cubes"
-        };
-        var icon = "";
-        if (ext == ""){
-            icon = "folder outline";
-        }else{
-            icon = iconList[ext];
-            if (icon == undefined){
-                icon = "file outline"
-            }
-        }
-        return icon;
-	}
-	
-	//Get the drop file properties {filepath: xxx, filename: xxx} from file drop events from file exploere
-	static getDropFileInfo(dropEvent){
-		if (dropEvent.dataTransfer.getData("filedata") !== ""){
-			var filelist = dropEvent.dataTransfer.getData("filedata");
-			filelist = JSON.parse(filelist);
-			return filelist;
-		}
-        return null;
-    }
-
-    static readFileFromFileObject(fileObject, successCallback, failedCallback=undefined){
-        let reader = new FileReader();
-        reader.readAsText(fileObject);
-        reader.onload = function() {
-            successCallback(reader.result);
-        };
-        reader.onerror = function() {
-            if (failedCallback != undefined){
-                failedCallback(reader.error);
-            }else{
-                console.log(reader.error);
-            }
-        };
-
-    }
-
-    static durationConverter(seconds){
-        var days = Math.floor(seconds / 86400);
-        seconds -= days * 86400;
-        var hours = Math.floor(seconds / 3600) % 24;
-        seconds -= hours * 3600;
-        var minutes = Math.floor(seconds / 60) % 60;
-        seconds -= minutes * 60;
-        var seconds = seconds % 60;
-
-        var resultDuration = "";
-        if (days > 0){
-            resultDuration += days + " Day";
-            if (days > 1){
-                resultDuration+= "s"
-            }
-            resultDuration += " "
-        }
-
-        if (hours > 0){
-            resultDuration += hours + " Hour"
-            if (hours > 1){
-                resultDuration += "s"
-            }
-            resultDuration += " "
-        }
-
-        if (minutes > 0){
-            resultDuration += minutes + " Minute"
-            if (minutes > 1){
-                resultDuration += "s"
-            }
-            resultDuration += " "
-        }
-
-        if (seconds > 0){
-            resultDuration += seconds + " Second"
-            if (seconds > 1){
-                resultDuration += "s"
-            }
-            resultDuration += " "
+if (typeof window.ao_module_utils === 'undefined') {
+    window.ao_module_utils = class {
+        //Two simple functions for converting any Javascript object into string that can be put into the attr value of an DOM object
+        static objectToAttr(object){
+        return encodeURIComponent(JSON.stringify(object));
         }
         
-        return resultDuration;
-    }
-
-    static timeConverter(UNIX_timestamp){
-        var a = new Date(UNIX_timestamp * 1000);
-        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        var year = a.getFullYear();
-        var month = months[a.getMonth()];
-        var date = a.getDate();
-        var hour = a.getHours().toString().padStart(2, "0");
-        var min = a.getMinutes().toString().padStart(2, "0");
-        var sec = a.getSeconds().toString().padStart(2, "0");
-        var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
-        return time;
-    }
-
-    static getWebSocketEndpoint(){
-        let protocol = "wss://";
-        if (location.protocol !== 'https:') {
-            protocol = "ws://";
+        static attrToObject(attr){
+            return JSON.parse(decodeURIComponent(attr));
         }
-        let port = window.location.port;
-        if (window.location.port == ""){
-            if (location.protocol !== 'https:') {
-                port = "80";
+        
+        //Get a random id for a new floatWindow, use with var uid = ao_module_utils.getRandomUID();
+        static getRandomUID(){
+            return new Date().getTime();
+        }
+
+        static stringToBlob(text, mimetype="text/plain"){
+            var blob = new Blob([text], { type: mimetype });
+            return blob
+        }
+
+        static blobToFile(blob, filename, mimetype="text/plain"){
+            var file = new File([blob], filename, {type: mimetype});
+            return file
+        }
+        
+        //Get the icon of a file with given extension (ext), use with ao_module_utils.getIconFromExt("ext");
+        static getIconFromExt(ext){
+            var ext = ext.toLowerCase().trim();
+            var iconList={
+                md:"file text outline",
+                txt:"file text outline",
+                pdf:"file pdf outline",
+                doc:"file word outline",
+                docx:"file word outline",
+                odt:"file word outline",
+                xlsx:"file excel outline",
+                ods:"file excel outline",
+                ppt:"file powerpoint outline",
+                pptx:"file powerpoint outline",
+                odp:"file powerpoint outline",
+                jpg:"file image outline",
+                png:"file image outline",
+                jpeg:"file image outline",
+                gif:"file image outline",
+                odg:"file image outline",
+                psd:"file image outline",
+                zip:"file archive outline",
+                '7z':"file archive outline",
+                rar:"file archive outline",
+                tar:"file archive outline",
+                mp3:"file audio outline",
+                m4a:"file audio outline",
+                flac:"file audio outline",
+                wav:"file audio outline",
+                aac:"file audio outline",
+                mp4:"file video outline",
+                webm:"file video outline",
+                php:"file code outline",
+                html:"file code outline",
+                htm:"file code outline",
+                js:"file code outline",
+                css:"file code outline",
+                xml:"file code outline",
+                json:"file code outline",
+                csv:"file code outline",
+                odf:"file code outline",
+                bmp:"file image outline",
+                rtf:"file text outline",
+                wmv:"file video outline",
+                mkv:"file video outline",
+                ogg:"file audio outline",
+                stl:"cube",
+                obj:"cube",
+                "3ds":"cube",
+                fbx:"cube",
+                collada:"cube",
+                step:"cube",
+                iges:"cube",
+                gcode:"cube",
+                shortcut:"external square",
+                opus:"file audio outline",
+                agi: "file code outline",
+                apscene:"cubes"
+            };
+            var icon = "";
+            if (ext == ""){
+                icon = "folder outline";
             }else{
-                port = "443";
+                icon = iconList[ext];
+                if (icon == undefined){
+                    icon = "file outline"
+                }
+            }
+            return icon;
+        }
+        
+        //Get the drop file properties {filepath: xxx, filename: xxx} from file drop events from file exploere
+        static getDropFileInfo(dropEvent){
+            if (dropEvent.dataTransfer.getData("filedata") !== ""){
+                var filelist = dropEvent.dataTransfer.getData("filedata");
+                filelist = JSON.parse(filelist);
+                return filelist;
+            }
+            return null;
+        }
+
+        static readFileFromFileObject(fileObject, successCallback, failedCallback=undefined){
+            let reader = new FileReader();
+            reader.readAsText(fileObject);
+            reader.onload = function() {
+                successCallback(reader.result);
+            };
+            reader.onerror = function() {
+                if (failedCallback != undefined){
+                    failedCallback(reader.error);
+                }else{
+                    console.log(reader.error);
+                }
+            };
+
+        }
+
+        static durationConverter(seconds){
+            var days = Math.floor(seconds / 86400);
+            seconds -= days * 86400;
+            var hours = Math.floor(seconds / 3600) % 24;
+            seconds -= hours * 3600;
+            var minutes = Math.floor(seconds / 60) % 60;
+            seconds -= minutes * 60;
+            var seconds = seconds % 60;
+
+            var resultDuration = "";
+            if (days > 0){
+                resultDuration += days + " Day";
+                if (days > 1){
+                    resultDuration+= "s"
+                }
+                resultDuration += " "
+            }
+
+            if (hours > 0){
+                resultDuration += hours + " Hour"
+                if (hours > 1){
+                    resultDuration += "s"
+                }
+                resultDuration += " "
+            }
+
+            if (minutes > 0){
+                resultDuration += minutes + " Minute"
+                if (minutes > 1){
+                    resultDuration += "s"
+                }
+                resultDuration += " "
+            }
+
+            if (seconds > 0){
+                resultDuration += seconds + " Second"
+                if (seconds > 1){
+                    resultDuration += "s"
+                }
+                resultDuration += " "
             }
             
+            return resultDuration;
         }
-        let wsept = (protocol + window.location.hostname + ":" + port);
-        return wsept;
+
+        static timeConverter(UNIX_timestamp){
+            var a = new Date(UNIX_timestamp * 1000);
+            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            var year = a.getFullYear();
+            var month = months[a.getMonth()];
+            var date = a.getDate();
+            var hour = a.getHours().toString().padStart(2, "0");
+            var min = a.getMinutes().toString().padStart(2, "0");
+            var sec = a.getSeconds().toString().padStart(2, "0");
+            var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+            return time;
+        }
+
+        static getWebSocketEndpoint(){
+            let protocol = "wss://";
+            if (location.protocol !== 'https:') {
+                protocol = "ws://";
+            }
+            let port = window.location.port;
+            if (window.location.port == ""){
+                if (location.protocol !== 'https:') {
+                    port = "80";
+                }else{
+                    port = "443";
+                }
+                
+            }
+            let wsept = (protocol + window.location.hostname + ":" + port);
+            return wsept;
+        }
+        
+        static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}
     }
-    
-    static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}
 }
+
 
 /*
     Backend Programming Logic

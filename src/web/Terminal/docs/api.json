@@ -1,0 +1,858 @@
+{
+  "_note": "This file is the source for the Terminal in-app documentation panel. It is derived from mod/agi/README.md. Whenever README.md is updated, this file MUST also be updated to keep the in-app help in sync.",
+  "_version": "3.0",
+  "sections": [
+    {
+      "id": "core",
+      "name": "Core",
+      "desc": "Built-in functions always available without requirelib()",
+      "functions": [
+        {
+          "name": "sendResp",
+          "sig": "sendResp(content)",
+          "desc": "Set the HTTP response body.",
+          "ret": "void",
+          "example": "sendResp(\"Hello from AGI\");"
+        },
+        {
+          "name": "sendJSONResp",
+          "sig": "sendJSONResp(objectOrJsonString)",
+          "desc": "Set Content-Type to application/json and write a JSON response.",
+          "ret": "void",
+          "example": "sendJSONResp({ ok: true, items: [1, 2, 3] });"
+        },
+        {
+          "name": "echo",
+          "sig": "echo(content)",
+          "desc": "Append text to the current HTTP_RESP.",
+          "ret": "void",
+          "example": "echo(\"Hello \");\necho(\"World\");"
+        },
+        {
+          "name": "sendOK",
+          "sig": "sendOK()",
+          "desc": "Set response to the string \"ok\".",
+          "ret": "void",
+          "example": "sendOK();"
+        },
+        {
+          "name": "requirelib",
+          "sig": "requirelib(libname)",
+          "desc": "Load an AGI library into the current VM. Returns true on success.",
+          "ret": "bool",
+          "example": "if (!requirelib(\"filelib\")) {\n    sendResp(\"filelib not available\");\n}"
+        },
+        {
+          "name": "includes",
+          "sig": "includes(scriptName)",
+          "desc": "Load and execute another script relative to the current script's directory.",
+          "ret": "void",
+          "example": "includes(\"helpers.js\");"
+        },
+        {
+          "name": "delay",
+          "sig": "delay(ms)",
+          "desc": "Sleep for the given number of milliseconds. After websocket.upgrade(), also pumps incoming WebSocket messages.",
+          "ret": "void",
+          "example": "delay(500);"
+        },
+        {
+          "name": "exit",
+          "sig": "exit()",
+          "desc": "Stop script execution immediately.",
+          "ret": "void",
+          "example": "if (!userIsAdmin()) exit();"
+        },
+        {
+          "name": "execd",
+          "sig": "execd(scriptName, payload)",
+          "desc": "Execute another AGI script asynchronously as a detached process.",
+          "ret": "void",
+          "example": "execd(\"worker.agi\", JSON.stringify({ job: \"thumbs\" }));"
+        },
+        {
+          "name": "console.log",
+          "sig": "console.log(...args)",
+          "desc": "Write a line to the server log. In Terminal sessions, output is captured and shown in yellow.",
+          "ret": "void",
+          "example": "console.log(\"Debug:\", someVariable);"
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "name": "DB",
+      "desc": "Key-value database functions, always available.",
+      "functions": [
+        {
+          "name": "newDBTableIfNotExists",
+          "sig": "newDBTableIfNotExists(tableName)",
+          "desc": "Create a database table if it does not already exist.",
+          "ret": "bool",
+          "example": "newDBTableIfNotExists(\"my_table\");"
+        },
+        {
+          "name": "DBTableExists",
+          "sig": "DBTableExists(tableName)",
+          "desc": "Return true if the table exists.",
+          "ret": "bool",
+          "example": "if (DBTableExists(\"my_table\")) sendOK();"
+        },
+        {
+          "name": "writeDBItem",
+          "sig": "writeDBItem(tableName, key, value)",
+          "desc": "Write a string value to the given key.",
+          "ret": "bool",
+          "example": "writeDBItem(\"my_table\", \"theme\", \"dark\");"
+        },
+        {
+          "name": "readDBItem",
+          "sig": "readDBItem(tableName, key)",
+          "desc": "Read a string value from the given key.",
+          "ret": "string",
+          "example": "var theme = readDBItem(\"my_table\", \"theme\");"
+        },
+        {
+          "name": "listDBTable",
+          "sig": "listDBTable(tableName)",
+          "desc": "Return all key-value pairs in the table as an object.",
+          "ret": "object",
+          "example": "var kv = listDBTable(\"my_table\");\nsendJSONResp(kv);"
+        },
+        {
+          "name": "deleteDBItem",
+          "sig": "deleteDBItem(tableName, key)",
+          "desc": "Delete a single key from the table.",
+          "ret": "bool",
+          "example": "deleteDBItem(\"my_table\", \"theme\");"
+        },
+        {
+          "name": "dropDBTable",
+          "sig": "dropDBTable(tableName)",
+          "desc": "Delete the entire table.",
+          "ret": "bool",
+          "example": "dropDBTable(\"my_table\");"
+        }
+      ]
+    },
+    {
+      "id": "user",
+      "name": "User",
+      "desc": "User management and permission functions.",
+      "functions": [
+        {
+          "name": "pathCanWrite",
+          "sig": "pathCanWrite(vpath)",
+          "desc": "Return true if the current user can write to the virtual path.",
+          "ret": "bool",
+          "example": "if (pathCanWrite(\"user:/Documents\")) sendOK();"
+        },
+        {
+          "name": "getUserPermissionGroup",
+          "sig": "getUserPermissionGroup()",
+          "desc": "Return a JSON string describing the current user's permission group.",
+          "ret": "string (JSON)",
+          "example": "var group = JSON.parse(getUserPermissionGroup());"
+        },
+        {
+          "name": "userIsAdmin",
+          "sig": "userIsAdmin()",
+          "desc": "Return true if the current user is an administrator.",
+          "ret": "bool",
+          "example": "if (!userIsAdmin()) {\n    sendResp(\"Admin only\");\n    exit();\n}"
+        },
+        {
+          "name": "userExists",
+          "sig": "userExists(username)",
+          "desc": "(Admin only) Return true if the username exists.",
+          "ret": "bool",
+          "example": "if (userExists(\"alice\")) echo(\"exists\");"
+        },
+        {
+          "name": "createUser",
+          "sig": "createUser(username, password, defaultGroup)",
+          "desc": "(Admin only) Create a new user account.",
+          "ret": "bool",
+          "example": "createUser(\"alice\", \"StrongPass\", \"default\");"
+        },
+        {
+          "name": "removeUser",
+          "sig": "removeUser(username)",
+          "desc": "(Admin only) Delete a user account.",
+          "ret": "bool",
+          "example": "removeUser(\"alice\");"
+        }
+      ]
+    },
+    {
+      "id": "filelib",
+      "name": "filelib",
+      "desc": "Virtual filesystem read, write, and metadata operations.",
+      "load": "requirelib(\"filelib\");",
+      "functions": [
+        {
+          "name": "filelib.writeFile",
+          "sig": "filelib.writeFile(vpath, content)",
+          "desc": "Write text content to a virtual path. Creates the file if it does not exist.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.writeFile(\"user:/notes.txt\", \"Hello World\");"
+        },
+        {
+          "name": "filelib.readFile",
+          "sig": "filelib.readFile(vpath)",
+          "desc": "Read text content from a virtual path.",
+          "ret": "string | false",
+          "example": "requirelib(\"filelib\");\nvar text = filelib.readFile(\"user:/notes.txt\");"
+        },
+        {
+          "name": "filelib.deleteFile",
+          "sig": "filelib.deleteFile(vpath)",
+          "desc": "Delete a file at the virtual path.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.deleteFile(\"user:/notes.txt\");"
+        },
+        {
+          "name": "filelib.walk",
+          "sig": "filelib.walk(vpath, mode)",
+          "desc": "Recursively list entries. mode: \"all\", \"file\", or \"folder\".",
+          "ret": "string[]",
+          "example": "requirelib(\"filelib\");\nvar files = filelib.walk(\"user:/\", \"file\");"
+        },
+        {
+          "name": "filelib.glob",
+          "sig": "filelib.glob(pattern, sortMode)",
+          "desc": "Glob match files. sortMode: \"default\" or user-defined sort. Does not support ** patterns.",
+          "ret": "string[]",
+          "example": "requirelib(\"filelib\");\nvar jpgs = filelib.glob(\"user:/Desktop/*.jpg\", \"default\");"
+        },
+        {
+          "name": "filelib.aglob",
+          "sig": "filelib.aglob(pattern, sortMode)",
+          "desc": "Advanced glob supporting ** recursive patterns. Cannot scan bare root dirs.",
+          "ret": "string[]",
+          "example": "requirelib(\"filelib\");\nvar pngs = filelib.aglob(\"user:/Desktop/**/*.png\", \"default\");"
+        },
+        {
+          "name": "filelib.readdir",
+          "sig": "filelib.readdir(vpath, sortMode)",
+          "desc": "List directory entries. Returns array of {Filename, Filepath, Ext, Filesize, Modtime, IsDir}.",
+          "ret": "object[]",
+          "example": "requirelib(\"filelib\");\nvar entries = filelib.readdir(\"user:/Desktop\", \"default\");\nsendJSONResp(entries);"
+        },
+        {
+          "name": "filelib.filesize",
+          "sig": "filelib.filesize(vpath)",
+          "desc": "Return file size in bytes.",
+          "ret": "number",
+          "example": "requirelib(\"filelib\");\nvar sz = filelib.filesize(\"user:/movie.mp4\");"
+        },
+        {
+          "name": "filelib.fileExists",
+          "sig": "filelib.fileExists(vpath)",
+          "desc": "Return true if the path exists as a file.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nif (filelib.fileExists(\"user:/a.txt\")) sendOK();"
+        },
+        {
+          "name": "filelib.isDir",
+          "sig": "filelib.isDir(vpath)",
+          "desc": "Return true if the path is a directory.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nif (filelib.isDir(\"user:/Desktop\")) sendOK();"
+        },
+        {
+          "name": "filelib.mkdir",
+          "sig": "filelib.mkdir(vpath)",
+          "desc": "Create a directory (and parents) at the virtual path.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.mkdir(\"user:/newfolder\");"
+        },
+        {
+          "name": "filelib.md5",
+          "sig": "filelib.md5(vpath)",
+          "desc": "Return the MD5 hash string of a file.",
+          "ret": "string",
+          "example": "requirelib(\"filelib\");\nvar hash = filelib.md5(\"user:/a.txt\");"
+        },
+        {
+          "name": "filelib.mtime",
+          "sig": "filelib.mtime(vpath, parseToUnix)",
+          "desc": "Return file modification time. parseToUnix=true returns a Unix timestamp; otherwise a formatted string.",
+          "ret": "number | string",
+          "example": "requirelib(\"filelib\");\nvar ts = filelib.mtime(\"user:/a.txt\", true);"
+        },
+        {
+          "name": "filelib.rootName",
+          "sig": "filelib.rootName(vpath)",
+          "desc": "Return the display name of the storage root that owns this path.",
+          "ret": "string",
+          "example": "requirelib(\"filelib\");\nvar root = filelib.rootName(\"user:/Desktop/a.txt\");"
+        }
+      ]
+    },
+    {
+      "id": "imagelib",
+      "name": "imagelib",
+      "desc": "Image dimension, resize, crop, and EXIF operations.",
+      "load": "requirelib(\"imagelib\");",
+      "functions": [
+        {
+          "name": "imagelib.getImageDimension",
+          "sig": "imagelib.getImageDimension(vpath)",
+          "desc": "Return [width, height] of the image.",
+          "ret": "[number, number]",
+          "example": "requirelib(\"imagelib\");\nvar dim = imagelib.getImageDimension(\"user:/img.jpg\");"
+        },
+        {
+          "name": "imagelib.resizeImage",
+          "sig": "imagelib.resizeImage(src, dest, width, height)",
+          "desc": "Resize an image and save to dest.",
+          "ret": "bool",
+          "example": "requirelib(\"imagelib\");\nimagelib.resizeImage(\"user:/img.jpg\", \"user:/img_small.jpg\", 800, 600);"
+        },
+        {
+          "name": "imagelib.resizeImageBase64",
+          "sig": "imagelib.resizeImageBase64(src, width, height, format)",
+          "desc": "Resize an image and return it as a base64 data URL. format: \"jpeg\", \"png\".",
+          "ret": "string (data URL)",
+          "example": "requirelib(\"imagelib\");\nvar b64 = imagelib.resizeImageBase64(\"user:/img.jpg\", 320, 240, \"jpeg\");"
+        },
+        {
+          "name": "imagelib.cropImage",
+          "sig": "imagelib.cropImage(src, dest, x, y, width, height)",
+          "desc": "Crop a region from an image and save to dest.",
+          "ret": "bool",
+          "example": "requirelib(\"imagelib\");\nimagelib.cropImage(\"user:/img.jpg\", \"user:/crop.jpg\", 10, 10, 200, 200);"
+        },
+        {
+          "name": "imagelib.loadThumbString",
+          "sig": "imagelib.loadThumbString(vpath)",
+          "desc": "Return the cached thumbnail as a base64 string.",
+          "ret": "string",
+          "example": "requirelib(\"imagelib\");\nvar thumb = imagelib.loadThumbString(\"user:/img.jpg\");"
+        },
+        {
+          "name": "imagelib.hasExif",
+          "sig": "imagelib.hasExif(vpath)",
+          "desc": "Return true if the image has EXIF metadata.",
+          "ret": "bool",
+          "example": "requirelib(\"imagelib\");\nif (imagelib.hasExif(\"user:/img.jpg\")) echo(\"has exif\");"
+        },
+        {
+          "name": "imagelib.getExif",
+          "sig": "imagelib.getExif(vpath)",
+          "desc": "Return EXIF data as a JSON string.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"imagelib\");\nvar exif = JSON.parse(imagelib.getExif(\"user:/img.jpg\"));"
+        }
+      ]
+    },
+    {
+      "id": "http",
+      "name": "http",
+      "desc": "Outbound HTTP request helpers.",
+      "load": "requirelib(\"http\");",
+      "functions": [
+        {
+          "name": "http.get",
+          "sig": "http.get(url)",
+          "desc": "Perform an HTTP GET and return the response body as a string.",
+          "ret": "string",
+          "example": "requirelib(\"http\");\nvar body = http.get(\"https://example.com/api\");"
+        },
+        {
+          "name": "http.post",
+          "sig": "http.post(url, jsonString)",
+          "desc": "Perform an HTTP POST with JSON body and return the response body.",
+          "ret": "string",
+          "example": "requirelib(\"http\");\nvar resp = http.post(\"https://example.com/api\", JSON.stringify({a:1}));"
+        },
+        {
+          "name": "http.head",
+          "sig": "http.head(url, headerKey)",
+          "desc": "Fetch response headers. Without headerKey returns all headers as JSON; with headerKey returns just that header.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"http\");\nvar headers = JSON.parse(http.head(\"https://example.com\"));"
+        },
+        {
+          "name": "http.getCode",
+          "sig": "http.getCode(url)",
+          "desc": "Return the HTTP status code for the URL.",
+          "ret": "number",
+          "example": "requirelib(\"http\");\nvar code = http.getCode(\"https://example.com\");"
+        },
+        {
+          "name": "http.download",
+          "sig": "http.download(url, destDirVpath, filenameOptional)",
+          "desc": "Download a URL into the destination virtual directory.",
+          "ret": "bool",
+          "example": "requirelib(\"http\");\nhttp.download(\"https://example.com/a.zip\", \"user:/Downloads\", \"a.zip\");"
+        },
+        {
+          "name": "http.getb64",
+          "sig": "http.getb64(url)",
+          "desc": "Fetch a URL and return the raw bytes as a base64 string.",
+          "ret": "string",
+          "example": "requirelib(\"http\");\nvar raw = http.getb64(\"https://example.com/logo.png\");"
+        },
+        {
+          "name": "http.redirect",
+          "sig": "http.redirect(targetUrl, statusCode)",
+          "desc": "Redirect the client. Default statusCode is 307.",
+          "ret": "void",
+          "example": "requirelib(\"http\");\nhttp.redirect(\"https://example.com/new\", 302);"
+        }
+      ]
+    },
+    {
+      "id": "share",
+      "name": "share",
+      "desc": "Create and manage public file share links.",
+      "load": "requirelib(\"share\");",
+      "functions": [
+        {
+          "name": "share.shareFile",
+          "sig": "share.shareFile(vpath, timeoutSec)",
+          "desc": "Create a public share link. timeoutSec=0 means no expiry. Returns the share UUID.",
+          "ret": "string (uuid)",
+          "example": "requirelib(\"share\");\nvar uuid = share.shareFile(\"user:/report.pdf\", 3600);"
+        },
+        {
+          "name": "share.removeShare",
+          "sig": "share.removeShare(shareUUID)",
+          "desc": "Remove an existing share link.",
+          "ret": "bool",
+          "example": "requirelib(\"share\");\nshare.removeShare(uuid);"
+        },
+        {
+          "name": "share.checkShareExists",
+          "sig": "share.checkShareExists(shareUUID)",
+          "desc": "Return true if the share UUID is still valid.",
+          "ret": "bool",
+          "example": "requirelib(\"share\");\nif (share.checkShareExists(uuid)) sendOK();"
+        },
+        {
+          "name": "share.fileIsShared",
+          "sig": "share.fileIsShared(vpath)",
+          "desc": "Return true if the file already has an active share link.",
+          "ret": "bool",
+          "example": "requirelib(\"share\");\nif (share.fileIsShared(\"user:/report.pdf\")) sendOK();"
+        },
+        {
+          "name": "share.getFileShareUUID",
+          "sig": "share.getFileShareUUID(vpath)",
+          "desc": "Return the share UUID for the given file, or false if not shared.",
+          "ret": "string | false",
+          "example": "requirelib(\"share\");\nvar sid = share.getFileShareUUID(\"user:/report.pdf\");"
+        }
+      ]
+    },
+    {
+      "id": "appdata",
+      "name": "appdata",
+      "desc": "Read-only access to web-root application data files.",
+      "load": "requirelib(\"appdata\");",
+      "functions": [
+        {
+          "name": "appdata.readFile",
+          "sig": "appdata.readFile(relativePathFromWebRoot)",
+          "desc": "Read a file relative to ./web/. Returns false on error.",
+          "ret": "string | false",
+          "example": "requirelib(\"appdata\");\nvar conf = appdata.readFile(\"MyApp/config.json\");"
+        },
+        {
+          "name": "appdata.listDir",
+          "sig": "appdata.listDir(relativeDirFromWebRoot)",
+          "desc": "List files in a directory relative to ./web/. Returns an array of relative paths.",
+          "ret": "string[]",
+          "example": "requirelib(\"appdata\");\nvar files = appdata.listDir(\"MyApp\");\nsendJSONResp(files);"
+        },
+        {
+          "name": "appdata.getModuleList",
+          "sig": "appdata.getModuleList()",
+          "desc": "Return an array of registered module objects.",
+          "ret": "object[]",
+          "example": "requirelib(\"appdata\");\nvar mods = appdata.getModuleList();"
+        }
+      ]
+    },
+    {
+      "id": "sysinfo",
+      "name": "sysinfo",
+      "desc": "Real-time system resource information.",
+      "load": "requirelib(\"sysinfo\");",
+      "functions": [
+        {
+          "name": "sysinfo.getCPUUsage",
+          "sig": "sysinfo.getCPUUsage()",
+          "desc": "Return CPU usage as a percentage (0–100).",
+          "ret": "number",
+          "example": "requirelib(\"sysinfo\");\nvar cpu = sysinfo.getCPUUsage();"
+        },
+        {
+          "name": "sysinfo.getRAMUsage",
+          "sig": "sysinfo.getRAMUsage()",
+          "desc": "Return {used, total, percent} memory statistics.",
+          "ret": "object",
+          "example": "requirelib(\"sysinfo\");\nvar ram = sysinfo.getRAMUsage();\nsendJSONResp(ram);"
+        },
+        {
+          "name": "sysinfo.getNetworkUsage",
+          "sig": "sysinfo.getNetworkUsage()",
+          "desc": "Return {rxRate, txRate, rxTotal, txTotal} in bytes/bytes-per-second.",
+          "ret": "object",
+          "example": "requirelib(\"sysinfo\");\nvar net = sysinfo.getNetworkUsage();"
+        },
+        {
+          "name": "sysinfo.getDiskInfo",
+          "sig": "sysinfo.getDiskInfo()",
+          "desc": "Return an array of logical disk info objects.",
+          "ret": "object[]",
+          "example": "requirelib(\"sysinfo\");\nvar disks = sysinfo.getDiskInfo();\nsendJSONResp(disks);"
+        }
+      ]
+    },
+    {
+      "id": "ziplib",
+      "name": "ziplib",
+      "desc": "Archive creation and extraction (zip, tar, tar.gz, gz).",
+      "load": "requirelib(\"ziplib\");",
+      "functions": [
+        {
+          "name": "ziplib.extractZipFile",
+          "sig": "ziplib.extractZipFile(src, destDir)",
+          "desc": "Extract a ZIP archive into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractZipFile(\"user:/a.zip\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.createZipFile",
+          "sig": "ziplib.createZipFile(sourcesArrayOrString, outputZip)",
+          "desc": "Create a ZIP archive from one or more source paths.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.createZipFile([\"user:/a.txt\", \"user:/b.txt\"], \"user:/bundle.zip\");"
+        },
+        {
+          "name": "ziplib.extractAnyFile",
+          "sig": "ziplib.extractAnyFile(srcArchive, destDir)",
+          "desc": "Auto-detect archive format and extract into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractAnyFile(\"user:/archive.tar.gz\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.createAnyZipFile",
+          "sig": "ziplib.createAnyZipFile(sourcesArrayOrString, outputPath, format)",
+          "desc": "Create an archive in any supported format. format: \"zip\", \"tar\", \"tar.gz\", \"gz\".",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.createAnyZipFile([\"user:/folder\"], \"user:/bundle.tar.gz\", \"tar.gz\");"
+        },
+        {
+          "name": "ziplib.isValidZipFile",
+          "sig": "ziplib.isValidZipFile(vpath)",
+          "desc": "Return true if the file is a recognisable archive.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nvar ok = ziplib.isValidZipFile(\"user:/a.zip\");"
+        },
+        {
+          "name": "ziplib.listZipFileContents",
+          "sig": "ziplib.listZipFileContents(zipPath)",
+          "desc": "Return a JSON tree string of the archive's contents.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.listZipFileContents(\"user:/a.zip\"));"
+        },
+        {
+          "name": "ziplib.getFileFromZip",
+          "sig": "ziplib.getFileFromZip(zipPath, filePathInZip)",
+          "desc": "Extract one file to tmp:/ and return its virtual path.",
+          "ret": "string (vpath)",
+          "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFromZip(\"user:/a.zip\", \"docs/readme.txt\");"
+        },
+        {
+          "name": "ziplib.extract7zFile",
+          "sig": "ziplib.extract7zFile(src, destDir)",
+          "desc": "Extract all files from a 7z archive into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extract7zFile(\"user:/archive.7z\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.list7zFileDir",
+          "sig": "ziplib.list7zFileDir(src, dirPathIn7z)",
+          "desc": "List immediate children of a directory inside a 7z archive. Directories are returned with a trailing /.",
+          "ret": "string[]",
+          "example": "requirelib(\"ziplib\");\nvar items = ziplib.list7zFileDir(\"user:/archive.7z\", \"docs\");"
+        },
+        {
+          "name": "ziplib.list7zFileContents",
+          "sig": "ziplib.list7zFileContents(src)",
+          "desc": "Return the full contents of a 7z archive as a JSON tree string (same schema as listZipFileContents).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.list7zFileContents(\"user:/archive.7z\"));"
+        },
+        {
+          "name": "ziplib.getFileFrom7z",
+          "sig": "ziplib.getFileFrom7z(src, filePathIn7z)",
+          "desc": "Extract a single file from a 7z archive to tmp:/ and return its virtual path.",
+          "ret": "string (vpath)",
+          "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFrom7z(\"user:/archive.7z\", \"docs/readme.txt\");"
+        },
+        {
+          "name": "ziplib.extractPartial7z",
+          "sig": "ziplib.extractPartial7z(src, paths, destDir)",
+          "desc": "Extract selected files/folders from a 7z archive. paths is a JS array or JSON array string. Folder paths strip their parent prefix; file paths are placed flat in destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractPartial7z(\"user:/archive.7z\", [\"docs/\", \"README.md\"], \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.get7zFileInfo",
+          "sig": "ziplib.get7zFileInfo(src)",
+          "desc": "Return metadata about a 7z archive: { fileCount, dirCount, totalUncompressedSize, totalCompressedSize }. totalCompressedSize is always 0 (solid compression).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar info = JSON.parse(ziplib.get7zFileInfo(\"user:/archive.7z\"));\nconsole.log(info.fileCount + \" files\");"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "name": "sqlite",
+      "desc": "SQLite database access for scripts. Not available on linux/mipsle or windows/arm/386.",
+      "load": "requirelib(\"sqlite\");",
+      "functions": [
+        {
+          "name": "sqlite.open",
+          "sig": "sqlite.open(vpath)",
+          "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, and close methods. Throws SQLiteError on failure.",
+          "ret": "object (db)",
+          "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
+        },
+        {
+          "name": "db.exec",
+          "sig": "db.exec(sql, params)",
+          "desc": "Execute a non-SELECT statement. params is an optional JS array of bound values. Returns { lastInsertId, rowsAffected }.",
+          "ret": "object",
+          "example": "db.exec(\"INSERT INTO t (name) VALUES (?)\", [\"Alice\"]);"
+        },
+        {
+          "name": "db.query",
+          "sig": "db.query(sql, params)",
+          "desc": "Execute a SELECT and return all matching rows as an array of plain objects.",
+          "ret": "object[]",
+          "example": "var rows = db.query(\"SELECT * FROM t WHERE id > ?\", [0]);\nrows.forEach(function(r) { console.log(r.id, r.name); });"
+        },
+        {
+          "name": "db.queryRow",
+          "sig": "db.queryRow(sql, params)",
+          "desc": "Like db.query() but returns only the first row object, or null if no rows matched.",
+          "ret": "object | null",
+          "example": "var row = db.queryRow(\"SELECT * FROM t WHERE id = ?\", [1]);\nif (row) sendJSONResp(row);"
+        },
+        {
+          "name": "db.tables",
+          "sig": "db.tables()",
+          "desc": "Return the names of all user-created tables in the database.",
+          "ret": "string[]",
+          "example": "var tables = db.tables();\nsendJSONResp(tables);"
+        },
+        {
+          "name": "db.schema",
+          "sig": "db.schema(tableName)",
+          "desc": "Return column metadata for a table as an array of { cid, name, type, notnull, dflt_value, pk } objects (from PRAGMA table_info).",
+          "ret": "object[]",
+          "example": "var cols = db.schema(\"t\");\nsendJSONResp(cols);"
+        },
+        {
+          "name": "db.close",
+          "sig": "db.close()",
+          "desc": "Close the database connection and release the handle.",
+          "ret": "bool",
+          "example": "db.close();"
+        }
+      ]
+    },
+    {
+      "id": "aimodel",
+      "name": "aimodel",
+      "desc": "Call any OpenAI-compatible or Anthropic LLM endpoint. Endpoint, API key, default model, pricing, and usage quota are configured in System Settings > AI Integration > AI Model.",
+      "load": "requirelib(\"aimodel\");",
+      "functions": [
+        {
+          "name": "aimodel.chat",
+          "sig": "aimodel.chat(prompt, options)",
+          "desc": "Send a single-turn text prompt and return the assistant reply string. options is optional (see aimodel options).",
+          "ret": "string",
+          "example": "requirelib(\"aimodel\");\nvar reply = aimodel.chat(\"What is 2 + 2?\");\nsendResp(reply);"
+        },
+        {
+          "name": "aimodel.chatWithFile",
+          "sig": "aimodel.chatWithFile(prompt, files, options)",
+          "desc": "Like aimodel.chat() but attaches virtual-path files. Images become vision parts; text files are inlined. files may be a single vpath string or an array.",
+          "ret": "string",
+          "example": "requirelib(\"aimodel\");\nvar reply = aimodel.chatWithFile(\n    \"Describe this image.\",\n    \"user:/Photos/holiday.jpg\"\n);\nsendResp(reply);"
+        },
+        {
+          "name": "aimodel.request",
+          "sig": "aimodel.request(messages, options)",
+          "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar resp = aimodel.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
+        },
+        {
+          "name": "aimodel.usage",
+          "sig": "aimodel.usage()",
+          "desc": "Return accumulated token/cost metrics: { totalTokens, totalCost, totalRequests, perModel, currency, ... }.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar u = aimodel.usage();\nsendJSONResp(u);"
+        },
+        {
+          "name": "aimodel.models",
+          "sig": "aimodel.models()",
+          "desc": "Return the configured default model and list of models with pricing entries: { default, models }.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar m = aimodel.models();\nsendJSONResp(m);"
+        },
+        {
+          "name": "aimodel.listModels",
+          "sig": "aimodel.listModels()",
+          "desc": "Query the live endpoint for available models (no tokens consumed). Returns { models: [...] }.",
+          "ret": "object",
+          "example": "requirelib(\"aimodel\");\nvar m = aimodel.listModels();\nsendJSONResp(m.models);"
+        },
+        {
+          "name": "aimodel.fileParts",
+          "sig": "aimodel.fileParts(files)",
+          "desc": "Convert virtual-path file(s) into OpenAI-style content parts for use in aimodel.request(). Images → image_url data URIs; text files → text parts.",
+          "ret": "object[]",
+          "example": "requirelib(\"aimodel\");\nvar parts = aimodel.fileParts([\"user:/report.txt\"]);\nvar resp = aimodel.request([{ role: \"user\", content: parts }]);\nsendResp(resp.choices[0].message.content);"
+        }
+      ]
+    },
+    {
+      "id": "websocket",
+      "name": "websocket",
+      "desc": "Upgrade the HTTP connection to a persistent WebSocket session.",
+      "load": "requirelib(\"websocket\");",
+      "functions": [
+        {
+          "name": "websocket.upgrade",
+          "sig": "websocket.upgrade(timeoutSec)",
+          "desc": "Upgrade to WebSocket. Also overrides delay() with a message-pumping version. Returns false on failure.",
+          "ret": "bool",
+          "example": "requirelib(\"websocket\");\nif (!websocket.upgrade(120)) exit();\nwebsocket.send(\"Connected!\");"
+        },
+        {
+          "name": "websocket.send",
+          "sig": "websocket.send(text)",
+          "desc": "Send a text frame to the client. Returns false if the connection is closed.",
+          "ret": "bool",
+          "example": "websocket.send(\"Hello client\");"
+        },
+        {
+          "name": "websocket.read",
+          "sig": "websocket.read(timeoutMs)",
+          "desc": "Read next message. Returns string on message, null on timeout (still open), false if closed. Omit timeoutMs to block.",
+          "ret": "string | null | false",
+          "example": "var msg = websocket.read(5000);\nif (msg === false) { /* closed */ }\nif (msg === null)  { /* timeout  */ }"
+        },
+        {
+          "name": "websocket.available",
+          "sig": "websocket.available()",
+          "desc": "Return count of buffered unread messages. Non-blocking.",
+          "ret": "number",
+          "example": "if (websocket.available() > 0) {\n    var msg = websocket.read();\n}"
+        },
+        {
+          "name": "websocket.isClosed",
+          "sig": "websocket.isClosed()",
+          "desc": "Return true when the connection is no longer active.",
+          "ret": "bool",
+          "example": "while (!websocket.isClosed()) {\n    websocket.send(\"tick\");\n    delay(1000);\n}"
+        },
+        {
+          "name": "websocket.onMessage",
+          "sig": "websocket.onMessage = function(msg) { ... }",
+          "desc": "Assign a callback fired inside delay(). msg = { data, timestamp, type }. Set to null to stop and leave messages in buffer.",
+          "ret": "void",
+          "example": "var last = \"\";\nwebsocket.onMessage = function(msg) {\n    last = msg.data;\n};\nwhile (!websocket.isClosed()) {\n    if (last !== \"\") {\n        websocket.send(\"Echo: \" + last);\n        last = \"\";\n    }\n    delay(100);\n}"
+        },
+        {
+          "name": "websocket.close",
+          "sig": "websocket.close()",
+          "desc": "Send a normal-closure frame and close the connection.",
+          "ret": "bool",
+          "example": "websocket.close();"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "name": "scheduler",
+      "desc": "Register and manage recurring background tasks for a webapp.",
+      "load": "requirelib(\"scheduler\");",
+      "functions": [
+        {
+          "name": "scheduler.hasPermission",
+          "sig": "scheduler.hasPermission()",
+          "desc": "Return true if the current user is allowed to create scheduled tasks.",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nif (!scheduler.hasPermission()) sendResp(\"no_permission\");"
+        },
+        {
+          "name": "scheduler.registered",
+          "sig": "scheduler.registered(taskName, appName)",
+          "desc": "Return true if the task is already registered for this user+app.",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nif (scheduler.registered(\"MyApp_Sync\", \"MyApp\")) sendResp(\"already_registered\");"
+        },
+        {
+          "name": "scheduler.register",
+          "sig": "scheduler.register(taskName, appName, intervalSecs, description, scriptName)",
+          "desc": "Register a new background task. scriptName defaults to \"cron.agi\".",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nvar ok = scheduler.register(\"MyApp_Sync\", \"MyApp\", 3600, \"Hourly sync\", \"cron.agi\");"
+        },
+        {
+          "name": "scheduler.unregister",
+          "sig": "scheduler.unregister(taskName)",
+          "desc": "Remove a registered task.",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nscheduler.unregister(\"MyApp_Sync\");"
+        }
+      ]
+    },
+    {
+      "id": "ffmpeg",
+      "name": "ffmpeg",
+      "desc": "Media conversion via ffmpeg. Only available when ffmpeg is installed on the host.",
+      "load": "requirelib(\"ffmpeg\");",
+      "functions": [
+        {
+          "name": "ffmpeg.convert",
+          "sig": "ffmpeg.convert(input, output, compression)",
+          "desc": "Generic media conversion.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.convert(\"user:/in.mov\", \"user:/out.mp4\", 0);"
+        },
+        {
+          "name": "ffmpeg.videoConvert",
+          "sig": "ffmpeg.videoConvert(input, output, resolution, compressionRate, progressFile)",
+          "desc": "Convert video to the given resolution. progressFile is a virtual path for JSON progress updates.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.videoConvert(\"user:/in.mp4\", \"user:/out.mp4\", \"720p\", 55, \"tmp:/progress.json\");"
+        },
+        {
+          "name": "ffmpeg.audioConvert",
+          "sig": "ffmpeg.audioConvert(input, output, sampleRate, progressFile)",
+          "desc": "Convert audio to the given sample rate.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.audioConvert(\"user:/in.wav\", \"user:/out.mp3\", 44100, \"tmp:/audio_progress.json\");"
+        },
+        {
+          "name": "ffmpeg.imageConvert",
+          "sig": "ffmpeg.imageConvert(input, output, scaleFactor, compressionRate)",
+          "desc": "Convert/resize an image. scaleFactor 0.5 = 50% size.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80);"
+        }
+      ]
+    }
+  ]
+}

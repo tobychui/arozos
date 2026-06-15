@@ -1,409 +1,1075 @@
 <!DOCTYPE html>
-<html ng-app="App">
-
+<html>
 <head>
     <title>System Update</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="../../script/applocale.js"></script>
-    <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent; }
+
+    /* ── Scoped root + CSS variables ── */
+    #up-root {
+        --up-text:        #1d1d1f;
+        --up-dim:         #6e6e73;
+        --up-muted:       #98989d;
+        --up-divider:     #d2d2d7;
+        --up-hover:       rgba(0,0,0,0.045);
+        --up-accent:      #0071e3;
+        --up-danger:      #ff3b30;
+        --up-success:     #34c759;
+        --up-warning-col: #ff9500;
+        --up-bg:          #f3f3f3;
+        --up-card:        #ffffff;
+        --up-card-border: #e5e5ea;
+        --up-input-bg:    #ffffff;
+        --up-shadow:      0 1px 3px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        color: var(--up-text);
+        background: var(--up-bg);
+        padding: 20px;
+    }
+
+    #up-root.dark {
+        --up-text:        #f0f0f0;
+        --up-dim:         #a0a0a5;
+        --up-muted:       #636368;
+        --up-divider:     #3a3a3c;
+        --up-hover:       rgba(255,255,255,0.06);
+        --up-accent:      #2997ff;
+        --up-danger:      #ff453a;
+        --up-success:     #30d158;
+        --up-warning-col: #ffd60a;
+        --up-bg:          #1f1f1f;
+        --up-card:        #2c2c2e;
+        --up-card-border: #3a3a3c;
+        --up-input-bg:    #383838;
+        --up-shadow:      0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
+    }
+
+    /* ── Page header ── */
+    #up-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .up-header-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        background: var(--up-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #fff;
+    }
+    .up-header-icon svg { display: block; }
+    .up-page-title    { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
+    .up-page-subtitle { font-size: 12px; color: var(--up-dim); margin-top: 2px; }
+
+    /* ── Card ── */
+    .up-card {
+        background: var(--up-card);
+        border: 1px solid var(--up-card-border);
+        border-radius: 10px;
+        box-shadow: var(--up-shadow);
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+    .up-card-body { padding: 18px 20px; }
+
+    /* ── Status panels (show/hide via JS) ── */
+    .up-status-panel { display: none; }
+
+    .up-status-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .up-status-icon-wrap {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 20px;
+    }
+    .up-status-icon-wrap.warn    { background: rgba(255,149,0,0.12);  color: var(--up-warning-col); }
+    .up-status-icon-wrap.info    { background: rgba(0,113,227,0.10);  color: var(--up-accent); }
+    .up-status-icon-wrap.success { background: rgba(52,199,89,0.12);  color: var(--up-success); }
+    .up-status-icon-wrap.danger  { background: rgba(255,59,48,0.12);  color: var(--up-danger); }
+
+    #up-root.dark .up-status-icon-wrap.warn    { background: rgba(255,214,10,0.12);  color: var(--up-warning-col); }
+    #up-root.dark .up-status-icon-wrap.info    { background: rgba(41,151,255,0.12);  color: var(--up-accent); }
+    #up-root.dark .up-status-icon-wrap.success { background: rgba(48,209,88,0.12);   color: var(--up-success); }
+    #up-root.dark .up-status-icon-wrap.danger  { background: rgba(255,69,58,0.12);   color: var(--up-danger); }
+
+    .up-status-content { flex: 1; min-width: 0; }
+    .up-status-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--up-text);
+        margin-bottom: 4px;
+        line-height: 1.3;
+    }
+    .up-status-desc {
+        font-size: 13px;
+        color: var(--up-dim);
+        line-height: 1.5;
+    }
+
+    /* ── Spinner animation ── */
+    @keyframes up-spin { to { transform: rotate(360deg); } }
+    .up-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2.5px solid rgba(0,113,227,0.25);
+        border-top-color: var(--up-accent);
+        border-radius: 50%;
+        animation: up-spin 0.75s linear infinite;
+    }
+    #up-root.dark .up-spinner {
+        border-color: rgba(41,151,255,0.2);
+        border-top-color: var(--up-accent);
+    }
+
+    /* ── Progress bar ── */
+    .up-progress-wrap {
+        margin-top: 12px;
+        background: rgba(0,113,227,0.12);
+        border-radius: 4px;
+        height: 6px;
+        overflow: hidden;
+    }
+    #up-root.dark .up-progress-wrap { background: rgba(41,151,255,0.12); }
+    #downloadProgressBar {
+        height: 100%;
+        background: var(--up-accent);
+        border-radius: 4px;
+        width: 0%;
+        transition: width 0.4s ease;
+    }
+    .up-progress-text {
+        font-size: 11px;
+        color: var(--up-muted);
+        margin-top: 5px;
+    }
+
+    /* ── Fallback note ── */
+    #fallbackmodeExp {
+        display: none;
+        font-size: 12px;
+        color: var(--up-dim);
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: rgba(0,0,0,0.04);
+        border-radius: 6px;
+        line-height: 1.5;
+    }
+    #up-root.dark #fallbackmodeExp { background: rgba(255,255,255,0.05); }
+
+    /* ── Action buttons row ── */
+    .up-action-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--up-divider);
+    }
+
+    /* ── Buttons ── */
+    .up-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 6px;
+        border: 1px solid var(--up-card-border);
+        background: var(--up-card);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        color: var(--up-text);
+        transition: background 0.1s, opacity 0.1s;
+        white-space: nowrap;
+    }
+    .up-btn:hover { background: var(--up-hover); }
+    .up-btn.primary   { background: var(--up-accent);  color: #fff; border-color: var(--up-accent); }
+    .up-btn.primary:hover { opacity: 0.88; }
+    .up-btn.danger    { background: var(--up-danger);  color: #fff; border-color: var(--up-danger); }
+    .up-btn.danger:hover  { opacity: 0.88; }
+    .up-btn.disabled, .up-btn:disabled { opacity: 0.45; pointer-events: none; cursor: not-allowed; }
+
+    /* ── Section label ── */
+    .up-section-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--up-muted);
+        margin-bottom: 8px;
+    }
+
+    /* ── Vendor card header ── */
+    .up-vendor-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .up-vendor-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--up-warning-col);
+        background: rgba(255,149,0,0.10);
+        border-radius: 4px;
+        padding: 2px 8px;
+        flex-shrink: 0;
+    }
+    #up-root.dark .up-vendor-badge { background: rgba(255,214,10,0.10); }
+    .up-vendor-name { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+    .up-vendor-desc { font-size: 12px; color: var(--up-dim); line-height: 1.5; }
+
+    /* ── Divider ── */
+    .up-divider {
+        border: none;
+        border-top: 1px solid var(--up-divider);
+        margin: 16px 0;
+    }
+
+    /* ── Form ── */
+    .up-form-field { margin-bottom: 14px; }
+    .up-form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--up-text);
+        margin-bottom: 5px;
+    }
+    .up-form-hint {
+        font-size: 11px;
+        color: var(--up-muted);
+        margin-top: 4px;
+    }
+    .up-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--up-card-border);
+        border-radius: 6px;
+        background: var(--up-input-bg);
+        color: var(--up-text);
+        font-family: inherit;
+        font-size: 13px;
+        transition: border-color 0.1s, box-shadow 0.1s;
+    }
+    .up-input:focus {
+        outline: none;
+        border-color: var(--up-accent);
+        box-shadow: 0 0 0 2.5px rgba(0,113,227,0.2);
+    }
+    #up-root.dark .up-input:focus { box-shadow: 0 0 0 2.5px rgba(41,151,255,0.25); }
+    .up-input::placeholder { color: var(--up-muted); }
+
+    /* ── Restart panel specifics ── */
+    #restartPanel .up-restart-warning {
+        font-size: 12px;
+        color: var(--up-dim);
+        margin-top: 8px;
+        line-height: 1.55;
+    }
+
+    /* ── Launcher status card ── */
+    #up-launcher-card .up-launcher-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .up-launcher-icon-wrap {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: var(--up-card-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background 0.15s;
+    }
+    .up-launcher-icon-wrap img {
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+    }
+    #up-root.dark .up-launcher-icon-wrap img { filter: brightness(1.8); }
+    #up-launcher-card.detected .up-launcher-icon-wrap { background: rgba(52,199,89,0.12); }
+    #up-root.dark #up-launcher-card.detected .up-launcher-icon-wrap { background: rgba(48,209,88,0.12); }
+    #up-launcher-card.missing  .up-launcher-icon-wrap { background: rgba(255,149,0,0.11); }
+    #up-root.dark #up-launcher-card.missing  .up-launcher-icon-wrap { background: rgba(255,214,10,0.10); }
+
+    .up-launcher-name {
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .up-launcher-version {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--up-dim);
+        background: rgba(0,0,0,0.05);
+        border-radius: 4px;
+        padding: 1px 7px;
+    }
+    #up-root.dark .up-launcher-version { background: rgba(255,255,255,0.08); }
+    .up-launcher-desc { font-size: 12px; color: var(--up-dim); margin-top: 2px; }
+
+    .up-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 20px;
+        padding: 2px 10px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+    .up-status-pill .pill-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .up-status-pill.online  { background: rgba(52,199,89,0.12); color: var(--up-success); }
+    .up-status-pill.offline { background: rgba(255,149,0,0.11); color: var(--up-warning-col); }
+    #up-root.dark .up-status-pill.online  { background: rgba(48,209,88,0.14); }
+    #up-root.dark .up-status-pill.offline { background: rgba(255,214,10,0.10); }
+    .up-status-pill.online  .pill-dot { background: var(--up-success); }
+    .up-status-pill.offline .pill-dot { background: var(--up-warning-col); }
+
+    .up-inner-divider {
+        border: none;
+        border-top: 1px solid var(--up-divider);
+        margin: 14px 0;
+    }
+
+    /* ── Manual restart instructions (shown when no launcher) ── */
+    .up-manual-instructions { display: none; }
+    .up-info-note {
+        font-size: 12px;
+        color: var(--up-dim);
+        line-height: 1.6;
+        margin-bottom: 12px;
+    }
+    .up-platform-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+    .up-platform-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--up-dim);
+        white-space: nowrap;
+        min-width: 110px;
+    }
+    .up-code {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 12px;
+        background: rgba(0,0,0,0.05);
+        border: 1px solid var(--up-card-border);
+        border-radius: 5px;
+        padding: 4px 10px;
+        color: var(--up-text);
+        flex: 1;
+        word-break: break-all;
+    }
+    #up-root.dark .up-code { background: rgba(255,255,255,0.06); }
+    .up-launcher-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        color: var(--up-accent);
+        text-decoration: none;
+        margin-top: 12px;
+    }
+    .up-launcher-link:hover { text-decoration: underline; }
+    </style>
 </head>
-
 <body>
-    <div class="ui container">
-        <div class="ui basic segment">
-            <h3 class="ui header">
-                <i class="sync icon"></i>
-                <div class="content">
-                    <span locale="header/title/systemUpdate">System Update</span>
-                    <div class="sub header" locale="header/title/subHeader">Update the ArozOS System to the latest version</div>
-                </div>
-            </h3>
-            <div class="ui divider"></div>
-            <!-- Status Messages-->
-            <div id="warning" class="ui negative visible icon message">
-                <i class="red exclamation circle icon"></i>
-                <div class="content">
-                    <div class="header">
-                        <span locale="warning/title">WARNING</span>
-                    </div>
-                    <p locale="warning/desc">Backup all the important files before performing system update</p>
-                </div>
-            </div>
-            <div id="checking" class="ui icon blue message" style="display:none;">
-                <i class="notched circle loading icon"></i>
-                <div class="content">
-                    <div class="header">
-                        <span locale="checking/title">Connecting to Download Server</span>
-                    </div>
-                    <p locale="checking/desc">We're fetching that content for you.</p>
-                </div>
-            </div>
-            <div id="confirmDownload" class="ui icon yellow message" style="display:none;">
-                <i class="yellow exclamation icon"></i>
-                <div class="content">
-                    <div class="header">
-                        <span locale="confirm/title">Confirm Update?</span>
-                    </div>
-                    <p><span locale="confirm/update/willUse">This updates will take up </span><span id="spaceEst" style="font-weight: bold;"></span> <span locale="confirm/update/ofSpace">of space.</span></p>
-                    <p><b locale="confirm/update/reminder">Please make sure you have back up all important files and config files before you proceeds.</b></p>
-                    <div class="ui buttons">
-                        <button locale="confirm/update/confirm" class="ui yellow button" onclick="confirmURLUpdate();">Confirm Update</button>
-                        <button locale="confirm/update/cancel" class="ui button" onclick="cancelUpdateStatus();"><i class="ui remove icon"></i> Cancel Update</button>
-                    </div>
-                </div>
-            </div>
-            <div id="downloading" class="ui icon blue message" style="display:none;">
-                <i class="notched circle loading icon"></i>
-                <div class="content">
-                    <div class="header" id="downloadStatusText" locale="download/title">
-                        Starting Download Session
-                    </div>
-                    <br>
-                    <p id="fallbackmodeExp" style="display:none;" locale="download/wsFallback">You are seeing this message is because the websocket connection to your host failed to establish. No worry, updates can still be done using AJAX fallback mode, just without the real time progress updates. <br>Please wait until the
-                        download complete before closing this page.</br>
-                    </p>
-                    <div class="ui blue active progress">
-                        <div id="downloadProgressBar" class="bar">
-                            <div class="progress">0.00%</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="success" class="ui icon green message" style="display:none;">
-                <i class="green checkmark icon"></i>
-                <div class="content">
-                    <div class="header" id="downloadStatusText" locale="succ/update">
-                        Update Download Succeed
-                    </div>
-                    <p locale="succ/restartDesc">Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
-                </div>
-            </div>
-            <div id="pending" class="ui icon green message" style="display:none;">
-                <i class="green clock icon"></i>
-                <div class="content">
-                    <div class="header" id="downloadStatusText" locale="pending/title">
-                        Update Pending
-                    </div>
-                    <p locale="pending/desc">Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
-                </div>
-            </div>
-            <div id="failed" class="ui icon red message" style="display:none;">
-                <i class="red remove icon"></i>
-                <div class="content">
-                    <div class="header" id="downloadStatusText" locale="failed/title">
-                        Update Download Failed
-                    </div>
-                    <p id="failedErrorMessage" locale="failed/error">Unknown Error Occured</p>
-                </div>
-            </div>
-            <div id="restartPanel" class="ui message" style="display:none;">
-                <div class="header">
-                    <span locale="launcher/detected/title">Launcher Detected:</span> <span id="launcherName">N/A</span>
-                </div>
-                <p locale="launcher/desc">You will need to restart ArozOS in order to apply the updates.</p>
-                <p locale="launcher/warning">Warning! Make sure you have physical access to this ArozOS Host before pressing the restart button.<br> Update failure might require a manual restart of the ArozOS system host and its launcher.</p>
-                <button class="ui red button" locale="launcher/restartnow" onclick="restartArozOS();">RESTART NOW</button>
-                <button class="ui button" locale="launcher/restartlater" onclick="restartLater();">Restart Later</button>
-            </div>
-            <!-- End of Status Messages -->
-            <div class="vendorupdate">
-                <h4><span locale="update/vendor/from">Update from</span> <span class="vendorName">Vendor</span> (<i class="yellow star icon"></i> <span locale="update/vendor/recommend">Recommended</span>)</h4>
-                <p><span locale="update/vendor/from">Update from</span> <span class="vendorName">your vendor</span> <span locale="update/vendor/desc">based on the system update configuration that ship with this machine</span></p>
-                <button class="ui green button updateBtn" onclick="updateViaVendor();"><i class="cloud upload icon"></i> <span locale="update/useVendorUpdate">Update from Vendor</span></button>
-                <div class="ui divider"></div>
-            </div>
-            <h4 locale="update/download/title">Update via Download</h4>
-            <p locale="update/download/binary">Binary Executable Download URL</p>
-            <div class="ui fluid input">
-                <input id="burl" type="text" placeholder="Binary Download URL">
-            </div>
-            <small locale="update/download/binaryInstr">Usually with pattern like: arozos_{platform}_{cpu_arch}</small>
-            <br><br>
-            <p locale="update/download/webpack">Webpack Download URL</p>
-            <div class="ui fluid input">
-                <input id="wurl" type="text" placeholder="Webpack Download URL">
-            </div>
-            <small locale="update/download/webpackInst">Usually with named as: webpack.tar.gz</small>
-            <br><br>
-            <button class="ui red button updateBtn" onclick="updateViaURL();"><i class="cloud upload icon"></i> <span locale="update/download/execu">Execute Update</span></button>
-  <!-- 
-            <div class="ui divider"></div>
+<div id="up-root">
 
-          
-            <div class="ui message">
-                <h4><i class="info circle icon"></i>Update Instruction</h4>
-                <p>To update your ArozOS system, you will need two files: A compiled binary of the newer version of ArozOS and the webpack compress file in .tar.gz format. You can get the two files on Github, private distribution servers or from cluster
-                    nodes. Please choose one of the update method below and press "Update" to start the update process.</p>
-                <p>Notes that updates only work if ArozOS is started by the launcher. If not, you might need to manually update the system using system commands.</p>
-                <div class="ui accordion">
-                    <div class="title">
-                        <i class="dropdown icon"></i> How to update manually?
-                    </div>
-                    <div class="content">
-                        <p>If your system is not started by any launcher (versions before v1.120), you might want to manually update the ArozOS following the steps below.</p>
-                        <h5><i class="linux icon"></i> Linux (Debian)</h5>
-                        <div class="ui ordered list">
-                            <div class="item">Download the update of the latest ArozOS using one of the above methods</div>
-                            <div class="item">SSH into your host, cd into the ArozOS root (Usually located at ~/arozos/src/)</div>
-                            <div class="item">Check if the "updates" folder exists. If yes, check if the new ArozOS binary and "system" and "web" folder exists</div>
-                            <div class="item">Backup any important files or config if needed</div>
-                            <div class="item">Stop the arozos service using <code>sudo systemctl stop arozos</code></code>
-                            </div>
-                            <div class="item">Copy the updates to the arozos root using <code>cp -r ./updates/* ./</code></div>
-                            <div class="item">Restore the files or config</div>
-                            <div class="item">Start the arozos service using <code>sydo systemctl start arozos</code></div>
-                            <div class="item">The new ArozOS should be updated and ready.</div>
-                        </div>
-
-                        <h5><i class="windows icon"></i> Windows</h5>
-                        <div class="ui ordered list">
-                            <div class="item">Download the update of the latest ArozOS using one of the above methods</div>
-                            <div class="item">Locate the cmd / powershell window that is running ArozOS</div>
-                            <div class="item">Press <code>Ctrl + C</code> to gracefully stop ArozOS</div>
-                            <div class="item">Open ArozOS root and check if "updates" folder exists. If yes, check if the new ArozOS binary and "system" and "web" folder exists</div>
-                            <div class="item">Backup any important files or config if needed</div>
-                            <div class="item">Copy all the file from the "updates" folder and overwrite the one in ArozOS root (.\arozos\src\)</div>
-                            <div class="item">Restore the files or config</div>
-                            <div class="item">Start the new ArozOS binary (exe) by double clicking it OR starting the start.bat file</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            -->
+    <!-- ── Page header ── -->
+    <div id="up-header">
+        <div class="up-header-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 3.5v7m0 0L7 8m3 2.5L13 8" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.5 12.5A6.5 6.5 0 1 0 10 3.5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <div>
+            <div class="up-page-title"    locale="header/title/systemUpdate">System Update</div>
+            <div class="up-page-subtitle" locale="header/title/subHeader">Update the ArozOS System to the latest version</div>
         </div>
     </div>
-    <script>
-        var useVendorUpdate = false;
-        var vendorUpdateBinaryURL = "";
-        var vendorUpdateWebpackURL = "";
-        var vendorUpdateCheckSumURL = "";
 
-        applocale.init("../locale/system_settings/updates.json", function(){
-            $(".accordion").accordion();
-            initVendorUpdateInfo();
-            checkPendingUpdates();
-            applocale.translate();
-        });
-      
-        function checkPendingUpdates() {
-            $.get("../../system/update/checkpending", function(data) {
-                if (data == true) {
-                    //There is a pending update.
-                    hideAllStatus();
-                    $("#pending").slideDown('fast');
-                    $.get("/system/update/restart", function(data) {
-                        if (data.error !== undefined) {
-                            //No launcher
-                        } else {
-                            $("#launcherName").text(data);
-                            $("#restartPanel").show();
-                        }
-                        console.log("Launcher check: ", data);
-                    })
-                }
-            })
-        }
+    <!-- ── Status panels ── -->
 
-        function initVendorUpdateInfo() {
-            $.get("../../system/update/platform", function(data) {
-                console.log(data);
-                if (data.error !== undefined) {
-                    //No vendor update modes
-                    $(".vendorupdate").hide();
-                } else {
-                    if (data.Config.binary[data.OS] && data.Config.binary[data.OS][data.ARCH]) {
-                        //This update target exists
-                        vendorUpdateBinaryURL = data.Config.binary[data.OS][data.ARCH];
+    <!-- Warning (default) -->
+    <div id="warning" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap warn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 3L2 17h16L10 3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                        <path d="M10 8v4M10 13.5v.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" locale="warning/title">Warning</div>
+                    <div class="up-status-desc"  locale="warning/desc">Back up all important files before performing a system update.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checking -->
+    <div id="checking" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap info">
+                    <div class="up-spinner"></div>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" locale="checking/title">Connecting to Download Server</div>
+                    <div class="up-status-desc"  locale="checking/desc">Fetching update information…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm download -->
+    <div id="confirmDownload" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap warn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.6"/>
+                        <path d="M10 6v4.5M10 12.5v.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" locale="confirm/title">Confirm Update?</div>
+                    <div class="up-status-desc">
+                        <span locale="confirm/update/willUse">This update will use </span><strong id="spaceEst"></strong><span locale="confirm/update/ofSpace"> of space.</span>
+                        <br><span locale="confirm/update/reminder">Please make sure you have backed up all important files before continuing.</span>
+                    </div>
+                    <div class="up-action-row">
+                        <button class="up-btn primary updateBtn" onclick="confirmURLUpdate();" locale="confirm/update/confirm">Confirm Update</button>
+                        <button class="up-btn"                   onclick="cancelUpdateStatus();" locale="confirm/update/cancel">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Downloading -->
+    <div id="downloading" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap info">
+                    <div class="up-spinner"></div>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" id="downloadStatusText" locale="download/title">Starting Download Session</div>
+                    <div id="fallbackmodeExp" locale="download/wsFallback">
+                        WebSocket connection failed. Using AJAX fallback mode — progress will not update in real time.
+                        Please wait and do not close this page.
+                    </div>
+                    <div class="up-progress-wrap" style="margin-top:12px;">
+                        <div id="downloadProgressBar" style="width:0%"></div>
+                    </div>
+                    <div class="up-progress-text"><span class="dl-pct">0%</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success -->
+    <div id="success" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap success">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.6"/>
+                        <path d="M6.5 10.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" locale="succ/update">Update Download Succeeded</div>
+                    <div class="up-status-desc"  locale="succ/restartDesc">Restart ArozOS using the launcher or apply manual update files to finish the update process.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending -->
+    <div id="pending" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap success">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.6"/>
+                        <path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" locale="pending/title">Update Pending</div>
+                    <div class="up-status-desc"  locale="pending/desc">Restart ArozOS to apply the downloaded update.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Failed -->
+    <div id="failed" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap danger">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.6"/>
+                        <path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title" locale="failed/title">Update Download Failed</div>
+                    <div class="up-status-desc"  id="failedErrorMessage" locale="failed/error">An unknown error occurred.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restart panel -->
+    <div id="restartPanel" class="up-card up-status-panel">
+        <div class="up-card-body">
+            <div class="up-status-row">
+                <div class="up-status-icon-wrap info">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10a6 6 0 1 1 1.8 4.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        <path d="M4 14.5V10H8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="up-status-content">
+                    <div class="up-status-title"><span locale="launcher/detected/title">Launcher Detected:</span> <span id="launcherName">—</span></div>
+                    <div class="up-status-desc" locale="launcher/desc">You will need to restart ArozOS to apply the updates.</div>
+                    <div class="up-restart-warning" locale="launcher/warning">
+                        Warning — ensure you have physical or remote access to this host before restarting. Update failure may require a manual restart.
+                    </div>
+                    <div class="up-action-row">
+                        <button class="up-btn danger"  onclick="restartArozOS();"  locale="launcher/restartnow">Restart Now</button>
+                        <button class="up-btn"          onclick="restartLater();"   locale="launcher/restartlater">Restart Later</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Launcher status ── -->
+    <div class="up-section-label" locale="launcher/section/title">Launcher</div>
+    <div id="up-launcher-card" class="up-card">
+        <div class="up-card-body">
+            <!-- Loading skeleton -->
+            <div id="up-launcher-loading" class="up-launcher-header">
+                <div class="up-launcher-icon-wrap">
+                    <div class="up-spinner" style="width:18px;height:18px;border-width:2px;"></div>
+                </div>
+                <div>
+                    <div class="up-launcher-name" locale="launcher/checking">Checking launcher…</div>
+                    <div class="up-launcher-desc" locale="launcher/checking/desc">Connecting to local launcher service</div>
+                </div>
+            </div>
+
+            <!-- Detected state -->
+            <div id="up-launcher-detected" style="display:none;">
+                <div class="up-launcher-header">
+                    <div class="up-launcher-icon-wrap">
+                        <img src="../../img/system/power.svg" alt="">
+                    </div>
+                    <div>
+                        <div class="up-launcher-name">
+                            ArozOS Launcher
+                            <span id="up-launcher-ver" class="up-launcher-version"></span>
+                        </div>
+                        <div class="up-launcher-desc" locale="launcher/detected/desc">
+                            Manages automatic restarts and updates for this ArozOS instance.
+                        </div>
+                    </div>
+                    <div class="up-status-pill online">
+                        <span class="pill-dot"></span>
+                        <span locale="launcher/status/running">Running</span>
+                    </div>
+                </div>
+                <hr class="up-inner-divider">
+                <div class="up-info-note" locale="launcher/detected/note">
+                    The launcher is active. After downloading an update you can use the
+                    <strong>Restart Now</strong> button to apply it automatically.
+                </div>
+            </div>
+
+            <!-- Not detected state -->
+            <div id="up-launcher-missing" style="display:none;">
+                <div class="up-launcher-header">
+                    <div class="up-launcher-icon-wrap">
+                        <img src="../../img/system/power.svg" alt="">
+                    </div>
+                    <div>
+                        <div class="up-launcher-name" locale="launcher/missing/title">Launcher Not Detected</div>
+                        <div class="up-launcher-desc" locale="launcher/missing/desc">
+                            ArozOS is running without the official launcher.
+                        </div>
+                    </div>
+                    <div class="up-status-pill offline">
+                        <span class="pill-dot"></span>
+                        <span locale="launcher/status/notfound">Not Found</span>
+                    </div>
+                </div>
+                <hr class="up-inner-divider">
+                <div class="up-manual-instructions" id="up-manual-instructions">
+                    <div class="up-info-note" locale="launcher/missing/note">
+                        After an update completes, you will need to restart ArozOS manually.
+                        Use the command matching how you started ArozOS:
+                    </div>
+                    <!-- Linux / systemd -->
+                    <div class="up-platform-row" id="up-inst-systemd" style="display:none;">
+                        <span class="up-platform-label">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-2px;margin-right:3px">
+                                <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/>
+                                <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+                            </svg>
+                            Linux / systemd
+                        </span>
+                        <code class="up-code">sudo systemctl restart arozos</code>
+                    </div>
+                    <!-- Linux / direct -->
+                    <div class="up-platform-row" id="up-inst-linux">
+                        <span class="up-platform-label">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-2px;margin-right:3px">
+                                <rect x="1.5" y="2.5" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                                <path d="M5 13.5h6M8 11.5v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                            </svg>
+                            Linux / direct
+                        </span>
+                        <code class="up-code">./arozos  <span style="color:var(--up-muted)">  # re-run from its directory</span></code>
+                    </div>
+                    <!-- Windows -->
+                    <div class="up-platform-row" id="up-inst-windows" style="display:none;">
+                        <span class="up-platform-label">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px;margin-right:3px">
+                                <path d="M0 2.25L6.5 1.4v6.1H0V2.25zm7.5-1L16 0v7.5H7.5V1.25zM0 8.5h6.5V14.6L0 13.75V8.5zm7.5 0H16V16l-8.5-1.15V8.5z"/>
+                            </svg>
+                            Windows
+                        </span>
+                        <code class="up-code">Stop ArozOS (Ctrl+C), then re-run <span style="color:var(--up-muted)">arozos.exe</span></code>
+                    </div>
+                    <a class="up-launcher-link" href="https://github.com/aroz-online/launcher" target="_blank">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        Install the ArozOS Launcher for automatic restart support
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Vendor update ── -->
+    <div class="vendorupdate" style="display:none;">
+        <div class="up-section-label" locale="update/vendor/sectionlabel">Automatic Update</div>
+        <div class="up-card">
+            <div class="up-card-body">
+                <div class="up-vendor-header">
+                    <div>
+                        <div class="up-vendor-name">
+                            <span locale="update/vendor/from">Update from</span>
+                            <span class="vendorName"> Vendor</span>
+                        </div>
+                        <div class="up-vendor-desc">
+                            <span locale="update/vendor/from">Update from</span>
+                            <span class="vendorName"> your vendor</span>
+                            <span locale="update/vendor/desc"> using the built-in update configuration for this device.</span>
+                        </div>
+                    </div>
+                    <div class="up-vendor-badge">
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.3 2.6 2.9.4-2.1 2 .5 2.9L6 7.6l-2.6 1.3.5-2.9L1.8 4l2.9-.4z"/></svg>
+                        <span locale="update/vendor/recommend">Recommended</span>
+                    </div>
+                </div>
+                <div class="up-action-row">
+                    <button class="up-btn primary updateBtn" onclick="updateViaVendor();">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        <span locale="update/useVendorUpdate">Update from Vendor</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Custom download ── -->
+    <div class="up-section-label" locale="update/download/title">Update via Download</div>
+    <div class="up-card">
+        <div class="up-card-body">
+            <div class="up-form-field">
+                <label class="up-form-label" locale="update/download/binary">Binary Executable URL</label>
+                <input id="burl" class="up-input" type="text" placeholder="Binary Download URL" locale_placeholder="Binary Download URL">
+                <div class="up-form-hint" locale="update/download/binaryInstr">Usually named like: arozos_{platform}_{cpu_arch}</div>
+            </div>
+            <div class="up-form-field">
+                <label class="up-form-label" locale="update/download/webpack">Webpack Archive URL</label>
+                <input id="wurl" class="up-input" type="text" placeholder="Webpack Download URL" locale_placeholder="Webpack Download URL">
+                <div class="up-form-hint" locale="update/download/webpackInst">Usually named: webpack.tar.gz</div>
+            </div>
+            <button class="up-btn danger updateBtn" onclick="updateViaURL();">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+                <span locale="update/download/execu">Execute Update</span>
+            </button>
+        </div>
+    </div>
+
+</div><!-- #up-root -->
+
+<script>
+    /* ── i18n ── */
+    var upLocale = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        return upLocale ? upLocale.getString(key, fallback) : fallback;
+    }
+
+    /* ── Theme ── */
+    function upApplyTheme(isDark) {
+        document.getElementById('up-root').classList.toggle('dark', isDark);
+    }
+
+    (function() {
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) { upApplyTheme(c !== 'whiteTheme'); });
+                return;
+            }
+        } catch(e) {}
+        try {
+            var t = null;
+            if      (typeof preferredTheme !== 'undefined')                       t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (t) upApplyTheme(t === 'dark' || t === 'darkTheme');
+        } catch(e) {}
+    })();
+
+    window.detailPageThemeCallback = function(isDark) { upApplyTheme(isDark); };
+
+    /* ── Update state ── */
+    var useVendorUpdate         = false;
+    var vendorUpdateBinaryURL   = "";
+    var vendorUpdateWebpackURL  = "";
+    var vendorUpdateCheckSumURL = "";
+    var currentPlatformOS       = "";
+
+    /* ── Helpers ── */
+    function hideAllStatus() {
+        $("#warning, #confirmDownload, #checking, #downloading, #success, #failed, #restartPanel").slideUp("fast");
+        /* keep pending visible if set — only hide it explicitly */
+    }
+
+    function hideAllStatusIncPending() {
+        $("#warning, #confirmDownload, #checking, #downloading, #success, #failed, #restartPanel, #pending").slideUp("fast");
+    }
+
+    /* ── Boot ── */
+    // Always run immediately; locale translate() enhances labels if file loads.
+    loadLauncherInfo();
+    initVendorUpdateInfo();
+    checkPendingUpdates();
+
+    if (upLocale) {
+        upLocale.init("../locale/system_settings/updates.json", function() {
+            upLocale.translate();
+            /* Handle placeholder attributes (locale file uses "placeholder" type) */
+            document.querySelectorAll('[locale_placeholder]').forEach(function(el) {
+                var key = el.getAttribute('locale_placeholder');
+                if (upLocale.localData && upLocale.localData.keys) {
+                    var lang = upLocale.lang;
+                    var ph = upLocale.localData.keys[lang];
+                    if (ph && ph.placeholder && ph.placeholder[key]) {
+                        el.setAttribute('placeholder', ph.placeholder[key]);
                     }
-                    vendorUpdateWebpackURL = data.Config.webpack;
-                    vendorUpdateCheckSumURL = data.Config.checksum;
-                    $(".vendorName").text(data.Config.vendor);
                 }
-            })
-        }
+            });
+        });
+    }
 
-        function updateViaVendor() {
-            let binaryDownloadURL = vendorUpdateBinaryURL;
-            let webpackDownloadURL = vendorUpdateWebpackURL;
-
-            if (binaryDownloadURL == "" || webpackDownloadURL == "") {
-                return
+    /* ── Check pending updates ── */
+    function checkPendingUpdates() {
+        $.get("../../system/update/checkpending", function(data) {
+            if (data == true) {
+                hideAllStatusIncPending();
+                $("#pending").slideDown("fast");
+                $.get("/system/update/restart", function(data) {
+                    if (data.error === undefined) {
+                        $("#launcherName").text(data);
+                        $("#restartPanel").slideDown("fast");
+                    }
+                });
+            } else {
+                /* Show default warning */
+                $("#warning").slideDown("fast");
             }
-            //Check space need
-            $("#checking").slideDown("fast");
-            $("#warning").slideUp("fast");
-            useVendorUpdate = true;
-            $.get(`/system/update/checksize?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}`, function(data) {
-                if (data.error != undefined) {
-                    cancelUpdateStatus();
-                    alert("Update failed: " + data.error)
-                } else {
-                    let totalDownloadBytes = data[0] + data[1];
-                    $("#spaceEst").text(ao_module_utils.formatBytes(totalDownloadBytes, 2));
-                    $("#confirmDownload").slideDown("fast");
-                    $("#checking").slideUp("fast");
-                    console.log(data);
-                }
-
-            })
-        }
-
-        function updateViaURL() {
-            let binaryDownloadURL = $("#burl").val().trim();
-            let webpackDownloadURL = $("#wurl").val().trim();
-            if (binaryDownloadURL == "" || webpackDownloadURL == "") {
-                alert("Invalid or Empty URL given");
-                return
-            }
-            //Check space need
-            $("#checking").slideDown("fast");
-            $("#warning").slideUp("fast");
-            $.get(`/system/update/checksize?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}`, function(data) {
-                if (data.error != undefined) {
-                    cancelUpdateStatus();
-                    alert("Update failed: " + data.error)
-                } else {
-                    let totalDownloadBytes = data[0] + data[1];
-                    $("#spaceEst").text(ao_module_utils.formatBytes(totalDownloadBytes, 2));
-                    $("#confirmDownload").slideDown("fast");
-                    $("#checking").slideUp("fast");
-                    console.log(data);
-                }
-
-            })
-        }
-
-        function confirmURLUpdate() {
-            let binaryDownloadURL = $("#burl").val().trim();
-            let webpackDownloadURL = $("#wurl").val().trim();
-            let checksumDownloadURL = "";
-
-            if (useVendorUpdate) {
-                //Use vendor link for update. Replace the download target with vendor update links
-                useVendorUpdate = false;
-                binaryDownloadURL = vendorUpdateBinaryURL;
-                webpackDownloadURL = vendorUpdateWebpackURL;
-                checksumDownloadURL = vendorUpdateCheckSumURL;
-            }
-            if (binaryDownloadURL == "" || webpackDownloadURL == "") {
-                alert("Invalid or Empty URL given");
-                return
-            }
-
-            var wsroot = ao_module_utils.getWebSocketEndpoint();
-            var requestEndpoint = wsroot + `/system/update/download?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}&checksum=${checksumDownloadURL}&ws=true`
-            console.log("Connecting to: ", requestEndpoint);
-            var isFailed = false;
-
-            hideAllStatus();
-            $("#downloading").slideDown("fast");
-
-            let socket = new WebSocket(requestEndpoint);
-
-            socket.onopen = function(e) {
-                $("#downloadStatusText").text("Download Started");
-                $(".updateBtn").addClass("disabled");
-            };
-
-            socket.onmessage = function(event) {
-                let status = JSON.parse(event.data);
-                if (status.error !== undefined) {
-                    hideAllStatus();
-                    $("#failed").slideDown();
-                    $("#failedErrorMessage").text(status.error);
-                    $(".updateBtn").removeClass("disabled");
-                    isFailed = true
-                } else {
-                    //Progressing
-                    let progressText = status.Progress.toFixed(2) + "%";
-                    $("#downloadProgressBar").find(".progress").text(progressText);
-                    $("#downloadProgressBar").css("width", status.Progress + "%");
-                    $("#downloadStatusText").text(`[${status.Stage}] ${status.StatusText}`);
-                }
-                console.log(event.data);
-            };
-
-            socket.onclose = function(event) {
-                if(!isFailed){
-                    hideAllStatus();
-                    $("#success").slideDown();
-                    checkLauncher();
-                }
-            };
-
-            socket.onerror = function(error) {
-                console.log("Websocket Connection Error: ", error, " Running in fallback mode")
-                downloadUpdateFallbackMode(binaryDownloadURL, webpackDownloadURL);
-            };
-        }
-
-        function downloadUpdateFallbackMode(binaryDownloadURL, webpackDownloadURL, checksumDownloadURL) {
-            hideAllStatus();
-            $("#downloading").slideDown("fast");
-            $("#downloadStatusText").text("Waiting for Download Complete (Fallback Mode)");
-            $("#fallbackmodeExp").show();
-            $("#downloadProgressBar").find(".progress").text("Downloading");
-            $("#downloadProgressBar").css("width", "50%");
-            $(".updateBtn").addClass("disabled");
-            $.get(`../../system/update/download?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}&checksum=${checksumDownloadURL}`, function(data) {
-                if (data.error !== undefined) {
-                    hideAllStatus();
-                    $("#failed").slideDown();
-                    $("#failedErrorMessage").text(data.error);
-                    $(".updateBtn").removeClass("disabled");
-                } else {
-                    hideAllStatus();
-                    $("#success").slideDown();
-                    checkLauncher();
-                }
-            })
-        }
-
-        function checkLauncher() {
-            $(".updateBtn").removeClass("disabled");
-            $.get("/system/update/restart", function(data) {
-                if (data.error !== undefined) {
-                    //No launcher
-                    $("#restartPanel").hide();
-                } else {
-                    $("#launcherName").text(data);
-                    $("#restartPanel").show();
-                }
-                console.log("Launcher check: ", data);
-            })
-
-        }
-
-        function restartArozOS() {
-            if (confirm("CONFIRM RESTART?")) {
-                window.top.location.href = "../updates/updating.html";
-            }
-        }
-
-        function cancelUpdateStatus() {
-            hideAllStatus();
+        }).fail(function() {
             $("#warning").slideDown("fast");
-        }
+        });
+    }
 
-        function restartLater() {
-            hideAllStatus();
-        }
+    /* ── Launcher info ── */
+    function loadLauncherInfo() {
+        var card = document.getElementById('up-launcher-card');
+        $.get("/system/update/restart", function(version) {
+            // Launcher responded — show detected state
+            document.getElementById('up-launcher-loading').style.display = 'none';
+            document.getElementById('up-launcher-detected').style.display = 'block';
+            card.classList.add('detected');
 
+            // Parse version string: the launcher returns plain text like
+            // "ArozOS Launcher v1.0" or just a version token.
+            var raw = String(version || '').trim();
+            // Extract just the version part (anything starting with v or digits)
+            var verMatch = raw.match(/v?[\d]+[\d.]+[\w.-]*/i);
+            var verLabel = verMatch ? verMatch[0] : raw;
+            if (verLabel && !verLabel.startsWith('v') && !verLabel.startsWith('V')) {
+                verLabel = 'v' + verLabel;
+            }
+            document.getElementById('up-launcher-ver').textContent = verLabel || '';
 
-        function hideAllStatus() {
-            $("#warning").slideUp("fast");
-            $("#confirmDownload").slideUp("fast");
-            $("#checking").slideUp("fast");
-            $("#downloading").slideUp("fast");
-            $("#success").slideUp("fast");
-            $("#failed").slideUp("fast");
-            $("#restartPanel").slideUp("fast");
+        }).fail(function() {
+            // Launcher not found — show missing state with platform instructions
+            document.getElementById('up-launcher-loading').style.display = 'none';
+            document.getElementById('up-launcher-missing').style.display = 'block';
+            card.classList.add('missing');
+
+            var inst = document.getElementById('up-manual-instructions');
+            inst.style.display = 'block';
+
+            // Show platform-specific instructions.
+            // currentPlatformOS is populated by initVendorUpdateInfo(); if that
+            // hasn't completed yet we show Linux by default and the right row
+            // will already be visible when initVendorUpdateInfo finishes.
+            applyPlatformInstructions(currentPlatformOS);
+        });
+    }
+
+    function applyPlatformInstructions(os) {
+        // Hide all, then show the relevant one(s)
+        document.getElementById('up-inst-systemd').style.display = 'none';
+        document.getElementById('up-inst-linux').style.display   = 'none';
+        document.getElementById('up-inst-windows').style.display = 'none';
+
+        var norm = (os || '').toLowerCase();
+        if (norm === 'windows') {
+            document.getElementById('up-inst-windows').style.display = 'flex';
+        } else if (norm === 'linux' || norm === 'darwin' || norm === '') {
+            // Show both systemd and direct for Linux/macOS
+            document.getElementById('up-inst-systemd').style.display = 'flex';
+            document.getElementById('up-inst-linux').style.display   = 'flex';
+        } else {
+            // Unknown platform — show all options
+            document.getElementById('up-inst-systemd').style.display = 'flex';
+            document.getElementById('up-inst-linux').style.display   = 'flex';
+            document.getElementById('up-inst-windows').style.display = 'flex';
         }
-    </script>
+    }
+
+    /* ── Vendor update info ── */
+    function initVendorUpdateInfo() {
+        $.get("../../system/update/platform", function(data) {
+            if (data.error !== undefined) {
+                $(".vendorupdate").hide();
+            } else {
+                // Store OS for launcher instruction display
+                currentPlatformOS = data.OS || '';
+                // If launcher-missing panel is already showing, refresh instructions
+                if (document.getElementById('up-launcher-missing').style.display !== 'none') {
+                    applyPlatformInstructions(currentPlatformOS);
+                }
+
+                if (data.Config.binary[data.OS] && data.Config.binary[data.OS][data.ARCH]) {
+                    vendorUpdateBinaryURL = data.Config.binary[data.OS][data.ARCH];
+                }
+                vendorUpdateWebpackURL  = data.Config.webpack;
+                vendorUpdateCheckSumURL = data.Config.checksum;
+                $(".vendorName").text(data.Config.vendor);
+                $(".vendorupdate").show();
+            }
+        });
+    }
+
+    /* ── Update via vendor ── */
+    function updateViaVendor() {
+        if (!vendorUpdateBinaryURL || !vendorUpdateWebpackURL) return;
+        useVendorUpdate = true;
+        hideAllStatusIncPending();
+        $("#checking").slideDown("fast");
+        $.get("/system/update/checksize?webpack=" + vendorUpdateWebpackURL + "&binary=" + vendorUpdateBinaryURL, function(data) {
+            if (data.error != undefined) {
+                cancelUpdateStatus();
+                alert("Update failed: " + data.error);
+            } else {
+                var total = data[0] + data[1];
+                $("#spaceEst").text(ao_module_utils.formatBytes(total, 2));
+                $("#checking").slideUp("fast");
+                $("#confirmDownload").slideDown("fast");
+            }
+        });
+    }
+
+    /* ── Update via URL ── */
+    function updateViaURL() {
+        var bin  = $("#burl").val().trim();
+        var pack = $("#wurl").val().trim();
+        if (!bin || !pack) { alert("Invalid or empty URL given"); return; }
+        useVendorUpdate = false;
+        hideAllStatusIncPending();
+        $("#checking").slideDown("fast");
+        $.get("/system/update/checksize?webpack=" + pack + "&binary=" + bin, function(data) {
+            if (data.error != undefined) {
+                cancelUpdateStatus();
+                alert("Update failed: " + data.error);
+            } else {
+                var total = data[0] + data[1];
+                $("#spaceEst").text(ao_module_utils.formatBytes(total, 2));
+                $("#checking").slideUp("fast");
+                $("#confirmDownload").slideDown("fast");
+            }
+        });
+    }
+
+    /* ── Confirm & execute download ── */
+    function confirmURLUpdate() {
+        var bin      = $("#burl").val().trim();
+        var pack     = $("#wurl").val().trim();
+        var checksum = "";
+
+        if (useVendorUpdate) {
+            useVendorUpdate = false;
+            bin      = vendorUpdateBinaryURL;
+            pack     = vendorUpdateWebpackURL;
+            checksum = vendorUpdateCheckSumURL;
+        }
+        if (!bin || !pack) { alert("Invalid or empty URL given"); return; }
+
+        hideAllStatusIncPending();
+        $("#downloading").slideDown("fast");
+
+        var wsroot  = ao_module_utils.getWebSocketEndpoint();
+        var wsurl   = wsroot + "/system/update/download?webpack=" + pack + "&binary=" + bin + "&checksum=" + checksum + "&ws=true";
+        var isFailed = false;
+
+        var socket = new WebSocket(wsurl);
+
+        socket.onopen = function() {
+            $("#downloadStatusText").text(t("download/title", "Download Started"));
+            $(".updateBtn").addClass("disabled");
+        };
+
+        socket.onmessage = function(event) {
+            var status = JSON.parse(event.data);
+            if (status.error !== undefined) {
+                hideAllStatusIncPending();
+                $("#failed").slideDown("fast");
+                $("#failedErrorMessage").text(status.error);
+                $(".updateBtn").removeClass("disabled");
+                isFailed = true;
+            } else {
+                var pct = status.Progress.toFixed(1) + "%";
+                $("#downloadProgressBar").css("width", status.Progress + "%");
+                $("#downloading .dl-pct").text(pct);
+                $("#downloadStatusText").text("[" + status.Stage + "] " + status.StatusText);
+            }
+        };
+
+        socket.onclose = function() {
+            if (!isFailed) {
+                hideAllStatusIncPending();
+                $("#success").slideDown("fast");
+                checkLauncher();
+            }
+        };
+
+        socket.onerror = function() {
+            downloadUpdateFallbackMode(bin, pack, checksum);
+        };
+    }
+
+    /* ── Fallback (AJAX) mode ── */
+    function downloadUpdateFallbackMode(bin, pack, checksum) {
+        hideAllStatusIncPending();
+        $("#downloading").slideDown("fast");
+        $("#downloadStatusText").text(t("download/title", "Waiting for Download (Fallback Mode)"));
+        $("#fallbackmodeExp").show();
+        $("#downloadProgressBar").css("width", "50%");
+        $("#downloading .dl-pct").text("…");
+        $(".updateBtn").addClass("disabled");
+        $.get("../../system/update/download?webpack=" + pack + "&binary=" + bin + "&checksum=" + checksum, function(data) {
+            if (data.error !== undefined) {
+                hideAllStatusIncPending();
+                $("#failed").slideDown("fast");
+                $("#failedErrorMessage").text(data.error);
+                $(".updateBtn").removeClass("disabled");
+            } else {
+                hideAllStatusIncPending();
+                $("#success").slideDown("fast");
+                checkLauncher();
+            }
+        });
+    }
+
+    /* ── Launcher check ── */
+    function checkLauncher() {
+        $(".updateBtn").removeClass("disabled");
+        $.get("/system/update/restart", function(data) {
+            if (data.error === undefined) {
+                $("#launcherName").text(data);
+                $("#restartPanel").slideDown("fast");
+            }
+        });
+    }
+
+    /* ── Restart ── */
+    function restartArozOS() {
+        if (confirm(t("launcher/restartnow", "CONFIRM RESTART?"))) {
+            window.top.location.href = "../updates/updating.html";
+        }
+    }
+
+    function cancelUpdateStatus() {
+        hideAllStatusIncPending();
+        $("#warning").slideDown("fast");
+    }
+
+    function restartLater() {
+        hideAllStatusIncPending();
+    }
+</script>
 </body>
-
 </html>

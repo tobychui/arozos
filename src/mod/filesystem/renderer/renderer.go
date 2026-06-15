@@ -3,10 +3,10 @@ package renderer
 import (
 	. "github.com/fogleman/fauxgl"
 	"github.com/nfnt/resize"
+	"imuslab.com/arozos/mod/info/logger"
 
 	"errors"
 	"image"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,7 +63,7 @@ func (r *Renderer) RenderModel(filename string) (image.Image, error) {
 		}
 		mesh = m
 	} else {
-		log.Println("Not supported format, given: " + filepath.Ext(filename))
+		logger.PrintAndLog("Renderer", "Not supported format, given: "+filepath.Ext(filename), nil)
 		return nil, errors.New("Not supported model format")
 	}
 

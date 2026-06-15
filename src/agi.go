@@ -19,8 +19,11 @@ func AGIInit() {
 		InternalVersion:      internal_version,
 		LoadedModule:         moduleHandler.GetModuleNameList(),
 		ReservedTables:       []string{"auth", "permisson", "register", "desktop"},
-		ModuleRegisterParser: moduleHandler.RegisterModuleFromAGI,
+		ModuleRegisterParser:  moduleHandler.RegisterModuleFromAGI,
+		ExtIconRegisterParser: moduleHandler.RegisterExtIcon,
+		ModuleListProvider:   moduleHandler.GetModuleListJSONForUser,
 		PackageManager:       packageManager,
+		Logger:               systemWideLogger,
 		UserHandler:          userHandler,
 		StartupRoot:          "./web",
 		ActivateScope:        []string{"./web", "./subservice"},
@@ -87,6 +90,7 @@ func AGIInit() {
 	externalAGIRouter.HandleFunc("/api/ajgi/listExt", gw.ListExternalEndpoint)
 	externalAGIRouter.HandleFunc("/api/ajgi/addExt", gw.AddExternalEndPoint)
 	externalAGIRouter.HandleFunc("/api/ajgi/rmExt", gw.RemoveExternalEndPoint)
+	externalAGIRouter.HandleFunc("/api/ajgi/stats", gw.GetEndpointStats)
 
 	AGIGateway = gw
 }

@@ -42,7 +42,7 @@ func SystemSettingInit() {
 		Version:     "1.0",
 		StartDir:    "SystemAO/system_setting/index.html",
 		SupportFW:   true,
-		InitFWSize:  []int{1080, 580},
+		InitFWSize:  []int{1200, 580},
 		LaunchFWDir: "SystemAO/system_setting/index.html",
 		SupportEmb:  false,
 	})
@@ -68,6 +68,12 @@ func system_setting_getSettingGroups() []settingGroup {
 			Group:    "Module",
 			IconPath: "SystemAO/system_setting/img/module.svg",
 			Desc:     "List of modules loaded in the system",
+		},
+		{
+			Name:     "Desktop & Themes",
+			Group:    "Desktop",
+			IconPath: "SystemAO/desktop/img/personalization.png",
+			Desc:     "Personalize your desktop experience",
 		},
 		{
 			Name:     "Disk & Storage",
@@ -104,6 +110,12 @@ func system_setting_getSettingGroups() []settingGroup {
 			Group:    "Advance",
 			IconPath: "SystemAO/system_setting/img/code.svg",
 			Desc:     "Advance configs for developers",
+		},
+		{
+			Name:     "AI Integration",
+			Group:    "AInteg",
+			IconPath: "SystemAO/system_setting/img/ai.svg",
+			Desc:     "Connect AI models, manage pricing, quota and usage",
 		},
 		{
 			Name:     "About ArOZ",

@@ -154,7 +154,7 @@ func mrouter(h http.Handler) http.Handler {
 			if !*enable_dir_listing {
 				if strings.HasSuffix(r.URL.Path, "/") {
 					//User trying to access a directory. Send NOT FOUND.
-					if fs.FileExists("web" + r.URL.Path + "index.html") {
+					if fileExistsInWebOrVendor(r.URL.Path + "index.html") {
 						//Index exists. Allow passthrough
 
 					} else {
@@ -163,7 +163,7 @@ func mrouter(h http.Handler) http.Handler {
 					}
 				}
 			}
-			if !fs.FileExists("web" + r.URL.Path) {
+			if !fileExistsInWebOrVendor(r.URL.Path) {
 				//File not found
 				errorHandleNotFound(w, r)
 				return
@@ -171,7 +171,7 @@ func mrouter(h http.Handler) http.Handler {
 			routerStaticContentServer(h, w, r)
 		} else {
 			//User not logged in. Check if the path end with public/. If yes, allow public access
-			if !fs.FileExists(filepath.Join("./web", r.URL.Path)) {
+			if !fileExistsInWebOrVendor(r.URL.Path) {
 				//Requested file not exists on the server. Return not found
 				errorHandleNotFound(w, r)
 			} else if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
@@ -190,6 +190,15 @@ func mrouter(h http.Handler) http.Handler {
 		}
 
 	})
+}
+
+// fileExistsInWebOrVendor reports whether a URL path resolves to a file in
+// either the standard ./web directory or the vendorResRoot/web/ overlay.
+func fileExistsInWebOrVendor(urlPath string) bool {
+	if fs.FileExists("web" + urlPath) {
+		return true
+	}
+	return fs.FileExists(filepath.Join(vendorResRoot, "web", urlPath))
 }
 
 func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Request) {

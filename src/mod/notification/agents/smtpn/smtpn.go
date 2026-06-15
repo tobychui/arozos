@@ -11,12 +11,13 @@ package smtpn
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/smtp"
 	"os"
 	"strconv"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	notification "imuslab.com/arozos/mod/notification"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -94,7 +95,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		if err == nil {
 			userEmails = append(userEmails, []string{username, userEmail})
 		} else {
-			log.Println("[SMTP Notification] Unable to notify " + username + ": Email not set")
+			logger.PrintAndLog("Smtpn", "[SMTP Notification] Unable to notify "+username+": Email not set", nil)
 		}
 	}
 
@@ -112,7 +113,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 			"timestamp": time.Now().Format("2006-01-02 3:4:5 PM"),
 		})
 		if err != nil {
-			log.Println("[SMTP] Template load failed: " + err.Error())
+			logger.PrintAndLog("Smtpn", "[SMTP] Template load failed: "+err.Error(), nil)
 		}
 
 		msg := []byte("To: " + thisEmail + "\n" +
@@ -125,7 +126,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		auth := smtp.PlainAuth("", a.SMTPSender, a.SMTPPassword, a.SMTPDomain)
 		err = smtp.SendMail(a.SMTPDomain+":"+strconv.Itoa(a.SMTPPort), auth, a.SMTPSender, []string{thisEmail}, msg)
 		if err != nil {
-			log.Println("[SMTPN] Email sent failed: ", err.Error())
+			logger.PrintAndLog("Smtpn", fmt.Sprint("[SMTPN] Email sent failed: ", err.Error()), nil)
 			return err
 		}
 	}

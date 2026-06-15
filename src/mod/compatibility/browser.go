@@ -7,13 +7,13 @@ import (
 )
 
 /*
-	FirefoxBrowserVersionForBypassUploadMetaHeaderCheck
+FirefoxBrowserVersionForBypassUploadMetaHeaderCheck
 
-	This function check if Firefox version is between 84 and 93.
-	If yes, this function will return TRUE and upload logic should not need to handle
-	META header for upload. If FALSE, please extract the relative filepath from the meta header.
-	Example Firefox userAgent header:
-	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.02021/11/23
+This function check if Firefox version is between 84 and 93.
+If yes, this function will return TRUE and upload logic should not need to handle
+META header for upload. If FALSE, please extract the relative filepath from the meta header.
+Example Firefox userAgent header:
+Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.02021/11/23
 */
 func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool {
 	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
@@ -42,7 +42,7 @@ func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool 
 	return true
 }
 
-//Handle browser compatibility issue regarding some special format type
+// Handle browser compatibility issue regarding some special format type
 func BrowserCompatibilityOverrideContentType(userAgent string, filename string, contentType string) string {
 	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
 		//Firefox. Handle specal content-type serving

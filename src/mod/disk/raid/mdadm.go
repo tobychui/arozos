@@ -3,7 +3,6 @@ package raid
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -64,7 +64,7 @@ func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel in
 
 	//Validate if raid level
 	if !IsValidRAIDLevel("raid" + strconv.Itoa(raidLevel)) {
-		return fmt.Errorf("invalid or unsupported raid level given: raid" + strconv.Itoa(raidLevel))
+		return fmt.Errorf("invalid or unsupported raid level given: raid%d", raidLevel)
 	}
 
 	//Validate the number of disk is enough for the raid
@@ -199,7 +199,7 @@ func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
 			seqInt, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(tmp[1]), "]"))
 			if err != nil {
 				//Not an integer?
-				log.Println("[RAID] Unable to parse " + disk + " sequence ID")
+				logger.PrintAndLog("Raid", "[RAID] Unable to parse "+disk+" sequence ID", nil)
 				continue
 			}
 			member := RAIDMember{

@@ -1,0 +1,34 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "newgroup/section-info":         "群組資訊",
+                "newgroup/field-groupname":      "群組名稱",
+                "newgroup/field-admin":          "管理員權限",
+                "newgroup/hint-admin":           "授予此群組管理員權限",
+                "newgroup/section-quota":        "預設儲存配額",
+                "newgroup/field-quota":          "配額",
+                "newgroup/quota-hint":           "設為 0 表示唯讀，設為 -1 表示不限制",
+                "newgroup/section-interface":    "預設介面模組",
+                "newgroup/field-interface":      "模組",
+                "newgroup/hint-interface":       "用戶登入後所載入的模組。",
+                "newgroup/section-access":       "可存取模組",
+                "newgroup/section-preview":      "已選模組",
+                "newgroup/col-module":           "模組名稱",
+                "newgroup/no-modules-selected":  "未選擇任何模組",
+                "newgroup/no-modules":           "找不到可用模組",
+                "newgroup/loading":              "載入中…",
+                "newgroup/btn-cancel":           "取消",
+                "newgroup/btn-create":           "建立群組",
+                "newgroup/err-name-required":    "請輸入群組名稱。",
+                "newgroup/err-quota-invalid":    "請輸入有效的配額。",
+                "newgroup/err-load-modules":     "無法載入模組列表。",
+                "newgroup/err-forbidden":        "存取被拒絕。",
+                "newgroup/err-request-failed":   "請求失敗，請再試一次。"
+            }
+        }
+    }
+}

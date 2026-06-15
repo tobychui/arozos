@@ -132,6 +132,7 @@
         
         .launchIconWrapper.selected {
             background: rgba(250, 250, 250, 0.4) !important;
+            z-index: 200;
         }
         
         .launchIconText {
@@ -143,10 +144,23 @@
             word-break: break-all;
             width: 100%;
             font-variant-numeric: tabular-nums lining-nums;
+            /* Clamp to 2 lines so long names don't bleed into the icon below */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
         
         .launchIconWrapper:hover {
             background: rgba(250, 250, 250, 0.2);
+            z-index: 200; /* float above sibling icon images */
+        }
+
+        /* On hover or selection: unclamp text so full name is visible */
+        .launchIconWrapper:hover .launchIconText,
+        .launchIconWrapper.selected .launchIconText {
+            display: block;          /* disables -webkit-box clamping */
+            overflow: visible;
+            -webkit-line-clamp: unset;
         }
         
         .launchIconText.small {
@@ -772,15 +786,11 @@
             cursor:pointer;
         }
 
-        .notification.object:hover{
-            /*
-                border-left: 3px solid #83D8FF;
-            */
-        }
-
         .blured{
             filter: blur(2px);
         }
+
+        /* Quick access panel css */
 
         #quickAccessPanel{
             background-color:var(--body_background);
@@ -833,6 +843,22 @@
            background-color:var(--body_background_active);
         }
 
+        /* Fix for user icon */
+        .usericon-wrapper{
+            width: 50px !important;
+        }
+
+        #quickAccessPanel .item.profile-row{
+            display: flex;
+            align-items: center;
+        }
+
+        #quickAccessPanel .item.profile-row .content{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
         /*
             Handle dark theme for the quick access panel
         */
@@ -873,6 +899,71 @@
 
         body.darkTheme #quickAccessPanel .ui.basic.button{
             color: var(--text_color_secondary) !important;
+        }
+
+        /* Quick action grid */
+        #quickAccessPanel .qap-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            padding: 4px 12px 10px 12px;
+        }
+
+        #quickAccessPanel .qap-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 10px 10px 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            background-color: var(--body_background_secondary);
+            min-height: 58px;
+            transition: background-color 0.12s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #quickAccessPanel .qap-btn:hover {
+            background-color: var(--body_background_active);
+        }
+
+        #quickAccessPanel .qap-btn i.icon {
+            font-size: 1.15em;
+            margin: 0 0 5px 0;
+            color: var(--text_color);
+        }
+
+        #quickAccessPanel .qap-btn .qap-label {
+            font-size: 0.76em;
+            color: var(--text_color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            line-height: 1.3;
+        }
+
+        #quickAccessPanel .qap-btn.active {
+            background-color: var(--theme_color, #52C9FF);
+        }
+
+        #quickAccessPanel .qap-btn.active i.icon,
+        #quickAccessPanel .qap-btn.active .qap-label {
+            color: white;
+        }
+
+        #quickAccessPanel .qap-btn#poweroffBtn i.icon,
+        #quickAccessPanel .qap-btn#poweroffBtn .qap-label {
+            color: #cf2828;
+        }
+
+        body.darkTheme #quickAccessPanel .qap-btn {
+            background-color: var(--body_background_secondary);
+        }
+
+        body.darkTheme #quickAccessPanel .qap-btn:hover {
+            background-color: var(--body_background_active);
         }
 
         .item.module{
@@ -1226,6 +1317,9 @@
                 <button locale="error/connlost/wait" class="ui secondary opinion button" style="background-color: rgba(14,14,14,0.5); color: white;">Wait</button>
             </div>
         </div>
+        <div id="offline_minigame"></div>
+        <script src="SystemAO/desktop/minigame.js"></script>
+        
     </div>
 
     <!-- Background Task Panel -->
@@ -1260,19 +1354,14 @@
         <div class="ui grid">
             <div class="seven wide column mxmenu">
                 <div class="ui small items" style="margin-bottom: 0;">
-                    <div class="item">
-                        <div class="ui mini image">
+                    <div class="item profile-row">
+                        <div class="ui mini circular image usericon-wrapper">
                             <img class="usericon" src="img/desktop/system_icon/user.svg">
                         </div>
                         <div class="content" style="padding-left: 1em;">
                             <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
                             <div class="meta" style="margin-top: 0.15em;">
                                 <div id="usergroups">@Users</div>
-                            </div>
-                        </div>
-                        <div class="actions">
-                            <div class="ui small button" onclick="logout(); hideToolPanel();">
-                                <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
                             </div>
                         </div>
                     </div>
@@ -1301,19 +1390,43 @@
                         <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
                     </div>
                 </div>
-                <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
-                    <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
-                    <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
-                </div>
-                <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-                    <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
-                </div>
                 <div class="ui divider" style="margin: 0.4em;"></div>
-                <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
-                    <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
-                </div>
-                <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
-                    <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
+                <!-- Win11-style quick action grid -->
+                <div class="qap-grid">
+                    <div class="qap-btn" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
+                        <i class="setting icon"></i>
+                        <span class="qap-label" locale="quickAccess/settings">System Settings</span>
+                    </div>
+                    <div class="qap-btn" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
+                        <i class="expand icon"></i>
+                        <span class="qap-label" locale="quickAccess/fullscreen">Fullscreen</span>
+                    </div>
+                    <div class="qap-btn" id="themeToggleBtn" onclick="toggleDesktopTheme();" ontouchend="toggleDesktopTheme();">
+                        <i class="sun icon"></i>
+                        <span class="qap-label">Light Mode</span>
+                    </div>
+                    <!-- 
+                    <div class="qap-btn" onclick="openModule('File Manager'); hideToolPanel();" ontouchend="openModule('File Manager'); hideToolPanel();">
+                        <i class="folder open icon"></i>
+                        <span class="qap-label">File Manager</span>
+                    </div>
+                    <div class="qap-btn" onclick="openModule('Serverless'); hideToolPanel();" ontouchend="openModule('Serverless'); hideToolPanel();">
+                        <i class="code icon"></i>
+                        <span class="qap-label">Serverless</span>
+                    </div>
+                    -->
+                    <div class="qap-btn" id="logoutBtn" onclick="logout(); hideToolPanel();" ontouchend="logout(); hideToolPanel();">
+                        <i class="log out icon"></i>
+                        <span class="qap-label" locale="quickAccess/logout">Logout</span>
+                    </div>
+                    <div class="qap-btn powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
+                        <i class="repeat icon"></i>
+                        <span class="qap-label" locale="quickAccess/restart">Restart</span>
+                    </div>
+                    <div class="qap-btn powerman" id="poweroffBtn" onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
+                        <i class="power icon"></i>
+                        <span class="qap-label" locale="quickAccess/poweroff">Power Off</span>
+                    </div>
                 </div>
                 <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
                     <small id="sysinfo"></small>
@@ -1354,6 +1467,9 @@
         var nextSlideshowIndex = 0; //The next background image index to be shown
         var backgroundIntervalCounter; //The interval object for background changer
         var desktopThemeColor = ""; //The current desktop theme color, which renders to the status bar and suchs
+
+        //Module-registered extension icons (ext without dot → web-root-relative path)
+        var extIconRegistry = {};
 
         //Desktop icon realted
         var desktopIconSize = "medium"; //Size of desktop icons. Allow {small / medium / big}
@@ -1401,6 +1517,27 @@
         let uploadFileChunkSize = 1024 * 512; //512KB per chunk in low memory upload
         let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
         let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
+        const CHUNK_TIMEOUT_MS = 30000; //30s to wait for server ack before retrying a chunk
+        const MAX_CHUNK_RETRIES = 3;    //Maximum per-chunk retries before marking the upload failed
+
+        //CRC32 lookup table and helpers (IEEE polynomial, matches Go's hash/crc32 package)
+        const crc32Table = (() => {
+            const t = new Uint32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[i] = c;
+            }
+            return t;
+        })();
+        function crc32UpdateState(state, bytes) {
+            for (let i = 0; i < bytes.length; i++)
+                state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
+            return state;
+        }
+        function crc32Hex(bytes) {
+            return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+        }
 
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -1437,6 +1574,12 @@
 
 
         function initDesktop(){
+            //Fetch module-registered extension icons once so the desktop can use them
+            $.get("system/modules/exticons", function(data) {
+                if (typeof data === "string") { try { data = JSON.parse(data); } catch(e) {} }
+                if (data && typeof data === "object") { extIconRegistry = data; }
+            });
+
             //Initiation functions
             initDesktopTheme();
             initDesktopHostInfo();
@@ -1720,6 +1863,7 @@
             if (listMenuShown = true){
                 hideListMenu();
             }
+            updateThemeToggleBtn();
             $("#quickAccessPanel").fadeToggle("fast");
         }
         function hideToolPanel(){
@@ -1820,7 +1964,7 @@
                     powerman = true;
                 }else{
                     //Hardware management mode is off
-                    $(".item.powerman").remove();
+                    $(".item.powerman, .qap-btn.powerman").remove();
                     powerman = false;
                 }   
             });
@@ -1963,7 +2107,10 @@
             if (thisModule["SupportFW"]) {
                 fwsupport = "true";
             }
-            $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}" onclick="openModuleFromMenu(this);" ontouchstart="openModuleFromMenu(this);">
+            $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}"
+                        draggable="true"
+                        ondragstart="listMenuItemDragStart(event,this);"
+                        onclick="openModuleFromMenu(this);" ontouchstart="openModuleFromMenu(this);">
                         <span>
                             <img src="${icon}"></img>
                             ${name}
@@ -2084,8 +2231,16 @@
                 let hoverOffset = [event.pageX - $(this).offset().left, event.pageY - $(this).offset().top];
                 if (hoverOffset[1] <= 3 && !$(this).parent().hasClass("fixedsize")){
                     $(this).addClass("resizbleCursor");
+                    if (hoverOffset[0] < 15) {
+                        $(this).css("cursor", "nw-resize");
+                    } else if (hoverOffset[0] > $(this).parent().width() - 15) {
+                        $(this).css("cursor", "ne-resize");
+                    } else {
+                        $(this).css("cursor", "");
+                    }
                 }else{
                     $(this).removeClass("resizbleCursor");
+                    $(this).css("cursor", "");
                 }
             });
             $(".fwdragger").off("mouseup").on("mouseup", function(evt) {
@@ -2138,6 +2293,11 @@
             });
 
             $(".closetoggle").off("touchstart").on("touchstart",function(evt){
+                // If touch is within the 3px top-edge zone, let fwdragger handle corner resize
+                var fwTop = $(this).closest(".floatWindow").offset().top;
+                if (evt.pageY - fwTop <= 3 && !$(this).closest(".floatWindow").hasClass("fixedsize")) {
+                    return;
+                }
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 closeFloatWindow(this,evt);
@@ -2169,10 +2329,29 @@
             });
 
             $(".closetoggle").off("mousedown").on("mousedown",function(evt){
+                // If the click lands in the 10px top-edge zone, let the event bubble to
+                // fwdragger so it can detect and start a top-corner resize instead
+                var fwTop = $(this).closest(".floatWindow").offset().top;
+                if (resizingWindow && evt.pageY - fwTop <= 10 && !$(this).closest(".floatWindow").hasClass("fixedsize")) {
+                    return;
+                }
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 closeFloatWindow(this,evt);
             });
+
+            
+            $(".closetoggle").off("mouseup").on("mouseup",function(evt){
+                // If the mouse up lands in the 10px top-edge zone, let the event bubble to
+                // fwdragger so it can detect and start a top-corner resize instead
+                var fwTop = $(this).closest(".floatWindow").offset().top;
+                if (resizingWindow && evt.pageY - fwTop <= 10 && !$(this).closest(".floatWindow").hasClass("fixedsize")) {
+                    // Stop resizing and restore cursor to default if mouse up on close button while resizing from top edge
+                    mainWindowMouseup(evt);
+                    return;
+                }
+            });
+            
 
             $(".dockleft").off("mousedown").on("mousedown",function(evt){
                 evt.preventDefault();
@@ -2512,6 +2691,30 @@
                         "top": posY - 2,
                         "height": Math.max(newHeight,minHeight),
                     });
+                } else if (resizingEdgeID == 7){
+                    // Top-left corner: resize height from top + width from left
+                    var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
+                    var newWidth = $(object).offset().left - posX + $(object).width();
+                    var newLeft = posX;
+                    if (newWidth < minxWidth) {
+                        newLeft = $(object).offset().left + $(object).width() - minxWidth;
+                        newWidth = minxWidth;
+                    }
+                    $(object).css({
+                        "top": posY - 2,
+                        "height": Math.max(newHeight, minHeight),
+                        "left": newLeft,
+                        "width": newWidth
+                    });
+                } else if (resizingEdgeID == 8){
+                    // Top-right corner: resize height from top + width from right
+                    var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
+                    var newWidth = posX - $(object).offset().left + 2;
+                    $(object).css({
+                        "top": posY - 2,
+                        "height": Math.max(newHeight, minHeight),
+                        "width": Math.max(newWidth, minxWidth)
+                    });
                 }
             }
         }
@@ -2617,10 +2820,18 @@
             //Get the relative click offset of the down event
             clickDownOffset = [event.pageX - $(object).offset().left, event.pageY - $(object).offset().top];
             if (clickDownOffset[1] <= 3 && !$(object).hasClass("fixedsize")){
-                //Resizing Top Edge
+                //Resizing Top Edge (with corner detection)
                 resizingWindow = true;
                 resizingWindowTarget = $(object);
-                resizingEdgeID = 6;
+                if (clickDownOffset[0] < 10) {
+                    resizingEdgeID = 7; // top-left corner
+                    $("#fwdragpanel, #tfwdragpanel").css("cursor", "nw-resize");
+                } else if (clickDownOffset[0] > $(object).width() - 10) {
+                    resizingEdgeID = 8; // top-right corner
+                    $("#fwdragpanel, #tfwdragpanel").css("cursor", "ne-resize");
+                } else {
+                    resizingEdgeID = 6; // top edge
+                }
             }else{
                 //Moving Window
                 movingWindow = true;
@@ -2674,7 +2885,7 @@
 
                 $(object).css("left", event.pageX - clickDownOffset[0]);
                 $(object).css("top", event.pageY - clickDownOffset[1]);
-            } else if (resizingWindow && resizingEdgeID == 6){
+            } else if (resizingWindow && (resizingEdgeID == 6 || resizingEdgeID == 7 || resizingEdgeID == 8)){
                 resizeMove($(object), event);
             }
         }
@@ -2746,7 +2957,8 @@
 
                 $("#fwdockRightIndicator").hide();
                 $("#fwdockLeftIndicator").hide();
-            }else if (resizingWindow && resizingEdgeID == 6){
+            }else if (resizingWindow && (resizingEdgeID == 6 || resizingEdgeID == 7 || resizingEdgeID == 8)){
+                // Top edge (6), top-left corner (7), top-right corner (8)
                 resizeUp($(object), event);
             }
         }
@@ -3630,7 +3842,6 @@
 
         $("body").on("mouseup", function(evt) {
             mainWindowMouseup(evt);
-
         });
         $("body").on("touchend", function(evt) {
             mainWindowMouseup(evt);
@@ -3656,6 +3867,7 @@
                 resizingEdgeID = 0;
                 $("#fwdragpanel").hide();
                 $("#tfwdragpanel").hide();
+                $("#fwdragpanel, #tfwdragpanel").css("cursor", "");
                 $('.floatWindow.topmost').css("pointer-events", "auto");
                 $('.floatWindow.topmost').css("opacity", 1);
                 $(resizingWindowTarget).find(".iframecover").hide();
@@ -3787,6 +3999,10 @@
             //Get the icon from extension
             var icon = ao_module_utils.getIconFromExt(filedata.Ext.substring(1, filedata.Ext.length));
             var imagePath = "img/desktop/files_icon/" + desktopIconPack + "/" + icon + ".png";
+            //Use module-registered icon for proprietary/unrecognised extensions
+            if (icon === "file outline" && extIconRegistry[filedata.Ext.substring(1).toLowerCase()]) {
+                imagePath = extIconRegistry[filedata.Ext.substring(1).toLowerCase()];
+            }
             //Handle special icon types here
             var size = desktopIconSize;
             var filename = JSON.parse(JSON.stringify(filedata.Filename));
@@ -4218,8 +4434,33 @@
             }
             var sourceFilename = ev.dataTransfer.getData("filename");
             var sourceFilepath = ev.dataTransfer.getData("filepath");
+
+            // ── List-menu app drag → create shortcut at drop location ──────────────
+            if (ev.dataTransfer.getData("moduledragtype") === "module" && target.attr("id") === "bgwrapper") {
+                var _mName = ev.dataTransfer.getData("modulename");
+                var _mIcon = ev.dataTransfer.getData("moduleicon");
+                var _locs  = gridPositionAllocate(ev.clientX, ev.clientY, 1);
+                var _gx = _locs[0][0], _gy = _locs[0][1];
+                $.ajax({
+                    url:    "system/desktop/createShortcut",
+                    method: "POST",
+                    data:   { stype: "module", stext: _mName, spath: _mName, sicon: _mIcon },
+                    success: function(data) {
+                        if (data.error) { console.log(data.error); return; }
+                        // Set position then refresh; filename is <name>.shortcut
+                        setIconDesktopLocation(_mName + ".shortcut", _gx, _gy, function() {
+                            refresh(undefined, false);
+                        });
+                    }
+                });
+                // Close list menu after a successful drop
+                $("#listMenu").fadeOut("fast", function() { listMenuShown = false; });
+                return;
+            }
+            // ────────────────────────────────────────────────────────────────────────
+
             //To handle multiple file transfer from file explorer
-            var sourceFilelist = ev.dataTransfer.getData("filedata"); 
+            var sourceFilelist = ev.dataTransfer.getData("filedata");
 
             //To handle drag dropping URLs onto desktop
             var linkObject = ev.dataTransfer.getData('text/html');
@@ -4698,6 +4939,21 @@
         //THIS FUNCTION IS NEEDED. DO NOT DELETE ALLOWDROP FUNCTION
         function allowDrop(ev) {
             ev.preventDefault();
+        }
+
+        // Fired when the user starts dragging a list-menu app item onto the desktop
+        function listMenuItemDragStart(ev, el) {
+            ev.stopPropagation();
+            var name  = $(el).attr("module");
+            var icon  = $(el).find("img").first().attr("src");
+            ev.dataTransfer.effectAllowed = "copy";
+            ev.dataTransfer.setData("moduledragtype", "module");
+            ev.dataTransfer.setData("modulename",     name);
+            ev.dataTransfer.setData("moduleicon",     icon);
+            // Clear file-drag fields so existing drop logic ignores this event
+            ev.dataTransfer.setData("filepath",  "");
+            ev.dataTransfer.setData("filename",  "");
+            ev.dataTransfer.setData("filedata",  "");
         }
 
         //Pass in the object fullpath and return the icon object onscreen
@@ -5930,13 +6186,12 @@
         }
 
         function personalization() {
-            //Show the personalization window
             newFloatWindow({
-                url: "SystemAO/desktop/personalization.html",
+                url: "SystemAO/system_setting/index.html#" + encodeURIComponent(JSON.stringify({group: "Desktop", name: "Wallpaper"})),
                 appicon: "SystemAO/desktop/img/personalization.png",
-                width:640,
-                height:480,
-                title: "Personalization"
+                width: 1200,
+                height: 580,
+                title: "System Settings"
             });
             hideAllContextMenus();
         }
@@ -6782,88 +7037,131 @@
 
                 let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode);
                 let currentSendingIndex = 0;
-                let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
-                
-                //Define a function for sending a particular chunk
-                function sendChunk(id, uploadingIconUUID){
-                    let offsetStart = id*uploadFileChunkSize;
-                    let offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
-                    let thisblob = file.slice(offsetStart,offsetEnd);
-                    socket.send(thisblob);
-                    //console.log(id + "/" + chunks);
+                let chunks = Math.ceil(file.size/uploadFileChunkSize);
 
-                    //Update progress to first percentage
-                    let progress = id / (chunks-1) * 100.0;
-                    if (progress > 100){
-                        progress = 100;
+                // Per-chunk retry state
+                let chunkRetryCount = 0;
+                let chunkTimeoutTimer = null;
+
+                // Running CRC32 state across all chunks for full-file checksum
+                let runningCRC32State = 0xFFFFFFFF;
+                let chunkCRC32Committed = {};
+
+                async function sendChunk(id) {
+                    let offsetStart = id * uploadFileChunkSize;
+                    let offsetEnd   = id * uploadFileChunkSize + uploadFileChunkSize;
+                    let arrayBuffer;
+                    try {
+                        arrayBuffer = await file.slice(offsetStart, offsetEnd).arrayBuffer();
+                    } catch(e) {
+                        console.error("[Desktop Upload] Failed to read chunk " + id + ": " + e);
+                        return;
                     }
 
+                    let bytes = new Uint8Array(arrayBuffer);
 
+                    // Update running full-file CRC32 only on first attempt for each chunk
+                    if (!chunkCRC32Committed[id]) {
+                        runningCRC32State = crc32UpdateState(runningCRC32State, bytes);
+                        chunkCRC32Committed[id] = true;
+                    }
+
+                    let chunkCRCHex = crc32Hex(bytes);
+
+                    // Send metadata frame then binary frame
+                    socket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
+                    socket.send(arrayBuffer);
+
+                    // Update desktop icon progress (cap at 95% to reserve room for merge)
+                    let progress = chunks <= 1 ? 50 : (id / (chunks - 1) * 95.0);
+                    if (progress > 95) progress = 95;
                     if (uploadingIconUUID != undefined){
-                        //Update the progress on the object
                         $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", progress + "%");
-                        if (progress == 100){
+                        if (progress >= 95){
                             $("." + uploadingIconUUID + ".launchIcon").find(".progress").addClass("indeterminate");
                         }
                     }
-                 
+
+                    // Start ack timeout; retry chunk on expiry
+                    clearTimeout(chunkTimeoutTimer);
+                    chunkTimeoutTimer = setTimeout(function() {
+                        if (chunkRetryCount < MAX_CHUNK_RETRIES) {
+                            chunkRetryCount++;
+                            console.warn("[Desktop Upload] Chunk " + id + " ACK timeout – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
+                            sendChunk(id);
+                        } else {
+                            console.error("[Desktop Upload] Chunk " + id + " failed after max retries");
+                            socket.close();
+                        }
+                    }, CHUNK_TIMEOUT_MS);
                 }
 
                 //Start sending
-                socket.onopen = function(e) {
+                socket.onopen = async function(e) {
                     if (filesize < uploadFileChunkSize){
-                        //This file is smaller than chunk size, set it to somwhere within 10% - 20% so it doesn't look like it is stuck
-                        $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "15%");
+                        if (uploadingIconUUID != undefined){
+                            $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "15%");
+                        }
                     }
-                    
-                    //Send the first chunk
-                    sendChunk(0, uploadingIconUUID);
-                    currentSendingIndex++;
+                    await sendChunk(0);
+                    currentSendingIndex = 1;
                 };
 
-                socket.onmessage = function(event) {
-                    //Append to the send index
+                socket.onmessage = async function(event) {
                     var incomingValue = event.data;
 
                     if (incomingValue == "next"){
-                        if (currentSendingIndex == chunks + 1){
-                            //Already finished
-                            socket.send("done");
+                        clearTimeout(chunkTimeoutTimer);
+                        chunkRetryCount = 0;
+
+                        if (currentSendingIndex >= chunks){
+                            // All chunks acknowledged – send done with full-file checksum
+                            let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+                            socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
                         }else{
-                            //Send next chunk
-                            sendChunk(currentSendingIndex, uploadingIconUUID);
+                            await sendChunk(currentSendingIndex);
                             currentSendingIndex++;
                         }
-                      
-                    }else if (incomingValue == "OK"){
-                        //Merge completed
-                        
-                    }else{
-                        //Try to parse it as JSON
-                        try{
-                            var resp = JSON.parse(incomingValue.split('\\' + '"').join("\""));
-                            console.log(resp);
-                            if (resp.error !== undefined){
-                                //This is an error message
-                                sendNotification("Upload Failed", resp.error, "remove")
 
-                                //Update the progress bar to error
+                    }else if (incomingValue == "OK"){
+                        //Merge completed successfully – icon will be cleaned up by onclose
+                    }else{
+                        try{
+                            var resp = JSON.parse(incomingValue);
+                            if (resp.error !== undefined){
+                                sendNotification("Upload Failed", resp.error, "remove");
+                                clearTimeout(chunkTimeoutTimer);
                                 $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
                                 $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
                                 setTimeout(function(){
-                                    $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000,function() { $(this).remove(); });
+                                    $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000, function() { $(this).remove(); });
                                 }, 2000);
+                            } else if (resp.retryChunk !== undefined){
+                                // Server-requested chunk retry (CRC32 mismatch)
+                                clearTimeout(chunkTimeoutTimer);
+                                if (chunkRetryCount < MAX_CHUNK_RETRIES) {
+                                    chunkRetryCount++;
+                                    console.warn("[Desktop Upload] Server requested retry for chunk " + resp.retryChunk);
+                                    await sendChunk(resp.retryChunk);
+                                } else {
+                                    console.error("[Desktop Upload] Chunk " + resp.retryChunk + " CRC32 mismatch after max retries");
+                                    socket.close();
+                                }
+                            } else if (resp.move !== undefined){
+                                // Server is moving file from tmp to destination
+                                if (uploadingIconUUID != undefined){
+                                    $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "100%");
+                                }
                             }
                         }catch(ex){
-                            //Something else
                             console.log(incomingValue);
                             console.log(ex);
                         }
                     }
-
                 };
 
                 socket.onclose = function(event) {
+                    clearTimeout(chunkTimeoutTimer);
                     $("." + uploadingIconUUID).remove();
                     if (callback != undefined){
                         callback();
@@ -6871,12 +7169,13 @@
                 };
 
                 socket.onerror = function(error) {
-                    console.log(error.message);
-                    console.log("[Desktop] Unable to open WebSocket connection. Fall back to FORM POST upload mode. (Check your nginx / reverse proxy settings!!!)")
-                    //Try to fallback to FORM POST upload mode
-                    lowMemoryMode = false;
-                    uploadFile(thisFile, callback)
-                    return
+                    console.error("[Desktop Upload] WebSocket error:", error);
+                    clearTimeout(chunkTimeoutTimer);
+                    $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
+                    $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
+                    setTimeout(function(){
+                        $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000, function() { $(this).remove(); });
+                    }, 2000);
                 };
             }else{
                 let url = 'system/file_system/upload'
@@ -7002,11 +7301,50 @@
         function setDarkTheme(){
             $("body").removeClass("whiteTheme").addClass("darkTheme");
             $("#powerIcon").attr("src","img/system/power-white.svg");
+            updateThemeToggleBtn();
+            broadcastDesktopThemeChange("dark");
         }
 
         function setWhiteTheme(){
             $("body").removeClass("darkTheme").addClass("whiteTheme");
             $("#powerIcon").attr("src","img/system/power.svg");
+            updateThemeToggleBtn();
+            broadcastDesktopThemeChange("light");
+        }
+
+        function broadcastDesktopThemeChange(theme){
+            $(".floatWindow iframe").each(function(){
+                try {
+                    var fw = this.contentWindow;
+                    if (fw && typeof fw.desktopThemeChanged === "function"){
+                        fw.desktopThemeChanged(theme);
+                    }
+                } catch(e) {}
+            });
+        }
+
+        function toggleDesktopTheme(){
+            if ($("body").hasClass("darkTheme")){
+                setWhiteTheme();
+                $.get("system/file_system/preference?key=file_explorer/theme&value=whiteTheme");
+            }else{
+                setDarkTheme();
+                $.get("system/file_system/preference?key=file_explorer/theme&value=darkTheme");
+            }
+        }
+
+        function updateThemeToggleBtn(){
+            var isDark = $("body").hasClass("darkTheme");
+            var btn = $("#themeToggleBtn");
+            if (isDark){
+                btn.addClass("active");
+                btn.find("i").removeClass("sun").addClass("moon");
+                btn.find(".qap-label").text("Dark Mode");
+            }else{
+                btn.removeClass("active");
+                btn.find("i").removeClass("moon").addClass("sun");
+                btn.find(".qap-label").text("Light Mode");
+            }
         }
 
         function hexToRgbA(hex, transparent=1){

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Video Player Controls — Arozcast Example</title>
+    <script src="../arozcast.js"></script>
+    <style>
+        body  { background:#111; color:#ddd; font-family:sans-serif; padding:24px; max-width:480px; }
+        h2    { margin:0 0 6px; }
+        p     { margin:0 0 14px; color:#888; }
+        code  { color:#aaa; background:#222; padding:1px 5px; border-radius:3px; }
+        input, button { background:#222; color:#ddd; border:1px solid #444; border-radius:4px; padding:5px 10px; }
+        button { cursor:pointer; }
+        button:hover { background:#333; }
+        hr    { border:none; border-top:1px solid #333; margin:16px 0; }
+        #bar  { background:#333; height:8px; border-radius:4px; cursor:pointer; margin:10px 0 4px; }
+        #fill { background:#aaa; height:100%; border-radius:4px; width:0; pointer-events:none; }
+        #time { color:#888; font-size:13px; }
+        #controls { display:none; }
+        #controls button { margin:0 4px 8px 0; }
+    </style>
+</head>
+<body>
+
+<h2>Video Player Controls</h2>
+<p>
+    Demonstrates <code>seek()</code>, <code>stop()</code>, <code>isConnected()</code>,
+    mute toggle, and the progress bar.<br>
+    Place your video at <code>user:/example.mp4</code>.
+</p>
+
+<p>
+    Room code:
+    <input id="code" maxlength="4" size="5" placeholder="1234">
+    <button onclick="doConnect()">Connect</button>
+</p>
+<p id="status">Not connected</p>
+
+<div id="controls">
+    <!-- Transport -->
+    <button onclick="cast.play()">Play</button>
+    <button onclick="cast.pause()">Pause</button>
+    <button onclick="cast.seekRel(-10)">−10 s</button>
+    <button onclick="cast.seekRel(+10)">+10 s</button>
+
+    <!-- stop() keeps the connection open but clears the receiver screen -->
+    <button onclick="doStop()">Stop</button>
+
+    <button onclick="doDisconnect()">Disconnect</button>
+
+    <hr>
+
+    <!-- Progress bar — click anywhere to seek(time) to that position -->
+    <div id="bar" onclick="onSeekBarClick(event)">
+        <div id="fill"></div>
+    </div>
+    <span id="time">0:00 / 0:00</span>
+
+    <hr>
+
+    <!-- Volume slider + mute toggle -->
+    Volume: <input type="range" id="vol" min="0" max="100" value="80"
+                   oninput="onVolumeChange()">
+    <button id="mute-btn" onclick="toggleMute()">Mute</button>
+
+    <hr>
+
+    <!-- cast.code and cast.connected are readable properties -->
+    Room: <span id="room-code">—</span> &nbsp;|&nbsp;
+    Connected: <span id="connected-state">false</span>
+</div>
+
+<script>
+var _s = document.querySelector('script[src*="arozcast.js"]').src;
+var ao_root = _s.slice(0, _s.indexOf('Arozcast/arozcast.js'));
+
+var FILE     = 'user:/example.mp4';
+var muted    = false;   // local mute state
+var duration = 0;
+var currTime = 0;
+var cast     = new ArozCast({ aoRoot: ao_root });
+
+// ── Events ─────────────────────────────────────────────────────────────────
+
+cast.on('connect', function(e) {
+    status('Connected to room ' + e.code);
+    document.getElementById('controls').style.display = 'block';
+    refreshProps();   // update cast.code / cast.connected display
+    cast.load({
+        name: 'example.mp4', type: 'video',
+        src:  ao_root + 'media?file=' + encodeURIComponent(FILE),
+        filepath: FILE,
+    });
+    cast.setVolume(+document.getElementById('vol').value, muted);
+    cast.play();
+});
+
+cast.on('disconnect',   function()  { status('Connection lost — reconnecting…'); refreshProps(); });
+cast.on('reconnecting', function(e) { status('Reconnecting, attempt ' + e.attempt + '…'); });
+cast.on('giveup',       function()  { status('Could not reconnect'); refreshProps(); });
+
+// status event → drive the progress bar with seek(time)
+cast.on('status', function(s) {
+    duration = s.duration;
+    currTime = s.currentTime;
+    updateBar();
+    refreshProps();
+});
+
+// ── Seek bar ────────────────────────────────────────────────────────────────
+
+function onSeekBarClick(e) {
+    // isConnected() guards against clicks when the socket is temporarily down
+    if (!cast.isConnected()) return;
+    var t = (e.offsetX / e.currentTarget.offsetWidth) * (duration || 0);
+    cast.seek(t);          // seek(time) — absolute position in seconds
+    currTime = t;          // optimistic update; status event corrects within ~3 s
+    updateBar();
+}
+
+function updateBar() {
+    var pct = duration ? Math.min(currTime / duration * 100, 100) : 0;
+    document.getElementById('fill').style.width = pct + '%';
+    document.getElementById('time').textContent = fmt(currTime) + ' / ' + fmt(duration);
+}
+
+// ── Volume / mute ───────────────────────────────────────────────────────────
+
+function onVolumeChange() {
+    // Always use isConnected() before sending, in case slider moves during a brief drop
+    if (!cast.isConnected()) return;
+    cast.setVolume(+document.getElementById('vol').value, muted);
+}
+
+function toggleMute() {
+    muted = !muted;
+    document.getElementById('mute-btn').textContent = muted ? 'Unmute' : 'Mute';
+    // setVolume(level, muted) — pass true to mute without changing the level
+    cast.setVolume(+document.getElementById('vol').value, muted);
+}
+
+// ── stop() vs disconnect() ──────────────────────────────────────────────────
+
+function doStop() {
+    // stop() sends media.stop to the receiver — clears its screen —
+    // but keeps the WebSocket open so you can load() a new file later.
+    cast.stop();
+    status('Stopped (still connected — load a new file or disconnect)');
+    duration = currTime = 0;
+    updateBar();
+}
+
+// ── Connect / disconnect ───────────────────────────────────────────────────
+
+function doConnect() {
+    var code = document.getElementById('code').value.trim();
+    if (!/^\d{4}$/.test(code)) { alert('Enter a 4-digit code'); return; }
+    status('Checking room…');
+    cast.ping(code).then(function(ok) {
+        if (!ok) { status('Room not found — is Arozcast open?'); return; }
+        return cast.connect(code);
+    }).catch(function(err) { status('Error: ' + err.message); });
+}
+
+function doDisconnect() {
+    cast.disconnect();
+    status('Disconnected');
+    document.getElementById('controls').style.display = 'none';
+    duration = currTime = 0;
+    refreshProps();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+// Read cast.code and cast.connected properties and show them live
+function refreshProps() {
+    document.getElementById('room-code').textContent      = cast.code      || '—';
+    document.getElementById('connected-state').textContent = cast.connected ? 'true' : 'false';
+}
+
+function status(msg) { document.getElementById('status').textContent = msg; }
+
+function fmt(s) {
+    s = Math.floor(s || 0);
+    return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+}
+</script>
+</body>
+</html>

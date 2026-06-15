@@ -11,6 +11,12 @@ if (!requirelib("filelib")){
     }));
 }else{
     var fileContent = filelib.readFile(file);
-    sendResp(fileContent);
+    if (fileContent === false){
+        sendJSONResp(JSON.stringify({
+            error: "File not found"
+        }));
+    }else{
+        sendResp(fileContent);
+    }
 }
 

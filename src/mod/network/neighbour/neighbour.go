@@ -2,11 +2,12 @@ package neighbour
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/wakeonlan"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/mdns"
 )
 
@@ -64,7 +65,7 @@ func (d *Discoverer) GetNearbyHosts() []*mdns.NetworkHost {
 
 // Start Scanning, interval and scan Duration in seconds
 func (d *Discoverer) StartScanning(interval int, scanDuration int) {
-	log.Println("ArozOS Neighbour Scanning Started")
+	logger.PrintAndLog("Neighbour", "ArozOS Neighbour Scanning Started", nil)
 	if d.ScannerRunning() {
 		//Another scanner already running. Terminate it
 		d.StopScanning()
@@ -89,7 +90,7 @@ func (d *Discoverer) StartScanning(interval int, scanDuration int) {
 	go func() {
 		//Run initial scanning
 		d.UpdateScan(scanDuration)
-		log.Println("ArozOS Neighbour Scanning Completed, ", len(d.NearbyHosts), " neighbours found!")
+		logger.PrintAndLog("Neighbour", fmt.Sprint("ArozOS Neighbour Scanning Completed, ", len(d.NearbyHosts), " neighbours found!"), nil)
 	}()
 
 	//Update the Discoverer settings
@@ -135,7 +136,7 @@ func (d *Discoverer) GetOfflineHosts() ([]*HostRecord, error) {
 
 		if time.Now().Unix()-thisHostRecord.LastOnline > AutoDeleteRecordTime {
 			//Remove this record
-			log.Println("[Neighbour] Removing network host record due to long period offline: " + thisHostUUID + " (" + thisHostRecord.Name + ")")
+			logger.PrintAndLog("Neighbour", "[Neighbour] Removing network host record due to long period offline: "+thisHostUUID+" ("+thisHostRecord.Name+")", nil)
 			d.Database.Delete("neighbour", thisHostUUID)
 			continue
 		}
@@ -181,5 +182,5 @@ func (d *Discoverer) StopScanning() {
 		d.d = nil
 		d.t = nil
 	}
-	log.Println("ArozOS Neighbour Scanning Stopped")
+	logger.PrintAndLog("Neighbour", "ArozOS Neighbour Scanning Stopped", nil)
 }

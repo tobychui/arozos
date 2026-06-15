@@ -1,0 +1,3631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+    <title>Movie</title>
+
+    <!-- ArozOS module helpers -->
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+
+    <!-- App path config (single source of truth for all API paths) -->
+    <script src="backend/common.js"></script>
+
+<style>
+/* ─── Reset & base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg:          #0a0a0a;
+    --surface:     #1c1c1e;
+    --surface2:    #2c2c2e;
+    --accent:      #0a84ff;
+    --accent2:     #30d158;
+    --text:        #f5f5f7;
+    --text-sub:    #98989d;
+    --radius:      12px;
+    --card-w:      180px;
+    --card-ratio:  1.5;     /* height = width * ratio  (poster aspect) */
+    --header-h:    56px;
+    --transition:  0.2s ease;
+}
+
+html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* ─── App shell ──────────────────────────────────────────────────────────────── */
+#app { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ─── Top nav bar ────────────────────────────────────────────────────────────── */
+#topbar {
+    flex-shrink: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%);
+    position: relative;
+    z-index: 10;
+}
+#topbar h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+#topbar h1 span { color: var(--accent); }
+
+#search-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+#search-input {
+    background: var(--surface2);
+    border: none;
+    border-radius: 20px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 7px 14px;
+    width: 200px;
+    outline: none;
+    transition: width var(--transition);
+}
+#search-input:focus { width: 280px; box-shadow: 0 0 0 2px var(--accent); }
+#search-input::placeholder { color: var(--text-sub); }
+
+/* ─── View containers ────────────────────────────────────────────────────────── */
+.view { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ─── Library view ───────────────────────────────────────────────────────────── */
+#view-library { padding: 0; }
+
+/* Status bar ─────────────────────────────────────────────────────────────────── */
+#library-status-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 22px;
+    font-size: 11px;
+    color: var(--text-sub);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    min-height: 26px;
+}
+.spinner-sm {
+    width: 11px; height: 11px; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+#library-refresh-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--accent); font-size: 11px; font-weight: 500;
+    padding: 0; outline: none; transition: opacity var(--transition);
+}
+#library-refresh-btn:hover   { opacity: 0.7; }
+#library-refresh-btn:disabled { opacity: 0.35; cursor: default; }
+
+#library-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 20px 40px;
+    scroll-behavior: smooth;
+}
+#library-scroll::-webkit-scrollbar { width: 4px; }
+#library-scroll::-webkit-scrollbar-track { background: transparent; }
+#library-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+#no-content {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60%;
+    gap: 12px;
+    color: var(--text-sub);
+    font-size: 16px;
+}
+#no-content .icon img { width: 80px; height: 80px; opacity: 0.3; }
+
+#loading-overlay {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+    font-size: 15px;
+    color: var(--text-sub);
+}
+.spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--surface2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Section heading ────────────────────────────────────────────────────────── */
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 24px 0 12px;
+    color: var(--text);
+}
+
+/* ─── Album grid ─────────────────────────────────────────────────────────────── */
+.album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr));
+    gap: 16px;
+}
+
+.album-card {
+    cursor: pointer;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    transition: transform var(--transition), box-shadow var(--transition);
+    outline: none;
+    position: relative;
+}
+.album-card:hover,
+.album-card.focused {
+    transform: scale(1.04);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 2px var(--accent);
+    z-index: 2;
+}
+
+.album-card .poster {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+    background: var(--surface2);
+}
+.poster-placeholder {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.poster-placeholder img { width: 100%;  opacity: 1; }
+
+.album-card .card-info {
+    padding: 8px 10px 10px;
+}
+.album-card .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.album-card .card-meta {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 2px;
+}
+.badge {
+    position: absolute;
+    top: 7px; right: 7px;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(4px);
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    color: #fff;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+.badge.series { color: var(--accent2); }
+.badge.anime  { color: #ff9f0a; }   /* warm orange for anime */
+
+/* ─── Detail view ────────────────────────────────────────────────────────────── */
+#view-detail { position: relative; }
+
+#detail-hero {
+    flex-shrink: 0;
+    height: 38vh;
+    min-height: 200px;
+    position: relative;
+    overflow: hidden;
+}
+#detail-hero-bg {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center top;
+    filter: blur(4px) brightness(0.55);
+    transform: scale(1.1);
+}
+#detail-hero-content {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    padding: 0 28px 20px;
+    gap: 20px;
+}
+#detail-poster {
+    width: 120px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+#detail-poster img, #detail-poster .poster-placeholder {
+    width: 120px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+}
+
+#detail-meta { flex: 1; min-width: 0; }
+#detail-title { font-size: 26px; font-weight: 700; line-height: 1.15; }
+#detail-subtitle { font-size: 14px; color: var(--text-sub); margin-top: 4px; }
+#detail-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+.btn {
+    border: none; cursor: pointer; border-radius: 8px;
+    font-size: 14px; font-weight: 600; padding: 10px 22px;
+    transition: opacity var(--transition), transform var(--transition);
+    outline: none;
+}
+.btn:hover, .btn.focused { opacity: 0.85; transform: scale(1.03); }
+.btn-primary { background: var(--text); color: #000; }
+.btn-secondary { background: var(--surface2); color: var(--text); }
+
+/* ─── Season tabs ────────────────────────────────────────────────────────────── */
+#season-tabs {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 10px 28px 8px;
+    max-height: 120px;    /* ~3 rows before scrolling */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface2) transparent;
+}
+#season-tabs::-webkit-scrollbar { width: 3px; height: 3px; }
+#season-tabs::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+.season-tab {
+    flex-shrink: 0;
+    background: var(--surface2);
+    border: none; cursor: pointer;
+    border-radius: 20px;
+    color: var(--text-sub);
+    font-size: 13px; font-weight: 500;
+    padding: 6px 16px;
+    transition: background var(--transition), color var(--transition);
+    outline: none;
+}
+.season-tab.active, .season-tab.focused {
+    background: var(--text);
+    color: #000;
+}
+
+/* ─── Episode list ───────────────────────────────────────────────────────────── */
+#episode-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 28px 40px;
+    scroll-behavior: smooth;
+}
+#episode-scroll::-webkit-scrollbar { width: 4px; }
+#episode-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+.episode-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background var(--transition);
+    outline: none;
+}
+.episode-item:hover, .episode-item.focused {
+    background: var(--surface);
+    box-shadow: 0 0 0 2px var(--accent);
+}
+.episode-item.playing { background: rgba(10,132,255,0.15); }
+
+.ep-thumb {
+    width: 100px; flex-shrink: 0;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--surface2);
+}
+.ep-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ep-thumb-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+}
+.ep-thumb-placeholder img { width: 22px; height: 22px; opacity: 0.5; }
+.ep-info { flex: 1; min-width: 0; }
+.ep-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-path { font-size: 11px; color: var(--text-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-play-icon {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    background: var(--surface2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background var(--transition);
+}
+.ep-play-icon img { width: 16px; height: 16px; }
+.episode-item.focused .ep-play-icon,
+.episode-item:hover .ep-play-icon { background: var(--accent); }
+
+#detail-back {
+    position: absolute;
+    top: 12px; left: 16px;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    border: none; cursor: pointer;
+    border-radius: 20px;
+    color: var(--text);
+    font-size: 13px; font-weight: 500;
+    padding: 6px 16px;
+    z-index: 5;
+    transition: background var(--transition);
+    outline: none;
+}
+#detail-back:hover, #detail-back.focused { background: var(--accent); }
+
+/* ─── Player view ────────────────────────────────────────────────────────────── */
+#view-player {
+    position: fixed; inset: 0;
+    background: #000;
+    z-index: 200;
+    flex-direction: row;
+}
+#view-player.active { display: flex; }
+
+#video-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+#main-video {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    background: #000;
+    display: block;
+}
+
+/* ─── Custom video controls ──────────────────────────────────────────────────── */
+#video-controls {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85) 100%);
+    padding: 40px 20px 16px;
+    transition: opacity 0.3s;
+}
+#video-controls.hidden { opacity: 0; pointer-events: none; }
+/* Hide cursor when controls auto-hide */
+#video-container:has(#video-controls.hidden) { cursor: none; }
+
+#progress-wrap {
+    position: relative;
+    height: 4px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+#progress-bar {
+    height: 100%; border-radius: 4px;
+    background: var(--accent);
+    pointer-events: none;
+}
+#progress-wrap:hover { height: 6px; }
+/* Transparent hit-zone 16px above the visual bar */
+#progress-wrap::before {
+    content: '';
+    position: absolute;
+    top: -16px; left: 0; right: 0;
+    height: 16px;
+}
+#progress-thumb {
+    position: absolute;
+    top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px;
+    background: #fff; border-radius: 50%;
+    pointer-events: none;
+    display: none;
+}
+#progress-wrap:hover #progress-thumb { display: block; }
+
+#controls-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.ctrl-btn {
+    background: none; border: none; cursor: pointer;
+    color: #fff; padding: 4px;
+    line-height: 1;
+    transition: opacity var(--transition);
+    outline: none;
+    display: flex; align-items: center; justify-content: center;
+}
+.ctrl-btn img { width: 24px; height: 24px; display: block; }
+.ctrl-btn:hover { opacity: 0.7; }
+.ctrl-btn.focused { background: rgba(10,132,255,0.18); border-radius: 6px; }
+
+#volume-wrap { display: flex; align-items: center; gap: 8px; }
+#volume-slider {
+    -webkit-appearance: none;
+    width: 80px; height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 4px; outline: none;
+}
+#volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    background: #fff; border-radius: 50%;
+}
+
+#time-display { font-size: 13px; color: rgba(255,255,255,0.8); margin-left: 6px; }
+#now-playing-title {
+    font-size: 15px; font-weight: 600;
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-left: 10px;
+}
+
+/* ─── Playlist sidebar ───────────────────────────────────────────────────────── */
+#playlist-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: rgba(20,20,20,0.95);
+    backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid rgba(255,255,255,0.08);
+    transform: translateX(0);
+    transition: transform var(--transition), width var(--transition);
+}
+#playlist-sidebar.collapsed { width: 0; overflow: hidden; }
+
+#sidebar-header {
+    padding: 14px 16px 10px;
+    font-size: 15px; font-weight: 600;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 8px;
+}
+#sidebar-close {
+    margin-left: auto;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-sub); font-size: 18px; padding: 2px;
+    outline: none;
+}
+#sidebar-close:hover { color: var(--text); }
+
+#sidebar-list { flex: 1; overflow-y: auto; padding: 8px; }
+#sidebar-list::-webkit-scrollbar { width: 3px; }
+#sidebar-list::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+.sidebar-ep {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px;
+    border-radius: 8px; cursor: pointer;
+    transition: background var(--transition);
+    font-size: 13px; color: var(--text);
+    outline: none;
+}
+.sidebar-ep:hover, .sidebar-ep.focused { background: var(--surface2); }
+.sidebar-ep.playing { background: rgba(10,132,255,0.2); color: var(--accent); }
+.sidebar-ep-num { flex-shrink: 0; width: 24px; text-align: center; color: var(--text-sub); font-size: 12px; }
+.sidebar-ep-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── Player top bar (back btn + small-screen extras) ────────────────────────── */
+#player-topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    gap: 8px;
+    /* transparent on large screens — only back button visible */
+}
+
+#player-back {
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(8px);
+    border: none; cursor: pointer;
+    border-radius: 20px;
+    color: #fff;
+    font-size: 13px; font-weight: 500;
+    padding: 7px 16px;
+    transition: background var(--transition);
+    outline: none;
+}
+#player-back:hover { background: var(--accent); }
+
+/* Title + list + cast buttons shown only in topbar on small screens */
+#topbar-title {
+    display: none;
+    flex: 1;
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #fff;
+    margin: 0 2px;
+}
+#ctrl-cast-top, #ctrl-list-top { display: none; }
+
+@media (max-width: 600px) {
+    #player-topbar {
+        background: rgba(0,0,0,0.88);
+        backdrop-filter: blur(10px);
+    }
+    #topbar-title, #ctrl-cast-top, #ctrl-list-top { display: flex; align-items: center; }
+    #topbar-title { display: block; }
+    /* Hide these from the bottom controls bar */
+    #now-playing-title, #ctrl-list, #ctrl-cast { display: none !important; }
+    /* Push fullscreen to the far right now that the title spacer is gone */
+    #ctrl-fs { margin-left: auto; }
+    /* Shrink volume slider to save space */
+    #volume-slider { width: 56px; }
+    #time-display { font-size: 11px; }
+}
+
+/* Fullscreen: hide entire topbar */
+#view-player:fullscreen #player-topbar,
+#view-player:-webkit-full-screen #player-topbar,
+#view-player:-moz-full-screen #player-topbar { display: none !important; }
+
+/* ─── Toast notification ─────────────────────────────────────────────────────── */
+#toast {
+    position: fixed;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(30,30,30,0.95);
+    backdrop-filter: blur(8px);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    z-index: 1000;
+    white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    :root { --card-w: 130px; }
+    #library-scroll { padding: 8px 12px 40px; }
+    #detail-hero { height: 44vw; min-height: 160px; }
+    #detail-poster { width: 80px; }
+    #detail-title { font-size: 18px; }
+    #playlist-sidebar { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 5; }
+    #playlist-sidebar.collapsed { width: 0; }
+    #episode-scroll { padding: 10px 12px 40px; }
+    .ep-thumb { width: 72px; }
+}
+
+/* ─── Phone: wrap topbar so the search bar never overflows ───────────────────── */
+@media (max-width: 540px) {
+    #topbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--header-h);
+        padding: 6px 14px;
+        row-gap: 4px;
+        align-items: center;
+    }
+    #topbar h1 { font-size: 18px; flex-shrink: 0; }
+    #mode-tabs  { flex-shrink: 0; }
+    /* Force search onto its own row, full width */
+    #search-wrap {
+        flex-basis: 100%;
+        margin-left: 0;
+        order: 10;
+    }
+    #search-input        { width: 100%; max-width: none; }
+    #search-input:focus  { width: 100%; }
+}
+
+@media (max-width: 400px) {
+    :root { --card-w: 110px; }
+    .mode-tab { padding: 5px 8px; font-size: 12px; }
+}
+
+/* TV / large screen layout */
+@media (min-width: 1400px) {
+    :root { --card-w: 200px; }
+}
+@media (min-width: 1800px) {
+    :root { --card-w: 240px; }
+}
+
+/* ─── Mode tabs ──────────────────────────────────────────────────────────────── */
+#mode-tabs { display: flex; gap: 2px; }
+.mode-tab {
+    background: none; border: none; cursor: pointer;
+    border-radius: 6px; color: var(--text-sub);
+    font-size: 13px; font-weight: 500; padding: 5px 12px;
+    transition: background var(--transition), color var(--transition);
+    outline: none;
+}
+.mode-tab.active { background: var(--surface2); color: var(--text); }
+.mode-tab:hover { color: var(--text); }
+
+/* ─── Folder view ────────────────────────────────────────────────────────────── */
+#folder-nav-bar {
+    flex-shrink: 0;
+    padding: 6px 20px;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    min-height: 40px;
+}
+#folder-nav-bar::-webkit-scrollbar { display: none; }
+#folder-breadcrumb { display: flex; align-items: center; gap: 2px; }
+.crumb-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-sub); font-size: 13px;
+    padding: 3px 7px; border-radius: 5px;
+    transition: color var(--transition), background var(--transition);
+    outline: none; white-space: nowrap;
+}
+.crumb-btn:hover { color: var(--text); background: var(--surface2); }
+.crumb-btn.crumb-current { color: var(--text); font-weight: 600; pointer-events: none; }
+.crumb-sep { color: var(--text-sub); font-size: 12px; opacity: 0.4; padding: 0 2px; }
+#folder-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 8px 20px 40px; scroll-behavior: smooth;
+}
+#folder-scroll::-webkit-scrollbar { width: 4px; }
+#folder-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+#folder-loading {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 0; gap: 12px; color: var(--text-sub);
+}
+#folder-loading.active { display: flex; }
+#folder-empty { display: none; color: var(--text-sub); padding: 60px 0; text-align: center; }
+.folder-thumb {
+    width: 100%; aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #1c2640 0%, #2a3d6e 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; user-select: none;
+}
+
+/* ─── Movie info panel ───────────────────────────────────────────────────────── */
+#view-movie-info { position: relative; }
+#movie-info-backdrop {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center 20%;
+    filter: blur(4px) brightness(0.38);
+    transform: scale(1.12); z-index: 0;
+}
+#movie-info-back {
+    position: absolute; top: 14px; left: 16px; z-index: 10;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    border: none; cursor: pointer; border-radius: 20px;
+    color: var(--text); font-size: 13px; font-weight: 500;
+    padding: 6px 16px; transition: background var(--transition); outline: none;
+}
+#movie-info-back:hover { background: var(--accent); }
+#movie-info-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    scroll-behavior: smooth; position: relative; z-index: 1;
+}
+#movie-info-scroll::-webkit-scrollbar { width: 4px; }
+#movie-info-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+#movie-info-hero {
+    min-height: 280px; display: flex; align-items: flex-end; gap: 24px;
+    padding: 70px 32px 28px;
+}
+#movie-info-poster-wrap {
+    width: 130px; flex-shrink: 0; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7);
+    aspect-ratio: 2/3; background: var(--surface2);
+}
+#movie-info-poster-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#movie-info-meta { flex: 1; min-width: 0; }
+#movie-info-title    { font-size: 26px; font-weight: 700; line-height: 1.15; margin-bottom: 2px; }
+#movie-info-filename {
+    font-size: 11px; color: var(--text-sub); opacity: 0.6;
+    font-style: italic; margin-bottom: 6px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: none; /* shown only after IMDB title replaces the album name */
+}
+#movie-info-year  { font-size: 14px; color: var(--text-sub); margin-bottom: 8px; }
+#movie-info-cast  { font-size: 13px; color: var(--text-sub); line-height: 1.5; margin-bottom: 14px; }
+#movie-info-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.yt-badge {
+    display: inline-flex; align-items: center;
+    background: #ff0000; color: #fff;
+    border-radius: 5px; font-size: 12px; font-weight: 800;
+    padding: 5px 9px; cursor: pointer; border: none; outline: none;
+    transition: opacity var(--transition);
+}
+.yt-badge:hover { opacity: 0.8; }
+.imdb-badge {
+    display: inline-flex; align-items: center;
+    background: #f5c518; color: #000;
+    border-radius: 5px; font-size: 12px; font-weight: 800;
+    padding: 5px 9px; cursor: pointer; border: none; outline: none;
+    transition: opacity var(--transition);
+}
+.imdb-badge:hover { opacity: 0.8; }
+#movie-info-loading {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; padding: 28px 0; gap: 10px; color: var(--text-sub);
+}
+#movie-info-loading.active { display: flex; }
+#movie-info-files { padding: 0 20px 48px; }
+#movie-info-wrong-wrap {
+    display: none;
+    padding: 10px 32px 0;
+}
+.reset-info-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text-sub);
+    font-size: 11px; font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer; outline: none;
+    transition: border-color var(--transition), color var(--transition);
+}
+.reset-info-btn:hover { border-color: rgba(255,69,58,0.55); color: #ff453a; }
+@media (max-width: 600px) {
+    #movie-info-hero { flex-direction: column; align-items: flex-start; padding: 56px 16px 20px; }
+    #movie-info-poster-wrap { width: 90px; }
+    #movie-info-title { font-size: 20px; }
+    #movie-info-files { padding: 0 12px 48px; }
+}
+
+/* ─── Resume popup ───────────────────────────────────────────────────────────── */
+#resume-popup {
+    display: none;
+    position: absolute; bottom: 90px; right: 20px; z-index: 25;
+    background: rgba(22,22,24,0.97); backdrop-filter: blur(16px);
+    border-radius: 12px; padding: 16px 18px; min-width: 240px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1);
+    animation: slideUpPopup 0.2s ease;
+}
+#resume-popup.active { display: block; }
+@keyframes slideUpPopup {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#resume-popup-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+#resume-popup-sub   { font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
+#resume-popup-btns  { display: flex; gap: 8px; }
+.resume-btn {
+    flex: 1; padding: 8px; border: none; cursor: pointer;
+    border-radius: 7px; font-size: 12px; font-weight: 600;
+    outline: none; transition: opacity var(--transition);
+}
+.resume-btn:hover { opacity: 0.8; }
+#resume-btn-continue { background: var(--accent); color: #fff; }
+#resume-btn-restart  { background: var(--surface2); color: var(--text); }
+
+/* Focus ring for TV remote navigation */
+.tv-focused {
+    outline: 3px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+
+
+
+/* ─── Load More button ───────────────────────────────────────────────────────── */
+.load-more-wrap { text-align: center; padding: 16px 0 24px; }
+.load-more-btn {
+    background: var(--surface2);
+    border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+    border-radius: 8px; color: var(--text);
+    font-size: 13px; font-weight: 500; padding: 9px 28px;
+    outline: none; transition: background var(--transition), box-shadow var(--transition);
+}
+.load-more-btn:hover { background: rgba(255,255,255,0.08); box-shadow: 0 0 0 1px var(--accent); }
+
+/* ─── Autoplay toggle (sidebar) ─────────────────────────────────────────────── */
+.autoplay-label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text-sub);
+    cursor: pointer; user-select: none;
+    font-weight: 500;
+}
+.autoplay-label input[type="checkbox"] { display: none; }
+.autoplay-track {
+    width: 30px; height: 17px;
+    background: var(--surface2); border-radius: 9px;
+    position: relative; flex-shrink: 0;
+    transition: background 0.2s;
+}
+.autoplay-label input:checked + .autoplay-track { background: var(--accent2); }
+.autoplay-track::after {
+    content: '';
+    position: absolute; top: 2px; left: 2px;
+    width: 13px; height: 13px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+}
+.autoplay-label input:checked + .autoplay-track::after { transform: translateX(13px); }
+
+/* ─── Next-episode countdown ────────────────────────────────────────────────── */
+#next-countdown {
+    display: none;
+    position: absolute; bottom: 80px; right: 20px;
+    background: rgba(20,20,20,0.92);
+    backdrop-filter: blur(8px);
+    border-radius: 10px; padding: 12px 16px;
+    min-width: 210px; z-index: 20;
+}
+#next-countdown-text { font-size: 13px; color: var(--text-sub); margin-bottom: 8px; }
+#next-countdown-track {
+    height: 4px; background: var(--surface2);
+    border-radius: 4px; margin-bottom: 8px; overflow: hidden;
+}
+#next-countdown-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 1s linear; }
+#next-countdown-cancel {
+    display: block; width: 100%; background: var(--surface2);
+    border: none; cursor: pointer; border-radius: 6px;
+    color: var(--text); font-size: 12px; padding: 5px; outline: none;
+    transition: background var(--transition);
+}
+#next-countdown-cancel:hover { background: rgba(255,59,48,0.28); }
+
+/* ─── Player context menu ────────────────────────────────────────────────────── */
+#player-ctx {
+    display: none;
+    position: absolute;
+    z-index: 30;
+    background: rgba(28,28,30,0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 10px;
+    padding: 4px 0;
+    min-width: 192px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    user-select: none;
+}
+.ctx-item {
+    padding: 9px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    transition: background var(--transition);
+}
+.ctx-item:hover { background: rgba(255,255,255,0.08); }
+.ctx-item.ctx-active { color: var(--accent); }
+.ctx-item.ctx-disabled { opacity: 0.3; pointer-events: none; }
+.ctx-icon { width: 16px; text-align: center; flex-shrink: 0; font-style: normal; }
+.ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; }
+.ctx-has-sub  { justify-content: space-between; position: relative; }
+.ctx-sub-arrow { font-style: normal; opacity: 0.55; font-size: 15px; }
+
+/* Subtitle submenu — positioned relative to the parent .ctx-has-sub item */
+#ctx-subtitle-sub {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 100%;
+    margin-left: 0;
+    background: rgba(28,28,30,0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 10px;
+    padding: 4px 0;
+    min-width: 200px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    z-index: 32;
+}
+
+/* Subtitle overlay */
+#subtitle-display {
+    display: none;
+    position: absolute;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    text-align: center;
+    pointer-events: none;
+    z-index: 15;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.45;
+    text-shadow:
+        -1px -1px 0 #000,  1px -1px 0 #000,
+        -1px  1px 0 #000,  1px  1px 0 #000,
+         0    2px 6px rgba(0,0,0,0.85);
+}
+
+/* ─── Subtitle settings modal ───────────────────────────────────────────────── */
+#subtitle-settings-modal {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 40;
+    background: rgba(18,18,20,0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 14px;
+    padding: 20px 22px 18px;
+    width: 340px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1);
+    color: var(--text);
+}
+#subtitle-settings-modal h3 {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+#sset-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
+}
+#sset-close:hover { color: var(--text); }
+.sset-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 12px;
+}
+.sset-row:last-child { border-bottom: none; }
+.sset-label { color: var(--text-sub); flex-shrink: 0; width: 56px; }
+.sset-seg {
+    display: flex; background: var(--surface2);
+    border-radius: 7px; padding: 2px; gap: 2px; flex: 1;
+}
+.sset-seg-btn {
+    flex: 1; padding: 4px 0; font-size: 12px; font-family: inherit;
+    border: none; border-radius: 5px; cursor: pointer;
+    background: transparent; color: var(--text-sub);
+    transition: background 0.15s, color 0.15s;
+}
+.sset-seg-btn.active { background: var(--surface); color: var(--text); }
+#sset-size { flex: 1; accent-color: var(--accent); cursor: pointer; }
+#sset-size-val { color: var(--text-sub); font-size: 11px; min-width: 32px; text-align: right; }
+#sset-font {
+    flex: 1; background: var(--surface2); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;
+    padding: 5px 8px; font-size: 12px; cursor: pointer; outline: none;
+    appearance: auto;
+}
+.sset-colors { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; flex: 1; }
+.sset-color {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid transparent; outline: 2px solid transparent;
+    cursor: pointer; padding: 0; flex-shrink: 0;
+    transition: outline-color 0.15s, transform 0.1s;
+}
+.sset-color:hover  { transform: scale(1.12); }
+.sset-color.active { outline-color: var(--text); transform: scale(1.15); }
+#sset-color-custom {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2); padding: 0;
+    cursor: pointer; background: transparent; flex-shrink: 0;
+}
+#sset-color-custom.active { border-color: var(--text); transform: scale(1.15); }
+#sset-preview {
+    margin-top: 14px;
+    background: rgba(0,0,0,0.65);
+    border-radius: 8px;
+    padding: 14px 12px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+/* ─── Video info modal ───────────────────────────────────────────────────────── */
+#video-info-modal {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 40;
+    background: rgba(18,18,20,0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 14px;
+    padding: 20px 22px 16px;
+    width: 340px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1);
+}
+#video-info-modal h3 {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+#video-info-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
+}
+#video-info-close:hover { color: var(--text); }
+#video-info-tabs {
+    display: flex; gap: 3px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 12px;
+}
+.info-tab {
+    flex: 1; text-align: center; padding: 5px 0;
+    font-size: 12px; font-weight: 500;
+    border-radius: 6px; cursor: pointer;
+    color: var(--text-sub);
+    transition: background var(--transition), color var(--transition);
+}
+.info-tab.active { background: var(--surface); color: var(--text); }
+.info-row {
+    display: flex; gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 12px;
+    line-height: 1.4;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--text-sub); flex-shrink: 0; width: 110px; }
+.info-value { color: var(--text); word-break: break-all; }
+
+/* ─── Arozcast cast ──────────────────────────────────────────────────────────── */
+#ctrl-cast img, #ctrl-cast-top img { opacity: 0.8; }
+#ctrl-cast.casting img, #ctrl-cast-top.casting img { filter: none; opacity: 1; }
+#ctrl-cast.casting, #ctrl-cast-top.casting { background: rgba(231,76,60,0.25); }
+
+#cast-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.65);
+    align-items: center; justify-content: center;
+}
+#cast-modal.active { display: flex; }
+.cast-dialog {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.4em 1.8em;
+    min-width: 260px;
+    color: var(--text);
+    font-family: inherit;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.cast-dialog h4 { margin: 0 0 0.9em; font-size: 1em; font-weight: 600; }
+.cast-dialog input[type=text] {
+    width: 100%; padding: 0.45em 0.7em;
+    border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+    background: var(--surface2); color: var(--text);
+    font-size: 1.5em; letter-spacing: 0.35em; text-align: center;
+    box-sizing: border-box; margin-bottom: 0.7em; outline: none;
+}
+.cast-dialog input[type=text]:focus { border-color: var(--accent); }
+.cast-err { color: #e74c3c; font-size: 0.82em; min-height: 1.2em; margin-bottom: 0.5em; }
+.cast-status-line { font-size: 0.85em; color: var(--text-sub); margin-bottom: 0.7em; }
+.cast-actions { display: flex; gap: 0.5em; justify-content: flex-end; }
+.cast-actions button {
+    padding: 0.4em 1em; border-radius: 8px; border: none;
+    cursor: pointer; font-size: 0.88em; font-family: inherit;
+}
+.btn-cast-connect { background: var(--accent); color: #fff; }
+.btn-cast-cancel  { background: var(--surface2); color: var(--text-sub); }
+.btn-cast-disc    { background: #444; color: var(--text); }
+</style>
+</head>
+<body>
+<div id="app">
+
+    <!-- ─ Loading overlay ─────────────────────────────────────────────────── -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <span>Loading library…</span>
+    </div>
+
+    <!-- ─ Top bar ─────────────────────────────────────────────────────────── -->
+    <div id="topbar">
+        <h1><img src="img/module_icon.png" width="22" height="22" alt="" style="vertical-align:middle;margin-right:6px;margin-top:-4px;"><span>Movie</span></h1>
+        <div id="mode-tabs">
+            <button class="mode-tab active" id="tab-library" onclick="switchTab('library')">Library</button>
+            <button class="mode-tab" id="tab-folder" onclick="switchTab('folder')">Browse</button>
+        </div>
+        <div id="search-wrap">
+            <input id="search-input" type="text" placeholder="Search…" autocomplete="off">
+        </div>
+    </div>
+
+    <!-- ═══════════════ LIBRARY VIEW ═══════════════════════════════════════ -->
+    <div id="view-library" class="view active">
+        <div id="library-status-bar">
+            <div class="spinner-sm" id="library-spinner"></div>
+            <span id="library-status-text"></span>
+            <button id="library-refresh-btn" onclick="refreshLibrary()" style="display:none">Refresh</button>
+        </div>
+        <div id="library-scroll">
+            <div id="no-content">
+                <div class="icon"><img src="img/icons/movie_white.svg" alt=""></div>
+                <div>No videos found. Place your videos in a <strong>Video/</strong> folder on any storage.</div>
+            </div>
+            <div id="movies-section" style="display:none">
+                <div class="section-title">Movies</div>
+                <div id="movies-grid" class="album-grid"></div>
+                <div class="load-more-wrap"><button class="load-more-btn" id="movies-load-more" style="display:none" onclick="loadMoreSection('movies')">Load more</button></div>
+            </div>
+            <div id="collections-section" style="display:none">
+                <div class="section-title">Collections</div>
+                <div id="collections-grid" class="album-grid"></div>
+                <div class="load-more-wrap"><button class="load-more-btn" id="collections-load-more" style="display:none" onclick="loadMoreSection('collections')">Load more</button></div>
+            </div>
+            <div id="series-section" style="display:none">
+                <div class="section-title">TV / Shows</div>
+                <div id="series-grid" class="album-grid"></div>
+                <div class="load-more-wrap"><button class="load-more-btn" id="shows-load-more" style="display:none" onclick="loadMoreSection('shows')">Load more</button></div>
+            </div>
+            <div id="anime-section" style="display:none">
+                <div class="section-title">Anime</div>
+                <div id="anime-grid" class="album-grid"></div>
+                <div class="load-more-wrap"><button class="load-more-btn" id="anime-load-more" style="display:none" onclick="loadMoreSection('anime')">Load more</button></div>
+            </div>
+            <div id="shorts-section" style="display:none">
+                <div class="section-title">Shorts</div>
+                <div id="shorts-grid" class="album-grid"></div>
+                <div class="load-more-wrap"><button class="load-more-btn" id="shorts-load-more" style="display:none" onclick="loadMoreSection('shorts')">Load more</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ DETAIL VIEW ════════════════════════════════════════ -->
+    <div id="view-detail" class="view">
+        <div id="detail-hero">
+            <div id="detail-hero-bg"></div>
+            <div id="detail-hero-content">
+                <div id="detail-poster"><div class="poster-placeholder"><img src="img/icons/movie_white.svg" alt=""></div></div>
+                <div id="detail-meta">
+                    <div id="detail-title">Album Title</div>
+                    <div id="detail-subtitle">0 episodes</div>
+                    <div id="detail-actions">
+                        <button class="btn btn-primary" id="btn-play-first"><img src="img/icons/play_black.svg" width="15" height="15" alt="" style="vertical-align:middle;margin-right:5px;">Play</button>
+                        <button class="btn btn-secondary" id="btn-shuffle"><img src="img/icons/shuffle_white.svg" width="15" height="15" alt="" style="vertical-align:middle;margin-right:5px;">Shuffle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button id="detail-back" onclick="showLibrary()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
+
+        <div id="season-tabs"></div>
+
+        <div id="episode-scroll">
+            <div id="episode-list"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ MOVIE INFO VIEW ══════════════════════════════════════ -->
+    <div id="view-movie-info" class="view">
+        <div id="movie-info-backdrop"></div>
+        <button id="movie-info-back" onclick="closeMovieInfo()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
+        <div id="movie-info-scroll">
+            <div id="movie-info-hero">
+                <div id="movie-info-poster-wrap">
+                    <img id="movie-info-poster-img" src="img/thumbnail.png" alt="">
+                </div>
+                <div id="movie-info-meta">
+                    <div id="movie-info-title"></div>
+                    <div id="movie-info-filename"></div>
+                    <div id="movie-info-year"></div>
+                    <div id="movie-info-cast"></div>
+                    <div id="movie-info-actions">
+                        <button class="btn btn-primary" id="movie-info-play-btn"><img src="img/icons/play_black.svg" width="15" height="15" alt="" style="vertical-align:middle;margin-right:5px;">Play</button>
+                        <button class="btn btn-secondary" id="movie-info-fm-btn">Open in Files</button>
+                        <button class="yt-badge" id="movie-info-yt-btn">▶ YouTube</button>
+                        <button class="imdb-badge" id="movie-info-imdb-btn" style="display:none">IMDb</button>
+                    </div>
+                </div>
+            </div>
+            <div id="movie-info-wrong-wrap">
+                <button class="reset-info-btn" id="movie-info-reset-btn">✕ Wrong movie? Disable IMDB info</button>
+            </div>
+            <div id="movie-info-loading"><div class="spinner"></div><span>Loading info…</span></div>
+            <div id="movie-info-files" style="display:none">
+                <div class="section-title" style="font-size:16px;margin:16px 20px 10px;">Files</div>
+                <div id="movie-info-episode-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ FOLDER VIEW ════════════════════════════════════════ -->
+    <div id="view-folder" class="view">
+        <div id="folder-nav-bar">
+            <div id="folder-breadcrumb"></div>
+        </div>
+        <div id="folder-scroll">
+            <div id="folder-loading"><div class="spinner"></div><span>Loading…</span></div>
+            <div id="folder-empty"></div>
+            <div id="folder-section-dirs" style="display:none">
+                <div class="section-title">Folders</div>
+                <div id="folder-dirs-grid" class="album-grid"></div>
+            </div>
+            <div id="folder-section-vids" style="display:none">
+                <div class="section-title">Videos</div>
+                <div id="folder-vids-grid" class="album-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ PLAYER VIEW ════════════════════════════════════════ -->
+    <div id="view-player" class="view">
+        <div id="video-container">
+            <div id="player-topbar">
+                <button id="player-back" onclick="closePlayer()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
+                <span id="topbar-title"></span>
+                <button class="ctrl-btn" id="ctrl-list-top" onclick="toggleSidebar()" title="Episode list"><img src="img/icons/menu_white.svg" alt="" width="18" height="18"></button>
+                <button class="ctrl-btn" id="ctrl-cast-top" title="Cast to Arozcast" onclick="openCastDialog()"><img src="img/icons/cast_white.svg" alt="" width="18" height="18"></button>
+            </div>
+            <video id="main-video" preload="metadata"></video>
+            <div id="subtitle-display"></div>
+
+            <!-- Resume-from-last-position popup -->
+            <div id="resume-popup">
+                <div id="resume-popup-title">Resume playback?</div>
+                <div id="resume-popup-sub"></div>
+                <div id="resume-popup-btns">
+                    <button class="resume-btn" id="resume-btn-continue">Resume</button>
+                    <button class="resume-btn" id="resume-btn-restart">Start over</button>
+                </div>
+            </div>
+
+            <!-- Auto-play countdown -->
+            <div id="next-countdown">
+                <div id="next-countdown-text">Next episode in <span id="countdown-num">5</span>s&hellip;</div>
+                <div id="next-countdown-track"><div id="next-countdown-bar" style="width:100%"></div></div>
+                <button id="next-countdown-cancel" onclick="cancelCountdown()">Cancel</button>
+            </div>
+
+            <!-- Player context menu -->
+            <div id="player-ctx">
+                <div class="ctx-item" id="ctx-play"><i class="ctx-icon">▶</i>Play</div>
+                <div class="ctx-item" id="ctx-pause"><i class="ctx-icon">⏸</i>Pause</div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-item" id="ctx-prev"><i class="ctx-icon">⏮</i>Previous</div>
+                <div class="ctx-item" id="ctx-next"><i class="ctx-icon">⏭</i>Next</div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-item" id="ctx-repeat"><i class="ctx-icon">↺</i>Repeat: Off</div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-item ctx-has-sub" id="ctx-subtitle-parent">
+                    <span><i class="ctx-icon" style="display:inline-block">CC</i>Subtitles</span>
+                    <i class="ctx-sub-arrow">›</i>
+                    <!-- Subtitle submenu — child of parent item for easy relative positioning -->
+                    <div id="ctx-subtitle-sub">
+                        <div class="ctx-item ctx-active" id="ctx-sub-disable"><i class="ctx-icon">✓</i>Disable</div>
+                        <div class="ctx-divider"></div>
+                        <div class="ctx-item" id="ctx-sub-load"><i class="ctx-icon">+</i>Load SRT file…</div>
+                    </div>
+                </div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-item" id="ctx-subtitle-settings"><i class="ctx-icon">⚙</i>Subtitle Settings</div>
+                <div class="ctx-item" id="ctx-props">Video Properties</div>
+                <!-- <div class="ctx-item" id="ctx-stats"><i class="ctx-icon">⧉</i>Streaming Stats</div> -->
+            </div>
+
+            <!-- Playback / subtitle settings modal -->
+            <div id="subtitle-settings-modal">
+                <h3>Subtitle Settings<button id="sset-close">✕</button></h3>
+                <div class="sset-row">
+                    <span class="sset-label">Position</span>
+                    <div class="sset-seg">
+                        <button class="sset-seg-btn active" data-val="bottom">Bottom</button>
+                        <button class="sset-seg-btn"        data-val="top">Top</button>
+                    </div>
+                </div>
+                <div class="sset-row">
+                    <span class="sset-label">Size</span>
+                    <input type="range" id="sset-size" min="14" max="52" step="1" value="22">
+                    <span id="sset-size-val">22px</span>
+                </div>
+                <div class="sset-row">
+                    <span class="sset-label">Font</span>
+                    <select id="sset-font">
+                        <option value="system-ui, sans-serif">System Default</option>
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
+                        <option value="Georgia, serif">Georgia</option>
+                        <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                        <option value="'Courier New', Courier, monospace">Courier New</option>
+                        <option value="Verdana, sans-serif">Verdana</option>
+                        <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                        <option value="Impact, fantasy">Impact</option>
+                    </select>
+                </div>
+                <div class="sset-row">
+                    <span class="sset-label">Color</span>
+                    <div class="sset-colors">
+                        <button class="sset-color active" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+                        <button class="sset-color"        data-color="#ffff00" style="background:#ffff00" title="Yellow"></button>
+                        <button class="sset-color"        data-color="#00ffff" style="background:#00ffff" title="Cyan"></button>
+                        <button class="sset-color"        data-color="#00ff88" style="background:#00ff88" title="Green"></button>
+                        <button class="sset-color"        data-color="#ff8800" style="background:#ff8800" title="Orange"></button>
+                        <input  type="color" id="sset-color-custom" value="#ffffff" title="Custom color">
+                    </div>
+                </div>
+                <div id="sset-preview">Sample subtitle text</div>
+            </div>
+
+            <!-- Video info / stats modal -->
+            <div id="video-info-modal">
+                <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" onclick="closeVideoInfo()">✕</button></h3>
+                <div id="video-info-tabs">
+                    <div class="info-tab active" onclick="showInfoTab('props')">Properties</div>
+                    <div class="info-tab" onclick="showInfoTab('stats')">Stats</div>
+                </div>
+                <div id="video-info-body"></div>
+            </div>
+
+            <!-- Custom controls -->
+            <div id="video-controls">
+                <div id="progress-wrap">
+                    <div id="progress-bar" style="width:0%"></div>
+                    <div id="progress-thumb" style="left:0%"></div>
+                </div>
+                <div id="controls-row">
+                    <button class="ctrl-btn" id="ctrl-prev"    title="Previous (←)"><img src="img/icons/skip_previous_white.svg" alt=""></button>
+                    <button class="ctrl-btn" id="ctrl-play"    title="Play/Pause (Space)"><img id="play-icon" src="img/icons/play_white.svg" alt=""></button>
+                    <button class="ctrl-btn" id="ctrl-next"    title="Next (→)"><img src="img/icons/skip_next_white.svg" alt=""></button>
+                    <div id="volume-wrap">
+                        <button class="ctrl-btn" id="ctrl-mute" title="Mute (M)"><img id="mute-icon" src="img/icons/volume_white.svg" alt=""></button>
+                        <input id="volume-slider" type="range" min="0" max="1" step="0.05" value="1">
+                    </div>
+                    <span id="time-display">0:00 / 0:00</span>
+                    <span id="now-playing-title"></span>
+                    <button class="ctrl-btn" id="ctrl-list"   title="Episode list (L)"><img src="img/icons/menu_white.svg" alt=""></button>
+                    <button class="ctrl-btn" id="ctrl-cast"   title="Cast to Arozcast" onclick="openCastDialog()"><img src="img/icons/cast_white.svg" alt="" width="18" height="18"></button>
+                    <button class="ctrl-btn" id="ctrl-fs"     title="Fullscreen (F)"><img src="img/icons/fullscreen_white.svg" alt=""></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar playlist -->
+        <div id="playlist-sidebar">
+            <div id="sidebar-header">
+                <span>Playlist</span>
+                <label class="autoplay-label" title="Auto-play next episode">
+                    <input type="checkbox" id="autoplay-check">
+                    <span class="autoplay-track"></span>
+                    <span>Auto</span>
+                </label>
+                <button id="sidebar-close" onclick="toggleSidebar()"><img style="width: 16px;" src="img/icons/close_white.svg" alt=""></button>
+            </div>
+            <div id="sidebar-list"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Arozcast cast modal -->
+<div id="cast-modal">
+    <div class="cast-dialog">
+        <h4>Cast to Arozcast</h4>
+        <div id="cast-status-line" class="cast-status-line" style="display:none;"></div>
+        <input type="text" id="cast-code-input" maxlength="4" placeholder="1234"
+               oninput="this.value=this.value.replace(/\D/g,'')"
+               onkeydown="if(event.key==='Enter') connectCast()">
+        <div id="cast-err" class="cast-err"></div>
+        <div class="cast-actions">
+            <button class="btn-cast-cancel" onclick="closeCastDialog()">Cancel</button>
+            <button class="btn-cast-disc" id="cast-disc-btn" style="display:none;" onclick="disconnectCast()">Disconnect</button>
+            <button class="btn-cast-connect" id="cast-conn-btn" onclick="connectCast()">Connect</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ JAVASCRIPT ════════════════════════════════════════════════ -->
+<script>
+// ─── All configurable paths come from backend/common.js ──────────────────────
+// (SCRIPT_GET_LIBRARY, SCRIPT_GET_EPISODES, SCRIPT_GET_THUMBNAIL, MEDIA_API)
+
+// ─── Library cache ────────────────────────────────────────────────────────────
+// Cache is stored server-side (user:/.appdata/Movie/library_cache.json)
+// so it is shared across devices for the same user account.
+var libraryNeedsRedraw = false; // set when bg-refresh finishes outside the library view
+
+// ─── App state ────────────────────────────────────────────────────────────────
+var library        = [];   // full album array from server
+var currentAlbum   = null; // album object currently shown in detail view
+var currentSeason  = null; // season object currently active
+var currentEpisodes = [];  // flat episode array for current season/album
+var playingIndex   = -1;   // index in currentEpisodes being played
+
+// TV-remote focus management
+var focusMode      = false;  // set to true when arrow-key pressed
+var focusedEl      = null;
+
+// Controls auto-hide timer
+var controlsTimer  = null;
+
+// Library pagination
+var PAGE_SIZE   = 24;
+var moviesData      = [];
+var collectionsData = [];
+var showsData       = [];
+var shortsData      = [];
+var animeData       = [];
+var moviesShown      = 0;
+var collectionsShown = 0;
+var showsShown       = 0;
+var shortsShown      = 0;
+var animeShown       = 0;
+
+// Auto-play between episodes
+var autoplayEnabled = localStorage.getItem('movie_autoplay') !== '0'; // on by default
+var countdownTimer  = null;
+
+// Single-repeat
+var repeatSingle = false;
+
+// ─── Arozcast cast state ──────────────────────────────────────────────────────
+var castWs          = null;
+var castCode        = null;
+var castMode        = false;
+var castPingTimer   = null;
+var castWatchTimer  = null;
+var castLastSeen    = 0;
+var castCurrentTime = 0;
+var castDuration    = 0;
+var castIsPlaying   = false;
+var castReconnectTimer  = null;   // setTimeout handle for next reconnect attempt
+var castReconnectCount  = 0;      // number of attempts made so far
+var castPendingCode     = null;   // room code kept alive during reconnect
+
+function _castConnected() {
+    return castWs !== null && castWs.readyState === WebSocket.OPEN;
+}
+
+function _castSend(topic, payload) {
+    if (!_castConnected()) { return; }
+    castWs.send(JSON.stringify({ topic: topic, payload: payload || {} }));
+}
+
+function openCastDialog() {
+    var $inp  = $('#cast-code-input');
+    var $stat = $('#cast-status-line');
+    var $err  = $('#cast-err');
+    $('#cast-err').text('');
+    if (_castConnected()) {
+        $inp.hide();
+        $stat.show().text('Casting to room ' + castCode);
+        $('#cast-conn-btn').hide();
+        $('#cast-disc-btn').show();
+    } else {
+        $inp.show().val('');
+        $stat.hide();
+        $('#cast-conn-btn').show();
+        $('#cast-disc-btn').hide();
+    }
+    $('#cast-modal').addClass('active');
+    if ($inp.is(':visible')) { setTimeout(function(){ $inp.focus(); }, 50); }
+}
+
+function closeCastDialog() { $('#cast-modal').removeClass('active'); }
+
+function connectCast() {
+    var code = $('#cast-code-input').val().trim();
+    if (code.length !== 4) { $('#cast-err').text('Enter a 4-digit room code.'); return; }
+    $('#cast-err').text('');
+
+    fetch(ao_root + 'api/arozcast/ping?code=' + code)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.exists) { $('#cast-err').text('Room not found. Is Arozcast running?'); return; }
+
+            if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
+            clearInterval(castPingTimer); clearInterval(castWatchTimer);
+            // Cancel any pending auto-reconnect to the old room — user is opening a new session
+            clearTimeout(castReconnectTimer); castReconnectTimer = null;
+            castReconnectCount = 0; castPendingCode = null;
+
+            // Signal other apps (Musicify, Photo) to yield the cast room
+            try { new BroadcastChannel('arozcast').postMessage({ type: 'arozcast.takeover' }); } catch(e) {}
+
+            castCode = code;
+            var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+            wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            castWs = new WebSocket(wsUrl.toString());
+
+            castWs.onopen = function() {
+                castLastSeen = Date.now();
+                castMode = true;
+                castWs.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
+
+                var vid = document.getElementById('main-video');
+
+                // Load current episode on Arozcast; stop local playback
+                if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
+                    var ep  = currentEpisodes[playingIndex];
+                    var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+                    var src = isWebPlayable(ext)
+                        ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
+                        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+                    _castSend('media.load', {
+                        filepath: ep.filepath, name: ep.name, type: 'video',
+                        src: src, startTime: (isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime) || 0
+                    });
+                    // Volume after load, before play — ensures it overrides any default
+                    // the Arozcast side might apply during media initialisation.
+                    _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+                    _castSend(vid.paused ? 'media.pause' : 'media.play', {});
+                    // Stop local video to avoid dual transcoding
+                    vid.pause();
+                    vid.removeAttribute('src');
+                }
+
+                castPingTimer  = setInterval(function() { _castSend('peer.heartbeat', {}); }, 5000);
+                castWatchTimer = setInterval(function() {
+                    if (Date.now() - castLastSeen > 12000 && castWs) { castWs.close(); }
+                }, 4000);
+
+                $('#ctrl-cast, #ctrl-cast-top').addClass('casting');
+                closeCastDialog();
+                showToast('Casting to room ' + code);
+            };
+
+            castWs.onmessage = function(evt) {
+                castLastSeen = Date.now();
+                try { _handleCastMessage(JSON.parse(evt.data)); } catch(e) {}
+            };
+
+            castWs.onclose = function() {
+                clearInterval(castPingTimer); clearInterval(castWatchTimer);
+                castPingTimer = castWatchTimer = null;
+                var wasActive = castMode;
+                var savedCode = castCode;
+                castMode = false; castCode = null; castWs = null;
+                $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+                if (wasActive) { _startCastReconnect(savedCode); }
+            };
+
+            castWs.onerror = function() {
+                $('#cast-err').text('Connection error.');
+                openCastDialog();
+            };
+        })
+        .catch(function() { $('#cast-err').text('Network error.'); });
+}
+
+function disconnectCast() {
+    // Cancel any pending auto-reconnect before tearing down
+    clearTimeout(castReconnectTimer); castReconnectTimer = null;
+    castReconnectCount = 0; castPendingCode = null;
+    if (_castConnected()) { _castSend('media.stop', {}); }
+    if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
+    clearInterval(castPingTimer); clearInterval(castWatchTimer);
+    castPingTimer = castWatchTimer = null;
+    castMode = false; castCode = null;
+    $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+    closeCastDialog();
+    _castResumeLocally();
+}
+
+function _castResumeLocally() {
+    if (playingIndex < 0 || !currentEpisodes || !currentEpisodes[playingIndex]) { return; }
+    var ep  = currentEpisodes[playingIndex];
+    var pos = castCurrentTime;
+    var vid = document.getElementById('main-video');
+    if (isTranscodedVideo && pos > 0) {
+        // Seek-by-reload: restart the transcode stream at the cast position
+        transcodeSeekOffset = pos;
+        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + pos.toFixed(3);
+    } else {
+        var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+        vid.src = isWebPlayable(ext)
+            ? MEDIA_API     + '?file=' + encodeURIComponent(ep.filepath)
+            : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+        if (pos > 0) {
+            $(vid).one('loadedmetadata.castresume', function() { vid.currentTime = pos; });
+        }
+    }
+    vid.load();
+    $('#play-icon').attr('src', 'img/icons/play_white.svg');
+    showToast('Arozcast disconnected — click play to resume');
+}
+
+// ── Arozcast auto-reconnect ───────────────────────────────────────────────────
+var _CAST_RECONNECT_DELAYS = [2000, 5000, 12000];
+
+function _startCastReconnect(code) {
+    if (!code || castReconnectCount >= _CAST_RECONNECT_DELAYS.length) {
+        if (castReconnectCount > 0) { _castResumeLocally(); }
+        castReconnectCount = 0; castPendingCode = null;
+        return;
+    }
+    castPendingCode = code;
+    var delay = _CAST_RECONNECT_DELAYS[castReconnectCount++];
+    clearTimeout(castReconnectTimer);
+    castReconnectTimer = setTimeout(function() {
+        castReconnectTimer = null;
+        _attemptCastReconnect();
+    }, delay);
+    showToast('Arozcast disconnected — reconnecting…');
+}
+
+function _attemptCastReconnect() {
+    if (!castPendingCode) return;
+    var code = castPendingCode;
+    var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+    wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws = new WebSocket(wsUrl.toString());
+    // If the socket doesn't open within 8 s, count as a failed attempt
+    var openTimer = setTimeout(function() {
+        ws.onopen = ws.onclose = ws.onerror = null; ws.close();
+        _startCastReconnect(code);
+    }, 8000);
+    ws.onopen  = function() { clearTimeout(openTimer); castPendingCode = null; _castDidReconnect(ws, code); };
+    ws.onerror = function() {};   // let onclose handle it
+    ws.onclose = function() { clearTimeout(openTimer); _startCastReconnect(code); };
+}
+
+function _castDidReconnect(ws, code) {
+    castWs = ws; castCode = code; castMode = true; castLastSeen = Date.now();
+    ws.onmessage = function(evt) {
+        castLastSeen = Date.now();
+        try { _handleCastMessage(JSON.parse(evt.data)); } catch(e) {}
+    };
+    ws.onclose = function() {
+        clearInterval(castPingTimer); clearInterval(castWatchTimer);
+        castPingTimer = castWatchTimer = null;
+        var wasActive = castMode;
+        var savedCode = castCode;
+        castMode = false; castCode = null; castWs = null;
+        $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+        if (wasActive) { _startCastReconnect(savedCode); }
+    };
+    // Re-announce presence and sync volume only — do NOT resend media.load.
+    // Arozcast kept playing while the phone was asleep; its next status.update
+    // will immediately sync castCurrentTime to the live remote position.
+    _castSend('peer.hello', {});
+    var vid = document.getElementById('main-video');
+    _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+    castPingTimer  = setInterval(function() { _castSend('peer.heartbeat', {}); }, 5000);
+    castWatchTimer = setInterval(function() {
+        if (Date.now() - castLastSeen > 12000 && castWs) { castWs.close(); }
+    }, 4000);
+    $('#ctrl-cast, #ctrl-cast-top').addClass('casting');
+    showToast('Arozcast reconnected');
+}
+
+function _handleCastMessage(msg) {
+    if (msg.topic === 'status.update') {
+        castReconnectCount = 0; // receiver confirmed alive — reset retry counter
+        castCurrentTime = msg.payload.currentTime || 0;
+        castDuration    = msg.payload.duration    || 0;
+        castIsPlaying   = msg.payload.isPlaying   || false;
+        if (castDuration > 0) {
+            var pct = (castCurrentTime / castDuration) * 100;
+            $('#progress-bar').css('width', pct + '%');
+            $('#progress-thumb').css('left', 'calc(' + pct + '% - 7px)');
+            $('#time-display').text(formatTime(castCurrentTime) + ' / ' + formatTime(castDuration));
+        }
+        $('#play-icon').attr('src', castIsPlaying
+            ? 'img/icons/pause_white.svg' : 'img/icons/play_white.svg');
+    } else if (msg.topic === 'media.ended') {
+        cancelCountdown();
+        if (repeatSingle) {
+            _castSend('media.seek', { time: 0 });
+            _castSend('media.play', {});
+        } else if (playingIndex < currentEpisodes.length - 1 && autoplayEnabled) {
+            startNextCountdown();
+        } else {
+            castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        }
+    }
+}
+
+// Movie info panel
+var currentMovieAlbum  = null;
+var movieInfoEpisodes  = [];
+var currentMovieImdbTitle = null; // IMDB title once fetched; null until then
+
+// Player return-destination and watch-position tracking
+var playerReturnView  = 'library';
+var pendingResumePos  = 0;
+var watchSaveInterval = null;
+
+// Transcode seek state (seek-by-reload for non-web-playable formats)
+var transcodeSeekOffset = 0;    // seconds already consumed before current chunk start
+var isTranscodedVideo   = false; // true when current video plays via transcode endpoint
+var transcodeDuration   = 0;    // duration pre-fetched via /media/duration/ (seconds)
+
+// Folder browse state
+var folderViewPath   = '/';
+var folderViewVideos = [];
+
+// ─── Movie info panel ─────────────────────────────────────────────────────────
+function openMovieInfo(album) {
+    currentMovieAlbum     = album;
+    currentAlbum          = album;
+    movieInfoEpisodes     = [];
+    currentMovieImdbTitle = null;
+
+    // Seed with local data immediately
+    $('#movie-info-title').text(album.name);
+    $('#movie-info-filename').hide().text('');
+    $('#movie-info-year').text('');
+    $('#movie-info-cast').text('');
+    $('#movie-info-imdb-btn').hide();
+    $('#movie-info-wrong-wrap').hide();
+    $('#movie-info-files').hide();
+    $('#movie-info-loading').addClass('active');
+
+    var localThumb = album.thumbnail
+        ? 'data:image/jpeg;base64,' + album.thumbnail
+        : 'img/thumbnail.png';
+    $('#movie-info-poster-img').attr('src', localThumb);
+    $('#movie-info-backdrop').css('background-image', 'url(' + localThumb + ')');
+
+    // Bind Play button
+    $('#movie-info-play-btn').off('click').on('click', function () {
+        if (movieInfoEpisodes.length > 0) {
+            currentAlbum = album; currentSeason = null;
+            currentEpisodes = movieInfoEpisodes;
+            startPlayback(0);
+        }
+    });
+
+    // Bind Open in Files — opens file manager at the movie's location
+    $('#movie-info-fm-btn').off('click').on('click', function () {
+        if (!currentMovieAlbum) { return; }
+        if (currentMovieAlbum._singleFile) {
+            var fp    = currentMovieAlbum._singleFile;
+            var dir   = fp.substring(0, fp.lastIndexOf('/'));
+            var fname = fp.split('/').pop();
+            ao_module_openPath(dir, fname);
+        } else {
+            ao_module_openPath(currentMovieAlbum.folderpath);
+        }
+    });
+
+    // Bind YouTube search — uses IMDB title once available, raw name otherwise
+    $('#movie-info-yt-btn').off('click').on('click', function () {
+        var term = currentMovieImdbTitle || (currentMovieAlbum ? currentMovieAlbum.name : '');
+        window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(term + ' trailer'), '_blank');
+    });
+
+    showView('movie-info');
+
+    // Fetch IMDB metadata
+    ao_module_agirun(SCRIPT_GET_MOVIE_INFO, { movie: album.name }, function (data) {
+        $('#movie-info-loading').removeClass('active');
+        if (data && !data.error) { applyMovieInfo(data); }
+    }, function () {
+        $('#movie-info-loading').removeClass('active');
+    });
+
+    // Build file list
+    if (album._singleFile) {
+        var ext = '.' + album._singleFile.split('.').pop().toLowerCase();
+        movieInfoEpisodes = [{ name: album.name, filepath: album._singleFile, ext: ext, index: 0 }];
+        // Single file — file list not needed (Play button is enough)
+    } else {
+        ao_module_agirun(SCRIPT_GET_EPISODES, { folder: album.folderpath }, function (data) {
+            if (data && !data.error && data.length > 0) {
+                movieInfoEpisodes = data;
+                if (data.length > 1) { renderMovieFileList(data); }
+            }
+        });
+    }
+}
+
+function applyMovieInfo(info) {
+    var imdbTitle = info['#TITLE']      || '';
+    var year      = info['#YEAR']       ? String(info['#YEAR']) : '';
+    var actors    = info['#ACTORS']    || '';
+    var imdbUrl   = info['#IMDB_URL']  || '';
+    var poster    = info['#IMG_POSTER'] || '';
+
+    // Replace the displayed title with the canonical IMDB title and show the
+    // original filename as a small italic subtitle underneath.
+    if (imdbTitle) {
+        currentMovieImdbTitle = imdbTitle;
+        $('#movie-info-title').text(imdbTitle);
+        if (currentMovieAlbum && currentMovieAlbum.name !== imdbTitle) {
+            $('#movie-info-filename').text(currentMovieAlbum.name).show();
+        }
+    }
+
+    if (year)   { $('#movie-info-year').text(year); }
+    if (actors) {
+        $('#movie-info-cast').html(
+            '<span style="color:var(--text-sub);font-weight:600">Cast</span> ' + escapeHtml(actors)
+        );
+    }
+
+    if (poster) {
+        var img = document.getElementById('movie-info-poster-img');
+        img.onerror = function () {
+            img.src = (currentMovieAlbum && currentMovieAlbum.thumbnail)
+                ? 'data:image/jpeg;base64,' + currentMovieAlbum.thumbnail
+                : 'img/thumbnail.png';
+            img.onerror = null;
+        };
+        img.onload = function () {
+            $('#movie-info-backdrop').css('background-image', 'url(' + poster + ')');
+            img.onload = null;
+        };
+        img.src = poster;
+    }
+
+    if (imdbUrl) {
+        $('#movie-info-imdb-btn').show().off('click').on('click', function () {
+            window.open(imdbUrl, '_blank');
+        });
+    }
+
+    // Show the "wrong movie" reset button now that IMDB data is displayed
+    $('#movie-info-wrong-wrap').show();
+    $('#movie-info-reset-btn').off('click').on('click', function () {
+        if (!currentMovieAlbum) { return; }
+        ao_module_agirun(SCRIPT_DISABLE_MOVIE_INFO, { movie: currentMovieAlbum.name },
+            function () { resetMovieInfo(); },
+            function () { resetMovieInfo(); } // reset UI even if backend call fails
+        );
+    });
+}
+
+// Reset the movie info panel to local-only state (used after disabling IMDB info)
+function resetMovieInfo() {
+    if (!currentMovieAlbum) { return; }
+    currentMovieImdbTitle = null;
+    var album = currentMovieAlbum;
+
+    $('#movie-info-title').text(album.name);
+    $('#movie-info-filename').hide().text('');
+    $('#movie-info-year').text('');
+    $('#movie-info-cast').text('');
+    $('#movie-info-imdb-btn').hide();
+    $('#movie-info-wrong-wrap').hide();
+
+    // Restore local thumbnail as poster and backdrop
+    var localThumb = album.thumbnail
+        ? 'data:image/jpeg;base64,' + album.thumbnail
+        : 'img/thumbnail.png';
+    document.getElementById('movie-info-poster-img').src = localThumb;
+    $('#movie-info-backdrop').css('background-image', 'url(' + localThumb + ')');
+}
+
+function renderMovieFileList(episodes) {
+    var $list = $('#movie-info-episode-list').empty();
+    episodes.forEach(function (ep, i) {
+        var row = $('<div class="episode-item" tabindex="0" role="button">'
+            + '<div class="ep-thumb"><div class="ep-thumb-placeholder"><img src="img/icons/play_white.svg" alt=""></div></div>'
+            + '<div class="ep-info">'
+            +   '<div class="ep-name">' + escapeHtml(ep.name) + '</div>'
+            +   '<div class="ep-path">' + escapeHtml((ep.ext || '').replace('.', '').toUpperCase()) + '</div>'
+            + '</div>'
+            + '<div class="ep-play-icon"><img src="img/icons/play_white.svg" alt=""></div>'
+            + '</div>');
+        row.data('idx', i);
+        row.on('click', function () {
+            currentAlbum = currentMovieAlbum; currentSeason = null;
+            currentEpisodes = movieInfoEpisodes;
+            startPlayback($(this).data('idx'));
+        });
+        row.on('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                currentAlbum = currentMovieAlbum; currentSeason = null;
+                currentEpisodes = movieInfoEpisodes;
+                startPlayback($(this).data('idx'));
+            }
+        });
+        $list.append(row);
+        // Lazy thumbnail
+        (function (epObj, rowEl) {
+            ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: epObj.filepath }, function (data) {
+                if (data && !data.error && data.length > 20) {
+                    rowEl.find('.ep-thumb-placeholder')
+                        .replaceWith('<img src="data:image/jpeg;base64,' + data + '" alt="">');
+                }
+            });
+        })(ep, row);
+    });
+    $('#movie-info-files').show();
+}
+
+function closeMovieInfo() {
+    currentMovieAlbum = null;
+    movieInfoEpisodes = [];
+    showView('library');
+}
+
+// ─── Watch position (resume) ──────────────────────────────────────────────────
+function saveWatchPosition() {
+    var vid = document.getElementById('main-video');
+    var effectiveDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+    if (playingIndex < 0 || !currentEpisodes || !effectiveDuration || effectiveDuration < 3600) { return; }
+    var ep = currentEpisodes[playingIndex];
+    var effectiveTime = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+    if (!ep || effectiveTime < 10) { return; }
+    ao_module_agirun(SCRIPT_SET_WATCHTIME, {
+        filepath: ep.filepath,
+        position: Math.floor(effectiveTime),
+        duration: Math.floor(effectiveDuration)
+    }, function () {}, function () {});
+}
+
+function clearWatchPosition() {
+    if (playingIndex < 0 || !currentEpisodes) { return; }
+    var ep = currentEpisodes[playingIndex];
+    if (!ep) { return; }
+    ao_module_agirun(SCRIPT_SET_WATCHTIME, { filepath: ep.filepath, position: 0, duration: 0 },
+        function () {}, function () {});
+}
+
+function showResumePopup(savedPos, duration) {
+    var vid = document.getElementById('main-video');
+    vid.pause();
+    pendingResumePos = savedPos;
+    $('#resume-popup-sub').text(
+        'Last position: ' + formatTime(savedPos) + ' of ' + formatTime(duration)
+    );
+    $('#resume-popup').addClass('active');
+    showControls();
+
+    $('#resume-btn-continue').off('click').on('click', function () {
+        if (isTranscodedVideo && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+            var ep = currentEpisodes[playingIndex];
+            transcodeSeekOffset = pendingResumePos;
+            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + pendingResumePos.toFixed(3);
+            vid.load();
+            vid.play();
+        } else {
+            vid.currentTime = pendingResumePos;
+            vid.play();
+        }
+        $('#resume-popup').removeClass('active');
+    });
+    $('#resume-btn-restart').off('click').on('click', function () {
+        vid.play();
+        $('#resume-popup').removeClass('active');
+    });
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+    if (tab === 'folder') {
+        var wasAlreadyFolder = $('#view-folder').hasClass('active');
+        showView('folder');
+        if (!wasAlreadyFolder) { navigateFolder(folderViewPath); }
+    } else {
+        showView('library');
+    }
+}
+
+// ─── Folder navigation ────────────────────────────────────────────────────────
+function buildBreadcrumbs(path) {
+    var crumbs = [{ name: 'Home', path: '/' }];
+    if (!path || path === '/') { return crumbs; }
+    var colonIdx = path.indexOf(':/');
+    if (colonIdx < 0) { return crumbs; }
+    var root = path.substring(0, colonIdx + 2);
+    crumbs.push({ name: root, path: root });
+    var rest = path.substring(colonIdx + 2);
+    if (!rest) { return crumbs; }
+    var parts = rest.split('/').filter(function (s) { return s.length > 0; });
+    var cumPath = root;
+    for (var i = 0; i < parts.length; i++) {
+        cumPath += parts[i] + '/';
+        crumbs.push({ name: parts[i], path: cumPath });
+    }
+    return crumbs;
+}
+
+function renderBreadcrumb(path) {
+    var crumbs = buildBreadcrumbs(path);
+    var $bc = $('#folder-breadcrumb').empty();
+    for (var i = 0; i < crumbs.length; i++) {
+        var crumb = crumbs[i];
+        var isLast = (i === crumbs.length - 1);
+        if (i > 0) { $bc.append('<span class="crumb-sep">›</span>'); }
+        var btn = $('<button class="crumb-btn' + (isLast ? ' crumb-current' : '') + '">'
+            + escapeHtml(crumb.name) + '</button>');
+        if (!isLast) {
+            (function (p) { btn.on('click', function () { navigateFolder(p); }); })(crumb.path);
+        }
+        $bc.append(btn);
+    }
+}
+
+function navigateFolder(path) {
+    folderViewPath = path || '/';
+    renderBreadcrumb(folderViewPath);
+    loadFolderContents(folderViewPath);
+}
+
+function loadFolderContents(path) {
+    $('#folder-loading').addClass('active');
+    $('#folder-empty').hide();
+    $('#folder-section-dirs').hide();
+    $('#folder-section-vids').hide();
+
+    var params = (path && path !== '/') ? { folder: path } : { folder: '' };
+    ao_module_agirun(SCRIPT_LIST_FOLDER, params, function (data) {
+        $('#folder-loading').removeClass('active');
+        if (!data || data.error) {
+            $('#folder-empty').text(data && data.error ? data.error : 'Failed to load folder.').show();
+            return;
+        }
+        renderFolderContents(data);
+    }, function () {
+        $('#folder-loading').removeClass('active');
+        $('#folder-empty').text('Error loading folder.').show();
+    });
+}
+
+function renderFolderContents(data) {
+    folderViewVideos = data.videos || [];
+
+    var hasDirs = data.folders && data.folders.length > 0;
+    var hasVids = data.videos  && data.videos.length  > 0;
+
+    if (!hasDirs && !hasVids) {
+        $('#folder-empty').text('This folder is empty.').show();
+        return;
+    }
+
+    if (hasDirs) {
+        var $dirs = $('#folder-dirs-grid').empty();
+        $('#folder-section-dirs').show();
+        data.folders.forEach(function (f) {
+            var thumbHtml;
+            if (f.isRoot) {
+                thumbHtml = '<div class="poster-placeholder"><img src="img/root_placeholder.png" alt=""></div>';
+            } else if (f.hasVideos && f.thumbnail && f.thumbnail.length > 20) {
+                thumbHtml = '<img class="poster" src="data:image/jpeg;base64,' + f.thumbnail + '" alt="">';
+            } else if (f.hasVideos) {
+                thumbHtml = '<div class="poster-placeholder"><img src="img/playlist_placeholder.png" alt=""></div>';
+            } else {
+                thumbHtml = '<div class="poster-placeholder"><img src="img/folder_placeholder.png" alt=""></div>';
+            }
+            var meta = f.isRoot ? 'Storage root' : (f.hasVideos ? 'Playlist' : 'Folder');
+            var card = $('<div class="album-card" tabindex="0" role="button" aria-label="' + escapeAttr(f.name) + '">'
+                + thumbHtml
+                + '<div class="card-info">'
+                +   '<div class="card-title">' + escapeHtml(f.name) + '</div>'
+                +   '<div class="card-meta">' + escapeHtml(meta) + '</div>'
+                + '</div>'
+                + '</div>');
+            card.on('click', function () { navigateFolder(f.path); });
+            card.on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateFolder(f.path); }
+            });
+            $dirs.append(card);
+        });
+    }
+
+    if (hasVids) {
+        var $vids = $('#folder-vids-grid').empty();
+        $('#folder-section-vids').show();
+        data.videos.forEach(function (v, i) {
+            var card = $('<div class="album-card" tabindex="0" role="button" aria-label="' + escapeAttr(v.name) + '">'
+                + '<div class="poster-placeholder"><img src="img/thumbnail.png" alt=""></div>'
+                + '<div class="card-info">'
+                +   '<div class="card-title">' + escapeHtml(v.name) + '</div>'
+                +   '<div class="card-meta">' + escapeHtml((v.ext || '').replace('.', '').toUpperCase()) + '</div>'
+                + '</div>'
+                + '</div>');
+            card.data('vidIdx', i);
+            card.data('vidInfo', v);
+            card.on('click', function () { playFolderVideos(folderViewVideos, $(this).data('vidIdx')); });
+            card.on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFolderVideos(folderViewVideos, $(this).data('vidIdx')); }
+            });
+            $vids.append(card);
+        });
+
+        // Lazy-load video thumbnails
+        $('#folder-vids-grid .album-card').each(function () {
+            var $card = $(this);
+            var v = $card.data('vidInfo');
+            if (!v) { return; }
+            ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: v.filepath }, function (data) {
+                if (data && !data.error && data.length > 20) {
+                    $card.find('.poster-placeholder')
+                        .replaceWith('<img class="poster" src="data:image/jpeg;base64,' + data + '" alt="">');
+                }
+            });
+        });
+    }
+}
+
+function playFolderVideos(videos, startIndex) {
+    if (!videos || videos.length === 0) { return; }
+    var segments = folderViewPath.split('/').filter(function (s) { return s.length > 0; });
+    var folderName = segments.length > 0 ? segments[segments.length - 1] : 'Videos';
+    currentAlbum    = { name: folderName, type: 'folder', folderpath: folderViewPath };
+    currentSeason   = null;
+    currentEpisodes = videos.map(function (v, i) {
+        return { name: v.name, filepath: v.filepath, ext: v.ext, index: i };
+    });
+    startPlayback(startIndex);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+$(document).ready(function () {
+    loadLibrary();
+    initVideoControls();
+    initKeyboard();
+    initSearch();
+    initContextMenu();
+    initSubtitleMenu();
+    initSubtitleSettings();
+    // Autoplay toggle
+    $('#autoplay-check').prop('checked', autoplayEnabled);
+    $('#autoplay-check').on('change', function () {
+        autoplayEnabled = $(this).is(':checked');
+        localStorage.setItem('movie_autoplay', autoplayEnabled ? '1' : '0');
+    });
+
+    // Yield cast session to other apps (Photo, Musicify) if they take over
+    try {
+        var _acCh = new BroadcastChannel('arozcast');
+        _acCh.onmessage = function(evt) {
+            if (evt.data && evt.data.type === 'arozcast.takeover' && castMode) {
+                disconnectCast();
+            }
+        };
+    } catch(e) {}
+
+    // When the user returns to this tab after the phone was asleep, reconnect immediately
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && castPendingCode) {
+            clearTimeout(castReconnectTimer);
+            castReconnectTimer = null;
+            _attemptCastReconnect();
+        }
+    });
+
+    // Close WS cleanly on page unload — do NOT send media.stop so Arozcast keeps playing.
+    // Only an explicit disconnectCast() call should stop remote playback.
+    window.addEventListener('beforeunload', function() {
+        if (castWs) { castWs.onclose = null; castWs.close(); }
+    });
+});
+
+// ─── Library status bar helpers ────────────────────────────────────────────────
+// spinning=true  shows the spinner and hides the Refresh button, and vice-versa.
+function setLibraryStatus(text, spinning) {
+    $('#library-status-text').text(text);
+    $('#library-spinner').toggle(spinning);
+    $('#library-refresh-btn').toggle(!spinning);
+}
+
+function timeAgo(ts) {
+    var d = Math.floor((Date.now() - ts) / 1000);
+    if (d < 60)    { return 'just now'; }
+    if (d < 3600)  { return Math.floor(d / 60) + 'm ago'; }
+    if (d < 86400) { return Math.floor(d / 3600) + 'h ago'; }
+    return Math.floor(d / 86400) + 'd ago';
+}
+
+// Re-render the library grid, preserving an active search filter if present.
+function renderCurrentLibrary() {
+    var q = $('#search-input').val().trim().toLowerCase();
+    renderLibrary(q ? library.filter(function (a) { return a.name.toLowerCase().indexOf(q) > -1; }) : library);
+}
+
+// Run a background full scan. getLibrary.js writes the cache file server-side
+// before it sends its response, so the cache is updated even if the tab closes
+// partway through — the browser just won't receive the response in that case.
+function backgroundScanLibrary() {
+    ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+        if (!data || data.error) {
+            setLibraryStatus('Refresh failed · showing cached data', false);
+            return;
+        }
+        library = data;
+        if ($('#view-library').hasClass('active')) {
+            renderCurrentLibrary();
+            libraryNeedsRedraw = false;
+        } else {
+            libraryNeedsRedraw = true;
+        }
+        var n = library.length;
+        setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
+    }, function () {
+        setLibraryStatus('Refresh failed · showing cached data', false);
+    });
+}
+
+// ─── Load library (server-side cache-first) ────────────────────────────────────
+// 1. Ask getLibraryCache.js for the last saved scan result (milliseconds, no scan).
+// 2a. Cache hit  → render immediately, kick off backgroundScanLibrary().
+// 2b. Cache miss → show loading overlay, run full scan, render when done.
+function loadLibrary() {
+    ao_module_agirun(SCRIPT_GET_LIBRARY_CACHE, {}, function (cached) {
+
+        if (cached && !cached.error && Array.isArray(cached.data)) {
+            // Fast path: paint the UI from cache right away
+            $('#loading-overlay').hide();
+            library = cached.data;
+            renderLibrary(library);
+            setLibraryStatus('Cached · ' + timeAgo(cached.ts) + ' · refreshing…', true);
+            backgroundScanLibrary();
+
+        } else {
+            // Cold start: no cache yet — full scan with loading overlay
+            setLibraryStatus('Loading…', true);
+            ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+                $('#loading-overlay').fadeOut(300);
+                if (!data || data.error) {
+                    showToast('Failed to load library');
+                    setLibraryStatus('Failed to load library', false);
+                    return;
+                }
+                library = data;
+                renderLibrary(library);
+                var n = library.length;
+                setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
+            }, function () {
+                $('#loading-overlay').fadeOut(300);
+                showToast('Error loading library');
+                setLibraryStatus('Error loading library', false);
+            });
+        }
+
+    }, function () {
+        // getLibraryCache.js itself failed — treat as cold start
+        setLibraryStatus('Loading…', true);
+        ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+            $('#loading-overlay').fadeOut(300);
+            if (!data || data.error) {
+                showToast('Failed to load library');
+                setLibraryStatus('Failed to load library', false);
+                return;
+            }
+            library = data;
+            renderLibrary(library);
+            var n = library.length;
+            setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
+        }, function () {
+            $('#loading-overlay').fadeOut(300);
+            showToast('Error loading library');
+            setLibraryStatus('Error loading library', false);
+        });
+    });
+}
+
+// ─── Manual refresh (Refresh button) ──────────────────────────────────────────
+// Passes forceRefresh=1 to bypass the 8-hour staleness guard in getLibrary.js.
+function refreshLibrary() {
+    $('#library-refresh-btn').prop('disabled', true);
+    setLibraryStatus('Refreshing…', true);
+    ao_module_agirun(SCRIPT_GET_LIBRARY, { forceRefresh: '1' }, function (data) {
+        $('#library-refresh-btn').prop('disabled', false);
+        if (!data || data.error) {
+            showToast('Failed to refresh library');
+            setLibraryStatus('Refresh failed', false);
+            return;
+        }
+        library = data;
+        renderCurrentLibrary();
+        libraryNeedsRedraw = false;
+        var n = library.length;
+        setLibraryStatus(n + ' item' + (n !== 1 ? 's' : '') + ' · just refreshed', false);
+    }, function () {
+        $('#library-refresh-btn').prop('disabled', false);
+        showToast('Error refreshing library');
+        setLibraryStatus('Refresh failed', false);
+    });
+}
+
+// ─── Render library grid ──────────────────────────────────────────────────────
+function renderLibrary(albums) {
+    moviesData      = albums.filter(function (a) { return a.type === 'movie'; });
+    collectionsData = albums.filter(function (a) { return a.type === 'collection'; });
+    showsData       = albums.filter(function (a) { return a.type === 'series'; });
+    animeData       = albums.filter(function (a) { return a.type === 'anime'; });
+    shortsData      = albums.filter(function (a) { return a.type === 'short'; });
+    moviesShown      = 0;
+    collectionsShown = 0;
+    showsShown       = 0;
+    animeShown       = 0;
+    shortsShown      = 0;
+    $('#movies-grid').empty();
+    $('#collections-grid').empty();
+    $('#series-grid').empty();
+    $('#shorts-grid').empty();
+    $('#anime-grid').empty();
+
+    if (!moviesData.length && !collectionsData.length && !showsData.length && !animeData.length && !shortsData.length) {
+        $('#no-content').show();
+        return;
+    }
+    $('#no-content').hide();
+
+    if (moviesData.length > 0) { $('#movies-section').show(); loadMoreSection('movies'); }
+    else { $('#movies-section').hide(); }
+
+    if (collectionsData.length > 0) { $('#collections-section').show(); loadMoreSection('collections'); }
+    else { $('#collections-section').hide(); }
+
+    if (showsData.length > 0) { $('#series-section').show(); loadMoreSection('shows'); }
+    else { $('#series-section').hide(); }
+
+    if (animeData.length > 0) { $('#anime-section').show(); loadMoreSection('anime'); }
+    else { $('#anime-section').hide(); }
+
+    if (shortsData.length > 0) { $('#shorts-section').show(); loadMoreSection('shorts'); }
+    else { $('#shorts-section').hide(); }
+}
+
+function loadMoreSection(which) {
+    var data, $grid, $btn, start, end, i;
+    if (which === 'movies') {
+        data  = moviesData;
+        $grid = $('#movies-grid');
+        $btn  = $('#movies-load-more');
+        start = moviesShown;
+        end   = Math.min(start + PAGE_SIZE, data.length);
+        for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
+        moviesShown = end;
+        $btn.toggle(moviesShown < data.length);
+    } else if (which === 'shows') {
+        data  = showsData;
+        $grid = $('#series-grid');
+        $btn  = $('#shows-load-more');
+        start = showsShown;
+        end   = Math.min(start + PAGE_SIZE, data.length);
+        for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
+        showsShown = end;
+        $btn.toggle(showsShown < data.length);
+    } else if (which === 'collections') {
+        data  = collectionsData;
+        $grid = $('#collections-grid');
+        $btn  = $('#collections-load-more');
+        start = collectionsShown;
+        end   = Math.min(start + PAGE_SIZE, data.length);
+        for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
+        collectionsShown = end;
+        $btn.toggle(collectionsShown < data.length);
+    } else if (which === 'anime') {
+        data  = animeData;
+        $grid = $('#anime-grid');
+        $btn  = $('#anime-load-more');
+        start = animeShown;
+        end   = Math.min(start + PAGE_SIZE, data.length);
+        for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
+        animeShown = end;
+        $btn.toggle(animeShown < data.length);
+    } else {
+        data  = shortsData;
+        $grid = $('#shorts-grid');
+        $btn  = $('#shorts-load-more');
+        start = shortsShown;
+        end   = Math.min(start + PAGE_SIZE, data.length);
+        for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
+        shortsShown = end;
+        $btn.toggle(shortsShown < data.length);
+    }
+    loadCardThumbnails();
+}
+
+function buildCard(album, idx) {
+    var thumb = album.thumbnail && album.thumbnail.length > 0
+        ? '<img class="poster" src="data:image/jpeg;base64,' + album.thumbnail + '" alt="">'
+        : '<div class="poster-placeholder"><img src="img/thumbnail.png" alt=""></div>';
+
+    var badge = album.type === 'series' ? '<span class="badge series">Series</span>'
+               : album.type === 'anime'  ? '<span class="badge anime">Anime</span>'
+               : '';
+    var ext   = album._singleFile ? album._singleFile.split('.').pop().toUpperCase() : '';
+    var meta  = (album.type === 'series' || album.type === 'anime')
+        ? album.episodeCount + ' ep'
+        : album.type === 'short'
+            ? (ext || 'Short')
+            : album.type === 'collection'
+                ? album.episodeCount + (album.episodeCount > 1 ? ' videos' : ' video')
+                : album.episodeCount + (album.episodeCount > 1 ? ' parts' : ' movie');
+
+    var card = $('<div class="album-card" tabindex="0" role="button" aria-label="' + escapeAttr(album.name) + '">'
+        + thumb
+        + badge
+        + '<div class="card-info">'
+        +   '<div class="card-title">' + escapeHtml(album.name) + '</div>'
+        +   '<div class="card-meta">' + escapeHtml(meta) + '</div>'
+        + '</div>'
+        + '</div>');
+
+    card.data('album', album);
+    card.on('click', function () {
+        if (album.type === 'short' && album._singleFile) {
+            currentAlbum = album; currentSeason = null;
+            currentEpisodes = [{ name: album.name, filepath: album._singleFile,
+                ext: album._singleFile.split('.').pop().toLowerCase(), index: 0 }];
+            startPlayback(0);
+        } else if (album.type === 'movie') {
+            openMovieInfo(album);
+        } else { openDetail(album); }
+    });
+    card.on('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (album.type === 'short' && album._singleFile) {
+                currentAlbum = album; currentSeason = null;
+                currentEpisodes = [{ name: album.name, filepath: album._singleFile,
+                    ext: album._singleFile.split('.').pop().toLowerCase(), index: 0 }];
+                startPlayback(0);
+            } else if (album.type === 'movie') {
+                openMovieInfo(album);
+            } else { openDetail(album); }
+        }
+    });
+    return card;
+}
+
+// Load thumbnails in background (for cards that don't have one embedded)
+function loadCardThumbnails() {
+    $('.album-card').each(function () {
+        var $card = $(this);
+        var album = $card.data('album');
+        if (!album || album.thumbnail) { return; } // already has thumb
+        // For shorts use the actual video file; folder path would yield the generic folder thumbnail
+        var fileParam = (album.type === 'short' && album._singleFile) ? album._singleFile : album.folderpath;
+        ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: fileParam }, function (data) {
+            if (data && !data.error && data.length > 20) {
+                $card.find('.poster-placeholder')
+                    .replaceWith('<img class="poster" src="data:image/jpeg;base64,' + data + '" alt="">');
+            }
+        });
+    });
+}
+
+// ─── Detail view ──────────────────────────────────────────────────────────────
+function openDetail(album) {
+    currentAlbum = album;
+
+    // Hero background
+    var bg = album.thumbnail ? 'data:image/jpeg;base64,' + album.thumbnail : '';
+    $('#detail-hero-bg').css('background-image', bg ? 'url(' + bg + ')' : 'none');
+
+    // Poster
+    var posterHtml = album.thumbnail
+        ? '<img src="data:image/jpeg;base64,' + album.thumbnail + '" alt="" style="width:100%;aspect-ratio:2/3;object-fit:cover;">'
+        : '<div class="poster-placeholder"><img src="img/icons/movie_white.svg" alt=""></div>';
+    $('#detail-poster').html(posterHtml);
+
+    // Title & subtitle
+    $('#detail-title').text(album.name);
+    var sub = (album.type === 'series' || album.type === 'anime')
+        ? album.seasons.length + ' season' + (album.seasons.length !== 1 ? 's' : '') + ' · ' + album.episodeCount + ' episodes'
+        : album.type === 'collection'
+        ? album.episodeCount + (album.episodeCount > 1 ? ' videos' : ' video')
+        : album.episodeCount + (album.episodeCount > 1 ? ' parts' : ' movie');
+    $('#detail-subtitle').text(sub);
+
+    // Season tabs
+    var $tabs = $('#season-tabs').empty();
+    if ((album.type === 'series' || album.type === 'anime') && album.seasons.length > 0) {
+        album.seasons.forEach(function (s, i) {
+            var tab = $('<button class="season-tab" tabindex="0">' + escapeHtml(s.name) + '</button>');
+            tab.data('season', s);
+            tab.on('click', function () { selectSeason($(this).data('season')); activateTab(this); });
+            $tabs.append(tab);
+        });
+        $tabs.show();
+        selectSeason(album.seasons[0]);
+        $tabs.find('.season-tab').first().addClass('active');
+    } else {
+        $tabs.hide();
+        // Load the folder directly as episodes
+        loadEpisodes(album.folderpath);
+    }
+
+    // Play / shuffle button bindings
+    $('#btn-play-first').off('click').on('click', function () {
+        if (currentEpisodes.length > 0) { startPlayback(0); }
+    });
+    $('#btn-shuffle').off('click').on('click', function () {
+        if (currentEpisodes.length === 0) { return; }
+        var idx = Math.floor(Math.random() * currentEpisodes.length);
+        startPlayback(idx);
+    });
+
+    showView('detail');
+}
+
+function selectSeason(season) {
+    currentSeason = season;
+    loadEpisodes(season.folderpath);
+}
+
+function activateTab(el) {
+    $('#season-tabs .season-tab').removeClass('active');
+    $(el).addClass('active');
+}
+
+function loadEpisodes(folderpath) {
+    $('#episode-list').html('<div style="color:var(--text-sub);padding:20px 0;">Loading…</div>');
+    ao_module_agirun(SCRIPT_GET_EPISODES, { folder: folderpath }, function (data) {
+        if (!data || data.error) {
+            $('#episode-list').html('<div style="color:var(--text-sub);padding:20px 0;">No episodes found.</div>');
+            currentEpisodes = [];
+            return;
+        }
+        currentEpisodes = data;
+        renderEpisodes(data);
+    }, function () {
+        $('#episode-list').html('<div style="color:var(--text-sub);padding:20px 0;">Error loading episodes.</div>');
+    });
+}
+
+function renderEpisodes(episodes) {
+    var $list = $('#episode-list').empty();
+    episodes.forEach(function (ep, i) {
+        var row = $('<div class="episode-item" tabindex="0" role="button">'
+            + '<div class="ep-thumb"><div class="ep-thumb-placeholder"><img src="img/icons/play_white.svg" alt=""></div></div>'
+            + '<div class="ep-info">'
+            +   '<div class="ep-name">' + escapeHtml(ep.name) + '</div>'
+            +   '<div class="ep-path">' + escapeHtml(ep.ext.replace('.', '').toUpperCase()) + '</div>'
+            + '</div>'
+            + '<div class="ep-play-icon"><img src="img/icons/play_white.svg" alt=""></div>'
+            + '</div>');
+        row.data('ep', ep);
+        row.data('idx', i);
+        row.on('click', function () { startPlayback($(this).data('idx')); });
+        row.on('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startPlayback($(this).data('idx')); }
+        });
+        $list.append(row);
+
+        // Lazy-load thumbnail
+        (function (epObj, rowEl) {
+            ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: epObj.filepath }, function (data) {
+                if (data && !data.error && data.length > 20) {
+                    rowEl.find('.ep-thumb-placeholder')
+                        .replaceWith('<img src="data:image/jpeg;base64,' + data + '" alt="">');
+                }
+            });
+        })(ep, row);
+    });
+}
+
+// ─── Player ───────────────────────────────────────────────────────────────────
+function isWebPlayable(ext) {
+    return ['mp4', 'webm', 'ogg'].includes(ext);
+}
+function startPlayback(index) {
+    cancelCountdown();
+    $('#resume-popup').removeClass('active');
+    if (!currentEpisodes || currentEpisodes.length === 0) { return; }
+    playingIndex = index;
+    var ep = currentEpisodes[index];
+
+    var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+    var src = isWebPlayable(ext)
+        ? MEDIA_API   + '?file=' + encodeURIComponent(ep.filepath)
+        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+
+    // Reset transcode seek state for the new episode
+    transcodeSeekOffset = 0;
+    isTranscodedVideo = !isWebPlayable(ext);
+    transcodeDuration = 0;
+
+    var vid = document.getElementById('main-video');
+
+    if (castMode && _castConnected()) {
+        // Don't load locally — avoids transcoding the same file twice
+        vid.pause();
+        _castSend('media.load', {
+            filepath: ep.filepath, name: ep.name, type: 'video',
+            src: src, startTime: 0
+        });
+        // Volume after load, before play — guarantees device volume overrides
+        // whatever Arozcast was previously playing at.
+        _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+        _castSend('media.play', {});
+    } else {
+        vid.src = src;
+        vid.play();
+    }
+
+    $('#now-playing-title, #topbar-title').text(ep.name);
+    ao_module_setWindowTitle('Movie – ' + ep.name);
+
+    renderSidebar(currentEpisodes, index);
+
+    if (currentEpisodes.length <= 1) {
+        $('#playlist-sidebar').addClass('collapsed');
+    } else {
+        $('#playlist-sidebar').removeClass('collapsed');
+    }
+
+    highlightPlayingEpisode(index);
+
+    // Remember where we came from so closePlayer() can return there
+    var curView = $('.view.active').attr('id');
+    if (curView && curView !== 'view-player') {
+        playerReturnView = curView.replace('view-', '');
+    }
+
+    showView('player');
+    showControls();
+
+    // For non-transcoded video: offer to resume via the native loadedmetadata event.
+    // For transcoded video: wait for the duration fetch, then check for a saved position.
+    if (!isTranscodedVideo) {
+        (function (epFilepath) {
+            $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
+                if (vid.duration > 3600) {
+                    ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: epFilepath }, function (data) {
+                        if (data && !data.error && data.position > 30 && data.position < vid.duration * 0.95) {
+                            showResumePopup(data.position, vid.duration);
+                        }
+                    });
+                }
+            });
+        })(ep.filepath);
+    } else {
+        $(vid).off('loadedmetadata.resume'); // clear any stale handler
+        (function (capturedEp, capturedIndex) {
+            fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(capturedEp.filepath))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.duration > 0 && playingIndex === capturedIndex &&
+                            currentEpisodes[capturedIndex] &&
+                            currentEpisodes[capturedIndex].filepath === capturedEp.filepath) {
+                        transcodeDuration = data.duration;
+                        if (transcodeDuration > 3600) {
+                            ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: capturedEp.filepath }, function (wdata) {
+                                if (wdata && !wdata.error && wdata.position > 30 && wdata.position < transcodeDuration * 0.95) {
+                                    showResumePopup(wdata.position, transcodeDuration);
+                                }
+                            });
+                        }
+                    }
+                }).catch(function () {});
+        })(ep, index);
+    }
+}
+
+function renderSidebar(episodes, playing) {
+    var $list = $('#sidebar-list').empty();
+    episodes.forEach(function (ep, i) {
+        var row = $('<div class="sidebar-ep' + (i === playing ? ' playing' : '') + '" tabindex="0" role="button">'
+            + '<span class="sidebar-ep-num">' + (i + 1) + '</span>'
+            + '<span class="sidebar-ep-name">' + escapeHtml(ep.name) + '</span>'
+            + '</div>');
+        row.data('idx', i);
+        row.on('click', function () {
+            cancelCountdown();
+            startPlayback($(this).data('idx'));
+        });
+        $list.append(row);
+    });
+    // Scroll to playing
+    var $playing = $list.find('.playing');
+    if ($playing.length) {
+        setTimeout(function () { $playing[0].scrollIntoView({ block: 'center' }); }, 50);
+    }
+}
+
+function highlightPlayingEpisode(idx) {
+    $('#episode-list .episode-item').removeClass('playing');
+    $('#episode-list .episode-item').eq(idx).addClass('playing');
+}
+
+function closePlayer() {
+    // Always cancel any pending auto-reconnect
+    clearTimeout(castReconnectTimer); castReconnectTimer = null;
+    castReconnectCount = 0; castPendingCode = null;
+    if (castMode) {
+        // Do NOT send media.stop — Arozcast will keep playing.
+        // Only disconnectCast() (explicit user action) stops remote playback.
+        if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
+        clearInterval(castPingTimer); clearInterval(castWatchTimer);
+        castPingTimer = castWatchTimer = null;
+        castMode = false; castCode = null;
+        $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+    }
+    saveWatchPosition();
+    cancelCountdown();
+    if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
+    var vid = document.getElementById('main-video');
+    vid.pause();
+    vid.removeAttribute('src');
+    $('#resume-popup').removeClass('active');
+    var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime' || currentAlbum.type === 'collection'))
+        ? 'detail'
+        : playerReturnView;
+    showView(returnTo);
+}
+
+function showLibrary() {
+    showView('library');
+    currentAlbum = null;
+    // If a background refresh completed while the user was away, apply it now
+    if (libraryNeedsRedraw) {
+        libraryNeedsRedraw = false;
+        renderCurrentLibrary();
+    }
+}
+
+// ─── View switching ───────────────────────────────────────────────────────────
+function showView(name) {
+    $('.view').removeClass('active');
+    $('#view-' + name).addClass('active');
+    if (name === 'library' || name === 'detail') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-library').addClass('active');
+        $('#search-wrap').show();
+    } else if (name === 'folder') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-folder').addClass('active');
+        $('#search-wrap').hide();
+    } else if (name === 'movie-info') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-library').addClass('active');
+        $('#search-wrap').hide();
+    }
+    // player view leaves tab state unchanged
+}
+
+// ─── Video controls ───────────────────────────────────────────────────────────
+function initVideoControls() {
+    var vid = document.getElementById('main-video');
+    var $ctrl = $('#video-controls');
+    var $prog = $('#progress-bar');
+    var $thumb = $('#progress-thumb');
+    var $time  = $('#time-display');
+    var $play  = $('#ctrl-play');
+    var $mute  = $('#ctrl-mute');
+
+    // Restore saved volume from last session
+    var savedVol = parseFloat(localStorage.getItem('movie_volume'));
+    if (!isNaN(savedVol) && savedVol >= 0 && savedVol <= 1) {
+        vid.volume = savedVol;
+        $('#volume-slider').val(savedVol);
+    }
+    if (localStorage.getItem('movie_muted') === '1') { vid.muted = true; }
+
+    // Play/Pause
+    $('#ctrl-play').on('click', function () { togglePlay(); });
+    $('#ctrl-mute').on('click', function () {
+        vid.muted = !vid.muted;
+        updateMuteIcon();
+        if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+    });
+    $('#ctrl-prev').on('click', function () { playOffset(-1); });
+    $('#ctrl-next').on('click', function () { playOffset(1); });
+    $('#ctrl-fs').on('click', function () { toggleFullscreen(); });
+    $('#ctrl-list').on('click', function () { toggleSidebar(); });
+
+    $('#volume-slider').on('input', function () {
+        vid.volume = parseFloat($(this).val());
+        updateMuteIcon();
+        if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+    });
+
+    // Progress bar click / drag
+    $('#progress-wrap').on('click', function (e) {
+        if (castMode && _castConnected()) {
+            if (castDuration > 0) {
+                var pct = e.offsetX / $(this).width();
+                var seekTo = pct * castDuration;
+                _castSend('media.seek', { time: seekTo });
+                // Optimistic update — reflect position immediately
+                castCurrentTime = seekTo;
+                _castUpdateProgressUI();
+            }
+            return;
+        }
+        if (isTranscodedVideo && transcodeDuration > 0 && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+            var pct = e.offsetX / $(this).width();
+            var seekTo = pct * transcodeDuration;
+            transcodeSeekOffset = seekTo;
+            var ep = currentEpisodes[playingIndex];
+            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + seekTo.toFixed(3);
+            vid.load();
+            vid.play();
+            return;
+        }
+        if (vid.duration) {
+            var pct = e.offsetX / $(this).width();
+            vid.currentTime = pct * vid.duration;
+        }
+    });
+
+    // Video events
+    $(vid).on('timeupdate', function () {
+        if (isTranscodedVideo) {
+            var displayTime = vid.currentTime + transcodeSeekOffset;
+            if (transcodeDuration > 0) {
+                var pct = (displayTime / transcodeDuration) * 100;
+                $prog.css('width', pct + '%');
+                $thumb.css('left', 'calc(' + pct + '% - 7px)');
+                $time.text(formatTime(displayTime) + ' / ' + formatTime(transcodeDuration));
+            } else {
+                $time.text(formatTime(displayTime) + ' / --:--');
+            }
+            return;
+        }
+        if (!vid.duration) { return; }
+        var pct = (vid.currentTime / vid.duration) * 100;
+        $prog.css('width', pct + '%');
+        $thumb.css('left', 'calc(' + pct + '% - 7px)');
+        $time.text(formatTime(vid.currentTime) + ' / ' + formatTime(vid.duration));
+    });
+
+    $(vid).on('play', function () {
+        $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        // Periodically save position for videos longer than 1 hr
+        if (watchSaveInterval) { clearInterval(watchSaveInterval); }
+        watchSaveInterval = setInterval(function () {
+            var effectiveDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+            if (!vid.paused && effectiveDuration > 3600) { saveWatchPosition(); }
+        }, 30000);
+    });
+    $(vid).on('pause', function () {
+        $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
+        var effectiveDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+        var effectiveTime = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+        if (effectiveDuration > 3600 && effectiveTime > 30) { saveWatchPosition(); }
+    });
+    $(vid).on('ended', function () {
+        clearWatchPosition(); // video finished naturally — remove resume point
+        if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
+        cancelCountdown();
+        if (repeatSingle) {
+            vid.currentTime = 0;
+            vid.play();
+        } else if (playingIndex < currentEpisodes.length - 1 && autoplayEnabled) {
+            startNextCountdown();
+        }
+    });
+    $(vid).on('volumechange', function () {
+        updateMuteIcon();
+        localStorage.setItem('movie_volume', vid.volume);
+        localStorage.setItem('movie_muted', vid.muted ? '1' : '0');
+    });
+
+    // Auto-hide controls
+    $('#video-container').on('mousemove touchstart', function () { showControls(); });
+
+    // Click on video = play/pause
+    $(vid).on('click', function () { togglePlay(); });
+
+    // Hide back button when in fullscreen (JS reinforcement)
+    document.addEventListener('fullscreenchange', function () {
+        $('#player-topbar').toggle(!document.fullscreenElement);
+    });
+    document.addEventListener('webkitfullscreenchange', function () {
+        $('#player-topbar').toggle(!document.webkitFullscreenElement);
+    });
+
+    function updateMuteIcon() {
+        var isMuted = vid.muted || vid.volume === 0;
+        $('#mute-icon').attr('src', isMuted ? 'img/icons/mute_white.svg' : 'img/icons/volume_white.svg');
+        $('#volume-slider').val(vid.muted ? 0 : vid.volume);
+    }
+}
+
+// Optimistic UI sync for cast mode — call immediately after sending a seek/play/pause command
+// so the user sees instant feedback instead of waiting up to 3 s for status.update.
+function _castUpdateProgressUI() {
+    if (!castDuration) return;
+    var pct = (castCurrentTime / castDuration) * 100;
+    $('#progress-bar').css('width', pct + '%');
+    $('#progress-thumb').css('left', 'calc(' + pct + '% - 7px)');
+    $('#time-display').text(formatTime(castCurrentTime) + ' / ' + formatTime(castDuration));
+}
+
+function togglePlay() {
+    $('#resume-popup').removeClass('active');
+    if (castMode && _castConnected()) {
+        if (castIsPlaying) {
+            _castSend('media.pause', {});
+            castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        } else {
+            _castSend('media.play', {});
+            castIsPlaying = true;
+            $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        }
+        return;
+    }
+    var vid = document.getElementById('main-video');
+    if (vid.paused) { vid.play(); } else { vid.pause(); }
+}
+
+function playOffset(offset) {
+    var next = playingIndex + offset;
+    if (next < 0) { next = 0; }
+    if (next >= currentEpisodes.length) { next = currentEpisodes.length - 1; }
+    if (next !== playingIndex) { startPlayback(next); }
+}
+
+function showControls() {
+    $('#video-controls').removeClass('hidden');
+    clearTimeout(controlsTimer);
+    controlsTimer = setTimeout(function () {
+        var isPlaying = castMode ? castIsPlaying : !document.getElementById('main-video').paused;
+        if (isPlaying) { $('#video-controls').addClass('hidden'); }
+    }, 3000);
+}
+
+function toggleFullscreen() {
+    var el = document.getElementById('view-player');
+    if (!document.fullscreenElement) {
+        el.requestFullscreen && el.requestFullscreen();
+    } else {
+        document.exitFullscreen && document.exitFullscreen();
+    }
+}
+
+function toggleSidebar() {
+    $('#playlist-sidebar').toggleClass('collapsed');
+}
+
+function startNextCountdown() {
+    var total = 5;
+    var remaining = total;
+    var $bar = $('#next-countdown-bar');
+    var $num = $('#countdown-num');
+    $bar.css('transition', 'none').css('width', '100%');
+    $num.text(remaining);
+    $('#next-countdown').show();
+    countdownTimer = setInterval(function () {
+        remaining--;
+        $num.text(remaining);
+        $bar.css('transition', 'width 1s linear').css('width', (remaining / total * 100) + '%');
+        if (remaining <= 0) { cancelCountdown(); playOffset(1); }
+    }, 1000);
+}
+
+function cancelCountdown() {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    $('#next-countdown').hide();
+}
+
+// ─── Player context menu ──────────────────────────────────────────────────────
+var infoRefreshTimer = null;
+var currentInfoTab   = 'props';
+
+function initContextMenu() {
+    var vid = document.getElementById('main-video');
+    var $ctx = $('#player-ctx');
+
+    // Right-click on the video container
+    $('#video-container').on('contextmenu', function (e) {
+        e.preventDefault();
+        if (playingIndex < 0) { return; }
+
+        // Update item disabled / active states
+        var paused = castMode ? !castIsPlaying : vid.paused;
+        $('#ctx-play').toggleClass('ctx-disabled', !paused);
+        $('#ctx-pause').toggleClass('ctx-disabled', paused);
+        $('#ctx-prev').toggleClass('ctx-disabled', playingIndex <= 0);
+        $('#ctx-next').toggleClass('ctx-disabled', playingIndex >= currentEpisodes.length - 1);
+        $('#ctx-repeat').toggleClass('ctx-active', repeatSingle)
+            .html('<i class="ctx-icon">' + (repeatSingle ? '✓' : '↺') + '</i>Repeat: ' + (repeatSingle ? 'On' : 'Off'));
+
+        // Always collapse subtitle submenu on fresh open
+        $('#ctx-subtitle-sub').hide();
+
+        // Position menu, clamp inside container
+        var rect = this.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+        $ctx.css({ left: x, top: y, display: 'block' });
+        var mw = $ctx.outerWidth(), mh = $ctx.outerHeight();
+        if (x + mw > rect.width)  { $ctx.css('left', Math.max(0, x - mw)); }
+        if (y + mh > rect.height) { $ctx.css('top',  Math.max(0, y - mh)); }
+        showControls();
+    });
+
+    // Dismiss on any click outside the menu
+    $(document).on('mousedown.ctx', function (e) {
+        if (!$(e.target).closest('#player-ctx').length) { $ctx.hide(); }
+    });
+    // Dismiss on Escape
+    $(document).on('keydown.ctx', function (e) {
+        if (e.key === 'Escape') { $ctx.hide(); closeVideoInfo(); closeSubtitleSettings(); }
+    });
+
+    $('#ctx-play').on('click', function () {
+        if (castMode && _castConnected()) {
+            _castSend('media.play', {}); castIsPlaying = true;
+            $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        } else { vid.play(); }
+        $ctx.hide();
+    });
+    $('#ctx-pause').on('click', function () {
+        if (castMode && _castConnected()) {
+            _castSend('media.pause', {}); castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        } else { vid.pause(); }
+        $ctx.hide();
+    });
+    $('#ctx-prev').on('click',   function () { cancelCountdown(); playOffset(-1); $ctx.hide(); });
+    $('#ctx-next').on('click',   function () { cancelCountdown(); playOffset(1);  $ctx.hide(); });
+    $('#ctx-repeat').on('click', function () { repeatSingle = !repeatSingle;      $ctx.hide(); });
+    $('#ctx-subtitle-settings').on('click', function () { $ctx.hide(); openSubtitleSettings(); });
+    $('#ctx-props').on('click',  function () { $ctx.hide(); openVideoInfo('props'); });
+    $('#ctx-stats').on('click',  function () { $ctx.hide(); openVideoInfo('stats'); });
+}
+
+function openVideoInfo(tab) {
+    currentInfoTab = tab || 'props';
+    $('#video-info-modal').show();
+    $('.info-tab').removeClass('active').eq(currentInfoTab === 'props' ? 0 : 1).addClass('active');
+    $('#video-info-title').text(currentInfoTab === 'props' ? 'Video Properties' : 'Streaming Stats');
+    renderInfoContent();
+    if (infoRefreshTimer) { clearInterval(infoRefreshTimer); infoRefreshTimer = null; }
+    if (currentInfoTab === 'stats') {
+        infoRefreshTimer = setInterval(renderInfoContent, 1000);
+    }
+}
+
+function closeVideoInfo() {
+    $('#video-info-modal').hide();
+    if (infoRefreshTimer) { clearInterval(infoRefreshTimer); infoRefreshTimer = null; }
+}
+
+function showInfoTab(tab) {
+    currentInfoTab = tab;
+    $('.info-tab').removeClass('active').eq(tab === 'props' ? 0 : 1).addClass('active');
+    $('#video-info-title').text(tab === 'props' ? 'Video Properties' : 'Streaming Stats');
+    if (infoRefreshTimer) { clearInterval(infoRefreshTimer); infoRefreshTimer = null; }
+    if (tab === 'stats') { infoRefreshTimer = setInterval(renderInfoContent, 1000); }
+    renderInfoContent();
+}
+
+function infoRow(label, value) {
+    return '<div class="info-row"><span class="info-label">' + escapeHtml(String(label)) + '</span>'
+        + '<span class="info-value">' + escapeHtml(String(value)) + '</span></div>';
+}
+
+function renderInfoContent() {
+    var vid = document.getElementById('main-video');
+    var ep  = (playingIndex >= 0 && currentEpisodes[playingIndex]) ? currentEpisodes[playingIndex] : null;
+    var html = '';
+
+    if (currentInfoTab === 'props') {
+        html += infoRow('Title',          ep ? ep.name : '–');
+        html += infoRow('Resolution',     (vid.videoWidth && vid.videoHeight)
+            ? vid.videoWidth + ' × ' + vid.videoHeight : '–');
+        var infoDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+        var infoPosition = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+        html += infoRow('Duration',       infoDuration   ? formatTime(infoDuration)    : '–');
+        html += infoRow('Position',       infoPosition   ? formatTime(infoPosition)    : '–');
+        html += infoRow('Playback speed', vid.playbackRate + '×');
+        html += infoRow('Volume',         vid.muted ? 'Muted' : Math.round(vid.volume * 100) + '%');
+        if (ep) { html += infoRow('File path', ep.filepath || '–'); }
+    } else {
+        var rsLabels = ['No info', 'Metadata only', 'Have current data', 'Have future data', 'Enough data'];
+        var nsLabels = ['Empty', 'Idle', 'Loading', 'No source'];
+        html += infoRow('Ready state',   rsLabels[vid.readyState]  || vid.readyState);
+        html += infoRow('Network state', nsLabels[vid.networkState] || vid.networkState);
+
+        // Buffer ahead
+        var bufEnd = 0;
+        if (vid.buffered && vid.buffered.length > 0) {
+            for (var i = 0; i < vid.buffered.length; i++) {
+                if (vid.buffered.start(i) <= vid.currentTime + 0.1) {
+                    bufEnd = Math.max(bufEnd, vid.buffered.end(i));
+                }
+            }
+        }
+        html += infoRow('Buffer ahead',   Math.max(0, bufEnd - vid.currentTime).toFixed(1) + 's');
+        html += infoRow('Total buffered',  vid.buffered.length > 0
+            ? formatTime(vid.buffered.end(vid.buffered.length - 1)) : '–');
+
+        if (vid.getVideoPlaybackQuality) {
+            var q = vid.getVideoPlaybackQuality();
+            html += infoRow('Frames decoded',  q.totalVideoFrames   || 0);
+            html += infoRow('Frames dropped',  q.droppedVideoFrames || 0);
+        }
+        html += infoRow('Stalled / ended', vid.ended ? 'Ended' : (vid.readyState < 3 ? 'Yes' : 'No'));
+    }
+    $('#video-info-body').html(html);
+}
+
+function formatTime(s) {
+    if (isNaN(s)) { return '0:00'; }
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = Math.floor(s % 60);
+    var parts = [];
+    if (h > 0) { parts.push(h); }
+    parts.push(m);
+    parts.push(sec < 10 ? '0' + sec : sec);
+    return parts.join(':');
+}
+
+// ─── Keyboard / TV-remote navigation ─────────────────────────────────────────
+function initKeyboard() {
+    $(document).on('keydown', function (e) {
+        var activeView = $('.view.active').attr('id');
+
+        // ── Player shortcuts ──────────────────────────────────────────────────
+        if (activeView === 'view-player') {
+            var vid = document.getElementById('main-video');
+            switch (e.key) {
+                case ' ':
+                case 'k':
+                    e.preventDefault(); togglePlay(); showControls(); break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (castMode && _castConnected()) {
+                        _castSend('media.seekrel', { delta: 10 });
+                        castCurrentTime = Math.min(castDuration, castCurrentTime + 10);
+                        _castUpdateProgressUI();
+                    } else if (isTranscodedVideo && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+                        var newPos = vid.currentTime + transcodeSeekOffset + 10;
+                        if (transcodeDuration > 0) { newPos = Math.min(transcodeDuration, newPos); }
+                        transcodeSeekOffset = newPos;
+                        var seekEp = currentEpisodes[playingIndex];
+                        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(seekEp.filepath) + '&start=' + newPos.toFixed(3);
+                        vid.load(); vid.play();
+                    } else { vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); }
+                    showControls(); break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (castMode && _castConnected()) {
+                        _castSend('media.seekrel', { delta: -10 });
+                        castCurrentTime = Math.max(0, castCurrentTime - 10);
+                        _castUpdateProgressUI();
+                    } else if (isTranscodedVideo && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+                        var newPos = Math.max(0, vid.currentTime + transcodeSeekOffset - 10);
+                        transcodeSeekOffset = newPos;
+                        var seekEp = currentEpisodes[playingIndex];
+                        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(seekEp.filepath) + '&start=' + newPos.toFixed(3);
+                        vid.load(); vid.play();
+                    } else { vid.currentTime = Math.max(0, vid.currentTime - 10); }
+                    showControls(); break;
+                case 'ArrowUp':
+                    e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1);
+                    if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+                    showControls(); break;
+                case 'ArrowDown':
+                    e.preventDefault(); vid.volume = Math.max(0, vid.volume - 0.1);
+                    if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+                    showControls(); break;
+                case 'f':
+                case 'F':
+                    e.preventDefault(); toggleFullscreen(); break;
+                case 'm':
+                case 'M':
+                    e.preventDefault(); vid.muted = !vid.muted;
+                    if (castMode && _castConnected()) { _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted }); }
+                    break;
+                case 'l':
+                case 'L':
+                    e.preventDefault(); toggleSidebar(); break;
+                case 'n':
+                    e.preventDefault(); playOffset(1); break;
+                case 'p':
+                    e.preventDefault(); playOffset(-1); break;
+                case 'Escape':
+                    e.preventDefault(); closePlayer(); break;
+                case 'MediaPlayPause':
+                    e.preventDefault(); togglePlay(); break;
+                case 'MediaTrackNext':
+                    e.preventDefault(); playOffset(1); break;
+                case 'MediaTrackPrevious':
+                    e.preventDefault(); playOffset(-1); break;
+            }
+            return;
+        }
+
+        // ── Grid / detail navigation (TV remote) ──────────────────────────────
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            if (activeView === 'view-detail') { showLibrary(); }
+            return;
+        }
+
+        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].indexOf(e.key) === -1) { return; }
+
+        e.preventDefault();
+        focusMode = true;
+
+        var $focusables = $('.view.active [tabindex="0"]:visible');
+        if ($focusables.length === 0) { return; }
+
+        var $cur = $(document.activeElement);
+        var curIdx = $focusables.index($cur);
+
+        if (curIdx < 0) {
+            // Nothing focused yet – focus first element
+            $focusables.first().focus();
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            $cur.trigger('click');
+            return;
+        }
+
+        // Compute next focus index based on grid layout
+        var nextIdx = computeNextFocus($focusables, curIdx, e.key);
+        if (nextIdx >= 0 && nextIdx < $focusables.length) {
+            $focusables.eq(nextIdx).focus();
+            $focusables.eq(nextIdx)[0].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+    });
+}
+
+function computeNextFocus($els, curIdx, key) {
+    if (key === 'ArrowDown') { return Math.min($els.length - 1, curIdx + 1); }
+    if (key === 'ArrowUp')   { return Math.max(0, curIdx - 1); }
+
+    // For left/right in a grid, figure out how many columns there are
+    var $cur = $els.eq(curIdx);
+    var $parent = $cur.parent();
+    if ($parent.hasClass('album-grid')) {
+        var colCount = Math.round($parent.width() / ($cur.outerWidth(true) || 1)) || 1;
+        if (key === 'ArrowRight') { return Math.min($els.length - 1, curIdx + 1); }
+        if (key === 'ArrowLeft')  { return Math.max(0, curIdx - 1); }
+    }
+    if (key === 'ArrowRight') { return Math.min($els.length - 1, curIdx + 1); }
+    if (key === 'ArrowLeft')  { return Math.max(0, curIdx - 1); }
+    return curIdx;
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+function initSearch() {
+    $('#search-input').on('input', function () {
+        var q = $(this).val().trim().toLowerCase();
+        if (q.length === 0) {
+            renderLibrary(library);
+            return;
+        }
+        var filtered = library.filter(function (a) {
+            return a.name.toLowerCase().indexOf(q) > -1;
+        });
+        renderLibrary(filtered);
+    });
+
+    // Prevent keyboard nav from hijacking search input
+    $('#search-input').on('keydown', function (e) {
+        e.stopPropagation();
+        if (e.key === 'Escape') { $(this).val(''); renderLibrary(library); $(this).blur(); }
+    });
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+    if (!str) { return ''; }
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+function escapeAttr(str) { return escapeHtml(str); }
+
+// ─── Subtitle settings ────────────────────────────────────────────────────────
+var subtitleSettings = { position: 'bottom', size: 22, font: 'system-ui, sans-serif', color: '#ffffff' };
+
+function loadSubtitleSettings() {
+    try {
+        var s = JSON.parse(localStorage.getItem('movie_subtitle_settings') || 'null');
+        if (s) { Object.assign(subtitleSettings, s); }
+    } catch (e) {}
+}
+
+function saveSubtitleSettings() {
+    localStorage.setItem('movie_subtitle_settings', JSON.stringify(subtitleSettings));
+}
+
+function applySubtitleSettings() {
+    var s = subtitleSettings;
+    var $d = $('#subtitle-display');
+    $d.css({
+        'font-size':   s.size + 'px',
+        'font-family': s.font,
+        'color':       s.color,
+        'bottom':      s.position === 'bottom' ? '72px' : 'auto',
+        'top':         s.position === 'top'    ? '72px' : 'auto',
+        'transform':   'translateX(-50%)'
+    });
+}
+
+function syncSettingsPreview() {
+    var s = subtitleSettings;
+    $('#sset-preview').css({
+        'font-size':   s.size + 'px',
+        'font-family': s.font,
+        'color':       s.color,
+        'text-shadow': '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.85)'
+    });
+}
+
+function openSubtitleSettings() {
+    var s = subtitleSettings;
+    // Sync all controls to current state
+    $('.sset-seg-btn').removeClass('active')
+        .filter('[data-val="' + s.position + '"]').addClass('active');
+    $('#sset-size').val(s.size);
+    $('#sset-size-val').text(s.size + 'px');
+    $('#sset-font').val(s.font);
+    var swatchMatch = $('.sset-color[data-color="' + s.color.toLowerCase() + '"]');
+    $('.sset-color, #sset-color-custom').removeClass('active');
+    if (swatchMatch.length) { swatchMatch.addClass('active'); }
+    else                    { $('#sset-color-custom').addClass('active'); }
+    $('#sset-color-custom').val(s.color);
+    syncSettingsPreview();
+    $('#subtitle-settings-modal').show();
+}
+
+function closeSubtitleSettings() {
+    $('#subtitle-settings-modal').hide();
+}
+
+function initSubtitleSettings() {
+    loadSubtitleSettings();
+    applySubtitleSettings();
+
+    $('#sset-close').on('click', closeSubtitleSettings);
+
+    // Position
+    $(document).on('click', '.sset-seg-btn', function () {
+        subtitleSettings.position = $(this).data('val');
+        $('.sset-seg-btn').removeClass('active');
+        $(this).addClass('active');
+        applySubtitleSettings();
+        saveSubtitleSettings();
+    });
+
+    // Size
+    $('#sset-size').on('input', function () {
+        subtitleSettings.size = parseInt($(this).val(), 10);
+        $('#sset-size-val').text(subtitleSettings.size + 'px');
+        applySubtitleSettings();
+        syncSettingsPreview();
+        saveSubtitleSettings();
+    });
+
+    // Font
+    $('#sset-font').on('change', function () {
+        subtitleSettings.font = $(this).val();
+        applySubtitleSettings();
+        syncSettingsPreview();
+        saveSubtitleSettings();
+    });
+
+    // Preset color swatches
+    $(document).on('click', '.sset-color', function () {
+        subtitleSettings.color = $(this).data('color');
+        $('.sset-color, #sset-color-custom').removeClass('active');
+        $(this).addClass('active');
+        $('#sset-color-custom').val(subtitleSettings.color);
+        applySubtitleSettings();
+        syncSettingsPreview();
+        saveSubtitleSettings();
+    });
+
+    // Custom color picker
+    $('#sset-color-custom').on('input', function () {
+        subtitleSettings.color = $(this).val();
+        $('.sset-color').removeClass('active');
+        $('#sset-color-custom').addClass('active');
+        applySubtitleSettings();
+        syncSettingsPreview();
+        saveSubtitleSettings();
+    });
+}
+
+// ─── Subtitle ─────────────────────────────────────────────────────────────────
+var loadedSubtitleFiles = [];   // [{path, name, cues:[{start,end,text}]}]
+var activeSubtitleIndex = -1;   // -1 = disabled
+
+// Window-scoped callback required by ao_module file selector.
+// The selector always delivers [{filename, filepath}, …]; handle gracefully.
+window.movieOnSubtitleFile = function (raw) {
+    console.log('[subtitle] callback fired, raw value:', raw);
+    // Unwrap array
+    var entry = Array.isArray(raw) ? raw[0] : raw;
+    console.log('[subtitle] unwrapped entry:', entry);
+    // Accept either a plain object {filename, filepath} or a bare string path
+    var filePath = (entry && typeof entry === 'object') ? entry.filepath : entry;
+    console.log('[subtitle] resolved filePath:', filePath);
+    if (!filePath || typeof filePath !== 'string') {
+        console.warn('[subtitle] unexpected callback payload — aborting', raw);
+        return;
+    }
+    var url = MEDIA_API + '?file=' + encodeURIComponent(filePath);
+    console.log('[subtitle] fetching:', url);
+    $.ajax({
+        url: url,
+        dataType: 'text',
+        success: function (content) {
+            console.log('[subtitle] file fetched, length:', content.length);
+            var name = filePath.replace(/\\/g, '/').split('/').pop();
+            var cues = parseSrt(content);
+            console.log('[subtitle] parsed cues:', cues.length);
+            var existing = -1;
+            loadedSubtitleFiles.forEach(function (sf, i) {
+                if (sf.path === filePath) { existing = i; }
+            });
+            if (existing >= 0) {
+                loadedSubtitleFiles[existing].cues = cues;
+                activeSubtitleIndex = existing;
+            } else {
+                loadedSubtitleFiles.push({ path: filePath, name: name, cues: cues });
+                activeSubtitleIndex = loadedSubtitleFiles.length - 1;
+            }
+            showToast('Subtitle loaded: ' + name);
+            updateSubtitleSubmenu();
+        },
+        error: function (xhr, status, err) {
+            console.error('[subtitle] fetch failed:', status, err, url);
+            showToast('Failed to load subtitle file');
+        }
+    });
+};
+
+function parseSrtTime(t) {
+    var m = t.match(/(\d+):(\d+):(\d+)[,.](\d+)/);
+    if (!m) { return 0; }
+    return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]) + parseInt(m[4]) / 1000;
+}
+
+function parseSrt(content) {
+    var cues = [];
+    var blocks = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split(/\n\n+/);
+    blocks.forEach(function (block) {
+        var lines = block.split('\n');
+        var tcIdx = -1;
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].indexOf('-->') !== -1) { tcIdx = i; break; }
+        }
+        if (tcIdx < 0) { return; }
+        var parts = lines[tcIdx].split('-->');
+        if (parts.length < 2) { return; }
+        var start = parseSrtTime(parts[0].trim());
+        var end   = parseSrtTime(parts[1].trim().split(' ')[0]);
+        // Strip inline SRT tags like <b>, <i>, <u>, <font>
+        var text  = lines.slice(tcIdx + 1).join('\n').trim()
+                        .replace(/<[^>]+>/g, '');
+        if (text) { cues.push({ start: start, end: end, text: text }); }
+    });
+    return cues;
+}
+
+function updateSubtitleDisplay() {
+    if (activeSubtitleIndex < 0 || !loadedSubtitleFiles[activeSubtitleIndex]) {
+        $('#subtitle-display').hide();
+        return;
+    }
+    var currentTime = document.getElementById('main-video').currentTime;
+    var cues = loadedSubtitleFiles[activeSubtitleIndex].cues;
+    var found = null;
+    for (var i = 0; i < cues.length; i++) {
+        if (currentTime >= cues[i].start && currentTime <= cues[i].end) {
+            found = cues[i]; break;
+        }
+    }
+    if (found) {
+        $('#subtitle-display').html(escapeHtml(found.text).replace(/\n/g, '<br>')).show();
+    } else {
+        $('#subtitle-display').hide();
+    }
+}
+
+function updateSubtitleSubmenu() {
+    // Remove previously injected dynamic entries
+    $('#ctx-subtitle-sub .ctx-sub-dynamic').remove();
+
+    var disabled = (activeSubtitleIndex < 0);
+    $('#ctx-sub-disable')
+        .toggleClass('ctx-active', disabled)
+        .find('.ctx-icon').text(disabled ? '✓' : '');
+
+    if (loadedSubtitleFiles.length > 0) {
+        var $load = $('#ctx-sub-load');
+        $('<div class="ctx-divider ctx-sub-dynamic"></div>').insertBefore($load);
+        loadedSubtitleFiles.forEach(function (sf, idx) {
+            var isActive = (idx === activeSubtitleIndex);
+            $('<div class="ctx-item ctx-sub-dynamic' + (isActive ? ' ctx-active' : '') + '" data-sub-idx="' + idx + '">' +
+                '<i class="ctx-icon">' + (isActive ? '✓' : '') + '</i>' +
+                escapeHtml(sf.name) +
+              '</div>')
+            .on('click', function () {
+                activeSubtitleIndex = parseInt($(this).data('sub-idx'), 10);
+                updateSubtitleSubmenu();
+                $('#player-ctx').hide();
+            })
+            .insertBefore($load);
+        });
+    }
+}
+
+function initSubtitleMenu() {
+    var $ctx    = $('#player-ctx');
+    var $parent = $('#ctx-subtitle-parent');
+    var $sub    = $('#ctx-subtitle-sub');
+
+    var subHideTimer;
+    function cancelSubHide() { clearTimeout(subHideTimer); }
+    function scheduleSubHide() {
+        subHideTimer = setTimeout(function () { $sub.hide(); }, 120);
+    }
+
+    $parent.on('mouseenter', function () {
+        cancelSubHide();
+        // Flip submenu left if it would overflow the video container
+        var ctxRight       = $ctx.offset().left + $ctx.outerWidth();
+        var subWidth       = 200; // min-width; use before it's visible
+        var containerRight = $('#video-container').offset().left + $('#video-container').outerWidth();
+        if (ctxRight + subWidth > containerRight) {
+            $sub.css({ left: 'auto', right: '100%' });
+        } else {
+            $sub.css({ left: '100%', right: 'auto' });
+        }
+        $sub.show();
+    });
+    $parent.on('mouseleave', scheduleSubHide);
+    $sub.on('mouseenter',    cancelSubHide);
+    $sub.on('mouseleave',    scheduleSubHide);
+
+    $('#ctx-sub-disable').on('click', function () {
+        activeSubtitleIndex = -1;
+        $('#subtitle-display').hide();
+        updateSubtitleSubmenu();
+        $ctx.hide();
+    });
+
+    $('#ctx-sub-load').on('click', function () {
+        $ctx.hide();
+        // Default to the folder of the currently playing file
+        var startDir = 'user:/';
+        if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
+            var fp = currentEpisodes[playingIndex].filepath.replace(/\\/g, '/');
+            var slash = fp.lastIndexOf('/');
+            if (slash > 0) { startDir = fp.substring(0, slash); }
+        }
+        ao_module_openFileSelector(
+            window.movieOnSubtitleFile,
+            startDir, 'file', false,
+            { fnameOverride: 'movieOnSubtitleFile', extAllowed: '.srt' }
+        );
+    });
+
+    document.getElementById('main-video')
+        .addEventListener('timeupdate', updateSubtitleDisplay);
+}
+
+var toastTimer;
+function showToast(msg) {
+    clearTimeout(toastTimer);
+    $('#toast').text(msg).addClass('show');
+    toastTimer = setTimeout(function () { $('#toast').removeClass('show'); }, 2800);
+}
+</script>
+</body>
+</html>

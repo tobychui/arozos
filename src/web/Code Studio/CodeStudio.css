@@ -93,6 +93,14 @@
     color:rgba(255, 255, 255, 0.747);
 }  
 
+#directoryList .subgroup {
+    min-height: 50px;
+}
+
+#directoryExplorer {
+    min-height: 100px;
+}
+
 #directoryList .subgroup .item{
     color:white;
     padding:2px;
@@ -276,5 +284,227 @@
     width: 100%;
     height: 260px;
     border: 0px solid transparent;
+}
+
+/* Folder Tree Styles */
+#directoryList .folderObjectWrapper {
+    position: relative;
+}
+
+#directoryList .folderObjectWrapper > .item,
+#directoryList .folderObjectWrapper > .subitem {
+    padding-left: 20px;
+}
+
+#directoryList .dirlist {
+    border-left: 1px solid #444;
+    margin-left: 16px;
+}
+
+/* Colored folder icons based on folder type */
+.folder-icon {
+    margin-right: 4px;
+}
+
+.folder-icon.src { color: #4ec9b0 !important; }
+.folder-icon.lib { color: #dcdcaa !important; }
+.folder-icon.test { color: #ce9178 !important; }
+.folder-icon.tests { color: #ce9178 !important; }
+.folder-icon.spec { color: #ce9178 !important; }
+.folder-icon.config { color: #9cdcfe !important; }
+.folder-icon.public { color: #4fc1ff !important; }
+.folder-icon.static { color: #4fc1ff !important; }
+.folder-icon.assets { color: #c586c0 !important; }
+.folder-icon.images { color: #c586c0 !important; }
+.folder-icon.img { color: #c586c0 !important; }
+.folder-icon.css { color: #569cd6 !important; }
+.folder-icon.styles { color: #569cd6 !important; }
+.folder-icon.js { color: #dcdcaa !important; }
+.folder-icon.scripts { color: #dcdcaa !important; }
+.folder-icon.components { color: #4ec9b0 !important; }
+.folder-icon.views { color: #6a9955 !important; }
+.folder-icon.pages { color: #6a9955 !important; }
+.folder-icon.templates { color: #6a9955 !important; }
+.folder-icon.models { color: #d7ba7d !important; }
+.folder-icon.controllers { color: #d7ba7d !important; }
+.folder-icon.api { color: #4fc1ff !important; }
+.folder-icon.routes { color: #4fc1ff !important; }
+.folder-icon.middleware { color: #ce9178 !important; }
+.folder-icon.utils { color: #dcdcaa !important; }
+.folder-icon.helpers { color: #dcdcaa !important; }
+.folder-icon.vendor { color: #808080 !important; }
+.folder-icon.node_modules { color: #6d8086 !important; }
+.folder-icon.build { color: #d4d4d4 !important; }
+.folder-icon.dist { color: #d4d4d4 !important; }
+.folder-icon.out { color: #d4d4d4 !important; }
+.folder-icon.bin { color: #d4d4d4 !important; }
+.folder-icon.docs { color: #569cd6 !important; }
+.folder-icon.documentation { color: #569cd6 !important; }
+.folder-icon.backend { color: #4ec9b0 !important; }
+.folder-icon.frontend { color: #ce9178 !important; }
+.folder-icon.server { color: #4ec9b0 !important; }
+.folder-icon.client { color: #ce9178 !important; }
+.folder-icon.database { color: #d7ba7d !important; }
+.folder-icon.db { color: #d7ba7d !important; }
+.folder-icon.migrations { color: #d7ba7d !important; }
+.folder-icon.seeds { color: #d7ba7d !important; }
+
+/* Default folder color */
+.folder.icon {
+    color: #dcb67a !important;
+}
+
+/* File icon colors based on extension */
+.file-icon-js { color: #f1e05a !important; }
+.file-icon-ts { color: #3178c6 !important; }
+.file-icon-jsx { color: #61dafb !important; }
+.file-icon-tsx { color: #3178c6 !important; }
+.file-icon-html { color: #e34c26 !important; }
+.file-icon-htm { color: #e34c26 !important; }
+.file-icon-css { color: #563d7c !important; }
+.file-icon-scss { color: #c6538c !important; }
+.file-icon-sass { color: #c6538c !important; }
+.file-icon-less { color: #1d365d !important; }
+.file-icon-json { color: #f1e05a !important; }
+.file-icon-xml { color: #e34c26 !important; }
+.file-icon-md { color: #083fa1 !important; }
+.file-icon-py { color: #3572a5 !important; }
+.file-icon-go { color: #00add8 !important; }
+.file-icon-java { color: #b07219 !important; }
+.file-icon-c { color: #555555 !important; }
+.file-icon-cpp { color: #f34b7d !important; }
+.file-icon-cs { color: #178600 !important; }
+.file-icon-php { color: #4f5d95 !important; }
+.file-icon-rb { color: #701516 !important; }
+.file-icon-rs { color: #dea584 !important; }
+.file-icon-swift { color: #ffac45 !important; }
+.file-icon-sh { color: #89e051 !important; }
+.file-icon-bash { color: #89e051 !important; }
+.file-icon-sql { color: #e38c00 !important; }
+.file-icon-vue { color: #41b883 !important; }
+.file-icon-agi { color: #f1e05a !important; }
+.file-icon-yaml { color: #cb171e !important; }
+.file-icon-yml { color: #cb171e !important; }
+.file-icon-toml { color: #9c4221 !important; }
+.file-icon-ini { color: #d1dbe0 !important; }
+.file-icon-env { color: #ecd53f !important; }
+.file-icon-gitignore { color: #f14e32 !important; }
+.file-icon-dockerfile { color: #384d54 !important; }
+
+/* Directory item - editable state */
+#directoryList .item.editing,
+#directoryList .subitem.editing {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#directoryList .item input.rename-input,
+#directoryList .subitem input.rename-input {
+    background: #1e1e1e;
+    border: 1px solid #007acc;
+    color: white;
+    padding: 2px 4px;
+    margin-left: 4px;
+    font-size: 12px;
+    outline: none;
+    width: 120px;
+}
+
+/* Folder drag and drop hover states */
+#directoryList .folderObjectWrapper.drag-over > .item,
+#directoryList .folderObjectWrapper.drag-over > .subitem,
+#directoryExplorer.drag-over {
+    background-color: rgba(0, 122, 204, 0.3) !important;
+    border: 1px dashed #007acc;
+}
+
+/* Context menu for folder tree */
+#folderContextMenu,
+#tabContextMenu {
+    background-color: #252526;
+    border: 1px solid #454545;
+    box-shadow: 2px 3px 13px 0px rgba(0,0,0,0.39);
+    position: fixed;
+    z-index: 1000;
+    min-width: 180px;
+    display: none;
+    color: white;
+    font-size: 13px;
+}
+
+#folderContextMenu .item,
+#tabContextMenu .item {
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#folderContextMenu .item:hover,
+#tabContextMenu .item:hover {
+    background-color: #094771;
+}
+
+#folderContextMenu .item .shortcut,
+#tabContextMenu .item .shortcut {
+    color: #808080;
+    font-size: 11px;
+    margin-left: 20px;
+}
+
+#folderContextMenu .divider,
+#tabContextMenu .divider {
+    border-bottom: 1px solid #454545;
+    margin: 4px 0;
+}
+
+#folderContextMenu .item.disabled,
+#tabContextMenu .item.disabled {
+    color: #6e6e6e;
+    cursor: not-allowed;
+}
+
+#folderContextMenu .item.disabled:hover,
+#tabContextMenu .item.disabled:hover {
+    background-color: transparent;
+}
+
+/* Tab drag indicator */
+.tabs .item.drag-over-left {
+    border-left: 2px solid #007acc !important;
+}
+
+.tabs .item.drag-over-right {
+    border-right: 2px solid #007acc !important;
+}
+
+/* Tab close animations */
+.tabs .item.closing {
+    animation: tabClose 0.2s ease-out forwards;
+}
+
+@keyframes tabClose {
+    from { opacity: 1; max-width: 200px; }
+    to { opacity: 0; max-width: 0; padding: 0; margin: 0; }
+}
+
+/* Open editors section styles */
+#openeditors .item {
+    position: relative;
+}
+
+#openeditors .item .closebtn {
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+#openeditors .item:hover .closebtn {
+    opacity: 1;
+}
+
+/* Selected state for directory items */
+#directoryList .item.file-selected,
+#directoryList .subitem.file-selected {
+    background-color: rgba(0, 122, 204, 0.3);
 }
 

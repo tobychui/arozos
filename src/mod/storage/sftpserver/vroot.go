@@ -17,7 +17,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 )
 
-//Root of the serving tree
+// Root of the serving tree
 type root struct {
 	username       string
 	rootFile       *rootFolder
@@ -32,7 +32,7 @@ type rootFolder struct {
 	content []byte
 }
 
-//Fake folders in root for vroot redirections
+// Fake folders in root for vroot redirections
 type rootEntry struct {
 	thisFsh *filesystem.FileSystemHandler
 }
@@ -73,7 +73,7 @@ type sftpFileInterface interface {
 	WriteAt([]byte, int64) (int, error)
 }
 
-//Wrapper for the arozfs File to provide missing functions
+// Wrapper for the arozfs File to provide missing functions
 type wrappedArozFile struct {
 	file arozfs.File
 }
@@ -414,7 +414,7 @@ func (fs *root) Realpath(p string) string {
 	return cleanPathWithBase(fs.startDirectory, p)
 }
 
-//Convert sftp raw path into fsh, subpath and realpath. return err if any
+// Convert sftp raw path into fsh, subpath and realpath. return err if any
 func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.FileSystemHandler, string, string, error) {
 	pathname = strings.TrimSpace(pathname)
 	if pathname[0:1] != "/" {

@@ -1,0 +1,13 @@
+var moduleLaunchInfo = {
+    Name: "SQLite Admin",
+    Group: "Tools",
+    IconPath: "SQLite Admin/img/small_icon.png",
+    Version: "1.0",
+    StartDir: "SQLite Admin/index.html",
+    SupportFW: true,
+    LaunchFWDir: "SQLite Admin/index.html",
+    InitFWSize: [1100, 680],
+    SupportedExt: [".sqlite", ".sqlite3", ".db"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

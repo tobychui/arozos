@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,10 +26,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/filesystem/abstractions/ftpfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
+	"imuslab.com/arozos/mod/filesystem/abstractions/s3fs"
 	sftpfs "imuslab.com/arozos/mod/filesystem/abstractions/sftpfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/smbfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/webdavfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -125,7 +126,7 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 	for _, option := range options {
 		thisHandler, err := NewFileSystemHandler(option, runtimePersistenceConfig)
 		if err != nil {
-			log.Println("[File System] Failed to create system handler for " + option.Name)
+			logger.PrintAndLog("Filesystem", "[File System] Failed to create system handler for "+option.Name, nil)
 			//log.Println(err.Error())
 			continue
 		}
@@ -141,7 +142,19 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
 		//Check if the target fs require mounting
 		if option.Automount == true {
-			err := MountDevice(option.Mountpt, option.Mountdev, option.Filesystem)
+			// If a partition UUID is stored, try to resolve the actual device path from
+			// the UUID first (survives USB device renames across reboots). Fall back to
+			// the stored device path if UUID lookup fails.
+			actualMountDev := option.Mountdev
+			if option.DiskUUID != "" {
+				if resolvedPath, err := ResolveDeviceByUUID(option.DiskUUID); err == nil {
+					logger.PrintAndLog("Filesystem", "[Storage] Resolved device by UUID "+option.DiskUUID+" -> "+resolvedPath, nil)
+					actualMountDev = resolvedPath
+				} else {
+					logger.PrintAndLog("Filesystem", "[Storage] UUID lookup failed for "+option.DiskUUID+", falling back to device path "+option.Mountdev, nil)
+				}
+			}
+			err := MountDevice(option.Mountpt, actualMountDev, option.Filesystem)
 			if err != nil {
 				return &FileSystemHandler{}, err
 			}
@@ -204,7 +217,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		pathChunks := strings.Split(strings.ReplaceAll(option.Path, "\\", "/"), "/")
 
 		if len(pathChunks) < 2 {
-			log.Println("[File System] Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
+			logger.PrintAndLog("Filesystem", "[File System] Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]", nil)
 			return nil, errors.New("Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
 		}
 
@@ -308,9 +321,71 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			Closed:                false,
 		}, nil
 
+	} else if fstype == "s3" {
+		// S3-compatible object storage (AWS S3, MinIO, Wasabi, Backblaze B2, Cloudflare R2, …)
+		//
+		// Path format: "[http://]<endpoint>[:<port>]/<bucket>[/<prefix>]"
+		//   Username  = Access Key ID
+		//   Password  = Secret Access Key
+		//
+		// SSL is enabled by default.  Prefix the endpoint with "http://" to
+		// force plain HTTP (e.g. for local MinIO in development).
+
+		rawPath := option.Path
+		useSSL := true
+
+		if strings.HasPrefix(rawPath, "http://") {
+			useSSL = false
+			rawPath = strings.TrimPrefix(rawPath, "http://")
+		} else if strings.HasPrefix(rawPath, "https://") {
+			rawPath = strings.TrimPrefix(rawPath, "https://")
+		}
+
+		// Split into endpoint / bucket / optional prefix
+		pathChunks := strings.SplitN(rawPath, "/", 3)
+		if len(pathChunks) < 2 {
+			return nil, errors.New("invalid S3 path format; expected: [http://]<endpoint>/<bucket>[/<prefix>]")
+		}
+
+		endpoint := pathChunks[0]
+		bucket := pathChunks[1]
+		prefix := ""
+		if len(pathChunks) == 3 {
+			prefix = strings.Trim(pathChunks[2], "/")
+		}
+
+		s3fsh, err := s3fs.NewS3FSAbstraction(
+			option.Uuid,
+			option.Hierarchy,
+			endpoint,
+			bucket,
+			prefix,
+			option.Username,
+			option.Password,
+			useSSL,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		return &FileSystemHandler{
+			Name:                  option.Name,
+			UUID:                  option.Uuid,
+			Path:                  option.Path,
+			ReadOnly:              option.Access == arozfs.FsReadOnly,
+			RequireBuffer:         true, // S3 uses streaming only; no file-handle semantics
+			Hierarchy:             option.Hierarchy,
+			HierarchyConfig:       nil,
+			InitiationTime:        time.Now().Unix(),
+			FileSystemAbstraction: s3fsh,
+			Filesystem:            fstype,
+			StartOptions:          option,
+			Closed:                false,
+		}, nil
+
 	} else if option.Filesystem == "virtual" {
 		//Virtual filesystem, deprecated
-		log.Println("[File System] Deprecated file system type: Virtual")
+		logger.PrintAndLog("Filesystem", "[File System] Deprecated file system type: Virtual", nil)
 	}
 
 	return nil, errors.New("Not supported file system: " + fstype)
@@ -441,7 +516,7 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 
 // Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
-	log.Println("[File System] Reloading File System Abstraction for " + fsh.Name)
+	logger.PrintAndLog("Filesystem", "[File System] Reloading File System Abstraction for "+fsh.Name, nil)
 	//Load the start option for this fsh
 	originalStartOption := fsh.StartOptions
 	runtimePersistenceConfig := fsh.RuntimePersistenceConfig
@@ -476,7 +551,7 @@ func (fsh *FileSystemHandler) Close() {
 	//Close the file system object
 	err := fsh.FileSystemAbstraction.Close()
 	if err != nil {
-		log.Println("[File System]  Unable to close File System Abstraction for Handler: " + fsh.UUID + ". Skipping.")
+		logger.PrintAndLog("Filesystem", "[File System]  Unable to close File System Abstraction for Handler: "+fsh.UUID+". Skipping.", nil)
 	}
 }
 

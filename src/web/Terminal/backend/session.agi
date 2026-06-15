@@ -1,0 +1,150 @@
+/*
+    Terminal — WebSocket REPL Session
+
+    Maintains a persistent Otto VM over a WebSocket connection.
+    All eval() calls execute in the same global scope, so variables
+    defined in one command are accessible in the next.
+
+    Protocol (JSON)
+    ───────────────
+    Client → Server
+      { type: "exec", code: "<js>" }   run a snippet
+      { type: "ping" }                 keep-alive
+
+    Server → Client
+      { type: "ready",  user, build }                  session started
+      { type: "result", output, error, logs }           exec result
+      { type: "pong" }                                  ping response
+*/
+
+requirelib("websocket");
+
+if (!websocket.upgrade(300)) {
+    sendResp("WebSocket upgrade failed");
+    exit();
+}
+
+// ── Output capture ─────────────────────────────────────────────────────────
+// Override console.log so user output is returned via the protocol rather
+// than being lost to the server log.  The original is still called so the
+// server log also gets the line for debugging.
+
+var _logs        = [];
+var _origLog     = console.log;
+var _capturedResp = "";
+
+console.log = function() {
+    var parts = [];
+    for (var i = 0; i < arguments.length; i++) {
+        var a = arguments[i];
+        parts.push(typeof a === "object" ? JSON.stringify(a) : String(a));
+    }
+    var line = parts.join(" ");
+    _logs.push(line);
+    _origLog("[Terminal:" + USERNAME + "] " + line);
+};
+
+// Capture sendResp / echo output instead of writing to HTTP response
+// (the connection is already upgraded; writing to w would be a no-op)
+var _origSendResp     = sendResp;
+var _origEcho         = echo;
+var _origSendJSONResp = sendJSONResp;
+
+sendResp = function(v) {
+    _capturedResp = String(v);
+};
+echo = function(v) {
+    _capturedResp = _capturedResp + String(v);
+};
+sendJSONResp = function(v) {
+    _capturedResp = typeof v === "string" ? v : JSON.stringify(v);
+};
+
+// Prevent exit() from panicking the session goroutine
+var _sessionRunning = true;
+var _origExit = exit;
+exit = function() {
+    _sessionRunning = false;
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function _formatResult(v) {
+    if (v === undefined || v === null) return "";
+    if (typeof v === "string")  return v;
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    try {
+        var s = JSON.stringify(v, null, 2);
+        return s !== undefined ? s : String(v);
+    } catch(e) {
+        return String(v);
+    }
+}
+
+// ── Session ready ──────────────────────────────────────────────────────────
+
+websocket.send(JSON.stringify({
+    type:  "ready",
+    user:  USERNAME,
+    build: BUILD_VERSION
+}));
+
+// ── REPL loop ──────────────────────────────────────────────────────────────
+
+while (_sessionRunning && !websocket.isClosed()) {
+
+    var raw = websocket.read(60000); // 60-second idle read
+
+    if (raw === false) break;   // connection closed
+    if (raw === null)  continue; // idle timeout — loop back
+
+    var req;
+    try {
+        req = JSON.parse(raw);
+    } catch(e) {
+        // Malformed JSON — ignore
+        continue;
+    }
+
+    if (req.type === "ping") {
+        websocket.send(JSON.stringify({ type: "pong" }));
+        continue;
+    }
+
+    if (req.type !== "exec" || typeof req.code !== "string") continue;
+
+    // Reset per-invocation state
+    _logs         = [];
+    _capturedResp = "";
+    HTTP_RESP     = "";
+
+    var _execOutput = "";
+    var _execError  = false;
+
+    try {
+        var _execResult = eval(req.code);
+
+        // Priority: explicit sendResp/echo/sendJSONResp > HTTP_RESP > return value
+        if (_capturedResp !== "") {
+            _execOutput = _capturedResp;
+        } else if (HTTP_RESP !== undefined && HTTP_RESP !== "") {
+            _execOutput = String(HTTP_RESP);
+            HTTP_RESP = "";
+        } else {
+            _execOutput = _formatResult(_execResult);
+        }
+
+    } catch(e) {
+        _execError  = true;
+        _execOutput = e.toString();
+    }
+
+    websocket.send(JSON.stringify({
+        type:   "result",
+        output: _execOutput,
+        error:  _execError,
+        logs:   _logs
+    }));
+}
+
+websocket.close();

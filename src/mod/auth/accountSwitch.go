@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/sessions"
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -76,7 +76,7 @@ func NewSwitchableAccountPoolManager(sysdb *database.Database, parent *AuthAgent
 func (m *SwitchableAccountPoolManager) RunNightlyCleanup() {
 	pools, err := m.GetAllPools()
 	if err != nil {
-		log.Println("[auth] Unable to load account switching pools. Cleaning skipped: " + err.Error())
+		logger.PrintAndLog("Auth", "[auth] Unable to load account switching pools. Cleaning skipped: "+err.Error(), nil)
 		return
 	}
 

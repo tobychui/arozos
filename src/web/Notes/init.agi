@@ -1,0 +1,22 @@
+/*
+	Notes Module Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Notes",
+	Desc: "A simple note-taking app",
+	Group: "Utilities",
+	IconPath: "img/module_icon.png",
+	Version: "0.1.0",
+	StartDir: "index.html",
+	SupportFW: true,
+	LaunchFWDir: "index.html",
+	SupportEmb: false,
+	InitFWSize: [860, 560],
+	SupportedExt: []
+}
+
+//Register the module
+console.log("Registering notes module");
+registerModule(JSON.stringify(moduleLaunchInfo));

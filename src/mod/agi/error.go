@@ -39,13 +39,13 @@ func (g *Gateway) RenderErrorTemplate(w http.ResponseWriter, errmsg string, scri
 		"agi_version":     AgiVersion,
 	}
 
+	// Set status before writing the body so the header is actually sent as 500
+	w.WriteHeader(http.StatusInternalServerError)
+
 	// Execute the template
 	err = tmpl.Execute(w, data)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	// Set the HTTP status code
-	w.WriteHeader(http.StatusInternalServerError)
 }

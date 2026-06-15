@@ -1,0 +1,20 @@
+/*
+    Arozcast - Remote Projection Receiver
+    Module Registration Script
+*/
+var rootdir = "Arozcast";
+var moduleLaunchInfo = {
+    Name: "Arozcast",
+    Desc: "Remote projection receiver - stream media from Musicify to this screen",
+    Group: "Media",
+    IconPath: rootdir + "/img/module_icon.png",
+    Version: "1.0.0",
+    StartDir: rootdir + "/index.html",
+    SupportFW: true,
+    LaunchFWDir: rootdir + "/index.html",
+    SupportEmb: false,
+    InitFWSize: [900, 600],
+    SupportedExt: []
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

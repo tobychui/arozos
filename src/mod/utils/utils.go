@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -142,7 +144,8 @@ func IsDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		log.Fatal(err)
+		logger.PrintAndLog("Utils", fmt.Sprint(err), nil)
+		os.Exit(1)
 		return false
 	}
 	switch mode := fi.Mode(); {

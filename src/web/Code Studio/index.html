@@ -22,13 +22,6 @@
                padding:1px;
                background-color:#292929;
            }
-           #terminals{
-               position: fixed;
-               right: 0px;
-               bottom: 24px;
-               width: calc(100% - 240px);
-               
-           }
        </style>
     </head>
     <body>
@@ -49,7 +42,7 @@
                 
             </div>
             <div class="title item" onclick="toggleDirectoryExplorer(this);"><i class="caret down icon"></i><span id="openFolderTitle">NO FOLDER</span></div>
-            <div class="subgroup" id="directoryExplorer">
+            <div class="subgroup" id="directoryExplorer" oncontextmenu="showDirectoryExplorerContextMenu(event);">
               
             </div>
         </div>
@@ -62,28 +55,7 @@
                 <div class="editor" editorUID="mainEditor" onclick="focusThisEditor(this);"></div>
                 <div class="editorcover" editorUID="mainEditor" onclick="focusThisEditor(this);"></div>
             </div>
-            <div id="ca2" class="codeBoard splitMode right" style="display:none;">
-                <div class="tabs" editorUID="subEditor" ondrop="TabDrop(event)" ondragover="allowDrop(event)">
 
-                </div>
-                <div class="editor"  editorUID="subEditor" onclick="focusThisEditor(this);"></div>
-                <div class="editorcover" editorUID="subEditor" onclick="focusThisEditor(this);"></div>
-            </div>
-            <div id="terminals" style="display:none;">
-                <div class="menubar"> 
-                    <p>TERMINAL</p> 
-                    <div style="position: absolute; right: 12px;">
-                        <i style="cursor: pointer;" onclick="restartTerminal();" class="refresh icon"></i>
-                        <i style="cursor: pointer;" onclick="closeTerminal();" class="remove icon"></i>
-                    </div>
-                    
-                </div>
-                <div class="terminalWindow focused">
-                    <iframe id="initTerminal" src="../wstty/">
-                        
-                    </iframe>
-                </div>
-            </div>
         </div>
         <div class="bottommenu">
             <div class="item"><i class="exchange icon"></i><span id="pingStatus"></span></div>
@@ -97,6 +69,46 @@
          <!-- Context Menu -->
         <div id="contextMenu" class="contextMenu">
             
+        </div>
+
+        <!-- Folder Tree Context Menu -->
+        <div id="folderContextMenu">
+            <div class="item" onclick="newFileInFolder();">
+                <span><i class="file outline icon"></i> New File</span>
+                <span class="shortcut">Ctrl+N</span>
+            </div>
+            <div class="item" onclick="newFolderInFolder();">
+                <span><i class="folder outline icon"></i> New Folder</span>
+            </div>
+            <div class="divider"></div>
+            <div class="item" onclick="renameSelectedItem();">
+                <span><i class="edit icon"></i> Rename</span>
+                <span class="shortcut">F2</span>
+            </div>
+            <div class="item" onclick="deleteSelectedItem();">
+                <span><i class="trash icon"></i> Delete</span>
+                <span class="shortcut">Del</span>
+            </div>
+            <div class="divider"></div>
+            <div class="item" onclick="copyFilePath();">
+                <span><i class="copy icon"></i> Copy Path</span>
+            </div>
+            <div class="item" onclick="revealInFileManager();">
+                <span><i class="folder open icon"></i> Reveal in File Manager</span>
+            </div>
+        </div>
+
+        <!-- Tab Context Menu -->
+        <div id="tabContextMenu" class="contextMenu" style="display:none;">
+            <div class="item" onclick="closeCurrentTab();">Close</div>
+            <div class="item" onclick="closeOtherTabs();">Close Others</div>
+            <div class="item" onclick="closeTabsToTheRight();">Close to the Right</div>
+            <div class="item" onclick="closeTabsToTheLeft();">Close to the Left</div>
+            <div class="divider"></div>
+            <div class="item" onclick="closeAllTabsInEditor();">Close All</div>
+            <div class="divider"></div>
+            <div class="item" onclick="copyFilePathFromTab();">Copy Path</div>
+            <div class="item" onclick="revealTabInFileManager();">Reveal in File Manager</div>
         </div>
 
         <!-- Licnese information -->
@@ -162,19 +174,18 @@
         <script>
             //Environment Paramters
             let editors = [];                       //List of opened editor
-            let splitMode = false;                   //Split the screen into two half
             let focusedEditor = "mainEditor";       //The editor currently is focused
             let loadedModels = [];                  //Loaded models. Prevent duplicate loading problem
             let focusedFileInfo = [];
             let files = ao_module_loadInputFiles(); //Files imported from file system
 
-            //Terminal realted
-            let terminalStartingEndpoint = "../wstty/";
+            //Folder tree state
+            let currentProjectFolder = null;        //The currently opened project folder path
+            let selectedFolderItem = null;          //Currently selected item in folder tree (for context menu)
+            let selectedTabInfo = null;             //Currently selected tab (for tab context menu)
 
             //Initiation functions  
             initEditor($("#ca1").find(".editor")[0], "mainEditor", files, restoreEditorState);
-            initEditor($("#ca2").find(".editor")[0],"subEditor");
-
             //Load ready page into the editorCover
             $(".editorcover").load("home.html");
            
@@ -220,10 +231,6 @@
                         })
                     }
 
-                    //Open terminal if it is enabled previously
-                    if (oldState.terminal !== undefined && oldState.terminal == true){
-                        openTerminal();
-                    }
                 }
             }
             
@@ -233,26 +240,7 @@
                     setFontSize(fontsize);
                 });
 
-                getStorage("splitmode",function(splitSetting){
-                    if (splitSetting.error !== undefined){
-                        return;
-                    }
-                    splitSetting = splitSetting.trim();
-                     if (splitSetting == "true"){
-                        splitMode = true;
-                        $("#ca1").attr("class","codeBoard splitMode left")
-                        $("#ca2").show();
-                     }else{
-                        splitMode = false;
-                        $("#ca1").attr("class","codeBoard")
-                        $("#ca2").hide();
-                     }
 
-                    //Update all editor's size
-                    for (var i =0; i < editors.length; i++){
-                        editors[i].editor.layout();
-                    }
-                });
             }
         
             //Check if it is run under vdi mode. If not, establish checkauth ping to keep session alive
@@ -298,7 +286,7 @@
                             targetEditor = editors[i];
                         }
                     }
-                    if (typeof targetEditor === undefined){
+                    if (targetEditor === undefined){
                         console.log("Error when loading tab");
                         return;
                     }
@@ -312,6 +300,9 @@
                         }
                     });
                 });
+
+                //Bind tab context menu
+                bindTabContextMenu();
 
                 $("#openeditors .item").off("click").on("click",function(evt){
                     //Update UI to match selected tab
@@ -327,7 +318,7 @@
                             targetEditorObject = editors[i];
                         }
                     }
-                    if (typeof targetEditorObject === undefined){
+                    if (targetEditorObject === undefined){
                         console.log("Error when loading tab");
                         return;
                     }
@@ -390,7 +381,12 @@
 
                 //Remove the tab objects from DOM
                 removeTabFromDOMWithUUID(tabUUID);
-                
+
+                //Update window hash to reflect closed tab
+                var currentState = getHashObject();
+                currentState["files"] = getOpenedFiles();
+                writeHashObject(currentState);
+
                 if (targetEditorObject.tabs.length > 0){
                     //Switch to the first tab of the editor
                     var newFocusedTabUUID = targetEditorObject.tabs[0].tabUUID;
@@ -405,6 +401,7 @@
 
             function getFocusedTabInfo(){
                 var focusedEditorObject = getFocusedEditorObject();
+                if (!focusedEditorObject) return undefined;
                 var focusedTabUUID = focusedEditorObject.currentTabUUID;
                 for (var i =0; i < focusedEditorObject.tabs.length; i++){
                     var thistab = focusedEditorObject.tabs[i];
@@ -522,6 +519,8 @@
                     <div class="divider"></div>
                     <div class="item" onclick="closeFileCurrentlyFocused();">Close File</div>
                     <div class="item" onclick="closeAllFiles();">Close All Files</div>
+                    <div class="item" onclick="closeTabsRight();">Close Tabs to the Right</div>
+                    <div class="item" onclick="closeTabsLeft();">Close Tabs to the Left</div>
                     `);
 
                     if (ao_module_virtualDesktop){
@@ -551,9 +550,7 @@
                     <div class="item" onclick="showClipboardReminders(5);">Replace
                         <div class="tips">Ctrl + H</div>
                     </div>
-                    <div class="divider"></div>
-                    <div class="item" onclick="toggleSplit(true);">Split WorkSpace</div>
-                    <div class="item" onclick="toggleSplit(false);">Merge WorkSpace</div>
+
                    
                     `);
                 }else if (target == "view"){
@@ -569,9 +566,6 @@
                         </div>
                         <div class="item" onclick="openFileInFileManager(); hideContextMenu();">Reveal in File Manager 
                             <div class="tips"><i class="folder outline icon"></i></div>
-                        </div>
-                        <div class="item" onclick="openTerminal(); hideContextMenu();">Open Terminal
-                            <div class="tips"><i class="code icon"></i></div>
                         </div>
                         <div class="divider"></div>
                         <div class="item" onclick="downloadFile(); hideContextMenu();">Download
@@ -639,6 +633,51 @@
                 hideContextMenu();
             }
 
+            // Close tabs to the right of currently focused tab (from main menu)
+            function closeTabsRight(){
+                var focusedEditorObj = getFocusedEditorObject();
+                if (!focusedEditorObj) return;
+                
+                var currentTabUUID = focusedEditorObj.currentTabUUID;
+                var foundSelected = false;
+                var tabsToClose = [];
+                
+                focusedEditorObj.tabs.forEach(tab => {
+                    if (foundSelected){
+                        tabsToClose.push(tab.tabUUID);
+                    }
+                    if (tab.tabUUID == currentTabUUID){
+                        foundSelected = true;
+                    }
+                });
+
+                tabsToClose.forEach(tabUUID => {
+                    closeTabWithUUIDAndEditorID(tabUUID, focusedEditorObj.uuid);
+                });
+                hideContextMenu();
+            }
+
+            // Close tabs to the left of currently focused tab (from main menu)
+            function closeTabsLeft(){
+                var focusedEditorObj = getFocusedEditorObject();
+                if (!focusedEditorObj) return;
+                
+                var currentTabUUID = focusedEditorObj.currentTabUUID;
+                var tabsToClose = [];
+                
+                for (var i = 0; i < focusedEditorObj.tabs.length; i++){
+                    if (focusedEditorObj.tabs[i].tabUUID == currentTabUUID){
+                        break;
+                    }
+                    tabsToClose.push(focusedEditorObj.tabs[i].tabUUID);
+                }
+
+                tabsToClose.forEach(tabUUID => {
+                    closeTabWithUUIDAndEditorID(tabUUID, focusedEditorObj.uuid);
+                });
+                hideContextMenu();
+            }
+
           
             function saveAllFiles(){
                 //Store the editor object before saveall
@@ -672,41 +711,18 @@
                 hideContextMenu();
             }
 
-            function toggleSplit(useSplitMode){
-                if (useSplitMode){
-                    $("#ca1").attr("class","codeBoard splitMode left")
-                    $("#ca2").show();
-                    setStorage("splitmode","true");
-                }else{
-                    $("#ca1").attr("class","codeBoard")
-                    $("#ca2").hide();
-                    setStorage("splitmode","false");
-
-                    //Move all tabs from subEditor to main editor
-                    var mainEditor = getEditor("mainEditor");
-                    var subEditor = getEditor("subEditor");
-                    subEditor.tabs.forEach(tab => {
-                        var filepath = tab.filepath;
-                        //Open tab in main editor
-                        openFile(filepath, false, mainEditor);
-
-                        //Close tab in sub editor
-                        closeTabWithUUIDAndEditorID(tab.tabUUID, "subEditor");
-                    });
-                }
-
-
-                //Update all editor's size
-                for (var i =0; i < editors.length; i++){
-                    editors[i].editor.layout();
-                }
-                
-                hideContextMenu();
-            }
-            
             //Hide all the context menus
             function hideContextMenu(){
                 $("#contextMenu").hide();
+            }
+
+            function buildErrorCoverHTML(filepath, tabUUID, editorUUID){
+                return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;user-select:none;">
+                    <i class="times circle icon" style="font-size:3em;color:#e57373;margin-bottom:16px;"></i>
+                    <div style="font-size:1.1em;color:#e57373;margin-bottom:8px;">File or folder no longer exists</div>
+                    <div style="font-size:0.85em;color:#888;margin-bottom:20px;word-break:break-all;max-width:400px;text-align:center;">${filepath}</div>
+                    <div class="ui button" onclick="closeTabWithUUIDAndEditorID(${tabUUID},'${editorUUID}')">Close File</div>
+                </div>`;
             }
 
             //open a file with a new editor by the given filepath
@@ -744,6 +760,26 @@
                 ao_module_agirun("Code Studio/backend/read.agi",{
                     file: filepath
                 }, function(filecontent){
+                    // File not found — create an error tab instead of a Monaco model
+                    if (typeof filecontent === "object" && filecontent.error){
+                        let targetOpeningEditor = targetEditorGroup;
+                        var editorUUID = targetOpeningEditor.uuid;
+                        var targetTabMenu = targetOpeningEditor.tabsMenu;
+                        var tabUUID = new Date().getTime();
+                        var filename = filepath.split("/").pop();
+                        $(targetTabMenu).find(".item.selected").removeClass("selected");
+                        $(targetTabMenu).append(`<div class="item selected fileTab" title="${filepath}" draggable="true" ondragstart="fileTabDrag(event)" uuid="${tabUUID}" editorUUID="${editorUUID}" filepath="${filepath}"><i class="times circle red icon"></i> <span class="tabFilename">${filename}</span> <div class="closebtn"><i class="remove icon"></i></div></div>`);
+                        $("#openeditors .item").removeClass("selected");
+                        $("#openeditors").append(`<div class="item selected" uuid="${tabUUID}" editorUUID="${editorUUID}"><div class="closebtn" style="display:inline-block;"><i class="remove icon"></i></div> <i class="times circle red icon"></i> <span class="tabFilename">${filename}</span> </div>`);
+                        targetOpeningEditor.currentTabUUID = tabUUID;
+                        targetOpeningEditor.tabs.push({ filename: filename, filepath: filepath, tabUUID: tabUUID, saveHash: 0, error: true });
+                        var ca = getCodeAreaFromEditorUUID(editorUUID);
+                        $(ca).find(".editorcover").html(buildErrorCoverHTML(filepath, tabUUID, editorUUID)).show();
+                        bindTabItemEvents();
+                        focusTabWithUUID(tabUUID);
+                        return;
+                    }
+
                     //Get the target Opening Editor
                     let targetOpeningEditor = targetEditorGroup;
                     
@@ -769,11 +805,11 @@
                     var tabUUID = new Date().getTime();
                     var filename = filepath.split("/").pop();
                     $(targetTabMenu).find(".item.selected").removeClass("selected");
-                    $(targetTabMenu).append(`<div class="item selected fileTab" title="${filepath}" draggable="true" ondragstart="fileTabDrag(event)" uuid="${tabUUID}"  editorUUID="${editorUUID}" filepath="${filepath}"><i class="code file icon"></i> ${filename} <div class="closebtn"><i class="remove icon"></i></i></div></div>`);
+                    $(targetTabMenu).append(`<div class="item selected fileTab" title="${filepath}" draggable="true" ondragstart="fileTabDrag(event)" uuid="${tabUUID}"  editorUUID="${editorUUID}" filepath="${filepath}"><i class="code file icon"></i> <span class="tabFilename">${filename}</span> <div class="closebtn"><i class="remove icon"></i></i></div></div>`);
 
                     //Add this tab into the open editor list
                     $("#openeditors .item").removeClass("selected");
-                    $("#openeditors").append(`<div class="item selected" uuid="${tabUUID}" editorUUID="${editorUUID}"><div class="closebtn" style="display:inline-block;"><i class="remove icon"></i></div> <i class="code file icon"></i> ${filename} </div>`);
+                    $("#openeditors").append(`<div class="item selected" uuid="${tabUUID}" editorUUID="${editorUUID}"><div class="closebtn" style="display:inline-block;"><i class="remove icon"></i></div> <i class="code file icon"></i> <span class="tabFilename">${filename}</span> </div>`);
 
                     //Update the current tag information
                     targetOpeningEditor.currentTabUUID = tabUUID
@@ -870,12 +906,14 @@
 
             function openProjectFolder(filedata, rewriteHash=true){
                 for (var i=0; i < filedata.length; i++){
-                    folderpath = filedata[i].filepath;
-                    foldername = filedata[i].filename;
+                    let folderpath = filedata[i].filepath;
+                    let foldername = filedata[i].filename;
+                    currentProjectFolder = folderpath;
+
                     //Load this as the folder 
                     $("#openFolderTitle").text(foldername.toUpperCase());
                     $("#directoryExplorer").html("");
-                    $.get("../system/file_system/listDir?dir=" + encodeURIComponent(folderpath),function(data){
+                    $.get("../system/file_system/listDir?dir=" + folderpath,function(data){
                         var folders = [];
                         var files = [];
                         if (data === null){
@@ -887,19 +925,28 @@
                             var icon = ao_module_utils.getIconFromExt(ext);
                             var filepath = data[i].Filepath;
                             if (data[i].IsDir){
-                                icon = "folder";
+                                var folderIconClass = getFolderIconClass(filename);
                                 folders.push(`
-                                <div class="folderObjectWrapper">
-                                    <div class="item" title="${filepath}" style="overflow:hidden;" onclick="listfolder(this);">
+                                <div class="folderObjectWrapper" data-path="${filepath}" data-name="${filename}" data-isdir="true"
+                                     ondragover="folderDragOver(event)" ondragleave="folderDragLeave(event)" ondrop="folderDrop(event)">
+                                    <div class="item" title="${filepath}" style="overflow:hidden;" 
+                                         onclick="listfolder(this);" 
+                                         oncontextmenu="showFolderContextMenu(event, this);">
                                         <div class="showmore" style="display:inline-block;"><i class="caret right icon"></i></div>
-                                        <i class="${icon} icon"></i> ${filename} 
+                                        <i class="folder icon folder-icon ${folderIconClass}"></i> ${filename} 
                                     </div>
                                 </div>
                                 `);
                             }else{
+                                var fileIconClass = getFileIconClass(ext);
                                 files.push(`
-                                <div class="item" title="${filepath}" draggable="true" ondragstart="directoryFileDrag(event)" filepath="${filepath}" filename="${filename}"  style="overflow:hidden;" onclick="openFileViaDirectoryExplorer(this, event);">
-                                    <i class="${icon} icon"></i> ${filename} 
+                                <div class="item" title="${filepath}" data-path="${filepath}" data-name="${filename}" data-isdir="false"
+                                     draggable="true" ondragstart="directoryFileDrag(event)" 
+                                     filepath="${filepath}" filename="${filename}" 
+                                     style="overflow:hidden;" 
+                                     onclick="openFileViaDirectoryExplorer(this, event);"
+                                     oncontextmenu="showFolderContextMenu(event, this);">
+                                    <i class="${icon} icon ${fileIconClass}"></i> ${filename} 
                                 </div>
                                 `);
                             }
@@ -909,13 +956,43 @@
                         $("#directoryExplorer").append(files.join(""));
                     });
 
-                    if (rewriteHash){
+                    if (!ao_module_virtualDesktop && rewriteHash){
                         var currentState = getHashObject();
-                        currentState["folder"] = foldername;
+                        currentState["folder"] = folderpath;
                         writeHashObject(currentState);
                     }
 
                 }
+            }
+
+            // Get colored folder icon class based on folder name
+            function getFolderIconClass(folderName){
+                var name = folderName.toLowerCase();
+                var specialFolders = ['src', 'lib', 'test', 'tests', 'spec', 'config', 'public', 'static', 
+                    'assets', 'images', 'img', 'css', 'styles', 'js', 'scripts', 'components', 
+                    'views', 'pages', 'templates', 'models', 'controllers', 'api', 'routes', 
+                    'middleware', 'utils', 'helpers', 'vendor', 'node_modules', 'build', 
+                    'dist', 'out', 'bin', 'docs', 'documentation', 'backend', 'frontend', 
+                    'server', 'client', 'database', 'db', 'migrations', 'seeds'];
+                
+                if (specialFolders.includes(name)){
+                    return name;
+                }
+                return '';
+            }
+
+            // Get file icon class based on extension
+            function getFileIconClass(ext){
+                var coloredExts = ['js', 'ts', 'jsx', 'tsx', 'html', 'htm', 'css', 'scss', 'sass', 
+                    'less', 'json', 'xml', 'md', 'py', 'go', 'java', 'c', 'cpp', 'cs', 'php', 
+                    'rb', 'rs', 'swift', 'sh', 'bash', 'sql', 'vue', 'agi', 'yaml', 'yml', 
+                    'toml', 'ini', 'env', 'gitignore', 'dockerfile'];
+                
+                ext = ext.toLowerCase();
+                if (coloredExts.includes(ext)){
+                    return 'file-icon-' + ext;
+                }
+                return '';
             }
 
             function listfolder(folder){
@@ -939,19 +1016,28 @@
                             var icon = ao_module_utils.getIconFromExt(ext);
                             var filepath = data[i].Filepath;
                             if (data[i].IsDir){
-                                icon = "folder";
+                                var folderIconClass = getFolderIconClass(filename);
                                 folders.push(`
-                                <div class="folderObjectWrapper">
-                                    <div class="subitem" title="${filepath}" style="overflow:hidden;" onclick="listfolder(this);">
+                                <div class="folderObjectWrapper" data-path="${filepath}" data-name="${filename}" data-isdir="true"
+                                     ondragover="folderDragOver(event)" ondragleave="folderDragLeave(event)" ondrop="folderDrop(event)">
+                                    <div class="subitem" title="${filepath}" style="overflow:hidden;" 
+                                         onclick="listfolder(this);"
+                                         oncontextmenu="showFolderContextMenu(event, this);">
                                         <div class="showmore" style="display:inline-block;"><i class="caret right icon"></i></div>
-                                        <i class="${icon} icon"></i> ${filename} 
+                                        <i class="folder icon folder-icon ${folderIconClass}"></i> ${filename} 
                                     </div>
                                 </div>
                                 `);
                             }else{
+                                var fileIconClass = getFileIconClass(ext);
                                 files.push(`
-                                <div class="subitem" title="${filepath}" style="overflow:hidden;" onclick="openFileViaDirectoryExplorer(this,event);">
-                                    <i class="${icon} icon"></i> ${filename} 
+                                <div class="subitem" title="${filepath}" data-path="${filepath}" data-name="${filename}" data-isdir="false"
+                                     draggable="true" ondragstart="directoryFileDrag(event)"
+                                     filepath="${filepath}" filename="${filename}"
+                                     style="overflow:hidden;" 
+                                     onclick="openFileViaDirectoryExplorer(this,event);"
+                                     oncontextmenu="showFolderContextMenu(event, this);">
+                                    <i class="${icon} icon ${fileIconClass}"></i> ${filename} 
                                 </div>
                                 `);
                             }
@@ -1012,6 +1098,29 @@
                         theme: 'vs-dark'
                     });
 
+                    //Detect content changes and mark tab as unsaved
+                    editor.onDidChangeModelContent(function() {
+                        var thisEditorObject;
+                        for (var i = 0; i < editors.length; i++) {
+                            if (editors[i].editor === editor) {
+                                thisEditorObject = editors[i];
+                                break;
+                            }
+                        }
+                        if (!thisEditorObject) return;
+                        var currentTabUUID = thisEditorObject.currentTabUUID;
+                        var currentTab;
+                        for (var i = 0; i < thisEditorObject.tabs.length; i++) {
+                            if (thisEditorObject.tabs[i].tabUUID == currentTabUUID) {
+                                currentTab = thisEditorObject.tabs[i];
+                                break;
+                            }
+                        }
+                        if (!currentTab) return;
+                        var isModified = editor.getValue().hashCode() !== currentTab.saveHash;
+                        markTabUnsaved(currentTabUUID, isModified);
+                    });
+
                     //Bind save event for this editor
                     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_S, function() {
                         let thisEditor = editor;
@@ -1060,40 +1169,6 @@
               
             }
 
-            /*
-                Terminal Function Related
-
-            */
-
-            function terminalInit(){
-                $(".ui.dropdown").dropdown();
-            }
-
-            var codeAreaBottomOffset = 0;
-            function openTerminal(){
-                //Open WsTTY on the editor
-                codeAreaBottomOffset = 300;
-                $("#terminals").show();
-                updateCodeAreaSize();
-                hideContextMenu();
-                updateStatusHash("terminal",true);
-            }
-
-            function closeTerminal(){
-                codeAreaBottomOffset = 0;
-                $("#terminals").hide();
-                updateCodeAreaSize();
-                updateStatusHash("terminal",false);
-            }
-
-            function restartTerminal(){
-                $("#terminals").find(".terminalWindow.focused").find("iframe").attr("src","");
-                setTimeout(function(){
-                    $("#terminals").find(".terminalWindow.focused").find("iframe").attr("src",terminalStartingEndpoint);
-                }, 1000);
-                
-            }
-
             $(window).on("resize", function(data){
                 updateCodeAreaSize();
             });
@@ -1101,7 +1176,7 @@
             updateCodeAreaSize();
             function updateCodeAreaSize(){
                 $("#codeArea").css({
-                    "height":window.innerHeight - 52 - codeAreaBottomOffset
+                    "height":window.innerHeight - 52
                 });
 
                 editors.forEach(editor => {
@@ -1173,50 +1248,98 @@
                 editorObject.currentTabUUID = targettabUUID;
 
                 //Load the content from the given uuid tab
-                editor.setModel(models[targettabUUID]);
-                editor.restoreViewState(states[targettabUUID]);
-                editor.focus();
+                var targetTab = editorObject.tabs.find(t => t.tabUUID == targettabUUID);
+                var ca = getCodeAreaFromEditorUUID(editorObject.uuid);
+                if (targetTab && targetTab.error){
+                    $(ca).find(".editorcover").html(buildErrorCoverHTML(targetTab.filepath, targettabUUID, editorObject.uuid)).show();
+                } else {
+                    $(ca).find(".editorcover").hide();
+                    editor.setModel(models[targettabUUID]);
+                    editor.restoreViewState(states[targettabUUID]);
+                    editor.focus();
+                }
 
                 //Update the target file info
                 var tabInfo = getFocusedTabInfo();
-                updateFileStatusDisplay(tabInfo.filepath);
-
-                //Update title if nonVDI or update floatWindow title if under fdi
-                if (ao_module_virtualDesktop){
-                    ao_module_setWindowTitle("Code Studio - " + tabInfo.filename);
-                }else{
-                    document.title = "Code Studio - " + tabInfo.filename
+                if (tabInfo){
+                    updateFileStatusDisplay(tabInfo.filepath);
+                    if (ao_module_virtualDesktop){
+                        ao_module_setWindowTitle("Code Studio - " + tabInfo.filename);
+                    }else{
+                        document.title = "Code Studio - " + tabInfo.filename;
+                    }
                 }
 
                 //Focus this tab
                 focusTabWithUUID(targettabUUID);
             }
 
-            //Show clipboard reminders
+            //Show clipboard reminders (or execute the action directly if the browser supports it)
             function showClipboardReminders(rt){
-                var reminderText = "This function is keyboard shortcut only.";
-                var iconClass = "keyboard icon";
-                if (rt == 1){
-                    reminderText = "Use the keyboard shortcut Ctrl + X to cut text from the editor.";
-                    iconClass = "cut icon";
-                }else if (rt == 2){
-                    reminderText = "Use the keyboard shortcut Ctrl + C for copying text from the editor";
-                    iconClass = "copy icon";
-                }else if (rt == 3){
-                    reminderText = "Use the keyboard shortcut Ctrl + V for pasting to editor.";
-                    iconClass = "paste icon";
-                }else if (rt == 4){
-                    reminderText = "Press Ctrl + F on the editor to start searching.";
-                    iconClass = "search icon";
-                }else if (rt == 5){
-                    reminderText = "Press Ctrl + H on the editor to start replacing text.";
-                    iconClass = "sync alternate icon";
+                var editorObj = getFocusedEditorObject();
+                var monacoEditor = editorObj ? editorObj.editor : null;
+
+                // Map rt -> { Monaco action id, fallback icon, fallback hint }
+                var actionMap = {
+                    1: { action: "editor.action.clipboardCutAction",     icon: "cut icon",            hint: "Use the keyboard shortcut Ctrl + X to cut text from the editor." },
+                    2: { action: "editor.action.clipboardCopyAction",    icon: "copy icon",           hint: "Use the keyboard shortcut Ctrl + C for copying text from the editor." },
+                    3: { action: "editor.action.clipboardPasteAction",   icon: "paste icon",          hint: "Use the keyboard shortcut Ctrl + V for pasting to editor." },
+                    4: { action: "actions.find",                         icon: "search icon",         hint: "Press Ctrl + F on the editor to start searching." },
+                    5: { action: "editor.action.startFindReplaceAction", icon: "sync alternate icon", hint: "Press Ctrl + H on the editor to start replacing text." }
+                };
+
+                var entry = actionMap[rt];
+                if (!entry) return;
+
+                function showFallback(){
+                    $("#clipboardReminderText").text(entry.hint);
+                    $("#clipboardReminderIcon").attr("class", entry.icon);
+                    $("#clipboardReminder").modal("show");
+                    hideContextMenu();
                 }
 
-                $("#clipboardReminderText").text(reminderText);
-                $("#clipboardReminderIcon").attr("class",iconClass)
-                $('#clipboardReminder').modal('show');
-                hideContextMenu();
+                if (!monacoEditor){
+                    showFallback();
+                    return;
+                }
+
+                // Paste (rt==3): requires clipboard-read permission — use Clipboard API when available
+                if (rt == 3){
+                    if (navigator.clipboard && navigator.clipboard.readText){
+                        navigator.clipboard.readText().then(function(text){
+                            monacoEditor.focus();
+                            var sel = monacoEditor.getSelection();
+                            monacoEditor.executeEdits("paste", [{
+                                range: new monaco.Range(sel.startLineNumber, sel.startColumn, sel.endLineNumber, sel.endColumn),
+                                text: text,
+                                forceMoveMarkers: true
+                            }]);
+                        }).catch(function(){
+                            // Permission denied or clipboard empty — fall back to reminder
+                            showFallback();
+                        });
+                        hideContextMenu();
+                    } else {
+                        // No Clipboard API — try Monaco trigger, fall back to reminder on error
+                        try {
+                            monacoEditor.focus();
+                            monacoEditor.trigger("keyboard", entry.action, null);
+                            hideContextMenu();
+                        } catch(e){
+                            showFallback();
+                        }
+                    }
+                    return;
+                }
+
+                // Cut, Copy, Find, Replace — trigger Monaco action directly; no permission needed
+                try {
+                    monacoEditor.focus();
+                    monacoEditor.trigger("keyboard", entry.action, null);
+                    hideContextMenu();
+                } catch(e){
+                    showFallback();
+                }
             }
 
 
@@ -1316,8 +1439,19 @@
                             var thisTab = thisEditor.tabs[j];
                             if (thisTab.tabUUID == tabUUID){
                                 thisTab.saveHash = contextHash;
+                                markTabUnsaved(tabUUID, false);
                             }
                         }
+                    }
+                });
+            }
+
+            function markTabUnsaved(tabUUID, unsaved) {
+                $(".tabs .item, #openeditors .item").each(function() {
+                    if ($(this).attr("uuid") == tabUUID) {
+                        var nameSpan = $(this).find(".tabFilename");
+                        var currentName = nameSpan.text().replace(/^\* /, "");
+                        nameSpan.text(unsaved ? "* " + currentName : currentName);
                     }
                 });
             }
@@ -1489,25 +1623,18 @@
 
             //Drag file from directory explorer to editor tabs
             function directoryFileDrag(ev){
-                var tabFilepath = $(ev.target).attr("filepath");
-                var tabFilename = $(ev.target).attr("filename");
+                var tabFilepath = $(ev.target).attr("filepath") || $(ev.target).data("path");
+                var tabFilename = $(ev.target).attr("filename") || $(ev.target).data("name");
                 var uuid = Date.now(); //Generate a new UUID for this
 
                 ev.dataTransfer.setData("uuid", uuid);
                 ev.dataTransfer.setData("filename", tabFilename);
                 ev.dataTransfer.setData("filepath", tabFilepath);
+                ev.dataTransfer.effectAllowed = "move";
             }
 
-            //Drag tab from one editor top to another
-            function fileTabDrag(ev) {
-                var tabUUID = $(ev.target).attr("uuid");
-                var tabFilepath = $(ev.target).attr("filepath");
-                var tabFilename = $(ev.target).text();
-                
-                ev.dataTransfer.setData("uuid", tabUUID);
-                ev.dataTransfer.setData("filename", tabFilename);
-                ev.dataTransfer.setData("filepath", tabFilepath);
-            }
+            //Drag tab from one editor to another - this is the original, to be removed
+            // Replaced by the enhanced fileTabDrag function below
 
             function TabDrop(ev) {
                 if ($(ev.target).hasClass("tabs") == false){
@@ -1518,6 +1645,7 @@
                 var tabUUID = ev.dataTransfer.getData("uuid");
                 var tabFilename = ev.dataTransfer.getData("filename");
                 var tabFilepath = ev.dataTransfer.getData("filepath");
+                var sourceEditorUUID = ev.dataTransfer.getData("sourceEditorUUID");
                 
                 if (tabFilename == "" || tabFilepath == ""){
                     return;
@@ -1530,9 +1658,657 @@
                     return
                 }
 
+                //Check if this is a tab being moved between editors
+                if (sourceEditorUUID && sourceEditorUUID !== targetEditor.uuid){
+                    //Close the tab from source editor first
+                    closeTabWithUUIDAndEditorID(tabUUID, sourceEditorUUID);
+                }
+
                 //Open the file in the given editor
                 openFile(tabFilepath, true, targetEditor);
                 console.log(targetEditor, tabUUID, tabFilename, tabFilepath);
+            }
+
+            /*
+                =========================================
+                Folder Tree Context Menu Functions
+                =========================================
+            */
+
+            // Show folder context menu
+            function showFolderContextMenu(event, element){
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Store reference to clicked item
+                selectedFolderItem = {
+                    element: element,
+                    path: $(element).attr("title") || $(element).parent().data("path"),
+                    name: $(element).parent().data("name") || $(element).data("name"),
+                    isDir: $(element).parent().data("isdir") === true || $(element).data("isdir") === "true"
+                };
+
+                // Highlight selected item
+                $("#directoryList .item, #directoryList .subitem").removeClass("file-selected");
+                $(element).addClass("file-selected");
+
+                // Position and show context menu
+                var menu = $("#folderContextMenu");
+                menu.css({
+                    left: event.pageX,
+                    top: event.pageY
+                });
+                menu.show();
+
+                // Hide on click outside
+                $(document).one("click", function(){
+                    hideFolderContextMenu();
+                });
+            }
+
+            // Show context menu when right-clicking on empty area of directory explorer
+            function showDirectoryExplorerContextMenu(event){
+                // Only trigger if clicking directly on the directory explorer, not on items
+                if ($(event.target).attr("id") !== "directoryExplorer"){
+                    return;
+                }
+                
+                event.preventDefault();
+                event.stopPropagation();
+                
+                if (!currentProjectFolder){
+                    return; // No project folder open
+                }
+                
+                // Set selected folder item to project root
+                selectedFolderItem = {
+                    element: null,
+                    path: currentProjectFolder,
+                    name: $("#openFolderTitle").text(),
+                    isDir: true
+                };
+
+                // Position and show context menu
+                var menu = $("#folderContextMenu");
+                menu.css({
+                    left: event.pageX,
+                    top: event.pageY
+                });
+                menu.show();
+
+                $(document).one("click", function(){
+                    hideFolderContextMenu();
+                });
+            }
+
+            function hideFolderContextMenu(){
+                $("#folderContextMenu").hide();
+                $("#directoryList .item, #directoryList .subitem").removeClass("file-selected");
+            }
+
+            // New file in selected folder
+            function newFileInFolder(){
+                hideFolderContextMenu();
+                var targetPath = currentProjectFolder;
+                
+                if (selectedFolderItem){
+                    if (selectedFolderItem.isDir){
+                        targetPath = selectedFolderItem.path;
+                    } else {
+                        // Get parent folder of the file
+                        var parts = selectedFolderItem.path.split("/");
+                        parts.pop();
+                        targetPath = parts.join("/");
+                    }
+                }
+
+                var filename = prompt("Enter new file name:", "newfile.txt");
+                if (filename && filename.trim() !== ""){
+                    var filepath = targetPath;
+                    if (!filepath.endsWith("/")){
+                        filepath += "/";
+                    }
+                    filepath += filename.trim();
+
+                    // Create the file
+                    ao_module_agirun("Code Studio/backend/fileOps.agi", {
+                        opr: "newFile",
+                        filepath: filepath
+                    }, function(data){
+                        var result = data;
+                        if (result.error){
+                            alert("Failed to create file: " + result.error);
+                        } else {
+                            // Refresh the folder tree
+                            refreshFolderTree();
+                            // Open the new file
+                            openFile(filepath);
+                            msgbox("checkmark", "File created");
+                        }
+                    });
+                }
+            }
+
+            // New folder in selected folder
+            function newFolderInFolder(){
+                hideFolderContextMenu();
+                var targetPath = currentProjectFolder;
+                
+                if (selectedFolderItem){
+                    if (selectedFolderItem.isDir){
+                        targetPath = selectedFolderItem.path;
+                    } else {
+                        var parts = selectedFolderItem.path.split("/");
+                        parts.pop();
+                        targetPath = parts.join("/");
+                    }
+                }
+
+                var foldername = prompt("Enter new folder name:", "NewFolder");
+                if (foldername && foldername.trim() !== ""){
+                    var folderpath = targetPath;
+                    if (!folderpath.endsWith("/")){
+                        folderpath += "/";
+                    }
+                    folderpath += foldername.trim();
+
+                    ao_module_agirun("Code Studio/backend/fileOps.agi", {
+                        opr: "newFolder",
+                        folderpath: folderpath
+                    }, function(data){
+                        var result = data;
+                        if (result.error){
+                            alert("Failed to create folder: " + result.error);
+                        } else {
+                            refreshFolderTree();
+                            msgbox("checkmark", "Folder created");
+                        }
+                    });
+                }
+            }
+
+            // Rename selected item
+            function renameSelectedItem(){
+                hideFolderContextMenu();
+                if (!selectedFolderItem) return;
+
+                var newName = prompt("Enter new name:", selectedFolderItem.name);
+                if (newName && newName.trim() !== "" && newName !== selectedFolderItem.name){
+                    var oldPath = selectedFolderItem.path;
+                    var pathParts = oldPath.split("/");
+                    pathParts.pop();
+                    var newPath = pathParts.join("/") + "/" + newName.trim();
+
+                    ao_module_agirun("Code Studio/backend/fileOps.agi", {
+                        opr: "rename",
+                        oldpath: oldPath,
+                        newpath: newPath
+                    }, function(data){
+                        var result = data;
+                        if (result.error){
+                            alert("Failed to rename: " + result.error);
+                        } else {
+                            refreshFolderTree();
+                            
+                            // Update any open tabs with the old path
+                            updateOpenTabsAfterRename(oldPath, newPath);
+                            msgbox("checkmark", "Renamed successfully");
+                        }
+                    });
+                }
+            }
+
+            // Delete selected item
+            function deleteSelectedItem(){
+                hideFolderContextMenu();
+                if (!selectedFolderItem) return;
+
+                var itemType = selectedFolderItem.isDir ? "folder" : "file";
+                if (confirm("Are you sure you want to delete this " + itemType + "?\n" + selectedFolderItem.name)){
+                    ao_module_agirun("Code Studio/backend/fileOps.agi", {
+                        opr: "delete",
+                        filepath: selectedFolderItem.path
+                    }, function(data){
+                        var result = data;
+                        if (result.error){
+                            alert("Failed to delete: " + result.error);
+                        } else {
+                            refreshFolderTree();
+                            
+                            // Close any open tabs for the deleted file
+                            closeTabsWithPath(selectedFolderItem.path);
+                            msgbox("checkmark", "Deleted successfully");
+                        }
+                    });
+                }
+            }
+
+            // Copy file path to clipboard
+            function copyFilePath(){
+                hideFolderContextMenu();
+                if (!selectedFolderItem) return;
+
+                copyToClipboard(selectedFolderItem.path);
+                msgbox("copy", "Path copied to clipboard");
+            }
+
+            // Reveal in file manager
+            function revealInFileManager(){
+                hideFolderContextMenu();
+                if (!selectedFolderItem) return;
+
+                var pathParts = selectedFolderItem.path.split("/");
+                var filename = pathParts.pop();
+                var dirname = pathParts.join("/");
+
+                ao_module_openPath(dirname, filename);
+            }
+
+            // Refresh the folder tree
+            function refreshFolderTree(){
+                if (currentProjectFolder){
+                    openProjectFolder([{
+                        filename: $("#openFolderTitle").text(),
+                        filepath: currentProjectFolder
+                    }], false);
+                }
+            }
+
+            // Update open tabs after rename
+            function updateOpenTabsAfterRename(oldPath, newPath){
+                editors.forEach(editor => {
+                    editor.tabs.forEach(tab => {
+                        if (tab.filepath === oldPath || tab.filepath.startsWith(oldPath + "/")){
+                            tab.filepath = tab.filepath.replace(oldPath, newPath);
+                            tab.filename = tab.filepath.split("/").pop();
+                        }
+                    });
+                });
+                // Refresh tab display
+                renderAllTabs();
+            }
+
+            // Close tabs with specific path
+            function closeTabsWithPath(path){
+                editors.forEach(editor => {
+                    var tabsToClose = [];
+                    editor.tabs.forEach(tab => {
+                        if (tab.filepath === path || tab.filepath.startsWith(path + "/")){
+                            tabsToClose.push(tab.tabUUID);
+                        }
+                    });
+                    tabsToClose.forEach(tabUUID => {
+                        closeTabWithUUIDAndEditorID(tabUUID, editor.uuid);
+                    });
+                });
+            }
+
+            // Render all tabs (refresh display)
+            function renderAllTabs(){
+                editors.forEach(editor => {
+                    var tabsMenu = $(editor.tabsMenu);
+                    tabsMenu.find(".item").each(function(){
+                        var uuid = $(this).attr("uuid");
+                        var tab = editor.tabs.find(t => t.tabUUID == uuid);
+                        if (tab){
+                            $(this).attr("filepath", tab.filepath);
+                            $(this).attr("title", tab.filepath);
+                            $(this).find(".tabFilename").text(tab.filename);
+                        }
+                    });
+                });
+                // Also update open editors sidebar
+                editors.forEach(editor => {
+                    editor.tabs.forEach(tab => {
+                        $("#openeditors .item[uuid='" + tab.tabUUID + "'] .tabFilename").text(tab.filename);
+                    });
+                });
+            }
+
+            // Copy to clipboard helper
+            function copyToClipboard(text){
+                if (navigator.clipboard){
+                    navigator.clipboard.writeText(text);
+                } else {
+                    var textarea = document.createElement("textarea");
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(textarea);
+                }
+            }
+
+            /*
+                =========================================
+                Folder Drag and Drop Functions
+                =========================================
+            */
+
+            function folderDragOver(event){
+                event.preventDefault();
+                event.stopPropagation();
+                $(event.currentTarget).addClass("drag-over");
+            }
+
+            function folderDragLeave(event){
+                event.preventDefault();
+                event.stopPropagation();
+                $(event.currentTarget).removeClass("drag-over");
+            }
+
+            function folderDrop(event){
+                event.preventDefault();
+                event.stopPropagation();
+                $(event.currentTarget).removeClass("drag-over");
+
+                var sourcePath = event.dataTransfer.getData("filepath");
+                var sourceFilename = event.dataTransfer.getData("filename");
+                var destFolder = $(event.currentTarget).data("path");
+
+                if (!sourcePath || !destFolder){
+                    return;
+                }
+
+                // Don't allow dropping into the same folder
+                var sourceDir = sourcePath.split("/");
+                sourceDir.pop();
+                sourceDir = sourceDir.join("/");
+                
+                if (sourceDir === destFolder){
+                    return;
+                }
+
+                // Move the file
+                ao_module_agirun("Code Studio/backend/fileOps.agi", {
+                    opr: "move",
+                    sourcepath: sourcePath,
+                    destfolder: destFolder
+                }, function(data){
+                    var result = data;
+                    if (result.error){
+                        alert("Failed to move: " + result.error);
+                    } else {
+                        refreshFolderTree();
+                        
+                        // Update any open tabs
+                        var newPath = destFolder;
+                        if (!newPath.endsWith("/")){
+                            newPath += "/";
+                        }
+                        newPath += sourceFilename;
+                        updateOpenTabsAfterRename(sourcePath, newPath);
+                        msgbox("checkmark", "Moved successfully");
+                    }
+                });
+            }
+
+            /*
+                =========================================
+                Tab Context Menu Functions
+                =========================================
+            */
+
+            // Add context menu to tabs
+            function bindTabContextMenu(){
+                $(".tabs .item").off("contextmenu").on("contextmenu", function(event){
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    var tabUUID = $(this).attr("uuid");
+                    var editorUUID = $(this).attr("editorUUID");
+                    var filepath = $(this).attr("filepath");
+                    
+                    selectedTabInfo = {
+                        tabUUID: tabUUID,
+                        editorUUID: editorUUID,
+                        filepath: filepath,
+                        element: this
+                    };
+
+                    // Position and show tab context menu
+                    var menu = $("#tabContextMenu");
+                    menu.css({
+                        left: event.pageX,
+                        top: event.pageY
+                    });
+                    menu.show();
+
+                    $(document).one("click", function(){
+                        hideTabContextMenu();
+                    });
+                });
+            }
+
+            function hideTabContextMenu(){
+                $("#tabContextMenu").hide();
+                selectedTabInfo = null;
+            }
+
+            function closeCurrentTab(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info) return;
+                closeTabWithUUIDAndEditorID(info.tabUUID, info.editorUUID);
+            }
+
+            function closeOtherTabs(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info) return;
+
+                var editor = getEditor(info.editorUUID);
+                if (!editor) return;
+
+                var tabsToClose = [];
+                editor.tabs.forEach(tab => {
+                    if (tab.tabUUID != info.tabUUID){
+                        tabsToClose.push(tab.tabUUID);
+                    }
+                });
+
+                tabsToClose.forEach(tabUUID => {
+                    closeTabWithUUIDAndEditorID(tabUUID, info.editorUUID);
+                });
+                // Restore focus to the right-clicked tab
+                changeTab(editor, info.tabUUID);
+            }
+
+            function closeTabsToTheRight(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info) return;
+
+                var editor = getEditor(info.editorUUID);
+                if (!editor) return;
+
+                var foundSelected = false;
+                var tabsToClose = [];
+                
+                editor.tabs.forEach(tab => {
+                    if (foundSelected){
+                        tabsToClose.push(tab.tabUUID);
+                    }
+                    if (tab.tabUUID == info.tabUUID){
+                        foundSelected = true;
+                    }
+                });
+
+                tabsToClose.forEach(tabUUID => {
+                    closeTabWithUUIDAndEditorID(tabUUID, info.editorUUID);
+                });
+                // Restore focus to the right-clicked tab
+                changeTab(editor, info.tabUUID);
+            }
+
+            function closeTabsToTheLeft(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info) return;
+
+                var editor = getEditor(info.editorUUID);
+                if (!editor) return;
+
+                var tabsToClose = [];
+                
+                for (var i = 0; i < editor.tabs.length; i++){
+                    if (editor.tabs[i].tabUUID == info.tabUUID){
+                        break;
+                    }
+                    tabsToClose.push(editor.tabs[i].tabUUID);
+                }
+
+                tabsToClose.forEach(tabUUID => {
+                    closeTabWithUUIDAndEditorID(tabUUID, info.editorUUID);
+                });
+                // Restore focus to the right-clicked tab
+                changeTab(editor, info.tabUUID);
+            }
+
+            function closeAllTabsInEditor(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info) return;
+
+                var editor = getEditor(info.editorUUID);
+                if (!editor) return;
+
+                var tabsToClose = editor.tabs.map(tab => tab.tabUUID);
+                tabsToClose.forEach(tabUUID => {
+                    closeTabWithUUIDAndEditorID(tabUUID, info.editorUUID);
+                });
+            }
+
+            function copyFilePathFromTab(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info || !info.filepath) return;
+
+                copyToClipboard(info.filepath);
+                msgbox("copy", "Path copied to clipboard");
+            }
+
+            function revealTabInFileManager(){
+                var info = selectedTabInfo;
+                hideTabContextMenu();
+                if (!info || !info.filepath) return;
+
+                var pathParts = info.filepath.split("/");
+                var filename = pathParts.pop();
+                var dirname = pathParts.join("/");
+
+                ao_module_openPath(dirname, filename);
+            }
+
+            /*
+                =========================================
+                Enhanced Tab Drag Functions
+                =========================================
+            */
+
+            //Drag tab from one editor to another (enhanced version)
+            function fileTabDrag(ev) {
+                var tabUUID = $(ev.target).attr("uuid");
+                var tabFilepath = $(ev.target).attr("filepath");
+                var tabFilename = $(ev.target).text().trim();
+                var sourceEditorUUID = $(ev.target).attr("editorUUID");
+                
+                ev.dataTransfer.setData("uuid", tabUUID);
+                ev.dataTransfer.setData("filename", tabFilename);
+                ev.dataTransfer.setData("filepath", tabFilepath);
+                ev.dataTransfer.setData("sourceEditorUUID", sourceEditorUUID);
+                ev.dataTransfer.effectAllowed = "move";
+            }
+
+            /*
+                =========================================
+                Enhanced Close Functions
+                =========================================
+            */
+
+            // Close all files with confirmation for unsaved
+            function closeAllFilesWithConfirm(){
+                var hasUnsavedChanges = false;
+                
+                editors.forEach(editor => {
+                    editor.tabs.forEach(tab => {
+                        var currentModel = editor.model[tab.tabUUID];
+                        if (currentModel){
+                            var currentContent = currentModel.getValue();
+                            if (currentContent.hashCode() !== tab.saveHash){
+                                hasUnsavedChanges = true;
+                            }
+                        }
+                    });
+                });
+
+                if (hasUnsavedChanges){
+                    if (!confirm("Some files have unsaved changes. Close anyway?")){
+                        return;
+                    }
+                }
+
+                closeAllFiles();
+            }
+
+            /*
+                =========================================
+                Global Event Handlers
+                =========================================
+            */
+
+            // Hide context menus when clicking elsewhere
+            $(document).on("click", function(event){
+                if (!$(event.target).closest("#folderContextMenu").length){
+                    hideFolderContextMenu();
+                }
+                if (!$(event.target).closest("#tabContextMenu").length){
+                    hideTabContextMenu();
+                }
+            });
+
+            // Keyboard shortcuts for folder tree
+            $(document).on("keydown", function(event){
+                // F2 for rename
+                if (event.key === "F2" && selectedFolderItem){
+                    renameSelectedItem();
+                }
+                // Delete key
+                if (event.key === "Delete" && selectedFolderItem){
+                    deleteSelectedItem();
+                }
+            });
+
+            // Directory explorer drop zone for moving files to root
+            $("#directoryExplorer").attr("ondragover", "allowDrop(event)");
+            $("#directoryExplorer").attr("ondrop", "directoryExplorerDrop(event)");
+
+            function directoryExplorerDrop(event){
+                event.preventDefault();
+                event.stopPropagation();
+                $("#directoryExplorer").removeClass("drag-over");
+
+                var sourcePath = event.dataTransfer.getData("filepath");
+                var sourceFilename = event.dataTransfer.getData("filename");
+
+                if (!sourcePath || !currentProjectFolder){
+                    return;
+                }
+
+                // Move to project root
+                ao_module_agirun("Code Studio/backend/fileOps.agi", {
+                    opr: "move",
+                    sourcepath: sourcePath,
+                    destfolder: currentProjectFolder
+                }, function(data){
+                    var result = data;
+                    if (result.error){
+                        alert("Failed to move: " + result.error);
+                    } else {
+                        refreshFolderTree();
+                        msgbox("checkmark", "Moved to project root");
+                    }
+                });
             }
 
         </script>

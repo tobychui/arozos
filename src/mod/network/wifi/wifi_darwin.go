@@ -1,4 +1,6 @@
+//go:build darwin
 // +build darwin
+
 package wifi
 
 /*
@@ -7,7 +9,7 @@ package wifi
 */
 import "errors"
 
-//Toggle WiFi On Off. Only allow on sudo mode
+// Toggle WiFi On Off. Only allow on sudo mode
 func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	return errors.New("Platform not supported")
 }

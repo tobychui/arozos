@@ -4,8 +4,8 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "runtime/runtime_adjustment": "即時執行環境調整",
                 "runtime/update_system_startup_parameters": "在運行時更新系統啟動參數",
                 "runtime/host_name": "伺服器名稱",
@@ -25,19 +25,15 @@
                 "runtime/update_failed": "參數更新失敗",
                 "runtime/param_updated": "啟動參數已更新",
                 "runtime/param_updated_note": "這些設置僅會應用在當前的執行環境。重新啟動您的服務器以恢復到預設值。",
-                "":""
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "runtime/runtime_adjustment": "即時執行環境調整",
                 "runtime/update_system_startup_parameters": "在運行時更新系統啟動參數",
                 "runtime/host_name": "伺服器名稱",
@@ -57,19 +53,15 @@
                 "runtime/update_failed": "參數更新失敗",
                 "runtime/param_updated": "啟動參數已更新",
                 "runtime/param_updated_note": "這些設置僅會應用在當前的執行環境。重新啟動您的服務器以恢復到預設值。",
-                "":""
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
             "name": "简体中文（简体）",
-            "fwtitle" : "",
-            "strings":{
+            "fwtitle": "",
+            "strings": {
                 "runtime/runtime_adjustment": "即时执行环境调整",
                 "runtime/update_system_startup_parameters": "在运行时更新系统启动参数",
                 "runtime/host_name": "伺服器名称",
@@ -89,14 +81,94 @@
                 "runtime/update_failed": "参数更新失败",
                 "runtime/param_updated": "启动参数已更新",
                 "runtime/param_updated_note": "这些设置仅会应用在当前的执行环境。重新启动您的服务器以恢复到预设值。",
-                "":""
+                "": ""
             },
-            "titles":{
-
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "runtime/runtime_adjustment": "Runtime Adjustment",
+                "runtime/update_system_startup_parameters": "Update system startup parameters at runtime",
+                "runtime/host_name": "Server Name",
+                "runtime/max_upload_size": "Max Upload Size (MB)",
+                "runtime/file_upload_buffer": "File Upload Buffer (MB)",
+                "runtime/file_io_buffer": "File IO Buffer (bytes, default 1024)",
+                "runtime/disable_ip_resolver": "Disable IP Resolver",
+                "runtime/disable_ip_resolver_note": "Do not attempt to resolve client IP addresses; useful when the server is behind NAT or a reverse proxy",
+                "runtime/enable_home_page": "Enable Homepage",
+                "runtime/enable_home_page_note": "Allow users to host their own static web pages",
+                "runtime/enable_directory_listing": "Enable Directory Listing",
+                "runtime/enable_directory_listing_note": "Allow listing directory contents if the requested URL is a folder",
+                "runtime/confirmation_message": "To proceed with updating your startup configuration, please confirm:",
+                "runtime/i_know_what_i_am_doing": "I confirm I know what I am doing",
+                "runtime/i_know_what_i_am_doing_note": "These settings will only be applied to the current runtime environment. If problems occur, you can restart the system to restore defaults.",
+                "runtime/write_to_runtime": "Write to Current Runtime",
+                "runtime/update_failed": "Parameter update failed",
+                "runtime/param_updated": "Startup parameters updated",
+                "runtime/param_updated_note": "These settings will only be applied to the current runtime environment. Restart your server to restore defaults.",
+                "": ""
             },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "runtime/runtime_adjustment": "ランタイム調整",
+                "runtime/update_system_startup_parameters": "ランタイム中にシステム起動パラメータを更新",
+                "runtime/host_name": "サーバー名",
+                "runtime/max_upload_size": "最大アップロードサイズ（MB）",
+                "runtime/file_upload_buffer": "ファイルアップロードバッファ（MB）",
+                "runtime/file_io_buffer": "ファイルIOバッファ（バイト、デフォルト1024）",
+                "runtime/disable_ip_resolver": "IPリゾルバーを無効化",
+                "runtime/disable_ip_resolver_note": "クライアントIPアドレスの解決を試みません。サーバーがNATまたはリバースプロキシの後ろにある場合に有用です",
+                "runtime/enable_home_page": "ホームページを有効化",
+                "runtime/enable_home_page_note": "ユーザーが自分の静的ウェブページをホストできるようにします",
+                "runtime/enable_directory_listing": "ディレクトリリストを有効化",
+                "runtime/enable_directory_listing_note": "リクエストされたURLがフォルダの場合、ディレクトリの内容のリストを許可します",
+                "runtime/confirmation_message": "起動設定の更新を続行するには確認してください：",
+                "runtime/i_know_what_i_am_doing": "何をしているか分かっています",
+                "runtime/i_know_what_i_am_doing_note": "これらの設定は現在のランタイム環境にのみ適用されます。問題が発生した場合はシステムを再起動してデフォルト値に戻すことができます。",
+                "runtime/write_to_runtime": "現在のランタイムに書き込む",
+                "runtime/update_failed": "パラメータ更新失敗",
+                "runtime/param_updated": "起動パラメータが更新されました",
+                "runtime/param_updated_note": "これらの設定は現在のランタイム環境にのみ適用されます。デフォルト値に戻すにはサーバーを再起動してください。",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "runtime/runtime_adjustment": "런타임 조정",
+                "runtime/update_system_startup_parameters": "런타임 중 시스템 시작 매개변수 업데이트",
+                "runtime/host_name": "서버 이름",
+                "runtime/max_upload_size": "최대 업로드 크기 (MB)",
+                "runtime/file_upload_buffer": "파일 업로드 버퍼 (MB)",
+                "runtime/file_io_buffer": "파일 IO 버퍼 (바이트, 기본값 1024)",
+                "runtime/disable_ip_resolver": "IP 리졸버 비활성화",
+                "runtime/disable_ip_resolver_note": "클라이언트 IP 주소 분석을 시도하지 않습니다. 서버가 NAT 또는 리버스 프록시 뒤에 있을 때 유용합니다",
+                "runtime/enable_home_page": "홈페이지 활성화",
+                "runtime/enable_home_page_note": "사용자가 자신의 정적 웹 페이지를 호스팅할 수 있도록 허용합니다",
+                "runtime/enable_directory_listing": "디렉토리 목록 활성화",
+                "runtime/enable_directory_listing_note": "요청된 URL이 폴더인 경우 디렉토리 내용 목록을 허용합니다",
+                "runtime/confirmation_message": "시작 설정 업데이트를 진행하려면 확인하세요:",
+                "runtime/i_know_what_i_am_doing": "무엇을 하고 있는지 알고 있습니다",
+                "runtime/i_know_what_i_am_doing_note": "이 설정은 현재 런타임 환경에만 적용됩니다. 문제가 발생하면 시스템을 재시작하여 기본값으로 복원할 수 있습니다.",
+                "runtime/write_to_runtime": "현재 런타임에 쓰기",
+                "runtime/update_failed": "매개변수 업데이트 실패",
+                "runtime/param_updated": "시작 매개변수가 업데이트되었습니다",
+                "runtime/param_updated_note": "이 설정은 현재 런타임 환경에만 적용됩니다. 기본값으로 복원하려면 서버를 재시작하세요.",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
         }
     }
 }

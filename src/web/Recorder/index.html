@@ -322,6 +322,37 @@
             var websocket;
             var videCaptureRecorder;
 
+            // CRC32 lookup table and helpers (IEEE polynomial, matches Go's hash/crc32 package)
+            const crc32Table = (() => {
+                const t = new Uint32Array(256);
+                for (let i = 0; i < 256; i++) {
+                    let c = i;
+                    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                    t[i] = c;
+                }
+                return t;
+            })();
+            function crc32UpdateState(state, bytes) {
+                for (let i = 0; i < bytes.length; i++)
+                    state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
+                return state;
+            }
+            function crc32Hex(bytes) {
+                return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+            }
+
+            // Chunk queue state for ordered, ack-gated WebSocket upload
+            const WS_CHUNK_TIMEOUT_MS = 30000;
+            const WS_MAX_CHUNK_RETRIES = 3;
+            var wsChunkQueue        = [];
+            var wsIsProcessingChunk = false;
+            var wsChunkIndex        = 0;
+            var wsRunningCRC32State = 0xFFFFFFFF;
+            var wsChunkCRC32Committed = {};
+            var wsChunkRetryCount   = 0;
+            var wsChunkTimeoutTimer = null;
+            var wsRecordingStopped  = false;
+
             function getWebsocketUploadEndpoint(){
                 return getWebSocketEndpoint() + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(getVideoFilename()) + "&path=" + encodeURIComponent($("#saveFolder").val());
             }
@@ -372,8 +403,54 @@
 
             function startVideoCapture() {
                 this.disabled = true;
+
+                // Reset all chunk queue state for a fresh recording session
+                wsChunkQueue          = [];
+                wsIsProcessingChunk   = false;
+                wsChunkIndex          = 0;
+                wsRunningCRC32State   = 0xFFFFFFFF;
+                wsChunkCRC32Committed = {};
+                wsChunkRetryCount     = 0;
+                wsChunkTimeoutTimer   = null;
+                wsRecordingStopped    = false;
+
                 websocket = new WebSocket(getWebsocketUploadEndpoint());
-                //websocket.binaryType = 'blob';
+
+                websocket.onmessage = async function(event) {
+                    var data = event.data;
+                    if (data === "next") {
+                        clearTimeout(wsChunkTimeoutTimer);
+                        wsChunkRetryCount = 0;
+                        wsChunkQueue.shift(); // remove the acknowledged chunk
+                        wsIsProcessingChunk = false;
+                        processNextWsChunk();
+                    } else if (data === "OK") {
+                        updateStatus("Capture Saved");
+                    } else {
+                        try {
+                            var resp = JSON.parse(data);
+                            if (resp.retryChunk !== undefined) {
+                                clearTimeout(wsChunkTimeoutTimer);
+                                if (wsChunkRetryCount < WS_MAX_CHUNK_RETRIES && wsChunkQueue.length > 0) {
+                                    wsChunkRetryCount++;
+                                    console.warn("[Recorder] Server requested retry for chunk " + resp.retryChunk);
+                                    let top = wsChunkQueue[0];
+                                    await sendWsChunk(top.index, top.blob);
+                                }
+                            } else if (resp.error !== undefined) {
+                                updateStatus("Upload Failed: " + resp.error);
+                            }
+                        } catch(ex) {
+                            console.log(data, ex);
+                        }
+                    }
+                };
+
+                websocket.onerror = function(error) {
+                    console.error("[Recorder] WebSocket error:", error);
+                    clearTimeout(wsChunkTimeoutTimer);
+                    updateStatus("Upload Error – check console");
+                };
 
                 captureCamera(function(camera) {
 
@@ -383,7 +460,9 @@
                         timeSlice: 100,
                         getNativeBlob: true,
                         ondataavailable: function(blob) {
-                            websocket.send(blob);
+                            var currentIndex = wsChunkIndex++;
+                            wsChunkQueue.push({index: currentIndex, blob: blob});
+                            processNextWsChunk();
                         }
                     });
 
@@ -403,12 +482,70 @@
                 });
             }
 
+            async function sendWsChunk(id, blob) {
+                let arrayBuffer;
+                try {
+                    arrayBuffer = await blob.arrayBuffer();
+                } catch(e) {
+                    console.error("[Recorder] Failed to read chunk " + id + ": " + e);
+                    wsIsProcessingChunk = false;
+                    return;
+                }
+
+                let bytes = new Uint8Array(arrayBuffer);
+
+                // Update full-file running CRC32 only on first attempt per chunk
+                if (!wsChunkCRC32Committed[id]) {
+                    wsRunningCRC32State = crc32UpdateState(wsRunningCRC32State, bytes);
+                    wsChunkCRC32Committed[id] = true;
+                }
+
+                let chunkCRCHex = crc32Hex(bytes);
+                websocket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
+                websocket.send(arrayBuffer);
+
+                // Start ack timeout; retry on expiry
+                clearTimeout(wsChunkTimeoutTimer);
+                wsChunkTimeoutTimer = setTimeout(function() {
+                    if (wsChunkRetryCount < WS_MAX_CHUNK_RETRIES) {
+                        wsChunkRetryCount++;
+                        console.warn("[Recorder] Chunk " + id + " ACK timeout – retry " + wsChunkRetryCount + "/" + WS_MAX_CHUNK_RETRIES);
+                        sendWsChunk(id, blob);
+                    } else {
+                        console.error("[Recorder] Chunk " + id + " failed after max retries");
+                        wsIsProcessingChunk = false;
+                    }
+                }, WS_CHUNK_TIMEOUT_MS);
+            }
+
+            function processNextWsChunk() {
+                if (wsIsProcessingChunk || wsChunkQueue.length === 0) {
+                    // If recording has stopped and all chunks are drained, send the done signal
+                    if (wsRecordingStopped && !wsIsProcessingChunk && wsChunkQueue.length === 0) {
+                        sendWsDoneSignal();
+                    }
+                    return;
+                }
+                wsIsProcessingChunk = true;
+                var top = wsChunkQueue[0]; // peek – shift happens only after "next" ack
+                sendWsChunk(top.index, top.blob);
+            }
+
+            function sendWsDoneSignal() {
+                var finalCRC32Hex = ((wsRunningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+                websocket.send(JSON.stringify({done: true, totalChunks: wsChunkIndex, fileChecksum: finalCRC32Hex}));
+                updateStatus("Saving...");
+            }
 
             function stopVideoCapture(){
                 videCaptureRecorder.stopRecording(stopRecordingCallback);
-                websocket.send("done");
+                // Don't send "done" immediately – wait for the chunk queue to drain
+                wsRecordingStopped = true;
+                if (!wsIsProcessingChunk && wsChunkQueue.length === 0) {
+                    sendWsDoneSignal();
+                }
                 clearInterval(recordTimer);
-                updateStatus("Capturing Stopped");
+                updateStatus("Capturing Stopped – Saving...");
                 $(".item.tab").removeClass("disabled");
                 $("#vidstop").addClass("disabled");
                 $("#capture").removeClass("disabled");

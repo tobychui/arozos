@@ -3,11 +3,12 @@ package permission
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"strings"
 
 	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	storage "imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -19,6 +20,7 @@ type PermissionGroup struct {
 	DefaultStorageQuota    int64
 	AccessibleModules      []string
 	StoragePool            *storage.StoragePool
+	CanCreateCronJob       bool //Whether users in this group can create cron jobs
 	parent                 *PermissionHandler
 }
 
@@ -71,7 +73,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 			json.Unmarshal(keypairs[1], &originalJSONString)
 			err := json.Unmarshal([]byte(originalJSONString), &groupPermission)
 			if err != nil {
-				log.Println(err)
+				logger.PrintAndLog("Permission", fmt.Sprint(err), nil)
 			}
 			//IsAdmin
 			isAdmin := "false"
@@ -85,6 +87,14 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 			interfaceModule := "Desktop"
 			h.database.Read("permission", "interfaceModule/"+groupname, &interfaceModule)
 
+			//CanCreateCronJob
+			canCreateCronJob := "false"
+			h.database.Read("permission", "canCreateCronJob/"+groupname, &canCreateCronJob)
+			// Admin groups always have cron creation permission
+			if isAdmin == "true" {
+				canCreateCronJob = "true"
+			}
+
 			results = append(results, &PermissionGroup{
 				Name:                   groupname,
 				IsAdmin:                (isAdmin == "true"),
@@ -92,6 +102,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 				AccessibleModules:      groupPermission,
 				DefaultStorageQuota:    defaultStorageQuota,
 				StoragePool:            &storage.StoragePool{},
+				CanCreateCronJob:       (canCreateCronJob == "true"),
 				parent:                 h,
 			})
 		}
@@ -101,7 +112,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 	return nil
 }
 
-//Get the user permission groups
+// Get the user permission groups
 func (h *PermissionHandler) GetUsersPermissionGroup(username string) ([]*PermissionGroup, error) {
 	//Get user permission group name from database
 	targetUserGroup := []string{}
@@ -213,4 +224,42 @@ func (h *PermissionHandler) GetPermissionGroupByName(name string) *PermissionGro
 		}
 	}
 	return nil
+}
+
+// SetGroupCronJobPermission sets whether users in the given group can create cron jobs.
+// Admin groups always retain cron job permission regardless of this setting.
+func (h *PermissionHandler) SetGroupCronJobPermission(groupName string, allow bool) error {
+	if !h.GroupExists(groupName) {
+		return errors.New("permission group not exists")
+	}
+	for _, gp := range h.PermissionGroups {
+		if gp.Name == groupName {
+			// Admin groups always have cron permission
+			if gp.IsAdmin {
+				gp.CanCreateCronJob = true
+			} else {
+				gp.CanCreateCronJob = allow
+			}
+			break
+		}
+	}
+	allowStr := "false"
+	if allow {
+		allowStr = "true"
+	}
+	h.database.Write("permission", "canCreateCronJob/"+groupName, allowStr)
+	return nil
+}
+
+// GetGroupCronJobPermissionList returns a map of groupName -> canCreateCronJob for all groups
+func (h *PermissionHandler) GetGroupCronJobPermissionList() map[string]bool {
+	result := map[string]bool{}
+	for _, gp := range h.PermissionGroups {
+		if gp.IsAdmin {
+			result[gp.Name] = true
+		} else {
+			result[gp.Name] = gp.CanCreateCronJob
+		}
+	}
+	return result
 }

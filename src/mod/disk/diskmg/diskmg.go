@@ -3,7 +3,7 @@ package diskmg
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -71,6 +72,11 @@ If you find any bugs in these code, just remember they are legacy
 code and rewriting the whole thing will save you a lot more time.
 */
 func HandleView(w http.ResponseWriter, r *http.Request) {
+	if runtime.GOOS == "darwin" {
+		handleViewDarwin(w, r)
+		return
+	}
+
 	partition, _ := utils.GetPara(r, "partition")
 	detailMode := (partition != "")
 	if runtime.GOOS == "windows" {
@@ -111,7 +117,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 			utils.SendJSONResponse(w, string(js))
 
 		} else {
-			log.Println("system/disk/diskmg/DiskmgWin.exe NOT FOUND. Unable to load Window's disk information")
+			logger.PrintAndLog("Diskmg", "system/disk/diskmg/DiskmgWin.exe NOT FOUND. Unable to load Window's disk information", nil)
 			utils.SendErrorResponse(w, "DiskmgWin.exe not found")
 			return
 		}
@@ -190,6 +196,10 @@ Manual translated from mountTool.php
 Require GET parameter: dev / format / mnt
 */
 func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
+	if runtime.GOOS == "darwin" {
+		handleMountDarwin(w, r)
+		return
+	}
 	if runtime.GOOS == "linux" {
 		targetDev, _ := utils.GetPara(r, "dev")
 		format, err := utils.GetPara(r, "format")
@@ -297,7 +307,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	mounted, err := checkDeviceMounted(devID)
 	if err != nil {
 		//Fail to check if disk mounted
-		log.Println(err.Error())
+		logger.PrintAndLog("Diskmg", err.Error(), nil)
 		utils.SendErrorResponse(w, "Failed to check disk mount status")
 		return
 	}
@@ -311,7 +321,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 			return
 		}
 
-		log.Println("Unmounting " + mountpt + " for format")
+		logger.PrintAndLog("Diskmg", "Unmounting "+mountpt+" for format", nil)
 		//Unmount the devices
 		out, err := Unmount(mountpt, fsHandlers)
 		if err != nil {
@@ -337,16 +347,16 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	}
 
 	//Execute format comamnd
-	log.Println("Formatting of " + "/dev/" + devID + " Started")
+	logger.PrintAndLog("Diskmg", "Formatting of "+"/dev/"+devID+" Started", nil)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Format failed: " + string(output))
+		logger.PrintAndLog("Diskmg", "Format failed: "+string(output), nil)
 		utils.SendErrorResponse(w, string(output))
 		return
 	}
 
 	//Reply ok
-	log.Println(string(output))
+	logger.PrintAndLog("Diskmg", string(output), nil)
 
 	//Let the system to reload the disk
 	time.Sleep(2 * time.Second)
@@ -363,11 +373,11 @@ func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.F
 		}
 	}
 
-	log.Println("Executing Mount Command: ", "mount", "-t", mountingTool, "/dev/"+devID, mountpt)
+	logger.PrintAndLog("Diskmg", fmt.Sprint("Executing Mount Command: ", "mount", "-t", mountingTool, "/dev/"+devID, mountpt), nil)
 	cmd := exec.Command("mount", "-t", mountingTool, "/dev/"+devID, mountpt)
 	o, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Failed to mount "+devID, string(o))
+		logger.PrintAndLog("Diskmg", fmt.Sprint("Failed to mount "+devID, string(o)), nil)
 	}
 	return string(o), err
 }
@@ -381,7 +391,7 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 			fsh.Closed = true
 		}
 	}
-	log.Println("Executing Umount Command: ", "umount", mountpt)
+	logger.PrintAndLog("Diskmg", fmt.Sprint("Executing Umount Command: ", "umount", mountpt), nil)
 	cmd := exec.Command("umount", mountpt)
 	o, err := cmd.CombinedOutput()
 	return string(o), err
@@ -458,5 +468,125 @@ func checkDeviceValid(devname string) (bool, string) {
 
 func HandlePlatform(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(runtime.GOOS)
+	utils.SendJSONResponse(w, string(js))
+}
+
+/*
+HandleListDevicesWithInfo returns all block devices with their partitions,
+partition UUID (from blkid / lsblk -f), filesystem type, size and mount point.
+Used by the storage pool editor UI so the user can pick a partition by name
+instead of having to know the raw /dev path.
+
+GET /system/disk/diskmg/devices
+*/
+
+// lsblkFull is used to parse a single lsblk -b --json -o NAME,SIZE,TYPE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL call.
+type lsblkFull struct {
+	Blockdevices []lsblkFullDev `json:"blockdevices"`
+}
+
+type lsblkFullDev struct {
+	Name       string         `json:"name"`
+	Size       int64          `json:"size"`
+	Type       string         `json:"type"`
+	Fstype     interface{}    `json:"fstype"`
+	UUID       interface{}    `json:"uuid"`
+	Label      interface{}    `json:"label"`
+	Mountpoint interface{}    `json:"mountpoint"`
+	Model      interface{}    `json:"model"`
+	Children   []lsblkFullDev `json:"children"`
+}
+
+// PartitionDeviceInfo is the per-partition record returned to the frontend.
+type PartitionDeviceInfo struct {
+	Name       string `json:"name"`
+	DevPath    string `json:"devpath"`
+	Fstype     string `json:"fstype"`
+	UUID       string `json:"uuid"`
+	Label      string `json:"label"`
+	Size       int64  `json:"size"`
+	Mountpoint string `json:"mountpoint"`
+}
+
+// BlockDeviceInfo is the per-disk record returned to the frontend.
+type BlockDeviceInfo struct {
+	Name       string                `json:"name"`
+	Model      string                `json:"model"`
+	Size       int64                 `json:"size"`
+	Partitions []PartitionDeviceInfo `json:"partitions"`
+}
+
+func HandleListDevicesWithInfo(w http.ResponseWriter, r *http.Request) {
+	if runtime.GOOS != "linux" {
+		utils.SendErrorResponse(w, "This function is Linux only")
+		return
+	}
+
+	cmd := exec.Command("lsblk", "-b", "--json", "-o", "NAME,SIZE,TYPE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL")
+	o, err := cmd.CombinedOutput()
+	if err != nil {
+		utils.SendErrorResponse(w, "lsblk error: "+err.Error())
+		return
+	}
+
+	var raw lsblkFull
+	if err := json.Unmarshal(o, &raw); err != nil {
+		utils.SendErrorResponse(w, "parse error: "+err.Error())
+		return
+	}
+
+	// helper: safely convert interface{} to string
+	ifaceStr := func(v interface{}) string {
+		if v == nil {
+			return ""
+		}
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+
+	result := []BlockDeviceInfo{}
+	for _, dev := range raw.Blockdevices {
+		// Only show disk/loop/md types; skip rom, etc.
+		if dev.Type != "disk" && dev.Type != "md" && dev.Type != "loop" {
+			continue
+		}
+
+		diskInfo := BlockDeviceInfo{
+			Name:       dev.Name,
+			Model:      ifaceStr(dev.Model),
+			Size:       dev.Size,
+			Partitions: []PartitionDeviceInfo{},
+		}
+
+		for _, part := range dev.Children {
+			partInfo := PartitionDeviceInfo{
+				Name:       part.Name,
+				DevPath:    "/dev/" + part.Name,
+				Fstype:     ifaceStr(part.Fstype),
+				UUID:       ifaceStr(part.UUID),
+				Label:      ifaceStr(part.Label),
+				Size:       part.Size,
+				Mountpoint: ifaceStr(part.Mountpoint),
+			}
+			diskInfo.Partitions = append(diskInfo.Partitions, partInfo)
+		}
+
+		// If a disk has no children (e.g. unpartitioned), expose the disk itself as
+		// a single entry so it can still be selected.
+		if len(diskInfo.Partitions) == 0 {
+			diskInfo.Partitions = append(diskInfo.Partitions, PartitionDeviceInfo{
+				Name:       dev.Name,
+				DevPath:    "/dev/" + dev.Name,
+				Fstype:     ifaceStr(dev.Fstype),
+				UUID:       ifaceStr(dev.UUID),
+				Label:      ifaceStr(dev.Label),
+				Size:       dev.Size,
+				Mountpoint: ifaceStr(dev.Mountpoint),
+			})
+		}
+
+		result = append(result, diskInfo)
+	}
+
+	js, _ := json.Marshal(result)
 	utils.SendJSONResponse(w, string(js))
 }

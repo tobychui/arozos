@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>SDK Utilities — Arozcast Example</title>
+    <script src="../arozcast.js"></script>
+    <style>
+        body  { background:#111; color:#ddd; font-family:sans-serif; padding:24px; max-width:520px; }
+        h2    { margin:0 0 6px; }
+        p     { margin:0 0 14px; color:#888; }
+        code  { color:#aaa; background:#222; padding:1px 5px; border-radius:3px; }
+        input, button, select {
+            background:#222; color:#ddd; border:1px solid #444;
+            border-radius:4px; padding:5px 10px;
+        }
+        input[type=text] { width:160px; }
+        button { cursor:pointer; }
+        button:hover { background:#333; }
+        hr    { border:none; border-top:1px solid #333; margin:16px 0; }
+        h3    { margin:0 0 10px; font-size:14px; color:#bbb; }
+        #log  {
+            background:#0a0a0a; border:1px solid #333; border-radius:4px;
+            padding:10px; height:160px; overflow-y:auto;
+            font-size:12px; font-family:monospace; color:#8a8;
+        }
+        section { margin-bottom:16px; }
+        button  { margin:0 6px 6px 0; }
+    </style>
+</head>
+<body>
+
+<h2>SDK Utilities</h2>
+<p>
+    Demonstrates <code>notifyTakeover()</code>, <code>destroy()</code>,
+    <code>send()</code>, <code>on()</code> / <code>off()</code>,
+    the <code>takeover</code> event, and the <code>.code</code> /
+    <code>.connected</code> properties.
+</p>
+
+<!-- ── Connect ──────────────────────────────────────────────────────────── -->
+<section>
+    <h3>Connect</h3>
+    <p>
+        Room code:
+        <input id="code" maxlength="4" size="5" placeholder="1234">
+        <button onclick="doConnect()">Connect</button>
+        <button onclick="doDisconnect()">Disconnect</button>
+    </p>
+    <p id="status">Not connected</p>
+</section>
+
+<hr>
+
+<!-- ── cast.code / cast.connected properties ────────────────────────────── -->
+<section>
+    <h3><code>cast.code</code> &amp; <code>cast.connected</code> properties</h3>
+    <p>
+        Room: <code id="prop-code">null</code> &nbsp;|&nbsp;
+        Connected: <code id="prop-connected">false</code>
+        &nbsp; <button onclick="refreshProps()">Refresh</button>
+    </p>
+</section>
+
+<hr>
+
+<!-- ── send(topic, payload) ──────────────────────────────────────────────── -->
+<section>
+    <h3><code>send(topic, payload)</code> — raw message</h3>
+    <p>
+        Topic:
+        <select id="raw-topic">
+            <option>media.play</option>
+            <option>media.pause</option>
+            <option>media.stop</option>
+            <option>peer.heartbeat</option>
+        </select>
+        <button onclick="doRawSend()">Send</button>
+    </p>
+    <p style="margin-top:4px">
+        Custom topic: <input id="custom-topic" placeholder="my.topic">
+        Payload JSON: <input id="custom-payload" placeholder='{"key":"val"}'>
+        <button onclick="doCustomSend()">Send custom</button>
+    </p>
+</section>
+
+<hr>
+
+<!-- ── on() / off() ──────────────────────────────────────────────────────── -->
+<section>
+    <h3><code>on()</code> / <code>off()</code> — add and remove listeners</h3>
+    <p>
+        <button onclick="addStatusLog()">Add status logger</button>
+        <button onclick="removeStatusLog()">Remove status logger</button>
+    </p>
+    <p style="color:#888;font-size:13px" id="listener-state">Status logger: not added</p>
+</section>
+
+<hr>
+
+<!-- ── notifyTakeover() ──────────────────────────────────────────────────── -->
+<section>
+    <h3><code>notifyTakeover()</code></h3>
+    <p>
+        Broadcasts an <code>arozcast.takeover</code> BroadcastChannel message.
+        Other open sender tabs (Musicify, Movie, Photo, or other instances of
+        this SDK) will receive the <code>takeover</code> event and yield.
+    </p>
+    <button onclick="doTakeover()">Notify takeover</button>
+</section>
+
+<hr>
+
+<!-- ── destroy() ─────────────────────────────────────────────────────────── -->
+<section>
+    <h3><code>destroy()</code></h3>
+    <p>
+        Releases all SDK resources: removes event listeners, closes the
+        BroadcastChannel, closes the WebSocket silently (no
+        <code>media.stop</code>). Called automatically on page unload.
+        Use it to tear down the instance while the page is still open.
+    </p>
+    <button onclick="doDestroy()">Destroy instance</button>
+</section>
+
+<hr>
+
+<!-- ── Event log ──────────────────────────────────────────────────────────── -->
+<section>
+    <h3>Event log</h3>
+    <div id="log"></div>
+    <button onclick="document.getElementById('log').innerHTML=''" style="margin-top:8px">Clear</button>
+</section>
+
+<script>
+var _s = document.querySelector('script[src*="arozcast.js"]').src;
+var ao_root = _s.slice(0, _s.indexOf('Arozcast/arozcast.js'));
+
+var cast = new ArozCast({ aoRoot: ao_root });
+
+// ── Core event listeners ───────────────────────────────────────────────────
+
+cast.on('connect',      function(e) { log('connect — room ' + e.code); status('Connected to room ' + e.code); refreshProps(); });
+cast.on('disconnect',   function(e) { log('disconnect — room ' + e.code); status('Lost connection — reconnecting…'); refreshProps(); });
+cast.on('reconnecting', function(e) { log('reconnecting — attempt ' + e.attempt + ', delay ' + e.delay + ' ms'); });
+cast.on('giveup',       function(e) { log('giveup — room ' + e.code); status('Could not reconnect'); refreshProps(); });
+
+// takeover event — fires when another sender calls notifyTakeover()
+// (or when connect() is called anywhere, since connect() calls notifyTakeover() automatically)
+cast.on('takeover', function() {
+    log('takeover — another sender claimed the session; this instance yielded');
+    status('Session taken over by another sender');
+    refreshProps();
+});
+
+// ── on() / off() demo ─────────────────────────────────────────────────────
+
+// Named function so it can be removed with off()
+function statusLogger(s) {
+    log('status — time ' + fmt(s.currentTime) + '/' + fmt(s.duration)
+        + ', playing=' + s.isPlaying + ', vol=' + s.volume);
+}
+var statusLoggerAdded = false;
+
+function addStatusLog() {
+    if (statusLoggerAdded) return;
+    cast.on('status', statusLogger);   // on() adds a listener
+    statusLoggerAdded = true;
+    document.getElementById('listener-state').textContent = 'Status logger: added';
+}
+
+function removeStatusLog() {
+    if (!statusLoggerAdded) return;
+    cast.off('status', statusLogger);  // off() removes a specific listener
+    statusLoggerAdded = false;
+    document.getElementById('listener-state').textContent = 'Status logger: removed';
+}
+
+// ── send(topic, payload) ──────────────────────────────────────────────────
+
+function doRawSend() {
+    var topic = document.getElementById('raw-topic').value;
+    cast.send(topic, {});   // send() — raw message, silently dropped if not connected
+    log('send() — topic: ' + topic);
+}
+
+function doCustomSend() {
+    var topic   = document.getElementById('custom-topic').value.trim();
+    var rawJson = document.getElementById('custom-payload').value.trim() || '{}';
+    if (!topic) { alert('Enter a topic'); return; }
+    var payload;
+    try { payload = JSON.parse(rawJson); } catch(e) { alert('Invalid JSON payload'); return; }
+    cast.send(topic, payload);
+    log('send() — topic: ' + topic + ', payload: ' + rawJson);
+}
+
+// ── notifyTakeover() ──────────────────────────────────────────────────────
+
+function doTakeover() {
+    cast.notifyTakeover();  // broadcasts arozcast.takeover on BroadcastChannel
+    log('notifyTakeover() called — other open sender tabs will receive the takeover event');
+}
+
+// ── destroy() ────────────────────────────────────────────────────────────
+
+function doDestroy() {
+    cast.destroy();   // removes all listeners, closes BC and WS silently
+    log('destroy() called — instance is now inert; create a new ArozCast() to reconnect');
+    status('Instance destroyed');
+    refreshProps();
+}
+
+// ── Connect / disconnect ───────────────────────────────────────────────────
+
+function doConnect() {
+    var code = document.getElementById('code').value.trim();
+    if (!/^\d{4}$/.test(code)) { alert('Enter a 4-digit code'); return; }
+    status('Checking room…');
+    cast.ping(code).then(function(ok) {
+        if (!ok) { status('Room not found — is Arozcast open?'); return; }
+        return cast.connect(code);
+    }).catch(function(err) { status('Error: ' + err.message); });
+}
+
+function doDisconnect() {
+    cast.disconnect();
+    status('Disconnected');
+    refreshProps();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+// Read .code and .connected off the instance directly — they are plain properties
+function refreshProps() {
+    document.getElementById('prop-code').textContent      = JSON.stringify(cast.code);
+    document.getElementById('prop-connected').textContent = String(cast.connected);
+}
+
+function status(msg) { document.getElementById('status').textContent = msg; }
+
+function log(msg) {
+    var el  = document.getElementById('log');
+    var now = new Date().toLocaleTimeString();
+    el.innerHTML += '[' + now + '] ' + msg + '\n';
+    el.scrollTop  = el.scrollHeight;
+}
+
+function fmt(s) {
+    s = Math.floor(s || 0);
+    return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+}
+</script>
+</body>
+</html>

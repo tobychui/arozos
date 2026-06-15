@@ -8,17 +8,21 @@
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
+    <style>
+    #sys-setting-page { padding: 20px; }
+    </style>
 </head>
 <body>
-    <div class="ui container">
+    <div id="sys-setting-page">
         <div class="ui basic segment">
             <h3 class="ui header">
                 <span locale="locale/iot-hub-title">IoT Hub</span>
                 <div class="sub header" locale="locale/iot-hub-description">List of supported IoT protocol scanners for this Host</div>
             </h3>
         </div>
+        <div class="ui divider"></div>
         <div>
-            <table class="ui celled  very basic compact table">
+            <table class="ui celled very basic compact table">
                 <thead>
                   <tr>
                     <th locale="locale/protocol-name">Protocol Name</th>

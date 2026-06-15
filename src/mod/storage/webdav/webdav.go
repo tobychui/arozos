@@ -10,7 +10,7 @@ package webdav
 */
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +22,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/hidden"
 	"imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/webdav"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -224,7 +225,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Windows File Explorer. Handle with special case
 	/*
 		if r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir") && r.TLS == nil {
-			log.Println("Windows File Explorer Connection. Routing using alternative handler")
+			logger.PrintAndLog("Webdav", "Windows File Explorer Connection. Routing using alternative handler", nil)
 			s.HandleWindowClientAccess(w, r, reqRoot)
 			return
 		}
@@ -245,14 +246,14 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Validate request origin
 	allowAccess, err := authAgent.ValidateLoginRequest(w, r)
 	if !allowAccess {
-		log.Println("Someone from " + r.RemoteAddr + " try to log into " + username + " WebDAV endpoint but got rejected: " + err.Error())
+		logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to log into "+username+" WebDAV endpoint but got rejected: "+err.Error(), nil)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	passwordValid, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(username, password)
 	if !passwordValid {
 		authAgent.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "webdav")
-		log.Println("Someone from " + r.RemoteAddr + " try to log into " + username + " WebDAV endpoint but got rejected: " + rejectionReason)
+		logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to log into "+username+" WebDAV endpoint but got rejected: "+rejectionReason, nil)
 		http.Error(w, rejectionReason, http.StatusUnauthorized)
 		return
 	}
@@ -260,14 +261,14 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Resolve the vroot to realpath
 	userinfo, err := s.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
-		log.Println(err.Error())
+		logger.PrintAndLog("Webdav", err.Error(), nil)
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
 
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(reqRoot + ":/")
 	if err != nil {
-		log.Println("[WebDAV] Failed to load File System Handler from request root: ", reqRoot+":/", err.Error())
+		logger.PrintAndLog("Webdav", fmt.Sprint("[WebDAV] Failed to load File System Handler from request root: ", reqRoot+":/", err.Error()), nil)
 		http.Error(w, "Invalid ", http.StatusInternalServerError)
 		return
 	}
@@ -276,7 +277,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	/*
 		realRoot, err := userinfo.VirtualPathToRealPath(reqRoot + ":/")
 		if err != nil {
-			log.Println(err.Error())
+			logger.PrintAndLog("Webdav", err.Error(), nil)
 			http.Error(w, "Invalid ", http.StatusUnauthorized)
 			return
 		}

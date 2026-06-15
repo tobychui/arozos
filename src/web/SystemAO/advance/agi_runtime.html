@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>AGI Runtimes</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.js"></script>
+        <!-- applocale must be loaded before the inline script so NewAppLocale() is defined -->
+        <script src="../../script/applocale.js"></script>
+        <style>
+            #sys-setting-page { padding: 20px; }
+
+            /* ── Sortable column headers ──────────────────── */
+            th.sortable {
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+            }
+            th.sortable:hover { background: rgba(0,0,0,0.04) !important; }
+            body.dark th.sortable:hover { background: rgba(255,255,255,0.06) !important; }
+            th.sortable .sort-icon {
+                display: inline-block;
+                margin-left: 4px;
+                opacity: 0.35;
+                font-style: normal;
+                font-size: 0.82em;
+            }
+            th.sortable.asc  .sort-icon,
+            th.sortable.desc .sort-icon { opacity: 1; }
+            th.sortable.asc  .sort-icon::after { content: " ↑"; }
+            th.sortable.desc .sort-icon::after { content: " ↓"; }
+            th.sortable:not(.asc):not(.desc) .sort-icon::after { content: " ↕"; }
+
+            /* ── Running-time colour coding ───────────────── */
+            .elapsed-warn   { color: #e67e22; font-weight: 600; }
+            .elapsed-danger { color: #e74c3c; font-weight: 600; }
+
+            /* ── Exec-ID mono ─────────────────────────────── */
+            .execid-cell {
+                font-family: 'Cascadia Code', 'Consolas', monospace;
+                font-size: 0.82em;
+                color: #555;
+            }
+            body.dark .execid-cell { color: #9b9b9b; }
+
+            /* ── Refresh bar ──────────────────────────────── */
+            .refresh-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 10px;
+            }
+            .refresh-bar .left { display: flex; align-items: center; gap: 14px; }
+            #countdownText { color: #aaa; font-size: 0.88em; }
+
+            /* ── Empty / error states ─────────────────────── */
+            #emptyRow td { text-align: center; color: #aaa; padding: 28px 0 !important; }
+
+            /* ── Toast notification ───────────────────────── */
+            #toast {
+                display: none;
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                z-index: 9999;
+                min-width: 220px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="sys-setting-page">
+
+            <!-- Page header -->
+            <div class="ui basic segment" style="padding-bottom:0">
+                <div class="ui header">
+                    <i class="microchip icon"></i>
+                    <div class="content">
+                        <span locale="agi_runtime/title">AGI Runtimes</span>
+                        <div class="sub header">
+                            <span locale="agi_runtime/subtitle">Monitor and force-stop running AGI script VM instances. Regular users see their own scripts; administrators see all.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <!-- Toolbar -->
+            <div class="refresh-bar">
+                <div class="left">
+                    <span id="vmCountLabel"><span locale="agi_runtime/loading">Loading&hellip;</span></span>
+                    <span id="countdownText"></span>
+                </div>
+                <button class="ui tiny basic blue button" onclick="loadRuntimes()">
+                    <i class="refresh icon"></i>
+                    <span locale="agi_runtime/btn_refresh">Refresh Now</span>
+                </button>
+            </div>
+
+            <!-- Runtime table -->
+            <table class="ui celled striped table" id="runtimeTable">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-key="scriptFile" onclick="sortBy('scriptFile')">
+                            <span locale="agi_runtime/col_script">Script</span>
+                            <span class="sort-icon"></span>
+                        </th>
+                        <th class="sortable" data-key="username" onclick="sortBy('username')">
+                            <span locale="agi_runtime/col_user">User</span>
+                            <span class="sort-icon"></span>
+                        </th>
+                        <th class="sortable" data-key="startTime" onclick="sortBy('startTime')">
+                            <span locale="agi_runtime/col_started">Started</span>
+                            <span class="sort-icon"></span>
+                        </th>
+                        <th class="sortable" data-key="elapsedSeconds" onclick="sortBy('elapsedSeconds')">
+                            <span locale="agi_runtime/col_running">Running</span>
+                            <span class="sort-icon"></span>
+                        </th>
+                        <th><span locale="agi_runtime/col_execid">Exec ID</span></th>
+                        <th style="width:120px"><span locale="agi_runtime/col_actions">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody id="runtimeTbody">
+                    <tr id="emptyRow">
+                        <td colspan="6"><span locale="agi_runtime/loading">Loading&hellip;</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </div><!-- #sys-setting-page -->
+
+        <!-- Toast -->
+        <div id="toast" class="ui message"></div>
+
+        <script>
+            /* ── Locale ─────────────────────────────────────────────
+               Use NewAppLocale() so this scoped object never collides
+               with applocale instances in other AJAX-loaded pages.     */
+            var agiRtLoc = NewAppLocale();
+
+            function loc(key, fallback) {
+                return agiRtLoc.getString(key, fallback);
+            }
+
+            /* ── State ─────────────────────────────────────────────── */
+            var vmData        = [];
+            var sortKey       = "elapsedSeconds";
+            var sortAsc       = false;          // longest-running first by default
+            var countdownSecs = 5;
+
+            // Kill any interval left over from a previous AJAX load of this page.
+            // We store the ID on window so it survives the re-declaration of local
+            // variables when the same script block is executed a second time.
+            clearInterval(window._agiRtInterval);
+            window._agiRtInterval = null;
+
+            /* ── Boot ───────────────────────────────────────────────── */
+            $(document).ready(function() {
+                agiRtLoc.init(
+                    "../locale/system_settings/agi_runtime.json",
+                    function() {
+                        agiRtLoc.translate();   // apply locale= attributes
+                        updateSortHeaders();
+                        loadRuntimes();
+                    }
+                );
+            });
+
+            /* ── Data loading ───────────────────────────────────────── */
+            function loadRuntimes() {
+                clearInterval(window._agiRtInterval);
+                $.ajax({
+                    url: "../../system/ajgi/runtime/list",
+                    method: "GET",
+                    success: function(data) {
+                        vmData = Array.isArray(data) ? data : [];
+                        renderTable();
+                        updateCountLabel();
+                        startCountdown();
+                    },
+                    error: function() {
+                        showEmptyRow(loc("agi_runtime/error_load",
+                            "Failed to load runtime list — check your permissions."));
+                        document.getElementById("vmCountLabel").textContent =
+                            loc("agi_runtime/error_load", "Error");
+                        startCountdown();
+                    }
+                });
+            }
+
+            /* ── Rendering ──────────────────────────────────────────── */
+            function renderTable() {
+                var sorted = vmData.slice().sort(function(a, b) {
+                    var va = a[sortKey], vb = b[sortKey];
+                    if (typeof va === "string") va = va.toLowerCase();
+                    if (typeof vb === "string") vb = vb.toLowerCase();
+                    if (va < vb) return sortAsc ?  -1 : 1;
+                    if (va > vb) return sortAsc ?   1 : -1;
+                    return 0;
+                });
+
+                if (sorted.length === 0) {
+                    showEmptyRow(loc("agi_runtime/empty_state",
+                        "No AGI VMs are currently running."));
+                    return;
+                }
+
+                var btnLabel = loc("agi_runtime/btn_force_stop", "Force Stop");
+
+                document.getElementById("runtimeTbody").innerHTML = sorted.map(function(vm) {
+                    var scriptName = vm.scriptFile.split("/").pop() || vm.scriptFile;
+                    var startedStr = new Date(vm.startTime * 1000).toLocaleTimeString();
+                    var elapsedStr = fmtElapsed(vm.elapsedSeconds);
+                    var elapsedCls = vm.elapsedSeconds > 1800 ? "elapsed-danger"
+                                   : vm.elapsedSeconds > 300  ? "elapsed-warn"
+                                   : "";
+                    var shortID    = vm.execID.substring(0, 8) + "…";
+
+                    return '<tr>' +
+                        '<td title="' + esc(vm.scriptFile) + '">' + esc(scriptName) + '</td>' +
+                        '<td>' + esc(vm.username) + '</td>' +
+                        '<td>' + startedStr + '</td>' +
+                        '<td class="' + elapsedCls + '">' + elapsedStr + '</td>' +
+                        '<td class="execid-cell" title="' + esc(vm.execID) + '">' + shortID + '</td>' +
+                        '<td>' +
+                            '<button class="ui mini red basic button" ' +
+                                'onclick="forceStop(\'' + esc(vm.execID) + '\',\'' + esc(scriptName) + '\')">' +
+                                '<i class="stop circle outline icon"></i> ' + esc(btnLabel) +
+                            '</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join("");
+            }
+
+            function showEmptyRow(msg) {
+                document.getElementById("runtimeTbody").innerHTML =
+                    '<tr id="emptyRow"><td colspan="6">' + esc(msg) + '</td></tr>';
+            }
+
+            function updateCountLabel() {
+                var n   = vmData.length;
+                var str = n === 0 ? loc("agi_runtime/no_vms",  "No VMs running")
+                        : n === 1 ? loc("agi_runtime/one_vm",  "1 VM running")
+                        :           loc("agi_runtime/n_vms",   "{n} VMs running").replace("{n}", n);
+                document.getElementById("vmCountLabel").textContent = str;
+            }
+
+            /* ── Sorting ────────────────────────────────────────────── */
+            function sortBy(key) {
+                if (sortKey === key) {
+                    sortAsc = !sortAsc;
+                } else {
+                    sortKey = key;
+                    sortAsc = (key !== "elapsedSeconds");
+                }
+                renderTable();
+                updateSortHeaders();
+            }
+
+            function updateSortHeaders() {
+                document.querySelectorAll("th.sortable").forEach(function(th) {
+                    th.classList.remove("asc", "desc");
+                    if (th.getAttribute("data-key") === sortKey) {
+                        th.classList.add(sortAsc ? "asc" : "desc");
+                    }
+                });
+            }
+
+            /* ── Force stop ─────────────────────────────────────────── */
+            function forceStop(execID, scriptName) {
+                var confirmTitle   = loc("agi_runtime/confirm_stop",
+                    "Force stop the following script?");
+                var confirmWarning = loc("agi_runtime/confirm_warning",
+                    "The VM will be terminated immediately and the request will return HTTP 503. Any unsaved state will be lost.");
+
+                if (!confirm(confirmTitle + "\n\n" + scriptName + "\n\n" + confirmWarning)) return;
+
+                $.ajax({
+                    url:    "../../system/ajgi/runtime/stop",
+                    method: "POST",
+                    data:   { execid: execID },
+                    success: function(data) {
+                        if (data && data.error) {
+                            showToast(loc("agi_runtime/toast_error_prefix", "Error: ") + data.error, "red");
+                        } else {
+                            showToast(loc("agi_runtime/toast_success",
+                                "VM force-stopped successfully."), "green");
+                            setTimeout(loadRuntimes, 800);
+                        }
+                    },
+                    error: function(xhr) {
+                        var msg = loc("agi_runtime/req_failed", "Request failed");
+                        try { msg = JSON.parse(xhr.responseText).error || msg; } catch(_) {}
+                        showToast(loc("agi_runtime/toast_error_prefix", "Error: ") + msg, "red");
+                    }
+                });
+            }
+
+            /* ── Auto-refresh countdown ─────────────────────────────── */
+            function startCountdown() {
+                countdownSecs = 5;
+                updateCountdownLabel();
+                window._agiRtInterval = setInterval(function() {
+                    countdownSecs--;
+                    updateCountdownLabel();
+                    if (countdownSecs <= 0) {
+                        clearInterval(window._agiRtInterval);
+                        loadRuntimes();
+                    }
+                }, 1000);
+            }
+
+            function updateCountdownLabel() {
+                var el = document.getElementById("countdownText");
+                if (!el) {
+                    clearInterval(window._agiRtInterval);
+                    window._agiRtInterval = null;
+                    return;
+                }
+                el.textContent = loc("agi_runtime/auto_refresh", "Auto-refresh in {n}s")
+                    .replace("{n}", countdownSecs);
+            }
+
+            /* ── Toast ──────────────────────────────────────────────── */
+            function showToast(msg, color) {
+                var t = document.getElementById("toast");
+                t.className = "ui " + (color || "blue") + " message";
+                t.textContent = msg;
+                t.style.display = "block";
+                setTimeout(function() { t.style.display = "none"; }, 3500);
+            }
+
+            /* ── Helpers ────────────────────────────────────────────── */
+            function fmtElapsed(sec) {
+                sec = Math.max(0, Math.floor(sec));
+                if (sec <   60) return sec + "s";
+                if (sec < 3600) return Math.floor(sec / 60) + "m " + (sec % 60) + "s";
+                var h = Math.floor(sec / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                return h + "h " + m + "m";
+            }
+
+            function esc(s) {
+                return String(s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;");
+            }
+        </script>
+    </body>
+</html>

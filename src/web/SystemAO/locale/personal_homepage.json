@@ -126,6 +126,31 @@
             "placeholder": {
                 "": ""
             }
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "header/title": "Personal Homepage",
+                "header/subtitle": "Create your own homepage on ArozOS",
+                "info/header": "What is Personal Homepage?",
+                "info/point1": "You can use ArozOS to host a static website",
+                "info/point2": "All website source code is accessible from your file manager in your user file system",
+                "info/point3": "Anyone can access your homepage using this link:",
+                "toggle/title": "Enable Personal Homepage",
+                "toggle/label": "Enable Personal Homepage",
+                "toggle/success": "Personal homepage status updated",
+                "webroot/title": "Select Web Root Folder Location",
+                "webroot/placeholder": "Select location",
+                "webroot/button": "Open",
+                "webroot/warning": "All files in the web root folder are accessible by anyone on the internet.",
+                "webroot/success": "Web root location updated",
+                "footer/note": "*All changes are automatically saved upon update.",
+                "": ""
+            },
+            "placeholder": {
+                "": ""
+            }
         }
     }
 }

@@ -5,12 +5,14 @@ package hardwareinfo
 
 import (
 	"encoding/json"
-	"imuslab.com/arozos/mod/utils"
-	"log"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +34,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -76,7 +78,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 
@@ -100,7 +102,7 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -177,7 +179,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(CPUInfo)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -196,7 +198,7 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(ramSizeInt)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }

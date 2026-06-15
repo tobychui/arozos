@@ -1,0 +1,20 @@
+/*
+    Text - Plain text editor for ArozOS
+    A simple TextEdit-style editor for plain text files.
+*/
+
+var moduleLaunchInfo = {
+    Name: "Text",
+    Desc: "Plain text editor",
+    Group: "Utilities",
+    IconPath: "Text/img/module_icon.png",
+    Version: "1.0",
+    StartDir: "Text/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Text/index.html",
+    SupportEmb: false,
+    InitFWSize: [720, 520],
+    SupportedExt: [".txt", ".md", ".csv", ".log", ".ini", ".conf"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

@@ -28,7 +28,7 @@ type Token struct {
 	Timeout      int64  //The timeout for this token in seconds
 }
 
-//Create a new CSRF Token Manager
+// Create a new CSRF Token Manager
 func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) *TokenManager {
 	tm := TokenManager{
 		UserHandler:            uh,
@@ -38,7 +38,7 @@ func NewTokenManager(uh *user.UserHandler, tokenExpireTime int64) *TokenManager 
 	return &tm
 }
 
-//Generate a new token
+// Generate a new token
 func (m *TokenManager) GenerateNewToken(username string) string {
 	//Generate a new uuid as the token
 	newUUID := uuid.NewV4().String()
@@ -72,7 +72,7 @@ func (m *TokenManager) GetUserTokenMap(username string) *sync.Map {
 	}
 }
 
-//Check if a given token is valud
+// Check if a given token is valud
 func (m *TokenManager) CheckTokenValidation(username string, token string) bool {
 	userSyncMap := m.GetUserTokenMap(username)
 	tokenObject, ok := userSyncMap.Load(token)

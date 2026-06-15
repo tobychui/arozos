@@ -12,7 +12,7 @@ import (
 )
 
 /*
-	Handler for WebDAV
+Handler for WebDAV
 */
 type ManagerOption struct {
 	Sysdb       *database.Database
@@ -27,7 +27,7 @@ type Manager struct {
 	option        *ManagerOption
 }
 
-//Create a new WebDAV Manager for handling related requests
+// Create a new WebDAV Manager for handling related requests
 func NewWebDAVManager(option *ManagerOption) *Manager {
 	m := Manager{
 		option: option,
@@ -75,7 +75,7 @@ func (m *Manager) HandleStatusChange(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	Functions required by new service mounting infrastructure
+Functions required by new service mounting infrastructure
 */
 func (m *Manager) WebDavToogle(enabled bool) error {
 	m.WebDavHandler.Enabled = enabled
@@ -103,7 +103,7 @@ func (m *Manager) GetWebDavEnabled() bool {
 	return m.WebDavHandler.Enabled
 }
 
-//Mapper of the original Connection related features
+// Mapper of the original Connection related features
 func (m *Manager) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
 	m.WebDavHandler.HandleConnectionList(w, r)
 }

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Terminal</title>
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <style>
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+            :root {
+                --bg:      #1e1e1e;
+                --bg2:     #252526;
+                --bg3:     #2d2d2d;
+                --border:  #3c3c3c;
+                --fg:      #d4d4d4;
+                --dim:     #858585;
+                --green:   #4ec94e;
+                --red:     #f44747;
+                --yellow:  #dcdcaa;
+                --blue:    #569cd6;
+                --orange:  #ce9178;
+                --purple:  #c586c0;
+            }
+
+            html, body { height: 100%; background: var(--bg); color: var(--fg);
+                font-family: 'Cascadia Code','Consolas','Courier New',monospace;
+                font-size: 13px; overflow: hidden; }
+
+            /* ── Shell ─────────────────────────────────────────────── */
+            .shell { display: flex; flex-direction: column; height: 100vh; }
+
+            /* ── Toolbar ───────────────────────────────────────────── */
+            .toolbar { flex-shrink:0; background:var(--bg3); border-bottom:1px solid var(--border);
+                display:flex; align-items:center; gap:4px; padding:4px 10px; height:34px; }
+            .tb-title { font-size:12px; color:var(--dim); margin-right:6px; white-space:nowrap; }
+            .tb-btn { padding:2px 10px; background:transparent; border:1px solid var(--border);
+                color:var(--dim); cursor:pointer; border-radius:3px; font-family:inherit;
+                font-size:11px; transition:background .1s,color .1s; white-space:nowrap; }
+            .tb-btn:hover { background:var(--bg2); color:var(--fg); }
+            .tb-btn.active { border-color:var(--green); color:var(--green); }
+            .conn-badge { margin-left:auto; display:flex; align-items:center; gap:5px;
+                font-size:11px; color:var(--dim); }
+            .conn-dot { width:7px; height:7px; border-radius:50%; background:var(--dim);
+                flex-shrink:0; transition:background .2s; }
+            .conn-dot.connecting { background:var(--yellow); animation:blink 1s ease-in-out infinite; }
+            .conn-dot.connected  { background:var(--green); }
+            .conn-dot.error      { background:var(--red); }
+            @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+            /* ── Main area (terminal + optional docs panel) ─────────── */
+            .main-area { flex:1; display:flex; overflow:hidden; }
+
+            /* ── Terminal output ────────────────────────────────────── */
+            .term-output { flex:1; overflow-y:auto; padding:10px 14px 6px; cursor:text;
+                scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+            .term-output::-webkit-scrollbar { width:6px; }
+            .term-output::-webkit-scrollbar-track { background:transparent; }
+            .term-output::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+            /* ── Output line types ─────────────────────────────────── */
+            .tl { line-height:1.65; white-space:pre-wrap; word-break:break-all; min-height:1.65em; }
+            .tl-in   { color:var(--fg); }
+            .tl-ok   { color:var(--green); }
+            .tl-err  { color:var(--red); }
+            .tl-log  { color:var(--yellow); }
+            .tl-sys  { color:var(--blue); }
+            .tl-file { color:var(--orange); }
+            .tl-dim  { color:var(--dim); }
+
+            /* ── Pending-file banner ────────────────────────────────── */
+            .pending-banner { display:none; background:#2a2d2e; border-top:1px solid var(--border);
+                border-bottom:1px solid var(--border); padding:5px 14px; font-size:11px;
+                color:var(--yellow); flex-shrink:0; }
+
+            /* ── Input row ──────────────────────────────────────────── */
+            .term-input-row { flex-shrink:0; display:flex; align-items:center; padding:7px 14px;
+                background:var(--bg2); border-top:1px solid var(--border); gap:8px; }
+            .term-prompt { color:var(--green); flex-shrink:0; user-select:none; }
+            .term-input { flex:1; background:transparent; border:none; color:var(--fg);
+                font-family:inherit; font-size:13px; outline:none; caret-color:var(--green); }
+            .term-input::placeholder { color:var(--dim); opacity:.5; }
+            .run-btn { padding:3px 12px; background:transparent; border:1px solid var(--border);
+                color:var(--dim); cursor:pointer; border-radius:3px; font-family:inherit;
+                font-size:11px; flex-shrink:0; }
+            .run-btn:hover { color:var(--green); border-color:var(--green); }
+
+            /* ══ DOCS PANEL ════════════════════════════════════════════ */
+            .docs-panel { width:320px; flex-shrink:0; background:var(--bg2);
+                border-left:1px solid var(--border); display:none; flex-direction:column; overflow:hidden; }
+            .docs-panel.open { display:flex; }
+
+            /* search */
+            .docs-search { padding:7px 8px; border-bottom:1px solid var(--border); flex-shrink:0; }
+            .docs-search input { width:100%; background:var(--bg); border:1px solid var(--border);
+                color:var(--fg); padding:4px 8px; border-radius:3px; font-family:inherit;
+                font-size:11px; outline:none; }
+            .docs-search input:focus { border-color:var(--blue); }
+
+            /* library tabs */
+            .docs-tabs { display:flex; flex-wrap:wrap; gap:3px; padding:6px 8px;
+                border-bottom:1px solid var(--border); max-height:72px; overflow-y:auto; flex-shrink:0;
+                scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+            .docs-tab { padding:2px 8px; background:transparent; border:1px solid var(--border);
+                color:var(--dim); cursor:pointer; border-radius:3px; font-family:inherit;
+                font-size:10px; transition:background .1s; }
+            .docs-tab:hover  { background:var(--bg3); color:var(--fg); }
+            .docs-tab.active { background:var(--green); border-color:var(--green); color:#0a0a0a; font-weight:700; }
+
+            /* function list */
+            .docs-list { flex:1; overflow-y:auto; scrollbar-width:thin;
+                scrollbar-color:var(--border) transparent; }
+            .docs-list::-webkit-scrollbar { width:4px; }
+            .docs-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+            /* section header inside list */
+            .docs-section-label { padding:5px 10px 3px; font-size:10px; font-weight:700;
+                color:var(--dim); text-transform:uppercase; letter-spacing:.05em;
+                border-bottom:1px solid var(--border); background:var(--bg); position:sticky; top:0; }
+
+            /* individual function card */
+            .docs-fn { padding:6px 10px 5px; border-bottom:1px solid #2e2e2e; }
+            .docs-fn:hover { background:#2a2a2a; }
+
+            .docs-fn-row { display:flex; align-items:baseline; gap:5px; }
+            .docs-fn-sig { flex:1; font-size:11px; color:var(--green); cursor:pointer;
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .docs-fn-sig:hover { color:#fff; }
+            .docs-ins-btn { padding:1px 7px; background:transparent; border:1px solid var(--border);
+                color:var(--dim); cursor:pointer; border-radius:2px; font-size:10px; flex-shrink:0;
+                font-family:inherit; white-space:nowrap; }
+            .docs-ins-btn:hover { background:var(--green); color:#000; border-color:var(--green); }
+
+            .docs-fn-desc { font-size:10px; color:var(--dim); margin-top:2px; line-height:1.4; }
+            .docs-fn-ret  { font-size:10px; color:var(--blue); margin-top:1px; }
+
+            .docs-ex-toggle { font-size:10px; color:var(--yellow); cursor:pointer;
+                display:inline-flex; align-items:center; gap:3px; margin-top:4px; user-select:none; }
+            .docs-ex-toggle:hover { color:#fff; }
+
+            .docs-ex-block { display:none; margin-top:5px; background:var(--bg);
+                border:1px solid var(--border); border-radius:3px; padding:6px 8px;
+                font-size:11px; color:var(--orange); white-space:pre-wrap; word-break:break-all;
+                line-height:1.5; }
+            .docs-ex-run { display:block; margin-top:5px; padding:2px 10px; background:transparent;
+                border:1px solid var(--border); color:var(--dim); cursor:pointer;
+                border-radius:2px; font-size:10px; font-family:inherit; }
+            .docs-ex-run:hover { background:var(--green); color:#000; border-color:var(--green); }
+
+            .docs-empty { padding:20px 10px; text-align:center; color:var(--dim); font-size:11px; }
+        </style>
+    </head>
+    <body>
+        <div class="shell">
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <span class="tb-title">&#9654; AGI Terminal</span>
+                <button class="tb-btn" onclick="clearOutput()">Clear</button>
+                <button class="tb-btn" onclick="reconnect()">Reconnect</button>
+                <button class="tb-btn" id="btnDocs" onclick="toggleDocs()">Docs</button>
+                <button class="tb-btn" onclick="showHelp()">Help</button>
+                <div class="conn-badge">
+                    <span class="conn-dot connecting" id="connDot"></span>
+                    <span id="connLabel">Connecting&hellip;</span>
+                </div>
+            </div>
+
+            <!-- Main split area -->
+            <div class="main-area">
+
+                <!-- Terminal output -->
+                <div class="term-output" id="termOutput" onclick="focusInput()"></div>
+
+                <!-- ── Docs panel ────────────────────────────────── -->
+                <div class="docs-panel" id="docsPanel">
+                    <div class="docs-search">
+                        <input type="text" id="docsSearch" placeholder="Search functions&hellip;"
+                               oninput="filterDocs(this.value)" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="docs-tabs" id="docsTabs">
+                        <button class="tb-btn" style="font-size:10px;color:var(--dim)">Loading&hellip;</button>
+                    </div>
+                    <div class="docs-list" id="docsList">
+                        <div class="docs-empty">Loading documentation&hellip;</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Pending-file banner -->
+            <div class="pending-banner" id="pendingBanner">
+                &#9658; File loaded &mdash; press
+                <kbd style="background:#3c3c3c;padding:0 4px;border-radius:2px">Enter</kbd>
+                to run, or type a new command to cancel
+            </div>
+
+            <!-- Input row -->
+            <div class="term-input-row">
+                <span class="term-prompt">&gt;</span>
+                <input class="term-input" id="termInput" type="text"
+                       autocomplete="off" autocorrect="off" spellcheck="false"
+                       placeholder="JavaScript / AGI&hellip;"
+                       onkeydown="handleKey(event)">
+                <button class="run-btn" onclick="submitInput()">&#9654; Run</button>
+            </div>
+
+        </div><!-- .shell -->
+
+        <script>
+        // ── State ───────────────────────────────────────────────────────────
+        var ws           = null;
+        var cmdHistory   = [];
+        var histIdx      = -1;
+        var pendingCode  = null;
+        var sessionReady = false;
+        var pendingFiles = [];
+
+        // ── WebSocket ────────────────────────────────────────────────────────
+        function wsEndpoint() {
+            var p = location.protocol === "https:" ? "wss://" : "ws://";
+            return p + location.hostname + ":" + location.port;
+        }
+
+        function connect() {
+            setConn("connecting", "Connecting…");
+            ws = new WebSocket(wsEndpoint() + "/system/ajgi/interface?script=Terminal/backend/session.agi");
+
+            ws.onopen    = function() { /* wait for "ready" JSON message */ };
+            ws.onmessage = function(e) {
+                var msg; try { msg = JSON.parse(e.data); } catch(_) { return; }
+                handleServerMsg(msg);
+            };
+            ws.onclose   = function() {
+                sessionReady = false;
+                setConn("error", "Disconnected");
+                line("sys", "# Session closed.  Click Reconnect to start a new one.");
+                ws = null;
+            };
+            ws.onerror   = function() { setConn("error", "Connection error"); };
+        }
+
+        function wsSend(obj) {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+        }
+
+        setInterval(function() { wsSend({ type: "ping" }); }, 30000);
+
+        // ── Server messages ──────────────────────────────────────────────────
+        function handleServerMsg(msg) {
+            if (msg.type === "ready") {
+                sessionReady = true;
+                setConn("connected", "Connected — " + msg.user);
+                line("sys", "# AGI Terminal — ArozOS " + (msg.build || "") + "  |  user: " + msg.user);
+                line("sys", "# All AGI globals and requirelib() are available.");
+                line("sys", "# Type .help for commands.  Variables persist for this session.");
+                line("dim", "");
+                if (pendingFiles.length > 0) {
+                    pendingFiles.forEach(function(p) { loadFile(p); });
+                    pendingFiles = [];
+                }
+                focusInput();
+                return;
+            }
+            if (msg.type === "result") {
+                if (msg.logs && msg.logs.length) msg.logs.forEach(function(l) { line("log", "· " + l); });
+                if (msg.error) {
+                    line("err", "✕ " + msg.output);
+                } else if (msg.output !== "" && msg.output !== undefined) {
+                    String(msg.output).split("\n").forEach(function(l, i) {
+                        line("ok", (i === 0 ? "← " : "  ") + l);
+                    });
+                } else {
+                    line("dim", "← undefined");
+                }
+            }
+        }
+
+        function execCode(code) {
+            if (!sessionReady) { line("err", "✕ Session not ready. Click Reconnect."); return; }
+            wsSend({ type: "exec", code: code });
+        }
+
+        // ── Input ────────────────────────────────────────────────────────────
+        function handleKey(e) {
+            if (e.key === "Enter") {
+                submitInput();
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (histIdx < cmdHistory.length - 1) { histIdx++; inp().value = cmdHistory[histIdx]; caretEnd(); }
+            } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (histIdx > 0) { histIdx--; inp().value = cmdHistory[histIdx]; }
+                else             { histIdx = -1; inp().value = ""; }
+            } else if (e.key === "Escape") {
+                cancelPending();
+            }
+        }
+
+        function submitInput() {
+            var raw = inp().value; inp().value = ""; histIdx = -1;
+
+            // Empty Enter + pending file → run the file
+            if (raw.trim() === "" && pendingCode !== null) {
+                var code = pendingCode; cancelPending();
+                line("sys", "# Running loaded file…");
+                line("in",  "> (file)");
+                execCode(code);
+                return;
+            }
+            if (raw.trim() === "") return;
+
+            if (!cmdHistory.length || cmdHistory[0] !== raw) {
+                cmdHistory.unshift(raw);
+                if (cmdHistory.length > 500) cmdHistory.pop();
+            }
+            if (pendingCode !== null) cancelPending();
+            line("in", "> " + raw);
+
+            // Client-side dot commands
+            var cmd = raw.trim();
+            if      (cmd === ".help")    { showHelp();    return; }
+            else if (cmd === ".clear")   { clearOutput(); return; }
+            else if (cmd === ".reset")   { reconnect();   return; }
+            else if (cmd === ".history") { showHistory(); return; }
+            else if (cmd === ".docs")    { toggleDocs();  return; }
+
+            execCode(raw);
+        }
+
+        // ── File loading ─────────────────────────────────────────────────────
+        function loadFile(vpath) {
+            ao_module_agirun("Terminal/backend/readfile.agi", { path: vpath },
+                function(content) {
+                    if (typeof content === "string" && content.indexOf("__ERROR__") === 0) {
+                        line("err", "✕ " + content.replace("__ERROR__", "")); return;
+                    }
+                    var codeLines = String(content).split("\n");
+                    var preview   = Math.min(codeLines.length, 20);
+                    var filename  = vpath.split("/").pop();
+
+                    line("dim",  "");
+                    line("file", "# ■ Loaded: " + filename + "  (" + codeLines.length + " line" + (codeLines.length !== 1 ? "s" : "") + ")");
+                    line("dim",  "# " + "─".repeat(48));
+                    for (var i = 0; i < preview; i++) {
+                        var n = String(i + 1); while (n.length < 3) n = " " + n;
+                        line("file", n + "  " + codeLines[i]);
+                    }
+                    if (codeLines.length > preview)
+                        line("dim", "     … and " + (codeLines.length - preview) + " more lines");
+                    line("dim",  "# " + "─".repeat(48));
+
+                    pendingCode = content;
+                    document.getElementById("pendingBanner").style.display = "block";
+                    focusInput();
+                },
+                function() { line("err", "✕ Failed to read: " + vpath); }
+            );
+        }
+
+        function cancelPending() {
+            pendingCode = null;
+            document.getElementById("pendingBanner").style.display = "none";
+        }
+
+        // ── Built-in commands ────────────────────────────────────────────────
+        function showHelp() {
+            line("sys", "# ── Commands ───────────────────────────────────────────");
+            line("sys", "#  .help     show this help");
+            line("sys", "#  .clear    clear output");
+            line("sys", "#  .reset    reconnect / new session");
+            line("sys", "#  .history  show command history");
+            line("sys", "#  .docs     toggle API reference panel");
+            line("sys", "# ");
+            line("sys", "# ── Keys ────────────────────────────────────────────");
+            line("sys", "#  Enter     run (or confirm loaded file)");
+            line("sys", "#  ↑ / ↓     history navigation");
+            line("sys", "#  Escape    cancel loaded file");
+            line("sys", "# ");
+            line("sys", "# ── Tips ────────────────────────────────────────────");
+            line("sys", "#  var x = 10; x * 2    → variables persist");
+            line("sys", "#  requirelib(\"filelib\") → then use filelib.*");
+            line("sys", "#  sendResp() / echo()  → output is captured");
+            line("sys", "#  Open .agi files from the file manager to load them here.");
+        }
+
+        function showHistory() {
+            if (!cmdHistory.length) { line("sys", "# (no history yet)"); return; }
+            cmdHistory.slice().reverse().forEach(function(c, i) { line("sys", "# " + (i+1) + "  " + c); });
+        }
+
+        function clearOutput() { document.getElementById("termOutput").innerHTML = ""; }
+
+        function reconnect() {
+            if (ws) { ws.close(); ws = null; }
+            sessionReady = false; cancelPending(); clearOutput();
+            setTimeout(connect, 150);
+        }
+
+        // ── UI helpers ───────────────────────────────────────────────────────
+        function line(type, text) {
+            var out = document.getElementById("termOutput");
+            var d   = document.createElement("div");
+            var map = { in:"tl-in", ok:"tl-ok", err:"tl-err", log:"tl-log", sys:"tl-sys", file:"tl-file", dim:"tl-dim" };
+            d.className = "tl " + (map[type] || "tl-dim");
+            d.textContent = text;
+            out.appendChild(d);
+            out.scrollTop = out.scrollHeight;
+        }
+        function inp()     { return document.getElementById("termInput"); }
+        function focusInput() { inp().focus(); }
+        function caretEnd()   { var el = inp(), v = el.value.length; el.setSelectionRange(v,v); }
+        function setConn(state, label) {
+            document.getElementById("connDot").className = "conn-dot " + state;
+            document.getElementById("connLabel").textContent = label;
+        }
+
+        // ══ DOCS PANEL ═══════════════════════════════════════════════════════
+
+        var docsData     = null;
+        var activeSection = "all";
+
+        function toggleDocs() {
+            var panel  = document.getElementById("docsPanel");
+            var btn    = document.getElementById("btnDocs");
+            var isOpen = panel.classList.contains("open");
+            if (isOpen) {
+                panel.classList.remove("open");
+                btn.classList.remove("active");
+            } else {
+                panel.classList.add("open");
+                btn.classList.add("active");
+                if (!docsData) loadDocs();
+            }
+            focusInput();
+        }
+
+        function loadDocs() {
+            ao_module_agirun("Terminal/backend/getdocs.agi", {},
+                function(data) {
+                    if (!data || data.error) {
+                        document.getElementById("docsList").innerHTML =
+                            "<div class='docs-empty'>Failed to load documentation.</div>";
+                        return;
+                    }
+                    docsData = data;
+                    buildDocsTabs();
+                    renderDocsList("", "all");
+                },
+                function() {
+                    document.getElementById("docsList").innerHTML =
+                        "<div class='docs-empty'>Could not reach documentation backend.</div>";
+                }
+            );
+        }
+
+        function buildDocsTabs() {
+            var el = document.getElementById("docsTabs");
+            el.innerHTML = "";
+
+            function mkTab(id, label, loadCmd) {
+                var b = document.createElement("button");
+                b.className = "docs-tab" + (id === "all" ? " active" : "");
+                b.id = "dtab-" + id;
+                b.textContent = label;
+                b.onclick = function() { selectSection(id); };
+
+                // Double-click on a library tab inserts its requirelib() call
+                if (loadCmd) {
+                    b.title = "Double-click to insert: " + loadCmd;
+                    b.ondblclick = function(e) {
+                        e.stopPropagation();
+                        insertToInput(loadCmd);
+                    };
+                }
+                el.appendChild(b);
+            }
+
+            mkTab("all", "All");
+            docsData.sections.forEach(function(s) { mkTab(s.id, s.name, s.load || null); });
+        }
+
+        function selectSection(id) {
+            activeSection = id;
+            document.querySelectorAll(".docs-tab").forEach(function(t) { t.classList.remove("active"); });
+            var active = document.getElementById("dtab-" + id);
+            if (active) active.classList.add("active");
+            renderDocsList(document.getElementById("docsSearch").value, id);
+        }
+
+        function filterDocs(q) { renderDocsList(q, activeSection); }
+
+        function renderDocsList(query, sectionId) {
+            query = (query || "").toLowerCase().trim();
+            var listEl = document.getElementById("docsList");
+            listEl.innerHTML = "";
+
+            var sections = (sectionId === "all")
+                ? docsData.sections
+                : docsData.sections.filter(function(s) { return s.id === sectionId; });
+
+            var total = 0;
+
+            sections.forEach(function(section) {
+                var fns = (section.functions || []).filter(function(f) {
+                    return !query || (f.name + f.sig + f.desc).toLowerCase().indexOf(query) !== -1;
+                });
+                if (!fns.length) return;
+
+                // Section label only in "all" view or when searching
+                if (sectionId === "all" || query) {
+                    var lbl = document.createElement("div");
+                    lbl.className = "docs-section-label";
+                    lbl.textContent = section.name + (section.load ? "  —  " + section.load : "");
+                    listEl.appendChild(lbl);
+                }
+
+                fns.forEach(function(fn) {
+                    listEl.appendChild(buildFnCard(fn, total));
+                    total++;
+                });
+            });
+
+            if (!total) {
+                listEl.innerHTML = "<div class='docs-empty'>No results for \"" + escHtml(query) + "\"</div>";
+            }
+        }
+
+        function buildFnCard(fn, idx) {
+            var card = document.createElement("div");
+            card.className = "docs-fn";
+
+            // Signature row
+            var row = document.createElement("div");
+            row.className = "docs-fn-row";
+
+            var sig = document.createElement("span");
+            sig.className = "docs-fn-sig";
+            sig.textContent = fn.sig || fn.name;
+            sig.title = "Click to insert into input";
+            sig.onclick = function() { insertToInput(fn.sig || fn.name); };
+
+            var ins = document.createElement("button");
+            ins.className = "docs-ins-btn";
+            ins.textContent = "↵ Insert";
+            ins.onclick = function() { insertToInput(fn.sig || fn.name); };
+
+            row.appendChild(sig);
+            row.appendChild(ins);
+            card.appendChild(row);
+
+            // Description
+            if (fn.desc) {
+                var desc = document.createElement("div");
+                desc.className = "docs-fn-desc";
+                desc.textContent = fn.desc;
+                card.appendChild(desc);
+            }
+
+            // Return type
+            if (fn.ret) {
+                var ret = document.createElement("div");
+                ret.className = "docs-fn-ret";
+                ret.textContent = "→ " + fn.ret;
+                card.appendChild(ret);
+            }
+
+            // Expandable example
+            if (fn.example) {
+                var exId    = "ex" + idx;
+                var toggle  = document.createElement("span");
+                toggle.className  = "docs-ex-toggle";
+                toggle.innerHTML  = "<span id='exarrow" + exId + "'>►</span> Example";
+                toggle.onclick    = function() { toggleExample(exId); };
+                card.appendChild(toggle);
+
+                var block = document.createElement("div");
+                block.className = "docs-ex-block";
+                block.id        = exId;
+                block.textContent = fn.example;
+
+                var runBtn = document.createElement("button");
+                runBtn.className = "docs-ex-run";
+                runBtn.textContent = "► Run this example";
+                var exCode = fn.example;
+                runBtn.onclick = function() {
+                    // Echo first line in terminal and exec the full example
+                    var firstLine = exCode.split("\n")[0];
+                    var suffix    = exCode.split("\n").length > 1 ? "…" : "";
+                    line("in", "> " + firstLine + suffix);
+                    execCode(exCode);
+                };
+                block.appendChild(runBtn);
+                card.appendChild(block);
+            }
+
+            return card;
+        }
+
+        function toggleExample(id) {
+            var block  = document.getElementById(id);
+            var arrow  = document.getElementById("exarrow" + id);
+            var isOpen = block.style.display === "block";
+            block.style.display = isOpen ? "none" : "block";
+            if (arrow) arrow.textContent = isOpen ? "►" : "▼";
+        }
+
+        function insertToInput(sig) {
+            var el = inp();
+            el.value = sig;
+            el.focus();
+            // If signature ends with (), place cursor just inside the parens
+            if (sig.endsWith(")")) {
+                var lp = sig.lastIndexOf("(");
+                if (lp !== -1) el.setSelectionRange(lp + 1, sig.length - 1);
+            } else {
+                caretEnd();
+            }
+        }
+
+        // ── Utils ────────────────────────────────────────────────────────────
+        function escHtml(s) {
+            return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        }
+
+        // ══ BOOT ══════════════════════════════════════════════════════════════
+        $(document).ready(function() {
+            // Collect any .agi / .js files passed via URL hash from the file manager
+            let filelist = ao_module_loadInputFiles();
+            if (filelist != null){
+                filelist.forEach(function(vpath) {
+                    vpath = vpath.trim();
+                    if (vpath && (vpath.match(/\.agi$/) || vpath.match(/\.js$/))){
+                        pendingFiles.push(vpath);
+                    }
+                });
+            }
+        
+            // Auto-connect
+            connect();
+        });
+        </script>
+    </body>
+</html>

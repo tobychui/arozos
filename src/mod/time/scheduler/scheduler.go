@@ -3,16 +3,25 @@ package scheduler
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"imuslab.com/arozos/mod/agi"
+	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
+
+// WebRootFshID is stored in Job.FshID for scripts that live inside the webapp
+// folder (./web/<AppName>/…) rather than in a user's virtual filesystem.
+// At execution time the scheduler resolves the script via the OS filesystem
+// instead of the user's storage pool.
+const WebRootFshID = "__webroot__"
+
+// WebRootBase is the directory from which app-relative script paths are resolved.
+const WebRootBase = "./web"
 
 /*
 	ArozOS System Scheduler
@@ -30,6 +39,7 @@ type Job struct {
 	BaseTime          int64  //Exeuction basetime. The next interval is calculated using (current time - base time ) % execution interval
 	FshID             string //The target FSH ID that this script file is stored
 	ScriptVpath       string //The agi script file being called, require Vpath
+	AppName           string //The webapp/module that registered this job (empty for manual jobs)
 
 	lastExecutionTime   int64  //Last time this job being executed
 	lastExecutionOutput string //The output of last execution
@@ -95,64 +105,14 @@ func (a *Scheduler) createTicker(duration time.Duration) chan bool {
 	stop := make(chan bool, 1)
 
 	go func() {
-		defer log.Println("Scheduler Stopped")
+		defer logger.PrintAndLog("Scheduler", "Scheduler Stopped", nil)
 		for {
 			select {
 			case <-ticker.C:
 				//Run jobs
 				for _, thisJob := range a.jobs {
 					if (time.Now().Unix()-thisJob.BaseTime)%thisJob.ExecutionInterval == 0 {
-						//Execute this job
-						//Get the creator userinfo
-						targetUser, err := a.options.UserHandler.GetUserInfoFromUsername(thisJob.Creator)
-						if err != nil {
-							a.cronlogError("User "+thisJob.Creator+" no longer exists", err)
-							return
-						}
-
-						//Check if the script exists
-						fsh, err := targetUser.GetFileSystemHandlerFromVirtualPath(thisJob.ScriptVpath)
-						if err != nil {
-							a.cronlogError("Unable to resolve required vpath for job: "+thisJob.Name+" for user "+thisJob.Creator, err)
-							return
-						}
-
-						rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(thisJob.ScriptVpath, targetUser.Username)
-						if err != nil {
-							a.cronlogError("Unable to resolve file real path for job: "+thisJob.Name+" for user "+thisJob.Creator, err)
-							return
-						}
-
-						if !fsh.FileSystemAbstraction.FileExists(rpath) {
-							//This job no longer exists in the file system. Remove it
-							a.cronlog("Removing job " + thisJob.Name + " by " + thisJob.Creator + " as job file no longer exists")
-							a.RemoveJobFromScheduleList(thisJob.Name)
-							return
-						}
-
-						clonedJobStructure := *thisJob
-						ext := filepath.Ext(rpath)
-						if ext == ".js" || ext == ".agi" {
-							//Run using AGI interface in go routine
-							go func(thisJob Job) {
-								//Resolve the sript path to realpath
-								//Run the script with this user scope
-								thisJob.lastExecutionTime = time.Now().Unix()
-								resp, err := a.options.Gateway.ExecuteAGIScriptAsUser(fsh, rpath, targetUser, nil, nil)
-								if err != nil {
-									a.cronlogError(thisJob.Name+" execution error: "+err.Error(), err)
-									thisJob.lastExecutionOutput = err.Error()
-								} else {
-									a.cronlog(thisJob.Name + " executed: " + resp)
-									thisJob.lastExecutionOutput = resp
-								}
-							}(clonedJobStructure)
-
-						} else {
-							//Unknown script file. Ignore this
-							a.cronlogError("This extension is not yet supported: "+ext, errors.New("unsupported AGI interface script extension"))
-						}
-
+						a.executeJob(thisJob)
 					}
 				}
 			case <-stop:
@@ -162,6 +122,89 @@ func (a *Scheduler) createTicker(duration time.Duration) chan bool {
 	}()
 
 	return stop
+}
+
+// executeJob resolves the script path and runs it in a goroutine.
+// It supports two modes:
+//
+//  1. App-root scripts (FshID == WebRootFshID):
+//     ScriptVpath is relative to ./web/, e.g. "MyApp/cron.agi".
+//     The file is read directly from the OS; no user FSH is involved.
+//
+//  2. User virtual-path scripts (any other FshID):
+//     ScriptVpath is a virtual path like "user:/path/to/script.agi".
+//     The file is resolved through the creator's storage pool.
+func (a *Scheduler) executeJob(thisJob *Job) {
+	targetUser, err := a.options.UserHandler.GetUserInfoFromUsername(thisJob.Creator)
+	if err != nil {
+		a.cronlogError("User "+thisJob.Creator+" no longer exists", err)
+		return
+	}
+
+	cloned := *thisJob
+
+	if thisJob.FshID == WebRootFshID {
+		// ── App-root script ───────────────────────────────────────────────
+		rpath := filepath.Join(WebRootBase, filepath.FromSlash(thisJob.ScriptVpath))
+		if _, statErr := os.Stat(rpath); os.IsNotExist(statErr) {
+			a.cronlog("Removing job " + thisJob.Name + " by " + thisJob.Creator + " as app script no longer exists: " + rpath)
+			a.RemoveJobFromScheduleList(thisJob.Name)
+			a.saveJobsToCronFile()
+			return
+		}
+		ext := filepath.Ext(rpath)
+		if ext != ".js" && ext != ".agi" {
+			a.cronlogError("Unsupported app script extension: "+ext, errors.New("unsupported extension"))
+			return
+		}
+		go func(job Job, realPath string, u *user.User) {
+			job.lastExecutionTime = time.Now().Unix()
+			// fsh == nil --> ExecuteAGIScriptAsUser reads via os.ReadFile
+			execID, resp, execErr := a.options.Gateway.ExecuteAGIScriptAsUser(nil, realPath, u, nil, nil)
+			if execErr != nil {
+				a.cronlogError("["+execID+"] "+job.Name+" execution error: "+execErr.Error(), execErr)
+				job.lastExecutionOutput = execErr.Error()
+			} else {
+				a.cronlog("[" + execID + "] " + job.Name + " executed: " + resp)
+				job.lastExecutionOutput = resp
+			}
+		}(cloned, rpath, targetUser)
+		return
+	}
+
+	// ── User virtual-path script ──────────────────────────────────────────
+	fsh, err := targetUser.GetFileSystemHandlerFromVirtualPath(thisJob.ScriptVpath)
+	if err != nil {
+		a.cronlogError("Unable to resolve vpath for job: "+thisJob.Name+" (user: "+thisJob.Creator+")", err)
+		return
+	}
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(thisJob.ScriptVpath, targetUser.Username)
+	if err != nil {
+		a.cronlogError("Unable to get real path for job: "+thisJob.Name, err)
+		return
+	}
+	if !fsh.FileSystemAbstraction.FileExists(rpath) {
+		a.cronlog("Removing job " + thisJob.Name + " by " + thisJob.Creator + " as script no longer exists")
+		a.RemoveJobFromScheduleList(thisJob.Name)
+		a.saveJobsToCronFile()
+		return
+	}
+	ext := filepath.Ext(rpath)
+	if ext != ".js" && ext != ".agi" {
+		a.cronlogError("Unsupported script extension: "+ext, errors.New("unsupported extension"))
+		return
+	}
+	go func(job Job, f *filesystem.FileSystemHandler, realPath string, u *user.User) {
+		job.lastExecutionTime = time.Now().Unix()
+		execID, resp, execErr := a.options.Gateway.ExecuteAGIScriptAsUser(f, realPath, u, nil, nil)
+		if execErr != nil {
+			a.cronlogError("["+execID+"] "+job.Name+" execution error: "+execErr.Error(), execErr)
+			job.lastExecutionOutput = execErr.Error()
+		} else {
+			a.cronlog("[" + execID + "] " + job.Name + " executed: " + resp)
+			job.lastExecutionOutput = resp
+		}
+	}(cloned, fsh, rpath, targetUser)
 }
 
 func (a *Scheduler) Close() {
@@ -207,6 +250,138 @@ func (a *Scheduler) JobExists(name string) bool {
 	}
 }
 
+// GetJobsByApp returns all jobs registered by the given app name
+func (a *Scheduler) GetJobsByApp(appName string) []*Job {
+	result := []*Job{}
+	for _, j := range a.jobs {
+		if j.AppName == appName {
+			result = append(result, j)
+		}
+	}
+	return result
+}
+
+// RemoveJobsByApp removes all scheduler jobs associated with a given app name and saves to disk
+func (a *Scheduler) RemoveJobsByApp(appName string) {
+	newJobSlice := []*Job{}
+	for _, j := range a.jobs {
+		if j.AppName != appName {
+			newJobSlice = append(newJobSlice, j)
+		}
+	}
+	a.jobs = newJobSlice
+	a.saveJobsToCronFile()
+}
+
+// AppJobExists checks whether a job with the given name was registered by the given app and creator
+func (a *Scheduler) AppJobExists(appName, creator, taskName string) bool {
+	for _, j := range a.jobs {
+		if j.AppName == appName && j.Creator == creator && j.Name == taskName {
+			return true
+		}
+	}
+	return false
+}
+
+// RegisterJobFromAGI creates and saves a new job on behalf of a user/app from AGI scripts.
+//
+// When appName is non-empty and scriptVpath does not contain ":" (i.e. it is not
+// a user virtual path), the script is treated as app-root-relative:
+//
+//	scriptVpath = "cron.agi"  -->  stored as "appName/cron.agi", FshID = WebRootFshID
+//
+// Otherwise scriptVpath must be a full virtual path (e.g. "user:/path/to/script.agi")
+// and is resolved through the creator's storage pool as usual.
+func (a *Scheduler) RegisterJobFromAGI(creator, appName, taskName, scriptVpath, description string, interval, baseTime int64) error {
+	// Validate name uniqueness
+	for _, j := range a.jobs {
+		if j.Name == taskName {
+			return errors.New("task name already occupied: " + taskName)
+		}
+	}
+
+	var fshID string
+	var storedVpath string
+
+	isAppScript := appName != "" && !containsVpathSeparator(scriptVpath)
+	if isAppScript {
+		// App-root script: resolve relative to ./web/<appName>/
+		relPath := appName + "/" + scriptVpath
+		realPath := filepath.Join(WebRootBase, filepath.FromSlash(relPath))
+		if _, err := os.Stat(realPath); os.IsNotExist(err) {
+			return errors.New("app script not found: " + realPath)
+		}
+		fshID = WebRootFshID
+		storedVpath = relPath
+	} else {
+		// User virtual-path script
+		targetUser, err := a.options.UserHandler.GetUserInfoFromUsername(creator)
+		if err != nil {
+			return err
+		}
+		fsh, err := targetUser.GetFileSystemHandlerFromVirtualPath(scriptVpath)
+		if err != nil {
+			return err
+		}
+		fshID = fsh.UUID
+		storedVpath = scriptVpath
+	}
+
+	newJob := &Job{
+		Name:              taskName,
+		Creator:           creator,
+		AppName:           appName,
+		Description:       description,
+		ExecutionInterval: interval,
+		BaseTime:          alignBaseTime(baseTime),
+		ScriptVpath:       storedVpath,
+		FshID:             fshID,
+	}
+
+	a.jobs = append(a.jobs, newJob)
+	return a.saveJobsToCronFile()
+}
+
+// alignBaseTime floors t to the nearest whole minute so that the scheduler's
+// per-minute ticker (which fires at unix timestamps divisible by 60) can
+// satisfy the condition (ticker - baseTime) % interval == 0.
+// Without this alignment, any job with interval < 86400 that was registered
+// at a non-minute boundary will never fire.
+func alignBaseTime(t int64) int64 {
+	return (t / 60) * 60
+}
+
+// containsVpathSeparator returns true when s contains the ":" that marks a
+// virtual-path root (e.g. "user:/…" or "tmp:/…").
+func containsVpathSeparator(s string) bool {
+	for _, c := range s {
+		if c == ':' {
+			return true
+		}
+	}
+	return false
+}
+
+// UnregisterJobFromAGI removes a job by task name for a given creator (or admin)
+func (a *Scheduler) UnregisterJobFromAGI(creator, taskName string) error {
+	targetJob := a.GetScheduledJobByName(taskName)
+	if targetJob == nil {
+		return errors.New("job not found: " + taskName)
+	}
+	if targetJob.Creator != creator {
+		// Check if creator is admin (requires a UserHandler; deny if unavailable)
+		if a.options.UserHandler == nil {
+			return errors.New("permission denied")
+		}
+		targetUser, err := a.options.UserHandler.GetUserInfoFromUsername(creator)
+		if err != nil || !targetUser.IsAdmin() {
+			return errors.New("permission denied")
+		}
+	}
+	a.RemoveJobFromScheduleList(taskName)
+	return a.saveJobsToCronFile()
+}
+
 //Write the output to log file. Default to ./system/aecron/{date}.log
 /*
 func cronlog(message string) {
@@ -217,11 +392,11 @@ func cronlog(message string) {
 	f, err := os.OpenFile(currentLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//Unable to write to file. Log to STDOUT instead
-		log.Println(message)
+		logger.PrintAndLog("Scheduler", fmt.Sprint(message), nil)
 		return
 	}
 	if _, err := f.WriteString(message + "\n"); err != nil {
-		log.Println(message)
+		logger.PrintAndLog("Scheduler", fmt.Sprint(message), nil)
 		return
 	}
 	defer f.Close()

@@ -30,20 +30,40 @@ type ModuleInfo struct {
 }
 
 type ModuleHandler struct {
-	LoadedModule []*ModuleInfo
-	userHandler  *user.UserHandler
-	tmpDirectory string
+	LoadedModule    []*ModuleInfo
+	userHandler     *user.UserHandler
+	tmpDirectory    string
+	extIconRegistry map[string]string // lowercased ext (no dot) --> web-root-relative icon path
+
+	// OnModuleUninstall is an optional hook called when a module is uninstalled.
+	// The hook receives the module name and can be used to clean up associated resources
+	// (e.g. remove scheduled cron jobs registered by that module).
+	OnModuleUninstall func(moduleName string)
 }
 
 func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *ModuleHandler {
 	return &ModuleHandler{
-		LoadedModule: []*ModuleInfo{},
-		userHandler:  userHandler,
-		tmpDirectory: tmpFolderPath,
+		LoadedModule:    []*ModuleInfo{},
+		userHandler:     userHandler,
+		tmpDirectory:    tmpFolderPath,
+		extIconRegistry: map[string]string{},
 	}
 }
 
-//Register endpoint. Provide moduleInfo datastructure or unparsed json
+// RegisterExtIcon stores a web-root-relative icon path for the given file extension.
+// ext may include or omit a leading dot; it is normalised to lowercase without dot.
+func (m *ModuleHandler) RegisterExtIcon(ext, iconPath string) {
+	ext = strings.ToLower(strings.TrimPrefix(ext, "."))
+	m.extIconRegistry[ext] = iconPath
+}
+
+// HandleGetExtIcons serves the extension-to-icon registry as a JSON object.
+func (m *ModuleHandler) HandleGetExtIcons(w http.ResponseWriter, r *http.Request) {
+	js, _ := json.Marshal(m.extIconRegistry)
+	utils.SendJSONResponse(w, string(js))
+}
+
+// Register endpoint. Provide moduleInfo datastructure or unparsed json
 func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
 	m.LoadedModule = append(m.LoadedModule, &module)
 
@@ -54,14 +74,14 @@ func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
 	}
 }
 
-//Sort the module list
+// Sort the module list
 func (m *ModuleHandler) ModuleSortList() {
 	sort.Slice(m.LoadedModule, func(i, j int) bool {
 		return m.LoadedModule[i].Name < m.LoadedModule[j].Name
 	})
 }
 
-//Register a module from JSON string
+// Register a module from JSON string
 func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bool) error {
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
@@ -74,7 +94,7 @@ func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bo
 	return nil
 }
 
-//Register a module from AGI script
+// Register a module from AGI script
 func (m *ModuleHandler) RegisterModuleFromAGI(jsonstring string) error {
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
@@ -99,7 +119,7 @@ func (m *ModuleHandler) DeregisterModule(moduleName string) {
 	m.LoadedModule = newLoadedModuleList
 }
 
-//Get a list of module names
+// Get a list of module names
 func (m *ModuleHandler) GetModuleNameList() []string {
 	result := []string{}
 	for _, module := range m.LoadedModule {
@@ -108,7 +128,23 @@ func (m *ModuleHandler) GetModuleNameList() []string {
 	return result
 }
 
-//Handle Default Launcher
+// GetModuleListJSONForUser returns a JSON string of all modules the given username can access
+func (m *ModuleHandler) GetModuleListJSONForUser(username string) string {
+	userinfo, err := m.userHandler.GetUserInfoFromUsername(username)
+	if err != nil {
+		return "[]"
+	}
+	accessable := []*ModuleInfo{}
+	for _, mod := range m.LoadedModule {
+		if userinfo.GetModuleAccessPermission(mod.Name) {
+			accessable = append(accessable, mod)
+		}
+	}
+	js, _ := json.Marshal(accessable)
+	return string(js)
+}
+
+// Handle Default Launcher
 func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Request) {
 	username, _ := m.userHandler.GetAuthAgent().GetUserName(w, r)
 	opr, _ := utils.GetPara(r, "opr") //Operation, accept {get, set, launch}
@@ -118,7 +154,8 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 	ext = strings.ToLower(ext)
 
 	//Check if the default folder exists.
-	if opr == "get" {
+	switch opr {
+	case "get":
 		//Get the opener for this file type
 		value := ""
 		err := m.userHandler.GetDatabase().Read("module", "default/"+username+"/"+ext, &value)
@@ -129,7 +166,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 		js, _ := json.Marshal(value)
 		utils.SendJSONResponse(w, string(js))
 		return
-	} else if opr == "launch" {
+	case "launch":
 		//Get launch paramter for this extension
 		value := ""
 		err := m.userHandler.GetDatabase().Read("module", "default/"+username+"/"+ext, &value)
@@ -157,7 +194,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 			utils.SendJSONResponse(w, string(jsonString))
 		}
 
-	} else if opr == "set" {
+	case "set":
 		//Set the opener for this filetype
 		if moduleName == "" {
 			utils.SendErrorResponse(w, "Missing paratmer 'module'")
@@ -178,7 +215,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 			utils.SendErrorResponse(w, "Given module not exists.")
 		}
 
-	} else if opr == "list" {
+	case "list":
 		//List all the values that belongs to default opener
 		dbDump, _ := m.userHandler.GetDatabase().ListTable("module")
 		results := [][]string{}

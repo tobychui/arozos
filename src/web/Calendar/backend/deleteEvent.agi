@@ -1,0 +1,28 @@
+/*
+    Calendar - Delete an event by ID.
+    POST: eventId (string)
+*/
+requirelib("filelib");
+
+var evPath = "user:/Document/Calendar/events.json";
+
+if (!eventId || eventId === "") {
+    sendJSONResp({ error: "Missing eventId" });
+} else {
+    var events = [];
+    if (filelib.fileExists(evPath)) {
+        try {
+            var raw    = filelib.readFile(evPath);
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) events = parsed;
+        } catch (e) {}
+    }
+
+    var remaining = [];
+    for (var i = 0; i < events.length; i++) {
+        if (events[i].id !== eventId) remaining.push(events[i]);
+    }
+
+    filelib.writeFile(evPath, JSON.stringify(remaining));
+    sendJSONResp({ ok: true });
+}

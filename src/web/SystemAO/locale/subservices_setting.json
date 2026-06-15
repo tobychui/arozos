@@ -1,5 +1,5 @@
 {
-    "author": "GitHub Copilot",
+    "author": "tobychui",
     "version": "1.0",
     "keys": {
         "zh-tw": {
@@ -102,7 +102,7 @@
                 "subservices/Start": "開始"
             }
         },
-        "ko_kr": {
+        "ko-kr": {
             "name": "한국어",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {

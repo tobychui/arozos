@@ -1,10 +1,10 @@
 package dynamicproxy
 
 import (
-	"log"
 	"net/http"
 	"net/url"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/network/websocketproxy"
 )
 
@@ -66,7 +66,7 @@ func (h *ProxyHandler) subdomainRequest(w http.ResponseWriter, r *http.Request, 
 	r.Host = r.URL.Host
 	err := target.Proxy.ServeHTTP(w, r)
 	if err != nil {
-		log.Println(err.Error())
+		logger.PrintAndLog("Dynamicproxy", err.Error(), nil)
 	}
 
 }
@@ -94,6 +94,6 @@ func (h *ProxyHandler) proxyRequest(w http.ResponseWriter, r *http.Request, targ
 	r.Host = r.URL.Host
 	err := target.Proxy.ServeHTTP(w, r)
 	if err != nil {
-		log.Println(err.Error())
+		logger.PrintAndLog("Dynamicproxy", err.Error(), nil)
 	}
 }

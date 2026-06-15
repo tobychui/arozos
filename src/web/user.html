@@ -1,188 +1,407 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <title>ArozOS - Users</title>
-        <link rel="stylesheet" href="script/semantic/semantic.min.css">
-        <link rel="stylesheet" href="script/ao.css">
-        <script type="application/javascript" src="script/semantic/semantic.min.js"></script>
-        <script type="application/javascript" src="script/jquery.min.js"></script>
-        <script type="application/javascript" src="script/ao_module.js"></script>
-        <style>
-            body{
-                background-color:white;
-            }
-            .themebackground{
-                background-color:#588ce0 !important;
-                color:white !important;
-                background-image: url("/img/public/slate.png") !important;
-                background-repeat: no-repeat !important;
-                background-attachment: fixed !important;
-            }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>ArozOS - New User</title>
+    <script src="script/jquery.min.js"></script>
+    <script src="script/ao_module.js"></script>
+    <script src="script/applocale.js"></script>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-            .ui.padded.slate{
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                padding: 4em;
-            }
+    #uu-root {
+        --uu-text:         #202124;
+        --uu-body:         #3c4043;
+        --uu-dim:          #5f6368;
+        --uu-muted:        #9aa0a6;
+        --uu-sep:          #dadce0;
+        --uu-bg:           #f8f9fa;
+        --uu-card-bg:      #ffffff;
+        --uu-input-border: #dadce0;
+        --uu-input-focus:  #1967d2;
+        --uu-accent:       #1a73e8;
+        --uu-accent-press: #1558b0;
+        --uu-danger:       #d93025;
 
-            .ui.heading.slate{
-                align-items: flex-start;
-            }
+        font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        color: var(--uu-body);
+        background: var(--uu-bg);
+        min-height: 100vh;
+    }
 
-            .ts.slate .header:not(.ts):not(.sub):not(.item){
-                line-height: 1.42857em;
-                font-weight: 500;
-                display: block;
-            }
+    #uu-root.dark {
+        --uu-text:         #e8eaed;
+        --uu-body:         #bdc1c6;
+        --uu-dim:          #9aa0a6;
+        --uu-muted:        #5f6368;
+        --uu-sep:          #3c4043;
+        --uu-bg:           #202124;
+        --uu-card-bg:      #292a2d;
+        --uu-input-border: #5f6368;
+        --uu-input-focus:  #8ab4f8;
+        --uu-accent:       #8ab4f8;
+        --uu-accent-press: #aecbfa;
+        --uu-danger:       #f28b82;
+    }
 
-            .required{
-                color:red;
-            }
-            .actionbtns{
-                text-align:right;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="ui heading fluid padded slate themebackground" >
-            <span class="header" style="font-size: 1.6em;"><i class="add icon"></i> New User</span>
-            <span class="description">Fill in the following user information to proceed.</span>
+    body { background: var(--uu-bg); }
+
+    /* ── Layout ── */
+    #uu-outer {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+    }
+
+    /* ── Card ── */
+    #uu-card {
+        width: 100%;
+        max-width: 450px;
+        background: var(--uu-card-bg);
+        border-radius: 8px;
+        border: 1px solid var(--uu-sep);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    #uu-root.dark #uu-card {
+        box-shadow: 0 1px 4px rgba(0,0,0,0.40);
+    }
+
+    /* ── Header ── */
+    #uu-hero {
+        padding: 32px 40px 22px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--uu-sep);
+    }
+
+    #uu-hero-icon { display: none; }
+
+    #uu-hero-title {
+        font-size: 24px;
+        font-weight: 400;
+        color: var(--uu-text);
+        line-height: 1.25;
+        letter-spacing: 0;
+    }
+
+    #uu-hero-sub {
+        font-size: 13px;
+        color: var(--uu-dim);
+        margin-top: 8px;
+        line-height: 1.5;
+    }
+
+    /* ── Form body ── */
+    #uu-body { padding: 24px 40px 32px; }
+
+    .uu-field { margin-bottom: 20px; }
+
+    .uu-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--uu-dim);
+        margin-bottom: 6px;
+    }
+
+    .uu-req { color: var(--uu-danger); margin-left: 2px; }
+
+    .uu-input {
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 4px;
+        border: 1px solid var(--uu-input-border);
+        background: transparent;
+        color: var(--uu-text);
+        font-family: inherit;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    .uu-input::placeholder { color: var(--uu-muted); }
+
+    .uu-input:focus {
+        border-color: var(--uu-input-focus);
+        box-shadow: 0 0 0 1px var(--uu-input-focus);
+    }
+
+    .uu-input.error {
+        border-color: var(--uu-danger);
+        box-shadow: 0 0 0 1px var(--uu-danger);
+    }
+
+    select.uu-input {
+        background-color: var(--uu-card-bg);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235f6368' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 32px;
+        cursor: pointer;
+    }
+
+    /* ── Error alert ── */
+    #uu-err {
+        display: none;
+        background: rgba(217,48,37,0.06);
+        border: 1px solid rgba(217,48,37,0.20);
+        border-radius: 4px;
+        padding: 10px 12px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: var(--uu-danger);
+    }
+
+    #uu-root.dark #uu-err {
+        background: rgba(242,139,130,0.08);
+        border-color: rgba(242,139,130,0.28);
+    }
+
+    /* ── Required note ── */
+    #uu-note {
+        font-size: 12px;
+        color: var(--uu-muted);
+        margin-bottom: 20px;
+    }
+
+    /* ── Divider ── */
+    .uu-divider {
+        height: 1px;
+        background: var(--uu-sep);
+        margin-bottom: 20px;
+    }
+
+    /* ── Actions ── */
+    #uu-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .uu-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 9px 24px;
+        border-radius: 4px;
+        border: none;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        background: transparent;
+        color: var(--uu-accent);
+        transition: background 0.12s;
+        white-space: nowrap;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .uu-btn:hover  { background: rgba(26,115,232,0.08); }
+    .uu-btn:active { background: rgba(26,115,232,0.14); }
+
+    #uu-root.dark .uu-btn:hover  { background: rgba(138,180,248,0.10); }
+    #uu-root.dark .uu-btn:active { background: rgba(138,180,248,0.16); }
+
+    .uu-btn.primary {
+        background: var(--uu-accent);
+        color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+    }
+
+    .uu-btn.primary:hover  { background: var(--uu-accent-press); }
+    .uu-btn.primary:active { opacity: 0.88; }
+    </style>
+</head>
+<body>
+
+<div id="uu-root">
+<div id="uu-outer">
+<div id="uu-card">
+
+    <div id="uu-hero">
+        <div id="uu-hero-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M4 20c0-3.314 3.582-6 8-6s8 2.686 8 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
         </div>
-        <br><br>
-        <div class="ui container">
-            <div class="ui horizontal form">
-                <div class="field">
-                    <label>Username <span class="required">*</span></label>
-                    <input id="username" type="text">
-                </div>
-            <!--
-                <div class="field">
-                    <label>Description</label>
-                    <input id="desc" type="text">
-                </div>
-            -->
-                <div class="field">
-                    <label>Password <span class="required">*</span></label>
-                    <input id="magic" type="password">
-                </div>
-                <div class="field">
-                    <label>Confirm Password <span class="required">*</span></label>
-                    <input id="repeatMagic" type="password">
-                </div>
-                <div class="field">
-                    <label>User Group</label>
-                    <select id="usergroups">
-                        <option>Loading...</option>
-                    </select>
-                </div>
-            </div>
-            <br>
-            <p><span class="required">*</span> This field is required.</p>
-            <div class="ui negative segment" id="err" style="display:none;">
-                <p><i class="remove icon"></i> <span id="errmsg"></span></p>
-            </div>
-            <div class="ui section divider"></div>
-            <div id="actionbtns" align="right">
-                <button class="ui primary button" onclick="createUser();">Create</button>
-                <button id="cancelbtn" class="ui button" onclick="cancel();">Cancel</button>
-            </div>
-           
+        <div>
+            <div id="uu-hero-title" locale="user/title">New User</div>
+            <div id="uu-hero-sub"   locale="user/subtitle">Fill in the following information to create an account.</div>
         </div>
-        <script>
-            //Initiate the form items
-            //Get usergroups and list them in the usergroup list
-            $.get("system/permission/listgroup",function(data){
-                $("#usergroups").html("");
-                for(var i = 0; i < data.length; i++){
-                    $("#usergroups").append(`<option value="${data[i]}">${data[i]}</option>`);
-                }
-            });
+    </div>
 
-            //Detect on enter keypress
-            $("input").on("keydown",function(event){
-                if (event.keyCode === 13) {
-                    event.preventDefault();
-                    createUser();
-                }
-            });
+    <div id="uu-body">
 
-            //Hide the cancel button if not in VDI
-            if ((!(!parent.isDesktopMode)) == false){
-                $("#cancelbtn").hide();
-            }
+        <div class="uu-field">
+            <label class="uu-label" for="username">
+                <span locale="user/username">Username</span><span class="uu-req">*</span>
+            </label>
+            <input id="username" class="uu-input" type="text" autocomplete="username">
+        </div>
 
-            //Create the new user
-            function createUser(){
-                var username = $("#username").val();
-                var password = $("#magic").val();
-                var usergroup = $("#usergroups").val();
-                var valud = true;
-                //Clear previous error record
-                $("#magic").parent().removeClass("error");
-                $("#repeatMagic").parent().removeClass("error");
-                $("#username").parent().removeClass("error");
+        <div class="uu-field">
+            <label class="uu-label" for="magic">
+                <span locale="user/password">Password</span><span class="uu-req">*</span>
+            </label>
+            <input id="magic" class="uu-input" type="password" autocomplete="new-password">
+        </div>
 
-                //Check if the username is correct
-                if (username == ""){
-                    $("#username").parent().addClass("error");
-                    valud = false;
-                }
-                //Check if the password match with the confirm
-                if (password != $("#repeatMagic").val()){
-                    //Confirm password not match
-                    $("#repeatMagic").parent().addClass("error");
-                    valud = false;
-                }
-                if (password == ""){
-                    //Password cannot be empty
-                    $("#magic").parent().addClass("error");
-                    $("#repeatMagic").parent().addClass("error");
-                    valud = false;
-                }
+        <div class="uu-field">
+            <label class="uu-label" for="repeatMagic">
+                <span locale="user/confirm-pw">Confirm Password</span><span class="uu-req">*</span>
+            </label>
+            <input id="repeatMagic" class="uu-input" type="password" autocomplete="new-password">
+        </div>
 
-                if (!valud){
-                    //Current input is invalid.
-                    return;
-                }
+        <div class="uu-field">
+            <label class="uu-label" for="usergroups">
+                <span locale="user/group">User Group</span>
+            </label>
+            <select id="usergroups" class="uu-input">
+                <option locale="user/loading">Loading&#8230;</option>
+            </select>
+        </div>
 
-                //Create post reqest for user registering
-                $.post("system/auth/register",{username: username, password: password, group:usergroup}).done(function(data){
-                    console.log(data);
-                    if (data.includes("Error") == false){
-                        //Everyhing is ok
-                        //Check if user already logged in. If no, redirect to login interface
-                        $.get("system/auth/checkLogin",function(data){
-                            if (data == true){
-                                if (!(!parent.isDesktopMode)){
-                                    //Perform a parent callback to check if there are any functions that requires update
-                                    ao_module_parentCallback(true);
-                                    parent.closeFwProcess($(window.frameElement).parent().parent().attr("windowId"));
-                                }else{
-                                    //Tell the user to close this UI
-                                    window.location.href = "SystemAO/closeTabInsturction.html"
-                                }
-                            }else{
-                                window.location.href = "/login.html";
+        <div id="uu-note"><span class="uu-req">*</span> <span locale="user/required-note">This field is required</span></div>
+
+        <div id="uu-err"></div>
+
+        <div class="uu-divider"></div>
+
+        <div id="uu-actions">
+            <button id="cancelbtn" class="uu-btn" onclick="cancel()" style="display:none;" locale="user/cancel">Cancel</button>
+            <button class="uu-btn primary" onclick="createUser()" locale="user/create">Create</button>
+        </div>
+
+    </div>
+</div>
+</div>
+</div>
+
+<script>
+/* ── Theme (best-effort — page may be public) ── */
+try {
+    if (typeof ao_module_getSystemThemeColor === 'function') {
+        ao_module_getSystemThemeColor(function(c) {
+            document.getElementById('uu-root').classList.toggle('dark', c !== 'whiteTheme');
+        });
+    } else {
+        var _t = (typeof preferredTheme !== 'undefined' ? preferredTheme : null) ||
+                 (parent && typeof parent.preferredTheme !== 'undefined' ? parent.preferredTheme : null);
+        if (_t) document.getElementById('uu-root').classList.toggle('dark', _t === 'dark' || _t === 'darkTheme');
+    }
+} catch(e) {}
+
+/* ── Locale (best-effort — user may not be logged in) ── */
+try {
+    if (typeof NewAppLocale === 'function') {
+        var uuLocale = NewAppLocale();
+        uuLocale.init('locale/user.json', function() {
+            uuLocale.translate();
+        });
+    }
+} catch(e) {}
+
+/* ── Load user groups ── */
+$.get("system/permission/listgroup", function(data) {
+    $("#usergroups").empty();
+    for (var i = 0; i < data.length; i++) {
+        $("#usergroups").append('<option value="' + escHtml(data[i]) + '">' + escHtml(data[i]) + '</option>');
+    }
+});
+
+/* ── Show cancel button if running inside desktop ── */
+try {
+    if (!(!parent.isDesktopMode)) {
+        $("#cancelbtn").show();
+    }
+} catch(e) {}
+
+/* ── Enter key submits ── */
+$("input").on("keydown", function(event) {
+    if (event.keyCode === 13) {
+        event.preventDefault();
+        createUser();
+    }
+});
+
+/* ── Create user ── */
+function createUser() {
+    var username  = $("#username").val().trim();
+    var password  = $("#magic").val();
+    var repeat    = $("#repeatMagic").val();
+    var usergroup = $("#usergroups").val();
+    var valid = true;
+
+    /* Clear previous errors */
+    $(".uu-input").removeClass("error");
+    $("#uu-err").hide();
+
+    if (username === "") {
+        $("#username").addClass("error");
+        valid = false;
+    }
+    if (password === "") {
+        $("#magic").addClass("error");
+        $("#repeatMagic").addClass("error");
+        valid = false;
+    } else if (password !== repeat) {
+        $("#repeatMagic").addClass("error");
+        valid = false;
+    }
+
+    if (!valid) return;
+
+    $.post("system/auth/register", { username: username, password: password, group: usergroup })
+        .done(function(data) {
+            if (!data.includes("Error")) {
+                $.get("system/auth/checkLogin", function(loggedIn) {
+                    if (loggedIn == true) {
+                        try {
+                            if (!(!parent.isDesktopMode)) {
+                                ao_module_parentCallback(true);
+                                parent.closeFwProcess($(window.frameElement).parent().parent().attr("windowId"));
+                                return;
                             }
-                        });
-                       
-                    }else{
-                        //There are errors.
-                        $("#errmsg").text(data);
-                        $("#err").slideDown('fast');
+                        } catch(e) {}
+                        window.location.href = "SystemAO/closeTabInsturction.html";
+                    } else {
+                        window.location.href = "/login.html";
                     }
                 });
+            } else {
+                $("#uu-err").text(data).slideDown('fast');
             }
+        });
+}
 
-            function cancel(){
-                if (!(!parent.isDesktopMode)){
-                    parent.closeFwProcess($(window.frameElement).parent().parent().attr("windowId"));
-                }
-            }
-        </script>
-    </body>
+function cancel() {
+    try {
+        if (!(!parent.isDesktopMode)) {
+            parent.closeFwProcess($(window.frameElement).parent().parent().attr("windowId"));
+        }
+    } catch(e) {}
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
 </html>
- 
+

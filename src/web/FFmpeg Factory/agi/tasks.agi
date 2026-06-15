@@ -1,0 +1,40 @@
+/*
+    FFmpeg Factory - List Tasks
+    Returns all task JSON objects from tmp:/ffmpeg_factory/ so the frontend
+    can resume the session after the browser tab is closed and reopened.
+*/
+requirelib("filelib");
+
+var taskDir = "tmp:/ffmpeg_factory";
+
+// Ensure task folder exists
+if (!filelib.fileExists(taskDir)) {
+    filelib.mkdir(taskDir);
+    sendJSONResp("[]");
+} else {
+    var filesJson = filelib.readdir(taskDir);
+    var files = [];
+    try { files = JSON.parse(filesJson); } catch (e) {}
+
+    var tasks = [];
+    for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        if (f.IsDir) continue;
+        // Only look at .task.json files (not .progress.json or .ffprog files)
+        if (f.Filename.length < 10) continue;
+        if (f.Filename.indexOf(".task.json") === f.Filename.length - 10) {
+            var content = filelib.readFile(taskDir + "/" + f.Filename);
+            if (content !== false && content !== "") {
+                try {
+                    var task = JSON.parse(content);
+                    tasks.push(task);
+                } catch (e) {}
+            }
+        }
+    }
+
+    // Sort newest first
+    tasks.sort(function (a, b) { return (b.created_at || 0) - (a.created_at || 0); });
+
+    sendJSONResp(JSON.stringify(tasks));
+}

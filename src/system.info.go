@@ -52,15 +52,6 @@ func SystemInfoInit() {
 	//Create Info Server Object
 	var infoServer *info.Server = nil
 
-	//Overview of account and system information
-	registerSetting(settingModule{
-		Name:     "Overview",
-		Desc:     "Overview for user information",
-		IconPath: "SystemAO/info/img/small_icon.png",
-		Group:    "Info",
-		StartDir: "SystemAO/info/overview.html",
-	})
-
 	//Load the vendor icon
 	vendorIconSrc := filepath.Join(vendorResRoot, "vendor_icon.png")
 	if !fs.FileExists(vendorIconSrc) {
@@ -79,19 +70,22 @@ func SystemInfoInit() {
 			HostName:     *host_name,
 		})
 
-		router.HandleFunc("/system/info/getCPUinfo", info.GetCPUInfo)
-		router.HandleFunc("/system/info/ifconfig", info.Ifconfig)
-		router.HandleFunc("/system/info/getDriveStat", info.GetDriveStat)
-		router.HandleFunc("/system/info/usbPorts", info.GetUSB)
+		router.HandleFunc("/system/info/getCPUinfo", info.CachedGetCPUInfo)
+		router.HandleFunc("/system/info/ifconfig", info.CachedIfconfig)
+		router.HandleFunc("/system/info/getDriveStat", info.CachedGetDriveStat)
+		router.HandleFunc("/system/info/usbPorts", info.CachedGetUSB)
 
 		//For low-memory mode detection
-		authRouter.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
+		authRouter.HandleFunc("/system/info/getRAMinfo", info.CachedGetRamInfo)
+
+		// Prime hardware info cache in the background.
+		info.StartHostInfoCache()
 
 		//Register as a system setting
 		registerSetting(settingModule{
 			Name:     "Host Info",
 			Desc:     "System Information",
-			IconPath: "SystemAO/info/img/small_icon.png",
+			IconPath: "SystemAO/info/img/host.png",
 			Group:    "Info",
 			StartDir: "SystemAO/info/index.html",
 		})
@@ -104,12 +98,15 @@ func SystemInfoInit() {
 		registerSetting(settingModule{
 			Name:     "Performance",
 			Desc:     "System CPU and RAM usage",
-			IconPath: "SystemAO/info/img/small_icon.png",
+			IconPath: "SystemAO/info/img/performance.png",
 			Group:    "Info",
 			StartDir: "SystemAO/info/taskManagerFrame.html",
 		})
 
 		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
+
+		// Sample CPU and RAM in the background so the endpoint is non-blocking.
+		usage.StartBackgroundMonitor()
 
 	} else {
 		//Remve hardware information from the infoServer
@@ -127,6 +124,7 @@ func SystemInfoInit() {
 
 	//Register endpoints that do not involve hardware management
 	authRouter.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
+	authRouter.HandleFunc("/system/info/getLocaleInfo", InfoHandleGetLocaleInfo)
 
 	//ArOZ Info do not need permission router
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
@@ -226,14 +224,14 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 		TotalRam string
 		RamUsage float64
 	}
-	cpuUsage := usage.GetCPUUsage()
-	usedRam, totalRam, usagePercentage := usage.GetRAMUsage()
+
+	cpuUsage, usedRam, totalRam, usagePercentage, _ := usage.GetCachedStats()
 
 	info := UsageInfo{
-		cpuUsage,
-		usedRam,
-		totalRam,
-		usagePercentage,
+		CPU:      cpuUsage,
+		UsedRAM:  usedRam,
+		TotalRam: totalRam,
+		RamUsage: usagePercentage,
 	}
 
 	js, _ := json.Marshal(info)

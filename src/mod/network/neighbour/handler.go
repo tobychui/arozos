@@ -20,7 +20,7 @@ type ScanResults struct {
 	NearbyHosts []*mdns.NetworkHost //Other hosts in the network
 }
 
-//Handle HTTP request for scanning and return the result
+// Handle HTTP request for scanning and return the result
 func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Request) {
 	result := new(ScanResults)
 
@@ -41,7 +41,7 @@ func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Reques
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Get networkHosts that are offline
+// Get networkHosts that are offline
 func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
 	offlineNodes, err := d.GetOfflineHosts()
 	if err != nil {
@@ -58,7 +58,7 @@ func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Send wake on land to target
+// Send wake on land to target
 func (d *Discoverer) HandleWakeOnLan(w http.ResponseWriter, r *http.Request) {
 	mac, err := utils.GetPara(r, "mac")
 	if err != nil {
