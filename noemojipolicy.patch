@@ -1,0 +1,212 @@
+From ae57ca56337bbe6286c8323320bb074fa8eb648c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 15 Jun 2026 14:44:04 +0000
+Subject: [PATCH] Enforce no-emoji policy; document icon library usage in
+ CLAUDE.md
+
+Add rule 6 to the mandatory contribution rules: literal Unicode emoji are
+not allowed in the program. Contributors must draw an inline/local SVG or
+reuse one of the existing icon libraries instead. Document the icon
+resolution order (Semantic UI icons first, then local SVG, then a font an
+app already bundles) as a suggestion list.
+
+The convention checker now flags added Unicode emoji as an ERROR across Go
+and front-end (HTML/JS/CSS) sources, with a byte-oriented match that avoids
+false positives on smart quotes/arrows/check marks and stays portable.
+---
+ .github/workflows/ci.yml     |  2 +-
+ CLAUDE.md                    | 52 +++++++++++++++++++++++++++++++++---
+ scripts/check-conventions.sh | 49 ++++++++++++++++++++++++++-------
+ 3 files changed, 90 insertions(+), 13 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 8b42b90..5a223a2 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -51,7 +51,7 @@ jobs:
+           echo "sha=$base" >> "$GITHUB_OUTPUT"
+           echo "Diff base: ${base:-<none; diff-scoped checks skipped>}"
+ 
+-      - name: Convention checker (rules 1-5, diff only)
++      - name: Convention checker (rules 1-6, diff only)
+         if: steps.base.outputs.sha != ''
+         working-directory: ${{ github.workspace }}
+         run: sh scripts/check-conventions.sh --diff "${{ steps.base.outputs.sha }}"
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 88c682c..dbac3b6 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -250,7 +250,7 @@ make binary           # cross-compile every supported OS/arch (see Makefile)
+ 
+ ## Mandatory contribution rules
+ 
+-These five rules are enforced on **new and changed code** by a Claude Code
++These six rules are enforced on **new and changed code** by a Claude Code
+ `PostToolUse` hook (during editing) and by CI (on every pull request). Both call
+ [`scripts/check-conventions.sh`](scripts/check-conventions.sh). Existing legacy
+ code is grandfathered — CI only inspects the lines a change adds — but do not add
+@@ -359,12 +359,58 @@ riscv64, macOS, Windows). Therefore:
+ *Enforced as an ERROR* on added hardcoded OS path literals, and as a *warning*
+ when `exec.Command`/`syscall` appears in a non-build-tagged file.
+ 
++### 6. No emoji — use an icon library or draw an SVG
++
++**Literal Unicode emoji (😀 🎉 📁 ✅ …) must never appear in the program** — not
++in front-end source (HTML/JS/CSS), not in Go source, not in log/UI strings.
++Emoji render inconsistently across platforms, fonts and themes, break the visual
++language of the desktop, and are not searchable/styleable. Instead, either
++**draw the glyph yourself as an inline/local SVG**, or **reuse one of the icon
++libraries the existing web apps already ship** (below). This rule is about
++*emoji glyphs*; ordinary typographic characters (✓ check marks, → arrows, curly
++quotes, em-dashes) are fine.
++
++**Icon resolution order — pick the first that fits:**
++
++1. **Semantic UI icons** — the project's primary, font-based icon set, used by
++   virtually every web app. Loaded from
++   [`src/web/script/semantic/semantic.min.css`](src/web/script/semantic/);
++   write `<i class="download icon"></i>`, `<i class="folder open icon"></i>`,
++   `<i class="trash icon"></i>`, etc. Reach for this first for standard UI
++   glyphs (the [full set](https://fomantic-ui.com/elements/icon.html) covers
++   most needs). See [`src/web/Photo/`](src/web/Photo/) and the SystemAO pages
++   for examples.
++2. **A local SVG you draw/add** — for app-specific glyphs Semantic UI lacks, or
++   custom branding. The web apps ship ~340 of these; keep new ones in the app's
++   own `img/` folder (e.g. [`src/web/SystemAO/desktop/img/icons/`](src/web/SystemAO/desktop/img/icons/),
++   [`src/web/Musicify/img/`](src/web/Musicify/img/)) and reference them with
++   `<img src="img/youricon.svg" ...>` or inline `<svg>…</svg>`.
++3. **A font already bundled by that app** — e.g. Material Icons in
++   [`src/web/OnScreenKeyboard/`](src/web/OnScreenKeyboard/) or Codicon in
++   `Code Studio` (Monaco). Use these **only inside the app that already ships
++   them**; don't add a new icon-font dependency (especially a remote CDN one)
++   for a new app — prefer option 1 or 2.
++
++Never substitute a raw emoji character for any of the above.
++
++```html
++<!-- Good — Semantic UI icon -->
++<button class="ui button"><i class="save icon"></i> Save</button>
++<!-- Good — local SVG you drew -->
++<img src="img/artist.svg" style="width:22px;height:22px;">
++<!-- Bad — literal emoji -->
++<button class="ui button">💾 Save</button>
++```
++
++*Enforced as an ERROR* on added lines (Go and front-end HTML/JS/CSS) that
++contain a Unicode emoji.
++
+ ## How enforcement works
+ 
+ | Mechanism | When it runs | What it does |
+ |-----------|--------------|--------------|
+-| `PostToolUse` hook ([`.claude/settings.json`](.claude/settings.json)) | After Claude edits a Go file | Runs the checker on that file and feeds any finding back so Claude self-corrects |
+-| GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) | On every push / PR | `gofmt`, `go build`, `go test ./...`, and the diff-scoped convention checker (blocking); plus module-wide `go vet` (advisory — never fails CI on grandfathered legacy code) |
++| `PostToolUse` hook ([`.claude/settings.json`](.claude/settings.json)) | After Claude edits a Go or front-end (HTML/JS/CSS) file | Runs the checker on that file and feeds any finding back so Claude self-corrects |
++| GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) | On every push / PR | `gofmt`, `go build`, `go test ./...`, and the diff-scoped convention checker (blocking; scans Go for rules 1–5 and Go + front-end for the emoji rule 6); plus module-wide `go vet` (advisory — never fails CI on grandfathered legacy code) |
+ | [`scripts/check-conventions.sh`](scripts/check-conventions.sh) | Manually or from the above | Single source of truth for the rules above |
+ 
+ Run it yourself before pushing:
+diff --git a/scripts/check-conventions.sh b/scripts/check-conventions.sh
+index 6594448..bf91f5a 100755
+--- a/scripts/check-conventions.sh
++++ b/scripts/check-conventions.sh
+@@ -34,6 +34,14 @@ warn() { printf '  [WARN]  %s\n' "$1" >&2; warns=$((warns + 1)); }
+ 
+ repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+ 
++# emoji_bytes is the UTF-8 lead-byte pair (0xF0 0x9F) shared by the pictographic
++# emoji planes U+1F000–U+1FFFF (faces, objects, symbols, regional-indicator
++# flags) — i.e. the colourful emoji people actually paste. Matching just these
++# two bytes keeps the check byte-oriented and free of false positives on smart
++# quotes / em-dashes (which live in the 0xE2 range), and portable across
++# BusyBox/BSD/GNU grep (rule 5: no system dependencies).
++emoji_bytes=$(printf '\360\237')
++
+ # is_platform_file returns success when a Go file is scoped to a single OS/arch
+ # by its filename suffix (e.g. foo_linux.go, bar_windows_amd64.go). Such files
+ # are the project's sanctioned home for platform-specific code, so the
+@@ -90,6 +98,19 @@ check_lines() {
+ 	fi
+ }
+ 
++# check_emoji flags literal Unicode emoji in a stream of source lines on stdin.
++# $1 is the file the lines belong to. Emoji are never allowed in the program
++# (rule 6): draw an inline SVG or use one of the project's icon libraries
++# instead. Applies to both Go and front-end (HTML/JS/CSS) sources.
++check_emoji() {
++	file=$1
++	scan=$(grep -v 'arozos-lint-ignore' || true)
++	hits=$(printf '%s\n' "$scan" | LC_ALL=C grep -c "$emoji_bytes" 2>/dev/null || true)
++	if [ -n "$hits" ] && [ "$hits" != "0" ]; then
++		err "$file: contains a literal Unicode emoji. Emoji are not allowed — draw an inline SVG or use a project icon library (Semantic UI <i class=\"... icon\"> first, else a local SVG); see \"Icon and emoji policy\" in CLAUDE.md (rule 6)."
++	fi
++}
++
+ # check_file applies the file-level rules to a single Go source file path.
+ check_file() {
+ 	file=$1
+@@ -127,13 +148,18 @@ scan_one() {
+ 		license_reminder
+ 		return
+ 		;;
+-	*.go) ;;
++	*.go)
++		# Single-file / hook mode scans the whole file content.
++		check_lines "$file" <"$file"
++		check_emoji "$file" <"$file"
++		check_file "$file"
++		;;
++	*.html | *.htm | *.js | *.mjs | *.css)
++		# Front-end sources: emoji policy only (rule 6).
++		check_emoji "$file" <"$file"
++		;;
+ 	*) return ;;
+ 	esac
+-
+-	# Single-file / hook mode scans the whole file content.
+-	check_lines "$file" <"$file"
+-	check_file "$file"
+ }
+ 
+ mode=${1:---help}
+@@ -162,7 +188,7 @@ case "$mode" in
+ 		exit 1
+ 	fi
+ 	cd "$repo_root" || exit 1
+-	changed=$(git diff --name-only --diff-filter=ACM "$base" -- '*.go' 'go.mod' 'go.sum' '**/go.mod' '**/go.sum')
++	changed=$(git diff --name-only --diff-filter=ACM "$base" -- '*.go' 'go.mod' 'go.sum' '**/go.mod' '**/go.sum' '*.html' '*.htm' '*.js' '*.mjs' '*.css')
+ 	[ -z "$changed" ] && {
+ 		echo "No Go/module changes to check." >&2
+ 		exit 0
+@@ -174,20 +200,25 @@ case "$mode" in
+ 	printf '%s\n' "$changed" >"$tmp"
+ 	while IFS= read -r f; do
+ 		[ -n "$f" ] || continue
++		emoji_only=""
+ 		case "$f" in
+ 		go.mod | go.sum | */go.mod | */go.sum)
+ 			license_reminder
+ 			continue
+ 			;;
+ 		*.go) ;;
++		*.html | *.htm | *.js | *.mjs | *.css) emoji_only=1 ;;
+ 		*) continue ;;
+ 		esac
+ 		printf 'Checking %s\n' "$f" >&2
+ 		# Diff mode only scans *added* lines for the per-line rules. Feed them
+-		# via redirection (not a pipe) so check_lines runs in this shell.
++		# via redirection (not a pipe) so the checks run in this shell.
+ 		git diff -U0 "$base" -- "$f" | grep -E '^\+' | grep -Ev '^\+\+\+' | sed 's/^+//' >"$added"
+-		check_lines "$f" <"$added"
+-		check_file "$f"
++		check_emoji "$f" <"$added"
++		if [ -z "$emoji_only" ]; then
++			check_lines "$f" <"$added"
++			check_file "$f"
++		fi
+ 	done <"$tmp"
+ 	rm -f "$tmp" "$added"
+ 	;;
+-- 
+2.43.0
+
