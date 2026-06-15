@@ -85,12 +85,8 @@ func NewHandler(opts HandlerOptions) *Handler {
 
 // ServeHTTP implements http.Handler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.PrintAndLog("CalDAV", r.Method+" "+r.URL.Path+" (UA: "+r.UserAgent()+")", nil)
-
 	username, ok := h.authenticate(r)
 	if !ok {
-		logger.PrintAndLog("CalDAV", "Auth failed for "+r.Method+" "+r.URL.Path+
-			" — no valid Basic Auth token (user="+basicAuthUser(r)+")", nil)
 		w.Header().Set("WWW-Authenticate", `Basic realm="ArozOS CalDAV"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -100,8 +96,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		path = "/"
 	}
-
-	logger.PrintAndLog("CalDAV", "Authenticated user="+username+" method="+r.Method+" path="+path, nil)
 
 	switch r.Method {
 	case http.MethodOptions:
@@ -117,40 +111,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		h.handleDelete(w, r, path, username)
 	default:
-		logger.PrintAndLog("CalDAV", "Method not allowed: "+r.Method, nil)
 		w.Header().Set("Allow", "OPTIONS, PROPFIND, REPORT, GET, HEAD, PUT, DELETE")
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
-}
-
-// basicAuthUser extracts just the username from Basic Auth without validating.
-func basicAuthUser(r *http.Request) string {
-	u, _, ok := r.BasicAuth()
-	if !ok {
-		return "(no basic auth)"
-	}
-	return u
 }
 
 // authenticate validates HTTP Basic Auth credentials: username must match the
 // owner of the supplied auto-login token.
 func (h *Handler) authenticate(r *http.Request) (string, bool) {
 	username, password, ok := r.BasicAuth()
-	if !ok {
-		logger.PrintAndLog("CalDAV", "authenticate: no Basic Auth header present", nil)
-		return "", false
-	}
-	if password == "" {
-		logger.PrintAndLog("CalDAV", "authenticate: empty password for user="+username, nil)
+	if !ok || password == "" {
 		return "", false
 	}
 	valid, tokenOwner := h.authAgent.ValidateAutoLoginToken(password)
-	if !valid {
-		logger.PrintAndLog("CalDAV", "authenticate: token invalid for user="+username+" (token len="+fmt.Sprintf("%d", len(password))+")", nil)
-		return "", false
-	}
-	if tokenOwner != username {
-		logger.PrintAndLog("CalDAV", "authenticate: token owner="+tokenOwner+" does not match claimed user="+username, nil)
+	if !valid || tokenOwner != username {
 		return "", false
 	}
 	return username, true
@@ -159,7 +133,6 @@ func (h *Handler) authenticate(r *http.Request) (string, bool) {
 // ── OPTIONS ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleOptions(w http.ResponseWriter) {
-	logger.PrintAndLog("CalDAV", "OPTIONS → advertising DAV: 1, 2, calendar-access", nil)
 	w.Header().Set("DAV", "1, 2, calendar-access")
 	w.Header().Set("Allow", "OPTIONS, PROPFIND, REPORT, GET, HEAD, PUT, DELETE")
 	w.WriteHeader(http.StatusOK)
@@ -174,37 +147,23 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request, path st
 	}
 	parts := splitURLPath(path)
 
-	// Log the PROPFIND request body for debugging
-	body, _ := io.ReadAll(r.Body)
-	logger.PrintAndLog("CalDAV", fmt.Sprintf("PROPFIND depth=%s path=%s parts=%v body=%s", depth, path, parts, truncate(string(body), 512)), nil)
+	// Consume the body (required even if unused, so the connection stays clean).
+	io.ReadAll(r.Body) //nolint
 
 	switch {
 	case len(parts) == 0:
-		logger.PrintAndLog("CalDAV", "PROPFIND → service root (current-user-principal)", nil)
 		h.propfindRoot(w, username)
 	case len(parts) == 1:
 		if parts[0] != username {
-			logger.PrintAndLog("CalDAV", "PROPFIND: path user="+parts[0]+" != authenticated user="+username, nil)
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
 		}
-		logger.PrintAndLog("CalDAV", "PROPFIND → user principal for "+username, nil)
 		h.propfindPrincipal(w, username)
 	case len(parts) == 2 && parts[1] == "calendar":
-		logger.PrintAndLog("CalDAV", "PROPFIND → calendar collection depth="+depth+" for "+username, nil)
-		h.propfindCalendar(w, r, username, depth)
+		h.propfindCalendar(w, username, depth)
 	default:
-		logger.PrintAndLog("CalDAV", "PROPFIND: unrecognised path parts="+fmt.Sprintf("%v", parts), nil)
 		http.Error(w, "Not Found", http.StatusNotFound)
 	}
-}
-
-// truncate shortens a string for log output.
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
 }
 
 func (h *Handler) propfindRoot(w http.ResponseWriter, username string) {
@@ -244,7 +203,7 @@ func (h *Handler) propfindPrincipal(w http.ResponseWriter, username string) {
 	writeXML(w, body)
 }
 
-func (h *Handler) propfindCalendar(w http.ResponseWriter, r *http.Request, username string, depth string) {
+func (h *Handler) propfindCalendar(w http.ResponseWriter, username string, depth string) {
 	events, err := h.loadEvents(username)
 	if err != nil {
 		logger.PrintAndLog("CalDAV", "load events for "+username, err)
@@ -300,7 +259,6 @@ func eventPropfindResponse(href, etag string) string {
 func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path string, username string) {
 	parts := splitURLPath(path)
 	if len(parts) < 2 || parts[1] != "calendar" {
-		logger.PrintAndLog("CalDAV", "REPORT: bad path parts="+fmt.Sprintf("%v", parts), nil)
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
@@ -310,7 +268,6 @@ func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path stri
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
-	logger.PrintAndLog("CalDAV", "REPORT body="+truncate(string(body), 512), nil)
 
 	events, err := h.loadEvents(username)
 	if err != nil {
@@ -318,7 +275,6 @@ func (h *Handler) handleReport(w http.ResponseWriter, r *http.Request, path stri
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	logger.PrintAndLog("CalDAV", fmt.Sprintf("REPORT: serving %d events for %s", len(events), username), nil)
 
 	calHref := h.prefix + "/" + username + "/calendar/"
 	bodyStr := string(body)
@@ -400,11 +356,10 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, path string,
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
-	logger.PrintAndLog("CalDAV", "PUT eventID="+eventID+" body="+truncate(string(body), 512), nil)
 
 	newEv, err := icsToEvent(string(body), eventID)
 	if err != nil || newEv.Title == "" {
-		logger.PrintAndLog("CalDAV", "PUT: ICS parse failed for eventID="+eventID+" err="+fmt.Sprintf("%v", err)+" title="+newEv.Title, nil)
+		logger.PrintAndLog("CalDAV", "PUT: ICS parse failed for "+eventID, err)
 		http.Error(w, "Bad Request: cannot parse ICS", http.StatusBadRequest)
 		return
 	}
@@ -491,21 +446,13 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request, path stri
 func (h *Handler) eventsFilePath(username string) (string, error) {
 	userObj, err := h.userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
-		logger.PrintAndLog("CalDAV", "eventsFilePath: GetUserInfoFromUsername failed for "+username, err)
 		return "", err
 	}
 	fsh, err := userObj.GetHomeFileSystemHandler()
 	if err != nil {
-		logger.PrintAndLog("CalDAV", "eventsFilePath: GetHomeFileSystemHandler failed for "+username, err)
 		return "", err
 	}
-	p, err := fsh.FileSystemAbstraction.VirtualPathToRealPath("/Document/Calendar/events.json", username)
-	if err != nil {
-		logger.PrintAndLog("CalDAV", "eventsFilePath: VirtualPathToRealPath failed for "+username, err)
-		return "", err
-	}
-	logger.PrintAndLog("CalDAV", "eventsFilePath: resolved to "+p+" for "+username, nil)
-	return p, nil
+	return fsh.FileSystemAbstraction.VirtualPathToRealPath("/Document/Calendar/events.json", username)
 }
 
 func (h *Handler) loadEvents(username string) ([]CalendarEvent, error) {
@@ -548,7 +495,6 @@ func (h *Handler) saveEvents(username string, events []CalendarEvent) error {
 // ── XML / path utilities ──────────────────────────────────────────────────────
 
 func writeXML(w http.ResponseWriter, body string) {
-	logger.PrintAndLog("CalDAV", "207 response body="+truncate(body, 1024), nil)
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.WriteHeader(207)
 	fmt.Fprint(w, body)
