@@ -56,6 +56,12 @@ func executeShutdownSequence() {
 	//Shutdown network services
 	StopNetworkServices()
 
+	//Shutdown Arozcast TURN relay
+	if arozcastTurnServer != nil {
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down Arozcast TURN relay", nil)
+		arozcastTurnServer.Close()
+	}
+
 	//Shutdown FTP Server
 	if FTPManager != nil {
 		systemWideLogger.PrintAndLog("System", "<!> Shutting down FTP Server", nil)

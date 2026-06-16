@@ -455,6 +455,13 @@ function arozcastApp() {
         // Screen share (WebRTC)
         _pc: null,
         _iceQueue: [],
+        // ICE servers for screen share. Defaults to STUN (LAN only); replaced
+        // by the server-provided STUN+TURN list in _loadIceServers() so screen
+        // share can connect over the Internet.
+        rtcConfig: { iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+        ] },
 
         get progressPct() {
             if (!this.duration) return 0;
@@ -475,6 +482,9 @@ function arozcastApp() {
 
             // Auto-hide toolbar
             document.addEventListener('mousemove', () => self.showToolbar());
+
+            // Load ICE servers (STUN + TURN) so screen share works over the Internet
+            this._loadIceServers();
 
             // Create room
             try {
@@ -763,6 +773,16 @@ function arozcastApp() {
         },
 
         // ── Screen share (WebRTC) ─────────────────────────────────────
+        async _loadIceServers() {
+            try {
+                const res  = await fetch(ao_root + 'api/arozcast/iceservers');
+                const data = await res.json();
+                if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+                    this.rtcConfig = { iceServers: data.iceServers };
+                }
+            } catch (e) { /* keep STUN defaults */ }
+        },
+
         _prepareScreen() {
             if (this._pc) { this._pc.close(); this._pc = null; }
             this._iceQueue = [];
@@ -782,12 +802,7 @@ function arozcastApp() {
             if (this._pc) { this._pc.close(); }
             this._iceQueue = [];
 
-            const pc = new RTCPeerConnection({
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                ]
-            });
+            const pc = new RTCPeerConnection(this.rtcConfig);
             // Assign early so arriving webrtc.ice messages are queued correctly
             this._pc = pc;
 

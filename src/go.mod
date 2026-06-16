@@ -31,6 +31,8 @@ require (
 	github.com/oliamb/cutter v0.2.2
 	github.com/oov/psd v0.0.0-20220121172623-5db5eafcecbb
 	github.com/pin/tftp/v3 v3.1.0
+	github.com/pion/logging v0.2.4
+	github.com/pion/turn/v4 v4.1.4
 	github.com/pkg/sftp v1.13.9
 	github.com/robertkrimen/otto v0.5.1
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
@@ -95,12 +97,18 @@ require (
 	github.com/miekg/dns v1.1.68 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
+	github.com/pion/dtls/v3 v3.0.7 // indirect
+	github.com/pion/randutil v0.1.0 // indirect
+	github.com/pion/stun/v3 v3.0.1 // indirect
+	github.com/pion/transport/v3 v3.0.8 // indirect
+	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pjbgf/sha1cd v0.5.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect
 	github.com/stangelandcl/ppmd v0.1.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
+	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	gitlab.com/NebulousLabs/fastrand v0.0.0-20181126182046-603482d69e40 // indirect

@@ -40,14 +40,49 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"imuslab.com/arozos/mod/network/turn"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
+
+// arozcastTurnServer is the optional built-in TURN relay that lets the WebRTC
+// screen-share feature traverse NAT and work over the Internet. It is nil when
+// the relay is disabled (-arozcast_turn=false) or failed to start, in which
+// case the ICE config falls back to STUN-only (LAN screen share still works).
+var arozcastTurnServer *turn.Server
+
+// arozcastICEOverrideFile lets an operator fully replace the ICE server list
+// returned to clients (e.g. to point at an external coturn/Cloudflare TURN).
+// When present and valid it takes precedence over the built-in relay.
+var arozcastICEOverrideFile = filepath.Join("system", "arozcast", "iceservers.json")
+
+// acICEServer mirrors the RTCIceServer dictionary consumed by the browser.
+type acICEServer struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username,omitempty"`
+	Credential string   `json:"credential,omitempty"`
+}
+
+type acICEConfig struct {
+	ICEServers []acICEServer `json:"iceServers"`
+}
+
+// acDefaultSTUNServers are the public STUN servers used when no other config is
+// available. STUN alone is enough on a LAN but not across most NATs.
+var acDefaultSTUNServers = []acICEServer{
+	{URLs: []string{"stun:stun.l.google.com:19302"}},
+	{URLs: []string{"stun:stun1.l.google.com:19302"}},
+}
 
 // Idle-timeout constants.  Adjust here if you need different behaviour.
 const (
@@ -155,6 +190,26 @@ func acCloseRoom(mgr *acManager, code string) {
 func ArozcastInit() {
 	mgr := &acManager{rooms: make(map[string]*acRoom)}
 
+	// ── Built-in TURN relay ───────────────────────────────────────────────
+	// Screen share uses a direct WebRTC peer-to-peer connection. Over the
+	// Internet the peers are usually behind NAT, so a TURN relay is needed to
+	// forward the media. ArozOS runs that relay itself (both peers already
+	// reach this host for signalling). Failure is non-fatal: we just fall back
+	// to STUN-only, which keeps LAN screen share working.
+	if *arozcast_enable_turn {
+		ts, err := turn.NewServer(turn.Config{
+			ListenPort: *arozcast_turn_port,
+			Realm:      "arozos",
+			PublicIP:   *arozcast_turn_publicip,
+		})
+		if err != nil {
+			systemWideLogger.PrintAndLog("Arozcast", "Built-in TURN relay unavailable; screen share will be LAN-only", err)
+		} else {
+			arozcastTurnServer = ts
+			systemWideLogger.PrintAndLog("Arozcast", "Built-in TURN relay started on port "+strconv.Itoa(*arozcast_turn_port), nil)
+		}
+	}
+
 	// ── Sweep goroutine ───────────────────────────────────────────────────
 	// Runs every acSweepInterval and closes rooms that match either idle
 	// condition.  Rooms to close are collected while holding a read-lock,
@@ -253,6 +308,23 @@ func ArozcastInit() {
 		}
 	})
 
+	// ICE servers for the WebRTC screen-share feature.
+	// Returns the STUN/TURN configuration the browser should use. Built-in TURN
+	// credentials are minted fresh per request and are short-lived.
+	router.HandleFunc("/api/arozcast/iceservers", func(w http.ResponseWriter, r *http.Request) {
+		identity := ""
+		if userinfo, err := userHandler.GetUserInfoFromRequest(w, r); err == nil {
+			identity = userinfo.Username
+		}
+		config := acBuildICEConfig(r, identity)
+		js, err := json.Marshal(config)
+		if err != nil {
+			utils.SendErrorResponse(w, "Failed to build ICE config")
+			return
+		}
+		utils.SendJSONResponse(w, string(js))
+	})
+
 	// HTTP publish: POST code=XXXX&msg=<json>
 	// Useful for AGI scripts that cannot hold a WebSocket connection.
 	router.HandleFunc("/api/arozcast/publish", func(w http.ResponseWriter, r *http.Request) {
@@ -347,4 +419,75 @@ func ArozcastInit() {
 			room.broadcast(msg, client)
 		}
 	})
+}
+
+// acBuildICEConfig assembles the ICE server list returned to the browser for
+// WebRTC screen share. Order of precedence:
+//  1. An operator override file (system/arozcast/iceservers.json), if valid.
+//  2. Public STUN servers plus the built-in TURN relay when it is running.
+//  3. Public STUN servers only (LAN screen share still works).
+func acBuildICEConfig(r *http.Request, identity string) acICEConfig {
+	if servers, ok := acLoadICEOverride(); ok {
+		return acICEConfig{ICEServers: servers}
+	}
+
+	servers := make([]acICEServer, len(acDefaultSTUNServers))
+	copy(servers, acDefaultSTUNServers)
+
+	if arozcastTurnServer != nil {
+		host := arozcastTurnServer.AdvertiseHost()
+		if host == "" {
+			host = acDeriveTURNHost(r)
+		}
+		if host != "" {
+			base := net.JoinHostPort(host, strconv.Itoa(arozcastTurnServer.ListenPort()))
+			username, credential := arozcastTurnServer.Credentials(identity)
+			servers = append(servers, acICEServer{
+				URLs: []string{
+					"turn:" + base + "?transport=udp",
+					"turn:" + base + "?transport=tcp",
+				},
+				Username:   username,
+				Credential: credential,
+			})
+		}
+	}
+
+	return acICEConfig{ICEServers: servers}
+}
+
+// acLoadICEOverride reads the optional operator override file. It returns
+// ok=false when the file is absent, unreadable, malformed, or empty.
+func acLoadICEOverride() ([]acICEServer, bool) {
+	data, err := os.ReadFile(arozcastICEOverrideFile)
+	if err != nil {
+		return nil, false
+	}
+	var parsed acICEConfig
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		systemWideLogger.PrintAndLog("Arozcast", "Ignoring malformed "+arozcastICEOverrideFile, err)
+		return nil, false
+	}
+	if len(parsed.ICEServers) == 0 {
+		return nil, false
+	}
+	return parsed.ICEServers, true
+}
+
+// acDeriveTURNHost determines the host clients should dial for the TURN relay,
+// using the same host the client used to reach ArozOS (honouring a reverse
+// proxy's X-Forwarded-Host) so it stays reachable. The port is stripped — the
+// relay listens on its own port.
+func acDeriveTURNHost(r *http.Request) string {
+	host := r.Host
+	if xfh := r.Header.Get("X-Forwarded-Host"); xfh != "" {
+		if idx := strings.Index(xfh, ","); idx >= 0 {
+			xfh = xfh[:idx] // first entry is the original client-facing host
+		}
+		host = strings.TrimSpace(xfh)
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return host
 }

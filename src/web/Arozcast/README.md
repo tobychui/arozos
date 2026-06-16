@@ -15,6 +15,7 @@ Any ArozOS webapp can become a sender by using the HTTP and WebSocket APIs docum
    - [GET /api/arozcast/close](#get-apiarozcastclose)
    - [POST /api/arozcast/publish](#post-apiarozcastpublish)
    - [GET /api/arozcast/ws](#get-apiarozcastws)
+   - [GET /api/arozcast/iceservers](#get-apiarozcasticeservers)
 3. [WebSocket Message Protocol](#websocket-message-protocol)
    - [Message Envelope](#message-envelope)
    - [Sender → Receiver Topics](#sender--receiver-topics)
@@ -171,6 +172,45 @@ var ws = new WebSocket(wsUrl.toString());
 ```
 
 Frames are plain text containing JSON. See [Message Protocol](#websocket-message-protocol) for the format.
+
+---
+
+### GET /api/arozcast/iceservers
+
+Returns the ICE server list the **screen-share** feature feeds to
+`RTCPeerConnection`. Screen share is a direct WebRTC peer-to-peer connection;
+STUN alone is enough on a LAN, but crossing the Internet (peers behind NAT)
+needs a TURN relay. This endpoint supplies both.
+
+**Request:** No parameters.
+
+**Response:** an `RTCConfiguration`-shaped object:
+```json
+{
+  "iceServers": [
+    { "urls": ["stun:stun.l.google.com:19302"] },
+    {
+      "urls": ["turn:cloud.example.com:3478?transport=udp",
+               "turn:cloud.example.com:3478?transport=tcp"],
+      "username":   "1718540000:alice",
+      "credential": "h6Yc…base64-hmac…="
+    }
+  ]
+}
+```
+
+**Example:**
+```javascript
+const res = await fetch(ao_root + 'api/arozcast/iceservers');
+const cfg = await res.json();              // { iceServers: [...] }
+const pc  = new RTCPeerConnection(cfg);    // pass straight to RTCPeerConnection
+```
+
+The TURN entry is present only when the built-in relay is running. Its
+credentials are minted per request, HMAC-signed and short-lived, so the relay is
+never an open proxy. The TURN host mirrors the host the client used to reach
+ArozOS (honouring `X-Forwarded-Host`). See
+[Screen Share over the Internet](#screen-share-over-the-internet).
 
 ---
 
@@ -758,6 +798,52 @@ The **30-second receiver idle** guard is the second line of defence against zomb
 2. `{"topic":"room.closed","payload":{}}` is broadcast to all connected senders.
 3. All WebSocket connections are closed.
 4. Any sender that receives `room.closed` should give up immediately; any sender that misses it will discover the room is gone when its next reconnect attempt gets a **404 Room not found** response.
+
+### Screen Share over the Internet
+
+Media casting (Musicify / Movie / Photo) already works over the Internet: both
+sender and receiver relay through this ArozOS host, and the receiver loads media
+from the host it reached, so nothing extra is required beyond the host being
+reachable.
+
+**Screen share is different** — it is a direct WebRTC peer-to-peer connection.
+On a LAN the peers connect with host candidates, but across the Internet they
+are usually behind NAT and need a **TURN relay** to forward the stream. ArozOS
+ships a built-in TURN relay so this works without a third-party service:
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `-arozcast_turn` | `true` | Enable the built-in TURN relay. |
+| `-arozcast_turn_port` | `3478` | UDP **and** TCP port the relay listens on. |
+| `-arozcast_turn_publicip` | *(auto)* | Public IP/hostname advertised to peers. Auto-detected from the outbound interface; **set this when the host is behind NAT**. |
+
+For screen share to work across the Internet, the relay port must be reachable
+by both peers:
+
+- **Host with a public IP (VPS / port-forwarded):** forward `-arozcast_turn_port`
+  (UDP + TCP). Behind NAT, also set `-arozcast_turn_publicip` to your public IP.
+- **Behind a reverse proxy:** the proxy only carries HTTP(S); expose the TURN
+  port separately (it does not go through the proxy).
+- The relay is **non-fatal**: if it cannot start, screen share silently falls
+  back to STUN-only (LAN works, Internet may not).
+
+**Using an external TURN instead.** Drop a `system/arozcast/iceservers.json`
+file to fully replace the ICE list returned by `/api/arozcast/iceservers`
+(e.g. to point at coturn or a managed TURN provider). When present and valid it
+takes precedence over the built-in relay:
+
+```json
+{
+  "iceServers": [
+    { "urls": ["stun:stun.l.google.com:19302"] },
+    {
+      "urls": ["turn:turn.example.com:3478"],
+      "username": "myuser",
+      "credential": "mypassword"
+    }
+  ]
+}
+```
 
 ### HTTP publish for non-WS contexts
 AGI scripts and server-side code that cannot hold a WebSocket can use `/api/arozcast/publish` to inject any message into a live room. This is useful for automation (e.g. skip to next track on a timer) without modifying the frontend.
