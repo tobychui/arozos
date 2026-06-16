@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "webroot-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "src/web"],
+      "port": 8123
+    }
+  ]
+}
