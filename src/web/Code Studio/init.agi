@@ -4,6 +4,8 @@
 	Do not try to call any AJGI users / filepath functions in this script.
 */
 
+var _MODULE_ROOT_DIR = "Code Studio";
+
 //Create database for this module
 newDBTableIfNotExists("Code Studio")
 
@@ -12,13 +14,13 @@ var moduleLaunchInfo = {
     Name: "Code Studio",
 	Desc: "The best code editor on ArozOS",
 	Group: "Office",
-	IconPath: "Code Studio/img/module_icon.png",
+	IconPath: _MODULE_ROOT_DIR + "/img/module_icon.png",
 	Version: "1.3",
-	StartDir: "Code Studio/index.html",
+	StartDir: _MODULE_ROOT_DIR + "/index.html",
 	SupportFW: true,
-	LaunchFWDir: "Code Studio/index.html",
+	LaunchFWDir: _MODULE_ROOT_DIR + "/index.html",
 	SupportEmb: true,
-	LaunchEmb: "Code Studio/embedded.html",
+	LaunchEmb: _MODULE_ROOT_DIR + "/embedded.html",
 	InitFWSize: [1024, 768],
 	InitEmbSize: [360, 200],
 	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".agi", ".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
@@ -26,3 +28,16 @@ var moduleLaunchInfo = {
 
 //Register the module
 registerModule(JSON.stringify(moduleLaunchInfo));
+
+//Register icons
+var fileIcons = appdata.listDir(_MODULE_ROOT_DIR + "/icons/");
+fileIcons = JSON.parse(fileIcons);
+for(var i = 0; i < fileIcons.length; i++){
+	var iconFile = fileIcons[i];
+	// Full path of the iconFile relative to web
+	// e.g. Code Studio/icons/aiff-128_x_128.png
+	var fileName = iconFile.split("/").pop();
+	var fileExt = "." + fileName.split("-")[0];
+	registerExtensionIcon(fileExt, "icons/" + fileName);
+	console.log("[Code Studio] Registered file icon for ",fileExt, " at ", "icons/" + fileName);
+}
