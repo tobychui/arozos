@@ -50,6 +50,9 @@ func eventToICS(ev CalendarEvent) string {
 			sb.WriteString("X-APPLE-CALENDAR-COLOR:" + hex + "\r\n")
 		}
 	}
+	if rrule := normalizeRRule(ev.RRule); rrule != "" {
+		sb.WriteString("RRULE:" + rrule + "\r\n")
+	}
 	if ev.Reminder != nil {
 		trigger := reminderToTrigger(ev.Reminder)
 		sb.WriteString("BEGIN:VALARM\r\n")
@@ -131,6 +134,8 @@ func icsToEvent(icsData string, idHint string) (CalendarEvent, error) {
 		case "DTEND":
 			t, _ := parseICSDateTime(key, val)
 			ev.End = t.UnixMilli()
+		case "RRULE":
+			ev.RRule = normalizeRRule(strings.TrimSpace(val))
 		}
 	}
 
@@ -329,6 +334,23 @@ func triggerToReminder(trigger string) *EventReminder {
 		return &EventReminder{Value: v, Unit: "days"}
 	}
 	return nil
+}
+
+// normalizeRRule sanitises a recurrence rule for safe inclusion in an ICS
+// property line.  It strips a redundant leading "RRULE:" prefix, removes any
+// embedded line breaks, and trims surrounding whitespace.  The rule is passed
+// through verbatim otherwise so any valid RFC 5545 RRULE survives a round trip.
+func normalizeRRule(rrule string) string {
+	rrule = strings.TrimSpace(rrule)
+	if rrule == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToUpper(rrule), "RRULE:") {
+		rrule = rrule[len("RRULE:"):]
+	}
+	rrule = strings.ReplaceAll(rrule, "\r", "")
+	rrule = strings.ReplaceAll(rrule, "\n", "")
+	return strings.TrimSpace(rrule)
 }
 
 // eventETag returns a quoted MD5 ETag for the given event.

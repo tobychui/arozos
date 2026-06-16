@@ -216,6 +216,9 @@
         var pendingCode  = null;
         var sessionReady = false;
         var pendingFiles = [];
+        var shellMode    = false;
+        var shellPrompt  = ">";
+        var _tabLastLine = null; // tracks input at last Tab press (for double-Tab list)
 
         // ── WebSocket ────────────────────────────────────────────────────────
         function wsEndpoint() {
@@ -263,16 +266,55 @@
                 focusInput();
                 return;
             }
-            if (msg.type === "result") {
-                if (msg.logs && msg.logs.length) msg.logs.forEach(function(l) { line("log", "· " + l); });
-                if (msg.error) {
-                    line("err", "✕ " + msg.output);
-                } else if (msg.output !== "" && msg.output !== undefined) {
-                    String(msg.output).split("\n").forEach(function(l, i) {
-                        line("ok", (i === 0 ? "← " : "  ") + l);
-                    });
+            if (msg.type === "shellmode") {
+                shellMode = msg.active;
+                if (msg.active) {
+                    shellPrompt = msg.prompt || "$ ";
+                    document.querySelector(".term-prompt").textContent = shellPrompt;
+                    document.getElementById("termInput").placeholder = "shell command…";
+                    line("sys", "# Entered shell mode — virtual filesystem.  Type ‘exit’ to return to the AGI REPL.");
+                    line("sys", "# cwd: " + (msg.cwd || "user:/"));
                 } else {
-                    line("dim", "← undefined");
+                    shellPrompt = ">";
+                    document.querySelector(".term-prompt").textContent = ">";
+                    document.getElementById("termInput").placeholder = "JavaScript / AGI…";
+                    line("sys", "# Returned to AGI REPL.");
+                }
+                return;
+            }
+            if (msg.type === "clear") {
+                clearOutput();
+                return;
+            }
+            if (msg.type === "complete") {
+                handleCompletion(msg.candidates || [], msg.partial || "");
+                return;
+            }
+            if (msg.type === "result") {
+                // Update shell prompt after every shell command (cd changes it)
+                if (msg.shellPrompt) {
+                    shellPrompt = msg.shellPrompt;
+                    document.querySelector(".term-prompt").textContent = shellPrompt;
+                }
+                if (msg.logs && msg.logs.length) msg.logs.forEach(function(l) { line("log", "· " + l); });
+                if (shellMode) {
+                    // Shell mode: raw output, no ← prefix
+                    if (msg.error) {
+                        if (msg.output) String(msg.output).split("\n").forEach(function(l) { line("err", l); });
+                    } else if (msg.output) {
+                        String(msg.output).split("\n").forEach(function(l) { line("ok", l); });
+                    }
+                } else {
+                    // REPL mode: prefix with ← / ✕
+                    if (msg.error) {
+                        line("err", "✕ " + msg.output);
+                    } else if (msg.output !== "" && msg.output !== undefined) {
+                        String(msg.output).split("\n").forEach(function(l, i) {
+                            line("ok", (i === 0 ? "← " : "  ") + l);
+                        });
+                    } else {
+                        line("dim", "← undefined");
+                    }
                 }
             }
         }
@@ -282,10 +324,80 @@
             wsSend({ type: "exec", code: code });
         }
 
+        // ── Tab completion ────────────────────────────────────────────────────
+        function handleCompletion(candidates, partial) {
+            if (candidates.length === 0) return; // no match — do nothing
+
+            // Find the longest common prefix among all candidates
+            var common = candidates[0];
+            for (var i = 1; i < candidates.length; i++) {
+                while (candidates[i].indexOf(common) !== 0) {
+                    common = common.substring(0, common.length - 1);
+                    if (common === "") break;
+                }
+            }
+
+            // Replace the partial token at the end of the input with the common prefix.
+            // Filenames that contain spaces are wrapped in double quotes so the
+            // shell tokenizer treats them as a single argument.
+            var cur = inp().value;
+            var needsQuoting = common.indexOf(" ") !== -1;
+            if (needsQuoting) { common = '"' + common + '"'; }
+
+            if (partial !== "") {
+                var idx = cur.lastIndexOf(partial);
+                if (idx !== -1) {
+                    // If the user already typed an opening quote for this partial,
+                    // consume it so we don't end up with doubled quotes.
+                    var start = idx;
+                    if (needsQuoting && start > 0 &&
+                            (cur.charAt(start - 1) === '"' || cur.charAt(start - 1) === "'")) {
+                        start = start - 1;
+                    }
+                    inp().value = cur.substring(0, start) + common;
+                }
+            } else {
+                // Completing a brand-new argument (input ends with space)
+                inp().value = cur + common;
+            }
+            caretEnd();
+
+            // Multiple candidates: show the list below the current line.
+            // On the second Tab (same input as last time) always show the list;
+            // on the first Tab only show it when the common prefix didn't extend.
+            var inputAfter = inp().value;
+            if (candidates.length > 1) {
+                var extended = (inputAfter !== cur);
+                if (!extended || _tabLastLine === cur) {
+                    // Format in columns — up to 4 per row, padded to 20 chars
+                    var cols = 4;
+                    var colW = 20;
+                    var rows = [];
+                    for (var r = 0; r < candidates.length; r += cols) {
+                        var row = "";
+                        for (var c = 0; c < cols && r + c < candidates.length; c++) {
+                            var cell = candidates[r + c];
+                            while (cell.length < colW) cell += " ";
+                            row += cell;
+                        }
+                        rows.push(row.replace(/\s+$/, ""));
+                    }
+                    rows.forEach(function(r) { line("log", r); });
+                }
+            }
+            _tabLastLine = inputAfter;
+        }
+
         // ── Input ────────────────────────────────────────────────────────────
         function handleKey(e) {
             if (e.key === "Enter") {
                 submitInput();
+            } else if (e.key === "Tab") {
+                e.preventDefault();
+                if (shellMode) {
+                    wsSend({ type: "complete", line: inp().value });
+                }
+                return; // skip _tabLastLine reset below
             } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 if (histIdx < cmdHistory.length - 1) { histIdx++; inp().value = cmdHistory[histIdx]; caretEnd(); }
@@ -296,6 +408,7 @@
             } else if (e.key === "Escape") {
                 cancelPending();
             }
+            _tabLastLine = null; // any non-Tab key resets double-Tab tracking
         }
 
         function submitInput() {
@@ -316,15 +429,17 @@
                 if (cmdHistory.length > 500) cmdHistory.pop();
             }
             if (pendingCode !== null) cancelPending();
-            line("in", "> " + raw);
+            line("in", (shellMode ? shellPrompt : "> ") + raw);
 
-            // Client-side dot commands
-            var cmd = raw.trim();
-            if      (cmd === ".help")    { showHelp();    return; }
-            else if (cmd === ".clear")   { clearOutput(); return; }
-            else if (cmd === ".reset")   { reconnect();   return; }
-            else if (cmd === ".history") { showHistory(); return; }
-            else if (cmd === ".docs")    { toggleDocs();  return; }
+            // Client-side dot commands (REPL mode only)
+            if (!shellMode) {
+                var cmd = raw.trim();
+                if      (cmd === ".help")    { showHelp();    return; }
+                else if (cmd === ".clear")   { clearOutput(); return; }
+                else if (cmd === ".reset")   { reconnect();   return; }
+                else if (cmd === ".history") { showHistory(); return; }
+                else if (cmd === ".docs")    { toggleDocs();  return; }
+            }
 
             execCode(raw);
         }

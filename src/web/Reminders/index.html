@@ -307,6 +307,16 @@ select.dt-inp{cursor:pointer}
         </select>
       </div>
       <div class="dt-line">
+        <span class="dl-lbl">Repeat</span>
+        <select class="dt-inp" id="dtRepeat" onchange="dtChanged()">
+          <option value="">Never</option>
+          <option value="FREQ=DAILY">Daily</option>
+          <option value="FREQ=WEEKLY">Weekly</option>
+          <option value="FREQ=MONTHLY">Monthly</option>
+          <option value="FREQ=YEARLY">Yearly</option>
+        </select>
+      </div>
+      <div class="dt-line">
         <span class="dl-lbl">List</span>
         <select class="dt-inp" id="dtList" onchange="dtChanged()"></select>
       </div>
@@ -418,6 +428,28 @@ function fmtDateChip(rm){
   else { label=DAYS_SHORT[due.getDay()]+', '+MONTHS_SHORT[due.getMonth()]+' '+due.getDate(); if(due.getFullYear()!==new Date().getFullYear()) label+=', '+due.getFullYear(); }
   if(rm.dueTime) label+=' '+fmtTime(rm.dueTime);
   return label;
+}
+
+// ── Recurrence (RRULE) helpers ────────────────────────────────────────
+// We support the four simple frequencies; an RRULE synced from iOS that uses
+// one of them is recognised, anything more exotic is shown as a generic chip.
+function rruleFreq(rrule){ var m=String(rrule||'').match(/FREQ=([A-Z]+)/); return m?m[1]:''; }
+function repeatSelectVal(rrule){
+  var f=rruleFreq(rrule);
+  return ['DAILY','WEEKLY','MONTHLY','YEARLY'].indexOf(f)>=0 ? ('FREQ='+f) : '';
+}
+function repeatLabel(rrule){
+  return { DAILY:'Daily', WEEKLY:'Weekly', MONTHLY:'Monthly', YEARLY:'Yearly' }[rruleFreq(rrule)] || (rrule?'Repeats':'');
+}
+// Advance a YYYY-MM-DD string to the next occurrence for the given RRULE.
+function nextOccurrence(dateStr, rrule){
+  var d=parseYmd(dateStr), f=rruleFreq(rrule);
+  if(f==='DAILY')        d.setDate(d.getDate()+1);
+  else if(f==='WEEKLY')  d.setDate(d.getDate()+7);
+  else if(f==='MONTHLY') d.setMonth(d.getMonth()+1);
+  else if(f==='YEARLY')  d.setFullYear(d.getFullYear()+1);
+  else return null;
+  return ymd(d);
 }
 
 // ── Misc helpers ──────────────────────────────────────────────────────
@@ -656,7 +688,8 @@ function rowHtml(rm, showList){
   var listTag='';
   if(showList){ var l=listById(rm.listId); if(l){ listTag='<span class="rm-date show" style="color:'+colorVar(l.color)+'">'+escHtml(l.name)+'</span>'; } }
   var url= rm.url?('<a class="rm-url show" href="'+escHtml(rm.url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+escHtml(rm.url)+'</a>'):'';
-  var meta=(chip||url||listTag)?('<div class="rm-meta">'+chip+listTag+url+'</div>'):'';
+  var rep= rm.rrule?('<span class="rm-date show" title="Repeats">↻ '+escHtml(repeatLabel(rm.rrule))+'</span>'):'';
+  var meta=(chip||rep||url||listTag)?('<div class="rm-meta">'+chip+rep+listTag+url+'</div>'):'';
   return '<div class="'+cls+'" data-id="'+rm.id+'" style="--c:'+c+'">'
     +'<button class="rm-check" data-act="check"><span style="pointer-events:none">'+CHECK_SVG+'</span></button>'
     +'<div class="rm-body">'
@@ -701,7 +734,7 @@ function makeReminder(over){
   var d=newReminderDefaults();
   var rm={ id:genId('rm'), listId:d.listId, parentId:null, title:'', notes:'', completed:false,
            completedAt:null, flagged:d.flagged, priority:0, dueDate:d.dueDate, dueTime:'', url:'',
-           createdAt:Date.now(), order:Date.now() };
+           rrule:'', createdAt:Date.now(), order:Date.now() };
   if(over) for(var k in over) rm[k]=over[k];
   return rm;
 }
@@ -726,6 +759,16 @@ function focusTitle(id){
 }
 function toggleComplete(id){
   var rm=rmById(id); if(!rm) return;
+  // Recurring reminders roll forward to their next occurrence instead of being
+  // marked done, matching iOS Reminders behaviour.
+  if(!rm.completed && rm.rrule && rm.dueDate && !rm.parentId){
+    var nd=nextOccurrence(rm.dueDate, rm.rrule);
+    if(nd){
+      rm.dueDate=nd; persistReminder(rm); snack('Moved to '+fmtDateChip(rm));
+      renderSidebar(); clearTimeout(_rerenderT); _rerenderT=setTimeout(renderMain, 480);
+      return;
+    }
+  }
   rm.completed=!rm.completed; rm.completedAt=rm.completed?Date.now():null;
   // also complete/uncomplete subtasks
   S.reminders.forEach(function(r){ if(r.parentId===id){ r.completed=rm.completed; r.completedAt=rm.completed?Date.now():null; persistReminder(r); } });
@@ -811,6 +854,7 @@ function openDetail(id, anchor){
   byId('dtTimeSub').style.display=rm.dueTime?'flex':'none';
   byId('dtTime').value=rm.dueTime||'09:00';
   byId('dtPrio').value=String(rm.priority||0);
+  byId('dtRepeat').value=repeatSelectVal(rm.rrule);
   byId('dtUrl').value=rm.url||'';
   // list dropdown
   var sel=byId('dtList'); sel.innerHTML='';
@@ -838,6 +882,7 @@ function dtChanged(){
   rm.title=byId('dtTitle').value;
   rm.notes=byId('dtNotes').value;
   rm.priority=parseInt(byId('dtPrio').value,10)||0;
+  rm.rrule=byId('dtRepeat').value;
   rm.url=byId('dtUrl').value.trim();
   rm.listId=byId('dtList').value;
   rm.dueDate=byId('dtOnDay').checked?byId('dtDate').value:'';
