@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Productivity</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --sidebar-w: 172px;
+            --bg: #F2F2F7;
+            --sidebar-bg: #EFEFF4;
+            --text: #1C1C1E;
+            --sub: #6B6B70;
+            --accent: #007AFF;
+            --card-bg: #FFFFFF;
+            --border: #D1D1D6;
+            --inp-bg: #FFFFFF;
+            --progress-bg: #E5E5EA;
+            --danger: #FF3B30;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #1C1C1E;
+                --sidebar-bg: #2C2C2E;
+                --text: #F2F2F7;
+                --sub: #8E8E93;
+                --card-bg: #2C2C2E;
+                --border: #48484A;
+                --inp-bg: #3A3A3C;
+                --progress-bg: #3A3A3C;
+                --accent: #0A84FF;
+            }
+        }
+
+        /* ArozOS system theme override via data-theme attribute */
+        html[data-theme="dark"] {
+            --bg: #1C1C1E;
+            --sidebar-bg: #2C2C2E;
+            --text: #F2F2F7;
+            --sub: #8E8E93;
+            --card-bg: #2C2C2E;
+            --border: #48484A;
+            --inp-bg: #3A3A3C;
+            --progress-bg: #3A3A3C;
+            --accent: #0A84FF;
+        }
+
+        html[data-theme="light"] {
+            --bg: #F2F2F7;
+            --sidebar-bg: #EFEFF4;
+            --text: #1C1C1E;
+            --sub: #6B6B70;
+            --card-bg: #FFFFFF;
+            --border: #D1D1D6;
+            --inp-bg: #FFFFFF;
+            --progress-bg: #E5E5EA;
+            --accent: #007AFF;
+        }
+
+        html, body {
+            width: 100%; height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        #app { display: flex; width: 100%; height: 100%; }
+
+        /* ── Sidebar ── */
+        #sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            height: 100%;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #brand {
+            display: flex; align-items: center; gap: 9px;
+            padding: 14px 14px 12px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        #brand img { width: 28px; height: 28px; border-radius: 6px; }
+        #brand span { font-size: 14px; font-weight: 700; }
+
+        .cat-section { padding: 8px 0; flex: 1; overflow-y: auto; }
+
+        .cat-section-label {
+            font-size: 10px; font-weight: 700;
+            letter-spacing: 0.7px;
+            color: var(--sub);
+            text-transform: uppercase;
+            padding: 4px 14px 4px;
+        }
+
+        .cat-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 14px;
+            border-radius: 7px;
+            margin: 1px 6px;
+            cursor: pointer;
+            font-size: 13px; font-weight: 500;
+            color: var(--text);
+            transition: background 0.1s;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        .cat-item:hover { background: rgba(0,0,0,0.06); }
+
+        @media (prefers-color-scheme: dark) {
+            .cat-item:hover { background: rgba(255,255,255,0.07); }
+        }
+
+        .cat-item.active { background: var(--accent); color: #FFF; }
+        .cat-item svg { flex-shrink: 0; }
+
+        /* ── Main ── */
+        #main { flex: 1; height: 100%; overflow: hidden; position: relative; }
+
+        #toolGrid {
+            position: absolute; inset: 0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .grid-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+            gap: 12px;
+        }
+
+        .tool-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            display: flex; flex-direction: column; gap: 9px;
+            transition: box-shadow 0.15s, transform 0.1s;
+        }
+
+        .tool-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.1); transform: translateY(-1px); }
+        .tool-card:active { transform: scale(0.98); box-shadow: none; }
+
+        .tc-icon {
+            width: 42px; height: 42px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .tc-name { font-size: 13.5px; font-weight: 700; }
+        .tc-desc { font-size: 12px; color: var(--sub); line-height: 1.4; }
+
+        /* ── Tool panel ── */
+        #toolPanel {
+            position: absolute; inset: 0;
+            display: none;
+            flex-direction: column;
+        }
+
+        #toolPanel.open { display: flex; }
+
+        .tp-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--sidebar-bg);
+            flex-shrink: 0;
+        }
+
+        .back-btn {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 13px; font-weight: 500;
+            color: var(--accent);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: none; background: none;
+            font-family: inherit;
+            transition: background 0.1s;
+        }
+
+        .back-btn:hover { background: rgba(0,122,255,0.1); }
+        .tp-name { font-size: 14px; font-weight: 700; }
+
+        .tp-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+        /* ── Form ── */
+        .field { margin-bottom: 15px; }
+
+        .field-label {
+            display: block;
+            font-size: 11px; font-weight: 700;
+            color: var(--sub);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .row { display: flex; align-items: center; gap: 9px; }
+
+        .btn {
+            padding: 7px 14px;
+            border-radius: 8px; border: none;
+            font-size: 13px; font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.12s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+
+        .btn-primary { background: var(--accent); color: #FFF; }
+        .btn-primary:hover { opacity: 0.87; }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent);
+            border: 1.5px solid var(--accent);
+        }
+
+        .btn-outline:hover { background: rgba(0,122,255,0.08); }
+
+        .btn-action {
+            padding: 9px 22px;
+            background: var(--accent); color: #FFF;
+            border-radius: 10px; border: none;
+            font-size: 14px; font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: opacity 0.12s;
+        }
+
+        .btn-action:hover { opacity: 0.87; }
+        .btn-action:disabled { opacity: 0.42; cursor: not-allowed; }
+
+        .selected-file {
+            font-size: 13px; color: var(--sub);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            flex: 1;
+        }
+
+        .selected-file.has-value { color: var(--text); }
+
+        .radio-group { display: flex; gap: 14px; }
+
+        .radio-item {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 13px; cursor: pointer;
+        }
+
+        .radio-item input { cursor: pointer; accent-color: var(--accent); }
+
+        input[type=range] { flex: 1; accent-color: var(--accent); }
+        .range-row { display: flex; align-items: center; gap: 10px; }
+        .range-val { font-size: 13px; font-weight: 600; min-width: 32px; text-align: right; }
+
+        input[type=text] {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--inp-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px; color: var(--text);
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        input[type=text]:focus { border-color: var(--accent); }
+
+        /* Progress */
+        .progress-wrap { margin-top: 14px; }
+
+        .progress-label { font-size: 12px; color: var(--sub); margin-bottom: 5px; }
+
+        .progress-track {
+            height: 5px;
+            background: var(--progress-bg);
+            border-radius: 3px; overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%; background: var(--accent);
+            border-radius: 3px; width: 0%;
+            transition: width 0.25s;
+        }
+
+        /* Result boxes */
+        .result-box {
+            margin-top: 14px;
+            padding: 11px 14px;
+            border-radius: 10px;
+            font-size: 13px; line-height: 1.5;
+        }
+
+        .result-ok {
+            background: rgba(48,176,110,0.12);
+            border: 1px solid rgba(48,176,110,0.28);
+            color: #1B7A43;
+        }
+
+        .result-err {
+            background: rgba(255,59,48,0.1);
+            border: 1px solid rgba(255,59,48,0.25);
+            color: #C0392B;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .result-ok { color: #4ADE80; }
+            .result-err { color: #FF6B6B; }
+        }
+
+        /* Image list */
+        .img-list {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .img-list-empty {
+            padding: 18px; text-align: center;
+            font-size: 13px; color: var(--sub);
+        }
+
+        .img-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 7px 10px;
+            border-bottom: 1px solid var(--border);
+            background: var(--card-bg);
+        }
+
+        .img-row:last-child { border-bottom: none; }
+
+        .img-thumb {
+            width: 34px; height: 34px;
+            border-radius: 5px;
+            object-fit: cover;
+            background: var(--progress-bg);
+            flex-shrink: 0;
+        }
+
+        .img-row-name {
+            flex: 1; font-size: 12.5px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        .img-row-btns { display: flex; gap: 2px; }
+
+        .icon-btn {
+            background: none; border: none;
+            cursor: pointer; padding: 4px;
+            border-radius: 5px;
+            color: var(--sub);
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s;
+        }
+
+        .icon-btn:hover { background: rgba(0,0,0,0.07); color: var(--text); }
+        .icon-btn.rm:hover { color: var(--danger); background: rgba(255,59,48,0.1); }
+
+        .divider { height: 1px; background: var(--border); margin: 14px 0; }
+    </style>
+</head>
+<body>
+
+<script>
+if (window.location.hash && window.location.hash.length > 1) {
+    window.location.href = 'embedded.html' + window.location.hash;
+}
+</script>
+
+<div id="app">
+    <nav id="sidebar">
+        <div id="brand">
+            <img src="img/module_icon.svg" alt="">
+            <span>Productivity</span>
+        </div>
+        <div class="cat-section" id="catList"></div>
+    </nav>
+
+    <main id="main">
+        <div id="toolGrid"></div>
+        <div id="toolPanel"></div>
+    </main>
+</div>
+
+<script>
+/* ── Category and tool definitions ── */
+var CATEGORIES = [
+    {
+        id: 'pdf',
+        label: 'PDF Tools',
+        icon: '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"' +
+              ' stroke="currentColor" stroke-width="1.6"' +
+              ' stroke-linecap="round" stroke-linejoin="round">' +
+              '<rect x="1.5" y="1" width="8" height="11" rx="1.5"/>' +
+              '<path d="M5.5 1v3.5h4.5"/>' +
+              '<rect x="8" y="8" width="5.5" height="5.5" rx="1"/>' +
+              '</svg>'
+    }
+];
+
+var TOOLS = {
+    pdf: [
+        {
+            id: 'pdf2img',
+            label: 'PDF to Images',
+            desc: 'Extract each PDF page as a JPEG or PNG image',
+            color: '#FF3B30',
+            icon: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"' +
+                  ' stroke="#FFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<rect x="2" y="2" width="9" height="12" rx="1.5"/>' +
+                  '<path d="M6 2v4h5"/>' +
+                  '<rect x="11.5" y="10.5" width="8.5" height="9" rx="1.3"/>' +
+                  '<circle cx="14" cy="13" r="1" fill="#FFF" stroke="none"/>' +
+                  '<path d="M11.5 18.5l2.5-3 1.8 1.5 2-3 2.2 3"/>' +
+                  '</svg>',
+            template: 'tools/pdf2img.html'
+        },
+        {
+            id: 'img2pdf',
+            label: 'Images to PDF',
+            desc: 'Combine multiple images into a single PDF file',
+            color: '#007AFF',
+            icon: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"' +
+                  ' stroke="#FFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<rect x="1" y="5" width="10" height="9" rx="1.5"/>' +
+                  '<circle cx="4" cy="8" r="1.1" fill="#FFF" stroke="none"/>' +
+                  '<path d="M1 13l2.5-3 2 1.5 2.5-3L10 11"/>' +
+                  '<rect x="12.5" y="2" width="8.5" height="11" rx="1.5"/>' +
+                  '<path d="M16.5 2v4h4.5"/>' +
+                  '<line x1="14" y1="16" x2="19.5" y2="16"/>' +
+                  '<line x1="16.8" y1="13.5" x2="16.8" y2="18.5"/>' +
+                  '</svg>',
+            template: 'tools/img2pdf.html'
+        }
+    ]
+};
+
+var toolModules = window.ProductivityToolModules = window.ProductivityToolModules || {};
+var toolTemplateCache = {};
+var activeToolLoadToken = 0;
+
+/* ── Utilities ── */
+function dirOf(vpath) {
+    var p = vpath.split('/'); p.pop(); return p.join('/');
+}
+
+function basenameNoExt(vpath) {
+    var n = vpath.split('/').pop();
+    var d = n.lastIndexOf('.');
+    return d > 0 ? n.slice(0, d) : n;
+}
+
+function mediaUrl(vpath) { return '/media?file=' + encodeURIComponent(vpath); }
+
+function uploadBlob(blob, filename, targetDir) {
+    return new Promise(function(resolve, reject) {
+        ao_module_uploadFile(new File([blob], filename, {type: blob.type}),
+            targetDir, resolve, undefined, reject);
+    });
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function allTools() {
+    var out = [];
+    Object.keys(TOOLS).forEach(function(k) { out = out.concat(TOOLS[k]); });
+    return out;
+}
+
+/* ── Navigation ── */
+var currentCat = null;
+
+function selectCat(id) {
+    currentCat = id;
+    renderSidebar();
+    showGrid(id);
+}
+
+function selectTool(id) {
+    var tool = allTools().find(function(t) { return t.id === id; });
+    if (tool) showPanel(tool);
+}
+
+function backToGrid() {
+    document.getElementById('toolPanel').className = '';
+    document.getElementById('toolGrid').style.display = 'block';
+}
+
+/* ── Sidebar render ── */
+function renderSidebar() {
+    var html = '<div class="cat-section-label">Categories</div>';
+    CATEGORIES.forEach(function(c) {
+        html += '<div class="cat-item' + (c.id === currentCat ? ' active' : '') + '"' +
+                ' onclick="selectCat(\'' + c.id + '\')">' +
+                c.icon + '<span>' + c.label + '</span></div>';
+    });
+    document.getElementById('catList').innerHTML = html;
+}
+
+/* ── Tool grid render ── */
+function showGrid(catId) {
+    document.getElementById('toolPanel').className = '';
+    var grid = document.getElementById('toolGrid');
+    grid.style.display = 'block';
+    var cat = CATEGORIES.find(function(c) { return c.id === catId; });
+    var tools = TOOLS[catId] || [];
+    var html = '<div class="grid-title">' + (cat ? escHtml(cat.label) : catId) + '</div>';
+    html += '<div class="tools-grid">';
+    tools.forEach(function(t) {
+        html += '<div class="tool-card" onclick="selectTool(\'' + t.id + '\')">' +
+                '<div class="tc-icon" style="background:' + t.color + '">' + t.icon + '</div>' +
+                '<div class="tc-name">' + escHtml(t.label) + '</div>' +
+                '<div class="tc-desc">' + escHtml(t.desc) + '</div>' +
+                '</div>';
+    });
+    html += '</div>';
+    grid.innerHTML = html;
+}
+
+/* ── Tool panel render ── */
+function showPanel(tool) {
+    document.getElementById('toolGrid').style.display = 'none';
+    var panel = document.getElementById('toolPanel');
+    panel.className = 'open';
+    panel.innerHTML =
+        '<div class="tp-header">' +
+            '<button class="back-btn" onclick="backToGrid()">' +
+                svgChevronLeft() + 'Back' +
+            '</button>' +
+            '<span class="tp-name">' + escHtml(tool.label) + '</span>' +
+        '</div>' +
+        '<div class="tp-body" id="tpBody"></div>';
+    loadToolTemplate(tool, document.getElementById('tpBody'));
+}
+
+function loadToolTemplate(tool, mountEl) {
+    activeToolLoadToken += 1;
+    var loadToken = activeToolLoadToken;
+
+    mountEl.innerHTML = '<div class="progress-label">Loading tool...</div>';
+
+    if (toolTemplateCache[tool.id]) {
+        renderToolTemplate(tool, mountEl, toolTemplateCache[tool.id], loadToken);
+        return;
+    }
+
+    $.ajax({
+        url: tool.template,
+        method: 'GET',
+        dataType: 'html',
+        cache: true
+    }).done(function(response) {
+        toolTemplateCache[tool.id] = response;
+        renderToolTemplate(tool, mountEl, response, loadToken);
+    }).fail(function() {
+        if (loadToken !== activeToolLoadToken) { return; }
+        mountEl.innerHTML =
+            '<div class="result-box result-err"><strong>Error:</strong> Failed to load tool UI.</div>';
+    });
+}
+
+function renderToolTemplate(tool, mountEl, html, loadToken) {
+    if (loadToken !== activeToolLoadToken) { return; }
+
+    var wrapper = document.createElement('div');
+    var nodes = $.parseHTML(html, document, true) || [];
+    nodes.forEach(function(node) {
+        wrapper.appendChild(node);
+    });
+
+    var scripts = wrapper.querySelectorAll('script');
+    Array.prototype.forEach.call(scripts, function(script) {
+        script.parentNode.removeChild(script);
+    });
+
+    mountEl.innerHTML = wrapper.innerHTML;
+
+    Array.prototype.forEach.call(scripts, function(script) {
+        $.globalEval(script.text || script.textContent || script.innerHTML || '');
+    });
+
+    if (!toolModules[tool.id] || typeof toolModules[tool.id].init !== 'function') {
+        mountEl.innerHTML =
+            '<div class="result-box result-err"><strong>Error:</strong> Tool module failed to initialize.</div>';
+        return;
+    }
+
+    toolModules[tool.id].init(mountEl);
+}
+
+/* ── Micro SVG icons ── */
+function svgChevronLeft() {
+    return '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"' +
+           ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+           '<path d="M8.5 2 L4 6.5 L8.5 11"/></svg>';
+}
+
+function svgUp() {
+    return '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"' +
+           ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+           '<path d="M2.5 8.5 L6.5 4 L10.5 8.5"/></svg>';
+}
+
+function svgDown() {
+    return '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"' +
+           ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+           '<path d="M2.5 4.5 L6.5 9 L10.5 4.5"/></svg>';
+}
+
+function svgX() {
+    return '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"' +
+           ' stroke-width="2" stroke-linecap="round">' +
+           '<line x1="2" y1="2" x2="11" y2="11"/><line x1="11" y1="2" x2="2" y2="11"/></svg>';
+}
+
+/* ── Boot ── */
+renderSidebar();
+if (CATEGORIES.length) selectCat(CATEGORIES[0].id);
+
+/* ── ArozOS system theme binding ── */
+function applyAozTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+}
+
+ao_module_onThemeChanged(applyAozTheme);
+
+$.get(ao_root + 'system/file_system/preference?key=file_explorer/theme', function(data) {
+    applyAozTheme(data === 'darkTheme' ? 'dark' : 'light');
+});
+</script>
+</body>
+</html>

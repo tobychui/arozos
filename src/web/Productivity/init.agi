@@ -1,0 +1,37 @@
+/*
+    Productivity
+    Universal file previewer and Productivity tool for ArozOS
+*/
+
+var moduleLaunchInfo = {
+    Name: "Productivity",
+    Desc: "PDF tools, image conversion, and file previewer",
+    Group: "Utilities",
+    IconPath: "Productivity/img/module_icon.svg",
+    Version: "1.0",
+    StartDir: "Productivity/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Productivity/index.html",
+    InitFWSize: [780, 560],
+    SupportEmb: true,
+    LaunchEmb: "Productivity/embedded.html",
+    InitEmbSize: [1000, 700],
+    SupportedExt: [
+        ".html", ".htm",
+        ".pdf",
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico",
+        ".md", ".markdown",
+        ".txt", ".log", ".conf", ".cfg", ".ini", ".toml",
+        ".js", ".mjs", ".cjs", ".jsx",
+        ".ts", ".tsx",
+        ".py", ".rb", ".pl", ".r",
+        ".go", ".rs", ".swift", ".kt", ".scala",
+        ".java", ".c", ".h", ".cpp", ".hpp", ".cs",
+        ".php", ".sh", ".bash", ".zsh", ".bat", ".cmd", ".ps1",
+        ".json", ".yaml", ".yml", ".xml", ".css", ".scss", ".less",
+        ".sql", ".lua", ".agi", ".dockerfile", ".makefile",
+        ".gitignore", ".editorconfig", ".env"
+    ]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
