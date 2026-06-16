@@ -18,6 +18,7 @@
             --text:       #f5f5f7;
             --text-sub:   #98989d;
             --transition: 0.2s ease;
+            --radius: 0.4em;
         }
 
         html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
@@ -48,14 +49,14 @@
         #progress-wrap {
             position: relative;
             height: 4px; background: rgba(255,255,255,0.25);
-            border-radius: 4px; cursor: pointer; margin-bottom: 12px;
+            border-radius: var(--radius); cursor: pointer; margin-bottom: 12px;
         }
         #progress-wrap:hover { height: 6px; }
         #progress-wrap::before {
             content: ''; position: absolute;
             top: -16px; left: 0; right: 0; height: 16px;
         }
-        #progress-bar { height: 100%; border-radius: 4px; background: var(--accent); pointer-events: none; }
+        #progress-bar { height: 100%; border-radius: var(--radius); background: var(--accent); pointer-events: none; }
         #progress-thumb {
             position: absolute; top: 50%; transform: translateY(-50%);
             width: 14px; height: 14px;
@@ -112,7 +113,7 @@
             display: none;
             position: absolute; bottom: 90px; right: 20px; z-index: 25;
             background: rgba(22,22,24,0.97); backdrop-filter: blur(16px);
-            border-radius: 12px; padding: 16px 18px; min-width: 240px;
+            border-radius: var(--radius); padding: 16px 18px; min-width: 240px;
             box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1);
             animation: slideUpPopup 0.2s ease;
             color: var(--text);
@@ -128,7 +129,7 @@
         #resume-popup-btns  { display: flex; gap: 8px; }
         .resume-btn {
             flex: 1; padding: 8px; border: none; cursor: pointer;
-            border-radius: 7px; font-size: 12px; font-weight: 600;
+            border-radius: calc(var(--radius) / 1.6); font-size: 12px; font-weight: 600;
             outline: none; transition: opacity var(--transition);
         }
         .resume-btn:hover { opacity: 0.8; }
@@ -141,7 +142,7 @@
             position: absolute; z-index: 30;
             background: rgba(28,28,30,0.97);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            border-radius: 10px; padding: 4px 0; min-width: 192px;
+            border-radius: var(--radius); padding: 4px 0; min-width: 192px;
             box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
             user-select: none;
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -164,7 +165,7 @@
             position: absolute; top: 0; left: 100%;
             background: rgba(28,28,30,0.97);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            border-radius: 10px; padding: 4px 0; min-width: 200px;
+            border-radius: calc(var(--radius) * 1.5); padding: 4px 0; min-width: 200px;
             box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
             z-index: 32;
         }
@@ -177,7 +178,7 @@
             z-index: 40;
             background: rgba(18,18,20,0.97);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: 14px; padding: 20px 22px 18px; width: 340px;
+            border-radius: calc(var(--radius) / 1.5); padding: 20px 22px 18px; width: 340px;
             box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -200,11 +201,11 @@
         .sset-label { color: var(--text-sub); flex-shrink: 0; width: 56px; }
         .sset-seg {
             display: flex; background: var(--surface2);
-            border-radius: 7px; padding: 2px; gap: 2px; flex: 1;
+            border-radius: calc(var(--radius) / 1.6); padding: 2px; gap: 2px; flex: 1;
         }
         .sset-seg-btn {
             flex: 1; padding: 4px 0; font-size: 12px; font-family: inherit;
-            border: none; border-radius: 5px; cursor: pointer;
+            border: none; border-radius: calc(var(--radius) / 1.4); cursor: pointer;
             background: transparent; color: var(--text-sub);
             transition: background 0.15s, color 0.15s;
         }
@@ -213,7 +214,7 @@
         #sset-size-val { color: var(--text-sub); font-size: 11px; min-width: 32px; text-align: right; }
         #sset-font {
             flex: 1; background: var(--surface2); color: var(--text);
-            border: 1px solid rgba(255,255,255,0.08); border-radius: 7px;
+            border: 1px solid rgba(255,255,255,0.08); border-radius: calc(var(--radius) / 1.6);
             padding: 5px 8px; font-size: 12px; cursor: pointer; outline: none; appearance: auto;
         }
         .sset-colors { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; flex: 1; }
@@ -233,7 +234,7 @@
         #sset-color-custom.active { border-color: var(--text); transform: scale(1.15); }
         #sset-preview {
             margin-top: 14px; background: rgba(0,0,0,0.65);
-            border-radius: 8px; padding: 14px 12px; text-align: center; line-height: 1.4;
+            border-radius: calc(var(--radius) / 1.25); padding: 14px 12px; text-align: center; line-height: 1.4;
         }
 
         /* ── Video info modal ──────────────────────────────────────────────── */
@@ -244,7 +245,7 @@
             z-index: 40;
             background: rgba(18,18,20,0.97);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-radius: 14px; padding: 20px 22px 16px; width: 340px;
+            border-radius: calc(var(--radius) / 1.5); padding: 20px 22px 16px; width: 340px;
             box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -260,11 +261,11 @@
         #video-info-close:hover { color: var(--text); }
         #video-info-tabs {
             display: flex; gap: 3px;
-            background: var(--surface2); border-radius: 8px; padding: 3px; margin-bottom: 12px;
+            background: var(--surface2); border-radius: calc(var(--radius) / 1.25); padding: 3px; margin-bottom: 12px;
         }
         .info-tab {
             flex: 1; text-align: center; padding: 5px 0;
-            font-size: 12px; font-weight: 500; border-radius: 6px; cursor: pointer;
+            font-size: 12px; font-weight: 500; border-radius: calc(var(--radius) / 1.6); cursor: pointer;
             color: var(--text-sub);
             transition: background var(--transition), color var(--transition);
         }
@@ -317,7 +318,7 @@
         <div class="ctx-item" id="ctx-repeat"><i class="ctx-icon">↺</i>Repeat: Off</div>
         <div class="ctx-divider"></div>
         <div class="ctx-item ctx-has-sub" id="ctx-subtitle-parent">
-            <span><i class="ctx-icon" style="display:inline-block">CC</i>Subtitles</span>
+            <span>Subtitles</span>
             <i class="ctx-sub-arrow">›</i>
             <div id="ctx-subtitle-sub">
                 <div class="ctx-item ctx-active" id="ctx-sub-disable"><i class="ctx-icon">✓</i>Disable</div>
@@ -1118,12 +1119,24 @@ function initKeyboard() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-$(document).ready(function () {
+function initMain(){
     initVideoControls();
     initContextMenu();
     initSubtitleMenu();
     initSubtitleSettings();
     initKeyboard();
+}
+
+$(document).ready(function () {
+      //Check if there are another instant running. If yes, replace that another instance URL
+    if (ao_module_virtualDesktop){
+        //If in ao_module mode, try to make this windows the only instance
+        if (!ao_module_makeSingleInstance()){
+            initMain();
+        }
+    }else{
+        initMain();
+    }
 });
 </script>
 </body>
