@@ -274,7 +274,10 @@ function ao_module_unsetTopMost(){
     parent.UnpinFloatWindowFromTopMostMode(parent.getFloatWindowByID(ao_module_windowID));
 }
 
-//Popup a file selection window for uplaod
+//Popup a file selection window for upload
+//callback(files) must be a window scoped global function of the calling window.
+//do not use inline callback function like ao_module_selectFiles(function(files){...}) as it will not work, 
+//instead, define a global function first and then pass the function name as string to the callback parameter, e.g. ao_module_selectFiles("myCallbackFunction", "file", "*", true);
 function ao_module_selectFiles(callback, fileType="file", accept="*", allowMultiple=false){
     var input = document.createElement('input');
     input.type = fileType;
@@ -501,11 +504,24 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
     }
     var initInfoEncoded = encodeURIComponent(JSON.stringify(initInfo))
     if (ao_module_virtualDesktop){
-        var callbackname = callback.name;
+        var callbackname;
+        if (typeof callback === 'string') {
+            // Caller passed the function name as a string — use it directly
+            callbackname = callback;
+        } else if (typeof callback === 'function' && callback.name) {
+            // Named function expression/declaration — use its name (must be window-scoped)
+            callbackname = callback.name;
+        } else {
+            // Anonymous/inline function — auto-register under a unique temp name so the
+            // desktop can call it back into this iframe's window after selection
+            callbackname = '_aoFs_' + Date.now();
+            window[callbackname] = function(files) {
+                try { callback(files); } finally { delete window[callbackname]; }
+            };
+        }
         if (typeof(options) != "undefined" && typeof(options.fnameOverride) != "undefined"){
             callbackname = options.fnameOverride;
         }
-        console.log(callbackname);
         parent.newFloatWindow({
             url: "SystemAO/file_system/file_selector.html#" + initInfoEncoded,
             width: 700,
@@ -516,6 +532,9 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
             callback: callbackname
         });
     }else{
+        // Resolve string callback name to actual function for non-VDI polling mode
+        var cb = (typeof callback === 'string') ? (window[callback] || function(){}) : callback;
+
         //Create a return listener base on localStorage
         let listenerUUID = "fileSelector_" + new Date().getTime();
         ao_module_fileSelectionListener = setInterval(function(){
@@ -524,20 +543,18 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
             }else{
                 //File ready!
                 var selectedFiles = JSON.parse(localStorage.getItem(listenerUUID));
-                console.log("Removing Localstorage Item " + listenerUUID);
-                
-                localStorage.removeItem(listenerUUID); 
+                localStorage.removeItem(listenerUUID);
                 setTimeout(function(){
-                    localStorage.removeItem(listenerUUID); 
+                    localStorage.removeItem(listenerUUID);
                 },500);
                 if(selectedFiles == "&&selection_canceled&&"){
-                    //Selection canceled. Returm empty array
-                    callback([]);
+                    //Selection canceled. Return empty array
+                    cb([]);
                 }else{
                     //Files Selected
-                    callback(selectedFiles);
+                    cb(selectedFiles);
                 }
-                
+
                 clearInterval(ao_module_fileSelectionListener);
                 ao_module_fileSelectorWindow.close();
             }
@@ -757,6 +774,88 @@ if (typeof window.ao_module_storage === 'undefined') {
         }
     }
 }
+/*
+    ao_module_onThemeChanged(callback)
+
+    Register a callback that fires whenever the ArozOS system theme changes.
+    The callback receives one string argument: "dark" or "light".
+
+    Works in two modes:
+    - Virtual Desktop (float-window): the desktop calls window.desktopThemeChanged
+      on every iframe after a theme switch.
+    - Standalone tab: listens for a localStorage event written by desktop.html or
+      file_explorer.html when the user toggles the theme.
+
+    Example:
+        ao_module_onThemeChanged(function(theme) {
+            document.documentElement.setAttribute("data-theme", theme);
+        });
+*/
+var _ao_theme_ls_key    = 'ao_system_theme';
+var _ao_theme_ls_bound  = false;
+
+function ao_module_onThemeChanged(callback) {
+    // VDI broadcast path: desktop.html calls desktopThemeChanged on each iframe
+    window.desktopThemeChanged = function(theme) {
+        callback(theme);
+    };
+
+    // Standalone/cross-tab path: other windows write ao_system_theme to localStorage
+    if (!_ao_theme_ls_bound) {
+        _ao_theme_ls_bound = true;
+        window.addEventListener('storage', function(e) {
+            if (e.key !== _ao_theme_ls_key || !e.newValue) return;
+            try {
+                var evt = JSON.parse(e.newValue);
+                if (evt && evt.theme && typeof window.desktopThemeChanged === 'function') {
+                    window.desktopThemeChanged(evt.theme);
+                }
+            } catch(ex) {}
+        });
+    }
+}
+
+/*
+    ao_module_toggleSystemTheme()
+
+    Toggle the system-wide ArozOS theme between dark and light.
+    All webapps that have called ao_module_onThemeChanged will be notified.
+
+    In Virtual Desktop Mode this delegates to the desktop's own toggle, which
+    also persists the preference.  In standalone mode it reads the saved preference,
+    flips it, persists it, then broadcasts the change via localStorage.
+*/
+function ao_module_toggleSystemTheme() {
+    if (ao_module_virtualDesktop) {
+        try {
+            parent.toggleDesktopTheme();
+        } catch(e) {
+            console.log("[ao_module] toggleSystemTheme: cannot reach parent desktop", e);
+        }
+        return;
+    }
+    // Standalone: read -> flip -> save -> broadcast
+    $.get(ao_root + "system/file_system/preference?key=file_explorer/theme", function(data) {
+        var isDark = (data === 'darkTheme');
+        var newPref  = isDark ? 'whiteTheme' : 'darkTheme';
+        var newTheme = isDark ? 'light'       : 'dark';
+        $.get(ao_root + "system/file_system/preference?key=file_explorer/theme&value=" + newPref, function() {
+            _ao_theme_broadcast(newTheme);
+        });
+    });
+}
+
+// Write the theme event to localStorage (notifies other tabs) and call the
+// local callback if one has been registered via ao_module_onThemeChanged.
+function _ao_theme_broadcast(theme) {
+    try {
+        localStorage.setItem(_ao_theme_ls_key, JSON.stringify({theme: theme, ts: Date.now()}));
+    } catch(e) {}
+    if (typeof window.desktopThemeChanged === 'function') {
+        window.desktopThemeChanged(theme);
+    }
+}
+
 if (typeof window.ao_module_codec === 'undefined') {
     window.ao_module_codec = class {
         //Decode umfilename into standard filename in utf-8, which umfilename usually start with "inith"
