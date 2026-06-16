@@ -840,10 +840,11 @@ firewalls, some mobile carriers) often block UDP 3478 and every port except
 TURN wrapped in TLS — so the relayed media is indistinguishable from ordinary
 HTTPS and rides straight through. It reuses the system TLS certificate
 (`-cert` / `-key`); if no certificate loads, TURNS is skipped and the plain
-relay still runs. Point `-arozcast_turn_tls_port` at `443` to share the
-universally-open HTTPS port (a separate IP/host from your web server, or a
-TLS/SNI-routing proxy in front, since both speak TLS). The TURNS URL is
-advertised to clients automatically as `turns:host:port?transport=tcp`.
+relay still runs. The default port `5349` is fine in most cases; point
+`-arozcast_turn_tls_port` at `443` only when that port is free on the relay's
+address (the web server and TURNS both speak TLS, so they cannot share one
+port). The TURNS URL is advertised to clients automatically as
+`turns:host:port?transport=tcp`.
 
 **Toggle & status in System Settings.** Admins can turn the relay on or off at
 runtime — and see its live state (running, port, TURNS, advertised host) —
