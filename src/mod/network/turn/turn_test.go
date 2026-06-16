@@ -2,12 +2,65 @@ package turn
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"net"
+	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
 	pionturn "github.com/pion/turn/v4"
 )
+
+// writeSelfSignedCert generates a throwaway self-signed certificate/key pair in
+// a temp dir and returns their file paths, for exercising the TURNS listener.
+func writeSelfSignedCert(t *testing.T) (certFile, keyFile string) {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "arozos-turn-test"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+
+	dir := t.TempDir()
+	certFile = filepath.Join(dir, "cert.pem")
+	keyFile = filepath.Join(dir, "key.pem")
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	if err := os.WriteFile(certFile, certPEM, 0600); err != nil {
+		t.Fatalf("write cert: %v", err)
+	}
+
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatalf("marshal key: %v", err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	if err := os.WriteFile(keyFile, keyPEM, 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	return certFile, keyFile
+}
 
 func TestBuildAndValidateCredential(t *testing.T) {
 	secret := []byte("a-test-secret-value-1234567890ab")
@@ -162,5 +215,69 @@ func TestServerCredentialsRoundTrip(t *testing.T) {
 	key, ok := srv.authHandler(username, srv.Realm(), nil)
 	if !ok || len(key) == 0 {
 		t.Fatalf("server rejected its own credential")
+	}
+
+	// Without a TLS port configured the TURNS listener must stay off.
+	if srv.TLSEnabled() {
+		t.Fatalf("TLSEnabled should be false when no TLS port is configured")
+	}
+	if srv.TLSPort() != 0 {
+		t.Fatalf("TLSPort should be 0 when TLS is disabled, got %d", srv.TLSPort())
+	}
+}
+
+func TestServerWithTLSListener(t *testing.T) {
+	certFile, keyFile := writeSelfSignedCert(t)
+
+	const tlsPort = 35349
+	srv, err := NewServer(Config{
+		ListenPort:  34781,
+		PublicIP:    "127.0.0.1",
+		Realm:       "arozos",
+		TLSPort:     tlsPort,
+		TLSCertFile: certFile,
+		TLSKeyFile:  keyFile,
+	})
+	if err != nil {
+		t.Skipf("could not start TURN server in this environment: %v", err)
+	}
+	defer srv.Close()
+
+	if !srv.TLSEnabled() {
+		t.Fatalf("expected TLSEnabled to be true")
+	}
+	if srv.TLSPort() != tlsPort {
+		t.Fatalf("TLSPort = %d, want %d", srv.TLSPort(), tlsPort)
+	}
+
+	// The TURNS listener must complete a TLS handshake on its port.
+	conn, err := tls.DialWithDialer(
+		&net.Dialer{Timeout: 3 * time.Second},
+		"tcp",
+		net.JoinHostPort("127.0.0.1", strconv.Itoa(tlsPort)),
+		&tls.Config{InsecureSkipVerify: true}, //nolint:gosec // self-signed cert in test
+	)
+	if err != nil {
+		t.Fatalf("TLS dial to TURNS listener failed: %v", err)
+	}
+	_ = conn.Close()
+}
+
+func TestServerTLSListenerMissingCertIsNonFatal(t *testing.T) {
+	// A TLS port is requested but no certificate is configured: the server must
+	// still start (plain relay), with TLS reported as disabled.
+	srv, err := NewServer(Config{
+		ListenPort: 34782,
+		PublicIP:   "127.0.0.1",
+		Realm:      "arozos",
+		TLSPort:    35350,
+	})
+	if err != nil {
+		t.Skipf("could not start TURN server in this environment: %v", err)
+	}
+	defer srv.Close()
+
+	if srv.TLSEnabled() {
+		t.Fatalf("expected TLSEnabled to be false when no certificate is configured")
 	}
 }

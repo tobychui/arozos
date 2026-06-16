@@ -70,6 +70,8 @@ var enable_gzip = flag.Bool("gzip", true, "Enable gzip compress on file server")
 var arozcast_enable_turn = flag.Bool("arozcast_turn", true, "Enable the built-in Arozcast TURN relay so WebRTC screen share works over the Internet / behind NAT")
 var arozcast_turn_port = flag.Int("arozcast_turn_port", 3478, "Listening port (UDP and TCP) for the built-in Arozcast TURN relay")
 var arozcast_turn_publicip = flag.String("arozcast_turn_publicip", "", "Public IP or hostname advertised by the Arozcast TURN relay. Leave empty to auto-detect the outbound interface address (set this when the host is behind NAT)")
+var arozcast_turn_tls = flag.Bool("arozcast_turn_tls", true, "Also serve TURN-over-TLS (TURNS) so screen share traverses restrictive firewalls that only allow outbound TLS. Uses the system TLS certificate (-cert/-key); a no-op when no certificate can be loaded")
+var arozcast_turn_tls_port = flag.Int("arozcast_turn_tls_port", 5349, "Listening TCP port for the Arozcast TURN-over-TLS (TURNS) relay. Set to 443 to share the standard HTTPS port for maximum firewall traversal")
 
 // Flags related to Security
 var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving (HTTPS Mode)")

@@ -21,9 +21,11 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha1" //nolint:gosec // SHA1-HMAC is the credential format coturn/RFC clients expect
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -59,6 +61,17 @@ type Config struct {
 	// CredentialTTL is the lifetime of issued credentials. Zero uses the
 	// package default.
 	CredentialTTL time.Duration
+
+	// TLSPort, when greater than zero, additionally starts a TURN-over-TLS
+	// (TURNS) listener on that TCP port using the certificate at TLSCertFile /
+	// TLSKeyFile. TURNS lets screen share traverse restrictive firewalls that
+	// only permit outbound TLS (commonly port 443): the relayed media rides
+	// inside a TLS connection that is indistinguishable from ordinary HTTPS.
+	// When no certificate is configured, or it cannot be loaded, the TURNS
+	// listener is skipped and the plain relay still runs.
+	TLSPort     int
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
 // Server wraps a pion TURN server together with the shared secret used to mint
@@ -71,6 +84,8 @@ type Server struct {
 	advertiseHost string // original PublicIP string (may be a hostname); empty = derive from request
 	listenPort    int
 	ttl           time.Duration
+	tlsEnabled    bool // true when the TURN-over-TLS (TURNS) listener is running
+	tlsPort       int  // port of the TURNS listener; valid only when tlsEnabled
 }
 
 // NewServer starts a TURN relay listening on config.ListenPort (UDP and TCP).
@@ -111,22 +126,56 @@ func NewServer(config Config) (*Server, error) {
 		ttl:           ttl,
 	}
 
+	relayGenerator := &pionturn.RelayAddressGeneratorStatic{
+		RelayAddress: relayIP,
+		Address:      "0.0.0.0",
+	}
+
 	listenAddr := "0.0.0.0:" + strconv.Itoa(config.ListenPort)
+
+	// pion only takes ownership of the conns/listeners when NewServer succeeds,
+	// so track everything we open and release it if a later step fails.
+	var opened []io.Closer
+	closeOpened := func() {
+		for _, c := range opened {
+			_ = c.Close()
+		}
+	}
 
 	udpConn, err := net.ListenPacket("udp4", listenAddr)
 	if err != nil {
 		return nil, fmt.Errorf("turn udp listen on %s: %w", listenAddr, err)
 	}
+	opened = append(opened, udpConn)
 
 	tcpListener, err := net.Listen("tcp4", listenAddr)
 	if err != nil {
-		_ = udpConn.Close()
+		closeOpened()
 		return nil, fmt.Errorf("turn tcp listen on %s: %w", listenAddr, err)
 	}
+	opened = append(opened, tcpListener)
 
-	relayGenerator := &pionturn.RelayAddressGeneratorStatic{
-		RelayAddress: relayIP,
-		Address:      "0.0.0.0",
+	listenerConfigs := []pionturn.ListenerConfig{{
+		Listener:              tcpListener,
+		RelayAddressGenerator: relayGenerator,
+	}}
+
+	// Optional TURN-over-TLS (TURNS) listener. A failure here is non-fatal: log
+	// it and keep serving the plain relay rather than denying screen share to
+	// everyone over a misconfigured certificate or busy port.
+	if config.TLSPort > 0 {
+		tlsListener, err := newTLSListener(config)
+		if err != nil {
+			logger.PrintAndLog("Arozcast TURN", "TURN-over-TLS (TURNS) listener disabled", err)
+		} else {
+			opened = append(opened, tlsListener)
+			listenerConfigs = append(listenerConfigs, pionturn.ListenerConfig{
+				Listener:              tlsListener,
+				RelayAddressGenerator: relayGenerator,
+			})
+			s.tlsEnabled = true
+			s.tlsPort = config.TLSPort
+		}
 	}
 
 	server, err := pionturn.NewServer(pionturn.ServerConfig{
@@ -137,20 +186,37 @@ func NewServer(config Config) (*Server, error) {
 			PacketConn:            udpConn,
 			RelayAddressGenerator: relayGenerator,
 		}},
-		ListenerConfigs: []pionturn.ListenerConfig{{
-			Listener:              tcpListener,
-			RelayAddressGenerator: relayGenerator,
-		}},
+		ListenerConfigs: listenerConfigs,
 	})
 	if err != nil {
-		// pion only takes ownership of the conns on success, so close them here.
-		_ = udpConn.Close()
-		_ = tcpListener.Close()
+		closeOpened()
 		return nil, err
 	}
 
 	s.server = server
 	return s, nil
+}
+
+// newTLSListener builds the TLS listener backing the TURN-over-TLS (TURNS)
+// endpoint from the certificate configured in config. The caller takes
+// ownership of the returned listener.
+func newTLSListener(config Config) (net.Listener, error) {
+	if config.TLSCertFile == "" || config.TLSKeyFile == "" {
+		return nil, errors.New("no TLS certificate configured")
+	}
+	cert, err := tls.LoadX509KeyPair(config.TLSCertFile, config.TLSKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("cannot load TLS certificate: %w", err)
+	}
+	tlsAddr := "0.0.0.0:" + strconv.Itoa(config.TLSPort)
+	listener, err := tls.Listen("tcp4", tlsAddr, &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("turns tcp listen on %s: %w", tlsAddr, err)
+	}
+	return listener, nil
 }
 
 // authHandler validates an incoming TURN credential. It is the pion AuthHandler
@@ -173,6 +239,13 @@ func (s *Server) AdvertiseHost() string { return s.advertiseHost }
 
 // ListenPort returns the port the relay listens on.
 func (s *Server) ListenPort() int { return s.listenPort }
+
+// TLSEnabled reports whether the TURN-over-TLS (TURNS) listener is running.
+func (s *Server) TLSEnabled() bool { return s != nil && s.tlsEnabled }
+
+// TLSPort returns the port of the TURN-over-TLS (TURNS) listener, or 0 when
+// TLS is not enabled.
+func (s *Server) TLSPort() int { return s.tlsPort }
 
 // Realm returns the TURN realm.
 func (s *Server) Realm() string { return s.realm }

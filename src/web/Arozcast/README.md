@@ -191,13 +191,18 @@ needs a TURN relay. This endpoint supplies both.
     { "urls": ["stun:stun.l.google.com:19302"] },
     {
       "urls": ["turn:cloud.example.com:3478?transport=udp",
-               "turn:cloud.example.com:3478?transport=tcp"],
+               "turn:cloud.example.com:3478?transport=tcp",
+               "turns:cloud.example.com:5349?transport=tcp"],
       "username":   "1718540000:alice",
       "credential": "h6Yc…base64-hmac…="
     }
   ]
 }
 ```
+
+The `turns:` (TURN-over-TLS) URL is included only when the TLS listener is
+running (`-arozcast_turn_tls`), giving clients behind TLS-only firewalls a path
+that looks like ordinary HTTPS.
 
 **Example:**
 ```javascript
@@ -816,6 +821,8 @@ ships a built-in TURN relay so this works without a third-party service:
 | `-arozcast_turn` | `true` | Enable the built-in TURN relay. |
 | `-arozcast_turn_port` | `3478` | UDP **and** TCP port the relay listens on. |
 | `-arozcast_turn_publicip` | *(auto)* | Public IP/hostname advertised to peers. Auto-detected from the outbound interface; **set this when the host is behind NAT**. |
+| `-arozcast_turn_tls` | `true` | Also serve **TURN-over-TLS (TURNS)** for firewall traversal (see below). A no-op when no TLS certificate can be loaded. |
+| `-arozcast_turn_tls_port` | `5349` | TCP port for the TURNS listener. **Set to `443`** to share the standard HTTPS port for maximum reach. |
 
 For screen share to work across the Internet, the relay port must be reachable
 by both peers:
@@ -826,6 +833,25 @@ by both peers:
   port separately (it does not go through the proxy).
 - The relay is **non-fatal**: if it cannot start, screen share silently falls
   back to STUN-only (LAN works, Internet may not).
+
+**TURN over TLS (firewall traversal).** Restrictive networks (corporate
+firewalls, some mobile carriers) often block UDP 3478 and every port except
+443/TLS. With `-arozcast_turn_tls`, ArozOS also exposes the relay as **TURNS** —
+TURN wrapped in TLS — so the relayed media is indistinguishable from ordinary
+HTTPS and rides straight through. It reuses the system TLS certificate
+(`-cert` / `-key`); if no certificate loads, TURNS is skipped and the plain
+relay still runs. Point `-arozcast_turn_tls_port` at `443` to share the
+universally-open HTTPS port (a separate IP/host from your web server, or a
+TLS/SNI-routing proxy in front, since both speak TLS). The TURNS URL is
+advertised to clients automatically as `turns:host:port?transport=tcp`.
+
+**Toggle & status in System Settings.** Admins can turn the relay on or off at
+runtime — and see its live state (running, port, TURNS, advertised host) —
+under **System Settings → Network & Connection → Screen Share Relay**
+(`SystemAO/arozcast/turn.html`, backed by `/system/arozcast/turn/status` and
+`/system/arozcast/turn/setEnabled`). The toggle is persisted in the system
+database and **overrides** the `-arozcast_turn` flag default, so it survives a
+restart without changing launch flags.
 
 **Using an external TURN instead.** Drop a `system/arozcast/iceservers.json`
 file to fully replace the ICE list returned by `/api/arozcast/iceservers`

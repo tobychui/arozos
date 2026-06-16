@@ -55,11 +55,81 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-// arozcastTurnServer is the optional built-in TURN relay that lets the WebRTC
-// screen-share feature traverse NAT and work over the Internet. It is nil when
-// the relay is disabled (-arozcast_turn=false) or failed to start, in which
-// case the ICE config falls back to STUN-only (LAN screen share still works).
-var arozcastTurnServer *turn.Server
+// The built-in TURN relay lets the WebRTC screen-share feature traverse NAT and
+// work over the Internet. It can be toggled at runtime from System Settings, so
+// its lifecycle is mutex-guarded and its construction parameters are remembered
+// for restart. arozcastTurnServer is nil when the relay is stopped or failed to
+// start, in which case the ICE config falls back to STUN-only (LAN screen share
+// still works).
+const (
+	arozcastDBTable        = "arozcast" // system DB table for Arozcast preferences
+	arozcastTurnEnabledKey = "turn_on"  // persisted bool: relay on/off override
+)
+
+var (
+	arozcastTurnMu     sync.RWMutex // guards arozcastTurnServer
+	arozcastTurnServer *turn.Server // running relay, or nil when stopped/unavailable
+	arozcastTurnConfig turn.Config  // remembered config used to (re)start the relay
+)
+
+// arozcastGetTurnServer returns the running relay, or nil when it is stopped or
+// unavailable. Callers must treat nil as "fall back to STUN-only".
+func arozcastGetTurnServer() *turn.Server {
+	arozcastTurnMu.RLock()
+	defer arozcastTurnMu.RUnlock()
+	return arozcastTurnServer
+}
+
+// arozcastTurnRunning reports whether the relay is currently running.
+func arozcastTurnRunning() bool {
+	return arozcastGetTurnServer() != nil
+}
+
+// arozcastStartTurnRelay starts the relay from the remembered config. It is a
+// no-op (returns nil) when the relay is already running.
+func arozcastStartTurnRelay() error {
+	arozcastTurnMu.Lock()
+	defer arozcastTurnMu.Unlock()
+	if arozcastTurnServer != nil {
+		return nil
+	}
+	ts, err := turn.NewServer(arozcastTurnConfig)
+	if err != nil {
+		return err
+	}
+	arozcastTurnServer = ts
+	return nil
+}
+
+// arozcastStopTurnRelay stops the relay and releases its listeners. It is a
+// no-op when the relay is already stopped.
+func arozcastStopTurnRelay() {
+	arozcastTurnMu.Lock()
+	defer arozcastTurnMu.Unlock()
+	if arozcastTurnServer == nil {
+		return
+	}
+	arozcastTurnServer.Close()
+	arozcastTurnServer = nil
+}
+
+// arozcastTurnEnabledPref returns the persisted relay on/off preference,
+// falling back to the -arozcast_turn flag default when nothing is stored.
+func arozcastTurnEnabledPref() bool {
+	if sysdb != nil && sysdb.KeyExists(arozcastDBTable, arozcastTurnEnabledKey) {
+		var stored bool
+		if err := sysdb.Read(arozcastDBTable, arozcastTurnEnabledKey, &stored); err == nil {
+			return stored
+		}
+	}
+	return *arozcast_enable_turn
+}
+
+// arozcastSetTurnEnabledPref persists the relay on/off preference so it survives
+// a restart.
+func arozcastSetTurnEnabledPref(enabled bool) error {
+	return sysdb.Write(arozcastDBTable, arozcastTurnEnabledKey, enabled)
+}
 
 // arozcastICEOverrideFile lets an operator fully replace the ICE server list
 // returned to clients (e.g. to point at an external coturn/Cloudflare TURN).
@@ -196,17 +266,35 @@ func ArozcastInit() {
 	// forward the media. ArozOS runs that relay itself (both peers already
 	// reach this host for signalling). Failure is non-fatal: we just fall back
 	// to STUN-only, which keeps LAN screen share working.
-	if *arozcast_enable_turn {
-		ts, err := turn.NewServer(turn.Config{
-			ListenPort: *arozcast_turn_port,
-			Realm:      "arozos",
-			PublicIP:   *arozcast_turn_publicip,
-		})
-		if err != nil {
+	//
+	// The construction parameters are remembered so the relay can be toggled
+	// from System Settings without a restart. Whether it starts now comes from
+	// the persisted preference, which defaults to the -arozcast_turn flag.
+	// When -arozcast_turn_tls is set and a TLS certificate is available it also
+	// serves TURN-over-TLS (TURNS) using the system certificate, so screen share
+	// can traverse firewalls that only allow outbound TLS. We only wire it up
+	// when the cert actually exists so HTTP-only deployments stay silent.
+	sysdb.NewTable(arozcastDBTable)
+	arozcastTurnConfig = turn.Config{
+		ListenPort: *arozcast_turn_port,
+		Realm:      "arozos",
+		PublicIP:   *arozcast_turn_publicip,
+	}
+	if *arozcast_turn_tls && utils.FileExists(*tls_cert) && utils.FileExists(*tls_key) {
+		arozcastTurnConfig.TLSPort = *arozcast_turn_tls_port
+		arozcastTurnConfig.TLSCertFile = *tls_cert
+		arozcastTurnConfig.TLSKeyFile = *tls_key
+	}
+
+	if arozcastTurnEnabledPref() {
+		if err := arozcastStartTurnRelay(); err != nil {
 			systemWideLogger.PrintAndLog("Arozcast", "Built-in TURN relay unavailable; screen share will be LAN-only", err)
 		} else {
-			arozcastTurnServer = ts
-			systemWideLogger.PrintAndLog("Arozcast", "Built-in TURN relay started on port "+strconv.Itoa(*arozcast_turn_port), nil)
+			msg := "Built-in TURN relay started on port " + strconv.Itoa(*arozcast_turn_port)
+			if ts := arozcastGetTurnServer(); ts != nil && ts.TLSEnabled() {
+				msg += " (TURNS on port " + strconv.Itoa(ts.TLSPort()) + ")"
+			}
+			systemWideLogger.PrintAndLog("Arozcast", msg, nil)
 		}
 	}
 
@@ -248,6 +336,69 @@ func ArozcastInit() {
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
 			errorHandlePermissionDenied(w, r)
 		},
+	})
+
+	// ── Admin: built-in TURN relay status & toggle (System Settings) ───────
+	// Lets an administrator see the relay's state and turn it on/off at runtime
+	// without restarting ArozOS. The on/off choice is persisted so it survives
+	// a restart (overriding the -arozcast_turn flag default).
+	adminRouter := prout.NewModuleRouter(prout.RouterOption{
+		ModuleName:  "System Settings",
+		AdminOnly:   true,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			utils.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	registerSetting(settingModule{
+		Name:         "Screen Share Relay",
+		Desc:         "Built-in TURN relay for Arozcast screen share over the Internet",
+		IconPath:     "SystemAO/arozcast/img/small_icon.png",
+		Group:        "Network",
+		StartDir:     "SystemAO/arozcast/turn.html",
+		RequireAdmin: true,
+	})
+
+	// Report the relay's current configuration and running state.
+	adminRouter.HandleFunc("/system/arozcast/turn/status", func(w http.ResponseWriter, r *http.Request) {
+		js, err := json.Marshal(acTurnStatus())
+		if err != nil {
+			utils.SendErrorResponse(w, "Failed to build status")
+			return
+		}
+		utils.SendJSONResponse(w, string(js))
+	})
+
+	// Toggle the relay on/off at runtime and persist the preference.
+	adminRouter.HandleFunc("/system/arozcast/turn/setEnabled", func(w http.ResponseWriter, r *http.Request) {
+		enable, err := utils.GetBool(r, "enable")
+		if err != nil {
+			utils.SendErrorResponse(w, "Missing or invalid enable parameter")
+			return
+		}
+
+		if err := arozcastSetTurnEnabledPref(enable); err != nil {
+			utils.SendErrorResponse(w, "Failed to save preference")
+			return
+		}
+
+		if enable {
+			if err := arozcastStartTurnRelay(); err != nil {
+				systemWideLogger.PrintAndLog("Arozcast", "Failed to start built-in TURN relay from System Settings", err)
+				utils.SendErrorResponse(w, "Relay could not start: "+err.Error())
+				return
+			}
+		} else {
+			arozcastStopTurnRelay()
+		}
+
+		js, err := json.Marshal(acTurnStatus())
+		if err != nil {
+			utils.SendErrorResponse(w, "Failed to build status")
+			return
+		}
+		utils.SendJSONResponse(w, string(js))
 	})
 
 	// Create a new room; returns {"code":"XXXX"}.
@@ -421,6 +572,35 @@ func ArozcastInit() {
 	})
 }
 
+// acTurnStatusInfo is the JSON status of the built-in TURN relay shown on the
+// admin System Settings page.
+type acTurnStatusInfo struct {
+	Enabled       bool   `json:"enabled"`       // persisted on/off preference
+	Running       bool   `json:"running"`       // relay actually running right now
+	Port          int    `json:"port"`          // UDP/TCP relay port
+	TLS           bool   `json:"tls"`           // TURN-over-TLS (TURNS) listener active
+	TLSPort       int    `json:"tlsPort"`       // TURNS port
+	PublicIP      string `json:"publicIP"`      // configured advertise host ("" = auto-detect)
+	AdvertiseHost string `json:"advertiseHost"` // host actually advertised ("" = derived per request)
+}
+
+// acTurnStatus snapshots the built-in TURN relay's configuration and live state.
+func acTurnStatus() acTurnStatusInfo {
+	info := acTurnStatusInfo{
+		Enabled:  arozcastTurnEnabledPref(),
+		Port:     arozcastTurnConfig.ListenPort,
+		TLSPort:  arozcastTurnConfig.TLSPort,
+		PublicIP: strings.TrimSpace(arozcastTurnConfig.PublicIP),
+	}
+	if ts := arozcastGetTurnServer(); ts != nil {
+		info.Running = true
+		info.AdvertiseHost = ts.AdvertiseHost()
+		info.TLS = ts.TLSEnabled()
+		info.TLSPort = ts.TLSPort()
+	}
+	return info
+}
+
 // acBuildICEConfig assembles the ICE server list returned to the browser for
 // WebRTC screen share. Order of precedence:
 //  1. An operator override file (system/arozcast/iceservers.json), if valid.
@@ -434,19 +614,26 @@ func acBuildICEConfig(r *http.Request, identity string) acICEConfig {
 	servers := make([]acICEServer, len(acDefaultSTUNServers))
 	copy(servers, acDefaultSTUNServers)
 
-	if arozcastTurnServer != nil {
-		host := arozcastTurnServer.AdvertiseHost()
+	if ts := arozcastGetTurnServer(); ts != nil {
+		host := ts.AdvertiseHost()
 		if host == "" {
 			host = acDeriveTURNHost(r)
 		}
 		if host != "" {
-			base := net.JoinHostPort(host, strconv.Itoa(arozcastTurnServer.ListenPort()))
-			username, credential := arozcastTurnServer.Credentials(identity)
+			base := net.JoinHostPort(host, strconv.Itoa(ts.ListenPort()))
+			urls := []string{
+				"turn:" + base + "?transport=udp",
+				"turn:" + base + "?transport=tcp",
+			}
+			// TURN-over-TLS rides on TCP only; advertise it so clients behind
+			// TLS-only firewalls can still relay.
+			if ts.TLSEnabled() {
+				tlsBase := net.JoinHostPort(host, strconv.Itoa(ts.TLSPort()))
+				urls = append(urls, "turns:"+tlsBase+"?transport=tcp")
+			}
+			username, credential := ts.Credentials(identity)
 			servers = append(servers, acICEServer{
-				URLs: []string{
-					"turn:" + base + "?transport=udp",
-					"turn:" + base + "?transport=tcp",
-				},
+				URLs:       urls,
 				Username:   username,
 				Credential: credential,
 			})
