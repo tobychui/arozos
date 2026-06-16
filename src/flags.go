@@ -66,6 +66,13 @@ var force_mac = flag.String("force_mac", "", "Force MAC address to be used for d
 var disable_ip_resolve_services = flag.Bool("disable_ip_resolver", false, "Disable IP resolving if the system is running under reverse proxy environment")
 var enable_gzip = flag.Bool("gzip", true, "Enable gzip compress on file server")
 
+// Flags related to Arozcast (remote projection / screen share)
+var arozcast_enable_turn = flag.Bool("arozcast_turn", true, "Enable the built-in Arozcast TURN relay so WebRTC screen share works over the Internet / behind NAT")
+var arozcast_turn_port = flag.Int("arozcast_turn_port", 3478, "Listening port (UDP and TCP) for the built-in Arozcast TURN relay")
+var arozcast_turn_publicip = flag.String("arozcast_turn_publicip", "", "Public IP or hostname advertised by the Arozcast TURN relay. Leave empty to auto-detect the outbound interface address (set this when the host is behind NAT)")
+var arozcast_turn_tls = flag.Bool("arozcast_turn_tls", true, "Also serve TURN-over-TLS (TURNS) so screen share traverses restrictive firewalls that only allow outbound TLS. Uses the system TLS certificate (-cert/-key); a no-op when no certificate can be loaded")
+var arozcast_turn_tls_port = flag.Int("arozcast_turn_tls_port", 5349, "Listening TCP port for the Arozcast TURN-over-TLS (TURNS) relay. Set to 443 to share the standard HTTPS port for maximum firewall traversal")
+
 // Flags related to Security
 var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving (HTTPS Mode)")
 var disable_http = flag.Bool("disable_http", false, "Disable HTTP server, require tls=true")
@@ -76,7 +83,7 @@ var session_key = flag.String("session_key", "", "Session key, must be 16, 24 or
 // Flags related to hardware or interfaces
 var allow_hardware_management = flag.Bool("enable_hwman", true, "Enable hardware management functions in system")
 var allow_power_management = flag.Bool("enable_pwman", true, "Enable power management of the host system")
-var wpa_supplicant_path = flag.String("wpa_supplicant_config", "/etc/wpa_supplicant/wpa_supplicant.conf", "Path for the wpa_supplicant config")
+var wpa_supplicant_path = flag.String("wpa_supplicant_config", "/etc/wpa_supplicant/wpa_supplicant.conf", "Path for the wpa_supplicant config") // arozos-lint-ignore: Linux-only wpa_supplicant default; overridable by flag
 var wan_interface_name = flag.String("wlan_interface_name", "wlan0", "The default wireless interface for connecting to an AP")
 var skip_mdadm_reload = flag.Bool("skip_mdadm_reload", false, "Skip mdadm reload config during startup, might result in werid RAID device ID in some Linux distro")
 
