@@ -93,6 +93,53 @@ func TestNormalizeUploadLinkLimits(t *testing.T) {
 	}
 }
 
+func TestParseUploadLinkTTLSeconds(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      string
+		fallback int64
+		want     int64
+		wantErr  bool
+	}{
+		{
+			name:     "default empty value",
+			raw:      "",
+			fallback: defaultUploadLinkTTLSeconds,
+			want:     defaultUploadLinkTTLSeconds,
+		},
+		{
+			name: "valid ttl",
+			raw:  "3600",
+			want: 3600,
+		},
+		{
+			name:    "zero rejected",
+			raw:     "0",
+			wantErr: true,
+		},
+		{
+			name:    "too large rejected",
+			raw:     "31536001",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseUploadLinkTTLSeconds(tt.raw, tt.fallback)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseUploadLinkTTLSeconds() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseUploadLinkTTLSeconds() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestReserveAnonymousUploadDestinationGeneratesTimestampDuplicateName(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "report.txt"), []byte("existing"), 0644); err != nil {

@@ -26,10 +26,12 @@ import (
 
 const (
 	defaultUploadLinkTTLSeconds   int64 = 24 * 60 * 60
+	maxUploadLinkTTLSeconds       int64 = 365 * 24 * 60 * 60
 	defaultUploadLinkMaxFileCount int64 = 10
 	defaultUploadLinkMaxFileSize  int64 = 100 << 20
 	defaultUploadLinkMaxTotalSize int64 = 1 << 30
 	publicPostUploadCutoff        int64 = 25 << 20
+	publicUploadWSMaxFrameSize    int64 = 1 << 20
 )
 
 type uploadLinkResponse struct {
@@ -84,7 +86,11 @@ func (s *Manager) HandleCreateUploadLink(w http.ResponseWriter, r *http.Request)
 	}
 
 	now := time.Now().Unix()
-	ttlSeconds := parseInt64FormDefault(r, "ttl", defaultUploadLinkTTLSeconds)
+	ttlSeconds, err := parseUploadLinkTTLSeconds(r.Form.Get("ttl"), defaultUploadLinkTTLSeconds)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
 	maxFileCount := parseInt64FormDefault(r, "maxFileCount", defaultUploadLinkMaxFileCount)
 	maxFileSize := parseInt64FormDefault(r, "maxFileSize", defaultUploadLinkMaxFileSize)
 	maxTotalSize := parseInt64FormDefault(r, "maxTotalSize", defaultUploadLinkMaxTotalSize)
@@ -152,9 +158,9 @@ func (s *Manager) HandleEditUploadLink(w http.ResponseWriter, r *http.Request) {
 	updated.MaxFileSize = maxFileSize
 	updated.MaxTotalSize = maxTotalSize
 	if ttl := r.Form.Get("ttl"); ttl != "" {
-		ttlSeconds, err := strconv.ParseInt(strings.TrimSpace(ttl), 10, 64)
-		if err != nil || ttlSeconds <= 0 {
-			utils.SendErrorResponse(w, "Invalid link ttl")
+		ttlSeconds, err := parseUploadLinkTTLSeconds(ttl, 0)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		updated.ExpiresUnix = time.Now().Unix() + ttlSeconds
@@ -415,6 +421,7 @@ func (s *Manager) HandlePublicUploadLinkWebSocket(w http.ResponseWriter, r *http
 		return
 	}
 	defer c.Close()
+	c.SetReadLimit(publicUploadWSMaxFrameSize)
 
 	if err := s.receiveUploadLinkChunks(c, uploadFolder, uploadSize); err != nil {
 		s.options.UploadLinkTable.ReleaseUpload(ctx.Link.UUID, ctx.UploadSize)
@@ -507,6 +514,9 @@ func (s *Manager) receiveUploadLinkChunks(c *websocket.Conn, uploadFolder string
 		} else if mt == 2 {
 			if !expectingBinary {
 				return errors.New("Received chunk without metadata")
+			}
+			if int64(len(message)) > publicUploadWSMaxFrameSize {
+				return errors.New("Upload chunk too large")
 			}
 			expectingBinary = false
 
@@ -888,6 +898,26 @@ func parseInt64FormDefault(r *http.Request, key string, fallback int64) int64 {
 		return fallback
 	}
 	return value
+}
+
+func parseUploadLinkTTLSeconds(raw string, fallback int64) (int64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value <= 0 {
+		return 0, errors.New("Invalid link ttl")
+	}
+	if value > maxUploadLinkTTLSeconds {
+		return 0, errors.New("Link ttl exceeds maximum allowed duration")
+	}
+	now := time.Now().Unix()
+	const maxInt64 = int64(1<<63 - 1)
+	if value > maxInt64-now {
+		return 0, errors.New("Invalid link ttl")
+	}
+	return value, nil
 }
 
 func minPositiveInt64(values ...int64) int64 {
