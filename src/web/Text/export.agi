@@ -1,0 +1,98 @@
+/*
+    Text - Document export backend (AGI)
+
+    Bundles the current document together with the images it references into a
+    single .zip so it can be downloaded as a self-contained package. Plain
+    documents with no images are downloaded directly by the browser and never
+    reach this script.
+
+    Temporary files are built under tmp:/Text/<id>/ and zipped from there.
+
+    POST parameters
+        action    "zip" | "cleanup"
+      zip:
+        docpath   vpath of the document being edited (resolves image sources)
+        name      file name to give the document inside the zip (e.g. note.md)
+        content   the document text to write into the zip
+        images    JSON array of image paths relative to the document
+      cleanup:
+        zip       vpath of the generated zip to remove
+        workdir   vpath of the temp working dir to clear
+
+    Response (JSON)
+        { ok:true, zip:"tmp:/Text/<id>/<name>.zip", workdir:"tmp:/Text/<id>" }
+        { error:"..." }
+*/
+
+function fail(msg){ sendJSONResp(JSON.stringify({ error: msg })); }
+
+function dirOf(vpath){
+    var i = vpath.lastIndexOf("/");
+    return i < 0 ? vpath : vpath.substring(0, i);
+}
+function baseNoExt(name){ return name.replace(/\.[^.]+$/, ""); }
+
+// Binary copy via the hex helpers exposed once filelib is loaded.
+function copyBinary(src, dest){
+    if (typeof _filelib_readBinaryFile === "function" && typeof _filelib_writeBinaryFile === "function"){
+        var hex = _filelib_readBinaryFile(src);
+        if (hex !== null) return _filelib_writeBinaryFile(dest, hex);
+    }
+    return false;
+}
+
+function main(){
+    if (!requirelib("filelib")){ fail("filelib unavailable"); return; }
+
+    if (action === "cleanup"){
+        try { if (typeof zip !== "undefined" && zip && filelib.fileExists(zip)) filelib.deleteFile(zip); } catch (e){}
+        try {
+            if (typeof workdir !== "undefined" && workdir){
+                var files = filelib.walk(workdir, "file");
+                if (files){ for (var i = 0; i < files.length; i++){ try { filelib.deleteFile(files[i]); } catch (e){} } }
+            }
+        } catch (e){}
+        sendJSONResp(JSON.stringify({ ok: true }));
+        return;
+    }
+
+    if (action === "zip"){
+        if (typeof docpath === "undefined" || docpath.trim() === ""){ fail("docpath is required"); return; }
+        if (typeof name === "undefined" || name.trim() === ""){ fail("name is required"); return; }
+        if (!requirelib("ziplib")){ fail("ziplib unavailable"); return; }
+
+        var id        = "" + (new Date().getTime());
+        var workdir   = "tmp:/Text/" + id;
+        var folder    = baseNoExt(name);
+        var docfolder = workdir + "/" + folder;
+
+        if (!filelib.mkdir(docfolder)){ fail("could not create temporary folder"); return; }
+        if (!filelib.writeFile(docfolder + "/" + name, (typeof content === "undefined" ? "" : content))){
+            fail("could not write document"); return;
+        }
+
+        var imgs = [];
+        try { imgs = JSON.parse(typeof images === "undefined" ? "[]" : images); } catch (e){ imgs = []; }
+
+        var srcBase = dirOf(docpath), copied = 0, missing = [];
+        for (var i = 0; i < imgs.length; i++){
+            var rel = ("" + imgs[i]).replace(/^\.?\/+/, "");
+            if (rel === "" || rel.indexOf("..") >= 0) continue;   // no path traversal
+            var src = srcBase + "/" + rel;
+            if (!filelib.fileExists(src)){ missing.push(rel); continue; }
+            var dest = docfolder + "/" + rel;
+            filelib.mkdir(dirOf(dest));
+            if (copyBinary(src, dest)) copied++;
+        }
+
+        var zipPath = workdir + "/" + folder + ".zip";
+        if (!ziplib.createZipFile(docfolder, zipPath)){ fail("zip creation failed"); return; }
+
+        sendJSONResp(JSON.stringify({ ok: true, zip: zipPath, workdir: workdir, copied: copied, missing: missing }));
+        return;
+    }
+
+    fail("unknown action: " + action);
+}
+
+main();

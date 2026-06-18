@@ -2,47 +2,56 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Text</title>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="lib/marked.min.js"></script>
+    <script src="lib/turndown.min.js"></script>
+    <script src="lib/turndown-plugin-gfm.min.js"></script>
+    <script src="lib/pdf-lib.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --toolbar-h:    40px;
+            --toolbar-h:    42px;
             --statusbar-h:  22px;
-            /* warm parchment chrome */
-            --bg:           #d0dced;
-            --toolbar-bg:   #f2f2f7;
-            --toolbar-bdr:  #e6e6e9;
-            /* near-white warm paper for the actual writing area */
-            --editor-bg:    #f7f7f2;
-            /* warm dark ink */
-            --text:         #2a2010;
-            --text2:        #747c9e;
-            /* amber accent */
-            --accent:       #1863c4;
-            --sep:          #a8c1cb;
+            --bg:           #e4e9f2;
+            --toolbar-bg:   #f6f7fb;
+            --toolbar-bdr:  #e2e4ec;
+            --editor-bg:    #ffffff;
+            --text:         #2b2f38;
+            --text2:        #8a90a2;
+            --accent:       #2f6bd8;
+            --accent-soft:  rgba(47,107,216,.12);
+            --sep:          #d7dbe6;
             --hover:        rgba(0,0,0,.06);
-            --btn-active-bg:#1863c4;
+            --btn-active-bg:#2f6bd8;
             --btn-active-fg:#fff;
-            /* dirty/edited indicator uses the accent amber, not orange */
-            --dirty-color:  #1863c4;
+            --dirty-color:  #2f6bd8;
+            --code-bg:      #f1f3f8;
+            --quote-bdr:    #d2d8e6;
+            --table-bdr:    #dfe3ec;
+            --shadow:       0 10px 40px rgba(30,40,70,.18);
         }
         body.dark {
-            --bg:           #141a24;
-            --toolbar-bg:   #1a2030;
-            --toolbar-bdr:  #28344a;
-            --editor-bg:    #111620;
-            --text:         #cdd8ee;
-            --text2:        #6070a0;
+            --bg:           #0f131b;
+            --toolbar-bg:   #161c27;
+            --toolbar-bdr:  #232c3b;
+            --editor-bg:    #121722;
+            --text:         #d6def0;
+            --text2:        #6b7793;
             --accent:       #5b9cf6;
-            --sep:          #28344a;
-            --hover:        rgba(255,255,255,.06);
+            --accent-soft:  rgba(91,156,246,.16);
+            --sep:          #2a3445;
+            --hover:        rgba(255,255,255,.07);
             --btn-active-bg:#5b9cf6;
-            --btn-active-fg:#fff;
+            --btn-active-fg:#0f131b;
             --dirty-color:  #5b9cf6;
+            --code-bg:      #1b2230;
+            --quote-bdr:    #313c50;
+            --table-bdr:    #2a3445;
+            --shadow:       0 10px 40px rgba(0,0,0,.55);
         }
 
         html, body {
@@ -53,205 +62,285 @@
             font-size: 13px;
         }
 
-        #app {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
+        #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
         /* ── Toolbar ──────────────────────────────────────────────────────── */
         #toolbar {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            flex-shrink: 0;
-            height: var(--toolbar-h);
-            padding: 0 8px;
+            display: flex; align-items: center; gap: 1px; flex-shrink: 0;
+            height: var(--toolbar-h); padding: 0 8px;
             background: var(--toolbar-bg);
             border-bottom: 1px solid var(--toolbar-bdr);
-            box-shadow: 0 1px 4px rgba(0,0,0,.08);
-            overflow-x: auto;
-            overflow-y: hidden;
-            position: relative;
-            z-index: 1;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            overflow-x: auto; overflow-y: hidden; position: relative; z-index: 5;
+            scrollbar-width: thin;
         }
-        #toolbar::-webkit-scrollbar { height: 0; }
+        #toolbar::-webkit-scrollbar { height: 4px; }
+        #toolbar::-webkit-scrollbar-thumb { background: var(--sep); border-radius: 3px; }
 
         .tb-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            height: 26px;
-            padding: 0 8px;
-            border: none;
-            border-radius: 5px;
-            background: none;
-            color: var(--text);
-            font-size: 12px;
-            font-family: inherit;
-            cursor: pointer;
-            white-space: nowrap;
-            flex-shrink: 0;
-            transition: background .1s;
-            user-select: none;
+            display: inline-flex; align-items: center; gap: 4px; height: 28px;
+            padding: 0 8px; border: none; border-radius: 6px; background: none;
+            color: var(--text); font-size: 12px; font-family: inherit; cursor: pointer;
+            white-space: nowrap; flex-shrink: 0; transition: background .1s; user-select: none;
         }
         .tb-btn:hover  { background: var(--hover); }
         .tb-btn.active { background: var(--btn-active-bg); color: var(--btn-active-fg); }
+        .tb-btn svg { display: block; }
+        .tb-btn .glyph { width: 15px; text-align: center; font-size: 13px; line-height: 1; }
 
-        .tb-sep {
-            width: 1px;
-            height: 18px;
-            background: var(--sep);
-            flex-shrink: 0;
-            margin: 0 3px;
-        }
-
-        .tb-label {
-            font-size: 11px;
-            color: var(--text2);
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
+        .tb-sep { width: 1px; height: 20px; background: var(--sep); flex-shrink: 0; margin: 0 4px; }
+        .tb-spacer { flex: 1 1 auto; min-width: 6px; }
+        .tb-label { font-size: 11px; color: var(--text2); flex-shrink: 0; white-space: nowrap; }
 
         .tb-select {
-            height: 24px;
-            padding: 0 6px;
-            border: 1px solid var(--toolbar-bdr);
-            border-radius: 5px;
-            background: var(--bg);
-            color: var(--text);
-            font-size: 12px;
-            font-family: inherit;
-            outline: none;
-            cursor: pointer;
-            flex-shrink: 0;
-            transition: border-color .1s;
+            height: 26px; padding: 0 6px; border: 1px solid var(--toolbar-bdr);
+            border-radius: 6px; background: var(--editor-bg); color: var(--text);
+            font-size: 12px; font-family: inherit; outline: none; cursor: pointer;
+            flex-shrink: 0; transition: border-color .1s;
         }
         .tb-select:focus { border-color: var(--accent); }
 
-        .tb-size-wrap {
-            display: inline-flex;
-            align-items: center;
-            gap: 1px;
-            flex-shrink: 0;
+        /* dropdown menu (export / image) */
+        .menu-wrap { position: relative; flex-shrink: 0; }
+        .menu {
+            display: none; position: fixed; min-width: 180px;
+            background: var(--editor-bg); border: 1px solid var(--toolbar-bdr);
+            border-radius: 10px; box-shadow: var(--shadow); padding: 6px; z-index: 120;
         }
-        .tb-size-val {
-            min-width: 26px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text);
-            user-select: none;
+        .menu.show { display: block; }
+        .menu-item {
+            display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px;
+            border: none; background: none; color: var(--text); font-size: 12.5px;
+            font-family: inherit; border-radius: 7px; cursor: pointer; text-align: left;
         }
-        .tb-size-btn {
-            width: 22px;
-            height: 22px;
-            border: none;
-            border-radius: 4px;
-            background: none;
-            color: var(--text);
-            font-size: 15px;
-            line-height: 1;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: background .1s;
-        }
-        .tb-size-btn:hover { background: var(--hover); }
+        .menu-item:hover { background: var(--accent-soft); }
+        .menu-item svg { flex-shrink: 0; color: var(--text2); }
 
-        /* ── Editor ───────────────────────────────────────────────────────── */
-        #editor {
-            flex: 1;
-            width: 100%;
-            min-height: 0;
-            padding: 28px 10%;
-            border: none;
-            outline: none;
-            resize: none;
-            background: var(--editor-bg);
-            color: var(--text);
-            font-size: 14px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            tab-size: 4;
-            -moz-tab-size: 4;
-            overflow-y: auto;
-            transition: background .2s, color .2s;
-            box-shadow: inset 0 2px 6px rgba(0,0,0,.04);
+        /* hide markdown-only controls when editing plain text */
+        body.mode-txt .md-only { display: none !important; }
+
+        /* ── Editor surfaces ──────────────────────────────────────────────── */
+        #editor-scroll {
+            flex: 1; min-height: 0; overflow-y: auto; background: var(--editor-bg);
+            transition: background .2s, color .2s; position: relative;
         }
-        #editor::placeholder { color: var(--text2); }
+        #rich, #plain {
+            max-width: 820px; margin: 0 auto; min-height: 100%;
+            padding: 40px clamp(18px, 6vw, 60px) 120px;
+            outline: none; color: var(--text); line-height: 1.7;
+            font-size: 16px; word-wrap: break-word;
+        }
+        #plain {
+            display: none; width: 100%; border: none; resize: none; background: none;
+            font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+            font-size: 14px; white-space: pre-wrap; tab-size: 4; -moz-tab-size: 4;
+        }
+        body.mode-txt #rich  { display: none; }
+        body.mode-txt #plain { display: block; }
+
+        #rich:empty::before, #rich.is-empty::before {
+            content: attr(data-ph); color: var(--text2); pointer-events: none;
+        }
+
+        /* ── Markdown content typography (shared by editor + export) ──────── */
+        .md-content h1, .md-content h2, .md-content h3,
+        .md-content h4, .md-content h5, .md-content h6 {
+            font-weight: 700; line-height: 1.3; margin: 1.4em 0 .6em;
+        }
+        .md-content h1 { font-size: 2em;   border-bottom: 1px solid var(--sep); padding-bottom: .25em; }
+        .md-content h2 { font-size: 1.6em; border-bottom: 1px solid var(--sep); padding-bottom: .2em; }
+        .md-content h3 { font-size: 1.3em; }
+        .md-content h4 { font-size: 1.1em; }
+        .md-content h5 { font-size: 1em; }
+        .md-content h6 { font-size: .9em; color: var(--text2); }
+        .md-content p  { margin: .55em 0; }
+        .md-content a  { color: var(--accent); text-decoration: none; }
+        .md-content a:hover { text-decoration: underline; }
+        .md-content ul, .md-content ol { margin: .5em 0; padding-left: 1.7em; }
+        .md-content li { margin: .25em 0; }
+        .md-content blockquote {
+            margin: .8em 0; padding: .2em 1em; color: var(--text2);
+            border-left: 3px solid var(--quote-bdr); background: var(--accent-soft);
+            border-radius: 0 6px 6px 0;
+        }
+        .md-content code {
+            font-family: 'SF Mono', 'Consolas', 'Courier New', monospace; font-size: .88em;
+            background: var(--code-bg); padding: .15em .4em; border-radius: 4px;
+        }
+        .md-content pre {
+            margin: .8em 0; padding: 14px 16px; background: var(--code-bg);
+            border-radius: 8px; overflow-x: auto;
+        }
+        .md-content pre code { background: none; padding: 0; font-size: .85em; line-height: 1.55; }
+        .md-content hr { border: none; border-top: 1px solid var(--sep); margin: 1.6em 0; }
+        .md-content img { max-width: 100%; border-radius: 6px; vertical-align: middle; }
+        .md-content table { border-collapse: collapse; margin: .8em 0; width: auto; max-width: 100%; }
+        .md-content th, .md-content td { border: 1px solid var(--table-bdr); padding: 6px 12px; }
+        .md-content th { background: var(--code-bg); font-weight: 600; }
+        .md-content ul.contains-task-list { list-style: none; padding-left: 1.2em; }
+        .md-content li.task-list-item { list-style: none; }
+        .md-content input[type=checkbox] { margin-right: .5em; }
 
         /* ── Status bar ───────────────────────────────────────────────────── */
         #statusbar {
-            flex-shrink: 0;
-            height: var(--statusbar-h);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 10px;
-            background: var(--toolbar-bg);
-            border-top: 1px solid var(--toolbar-bdr);
-            font-size: 10px;
-            color: var(--text2);
+            flex-shrink: 0; height: var(--statusbar-h); display: flex; align-items: center;
+            justify-content: space-between; padding: 0 12px; background: var(--toolbar-bg);
+            border-top: 1px solid var(--toolbar-bdr); font-size: 10.5px; color: var(--text2);
         }
         #status-msg.dirty { color: var(--dirty-color); }
-        #status-msg.error { color: #c0392b; }
+        #status-msg.error { color: #d9534f; }
+        #status-right { display: flex; gap: 12px; align-items: center; }
 
-        /* ── Confirm overlay (in-iframe popup) ────────────────────────────── */
-        #confirm-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,.35);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            z-index: 500;
-            align-items: center;
-            justify-content: center;
+        /* ── Settings panel ───────────────────────────────────────────────── */
+        .overlay {
+            display: none; position: fixed; inset: 0; background: rgba(10,15,25,.45);
+            backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+            z-index: 200; align-items: center; justify-content: center; padding: 20px;
         }
-        #confirm-overlay.show { display: flex; }
+        .overlay.show { display: flex; }
 
+        #settings-box {
+            background: var(--editor-bg); border: 1px solid var(--toolbar-bdr);
+            border-radius: 14px; box-shadow: var(--shadow); width: 760px; max-width: 100%;
+            height: 520px; max-height: 90vh; display: flex; overflow: hidden;
+        }
+        #settings-nav {
+            width: 180px; flex-shrink: 0; background: var(--toolbar-bg);
+            border-right: 1px solid var(--toolbar-bdr); padding: 14px 10px; overflow-y: auto;
+        }
+        #settings-nav .nav-title { font-size: 13px; font-weight: 700; padding: 4px 10px 12px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px;
+            border: none; background: none; color: var(--text); font-size: 13px;
+            font-family: inherit; border-radius: 8px; cursor: pointer; text-align: left; margin-bottom: 2px;
+        }
+        .nav-item:hover { background: var(--hover); }
+        .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+        .nav-item svg { flex-shrink: 0; }
+
+        #settings-body { flex: 1; padding: 22px 26px; overflow-y: auto; }
+        .settings-section { display: none; }
+        .settings-section.active { display: block; }
+        .settings-section h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .settings-section .sub { font-size: 12px; color: var(--text2); margin-bottom: 18px; }
+
+        .set-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--toolbar-bdr);
+        }
+        .set-row:last-child { border-bottom: none; }
+        .set-label { font-size: 13px; font-weight: 600; }
+        .set-desc  { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
+        .set-ctl { flex-shrink: 0; }
+        .set-input, .set-select {
+            height: 30px; padding: 0 8px; border: 1px solid var(--toolbar-bdr);
+            border-radius: 7px; background: var(--editor-bg); color: var(--text);
+            font-size: 12.5px; font-family: inherit; outline: none;
+        }
+        .set-input:focus, .set-select:focus { border-color: var(--accent); }
+        .set-input.num { width: 76px; }
+
+        /* toggle switch */
+        .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; inset: 0; background: var(--sep);
+            border-radius: 24px; transition: .2s;
+        }
+        .slider::before {
+            content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px;
+            background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+        }
+        .switch input:checked + .slider { background: var(--accent); }
+        .switch input:checked + .slider::before { transform: translateX(18px); }
+
+        /* segmented control (mode) */
+        .seg { display: inline-flex; border: 1px solid var(--toolbar-bdr); border-radius: 8px; overflow: hidden; }
+        .seg button {
+            border: none; background: var(--editor-bg); color: var(--text); font-family: inherit;
+            font-size: 12.5px; padding: 7px 14px; cursor: pointer;
+        }
+        .seg button.active { background: var(--accent); color: #fff; }
+
+        /* shortcuts list */
+        .key-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 0; border-bottom: 1px solid var(--toolbar-bdr);
+        }
+        .key-row .key-name { font-size: 13px; }
+        .key-cap {
+            min-width: 120px; text-align: center; padding: 6px 10px; border-radius: 7px;
+            border: 1px solid var(--toolbar-bdr); background: var(--code-bg); color: var(--text);
+            font-size: 12px; font-family: 'SF Mono','Consolas',monospace; cursor: pointer;
+        }
+        .key-cap:hover { border-color: var(--accent); }
+        .key-cap.recording { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+        .range-wrap { display: flex; align-items: center; gap: 10px; }
+        input[type=range] { accent-color: var(--accent); }
+
+        .btn-text {
+            border: 1px solid var(--toolbar-bdr); background: var(--editor-bg); color: var(--text);
+            font-family: inherit; font-size: 12.5px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+        }
+        .btn-text:hover { background: var(--hover); }
+        .btn-text.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        #settings-foot {
+            display: flex; justify-content: flex-end; gap: 8px; padding-top: 16px; margin-top: 8px;
+        }
+
+        /* ── Confirm dialog ───────────────────────────────────────────────── */
         #confirm-box {
-            background: var(--editor-bg);
-            border: 1px solid var(--toolbar-bdr);
-            border-radius: 13px;
-            padding: 24px 24px 18px;
-            width: 300px;
-            box-shadow: 0 16px 48px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.12);
+            background: var(--editor-bg); border: 1px solid var(--toolbar-bdr);
+            border-radius: 13px; padding: 24px 24px 18px; width: 320px; box-shadow: var(--shadow);
         }
-        #confirm-box h3 {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 8px;
-        }
-        #confirm-box p {
-            font-size: 12px;
-            color: var(--text2);
-            line-height: 1.55;
-            margin-bottom: 18px;
-        }
-        .confirm-row {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-        }
+        #confirm-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+        #confirm-box p  { font-size: 12.5px; color: var(--text2); line-height: 1.55; margin-bottom: 18px; }
+        .confirm-row { display: flex; gap: 8px; justify-content: flex-end; }
         .cbtn {
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            border: none;
-            transition: opacity .1s, background .1s;
+            padding: 7px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 600;
+            font-family: inherit; cursor: pointer; border: none; transition: opacity .1s;
         }
-        .cbtn:hover { opacity: .85; }
+        .cbtn:hover { opacity: .88; }
         .cbtn-cancel  { background: var(--hover); color: var(--text); border: 1px solid var(--toolbar-bdr); }
-        .cbtn-discard { background: rgba(231,76,60,.13); color: #e74c3c; border: 1px solid rgba(231,76,60,.3); }
+        .cbtn-discard { background: rgba(217,83,79,.14); color: #d9534f; border: 1px solid rgba(217,83,79,.32); }
         .cbtn-save    { background: var(--accent); color: #fff; }
+
+        /* busy spinner for export */
+        #busy {
+            display: none; position: fixed; inset: 0; z-index: 400; align-items: center;
+            justify-content: center; background: rgba(10,15,25,.4); color: #fff; font-size: 13px;
+            flex-direction: column; gap: 14px;
+        }
+        #busy.show { display: flex; }
+        .spin {
+            width: 34px; height: 34px; border: 3px solid rgba(255,255,255,.25);
+            border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Responsive ───────────────────────────────────────────────────── */
+        @media (max-width: 680px) {
+            .tb-label, .tb-btn .tb-text { display: none; }
+            .tb-btn { padding: 0 7px; }
+            #settings-box { flex-direction: column; height: 92vh; }
+            #settings-nav {
+                width: 100%; display: flex; gap: 4px; overflow-x: auto; padding: 8px;
+                border-right: none; border-bottom: 1px solid var(--toolbar-bdr);
+            }
+            #settings-nav .nav-title { display: none; }
+            .nav-item { width: auto; white-space: nowrap; margin-bottom: 0; }
+            #rich, #plain { padding: 24px 16px 100px; font-size: 15px; }
+            .set-row { flex-direction: column; align-items: stretch; }
+            .set-ctl { align-self: flex-start; }
+        }
+
+        @media print {
+            #toolbar, #statusbar, .overlay, #busy { display: none !important; }
+            #editor-scroll { overflow: visible; }
+            #rich, #plain { max-width: 100%; padding: 0; }
+        }
     </style>
 </head>
 <body>
@@ -259,102 +348,228 @@
 
     <!-- ── Toolbar ──────────────────────────────────────────────────────── -->
     <div id="toolbar">
-
-        <!-- File operations -->
         <button class="tb-btn" onclick="openFile()" title="Open file">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
-            Open
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="tb-text">Open</span>
         </button>
-        <button class="tb-btn" onclick="saveFile()" title="Save  Ctrl+S">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-                <polyline points="7 3 7 8 15 8"/>
-            </svg>
-            Save
+        <button class="tb-btn" onclick="saveFile()" title="Save (Ctrl+S)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span class="tb-text">Save</span>
         </button>
 
-        <div class="tb-sep"></div>
+        <div class="tb-sep md-only"></div>
 
-        <!-- Font family -->
-        <span class="tb-label">Font</span>
-        <select id="sel-font" class="tb-select" style="width:134px;" onchange="applyFont()" title="Font family">
-            <option value="system">System Default</option>
-            <option value="arial">Arial</option>
-            <option value="times">Times New Roman</option>
-            <option value="courier">Courier New</option>
-            <option value="georgia">Georgia</option>
-            <option value="verdana">Verdana</option>
-            <option value="trebuchet">Trebuchet MS</option>
-            <option value="comic">Comic Sans MS</option>
+        <!-- Heading / block format -->
+        <select id="sel-head" class="tb-select md-only" style="width:104px;" onchange="onHeadingSelect()" title="Paragraph style">
+            <option value="p">Paragraph</option>
+            <option value="h1">Heading 1</option>
+            <option value="h2">Heading 2</option>
+            <option value="h3">Heading 3</option>
+            <option value="h4">Heading 4</option>
+            <option value="h5">Heading 5</option>
+            <option value="h6">Heading 6</option>
         </select>
 
-        <div class="tb-sep"></div>
+        <div class="tb-sep md-only"></div>
 
-        <!-- Font size -->
-        <span class="tb-label">Size</span>
-        <div class="tb-size-wrap">
-            <button class="tb-size-btn" onclick="changeFontSize(-1)" title="Decrease font size">−</button>
-            <span class="tb-size-val" id="font-size-lbl">14</span>
-            <button class="tb-size-btn" onclick="changeFontSize(+1)" title="Increase font size">+</button>
+        <button class="tb-btn md-only" id="btn-bold"   onclick="actBold()"   title="Bold"><span class="glyph"><strong>B</strong></span></button>
+        <button class="tb-btn md-only" id="btn-italic" onclick="actItalic()" title="Italic"><span class="glyph"><em>I</em></span></button>
+        <button class="tb-btn md-only" id="btn-strike" onclick="actStrike()" title="Strikethrough"><span class="glyph"><s>S</s></span></button>
+        <button class="tb-btn md-only" id="btn-code"   onclick="actInlineCode()" title="Inline code"><span class="glyph" style="font-family:monospace;">&lt;&gt;</span></button>
+
+        <div class="tb-sep md-only"></div>
+
+        <button class="tb-btn md-only" onclick="actQuote()" title="Blockquote">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h4v4H8.5c0 1.4.6 2 2 2v2c-2.5 0-3.5-1.5-3.5-4V7zm7 0h4v4h-2.5c0 1.4.6 2 2 2v2c-2.5 0-3.5-1.5-3.5-4V7z"/></svg>
+        </button>
+        <button class="tb-btn md-only" onclick="actBullet()" title="Bullet list">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="tb-btn md-only" onclick="actNumber()" title="Numbered list">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><text x="2" y="8" font-size="7" fill="currentColor" stroke="none">1</text><text x="2" y="14" font-size="7" fill="currentColor" stroke="none">2</text><text x="2" y="20" font-size="7" fill="currentColor" stroke="none">3</text></svg>
+        </button>
+        <button class="tb-btn md-only" onclick="actCodeBlock()" title="Code block">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </button>
+
+        <div class="tb-sep md-only"></div>
+
+        <button class="tb-btn md-only" onclick="actLink()" title="Insert link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>
+        </button>
+        <div class="menu-wrap md-only">
+            <button class="tb-btn" id="btn-image" onclick="toggleMenu('img-menu')" title="Insert image">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </button>
+            <div class="menu" id="img-menu">
+                <button class="menu-item" onclick="hideMenus();pickDeviceImage()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    From this device
+                </button>
+                <button class="menu-item" onclick="hideMenus();pickServerImage()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    From server
+                </button>
+                <button class="menu-item" onclick="hideMenus();insertImageByUrl()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/></svg>
+                    By URL
+                </button>
+            </div>
         </div>
 
-        <div class="tb-sep"></div>
+        <div class="tb-spacer"></div>
 
-        <!-- Bold -->
-        <button class="tb-btn" id="bold-btn" onclick="toggleBold()" title="Bold">
-            <strong style="font-size:13px;">B</strong>
+        <button class="tb-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg id="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg id="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
 
-        <div class="tb-sep"></div>
+        <div class="menu-wrap">
+            <button class="tb-btn" onclick="toggleMenu('export-menu')" title="Export">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span class="tb-text">Export</span>
+            </button>
+            <div class="menu" id="export-menu">
+                <button class="menu-item" id="mi-download" onclick="hideMenus();exportDocument()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span id="mi-download-lbl">Download document</span>
+                </button>
+                <button class="menu-item" onclick="hideMenus();exportHTML()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    Export as HTML
+                </button>
+                <button class="menu-item" onclick="hideMenus();exportPDF()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Export as PDF
+                </button>
+            </div>
+        </div>
 
-        <!-- Line height -->
-        <span class="tb-label">Line</span>
-        <select id="sel-lh" class="tb-select" style="width:84px;" onchange="applyLineHeight()" title="Line spacing">
-            <option value="1.2">Compact</option>
-            <option value="1.5">Normal</option>
-            <option value="1.6" selected>Relaxed</option>
-            <option value="2.0">Double</option>
-        </select>
-
-        <div class="tb-sep"></div>
-
-        <!-- Theme toggle -->
-        <button class="tb-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle dark / light theme">
-            <svg id="icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1"  x2="12" y2="3"/>
-                <line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22"   x2="5.64"  y2="5.64"/>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1"  y1="12" x2="3"  y2="12"/>
-                <line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22"  y1="19.78" x2="5.64"  y2="18.36"/>
-                <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
-            </svg>
-            <svg id="icon-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <span id="theme-lbl">Dark</span>
+        <button class="tb-btn" onclick="openSettings()" title="Settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-
     </div>
 
     <!-- ── Editor ───────────────────────────────────────────────────────── -->
-    <textarea id="editor" placeholder="Start typing…" spellcheck="false"></textarea>
+    <div id="editor-scroll">
+        <div id="rich" class="md-content" contenteditable="true" spellcheck="false"
+             data-ph="Start writing… type # for a heading, ** for bold"></div>
+        <textarea id="plain" spellcheck="false" placeholder="Start typing…"></textarea>
+    </div>
 
     <!-- ── Status bar ───────────────────────────────────────────────────── -->
     <div id="statusbar">
         <span id="status-msg">Ready</span>
-        <span id="stat-count">0 chars · 1 line</span>
+        <div id="status-right">
+            <span id="stat-mode">Markdown</span>
+            <span id="stat-count">0 words</span>
+        </div>
     </div>
+</div>
 
-</div><!-- /#app -->
+<!-- hidden file input for device image picking -->
+<input type="file" id="device-file" accept="image/*" style="display:none;">
 
-<!-- ── Unsaved-changes dialog (in-iframe popup) ──────────────────────────── -->
-<div id="confirm-overlay">
+<!-- ── Settings overlay ─────────────────────────────────────────────────── -->
+<div class="overlay" id="settings-overlay">
+    <div id="settings-box">
+        <div id="settings-nav">
+            <div class="nav-title">Preferences</div>
+            <button class="nav-item active" data-sec="general" onclick="showSection('general')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                General
+            </button>
+            <button class="nav-item" data-sec="keys" onclick="showSection('keys')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+                Shortcuts
+            </button>
+            <button class="nav-item" data-sec="images" onclick="showSection('images')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Images
+            </button>
+        </div>
+        <div id="settings-body">
+            <!-- General -->
+            <div class="settings-section active" id="sec-general">
+                <h2>General</h2>
+                <div class="sub">Editor behaviour and appearance.</div>
+
+                <div class="set-row">
+                    <div><div class="set-label">Document mode</div><div class="set-desc">Markdown enables live formatting; Plain text edits raw characters.</div></div>
+                    <div class="set-ctl"><div class="seg" id="seg-mode">
+                        <button data-mode="md"  onclick="setMode('md')">Markdown</button>
+                        <button data-mode="txt" onclick="setMode('txt')">Plain text</button>
+                    </div></div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">Dark theme</div><div class="set-desc">Match a dark workspace.</div></div>
+                    <div class="set-ctl"><label class="switch"><input type="checkbox" id="set-dark" onchange="setTheme(this.checked)"><span class="slider"></span></label></div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">Editor font</div></div>
+                    <div class="set-ctl"><select class="set-select" id="set-font" onchange="applyTypography()">
+                        <option value="system">System Default</option>
+                        <option value="serif">Serif</option>
+                        <option value="mono">Monospace</option>
+                        <option value="georgia">Georgia</option>
+                        <option value="times">Times New Roman</option>
+                    </select></div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">Font size</div></div>
+                    <div class="set-ctl"><input type="number" min="11" max="32" class="set-input num" id="set-fontsize" onchange="applyTypography()"> px</div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">Line spacing</div></div>
+                    <div class="set-ctl"><select class="set-select" id="set-lh" onchange="applyTypography()">
+                        <option value="1.4">Compact</option>
+                        <option value="1.7">Relaxed</option>
+                        <option value="2.0">Double</option>
+                    </select></div>
+                </div>
+            </div>
+
+            <!-- Shortcuts -->
+            <div class="settings-section" id="sec-keys">
+                <h2>Keyboard Shortcuts</h2>
+                <div class="sub">Click a shortcut, then press the new key combination. Press Esc to cancel.</div>
+                <div id="keys-list"></div>
+                <div id="settings-foot">
+                    <button class="btn-text" onclick="resetKeys()">Reset to defaults</button>
+                </div>
+            </div>
+
+            <!-- Images -->
+            <div class="settings-section" id="sec-images">
+                <h2>Images</h2>
+                <div class="sub">How imported images are stored next to your document.</div>
+
+                <div class="set-row">
+                    <div><div class="set-label">Store directory</div><div class="set-desc">Relative to the document. Use {name} for the document name.</div></div>
+                    <div class="set-ctl"><input type="text" class="set-input" id="set-imgdir" style="width:150px;" onchange="saveImgPrefs()"></div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">Compress images</div><div class="set-desc">Re-encode large images before storing to save space.</div></div>
+                    <div class="set-ctl"><label class="switch"><input type="checkbox" id="set-compress" onchange="onCompressToggle()"><span class="slider"></span></label></div>
+                </div>
+                <div class="set-row" id="row-quality">
+                    <div><div class="set-label">Quality</div><div class="set-desc">Lower = smaller file.</div></div>
+                    <div class="set-ctl"><div class="range-wrap">
+                        <input type="range" min="30" max="100" id="set-quality" oninput="onQualityInput()" onchange="saveImgPrefs()">
+                        <span id="quality-val" style="width:38px;">80%</span>
+                    </div></div>
+                </div>
+                <div class="set-row" id="row-maxw">
+                    <div><div class="set-label">Max width</div><div class="set-desc">Larger images are scaled down to this width (px). 0 = keep.</div></div>
+                    <div class="set-ctl"><input type="number" min="0" max="8000" class="set-input num" id="set-maxw" onchange="saveImgPrefs()"> px</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Unsaved-changes dialog ────────────────────────────────────────────── -->
+<div class="overlay" id="confirm-overlay">
     <div id="confirm-box">
         <h3>Unsaved Changes</h3>
         <p id="confirm-msg">Your changes haven't been saved. Save before closing?</p>
@@ -366,291 +581,1526 @@
     </div>
 </div>
 
-<script>
-// ── State ─────────────────────────────────────────────────────────────────
-var filepath             = "";
-var filename             = "";
-var lastSavedContent     = "";
-var isDark               = false;
-var fontSize             = 14;
-var isBold               = false;
-var dlgCallback          = null;
-var pendingCloseCallback = null;  // used by handleDlgSaveAs to survive the async picker
+<div id="busy"><div class="spin"></div><span id="busy-msg">Working…</span></div>
 
-// Font family map
-var fontMap = {
-    system:   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    arial:    "Arial, sans-serif",
-    times:    "'Times New Roman', Times, serif",
-    courier:  "'Courier New', Courier, monospace",
-    georgia:  "Georgia, serif",
-    verdana:  "Verdana, Geneva, sans-serif",
-    trebuchet:"'Trebuchet MS', sans-serif",
-    comic:    "'Comic Sans MS', cursive"
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════════
+   Text — Typora-style editor for ArozOS
+   ════════════════════════════════════════════════════════════════════════ */
+
+// ── State ───────────────────────────────────────────────────────────────
+var filepath        = "";
+var filename        = "";
+var isTxtMode       = false;      // false = markdown WYSIWYG, true = plain text
+var isDark          = false;
+var dirtyFlag       = false;
+var dlgCallback     = null;
+var pendingClose    = null;
+var recordingAction = null;       // shortcut currently being re-bound
+
+var rich  = document.getElementById("rich");
+var plain = document.getElementById("plain");
+
+// ── Settings (defaults) ─────────────────────────────────────────────────
+var settings = {
+    font: "system", fontSize: 16, lineHeight: "1.7",
+    imgDir: "img/{name}", compress: false, quality: 80, maxWidth: 1600
 };
 
-// ── Init ──────────────────────────────────────────────────────────────────
-$(function(){
-    // Restore font size from previous session
-    var savedSize = parseInt(localStorage.getItem("text_fontSize"));
-    if (savedSize && savedSize >= 8 && savedSize <= 72){
-        fontSize = savedSize;
-        $("#font-size-lbl").text(fontSize);
-        $("#editor").css("font-size", fontSize + "px");
+var FONT_MAP = {
+    system:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    serif:   "Georgia, 'Times New Roman', serif",
+    mono:    "'SF Mono', 'Consolas', 'Courier New', monospace",
+    georgia: "Georgia, serif",
+    times:   "'Times New Roman', Times, serif"
+};
+
+// ── Shortcuts ───────────────────────────────────────────────────────────
+var DEFAULT_KEYS = {
+    save:"ctrl+s", bold:"ctrl+b", italic:"ctrl+i", strike:"ctrl+shift+x", inlineCode:"ctrl+e",
+    h1:"ctrl+1", h2:"ctrl+2", h3:"ctrl+3", h4:"ctrl+4", h5:"ctrl+5", h6:"ctrl+6", paragraph:"ctrl+0",
+    blockquote:"ctrl+shift+q", bulletList:"ctrl+shift+u", orderedList:"ctrl+shift+o",
+    codeBlock:"ctrl+shift+k", link:"ctrl+k", image:"ctrl+shift+i", hr:"ctrl+shift+h"
+};
+var ACTIONS = {
+    save:      { label:"Save",            fn:saveFile,                  md:false },
+    bold:      { label:"Bold",            fn:actBold,                   md:true  },
+    italic:    { label:"Italic",          fn:actItalic,                 md:true  },
+    strike:    { label:"Strikethrough",   fn:actStrike,                 md:true  },
+    inlineCode:{ label:"Inline code",     fn:actInlineCode,             md:true  },
+    h1:        { label:"Heading 1",       fn:function(){setBlock("h1");}, md:true },
+    h2:        { label:"Heading 2",       fn:function(){setBlock("h2");}, md:true },
+    h3:        { label:"Heading 3",       fn:function(){setBlock("h3");}, md:true },
+    h4:        { label:"Heading 4",       fn:function(){setBlock("h4");}, md:true },
+    h5:        { label:"Heading 5",       fn:function(){setBlock("h5");}, md:true },
+    h6:        { label:"Heading 6",       fn:function(){setBlock("h6");}, md:true },
+    paragraph: { label:"Paragraph",       fn:function(){setBlock("p");},  md:true },
+    blockquote:{ label:"Blockquote",      fn:actQuote,                  md:true  },
+    bulletList:{ label:"Bullet list",     fn:actBullet,                 md:true  },
+    orderedList:{label:"Numbered list",   fn:actNumber,                 md:true  },
+    codeBlock: { label:"Code block",      fn:actCodeBlock,              md:true  },
+    link:      { label:"Insert link",     fn:actLink,                   md:true  },
+    image:     { label:"Insert image",    fn:function(){pickDeviceImage();}, md:true },
+    hr:        { label:"Horizontal rule", fn:actHr,                     md:true  }
+};
+var keymap = JSON.parse(JSON.stringify(DEFAULT_KEYS));
+
+// ── Turndown (HTML → Markdown) ──────────────────────────────────────────
+var td = new TurndownService({
+    headingStyle:"atx", codeBlockStyle:"fenced", bulletListMarker:"-",
+    emDelimiter:"*", strongDelimiter:"**", hr:"---"
+});
+if (window.turndownPluginGfm) td.use(turndownPluginGfm.gfm);
+// GFM plugin emits single-tilde strikethrough; marked only renders double-tilde
+td.addRule("strike2", {
+    filter:["del","s","strike"],
+    replacement:function(content){ return "~~" + content + "~~"; }
+});
+td.addRule("relimg", {
+    filter:"img",
+    replacement:function(content, node){
+        var alt = node.getAttribute("alt") || "";
+        var src = node.getAttribute("data-rel") || node.getAttribute("src") || "";
+        var ttl = node.getAttribute("title");
+        return "![" + alt + "](" + mdLinkDest(src) + (ttl ? ' "'+ttl+'"' : "") + ")";
     }
+});
+
+// A markdown link/image destination containing spaces or parentheses must be
+// wrapped in angle brackets, otherwise parsers (marked) treat it as plain text
+// and the image never becomes an <img> — which is why such images appeared as
+// literal "![](path)" markdown when exported. The raw path is kept inside the
+// brackets so mediaURLFor() can still percent-encode it for the media endpoint.
+function mdLinkDest(src){
+    return /[\s()]/.test(src) ? "<" + src + ">" : src;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Init
+// ════════════════════════════════════════════════════════════════════════
+$(function(){
+    if (document.execCommand) {
+        try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch(e){}
+        try { document.execCommand("styleWithCSS", false, false); } catch(e){}
+    }
+
+    loadPrefs();
 
     var files = ao_module_loadInputFiles();
     if (files && files.length > 0){
         filepath = files[0].filepath;
         filename = files[0].filename;
+        isTxtMode = !isMarkdownExt(filename);
+        applyMode();
         loadFile();
     } else {
+        isTxtMode = false;
+        applyMode();
         updateTitle();
     }
 
-    // Ctrl+S to save
-    $(document).on("keydown", function(e){
-        if (e.ctrlKey && e.key === "s"){
-            e.preventDefault();
-            saveFile();
-        }
+    // editor events
+    $("#rich").on("input",  onRichInput);
+    $("#rich").on("keydown", onRichKeydown);
+    $("#rich").on("paste",  onRichPaste);
+    $("#rich").on("drop",   onRichDrop);
+    $("#rich").on("dragover", function(e){ e.preventDefault(); });
+    $(document).on("selectionchange", debounce(updateToolbarState, 80));
+
+    $("#plain").on("input", function(){ markDirty(); updateStatBar(); });
+
+    // global keydown for shortcuts
+    $(document).on("keydown", globalKeydown);
+
+    // device file input
+    document.getElementById("device-file").addEventListener("change", onDeviceFileChosen);
+
+    // close menus when clicking elsewhere
+    document.addEventListener("click", function(e){
+        if (!e.target.closest(".menu-wrap")) hideMenus();
+    });
+    // keep selection alive when clicking toolbar buttons
+    document.getElementById("toolbar").addEventListener("mousedown", function(e){
+        if (e.target.closest(".tb-btn") && !e.target.closest("select")) e.preventDefault();
     });
 
-    // Live updates on every keystroke
-    $("#editor").on("input", function(){
-        updateStatBar();
-        updateTitle();
-    });
-
+    buildKeyList();
+    syncSettingsUI();
+    applyTypography();
     updateStatBar();
 });
 
-// ── File loading ──────────────────────────────────────────────────────────
+function isMarkdownExt(name){
+    var ext = (name.split(".").pop() || "").toLowerCase();
+    return ext === "md" || ext === "markdown" || ext === "mdown" || ext === "mkd";
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// File load / save
+// ════════════════════════════════════════════════════════════════════════
 function loadFile(){
     $.get(ao_root + "media?file=" + encodeURIComponent(filepath) + "&t=" + Date.now(), function(data){
         if (typeof data !== "string") data = JSON.stringify(data, null, 2);
-        $("#editor").val(data);
-        lastSavedContent = data;
-        updateTitle();
-        updateStatBar();
-    }).fail(function(){
+        setContent(data);
+        dirtyFlag = false;
+        updateTitle(); updateStatBar();
+    }, "text").fail(function(){
         setStatus("Failed to load file", "error");
     });
 }
 
-// ── Named global callbacks for ao_module_openFileSelector ─────────────────
-// ao_module_openFileSelector resolves the callback by function.name in VDI
-// mode, so all callbacks must be named top-level functions on window.
-
-// Called after the user picks a Save-As path from the toolbar Save button
-function handleSaveAs(filedata){
-    if (!filedata || !filedata.length) return;
-    filepath = filedata[0].filepath;
-    filename = filedata[0].filename;
-    doSave();
+function setContent(text){
+    if (isTxtMode){
+        plain.value = text;
+    } else {
+        rich.innerHTML = marked.parse(text || "");
+        rewriteImageSrcs(rich);
+        refreshEmptyState();
+    }
 }
 
-// Called after the user picks a file from the toolbar Open button
-function handleOpenFile(filedata){
-    if (!filedata || !filedata.length) return;
-    filepath = filedata[0].filepath;
-    filename = filedata[0].filename;
-    lastSavedContent = "";  // don't treat freshly loaded content as dirty
+function getContent(){
+    if (isTxtMode) return plain.value;
+    var html = rich.innerHTML.replace(/​/g, "");
+    var md = td.turndown(html);
+    return md.replace(/\n{3,}/g, "\n\n").replace(/^\s+|\s+$/g, "") + "\n";
+}
+
+function saveFile(){
+    if (!filepath){
+        var def = isTxtMode ? "Untitled.txt" : "Untitled.md";
+        ao_module_openFileSelector(handleSaveAs, "user:/Desktop", "new", false, { defaultName: def });
+        return;
+    }
+    doSave();
+}
+function handleSaveAs(fd){
+    if (!fd || !fd.length) return;
+    filepath = fd[0].filepath; filename = fd[0].filename;
+    doSave();
+}
+function doSave(callback){
+    var content = getContent();
+    ao_module_agirun("Text/filesaver.js", { filepath: filepath, content: content }, function(data){
+        if (data && data.error){
+            setStatus("Save failed: " + data.error, "error");
+        } else {
+            dirtyFlag = false; updateTitle(); setStatus("Saved");
+            if (callback) callback();
+        }
+    }, function(){ setStatus("Save failed", "error"); });
+}
+
+function openFile(){
+    ao_module_openFileSelector(handleOpenFile, "user:/", "file", false, {
+        filter: ["txt","md","markdown","csv","log","ini","conf","json","xml","html","css","js","py","sh","yaml","yml"]
+    });
+}
+function handleOpenFile(fd){
+    if (!fd || !fd.length) return;
+    filepath = fd[0].filepath; filename = fd[0].filename;
+    isTxtMode = !isMarkdownExt(filename);
+    applyMode();
+    dirtyFlag = false;
     loadFile();
 }
 
-// Called after the user picks a Save-As path from the close-confirmation dialog
-function handleDlgSaveAs(filedata){
-    if (!filedata || !filedata.length){
-        pendingCloseCallback = null;
+// ════════════════════════════════════════════════════════════════════════
+// Mode (markdown / plain text)
+// ════════════════════════════════════════════════════════════════════════
+function applyMode(){
+    document.body.classList.toggle("mode-txt", isTxtMode);
+    $("#stat-mode").text(isTxtMode ? "Plain text" : "Markdown");
+    $("#mi-download-lbl").text(isTxtMode ? "Download .txt" : "Download .md");
+    $("#seg-mode button").removeClass("active");
+    $('#seg-mode button[data-mode="' + (isTxtMode ? "txt" : "md") + '"]').addClass("active");
+    applyTypography();
+}
+
+// invoked from the settings segmented control — converts current content
+function setMode(mode){
+    var wantTxt = (mode === "txt");
+    if (wantTxt === isTxtMode) return;
+    var current = getContent();           // serialise from the current surface
+    isTxtMode = wantTxt;
+    applyMode();
+    setContent(current);                  // re-hydrate into the new surface
+    markDirty(); updateStatBar();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// WYSIWYG editing
+// ════════════════════════════════════════════════════════════════════════
+function onRichInput(){
+    markDirty();
+    inlineAutoformat();
+    refreshEmptyState();
+    updateStatBar();
+}
+
+function refreshEmptyState(){
+    var t = rich.textContent.replace(/​/g, "").trim();
+    rich.classList.toggle("is-empty", t === "" && rich.children.length <= 1 && rich.querySelector("img,hr,table") === null);
+}
+
+function onRichKeydown(e){
+    // block-level transforms triggered by Space / Enter (no modifier)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === " "){
+        if (blockTransformOnSpace()) e.preventDefault();
+    } else if (e.key === "Enter"){
+        if (blockTransformOnEnter()) e.preventDefault();
+    }
+}
+
+function getSel(){ return window.getSelection(); }
+
+function currentBlock(){
+    var sel = getSel();
+    if (!sel.rangeCount) return null;
+    var n = sel.getRangeAt(0).startContainer;
+    if (n.nodeType === 3) n = n.parentNode;
+    while (n && n !== rich){
+        if (/^(P|H[1-6]|LI|BLOCKQUOTE|PRE|DIV)$/.test(n.tagName)) return n;
+        n = n.parentNode;
+    }
+    return null;
+}
+
+// text in the current block, from its start to the caret
+function textBeforeCaret(block){
+    var sel = getSel();
+    if (!sel.rangeCount) return "";
+    var r = sel.getRangeAt(0);
+    var pre = document.createRange();
+    pre.selectNodeContents(block);
+    try { pre.setEnd(r.startContainer, r.startOffset); } catch(err){ return ""; }
+    return pre.toString();
+}
+
+function blockTransformOnSpace(){
+    var block = currentBlock();
+    if (!block || block.tagName === "PRE") return false;
+    var pre = textBeforeCaret(block);
+    var li = (block.tagName === "LI");
+
+    if (/^#{1,6}$/.test(pre) && !li){
+        clearMarkers(block, pre.length); changeBlockTag(block, "h" + pre.length); return true;
+    }
+    if (pre === ">" && !li){
+        clearMarkers(block, 1); wrapBlockquote(block); return true;
+    }
+    if ((pre === "-" || pre === "*" || pre === "+") && !li){
+        clearMarkers(block, 1); makeList(block, false); return true;
+    }
+    if (/^\d+\.$/.test(pre) && !li){
+        clearMarkers(block, pre.length); makeList(block, true); return true;
+    }
+    return false;
+}
+
+// turn a block into a single-item list, merging with an adjacent list of the same kind
+function makeList(block, ordered){
+    var tag = ordered ? "ol" : "ul";
+    var li = document.createElement("li");
+    while (block.firstChild) li.appendChild(block.firstChild);
+    if (!li.firstChild) li.appendChild(document.createElement("br"));
+    var prev = block.previousElementSibling;
+    if (prev && prev.tagName.toLowerCase() === tag){
+        prev.appendChild(li);
+        block.parentNode.removeChild(block);
+    } else {
+        var list = document.createElement(tag);
+        list.appendChild(li);
+        block.parentNode.replaceChild(list, block);
+    }
+    placeCaretAtStart(li); markDirty();
+}
+
+function blockTransformOnEnter(){
+    var block = currentBlock();
+    if (!block) return false;
+    var pre = textBeforeCaret(block).trim();
+    var whole = block.textContent.trim();
+
+    if (block.tagName !== "PRE" && whole === "```"){
+        block.textContent = ""; insertCodeBlockAt(block); return true;
+    }
+    if (block.tagName !== "PRE" && (whole === "---" || whole === "***" || whole === "___")){
+        var hr = document.createElement("hr");
+        var p  = document.createElement("p"); p.appendChild(document.createElement("br"));
+        block.parentNode.replaceChild(p, block);
+        p.parentNode.insertBefore(hr, p);
+        placeCaretAtStart(p); markDirty(); return true;
+    }
+    // pressing Enter at the end of a heading starts a normal paragraph
+    if (/^H[1-6]$/.test(block.tagName) && pre === whole){
+        var np = document.createElement("p"); np.appendChild(document.createElement("br"));
+        if (block.nextSibling) block.parentNode.insertBefore(np, block.nextSibling);
+        else block.parentNode.appendChild(np);
+        placeCaretAtStart(np); markDirty(); return true;
+    }
+    return false;
+}
+
+// remove the first `count` characters (markdown markers) from a block
+function clearMarkers(block, count){
+    var r = document.createRange();
+    r.selectNodeContents(block);
+    var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+    var first = walker.nextNode();
+    if (first){
+        r.setStart(first, 0);
+        r.setEnd(first, Math.min(count, first.data.length));
+        r.deleteContents();
+    } else {
+        block.textContent = "";
+    }
+}
+
+function changeBlockTag(block, tag){
+    var nb = document.createElement(tag);
+    while (block.firstChild) nb.appendChild(block.firstChild);
+    if (!nb.firstChild) nb.appendChild(document.createElement("br"));
+    block.parentNode.replaceChild(nb, block);
+    placeCaretAtStart(nb); markDirty();
+}
+
+function wrapBlockquote(block){
+    var bq = document.createElement("blockquote");
+    var p  = document.createElement("p");
+    while (block.firstChild) p.appendChild(block.firstChild);
+    if (!p.firstChild) p.appendChild(document.createElement("br"));
+    bq.appendChild(p);
+    block.parentNode.replaceChild(bq, block);
+    placeCaretAtStart(p); markDirty();
+}
+
+function insertCodeBlockAt(block){
+    var pre = document.createElement("pre");
+    var code = document.createElement("code");
+    code.appendChild(document.createTextNode("​"));
+    pre.appendChild(code);
+    block.parentNode.replaceChild(pre, block);
+    var r = document.createRange();
+    r.setStart(code.firstChild, 1); r.collapse(true);
+    var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    markDirty();
+}
+
+function placeCaretAtStart(el){
+    var r = document.createRange();
+    r.setStart(el, 0); r.collapse(true);
+    var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    rich.focus();
+}
+
+// inline autoformat: **bold** *italic* `code` ~~strike~~
+function inlineAutoformat(){
+    var sel = getSel();
+    if (!sel.rangeCount || !sel.isCollapsed) return;
+    var node = sel.getRangeAt(0).startContainer;
+    if (node.nodeType !== 3) return;
+    var offset = sel.getRangeAt(0).startOffset;
+    var text = node.data.substring(0, offset);
+
+    var patterns = [
+        { re:/\*\*([^*\s][^*]*?)\*\*$/,                tag:"strong" },
+        { re:/__([^_\s][^_]*?)__$/,                    tag:"strong" },
+        { re:/`([^`]+?)`$/,                            tag:"code"   },
+        { re:/~~([^~\s][^~]*?)~~$/,                    tag:"del"    },
+        { re:/(?<![*\w])\*([^*\s][^*]*?)\*$/,          tag:"em"     },
+        { re:/(?<![_\w])_([^_\s][^_]*?)_$/,            tag:"em"     }
+    ];
+    for (var i = 0; i < patterns.length; i++){
+        var m = patterns[i].re.exec(text);
+        if (m){
+            applyInline(node, offset - m[0].length, offset, m[1], patterns[i].tag);
+            return;
+        }
+    }
+}
+
+function applyInline(node, start, end, inner, tag){
+    var r = document.createRange();
+    r.setStart(node, start); r.setEnd(node, end);
+    r.deleteContents();
+    var el = document.createElement(tag);
+    el.textContent = inner;
+    r.insertNode(el);
+    // exit the formatted span with a zero-width spacer so typing continues plain
+    var after = document.createTextNode("​");
+    el.parentNode.insertBefore(after, el.nextSibling);
+    var nr = document.createRange();
+    nr.setStart(after, 1); nr.collapse(true);
+    var s = getSel(); s.removeAllRanges(); s.addRange(nr);
+    markDirty();
+}
+
+// ── Toolbar actions ─────────────────────────────────────────────────────
+function exec(cmd, val){
+    rich.focus();
+    document.execCommand(cmd, false, val || null);
+    markDirty(); updateStatBar(); updateToolbarState();
+}
+function actBold(){   if(isTxtMode) return; exec("bold"); }
+function actItalic(){ if(isTxtMode) return; exec("italic"); }
+function actStrike(){ if(isTxtMode) return; exec("strikeThrough"); }
+function actBullet(){ if(isTxtMode) return; exec("insertUnorderedList"); }
+function actNumber(){ if(isTxtMode) return; exec("insertOrderedList"); }
+function actInlineCode(){ if(isTxtMode) return; wrapSelection("code"); }
+function actQuote(){
+    if(isTxtMode) return;
+    var b = currentBlock();
+    if (b && b.closest("blockquote")){ exec("formatBlock", "p"); }
+    else { exec("formatBlock", "blockquote"); }
+}
+function actCodeBlock(){
+    if(isTxtMode) return;
+    var b = currentBlock(); if (!b) { rich.focus(); b = currentBlock(); }
+    if (b) insertCodeBlockAt(b);
+}
+function actHr(){
+    if(isTxtMode) return;
+    rich.focus();
+    document.execCommand("insertHTML", false, "<hr><p><br></p>");
+    markDirty();
+}
+function actLink(){
+    if(isTxtMode) return;
+    var url = prompt("Link URL:", "https://");
+    if (!url) return;
+    rich.focus();
+    var sel = getSel();
+    if (sel.rangeCount && !sel.isCollapsed){
+        exec("createLink", url);
+    } else {
+        document.execCommand("insertHTML", false, '<a href="'+escapeAttr(url)+'">'+escapeHtml(url)+'</a>');
+        markDirty();
+    }
+}
+function setBlock(tag){
+    if(isTxtMode) return;
+    exec("formatBlock", tag);
+}
+function onHeadingSelect(){
+    setBlock($("#sel-head").val());
+}
+
+function wrapSelection(tag){
+    rich.focus();
+    var sel = getSel();
+    if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    var el = document.createElement(tag);
+    if (r.collapsed){
+        el.appendChild(document.createTextNode("​"));
+        r.insertNode(el);
+        var nr = document.createRange(); nr.setStart(el.firstChild, 1); nr.collapse(true);
+        sel.removeAllRanges(); sel.addRange(nr);
+    } else {
+        el.appendChild(r.extractContents());
+        r.insertNode(el);
+    }
+    markDirty();
+}
+
+function updateToolbarState(){
+    if (isTxtMode) return;
+    if (!rich.contains(getSel().anchorNode)) return;
+    try {
+        $("#btn-bold").toggleClass("active", document.queryCommandState("bold"));
+        $("#btn-italic").toggleClass("active", document.queryCommandState("italic"));
+        $("#btn-strike").toggleClass("active", document.queryCommandState("strikeThrough"));
+    } catch(e){}
+    var b = currentBlock();
+    var tag = b ? b.tagName.toLowerCase() : "p";
+    if (!/^h[1-6]$/.test(tag)) tag = "p";
+    $("#sel-head").val(tag);
+    $("#btn-code").toggleClass("active", !!(getSel().anchorNode && getSel().anchorNode.parentNode && getSel().anchorNode.parentNode.closest("code")));
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Shortcuts
+// ════════════════════════════════════════════════════════════════════════
+function comboFromEvent(e){
+    var parts = [];
+    if (e.ctrlKey || e.metaKey) parts.push("ctrl");
+    if (e.shiftKey) parts.push("shift");
+    if (e.altKey)   parts.push("alt");
+    var k = e.key;
+    if (k === " ") k = "space";
+    else if (k.length === 1) k = k.toLowerCase();
+    else k = k.toLowerCase();
+    if (["control","shift","alt","meta"].indexOf(k) >= 0) return null;
+    parts.push(k);
+    return parts.join("+");
+}
+
+function globalKeydown(e){
+    if (recordingAction){ recordKey(e); return; }
+    if ($("#settings-overlay").hasClass("show")) {
+        if (e.key === "Escape") closeSettings();
         return;
     }
-    filepath = filedata[0].filepath;
-    filename = filedata[0].filename;
-    doSave(function(){
-        if (pendingCloseCallback){
-            pendingCloseCallback("saved");
-            pendingCloseCallback = null;
+    var combo = comboFromEvent(e);
+    if (!combo) return;
+    for (var action in keymap){
+        if (keymap[action] === combo){
+            var def = ACTIONS[action];
+            if (!def) continue;
+            if (def.md && isTxtMode) continue;    // markdown-only action in txt mode
+            e.preventDefault();
+            def.fn();
+            return;
         }
+    }
+}
+
+function prettyCombo(c){
+    return c.split("+").map(function(p){
+        if (p === "ctrl")  return "Ctrl";
+        if (p === "shift") return "Shift";
+        if (p === "alt")   return "Alt";
+        if (p === "space") return "Space";
+        return p.length === 1 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1);
+    }).join(" + ");
+}
+
+function buildKeyList(){
+    var html = "";
+    for (var action in ACTIONS){
+        html += '<div class="key-row"><span class="key-name">' + escapeHtml(ACTIONS[action].label) +
+                '</span><button class="key-cap" data-action="' + action + '" onclick="startRecord(\'' + action + '\')">' +
+                escapeHtml(prettyCombo(keymap[action] || "")) + '</button></div>';
+    }
+    document.getElementById("keys-list").innerHTML = html;
+}
+
+function startRecord(action){
+    if (recordingAction){
+        $('.key-cap[data-action="'+recordingAction+'"]').removeClass("recording")
+            .text(prettyCombo(keymap[recordingAction]));
+    }
+    recordingAction = action;
+    $('.key-cap[data-action="'+action+'"]').addClass("recording").text("Press keys…");
+}
+
+function recordKey(e){
+    e.preventDefault();
+    if (e.key === "Escape"){
+        $('.key-cap[data-action="'+recordingAction+'"]').removeClass("recording")
+            .text(prettyCombo(keymap[recordingAction]));
+        recordingAction = null;
+        return;
+    }
+    var combo = comboFromEvent(e);
+    if (!combo || ["ctrl","shift","alt"].indexOf(combo) >= 0) return; // wait for a real key
+    // free the combo from any other action
+    for (var a in keymap){ if (keymap[a] === combo && a !== recordingAction) keymap[a] = ""; }
+    keymap[recordingAction] = combo;
+    recordingAction = null;
+    savePrefs();
+    buildKeyList();
+}
+
+function resetKeys(){
+    keymap = JSON.parse(JSON.stringify(DEFAULT_KEYS));
+    savePrefs(); buildKeyList();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Images
+// ════════════════════════════════════════════════════════════════════════
+function docDir(){
+    var i = filepath.lastIndexOf("/");
+    return i < 0 ? "" : filepath.substring(0, i);
+}
+function docName(){
+    var n = filename.replace(/\.[^.]+$/, "");
+    return n || "document";
+}
+function relDir(){
+    return settings.imgDir.replace(/\{name\}/g, docName()).replace(/^\.?\/+/, "");
+}
+function mediaURLFor(rel){
+    rel = rel.replace(/^\.?\/+/, "");
+    return ao_root + "media?file=" + encodeURIComponent(docDir() + "/" + rel);
+}
+function rewriteImageSrcs(root){
+    if (!filepath) return;
+    $(root).find("img").each(function(){
+        var src = this.getAttribute("src") || "";
+        if (/^(https?:|data:|blob:)/i.test(src) || src.indexOf("media?file=") >= 0) return;
+        var rel = src.replace(/^\.?\/+/, "");
+        this.setAttribute("data-rel", rel);
+        this.setAttribute("src", mediaURLFor(rel));
+    });
+}
+function makeImgName(orig, forceExt){
+    var base = (orig || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_\-]+/g, "_").substr(0, 40) || "image";
+    var ext  = forceExt || ((orig || "").split(".").pop() || "png").toLowerCase();
+    var ts   = Date.now().toString(36);
+    return base + "-" + ts + "." + ext;
+}
+
+// ensure the image folder exists on the server, then run cb(reldir)
+function ensureImgDir(cb){
+    if (!filepath){
+        alert("Please save the document first — images are stored in a folder next to it.");
+        return;
+    }
+    var rel = relDir();
+    ao_module_agirun("Text/imgtool.agi", { action:"mkdir", docpath:filepath, reldir:rel }, function(data){
+        if (data && data.error){ setStatus("Image folder error: " + data.error, "error"); return; }
+        cb(rel);
+    }, function(){ setStatus("Could not prepare image folder", "error"); });
+}
+
+function pickDeviceImage(){
+    if (isTxtMode) return;
+    if (!filepath){ alert("Please save the document first."); return; }
+    document.getElementById("device-file").click();
+}
+function onDeviceFileChosen(e){
+    var file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    ensureImgDir(function(rel){
+        prepareBlob(file, function(blob, ext){
+            var fname = makeImgName(file.name, ext);
+            setStatus("Uploading image…");
+            ao_module_uploadFile(new File([blob], fname), docDir() + "/" + rel, function(){
+                insertImage(rel + "/" + fname, docName());
+                setStatus("Image inserted");
+            }, undefined, function(){ setStatus("Image upload failed", "error"); });
+        });
     });
 }
 
-// ── Saving ────────────────────────────────────────────────────────────────
-function saveFile(){
-    if (!filepath){
-        ao_module_openFileSelector(handleSaveAs, "user:/Desktop", "new", false, { defaultName: "Untitled.txt" });
+// client-side compression via canvas (only when enabled)
+function prepareBlob(file, cb){
+    if (!settings.compress || !/^image\//.test(file.type) || file.type === "image/gif"){
+        cb(file, (file.name.split(".").pop() || "png").toLowerCase());
         return;
     }
-    doSave();
+    var img = new Image();
+    img.onload = function(){
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var maxW = settings.maxWidth;
+        if (maxW > 0 && w > maxW){ h = Math.round(h * (maxW / w)); w = maxW; }
+        var c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        c.toBlob(function(blob){
+            URL.revokeObjectURL(img.src);
+            if (blob) cb(blob, "jpg");
+            else cb(file, (file.name.split(".").pop() || "png").toLowerCase());
+        }, "image/jpeg", settings.quality / 100);
+    };
+    img.onerror = function(){ cb(file, (file.name.split(".").pop() || "png").toLowerCase()); };
+    img.src = URL.createObjectURL(file);
 }
 
-function doSave(callback){
-    var content = $("#editor").val();
-    ao_module_agirun("Text/filesaver.js", {
-        filepath: filepath,
-        content:  content
+function pickServerImage(){
+    if (isTxtMode) return;
+    if (!filepath){ alert("Please save the document first."); return; }
+    ao_module_openFileSelector(handleServerImage, "user:/", "file", false, {
+        filter: ["jpg","jpeg","png","gif","webp","bmp","svg"]
+    });
+}
+function handleServerImage(fd){
+    if (!fd || !fd.length) return;
+    var src = fd[0].filepath, name = fd[0].filename;
+    var rel = relDir();
+    var dest = makeImgName(name, settings.compress ? "jpg" : null);
+    setStatus("Importing image…");
+    ao_module_agirun("Text/imgtool.agi", {
+        action:"import", docpath:filepath, reldir:rel, src:src, destname:dest,
+        compress: settings.compress ? "true" : "false", maxwidth: settings.maxWidth
     }, function(data){
-        if (data.error){
-            setStatus("Save failed: " + data.error, "error");
-        } else {
-            lastSavedContent = content;
-            updateTitle();
-            setStatus("Saved");
-            if (callback) callback();
+        if (data && data.error){ setStatus("Import failed: " + data.error, "error"); return; }
+        insertImage(data.rel || (rel + "/" + dest), docName());
+        setStatus("Image inserted");
+    }, function(){ setStatus("Image import failed", "error"); });
+}
+
+function insertImageByUrl(){
+    if (isTxtMode) return;
+    var url = prompt("Image URL:", "https://");
+    if (!url) return;
+    rich.focus();
+    document.execCommand("insertHTML", false, '<img src="'+escapeAttr(url)+'" alt="">');
+    markDirty();
+}
+
+// insert an image referencing a path relative to the document
+function insertImage(rel, alt){
+    if (isTxtMode){
+        insertAtTextarea(plain, "![" + (alt||"") + "](" + mdLinkDest(rel) + ")");
+        markDirty(); return;
+    }
+    rich.focus();
+    var html = '<img src="'+escapeAttr(mediaURLFor(rel))+'" data-rel="'+escapeAttr(rel)+'" alt="'+escapeAttr(alt||"")+'">';
+    document.execCommand("insertHTML", false, html);
+    refreshEmptyState(); markDirty();
+}
+
+function insertAtTextarea(ta, text){
+    var s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.substring(0, s) + text + ta.value.substring(e);
+    ta.selectionStart = ta.selectionEnd = s + text.length;
+    ta.focus();
+}
+
+// paste / drop images straight into the editor
+function onRichPaste(e){
+    var items = (e.originalEvent || e).clipboardData && (e.originalEvent || e).clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++){
+        if (items[i].type && items[i].type.indexOf("image") === 0){
+            var file = items[i].getAsFile();
+            if (file){ e.preventDefault(); handleDroppedImage(file); return; }
         }
-    }, function(){
-        setStatus("Save failed", "error");
+    }
+}
+function onRichDrop(e){
+    var dt = (e.originalEvent || e).dataTransfer;
+    if (dt && dt.files && dt.files.length && /^image\//.test(dt.files[0].type)){
+        e.preventDefault(); handleDroppedImage(dt.files[0]);
+    }
+}
+function handleDroppedImage(file){
+    if (!filepath){ alert("Please save the document first to store pasted images."); return; }
+    ensureImgDir(function(rel){
+        prepareBlob(file, function(blob, ext){
+            var fname = makeImgName(file.name || "pasted.png", ext);
+            setStatus("Uploading image…");
+            ao_module_uploadFile(new File([blob], fname), docDir() + "/" + rel, function(){
+                insertImage(rel + "/" + fname, docName());
+                setStatus("Image inserted");
+            }, undefined, function(){ setStatus("Image upload failed", "error"); });
+        });
     });
 }
 
-// ── Opening a file from toolbar ───────────────────────────────────────────
-function openFile(){
-    ao_module_openFileSelector(handleOpenFile, "user:/", "file", false, {
-        filter: ["txt","md","csv","log","ini","conf","json","xml","html","css","js","py","sh","yaml","yml"]
+// ════════════════════════════════════════════════════════════════════════
+// Export
+// ════════════════════════════════════════════════════════════════════════
+function renderedHTML(){
+    if (isTxtMode) return "<pre>" + escapeHtml(plain.value) + "</pre>";
+    return marked.parse(getContent());
+}
+
+// collect the CSS that styles .md-content so exports match the editor
+function exportCSS(){
+    var bg   = getCss("--editor-bg"), text = getCss("--text"), accent = getCss("--accent");
+    var code = getCss("--code-bg"),   sep = getCss("--sep"), quote = getCss("--quote-bdr");
+    var tbl  = getCss("--table-bdr"), text2 = getCss("--text2");
+    return [
+        "body{margin:0;background:"+bg+";color:"+text+";font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:"+settings.lineHeight+";}",
+        ".md-content{max-width:820px;margin:0 auto;padding:48px 40px;font-size:"+settings.fontSize+"px;word-wrap:break-word;}",
+        ".md-content h1,.md-content h2,.md-content h3,.md-content h4,.md-content h5,.md-content h6{font-weight:700;line-height:1.3;margin:1.4em 0 .6em;}",
+        ".md-content h1{font-size:2em;border-bottom:1px solid "+sep+";padding-bottom:.25em;}",
+        ".md-content h2{font-size:1.6em;border-bottom:1px solid "+sep+";padding-bottom:.2em;}",
+        ".md-content h3{font-size:1.3em;} .md-content h4{font-size:1.1em;} .md-content h6{color:"+text2+";}",
+        ".md-content p{margin:.55em 0;} .md-content a{color:"+accent+";text-decoration:none;}",
+        ".md-content ul,.md-content ol{margin:.5em 0;padding-left:1.7em;} .md-content li{margin:.25em 0;}",
+        ".md-content blockquote{margin:.8em 0;padding:.2em 1em;color:"+text2+";border-left:3px solid "+quote+";border-radius:0 6px 6px 0;}",
+        ".md-content code{font-family:'SF Mono',Consolas,monospace;font-size:.88em;background:"+code+";padding:.15em .4em;border-radius:4px;}",
+        ".md-content pre{margin:.8em 0;padding:14px 16px;background:"+code+";border-radius:8px;overflow-x:auto;}",
+        ".md-content pre code{background:none;padding:0;} .md-content hr{border:none;border-top:1px solid "+sep+";margin:1.6em 0;}",
+        ".md-content img{max-width:100%;border-radius:6px;}",
+        ".md-content table{border-collapse:collapse;margin:.8em 0;} .md-content th,.md-content td{border:1px solid "+tbl+";padding:6px 12px;} .md-content th{background:"+code+";}"
+    ].join("\n");
+}
+function getCss(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+
+// fetch a same-origin image and return a data URL (for self-contained export)
+function inlineImage(url){
+    return new Promise(function(resolve){
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true); xhr.responseType = "blob";
+        xhr.onload = function(){
+            if (xhr.status === 200){
+                var fr = new FileReader();
+                fr.onloadend = function(){ resolve(fr.result); };
+                fr.onerror = function(){ resolve(url); };
+                fr.readAsDataURL(xhr.response);
+            } else resolve(url);
+        };
+        xhr.onerror = function(){ resolve(url); };
+        xhr.send();
     });
 }
 
-// ── Title management ──────────────────────────────────────────────────────
+// build an offscreen DOM with all images inlined as data URLs
+function buildExportContainer(){
+    var div = document.createElement("div");
+    div.className = "md-content";
+    div.innerHTML = renderedHTML();
+    // resolve relative srcs to media URLs first
+    $(div).find("img").each(function(){
+        var rel = this.getAttribute("data-rel");
+        var src = this.getAttribute("src") || "";
+        if (rel) this.setAttribute("src", mediaURLFor(rel));
+        else if (!/^(https?:|data:)/i.test(src) && filepath) this.setAttribute("src", mediaURLFor(src));
+    });
+    var imgs = Array.prototype.slice.call(div.querySelectorAll("img"));
+    return Promise.all(imgs.map(function(im){
+        return inlineImage(im.getAttribute("src")).then(function(d){ im.setAttribute("src", d); });
+    })).then(function(){ return div; });
+}
+
+function downloadBlob(blob, name){
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function exportHTML(){
+    showBusy("Building HTML…");
+    buildExportContainer().then(function(div){
+        var title = escapeHtml(docName());
+        var doc = "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>" +
+                  title + "</title>\n<style>\n" + exportCSS() + "\n</style></head>\n<body>\n" +
+                  div.outerHTML + "\n</body></html>";
+        downloadBlob(new Blob([doc], { type:"text/html" }), docName() + ".html");
+        hideBusy(); setStatus("Exported HTML");
+    }).catch(function(err){ hideBusy(); setStatus("HTML export failed", "error"); console.error(err); });
+}
+
+// ── Download the raw document (.md / .txt), zipping it with its images ─────
+function collectDocImages(){
+    var seen = {}, out = [];
+    function add(p){
+        if (!p) return;
+        p = p.replace(/^\.?\/+/, "");
+        if (/^(https?:|data:)/i.test(p) || p.indexOf("media?file=") >= 0) return;
+        if (!seen[p]){ seen[p] = 1; out.push(p); }
+    }
+    if (isTxtMode){
+        // capture both bare and angle-bracket-wrapped destinations (the latter
+        // is used when a path contains spaces)
+        var re = /!\[[^\]]*\]\(\s*(?:<([^>]+)>|([^)\s]+))/g, m;
+        while ((m = re.exec(plain.value))) add(m[1] || m[2]);
+    } else {
+        $(rich).find("img").each(function(){
+            add(this.getAttribute("data-rel") || this.getAttribute("src"));
+        });
+    }
+    return out;
+}
+
+function exportDocument(){
+    var content = getContent();
+    var ext  = isTxtMode ? "txt" : "md";
+    var name = docName() + "." + ext;
+    var imgs = collectDocImages();
+
+    if (imgs.length === 0){
+        downloadBlob(new Blob([content], { type: isTxtMode ? "text/plain" : "text/markdown" }), name);
+        setStatus("Downloaded " + name);
+        return;
+    }
+    if (!filepath){ alert("Please save the document first so its images can be bundled."); return; }
+
+    showBusy("Bundling document…");
+    ao_module_agirun("Text/export.agi", {
+        action:"zip", docpath:filepath, name:name, content:content, images:JSON.stringify(imgs)
+    }, function(data){
+        if (!data || data.error){ hideBusy(); setStatus("Export failed: " + ((data && data.error) || "unknown"), "error"); return; }
+        var url = ao_root + "media/download/?file=" + encodeURIComponent(data.zip);
+        fetch(url).then(function(r){ return r.blob(); }).then(function(blob){
+            downloadBlob(blob, docName() + ".zip");
+            hideBusy(); setStatus("Downloaded " + docName() + ".zip");
+            // best-effort temp cleanup
+            ao_module_agirun("Text/export.agi", { action:"cleanup", zip:data.zip, workdir:data.workdir }, function(){}, function(){});
+        }).catch(function(){ hideBusy(); setStatus("Export download failed", "error"); });
+    }, function(){ hideBusy(); setStatus("Export failed", "error"); });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Text-based PDF export (pdf-lib): real selectable text + embedded images.
+// Mirrors the Productivity PDF Editor — standard fonts for encodable text,
+// rasterise fallback for glyphs the standard fonts can't encode (e.g. CJK).
+// ════════════════════════════════════════════════════════════════════════
+function exportPDF(){
+    showBusy("Rendering PDF…");
+    pdfBuild().then(function(bytes){
+        downloadBlob(new Blob([bytes], { type:"application/pdf" }), docName() + ".pdf");
+        hideBusy(); setStatus("Exported PDF");
+    }).catch(function(err){ hideBusy(); setStatus("PDF export failed", "error"); console.error(err); });
+}
+
+var _measureCtx = null;
+function measureCtx(){ if (!_measureCtx) _measureCtx = document.createElement("canvas").getContext("2d"); return _measureCtx; }
+
+function PDF_COLORS(){
+    var rgb = PDFLib.rgb;
+    return {
+        text:   rgb(0.16, 0.18, 0.22),
+        head:   rgb(0.10, 0.12, 0.16),
+        accent: rgb(0.16, 0.40, 0.82),
+        muted:  rgb(0.45, 0.49, 0.57),
+        code:   rgb(0.20, 0.22, 0.30),
+        codebg: rgb(0.96, 0.97, 0.99),
+        rule:   rgb(0.85, 0.87, 0.91),
+        quote:  rgb(0.74, 0.78, 0.85),
+        tline:  rgb(0.80, 0.83, 0.88),
+        thead:  rgb(0.95, 0.96, 0.98)
+    };
+}
+
+function assignStyle(a, b){ var o = {}; for (var k in a) o[k] = a[k]; for (var k in b) o[k] = b[k]; return o; }
+function mkRun(text, s){ s = s || {}; return { text: text, bold:!!s.bold, italic:!!s.italic, mono:!!s.mono, code:!!s.code, link:!!s.link, strike:!!s.strike }; }
+function decodeEntities(s){ var ta = document.createElement("textarea"); ta.innerHTML = s || ""; return ta.value; }
+function stripTags(s){ return (s || "").replace(/<[^>]*>/g, ""); }
+
+// flatten marked inline tokens into styled runs
+function inlineRuns(tokens, style){
+    style = style || {};
+    var out = [];
+    (tokens || []).forEach(function(t){
+        switch (t.type){
+            case "text":
+                if (t.tokens && t.tokens.length) out = out.concat(inlineRuns(t.tokens, style));
+                else out.push(mkRun(decodeEntities(t.text), style));
+                break;
+            case "strong":   out = out.concat(inlineRuns(t.tokens, assignStyle(style, { bold:true }))); break;
+            case "em":       out = out.concat(inlineRuns(t.tokens, assignStyle(style, { italic:true }))); break;
+            case "del":      out = out.concat(inlineRuns(t.tokens, assignStyle(style, { strike:true }))); break;
+            case "codespan": out.push(mkRun(decodeEntities(t.text), assignStyle(style, { mono:true, code:true }))); break;
+            case "link":     out = out.concat(inlineRuns(t.tokens, assignStyle(style, { link:true }))); break;
+            case "image":    out.push({ image:true, href:t.href, alt:t.text || "" }); break;
+            case "br":       out.push({ brk:true }); break;
+            case "escape":   out.push(mkRun(t.text, style)); break;
+            case "html":     out.push(mkRun(stripTags(t.text), style)); break;
+            default:         if (t.text) out.push(mkRun(decodeEntities(t.text), style)); break;
+        }
+    });
+    return out;
+}
+
+function pdfPickFont(P, run){
+    if (run.mono) return run.bold ? P.fonts.monoBold : P.fonts.mono;
+    if (run.bold && run.italic) return P.fonts.bi;
+    if (run.bold)   return P.fonts.bold;
+    if (run.italic) return P.fonts.ital;
+    return P.fonts.reg;
+}
+
+function pdfNewCursor(P){
+    var c = { pageW:595.28, pageH:841.89, margin:56, y:0, page:null };
+    c.page = P.pdf.addPage([c.pageW, c.pageH]);
+    c.y = c.pageH - c.margin;
+    return c;
+}
+function pdfEnsure(P, h){
+    var c = P.cur;
+    if (c.y - h < c.margin){ c.page = P.pdf.addPage([c.pageW, c.pageH]); c.y = c.pageH - c.margin; }
+}
+function pdfRule(P){
+    var c = P.cur;
+    c.page.drawLine({ start:{x:c.margin, y:c.y}, end:{x:c.pageW - c.margin, y:c.y}, thickness:0.7, color:P.col.rule });
+}
+function pdfColToCss(col){
+    if (!col) return "#2a2e38";
+    return "rgb(" + Math.round((col.red||0)*255) + "," + Math.round((col.green||0)*255) + "," + Math.round((col.blue||0)*255) + ")";
+}
+
+// split text for wrapping: whole words, runs of spaces, and individual CJK chars
+function tokenizeWrap(text){
+    return (text || "").match(/[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯가-힯]|\s+|[^\s　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯가-힯]+/g) || [];
+}
+
+function canvasToEmbeddedPng(pdf, canvas){
+    return new Promise(function(res, rej){
+        canvas.toBlob(function(b){
+            if (!b){ rej(new Error("canvas")); return; }
+            var fr = new FileReader();
+            fr.onload = function(){ pdf.embedPng(new Uint8Array(fr.result)).then(res, rej); };
+            fr.onerror = rej;
+            fr.readAsArrayBuffer(b);
+        }, "image/png");
+    });
+}
+
+// draw one word as real text; on encoding failure, rasterise it and place as image
+function pdfDrawWord(P, font, word, size, x, color, strike){
+    var c = P.cur;
+    try {
+        var w = font.widthOfTextAtSize(word, size);
+        c.page.drawText(word, { x:x, y:c.y - size*0.80, size:size, font:font, color:color });
+        if (strike) c.page.drawLine({ start:{x:x, y:c.y - size*0.45}, end:{x:x + w, y:c.y - size*0.45}, thickness:0.6, color:color });
+        return Promise.resolve(w);
+    } catch (e){
+        return pdfDrawRasterWord(P, word, size, x, color);
+    }
+}
+function pdfDrawRasterWord(P, word, size, x, color){
+    var c = P.cur, k = 3;
+    var ctx = measureCtx(); ctx.font = size + "px sans-serif";
+    var wPt = Math.max(1, ctx.measureText(word).width), hPt = size * 1.2;
+    var cv = document.createElement("canvas");
+    cv.width = Math.ceil(wPt * k); cv.height = Math.ceil(hPt * k);
+    var cx = cv.getContext("2d");
+    cx.scale(k, k); cx.fillStyle = pdfColToCss(color); cx.textBaseline = "alphabetic"; cx.font = size + "px sans-serif";
+    cx.fillText(word, 0, size * 0.92);
+    return canvasToEmbeddedPng(P.pdf, cv).then(function(png){
+        c.page.drawImage(png, { x:x, y:c.y - size, width:wPt, height:hPt });
+        return wPt;
+    });
+}
+
+// flow styled runs with word wrapping; returns a promise (images/raster are async)
+function pdfFlow(P, runs, startX, fontSize, lineH, baseColor){
+    var c = P.cur, maxX = c.pageW - c.margin, x = startX;
+    pdfEnsure(P, lineH);
+    function nl(){ c.y -= lineH; x = startX; pdfEnsure(P, lineH); }
+    var i = 0, words = [], wi = 0, run = null, font = null, size = 0, color = null;
+
+    function nextRun(){
+        if (i >= runs.length) return null;
+        return runs[i++];
+    }
+    function step(){
+        // advance through words of the current run
+        while (run && wi < words.length){
+            var word = words[wi++];
+            if (/^\s+$/.test(word)){ if (x === startX) continue; word = " "; }
+            var ww;
+            try { ww = font.widthOfTextAtSize(word, size); }
+            catch (e){ var ctx = measureCtx(); ctx.font = size + "px sans-serif"; ww = ctx.measureText(word).width; }
+            if (word !== " " && x + ww > maxX && x > startX) nl();
+            var px = x;
+            x += ww;
+            return pdfDrawWord(P, font, word, size, px, color, run.strike).then(function(realW){
+                x = px + realW; return step();
+            });
+        }
+        // current run done — get next
+        run = nextRun();
+        if (!run){ c.y -= lineH; return Promise.resolve(); }   // consume final line
+        if (run.brk){ nl(); return step(); }
+        if (run.image){
+            if (x > startX){ c.y -= lineH; x = startX; }
+            return pdfDrawImage(P, run.href, startX).then(step);
+        }
+        font  = pdfPickFont(P, run);
+        size  = run.mono ? fontSize * 0.94 : fontSize;
+        color = run.link ? P.col.accent : (run.code ? P.col.code : baseColor);
+        words = tokenizeWrap(run.text); wi = 0;
+        return step();
+    }
+    return step();
+}
+
+function fetchBytes(url){
+    return fetch(url).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+                     .then(function(b){ return new Uint8Array(b); });
+}
+function pdfResolveSrc(href){
+    if (/^(https?:|data:)/i.test(href)) return href;
+    return filepath ? mediaURLFor(href) : href;
+}
+function pdfEmbedBytes(pdf, bytes){
+    if (bytes[0] === 0x89 && bytes[1] === 0x50) return pdf.embedPng(bytes);
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8) return pdf.embedJpg(bytes);
+    return new Promise(function(res, rej){       // gif/webp/svg/bmp → rasterise
+        var im = new Image();
+        im.onload = function(){
+            var cv = document.createElement("canvas");
+            cv.width = im.naturalWidth || 300; cv.height = im.naturalHeight || 150;
+            cv.getContext("2d").drawImage(im, 0, 0);
+            canvasToEmbeddedPng(pdf, cv).then(res, rej);
+        };
+        im.onerror = function(){ rej(new Error("image decode")); };
+        im.src = URL.createObjectURL(new Blob([bytes]));
+    });
+}
+function pdfDrawImage(P, href, startX){
+    var c = P.cur;
+    return fetchBytes(pdfResolveSrc(href)).then(function(bytes){ return pdfEmbedBytes(P.pdf, bytes); }).then(function(img){
+        var natW = img.width, natH = img.height;
+        var dispW = Math.min(natW, c.pageW - c.margin - startX), dispH = natH * (dispW / natW);
+        var maxH = c.pageH - 2 * c.margin;
+        if (dispH > maxH){ dispH = maxH; dispW = natW * (dispH / natH); }
+        pdfEnsure(P, dispH + 8);
+        c.page.drawImage(img, { x:startX, y:c.y - dispH, width:dispW, height:dispH });
+        c.y -= dispH + 8;
+    }).catch(function(){
+        c.page.drawText("[image]", { x:startX, y:c.y - 11, size:11, font:P.fonts.ital, color:P.col.muted });
+        c.y -= 18;
+    });
+}
+
+function pdfHeading(P, token){
+    var c = P.cur;
+    var sizes = [23, 19, 16, 14, 12.5, 11.5], fs = sizes[(token.depth || 1) - 1] || 12;
+    c.y -= fs * 0.8;
+    return pdfFlow(P, inlineRuns(token.tokens || [{ type:"text", text:token.text }], { bold:true }), c.margin, fs, fs * 1.32, P.col.head)
+        .then(function(){
+            if ((token.depth || 1) <= 2){ c.y += 4; pdfEnsure(P, 6); pdfRule(P); c.y -= 8; }
+            c.y -= fs * 0.25;
+        });
+}
+function pdfParagraph(P, token){
+    var c = P.cur; c.y -= 3;
+    return pdfFlow(P, inlineRuns(token.tokens || [{ type:"text", text:token.text }], {}), c.margin, 11, 16.5, P.col.text)
+        .then(function(){ c.y -= 4; });
+}
+function pdfHr(P){ var c = P.cur; c.y -= 8; pdfEnsure(P, 8); pdfRule(P); c.y -= 10; }
+
+function pdfList(P, token, depth){
+    var c = P.cur, indent = c.margin + depth * 18, idx = token.start || 1;
+    var chain = Promise.resolve();
+    token.items.forEach(function(item){
+        var n = idx++;
+        chain = chain.then(function(){
+            pdfEnsure(P, 11 * 1.5);
+            if (item.task){
+                c.page.drawRectangle({ x:indent, y:c.y - 10, width:9, height:9, borderWidth:0.9, borderColor:P.col.muted, color: item.checked ? P.col.accent : undefined });
+            } else if (token.ordered){
+                try { c.page.drawText(n + ".", { x:indent, y:c.y - 11*0.80, size:11, font:P.fonts.reg, color:P.col.text }); } catch(e){}
+            } else {
+                c.page.drawCircle({ x:indent + 3, y:c.y - 7, size:1.7, color:P.col.text });
+            }
+            return pdfListItem(P, item, indent + 16, depth);
+        });
+    });
+    return chain.then(function(){ c.y -= 3; });
+}
+function pdfListItem(P, item, startX, depth){
+    var toks = item.tokens || [];
+    if (toks.length === 0) return pdfFlow(P, inlineRuns([{ type:"text", text:item.text || "" }], {}), startX, 11, 16.5, P.col.text);
+    var chain = Promise.resolve();
+    toks.forEach(function(t){
+        chain = chain.then(function(){
+            if (t.type === "list")               return pdfList(P, t, depth + 1);
+            if (t.type === "code")               return pdfCode(P, t, startX);
+            if (t.type === "blockquote")         return pdfBlockquote(P, t);
+            var rr = inlineRuns(t.tokens || [{ type:"text", text:t.text || "" }], {});
+            return pdfFlow(P, rr, startX, 11, 16.5, P.col.text);
+        });
+    });
+    return chain;
+}
+function pdfBlockquote(P, token){
+    var c = P.cur; c.y -= 3;
+    var startY = c.y, startPage = c.page, x = c.margin + 16;
+    var chain = Promise.resolve();
+    (token.tokens || []).forEach(function(t){
+        chain = chain.then(function(){
+            if (t.type === "list") return pdfList(P, t, 1);
+            if (t.type === "code") return pdfCode(P, t, x);
+            var rr = inlineRuns(t.tokens || [{ type:"text", text:t.text || "" }], {});
+            return pdfFlow(P, rr, x, 11, 16.5, P.col.muted);
+        });
+    });
+    return chain.then(function(){
+        if (c.page === startPage) c.page.drawRectangle({ x:c.margin + 4, y:c.y + 6, width:2.5, height:Math.max(2, startY - c.y), color:P.col.quote });
+        c.y -= 4;
+    });
+}
+function pdfCode(P, token, startX){
+    var c = P.cur; startX = startX || c.margin;
+    var size = 9.5, lh = 12.5, pad = 8, font = P.fonts.mono;
+    var charW = font.widthOfTextAtSize("m", size);
+    var maxChars = Math.max(8, Math.floor((c.pageW - c.margin - startX - 2 * pad) / charW));
+    var lines = [];
+    (token.text || "").replace(/\n$/, "").split("\n").forEach(function(ln){
+        if (ln.length <= maxChars) lines.push(ln);
+        else for (var i = 0; i < ln.length; i += maxChars) lines.push(ln.substr(i, maxChars));
+    });
+    if (lines.length === 0) lines = [""];
+    c.y -= 4;
+    var chain = Promise.resolve();
+    lines.forEach(function(txt){
+        chain = chain.then(function(){
+            pdfEnsure(P, lh);
+            c.page.drawRectangle({ x:startX, y:c.y - lh + 2, width:c.pageW - c.margin - startX, height:lh, color:P.col.codebg });
+            try { c.page.drawText(txt, { x:startX + pad, y:c.y - lh + 3.5, size:size, font:font, color:P.col.code }); return; }
+            catch (e){ return pdfDrawRasterWord(P, txt, size, startX + pad, P.col.code).then(function(){}); }
+        }).then(function(){ c.y -= lh; });
+    });
+    return chain.then(function(){ c.y -= 6; });
+}
+function pdfTable(P, token){
+    var c = P.cur; c.y -= 4;
+    var cols = (token.header && token.header.length) || 1;
+    var colW = (c.pageW - 2 * c.margin) / cols, size = 10, pad = 5, rowH = 18;
+    function fit(font, txt, maxW){
+        try { if (font.widthOfTextAtSize(txt, size) <= maxW) return txt; } catch (e){ return txt; }
+        var s = txt;
+        while (s.length > 1){ s = s.slice(0, -1); try { if (font.widthOfTextAtSize(s + "…", size) <= maxW) return s + "…"; } catch (e){ break; } }
+        return s;
+    }
+    function row(cells, header){
+        pdfEnsure(P, rowH);
+        var x = c.margin;
+        for (var i = 0; i < cols; i++){
+            var cell = cells[i] || { text:"" };
+            if (header) c.page.drawRectangle({ x:x, y:c.y - rowH, width:colW, height:rowH, color:P.col.thead });
+            c.page.drawRectangle({ x:x, y:c.y - rowH, width:colW, height:rowH, borderWidth:0.6, borderColor:P.col.tline });
+            var f = header ? P.fonts.bold : P.fonts.reg;
+            var txt = fit(f, decodeEntities(cell.text || ""), colW - 2 * pad);
+            try { c.page.drawText(txt, { x:x + pad, y:c.y - rowH + 6, size:size, font:f, color:P.col.text }); } catch (e){}
+            x += colW;
+        }
+        c.y -= rowH;
+    }
+    row(token.header, true);
+    (token.rows || []).forEach(function(r){ row(r, false); });
+    c.y -= 6;
+}
+
+function pdfRenderTokens(P, tokens){
+    var chain = Promise.resolve();
+    tokens.forEach(function(t){
+        chain = chain.then(function(){
+            switch (t.type){
+                case "heading":    return pdfHeading(P, t);
+                case "paragraph":  return pdfParagraph(P, t);
+                case "list":       return pdfList(P, t, 0);
+                case "blockquote": return pdfBlockquote(P, t);
+                case "code":       return pdfCode(P, t, P.cur.margin);
+                case "hr":         pdfHr(P); return;
+                case "table":      return pdfTable(P, t);
+                case "space":      P.cur.y -= 6; return;
+                case "html":       return;
+                default:           if (t.tokens) return pdfParagraph(P, t); if (t.text) return pdfParagraph(P, { text:t.text }); return;
+            }
+        });
+    });
+    return chain;
+}
+
+function pdfBuild(){
+    var L = PDFLib, SF = L.StandardFonts, pdf;
+    return L.PDFDocument.create().then(function(d){
+        pdf = d;
+        return Promise.all([
+            pdf.embedFont(SF.Helvetica), pdf.embedFont(SF.HelveticaBold),
+            pdf.embedFont(SF.HelveticaOblique), pdf.embedFont(SF.HelveticaBoldOblique),
+            pdf.embedFont(SF.Courier), pdf.embedFont(SF.CourierBold)
+        ]);
+    }).then(function(f){
+        var P = { pdf:pdf, col:PDF_COLORS(), fonts:{
+            reg:f[0], bold:f[1], ital:f[2], bi:f[3], mono:f[4], monoBold:f[5]
+        }, cur:null };
+        P.cur = pdfNewCursor(P);
+        if (isTxtMode){
+            var chain = Promise.resolve();
+            plain.value.split("\n").forEach(function(ln){
+                chain = chain.then(function(){ return pdfFlow(P, [mkRun(ln || " ", { mono:true })], P.cur.margin, 10, 13.5, P.col.text); });
+            });
+            return chain.then(function(){ return pdf.save(); });
+        }
+        return pdfRenderTokens(P, marked.lexer(getContent())).then(function(){ return pdf.save(); });
+    });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Settings panel
+// ════════════════════════════════════════════════════════════════════════
+function openSettings(){ syncSettingsUI(); $("#settings-overlay").addClass("show"); }
+function closeSettings(){ $("#settings-overlay").removeClass("show"); }
+$(function(){
+    $("#settings-overlay").on("click", function(e){ if (e.target === this) closeSettings(); });
+});
+function showSection(sec){
+    $(".nav-item").removeClass("active");
+    $('.nav-item[data-sec="'+sec+'"]').addClass("active");
+    $(".settings-section").removeClass("active");
+    $("#sec-" + sec).addClass("active");
+}
+
+function syncSettingsUI(){
+    $("#set-dark").prop("checked", isDark);
+    $("#set-font").val(settings.font);
+    $("#set-fontsize").val(settings.fontSize);
+    $("#set-lh").val(settings.lineHeight);
+    $("#set-imgdir").val(settings.imgDir);
+    $("#set-compress").prop("checked", settings.compress);
+    $("#set-quality").val(settings.quality);
+    $("#quality-val").text(settings.quality + "%");
+    $("#set-maxw").val(settings.maxWidth);
+    $("#seg-mode button").removeClass("active");
+    $('#seg-mode button[data-mode="'+(isTxtMode?"txt":"md")+'"]').addClass("active");
+    onCompressToggle(true);
+}
+
+function applyTypography(){
+    settings.font     = $("#set-font").val()    || settings.font;
+    settings.fontSize = parseInt($("#set-fontsize").val()) || settings.fontSize;
+    settings.lineHeight = $("#set-lh").val()     || settings.lineHeight;
+    var fam = FONT_MAP[settings.font] || FONT_MAP.system;
+    [rich, plain].forEach(function(el){
+        el.style.fontFamily = (el === plain ? FONT_MAP.mono : fam);
+        el.style.fontSize   = (el === plain ? (settings.fontSize - 1) : settings.fontSize) + "px";
+        el.style.lineHeight = settings.lineHeight;
+    });
+    savePrefs();
+}
+function saveImgPrefs(){
+    settings.imgDir   = $("#set-imgdir").val().trim() || "img/{name}";
+    settings.quality  = parseInt($("#set-quality").val()) || 80;
+    settings.maxWidth = parseInt($("#set-maxw").val()); if (isNaN(settings.maxWidth)) settings.maxWidth = 0;
+    settings.compress = $("#set-compress").prop("checked");
+    savePrefs();
+}
+function onCompressToggle(silent){
+    settings.compress = $("#set-compress").prop("checked");
+    var on = settings.compress;
+    $("#row-quality").css("display", on ? "" : "none");
+    $("#row-maxw").css("display", on ? "" : "none");
+    if (!silent) saveImgPrefs();
+}
+function onQualityInput(){
+    $("#quality-val").text($("#set-quality").val() + "%");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Theme
+// ════════════════════════════════════════════════════════════════════════
+function setTheme(dark){
+    isDark = dark;
+    document.body.classList.toggle("dark", isDark);
+    $("#icon-sun").toggle(!isDark); $("#icon-moon").toggle(isDark);
+    $("#set-dark").prop("checked", isDark);
+    try { ao_module_setWindowTheme(isDark ? "dark" : "light"); } catch(e){}
+    savePrefs();
+}
+function toggleTheme(){ setTheme(!isDark); }
+
+// ════════════════════════════════════════════════════════════════════════
+// Preferences persistence (localStorage + ao_module_storage)
+// ════════════════════════════════════════════════════════════════════════
+function prefsObject(){
+    return { settings: settings, keymap: keymap, isDark: isDark };
+}
+function savePrefs(){
+    var json = JSON.stringify(prefsObject());
+    try { localStorage.setItem("text_prefs", json); } catch(e){}
+    try { ao_module_storage.setStorage("Text", "prefs", json); } catch(e){}
+}
+function applyPrefs(obj){
+    if (!obj) return;
+    if (obj.settings) for (var k in obj.settings) settings[k] = obj.settings[k];
+    if (obj.keymap){
+        keymap = JSON.parse(JSON.stringify(DEFAULT_KEYS));
+        for (var a in obj.keymap) if (a in keymap) keymap[a] = obj.keymap[a];
+    }
+    if (typeof obj.isDark === "boolean") setTheme(obj.isDark);
+}
+function loadPrefs(){
+    var local = null;
+    try { local = JSON.parse(localStorage.getItem("text_prefs")); } catch(e){}
+    if (local) applyPrefs(local);
+    // async server copy (per-user) overrides local if present
+    try {
+        ao_module_storage.loadStorage("Text", "prefs", function(val){
+            if (val && typeof val === "string" && val.charAt(0) === "{"){
+                try {
+                    var obj = JSON.parse(val);
+                    applyPrefs(obj);
+                    buildKeyList(); syncSettingsUI(); applyTypography();
+                } catch(e){}
+            }
+        });
+    } catch(e){}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Status bar, title, dirty tracking
+// ════════════════════════════════════════════════════════════════════════
+function markDirty(){ if (!dirtyFlag){ dirtyFlag = true; updateTitle(); } }
+function isDirty(){ return dirtyFlag; }
+
 function updateTitle(){
-    var title;
-    if (!filepath){
-        title = "Untitled";
-    } else if (isDirty()){
-        title = filename + " - Edited";
-    } else {
-        title = filename;
-    }
-    ao_module_setWindowTitle(title);
+    var title = !filepath ? "Untitled" : (isDirty() ? filename + " — Edited" : filename);
+    try { ao_module_setWindowTitle(title); } catch(e){}
     document.title = title;
-
-    if (isDirty()){
-        setStatus("Unsaved changes", "dirty");
-    } else if (filepath){
-        setStatus("Saved");
-    } else {
-        setStatus("Ready");
-    }
+    if (isDirty()) setStatus("Unsaved changes", "dirty");
+    else if (filepath) setStatus("Saved");
+    else setStatus("Ready");
 }
 
-function isDirty(){
-    return $("#editor").val() !== lastSavedContent;
-}
-
-// ── Formatting ────────────────────────────────────────────────────────────
-function applyFont(){
-    var key = $("#sel-font").val();
-    $("#editor").css("font-family", fontMap[key] || fontMap.system);
-}
-
-function changeFontSize(delta){
-    fontSize = Math.max(8, Math.min(72, fontSize + delta));
-    $("#font-size-lbl").text(fontSize);
-    $("#editor").css("font-size", fontSize + "px");
-    localStorage.setItem("text_fontSize", fontSize);
-}
-
-function toggleBold(){
-    isBold = !isBold;
-    $("#editor").css("font-weight", isBold ? "700" : "normal");
-    $("#bold-btn").toggleClass("active", isBold);
-}
-
-function applyLineHeight(){
-    $("#editor").css("line-height", $("#sel-lh").val());
-}
-
-function toggleTheme(){
-    isDark = !isDark;
-    $("body").toggleClass("dark", isDark);
-    if (isDark){
-        $("#icon-sun").hide(); $("#icon-moon").show();
-        $("#theme-lbl").text("Light");
-    } else {
-        $("#icon-sun").show(); $("#icon-moon").hide();
-        $("#theme-lbl").text("Dark");
-    }
-}
-
-// ── Status bar ────────────────────────────────────────────────────────────
 function setStatus(msg, cls){
     var el = $("#status-msg");
     el.text(msg).attr("class", cls || "");
-    if (cls === "error"){
-        setTimeout(function(){ updateTitle(); }, 3000);
-    }
+    if (cls === "error") setTimeout(updateTitle, 3500);
 }
 
 function updateStatBar(){
-    var txt   = $("#editor").val();
+    var txt = isTxtMode ? plain.value : rich.textContent.replace(/​/g, "");
+    var words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
     var chars = txt.length;
-    var lines = txt === "" ? 1 : txt.split("\n").length;
-    $("#stat-count").text(
-        chars + " char" + (chars !== 1 ? "s" : "") +
-        " · " + lines + " line" + (lines !== 1 ? "s" : "")
-    );
+    $("#stat-count").text(words + " word" + (words !== 1 ? "s" : "") + " · " + chars + " chars");
 }
 
-// ── Confirm dialog ────────────────────────────────────────────────────────
-function showDialog(callback){
-    dlgCallback = callback;
-    $("#confirm-overlay").addClass("show");
+// ════════════════════════════════════════════════════════════════════════
+// Menus / busy / dialog
+// ════════════════════════════════════════════════════════════════════════
+function toggleMenu(id){
+    var m = document.getElementById(id);
+    var show = !m.classList.contains("show");
+    hideMenus();
+    if (show){ m.classList.add("show"); positionMenu(m); }
 }
-
-function hideDialog(){
-    $("#confirm-overlay").removeClass("show");
+// position a fixed dropdown just below its trigger, right-aligned, so it is not
+// clipped by the toolbar's horizontal-scroll overflow
+function positionMenu(m){
+    var btn = m.parentElement.querySelector(".tb-btn");
+    if (!btn) return;
+    var r = btn.getBoundingClientRect();
+    m.style.top   = (r.bottom + 4) + "px";
+    m.style.left  = "auto";
+    m.style.right = Math.max(6, window.innerWidth - r.right) + "px";
 }
+function hideMenus(){ $(".menu").removeClass("show"); }
+function showBusy(msg){ $("#busy-msg").text(msg || "Working…"); $("#busy").addClass("show"); }
+function hideBusy(){ $("#busy").removeClass("show"); }
 
-function dlgCancel(){
-    var cb = dlgCallback;
-    hideDialog();
-    dlgCallback = null;
-    if (cb) cb("cancel");
-}
+// ── helpers ─────────────────────────────────────────────────────────────
+function escapeHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,"&quot;"); }
+function debounce(fn, ms){ var t; return function(){ clearTimeout(t); var a=arguments,c=this; t=setTimeout(function(){ fn.apply(c,a); }, ms); }; }
 
-function dlgDiscard(){
-    var cb = dlgCallback;
-    hideDialog();
-    dlgCallback = null;
-    if (cb) cb("discard");
-}
-
+// ════════════════════════════════════════════════════════════════════════
+// Close handling (unsaved changes)
+// ════════════════════════════════════════════════════════════════════════
+function showDialog(cb){ dlgCallback = cb; $("#confirm-overlay").addClass("show"); }
+function hideDialog(){ $("#confirm-overlay").removeClass("show"); }
+function dlgCancel(){ var cb=dlgCallback; hideDialog(); dlgCallback=null; if(cb) cb("cancel"); }
+function dlgDiscard(){ var cb=dlgCallback; hideDialog(); dlgCallback=null; if(cb) cb("discard"); }
 function dlgSave(){
-    pendingCloseCallback = dlgCallback;  // preserve across the async picker
-    dlgCallback = null;
-    hideDialog();
-
+    pendingClose = dlgCallback; dlgCallback = null; hideDialog();
     if (!filepath){
-        // New unsaved file — open picker first; result handled by handleDlgSaveAs
-        ao_module_openFileSelector(handleDlgSaveAs, "user:/Desktop", "new", false, { defaultName: "Untitled.txt" });
+        var def = isTxtMode ? "Untitled.txt" : "Untitled.md";
+        ao_module_openFileSelector(handleDlgSaveAs, "user:/Desktop", "new", false, { defaultName: def });
     } else {
-        doSave(function(){
-            if (pendingCloseCallback){
-                pendingCloseCallback("saved");
-                pendingCloseCallback = null;
-            }
-        });
+        doSave(function(){ if (pendingClose){ pendingClose("saved"); pendingClose=null; } });
     }
 }
+function handleDlgSaveAs(fd){
+    if (!fd || !fd.length){ pendingClose = null; return; }
+    filepath = fd[0].filepath; filename = fd[0].filename;
+    doSave(function(){ if (pendingClose){ pendingClose("saved"); pendingClose=null; } });
+}
 
-// ── Close handler override ────────────────────────────────────────────────
 function ao_module_close(){
-    if (!isDirty()){
-        ao_module_closeHandler();
-        return;
-    }
+    if (!isDirty()){ ao_module_closeHandler(); return; }
     showDialog(function(result){
-        if (result === "saved" || result === "discard"){
-            ao_module_closeHandler();
-        }
-        // "cancel" → stay open, do nothing
+        if (result === "saved" || result === "discard") ao_module_closeHandler();
     });
 }
-
-// Non-VDI fallback (standalone browser tab)
 if (!ao_module_virtualDesktop){
-    window.onbeforeunload = function(){
-        if (isDirty()) return "You have unsaved changes. Leave anyway?";
-    };
+    window.onbeforeunload = function(){ if (isDirty()) return "You have unsaved changes. Leave anyway?"; };
 }
 </script>
 </body>
