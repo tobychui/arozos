@@ -1,0 +1,771 @@
+<style>
+    /* The editor takes over the whole tool panel body (padding removed in init) */
+    .pe-root {
+        position: relative;
+        display: flex; flex-direction: column;
+        width: 100%; height: 100%;
+        overflow: hidden;
+    }
+
+    .pe-toolbar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--card-bg);
+        flex-shrink: 0;
+    }
+    .pe-sep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
+    .pe-spacer { flex: 1; }
+    .pe-fname {
+        font-size: 12px; color: var(--sub);
+        max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .pe-tbtn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 6px 10px; border-radius: 7px;
+        border: 1px solid var(--border); background: var(--card-bg);
+        color: var(--text); font-size: 12.5px; font-weight: 600;
+        font-family: inherit; cursor: pointer;
+    }
+    .pe-tbtn:hover { background: rgba(0,0,0,0.05); }
+    .pe-tbtn:disabled { opacity: 0.4; cursor: default; }
+    .pe-tbtn:disabled:hover { background: var(--card-bg); }
+    .pe-tbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .pe-tbtn.primary:hover { opacity: 0.9; background: var(--accent); }
+    .pe-tbtn.primary:disabled:hover { background: var(--accent); }
+
+    .pe-iconbtn {
+        width: 28px; height: 28px; border-radius: 6px;
+        border: 1px solid var(--border); background: var(--card-bg);
+        color: var(--text); cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .pe-iconbtn:hover { background: rgba(0,0,0,0.05); }
+    .pe-iconbtn:disabled { opacity: 0.4; cursor: default; }
+
+    .pe-page-lbl { font-size: 12px; color: var(--sub); min-width: 70px; text-align: center; }
+    .pe-zoom {
+        font-size: 12.5px; padding: 5px 6px; border-radius: 7px;
+        border: 1px solid var(--border); background: var(--card-bg);
+        color: var(--text); font-family: inherit; cursor: pointer;
+    }
+    .pe-zoom:disabled { opacity: 0.4; cursor: default; }
+
+    /* Stage fills the remaining height; "Fit" sizes the page so it never needs scrolling */
+    .pe-stage {
+        position: relative; flex: 1; min-height: 0;
+        display: flex; overflow: hidden;
+        background: var(--progress-bg);
+    }
+    .pe-stage.zoomed { overflow: auto; }
+    .pe-empty { margin: auto; text-align: center; color: var(--sub); font-size: 13.5px; line-height: 1.6; padding: 20px; }
+
+    .pe-wrap { margin: auto; position: relative; box-shadow: 0 4px 18px rgba(0,0,0,0.22); flex-shrink: 0; }
+    .pe-wrap canvas { display: block; }
+    .pe-overlay { position: absolute; inset: 0; }
+
+    .pe-ov { position: absolute; box-sizing: border-box; cursor: move; border: 1px solid transparent; }
+    .pe-ov.selected { border-color: var(--accent); }
+    .pe-ov.pe-text {
+        padding: 1px 2px; white-space: pre; line-height: 1.25;
+        font-family: 'Helvetica Neue', Arial, sans-serif; outline: none; min-width: 12px;
+    }
+    .pe-ov.pe-text[contenteditable="true"] { cursor: text; background: rgba(0,122,255,0.06); white-space: pre-wrap; }
+    .pe-ov.pe-img img { display: block; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; }
+
+    .pe-handle {
+        position: absolute; right: -6px; bottom: -6px;
+        width: 13px; height: 13px; border-radius: 50%;
+        background: var(--accent); border: 2px solid #fff;
+        cursor: nwse-resize; display: none;
+    }
+    .pe-ov.selected .pe-handle { display: block; }
+    .pe-del {
+        position: absolute; right: -9px; top: -9px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: var(--danger); color: #fff; border: 2px solid #fff;
+        cursor: pointer; display: none; align-items: center; justify-content: center; padding: 0;
+    }
+    .pe-ov.selected .pe-del { display: flex; }
+
+    /* Floating contextual bar for the selected text element */
+    .pe-props {
+        position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+        z-index: 30; display: none; align-items: center; gap: 16px;
+        padding: 8px 14px; background: var(--card-bg);
+        border: 1px solid var(--border); border-radius: 10px;
+        box-shadow: 0 6px 22px rgba(0,0,0,0.18);
+    }
+    .pe-props.show { display: flex; }
+    .pe-props label { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 7px; }
+    .pe-props input[type=color] { width: 30px; height: 26px; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; padding: 0; }
+
+    .pe-toast {
+        position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+        z-index: 40; max-width: 84%; display: none;
+    }
+    .pe-toast.show { display: block; }
+    .pe-toast .result-box { margin: 0; box-shadow: 0 6px 22px rgba(0,0,0,0.18); }
+
+    .pe-stamp-menu {
+        position: absolute; z-index: 50;
+        background: var(--card-bg); border: 1px solid var(--border);
+        border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        padding: 10px; width: 230px; max-height: 280px; overflow-y: auto; display: none;
+    }
+    .pe-stamp-menu.show { display: block; }
+    .pe-stamp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .pe-stamp-item {
+        border: 1px solid var(--border); border-radius: 7px; padding: 6px; cursor: pointer;
+        display: flex; flex-direction: column; gap: 4px; align-items: center;
+        background: repeating-conic-gradient(#0000000d 0% 25%, transparent 0% 50%) 50% / 14px 14px;
+    }
+    .pe-stamp-item:hover { border-color: var(--accent); }
+    .pe-stamp-item img { max-width: 100%; height: 54px; object-fit: contain; }
+    .pe-stamp-item span { font-size: 11px; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pe-stamp-empty { font-size: 12px; color: var(--sub); text-align: center; padding: 12px 6px; line-height: 1.5; }
+</style>
+
+<div class="pe-root" id="peRoot">
+    <div class="pe-toolbar">
+        <button class="pe-tbtn primary" id="peOpen" title="Open a PDF from the server">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1.2 3.2h3.4l1.3 1.6h6.9v6.4H1.2z"/><path d="M1.2 6h11.6"/>
+            </svg> Open File
+        </button>
+        <span class="pe-fname" id="peFileName"></span>
+
+        <div class="pe-sep"></div>
+
+        <button class="pe-tbtn" id="peAddText" title="Insert a text box" disabled>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                <path d="M2 3.2V2h10v1.2M7 2v10M5 12h4"/>
+            </svg> Text
+        </button>
+        <button class="pe-tbtn" id="peAddImg" title="Insert an image from the server" disabled>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1.5" y="2.5" width="11" height="9" rx="1.3"/><circle cx="4.7" cy="5.5" r="1"/>
+                <path d="M1.5 10 L5 6.5 L7.5 8.5 L10 5.5 L12.5 9"/>
+            </svg> Image
+        </button>
+        <button class="pe-tbtn" id="peUpload" title="Upload an image from this device" disabled>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 9V2.5M4.3 5.2 7 2.5l2.7 2.7"/><path d="M2 9.5v1.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9.5"/>
+            </svg> Upload
+        </button>
+        <button class="pe-tbtn" id="peAddStamp" title="Place a saved company chop/stamp" disabled>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 1.5c-1.7 0-2.6 1.3-2.2 2.9.2.9.4 1.6-.3 2.1H9.5c-.7-.5-.5-1.2-.3-2.1C9.6 2.8 8.7 1.5 7 1.5Z"/>
+                <rect x="2.5" y="8.5" width="9" height="1.8" rx="0.6"/><line x1="1.8" y1="12.2" x2="12.2" y2="12.2"/>
+            </svg> Stamp
+        </button>
+
+        <div class="pe-sep"></div>
+
+        <button class="pe-iconbtn" id="pePrev" title="Previous page" disabled>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2 L4 6.5 L8.5 11"/></svg>
+        </button>
+        <span class="pe-page-lbl" id="pePageLbl">—</span>
+        <button class="pe-iconbtn" id="peNext" title="Next page" disabled>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2 L9 6.5 L4.5 11"/></svg>
+        </button>
+
+        <div class="pe-sep"></div>
+
+        <select class="pe-zoom" id="peZoom" title="Zoom" disabled>
+            <option value="fit" selected>Fit</option>
+            <option value="0.5">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1">100%</option>
+            <option value="1.25">125%</option>
+            <option value="1.5">150%</option>
+            <option value="2">200%</option>
+        </select>
+
+        <div class="pe-spacer"></div>
+
+        <button class="pe-tbtn primary" id="peSave" title="Save the edited PDF" disabled>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 2h7.5L12 4.5V12H2z"/><path d="M4.5 2v3h4V2"/><rect x="4.5" y="7.5" width="5" height="3.5"/>
+            </svg> Save
+        </button>
+    </div>
+
+    <div class="pe-stage" id="peStage">
+        <div class="pe-empty" id="peEmpty">No PDF open.<br>Click <strong>Open File</strong> to start editing.</div>
+    </div>
+
+    <div class="pe-props" id="peProps">
+        <label>Font size
+            <input type="range" id="peFontSize" min="8" max="120" value="24" style="width:120px">
+            <span id="peFontVal" style="color:var(--text);font-weight:600;min-width:34px">24px</span>
+        </label>
+        <label>Colour <input type="color" id="peColor" value="#d0021b"></label>
+    </div>
+
+    <div class="pe-toast" id="peToast"></div>
+
+    <input type="file" id="peUploadInput" accept="image/*" style="display:none">
+    <div class="pe-stamp-menu" id="peStampMenu"></div>
+</div>
+
+<script>
+(function(){
+    var registry = window.ProductivityToolModules = window.ProductivityToolModules || {};
+    var FONT = "'Helvetica Neue', Arial, sans-serif";
+    var TEXT_BASELINE_RATIO = 0.8; // distance from a line's top to its baseline, as a fraction of font size
+    var pdfJsReady = false;
+
+    function loadPdfJs(onReady, onError){
+        if (pdfJsReady || typeof pdfjsLib !== 'undefined'){
+            if (!pdfJsReady){
+                pdfjsLib.GlobalWorkerOptions.workerSrc = '../PDF Viewer/js/pdf.worker.js';
+                pdfJsReady = true;
+            }
+            onReady(); return;
+        }
+        var s = document.createElement('script');
+        s.src = '../PDF Viewer/js/pdf.js';
+        s.onload = function(){
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '../PDF Viewer/js/pdf.worker.js';
+            pdfJsReady = true; onReady();
+        };
+        s.onerror = function(){ onError(new Error('Failed to load PDF library')); };
+        document.head.appendChild(s);
+    }
+
+    /* pdf-lib (vendored, MIT) — used to add overlays as real PDF content while keeping the original intact */
+    function loadPdfLib(onReady, onError){
+        if (typeof PDFLib !== 'undefined'){ onReady(); return; }
+        var s = document.createElement('script');
+        s.src = 'tools/lib/pdf-lib.min.js';
+        s.onload = function(){ onReady(); };
+        s.onerror = function(){ onError(new Error('Failed to load pdf-lib')); };
+        document.head.appendChild(s);
+    }
+
+    registry.pdfedit = {
+        init: function(root){
+            // Take over the padded, scrolling tool-panel body so the editor fills it edge to edge
+            root.style.padding = '0';
+            root.style.overflow = 'hidden';
+            root.style.display = 'flex';
+            root.style.flexDirection = 'column';
+
+            var S = { pdf:null, filepath:null, page:1, num:0, overlays:{}, sel:null, root:root };
+            var zoom = 'fit'; // 'fit' or a numeric scale (1 = 100%)
+            var resizeTimer = null;
+
+            var elStage  = root.querySelector('#peStage');
+            var elEmpty  = root.querySelector('#peEmpty');
+            var elProps  = root.querySelector('#peProps');
+            var elToast  = root.querySelector('#peToast');
+            var elFontSize = root.querySelector('#peFontSize');
+            var elFontVal  = root.querySelector('#peFontVal');
+            var elColor    = root.querySelector('#peColor');
+            var elZoom     = root.querySelector('#peZoom');
+            var elFileName = root.querySelector('#peFileName');
+            var stampMenu  = root.querySelector('#peStampMenu');
+            var uploadInput = root.querySelector('#peUploadInput');
+            var editButtons = ['#peAddText','#peAddImg','#peUpload','#peAddStamp','#peSave','#peZoom']
+                .map(function(s){ return root.querySelector(s); });
+            var canvas, ctx, overlayEl, wrapEl;
+
+            function alive(){ return document.body.contains(root); }
+
+            function enableEditing(on){
+                editButtons.forEach(function(b){ b.disabled = !on; });
+            }
+
+            function showToast(html, isError){
+                elToast.innerHTML = '<div class="result-box ' + (isError ? 'result-err' : 'result-ok') + '">' + html + '</div>';
+                elToast.classList.add('show');
+                clearTimeout(elToast._t);
+                if (!isError){ elToast._t = setTimeout(function(){ elToast.classList.remove('show'); }, 5000); }
+            }
+            function hideToast(){ elToast.classList.remove('show'); }
+
+            /* ── Selection / property bar ── */
+            function selectOverlay(o, el){
+                clearSelection();
+                S.sel = { o:o, el:el };
+                el.classList.add('selected');
+                if (o.type === 'text'){
+                    elProps.classList.add('show');
+                    var px = Math.round(o.fontFrac * canvas.height);
+                    elFontSize.value = px; elFontVal.textContent = px + 'px';
+                    elColor.value = o.color || '#000000';
+                }
+            }
+            function clearSelection(){
+                if (S.sel){ S.sel.el.classList.remove('selected'); }
+                S.sel = null;
+                elProps.classList.remove('show');
+            }
+
+            elFontSize.addEventListener('input', function(){
+                elFontVal.textContent = this.value + 'px';
+                if (S.sel && S.sel.o.type === 'text'){
+                    S.sel.o.fontFrac = parseInt(this.value, 10) / canvas.height;
+                    S.sel.el.style.fontSize = this.value + 'px';
+                }
+            });
+            elColor.addEventListener('input', function(){
+                if (S.sel && S.sel.o.type === 'text'){
+                    S.sel.o.color = this.value;
+                    S.sel.el.style.color = this.value;
+                }
+            });
+
+            /* ── Overlay element construction ── */
+            function makeOverlayEl(o){
+                var el = document.createElement('div');
+                el.className = 'pe-ov ' + (o.type === 'text' ? 'pe-text' : 'pe-img');
+                el.style.left = (o.fx * canvas.width) + 'px';
+                el.style.top  = (o.fy * canvas.height) + 'px';
+
+                if (o.type === 'text'){
+                    el.textContent = o.t;
+                    el.style.fontSize = (o.fontFrac * canvas.height) + 'px';
+                    el.style.color = o.color || '#000';
+                    el.addEventListener('dblclick', function(){
+                        el.setAttribute('contenteditable', 'true');
+                        el.focus();
+                    });
+                    el.addEventListener('blur', function(){
+                        el.removeAttribute('contenteditable');
+                        o.t = el.textContent;
+                        o.fx = el.offsetLeft / canvas.width;
+                        o.fy = el.offsetTop / canvas.height;
+                    });
+                } else {
+                    el.style.width  = (o.fwFrac * canvas.width) + 'px';
+                    el.style.height = (o.fhFrac * canvas.height) + 'px';
+                    var img = document.createElement('img');
+                    img.src = o.src; el.appendChild(img);
+                    var handle = document.createElement('div');
+                    handle.className = 'pe-handle';
+                    el.appendChild(handle);
+                    wireResize(handle, el, o);
+                }
+
+                var del = document.createElement('button');
+                del.className = 'pe-del';
+                del.innerHTML = '<svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><line x1="1" y1="1" x2="8" y2="8"/><line x1="8" y1="1" x2="1" y2="8"/></svg>';
+                del.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+                del.addEventListener('click', function(e){
+                    e.stopPropagation();
+                    var arr = S.overlays[S.page] || [];
+                    var i = arr.indexOf(o);
+                    if (i !== -1) arr.splice(i, 1);
+                    clearSelection();
+                    el.parentNode.removeChild(el);
+                });
+                el.appendChild(del);
+
+                wireDrag(el, o);
+                el.addEventListener('mousedown', function(){ selectOverlay(o, el); });
+                return el;
+            }
+
+            function wireDrag(el, o){
+                el.addEventListener('mousedown', function(e){
+                    if (el.getAttribute('contenteditable') === 'true') return;
+                    if (e.target.classList.contains('pe-handle')) return;
+                    e.preventDefault();
+                    var startX = e.clientX, startY = e.clientY;
+                    var baseL = el.offsetLeft, baseT = el.offsetTop;
+                    function mv(ev){
+                        var nl = Math.max(0, Math.min(canvas.width  - 6, baseL + (ev.clientX - startX)));
+                        var nt = Math.max(0, Math.min(canvas.height - 6, baseT + (ev.clientY - startY)));
+                        el.style.left = nl + 'px'; el.style.top = nt + 'px';
+                        o.fx = nl / canvas.width; o.fy = nt / canvas.height;
+                    }
+                    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+                    document.addEventListener('mousemove', mv);
+                    document.addEventListener('mouseup', up);
+                });
+            }
+
+            function wireResize(handle, el, o){
+                handle.addEventListener('mousedown', function(e){
+                    e.preventDefault(); e.stopPropagation();
+                    var startX = e.clientX;
+                    var startW = el.offsetWidth;
+                    var aspect = el.offsetHeight / el.offsetWidth;
+                    function mv(ev){
+                        var nw = Math.max(18, Math.min(canvas.width, startW + (ev.clientX - startX)));
+                        var nh = nw * aspect;
+                        el.style.width = nw + 'px'; el.style.height = nh + 'px';
+                        o.fwFrac = nw / canvas.width; o.fhFrac = nh / canvas.height;
+                    }
+                    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+                    document.addEventListener('mousemove', mv);
+                    document.addEventListener('mouseup', up);
+                });
+            }
+
+            /* ── Page rendering (Fit fills the stage; numeric zoom scrolls) ── */
+            function pageScale(v1){
+                if (zoom === 'fit'){
+                    var availW = Math.max(80, elStage.clientWidth - 28);
+                    var availH = Math.max(80, elStage.clientHeight - 28);
+                    return Math.min(availW / v1.width, availH / v1.height, 4);
+                }
+                return zoom;
+            }
+
+            function renderPage(n){
+                if (!S.pdf) return;
+                clearSelection();
+                S.pdf.getPage(n).then(function(page){
+                    if (!alive()) return;
+                    var v1 = page.getViewport({ scale: 1 });
+                    var vp = page.getViewport({ scale: pageScale(v1) });
+
+                    elStage.classList.toggle('zoomed', zoom !== 'fit');
+                    elStage.innerHTML = '';
+                    wrapEl = document.createElement('div');
+                    wrapEl.className = 'pe-wrap';
+                    wrapEl.style.width = vp.width + 'px';
+                    wrapEl.style.height = vp.height + 'px';
+                    canvas = document.createElement('canvas');
+                    canvas.width = vp.width; canvas.height = vp.height;
+                    ctx = canvas.getContext('2d');
+                    overlayEl = document.createElement('div');
+                    overlayEl.className = 'pe-overlay';
+                    wrapEl.appendChild(canvas);
+                    wrapEl.appendChild(overlayEl);
+                    elStage.appendChild(wrapEl);
+
+                    overlayEl.addEventListener('mousedown', function(e){
+                        if (e.target === overlayEl) clearSelection();
+                    });
+
+                    page.render({ canvasContext: ctx, viewport: vp }).promise.then(function(){
+                        (S.overlays[n] || []).forEach(function(o){ overlayEl.appendChild(makeOverlayEl(o)); });
+                    });
+
+                    root.querySelector('#pePageLbl').textContent = n + ' / ' + S.num;
+                    root.querySelector('#pePrev').disabled = (n <= 1);
+                    root.querySelector('#peNext').disabled = (n >= S.num);
+                });
+            }
+
+            function addOverlay(o){
+                if (!S.overlays[S.page]) S.overlays[S.page] = [];
+                S.overlays[S.page].push(o);
+                if (overlayEl){
+                    var el = makeOverlayEl(o);
+                    overlayEl.appendChild(el);
+                    selectOverlay(o, el);
+                }
+            }
+
+            // Re-fit the page when the panel/window is resized (only in Fit mode)
+            var ro = new ResizeObserver(function(){
+                if (!alive()){ ro.disconnect(); return; }
+                if (!S.pdf || zoom !== 'fit') return;
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function(){ if (alive() && S.pdf) renderPage(S.page); }, 120);
+            });
+            ro.observe(elStage);
+
+            /* ── Toolbar actions ── */
+            root.querySelector('#peOpen').addEventListener('click', function(){
+                ao_module_openFileSelector('_peoPickCb', 'user:/', 'file', false, { filter: ['pdf'] });
+            });
+
+            root.querySelector('#peAddText').addEventListener('click', function(){
+                if (!canvas) return;
+                addOverlay({ type:'text', t:'Double-click to edit', fx:0.12, fy:0.12,
+                    fontFrac: 24 / canvas.height, color: elColor.value || '#d0021b' });
+            });
+
+            root.querySelector('#peAddImg').addEventListener('click', function(){
+                ao_module_openFileSelector('_peoImgCb', 'user:/', 'file', false, { filter: ['jpg','jpeg','png','gif','webp','bmp'] });
+            });
+
+            root.querySelector('#peUpload').addEventListener('click', function(){
+                uploadInput.value = '';
+                uploadInput.click();
+            });
+            uploadInput.addEventListener('change', function(){
+                if (!this.files || !this.files.length) return;
+                var reader = new FileReader();
+                reader.onload = function(ev){ placeImageFromSrc(ev.target.result); };
+                reader.readAsDataURL(this.files[0]);
+            });
+
+            root.querySelector('#peAddStamp').addEventListener('click', function(e){
+                e.stopPropagation();
+                openStampMenu(this);
+            });
+
+            root.querySelector('#pePrev').addEventListener('click', function(){
+                if (S.page > 1){ S.page--; renderPage(S.page); }
+            });
+            root.querySelector('#peNext').addEventListener('click', function(){
+                if (S.page < S.num){ S.page++; renderPage(S.page); }
+            });
+
+            elZoom.addEventListener('change', function(){
+                zoom = this.value === 'fit' ? 'fit' : parseFloat(this.value);
+                if (S.pdf) renderPage(S.page);
+            });
+
+            /* ── Stamp picker ── */
+            function placeImageFromSrc(src){
+                if (!canvas) return;
+                var probe = new Image();
+                probe.onload = function(){
+                    var dispW = Math.min(150, canvas.width * 0.32);
+                    var dispH = dispW * (probe.naturalHeight / probe.naturalWidth);
+                    addOverlay({ type:'image', src:src,
+                        fx:0.4, fy:0.4, fwFrac: dispW / canvas.width, fhFrac: dispH / canvas.height });
+                };
+                probe.onerror = function(){ showToast('Could not load that image.', true); };
+                probe.src = src;
+            }
+
+            function openStampMenu(anchor){
+                if (!window.ProductivityChops){
+                    stampMenu.innerHTML = '<div class="pe-stamp-empty">Chop library unavailable.</div>';
+                }
+                window.ProductivityChops && window.ProductivityChops.load(function(chops){
+                    if (!chops.length){
+                        stampMenu.innerHTML = '<div class="pe-stamp-empty">No chops saved yet.<br>Add your company stamp in the <strong>Chop Library</strong> tool first.</div>';
+                    } else {
+                        var html = '<div class="pe-stamp-grid">';
+                        chops.forEach(function(c){
+                            html += '<div class="pe-stamp-item" data-src="' + mediaUrl(c.path) + '">' +
+                                    '<img src="' + mediaUrl(c.path) + '" alt=""><span>' + escHtml(c.name) + '</span></div>';
+                        });
+                        html += '</div>';
+                        stampMenu.innerHTML = html;
+                        Array.prototype.forEach.call(stampMenu.querySelectorAll('.pe-stamp-item'), function(it){
+                            it.addEventListener('click', function(){
+                                placeImageFromSrc(this.getAttribute('data-src'));
+                                stampMenu.classList.remove('show');
+                            });
+                        });
+                    }
+                    stampMenu.style.left = (anchor.offsetLeft) + 'px';
+                    stampMenu.style.top  = (anchor.offsetTop + anchor.offsetHeight + 6) + 'px';
+                    stampMenu.classList.add('show');
+                });
+            }
+            document.addEventListener('mousedown', function(e){
+                if (!stampMenu.contains(e.target) && e.target.id !== 'peAddStamp'){
+                    stampMenu.classList.remove('show');
+                }
+            });
+
+            /* ── File-selector callbacks (global, guarded by alive()) ── */
+            window._peoPickCb = function(files){
+                if (!alive() || !files || !files.length) return;
+                var f = files[0];
+                S.filepath = f.filepath;
+                elFileName.textContent = f.filename;
+                elFileName.title = f.filename;
+                hideToast();
+                S.overlays = {}; S.page = 1; zoom = 'fit'; elZoom.value = 'fit';
+                elStage.classList.remove('zoomed');
+                elStage.innerHTML = '<div class="pe-empty">Opening…</div>';
+                ao_module_setWindowTitle('PDF Editor — ' + f.filename);
+                loadPdfJs(function(){
+                    pdfjsLib.getDocument(mediaUrl(f.filepath)).promise.then(function(pdf){
+                        if (!alive()) return;
+                        S.pdf = pdf; S.num = pdf.numPages; S.page = 1;
+                        enableEditing(true);
+                        renderPage(1);
+                    }, function(err){
+                        elStage.innerHTML = '<div class="pe-empty">Failed to open PDF:<br>' + escHtml(String(err && err.message || err)) + '</div>';
+                    });
+                }, function(err){
+                    elStage.innerHTML = '<div class="pe-empty">' + escHtml(err.message) + '</div>';
+                });
+            };
+
+            window._peoImgCb = function(files){
+                if (!alive() || !files || !files.length) return;
+                placeImageFromSrc(mediaUrl(files[0].filepath));
+            };
+
+            /* ══════════════════════════════════════════════════════════════
+               EXPORT — overlays are written as real PDF content with pdf-lib.
+               Pages without overlays are left byte-for-byte untouched, so the
+               original vector text stays selectable and searchable.
+            ══════════════════════════════════════════════════════════════ */
+            function fetchBytes(url){
+                return fetch(url).then(function(r){
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.arrayBuffer();
+                }).then(function(buf){ return new Uint8Array(buf); });
+            }
+
+            function canvasToPngBytes(c){
+                return new Promise(function(resolve, reject){
+                    c.toBlob(function(blob){
+                        if (!blob){ reject(new Error('Canvas export failed')); return; }
+                        var fr = new FileReader();
+                        fr.onload = function(e){ resolve(new Uint8Array(e.target.result)); };
+                        fr.onerror = reject;
+                        fr.readAsArrayBuffer(blob);
+                    }, 'image/png');
+                });
+            }
+
+            // Embed an overlay image: pass PNG/JPEG through directly, rasterise anything else to PNG.
+            function embedImageSrc(pdfDoc, src, cache){
+                if (cache[src]) return cache[src];
+                var p = fetchBytes(src).then(function(bytes){
+                    if (bytes[0] === 0x89 && bytes[1] === 0x50){ return pdfDoc.embedPng(bytes); }
+                    if (bytes[0] === 0xFF && bytes[1] === 0xD8){ return pdfDoc.embedJpg(bytes); }
+                    return new Promise(function(resolve, reject){
+                        var img = new Image();
+                        img.onload = function(){
+                            var c = document.createElement('canvas');
+                            c.width = img.naturalWidth; c.height = img.naturalHeight;
+                            c.getContext('2d').drawImage(img, 0, 0);
+                            canvasToPngBytes(c).then(function(png){ resolve(pdfDoc.embedPng(png)); }, reject);
+                        };
+                        img.onerror = function(){ reject(new Error('Could not load image')); };
+                        img.src = src;
+                    });
+                });
+                cache[src] = p;
+                return p;
+            }
+
+            // Rasterise one text overlay to a PNG — fallback for glyphs the standard font can't encode (e.g. CJK).
+            function rasteriseText(o, fontPt){
+                var lines = String(o.t).split('\n');
+                var probe = document.createElement('canvas').getContext('2d');
+                probe.font = fontPt + 'px ' + FONT;
+                var wPt = 1;
+                lines.forEach(function(ln){ wPt = Math.max(wPt, probe.measureText(ln).width); });
+                var lineH = fontPt * 1.25;
+                var hPt = lines.length * lineH;
+                var k = 3; // supersample for crisp glyphs
+                var c = document.createElement('canvas');
+                c.width = Math.max(1, Math.ceil(wPt * k));
+                c.height = Math.max(1, Math.ceil(hPt * k));
+                var cx = c.getContext('2d');
+                cx.scale(k, k);
+                cx.fillStyle = o.color || '#000';
+                cx.textBaseline = 'top';
+                cx.font = fontPt + 'px ' + FONT;
+                lines.forEach(function(ln, i){ cx.fillText(ln, 0, i * lineH); });
+                return { canvas: c, wPt: wPt, hPt: hPt };
+            }
+
+            function hexToRgb(hex){
+                hex = (hex || '#000000').replace('#', '');
+                if (hex.length === 3){ hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2]; }
+                return {
+                    r: parseInt(hex.substr(0,2),16)/255,
+                    g: parseInt(hex.substr(2,2),16)/255,
+                    b: parseInt(hex.substr(4,2),16)/255
+                };
+            }
+
+            var elSave = root.querySelector('#peSave');
+            var SAVE_LABEL = elSave.innerHTML;
+            elSave.addEventListener('click', function(){
+                if (!S.pdf || !S.filepath) return;
+                clearSelection();
+                var btn = elSave;
+                btn.disabled = true;
+                function status(t){ btn.textContent = t; }
+                function done(){ btn.innerHTML = SAVE_LABEL; btn.disabled = false; }
+                function fail(msg){ showToast('<strong>Error:</strong> ' + escHtml(String(msg)), true); done(); }
+
+                status('Loading…');
+                loadPdfLib(function(){
+                    var L = window.PDFLib;
+                    var degrees = L.degrees, rgb = L.rgb;
+
+                    status('Opening…');
+                    fetchBytes(mediaUrl(S.filepath)).then(function(srcBytes){
+                        return L.PDFDocument.load(srcBytes, { ignoreEncryption: true });
+                    }).then(function(pdfDoc){
+                        return pdfDoc.embedFont(L.StandardFonts.Helvetica).then(function(helv){
+                            var imgCache = {};
+                            var libPages = pdfDoc.getPages();
+                            var pageKeys = Object.keys(S.overlays).filter(function(k){ return (S.overlays[k] || []).length; });
+
+                            // Walk only the pages that actually have overlays, in order.
+                            return pageKeys.reduce(function(chain, k){
+                                return chain.then(function(){
+                                    var pn = parseInt(k, 10);
+                                    var libPage = libPages[pn - 1];
+                                    if (!libPage) return;
+                                    status('Writing page ' + pn + '…');
+
+                                    return S.pdf.getPage(pn).then(function(jsPage){
+                                        var vp = jsPage.getViewport({ scale: 1 });
+                                        var rot = vp.rotation || 0;
+
+                                        return (S.overlays[pn] || []).reduce(function(c2, o){
+                                            return c2.then(function(){
+                                                var dx = o.fx * vp.width, dy = o.fy * vp.height;
+
+                                                if (o.type === 'image'){
+                                                    var ew = o.fwFrac * vp.width, eh = o.fhFrac * vp.height;
+                                                    var bl = vp.convertToPdfPoint(dx, dy + eh);
+                                                    return embedImageSrc(pdfDoc, o.src, imgCache).then(function(img){
+                                                        libPage.drawImage(img, { x: bl[0], y: bl[1], width: ew, height: eh, rotate: degrees(rot) });
+                                                    });
+                                                }
+
+                                                var fontPt = o.fontFrac * vp.height;
+                                                var col = hexToRgb(o.color);
+                                                var canEncode = true;
+                                                try { helv.encodeText(o.t); } catch(e){ canEncode = false; }
+
+                                                if (canEncode){
+                                                    String(o.t).split('\n').forEach(function(ln, i){
+                                                        var topY = dy + TEXT_BASELINE_RATIO * fontPt + i * fontPt * 1.25;
+                                                        var pt = vp.convertToPdfPoint(dx, topY);
+                                                        libPage.drawText(ln, {
+                                                            x: pt[0], y: pt[1], size: fontPt, font: helv,
+                                                            color: rgb(col.r, col.g, col.b), rotate: degrees(rot)
+                                                        });
+                                                    });
+                                                    return;
+                                                }
+
+                                                // Unsupported glyphs: rasterise just this text box and place it as an image.
+                                                var rt = rasteriseText(o, fontPt);
+                                                var blt = vp.convertToPdfPoint(dx, dy + rt.hPt);
+                                                return canvasToPngBytes(rt.canvas)
+                                                    .then(function(png){ return pdfDoc.embedPng(png); })
+                                                    .then(function(img){
+                                                        libPage.drawImage(img, { x: blt[0], y: blt[1], width: rt.wPt, height: rt.hPt, rotate: degrees(rot) });
+                                                    });
+                                            });
+                                        }, Promise.resolve());
+                                    });
+                                });
+                            }, Promise.resolve()).then(function(){ return pdfDoc.save(); });
+                        });
+                    }).then(function(outBytes){
+                        var outName = basenameNoExt(S.filepath) + '_edited.pdf';
+                        var outDir = dirOf(S.filepath);
+                        status('Uploading…');
+                        return uploadBlob(new Blob([outBytes], { type: 'application/pdf' }), outName, outDir).then(function(){
+                            showToast('<strong>' + escHtml(outName) + '</strong> saved to ' + escHtml(outDir) +
+                                '. Original text kept selectable.', false);
+                            done();
+                        });
+                    }).catch(function(err){
+                        fail(err && err.message ? err.message : err);
+                    });
+                }, function(err){ fail(err.message); });
+            });
+        }
+    };
+})();
+</script>

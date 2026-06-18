@@ -416,6 +416,19 @@
             </svg>
         </button>
 
+        <!-- Open in Web Builder (HTML files only) -->
+        <button class="tb-btn" id="btnWebBuilder" onclick="openInWebBuilder()" title="Open in Web Builder" style="display:none">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="2" width="14" height="10" rx="1.3"/>
+                <line x1="1" y1="5.5" x2="15" y2="5.5"/>
+                <circle cx="3" cy="3.8" r="0.6" fill="currentColor" stroke="none"/>
+                <circle cx="5" cy="3.8" r="0.6" fill="currentColor" stroke="none"/>
+                <path d="M5.5 8.5 L4 10 L5.5 11.5"/>
+                <path d="M9.5 8.5 L11 10 L9.5 11.5"/>
+            </svg>
+        </button>
+        <div class="tb-sep" id="sepWebBuilder" style="display:none"></div>
+
         <div class="tb-sep"></div>
 
         <!-- Info toggle -->
@@ -840,6 +853,11 @@ function loadFile(file) {
 
     showViewer(currentType);
 
+    /* Web Builder button — only available for HTML files */
+    var _wbVisible = currentType === 'html';
+    document.getElementById('btnWebBuilder').style.display = _wbVisible ? '' : 'none';
+    document.getElementById('sepWebBuilder').style.display = _wbVisible ? '' : 'none';
+
     /* Support data URLs for files dragged in from the OS desktop */
     var fileUrl = file.dataUrl
         ? file.dataUrl
@@ -926,6 +944,21 @@ function toggleInfo() {
     var sb = document.getElementById('infoSidebar');
     sb.classList.toggle('open');
     document.getElementById('btnInfo').classList.toggle('active', sb.classList.contains('open'));
+}
+
+function openInWebBuilder() {
+    if (!currentFile) return;
+    var hashData = {
+        tool: 'webbuilder',
+        file: { filename: currentFile.filename, filepath: currentFile.filepath }
+    };
+    ao_module_newfw({
+        url: 'Productivity/index.html#' + encodeURIComponent(JSON.stringify(hashData)),
+        width: 1080,
+        height: 580,
+        title: currentFile.filename + ' - Web Builder',
+        appicon: 'Productivity/img/module_icon.svg'
+    });
 }
 
 /* ═══════════════════════════════════════════════════════════════

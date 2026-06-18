@@ -7,6 +7,64 @@
 		<meta name="theme-color" content="#ff9224">
 		<script src="../script/jquery.min.js"></script>
 		<script src="../script/ao_module.js"></script>
+		<script>
+		// When Web Builder is embedded as an iframe inside another ArozOS app (e.g. Productivity),
+		// ao_module_virtualDesktop is false because parent.isDesktopMode is not on the host app.
+		// This patch detects that case and routes ao_module_openFileSelector through the real desktop,
+		// registering the callback proxy on the host app window so the desktop can resolve it.
+		(function(){
+			try {
+				if (ao_module_virtualDesktop || !parent.ao_module_virtualDesktop) { return; }
+				ao_module_openFileSelector = function(callback, root, type, allowMultiple, options) {
+					root = (root != null) ? root : 'user:/';
+					type = type || 'file';
+					allowMultiple = allowMultiple || false;
+
+					var callbackname;
+					if (typeof callback === 'string') {
+						callbackname = callback;
+					} else if (typeof callback === 'function' && callback.name) {
+						callbackname = callback.name;
+					} else {
+						callbackname = '_aoFs_' + Date.now();
+					}
+					if (options && options.fnameOverride) {
+						callbackname = options.fnameOverride;
+					}
+
+					// Register proxy on the host app window — the desktop resolves callbacks there
+					parent[callbackname] = function(files) {
+						try {
+							var fn = (typeof callback === 'string') ? window[callback] : callback;
+							if (fn) { fn(files); }
+						} finally {
+							delete parent[callbackname];
+						}
+					};
+
+					var initInfo = {
+						root: root,
+						type: type,
+						allowMultiple: allowMultiple,
+						listenerUUID: '',
+						options: options
+					};
+					// parent = host app window, parent.parent = ArozOS desktop
+					parent.parent.newFloatWindow({
+						url: 'SystemAO/file_system/file_selector.html#' + encodeURIComponent(JSON.stringify(initInfo)),
+						width: 700,
+						height: 440,
+						appicon: 'SystemAO/file_system/img/selector.png',
+						title: 'Open',
+						parent: parent.ao_module_windowID,
+						callback: callbackname
+					});
+				};
+			} catch(e) {
+				// Cross-origin or not nested — leave ao_module_openFileSelector unchanged
+			}
+		})();
+		</script>
 		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
 		<script src="../script/semantic/semantic.min.js"></script>
 		<title>Web Builder</title>

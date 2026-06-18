@@ -5,7 +5,7 @@
 
 var moduleLaunchInfo = {
     Name: "Productivity",
-    Desc: "PDF tools, image conversion, and file previewer",
+    Desc: "PDF tools, image tools, web builder, and file previewer",
     Group: "Utilities",
     IconPath: "Productivity/img/module_icon.svg",
     Version: "1.0",

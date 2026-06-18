@@ -377,7 +377,17 @@
 
 <script>
 if (window.location.hash && window.location.hash.length > 1) {
-    window.location.href = 'embedded.html' + window.location.hash;
+    try {
+        var _hashData = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
+        if (Array.isArray(_hashData)) {
+            // Standard file-input hash — open the file in the embedded viewer
+            window.location.href = 'embedded.html' + window.location.hash;
+        }
+        // Object hash (e.g. {tool, file}) — let boot handle it below
+    } catch(e) {
+        // Not valid JSON; treat as a file array for backwards compatibility
+        window.location.href = 'embedded.html' + window.location.hash;
+    }
 }
 </script>
 
@@ -409,10 +419,68 @@ var CATEGORIES = [
               '<path d="M5.5 1v3.5h4.5"/>' +
               '<rect x="8" y="8" width="5.5" height="5.5" rx="1"/>' +
               '</svg>'
+    },
+    {
+        id: 'image',
+        label: 'Image Tools',
+        icon: '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"' +
+              ' stroke="currentColor" stroke-width="1.6"' +
+              ' stroke-linecap="round" stroke-linejoin="round">' +
+              '<rect x="1" y="2.5" width="13" height="10" rx="1.5"/>' +
+              '<circle cx="4.5" cy="6.5" r="1.1"/>' +
+              '<path d="M1 12 L4 8.5 L6.5 10.5 L9.5 7 L13 12"/>' +
+              '</svg>'
+    },
+    {
+        id: 'web',
+        label: 'Web Tools',
+        icon: '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"' +
+              ' stroke="currentColor" stroke-width="1.6"' +
+              ' stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="7.5" cy="7.5" r="6"/>' +
+              '<path d="M7.5 1.5 C5 4 5 11 7.5 13.5"/>' +
+              '<path d="M7.5 1.5 C10 4 10 11 7.5 13.5"/>' +
+              '<line x1="1.5" y1="6" x2="13.5" y2="6"/>' +
+              '<line x1="1.5" y1="9" x2="13.5" y2="9"/>' +
+              '</svg>'
     }
 ];
 
 var TOOLS = {
+    image: [
+        {
+            id: 'imgpaste',
+            label: 'Image Paste',
+            desc: 'Paste an image from clipboard and save it to your files',
+            color: '#30B06E',
+            icon: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"' +
+                  ' stroke="#FFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<rect x="2" y="5.5" width="12" height="14" rx="1.5"/>' +
+                  '<path d="M6 5.5V3.5h5v2"/>' +
+                  '<circle cx="6.5" cy="11.5" r="1.2" fill="#FFF" stroke="none"/>' +
+                  '<path d="M2 18.5 L5 14 L7.5 16 L10.5 12 L14 18.5"/>' +
+                  '</svg>',
+            template: 'tools/imgpaste.html'
+        }
+    ],
+    web: [
+        {
+            id: 'webbuilder',
+            label: 'Web Builder',
+            desc: 'WYSIWYG editor for creating and editing HTML web pages',
+            color: '#FF9500',
+            icon: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"' +
+                  ' stroke="#FFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<rect x="2" y="3" width="18" height="14" rx="1.5"/>' +
+                  '<line x1="2" y1="7" x2="20" y2="7"/>' +
+                  '<circle cx="5" cy="5" r="0.9" fill="#FFF" stroke="none"/>' +
+                  '<circle cx="8" cy="5" r="0.9" fill="#FFF" stroke="none"/>' +
+                  '<path d="M7.5 12 L5.5 14 L7.5 16"/>' +
+                  '<path d="M11.5 12 L13.5 14 L11.5 16"/>' +
+                  '</svg>',
+            template: 'tools/webbuilder.html'
+        }
+    ],
     pdf: [
         {
             id: 'pdf2img',
@@ -445,6 +513,33 @@ var TOOLS = {
                   '<line x1="16.8" y1="13.5" x2="16.8" y2="18.5"/>' +
                   '</svg>',
             template: 'tools/img2pdf.html'
+        },
+        {
+            id: 'pdfedit',
+            label: 'PDF Editor',
+            desc: 'Add text, images and company stamps onto a PDF',
+            color: '#5856D6',
+            icon: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"' +
+                  ' stroke="#FFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<rect x="2.5" y="2" width="13" height="18" rx="1.6"/>' +
+                  '<line x1="5.5" y1="6" x2="12.5" y2="6"/>' +
+                  '<line x1="5.5" y1="9" x2="10" y2="9"/>' +
+                  '<path d="M16.5 11.5l3 3-5 5H11.5v-3z"/>' +
+                  '</svg>',
+            template: 'tools/pdfedit.html'
+        },
+        {
+            id: 'choplib',
+            label: 'Chop Library',
+            desc: 'Manage company stamps and chops for use in the editor',
+            color: '#D0021B',
+            icon: '<svg width="22" height="22" viewBox="0 0 22 22" fill="none"' +
+                  ' stroke="#FFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<path d="M11 2.5c-2.7 0-4.2 2.1-3.5 4.6.4 1.5.7 2.6-.5 3.4h8c-1.2-.8-.9-1.9-.5-3.4C15.2 4.6 13.7 2.5 11 2.5Z"/>' +
+                  '<rect x="4" y="13" width="14" height="2.8" rx="0.9"/>' +
+                  '<line x1="3" y1="19" x2="19" y2="19"/>' +
+                  '</svg>',
+            template: 'tools/choplib.html'
         }
     ]
 };
@@ -631,7 +726,26 @@ function svgX() {
 
 /* ── Boot ── */
 renderSidebar();
-if (CATEGORIES.length) selectCat(CATEGORIES[0].id);
+(function() {
+    if (window.location.hash && window.location.hash.length > 1) {
+        try {
+            var _h = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
+            if (_h && !Array.isArray(_h) && _h.tool) {
+                var _catId = null;
+                Object.keys(TOOLS).forEach(function(k) {
+                    TOOLS[k].forEach(function(t) { if (t.id === _h.tool) _catId = k; });
+                });
+                if (_catId) {
+                    if (_h.file) window._productivityLaunchFile = _h.file;
+                    selectCat(_catId);
+                    selectTool(_h.tool);
+                    return;
+                }
+            }
+        } catch(e) {}
+    }
+    if (CATEGORIES.length) selectCat(CATEGORIES[0].id);
+})();
 
 /* ── ArozOS system theme binding ── */
 function applyAozTheme(theme) {
