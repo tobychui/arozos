@@ -14,7 +14,7 @@ var moduleLaunchInfo = {
     SupportFW: true,
     LaunchFWDir: "Text/index.html",
     SupportEmb: false,
-    InitFWSize: [880, 620],
+    InitFWSize: [940, 620],
     SupportedExt: [".txt", ".md", ".markdown", ".mdown", ".mkd", ".csv", ".log", ".ini", ".conf"]
 }
 
