@@ -188,6 +188,9 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 		downloadMode = true
 	}
 
+	// Check if nocache mode
+	nocacheMode, _ := utils.GetBool(r, "nocache")
+
 	//New download implementations, allow /download to be used instead of &download=true
 	if strings.Contains(r.RequestURI, "media/download/?file=") {
 		downloadMode = true
@@ -234,6 +237,12 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else {
+		if nocacheMode {
+			// Add no-cache headers to prevent browser caching, useful for development and testing
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+		}
 		if targetFsh.RequireBuffer {
 			w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
 			//Check buffer exists
@@ -319,7 +328,8 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 		startTime, _ = strconv.ParseFloat(startTimeStr, 64)
 	}
 
-	targetFshAbs := targetFsh.FileSystemAbstraction
+	//TODO: Cleanup unused code
+	//targetFshAbs := targetFsh.FileSystemAbstraction
 	transcodeSourceFile := realFilepath
 	if filesystem.FileExists(transcodeSourceFile) {
 		//This is a file from the local file system.
@@ -374,32 +384,33 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 
 	//Check if it is a remote file system. FFmpeg can only works with local files
 	//if the file is from a remote source, buffer it to local before transcoding.
-	if targetFsh.RequireBuffer {
-		w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
+	/*
+		if targetFsh.RequireBuffer {
+			w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
 
-		remoteStream, err := targetFshAbs.ReadStream(realFilepath)
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
+			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
+			if err != nil {
+				utils.SendErrorResponse(w, err.Error())
+				return
+			}
+			defer remoteStream.Close()
+			io.Copy(w, remoteStream)
+
+		} else if !filesystem.FileExists(realFilepath) {
+			//Streaming from remote file system that support fseek
+			f, err := targetFsh.FileSystemAbstraction.Open(realFilepath)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - Internal Server Error"))
+				return
+			}
+			fstat, _ := f.Stat()
+			defer f.Close()
+			http.ServeContent(w, r, filepath.Base(realFilepath), fstat.ModTime(), f)
+		} else {
+			http.ServeFile(w, r, realFilepath)
 		}
-		defer remoteStream.Close()
-		io.Copy(w, remoteStream)
-
-	} else if !filesystem.FileExists(realFilepath) {
-		//Streaming from remote file system that support fseek
-		f, err := targetFsh.FileSystemAbstraction.Open(realFilepath)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("500 - Internal Server Error"))
-			return
-		}
-		fstat, _ := f.Stat()
-		defer f.Close()
-		http.ServeContent(w, r, filepath.Base(realFilepath), fstat.ModTime(), f)
-	} else {
-		http.ServeFile(w, r, realFilepath)
-	}
-
+	*/
 }
 
 func (s *Instance) BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSystemHandler, rpath string) error {

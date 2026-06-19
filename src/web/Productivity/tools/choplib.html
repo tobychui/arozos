@@ -56,19 +56,35 @@
     /* ── Shared chop store (defined once, reused by the PDF Editor) ── */
     if (!window.ProductivityChops) {
         window.ProductivityChops = (function(){
-            var DIR = 'user:/Productivity Chops/';
+            var DIR = 'user:/.appdata/Productivity/Chops/';
             var MOD = 'Productivity', KEY = 'chops';
 
+            // In-memory cache is the source of truth once loaded. ao_module_storage.setStorage()
+            // fires an async write and returns immediately without confirming completion, so
+            // reading the value straight back from the server after a save() can race the write
+            // and return stale data. Caching avoids that round trip entirely.
+            var cache = null;
+            var pending = [];
+            var fetching = false;
+
             function load(cb){
+                if (cache !== null){ cb(cache.slice()); return; }
+                pending.push(cb);
+                if (fetching) return;
+                fetching = true;
                 ao_module_storage.loadStorage(MOD, KEY, function(raw){
                     var arr = [];
                     if (raw){ try { arr = JSON.parse(raw) || []; } catch(e){ arr = []; } }
-                    cb(arr);
+                    cache = arr;
+                    fetching = false;
+                    var queued = pending; pending = [];
+                    queued.forEach(function(fn){ fn(cache.slice()); });
                 });
             }
             function save(arr, cb){
-                ao_module_storage.setStorage(MOD, KEY, JSON.stringify(arr));
-                if (cb) cb(arr);
+                cache = arr.slice();
+                ao_module_storage.setStorage(MOD, KEY, JSON.stringify(cache));
+                if (cb) cb(cache.slice());
             }
             function add(srcPath, name, onDone, onErr){
                 fetch(mediaUrl(srcPath)).then(function(r){

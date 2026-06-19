@@ -10,6 +10,7 @@
     <script src="lib/turndown.min.js"></script>
     <script src="lib/turndown-plugin-gfm.min.js"></script>
     <script src="lib/pdf-lib.min.js"></script>
+    <script src="highlighter.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -33,6 +34,12 @@
             --quote-bdr:    #d2d8e6;
             --table-bdr:    #dfe3ec;
             --shadow:       0 10px 40px rgba(30,40,70,.18);
+            --hl-com:       #6a9955;
+            --hl-str:       #b5402a;
+            --hl-num:       #1c7d4d;
+            --hl-kw:        #1f4fce;
+            --hl-typ:       #117a8b;
+            --hl-fn:        #8a5a18;
         }
         body.dark {
             --bg:           #0f131b;
@@ -52,6 +59,12 @@
             --quote-bdr:    #313c50;
             --table-bdr:    #2a3445;
             --shadow:       0 10px 40px rgba(0,0,0,.55);
+            --hl-com:       #6a9955;
+            --hl-str:       #ce9178;
+            --hl-num:       #b5cea8;
+            --hl-kw:        #569cd6;
+            --hl-typ:       #4ec9b0;
+            --hl-fn:        #dcdcaa;
         }
 
         html, body {
@@ -172,6 +185,14 @@
             border-radius: 8px; overflow-x: auto;
         }
         .md-content pre code { background: none; padding: 0; font-size: .85em; line-height: 1.55; }
+
+        /* syntax highlight tokens (see highlighter.js) — theme-aware via vars */
+        .hl-com { color: var(--hl-com); font-style: italic; }
+        .hl-str { color: var(--hl-str); }
+        .hl-num { color: var(--hl-num); }
+        .hl-kw  { color: var(--hl-kw); }
+        .hl-typ { color: var(--hl-typ); }
+        .hl-fn  { color: var(--hl-fn); }
         .md-content hr { border: none; border-top: 1px solid var(--sep); margin: 1.6em 0; }
         .md-content img { max-width: 100%; border-radius: 6px; vertical-align: middle; }
         .md-content table { border-collapse: collapse; margin: .8em 0; width: auto; max-width: 100%; }
@@ -193,7 +214,7 @@
         #rich h5.md-active::before { content: "##### ";  }
         #rich h6.md-active::before { content: "###### "; }
         #rich blockquote.md-active > *:first-child::before { content: "> "; }
-        #rich pre.md-active::before { content: "```\A"; white-space: pre; }
+        #rich pre.md-active::before { content: "```" attr(data-lang) "\A"; white-space: pre; }
         #rich pre.md-active::after  { content: "\A```"; white-space: pre; }
         #rich .md-active strong::before, #rich .md-active strong::after,
         #rich .md-active b::before,      #rich .md-active b::after      { content: "**"; }
@@ -203,6 +224,9 @@
         #rich .md-active s::before,      #rich .md-active s::after,
         #rich .md-active strike::before, #rich .md-active strike::after { content: "~~"; }
         #rich .md-active code::before, #rich .md-active code::after { content: "`"; }
+        /* a <code> inside a code block is fenced by the pre's ``` marks, so it
+           must NOT also get the inline single-backtick marks */
+        #rich pre.md-active code::before, #rich pre.md-active code::after { content: none; }
         #rich .md-active a::before { content: "["; }
         #rich .md-active a::after  { content: "](" attr(href) ")"; }
 
@@ -749,6 +773,18 @@ td.addRule("relimg", {
         return "![" + alt + "](" + mdLinkDest(src) + (ttl ? ' "'+ttl+'"' : "") + ")";
     }
 });
+// Plain markdown collapses blank lines, so an intentional empty line would be
+// lost on reload. Serialize empty paragraphs as an &nbsp; line, which marked
+// re-renders as an empty paragraph (normalised back to a clean blank line on
+// load by normalizeEmptyParas) — making blank lines survive the round-trip.
+td.addRule("emptyPara", {
+    filter:function(node){
+        return node.nodeName === "P"
+            && !node.querySelector("img,hr,table,pre,code")
+            && node.textContent.replace(/[\s ​]+/g, "") === "";
+    },
+    replacement:function(){ return "\n\n&nbsp;\n\n"; }
+});
 
 // A markdown link/image destination containing spaces or parentheses must be
 // wrapped in angle brackets, otherwise parsers (marked) treat it as plain text
@@ -798,7 +834,7 @@ $(function(){
             updateActiveBlock();
         }
     });
-    $(document).on("selectionchange", debounce(function(){ updateToolbarState(); updateActiveBlock(); }, 80));
+    $(document).on("selectionchange", debounce(function(){ updateToolbarState(); updateActiveBlock(); syncCodeHighlight(); }, 80));
 
     $("#plain").on("input", function(){ markDirty(); updateStatBar(); });
 
@@ -832,13 +868,21 @@ function isMarkdownExt(name){
 // File load / save
 // ════════════════════════════════════════════════════════════════════════
 function loadFile(){
-    $.get(ao_root + "media?file=" + encodeURIComponent(filepath) + "&t=" + Date.now(), function(data){
-        if (typeof data !== "string") data = JSON.stringify(data, null, 2);
-        setContent(data);
-        dirtyFlag = false;
-        updateTitle(); updateStatBar();
-    }, "text").fail(function(){
-        setStatus("Failed to load file", "error");
+    // strong cache-buster: unique nonce + jQuery cache:false so the browser
+    // always fetches the freshly-saved file, never a stale cached copy
+    var nonce = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+    $.ajax({
+        url: ao_root + "media?file=" + encodeURIComponent(filepath) + "&nocache=" + nonce,
+        method: "GET",
+        dataType: "text",
+        cache: false,
+        success: function(data){
+            if (typeof data !== "string") data = JSON.stringify(data, null, 2);
+            setContent(data);
+            dirtyFlag = false;
+            updateTitle(); updateStatBar();
+        },
+        error: function(){ setStatus("Failed to load file", "error"); }
     });
 }
 
@@ -847,23 +891,76 @@ function setContent(text){
         plain.value = text;
     } else {
         rich.innerHTML = marked.parse(text || "");
+        normalizeEmptyParas(rich);
         rewriteImageSrcs(rich);
         refreshEmptyState();
         updateActiveBlock();
+        syncCodeHighlight();
+    }
+}
+
+// turn the &nbsp; placeholder paragraphs (see the emptyPara turndown rule) back
+// into clean empty lines so they edit naturally and round-trip stably
+function normalizeEmptyParas(root){
+    var ps = root.querySelectorAll("p");
+    for (var i = 0; i < ps.length; i++){
+        var p = ps[i];
+        if (!p.querySelector("img,hr,table,pre,code,br") &&
+            p.textContent.replace(/[\s ​]+/g, "") === ""){
+            p.innerHTML = "<br>";
+        }
     }
 }
 
 function getContent(){
     if (isTxtMode) return plain.value;
-    var src = rich;
-    if (rich.querySelector(".md-imgsyn")){          // drop editable image marks
-        src = rich.cloneNode(true);
-        var syns = src.querySelectorAll(".md-imgsyn");
-        for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
-    }
+    var src = rich.cloneNode(true);
+    var syns = src.querySelectorAll(".md-imgsyn");
+    for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
+    normalizeSerializableCodeBlocks(src);
     var html = src.innerHTML.replace(/​/g, "");
     var md = td.turndown(html);
-    return md.replace(/\n{3,}/g, "\n\n").replace(/^\s+|\s+$/g, "") + "\n";
+    return tidyMarkdown(md) + "\n";
+}
+
+function normalizeSerializableCodeBlocks(root){
+    var pres = root.querySelectorAll("pre");
+    for (var i = 0; i < pres.length; i++){
+        var pre = pres[i];
+        var codes = [];
+        for (var j = 0; j < pre.children.length; j++){
+            if (pre.children[j].tagName === "CODE") codes.push(pre.children[j]);
+        }
+        if (codes.length <= 1) continue;
+
+        var lang = pre.getAttribute("data-lang") || "";
+        var parts = [];
+        for (var k = 0; k < codes.length; k++){
+            var cls = codes[k].getAttribute("class") || "";
+            if (!lang){
+                var m = cls.match(/(?:^|\s)language-([A-Za-z0-9+#_-]+)/);
+                if (m) lang = m[1].toLowerCase();
+            }
+            parts.push(codes[k].textContent || "");
+        }
+
+        while (pre.firstChild) pre.removeChild(pre.firstChild);
+        var merged = document.createElement("code");
+        if (lang) merged.className = "language-" + lang;
+        merged.textContent = parts.join("").replace(/​/g, "");
+        pre.appendChild(merged);
+    }
+}
+
+// collapse runs of blank lines (turndown can emit extra) and trim the document
+// edges — but never touch the inside of a fenced code block, where blank lines
+// are significant content
+function tidyMarkdown(md){
+    var parts = md.split(/(```[\s\S]*?\n```)/g);
+    for (var i = 0; i < parts.length; i++){
+        if (i % 2 === 0) parts[i] = parts[i].replace(/\n{3,}/g, "\n\n");   // prose only
+    }
+    return parts.join("").replace(/^\s+|\s+$/g, "");
 }
 
 // rich.textContent minus the decoration marks (used for word count / empty state)
@@ -944,6 +1041,11 @@ function setMode(mode){
 function onRichInput(){
     var syn = activeImgSyn();
     if (syn){ syncImgFromSyn(syn); return; }   // editing an image mark, not prose
+    var code = activeCodeBlock();
+    if (code){                                  // typing code: stay plain, no autoformat
+        if (code.querySelector("*")) dehighlightCode(code);
+        markDirty(); updateStatBar(); return;
+    }
     markDirty();
     inlineAutoformat();
     refreshEmptyState();
@@ -970,6 +1072,8 @@ function onRichKeydown(e){
     // shallower / strips it. Backspace also unwraps a blockquote's "> " mark.
     if (e.key === "#" && editHeadingMark(1)){ e.preventDefault(); return; }
     if (e.key === "Backspace" && backspaceAtBlockStart()){ e.preventDefault(); return; }
+    if (e.key === "ArrowDown" && !e.shiftKey && exitCodeBlockDown()){ e.preventDefault(); return; }
+    if (e.key === "Enter" && activeCodeBlock()){ e.preventDefault(); insertNewlineInCode(); return; }
     if (e.key === " "){
         if (blockTransformOnSpace()) e.preventDefault();
     } else if (e.key === "Enter"){
@@ -1047,6 +1151,17 @@ function textBeforeCaret(block){
     return pre.toString();
 }
 
+// text in the current block from the caret to its end
+function textAfterCaret(block){
+    var sel = getSel();
+    if (!sel.rangeCount) return "";
+    var r = sel.getRangeAt(0);
+    var post = document.createRange();
+    post.selectNodeContents(block);
+    try { post.setStart(r.endContainer, r.endOffset); } catch(err){ return ""; }
+    return post.toString();
+}
+
 function blockTransformOnSpace(){
     var block = currentBlock();
     if (!block || block.tagName === "PRE") return false;
@@ -1092,8 +1207,9 @@ function blockTransformOnEnter(){
     var pre = textBeforeCaret(block).trim();
     var whole = block.textContent.trim();
 
-    if (block.tagName !== "PRE" && whole === "```"){
-        block.textContent = ""; insertCodeBlockAt(block); return true;
+    var fence = whole.match(/^```([A-Za-z0-9+#_-]*)$/);
+    if (block.tagName !== "PRE" && fence){
+        block.textContent = ""; insertCodeBlockAt(block, fence[1]); return true;
     }
     if (block.tagName !== "PRE" && (whole === "---" || whole === "***" || whole === "___")){
         var hr = document.createElement("hr");
@@ -1145,9 +1261,11 @@ function wrapBlockquote(block){
     placeCaretAtStart(p); markDirty();
 }
 
-function insertCodeBlockAt(block){
+function insertCodeBlockAt(block, lang){
     var pre = document.createElement("pre");
     var code = document.createElement("code");
+    if (lang){ code.className = "language-" + lang.toLowerCase(); }
+    pre.setAttribute("data-lang", lang ? lang.toLowerCase() : "");
     code.appendChild(document.createTextNode("​"));
     pre.appendChild(code);
     block.parentNode.replaceChild(pre, block);
@@ -1155,6 +1273,120 @@ function insertCodeBlockAt(block){
     r.setStart(code.firstChild, 1); r.collapse(true);
     var s = getSel(); s.removeAllRanges(); s.addRange(r);
     markDirty();
+}
+
+// pressing Down on the last line of a code block leaves it instead of wrapping
+// back to the top: move to the following block, creating a paragraph if needed
+function exitCodeBlockDown(){
+    var block = currentBlock();
+    if (!block || block.tagName !== "PRE") return false;
+    if (textAfterCaret(block).replace(/​/g, "").indexOf("\n") >= 0) return false; // more lines below
+    var next = block.nextElementSibling;
+    if (next){
+        placeCaretAtStart(next);
+    } else {
+        var p = document.createElement("p");
+        p.appendChild(document.createElement("br"));
+        block.parentNode.appendChild(p);
+        placeCaretAtStart(p); markDirty();
+    }
+    return true;
+}
+
+// ── Code-block syntax highlighting ──────────────────────────────────────
+// Highlighted code uses <span class="hl-*"> wrappers, which fight the caret
+// while typing — so a block is kept as PLAIN text while the caret is inside it
+// and (re)highlighted only when the caret leaves. syncCodeHighlight() runs on
+// selection change and after content loads to keep every block in the right
+// state. Serialization is unaffected: turndown reads the code's full textContent
+// plus its language-xxx class regardless of the inner spans.
+function codeLang(code){
+    var m = (code.getAttribute("class") || "").match(/language-([A-Za-z0-9+#_-]+)/);
+    return m ? m[1].toLowerCase() : "";
+}
+function activeCodeBlock(){
+    var sel = getSel();
+    var n = sel && sel.anchorNode;
+    if (!n) return null;
+    if (n.nodeType === 3) n = n.parentNode;
+    var pre = (n && n.closest) ? n.closest("pre") : null;
+    if (!pre || !rich.contains(pre)) return null;
+    return pre.querySelector("code");
+}
+function syncPreLang(code){
+    var pre = code.parentNode;
+    if (pre && pre.tagName === "PRE") pre.setAttribute("data-lang", codeLang(code));
+}
+// character offset of the caret within an element (stable across highlighting,
+// since the spans add no text)
+function caretOffsetIn(el){
+    var sel = getSel();
+    if (!sel.rangeCount) return null;
+    var r = sel.getRangeAt(0);
+    if (!el.contains(r.startContainer)) return null;
+    var pre = document.createRange();
+    pre.selectNodeContents(el);
+    try { pre.setEnd(r.startContainer, r.startOffset); } catch(e){ return null; }
+    return pre.toString().length;
+}
+function restoreCaretIn(el, offset){
+    if (offset == null) return;
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var node, count = 0;
+    while ((node = walker.nextNode())){
+        var len = node.data.length;
+        if (count + len >= offset){
+            var r = document.createRange();
+            r.setStart(node, Math.max(0, offset - count)); r.collapse(true);
+            var s = getSel(); s.removeAllRanges(); s.addRange(r);
+            return;
+        }
+        count += len;
+    }
+    var r2 = document.createRange(); r2.selectNodeContents(el); r2.collapse(false);
+    var s2 = getSel(); s2.removeAllRanges(); s2.addRange(r2);
+}
+function highlightCode(code){
+    if (code.querySelector("*")) { syncPreLang(code); return; }   // already highlighted
+    var lang = codeLang(code);
+    var text = code.textContent.replace(/​/g, "");
+    if (!lang || typeof TextHL === "undefined" || !TextHL.supports(lang) || text.trim() === ""){
+        syncPreLang(code); return;                                // unknown / empty → leave plain
+    }
+    code.innerHTML = TextHL.highlight(text, lang);
+    syncPreLang(code);
+}
+function dehighlightCode(code){
+    if (code.querySelector("*")){                                 // strip spans → plain text
+        var off = caretOffsetIn(code);
+        code.textContent = code.textContent.replace(/​/g, "");
+        if (off != null) restoreCaretIn(code, off);
+    }
+    syncPreLang(code);
+}
+function syncCodeHighlight(){
+    if (isTxtMode) return;
+    var active = activeCodeBlock();
+    var codes = rich.querySelectorAll("pre > code");
+    for (var i = 0; i < codes.length; i++){
+        if (codes[i] === active) dehighlightCode(codes[i]);
+        else highlightCode(codes[i]);
+    }
+}
+// Enter inside a code block inserts a real newline (not a <div>/<br>), so the
+// text stays line-accurate for highlighting and serialization
+function insertNewlineInCode(){
+    var sel = getSel();
+    if (!sel.rangeCount) return false;
+    var r = sel.getRangeAt(0); r.deleteContents();
+    var pre = currentBlock();
+    var atEnd = pre && textAfterCaret(pre).replace(/​/g, "") === "";
+    var tn = document.createTextNode(atEnd ? "\n​" : "\n");   // pad a trailing line so it shows
+    r.insertNode(tn);
+    r.setStart(tn, 1); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+    markDirty();
+    return true;
 }
 
 function placeCaretAtStart(el){
@@ -1332,7 +1564,7 @@ function updateActiveBlock(){
     clearDecorations();
     if (settings.syntax === "none") return;             // Always hide
     if (settings.syntax === "always"){
-        var all = rich.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote");
+        var all = rich.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote,pre");
         for (var j = 0; j < all.length; j++) decorateBlock(all[j]);
         return;
     }
@@ -1688,10 +1920,22 @@ function exportCSS(){
         ".md-content pre{margin:.8em 0;padding:14px 16px;background:"+code+";border-radius:8px;overflow-x:auto;}",
         ".md-content pre code{background:none;padding:0;} .md-content hr{border:none;border-top:1px solid "+sep+";margin:1.6em 0;}",
         ".md-content img{max-width:100%;border-radius:6px;}",
-        ".md-content table{border-collapse:collapse;margin:.8em 0;} .md-content th,.md-content td{border:1px solid "+tbl+";padding:6px 12px;} .md-content th{background:"+code+";}"
+        ".md-content table{border-collapse:collapse;margin:.8em 0;} .md-content th,.md-content td{border:1px solid "+tbl+";padding:6px 12px;} .md-content th{background:"+code+";}",
+        ".hl-com{color:"+getCss("--hl-com")+";font-style:italic;} .hl-str{color:"+getCss("--hl-str")+";} .hl-num{color:"+getCss("--hl-num")+";}",
+        ".hl-kw{color:"+getCss("--hl-kw")+";} .hl-typ{color:"+getCss("--hl-typ")+";} .hl-fn{color:"+getCss("--hl-fn")+";}"
     ].join("\n");
 }
 function getCss(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+
+// apply syntax highlighting to an export's fenced code blocks
+function highlightExportCode(root){
+    if (typeof TextHL === "undefined") return;
+    var codes = root.querySelectorAll("pre > code");
+    for (var i = 0; i < codes.length; i++){
+        var lang = codeLang(codes[i]);
+        if (lang && TextHL.supports(lang)) codes[i].innerHTML = TextHL.highlight(codes[i].textContent, lang);
+    }
+}
 
 // fetch a same-origin image and return a data URL (for self-contained export)
 function inlineImage(url){
@@ -1716,6 +1960,7 @@ function buildExportContainer(){
     var div = document.createElement("div");
     div.className = "md-content";
     div.innerHTML = renderedHTML();
+    highlightExportCode(div);           // colour fenced code so exports match the screen
     // resolve relative srcs to media URLs first
     $(div).find("img").each(function(){
         var rel = this.getAttribute("data-rel");
