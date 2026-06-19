@@ -368,6 +368,69 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* ── Notion mode: slash menu & AI ─────────────────────────────────── */
+        #slash-menu {
+            display: none; position: fixed; z-index: 150; width: 300px; max-height: 340px;
+            overflow-y: auto; background: var(--editor-bg); border: 1px solid var(--toolbar-bdr);
+            border-radius: 12px; box-shadow: var(--shadow); padding: 6px; scrollbar-width: thin;
+        }
+        #slash-menu.show { display: block; }
+        #slash-menu::-webkit-scrollbar { width: 6px; }
+        #slash-menu::-webkit-scrollbar-thumb { background: var(--sep); border-radius: 3px; }
+        .slash-group {
+            font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+            color: var(--text2); padding: 8px 10px 4px;
+        }
+        .slash-item {
+            display: flex; align-items: center; gap: 11px; padding: 7px 9px; border-radius: 8px;
+            cursor: pointer; user-select: none;
+        }
+        .slash-item.active { background: var(--accent-soft); }
+        .slash-ico {
+            flex-shrink: 0; width: 30px; height: 30px; display: flex; align-items: center;
+            justify-content: center; border: 1px solid var(--toolbar-bdr); border-radius: 7px;
+            background: var(--toolbar-bg); color: var(--text);
+        }
+        .slash-item.ai .slash-ico { color: var(--accent); }
+        .slash-ico svg { display: block; }
+        .slash-tx { min-width: 0; }
+        .slash-tt { font-size: 13px; font-weight: 600; color: var(--text); }
+        .slash-hint { font-size: 11px; color: var(--text2); margin-top: 1px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .slash-empty { padding: 14px 12px; font-size: 12.5px; color: var(--text2); text-align: center; }
+
+        /* inline "Ask AI" prompt */
+        #ai-panel {
+            display: none; position: fixed; z-index: 150; width: 380px; max-width: calc(100vw - 24px);
+            background: var(--editor-bg); border: 1px solid var(--accent); border-radius: 12px;
+            box-shadow: var(--shadow); padding: 10px;
+        }
+        #ai-panel.show { display: block; }
+        .ai-row { display: flex; align-items: center; gap: 8px; }
+        .ai-spark { flex-shrink: 0; color: var(--accent); display: flex; }
+        #ai-input {
+            flex: 1; min-width: 0; height: 32px; padding: 0 8px; border: none; outline: none;
+            background: none; color: var(--text); font-family: inherit; font-size: 13.5px;
+        }
+        .ai-go {
+            flex-shrink: 0; width: 30px; height: 30px; border: none; border-radius: 8px;
+            background: var(--accent); color: #fff; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .ai-go:disabled { opacity: .5; cursor: default; }
+        .ai-hint { font-size: 11px; color: var(--text2); padding: 6px 4px 2px; }
+
+        /* the placeholder block shown while the model is generating */
+        .ai-pending {
+            display: flex !important; align-items: center; gap: 9px; color: var(--text2);
+            font-size: 13px; font-style: italic; user-select: none;
+        }
+        .ai-spin {
+            display: inline-block; width: 15px; height: 15px; flex-shrink: 0;
+            border: 2px solid var(--accent-soft); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin .8s linear infinite;
+        }
+
         /* ── Responsive ───────────────────────────────────────────────────── */
         @media (max-width: 680px) {
             .tb-label, .tb-btn .tb-text { display: none; }
@@ -494,6 +557,11 @@
 
         <div class="tb-spacer"></div>
 
+        <button class="tb-btn md-only" id="btn-notion" onclick="toggleNotionMode()" title="Notion mode — type / for quick blocks &amp; AI">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9z"/><path d="M19 14l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
+            <span class="tb-text">AI</span>
+        </button>
+
         <button class="tb-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">
             <svg id="icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             <svg id="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -561,6 +629,10 @@
             <button class="nav-item" data-sec="images" onclick="showSection('images')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 Images
+            </button>
+            <button class="nav-item" data-sec="ai" onclick="showSection('ai')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9z"/><path d="M19 14l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
+                Notion &amp; AI
             </button>
         </div>
         <div id="settings-body">
@@ -647,6 +719,30 @@
                     <div class="set-ctl"><input type="number" min="0" max="8000" class="set-input num" id="set-maxw" onchange="saveImgPrefs()"> px</div>
                 </div>
             </div>
+
+            <!-- Notion & AI -->
+            <div class="settings-section" id="sec-ai">
+                <h2>Notion mode &amp; AI</h2>
+                <div class="sub">Type <b>/</b> in the editor for a quick-insert menu of blocks and AI actions. AI uses the current document as context.</div>
+
+                <div class="set-row">
+                    <div><div class="set-label">Notion mode</div><div class="set-desc">Enable the slash command menu while editing Markdown.</div></div>
+                    <div class="set-ctl"><label class="switch"><input type="checkbox" id="set-notion" onchange="setNotionMode(this.checked)"><span class="slider"></span></label></div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">AI model</div><div class="set-desc">Endpoint &amp; key are configured by an admin in System Settings &gt; AI Model.</div></div>
+                    <div class="set-ctl"><select class="set-select" id="set-aimodel" style="max-width:170px;" onchange="saveAIPrefs()">
+                        <option value="">Server default</option>
+                    </select></div>
+                </div>
+                <div class="set-row">
+                    <div><div class="set-label">Creativity</div><div class="set-desc">Lower is more focused, higher is more varied (temperature).</div></div>
+                    <div class="set-ctl"><div class="range-wrap">
+                        <input type="range" min="0" max="1" step="0.1" id="set-aitemp" oninput="onAITempInput()" onchange="saveAIPrefs()">
+                        <span id="aitemp-val" style="width:30px;">0.7</span>
+                    </div></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -665,6 +761,21 @@
 </div>
 
 <div id="busy"><div class="spin"></div><span id="busy-msg">Working…</span></div>
+
+<!-- ── Notion mode: slash command menu ───────────────────────────────────── -->
+<div id="slash-menu"></div>
+
+<!-- ── Notion mode: inline "Ask AI" prompt ───────────────────────────────── -->
+<div id="ai-panel">
+    <div class="ai-row">
+        <span class="ai-spark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9z"/><path d="M19 14l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span>
+        <input id="ai-input" type="text" autocomplete="off" spellcheck="false" placeholder="Ask AI to write anything…">
+        <button class="ai-go" id="ai-go" onclick="submitAIPanel()" title="Generate">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+    </div>
+    <div class="ai-hint">Uses this document as context · Enter to run · Esc to cancel</div>
+</div>
 
 <script>
 "use strict";
@@ -688,7 +799,8 @@ var plain = document.getElementById("plain");
 // ── Settings (defaults) ─────────────────────────────────────────────────
 var settings = {
     font: "system", fontSize: 16, lineHeight: "1.7", syntax: "active",
-    imgDir: "img/{name}", compress: false, quality: 80, maxWidth: 1600
+    imgDir: "img/{name}", compress: false, quality: 80, maxWidth: 1600,
+    notionMode: true, aiModel: "", aiTemp: 0.7
 };
 
 var FONT_MAP = {
@@ -949,6 +1061,7 @@ function onRichInput(){
     refreshEmptyState();
     updateActiveBlock();
     updateStatBar();
+    checkSlash();                              // Notion-mode "/" command menu
 }
 
 function refreshEmptyState(){
@@ -957,6 +1070,8 @@ function refreshEmptyState(){
 }
 
 function onRichKeydown(e){
+    // Notion-mode slash menu owns the navigation keys while it is open
+    if (slashOpen && handleSlashKeydown(e)) return;
     // editing an image mark: Enter/Esc commit, everything else types normally
     var syn = activeImgSyn();
     if (syn){
@@ -2193,6 +2308,7 @@ function showSection(sec){
     $('.nav-item[data-sec="'+sec+'"]').addClass("active");
     $(".settings-section").removeClass("active");
     $("#sec-" + sec).addClass("active");
+    if (sec === "ai") loadAIModels();
 }
 
 function syncSettingsUI(){
@@ -2206,9 +2322,14 @@ function syncSettingsUI(){
     $("#set-quality").val(settings.quality);
     $("#quality-val").text(settings.quality + "%");
     $("#set-maxw").val(settings.maxWidth);
+    $("#set-notion").prop("checked", settings.notionMode);
+    $("#set-aimodel").val(settings.aiModel || "");
+    $("#set-aitemp").val(settings.aiTemp);
+    $("#aitemp-val").text(parseFloat(settings.aiTemp).toFixed(1));
     $("#seg-mode button").removeClass("active");
     $('#seg-mode button[data-mode="'+(isTxtMode?"txt":"md")+'"]').addClass("active");
     onCompressToggle(true);
+    updateNotionButton();
 }
 
 function applyTypography(){
@@ -2342,6 +2463,409 @@ function positionMenu(m){
 function hideMenus(){ $(".menu").removeClass("show"); }
 function showBusy(msg){ $("#busy-msg").text(msg || "Working…"); $("#busy").addClass("show"); }
 function hideBusy(){ $("#busy").removeClass("show"); }
+
+// ════════════════════════════════════════════════════════════════════════
+// Notion mode — "/" slash command menu + AI actions
+// ════════════════════════════════════════════════════════════════════════
+var slashOpen     = false;   // is the slash menu currently shown
+var slashQuery    = "";      // text typed after "/"
+var slashFiltered = [];      // SLASH_ITEMS matching slashQuery
+var slashActive   = 0;       // highlighted item index (into slashFiltered)
+var aiAnchorBlock = null;    // block where AI output should be inserted
+var aiModelsLoaded = false;  // models list fetched once
+
+// Small inline icons (drawn as SVG / typography — never emoji)
+var SVG = {
+    text:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="9" y1="20" x2="15" y2="20"/></svg>',
+    todo:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="8 12 11 15 16 9"/></svg>',
+    bullet: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    number: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><text x="2" y="8" font-size="7" fill="currentColor" stroke="none">1</text><text x="2" y="14" font-size="7" fill="currentColor" stroke="none">2</text><text x="2" y="20" font-size="7" fill="currentColor" stroke="none">3</text></svg>',
+    quote:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h4v4H8.5c0 1.4.6 2 2 2v2c-2.5 0-3.5-1.5-3.5-4V7zm7 0h4v4h-2.5c0 1.4.6 2 2 2v2c-2.5 0-3.5-1.5-3.5-4V7z"/></svg>',
+    code:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+    table:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+    rule:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/></svg>',
+    spark:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9z"/><path d="M19 14l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>',
+    arrow:  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    sum:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="9" y2="18"/></svg>',
+    bulb:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>'
+};
+
+// Each slash command: a block insert (run) or an AI action (ai + mode).
+var SLASH_ITEMS = [
+    { group:"Basic blocks", label:"Text",          hint:"Plain paragraph",             keywords:"paragraph plain body",    icon:SVG.text,   run:function(){ setBlock("p"); } },
+    { group:"Basic blocks", label:"Heading 1",     hint:"Large section heading",        keywords:"h1 title big",            icon:'<b style="font-size:12px;">H1</b>', run:function(){ setBlock("h1"); } },
+    { group:"Basic blocks", label:"Heading 2",     hint:"Medium section heading",       keywords:"h2 subtitle",             icon:'<b style="font-size:12px;">H2</b>', run:function(){ setBlock("h2"); } },
+    { group:"Basic blocks", label:"Heading 3",     hint:"Small section heading",        keywords:"h3",                      icon:'<b style="font-size:12px;">H3</b>', run:function(){ setBlock("h3"); } },
+    { group:"Basic blocks", label:"To-do list",    hint:"Track tasks with a checkbox",  keywords:"todo task checkbox",      icon:SVG.todo,   run:function(){ insertTaskList(); } },
+    { group:"Basic blocks", label:"Bullet list",   hint:"Simple bulleted list",         keywords:"bullet unordered ul",     icon:SVG.bullet, run:function(){ actBullet(); } },
+    { group:"Basic blocks", label:"Numbered list", hint:"Ordered list",                 keywords:"number ordered ol",       icon:SVG.number, run:function(){ actNumber(); } },
+    { group:"Basic blocks", label:"Quote",         hint:"Capture a quotation",          keywords:"quote blockquote",        icon:SVG.quote,  run:function(){ actQuote(); } },
+    { group:"Basic blocks", label:"Code block",    hint:"Monospaced code",              keywords:"code pre fenced",         icon:SVG.code,   run:function(){ actCodeBlock(); } },
+    { group:"Basic blocks", label:"Table",         hint:"Insert a 2 x 2 table",         keywords:"table grid",              icon:SVG.table,  run:function(){ insertTable(); } },
+    { group:"Basic blocks", label:"Divider",       hint:"Horizontal rule",              keywords:"divider hr rule line",    icon:SVG.rule,   run:function(){ actHr(); } },
+
+    { group:"AI", ai:true, mode:"ask",        label:"Ask AI",          hint:"Write anything from a prompt",  keywords:"ai ask write prompt gpt", icon:SVG.spark },
+    { group:"AI", ai:true, mode:"continue",   label:"Continue writing", hint:"Let AI keep writing",          keywords:"ai continue autocomplete", icon:SVG.arrow },
+    { group:"AI", ai:true, mode:"summarize",  label:"Summarize",        hint:"Summarize this document",       keywords:"ai summary tldr",          icon:SVG.sum },
+    { group:"AI", ai:true, mode:"brainstorm", label:"Brainstorm ideas", hint:"Ideas based on this document",  keywords:"ai brainstorm ideas",      icon:SVG.bulb },
+    { group:"AI", ai:true, mode:"outline",    label:"Outline",          hint:"Generate a structured outline", keywords:"ai outline structure",     icon:SVG.sum }
+];
+
+// ── Toolbar toggle ──────────────────────────────────────────────────────
+function toggleNotionMode(){ setNotionMode(!settings.notionMode); }
+function setNotionMode(on){
+    settings.notionMode = !!on;
+    if (!settings.notionMode) closeSlash();
+    updateNotionButton();
+    $("#set-notion").prop("checked", settings.notionMode);
+    savePrefs();
+    setStatus(settings.notionMode ? "Notion mode on — type / for commands" : "Notion mode off");
+}
+function updateNotionButton(){ $("#btn-notion").toggleClass("active", !!settings.notionMode); }
+
+// ── Slash detection / menu ──────────────────────────────────────────────
+// Trigger when a "/" sits at the block start or just after whitespace, with an
+// optional word query after it (the same rule Notion uses).
+function checkSlash(){
+    if (!settings.notionMode || isTxtMode){ if (slashOpen) closeSlash(); return; }
+    var sel = getSel();
+    if (!sel.rangeCount || !sel.isCollapsed){ if (slashOpen) closeSlash(); return; }
+    var block = currentBlock();
+    if (!block || block.tagName === "PRE"){ if (slashOpen) closeSlash(); return; }
+    var pre = textBeforeCaret(block).replace(/​/g, "");
+    var m = /(?:^|\s)\/(\w*)$/.exec(pre);
+    if (!m){ if (slashOpen) closeSlash(); return; }
+    slashQuery = m[1];
+    openOrUpdateSlash();
+}
+
+function openOrUpdateSlash(){
+    var wasOpen = slashOpen;
+    slashOpen = true;
+    renderSlashMenu();
+    if (!wasOpen){
+        $("#slash-menu").addClass("show");
+        positionSlashMenu();    // anchor once at the "/" — don't chase the caret while filtering
+    }
+}
+
+function renderSlashMenu(){
+    var q = (slashQuery || "").toLowerCase();
+    slashFiltered = [];
+    for (var i = 0; i < SLASH_ITEMS.length; i++){
+        var it = SLASH_ITEMS[i];
+        if (!q || it.label.toLowerCase().indexOf(q) >= 0 || (it.keywords || "").indexOf(q) >= 0){
+            slashFiltered.push(it);
+        }
+    }
+    if (slashActive >= slashFiltered.length) slashActive = 0;
+
+    var html = "", lastGroup = "";
+    if (slashFiltered.length === 0){
+        html = '<div class="slash-empty">No matching commands</div>';
+    } else {
+        for (var j = 0; j < slashFiltered.length; j++){
+            var f = slashFiltered[j];
+            if (f.group !== lastGroup){ html += '<div class="slash-group">' + escapeHtml(f.group) + '</div>'; lastGroup = f.group; }
+            html += '<div class="slash-item' + (f.ai ? ' ai' : '') + (j === slashActive ? ' active' : '') + '" data-idx="' + j + '">' +
+                        '<span class="slash-ico">' + f.icon + '</span>' +
+                        '<span class="slash-tx"><div class="slash-tt">' + escapeHtml(f.label) + '</div>' +
+                        (f.hint ? '<div class="slash-hint">' + escapeHtml(f.hint) + '</div>' : '') + '</span>' +
+                    '</div>';
+        }
+    }
+    document.getElementById("slash-menu").innerHTML = html;
+}
+
+function paintSlashActive(){
+    var items = document.querySelectorAll("#slash-menu .slash-item");
+    for (var i = 0; i < items.length; i++){
+        var on = (parseInt(items[i].getAttribute("data-idx"), 10) === slashActive);
+        items[i].classList.toggle("active", on);
+        if (on && items[i].scrollIntoView) items[i].scrollIntoView({ block: "nearest" });
+    }
+}
+
+function positionSlashMenu(){
+    var rect = caretRect(); if (!rect) return;
+    var menu = document.getElementById("slash-menu");
+    var mw = menu.offsetWidth || 300, mh = menu.offsetHeight || 0;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = rect.left, top = rect.bottom + 6;
+    if (left + mw > vw - 8) left = vw - mw - 8;
+    if (left < 8) left = 8;
+    if (mh && top + mh > vh - 8){
+        var above = rect.top - mh - 6;
+        top = (above > 8) ? above : Math.max(8, vh - mh - 8);
+    }
+    menu.style.left = left + "px";
+    menu.style.top  = top + "px";
+}
+
+function closeSlash(){
+    slashOpen = false; slashQuery = ""; slashFiltered = []; slashActive = 0;
+    $("#slash-menu").removeClass("show");
+}
+
+function moveSlashActive(dir){
+    if (!slashFiltered.length) return;
+    slashActive = (slashActive + dir + slashFiltered.length) % slashFiltered.length;
+    paintSlashActive();
+}
+function currentSlashItem(){ return slashFiltered[slashActive] || null; }
+
+// returns true when it consumed the key (caller should stop further handling)
+function handleSlashKeydown(e){
+    switch (e.key){
+        case "ArrowDown": moveSlashActive(1);  e.preventDefault(); e.stopPropagation(); return true;
+        case "ArrowUp":   moveSlashActive(-1); e.preventDefault(); e.stopPropagation(); return true;
+        case "Enter":
+        case "Tab": {
+            var it = currentSlashItem();
+            e.preventDefault(); e.stopPropagation();
+            if (it) chooseSlashItem(it); else closeSlash();
+            return true;
+        }
+        case "Escape": closeSlash(); e.preventDefault(); e.stopPropagation(); return true;
+        case "ArrowLeft": case "ArrowRight": case "Home": case "End":
+            closeSlash(); return false;   // let the caret move away normally
+        default: return false;            // typing / backspace flows to the input handler
+    }
+}
+
+function chooseSlashItem(it){
+    deleteSlashText();      // remove the "/query" the user typed
+    closeSlash();
+    if (it.ai){
+        aiAnchorBlock = currentBlock();
+        if (it.mode === "ask") openAIPanel();
+        else runAI(it.mode, it.label);
+    } else if (typeof it.run === "function"){
+        it.run();
+    }
+}
+
+// remove the "/" plus the typed query immediately before the caret
+function deleteSlashText(){
+    var sel = getSel();
+    if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    var node = r.startContainer, offset = r.startOffset;
+    var del = (slashQuery ? slashQuery.length : 0) + 1;
+    if (node.nodeType === 3 && offset >= del){
+        var dr = document.createRange();
+        dr.setStart(node, offset - del); dr.setEnd(node, offset);
+        dr.deleteContents();
+        var nr = document.createRange();
+        nr.setStart(node, offset - del); nr.collapse(true);
+        sel.removeAllRanges(); sel.addRange(nr);
+    } else {
+        for (var i = 0; i < del; i++){ try { document.execCommand("delete", false, null); } catch(e){} }
+    }
+}
+
+// ── Caret / block helpers ───────────────────────────────────────────────
+function caretRect(){
+    var sel = getSel();
+    if (sel.rangeCount){
+        var rects = sel.getRangeAt(0).cloneRange().getClientRects();
+        if (rects && rects.length) return rects[0];
+    }
+    var block = currentBlock();          // fallback: under the current block
+    if (block) return block.getBoundingClientRect();
+    return rich.getBoundingClientRect();
+}
+function isBlockEmpty(block){
+    if (!block) return false;
+    if (block.querySelector && block.querySelector("img,hr,table")) return false;
+    return block.textContent.replace(/​/g, "").trim() === "";
+}
+function placeCaretAtEnd(el){
+    var r = document.createRange();
+    r.selectNodeContents(el); r.collapse(false);
+    var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    rich.focus();
+}
+
+// ── Extra block inserts used by the slash menu ──────────────────────────
+function insertTable(){
+    if (isTxtMode) return;
+    var block = currentBlock(); if (!block){ rich.focus(); block = currentBlock(); }
+    if (!block) return;
+    var table = document.createElement("table");
+    table.innerHTML = '<thead><tr><th>Column 1</th><th>Column 2</th></tr></thead>' +
+                      '<tbody><tr><td>​</td><td>​</td></tr><tr><td>​</td><td>​</td></tr></tbody>';
+    var after = document.createElement("p"); after.appendChild(document.createElement("br"));
+    block.parentNode.insertBefore(table, block);
+    block.parentNode.insertBefore(after, block);
+    if (isBlockEmpty(block)) block.parentNode.removeChild(block);
+    var cell = table.querySelector("th,td");
+    if (cell){ var r = document.createRange(); r.selectNodeContents(cell); r.collapse(true); var s = getSel(); s.removeAllRanges(); s.addRange(r); }
+    rich.focus(); markDirty(); updateActiveBlock(); updateStatBar();
+}
+
+function insertTaskList(){
+    if (isTxtMode) return;
+    var block = currentBlock(); if (!block){ rich.focus(); block = currentBlock(); }
+    if (!block) return;
+    var ul = document.createElement("ul"); ul.className = "contains-task-list";
+    var li = document.createElement("li"); li.className = "task-list-item";
+    var cb = document.createElement("input"); cb.type = "checkbox";
+    li.appendChild(cb); li.appendChild(document.createTextNode("​"));
+    ul.appendChild(li);
+    if (isBlockEmpty(block)) block.parentNode.replaceChild(ul, block);
+    else if (block.nextSibling) block.parentNode.insertBefore(ul, block.nextSibling);
+    else block.parentNode.appendChild(ul);
+    var r = document.createRange(); r.setStart(li, li.childNodes.length); r.collapse(true);
+    var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    rich.focus(); markDirty(); updateActiveBlock(); updateStatBar();
+}
+
+// ── Inline "Ask AI" prompt panel ────────────────────────────────────────
+function openAIPanel(){
+    var rect = caretRect();
+    var panel = document.getElementById("ai-panel");
+    document.getElementById("ai-input").value = "";
+    $("#ai-go").prop("disabled", false);
+    $(panel).addClass("show");
+    var pw = panel.offsetWidth || 380, ph = panel.offsetHeight || 0;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = rect ? rect.left : 20, top = rect ? rect.bottom + 6 : 80;
+    if (left + pw > vw - 8) left = Math.max(8, vw - pw - 8);
+    if (left < 8) left = 8;
+    if (ph && top + ph > vh - 8){ var above = (rect ? rect.top : 80) - ph - 6; top = (above > 8) ? above : Math.max(8, vh - ph - 8); }
+    panel.style.left = left + "px"; panel.style.top = top + "px";
+    setTimeout(function(){ document.getElementById("ai-input").focus(); }, 0);
+}
+function closeAIPanel(){ $("#ai-panel").removeClass("show"); document.getElementById("ai-input").value = ""; }
+function submitAIPanel(){
+    var v = document.getElementById("ai-input").value.replace(/^\s+|\s+$/g, "");
+    if (!v){ document.getElementById("ai-input").focus(); return; }
+    closeAIPanel();
+    runAI("ask", v);
+}
+
+// ── Run an AI action: feed the whole document as context, stream result in ─
+function runAI(mode, instruction){
+    var docText = getContent();                 // the document is the context
+    var anchor = (aiAnchorBlock && aiAnchorBlock.parentNode) ? aiAnchorBlock : null;
+    aiAnchorBlock = null;
+    var ph = makePendingBlock();
+    if (anchor){
+        if (isBlockEmpty(anchor)) anchor.parentNode.replaceChild(ph, anchor);
+        else if (anchor.nextSibling) anchor.parentNode.insertBefore(ph, anchor.nextSibling);
+        else anchor.parentNode.appendChild(ph);
+    } else {
+        rich.appendChild(ph);
+    }
+    refreshEmptyState(); markDirty();
+    setStatus("AI is writing…");
+    callAI(mode, instruction, docText, function(resp){
+        if (resp && resp.ok && ("" + resp.content).replace(/^\s+|\s+$/g, "") !== ""){
+            replacePendingWithMarkdown(ph, resp.content);
+            setStatus("AI content inserted");
+        } else {
+            removePending(ph);
+            setStatus("AI error: " + ((resp && resp.error) ? resp.error : "no response"), "error");
+        }
+    });
+}
+
+function makePendingBlock(){
+    var p = document.createElement("p");
+    p.className = "ai-pending";
+    p.setAttribute("contenteditable", "false");
+    var sp = document.createElement("span"); sp.className = "ai-spin";
+    p.appendChild(sp);
+    p.appendChild(document.createTextNode("AI is writing…"));
+    return p;
+}
+
+function replacePendingWithMarkdown(ph, md){
+    var parent = ph.parentNode; if (!parent) return;
+    var tmp = document.createElement("div");
+    tmp.innerHTML = marked.parse("" + (md || ""));
+    rewriteImageSrcs(tmp);
+    var last = null;
+    while (tmp.firstChild){ last = tmp.firstChild; parent.insertBefore(last, ph); }
+    parent.removeChild(ph);
+    if (!rich.firstChild){ var np = document.createElement("p"); np.appendChild(document.createElement("br")); rich.appendChild(np); last = np; }
+    if (last) placeCaretAtEnd(last);
+    refreshEmptyState(); markDirty(); updateActiveBlock(); updateStatBar();
+}
+
+function removePending(ph){
+    if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
+    if (!rich.firstChild){ var np = document.createElement("p"); np.appendChild(document.createElement("br")); rich.appendChild(np); placeCaretAtStart(np); }
+    refreshEmptyState(); updateStatBar();
+}
+
+function callAI(mode, instruction, docText, cb){
+    ao_module_agirun("Text/ai.agi", {
+        action:      "chat",
+        mode:        mode || "ask",
+        instruction: instruction || "",
+        docText:     docText || "",
+        model:       settings.aiModel || "",
+        temperature: "" + settings.aiTemp
+    }, function(data){
+        var r; try { r = (typeof data === "string") ? JSON.parse(data) : data; }
+        catch(e){ r = { ok:false, error:"unexpected server response" }; }
+        cb(r);
+    }, function(){ cb({ ok:false, error:"request failed (is the AI model configured in System Settings?)" }); }, 0);
+}
+
+// ── AI settings (model list + temperature) ──────────────────────────────
+function saveAIPrefs(){
+    settings.aiModel = $("#set-aimodel").val() || "";
+    var t = parseFloat($("#set-aitemp").val());
+    settings.aiTemp = isNaN(t) ? 0.7 : t;
+    savePrefs();
+}
+function onAITempInput(){ $("#aitemp-val").text(parseFloat($("#set-aitemp").val()).toFixed(1)); }
+function loadAIModels(){
+    if (aiModelsLoaded) return;
+    aiModelsLoaded = true;
+    ao_module_agirun("Text/ai.agi", { action:"models" }, function(data){
+        var r; try { r = (typeof data === "string") ? JSON.parse(data) : data; } catch(e){ return; }
+        if (!r || !r.ok || !r.models || !r.models.length) return;
+        var sel = $("#set-aimodel"), cur = settings.aiModel || "";
+        sel.find("option").slice(1).remove();          // keep the "Server default" option
+        for (var i = 0; i < r.models.length; i++){
+            sel.append('<option value="' + escapeAttr(r.models[i]) + '">' + escapeHtml(r.models[i]) + '</option>');
+        }
+        sel.val(cur);
+    }, function(){ /* leave the default option in place */ }, 0);
+}
+
+// ── Notion-mode event wiring ────────────────────────────────────────────
+$(function(){
+    updateNotionButton();
+
+    // choose an item with the mouse (mousedown keeps the editor selection alive)
+    $("#slash-menu").on("mousedown", ".slash-item", function(e){
+        e.preventDefault();
+        var idx = parseInt(this.getAttribute("data-idx"), 10);
+        if (slashFiltered[idx]) chooseSlashItem(slashFiltered[idx]);
+    });
+    $("#slash-menu").on("mousemove", ".slash-item", function(){
+        var idx = parseInt(this.getAttribute("data-idx"), 10);
+        if (!isNaN(idx) && idx !== slashActive){ slashActive = idx; paintSlashActive(); }
+    });
+
+    var aiInput = document.getElementById("ai-input");
+    aiInput.addEventListener("keydown", function(e){
+        if (e.key === "Enter"){ e.preventDefault(); e.stopPropagation(); submitAIPanel(); }
+        else if (e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); closeAIPanel(); rich.focus(); }
+    });
+
+    // dismiss the popups when clicking elsewhere
+    document.addEventListener("mousedown", function(e){
+        if (slashOpen && !e.target.closest("#slash-menu")) closeSlash();
+        if ($("#ai-panel").hasClass("show") && !e.target.closest("#ai-panel")) closeAIPanel();
+    });
+    window.addEventListener("resize", function(){ if (slashOpen) positionSlashMenu(); });
+});
 
 // ── helpers ─────────────────────────────────────────────────────────────
 function escapeHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
