@@ -181,6 +181,54 @@
         .md-content li.task-list-item { list-style: none; }
         .md-content input[type=checkbox] { margin-right: .5em; }
 
+        /* ── Markdown source-mark hints (Typora-style reveal) ─────────────────
+           Shown via pseudo-elements gated by the .md-active class, which is set
+           on the active block (or every block, in "always" mode) by
+           updateActiveBlock(). Because these are pseudo-elements they never enter
+           the DOM model — serialization, word count and editing are untouched. */
+        #rich h1.md-active::before { content: "# ";      }
+        #rich h2.md-active::before { content: "## ";     }
+        #rich h3.md-active::before { content: "### ";    }
+        #rich h4.md-active::before { content: "#### ";   }
+        #rich h5.md-active::before { content: "##### ";  }
+        #rich h6.md-active::before { content: "###### "; }
+        #rich blockquote.md-active > *:first-child::before { content: "> "; }
+        #rich pre.md-active::before { content: "```\A"; white-space: pre; }
+        #rich pre.md-active::after  { content: "\A```"; white-space: pre; }
+        #rich .md-active strong::before, #rich .md-active strong::after,
+        #rich .md-active b::before,      #rich .md-active b::after      { content: "**"; }
+        #rich .md-active em::before, #rich .md-active em::after,
+        #rich .md-active i::before,  #rich .md-active i::after          { content: "*"; }
+        #rich .md-active del::before,    #rich .md-active del::after,
+        #rich .md-active s::before,      #rich .md-active s::after,
+        #rich .md-active strike::before, #rich .md-active strike::after { content: "~~"; }
+        #rich .md-active code::before, #rich .md-active code::after { content: "`"; }
+        #rich .md-active a::before { content: "["; }
+        #rich .md-active a::after  { content: "](" attr(href) ")"; }
+
+        /* shared mark appearance: muted + semi-transparent so it reads as a hint
+           and never as content; not selectable since it's a pseudo-element. */
+        #rich .md-active::before, #rich .md-active::after,
+        #rich .md-active *::before, #rich .md-active *::after {
+            color: var(--text2); opacity: .42; font-weight: 400; font-style: normal;
+        }
+        /* <img> is a replaced element and can't host pseudo-content, so its
+           ![alt](src) mark is a real, editable label inserted above the image by
+           updateActiveBlock(). Editing it re-points the image (see syncImgFromSyn);
+           it is stripped from the document on serialize. */
+        #rich .md-imgsyn {
+            display: block; width: fit-content; max-width: 100%;
+            font-family: 'SF Mono','Consolas','Courier New',monospace;
+            font-size: .78em; color: var(--text2); opacity: .62;
+            margin-bottom: 5px; padding: 1px 4px; line-height: 1.4;
+            word-break: break-all; outline: none; cursor: text; border-radius: 4px;
+        }
+        #rich .md-imgsyn:hover { opacity: .85; }
+        #rich .md-imgsyn:focus {
+            opacity: 1; color: var(--text); background: var(--code-bg);
+            box-shadow: inset 0 0 0 1px var(--accent);
+        }
+
         /* ── Status bar ───────────────────────────────────────────────────── */
         #statusbar {
             flex-shrink: 0; height: var(--statusbar-h); display: flex; align-items: center;
@@ -528,6 +576,14 @@
                         <button data-mode="txt" onclick="setMode('txt')">Plain text</button>
                     </div></div>
                 </div>
+                <div class="set-row md-only">
+                    <div><div class="set-label">Markdown syntax</div><div class="set-desc">Reveal the markdown marks (#, **, &gt;, …) so you can see and edit the source.</div></div>
+                    <div class="set-ctl"><select class="set-select" id="set-syntax" onchange="applySyntaxMode()">
+                        <option value="active">Show on selected line</option>
+                        <option value="always">Always show</option>
+                        <option value="none">Always hide</option>
+                    </select></div>
+                </div>
                 <div class="set-row">
                     <div><div class="set-label">Dark theme</div><div class="set-desc">Match a dark workspace.</div></div>
                     <div class="set-ctl"><label class="switch"><input type="checkbox" id="set-dark" onchange="setTheme(this.checked)"><span class="slider"></span></label></div>
@@ -631,7 +687,7 @@ var plain = document.getElementById("plain");
 
 // ── Settings (defaults) ─────────────────────────────────────────────────
 var settings = {
-    font: "system", fontSize: 16, lineHeight: "1.7",
+    font: "system", fontSize: 16, lineHeight: "1.7", syntax: "active",
     imgDir: "img/{name}", compress: false, quality: 80, maxWidth: 1600
 };
 
@@ -733,7 +789,16 @@ $(function(){
     $("#rich").on("paste",  onRichPaste);
     $("#rich").on("drop",   onRichDrop);
     $("#rich").on("dragover", function(e){ e.preventDefault(); });
-    $(document).on("selectionchange", debounce(updateToolbarState, 80));
+    // clicking an image doesn't always move the caret, so nudge it to the
+    // image's block and reveal that block's ![alt](src) mark
+    $("#rich").on("click", function(e){
+        if (e.target && e.target.tagName === "IMG"){
+            var r = document.createRange(); r.selectNode(e.target); r.collapse(false);
+            var s = getSel(); s.removeAllRanges(); s.addRange(r);
+            updateActiveBlock();
+        }
+    });
+    $(document).on("selectionchange", debounce(function(){ updateToolbarState(); updateActiveBlock(); }, 80));
 
     $("#plain").on("input", function(){ markDirty(); updateStatBar(); });
 
@@ -784,14 +849,30 @@ function setContent(text){
         rich.innerHTML = marked.parse(text || "");
         rewriteImageSrcs(rich);
         refreshEmptyState();
+        updateActiveBlock();
     }
 }
 
 function getContent(){
     if (isTxtMode) return plain.value;
-    var html = rich.innerHTML.replace(/​/g, "");
+    var src = rich;
+    if (rich.querySelector(".md-imgsyn")){          // drop editable image marks
+        src = rich.cloneNode(true);
+        var syns = src.querySelectorAll(".md-imgsyn");
+        for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
+    }
+    var html = src.innerHTML.replace(/​/g, "");
     var md = td.turndown(html);
     return md.replace(/\n{3,}/g, "\n\n").replace(/^\s+|\s+$/g, "") + "\n";
+}
+
+// rich.textContent minus the decoration marks (used for word count / empty state)
+function richPlainText(){
+    if (!rich.querySelector(".md-imgsyn")) return rich.textContent.replace(/​/g, "");
+    var clone = rich.cloneNode(true);
+    var syns = clone.querySelectorAll(".md-imgsyn");
+    for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
+    return clone.textContent.replace(/​/g, "");
 }
 
 function saveFile(){
@@ -843,6 +924,7 @@ function applyMode(){
     $("#seg-mode button").removeClass("active");
     $('#seg-mode button[data-mode="' + (isTxtMode ? "txt" : "md") + '"]').addClass("active");
     applyTypography();
+    updateActiveBlock();
 }
 
 // invoked from the settings segmented control — converts current content
@@ -860,25 +942,84 @@ function setMode(mode){
 // WYSIWYG editing
 // ════════════════════════════════════════════════════════════════════════
 function onRichInput(){
+    var syn = activeImgSyn();
+    if (syn){ syncImgFromSyn(syn); return; }   // editing an image mark, not prose
     markDirty();
     inlineAutoformat();
     refreshEmptyState();
+    updateActiveBlock();
     updateStatBar();
 }
 
 function refreshEmptyState(){
-    var t = rich.textContent.replace(/​/g, "").trim();
+    var t = richPlainText().trim();
     rich.classList.toggle("is-empty", t === "" && rich.children.length <= 1 && rich.querySelector("img,hr,table") === null);
 }
 
 function onRichKeydown(e){
+    // editing an image mark: Enter/Esc commit, everything else types normally
+    var syn = activeImgSyn();
+    if (syn){
+        if (e.key === "Enter" || e.key === "Escape"){ e.preventDefault(); commitImgSyn(syn); }
+        return;
+    }
     // block-level transforms triggered by Space / Enter (no modifier)
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // editable source marks: clicking a heading's "#" puts the caret at the
+    // block start, where typing "#" goes a level deeper and Backspace goes
+    // shallower / strips it. Backspace also unwraps a blockquote's "> " mark.
+    if (e.key === "#" && editHeadingMark(1)){ e.preventDefault(); return; }
+    if (e.key === "Backspace" && backspaceAtBlockStart()){ e.preventDefault(); return; }
     if (e.key === " "){
         if (blockTransformOnSpace()) e.preventDefault();
     } else if (e.key === "Enter"){
         if (blockTransformOnEnter()) e.preventDefault();
     }
+}
+
+// caret sits at the very start of the block (ignoring the ZWSP spacer)?
+function caretAtBlockStart(block){
+    var sel = getSel();
+    if (!sel.rangeCount || !sel.isCollapsed) return false;
+    return textBeforeCaret(block).replace(/​/g, "") === "";
+}
+
+// typing "#" on a heading's leading mark: h1->h2 … h5->h6 (dir = 1).
+function editHeadingMark(dir){
+    var block = currentBlock();
+    if (!block || !/^H[1-6]$/.test(block.tagName)) return false;
+    if (!caretAtBlockStart(block)) return false;
+    var lvl = parseInt(block.tagName.charAt(1), 10) + dir;
+    if (lvl < 1 || lvl > 6) return true;      // clamp: swallow the key, no change
+    changeBlockTag(block, "h" + lvl);
+    return true;
+}
+
+// Backspace on a block's leading mark: heading -> shallower / paragraph,
+// blockquote's first paragraph -> unwrapped paragraph.
+function backspaceAtBlockStart(){
+    var block = currentBlock();
+    if (!block || !caretAtBlockStart(block)) return false;
+    if (/^H[1-6]$/.test(block.tagName)){
+        var lvl = parseInt(block.tagName.charAt(1), 10) - 1;
+        changeBlockTag(block, lvl >= 1 ? "h" + lvl : "p");
+        return true;
+    }
+    var bq = block.parentNode;
+    if (block.tagName === "P" && bq && bq.tagName === "BLOCKQUOTE" && block === bq.firstElementChild){
+        unwrapBlockquote(bq);
+        return true;
+    }
+    return false;
+}
+
+function unwrapBlockquote(bq){
+    var frag = document.createDocumentFragment();
+    while (bq.firstChild) frag.appendChild(bq.firstChild);
+    var first = frag.firstChild;
+    bq.parentNode.replaceChild(frag, bq);
+    if (first) placeCaretAtStart(first);
+    markDirty(); updateActiveBlock();
 }
 
 function getSel(){ return window.getSelection(); }
@@ -991,7 +1132,7 @@ function changeBlockTag(block, tag){
     while (block.firstChild) nb.appendChild(block.firstChild);
     if (!nb.firstChild) nb.appendChild(document.createElement("br"));
     block.parentNode.replaceChild(nb, block);
-    placeCaretAtStart(nb); markDirty();
+    placeCaretAtStart(nb); markDirty(); updateActiveBlock();
 }
 
 function wrapBlockquote(block){
@@ -1069,7 +1210,7 @@ function applyInline(node, start, end, inner, tag){
 function exec(cmd, val){
     rich.focus();
     document.execCommand(cmd, false, val || null);
-    markDirty(); updateStatBar(); updateToolbarState();
+    markDirty(); updateStatBar(); updateToolbarState(); updateActiveBlock();
 }
 function actBold(){   if(isTxtMode) return; exec("bold"); }
 function actItalic(){ if(isTxtMode) return; exec("italic"); }
@@ -1109,6 +1250,11 @@ function actLink(){
 }
 function setBlock(tag){
     if(isTxtMode) return;
+    // pressing the same heading shortcut again strips the syntax (h1 -> paragraph)
+    if (/^h[1-6]$/.test(tag)){
+        var b = currentBlock();
+        if (b && b.tagName.toLowerCase() === tag) tag = "p";
+    }
     exec("formatBlock", tag);
 }
 function onHeadingSelect(){
@@ -1148,6 +1294,108 @@ function updateToolbarState(){
     $("#btn-code").toggleClass("active", !!(getSel().anchorNode && getSel().anchorNode.parentNode && getSel().anchorNode.parentNode.closest("code")));
 }
 
+// ── Markdown source-mark reveal ─────────────────────────────────────────
+// Adds/removes the .md-active class that drives the pseudo-element marks. In
+// "active" mode only the block at the caret is marked; in "always" mode every
+// block is. This only toggles a class, so it never mutates the document model
+// (no dirty flag, no effect on serialization or word count).
+function clearDecorations(){
+    var prev = rich.querySelectorAll(".md-active");
+    for (var i = 0; i < prev.length; i++) prev[i].classList.remove("md-active");
+    var syns = rich.querySelectorAll(".md-imgsyn");
+    for (var j = 0; j < syns.length; j++) syns[j].parentNode.removeChild(syns[j]);
+}
+// the canonical ![alt](src) text for an image's editable mark
+function imgSynText(img){
+    var rel = img.getAttribute("data-rel") || img.getAttribute("src") || "";
+    var alt = img.getAttribute("alt") || "";
+    return "![" + alt + "](" + rel + ")";
+}
+// light up a block's marks; if it owns an image, add an editable ![alt](src) label
+function decorateBlock(el){
+    el.classList.add("md-active");
+    if (el.tagName === "BLOCKQUOTE") return;
+    var img = el.querySelector ? el.querySelector("img") : null;
+    if (img && !el.querySelector(".md-imgsyn")){
+        var span = document.createElement("span");
+        span.className = "md-imgsyn";
+        span.setAttribute("contenteditable", "true");
+        span.setAttribute("spellcheck", "false");
+        span.setAttribute("title", "Edit the image reference — change the path to swap the image");
+        span.textContent = imgSynText(img);
+        el.insertBefore(span, el.firstChild);           // render above the image
+    }
+}
+function updateActiveBlock(){
+    if (isTxtMode) return;
+    if (activeImgSyn()) return;          // never tear down a mark being edited
+    clearDecorations();
+    if (settings.syntax === "none") return;             // Always hide
+    if (settings.syntax === "always"){
+        var all = rich.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote");
+        for (var j = 0; j < all.length; j++) decorateBlock(all[j]);
+        return;
+    }
+    var sel = getSel();
+    if (!sel.rangeCount || !rich.contains(sel.anchorNode)) return;
+    var b = currentBlock();
+    if (!b) return;
+    decorateBlock(b);
+    // a blockquote's marks live on the wrapper, so light it up too
+    var bq = b.closest ? b.closest("blockquote") : null;
+    if (bq && rich.contains(bq)) bq.classList.add("md-active");
+}
+
+// the editable image-mark label the caret is currently inside, if any
+function activeImgSyn(){
+    var sel = getSel();
+    var n = sel && sel.anchorNode;
+    if (!n) return null;
+    if (n.nodeType === 3) n = n.parentNode;
+    return (n && n.closest) ? n.closest(".md-imgsyn") : null;
+}
+function synImage(syn){
+    var block = syn.parentNode;
+    return block ? block.querySelector("img") : null;
+}
+// re-point an image from its edited ![alt](src) label (live, as the user types)
+function syncImgFromSyn(syn){
+    var img = synImage(syn);
+    if (!img) return;
+    var m = /^!\[([^\]]*)\]\(([^)]*)\)\s*$/.exec((syn.textContent || "").trim());
+    if (!m) return;                              // not a complete mark yet — wait
+    var alt = m[1];
+    var rawSrc = m[2].trim().replace(/^<|>$/g, "");
+    img.setAttribute("alt", alt);
+    if (/^(https?:|data:|blob:)/i.test(rawSrc)){
+        img.removeAttribute("data-rel");
+        img.setAttribute("src", rawSrc);
+    } else {
+        var rel = rawSrc.replace(/^\.?\/+/, "");
+        img.setAttribute("data-rel", rel);
+        img.setAttribute("src", filepath ? mediaURLFor(rel) : rel);
+    }
+    markDirty();
+}
+// finish editing: snap the label back to the canonical text and drop focus
+function commitImgSyn(syn){
+    syncImgFromSyn(syn);
+    var img = synImage(syn), block = syn.parentNode;
+    if (img) syn.textContent = imgSynText(img);
+    rich.focus();
+    if (block){
+        var r = document.createRange(); r.selectNodeContents(block); r.collapse(false);
+        var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    }
+    updateActiveBlock();
+}
+
+function applySyntaxMode(){
+    settings.syntax = $("#set-syntax").val() || "active";
+    updateActiveBlock();
+    savePrefs();
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // Shortcuts
 // ════════════════════════════════════════════════════════════════════════
@@ -1178,6 +1426,7 @@ function globalKeydown(e){
             var def = ACTIONS[action];
             if (!def) continue;
             if (def.md && isTxtMode) continue;    // markdown-only action in txt mode
+            if (def.md && activeImgSyn()) continue; // don't format inside an image mark
             e.preventDefault();
             def.fn();
             return;
@@ -1951,6 +2200,7 @@ function syncSettingsUI(){
     $("#set-font").val(settings.font);
     $("#set-fontsize").val(settings.fontSize);
     $("#set-lh").val(settings.lineHeight);
+    $("#set-syntax").val(settings.syntax);
     $("#set-imgdir").val(settings.imgDir);
     $("#set-compress").prop("checked", settings.compress);
     $("#set-quality").val(settings.quality);
@@ -2064,7 +2314,7 @@ function setStatus(msg, cls){
 }
 
 function updateStatBar(){
-    var txt = isTxtMode ? plain.value : rich.textContent.replace(/​/g, "");
+    var txt = isTxtMode ? plain.value : richPlainText();
     var words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
     var chars = txt.length;
     $("#stat-count").text(words + " word" + (words !== 1 ? "s" : "") + " · " + chars + " chars");
