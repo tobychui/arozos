@@ -223,7 +223,6 @@
         #rich .md-active strike::before, #rich .md-active strike::after { content: "~~"; }
         #rich .md-active code::before, #rich .md-active code::after { content: "`"; }
         #rich .md-active a::before { content: "["; }
-        #rich .md-active a::after  { content: "](" attr(href) ")"; }
 
         /* shared mark appearance: muted + semi-transparent so it reads as a hint
            and never as content; not selectable since it's a pseudo-element. */
@@ -244,6 +243,20 @@
         }
         #rich .md-imgsyn:hover { opacity: .85; }
         #rich .md-imgsyn:focus {
+            opacity: 1; color: var(--text); background: var(--code-bg);
+            box-shadow: inset 0 0 0 1px var(--accent);
+        }
+        /* <a>'s closing "](url)" mark — unlike the rest of the bracket hints
+           this needs to be real, editable text (not a pseudo-element) so the
+           URL itself is directly clickable/editable, same idea as md-imgsyn
+           but inline since a link sits inside a run of prose. */
+        #rich .md-linksyn {
+            font-family: 'SF Mono','Consolas','Courier New',monospace;
+            font-size: .85em; color: var(--text2); opacity: .55;
+            outline: none; cursor: text; border-radius: 3px; padding: 0 1px;
+        }
+        #rich .md-linksyn:hover { opacity: .8; }
+        #rich .md-linksyn:focus {
             opacity: 1; color: var(--text); background: var(--code-bg);
             box-shadow: inset 0 0 0 1px var(--accent);
         }
@@ -389,6 +402,23 @@
         .cbtn-discard { background: rgba(217,83,79,.14); color: #d9534f; border: 1px solid rgba(217,83,79,.32); }
         .cbtn-save    { background: var(--accent); color: #fff; }
 
+        /* ── Link editor dialog ───────────────────────────────────────────── */
+        #link-box {
+            background: var(--editor-bg); border: 1px solid var(--toolbar-bdr);
+            border-radius: 13px; padding: 24px 24px 18px; width: 340px; box-shadow: var(--shadow);
+        }
+        #link-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+        .link-field { margin-bottom: 12px; }
+        .link-field label { display: block; font-size: 11.5px; color: var(--text2); margin-bottom: 5px; }
+        .link-field input {
+            width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 7px;
+            border: 1px solid var(--toolbar-bdr); background: var(--code-bg); color: var(--text);
+            font-family: inherit; font-size: 13px; outline: none;
+        }
+        .link-field input:focus { border-color: var(--accent); }
+        .link-row { display: flex; gap: 8px; justify-content: flex-end; }
+        .link-row .cbtn-discard { margin-right: auto; }
+
         /* busy spinner for export */
         #busy {
             display: none; position: fixed; inset: 0; z-index: 400; align-items: center;
@@ -503,7 +533,7 @@
 
         <div class="tb-sep md-only"></div>
 
-        <button class="tb-btn md-only" onclick="actLink()" title="Insert link">
+        <button class="tb-btn md-only" onclick="actLink()" title="Link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>
         </button>
         <div class="menu-wrap md-only">
@@ -698,6 +728,26 @@
     </div>
 </div>
 
+<!-- ── Link editor dialog ───────────────────────────────────────────────── -->
+<div class="overlay" id="link-overlay">
+    <div id="link-box">
+        <h3 id="link-box-title">Insert Link</h3>
+        <div class="link-field">
+            <label for="link-text-input">Text</label>
+            <input type="text" id="link-text-input" placeholder="Link text" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="link-field">
+            <label for="link-url-input">URL</label>
+            <input type="text" id="link-url-input" placeholder="https://" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="link-row">
+            <button class="cbtn cbtn-discard" id="link-remove-btn" onclick="linkDlgRemove()">Remove link</button>
+            <button class="cbtn cbtn-cancel" onclick="linkDlgCancel()">Cancel</button>
+            <button class="cbtn cbtn-save" onclick="linkDlgOk()">OK</button>
+        </div>
+    </div>
+</div>
+
 <div id="busy"><div class="spin"></div><span id="busy-msg">Working…</span></div>
 
 <script>
@@ -757,7 +807,7 @@ var ACTIONS = {
     bulletList:{ label:"Bullet list",     fn:actBullet,                 md:true  },
     orderedList:{label:"Numbered list",   fn:actNumber,                 md:true  },
     codeBlock: { label:"Code block",      fn:actCodeBlock,              md:true  },
-    link:      { label:"Insert link",     fn:actLink,                   md:true  },
+    link:      { label:"Link",            fn:actLink,                   md:true  },
     image:     { label:"Insert image",    fn:function(){pickDeviceImage();}, md:true },
     hr:        { label:"Horizontal rule", fn:actHr,                     md:true  }
 };
@@ -845,7 +895,12 @@ $(function(){
             var r = document.createRange(); r.selectNode(e.target); r.collapse(false);
             var s = getSel(); s.removeAllRanges(); s.addRange(r);
             updateActiveBlock();
+            return;
         }
+        // clicking empty space below a trailing code block has nowhere else to
+        // land, so the browser puts the caret back inside <code> — same trap
+        // exitCodeBlockDown() escapes for the Down key, but for a mouse click
+        escapeTrailingCodeBlockClick(e);
     });
     $(document).on("selectionchange", debounce(function(){ updateToolbarState(); updateActiveBlock(); syncCodeHighlight(); syncLangSelector(); }, 80));
 
@@ -956,7 +1011,7 @@ function normalizeEmptyParas(root){
 function getContent(){
     if (isTxtMode) return plain.value;
     var src = rich.cloneNode(true);
-    var syns = src.querySelectorAll(".md-imgsyn, .md-langsel");
+    var syns = src.querySelectorAll(".md-imgsyn, .md-linksyn, .md-langsel");
     for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
     normalizeSerializableCodeBlocks(src);
     var html = src.innerHTML.replace(/​/g, "");
@@ -1021,9 +1076,9 @@ function tidyMarkdown(md){
 
 // rich.textContent minus the decoration marks (used for word count / empty state)
 function richPlainText(){
-    if (!rich.querySelector(".md-imgsyn, .md-langsel")) return rich.textContent.replace(/​/g, "");
+    if (!rich.querySelector(".md-imgsyn, .md-linksyn, .md-langsel")) return rich.textContent.replace(/​/g, "");
     var clone = rich.cloneNode(true);
-    var syns = clone.querySelectorAll(".md-imgsyn, .md-langsel");
+    var syns = clone.querySelectorAll(".md-imgsyn, .md-linksyn, .md-langsel");
     for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
     return clone.textContent.replace(/​/g, "");
 }
@@ -1097,9 +1152,11 @@ function setMode(mode){
 function onRichInput(){
     var syn = activeImgSyn();
     if (syn){ syncImgFromSyn(syn); return; }   // editing an image mark, not prose
+    var lsyn = activeLinkSyn();
+    if (lsyn){ syncLinkFromSyn(lsyn); return; }  // editing a link's URL mark, not prose
     var code = activeCodeBlock();
-    if (code){                                  // typing code: stay plain, no autoformat
-        if (code.querySelector("*")) dehighlightCode(code);
+    if (code){                                  // typing code: re-highlight live, no autoformat
+        relightCode(code);
         markDirty(); updateStatBar(); return;
     }
     markDirty();
@@ -1124,6 +1181,11 @@ function onRichKeydown(e){
     var syn = activeImgSyn();
     if (syn){
         if (e.key === "Enter" || e.key === "Escape"){ e.preventDefault(); commitImgSyn(syn); }
+        return;
+    }
+    var lsyn = activeLinkSyn();
+    if (lsyn){
+        if (e.key === "Enter" || e.key === "Escape"){ e.preventDefault(); commitLinkSyn(lsyn); }
         return;
     }
     // block-level transforms triggered by Space / Enter (no modifier)
@@ -1356,13 +1418,34 @@ function exitCodeBlockDown(){
     return true;
 }
 
+// a code block with nothing after it has no element below for the browser to
+// place the caret into, so clicking the empty area under it just re-enters
+// <code> — same trap exitCodeBlockDown() escapes for the Down key. Detected
+// after the native click already moved the caret: if it landed back inside
+// the last block's code, the click must have missed all real content.
+function escapeTrailingCodeBlockClick(e){
+    var last = rich.lastElementChild;
+    if (!last || last.tagName !== "PRE") return;
+    var code = last.querySelector("code");
+    if (!code || activeCodeBlock() !== code) return;
+    if (e.target !== rich && code.contains(e.target)) return;     // genuine click inside the code text
+    var p = document.createElement("p");
+    p.appendChild(document.createElement("br"));
+    rich.appendChild(p);
+    placeCaretAtStart(p); markDirty();
+    updateActiveBlock(); syncCodeHighlight(); syncLangSelector();
+}
+
 // ── Code-block syntax highlighting ──────────────────────────────────────
-// Highlighted code uses <span class="hl-*"> wrappers, which fight the caret
-// while typing — so a block is kept as PLAIN text while the caret is inside it
-// and (re)highlighted only when the caret leaves. syncCodeHighlight() runs on
-// selection change and after content loads to keep every block in the right
-// state. Serialization is unaffected: turndown reads the code's full textContent
-// plus its language-xxx class regardless of the inner spans.
+// Code stays highlighted while you type: every edit re-renders the block's
+// <span class="hl-*"> wrappers from its plain text and restores the caret by
+// character offset (stable across highlighting, since spans add no text — see
+// caretOffsetIn/restoreCaretIn). syncCodeHighlight() runs on selection change
+// and after content loads, via the cheap highlightCode() (skips blocks already
+// rendered); relightCode() forces a fresh render and is used right after an
+// edit changes a block's text. Serialization is unaffected: turndown reads the
+// code's full textContent plus its language-xxx class regardless of the inner
+// spans.
 function codeLang(code){
     var m = (code.getAttribute("class") || "").match(/language-([A-Za-z0-9+#_-]+)/);
     return m ? m[1].toLowerCase() : "";
@@ -1392,49 +1475,73 @@ function caretOffsetIn(el){
     try { pre.setEnd(r.startContainer, r.startOffset); } catch(e){ return null; }
     return pre.toString().length;
 }
-function restoreCaretIn(el, offset){
-    if (offset == null) return;
+// end-of-selection counterpart to caretOffsetIn, so a non-collapsed selection
+// (the user dragging across highlighted text) can be restored as a range
+// instead of collapsing to its start once the spans are stripped
+function selectionEndOffsetIn(el){
+    var sel = getSel();
+    if (!sel.rangeCount) return null;
+    var r = sel.getRangeAt(0);
+    if (!el.contains(r.endContainer)) return el.contains(r.startContainer) ? el.textContent.length : null;
+    var pre = document.createRange();
+    pre.selectNodeContents(el);
+    try { pre.setEnd(r.endContainer, r.endOffset); } catch(e){ return el.textContent.length; }
+    return pre.toString().length;
+}
+function pointAtOffset(el, offset){
     var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
     var node, count = 0;
     while ((node = walker.nextNode())){
         var len = node.data.length;
-        if (count + len >= offset){
-            var r = document.createRange();
-            r.setStart(node, Math.max(0, offset - count)); r.collapse(true);
-            var s = getSel(); s.removeAllRanges(); s.addRange(r);
-            return;
-        }
+        if (count + len >= offset) return { node: node, offset: Math.max(0, offset - count) };
         count += len;
     }
-    var r2 = document.createRange(); r2.selectNodeContents(el); r2.collapse(false);
-    var s2 = getSel(); s2.removeAllRanges(); s2.addRange(r2);
+    return null;
 }
+// restores a caret at `offset`, or — when `endOffset` is also given and
+// differs — a full selection from offset to endOffset (see selectionEndOffsetIn)
+function restoreCaretIn(el, offset, endOffset){
+    if (offset == null) return;
+    var r = document.createRange();
+    var start = pointAtOffset(el, offset);
+    if (start) r.setStart(start.node, start.offset);
+    else { r.selectNodeContents(el); r.collapse(false); }
+    if (endOffset != null && endOffset !== offset){
+        var end = pointAtOffset(el, endOffset);
+        if (end) r.setEnd(end.node, end.offset);
+    }
+    var s = getSel(); s.removeAllRanges(); s.addRange(r);
+}
+// cheap/idempotent: skips blocks that already look rendered (right language
+// or already plain) — safe to call on every block on every selection change
 function highlightCode(code){
-    if (code.querySelector("*")) { syncPreLang(code); return; }   // already highlighted
+    var lang = codeLang(code);
+    var hasSpans = !!code.querySelector("*");
+    var canHighlight = lang && typeof TextHL !== "undefined" && TextHL.supports(lang) &&
+        code.textContent.replace(/​/g, "").trim() !== "";
+    if (hasSpans === canHighlight) { syncPreLang(code); return; }    // already in the right state
+    relightCode(code);
+}
+// forces a fresh render from the block's current text — use right after an
+// edit (typing, Enter, Delete, language change) so it never goes stale
+function relightCode(code){
     var lang = codeLang(code);
     var text = code.textContent.replace(/​/g, "");
-    if (!lang || typeof TextHL === "undefined" || !TextHL.supports(lang) || text.trim() === ""){
-        syncPreLang(code); return;                                // unknown / empty → leave plain
+    var canHighlight = lang && typeof TextHL !== "undefined" && TextHL.supports(lang) && text.trim() !== "";
+    if (!canHighlight && !code.querySelector("*")){
+        syncPreLang(code); return;                    // already plain, nothing to recompute
     }
-    code.innerHTML = TextHL.highlight(text, lang);
-    syncPreLang(code);
-}
-function dehighlightCode(code){
-    if (code.querySelector("*")){                                 // strip spans → plain text
-        var off = caretOffsetIn(code);
-        code.textContent = code.textContent.replace(/​/g, "");
-        if (off != null) restoreCaretIn(code, off);
-    }
+    var off = caretOffsetIn(code);
+    var endOff = selectionEndOffsetIn(code);
+    if (canHighlight) code.innerHTML = TextHL.highlight(text, lang);
+    else code.textContent = text;                     // unsupported / empty → flatten stale spans
+    if (off != null) restoreCaretIn(code, off, endOff);
     syncPreLang(code);
 }
 function syncCodeHighlight(){
     if (isTxtMode) return;
-    var active = activeCodeBlock();
     var codes = rich.querySelectorAll("pre > code");
-    for (var i = 0; i < codes.length; i++){
-        if (codes[i] === active) dehighlightCode(codes[i]);
-        else highlightCode(codes[i]);
-    }
+    for (var i = 0; i < codes.length; i++) highlightCode(codes[i]);
 }
 // Enter inside a code block inserts a real newline (not a <div>/<br>), so the
 // text stays line-accurate for highlighting and serialization. Splices the
@@ -1456,6 +1563,7 @@ function insertNewlineInCode(){
     var insert = atEnd ? "\n​" : "\n";   // pad a trailing line so it shows
     code.textContent = raw.slice(0, offset) + insert + raw.slice(offset);
     restoreCaretIn(code, offset + 1);
+    relightCode(code);
     markDirty();
     return true;
 }
@@ -1468,8 +1576,15 @@ function deleteInCode(forward){
     if (!code) return false;
     var sel = getSel();
     if (!sel.rangeCount) return false;
+    // an empty code block has nothing left to delete — Backspace/Delete on it
+    // removes the block instead of resetting the ZWSP placeholder, which used
+    // to leave it stuck forever as a permanent empty grey box
+    if (sel.isCollapsed && code.textContent.replace(/​/g, "") === ""){
+        return exitEmptyCodeBlock(code);
+    }
     if (!sel.isCollapsed){
         sel.getRangeAt(0).deleteContents();
+        relightCode(code);
         markDirty();
         return true;
     }
@@ -1479,9 +1594,23 @@ function deleteInCode(forward){
     var delAt = forward ? offset : offset - 1;
     if (delAt < 0 || delAt >= raw.length) return false;
     var next = raw.slice(0, delAt) + raw.slice(delAt + 1);
-    code.textContent = next === "" ? "​" : next;
-    restoreCaretIn(code, next === "" ? 1 : delAt);
+    if (next.replace(/​/g, "") === ""){
+        return exitEmptyCodeBlock(code);
+    }
+    code.textContent = next;
+    restoreCaretIn(code, delAt);
+    relightCode(code);
     markDirty();
+    return true;
+}
+// replaces an emptied-out code block with a plain empty paragraph, so it
+// can be backspaced/deleted away instead of sitting there forever
+function exitEmptyCodeBlock(code){
+    var pre = code.parentNode;
+    var p = document.createElement("p");
+    p.appendChild(document.createElement("br"));
+    pre.parentNode.replaceChild(p, pre);
+    placeCaretAtStart(p); markDirty(); updateActiveBlock();
     return true;
 }
 
@@ -1508,7 +1637,7 @@ function onLangSelectChange(e){
     if (!code) return;
     code.className = sel.value ? "language-" + sel.value : "";
     syncPreLang(code);
-    highlightCode(code);
+    relightCode(code);
     markDirty();
 }
 function ensureLangSelector(code){
@@ -1619,18 +1748,93 @@ function actHr(){
     document.execCommand("insertHTML", false, "<hr><p><br></p>");
     markDirty();
 }
+// the <a> the caret is currently in or out (including while inside its
+// .md-linksyn URL mark), if any — used to decide insert vs. edit mode
+function currentLinkAtCaret(){
+    var sel = getSel();
+    var n = sel && sel.anchorNode;
+    if (!n) return null;
+    if (n.nodeType === 3) n = n.parentNode;
+    if (!n || !n.closest) return null;
+    var syn = n.closest(".md-linksyn");
+    if (syn && rich.contains(syn)) return synLink(syn);
+    var a = n.closest("a");
+    return (a && rich.contains(a)) ? a : null;
+}
+var linkDlgTarget = null;    // <a> being edited, or null when inserting a new one
+var linkDlgRange  = null;    // selection in #rich saved before the dialog stole focus
 function actLink(){
-    if(isTxtMode) return;
-    var url = prompt("Link URL:", "https://");
-    if (!url) return;
+    if (isTxtMode) return;
     rich.focus();
     var sel = getSel();
-    if (sel.rangeCount && !sel.isCollapsed){
-        exec("createLink", url);
+    linkDlgRange = (sel && sel.rangeCount) ? sel.getRangeAt(0).cloneRange() : null;
+    var a = currentLinkAtCaret();
+    if (a){
+        linkDlgTarget = a;
+        openLinkDialog("Edit Link", a.textContent, a.getAttribute("href") || "", true);
     } else {
-        document.execCommand("insertHTML", false, '<a href="'+escapeAttr(url)+'">'+escapeHtml(url)+'</a>');
-        markDirty();
+        linkDlgTarget = null;
+        var selectedText = (sel && !sel.isCollapsed) ? sel.toString() : "";
+        openLinkDialog("Insert Link", selectedText, "https://", false);
     }
+}
+function openLinkDialog(title, text, url, showRemove){
+    $("#link-box-title").text(title);
+    $("#link-text-input").val(text);
+    $("#link-url-input").val(url);
+    $("#link-remove-btn").css("display", showRemove ? "" : "none");
+    $("#link-overlay").addClass("show");
+    setTimeout(function(){ $("#link-url-input")[0].focus(); $("#link-url-input")[0].select(); }, 30);
+}
+function hideLinkDialog(){ $("#link-overlay").removeClass("show"); }
+function linkDlgCancel(){
+    hideLinkDialog();
+    rich.focus();
+    if (linkDlgRange){ var s = getSel(); s.removeAllRanges(); s.addRange(linkDlgRange); }
+    linkDlgTarget = null; linkDlgRange = null;
+}
+function linkDlgRemove(){
+    if (linkDlgTarget){
+        var t = linkDlgTarget, parent = t.parentNode;
+        while (t.firstChild) parent.insertBefore(t.firstChild, t);
+        parent.removeChild(t);
+        var r = document.createRange(); r.selectNodeContents(parent); r.collapse(false);
+        rich.focus();
+        var s = getSel(); s.removeAllRanges(); s.addRange(r);
+        markDirty(); updateActiveBlock();
+    }
+    hideLinkDialog();
+    linkDlgTarget = null; linkDlgRange = null;
+}
+function linkDlgOk(){
+    var text = $("#link-text-input").val();
+    var url = ($("#link-url-input").val() || "").trim();
+    hideLinkDialog();
+    if (!url){ linkDlgTarget = null; linkDlgRange = null; return; }
+    rich.focus();
+    if (linkDlgTarget){
+        var a = linkDlgTarget;
+        a.setAttribute("href", url);
+        if (text && text !== a.textContent) a.textContent = text;
+        var r = document.createRange(); r.selectNodeContents(a); r.collapse(false);
+        var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    } else {
+        var sel = getSel();
+        sel.removeAllRanges();
+        if (linkDlgRange) sel.addRange(linkDlgRange);
+        if (sel.rangeCount && !sel.isCollapsed){
+            // wrap the existing selection in place — preserves surrounding
+            // whitespace, unlike deleting it and re-inserting raw HTML
+            document.execCommand("createLink", false, url);
+            var newA = currentLinkAtCaret();
+            if (newA && text && text !== newA.textContent) newA.textContent = text;
+        } else {
+            var label = text || url;
+            document.execCommand("insertHTML", false, '<a href="'+escapeAttr(url)+'">'+escapeHtml(label)+'</a>');
+        }
+    }
+    linkDlgTarget = null; linkDlgRange = null;
+    markDirty(); updateActiveBlock(); updateStatBar();
 }
 function setBlock(tag){
     if(isTxtMode) return;
@@ -1686,7 +1890,7 @@ function updateToolbarState(){
 function clearDecorations(){
     var prev = rich.querySelectorAll(".md-active");
     for (var i = 0; i < prev.length; i++) prev[i].classList.remove("md-active");
-    var syns = rich.querySelectorAll(".md-imgsyn");
+    var syns = rich.querySelectorAll(".md-imgsyn, .md-linksyn");
     for (var j = 0; j < syns.length; j++) syns[j].parentNode.removeChild(syns[j]);
 }
 // the canonical ![alt](src) text for an image's editable mark
@@ -1695,7 +1899,12 @@ function imgSynText(img){
     var alt = img.getAttribute("alt") || "";
     return "![" + alt + "](" + rel + ")";
 }
-// light up a block's marks; if it owns an image, add an editable ![alt](src) label
+// the canonical closing "](url)" text for a link's editable mark
+function linkSynText(a){
+    return "](" + (a.getAttribute("href") || "") + ")";
+}
+// light up a block's marks; if it owns an image, add an editable ![alt](src)
+// label, and give every link an editable closing "](url)" mark right after it
 function decorateBlock(el){
     // code blocks get a language <select> instead of a source-mark reveal
     // (see syncLangSelector) — and must never get .md-active, since the
@@ -1714,10 +1923,22 @@ function decorateBlock(el){
         span.textContent = imgSynText(img);
         el.insertBefore(span, el.firstChild);           // render above the image
     }
+    var links = el.querySelectorAll ? el.querySelectorAll("a") : [];
+    for (var i = 0; i < links.length; i++){
+        var a = links[i], next = a.nextSibling;
+        if (next && next.nodeType === 1 && next.classList && next.classList.contains("md-linksyn")) continue;
+        var lspan = document.createElement("span");
+        lspan.className = "md-linksyn";
+        lspan.setAttribute("contenteditable", "true");
+        lspan.setAttribute("spellcheck", "false");
+        lspan.setAttribute("title", "Edit the link URL");
+        lspan.textContent = linkSynText(a);
+        a.parentNode.insertBefore(lspan, a.nextSibling);
+    }
 }
 function updateActiveBlock(){
     if (isTxtMode) return;
-    if (activeImgSyn()) return;          // never tear down a mark being edited
+    if (activeImgSyn() || activeLinkSyn()) return;   // never tear down a mark being edited
     clearDecorations();
     if (settings.syntax === "none") return;             // Always hide
     if (settings.syntax === "always"){
@@ -1746,6 +1967,39 @@ function activeImgSyn(){
 function synImage(syn){
     var block = syn.parentNode;
     return block ? block.querySelector("img") : null;
+}
+// the editable link-mark label the caret is currently inside, if any
+function activeLinkSyn(){
+    var sel = getSel();
+    var n = sel && sel.anchorNode;
+    if (!n) return null;
+    if (n.nodeType === 3) n = n.parentNode;
+    return (n && n.closest) ? n.closest(".md-linksyn") : null;
+}
+function synLink(syn){
+    var a = syn.previousElementSibling;
+    return (a && a.tagName === "A") ? a : null;
+}
+// re-point a link from its edited "](url)" label (live, as the user types)
+function syncLinkFromSyn(syn){
+    var a = synLink(syn);
+    if (!a) return;
+    var m = /^\]\(([^)]*)\)\s*$/.exec((syn.textContent || "").trim());
+    if (!m) return;                               // not a complete mark yet — wait
+    a.setAttribute("href", m[1].trim().replace(/^<|>$/g, ""));
+    markDirty();
+}
+// finish editing: snap the label back to the canonical text and drop focus
+function commitLinkSyn(syn){
+    syncLinkFromSyn(syn);
+    var a = synLink(syn), block = syn.parentNode;
+    if (a) syn.textContent = linkSynText(a);
+    rich.focus();
+    if (block){
+        var r = document.createRange(); r.selectNodeContents(block); r.collapse(false);
+        var s = getSel(); s.removeAllRanges(); s.addRange(r);
+    }
+    updateActiveBlock();
 }
 // re-point an image from its edited ![alt](src) label (live, as the user types)
 function syncImgFromSyn(syn){
@@ -1808,6 +2062,11 @@ function globalKeydown(e){
         if (e.key === "Escape") closeSettings();
         return;
     }
+    if ($("#link-overlay").hasClass("show")) {
+        if (e.key === "Escape") linkDlgCancel();
+        else if (e.key === "Enter") { e.preventDefault(); linkDlgOk(); }
+        return;
+    }
     var combo = comboFromEvent(e);
     if (!combo) return;
     for (var action in keymap){
@@ -1815,7 +2074,7 @@ function globalKeydown(e){
             var def = ACTIONS[action];
             if (!def) continue;
             if (def.md && isTxtMode) continue;    // markdown-only action in txt mode
-            if (def.md && activeImgSyn()) continue; // don't format inside an image mark
+            if (def.md && (activeImgSyn() || activeLinkSyn())) continue; // don't format inside a source mark
             e.preventDefault();
             def.fn();
             return;
@@ -2589,6 +2848,7 @@ function openSettings(){ syncSettingsUI(); $("#settings-overlay").addClass("show
 function closeSettings(){ $("#settings-overlay").removeClass("show"); }
 $(function(){
     $("#settings-overlay").on("click", function(e){ if (e.target === this) closeSettings(); });
+    $("#link-overlay").on("click", function(e){ if (e.target === this) linkDlgCancel(); });
 });
 function showSection(sec){
     $(".nav-item").removeClass("active");
