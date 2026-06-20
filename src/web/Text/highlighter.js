@@ -88,7 +88,19 @@
         "alias and begin break case class def defined do else elsif end ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield require require_relative attr_accessor attr_reader attr_writer puts print",
         "Integer Float String Symbol Array Hash Object Proc Lambda Struct");
 
+    // canonical (first-alias) name + display label, in registration order — drives the editor's language picker
+    var LANG_LIST = [
+        ["c", "C"], ["cpp", "C++"], ["go", "Go"], ["js", "JavaScript"], ["ts", "TypeScript"],
+        ["py", "Python"], ["java", "Java"], ["rust", "Rust"], ["json", "JSON"], ["sql", "SQL"],
+        ["bash", "Bash"], ["php", "PHP"], ["cs", "C#"], ["kotlin", "Kotlin"], ["swift", "Swift"],
+        ["ruby", "Ruby"]
+    ];
+
     function supports(lang) { return !!LANG[(lang || "").toLowerCase()]; }
+
+    function languages() {
+        return LANG_LIST.map(function (pair) { return { id: pair[0], label: pair[1] }; });
+    }
 
     function highlight(code, lang) {
         var L = LANG[(lang || "").toLowerCase()];
@@ -158,5 +170,5 @@
         return out;
     }
 
-    global.TextHL = { highlight: highlight, supports: supports };
+    global.TextHL = { highlight: highlight, supports: supports, languages: languages };
 })(window);

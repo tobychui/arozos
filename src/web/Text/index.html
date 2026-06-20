@@ -182,7 +182,7 @@
         }
         .md-content pre {
             margin: .8em 0; padding: 14px 16px; background: var(--code-bg);
-            border-radius: 8px; overflow-x: auto;
+            border-radius: 8px; overflow-x: auto; position: relative;
         }
         .md-content pre code { background: none; padding: 0; font-size: .85em; line-height: 1.55; }
 
@@ -214,8 +214,6 @@
         #rich h5.md-active::before { content: "##### ";  }
         #rich h6.md-active::before { content: "###### "; }
         #rich blockquote.md-active > *:first-child::before { content: "> "; }
-        #rich pre.md-active::before { content: "```" attr(data-lang) "\A"; white-space: pre; }
-        #rich pre.md-active::after  { content: "\A```"; white-space: pre; }
         #rich .md-active strong::before, #rich .md-active strong::after,
         #rich .md-active b::before,      #rich .md-active b::after      { content: "**"; }
         #rich .md-active em::before, #rich .md-active em::after,
@@ -224,9 +222,6 @@
         #rich .md-active s::before,      #rich .md-active s::after,
         #rich .md-active strike::before, #rich .md-active strike::after { content: "~~"; }
         #rich .md-active code::before, #rich .md-active code::after { content: "`"; }
-        /* a <code> inside a code block is fenced by the pre's ``` marks, so it
-           must NOT also get the inline single-backtick marks */
-        #rich pre.md-active code::before, #rich pre.md-active code::after { content: none; }
         #rich .md-active a::before { content: "["; }
         #rich .md-active a::after  { content: "](" attr(href) ")"; }
 
@@ -251,6 +246,21 @@
         #rich .md-imgsyn:focus {
             opacity: 1; color: var(--text); background: var(--code-bg);
             box-shadow: inset 0 0 0 1px var(--accent);
+        }
+        /* code-block language picker — a real, interactive <select> pinned to
+           the block's top-right corner while the caret is inside it (see
+           syncLangSelector); a contenteditable="false" island appended after
+           <code> so it never disturbs the caret and is invisible to turndown
+           (which only reads pre's firstChild). Stripped on serialize. */
+        #rich .md-langsel { position: absolute; top: 6px; right: 6px; z-index: 2; }
+        #rich .md-langsel-select {
+            height: 22px; padding: 0 4px; border: 1px solid var(--toolbar-bdr);
+            border-radius: 5px; background: var(--editor-bg); color: var(--text2);
+            font-size: 11px; font-family: inherit; outline: none; cursor: pointer;
+            opacity: .55; transition: opacity .15s;
+        }
+        #rich .md-langsel-select:hover, #rich .md-langsel-select:focus {
+            opacity: 1; color: var(--text); border-color: var(--accent);
         }
 
         /* ── Status bar ───────────────────────────────────────────────────── */
@@ -773,17 +783,20 @@ td.addRule("relimg", {
         return "![" + alt + "](" + mdLinkDest(src) + (ttl ? ' "'+ttl+'"' : "") + ")";
     }
 });
-// Plain markdown collapses blank lines, so an intentional empty line would be
-// lost on reload. Serialize empty paragraphs as an &nbsp; line, which marked
-// re-renders as an empty paragraph (normalised back to a clean blank line on
-// load by normalizeEmptyParas) — making blank lines survive the round-trip.
+// Plain markdown collapses any run of blank lines to a single paragraph
+// break, so an intentional run of several empty paragraphs would be lost on
+// reload. Mark each one with a ZWSP sentinel here — invisible, and never
+// written to the saved file, since expandBlankSentinels() (called from
+// getContent()) converts it into the exact bare-newline run that
+// renderWithBlankRuns() (called from setContent()) measures back into the
+// same paragraph count on load.
 td.addRule("emptyPara", {
     filter:function(node){
         return node.nodeName === "P"
             && !node.querySelector("img,hr,table,pre,code")
             && node.textContent.replace(/[\s ​]+/g, "") === "";
     },
-    replacement:function(){ return "\n\n&nbsp;\n\n"; }
+    replacement:function(){ return "\n\n​\n\n"; }
 });
 
 // A markdown link/image destination containing spaces or parentheses must be
@@ -834,7 +847,7 @@ $(function(){
             updateActiveBlock();
         }
     });
-    $(document).on("selectionchange", debounce(function(){ updateToolbarState(); updateActiveBlock(); syncCodeHighlight(); }, 80));
+    $(document).on("selectionchange", debounce(function(){ updateToolbarState(); updateActiveBlock(); syncCodeHighlight(); syncLangSelector(); }, 80));
 
     $("#plain").on("input", function(){ markDirty(); updateStatBar(); });
 
@@ -890,17 +903,45 @@ function setContent(text){
     if (isTxtMode){
         plain.value = text;
     } else {
-        rich.innerHTML = marked.parse(text || "");
+        rich.innerHTML = renderWithBlankRuns(text || "");
         normalizeEmptyParas(rich);
         rewriteImageSrcs(rich);
         refreshEmptyState();
         updateActiveBlock();
         syncCodeHighlight();
+        syncLangSelector();
     }
 }
 
-// turn the &nbsp; placeholder paragraphs (see the emptyPara turndown rule) back
-// into clean empty lines so they edit naturally and round-trip stably
+// marked collapses any run of blank lines in the source to a single
+// paragraph break (standard CommonMark behaviour), so this rebuilds the HTML
+// token-by-token instead of via one marked.parse() call, reinserting the
+// extra empty paragraphs a blank-line run actually represents. The count is
+// read off each lexer "space" token's raw text, which is naturally
+// fence-aware (blank lines inside a fenced code block are absorbed into that
+// block's own "code" token, never reported as "space"). A run at the very
+// start/end of the document has no separator contributed by a block on the
+// outside, so it is measured against a different baseline than a run between
+// two real blocks — see expandBlankSentinels(), the save-side counterpart.
+function renderWithBlankRuns(text){
+    var tokens = marked.lexer(text);
+    var html = "";
+    for (var i = 0; i < tokens.length; i++){
+        var tok = tokens[i];
+        if (tok.type === "space"){
+            var nl = (tok.raw.match(/\n/g) || []).length;
+            var edge = (i === 0) || (i === tokens.length - 1);
+            var extra = edge ? Math.floor(nl / 2) : (nl - 2);
+            for (var k = 0; k < extra; k++) html += "<p><br></p>";
+        } else {
+            html += marked.parser([tok]);
+        }
+    }
+    return html;
+}
+
+// turn any non-blank-but-invisible-looking placeholder paragraph into a clean
+// empty line, so they edit naturally and round-trip stably
 function normalizeEmptyParas(root){
     var ps = root.querySelectorAll("p");
     for (var i = 0; i < ps.length; i++){
@@ -915,12 +956,27 @@ function normalizeEmptyParas(root){
 function getContent(){
     if (isTxtMode) return plain.value;
     var src = rich.cloneNode(true);
-    var syns = src.querySelectorAll(".md-imgsyn");
+    var syns = src.querySelectorAll(".md-imgsyn, .md-langsel");
     for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
     normalizeSerializableCodeBlocks(src);
     var html = src.innerHTML.replace(/​/g, "");
     var md = td.turndown(html);
-    return tidyMarkdown(md) + "\n";
+    return expandBlankSentinels(tidyMarkdown(md)) + "\n";
+}
+
+// converts each emptyPara ZWSP sentinel (see the turndown rule above) into
+// the bare-newline run renderWithBlankRuns() expects on load. Turndown only
+// contributes a separator newline between two blocks, so a sentinel run at
+// the very start/end of the document — with no block on the outside — comes
+// out short of as many raw newlines as one in the middle would; the two
+// anchored passes below restore exactly the newlines such a leading/trailing
+// run is missing before the catch-all pass removes each middle sentinel's
+// shared newline.
+function expandBlankSentinels(md){
+    md = md.replace(/^(​\n\n)+/, function(run){ return run.replace(/​/g, ""); });
+    md = md.replace(/(?:​\n\n)*​$/, function(run){ return run.replace(/​/g, ""); });
+    md = md.replace(/​\n\n/g, "\n");
+    return md;
 }
 
 function normalizeSerializableCodeBlocks(root){
@@ -965,9 +1021,9 @@ function tidyMarkdown(md){
 
 // rich.textContent minus the decoration marks (used for word count / empty state)
 function richPlainText(){
-    if (!rich.querySelector(".md-imgsyn")) return rich.textContent.replace(/​/g, "");
+    if (!rich.querySelector(".md-imgsyn, .md-langsel")) return rich.textContent.replace(/​/g, "");
     var clone = rich.cloneNode(true);
-    var syns = clone.querySelectorAll(".md-imgsyn");
+    var syns = clone.querySelectorAll(".md-imgsyn, .md-langsel");
     for (var i = 0; i < syns.length; i++) syns[i].parentNode.removeChild(syns[i]);
     return clone.textContent.replace(/​/g, "");
 }
@@ -987,7 +1043,7 @@ function handleSaveAs(fd){
 }
 function doSave(callback){
     var content = getContent();
-    ao_module_agirun("Text/filesaver.js", { filepath: filepath, content: content }, function(data){
+    ao_module_agirun("Text/backend/filesaver.agi", { filepath: filepath, content: content }, function(data){
         if (data && data.error){
             setStatus("Save failed: " + data.error, "error");
         } else {
@@ -1059,6 +1115,11 @@ function refreshEmptyState(){
 }
 
 function onRichKeydown(e){
+    // a keydown originating from the language <select> (arrow keys to change
+    // value, Enter/Space to open, typing to jump to an option, …) bubbles up
+    // from inside #rich — let the browser handle it natively instead of
+    // running block/code-block logic against the (unrelated) text selection
+    if (e.target && e.target.tagName === "SELECT") return;
     // editing an image mark: Enter/Esc commit, everything else types normally
     var syn = activeImgSyn();
     if (syn){
@@ -1072,6 +1133,7 @@ function onRichKeydown(e){
     // shallower / strips it. Backspace also unwraps a blockquote's "> " mark.
     if (e.key === "#" && editHeadingMark(1)){ e.preventDefault(); return; }
     if (e.key === "Backspace" && backspaceAtBlockStart()){ e.preventDefault(); return; }
+    if ((e.key === "Backspace" || e.key === "Delete") && deleteInCode(e.key === "Delete")){ e.preventDefault(); return; }
     if (e.key === "ArrowDown" && !e.shiftKey && exitCodeBlockDown()){ e.preventDefault(); return; }
     if (e.key === "Enter" && activeCodeBlock()){ e.preventDefault(); insertNewlineInCode(); return; }
     if (e.key === " "){
@@ -1280,7 +1342,8 @@ function insertCodeBlockAt(block, lang){
 function exitCodeBlockDown(){
     var block = currentBlock();
     if (!block || block.tagName !== "PRE") return false;
-    if (textAfterCaret(block).replace(/​/g, "").indexOf("\n") >= 0) return false; // more lines below
+    var code = block.querySelector("code");
+    if (code && textAfterCaret(code).replace(/​/g, "").indexOf("\n") >= 0) return false; // more lines below
     var next = block.nextElementSibling;
     if (next){
         placeCaretAtStart(next);
@@ -1374,19 +1437,108 @@ function syncCodeHighlight(){
     }
 }
 // Enter inside a code block inserts a real newline (not a <div>/<br>), so the
-// text stays line-accurate for highlighting and serialization
+// text stays line-accurate for highlighting and serialization. Splices the
+// string and reassigns textContent (rather than Range.insertNode, which
+// fragments the element into several sibling Text nodes) so the caret offset
+// computed before the edit stays valid after it — that fragmentation was the
+// root cause of the caret not following Enter on a code block's last line and
+// of Delete misbehaving across the resulting node boundary.
 function insertNewlineInCode(){
+    var code = activeCodeBlock();
+    if (!code) return false;
     var sel = getSel();
     if (!sel.rangeCount) return false;
-    var r = sel.getRangeAt(0); r.deleteContents();
-    var pre = currentBlock();
-    var atEnd = pre && textAfterCaret(pre).replace(/​/g, "") === "";
-    var tn = document.createTextNode(atEnd ? "\n​" : "\n");   // pad a trailing line so it shows
-    r.insertNode(tn);
-    r.setStart(tn, 1); r.collapse(true);
-    sel.removeAllRanges(); sel.addRange(r);
+    if (!sel.isCollapsed) sel.getRangeAt(0).deleteContents();
+    var offset = caretOffsetIn(code);
+    if (offset == null) return false;
+    var raw = code.textContent;
+    var atEnd = raw.slice(offset).replace(/​/g, "") === "";
+    var insert = atEnd ? "\n​" : "\n";   // pad a trailing line so it shows
+    code.textContent = raw.slice(0, offset) + insert + raw.slice(offset);
+    restoreCaretIn(code, offset + 1);
     markDirty();
     return true;
+}
+// Backspace/Delete inside a code block, rewritten on the same string-splice
+// principle as insertNewlineInCode so multi-line content always stays a
+// single Text node (see above) — native deletion across the \n character a
+// fenced block contains is unreliable once that node gets fragmented.
+function deleteInCode(forward){
+    var code = activeCodeBlock();
+    if (!code) return false;
+    var sel = getSel();
+    if (!sel.rangeCount) return false;
+    if (!sel.isCollapsed){
+        sel.getRangeAt(0).deleteContents();
+        markDirty();
+        return true;
+    }
+    var offset = caretOffsetIn(code);
+    if (offset == null) return false;
+    var raw = code.textContent;
+    var delAt = forward ? offset : offset - 1;
+    if (delAt < 0 || delAt >= raw.length) return false;
+    var next = raw.slice(0, delAt) + raw.slice(delAt + 1);
+    code.textContent = next === "" ? "​" : next;
+    restoreCaretIn(code, next === "" ? 1 : delAt);
+    markDirty();
+    return true;
+}
+
+// ── Code-block language picker ────────────────────────────────────────────
+// A real <select> pinned to the top-right corner of the block the caret is
+// currently in, so the language stays changeable after creation (unlike the
+// old ```lang fence-text mark, which only captured it once). It is a
+// contenteditable="false" island appended AFTER <code> — turndown's fenced
+// rule only reads pre.firstChild, so anything after <code> is invisible to
+// it — and is stripped from clones before serialize/word-count regardless
+// (see getContent/richPlainText) so it can never leak into saved markdown.
+function langSelectOptions(){
+    var langs = (typeof TextHL !== "undefined" && TextHL.languages) ? TextHL.languages() : [];
+    var html = '<option value="">Plain text</option>';
+    for (var i = 0; i < langs.length; i++){
+        html += '<option value="' + langs[i].id + '">' + langs[i].label + '</option>';
+    }
+    return html;
+}
+function onLangSelectChange(e){
+    var sel = e.target;
+    var pre = sel.closest("pre");
+    var code = pre ? pre.querySelector("code") : null;
+    if (!code) return;
+    code.className = sel.value ? "language-" + sel.value : "";
+    syncPreLang(code);
+    highlightCode(code);
+    markDirty();
+}
+function ensureLangSelector(code){
+    var pre = code.parentNode;
+    if (!pre || pre.tagName !== "PRE") return;
+    var wrap = pre.querySelector(".md-langsel");
+    if (!wrap){
+        wrap = document.createElement("div");
+        wrap.className = "md-langsel";
+        wrap.setAttribute("contenteditable", "false");
+        var sel = document.createElement("select");
+        sel.className = "md-langsel-select";
+        sel.title = "Code block language";
+        sel.innerHTML = langSelectOptions();
+        sel.addEventListener("mousedown", function(e){ e.stopPropagation(); });
+        sel.addEventListener("change", onLangSelectChange);
+        wrap.appendChild(sel);
+        pre.appendChild(wrap);
+    }
+    wrap.querySelector("select").value = codeLang(code);
+}
+function clearLangSelectors(){
+    var wraps = rich.querySelectorAll(".md-langsel");
+    for (var i = 0; i < wraps.length; i++) wraps[i].parentNode.removeChild(wraps[i]);
+}
+function syncLangSelector(){
+    if (isTxtMode) return;
+    clearLangSelectors();
+    var code = activeCodeBlock();
+    if (code) ensureLangSelector(code);
 }
 
 function placeCaretAtStart(el){
@@ -1545,6 +1697,11 @@ function imgSynText(img){
 }
 // light up a block's marks; if it owns an image, add an editable ![alt](src) label
 function decorateBlock(el){
+    // code blocks get a language <select> instead of a source-mark reveal
+    // (see syncLangSelector) — and must never get .md-active, since the
+    // generic inline-code mark rule (`.md-active code::before/after`) would
+    // otherwise wrap the fenced content in a stray backtick pair
+    if (el.tagName === "PRE") return;
     el.classList.add("md-active");
     if (el.tagName === "BLOCKQUOTE") return;
     var img = el.querySelector ? el.querySelector("img") : null;
@@ -1564,7 +1721,7 @@ function updateActiveBlock(){
     clearDecorations();
     if (settings.syntax === "none") return;             // Always hide
     if (settings.syntax === "always"){
-        var all = rich.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote,pre");
+        var all = rich.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote");
         for (var j = 0; j < all.length; j++) decorateBlock(all[j]);
         return;
     }
@@ -1760,7 +1917,7 @@ function ensureImgDir(cb){
         return;
     }
     var rel = relDir();
-    ao_module_agirun("Text/imgtool.agi", { action:"mkdir", docpath:filepath, reldir:rel }, function(data){
+    ao_module_agirun("Text/backend/imgtool.agi", { action:"mkdir", docpath:filepath, reldir:rel }, function(data){
         if (data && data.error){ setStatus("Image folder error: " + data.error, "error"); return; }
         cb(rel);
     }, function(){ setStatus("Could not prepare image folder", "error"); });
@@ -1824,7 +1981,7 @@ function handleServerImage(fd){
     var rel = relDir();
     var dest = makeImgName(name, settings.compress ? "jpg" : null);
     setStatus("Importing image…");
-    ao_module_agirun("Text/imgtool.agi", {
+    ao_module_agirun("Text/backend/imgtool.agi", {
         action:"import", docpath:filepath, reldir:rel, src:src, destname:dest,
         compress: settings.compress ? "true" : "false", maxwidth: settings.maxWidth
     }, function(data){
@@ -1898,7 +2055,7 @@ function handleDroppedImage(file){
 // ════════════════════════════════════════════════════════════════════════
 function renderedHTML(){
     if (isTxtMode) return "<pre>" + escapeHtml(plain.value) + "</pre>";
-    return marked.parse(getContent());
+    return renderWithBlankRuns(getContent());
 }
 
 // collect the CSS that styles .md-content so exports match the editor
@@ -2030,7 +2187,7 @@ function exportDocument(){
     if (!filepath){ alert("Please save the document first so its images can be bundled."); return; }
 
     showBusy("Bundling document…");
-    ao_module_agirun("Text/export.agi", {
+    ao_module_agirun("Text/backend/export.agi", {
         action:"zip", docpath:filepath, name:name, content:content, images:JSON.stringify(imgs)
     }, function(data){
         if (!data || data.error){ hideBusy(); setStatus("Export failed: " + ((data && data.error) || "unknown"), "error"); return; }
@@ -2039,7 +2196,7 @@ function exportDocument(){
             downloadBlob(blob, docName() + ".zip");
             hideBusy(); setStatus("Downloaded " + docName() + ".zip");
             // best-effort temp cleanup
-            ao_module_agirun("Text/export.agi", { action:"cleanup", zip:data.zip, workdir:data.workdir }, function(){}, function(){});
+            ao_module_agirun("Text/backend/export.agi", { action:"cleanup", zip:data.zip, workdir:data.workdir }, function(){}, function(){});
         }).catch(function(){ hideBusy(); setStatus("Export download failed", "error"); });
     }, function(){ hideBusy(); setStatus("Export failed", "error"); });
 }
