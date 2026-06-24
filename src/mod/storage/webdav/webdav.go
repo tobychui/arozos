@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/auth"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/hidden"
 	"imuslab.com/arozos/mod/filesystem/metadata"
@@ -195,9 +196,6 @@ func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
-	//log.Println(r.Header)
-	//log.Println("Request Method: ", r.Method)
-
 	//Check if this is enabled
 	if !s.Enabled {
 		http.NotFound(w, r)
@@ -231,10 +229,13 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	username, password, ok := r.BasicAuth()
-	if !ok {
+	//Support two authentication modes: an auto-login access token (issued from
+	//Auto Login Settings) passed via X-Access-Token + X-Aroz-User, or the
+	//classic HTTP Basic Auth username/password.
+	accessToken := r.Header.Get("X-Access-Token")
+	basicAuthUsername, password, hasBasicAuth := r.BasicAuth()
+	if accessToken == "" && !hasBasicAuth {
 		//User not logged in.
-		//log.Println("Not logged in!")
 		w.Header().Set("WWW-Authenticate", `Basic realm="Login with your `+s.hostname+` account"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -246,16 +247,32 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Validate request origin
 	allowAccess, err := authAgent.ValidateLoginRequest(w, r)
 	if !allowAccess {
-		logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to log into "+username+" WebDAV endpoint but got rejected: "+err.Error(), nil)
+		logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to access WebDAV endpoint but got rejected: "+err.Error(), nil)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	passwordValid, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(username, password)
-	if !passwordValid {
-		authAgent.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "webdav")
-		logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to log into "+username+" WebDAV endpoint but got rejected: "+rejectionReason, nil)
-		http.Error(w, rejectionReason, http.StatusUnauthorized)
-		return
+
+	var username string
+	if accessToken != "" {
+		//Authenticate using an auto-login access token instead of Basic Auth
+		claimedUsername := r.Header.Get("X-Aroz-User")
+		tokenValid, tokenOwner := autoLoginTokenMatchesUsername(authAgent, accessToken, claimedUsername)
+		if !tokenValid {
+			authAgent.Logger.LogAuthByRequestInfo(claimedUsername, r.RemoteAddr, time.Now().Unix(), false, "webdav")
+			logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to log into "+claimedUsername+" WebDAV endpoint but got rejected: invalid access token", nil)
+			http.Error(w, "Invalid access token", http.StatusUnauthorized)
+			return
+		}
+		username = tokenOwner
+	} else {
+		passwordValid, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(basicAuthUsername, password)
+		if !passwordValid {
+			authAgent.Logger.LogAuthByRequestInfo(basicAuthUsername, r.RemoteAddr, time.Now().Unix(), false, "webdav")
+			logger.PrintAndLog("Webdav", "Someone from "+r.RemoteAddr+" try to log into "+basicAuthUsername+" WebDAV endpoint but got rejected: "+rejectionReason, nil)
+			http.Error(w, rejectionReason, http.StatusUnauthorized)
+			return
+		}
+		username = basicAuthUsername
 	}
 
 	//Resolve the vroot to realpath
@@ -289,6 +306,24 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Serve the content
 	fs.ServeHTTP(w, r)
 
+}
+
+// autoLoginTokenMatchesUsername validates accessToken as an ArozOS auto-login
+// token (see Auto Login Settings / mod/auth's AutoLoginToken) and reports
+// whether it is owned by claimedUsername. Both the token and the claimed
+// username must be supplied and agree, mirroring how X-Access-Token and
+// X-Aroz-User are required together on the wire.
+func autoLoginTokenMatchesUsername(authAgent *auth.AuthAgent, accessToken string, claimedUsername string) (bool, string) {
+	if accessToken == "" || claimedUsername == "" {
+		return false, ""
+	}
+
+	tokenValid, tokenOwner := authAgent.ValidateAutoLoginToken(accessToken)
+	if !tokenValid || tokenOwner != claimedUsername {
+		return false, ""
+	}
+
+	return true, tokenOwner
 }
 
 /*

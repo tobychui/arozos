@@ -41,3 +41,5 @@ src/launcher.exe
 .DS_Store
 src/ffmpeg
 /src/dist
+/apps
+/src/framework

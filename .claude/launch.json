@@ -6,6 +6,18 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8123", "--directory", "src/web"],
       "port": 8123
+    },
+    {
+      "name": "framework-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8124", "--directory", "src/framework"],
+      "port": 8124
+    },
+    {
+      "name": "desktop-app",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./apps/desktop", "-noui", "-port", "8765", "-store", "./apps/desktop/.preview-servers.json"],
+      "port": 8765
     }
   ]
 }

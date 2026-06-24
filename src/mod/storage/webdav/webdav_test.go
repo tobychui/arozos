@@ -4,10 +4,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"imuslab.com/arozos/mod/auth"
+	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/permission"
+	"imuslab.com/arozos/mod/share/shareEntry"
+	"imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/user"
 )
 
 // newTestServer builds a Server with nil userHandler – sufficient for testing
@@ -23,6 +31,78 @@ func newTestServer() *Server {
 		windowsClientNotLoggedIn:  sync.Map{},
 		windowsClientLoggedIn:     sync.Map{},
 		readOnlyFileSystemHandler: nil,
+	}
+}
+
+// webdavTestEnv wires a Server to a real AuthAgent/UserHandler backed by a
+// temp-dir database, so authentication (Basic Auth and access-token) paths
+// can be exercised end-to-end. Two users are created: "alice"/"alicepw" and
+// "bob"/"bobpw".
+type webdavTestEnv struct {
+	server    *Server
+	authAgent *auth.AuthAgent
+	cleanup   func()
+}
+
+func newAuthedTestEnv(t *testing.T) *webdavTestEnv {
+	t.Helper()
+	tmpDir := t.TempDir()
+
+	// The authlogger writes to ./system/auth/ relative to cwd; redirect to tmp.
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("os.Chdir: %v", err)
+	}
+
+	sysdb, err := db.NewDatabase(filepath.Join(tmpDir, "system.db"), false)
+	if err != nil {
+		t.Fatalf("NewDatabase: %v", err)
+	}
+
+	authAgent := auth.NewAuthenticationAgent("testsession", []byte("supersecretkey0123456789"), sysdb, false, nil)
+
+	ph, err := permission.NewPermissionHandler(sysdb)
+	if err != nil {
+		t.Fatalf("NewPermissionHandler: %v", err)
+	}
+	ph.NewPermissionGroup("users", false, 0, []string{}, "")
+
+	if err := authAgent.CreateUserAccount("alice", "alicepw", []string{"users"}); err != nil {
+		t.Fatalf("CreateUserAccount (alice): %v", err)
+	}
+	if err := authAgent.CreateUserAccount("bob", "bobpw", []string{"users"}); err != nil {
+		t.Fatalf("CreateUserAccount (bob): %v", err)
+	}
+
+	sp, err := storage.NewStoragePool(nil, "system")
+	if err != nil {
+		t.Fatalf("NewStoragePool: %v", err)
+	}
+
+	set := shareEntry.NewShareEntryTable(sysdb)
+	uh, err := user.NewUserHandler(sysdb, authAgent, ph, sp, &set)
+	if err != nil {
+		t.Fatalf("NewUserHandler: %v", err)
+	}
+
+	s := &Server{
+		hostname:    "testhost",
+		userHandler: uh,
+		filesystems: sync.Map{},
+		prefix:      "/webdav",
+		Enabled:     true,
+	}
+
+	cleanup := func() {
+		authAgent.Close()
+		sysdb.Close()
+		os.Chdir(origDir)
+	}
+
+	return &webdavTestEnv{
+		server:    s,
+		authAgent: authAgent,
+		cleanup:   cleanup,
 	}
 }
 
@@ -362,6 +442,142 @@ func TestHandleRequest_EmptyVroot(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for empty vroot, got %d", w.Code)
+	}
+}
+
+// --- auto-login access token authentication (X-Access-Token / X-Aroz-User) ---
+
+func TestAutoLoginTokenMatchesUsername(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	token := env.authAgent.NewAutologinToken("alice")
+
+	tests := []struct {
+		name            string
+		accessToken     string
+		claimedUsername string
+		wantValid       bool
+		wantUsername    string
+	}{
+		{"valid token and matching username", token, "alice", true, "alice"},
+		{"valid token but wrong claimed username", token, "bob", false, ""},
+		{"unknown token", "bogus-token", "alice", false, ""},
+		{"empty token", "", "alice", false, ""},
+		{"empty claimed username", token, "", false, ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			valid, username := autoLoginTokenMatchesUsername(env.authAgent, tc.accessToken, tc.claimedUsername)
+			if valid != tc.wantValid {
+				t.Errorf("valid: got %v, want %v", valid, tc.wantValid)
+			}
+			if username != tc.wantUsername {
+				t.Errorf("username: got %q, want %q", username, tc.wantUsername)
+			}
+		})
+	}
+}
+
+func TestHandleRequest_AccessToken_Valid(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	token := env.authAgent.NewAutologinToken("alice")
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	req.Header.Set("X-Access-Token", token)
+	req.Header.Set("X-Aroz-User", "alice")
+	w := httptest.NewRecorder()
+	env.server.HandleRequest(w, req)
+
+	if w.Code == http.StatusUnauthorized {
+		t.Errorf("expected access-token auth to pass the credential check (not 401), got 401: %s", w.Body.String())
+	}
+	if wwwAuth := w.Header().Get("WWW-Authenticate"); wwwAuth != "" {
+		t.Errorf("did not expect a Basic Auth challenge for token auth, got WWW-Authenticate=%q", wwwAuth)
+	}
+}
+
+func TestHandleRequest_AccessToken_InvalidToken(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	req.Header.Set("X-Access-Token", "not-a-real-token")
+	req.Header.Set("X-Aroz-User", "alice")
+	w := httptest.NewRecorder()
+	env.server.HandleRequest(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for invalid access token, got %d", w.Code)
+	}
+	if wwwAuth := w.Header().Get("WWW-Authenticate"); wwwAuth != "" {
+		t.Errorf("token auth failure should not trigger a Basic Auth challenge, got WWW-Authenticate=%q", wwwAuth)
+	}
+}
+
+func TestHandleRequest_AccessToken_UsernameMismatch(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	// Token belongs to alice, but the request claims to be bob.
+	token := env.authAgent.NewAutologinToken("alice")
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	req.Header.Set("X-Access-Token", token)
+	req.Header.Set("X-Aroz-User", "bob")
+	w := httptest.NewRecorder()
+	env.server.HandleRequest(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 when X-Aroz-User does not match the token owner, got %d", w.Code)
+	}
+}
+
+func TestHandleRequest_AccessToken_MissingUserHeader(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	token := env.authAgent.NewAutologinToken("alice")
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	req.Header.Set("X-Access-Token", token)
+	// X-Aroz-User intentionally omitted
+	w := httptest.NewRecorder()
+	env.server.HandleRequest(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 when X-Aroz-User is missing, got %d", w.Code)
+	}
+}
+
+func TestHandleRequest_BasicAuth_StillWorksAlongsideAccessToken(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	req.SetBasicAuth("alice", "alicepw")
+	w := httptest.NewRecorder()
+	env.server.HandleRequest(w, req)
+
+	if w.Code == http.StatusUnauthorized {
+		t.Errorf("expected valid Basic Auth to pass the credential check (not 401), got 401: %s", w.Body.String())
+	}
+}
+
+func TestHandleRequest_BasicAuth_WrongPassword(t *testing.T) {
+	env := newAuthedTestEnv(t)
+	defer env.cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	req.SetBasicAuth("alice", "wrongpassword")
+	w := httptest.NewRecorder()
+	env.server.HandleRequest(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for wrong password, got %d", w.Code)
 	}
 }
 
