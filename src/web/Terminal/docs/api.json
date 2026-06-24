@@ -726,6 +726,112 @@
       ]
     },
     {
+      "id": "cnn",
+      "name": "cnn",
+      "desc": "Run image/face vision inference (classification, detection, segmentation, pose, oriented detection, face analysis) against an external CXNNAIO server. Endpoint, token and timeout are configured in System Settings > AI Integration > CNN Inference.",
+      "load": "requirelib(\"cnn\");",
+      "functions": [
+        {
+          "name": "cnn.classify",
+          "sig": "cnn.classify(file, options)",
+          "desc": "Classify an image (default model mobilenet-v2). file is a virtual path. Returns the server's image.classification envelope.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.classify(\"user:/cat.jpg\", { top_k: 3 });\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.detect",
+          "sig": "cnn.detect(file, options)",
+          "desc": "Run object detection (default model yolo11n). Returns the server's image.detection envelope; set options.render to also get an annotated PNG in rendered_image.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.detect(\"user:/street.jpg\", { score_threshold: 0.3 });\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.segment",
+          "sig": "cnn.segment(file, options)",
+          "desc": "Run instance segmentation (yolo11n-seg). Each item carries a per-instance, box-cropped base64 PNG mask.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.segment(\"user:/photo.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.pose",
+          "sig": "cnn.pose(file, options)",
+          "desc": "Run pose estimation (yolo11n-pose), 17 COCO keypoints per detected person.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.pose(\"user:/photo.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.oriented",
+          "sig": "cnn.oriented(file, options)",
+          "desc": "Run oriented/rotated-box detection (yolo11n-obb), intended for aerial/top-down imagery.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.oriented(\"user:/aerial.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceDetect",
+          "sig": "cnn.faceDetect(file, options)",
+          "desc": "Detect faces (default model ultraface-rfb-320). Returns the server's face.detection envelope.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceDetect(\"user:/group.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceLandmarks",
+          "sig": "cnn.faceLandmarks(file, options)",
+          "desc": "Detect 98-point facial landmarks (pfld). Set options.cropped to treat the whole input as one face crop instead of detecting faces first.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceLandmarks(\"user:/face.jpg\", { cropped: true });\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceEmbedding",
+          "sig": "cnn.faceEmbedding(file, options)",
+          "desc": "Return an L2-normalized 128-d embedding vector per face (mbv2facenet).",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceEmbedding(\"user:/face.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceAttributes",
+          "sig": "cnn.faceAttributes(file, options)",
+          "desc": "Return gender attributes per face (gender-mbv2-0.35). Calls the server's /v1/faces/gender route; response object is face.gender.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceAttributes(\"user:/face.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceCompare",
+          "sig": "cnn.faceCompare(fileA, fileB, options)",
+          "desc": "Compare two face photos/crops and return their cosine similarity. options: { model, threshold, a_cropped, b_cropped }. No async variant.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceCompare(\"user:/a.jpg\", \"user:/b.jpg\", { threshold: 0.5 });\nsendResp(r.same ? \"same\" : \"different\");"
+        },
+        {
+          "name": "cnn.analyze",
+          "sig": "cnn.analyze(file, tasks, options)",
+          "desc": "Run several tasks over one image in a single round trip. tasks is an array (classify/detect/segment/pose/oriented/faces/landmarks/attributes); options carries top-level render/async plus per-task blocks keyed by task name.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.analyze(\"user:/group.jpg\", [\"detect\", \"faces\"], { render: true });\nsendJSONResp(r.results);"
+        },
+        {
+          "name": "cnn.job",
+          "sig": "cnn.job(id)",
+          "desc": "Poll an async job submitted with options.async = true. Returns { id, object, status, created, result, error }; status is queued, running, succeeded or failed.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar job = cnn.detect(\"user:/big.jpg\", { async: true });\nwhile (job.status === \"queued\" || job.status === \"running\") {\n    delay(500);\n    job = cnn.job(job.id);\n}\nsendJSONResp(job.result);"
+        },
+        {
+          "name": "cnn.models",
+          "sig": "cnn.models()",
+          "desc": "Return the live model registry from the configured server: { object, data: [{ id, object, task, classes, input }, ...] }.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nsendJSONResp(cnn.models());"
+        },
+        {
+          "name": "cnn.health",
+          "sig": "cnn.health()",
+          "desc": "Return live server health: { status, version, models_loaded, sessions, uptime_s }.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nsendJSONResp(cnn.health());"
+        }
+      ]
+    },
+    {
       "id": "websocket",
       "name": "websocket",
       "desc": "Upgrade the HTTP connection to a persistent WebSocket session.",

@@ -272,6 +272,7 @@ Registered library IDs:
 - `ziplib` (includes 7z support via `ziplib.extract7zFile`, `ziplib.list7zFileContents`, etc.)
 - `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
 - `aimodel` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
+- `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -999,6 +1000,141 @@ All functions that accept `options` support the following fields (all optional):
 | `apiFormat` | string | Wire format: `"openai"` (default) or `"anthropic"` |
 | `temperature` | number | Sampling temperature |
 | `max_tokens` | number | Maximum tokens to generate |
+
+## cnn API
+
+Load:
+
+```javascript
+requirelib("cnn");
+```
+
+The `cnn` library connects to an external **CXNNAIO** vision-inference server
+configured by an admin in **System Settings > AI Integration > CNN
+Inference** (endpoint, optional bearer token, request timeout). Every
+function reads its input image from a virtual file path (the calling user
+must have read access); the returned object is the server's own response
+envelope (`object`, `model`, `created`, `image`, `timing_ms`, `data`, ...),
+so it matches the CXNNAIO API documentation field-for-field.
+
+### `cnn.classify(file, options)` → object
+Image classification (default model `mobilenet-v2`).
+
+```javascript
+requirelib("cnn");
+var r = cnn.classify("user:/Photos/cat.jpg", { top_k: 3 });
+sendJSONResp(r.data); // [{ label, index, score }, ...]
+```
+
+### `cnn.detect(file, options)` → object
+Object detection (default model `yolo11n`).
+
+```javascript
+requirelib("cnn");
+var r = cnn.detect("user:/Photos/street.jpg", { score_threshold: 0.3, render: true });
+sendJSONResp(r.data);              // [{ label, class_id, score, box:{x1,y1,x2,y2} }, ...]
+// r.rendered_image is a data URI PNG when render:true was set
+```
+
+### `cnn.segment(file, options)` → object
+Instance segmentation (`yolo11n-seg`). Each item carries a per-instance,
+box-cropped mask (`mask.data` is a base64 PNG).
+
+### `cnn.pose(file, options)` → object
+Pose estimation (`yolo11n-pose`), 17 COCO keypoints per detected person.
+
+### `cnn.oriented(file, options)` → object
+Oriented/rotated-box detection (`yolo11n-obb`), intended for aerial/top-down imagery.
+
+### `cnn.faceDetect(file, options)` → object
+Face detection (default model `ultraface-rfb-320`).
+
+### `cnn.faceLandmarks(file, options)` → object
+98-point facial landmarks (`pfld`). Set `options.cropped = true` to treat the
+whole input image as one face crop instead of detecting faces first.
+
+### `cnn.faceEmbedding(file, options)` → object
+L2-normalized 128-d face embedding vector(s) (`mbv2facenet`).
+
+### `cnn.faceAttributes(file, options)` → object
+Gender attributes per face (`gender-mbv2-0.35`). Calls the server's
+`/v1/faces/gender` route (the upstream API doc names this endpoint
+`/v1/faces/attributes`, but the deployed server registers it as `gender`;
+the response `object` field reads `"face.gender"`).
+
+### `cnn.faceCompare(fileA, fileB, options)` → object
+Compares two face photos/crops and returns their cosine similarity. Does not
+support `options.async` (the server has no async variant for this endpoint).
+
+```javascript
+requirelib("cnn");
+var r = cnn.faceCompare("user:/a.jpg", "user:/b.jpg", { threshold: 0.5 });
+sendResp(r.similarity + " - " + (r.same ? "same person" : "different"));
+```
+
+### `cnn.analyze(file, tasks, options)` → object
+Runs several tasks over one image in a single round trip. `tasks` is an
+array (`"classify"`, `"detect"`, `"segment"`, `"pose"`, `"oriented"`,
+`"faces"`, `"landmarks"`, `"attributes"`); `options` carries an optional
+top-level `render`/`async` plus per-task parameter blocks keyed by task name.
+
+```javascript
+requirelib("cnn");
+var r = cnn.analyze("user:/group.jpg", ["detect", "faces"], {
+    render: true,
+    detect: { score_threshold: 0.3 }
+});
+sendJSONResp(r.results.detect.data);
+document_rendered = r.rendered_image; // data URI PNG
+```
+
+### `cnn.job(id)` → object
+Polls an async job (see Async below). Returns
+`{ id, object, status, created, result, error }` where `status` is one of
+`"queued"`, `"running"`, `"succeeded"` or `"failed"`.
+
+### `cnn.models()` → object
+Live model registry from the configured server: `{ object, data: [{ id, object, task, classes, input }, ...] }`.
+
+### `cnn.health()` → object
+Live server health: `{ status, version, models_loaded, sessions, uptime_s }`.
+
+### Async jobs
+
+Every single-image function (`classify`, `detect`, `segment`, `pose`,
+`oriented`, `faceDetect`, `faceLandmarks`, `faceEmbedding`,
+`faceAttributes`, `analyze`) accepts `options.async = true`. When set, the
+function returns immediately with a job object instead of blocking:
+
+```javascript
+requirelib("cnn");
+var job = cnn.detect("user:/big.jpg", { async: true });
+while (job.status === "queued" || job.status === "running") {
+    delay(500);
+    job = cnn.job(job.id);
+}
+sendJSONResp(job.status === "succeeded" ? job.result : job.error);
+```
+
+### Options object
+
+All single-image functions accept the same `options` fields, using the
+server's own field names so they match the CXNNAIO API documentation
+directly (all optional):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Override the server's default model for this task |
+| `score_threshold` | number | Minimum confidence to keep (detect/seg/pose/oriented/faces) |
+| `nms_threshold` | number | IoU suppression threshold (detect/seg/pose/oriented/faces) |
+| `top_k` | number | Number of ranked results (classification) |
+| `max_results` | number | Cap on returned items |
+| `render` | bool | Also return an annotated PNG in `rendered_image` |
+| `cropped` | bool | Treat the whole input image as one face crop (face endpoints) |
+| `async` | bool | Submit as an async job instead of blocking (see Async jobs) |
+
+`cnn.faceCompare` uses its own options shape instead: `model`, `threshold`,
+`a_cropped`, `b_cropped`.
 
 ## ffmpeg API
 
