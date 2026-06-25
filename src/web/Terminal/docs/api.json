@@ -669,59 +669,59 @@
       ]
     },
     {
-      "id": "aimodel",
-      "name": "aimodel",
+      "id": "llm",
+      "name": "llm",
       "desc": "Call any OpenAI-compatible or Anthropic LLM endpoint. Endpoint, API key, default model, pricing, and usage quota are configured in System Settings > AI Integration > AI Model.",
-      "load": "requirelib(\"aimodel\");",
+      "load": "requirelib(\"llm\");",
       "functions": [
         {
-          "name": "aimodel.chat",
-          "sig": "aimodel.chat(prompt, options)",
-          "desc": "Send a single-turn text prompt and return the assistant reply string. options is optional (see aimodel options).",
+          "name": "llm.chat",
+          "sig": "llm.chat(prompt, options)",
+          "desc": "Send a single-turn text prompt and return the assistant reply string. options is optional (see llm options).",
           "ret": "string",
-          "example": "requirelib(\"aimodel\");\nvar reply = aimodel.chat(\"What is 2 + 2?\");\nsendResp(reply);"
+          "example": "requirelib(\"llm\");\nvar reply = llm.chat(\"What is 2 + 2?\");\nsendResp(reply);"
         },
         {
-          "name": "aimodel.chatWithFile",
-          "sig": "aimodel.chatWithFile(prompt, files, options)",
-          "desc": "Like aimodel.chat() but attaches virtual-path files. Images become vision parts; text files are inlined. files may be a single vpath string or an array.",
+          "name": "llm.chatWithFile",
+          "sig": "llm.chatWithFile(prompt, files, options)",
+          "desc": "Like llm.chat() but attaches virtual-path files. Images become vision parts; text files are inlined. files may be a single vpath string or an array.",
           "ret": "string",
-          "example": "requirelib(\"aimodel\");\nvar reply = aimodel.chatWithFile(\n    \"Describe this image.\",\n    \"user:/Photos/holiday.jpg\"\n);\nsendResp(reply);"
+          "example": "requirelib(\"llm\");\nvar reply = llm.chatWithFile(\n    \"Describe this image.\",\n    \"user:/Photos/holiday.jpg\"\n);\nsendResp(reply);"
         },
         {
-          "name": "aimodel.request",
-          "sig": "aimodel.request(messages, options)",
+          "name": "llm.request",
+          "sig": "llm.request(messages, options)",
           "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage.",
           "ret": "object",
-          "example": "requirelib(\"aimodel\");\nvar resp = aimodel.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
+          "example": "requirelib(\"llm\");\nvar resp = llm.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
         },
         {
-          "name": "aimodel.usage",
-          "sig": "aimodel.usage()",
+          "name": "llm.usage",
+          "sig": "llm.usage()",
           "desc": "Return accumulated token/cost metrics: { totalTokens, totalCost, totalRequests, perModel, currency, ... }.",
           "ret": "object",
-          "example": "requirelib(\"aimodel\");\nvar u = aimodel.usage();\nsendJSONResp(u);"
+          "example": "requirelib(\"llm\");\nvar u = llm.usage();\nsendJSONResp(u);"
         },
         {
-          "name": "aimodel.models",
-          "sig": "aimodel.models()",
+          "name": "llm.models",
+          "sig": "llm.models()",
           "desc": "Return the configured default model and list of models with pricing entries: { default, models }.",
           "ret": "object",
-          "example": "requirelib(\"aimodel\");\nvar m = aimodel.models();\nsendJSONResp(m);"
+          "example": "requirelib(\"llm\");\nvar m = llm.models();\nsendJSONResp(m);"
         },
         {
-          "name": "aimodel.listModels",
-          "sig": "aimodel.listModels()",
+          "name": "llm.listModels",
+          "sig": "llm.listModels()",
           "desc": "Query the live endpoint for available models (no tokens consumed). Returns { models: [...] }.",
           "ret": "object",
-          "example": "requirelib(\"aimodel\");\nvar m = aimodel.listModels();\nsendJSONResp(m.models);"
+          "example": "requirelib(\"llm\");\nvar m = llm.listModels();\nsendJSONResp(m.models);"
         },
         {
-          "name": "aimodel.fileParts",
-          "sig": "aimodel.fileParts(files)",
-          "desc": "Convert virtual-path file(s) into OpenAI-style content parts for use in aimodel.request(). Images → image_url data URIs; text files → text parts.",
+          "name": "llm.fileParts",
+          "sig": "llm.fileParts(files)",
+          "desc": "Convert virtual-path file(s) into OpenAI-style content parts for use in llm.request(). Images → image_url data URIs; text files → text parts.",
           "ret": "object[]",
-          "example": "requirelib(\"aimodel\");\nvar parts = aimodel.fileParts([\"user:/report.txt\"]);\nvar resp = aimodel.request([{ role: \"user\", content: parts }]);\nsendResp(resp.choices[0].message.content);"
+          "example": "requirelib(\"llm\");\nvar parts = llm.fileParts([\"user:/report.txt\"]);\nvar resp = llm.request([{ role: \"user\", content: parts }]);\nsendResp(resp.choices[0].message.content);"
         }
       ]
     },

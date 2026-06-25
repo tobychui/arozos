@@ -271,7 +271,7 @@ Registered library IDs:
 - `sysinfo`
 - `ziplib` (includes 7z support via `ziplib.extract7zFile`, `ziplib.list7zFileContents`, etc.)
 - `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
-- `aimodel` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
+- `llm` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
 - `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
 - `ffmpeg` (only when ffmpeg exists on host)
 
@@ -881,60 +881,64 @@ sendJSONResp(pending);
 db.close();
 ```
 
-## aimodel API
+## llm API
 
 Load:
 
 ```javascript
-requirelib("aimodel");
+requirelib("llm");
 ```
 
-The `aimodel` library connects to any OpenAI-compatible or Anthropic endpoint
-configured by an admin in **System Settings > AI Integration > AI Model**.
-Per-model pricing and an optional token/cost quota are also defined there.
+The `llm` library connects to any OpenAI-compatible or Anthropic endpoint
+configured by an admin in **System Settings > AI Integration > AI Model**
+(the settings tab and its `/system/aimodel/...` routes kept their original
+"AI Model" name; only the requirelib identifier changed from `aimodel` to
+`llm`). Per-model pricing and an optional token/cost quota are also defined
+there. The wire-protocol logic (OpenAI / Anthropic request building and
+response parsing) lives in the standalone `mod/aiservers/llm` Go package.
 
-### `aimodel.chat(prompt, options)` → string
+### `llm.chat(prompt, options)` → string
 Sends a single-turn text prompt and returns the assistant's reply.
 `options` is an optional object (see Options below).
 
 ```javascript
-requirelib("aimodel");
-var reply = aimodel.chat("What is the capital of France?");
+requirelib("llm");
+var reply = llm.chat("What is the capital of France?");
 sendResp(reply);
 ```
 
 With a system prompt and model override:
 
 ```javascript
-requirelib("aimodel");
-var reply = aimodel.chat("Summarise this in one sentence.", {
+requirelib("llm");
+var reply = llm.chat("Summarise this in one sentence.", {
     system: "You are a concise summariser.",
     model:  "gpt-4o-mini"
 });
 sendResp(reply);
 ```
 
-### `aimodel.chatWithFile(prompt, files, options)` → string
-Like `aimodel.chat()` but attaches one or more virtual-path files to the message.
+### `llm.chatWithFile(prompt, files, options)` → string
+Like `llm.chat()` but attaches one or more virtual-path files to the message.
 Images are sent as base64 vision parts; text files are inlined as labelled text.
 `files` may be a single vpath string or an array.
 
 ```javascript
-requirelib("aimodel");
-var reply = aimodel.chatWithFile(
+requirelib("llm");
+var reply = llm.chatWithFile(
     "Describe what you see in this image.",
     "user:/Photos/holiday.jpg"
 );
 sendResp(reply);
 ```
 
-### `aimodel.request(messages, options)` → object
+### `llm.request(messages, options)` → object
 Low-level call. Accepts the full OpenAI-style messages array and returns the
 raw response object (including `usage` and `choices`).
 
 ```javascript
-requirelib("aimodel");
-var resp = aimodel.request([
+requirelib("llm");
+var resp = llm.request([
     { role: "system",    content: "You are helpful." },
     { role: "user",      content: "Hi!" },
     { role: "assistant", content: "Hello! How can I help?" },
@@ -943,45 +947,45 @@ var resp = aimodel.request([
 sendResp(resp.choices[0].message.content);
 ```
 
-### `aimodel.usage()` → object
+### `llm.usage()` → object
 Returns accumulated token / cost metrics across all models.
 
 ```javascript
-requirelib("aimodel");
-var u = aimodel.usage();
+requirelib("llm");
+var u = llm.usage();
 sendJSONResp(u);
 // { totalTokens, totalCost, totalRequests, perModel: { ... }, currency, ... }
 ```
 
-### `aimodel.models()` → object
+### `llm.models()` → object
 Returns the configured default model name and a list of models that have
 pricing entries defined in System Settings.
 
 ```javascript
-requirelib("aimodel");
-var m = aimodel.models();
+requirelib("llm");
+var m = llm.models();
 sendJSONResp(m);
 // { default: "gpt-4o", models: ["gpt-4o", "gpt-4o-mini", ...] }
 ```
 
-### `aimodel.listModels()` → object
+### `llm.listModels()` → object
 Queries the live endpoint for available models (does not consume tokens).
 
 ```javascript
-requirelib("aimodel");
-var m = aimodel.listModels();
+requirelib("llm");
+var m = llm.listModels();
 sendJSONResp(m.models);
 ```
 
-### `aimodel.fileParts(files)` → object[]
+### `llm.fileParts(files)` → object[]
 Converts virtual-path file(s) into OpenAI-style content parts that can be
-embedded in a `messages` array for `aimodel.request()`.
+embedded in a `messages` array for `llm.request()`.
 Images become `image_url` data-URI parts; text files become `text` parts.
 
 ```javascript
-requirelib("aimodel");
-var parts = aimodel.fileParts(["user:/report.txt"]);
-var resp  = aimodel.request([
+requirelib("llm");
+var parts = llm.fileParts(["user:/report.txt"]);
+var resp  = llm.request([
     { role: "user", content: parts }
 ]);
 sendResp(resp.choices[0].message.content);

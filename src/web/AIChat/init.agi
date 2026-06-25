@@ -2,13 +2,13 @@
 	AI Chat — LM Studio style conversation demo
 	===========================================
 	A demo WebApp that talks to any OpenAI-compatible endpoint through the
-	AGI "aimodel" library. Configure the endpoint, API key, default model and
+	AGI "llm" library. Configure the endpoint, API key, default model and
 	per-model pricing in:
 
-	    System Settings > Developer Options > AI Model
+	    System Settings > AI Integration > AI Model
 
 	Backend scripts (next to this init.agi):
-	    backend/chat.agi    relays a conversation to aimodel.request()
+	    backend/chat.agi    relays a conversation to llm.request()
 	    backend/models.agi  returns the configured models + default model
 */
 

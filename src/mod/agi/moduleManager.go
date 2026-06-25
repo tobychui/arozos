@@ -55,7 +55,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.SysinfoLibRegister()
 	//g.AudioLibRegister() //work in progress
 	g.ZipLibRegister()
-	g.AIModelLibRegister()
+	g.LLMLibRegister()
 	g.CNNLibRegister()
 	g.SQLiteLibRegister()
 

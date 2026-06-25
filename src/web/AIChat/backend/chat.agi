@@ -1,6 +1,6 @@
 /*
 	AI Chat — chat backend
-	Relays a conversation to the configured AI endpoint via aimodel.request().
+	Relays a conversation to the configured AI endpoint via llm.request().
 
 	POST parameters:
 	    messages : JSON array of {role, content}
@@ -13,7 +13,7 @@
 	    { ok:false, error:"..." }
 */
 
-requirelib("aimodel");
+requirelib("llm");
 
 //Read POST parameters safely (they are injected as VM globals when present)
 var rawMessages = (typeof messages !== "undefined") ? messages : "[]";
@@ -44,7 +44,7 @@ var handled = false;
 //the latest user message (turning its content into a multimodal array).
 if (fileList.length > 0 && finalMessages.length > 0) {
 	try {
-		var parts = aimodel.fileParts(fileList);
+		var parts = llm.fileParts(fileList);
 		var lastUserIdx = -1;
 		for (var j = finalMessages.length - 1; j >= 0; j--) {
 			if (finalMessages[j].role == "user") { lastUserIdx = j; break; }
@@ -69,7 +69,7 @@ if (!handled) {
 		sendJSONResp(JSON.stringify({ ok: false, error: "No messages to send" }));
 	} else {
 		try {
-			var res = aimodel.request(finalMessages, opts);
+			var res = llm.request(finalMessages, opts);
 			var replyText = "";
 			if (res && res.choices && res.choices.length > 0 && res.choices[0].message) {
 				replyText = res.choices[0].message.content;
