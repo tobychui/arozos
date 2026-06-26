@@ -377,6 +377,14 @@ input, select, button, textarea {
     min-height: 1em;
 }
 
+/* the textarea's own glyphs and native selection stay fully invisible; the
+   real text (and its selection highlight) are drawn on the canvas layers
+   underneath so they can never visually drift from the textarea's caret */
+#text-edit-host .text-editor::selection {
+    background: transparent;
+    color: transparent;
+}
+
 /* ============ Rulers & guides ============ */
 #ruler-top, #ruler-left, #ruler-corner {
     position: absolute;

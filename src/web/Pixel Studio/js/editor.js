@@ -355,6 +355,9 @@ PS.startOverlayLoop = function () {
             }
             // selection transform handles (visible when a selection tool is active)
             PS.selTransform.drawOverlay(ctx);
+            // active text edit's selection highlight (kept in sync with the
+            // real canvas-rendered glyphs; see PS.drawTextEditSelection)
+            if (PS.textEdit) { PS.drawTextEditSelection(ctx); }
             // active tool overlay (shape previews, lasso paths, brush cursor...)
             var tool = PS.tools[PS.tool];
             if (tool && tool.overlay) {
@@ -717,6 +720,7 @@ PS.setFg = function (hex, skipRecent) {
     var hexInp = document.querySelector("#panel-color-body .color-hex");
     if (hexInp) { hexInp.value = hex; }
     if (!skipRecent) { PS.pushRecentColor(hex); }
+    if (PS.textEdit) { PS.applyTextColorFromSelection(hex); }
     PS.savePrefsDebounced();
 };
 
@@ -825,6 +829,11 @@ PS.renderColorPanel = function () {
     row.appendChild(pick);
     body.appendChild(row);
 
+    var swatchHint = document.createElement("div");
+    swatchHint.className = "swatch-hint";
+    swatchHint.textContent = "Click a swatch for foreground, Ctrl+Click for background.";
+    body.appendChild(swatchHint);
+
     // swatch grid; onpick selects FG, onremove (optional) right-click removes
     function addGrid(colors, onRemove) {
         var grid = document.createElement("div");
@@ -833,8 +842,10 @@ PS.renderColorPanel = function () {
             var s = document.createElement("div");
             s.className = "swatch";
             s.style.background = c;
-            s.title = c + (onRemove ? "  (right-click to remove)" : "");
-            s.addEventListener("click", function () { PS.setFg(c, true); });
+            s.title = c + "  (Ctrl+Click: set background)" + (onRemove ? ", right-click: remove" : "");
+            s.addEventListener("click", function (e) {
+                if (e.ctrlKey || e.metaKey) { PS.setBg(c); } else { PS.setFg(c, true); }
+            });
             if (onRemove) {
                 s.addEventListener("contextmenu", function (e) {
                     e.preventDefault();

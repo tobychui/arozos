@@ -60,18 +60,88 @@ PS.textFontString = function (t) {
         t.size + "px \"" + t.font + "\"";
 };
 
+// color of the character at absolute offset `pos` within t.content, falling
+// back to the text's base color outside of any colored range
+PS.textColorAt = function (t, pos) {
+    var ranges = t.colorRanges || [];
+    for (var i = 0; i < ranges.length; i++) {
+        if (pos >= ranges[i].start && pos < ranges[i].end) { return ranges[i].color; }
+    }
+    return t.color;
+};
+
+// paints [start, end) of t.content in `color`, splitting/trimming any
+// existing ranges that overlap the new one
+PS.setTextColorRange = function (t, start, end, color) {
+    if (start === end) { return; }
+    if (start > end) { var tmp = start; start = end; end = tmp; }
+    var ranges = t.colorRanges || [];
+    var next = [];
+    ranges.forEach(function (r) {
+        if (r.end <= start || r.start >= end) { next.push(r); return; }
+        if (r.start < start) { next.push({ start: r.start, end: start, color: r.color }); }
+        if (r.end > end) { next.push({ start: end, end: r.end, color: r.color }); }
+    });
+    next.push({ start: start, end: end, color: color });
+    next.sort(function (a, b) { return a.start - b.start; });
+    t.colorRanges = next;
+};
+
+// applies `hex` to the active text edit's selection, or to the whole text
+// (clearing any per-range colors) when nothing - or everything - is
+// selected; re-renders immediately so the change is visible while still
+// editing, not just after the edit is committed
+PS.applyTextColorFromSelection = function (hex) {
+    var te = PS.textEdit;
+    if (!te) { return; }
+    var ed = te.editorEl;
+    var t = te.layer.text;
+    var start = ed.selectionStart, end = ed.selectionEnd;
+    if (start == null) { start = end = 0; }
+    var isWholeText = (start === end) || (start === 0 && end === t.content.length);
+    if (isWholeText) {
+        t.color = hex;
+        t.colorRanges = [];
+    } else {
+        PS.setTextColorRange(t, start, end, hex);
+    }
+    PS.renderTextLayer(te.layer);
+    PS.requestRender();
+};
+
 PS.renderTextLayer = function (layer) {
     if (layer.type !== "text" || !layer.text) { return; }
     var t = layer.text;
     var ctx = layer.canvas.getContext("2d");
     ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
     ctx.font = PS.textFontString(t);
-    ctx.fillStyle = t.color;
     ctx.textBaseline = "top";
     var lineHeight = Math.round(t.size * 1.25);
     var lines = (t.content || "").split("\n");
+    var hasRanges = t.colorRanges && t.colorRanges.length;
+    var offset = 0;
     for (var i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], t.x, t.y + i * lineHeight);
+        var line = lines[i];
+        var y = t.y + i * lineHeight;
+        if (!hasRanges || !line.length) {
+            ctx.fillStyle = t.color;
+            ctx.fillText(line, t.x, y);
+        } else {
+            // walk the line in same-color runs so mixed-color text still
+            // renders with a single fillText call per run
+            var pos = 0, curX = t.x;
+            while (pos < line.length) {
+                var color = PS.textColorAt(t, offset + pos);
+                var pos2 = pos + 1;
+                while (pos2 < line.length && PS.textColorAt(t, offset + pos2) === color) { pos2++; }
+                var seg = line.slice(pos, pos2);
+                ctx.fillStyle = color;
+                ctx.fillText(seg, curX, y);
+                curX += ctx.measureText(seg).width;
+                pos = pos2;
+            }
+        }
+        offset += line.length + 1;
     }
 };
 
@@ -86,6 +156,45 @@ PS.textLayerBounds = function (layer) {
     });
     var lineHeight = Math.round(t.size * 1.25);
     return { x: t.x, y: t.y, w: w, h: lines.length * lineHeight };
+};
+
+// draws the active text edit's selection on the overlay canvas, using the
+// exact same font metrics as PS.renderTextLayer so the highlight can never
+// visually drift from the real (canvas-rendered) glyphs underneath — the
+// textarea's own native selection rendering is kept fully invisible (see
+// the ::selection rule in style.css) precisely because its internal line-box
+// metrics don't reliably line up with the canvas's top-baseline text
+PS.drawTextEditSelection = function (ctx) {
+    var te = PS.textEdit;
+    if (!te) { return; }
+    var ed = te.editorEl;
+    var start = ed.selectionStart, end = ed.selectionEnd;
+    if (start == null || start === end) { return; }
+    if (start > end) { var tmp = start; start = end; end = tmp; }
+
+    var t = te.layer.text;
+    var mctx = te.layer.canvas.getContext("2d");
+    mctx.font = PS.textFontString(t);
+    var lineHeight = Math.round(t.size * 1.25);
+    var lines = (t.content || "").split("\n");
+    var z = PS.zoom;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(74, 144, 217, 0.45)";
+    var offset = 0;
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var lineStart = offset, lineEnd = offset + line.length;
+        offset = lineEnd + 1; // account for the stripped newline
+        var s = Math.max(start, lineStart), e = Math.min(end, lineEnd);
+        if (s < e) {
+            var preWidth = mctx.measureText(line.slice(0, s - lineStart)).width;
+            var selWidth = mctx.measureText(line.slice(s - lineStart, e - lineStart)).width;
+            var p = PS.docToOverlay(t.x + preWidth, t.y + i * lineHeight);
+            ctx.fillRect(p.x, p.y, selWidth * z, lineHeight * z);
+        }
+    }
+    ctx.restore();
 };
 
 /* ---------- inline text editing session ---------- */
@@ -112,16 +221,18 @@ PS.startTextEditOnLayer = function (layer) {
         editorEl: ed
     };
 
-    // hide the layer's own rendering while editing
-    layer.canvas.getContext("2d").clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-    PS.requestRender();
-
+    // the textarea's own glyphs stay invisible (see positionTextEditor); the
+    // layer's canvas keeps rendering underneath so color changes (incl.
+    // per-range ones) are visible live while still editing
     PS.positionTextEditor();
     ed.focus();
     ed.select();
 
     ed.addEventListener("input", function () {
         PS.autoSizeTextEditor();
+        layer.text.content = ed.value;
+        PS.renderTextLayer(layer);
+        PS.requestRender();
     });
     ed.addEventListener("keydown", function (e) {
         e.stopPropagation();
@@ -147,8 +258,10 @@ PS.positionTextEditor = function () {
     ed.style.font = (t.italic ? "italic " : "") + (t.bold ? "bold " : "") +
         (t.size * PS.zoom) + "px \"" + t.font + "\"";
     ed.style.lineHeight = Math.round(t.size * 1.25 * PS.zoom) + "px";
-    ed.style.color = t.color;
-    ed.style.caretColor = t.color;
+    // glyphs stay invisible: the real (possibly multi-color) text renders on
+    // the layer's canvas underneath, so the caret/selection just overlay it
+    ed.style.color = "transparent";
+    ed.style.caretColor = "var(--accent)";
     PS.autoSizeTextEditor();
 };
 
@@ -262,7 +375,8 @@ PS.registerTool("text", {
         PS.ui.checkbox(host, "Italic", o.italic, function (v) {
             o.italic = v; PS.savePrefsDebounced(); PS.applyTextOptionToEdit();
         });
-        PS.ui.label(host, "Click canvas to add text. Ctrl+Enter commits, Esc cancels. Color = foreground.");
+        PS.ui.label(host, "Click canvas to add text. Ctrl+Enter commits, Esc cancels. " +
+            "While editing, pick a color to recolor the selection, or the whole text if none is selected.");
     },
     onDown: function (pt) {
         if (PS.textEdit) {
@@ -291,6 +405,7 @@ PS.registerTool("text", {
             font: o.font,
             size: o.size,
             color: PS.fg,
+            colorRanges: [],
             bold: o.bold,
             italic: o.italic,
             x: Math.round(pt.x),
