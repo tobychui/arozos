@@ -7,6 +7,7 @@
         <script src="../../script/jquery.min.js"></script>
         <script src="../../script/semantic/semantic.min.js"></script>
         <script src="../../script/ao_module.js"></script>
+        <script src="../../script/applocale.js"></script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <style>
@@ -44,7 +45,7 @@
         <div class="ui small header">
             <i class="upload icon"></i>
             <div class="content">
-                Anonymous Upload Links
+                <span locale="title/title">Anonymous Upload Links</span>
                 <div id="targetPath" class="sub header"></div>
             </div>
         </div>
@@ -52,27 +53,27 @@
         <div class="ui form">
             <div class="inlineFields">
                 <div class="field">
-                    <label>TTL (hours)</label>
+                    <label locale="field/ttl">TTL (hours)</label>
                     <input id="ttlHours" type="number" min="1" value="24">
                 </div>
                 <div class="field">
-                    <label>File count</label>
+                    <label locale="field/fileCount">File count</label>
                     <input id="maxFileCount" type="number" min="1" value="10">
                 </div>
                 <div class="field">
-                    <label>Max file (MB)</label>
+                    <label locale="field/maxFile">Max file (MB)</label>
                     <input id="maxFileSizeMB" type="number" min="1" value="100">
                 </div>
                 <div class="field">
-                    <label>Total size (MB)</label>
+                    <label locale="field/totalSize">Total size (MB)</label>
                     <input id="maxTotalSizeMB" type="number" min="1" value="1024">
                 </div>
             </div>
             <button id="createButton" class="ui primary button" onclick="createUploadLink();">
-                <i class="add icon"></i> Create Link
+                <i class="add icon"></i> <span locale="button/create">Create Link</span>
             </button>
             <button class="ui basic button" onclick="loadUploadLinks();">
-                <i class="refresh icon"></i> Refresh
+                <i class="refresh icon"></i> <span locale="button/refresh">Refresh</span>
             </button>
         </div>
 
@@ -91,13 +92,28 @@
 
             $(document).ready(function(){
                 $(".dropdown").dropdown();
-                loadTargetInfo();
-                loadUploadLinks();
+                if (typeof applocale !== "undefined"){
+                    applocale.init("../../SystemAO/locale/file_upload_link.json", function(){
+                        applocale.translate();
+                        loadTargetInfo();
+                        loadUploadLinks();
+                    });
+                }else{
+                    loadTargetInfo();
+                    loadUploadLinks();
+                }
             });
+
+            function t(key, fallback){
+                if (typeof applocale !== "undefined" && applocale.localData && applocale.localData.keys){
+                    return applocale.getString(key, fallback);
+                }
+                return fallback;
+            }
 
             function loadTargetInfo(){
                 if (window.location.hash == ""){
-                    showMessage("No target folder selected.", true);
+                    showMessage(t("message/noTarget", "No target folder selected."), true);
                     return;
                 }
                 try {
@@ -109,7 +125,7 @@
                         targetInfo = payload || {};
                     }
                 } catch (e){
-                    showMessage("Unable to read target folder.", true);
+                    showMessage(t("message/badTarget", "Unable to read target folder."), true);
                     return;
                 }
                 $("#targetPath").text(targetInfo.filepath || "");
@@ -137,12 +153,12 @@
                             showMessage(data.error, true);
                             return;
                         }
-                        showMessage("Upload link created.", false);
+                        showMessage(t("message/created", "Upload link created."), false);
                         loadUploadLinks();
                     },
                     error: function(){
                         $("#createButton").removeClass("loading disabled");
-                        showMessage("Failed to create upload link.", true);
+                        showMessage(t("message/createFailed", "Failed to create upload link."), true);
                     }
                 });
             }
@@ -151,7 +167,7 @@
                 if (!targetInfo.filepath){
                     return;
                 }
-                $("#linkList").html(`<div class="item"><i class="loading spinner icon"></i> Loading</div>`);
+                $("#linkList").html(`<div class="item"><i class="loading spinner icon"></i> ${escapeHtml(t("message/loading", "Loading"))}</div>`);
                 $.ajax({
                     url: relpath + "../system/file_system/share/upload/list",
                     method: "GET",
@@ -165,7 +181,7 @@
                         renderUploadLinks(data);
                     },
                     error: function(){
-                        showMessage("Failed to load upload links.", true);
+                        showMessage(t("message/loadFailed", "Failed to load upload links."), true);
                         $("#linkList").empty();
                     }
                 });
@@ -174,13 +190,13 @@
             function renderUploadLinks(links){
                 $("#linkList").empty();
                 if (!links || links.length == 0){
-                    $("#linkList").html(`<div class="item"><div class="content"><div class="description">No upload links for this folder.</div></div></div>`);
+                    $("#linkList").html(`<div class="item"><div class="content"><div class="description">${escapeHtml(t("message/noLinks", "No upload links for this folder."))}</div></div></div>`);
                     return;
                 }
                 links.forEach(function(link){
                     var disabled = link.Disabled ? " disabled" : "";
                     var expired = link.ExpiresUnix > 0 && Date.now() > link.ExpiresUnix * 1000;
-                    var status = link.Disabled ? "Disabled" : (expired ? "Expired" : "Active");
+                    var status = link.Disabled ? t("status/disabled", "Disabled") : (expired ? t("status/expired", "Expired") : t("status/active", "Active"));
                     var item = $(`
                         <div class="item">
                             <i class="large upload middle aligned icon"></i>
@@ -188,14 +204,14 @@
                                 <div class="header">${status}</div>
                                 <a class="linkText" href="${escapeAttr(link.URL)}" target="_blank">${escapeHtml(link.URL)}</a>
                                 <div class="usageMeta">
-                                    ${link.UploadedFileCount}/${link.MaxFileCount} files,
+                                    ${link.UploadedFileCount}/${link.MaxFileCount} ${escapeHtml(t("list/files", "files"))},
                                     ${formatBytes(link.UploadedBytes)} / ${formatBytes(link.MaxTotalSize)},
-                                    max file ${formatBytes(link.MaxFileSize)},
-                                    expires ${formatTime(link.ExpiresUnix)}
+                                    ${escapeHtml(t("list/maxFile", "max file"))} ${formatBytes(link.MaxFileSize)},
+                                    ${escapeHtml(t("list/expires", "expires"))} ${formatTime(link.ExpiresUnix)}
                                 </div>
                                 <div style="margin-top: 0.7em;">
-                                    <button class="ui mini basic button" onclick="copyUploadLink('${link.UUID}')"><i class="copy icon"></i> Copy</button>
-                                    <button class="ui mini negative basic button${disabled}" onclick="deleteUploadLink('${link.UUID}')"><i class="remove icon"></i> Revoke</button>
+                                    <button class="ui mini basic button" onclick="copyUploadLink('${link.UUID}')"><i class="copy icon"></i> ${escapeHtml(t("button/copy", "Copy"))}</button>
+                                    <button class="ui mini negative basic button${disabled}" onclick="deleteUploadLink('${link.UUID}')"><i class="remove icon"></i> ${escapeHtml(t("button/revoke", "Revoke"))}</button>
                                 </div>
                             </div>
                         </div>
@@ -216,11 +232,11 @@
                             showMessage(data.error, true);
                             return;
                         }
-                        showMessage("Upload link revoked.", false);
+                        showMessage(t("message/revoked", "Upload link revoked."), false);
                         loadUploadLinks();
                     },
                     error: function(){
-                        showMessage("Failed to revoke upload link.", true);
+                        showMessage(t("message/revokeFailed", "Failed to revoke upload link."), true);
                     }
                 });
             }
@@ -237,7 +253,7 @@
                     document.execCommand("copy");
                     document.body.removeChild(input);
                 }
-                showMessage("Upload link copied.", false);
+                showMessage(t("message/copied", "Upload link copied."), false);
             }
 
             function showMessage(message, isError){
@@ -247,7 +263,7 @@
             }
 
             function formatBytes(bytes){
-                if (bytes < 0) return "Unlimited";
+                if (bytes < 0) return t("value/unlimited", "Unlimited");
                 var units = ["B", "KB", "MB", "GB", "TB"];
                 var value = Number(bytes);
                 var unit = 0;
@@ -259,7 +275,7 @@
             }
 
             function formatTime(unix){
-                if (!unix || unix <= 0) return "Never";
+                if (!unix || unix <= 0) return t("value/never", "Never");
                 return new Date(unix * 1000).toLocaleString();
             }
 

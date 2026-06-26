@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Upload to {{target}} - {{hostname}}</title>
+  <script src="/script/jquery.min.js"></script>
+  <script src="/script/applocale.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     :root {
@@ -141,17 +143,17 @@
   </div>
   <main>
     <section class="panel">
-      <h1>Upload files</h1>
-      <p>This link can only add files to the shared folder. Existing files will not be overwritten.</p>
+      <h1 locale="title/title">Upload files</h1>
+      <p locale="title/desc">This link can only add files to the shared folder. Existing files will not be overwritten.</p>
       <div class="limits">
-        <div class="limit"><label>Files left</label><strong id="filesLeft"></strong></div>
-        <div class="limit"><label>Bytes left</label><strong id="bytesLeft"></strong></div>
-        <div class="limit"><label>Max file size</label><strong id="fileSizeLimit"></strong></div>
-        <div class="limit"><label>Expires</label><strong id="expiresAt"></strong></div>
+        <div class="limit"><label locale="limit/filesLeft">Files left</label><strong id="filesLeft"></strong></div>
+        <div class="limit"><label locale="limit/bytesLeft">Bytes left</label><strong id="bytesLeft"></strong></div>
+        <div class="limit"><label locale="limit/maxFile">Max file size</label><strong id="fileSizeLimit"></strong></div>
+        <div class="limit"><label locale="limit/expires">Expires</label><strong id="expiresAt"></strong></div>
       </div>
       <div id="dropzone" class="dropzone">
-        <p>Drop files here or select files from this device.</p>
-        <button id="selectButton" type="button">Select Files</button>
+        <p locale="upload/drop">Drop files here or select files from this device.</p>
+        <button id="selectButton" type="button" locale="button/select">Select Files</button>
         <input id="fileInput" type="file" multiple>
       </div>
       <div id="message" class="message"></div>
@@ -168,6 +170,22 @@
     const POST_CUTOFF = Number("{{postcutoff}}");
     const EXPIRES = Number("{{expires}}");
     const CHUNK_SIZE = 512 * 1024;
+
+    function t(key, fallback) {
+      if (typeof applocale !== "undefined" && applocale.localData && applocale.localData.keys) {
+        return applocale.getString(key, fallback);
+      }
+      return fallback;
+    }
+
+    function initLocale() {
+      if (typeof applocale === "undefined") return;
+      applocale.init("/SystemAO/locale/upload_link_public.json", () => {
+        applocale.translate();
+        renderLimits();
+        document.title = `${t("title/browser", "Upload to")} {{target}} - {{hostname}}`;
+      });
+    }
 
     const crc32Table = (() => {
       const table = new Uint32Array(256);
@@ -191,7 +209,7 @@
     }
 
     function formatBytes(bytes) {
-      if (bytes < 0) return "Unlimited";
+      if (bytes < 0) return t("value/unlimited", "Unlimited");
       const units = ["B", "KB", "MB", "GB", "TB"];
       let value = bytes;
       let unit = 0;
@@ -211,7 +229,7 @@
     function createRow(file) {
       const row = document.createElement("div");
       row.className = "item";
-      row.innerHTML = `<div><div class="filename"></div><div class="status">Waiting</div></div><progress max="100" value="0"></progress>`;
+      row.innerHTML = `<div><div class="filename"></div><div class="status">${t("status/waiting", "Waiting")}</div></div><progress max="100" value="0"></progress>`;
       row.querySelector(".filename").textContent = `${file.name} (${formatBytes(file.size)})`;
       document.getElementById("queue").appendChild(row);
       return row;
@@ -224,14 +242,14 @@
     async function uploadPost(file, row) {
       const data = new FormData();
       data.append("file", file);
-      setStatus(row, "Uploading", "");
+      setStatus(row, t("status/uploading", "Uploading"), "");
       const response = await fetch(UPLOAD_URL, { method: "POST", body: data });
       const text = await response.text();
       let parsed = {};
       try { parsed = JSON.parse(text); } catch (e) {}
-      if (!response.ok || parsed.error) throw new Error(parsed.error || text || "Upload failed");
+      if (!response.ok || parsed.error) throw new Error(parsed.error || text || t("error/uploadFailed", "Upload failed"));
       row.querySelector("progress").value = 100;
-      setStatus(row, `Uploaded as ${parsed.filename || file.name}`, "done");
+      setStatus(row, `${t("status/uploadedAs", "Uploaded as")} ${parsed.filename || file.name}`, "done");
     }
 
     function uploadWebSocket(file, row) {
@@ -258,12 +276,12 @@
             socket.send(bytes);
             currentIndex = Math.max(currentIndex, index + 1);
             row.querySelector("progress").value = Math.min(99, Math.round((currentIndex / chunks) * 100));
-            setStatus(row, `Uploading ${currentIndex}/${chunks}`, "");
+            setStatus(row, `${t("status/uploading", "Uploading")} ${currentIndex}/${chunks}`, "");
           }).catch(reject);
         }
 
         socket.onopen = () => sendChunk(0);
-        socket.onerror = () => reject(new Error("WebSocket upload failed"));
+        socket.onerror = () => reject(new Error(t("error/websocketFailed", "WebSocket upload failed")));
         socket.onmessage = (event) => {
           if (event.data === "next") {
             if (currentIndex < chunks) {
@@ -272,7 +290,7 @@
               doneSent = true;
               const fileChecksum = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, "0");
               socket.send(JSON.stringify({ done: true, totalChunks: chunks, fileChecksum }));
-              setStatus(row, "Processing", "");
+              setStatus(row, t("status/processing", "Processing"), "");
             }
             return;
           }
@@ -286,7 +304,7 @@
             socket.close();
           } else if (message.status === "OK") {
             row.querySelector("progress").value = 100;
-            setStatus(row, `Uploaded as ${message.filename || file.name}`, "done");
+            setStatus(row, `${t("status/uploadedAs", "Uploaded as")} ${message.filename || file.name}`, "done");
             resolve();
             socket.close();
           }
@@ -298,18 +316,18 @@
       showMessage("");
       const selected = Array.from(files);
       if (REMAINING_FILES >= 0 && selected.length > REMAINING_FILES) {
-        showMessage(`This link only allows ${REMAINING_FILES} more file(s).`);
+        showMessage(`${t("error/fileCountPrefix", "This link only allows")} ${REMAINING_FILES} ${t("error/fileCountSuffix", "more file(s).")}`);
         return;
       }
       const total = selected.reduce((sum, file) => sum + file.size, 0);
       if (REMAINING_BYTES >= 0 && total > REMAINING_BYTES) {
-        showMessage("Selected files exceed the remaining upload size.");
+        showMessage(t("error/totalSize", "Selected files exceed the remaining upload size."));
         return;
       }
       for (const file of selected) {
         const row = createRow(file);
         if (MAX_FILE_SIZE > 0 && file.size > MAX_FILE_SIZE) {
-          setStatus(row, "File exceeds this link's per-file limit", "error");
+          setStatus(row, t("error/fileSize", "File exceeds this link's per-file limit"), "error");
           continue;
         }
         try {
@@ -319,15 +337,20 @@
             await uploadPost(file, row);
           }
         } catch (err) {
-          setStatus(row, err.message || "Upload failed", "error");
+          setStatus(row, err.message || t("error/uploadFailed", "Upload failed"), "error");
         }
       }
     }
 
-    document.getElementById("filesLeft").textContent = REMAINING_FILES < 0 ? "Unlimited" : REMAINING_FILES;
-    document.getElementById("bytesLeft").textContent = formatBytes(REMAINING_BYTES);
-    document.getElementById("fileSizeLimit").textContent = formatBytes(MAX_FILE_SIZE);
-    document.getElementById("expiresAt").textContent = new Date(EXPIRES * 1000).toLocaleString();
+    function renderLimits() {
+      document.getElementById("filesLeft").textContent = REMAINING_FILES < 0 ? t("value/unlimited", "Unlimited") : REMAINING_FILES;
+      document.getElementById("bytesLeft").textContent = formatBytes(REMAINING_BYTES);
+      document.getElementById("fileSizeLimit").textContent = formatBytes(MAX_FILE_SIZE);
+      document.getElementById("expiresAt").textContent = new Date(EXPIRES * 1000).toLocaleString();
+    }
+
+    renderLimits();
+    initLocale();
 
     const input = document.getElementById("fileInput");
     const dropzone = document.getElementById("dropzone");
