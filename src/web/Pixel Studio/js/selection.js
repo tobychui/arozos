@@ -543,10 +543,12 @@ PS.selTransform = (function () {
             return h ? CURSOR[h] : null;
         },
 
-        // Call on pointerdown; returns true if a handle was grabbed
-        onDown: function (pt) {
+        // Call on pointerdown; returns true if a handle was grabbed.
+        // forceHandle lets a caller (the Move tool's content-box corners) grab
+        // a specific handle without relying on sub-pixel hit-testing.
+        onDown: function (pt, e, forceHandle) {
             if (!isSelTool() || !PS.doc || !PS.doc.selection) { return false; }
-            var h = hitHandle(pt);
+            var h = forceHandle || hitHandle(pt);
             if (!h) { return false; }
             var sel = PS.doc.selection;
             var layer = PS.activeLayer();

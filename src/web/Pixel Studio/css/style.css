@@ -782,6 +782,13 @@ input, select, button, textarea {
     font-size: 13px;
 }
 
+.layer-eye svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+}
+
 .layer-thumb {
     width: 42px;
     height: 32px;
@@ -840,6 +847,16 @@ input, select, button, textarea {
     color: var(--text);
     font-size: 13px;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.layers-footer button svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .layers-footer button:hover { background: var(--bg-input); }

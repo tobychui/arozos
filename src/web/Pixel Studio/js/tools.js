@@ -15,6 +15,7 @@ PS.toolOpts = {
     gradient: { preset: "fg-bg", style: "linear", reverse: false, opacity: 1, stops: [] },
     wand: { tolerance: 32, contiguous: true, smart: true, edgeThreshold: 60 },
     marquee: { feather: 0 },
+    move: { showBounds: false },
     shape: { kind: "rect", mode: "both", strokeWidth: 6, radius: 12, points: 5 },
     text: { font: "Arial", size: 48, bold: false, italic: false },
     zoom: {}
@@ -304,7 +305,7 @@ PS.bindWorkspaceEvents = function () {
 
         // Update cursor for handle / guide hover (only when not mid-stroke/drag)
         if (!PS._pointer.down) {
-            var tCursor = PS.selTransform.getCursor(PS.cursorPos);
+            var tCursor = PS.selTransform.getCursor(PS.cursorPos) || PS.moveBoundsCursor(PS.cursorPos);
             if (!tCursor) {
                 var gh = PS.guideHitTest(raw);
                 if (gh) { tCursor = (gh.orient === "h") ? "row-resize" : "col-resize"; }
@@ -638,6 +639,40 @@ PS.paintCursorOverlay = function (size, square) {
 /* ----- Move (V) ----- */
 (function () {
     var drag = null;
+    var HANDLE_PX = 8;   // corner handle square size, screen pixels
+    var PAD_PX = 6;      // gap between content bounds and the drawn box, screen pixels
+    // matches the diagonal resize cursors selTransform uses for its own
+    // corner handles, so the affordance reads the same even though clicking
+    // here switches tools instead of resizing in place
+    var CORNER_CURSOR = { nw: "nwse-resize", ne: "nesw-resize", se: "nwse-resize", sw: "nesw-resize" };
+
+    // 4 corner positions (doc coords) of a content-bounds box, padded the
+    // same way the box itself is drawn
+    function cornerPositions(b) {
+        var pad = PAD_PX / PS.zoom;
+        var x = b.x - pad, y = b.y - pad, r = b.x + b.w + pad, bot = b.y + b.h + pad;
+        return { nw: { x: x, y: y }, ne: { x: r, y: y }, se: { x: r, y: bot }, sw: { x: x, y: bot } };
+    }
+
+    // returns the corner id under doc point pt, or null
+    function hitCorner(pt, b) {
+        var corners = cornerPositions(b);
+        var hitR = (HANDLE_PX / 2 + 3) / PS.zoom;
+        for (var id in corners) {
+            var c = corners[id];
+            if (Math.abs(pt.x - c.x) <= hitR && Math.abs(pt.y - c.y) <= hitR) { return id; }
+        }
+        return null;
+    }
+
+    // cursor hint for the central pointer pipeline (hover, not dragging)
+    PS.moveBoundsCursor = function (pt) {
+        if (!pt || PS.tool !== "move" || !PS.toolOpts.move.showBounds) { return null; }
+        var layer = PS.activeLayer();
+        var b = layer && PS.layerContentBounds(layer);
+        var id = b && hitCorner(pt, b);
+        return id ? CORNER_CURSOR[id] : null;
+    };
 
     PS.registerTool("move", {
         name: "Move",
@@ -645,11 +680,35 @@ PS.paintCursorOverlay = function (size, square) {
         cursor: "move",
         icon: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>',
         options: function (host) {
-            PS.ui.label(host, "Drag to move the active layer; with a selection, drags the selected pixels. Arrow keys nudge.");
+            var o = PS.toolOpts.move;
+            PS.ui.checkbox(host, "Show selection box", o.showBounds, function (v) {
+                o.showBounds = v;
+                PS.savePrefsDebounced();
+            });
+            PS.ui.label(host, "Drag to move the active layer; with a selection, drags the selected pixels. Arrow keys nudge. " +
+                "With the box shown, click a corner to switch to the rectangular marquee.");
         },
         onDown: function (pt, e) {
             var layer = PS.activeLayer();
             if (!layer) { return; }
+
+            if (PS.toolOpts.move.showBounds) {
+                var cb = PS.layerContentBounds(layer);
+                var corner = cb && hitCorner(pt, cb);
+                if (corner) {
+                    // Switch to the rectangular marquee and immediately begin a
+                    // resize-handle drag, so dragging the corner *scales the
+                    // layer content* (not just draws a new selection). We seed a
+                    // selection over the content bounds so the transform engine
+                    // has a handle at the clicked corner to grab; the scale runs
+                    // on this first drag, matching the marquee's own handles.
+                    var mask = PS.maskFromRect(cb.x, cb.y, cb.w, cb.h, false);
+                    PS.setSelection(mask, "replace", "Select Layer Bounds");
+                    PS.setTool("marquee-rect");
+                    PS.selTransform.onDown(pt, e, corner);
+                    return;
+                }
+            }
 
             if (layer.type === "text") {
                 drag = { mode: "text", layer: layer, start: pt, ox: layer.text.x, oy: layer.text.y };
@@ -744,6 +803,49 @@ PS.paintCursorOverlay = function (size, square) {
             }
             drag = null;
             PS.requestRender();
+        },
+        overlay: function (ctx) {
+            if (!PS.toolOpts.move.showBounds) { return; }
+            var layer = drag ? drag.layer : PS.activeLayer();
+            if (!layer) { return; }
+            var b = PS.layerContentBounds(layer);
+            if (!b) { return; }
+            if (drag && (drag.dx || drag.dy)) { b = { x: b.x + drag.dx, y: b.y + drag.dy, w: b.w, h: b.h }; }
+
+            var z = PS.zoom;
+            var origin = PS.docToOverlay(0, 0);
+            var pad = PAD_PX;
+            var sx = origin.x + b.x * z - pad, sy = origin.y + b.y * z - pad;
+            var sw = b.w * z + pad * 2, sh = b.h * z + pad * 2;
+
+            ctx.save();
+            ctx.strokeStyle = "rgba(100,160,255,0.85)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(Math.round(sx) + 0.5, Math.round(sy) + 0.5, Math.round(sw), Math.round(sh));
+            ctx.setLineDash([]);
+
+            var hs = HANDLE_PX, hh = hs / 2;
+            [{ x: sx, y: sy }, { x: sx + sw, y: sy }, { x: sx + sw, y: sy + sh }, { x: sx, y: sy + sh }]
+                .forEach(function (hp) {
+                    var hx = Math.round(hp.x), hy = Math.round(hp.y);
+                    ctx.fillStyle = "rgba(30,30,30,0.75)";
+                    ctx.fillRect(hx - hh - 1, hy - hh - 1, hs + 2, hs + 2);
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(hx - hh, hy - hh, hs, hs);
+                });
+
+            // dimension label
+            var label = Math.round(b.w) + " x " + Math.round(b.h) + " px";
+            ctx.font = "11px sans-serif";
+            var tw = ctx.measureText(label).width;
+            var ly = sy - 8;
+            ctx.fillStyle = "rgba(30,30,30,0.85)";
+            ctx.fillRect(sx, ly - 12, tw + 8, 16);
+            ctx.fillStyle = "#ffffff";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, sx + 4, ly - 4);
+            ctx.restore();
         }
     });
 
