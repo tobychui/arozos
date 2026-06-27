@@ -1,0 +1,299 @@
+<style>
+#dk-root {
+    --dk-bg: #ffffff;
+    --dk-border: #e5e5e5;
+    --dk-text: #1f1f1f;
+    --dk-dim: #676767;
+    --dk-soft: #f5f5f5;
+    --dk-soft2: #efefef;
+    --dk-accent: #2b6cb0;
+    --dk-accent-text: #ffffff;
+    --dk-ok: #107c10;
+    --dk-warn: #b7791f;
+    --dk-danger: #c42b1c;
+    --dk-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    background: var(--dk-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 12px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text);
+    padding: 16px;
+    margin-bottom: 4px;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+}
+body.dark #dk-root {
+    --dk-bg: #2b2b2b;
+    --dk-border: #3b3b3b;
+    --dk-text: #ececec;
+    --dk-dim: #aaaaaa;
+    --dk-soft: #343434;
+    --dk-soft2: #3c3c3c;
+    --dk-accent: #4a90d9;
+    --dk-ok: #2ecc71;
+    --dk-warn: #e0a838;
+    --dk-danger: #ff6b5e;
+    --dk-shadow: 0 8px 22px rgba(0,0,0,0.3);
+}
+#dk-root * { box-sizing: border-box; }
+.dk-head { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+.dk-head .dk-title { font-size: 17px; font-weight: 600; }
+.dk-head .dk-sub { font-size: 12px; color: var(--dk-dim); margin-top: 2px; }
+.dk-head .dk-badge { margin-left:auto; font-size:11px; color:var(--dk-dim); display:inline-flex; align-items:center; gap:6px; min-width: 110px; justify-content:flex-end; }
+.dk-dot { width:8px; height:8px; border-radius:50%; background: var(--dk-dim); }
+.dk-dot.ok { background: var(--dk-ok); }
+.dk-dot.off { background: var(--dk-danger); }
+
+.dk-notice {
+    border: 1px solid var(--dk-warn);
+    border-left-width: 4px;
+    border-radius: 8px;
+    background: rgba(183,121,31,0.08);
+    padding: 11px 13px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--dk-text);
+    display:flex; gap:10px; align-items:flex-start;
+}
+.dk-notice i.icon { color: var(--dk-warn); margin:0; font-size:15px; }
+
+.dk-card {
+    border: 1px solid var(--dk-border);
+    border-radius: 10px;
+    background: var(--dk-soft);
+    padding: 14px;
+    margin-bottom: 12px;
+}
+.dk-card-title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; display:flex; align-items:center; gap:8px; }
+.dk-card-desc { font-size: 11.5px; color: var(--dk-dim); margin-bottom: 12px; line-height: 1.5; }
+
+.dk-grid { display:grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap:8px; }
+.dk-metric { border:1px solid var(--dk-border); border-radius:10px; background:var(--dk-bg); padding:10px; }
+.dk-metric .lab { font-size:11px; color:var(--dk-dim); margin-bottom:4px; }
+.dk-metric .val { font-size:16px; font-weight:600; line-height:1.3; word-break:break-word; }
+.dk-metric.status .val.ok { color: var(--dk-ok); }
+.dk-metric.status .val.off { color: var(--dk-danger); }
+@media (max-width: 760px){ .dk-grid { grid-template-columns: repeat(2, minmax(110px,1fr)); } }
+
+#dk-root code { background: var(--dk-soft2); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+.dk-btn {
+    border: 1px solid var(--dk-border);
+    background: var(--dk-bg);
+    color: var(--dk-text);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: .12s;
+}
+.dk-btn:hover { background: var(--dk-soft2); }
+.dk-result { font-size: 12px; color: var(--dk-dim); margin-left:6px; }
+</style>
+
+<div id="dk-root">
+    <div class="dk-head">
+        <div>
+            <div class="dk-title">Docker Engine</div>
+            <div class="dk-sub">Status of the Docker daemon detected on this host. Container, image and Compose management live in the <b>Docker Manager</b> desktop app.</div>
+        </div>
+        <div class="dk-badge"><span class="dk-dot" id="dk-conn-dot"></span><span id="dk-conn-text">Checking...</span></div>
+    </div>
+
+    <div class="dk-notice">
+        <i class="exclamation triangle icon"></i>
+        <div><b>Administrator access only.</b> Managing Docker is equivalent to root access on this host &mdash; containers can mount any host path and run with full privileges. Only grant the Docker Manager app to users you fully trust.</div>
+    </div>
+
+    <div class="dk-card">
+        <div class="dk-card-title">Engine</div>
+        <div class="dk-card-desc">Reported by the local Docker daemon via <code>docker version</code> / <code>docker info</code>.</div>
+        <div class="dk-grid">
+            <div class="dk-metric status"><div class="lab">Daemon</div><div class="val" id="dk-i-status">—</div></div>
+            <div class="dk-metric"><div class="lab">Engine Version</div><div class="val" id="dk-i-version">—</div></div>
+            <div class="dk-metric"><div class="lab">API</div><div class="val" id="dk-i-api">—</div></div>
+            <div class="dk-metric"><div class="lab">Platform</div><div class="val" id="dk-i-platform">—</div></div>
+        </div>
+    </div>
+
+    <div class="dk-card">
+        <div class="dk-card-title">Compose</div>
+        <div class="dk-card-desc">The <code>docker compose</code> v2 plugin enables multi-container stack management in the Docker Manager app.</div>
+        <div class="dk-grid">
+            <div class="dk-metric status"><div class="lab">Plugin</div><div class="val" id="dk-i-compose">—</div></div>
+            <div class="dk-metric"><div class="lab">Compose Version</div><div class="val" id="dk-i-compose-ver">—</div></div>
+        </div>
+    </div>
+
+    <div class="dk-card">
+        <div class="dk-card-title">Disk Usage</div>
+        <div class="dk-card-desc">Space used by images, containers, local volumes and the build cache (<code>docker system df</code>).</div>
+        <pre id="dk-df" style="background:var(--dk-soft2);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;word-break:break-word;margin:0;overflow:auto;">Loading...</pre>
+    </div>
+
+    <div class="dk-card">
+        <div class="dk-card-title">Daemon Configuration</div>
+        <div class="dk-card-desc">
+            <code>daemon.json</code> at <code id="dk-daemon-path">...</code>.
+            <span id="dk-daemon-editbadge"></span>
+            Changes apply only after the Docker daemon is restarted
+            (<code>systemctl restart docker</code> or equivalent), which briefly stops all containers. ArozOS does not restart the daemon for you.
+        </div>
+        <textarea id="dk-daemon-content" spellcheck="false" style="width:100%;height:160px;background:var(--dk-bg);border:1px solid var(--dk-border);color:var(--dk-text);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;" placeholder='{ "registry-mirrors": [] }'></textarea>
+        <div class="dk-actions" style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+            <button class="dk-btn" id="dk-daemon-save" style="display:none;">Save daemon.json</button>
+            <span class="dk-result" id="dk-daemon-result"></span>
+        </div>
+    </div>
+
+    <div class="dk-card" style="border-color:var(--dk-danger);">
+        <div class="dk-card-title" style="color:var(--dk-danger);"><i class="exclamation triangle icon"></i> Danger Zone</div>
+        <div class="dk-card-desc">Reclaim disk space by deleting unused docker data. This is irreversible and requires re-entering your password.</div>
+        <details>
+            <summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--dk-danger);">Show prune controls</summary>
+            <div style="margin-top:12px;">
+                <div style="font-size:12px;margin-bottom:10px;">
+                    <b>Prune</b> removes stopped containers, unused networks and dangling images.
+                    Pruning <b>with volumes</b> additionally deletes unused named volumes &mdash; this can destroy data.
+                </div>
+                <button class="dk-btn" id="dk-prune" style="border-color:var(--dk-danger);color:var(--dk-danger);">Prune unused data</button>
+                <button class="dk-btn" id="dk-prune-vol" style="border-color:var(--dk-danger);color:var(--dk-danger);">Prune incl. volumes</button>
+                <pre id="dk-prune-out" style="display:none;margin-top:12px;background:var(--dk-soft2);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;margin-bottom:0;"></pre>
+            </div>
+        </details>
+    </div>
+
+    <div class="dk-card" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+            <div class="dk-card-title" style="margin-bottom:2px;">Refresh</div>
+            <div class="dk-card-desc" style="margin-bottom:0;">Re-query the daemon status and disk usage.</div>
+        </div>
+        <div><button class="dk-btn" id="dk-refresh">Refresh Status</button><span class="dk-result" id="dk-refresh-result"></span></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var API = "../../system/docker/";
+
+    (function applyTheme() {
+        try {
+            if (typeof preferredTheme !== 'undefined') {
+                document.body.classList.toggle('dark', (preferredTheme === 'dark' || preferredTheme === 'darkTheme'));
+                return;
+            }
+        } catch (e) {}
+        if (typeof ao_module_getSystemThemeColor === 'function') {
+            ao_module_getSystemThemeColor(function (c) { document.body.classList.toggle('dark', c !== 'whiteTheme'); });
+        }
+    })();
+
+    function el(id){ return document.getElementById(id); }
+    function setConn(state, text){
+        var d = el("dk-conn-dot"); d.className = "dk-dot" + (state===true?" ok":state===false?" off":"");
+        el("dk-conn-text").textContent = text;
+    }
+
+    function loadStatus(){
+        el("dk-refresh-result").textContent = "Refreshing...";
+        $.get(API + "engine/status", function(d){
+            el("dk-refresh-result").textContent = "";
+            if (d && d.error){ setConn(false, "Error"); return; }
+
+            var sEl = el("dk-i-status");
+            sEl.textContent = d.available ? "Running" : "Unreachable";
+            sEl.className = "val " + (d.available ? "ok" : "off");
+            setConn(d.available === true, d.available ? "Running" : "Unreachable");
+
+            el("dk-i-version").textContent = d.serverVersion || "—";
+            el("dk-i-api").textContent = d.apiVersion || "—";
+            el("dk-i-platform").textContent = (d.os || "—") + (d.arch ? " / " + d.arch : "");
+
+            var cEl = el("dk-i-compose");
+            cEl.textContent = d.composeAvailable ? "Installed" : "Not installed";
+            cEl.className = "val " + (d.composeAvailable ? "ok" : "off");
+            el("dk-i-compose-ver").textContent = d.composeVersion || "—";
+        }).fail(function(){
+            el("dk-refresh-result").textContent = "";
+            setConn(false, "Admin only");
+        });
+    }
+
+    function loadDiskUsage(){
+        $.get(API + "engine/df", function(d){
+            el("dk-df").textContent = (d && d.output) ? d.output : (d && d.error ? d.error : "No data");
+        }).fail(function(){ el("dk-df").textContent = "Failed to load (admin only)."; });
+    }
+
+    function loadDaemonConfig(){
+        $.get(API + "daemon/get", function(d){
+            if (d && d.error){ el("dk-daemon-result").textContent = d.error; return; }
+            el("dk-daemon-path").textContent = d.path || "?";
+            el("dk-daemon-content").value = d.content || "";
+            var badge = el("dk-daemon-editbadge");
+            if (d.editable){
+                badge.innerHTML = '<b style="color:var(--dk-ok);">Editable.</b>';
+                el("dk-daemon-content").removeAttribute("readonly");
+                el("dk-daemon-save").style.display = "inline-block";
+            } else {
+                badge.innerHTML = '<b style="color:var(--dk-warn);">Read-only on this host</b> (ArozOS cannot write this file).';
+                el("dk-daemon-content").setAttribute("readonly", "readonly");
+                el("dk-daemon-save").style.display = "none";
+            }
+        }).fail(function(){ el("dk-daemon-result").textContent = "Failed to load (admin only)."; });
+    }
+
+    function saveDaemonConfig(){
+        el("dk-daemon-result").textContent = "Saving...";
+        $.ajax({ url: API + "daemon/save", method: "POST", data: JSON.stringify({ content: el("dk-daemon-content").value }), contentType: "application/json" })
+            .done(function(r){
+                if (r && r.error){ el("dk-daemon-result").textContent = "Error: " + r.error; return; }
+                el("dk-daemon-result").textContent = "Saved. Restart the Docker daemon to apply.";
+            })
+            .fail(function(){ el("dk-daemon-result").textContent = "Save request failed."; });
+    }
+
+    // Prune routes through the standard re-auth float window (same as RAID's
+    // destructive actions). The settings page runs inside the System Setting
+    // app, so parent.newFloatWindow / ao_module_windowID are available.
+    function confirmPrune(withVolumes){
+        var apiObject = {
+            api: "../../system/docker/engine/prune",
+            data: { "volumes": withVolumes ? "true" : "false" },
+            title: "<i class='yellow exclamation triangle icon'></i> DOCKER SYSTEM PRUNE <i class='yellow exclamation triangle icon'></i>",
+            desc: withVolumes
+                ? "This deletes stopped containers, unused networks, dangling images AND unused volumes. Volume data cannot be recovered."
+                : "This deletes stopped containers, unused networks and dangling images.",
+            thisuser: true,
+            method: "POST",
+            success: undefined
+        };
+        apiObject = encodeURIComponent(JSON.stringify(apiObject));
+        parent.newFloatWindow({
+            url: "SystemAO/security/authreq.html#" + apiObject,
+            width: 480, height: 300,
+            appicon: "SystemAO/docker/img/small_icon.svg",
+            title: "Confirm Docker Prune",
+            parent: ao_module_windowID,
+            callback: "handleDockerPruneCallback"
+        });
+    }
+
+    window.handleDockerPruneCallback = function(data){
+        var out = el("dk-prune-out");
+        out.style.display = "block";
+        if (data && data.error){ out.textContent = "Error: " + data.error; }
+        else { out.textContent = (data && data.output) ? data.output : "Prune complete."; loadDiskUsage(); }
+    };
+
+    el("dk-refresh").addEventListener("click", function(){ loadStatus(); loadDiskUsage(); });
+    el("dk-daemon-save").addEventListener("click", saveDaemonConfig);
+    el("dk-prune").addEventListener("click", function(){ confirmPrune(false); });
+    el("dk-prune-vol").addEventListener("click", function(){ confirmPrune(true); });
+
+    loadStatus();
+    loadDiskUsage();
+    loadDaemonConfig();
+})();
+</script>
