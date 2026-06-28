@@ -40,13 +40,30 @@ func DockerServiceInit() {
 	}
 	dockerManager = dm
 
-	//Register the "Docker Engine" tab under the new "Containers" settings group.
+	//Register the "Containers" settings group tabs in display order:
+	//Docker Daemon -> Docker Engine -> Docker List.
+	registerSetting(settingModule{
+		Name:         "Docker Daemon",
+		Desc:         "Start, stop and configure the Docker daemon service",
+		IconPath:     "SystemAO/docker/img/small_icon.svg",
+		Group:        "Container",
+		StartDir:     "SystemAO/docker/daemon.html",
+		RequireAdmin: true,
+	})
 	registerSetting(settingModule{
 		Name:         "Docker Engine",
 		Desc:         "Docker version, daemon status, disk usage and cleanup",
 		IconPath:     "SystemAO/docker/img/small_icon.svg",
 		Group:        "Container",
 		StartDir:     "SystemAO/docker/index.html",
+		RequireAdmin: true,
+	})
+	registerSetting(settingModule{
+		Name:         "Docker List",
+		Desc:         "Running containers overview and quick access to Docker Manager",
+		IconPath:     "SystemAO/docker/img/small_icon.svg",
+		Group:        "Container",
+		StartDir:     "SystemAO/docker/list.html",
 		RequireAdmin: true,
 	})
 
@@ -110,6 +127,10 @@ func DockerServiceInit() {
 	adminRouter.HandleFunc("/system/docker/engine/prune", dm.HandlePrune)
 	adminRouter.HandleFunc("/system/docker/daemon/get", dm.HandleDaemonGet)
 	adminRouter.HandleFunc("/system/docker/daemon/save", dm.HandleDaemonSave)
+
+	//Daemon service lifecycle control (systemd on Linux).
+	adminRouter.HandleFunc("/system/docker/service/status", dm.HandleServiceStatus)
+	adminRouter.HandleFunc("/system/docker/service/action", dm.HandleServiceAction)
 
 	//Register the desktop app. Deliberately NOT group "Utilities"/"System Tools"
 	//(those would make it visible to every user via UniversalModules); group

@@ -1,0 +1,102 @@
+<style>
+#dkl-root {
+    --dk-bg:#ffffff; --dk-border:#e5e5e5; --dk-text:#1f1f1f; --dk-dim:#676767;
+    --dk-soft:#f5f5f5; --dk-soft2:#efefef; --dk-accent:#2b6cb0; --dk-accent-text:#fff;
+    --dk-ok:#107c10; --dk-danger:#c42b1c; --dk-shadow:0 4px 20px rgba(0,0,0,0.08);
+    background:var(--dk-bg); border:1px solid var(--dk-border); border-radius:12px;
+    box-shadow:var(--dk-shadow); color:var(--dk-text); padding:16px; margin-bottom:4px;
+    font-family:'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-size:13px;
+}
+body.dark #dkl-root {
+    --dk-bg:#2b2b2b; --dk-border:#3b3b3b; --dk-text:#ececec; --dk-dim:#aaaaaa;
+    --dk-soft:#343434; --dk-soft2:#3c3c3c; --dk-accent:#4a90d9; --dk-ok:#2ecc71;
+    --dk-danger:#ff6b5e; --dk-shadow:0 8px 22px rgba(0,0,0,0.3);
+}
+#dkl-root * { box-sizing:border-box; }
+.dkl-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.dkl-title { font-size:17px; font-weight:600; }
+.dkl-sub { font-size:12px; color:var(--dk-dim); margin-top:2px; }
+.dkl-head .right { margin-left:auto; }
+.dkl-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+.dkl-table th { text-align:left; font-size:11px; color:var(--dk-dim); font-weight:600; padding:7px 8px; border-bottom:1px solid var(--dk-border); }
+.dkl-table td { padding:7px 8px; border-bottom:1px solid var(--dk-border); }
+.dkl-mono { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:11.5px; }
+.dkl-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; background:var(--dk-ok); color:#fff; }
+.dkl-empty { text-align:center; color:var(--dk-dim); padding:22px; }
+.dkl-btn { border:1px solid var(--dk-border); background:var(--dk-bg); color:var(--dk-text); border-radius:8px;
+    font-size:12.5px; font-weight:600; padding:8px 14px; cursor:pointer; transition:.12s; }
+.dkl-btn:hover { background:var(--dk-soft2); }
+.dkl-btn.primary { background:var(--dk-accent); color:var(--dk-accent-text); border-color:var(--dk-accent); }
+.dkl-footer { margin-top:16px; display:flex; align-items:center; gap:10px; }
+.dkl-footer .note { font-size:11.5px; color:var(--dk-dim); }
+</style>
+
+<div id="dkl-root">
+    <div class="dkl-head">
+        <div>
+            <div class="dkl-title">Docker List</div>
+            <div class="dkl-sub">Containers currently running on this host.</div>
+        </div>
+        <div class="right"><button class="dkl-btn" id="dkl-refresh"><i class="refresh icon"></i> Refresh</button></div>
+    </div>
+
+    <table class="dkl-table">
+        <thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th></tr></thead>
+        <tbody id="dkl-body"><tr><td colspan="4" class="dkl-empty">Loading...</td></tr></tbody>
+    </table>
+
+    <div class="dkl-footer">
+        <button class="dkl-btn primary" id="dkl-manage"><i class="cube icon"></i> Manage Containers</button>
+        <span class="note">Opens the full Docker Manager app to start/stop, edit, view logs, open a console and manage images, compose stacks and registries.</span>
+    </div>
+</div>
+
+<script>
+(function () {
+    var API = "../../system/docker/";
+
+    (function applyTheme(){
+        try { if (typeof preferredTheme !== 'undefined') { document.body.classList.toggle('dark', (preferredTheme==='dark'||preferredTheme==='darkTheme')); return; } } catch(e){}
+        if (typeof ao_module_getSystemThemeColor === 'function') { ao_module_getSystemThemeColor(function(c){ document.body.classList.toggle('dark', c!=='whiteTheme'); }); }
+    })();
+
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+    function loadRunning(){
+        var $b = $("#dkl-body");
+        $b.html('<tr><td colspan="4" class="dkl-empty">Loading...</td></tr>');
+        $.get(API + "containers/list", function(list){
+            if (list && list.error){ $b.html('<tr><td colspan="4" class="dkl-empty">' + esc(list.error) + '</td></tr>'); return; }
+            var running = (list || []).filter(function(c){ return (c.State || "").toLowerCase() === "running"; });
+            if (running.length === 0){ $b.html('<tr><td colspan="4" class="dkl-empty">No running containers.</td></tr>'); return; }
+            $b.html(running.map(function(c){
+                return '<tr>' +
+                    '<td class="dkl-mono">' + esc(c.Names) + '</td>' +
+                    '<td class="dkl-mono">' + esc(c.Image) + '</td>' +
+                    '<td><span class="dkl-badge">' + esc(c.Status || "running") + '</span></td>' +
+                    '<td class="dkl-mono">' + esc(c.Ports || "") + '</td>' +
+                    '</tr>';
+            }).join(""));
+        }).fail(function(){ $b.html('<tr><td colspan="4" class="dkl-empty">Failed to load (admin only).</td></tr>'); });
+    }
+
+    function launchDockerManager(){
+        try {
+            parent.newFloatWindow({
+                url: "DockerManager/index.html",
+                width: 1100, height: 680,
+                appicon: "DockerManager/img/icon.svg",
+                title: "Docker Manager"
+            });
+        } catch (e) {
+            // Fallback: open in a new browser tab if the desktop launcher is unavailable.
+            window.open("../../DockerManager/index.html", "_blank");
+        }
+    }
+
+    $("#dkl-refresh").on("click", loadRunning);
+    $("#dkl-manage").on("click", launchDockerManager);
+
+    loadRunning();
+})();
+</script>
