@@ -129,12 +129,25 @@ func system_setting_getSettingGroups() []settingGroup {
 	//(dockerManager is non-nil). Showing it otherwise would render an empty
 	//group whose listing returns no modules and breaks the settings UI.
 	if dockerManager != nil {
-		groups = append(groups, settingGroup{
+		containerGroup := settingGroup{
 			Name:     "Containers",
 			Group:    "Container",
 			IconPath: "SystemAO/system_setting/img/docker.svg",
 			Desc:     "Manage Docker Engine and container runtime",
-		})
+		}
+		//Insert just before the "About" group so it sits after AI Integration
+		//rather than at the very bottom of the settings list.
+		inserted := false
+		for i, g := range groups {
+			if g.Group == "About" {
+				groups = append(groups[:i], append([]settingGroup{containerGroup}, groups[i:]...)...)
+				inserted = true
+				break
+			}
+		}
+		if !inserted {
+			groups = append(groups, containerGroup)
+		}
 	}
 
 	return groups

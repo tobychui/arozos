@@ -263,8 +263,8 @@ body.dark #dk-root {
             data: { "volumes": withVolumes ? "true" : "false" },
             title: "<i class='yellow exclamation triangle icon'></i> DOCKER SYSTEM PRUNE <i class='yellow exclamation triangle icon'></i>",
             desc: withVolumes
-                ? "This deletes stopped containers, unused networks, dangling images AND unused volumes. Volume data cannot be recovered."
-                : "This deletes stopped containers, unused networks and dangling images.",
+                ? "Delete all unused docker data, including volumes? Volume data cannot be recovered."
+                : "Delete all unused docker data (stopped containers, networks, dangling images)?",
             thisuser: true,
             method: "POST",
             success: undefined
