@@ -5,391 +5,493 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
     <meta charset="UTF-8">
-    <meta name="theme-color" content="#2b6cb0">
+    <meta name="theme-color" content="#0a84ff">
     <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-    <link rel="stylesheet" href="../script/ao.css">
     <link rel="stylesheet" href="script/xterm/xterm.css">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
-    <script src="../script/semantic/semantic.min.js"></script>
     <script src="script/dockermanager.js"></script>
     <script src="script/ace/ace.js"></script>
     <script src="script/xterm/xterm.js"></script>
     <script src="script/xterm/xterm-addon-fit.js"></script>
     <title>Docker Manager</title>
     <style>
-        body { background-color: rgba(250, 250, 250, 0.95); }
-        body.dark { background-color: #1e1e1e; color: #ececec; }
-        body.dark .ui.menu:not(.inverted) { background:#2b2b2b; }
-        body.dark .ui.table { background:#2b2b2b; color:#ececec; border-color:#3b3b3b; }
-        body.dark .ui.table th { background:#343434; color:#ececec; }
-        body.dark .ui.table td { border-color:#3b3b3b; }
-        body.dark .ui.segment { background:#2b2b2b; color:#ececec; border-color:#3b3b3b; }
-        body.dark .ui.header { color:#ececec; }
-        .dm-wrap { padding: 12px 16px 60px 16px; }
-        .dm-toolbar { display:flex; align-items:center; gap:8px; margin: 8px 0 12px 0; }
-        .dm-toolbar .spacer { flex:1; }
-        .state-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
-        .state-running { background:#107c10; color:#fff; }
-        .state-exited, .state-dead { background:#9aa0a6; color:#fff; }
-        .state-paused, .state-created, .state-restarting { background:#b7791f; color:#fff; }
-        .dm-actions .button { padding:6px 8px; }
-        .dm-mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size:11.5px; }
-        #dm-log-output, #dm-inspect-output {
-            background:#101418; color:#d6e2ef; border-radius:8px; padding:12px;
-            font-family: ui-monospace, Menlo, Consolas, monospace; font-size:12px;
-            white-space:pre-wrap; word-break:break-word; height:52vh; overflow:auto; margin:0;
+        :root {
+            --bg:#f5f5f7; --panel:#ffffff; --panel-2:#fafafb; --row-hover:#f3f6fb;
+            --border:#e4e4e7; --border-soft:#eeeef0; --text:#1d1d1f; --dim:#86868b;
+            --accent:#0a84ff; --ok:#30d158; --ok-text:#1a8c3a; --amber-text:#b26a00; --danger:#ff453a;
+            --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
         }
-        #dm-toast {
-            display:none; position:fixed; bottom:20px; right:20px; z-index:99999;
-            padding:11px 16px; border-radius:9px; font-size:12.5px; font-weight:600;
-            color:#fff; box-shadow:0 4px 20px rgba(0,0,0,0.25);
+        body.dark {
+            --bg:#1c1c1e; --panel:#2c2c2e; --panel-2:#242426; --row-hover:#3434375e;
+            --border:#3a3a3c; --border-soft:#333335; --text:#f5f5f7; --dim:#98989d;
+            --ok-text:#30d158; --amber-text:#ff9f0a;
+            --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.4);
         }
-        .dm-empty { text-align:center; color:#999; padding:26px; }
+        * { box-sizing: border-box; }
+        html, body { height:100%; margin:0; }
+        body {
+            background: var(--bg); color: var(--text); overflow:hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+            font-size: 13px;
+        }
+        .icon { font-family: Icons !important; }
+
+        /* ---------- Top progress bar ---------- */
+        #dm-progress { position:fixed; top:0; left:0; right:0; height:3px; z-index:1200; opacity:0; transition:opacity .2s; pointer-events:none; }
+        #dm-progress.active { opacity:1; }
+        #dm-progress::before { content:''; position:absolute; height:100%; width:35%; border-radius:2px; background:var(--accent); animation:dmbar 1.1s infinite cubic-bezier(.4,0,.2,1); }
+        @keyframes dmbar { 0%{left:-35%;} 100%{left:100%;} }
+
+        /* ---------- App shell ---------- */
+        .dm-app { display:flex; height:100vh; }
+        .dm-sidebar {
+            width:210px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--border);
+            padding:16px 12px; display:flex; flex-direction:column; overflow:auto;
+        }
+        .dm-brand { display:flex; align-items:center; gap:9px; padding:4px 8px 16px 8px; font-weight:650; font-size:14.5px; }
+        .dm-brand img { width:22px; height:22px; }
+        .dm-nav-item {
+            display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:8px;
+            color:var(--text); cursor:pointer; font-size:13.5px; font-weight:500; margin-bottom:2px; user-select:none;
+        }
+        .dm-nav-item:hover { background:var(--panel-2); }
+        body.dark .dm-nav-item:hover { background:#3a3a3c; }
+        .dm-nav-item.active { background:var(--accent); color:#fff; }
+        .dm-nav-item i.icon { margin:0; font-size:15px; width:18px; text-align:center; opacity:.95; }
+        .dm-side-spacer { flex:1; }
+        .dm-side-foot { font-size:11px; color:var(--dim); padding:8px; }
+
+        .dm-main { flex:1; overflow:auto; padding:22px 26px 40px 26px; }
+        .dm-section { display:none; }
+        .dm-section.active { display:block; }
+        .dm-section-head { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+        .dm-section-head h2 { font-size:21px; font-weight:650; margin:0; letter-spacing:-.01em; }
+        .dm-section-head .sub { font-size:12px; color:var(--dim); margin-top:2px; }
+        .dm-section-head .actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+
+        /* ---------- Cards & tables ---------- */
+        .dm-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+        .dm-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .dm-table th { text-align:left; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--dim); font-weight:600; padding:11px 14px; border-bottom:1px solid var(--border); background:var(--panel-2); }
+        .dm-table td { padding:10px 14px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+        .dm-table tbody tr:last-child td { border-bottom:none; }
+        .dm-table tbody tr:hover { background:var(--row-hover); }
+        .dm-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size:11.5px; }
+        .dm-empty { text-align:center; color:var(--dim); padding:30px; }
+
+        /* ---------- Pills ---------- */
+        .pill { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:20px; }
+        .pill .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+        .pill.green { background:rgba(48,209,88,.14); color:var(--ok-text); }
+        .pill.gray  { background:rgba(142,142,147,.16); color:#6e6e73; }
+        .pill.amber { background:rgba(255,159,10,.16); color:var(--amber-text); }
+        body.dark .pill.gray { color:#aeaeb2; }
+
+        /* ---------- Buttons ---------- */
+        .btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--panel); color:var(--text);
+            border-radius:8px; font-size:13px; font-weight:550; padding:7px 13px; cursor:pointer; transition:.12s; font-family:inherit; white-space:nowrap; }
+        .btn:hover { background:var(--panel-2); }
+        body.dark .btn:hover { background:#3a3a3c; }
+        .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+        .btn.primary:hover { filter:brightness(1.08); background:var(--accent); }
+        .btn.danger { color:var(--danger); border-color:rgba(255,69,58,.4); }
+        .btn.danger:hover { background:rgba(255,69,58,.08); }
+        .btn.sm { padding:5px 10px; font-size:12px; }
+        .btn[disabled] { opacity:.5; cursor:default; pointer-events:none; }
+        .btn i.icon { margin:0; }
+        .iconbtn { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border);
+            background:var(--panel); color:var(--text); border-radius:7px; cursor:pointer; transition:.12s; }
+        .iconbtn:hover { background:var(--panel-2); }
+        body.dark .iconbtn:hover { background:#3a3a3c; }
+        .iconbtn.green:hover { color:var(--ok-text); border-color:rgba(48,209,88,.5); }
+        .iconbtn.danger:hover { color:var(--danger); border-color:rgba(255,69,58,.5); }
+        .iconbtn i.icon { margin:0; font-size:13px; }
+        .btnrow { display:inline-flex; gap:6px; }
+
+        /* Busy spinner overlay for any .btn / .iconbtn */
+        .is-busy { color:transparent !important; position:relative; pointer-events:none; }
+        .is-busy::after { content:''; position:absolute; width:14px; height:14px; top:50%; left:50%; margin:-7px 0 0 -7px;
+            border:2px solid rgba(0,0,0,.18); border-top-color:rgba(0,0,0,.55); border-radius:50%; animation:dmspin .6s linear infinite; }
+        .btn.primary.is-busy::after { border-color:rgba(255,255,255,.45); border-top-color:#fff; }
+        body.dark .is-busy::after { border-color:rgba(255,255,255,.25); border-top-color:rgba(255,255,255,.75); }
+        @keyframes dmspin { to { transform:rotate(360deg); } }
+
+        /* ---------- Form fields ---------- */
+        .field2 { margin-bottom:14px; }
+        .field2:last-child { margin-bottom:0; }
+        .lbl { display:block; font-size:12px; font-weight:600; color:var(--dim); margin-bottom:6px; }
+        .fld { width:100%; background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 11px;
+            font-size:13px; font-family:inherit; outline:none; }
+        textarea.fld { resize:vertical; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size:12px; }
+        .fld:focus { border-color:var(--accent); }
+        select.fld { appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%2386868b'/></svg>"); background-repeat:no-repeat; background-position:right 11px center; padding-right:28px; }
+        .row2 { display:flex; gap:12px; } .row2 > * { flex:1; }
+        code { background:var(--panel-2); padding:1px 5px; border-radius:4px; font-size:11.5px; }
+        body.dark code { background:#3a3a3c; }
+        .note { font-size:11.5px; color:var(--dim); margin-top:6px; line-height:1.5; }
+        .inline-input { display:inline-flex; gap:0; }
+        .inline-input .fld { border-top-right-radius:0; border-bottom-right-radius:0; min-width:260px; }
+        .inline-input .btn { border-top-left-radius:0; border-bottom-left-radius:0; border-left:none; }
+
+        .msg { font-size:12px; border-radius:8px; padding:9px 11px; line-height:1.5; }
+        .msg.warn { background:rgba(255,159,10,.1); border:1px solid rgba(255,159,10,.4); color:var(--text); }
+        .msg.err  { background:rgba(255,69,58,.1); border:1px solid rgba(255,69,58,.4); color:var(--text); }
+        .msg.ok   { background:rgba(48,209,88,.12); border:1px solid rgba(48,209,88,.4); color:var(--text); }
+        .msg.info { background:var(--panel-2); border:1px solid var(--border); color:var(--dim); }
+
+        /* ---------- Drawers (slide from right) ---------- */
+        #dm-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.28); opacity:0; pointer-events:none; transition:opacity .22s; z-index:1000; }
+        #dm-backdrop.show { opacity:1; pointer-events:auto; }
+        .drawer { position:fixed; top:0; right:0; height:100%; width:540px; max-width:94vw; background:var(--panel); z-index:1001;
+            box-shadow:-10px 0 40px rgba(0,0,0,.18); transform:translateX(100%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+            display:flex; flex-direction:column; }
+        .drawer.open { transform:translateX(0); }
+        .drawer.wide { width:780px; }
+        .drawer-head { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px; }
+        .drawer-head .ttl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .drawer-head .drawer-close { margin-left:auto; cursor:pointer; color:var(--dim); width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:7px; }
+        .drawer-head .drawer-close:hover { background:var(--panel-2); }
+        .drawer-body { flex:1; overflow:auto; padding:20px; }
+        .drawer-foot { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; justify-content:flex-end; }
+        .drawer-foot .status { margin-right:auto; font-size:12px; color:var(--dim); }
+
+        .term-pre { background:#0f1419; color:#d6e2ef; border-radius:8px; padding:14px; font-family: ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+            font-size:12px; white-space:pre-wrap; word-break:break-word; height:100%; overflow:auto; margin:0; }
+        .drawer-body.term { padding:0; display:flex; flex-direction:column; }
+        .console-warn { background:rgba(255,69,58,.12); color:#ff6b5e; font-size:12px; padding:9px 14px; display:flex; gap:8px; align-items:flex-start; }
+        .console-bar { display:flex; gap:8px; align-items:center; padding:8px 14px; background:#0f1419; border-bottom:1px solid #222; }
+        .console-bar label { color:#9fb0c0; font-size:12px; }
+
+        /* ---------- Toast ---------- */
+        #dm-toast { display:none; position:fixed; bottom:22px; right:22px; z-index:1300; padding:11px 16px; border-radius:10px;
+            font-size:12.5px; font-weight:600; color:#fff; box-shadow:0 6px 24px rgba(0,0,0,.28); }
     </style>
 </head>
 
 <body>
-    <div class="dm-wrap">
-        <div class="ui top attached tabular menu">
-            <a class="item active" data-tab="containers"><i class="cube icon"></i> Containers</a>
-            <a class="item" data-tab="images"><i class="clone icon"></i> Images</a>
-            <a class="item" data-tab="compose"><i class="cubes icon"></i> Compose Stacks</a>
-            <a class="item" data-tab="registries"><i class="cloud icon"></i> Registries</a>
-        </div>
+    <div id="dm-progress"></div>
 
-        <!-- Containers tab -->
-        <div class="ui bottom attached tab segment active" data-tab="containers">
-            <div class="dm-toolbar">
-                <h4 class="ui header" style="margin:0;">Containers</h4>
-                <div class="spacer"></div>
-                <button class="ui small button" id="dm-c-refresh"><i class="refresh icon"></i> Refresh</button>
-            </div>
-            <table class="ui celled striped compact table">
-                <thead>
-                    <tr>
-                        <th>Name</th><th>Image</th><th>State</th><th>Ports</th><th>Status</th><th style="width:230px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="dm-c-body">
-                    <tr><td colspan="6" class="dm-empty">Loading…</td></tr>
-                </tbody>
-            </table>
-        </div>
+    <div class="dm-app">
+        <!-- Sidebar -->
+        <nav class="dm-sidebar">
+            <div class="dm-brand"><img src="img/icon.svg" alt=""> Docker Manager</div>
+            <div class="dm-nav-item active" data-section="containers"><i class="cube icon"></i><span>Containers</span></div>
+            <div class="dm-nav-item" data-section="images"><i class="clone icon"></i><span>Images</span></div>
+            <div class="dm-nav-item" data-section="compose"><i class="cubes icon"></i><span>Compose Stacks</span></div>
+            <div class="dm-nav-item" data-section="registries"><i class="cloud icon"></i><span>Registries</span></div>
+            <div class="dm-side-spacer"></div>
+            <div class="dm-side-foot">Admin-only. Docker access is root-equivalent on this host.</div>
+        </nav>
 
-        <!-- Images tab -->
-        <div class="ui bottom attached tab segment" data-tab="images">
-            <div class="dm-toolbar">
-                <h4 class="ui header" style="margin:0;">Images</h4>
-                <div class="spacer"></div>
-                <div class="ui small action input">
-                    <input type="text" id="dm-pull-ref" placeholder="e.g. nginx:alpine or registry/repo:tag">
-                    <button class="ui small primary button" id="dm-pull-btn"><i class="download icon"></i> Pull</button>
-                </div>
-                <button class="ui small button" id="dm-i-refresh"><i class="refresh icon"></i> Refresh</button>
-            </div>
-            <table class="ui celled striped compact table">
-                <thead>
-                    <tr><th>Repository</th><th>Tag</th><th>Size</th><th>Created</th><th class="dm-mono">Image ID</th><th style="width:120px;">Actions</th></tr>
-                </thead>
-                <tbody id="dm-i-body"><tr><td colspan="6" class="dm-empty">Loading…</td></tr></tbody>
-            </table>
-        </div>
-
-        <!-- Compose tab -->
-        <div class="ui bottom attached tab segment" data-tab="compose">
-            <div class="dm-toolbar">
-                <h4 class="ui header" style="margin:0;">Compose Stacks</h4>
-                <div class="spacer"></div>
-                <button class="ui small primary button" id="dm-stack-new"><i class="plus icon"></i> New Stack</button>
-                <button class="ui small button" id="dm-stack-refresh"><i class="refresh icon"></i> Refresh</button>
-            </div>
-            <div id="dm-compose-unavail" class="ui warning message" style="display:none;">
-                <i class="exclamation triangle icon"></i> The Docker Compose v2 plugin was not detected on this host. Install <code>docker-compose-plugin</code> to manage stacks.
-            </div>
-            <table class="ui celled striped compact table" id="dm-stack-table">
-                <thead><tr><th>Stack</th><th>State</th><th>Auto-start</th><th style="width:280px;">Actions</th></tr></thead>
-                <tbody id="dm-stack-body"><tr><td colspan="4" class="dm-empty">Loading…</td></tr></tbody>
-            </table>
-            <div class="ui mini message">
-                Stacks live in <code>./system/docker/stacks/&lt;name&gt;/docker-compose.yml</code>. Stacks with auto-start enabled are brought up on server boot.
-            </div>
-        </div>
-
-        <!-- Registries tab -->
-        <div class="ui bottom attached tab segment" data-tab="registries">
-            <div class="dm-toolbar">
-                <h4 class="ui header" style="margin:0;">Registries</h4>
-                <div class="spacer"></div>
-                <button class="ui small button" id="dm-r-refresh"><i class="refresh icon"></i> Refresh</button>
-            </div>
-            <div class="ui two column stackable grid">
-                <div class="column">
-                    <div class="ui segment">
-                        <h5 class="ui header">Login</h5>
-                        <div class="ui form">
-                            <div class="field"><label>Registry (blank = Docker Hub)</label><input type="text" id="dm-login-registry" placeholder="registry.example.com:5000"></div>
-                            <div class="field"><label>Username</label><input type="text" id="dm-login-user" autocomplete="off"></div>
-                            <div class="field"><label>Password / Token</label><input type="password" id="dm-login-pass" autocomplete="off"></div>
-                            <button class="ui primary button" id="dm-login-btn"><i class="sign-in icon"></i> Login</button>
-                        </div>
-                        <div class="ui mini message" style="margin-top:10px;">Credentials are stored by the Docker CLI, never by ArozOS. The password is sent once over the request and is never logged.</div>
-                        <h5 class="ui header" style="margin-top:14px;">Configured registries</h5>
-                        <table class="ui very basic compact table" style="margin-top:0;">
-                            <tbody id="dm-r-body"><tr><td class="dm-empty">Loading…</td></tr></tbody>
-                        </table>
+        <!-- Content -->
+        <main class="dm-main">
+            <!-- Containers -->
+            <section class="dm-section active" data-section="containers">
+                <div class="dm-section-head">
+                    <div><h2>Containers</h2></div>
+                    <div class="actions">
+                        <button class="btn sm" id="dm-c-refresh"><i class="refresh icon"></i> Refresh</button>
                     </div>
                 </div>
-                <div class="column">
-                    <div class="ui segment">
-                        <h5 class="ui header">Search Docker Hub</h5>
-                        <div class="ui action input fluid">
-                            <input type="text" id="dm-search-term" placeholder="e.g. nginx">
-                            <button class="ui button" id="dm-search-btn"><i class="search icon"></i> Search</button>
-                        </div>
-                        <table class="ui celled compact table" style="margin-top:12px;">
-                            <thead><tr><th>Name</th><th>Stars</th><th style="width:80px;"></th></tr></thead>
+                <div class="dm-card">
+                    <table class="dm-table">
+                        <thead><tr><th>Status</th><th>Container</th><th>Image</th><th>Ports</th><th style="width:210px;">Actions</th></tr></thead>
+                        <tbody id="dm-c-body"><tr><td colspan="5" class="dm-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Images -->
+            <section class="dm-section" data-section="images">
+                <div class="dm-section-head">
+                    <div><h2>Images</h2></div>
+                    <div class="actions">
+                        <span class="inline-input">
+                            <input type="text" class="fld" id="dm-pull-ref" placeholder="nginx:alpine or registry/repo:tag">
+                            <button class="btn primary" id="dm-pull-btn"><i class="download icon"></i> Pull</button>
+                        </span>
+                        <button class="btn sm" id="dm-i-refresh"><i class="refresh icon"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="dm-card">
+                    <table class="dm-table">
+                        <thead><tr><th>Repository</th><th>Tag</th><th>Size</th><th>Created</th><th>Image ID</th><th style="width:90px;">Actions</th></tr></thead>
+                        <tbody id="dm-i-body"><tr><td colspan="6" class="dm-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Compose -->
+            <section class="dm-section" data-section="compose">
+                <div class="dm-section-head">
+                    <div><h2>Compose Stacks</h2></div>
+                    <div class="actions">
+                        <button class="btn primary sm" id="dm-stack-new"><i class="plus icon"></i> New Stack</button>
+                        <button class="btn sm" id="dm-stack-refresh"><i class="refresh icon"></i> Refresh</button>
+                    </div>
+                </div>
+                <div id="dm-compose-unavail" class="msg warn" style="display:none; margin-bottom:14px;">
+                    <i class="exclamation triangle icon"></i> The Docker Compose v2 plugin was not detected on this host. Install <code>docker-compose-plugin</code> to manage stacks.
+                </div>
+                <div class="dm-card" id="dm-stack-card">
+                    <table class="dm-table">
+                        <thead><tr><th>Stack</th><th>State</th><th>Auto-start</th><th style="width:260px;">Actions</th></tr></thead>
+                        <tbody id="dm-stack-body"><tr><td colspan="4" class="dm-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="note">Stacks live in <code>./system/docker/stacks/&lt;name&gt;/docker-compose.yml</code>. Stacks with auto-start enabled are brought up on server boot.</div>
+            </section>
+
+            <!-- Registries -->
+            <section class="dm-section" data-section="registries">
+                <div class="dm-section-head">
+                    <div><h2>Registries</h2></div>
+                    <div class="actions"><button class="btn sm" id="dm-r-refresh"><i class="refresh icon"></i> Refresh</button></div>
+                </div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+                    <div class="dm-card" style="flex:1; min-width:300px; padding:18px;">
+                        <div style="font-weight:650; margin-bottom:12px;">Login</div>
+                        <div class="field2"><label class="lbl">Registry (blank = Docker Hub)</label><input type="text" class="fld" id="dm-login-registry" placeholder="registry.example.com:5000"></div>
+                        <div class="field2"><label class="lbl">Username</label><input type="text" class="fld" id="dm-login-user" autocomplete="off"></div>
+                        <div class="field2"><label class="lbl">Password / Token</label><input type="password" class="fld" id="dm-login-pass" autocomplete="off"></div>
+                        <button class="btn primary" id="dm-login-btn"><i class="sign-in icon"></i> Login</button>
+                        <div class="note">Credentials are stored by the Docker CLI, never by ArozOS. The password is sent once and never logged.</div>
+                        <div style="font-weight:650; margin:16px 0 8px;">Configured registries</div>
+                        <table class="dm-table" style="border:1px solid var(--border); border-radius:8px;"><tbody id="dm-r-body"><tr><td class="dm-empty">Loading…</td></tr></tbody></table>
+                    </div>
+                    <div class="dm-card" style="flex:1; min-width:300px; padding:18px;">
+                        <div style="font-weight:650; margin-bottom:12px;">Search Docker Hub</div>
+                        <span class="inline-input" style="width:100%;">
+                            <input type="text" class="fld" id="dm-search-term" placeholder="e.g. nginx" style="flex:1; min-width:0;">
+                            <button class="btn" id="dm-search-btn"><i class="search icon"></i> Search</button>
+                        </span>
+                        <table class="dm-table" style="margin-top:14px; border:1px solid var(--border); border-radius:8px;">
+                            <thead><tr><th>Name</th><th>Stars</th><th style="width:70px;"></th></tr></thead>
                             <tbody id="dm-search-body"><tr><td colspan="3" class="dm-empty">Enter a term and search.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
 
-    <!-- Logs modal -->
-    <div class="ui modal" id="dm-log-modal">
-        <div class="header"><i class="terminal icon"></i> Logs: <span id="dm-log-title" class="dm-mono"></span></div>
-        <div class="content">
-            <pre id="dm-log-output"></pre>
-        </div>
-        <div class="actions">
-            <div class="ui grey button" id="dm-log-close">Close</div>
-        </div>
-    </div>
+    <!-- ============ Drawers ============ -->
+    <div id="dm-backdrop"></div>
 
-    <!-- Inspect modal -->
-    <div class="ui modal" id="dm-inspect-modal">
-        <div class="header"><i class="search icon"></i> Inspect: <span id="dm-inspect-title" class="dm-mono"></span></div>
-        <div class="content"><pre id="dm-inspect-output"></pre></div>
-        <div class="actions"><div class="ui grey button" id="dm-inspect-close">Close</div></div>
-    </div>
+    <!-- Logs (container + stack) -->
+    <aside class="drawer wide" id="dm-log-drawer">
+        <div class="drawer-head"><i class="align left icon"></i> <span class="ttl">Logs: <span id="dm-log-title" class="dm-mono"></span></span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body term"><pre id="dm-log-output" class="term-pre"></pre></div>
+    </aside>
 
-    <!-- Pull progress modal -->
-    <div class="ui modal" id="dm-pull-modal">
-        <div class="header"><i class="download icon"></i> Pulling: <span id="dm-pull-title" class="dm-mono"></span></div>
-        <div class="content"><pre id="dm-log-output-pull" style="background:#101418;color:#d6e2ef;border-radius:8px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;height:52vh;overflow:auto;margin:0;"></pre></div>
-        <div class="actions"><div class="ui grey button" id="dm-pull-close">Close</div></div>
-    </div>
+    <!-- Inspect -->
+    <aside class="drawer wide" id="dm-inspect-drawer">
+        <div class="drawer-head"><i class="info icon"></i> <span class="ttl">Inspect: <span id="dm-inspect-title" class="dm-mono"></span></span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body term"><pre id="dm-inspect-output" class="term-pre"></pre></div>
+    </aside>
 
-    <!-- Run Image modal (also used for Recreate) -->
-    <div class="ui small modal" id="dm-run-modal">
-        <div class="header"><i class="play icon"></i> <span id="dm-run-title">Run Image</span></div>
-        <div class="content">
-            <div class="ui mini warning message" id="dm-run-warn" style="display:none;">
+    <!-- Pull progress -->
+    <aside class="drawer wide" id="dm-pull-drawer">
+        <div class="drawer-head"><i class="download icon"></i> <span class="ttl">Pulling: <span id="dm-pull-title" class="dm-mono"></span></span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body term"><pre id="dm-log-output-pull" class="term-pre"></pre></div>
+    </aside>
+
+    <!-- Run Image / Recreate -->
+    <aside class="drawer" id="dm-run-drawer">
+        <div class="drawer-head"><i class="play icon"></i> <span class="ttl" id="dm-run-title">Run Image</span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body">
+            <div class="msg warn" id="dm-run-warn" style="display:none; margin-bottom:14px;">
                 <i class="exclamation triangle icon"></i> <b>Recreate</b> deletes the existing container and launches a new one with these settings. This cannot be undone.
             </div>
-            <div class="ui form">
-                <div class="two fields">
-                    <div class="field"><label>Image</label><input type="text" id="dm-run-image" placeholder="nginx:alpine"></div>
-                    <div class="field"><label>Container name (optional)</label><input type="text" id="dm-run-name" placeholder="web1"></div>
-                </div>
-                <div class="two fields">
-                    <div class="field">
-                        <label>Port mappings (one per line)</label>
-                        <textarea id="dm-run-ports" rows="3" placeholder="8080:80&#10;127.0.0.1:443:443/tcp"></textarea>
-                    </div>
-                    <div class="field">
-                        <label>Volumes (one per line, src:dst[:mode])</label>
-                        <textarea id="dm-run-volumes" rows="3" placeholder="/srv/data:/data&#10;named:/var/lib:ro"></textarea>
-                    </div>
-                </div>
-                <div class="field">
-                    <label>Environment variables (one KEY=value per line)</label>
-                    <textarea id="dm-run-env" rows="2" placeholder="TZ=UTC&#10;APP_DEBUG=1"></textarea>
-                </div>
-                <div class="three fields">
-                    <div class="field">
-                        <label>Restart policy</label>
-                        <select id="dm-run-restart" class="ui dropdown">
-                            <option value="">no</option>
-                            <option value="always">always</option>
-                            <option value="unless-stopped">unless-stopped</option>
-                            <option value="on-failure">on-failure</option>
-                        </select>
-                    </div>
-                    <div class="field"><label>Network (optional)</label><input type="text" id="dm-run-network" placeholder="bridge"></div>
-                    <div class="field"><label>Command override (optional)</label><input type="text" id="dm-run-command" placeholder="nginx -g 'daemon off;'"></div>
-                </div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Image</label><input type="text" class="fld" id="dm-run-image" placeholder="nginx:alpine"></div>
+                <div class="field2"><label class="lbl">Container name (optional)</label><input type="text" class="fld" id="dm-run-name" placeholder="web1"></div>
             </div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Port mappings (one per line)</label><textarea class="fld" id="dm-run-ports" rows="3" placeholder="8080:80&#10;127.0.0.1:443:443/tcp"></textarea></div>
+                <div class="field2"><label class="lbl">Volumes (src:dst[:mode])</label><textarea class="fld" id="dm-run-volumes" rows="3" placeholder="/srv/data:/data&#10;named:/var/lib:ro"></textarea></div>
+            </div>
+            <div class="field2"><label class="lbl">Environment variables (KEY=value per line)</label><textarea class="fld" id="dm-run-env" rows="2" placeholder="TZ=UTC&#10;APP_DEBUG=1"></textarea></div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Restart policy</label>
+                    <select class="fld" id="dm-run-restart"><option value="">no</option><option value="always">always</option><option value="unless-stopped">unless-stopped</option><option value="on-failure">on-failure</option></select>
+                </div>
+                <div class="field2"><label class="lbl">Network (optional)</label><input type="text" class="fld" id="dm-run-network" placeholder="bridge"></div>
+            </div>
+            <div class="field2"><label class="lbl">Command override (optional)</label><input type="text" class="fld" id="dm-run-command" placeholder="nginx -g 'daemon off;'"></div>
         </div>
-        <div class="actions">
-            <div class="ui grey button" id="dm-run-cancel">Cancel</div>
-            <div class="ui button" id="dm-run-createonly">Create (don't start)</div>
-            <div class="ui primary button" id="dm-run-go"><i class="play icon"></i> <span id="dm-run-gotext">Run</span></div>
+        <div class="drawer-foot">
+            <button class="btn drawer-close">Cancel</button>
+            <button class="btn" id="dm-run-createonly">Create (don't start)</button>
+            <button class="btn primary" id="dm-run-go"><i class="play icon"></i> <span id="dm-run-gotext">Run</span></button>
         </div>
-    </div>
+    </aside>
 
-    <!-- Container config (live update + rename) modal -->
-    <div class="ui small modal" id="dm-cfg-modal">
-        <div class="header"><i class="cog icon"></i> Configure: <span id="dm-cfg-title" class="dm-mono"></span></div>
-        <div class="content">
-            <div class="ui form">
-                <div class="field"><label>Rename</label>
-                    <div class="ui action input">
-                        <input type="text" id="dm-cfg-name">
-                        <button class="ui button" id="dm-cfg-rename">Rename</button>
-                    </div>
-                </div>
-                <div class="ui divider"></div>
-                <div class="ui small header" style="margin-bottom:8px;">Live update (applied without recreating)</div>
-                <div class="three fields">
-                    <div class="field">
-                        <label>Restart policy</label>
-                        <select id="dm-cfg-restart" class="ui dropdown">
-                            <option value="">(unchanged)</option>
-                            <option value="no">no</option>
-                            <option value="always">always</option>
-                            <option value="unless-stopped">unless-stopped</option>
-                            <option value="on-failure">on-failure</option>
-                        </select>
-                    </div>
-                    <div class="field"><label>Memory limit</label><input type="text" id="dm-cfg-memory" placeholder="512m"></div>
-                    <div class="field"><label>CPUs</label><input type="text" id="dm-cfg-cpus" placeholder="1.5"></div>
-                </div>
-                <div class="ui divider"></div>
-                <div class="ui mini message">
-                    Changing ports, volumes or environment needs a <b>recreate</b> (delete &amp; relaunch).
-                    <a id="dm-cfg-recreate" style="cursor:pointer;font-weight:600;">Recreate with new settings…</a>
-                </div>
+    <!-- Container config -->
+    <aside class="drawer" id="dm-cfg-drawer">
+        <div class="drawer-head"><i class="cog icon"></i> <span class="ttl">Configure: <span id="dm-cfg-title" class="dm-mono"></span></span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body">
+            <div class="field2"><label class="lbl">Rename</label>
+                <span class="inline-input" style="width:100%;"><input type="text" class="fld" id="dm-cfg-name" style="flex:1; min-width:0;"><button class="btn" id="dm-cfg-rename">Rename</button></span>
             </div>
+            <div style="height:1px; background:var(--border); margin:16px 0;"></div>
+            <div style="font-weight:600; margin-bottom:10px;">Live update <span class="note" style="display:inline;">(applied without recreating)</span></div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Restart policy</label>
+                    <select class="fld" id="dm-cfg-restart"><option value="">(unchanged)</option><option value="no">no</option><option value="always">always</option><option value="unless-stopped">unless-stopped</option><option value="on-failure">on-failure</option></select>
+                </div>
+                <div class="field2"><label class="lbl">Memory limit</label><input type="text" class="fld" id="dm-cfg-memory" placeholder="512m"></div>
+                <div class="field2"><label class="lbl">CPUs</label><input type="text" class="fld" id="dm-cfg-cpus" placeholder="1.5"></div>
+            </div>
+            <div class="msg info" style="margin-top:6px;">Changing ports, volumes or environment needs a <b>recreate</b>. <a id="dm-cfg-recreate" style="cursor:pointer; font-weight:600; color:var(--accent);">Recreate with new settings…</a></div>
         </div>
-        <div class="actions">
-            <div class="ui grey button" id="dm-cfg-cancel">Close</div>
-            <div class="ui primary button" id="dm-cfg-apply">Apply live update</div>
+        <div class="drawer-foot">
+            <button class="btn drawer-close">Close</button>
+            <button class="btn primary" id="dm-cfg-apply">Apply live update</button>
         </div>
-    </div>
+    </aside>
 
-    <!-- Compose YAML editor modal -->
-    <div class="ui large modal" id="dm-stack-modal">
-        <div class="header"><i class="file code icon"></i> <span id="dm-stack-modal-title">New Stack</span></div>
-        <div class="content">
-            <div class="ui form">
-                <div class="field">
-                    <label>Stack name (letters, digits, dash, underscore)</label>
-                    <input type="text" id="dm-stack-name" placeholder="my-stack">
-                </div>
-                <div class="field">
-                    <label>docker-compose.yml</label>
-                    <div id="dm-stack-editor" style="height:46vh;width:100%;border:1px solid #ccc;border-radius:6px;"></div>
-                </div>
-                <div class="ui mini message" id="dm-stack-validate-msg" style="display:none;"></div>
-            </div>
+    <!-- Compose YAML editor -->
+    <aside class="drawer wide" id="dm-stack-drawer">
+        <div class="drawer-head"><i class="file code icon"></i> <span class="ttl" id="dm-stack-modal-title">New Stack</span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body">
+            <div class="field2"><label class="lbl">Stack name (letters, digits, dash, underscore)</label><input type="text" class="fld" id="dm-stack-name" placeholder="my-stack"></div>
+            <div class="field2"><label class="lbl">docker-compose.yml</label><div id="dm-stack-editor" style="height:48vh; width:100%; border:1px solid var(--border); border-radius:8px;"></div></div>
+            <div class="msg" id="dm-stack-validate-msg" style="display:none;"></div>
         </div>
-        <div class="actions">
-            <div class="ui grey button" id="dm-stack-cancel">Cancel</div>
-            <div class="ui button" id="dm-stack-validate">Validate</div>
-            <div class="ui button" id="dm-stack-save">Save</div>
-            <div class="ui primary button" id="dm-stack-savedeploy"><i class="play icon"></i> Save &amp; Deploy</div>
+        <div class="drawer-foot">
+            <span class="status" id="dm-stack-status"></span>
+            <button class="btn drawer-close">Cancel</button>
+            <button class="btn" id="dm-stack-validate">Validate</button>
+            <button class="btn" id="dm-stack-save">Save</button>
+            <button class="btn primary" id="dm-stack-savedeploy"><i class="play icon"></i> Save &amp; Deploy</button>
         </div>
-    </div>
+    </aside>
 
-    <!-- Exec console modal -->
-    <div class="ui large modal" id="dm-console-modal">
-        <div class="header"><i class="terminal icon"></i> Console: <span id="dm-console-title" class="dm-mono"></span></div>
-        <div class="content" style="background:#101418;">
-            <div class="ui tiny error message" style="margin:0 0 8px 0;">
-                <i class="exclamation triangle icon"></i> You are connected to a <b>live shell inside this container</b>. Commands here run with the container's privileges and can affect the host system. Close this window to end the session.
+    <!-- Exec console -->
+    <aside class="drawer wide" id="dm-console-drawer">
+        <div class="drawer-head"><i class="terminal icon"></i> <span class="ttl">Console: <span id="dm-console-title" class="dm-mono"></span></span><div class="drawer-close"><i class="times icon"></i></div></div>
+        <div class="drawer-body term">
+            <div class="console-warn"><i class="exclamation triangle icon"></i><div>You are connected to a <b>live shell inside this container</b>. Commands run with the container's privileges and can affect the host.</div></div>
+            <div class="console-bar">
+                <label>Shell:</label>
+                <select class="fld" id="dm-console-shell" style="width:90px; padding:5px 8px;"><option value="sh">sh</option><option value="bash">bash</option></select>
+                <button class="btn sm" id="dm-console-connect">Reconnect</button>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                <label style="color:#d6e2ef;font-size:12px;">Shell:</label>
-                <select id="dm-console-shell" class="ui compact selection dropdown" style="min-width:90px;">
-                    <option value="sh">sh</option>
-                    <option value="bash">bash</option>
-                </select>
-                <button class="ui tiny button" id="dm-console-connect">Reconnect</button>
-            </div>
-            <div id="dm-console-term" style="height:54vh;width:100%;"></div>
+            <div id="dm-console-term" style="flex:1; width:100%; background:#0f1419; padding:6px 10px;"></div>
         </div>
-        <div class="actions">
-            <div class="ui grey button" id="dm-console-close">Close</div>
-        </div>
-    </div>
+    </aside>
 
     <div id="dm-toast"></div>
 
     <script>
     (function () {
         DM.applyTheme();
-        $('#dm-run-restart, #dm-cfg-restart').dropdown();
-        $('#dm-console-shell').dropdown();
 
+        /* ---------- progress / busy helpers ---------- */
+        var pending = 0;
+        function progressStart() { pending++; document.getElementById("dm-progress").classList.add("active"); }
+        function progressDone() { pending = Math.max(0, pending - 1); if (pending === 0) document.getElementById("dm-progress").classList.remove("active"); }
+        function setBusy($btn, on) { if ($btn && $btn.length) { $btn.toggleClass("is-busy", !!on); $btn.prop("disabled", !!on); } }
+        // Attach progress + button-busy lifecycle to a jqXHR.
+        function track(xhr, $btn) { setBusy($btn, true); progressStart(); xhr.always(function () { setBusy($btn, false); progressDone(); }); return xhr; }
+
+        /* ---------- drawer manager ---------- */
+        var drawerOnClose = null;
+        function openDrawer(id, onClose) {
+            drawerOnClose = onClose || null;
+            document.getElementById("dm-backdrop").classList.add("show");
+            document.getElementById(id).classList.add("open");
+        }
+        function closeDrawer() {
+            var cb = drawerOnClose; drawerOnClose = null;
+            $(".drawer.open").removeClass("open");
+            document.getElementById("dm-backdrop").classList.remove("show");
+            if (cb) { try { cb(); } catch (e) {} }
+        }
+        $(document).on("click", ".drawer-close", closeDrawer);
+        $("#dm-backdrop").on("click", closeDrawer);
+
+        /* ---------- sidebar navigation ---------- */
+        var loaded = { containers: true };
+        function showSection(name) {
+            $(".dm-nav-item").removeClass("active");
+            $('.dm-nav-item[data-section="' + name + '"]').addClass("active");
+            $(".dm-section").removeClass("active");
+            $('.dm-section[data-section="' + name + '"]').addClass("active");
+            if (!loaded[name]) {
+                loaded[name] = true;
+                if (name === "images") loadImages();
+                else if (name === "registries") loadRegistries();
+                else if (name === "compose") loadComposeTab();
+            }
+        }
+        $(".dm-nav-item").on("click", function () { showSection($(this).data("section")); });
+
+        /* ===================== Containers ===================== */
         var $cBody = $("#dm-c-body");
 
         function stateBadge(state) {
             var s = (state || "").toLowerCase();
-            return '<span class="state-badge state-' + DM.esc(s) + '">' + DM.esc(state || "-") + '</span>';
+            var cls = s === "running" ? "green" : (s === "paused" || s === "restarting" || s === "created" ? "amber" : "gray");
+            return '<span class="pill ' + cls + '"><span class="dot"></span>' + DM.esc(state || "-") + '</span>';
         }
 
         function actionBtns(c) {
             var running = (c.State || "").toLowerCase() === "running";
             var ref = DM.esc(c.ID || c.Names);
-            var html = '<div class="ui tiny icon buttons dm-actions">';
+            var nm = DM.esc(c.Names);
+            var h = '<div class="btnrow">';
             if (running) {
-                html += '<button class="ui button" title="Stop" data-act="stop" data-id="' + ref + '"><i class="stop icon"></i></button>';
-                html += '<button class="ui button" title="Restart" data-act="restart" data-id="' + ref + '"><i class="redo icon"></i></button>';
-                html += '<button class="ui button" title="Console" data-act="console" data-id="' + ref + '" data-name="' + DM.esc(c.Names) + '"><i class="terminal icon"></i></button>';
+                h += '<div class="iconbtn" title="Stop" data-act="stop" data-id="' + ref + '"><i class="stop icon"></i></div>';
+                h += '<div class="iconbtn" title="Restart" data-act="restart" data-id="' + ref + '"><i class="redo icon"></i></div>';
+                h += '<div class="iconbtn" title="Console" data-act="console" data-id="' + ref + '" data-name="' + nm + '"><i class="terminal icon"></i></div>';
             } else {
-                html += '<button class="ui positive button" title="Start" data-act="start" data-id="' + ref + '"><i class="play icon"></i></button>';
+                h += '<div class="iconbtn green" title="Start" data-act="start" data-id="' + ref + '"><i class="play icon"></i></div>';
             }
-            html += '<button class="ui button" title="Logs" data-act="logs" data-id="' + ref + '" data-name="' + DM.esc(c.Names) + '"><i class="align left icon"></i></button>';
-            html += '<button class="ui button" title="Configure" data-act="config" data-id="' + ref + '" data-name="' + DM.esc(c.Names) + '"><i class="cog icon"></i></button>';
-            html += '<button class="ui button" title="Inspect" data-act="inspect" data-id="' + ref + '" data-name="' + DM.esc(c.Names) + '"><i class="info icon"></i></button>';
-            html += '<button class="ui negative button" title="Remove" data-act="remove" data-id="' + ref + '" data-name="' + DM.esc(c.Names) + '"><i class="trash icon"></i></button>';
-            html += '</div>';
-            return html;
+            h += '<div class="iconbtn" title="Logs" data-act="logs" data-id="' + ref + '" data-name="' + nm + '"><i class="align left icon"></i></div>';
+            h += '<div class="iconbtn" title="Configure" data-act="config" data-id="' + ref + '" data-name="' + nm + '"><i class="cog icon"></i></div>';
+            h += '<div class="iconbtn" title="Inspect" data-act="inspect" data-id="' + ref + '" data-name="' + nm + '"><i class="info icon"></i></div>';
+            h += '<div class="iconbtn danger" title="Remove" data-act="remove" data-id="' + ref + '" data-name="' + nm + '"><i class="trash icon"></i></div>';
+            h += '</div>';
+            return h;
         }
 
         function loadContainers() {
-            $cBody.html('<tr><td colspan="6" class="dm-empty">Loading…</td></tr>');
-            DM.get("containers/list", function (list) {
-                if (list && list.error) { $cBody.html('<tr><td colspan="6" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
-                if (!list || list.length === 0) { $cBody.html('<tr><td colspan="6" class="dm-empty">No containers found.</td></tr>'); return; }
-                var rows = list.map(function (c) {
+            $cBody.html('<tr><td colspan="5" class="dm-empty">Loading…</td></tr>');
+            track(DM.get("containers/list", function (list) {
+                if (list && list.error) { $cBody.html('<tr><td colspan="5" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
+                if (!list || list.length === 0) { $cBody.html('<tr><td colspan="5" class="dm-empty">No containers found.</td></tr>'); return; }
+                $cBody.html(list.map(function (c) {
                     return '<tr>' +
-                        '<td class="dm-mono">' + DM.esc(c.Names) + '</td>' +
-                        '<td class="dm-mono">' + DM.esc(c.Image) + '</td>' +
                         '<td>' + stateBadge(c.State) + '</td>' +
+                        '<td><div class="dm-mono">' + DM.esc(c.Names) + '</div><div class="dm-mono" style="color:var(--dim);font-size:10.5px;">' + DM.esc((c.Status || "")) + '</div></td>' +
+                        '<td class="dm-mono">' + DM.esc(c.Image) + '</td>' +
                         '<td class="dm-mono">' + DM.esc(c.Ports || "") + '</td>' +
-                        '<td>' + DM.esc(c.Status || "") + '</td>' +
                         '<td>' + actionBtns(c) + '</td>' +
                         '</tr>';
-                }).join("");
-                $cBody.html(rows);
-            }, function () {
-                $cBody.html('<tr><td colspan="6" class="dm-empty">Failed to load (administrator access required).</td></tr>');
-            });
+                }).join(""));
+            }, function () { $cBody.html('<tr><td colspan="5" class="dm-empty">Failed to load (administrator access required).</td></tr>'); }));
         }
 
-        function doAction(act, id) {
-            DM.post("containers/" + act, { id: id }, function (r) {
+        function doAction(act, id, $btn) {
+            track(DM.post("containers/" + act, { id: id }, function (r) {
                 if (r && r.error) { DM.toast(act + " failed: " + r.error, false); return; }
                 DM.toast("Container " + act + " ok.", true);
                 loadContainers();
-            }, function () { DM.toast(act + " request failed.", false); });
+            }, function () { DM.toast(act + " request failed.", false); }), $btn);
         }
 
-        /* ---- live logs over websocket ---- */
+        /* live logs */
         var logSocket = null;
-        function openLogs(id, name) {
-            $("#dm-log-title").text(name || id);
+        function closeLogSocket() { if (logSocket) { try { logSocket.close(); } catch (e) {} logSocket = null; } }
+        function streamLog(title, wsPath) {
+            $("#dm-log-title").text(title);
             $("#dm-log-output").text("");
-            $("#dm-log-modal").modal({
-                onHide: function () { if (logSocket) { try { logSocket.close(); } catch (e) {} logSocket = null; } }
-            }).modal("show");
-
+            openDrawer("dm-log-drawer", closeLogSocket);
             try {
-                logSocket = new WebSocket(DM.wsURL("containers/logs?id=" + encodeURIComponent(id)));
+                logSocket = new WebSocket(DM.wsURL(wsPath));
                 logSocket.onmessage = function (ev) {
                     var out = document.getElementById("dm-log-output");
                     var atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 20;
@@ -399,44 +501,37 @@
                 logSocket.onerror = function () { DM.toast("Log stream error.", false); };
             } catch (e) { DM.toast("Unable to open log stream.", false); }
         }
+        function openLogs(id, name) { streamLog(name || id, "containers/logs?id=" + encodeURIComponent(id)); }
 
         function openInspect(id, name) {
             $("#dm-inspect-title").text(name || id);
             $("#dm-inspect-output").text("Loading…");
-            $("#dm-inspect-modal").modal("show");
+            openDrawer("dm-inspect-drawer");
             DM.get("containers/inspect?id=" + encodeURIComponent(id), function (data) {
                 if (data && data.error) { $("#dm-inspect-output").text("Error: " + data.error); return; }
                 $("#dm-inspect-output").text(JSON.stringify(data, null, 2));
             }, function () { $("#dm-inspect-output").text("Failed to inspect (admin only)."); });
         }
 
-        // Event delegation for row action buttons.
-        $cBody.on("click", "button[data-act]", function () {
-            var act = $(this).data("act");
-            var id = String($(this).data("id"));
-            var name = $(this).data("name");
+        $cBody.on("click", "[data-act]", function () {
+            var $btn = $(this), act = $btn.data("act"), id = String($btn.data("id")), name = $btn.data("name");
             if (act === "logs") { openLogs(id, name); return; }
             if (act === "console") { openConsole(id, name); return; }
             if (act === "config") { openConfig(id, name); return; }
             if (act === "inspect") { openInspect(id, name); return; }
             if (act === "remove") {
                 if (!confirm("Remove container \"" + (name || id) + "\"? This force-stops and deletes it. This cannot be undone.")) return;
-                doAction("remove", id);
-                return;
+                doAction("remove", id, $btn); return;
             }
-            doAction(act, id);
+            doAction(act, id, $btn);
         });
+        $("#dm-c-refresh").on("click", function () { loadContainers(); });
 
-        $("#dm-c-refresh").on("click", loadContainers);
-        $("#dm-log-close").on("click", function () { $("#dm-log-modal").modal("hide"); });
-        $("#dm-inspect-close").on("click", function () { $("#dm-inspect-modal").modal("hide"); });
-
-        /* ===================== Images tab ===================== */
+        /* ===================== Images ===================== */
         var $iBody = $("#dm-i-body");
-
         function loadImages() {
             $iBody.html('<tr><td colspan="6" class="dm-empty">Loading…</td></tr>');
-            DM.get("images/list", function (list) {
+            track(DM.get("images/list", function (list) {
                 if (list && list.error) { $iBody.html('<tr><td colspan="6" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
                 if (!list || list.length === 0) { $iBody.html('<tr><td colspan="6" class="dm-empty">No images found.</td></tr>'); return; }
                 $iBody.html(list.map(function (img) {
@@ -447,47 +542,36 @@
                         '<td>' + DM.esc(img.Size || "") + '</td>' +
                         '<td>' + DM.esc(img.CreatedSince || "") + '</td>' +
                         '<td class="dm-mono">' + DM.esc(idShort) + '</td>' +
-                        '<td><div class="ui tiny icon buttons">' +
-                        '<button class="ui positive button" title="Run" data-act="runimg" data-ref="' + DM.esc(img.Repository + ":" + img.Tag) + '"><i class="play icon"></i></button>' +
-                        '<button class="ui negative button" title="Remove" data-act="rmi" data-id="' + DM.esc(img.ID) +
-                        '" data-name="' + DM.esc(img.Repository + ":" + img.Tag) + '"><i class="trash icon"></i></button>' +
-                        '</div></td>' +
-                        '</tr>';
+                        '<td><div class="btnrow">' +
+                        '<div class="iconbtn green" title="Run" data-act="runimg" data-ref="' + DM.esc(img.Repository + ":" + img.Tag) + '"><i class="play icon"></i></div>' +
+                        '<div class="iconbtn danger" title="Remove" data-act="rmi" data-id="' + DM.esc(img.ID) + '" data-name="' + DM.esc(img.Repository + ":" + img.Tag) + '"><i class="trash icon"></i></div>' +
+                        '</div></td></tr>';
                 }).join(""));
-            }, function () { $iBody.html('<tr><td colspan="6" class="dm-empty">Failed to load (admin only).</td></tr>'); });
+            }, function () { $iBody.html('<tr><td colspan="6" class="dm-empty">Failed to load (admin only).</td></tr>'); }));
         }
 
         var pullSocket = null;
         function pullImage(ref) {
             $("#dm-pull-title").text(ref);
-            $("#dm-log-output-pull").text("");
-            $("#dm-pull-modal").modal({
-                onHide: function () { if (pullSocket) { try { pullSocket.close(); } catch (e) {} pullSocket = null; } loadImages(); }
-            }).modal("show");
+            $("#dm-log-output-pull").text("Starting pull…\n");
+            openDrawer("dm-pull-drawer", function () { if (pullSocket) { try { pullSocket.close(); } catch (e) {} pullSocket = null; } loadImages(); });
             try {
                 pullSocket = new WebSocket(DM.wsURL("images/pull?image=" + encodeURIComponent(ref)));
-                pullSocket.onmessage = function (ev) {
-                    var out = document.getElementById("dm-log-output-pull");
-                    out.textContent += ev.data;
-                    out.scrollTop = out.scrollHeight;
-                };
-                pullSocket.onclose = function () {
-                    var out = document.getElementById("dm-log-output-pull");
-                    out.textContent += "\n[pull stream ended]";
-                };
+                pullSocket.onmessage = function (ev) { var o = document.getElementById("dm-log-output-pull"); o.textContent += ev.data; o.scrollTop = o.scrollHeight; };
+                pullSocket.onclose = function () { document.getElementById("dm-log-output-pull").textContent += "\n[pull finished]"; };
                 pullSocket.onerror = function () { DM.toast("Pull stream error.", false); };
             } catch (e) { DM.toast("Unable to start pull.", false); }
         }
 
-        $iBody.on("click", "button[data-act='rmi']", function () {
-            var id = String($(this).data("id"));
-            var name = $(this).data("name");
+        $iBody.on("click", "[data-act='rmi']", function () {
+            var $btn = $(this), id = String($btn.data("id")), name = $btn.data("name");
             if (!confirm("Remove image \"" + (name || id) + "\"? This cannot be undone.")) return;
-            DM.post("images/remove", { id: id }, function (r) {
+            track(DM.post("images/remove", { id: id }, function (r) {
                 if (r && r.error) { DM.toast("Remove failed: " + r.error, false); return; }
                 DM.toast("Image removed.", true); loadImages();
-            }, function () { DM.toast("Remove request failed.", false); });
+            }, function () { DM.toast("Remove request failed.", false); }), $btn);
         });
+        $iBody.on("click", "[data-act='runimg']", function () { openRunDrawer({ image: String($(this).data("ref")) }, ""); });
 
         $("#dm-pull-btn").on("click", function () {
             var ref = $("#dm-pull-ref").val().trim();
@@ -495,103 +579,69 @@
             pullImage(ref);
         });
         $("#dm-i-refresh").on("click", loadImages);
-        $("#dm-pull-close").on("click", function () { $("#dm-pull-modal").modal("hide"); });
 
-        /* ===================== Registries tab ===================== */
+        /* ===================== Registries ===================== */
         function loadRegistries() {
             var $rb = $("#dm-r-body");
             $rb.html('<tr><td class="dm-empty">Loading…</td></tr>');
-            DM.get("registry/list", function (list) {
+            track(DM.get("registry/list", function (list) {
                 if (list && list.error) { $rb.html('<tr><td class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
                 if (!list || list.length === 0) { $rb.html('<tr><td class="dm-empty">No registries logged in.</td></tr>'); return; }
                 $rb.html(list.map(function (reg) {
-                    return '<tr><td class="dm-mono">' + DM.esc(reg) + '</td>' +
-                        '<td style="text-align:right;"><button class="ui tiny button" data-logout="' + DM.esc(reg) + '">Logout</button></td></tr>';
+                    return '<tr><td class="dm-mono">' + DM.esc(reg) + '</td><td style="text-align:right;"><button class="btn sm" data-logout="' + DM.esc(reg) + '">Logout</button></td></tr>';
                 }).join(""));
-            }, function () { $rb.html('<tr><td class="dm-empty">Failed to load (admin only).</td></tr>'); });
+            }, function () { $rb.html('<tr><td class="dm-empty">Failed to load (admin only).</td></tr>'); }));
         }
 
         $("#dm-login-btn").on("click", function () {
-            var data = {
-                registry: $("#dm-login-registry").val().trim(),
-                username: $("#dm-login-user").val().trim(),
-                password: $("#dm-login-pass").val()
-            };
+            var $btn = $(this);
+            var data = { registry: $("#dm-login-registry").val().trim(), username: $("#dm-login-user").val().trim(), password: $("#dm-login-pass").val() };
             if (!data.username || !data.password) { DM.toast("Username and password required.", false); return; }
-            DM.post("registry/login", data, function (r) {
+            track(DM.post("registry/login", data, function (r) {
                 if (r && r.error) { DM.toast("Login failed: " + r.error, false); return; }
-                DM.toast("Logged in.", true);
-                $("#dm-login-pass").val("");
-                loadRegistries();
-            }, function () { DM.toast("Login request failed.", false); });
+                DM.toast("Logged in.", true); $("#dm-login-pass").val(""); loadRegistries();
+            }, function () { DM.toast("Login request failed.", false); }), $btn);
         });
-
-        $("#dm-r-body").on("click", "button[data-logout]", function () {
-            var reg = String($(this).data("logout"));
-            DM.post("registry/logout", { registry: reg === "https://index.docker.io/v1/" ? "" : reg }, function (r) {
+        $("#dm-r-body").on("click", "[data-logout]", function () {
+            var $btn = $(this), reg = String($btn.data("logout"));
+            track(DM.post("registry/logout", { registry: reg === "https://index.docker.io/v1/" ? "" : reg }, function (r) {
                 if (r && r.error) { DM.toast("Logout failed: " + r.error, false); return; }
                 DM.toast("Logged out.", true); loadRegistries();
-            }, function () { DM.toast("Logout request failed.", false); });
+            }, function () { DM.toast("Logout request failed.", false); }), $btn);
         });
-
         function doSearch() {
-            var term = $("#dm-search-term").val().trim();
-            var $sb = $("#dm-search-body");
-            if (!term) { return; }
+            var term = $("#dm-search-term").val().trim(), $sb = $("#dm-search-body");
+            if (!term) return;
             $sb.html('<tr><td colspan="3" class="dm-empty">Searching…</td></tr>');
-            DM.get("registry/search?term=" + encodeURIComponent(term), function (list) {
+            track(DM.get("registry/search?term=" + encodeURIComponent(term), function (list) {
                 if (list && list.error) { $sb.html('<tr><td colspan="3" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
                 if (!list || list.length === 0) { $sb.html('<tr><td colspan="3" class="dm-empty">No results.</td></tr>'); return; }
                 $sb.html(list.map(function (sr) {
                     var official = sr.IsOfficial && sr.IsOfficial.indexOf("OK") >= 0 ? ' <i class="check circle icon" title="Official"></i>' : '';
-                    return '<tr><td class="dm-mono">' + DM.esc(sr.Name) + official + '</td>' +
-                        '<td>' + DM.esc(sr.StarCount || "") + '</td>' +
-                        '<td><button class="ui tiny primary button" data-pull="' + DM.esc(sr.Name) + '">Pull</button></td></tr>';
+                    return '<tr><td class="dm-mono">' + DM.esc(sr.Name) + official + '</td><td>' + DM.esc(sr.StarCount || "") + '</td><td><button class="btn sm primary" data-pull="' + DM.esc(sr.Name) + '">Pull</button></td></tr>';
                 }).join(""));
-            }, function () { $sb.html('<tr><td colspan="3" class="dm-empty">Search failed (admin only).</td></tr>'); });
+            }, function () { $sb.html('<tr><td colspan="3" class="dm-empty">Search failed (admin only).</td></tr>'); }), $("#dm-search-btn"));
         }
         $("#dm-search-btn").on("click", doSearch);
         $("#dm-search-term").on("keydown", function (e) { if (e.key === "Enter") doSearch(); });
-        $("#dm-search-body").on("click", "button[data-pull]", function () {
-            $('.tabular.menu .item').tab("change tab", "images");
-            pullImage(String($(this).data("pull")));
-        });
+        $("#dm-search-body").on("click", "[data-pull]", function () { showSection("images"); pullImage(String($(this).data("pull"))); });
         $("#dm-r-refresh").on("click", loadRegistries);
 
         /* ===================== Run Image / Recreate ===================== */
-        // recreateOldId is "" for a plain run, or the old container id when the
-        // modal is in recreate mode.
         var recreateOldId = "";
-
-        function linesToArray(sel) {
-            return $(sel).val().split("\n").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
-        }
-
+        function linesToArray(sel) { return $(sel).val().split("\n").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; }); }
         function collectRunConfig() {
-            return {
-                image: $("#dm-run-image").val().trim(),
-                name: $("#dm-run-name").val().trim(),
-                ports: linesToArray("#dm-run-ports"),
-                volumes: linesToArray("#dm-run-volumes"),
-                env: linesToArray("#dm-run-env"),
-                restartPolicy: $("#dm-run-restart").val(),
-                network: $("#dm-run-network").val().trim(),
-                command: $("#dm-run-command").val().trim()
-            };
+            return { image: $("#dm-run-image").val().trim(), name: $("#dm-run-name").val().trim(),
+                ports: linesToArray("#dm-run-ports"), volumes: linesToArray("#dm-run-volumes"), env: linesToArray("#dm-run-env"),
+                restartPolicy: $("#dm-run-restart").val(), network: $("#dm-run-network").val().trim(), command: $("#dm-run-command").val().trim() };
         }
-
         function fillRunForm(cfg) {
-            $("#dm-run-image").val(cfg.image || "");
-            $("#dm-run-name").val(cfg.name || "");
-            $("#dm-run-ports").val((cfg.ports || []).join("\n"));
-            $("#dm-run-volumes").val((cfg.volumes || []).join("\n"));
-            $("#dm-run-env").val((cfg.env || []).join("\n"));
-            $("#dm-run-network").val(cfg.network || "");
-            $("#dm-run-command").val(cfg.command || "");
-            $("#dm-run-restart").val(cfg.restartPolicy || "").dropdown("set selected", cfg.restartPolicy || "");
+            $("#dm-run-image").val(cfg.image || ""); $("#dm-run-name").val(cfg.name || "");
+            $("#dm-run-ports").val((cfg.ports || []).join("\n")); $("#dm-run-volumes").val((cfg.volumes || []).join("\n"));
+            $("#dm-run-env").val((cfg.env || []).join("\n")); $("#dm-run-network").val(cfg.network || "");
+            $("#dm-run-command").val(cfg.command || ""); $("#dm-run-restart").val(cfg.restartPolicy || "");
         }
-
-        function openRunModal(prefill, oldId) {
+        function openRunDrawer(prefill, oldId) {
             recreateOldId = oldId || "";
             var recreate = !!recreateOldId;
             $("#dm-run-title").text(recreate ? "Recreate Container" : "Run Image");
@@ -599,10 +649,8 @@
             $("#dm-run-gotext").text(recreate ? "Recreate" : "Run");
             $("#dm-run-createonly").toggle(!recreate);
             fillRunForm(prefill || {});
-            $("#dm-run-modal").modal({ autofocus: false }).modal("show");
+            openDrawer("dm-run-drawer");
         }
-
-        // Convert a `docker inspect` element into a run-config-shaped prefill.
         function inspectToConfig(d) {
             var cfg = { ports: [], volumes: [], env: [] };
             if (!d) return cfg;
@@ -612,99 +660,66 @@
             if (d.HostConfig) {
                 cfg.volumes = d.HostConfig.Binds || [];
                 cfg.network = d.HostConfig.NetworkMode && d.HostConfig.NetworkMode !== "default" ? d.HostConfig.NetworkMode : "";
-                if (d.HostConfig.RestartPolicy && d.HostConfig.RestartPolicy.Name && d.HostConfig.RestartPolicy.Name !== "no") {
-                    cfg.restartPolicy = d.HostConfig.RestartPolicy.Name;
-                }
+                if (d.HostConfig.RestartPolicy && d.HostConfig.RestartPolicy.Name && d.HostConfig.RestartPolicy.Name !== "no") cfg.restartPolicy = d.HostConfig.RestartPolicy.Name;
                 var pb = d.HostConfig.PortBindings || {};
-                Object.keys(pb).forEach(function (containerPort) {
-                    var spec = containerPort.split("/")[0];
-                    var proto = containerPort.indexOf("/") >= 0 ? "/" + containerPort.split("/")[1] : "";
-                    (pb[containerPort] || []).forEach(function (b) {
-                        var host = (b.HostIp ? b.HostIp + ":" : "") + (b.HostPort || "");
-                        cfg.ports.push((host ? host + ":" : "") + spec + (proto === "/tcp" ? "" : proto));
-                    });
+                Object.keys(pb).forEach(function (cp) {
+                    var spec = cp.split("/")[0], proto = cp.indexOf("/") >= 0 ? "/" + cp.split("/")[1] : "";
+                    (pb[cp] || []).forEach(function (b) { var host = (b.HostIp ? b.HostIp + ":" : "") + (b.HostPort || ""); cfg.ports.push((host ? host + ":" : "") + spec + (proto === "/tcp" ? "" : proto)); });
                 });
             }
             return cfg;
         }
-
-        function runOrRecreate(createOnly) {
+        function runOrRecreate(createOnly, $btn) {
             var cfg = collectRunConfig();
             if (!cfg.image) { DM.toast("Image is required.", false); return; }
-            var url, body;
-            if (recreateOldId) {
-                url = DM.api + "containers/recreate?oldId=" + encodeURIComponent(recreateOldId);
-            } else {
-                url = DM.api + "containers/" + (createOnly ? "create" : "run");
-            }
-            $.ajax({ url: url, method: "POST", data: JSON.stringify(cfg), contentType: "application/json" })
+            var url = recreateOldId ? (DM.api + "containers/recreate?oldId=" + encodeURIComponent(recreateOldId)) : (DM.api + "containers/" + (createOnly ? "create" : "run"));
+            track($.ajax({ url: url, method: "POST", data: JSON.stringify(cfg), contentType: "application/json" })
                 .done(function (r) {
                     if (r && r.error) { DM.toast("Failed: " + r.error, false); return; }
                     DM.toast(recreateOldId ? "Container recreated." : (createOnly ? "Container created." : "Container started."), true);
-                    $("#dm-run-modal").modal("hide");
-                    $('.tabular.menu .item').tab("change tab", "containers");
-                    loadContainers();
+                    closeDrawer(); showSection("containers"); loadContainers();
                 })
-                .fail(function () { DM.toast("Request failed.", false); });
+                .fail(function () { DM.toast("Request failed.", false); }), $btn);
         }
+        $("#dm-run-go").on("click", function () { runOrRecreate(false, $(this)); });
+        $("#dm-run-createonly").on("click", function () { runOrRecreate(true, $(this)); });
 
-        $("#dm-run-go").on("click", function () { runOrRecreate(false); });
-        $("#dm-run-createonly").on("click", function () { runOrRecreate(true); });
-        $("#dm-run-cancel").on("click", function () { $("#dm-run-modal").modal("hide"); });
-
-        // Run from an image row.
-        $iBody.on("click", "button[data-act='runimg']", function () {
-            openRunModal({ image: String($(this).data("ref")) }, "");
-        });
-
-        /* ===================== Container config (update/rename/recreate) ===================== */
+        /* ===================== Container config ===================== */
         var cfgRef = "";
         function openConfig(id, name) {
             cfgRef = id;
             $("#dm-cfg-title").text(name || id);
             $("#dm-cfg-name").val(name || "");
-            $("#dm-cfg-memory").val(""); $("#dm-cfg-cpus").val("");
-            $("#dm-cfg-restart").dropdown("set selected", "");
-            $("#dm-cfg-modal").modal({ autofocus: false }).modal("show");
+            $("#dm-cfg-memory").val(""); $("#dm-cfg-cpus").val(""); $("#dm-cfg-restart").val("");
+            openDrawer("dm-cfg-drawer");
         }
-
         $("#dm-cfg-rename").on("click", function () {
-            var newName = $("#dm-cfg-name").val().trim();
+            var $btn = $(this), newName = $("#dm-cfg-name").val().trim();
             if (!newName) { DM.toast("Enter a new name.", false); return; }
-            DM.post("containers/rename", { id: cfgRef, name: newName }, function (r) {
+            track(DM.post("containers/rename", { id: cfgRef, name: newName }, function (r) {
                 if (r && r.error) { DM.toast("Rename failed: " + r.error, false); return; }
-                DM.toast("Renamed.", true); $("#dm-cfg-modal").modal("hide"); loadContainers();
-            }, function () { DM.toast("Rename request failed.", false); });
+                DM.toast("Renamed.", true); closeDrawer(); loadContainers();
+            }, function () { DM.toast("Rename request failed.", false); }), $btn);
         });
-
         $("#dm-cfg-apply").on("click", function () {
-            var data = { id: cfgRef, restartPolicy: $("#dm-cfg-restart").val(), memory: $("#dm-cfg-memory").val().trim(), cpus: $("#dm-cfg-cpus").val().trim() };
+            var $btn = $(this), data = { id: cfgRef, restartPolicy: $("#dm-cfg-restart").val(), memory: $("#dm-cfg-memory").val().trim(), cpus: $("#dm-cfg-cpus").val().trim() };
             if (!data.restartPolicy && !data.memory && !data.cpus) { DM.toast("Nothing to update.", false); return; }
-            DM.post("containers/update", data, function (r) {
+            track(DM.post("containers/update", data, function (r) {
                 if (r && r.error) { DM.toast("Update failed: " + r.error, false); return; }
-                DM.toast("Updated.", true); $("#dm-cfg-modal").modal("hide"); loadContainers();
-            }, function () { DM.toast("Update request failed.", false); });
+                DM.toast("Updated.", true); closeDrawer(); loadContainers();
+            }, function () { DM.toast("Update request failed.", false); }), $btn);
         });
-
         $("#dm-cfg-recreate").on("click", function () {
             var ref = cfgRef;
-            $("#dm-cfg-modal").modal("hide");
-            // Prefill the run form from the current container's inspect data.
+            closeDrawer();
             DM.get("containers/inspect?id=" + encodeURIComponent(ref), function (data) {
-                var d = Array.isArray(data) ? data[0] : data;
-                openRunModal(inspectToConfig(d), ref);
-            }, function () {
-                openRunModal({}, ref);
-            });
+                var d = Array.isArray(data) ? data[0] : data; openRunDrawer(inspectToConfig(d), ref);
+            }, function () { openRunDrawer({}, ref); });
         });
-
-        $("#dm-cfg-cancel").on("click", function () { $("#dm-cfg-modal").modal("hide"); });
 
         /* ===================== Compose stacks ===================== */
         var $stackBody = $("#dm-stack-body");
-        var aceEditor = null;
-        var composeUnavailable = false;
-
+        var aceEditor = null, composeUnavailable = false;
         function ensureEditor() {
             if (aceEditor) return aceEditor;
             aceEditor = ace.edit("dm-stack-editor");
@@ -713,227 +728,156 @@
             aceEditor.setTheme(document.body.classList.contains("dark") ? "ace/theme/monokai" : "ace/theme/chrome");
             return aceEditor;
         }
-
         function loadStacks() {
             $stackBody.html('<tr><td colspan="4" class="dm-empty">Loading…</td></tr>');
-            DM.get("compose/list", function (list) {
+            track(DM.get("compose/list", function (list) {
                 if (list && list.error) { $stackBody.html('<tr><td colspan="4" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
                 if (!list || list.length === 0) { $stackBody.html('<tr><td colspan="4" class="dm-empty">No stacks yet. Click "New Stack" to create one.</td></tr>'); return; }
                 $stackBody.html(list.map(function (s) {
-                    var stateBadge = s.running
-                        ? '<span class="state-badge state-running">running</span>'
-                        : '<span class="state-badge state-exited">stopped</span>';
-                    var autostart = s.disabled
-                        ? '<span style="color:#9aa0a6;">disabled</span>'
-                        : '<span style="color:#107c10;">enabled</span>';
+                    var sb = s.running ? '<span class="pill green"><span class="dot"></span>running</span>' : '<span class="pill gray"><span class="dot"></span>stopped</span>';
                     var n = DM.esc(s.name);
-                    return '<tr>' +
-                        '<td class="dm-mono">' + n + '</td>' +
-                        '<td>' + stateBadge + '</td>' +
-                        '<td>' + autostart + ' <button class="ui mini basic button" data-sact="toggle" data-name="' + n + '" data-disabled="' + (s.disabled ? "1" : "0") + '">' + (s.disabled ? "Enable" : "Disable") + '</button></td>' +
-                        '<td><div class="ui tiny buttons">' +
-                        '<button class="ui button" data-sact="edit" data-name="' + n + '"><i class="edit icon"></i> Edit</button>' +
-                        '<button class="ui positive button" data-sact="deploy" data-name="' + n + '"><i class="play icon"></i> Deploy</button>' +
-                        '<button class="ui button" data-sact="down" data-name="' + n + '"><i class="stop icon"></i> Stop</button>' +
-                        '<button class="ui button" data-sact="logs" data-name="' + n + '"><i class="align left icon"></i></button>' +
-                        '<button class="ui negative button" data-sact="delete" data-name="' + n + '"><i class="trash icon"></i></button>' +
-                        '</div></td>' +
-                        '</tr>';
+                    var auto = (s.disabled ? '<span style="color:var(--dim);">disabled</span>' : '<span style="color:var(--ok-text);">enabled</span>') +
+                        ' <button class="btn sm" data-sact="toggle" data-name="' + n + '" data-disabled="' + (s.disabled ? "1" : "0") + '">' + (s.disabled ? "Enable" : "Disable") + '</button>';
+                    return '<tr><td class="dm-mono">' + n + '</td><td>' + sb + '</td><td>' + auto + '</td>' +
+                        '<td><div class="btnrow">' +
+                        '<div class="iconbtn" title="Edit" data-sact="edit" data-name="' + n + '"><i class="edit icon"></i></div>' +
+                        '<div class="iconbtn green" title="Deploy" data-sact="deploy" data-name="' + n + '"><i class="play icon"></i></div>' +
+                        '<div class="iconbtn" title="Stop" data-sact="down" data-name="' + n + '"><i class="stop icon"></i></div>' +
+                        '<div class="iconbtn" title="Logs" data-sact="logs" data-name="' + n + '"><i class="align left icon"></i></div>' +
+                        '<div class="iconbtn danger" title="Delete" data-sact="delete" data-name="' + n + '"><i class="trash icon"></i></div>' +
+                        '</div></td></tr>';
                 }).join(""));
-            }, function () { $stackBody.html('<tr><td colspan="4" class="dm-empty">Failed to load (admin only).</td></tr>'); });
+            }, function () { $stackBody.html('<tr><td colspan="4" class="dm-empty">Failed to load (admin only).</td></tr>'); }));
         }
-
-        var editingExisting = false;
         function openStackEditor(name, content) {
-            editingExisting = !!name;
             $("#dm-stack-modal-title").text(name ? ("Edit Stack: " + name) : "New Stack");
             $("#dm-stack-name").val(name || "").prop("disabled", !!name);
             $("#dm-stack-validate-msg").hide();
-            $("#dm-stack-modal").modal({ autofocus: false, observeChanges: true, onVisible: function () {
+            $("#dm-stack-status").text("");
+            openDrawer("dm-stack-drawer");
+            setTimeout(function () {
                 var ed = ensureEditor();
                 ed.setValue(content || "services:\n  app:\n    image: nginx:alpine\n    ports:\n      - \"8080:80\"\n", -1);
                 ed.resize();
-            } }).modal("show");
+            }, 80);
         }
+        function currentStackPayload() { return { name: $("#dm-stack-name").val().trim(), content: aceEditor ? aceEditor.getValue() : "" }; }
+        function showValidateMsg(ok, text) { $("#dm-stack-validate-msg").removeClass("ok err").addClass(ok ? "ok" : "err").text(text).show(); }
+        function setStackStatus(t) { $("#dm-stack-status").text(t || ""); }
 
-        function currentStackPayload() {
-            return { name: $("#dm-stack-name").val().trim(), content: aceEditor ? aceEditor.getValue() : "" };
-        }
-
-        function saveStack(thenDeploy) {
+        function saveStack(thenDeploy, $btn) {
             var payload = currentStackPayload();
             if (!payload.name) { DM.toast("Stack name is required.", false); return; }
-            $.ajax({ url: DM.api + "compose/save", method: "POST", data: JSON.stringify(payload), contentType: "application/json" })
+            setStackStatus("Validating & saving…");
+            track($.ajax({ url: DM.api + "compose/save", method: "POST", data: JSON.stringify(payload), contentType: "application/json" })
                 .done(function (r) {
-                    if (r && r.error) { showValidateMsg(false, r.error); return; }
+                    if (r && r.error) { setStackStatus(""); showValidateMsg(false, r.error); return; }
                     if (thenDeploy) {
-                        DM.post("compose/deploy", { name: payload.name }, function (rr) {
+                        setStackStatus("Deploying… pulling images may take a while.");
+                        track(DM.post("compose/deploy", { name: payload.name }, function (rr) {
+                            setStackStatus("");
                             if (rr && rr.error) { DM.toast("Deploy failed: " + rr.error, false); return; }
-                            DM.toast("Stack deployed.", true); $("#dm-stack-modal").modal("hide"); loadStacks();
-                        }, function () { DM.toast("Deploy request failed.", false); });
+                            DM.toast("Stack deployed.", true); closeDrawer(); loadStacks();
+                        }, function () { setStackStatus(""); DM.toast("Deploy request failed.", false); }), $btn);
                     } else {
-                        DM.toast("Stack saved.", true); $("#dm-stack-modal").modal("hide"); loadStacks();
+                        setStackStatus(""); DM.toast("Stack saved.", true); closeDrawer(); loadStacks();
                     }
                 })
-                .fail(function () { DM.toast("Save request failed.", false); });
+                .fail(function () { setStackStatus(""); DM.toast("Save request failed.", false); }), thenDeploy ? null : $btn);
         }
-
-        function showValidateMsg(ok, text) {
-            var $m = $("#dm-stack-validate-msg");
-            $m.removeClass("positive negative").addClass(ok ? "positive" : "negative").text(text).show();
-        }
-
-        // Validate = a save dry-run on the server (it runs `docker compose config`).
         function validateStack() {
             var payload = currentStackPayload();
             if (!payload.name) { DM.toast("Stack name is required to validate.", false); return; }
-            $.ajax({ url: DM.api + "compose/save", method: "POST", data: JSON.stringify(payload), contentType: "application/json" })
+            track($.ajax({ url: DM.api + "compose/save", method: "POST", data: JSON.stringify(payload), contentType: "application/json" })
                 .done(function (r) {
-                    if (r && r.error) { showValidateMsg(false, r.error); }
+                    if (r && r.error) showValidateMsg(false, r.error);
                     else { showValidateMsg(true, "Compose file is valid and saved."); loadStacks(); }
                 })
-                .fail(function () { DM.toast("Validate request failed.", false); });
+                .fail(function () { DM.toast("Validate request failed.", false); }), $("#dm-stack-validate"));
         }
-
-        $("#dm-stack-new").on("click", function () { openStackEditor("", ""); });
+        $("#dm-stack-new").on("click", function () { if (composeUnavailable) return; openStackEditor("", ""); });
         $("#dm-stack-refresh").on("click", loadStacks);
-        $("#dm-stack-cancel").on("click", function () { $("#dm-stack-modal").modal("hide"); });
         $("#dm-stack-validate").on("click", validateStack);
-        $("#dm-stack-save").on("click", function () { saveStack(false); });
-        $("#dm-stack-savedeploy").on("click", function () { saveStack(true); });
+        $("#dm-stack-save").on("click", function () { saveStack(false, $(this)); });
+        $("#dm-stack-savedeploy").on("click", function () { saveStack(true, $(this)); });
 
-        function openStackLogs(name) {
-            $("#dm-log-title").text("stack: " + name);
-            $("#dm-log-output").text("");
-            $("#dm-log-modal").modal({ onHide: function () { if (logSocket) { try { logSocket.close(); } catch (e) {} logSocket = null; } } }).modal("show");
-            try {
-                logSocket = new WebSocket(DM.wsURL("compose/logs?name=" + encodeURIComponent(name)));
-                logSocket.onmessage = function (ev) {
-                    var out = document.getElementById("dm-log-output");
-                    var atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 20;
-                    out.textContent += ev.data;
-                    if (atBottom) out.scrollTop = out.scrollHeight;
-                };
-                logSocket.onerror = function () { DM.toast("Log stream error.", false); };
-            } catch (e) { DM.toast("Unable to open log stream.", false); }
-        }
-
-        $stackBody.on("click", "button[data-sact]", function () {
-            var act = $(this).data("sact");
-            var name = String($(this).data("name"));
+        $stackBody.on("click", "[data-sact]", function () {
+            var $btn = $(this), act = $btn.data("sact"), name = String($btn.data("name"));
             if (act === "edit") {
-                DM.get("compose/get?name=" + encodeURIComponent(name), function (r) {
+                track(DM.get("compose/get?name=" + encodeURIComponent(name), function (r) {
                     if (r && r.error) { DM.toast(r.error, false); return; }
                     openStackEditor(name, r.content);
-                }, function () { DM.toast("Failed to load stack.", false); });
+                }, function () { DM.toast("Failed to load stack.", false); }), $btn);
                 return;
             }
-            if (act === "logs") { openStackLogs(name); return; }
+            if (act === "logs") { streamLog("stack: " + name, "compose/logs?name=" + encodeURIComponent(name)); return; }
             if (act === "toggle") {
-                var disabled = String($(this).data("disabled")) === "1";
-                DM.post("compose/disable", { name: name, disabled: disabled ? "false" : "true" }, function (r) {
-                    if (r && r.error) { DM.toast(r.error, false); return; }
-                    loadStacks();
-                }, function () { DM.toast("Toggle failed.", false); });
+                var disabled = String($btn.data("disabled")) === "1";
+                track(DM.post("compose/disable", { name: name, disabled: disabled ? "false" : "true" }, function (r) {
+                    if (r && r.error) { DM.toast(r.error, false); return; } loadStacks();
+                }, function () { DM.toast("Toggle failed.", false); }), $btn);
                 return;
             }
             if (act === "delete") {
                 if (!confirm("Delete stack \"" + name + "\"? This stops its containers and deletes the stack files. This cannot be undone.")) return;
-                DM.post("compose/delete", { name: name }, function (r) {
+                track(DM.post("compose/delete", { name: name }, function (r) {
                     if (r && r.error) { DM.toast("Delete failed: " + r.error, false); return; }
                     DM.toast("Stack deleted.", true); loadStacks();
-                }, function () { DM.toast("Delete request failed.", false); });
+                }, function () { DM.toast("Delete request failed.", false); }), $btn);
                 return;
             }
-            if (act === "down") {
-                if (!confirm("Stop stack \"" + name + "\"? This removes its running containers (the stack files are kept).")) return;
-            }
-            // deploy / down
-            DM.post("compose/" + act, { name: name }, function (r) {
+            if (act === "down" && !confirm("Stop stack \"" + name + "\"? This removes its running containers (the stack files are kept).")) return;
+            if (act === "deploy") DM.toast("Deploying stack… this can take a while.", null);
+            track(DM.post("compose/" + act, { name: name }, function (r) {
                 if (r && r.error) { DM.toast(act + " failed: " + r.error, false); return; }
                 DM.toast("Stack " + act + " ok.", true); loadStacks();
-            }, function () { DM.toast(act + " request failed.", false); });
+            }, function () { DM.toast(act + " request failed.", false); }), $btn);
         });
-
-        /* ===================== Exec console (xterm.js) ===================== */
-        var consoleSocket = null, term = null, fitAddon = null, consoleRef = "";
-
-        function disposeConsole() {
-            if (consoleSocket) { try { consoleSocket.close(); } catch (e) {} consoleSocket = null; }
-            if (term) { try { term.dispose(); } catch (e) {} term = null; }
-            fitAddon = null;
-        }
-
-        function sendResize() {
-            if (!term || !consoleSocket || consoleSocket.readyState !== 1) return;
-            consoleSocket.send(JSON.stringify({ type: "resize", rows: term.rows, cols: term.cols }));
-        }
-
-        function connectConsole() {
-            if (consoleSocket) { try { consoleSocket.close(); } catch (e) {} consoleSocket = null; }
-            if (term) { try { term.dispose(); } catch (e) {} term = null; }
-
-            var shell = $("#dm-console-shell").val() || "sh";
-            term = new Terminal({ cursorBlink: true, fontSize: 13, theme: { background: "#101418", foreground: "#d6e2ef" } });
-            fitAddon = new FitAddon.FitAddon();
-            term.loadAddon(fitAddon);
-            term.open(document.getElementById("dm-console-term"));
-            setTimeout(function () { try { fitAddon.fit(); } catch (e) {} term.focus(); }, 60);
-
-            consoleSocket = new WebSocket(DM.wsURL("console/exec?id=" + encodeURIComponent(consoleRef) + "&shell=" + encodeURIComponent(shell)));
-            consoleSocket.binaryType = "arraybuffer";
-            consoleSocket.onopen = function () { sendResize(); };
-            consoleSocket.onmessage = function (ev) {
-                if (typeof ev.data === "string") { term.write(ev.data); }
-                else { term.write(new Uint8Array(ev.data)); }
-            };
-            consoleSocket.onclose = function () { if (term) term.write("\r\n[session closed]\r\n"); };
-            consoleSocket.onerror = function () { DM.toast("Console connection error.", false); };
-
-            term.onData(function (d) {
-                if (consoleSocket && consoleSocket.readyState === 1) consoleSocket.send(new TextEncoder().encode(d));
-            });
-            term.onResize(function () { sendResize(); });
-        }
-
-        function openConsole(id, name) {
-            consoleRef = id;
-            $("#dm-console-title").text(name || id);
-            $("#dm-console-modal").modal({
-                autofocus: false,
-                onVisible: function () { connectConsole(); },
-                onHide: function () { disposeConsole(); }
-            }).modal("show");
-        }
-
-        $(window).on("resize", function () {
-            if (fitAddon && term && $("#dm-console-modal").is(":visible")) { try { fitAddon.fit(); } catch (e) {} }
-        });
-        $("#dm-console-connect").on("click", connectConsole);
-        $("#dm-console-close").on("click", function () { $("#dm-console-modal").modal("hide"); });
 
         function loadComposeTab() {
-            // Hide stack management and show a notice when compose is unavailable.
             DM.get("engine/status", function (st) {
                 composeUnavailable = !(st && st.composeAvailable);
                 $("#dm-compose-unavail").toggle(composeUnavailable);
-                $("#dm-stack-table").toggle(!composeUnavailable);
+                $("#dm-stack-card").toggle(!composeUnavailable);
                 $("#dm-stack-new").prop("disabled", composeUnavailable);
                 if (!composeUnavailable) loadStacks();
             }, function () { loadStacks(); });
         }
 
-        /* Lazy-load each tab the first time it becomes visible. */
-        var loaded = { containers: true };
-        $('.tabular.menu .item').tab({
-            onVisible: function (tabPath) {
-                if (loaded[tabPath]) return;
-                loaded[tabPath] = true;
-                if (tabPath === "images") loadImages();
-                else if (tabPath === "registries") loadRegistries();
-                else if (tabPath === "compose") loadComposeTab();
-            }
-        });
+        /* ===================== Exec console ===================== */
+        var consoleSocket = null, term = null, fitAddon = null, consoleRef = "";
+        function disposeConsole() {
+            if (consoleSocket) { try { consoleSocket.close(); } catch (e) {} consoleSocket = null; }
+            if (term) { try { term.dispose(); } catch (e) {} term = null; }
+            fitAddon = null;
+        }
+        function sendResize() { if (term && consoleSocket && consoleSocket.readyState === 1) consoleSocket.send(JSON.stringify({ type: "resize", rows: term.rows, cols: term.cols })); }
+        function connectConsole() {
+            if (consoleSocket) { try { consoleSocket.close(); } catch (e) {} consoleSocket = null; }
+            if (term) { try { term.dispose(); } catch (e) {} term = null; }
+            var shell = $("#dm-console-shell").val() || "sh";
+            term = new Terminal({ cursorBlink: true, fontSize: 13, theme: { background: "#0f1419", foreground: "#d6e2ef" } });
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(document.getElementById("dm-console-term"));
+            setTimeout(function () { try { fitAddon.fit(); } catch (e) {} term.focus(); }, 120);
+            consoleSocket = new WebSocket(DM.wsURL("console/exec?id=" + encodeURIComponent(consoleRef) + "&shell=" + encodeURIComponent(shell)));
+            consoleSocket.binaryType = "arraybuffer";
+            consoleSocket.onopen = function () { sendResize(); };
+            consoleSocket.onmessage = function (ev) { if (typeof ev.data === "string") term.write(ev.data); else term.write(new Uint8Array(ev.data)); };
+            consoleSocket.onclose = function () { if (term) term.write("\r\n[session closed]\r\n"); };
+            consoleSocket.onerror = function () { DM.toast("Console connection error.", false); };
+            term.onData(function (d) { if (consoleSocket && consoleSocket.readyState === 1) consoleSocket.send(new TextEncoder().encode(d)); });
+            term.onResize(function () { sendResize(); });
+        }
+        function openConsole(id, name) {
+            consoleRef = id;
+            $("#dm-console-title").text(name || id);
+            openDrawer("dm-console-drawer", disposeConsole);
+            setTimeout(connectConsole, 180);
+        }
+        $(window).on("resize", function () { if (fitAddon && term && $("#dm-console-drawer").hasClass("open")) { try { fitAddon.fit(); } catch (e) {} } });
+        $("#dm-console-connect").on("click", connectConsole);
 
         loadContainers();
     })();
