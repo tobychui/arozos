@@ -122,6 +122,9 @@ func DockerServiceInit() {
 	//Interactive exec console (websocket; PTY-backed on Linux/macOS).
 	adminRouter.HandleFunc("/system/docker/console/exec", dm.HandleExecConsole)
 
+	//Host resource overview (CPU/RAM/storage/load) for the manager dashboard.
+	adminRouter.HandleFunc("/system/docker/host/stats", dm.HandleHostStats)
+
 	//Engine maintenance: disk usage + prune, daemon.json view/edit.
 	adminRouter.HandleFunc("/system/docker/engine/df", dm.HandleDiskUsage)
 	adminRouter.HandleFunc("/system/docker/engine/prune", dm.HandlePrune)

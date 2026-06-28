@@ -41,8 +41,8 @@ body.dark #dkl-root {
     </div>
 
     <table class="dkl-table">
-        <thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th></tr></thead>
-        <tbody id="dkl-body"><tr><td colspan="4" class="dkl-empty">Loading...</td></tr></tbody>
+        <thead><tr><th>Name</th><th>Image</th><th>Status</th></tr></thead>
+        <tbody id="dkl-body"><tr><td colspan="3" class="dkl-empty">Loading...</td></tr></tbody>
     </table>
 
     <div class="dkl-footer">
@@ -64,20 +64,19 @@ body.dark #dkl-root {
 
     function loadRunning(){
         var $b = $("#dkl-body");
-        $b.html('<tr><td colspan="4" class="dkl-empty">Loading...</td></tr>');
+        $b.html('<tr><td colspan="3" class="dkl-empty">Loading...</td></tr>');
         $.get(API + "containers/list", function(list){
-            if (list && list.error){ $b.html('<tr><td colspan="4" class="dkl-empty">' + esc(list.error) + '</td></tr>'); return; }
+            if (list && list.error){ $b.html('<tr><td colspan="3" class="dkl-empty">' + esc(list.error) + '</td></tr>'); return; }
             var running = (list || []).filter(function(c){ return (c.State || "").toLowerCase() === "running"; });
-            if (running.length === 0){ $b.html('<tr><td colspan="4" class="dkl-empty">No running containers.</td></tr>'); return; }
+            if (running.length === 0){ $b.html('<tr><td colspan="3" class="dkl-empty">No running containers.</td></tr>'); return; }
             $b.html(running.map(function(c){
                 return '<tr>' +
                     '<td class="dkl-mono">' + esc(c.Names) + '</td>' +
                     '<td class="dkl-mono">' + esc(c.Image) + '</td>' +
                     '<td><span class="dkl-badge">' + esc(c.Status || "running") + '</span></td>' +
-                    '<td class="dkl-mono">' + esc(c.Ports || "") + '</td>' +
                     '</tr>';
             }).join(""));
-        }).fail(function(){ $b.html('<tr><td colspan="4" class="dkl-empty">Failed to load (admin only).</td></tr>'); });
+        }).fail(function(){ $b.html('<tr><td colspan="3" class="dkl-empty">Failed to load (admin only).</td></tr>'); });
     }
 
     function launchDockerManager(){

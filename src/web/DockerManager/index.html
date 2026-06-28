@@ -59,6 +59,10 @@
         .ic-search    { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M15.5 14h-.79l-.28-.27a6.5 6.5 0 10-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1114 9.5 4.5 4.5 0 019.5 14z'/></svg>"); }
         .ic-warning   { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/></svg>"); }
         .ic-popout    { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z'/></svg>"); }
+        .ic-cpu       { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 2h2v2h2V2h2v2h1a3 3 0 013 3v1h2v2h-2v2h2v2h-2v1a3 3 0 01-3 3h-1v2h-2v-2h-2v2H9v-2H8a3 3 0 01-3-3v-1H3v-2h2v-2H3V8h2V7a3 3 0 013-3h1V2zm-1 5a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1H8zm2 2h4v4h-4V9z'/></svg>"); }
+        .ic-ram       { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M2 7h20v8h-2v3h-2v-3h-2v3h-2v-3h-2v3H10v-3H8v3H6v-3H4v3H2V7zm3 3v3h2v-3H5zm5 0v3h2v-3h-2zm5 0v3h2v-3h-2z'/></svg>"); }
+        .ic-storage   { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2c4.42 0 8 1.34 8 3v14c0 1.66-3.58 3-8 3s-8-1.34-8-3V5c0-1.66 3.58-3 8-3zm0 2C8.13 4 6 4.99 6 5.5S8.13 7 12 7s6-.99 6-1.5S15.87 4 12 4zm6 4.6c-1.5.86-3.9 1.4-6 1.4s-4.5-.54-6-1.4V19c0 .5 2.13 1.5 6 1.5s6-1 6-1.5V8.6z'/></svg>"); }
+        .ic-load      { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 4a9 9 0 018.66 11.5H3.34A9 9 0 0112 4zm0 2a7 7 0 00-6.71 5h13.42A7 7 0 0012 6zm1.5 3.5l1.4 1.4-3.2 3.2a1.5 1.5 0 11-1.4-1.4l3.2-3.2z'/></svg>"); }
 
         /* ---------- Top progress bar ---------- */
         #dm-progress { position:fixed; top:0; left:0; right:0; height:3px; z-index:1200; opacity:0; transition:opacity .2s; pointer-events:none; }
@@ -98,6 +102,19 @@
         .dm-table tbody tr:hover { background:var(--row-hover); }
         .dm-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size:11.5px; }
         .dm-empty { text-align:center; color:var(--dim); padding:30px; }
+
+        /* ---------- Resource overview cards ---------- */
+        .dm-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+        .stat-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:13px 16px; }
+        .sc-head { display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--dim); font-weight:600; margin-bottom:7px; }
+        .sc-head .ic { width:15px; height:15px; color:var(--accent); }
+        .sc-val { font-size:22px; font-weight:680; letter-spacing:-.02em; line-height:1.1; }
+        .sc-val small { font-size:12px; font-weight:600; color:var(--dim); }
+        .sc-sub { font-size:11px; color:var(--dim); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .spark { display:block; width:100%; height:24px; margin-top:8px; }
+        .spark polyline { fill:none; stroke:var(--accent); stroke-width:2; vector-effect:non-scaling-stroke; stroke-linejoin:round; stroke-linecap:round; }
+        .spark .fillarea { fill:var(--accent); opacity:.10; stroke:none; }
+        @media (max-width: 860px) { .dm-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
         /* ---------- Pills ---------- */
         .pill { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
@@ -233,6 +250,32 @@
                 <div class="dm-section-head">
                     <h2>Containers</h2>
                     <div class="actions"><button class="btn sm" id="dm-c-refresh"><span class="ic ic-refresh"></span> Refresh</button></div>
+                </div>
+                <div class="dm-stats">
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-cpu"></span> CPU</div>
+                        <div class="sc-val" id="st-cpu">—</div>
+                        <div class="sc-sub" id="st-cpu-sub">— cores</div>
+                        <svg class="spark" id="sp-cpu" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-ram"></span> RAM</div>
+                        <div class="sc-val" id="st-ram">—</div>
+                        <div class="sc-sub" id="st-ram-sub">—</div>
+                        <svg class="spark" id="sp-ram" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-storage"></span> Storage</div>
+                        <div class="sc-val" id="st-storage">—</div>
+                        <div class="sc-sub" id="st-storage-sub">—</div>
+                        <svg class="spark" id="sp-storage" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-load"></span> Load</div>
+                        <div class="sc-val" id="st-load">—</div>
+                        <div class="sc-sub" id="st-load-sub">—</div>
+                        <svg class="spark" id="sp-load" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
                 </div>
                 <div class="dm-card"><div class="dm-tablewrap"><table class="dm-table">
                     <thead><tr><th style="width:130px;">Status</th><th>Container</th><th style="width:200px;">Actions</th></tr></thead>
@@ -418,10 +461,21 @@
         function setBusy($btn, on) { if ($btn && $btn.length) { $btn.toggleClass("is-busy", !!on); $btn.prop("disabled", !!on); } }
         function track(xhr, $btn) { setBusy($btn, true); progressStart(); xhr.always(function () { setBusy($btn, false); progressDone(); }); return xhr; }
 
-        /* drawer manager */
-        var drawerOnClose = null;
-        function openDrawer(id, onClose) { drawerOnClose = onClose || null; document.getElementById("dm-backdrop").classList.add("show"); document.getElementById(id).classList.add("open"); }
-        function closeDrawer() { var cb = drawerOnClose; drawerOnClose = null; $(".drawer.open").removeClass("open"); document.getElementById("dm-backdrop").classList.remove("show"); if (cb) { try { cb(); } catch (e) {} } }
+        /* drawer manager — a stack so layered drawers open/close independently */
+        var drawerStack = [];
+        function openDrawer(id, onClose) {
+            drawerStack.push({ id: id, onClose: onClose || null });
+            document.getElementById("dm-backdrop").classList.add("show");
+            document.getElementById(id).classList.add("open");
+        }
+        function closeDrawer() { // close only the top-most drawer
+            var top = drawerStack.pop();
+            if (!top) return;
+            document.getElementById(top.id).classList.remove("open");
+            if (top.onClose) { try { top.onClose(); } catch (e) {} }
+            if (drawerStack.length === 0) document.getElementById("dm-backdrop").classList.remove("show");
+        }
+        function closeAllDrawers() { while (drawerStack.length) closeDrawer(); }
         $(document).on("click", ".drawer-close", function (e) { if (e.currentTarget.id === "dm-console-popout") return; closeDrawer(); });
         $("#dm-backdrop").on("click", closeDrawer);
 
@@ -590,7 +644,7 @@
         // details action buttons
         $("#dm-details-body").on("click", "[data-dact]", function () {
             var $b = $(this), act = $b.data("dact"), id = String($b.data("id")), name = $b.data("name");
-            if (act === "remove") { if (!confirm("Remove container \"" + (name || id) + "\"? This cannot be undone.")) return; closeDrawer(); doAction("remove", id); return; }
+            if (act === "remove") { if (!confirm("Remove container \"" + (name || id) + "\"? This cannot be undone.")) return; closeAllDrawers(); doAction("remove", id); return; }
             if (act === "logs" || act === "console" || act === "config") { handleContainerAction(act, id, name, $b); return; }
             handleContainerAction(act, id, name, $b);
         });
@@ -693,7 +747,7 @@
             var cfg = collectRunConfig(); if (!cfg.image) { DM.toast("Image is required.", false); return; }
             var url = recreateOldId ? (DM.api + "containers/recreate?oldId=" + encodeURIComponent(recreateOldId)) : (DM.api + "containers/" + (createOnly ? "create" : "run"));
             track($.ajax({ url: url, method: "POST", data: JSON.stringify(cfg), contentType: "application/json" })
-                .done(function (r) { if (r && r.error) { DM.toast("Failed: " + r.error, false); return; } DM.toast(recreateOldId ? "Container recreated." : (createOnly ? "Container created." : "Container started."), true); closeDrawer(); showSection("containers"); loadContainers(); })
+                .done(function (r) { if (r && r.error) { DM.toast("Failed: " + r.error, false); return; } DM.toast(recreateOldId ? "Container recreated." : (createOnly ? "Container created." : "Container started."), true); closeAllDrawers(); showSection("containers"); loadContainers(); })
                 .fail(function () { DM.toast("Request failed.", false); }), $btn);
         }
         $("#dm-run-go").on("click", function () { runOrRecreate(false, $(this)); });
@@ -704,15 +758,15 @@
         function openConfig(id, name) { cfgRef = id; $("#dm-cfg-title").text(name || id); $("#dm-cfg-name").val(name || ""); $("#dm-cfg-memory").val(""); $("#dm-cfg-cpus").val(""); $("#dm-cfg-restart").val(""); openDrawer("dm-cfg-drawer"); }
         $("#dm-cfg-rename").on("click", function () {
             var $b = $(this), nn = $("#dm-cfg-name").val().trim(); if (!nn) { DM.toast("Enter a new name.", false); return; }
-            track(DM.post("containers/rename", { id: cfgRef, name: nn }, function (r) { if (r && r.error) { DM.toast("Rename failed: " + r.error, false); return; } DM.toast("Renamed.", true); closeDrawer(); loadContainers(); }, function () { DM.toast("Rename request failed.", false); }), $b);
+            track(DM.post("containers/rename", { id: cfgRef, name: nn }, function (r) { if (r && r.error) { DM.toast("Rename failed: " + r.error, false); return; } DM.toast("Renamed.", true); closeAllDrawers(); loadContainers(); }, function () { DM.toast("Rename request failed.", false); }), $b);
         });
         $("#dm-cfg-apply").on("click", function () {
             var $b = $(this), data = { id: cfgRef, restartPolicy: $("#dm-cfg-restart").val(), memory: $("#dm-cfg-memory").val().trim(), cpus: $("#dm-cfg-cpus").val().trim() };
             if (!data.restartPolicy && !data.memory && !data.cpus) { DM.toast("Nothing to update.", false); return; }
-            track(DM.post("containers/update", data, function (r) { if (r && r.error) { DM.toast("Update failed: " + r.error, false); return; } DM.toast("Updated.", true); closeDrawer(); loadContainers(); }, function () { DM.toast("Update request failed.", false); }), $b);
+            track(DM.post("containers/update", data, function (r) { if (r && r.error) { DM.toast("Update failed: " + r.error, false); return; } DM.toast("Updated.", true); closeAllDrawers(); loadContainers(); }, function () { DM.toast("Update request failed.", false); }), $b);
         });
         $("#dm-cfg-recreate").on("click", function () {
-            var ref = cfgRef; closeDrawer();
+            var ref = cfgRef; closeAllDrawers();
             DM.get("containers/inspect?id=" + encodeURIComponent(ref), function (data) { var d = Array.isArray(data) ? data[0] : data; openRunDrawer(inspectToConfig(d), ref); }, function () { openRunDrawer({}, ref); });
         });
 
@@ -755,8 +809,8 @@
                     if (r && r.error) { setStackStatus(""); showValidateMsg(false, r.error); return; }
                     if (thenDeploy) {
                         setStackStatus("Deploying… pulling images may take a while.");
-                        track(DM.post("compose/deploy", { name: payload.name }, function (rr) { setStackStatus(""); if (rr && rr.error) { DM.toast("Deploy failed: " + rr.error, false); return; } DM.toast("Stack deployed.", true); closeDrawer(); loadStacks(); }, function () { setStackStatus(""); DM.toast("Deploy request failed.", false); }), $btn);
-                    } else { setStackStatus(""); DM.toast("Stack saved.", true); closeDrawer(); loadStacks(); }
+                        track(DM.post("compose/deploy", { name: payload.name }, function (rr) { setStackStatus(""); if (rr && rr.error) { DM.toast("Deploy failed: " + rr.error, false); return; } DM.toast("Stack deployed.", true); closeAllDrawers(); loadStacks(); }, function () { setStackStatus(""); DM.toast("Deploy request failed.", false); }), $btn);
+                    } else { setStackStatus(""); DM.toast("Stack saved.", true); closeAllDrawers(); loadStacks(); }
                 })
                 .fail(function () { setStackStatus(""); DM.toast("Save request failed.", false); }), thenDeploy ? null : $btn);
         }
@@ -822,6 +876,46 @@
         });
         $(window).on("resize", function () { if (fitAddon && term && $("#dm-console-drawer").hasClass("open")) { try { fitAddon.fit(); } catch (e) {} } });
         $("#dm-console-connect").on("click", connectConsole);
+
+        /* ============ Host resource overview ============ */
+        var statHist = { cpu: [], ram: [], storage: [], load: [] };
+        function fmtGB(b) { if (!b || b < 0) return "0 GB"; return (b / 1073741824).toFixed(2) + " GB"; }
+        function pushHist(k, v) { var a = statHist[k]; a.push(v); if (a.length > 40) a.shift(); }
+        function renderSpark(svgId, arr, max) {
+            var svg = document.getElementById(svgId); if (!svg) return;
+            if (arr.length < 2) { svg.innerHTML = ""; return; }
+            var m = (max != null) ? max : Math.max.apply(null, arr.concat([1])); if (m <= 0) m = 1;
+            var n = arr.length;
+            var pts = arr.map(function (v, i) { var x = (i / (n - 1)) * 100; var y = 23 - Math.max(0, Math.min(1, v / m)) * 21; return x.toFixed(1) + "," + y.toFixed(1); });
+            svg.innerHTML = '<polygon class="fillarea" points="0,24 ' + pts.join(" ") + ' 100,24"></polygon><polyline points="' + pts.join(" ") + '"></polyline>';
+        }
+        function loadHostStats() {
+            DM.get("host/stats", function (s) {
+                if (!s || s.error) return;
+                $("#st-cpu").text((s.cpuPercent || 0).toFixed(1) + "%");
+                $("#st-cpu-sub").text((s.cpuCores || 0) + " cores");
+                pushHist("cpu", s.cpuPercent || 0);
+                $("#st-ram").text((s.ramPercent || 0).toFixed(1) + "%");
+                $("#st-ram-sub").text(fmtGB(s.ramUsed) + " / " + fmtGB(s.ramTotal));
+                pushHist("ram", s.ramPercent || 0);
+                if (s.storageAvailable) {
+                    $("#st-storage").text((s.storagePercent || 0).toFixed(1) + "%");
+                    $("#st-storage-sub").text(fmtGB(s.storageUsed) + " / " + fmtGB(s.storageTotal));
+                    pushHist("storage", s.storagePercent || 0);
+                } else { $("#st-storage").text("n/a"); $("#st-storage-sub").text("unavailable"); }
+                if (s.loadAvailable) {
+                    $("#st-load").html((s.load1 || 0).toFixed(2) + ' <small>1m</small>');
+                    $("#st-load-sub").text("5m " + (s.load5 || 0).toFixed(2) + "   15m " + (s.load15 || 0).toFixed(2));
+                    pushHist("load", s.load1 || 0);
+                } else { $("#st-load").text("n/a"); $("#st-load-sub").text("unavailable"); }
+                renderSpark("sp-cpu", statHist.cpu, 100);
+                renderSpark("sp-ram", statHist.ram, 100);
+                renderSpark("sp-storage", statHist.storage, 100);
+                renderSpark("sp-load", statHist.load, null);
+            });
+        }
+        loadHostStats();
+        setInterval(loadHostStats, 4000);
 
         loadContainers();
     })();
