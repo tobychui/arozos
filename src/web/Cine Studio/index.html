@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cine Studio</title>
+    <link rel="icon" href="img/module_icon.png">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- ======================= Top bar ======================= -->
+    <div id="topbar">
+        <div class="tb-left">
+            <div id="traffic-lights">
+                <span class="tl tl-close" title="Close"></span>
+                <span class="tl tl-min" title="Minimize"></span>
+                <span class="tl tl-max" title="Zoom"></span>
+            </div>
+            <button class="tb-btn" id="btn-open-project" title="Open project">
+                <span data-icon="folder"></span><span data-icon="chevron-down" class="mini"></span>
+            </button>
+            <button class="tb-btn" id="btn-save-project" title="Save project (Ctrl+S)">
+                <span data-icon="save"></span>
+            </button>
+            <button class="tb-btn" id="btn-save-state" title="Project state">
+                <span data-icon="check-circle" id="save-state-icon"></span>
+            </button>
+        </div>
+        <div class="tb-center">
+            <button id="project-name-btn" title="Project menu">
+                <span id="project-name">My Project</span>
+                <span data-icon="chevron-down" class="mini"></span>
+            </button>
+        </div>
+        <div class="tb-right">
+            <button class="tb-btn" id="btn-toggle-inspector" title="Toggle inspector">
+                <span data-icon="panel-right"></span>
+            </button>
+            <button class="tb-btn" id="btn-share" title="Share / open export folder">
+                <span data-icon="share"></span>
+            </button>
+            <div id="export-split">
+                <button id="btn-export" title="Export video">
+                    <span data-icon="export-up"></span><span>Export</span>
+                </button>
+                <button id="btn-export-menu" title="Export options">
+                    <span data-icon="chevron-down" class="mini"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= Upper workspace ======================= -->
+    <div id="workspace">
+        <!-- Left navigation rail -->
+        <div id="navrail">
+            <div class="nav-items">
+                <button class="nav-item active" data-nav="media"><span data-icon="nav-media"></span><label>Media</label></button>
+                <button class="nav-item" data-nav="audio"><span data-icon="nav-audio"></span><label>Audio</label></button>
+                <button class="nav-item" data-nav="titles"><span data-icon="nav-titles"></span><label>Titles</label></button>
+                <button class="nav-item" data-nav="transitions"><span data-icon="nav-transitions"></span><label>Transitions</label></button>
+                <button class="nav-item" data-nav="effects"><span data-icon="nav-effects"></span><label>Effects</label></button>
+                <button class="nav-item" data-nav="elements"><span data-icon="nav-elements"></span><label>Elements</label></button>
+                <button class="nav-item" data-nav="text"><span data-icon="nav-text"></span><label>Text</label></button>
+                <button class="nav-item" data-nav="filters"><span data-icon="nav-filters"></span><label>Filters</label></button>
+                <button class="nav-item" data-nav="libraries"><span data-icon="nav-libraries"></span><label>Libraries</label></button>
+            </div>
+            <div class="nav-bottom">
+                <button class="nav-item" id="btn-settings" title="Project settings"><span data-icon="gear"></span></button>
+            </div>
+        </div>
+
+        <!-- Media bin -->
+        <div id="mediabin">
+            <div class="bin-header">
+                <div id="import-split">
+                    <button id="btn-import">Import</button>
+                    <button id="btn-import-menu"><span data-icon="chevron-down" class="mini"></span></button>
+                </div>
+                <div class="bin-header-right">
+                    <button class="bin-tool" id="btn-bin-filter" title="Filter"><span data-icon="funnel"></span></button>
+                    <button class="bin-tool" id="btn-bin-view" title="View"><span data-icon="list-view"></span></button>
+                </div>
+            </div>
+            <div class="bin-subheader">
+                <button id="bin-kind-btn"><span id="bin-kind-label">All Clips</span><span data-icon="chevron-down" class="mini"></span></button>
+                <div class="bin-search">
+                    <span data-icon="search"></span>
+                    <input type="text" id="bin-search-input" placeholder="Search" autocomplete="off">
+                </div>
+            </div>
+            <div id="bin-grid"></div>
+            <div class="bin-footer"><span id="bin-count">0 items</span></div>
+        </div>
+
+        <!-- Preview player -->
+        <div id="preview">
+            <div id="preview-stage">
+                <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+                <div id="preview-empty">
+                    <span data-icon="nav-media" class="big"></span>
+                    <p>Import media and drag it to the timeline</p>
+                </div>
+            </div>
+            <div id="preview-bar">
+                <div class="pb-left">
+                    <span id="tc-current">00:00:00:00</span>
+                    <span class="tc-sep">/</span>
+                    <span id="tc-total">00:00:00:00</span>
+                </div>
+                <div class="pb-center">
+                    <button class="pb-btn" id="btn-prev-edit" title="Previous edit point"><span data-icon="skip-back"></span></button>
+                    <button class="pb-btn play" id="btn-play" title="Play / Pause (Space)"><span data-icon="play" id="play-icon"></span></button>
+                    <button class="pb-btn" id="btn-next-edit" title="Next edit point"><span data-icon="skip-fwd"></span></button>
+                </div>
+                <div class="pb-right">
+                    <button class="pb-btn wide" id="btn-preview-zoom"><span id="preview-zoom-label">Fit</span><span data-icon="chevron-down" class="mini"></span></button>
+                    <button class="pb-btn" id="btn-safe-area" title="Toggle safe area"><span data-icon="display"></span></button>
+                    <button class="pb-btn" id="btn-fullscreen" title="Fullscreen preview"><span data-icon="fullscreen"></span></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inspector -->
+        <div id="inspector">
+            <div id="inspector-tabs">
+                <button class="itab active" data-itab="video">Video</button>
+                <button class="itab" data-itab="audio">Audio</button>
+                <button class="itab" data-itab="effects">Effects</button>
+                <button class="itab" data-itab="transition">Transition</button>
+            </div>
+            <div id="inspector-body"></div>
+        </div>
+    </div>
+
+    <!-- ======================= Timeline toolbar ======================= -->
+    <div id="tl-toolbar">
+        <div class="tlt-left">
+            <button class="tlt-btn active" id="tool-select" title="Selection tool (V)"><span data-icon="cursor"></span></button>
+            <button class="tlt-btn" id="tool-blade" title="Blade tool (B)"><span data-icon="blade"></span></button>
+            <button class="tlt-btn" id="tool-crop" title="Crop"><span data-icon="crop"></span></button>
+            <button class="tlt-btn" id="tool-text" title="Text"><span data-icon="nav-text"></span></button>
+            <button class="tlt-btn" id="tool-audio" title="Audio mixer"><span data-icon="waveform"></span></button>
+        </div>
+        <div class="tlt-right">
+            <button class="tlt-btn" id="btn-undo" title="Undo (Ctrl+Z)"><span data-icon="undo"></span></button>
+            <button class="tlt-btn" id="btn-redo" title="Redo (Ctrl+Shift+Z)"><span data-icon="redo"></span></button>
+            <button class="tlt-btn" id="btn-delete-clip" title="Delete selected clip (Del)"><span data-icon="trash"></span></button>
+            <button class="tlt-btn" id="btn-split-clip" title="Split at playhead (S)"><span data-icon="sliders"></span></button>
+            <span class="tlt-sep"></span>
+            <button class="tlt-btn" id="btn-zoom-out" title="Zoom out"><span data-icon="minus"></span></button>
+            <input type="range" id="tl-zoom" min="4" max="200" value="40" title="Timeline zoom">
+            <button class="tlt-btn" id="btn-zoom-in" title="Zoom in"><span data-icon="plus"></span></button>
+            <button class="tlt-btn" id="btn-add-track" title="Add track"><span data-icon="plus-square"></span></button>
+        </div>
+    </div>
+
+    <!-- ======================= Timeline ======================= -->
+    <div id="timeline">
+        <div id="tl-headers">
+            <div id="tl-corner"></div>
+            <div id="tl-track-headers"></div>
+        </div>
+        <div id="tl-scroll">
+            <div id="tl-content">
+                <canvas id="tl-ruler"></canvas>
+                <div id="tl-tracks"></div>
+                <div id="tl-playhead"><div class="ph-handle"></div><div class="ph-line"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden helpers -->
+    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*" style="display:none;">
+    <div id="element-pool" style="display:none;"></div>
+    <div id="toast-holder"></div>
+    <div id="modal-holder"></div>
+    <div id="menu-holder"></div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/media.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/inspector.js"></script>
+    <script src="js/fileio.js"></script>
+    <script src="js/exporter.js"></script>
+    <script src="js/boot.js"></script>
+</body>
+</html>
