@@ -55,11 +55,12 @@ CS.inspector = {
         var clip = CS.selectedClip();
 
         if (CS.inspector.activeTab === "effects") {
-            CS.inspector.placeholder(body, "Effects are not available in this version. Use the Color section on the Video tab for exposure, contrast and saturation.");
+            CS.inspector.renderEffectsTab(body, clip);
             return;
         }
         if (CS.inspector.activeTab === "transition") {
-            CS.inspector.placeholder(body, "Transitions are not available in this version. Clips cut from one to the next.");
+            CS.transitions.renderTab(body, clip);
+            CS.applyIcons(body);
             return;
         }
 
@@ -94,6 +95,11 @@ CS.inspector = {
 
     renderVideoTab: function (body, clip) {
         var p = clip.props;
+
+        //---- Text (title clips only) ----
+        if (clip.kind === "title") {
+            CS.titles.buildTextSection(body, clip);
+        }
 
         //---- Transform ----
         var transform = CS.inspector.section(body, "Transform", function () {
@@ -149,11 +155,7 @@ CS.inspector = {
                 { v: "cool", l: "Cool" },
                 { v: "vivid", l: "Vivid" }
             ], p.preset || "default", function (v) {
-                p.preset = v;
-                if (v === "mono") { p.saturation = 0; }
-                if (v === "vivid") { p.saturation = 1.35; p.contrast = 10; }
-                if (v === "default") { p.exposure = 0; p.contrast = 0; p.saturation = 1; }
-                CS.commit("Color Preset");
+                CS.inspector.applyPreset(clip, v);
             })
         ]);
         CS.inspector.row(color, "Exposure", [
@@ -178,6 +180,87 @@ CS.inspector = {
             CS.commit("Reset All");
         });
         body.appendChild(reset);
+
+        CS.applyIcons(body);
+    },
+
+    //Shared by the Color preset dropdown and the Filters gallery panel
+    applyPreset: function (clip, v) {
+        var p = clip.props;
+        p.preset = v;
+        if (v === "mono") { p.saturation = 0; }
+        if (v === "vivid") { p.saturation = 1.35; p.contrast = 10; }
+        if (v === "default") { p.exposure = 0; p.contrast = 0; p.saturation = 1; }
+        CS.commit("Color Preset");
+        CS.panels.refresh();
+    },
+
+    /* ---------- effects tab ---------- */
+
+    renderEffectsTab: function (body, clip) {
+        if (!clip) {
+            CS.inspector.placeholder(body, "Select a clip on the timeline, then add effects here or from the Effects panel on the left.");
+            return;
+        }
+        var track = CS.getTrack(clip.trackId);
+        var isAudio = track && track.kind === "audio";
+
+        //Add-effect dropdown (only effects not applied yet, audio gets fades only)
+        var available = CS.effects.registry.filter(function (def) {
+            if (isAudio && !def.audioOk) { return false; }
+            return !CS.effects.clipHas(clip, def.type);
+        });
+        var addBtn = document.createElement("button");
+        addBtn.className = "insp-select";
+        addBtn.style.width = "100%";
+        addBtn.style.marginTop = "10px";
+        addBtn.innerHTML = "<span></span>" + '<span data-icon="plus" class="mini"></span>';
+        addBtn.firstChild.textContent = "Add Effect";
+        addBtn.addEventListener("click", function () {
+            if (!available.length) { CS.toast("All available effects are applied"); return; }
+            CS.showMenuUnder(addBtn, available.map(function (def) {
+                return {
+                    label: def.name,
+                    action: function () { CS.effects.applyToClip(clip, def.type); }
+                };
+            }));
+        });
+        body.appendChild(addBtn);
+
+        var list = clip.props.effects || [];
+        if (!list.length) {
+            CS.inspector.placeholder(body, isAudio
+                ? "No effects on this clip. Fade In and Fade Out shape the clip volume."
+                : "No effects on this clip. Add one above or from the Effects panel.");
+            CS.applyIcons(body);
+            return;
+        }
+
+        list.forEach(function (e) {
+            var def = CS.effects.get(e.type);
+            if (!def) { return; }
+            var sec = CS.inspector.section(body, def.name, function () {
+                CS.effects.removeFromClip(clip, e.type);
+            });
+            //Repurpose the section reset button as a remove button
+            var head = sec.parentNode.querySelector(".sec-reset");
+            head.innerHTML = CS.iconSVG("trash");
+            head.title = "Remove effect";
+
+            if (def.noParam) {
+                var note = document.createElement("div");
+                note.className = "modal-note";
+                note.textContent = "This effect has no settings.";
+                sec.appendChild(note);
+            } else {
+                CS.inspector.row(sec, "Amount", [
+                    CS.inspector.slider(def.min, def.max, def.step || 1, e.amount, function (v) { e.amount = v; }),
+                    CS.inspector.numChip(null, e.amount, def.unit, function (v) {
+                        e.amount = CS.clamp(v, def.min, def.max);
+                    }, def.step || 1, (def.step && def.step < 1) ? 1 : 0)
+                ]);
+            }
+        });
 
         CS.applyIcons(body);
     },

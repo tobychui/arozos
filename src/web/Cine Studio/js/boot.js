@@ -36,26 +36,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     document.getElementById("btn-settings").addEventListener("click", CS.fileio.settingsDialog);
 
-    //macOS traffic lights: red closes the float window
-    document.querySelector(".tl-close").addEventListener("click", function () {
-        function doClose() {
-            if (typeof ao_module_close !== "undefined") { ao_module_close(); }
-        }
-        if (CS.state.dirty) {
-            CS.confirm("Unsaved changes", "Close Cine Studio and discard unsaved changes?", doClose);
-        } else {
-            doClose();
-        }
-    });
-    document.querySelector(".tl-min").addEventListener("click", function () {
-        CS.toast("Use the desktop window controls to minimize");
-    });
-    document.querySelector(".tl-max").addEventListener("click", function () {
-        var stage = document.getElementById("preview-stage");
-        if (stage.requestFullscreen && !document.fullscreenElement) { stage.requestFullscreen(); }
-        else if (document.fullscreenElement) { document.exitFullscreen(); }
-    });
-
     /* ---------- nav rail ---------- */
 
     var navItems = document.querySelectorAll("#navrail .nav-item[data-nav]");
@@ -68,21 +48,33 @@ document.addEventListener("DOMContentLoaded", function () {
         navItems[i].addEventListener("click", function () {
             var nav = this.getAttribute("data-nav");
             var kindLabel = document.getElementById("bin-kind-label");
+            activateNav(nav);
             if (nav === "media") {
-                activateNav(nav);
                 CS.state.binKind = "all";
                 kindLabel.textContent = "All Clips";
+                CS.panels.show("media");
                 CS.media.renderBin();
             } else if (nav === "audio") {
-                activateNav(nav);
                 CS.state.binKind = "audio";
                 kindLabel.textContent = "Audio";
+                CS.panels.show("media");
                 CS.media.renderBin();
-            } else {
-                CS.toast(this.querySelector("label").textContent + " is not available in this version");
+            } else if (nav === "effects") {
+                CS.panels.show("fx");
+            } else if (nav === "titles" || nav === "text") {
+                CS.panels.show("titles");
+            } else if (nav === "transitions") {
+                CS.panels.show("transitions");
+            } else if (nav === "elements") {
+                CS.panels.show("elements");
+            } else if (nav === "filters") {
+                CS.panels.show("filters");
+            } else if (nav === "libraries") {
+                CS.panels.show("libraries");
             }
         });
     }
+    CS.panels.show("media");
 
     /* ---------- selection hook: keep inspector tab sensible ---------- */
 
@@ -91,6 +83,7 @@ document.addEventListener("DOMContentLoaded", function () {
         origSelect(clipId);
         CS.inspector.autoTab();
         CS.inspector.render();
+        CS.panels.refresh();
     };
 
     /* ---------- keyboard shortcuts ---------- */
@@ -126,6 +119,8 @@ document.addEventListener("DOMContentLoaded", function () {
             CS.timeline.setTool("blade");
         } else if (ev.key.toLowerCase() === "s" && !ev.ctrlKey && !ev.metaKey) {
             CS.splitAtPlayhead();
+        } else if (ev.key.toLowerCase() === "t" && !ev.ctrlKey && !ev.metaKey) {
+            CS.titles.insertPreset("title");
         } else if (ev.key === "ArrowLeft") {
             ev.preventDefault();
             CS.player.seek(CS.state.playhead - (ev.shiftKey ? 10 : 1) / fps);

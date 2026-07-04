@@ -14,11 +14,6 @@
     <!-- ======================= Top bar ======================= -->
     <div id="topbar">
         <div class="tb-left">
-            <div id="traffic-lights">
-                <span class="tl tl-close" title="Close"></span>
-                <span class="tl tl-min" title="Minimize"></span>
-                <span class="tl tl-max" title="Zoom"></span>
-            </div>
             <button class="tb-btn" id="btn-open-project" title="Open project">
                 <span data-icon="folder"></span><span data-icon="chevron-down" class="mini"></span>
             </button>
@@ -94,6 +89,38 @@
             </div>
             <div id="bin-grid"></div>
             <div class="bin-footer"><span id="bin-count">0 items</span></div>
+
+            <!-- Side panels swapped in by the nav rail -->
+            <div class="side-panel" id="panel-fx">
+                <div class="sp-title">Effects</div>
+                <div class="sp-hint">Click an effect to apply it to the selected clip</div>
+                <div class="sp-grid" id="fx-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-titles">
+                <div class="sp-title">Titles</div>
+                <div class="sp-hint">Click a style to add a title at the playhead</div>
+                <div class="sp-grid" id="titles-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-transitions">
+                <div class="sp-title">Transitions</div>
+                <div class="sp-hint">Click to apply to the selected clip; it blends from the previous clip on the same track</div>
+                <div class="sp-grid" id="transitions-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-elements">
+                <div class="sp-title">Elements</div>
+                <div class="sp-hint">Solid and gradient backgrounds for titles and overlays</div>
+                <div class="sp-grid" id="elements-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-filters">
+                <div class="sp-title">Filters</div>
+                <div class="sp-hint">Click a look to apply it to the selected clip</div>
+                <div class="sp-grid" id="filters-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-libraries">
+                <div class="sp-title">Libraries</div>
+                <div class="sp-hint">Projects saved in Cine Studio/Projects</div>
+                <div id="libraries-list"></div>
+            </div>
         </div>
 
         <!-- Preview player -->
@@ -184,6 +211,10 @@
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
     <script src="js/media.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/titles.js"></script>
+    <script src="js/transitions.js"></script>
+    <script src="js/panels.js"></script>
     <script src="js/player.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/inspector.js"></script>
