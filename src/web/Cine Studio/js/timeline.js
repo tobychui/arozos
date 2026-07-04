@@ -82,6 +82,31 @@ CS.timeline = {
                 { label: "Add audio track", icon: "speaker", action: function () { CS.addTrack("audio"); } }
             ]);
         });
+
+        //Dropping media on the empty area beyond the lanes creates a track
+        var content = document.getElementById("tl-content");
+        content.addEventListener("dragover", function (ev) {
+            ev.preventDefault();
+        });
+        content.addEventListener("drop", function (ev) {
+            if (ev.target.closest && ev.target.closest(".tl-track")) { return; } //lane handled it
+            ev.preventDefault();
+            var mediaId = ev.dataTransfer && ev.dataTransfer.getData("cinestudio/media");
+            if (!mediaId) { return; }
+            var media = CS.getMedia(mediaId);
+            if (!media) { return; }
+            if (media.offline) { CS.toast("Cannot use offline media", true); return; }
+            var kind = media.type === "audio" ? "audio" : "video";
+            var trackId = CS.createTrack(kind);
+            var s = document.getElementById("tl-scroll");
+            var rect = s.getBoundingClientRect();
+            var t = Math.max(0, (ev.clientX - rect.left + s.scrollLeft) / CS.state.zoom);
+            var clip = CS.addClipToTimeline(media, trackId, t);
+            if (clip) {
+                CS.state.selectedClipId = clip.id;
+                CS.commit("Add Clip on New Track");
+            }
+        });
     },
 
     setTool: function (tool) {
@@ -373,7 +398,6 @@ CS.timeline = {
     beginDrag: function (ev, clip, el, mode) {
         if (CS.state.tool === "blade") { return; }
         CS.player.pause();
-        el.setPointerCapture(ev.pointerId);
         CS.timeline._drag = {
             mode: mode,
             clip: clip,
@@ -387,8 +411,10 @@ CS.timeline = {
             origTrackId: clip.trackId,
             moved: false
         };
-        el.onpointermove = CS.timeline.onDragMove;
-        el.onpointerup = CS.timeline.onDragEnd;
+        //Track on the window: element-level capture is silently lost when
+        //the clip is reparented into another lane mid-drag
+        window.addEventListener("pointermove", CS.timeline.onDragMove);
+        window.addEventListener("pointerup", CS.timeline.onDragEnd);
     },
 
     onDragMove: function (ev) {
@@ -411,13 +437,27 @@ CS.timeline = {
             clip.start = target;
 
             //Vertical: move across compatible tracks
+            var isAudioClip = media && media.type === "audio";
             var lane = CS.timeline.laneUnderPointer(ev.clientY);
+            d.newTrackKind = null;
             if (lane) {
                 var track = CS.getTrack(lane.dataset.trackId);
-                var kindOk = track && ((track.kind === "audio") === (media && media.type === "audio"));
+                var kindOk = track && ((track.kind === "audio") === isAudioClip);
                 if (kindOk && track.id !== clip.trackId) {
                     clip.trackId = track.id;
                     lane.appendChild(d.el);
+                }
+            } else {
+                //Dragged past the outermost lanes: offer a brand-new track
+                //(video above the top lane, audio below the bottom lane)
+                var lanesRect = document.getElementById("tl-tracks").getBoundingClientRect();
+                if (isAudioClip && ev.clientY > lanesRect.bottom) {
+                    d.newTrackKind = "audio";
+                } else if (!isAudioClip && ev.clientY < lanesRect.top) {
+                    d.newTrackKind = "video";
+                } else if (!isAudioClip && ev.clientY > lanesRect.bottom) {
+                    //below everything also works for video: stack a new track on top
+                    d.newTrackKind = "video";
                 }
             }
             d.el.style.left = (clip.start * CS.state.zoom) + "px";
@@ -464,8 +504,8 @@ CS.timeline = {
     onDragEnd: function (ev) {
         var d = CS.timeline._drag;
         if (!d) { return; }
-        d.el.onpointermove = null;
-        d.el.onpointerup = null;
+        window.removeEventListener("pointermove", CS.timeline.onDragMove);
+        window.removeEventListener("pointerup", CS.timeline.onDragEnd);
         CS.timeline._drag = null;
         CS.timeline.hideSnapGuide();
 
@@ -476,6 +516,9 @@ CS.timeline = {
 
         var clip = d.clip;
         if (d.mode === "move") {
+            if (d.newTrackKind) {
+                clip.trackId = CS.createTrack(d.newTrackKind);
+            }
             clip.start = CS.timeline.resolveOverlap(clip, clip.trackId, clip.start);
         } else {
             //Trimming may have created an overlap with the next clip: clamp

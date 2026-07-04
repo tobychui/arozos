@@ -332,6 +332,7 @@ CS.player = {
         if (!ctx) { return; }
         CS.player.renderFrame(ctx, CS.state.playhead);
         if (CS.state.safeArea) { CS.player.drawSafeArea(ctx); }
+        if (CS.previewctl && CS.previewctl.overlay) { CS.previewctl.redraw(); }
     },
 
     //Composite the frame at time t onto the given 2d context

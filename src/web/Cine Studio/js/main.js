@@ -291,7 +291,8 @@ CS.addClipToTimeline = function (media, trackId, startTime) {
     return clip;
 };
 
-CS.addTrack = function (kind) {
+//Create a track without committing history (callers commit themselves)
+CS.createTrack = function (kind) {
     var prefix = kind === "video" ? "V" : "A";
     var maxN = 0;
     CS.project.tracks.forEach(function (t) {
@@ -308,6 +309,11 @@ CS.addTrack = function (kind) {
         visible: true,
         muted: false
     });
+    return id;
+};
+
+CS.addTrack = function (kind) {
+    CS.createTrack(kind);
     CS.commit("Add Track");
 };
 
