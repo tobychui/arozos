@@ -1,19 +1,22 @@
-name: E2E (Cine Studio)
+name: E2E (Playwright)
 
-# Browser-driven end-to-end tests for the Cine Studio WebApp. These are
-# front-end only (Node + Playwright + a static file server) and do not
-# touch the Go build, so they run as an independent job. Scoped to changes
-# under the app or the test harness to avoid running on unrelated commits.
+# Browser-driven end-to-end tests, in two suites:
+#   static  - Cine Studio front-end specs against a plain static server
+#   system  - full-stack critical-path specs (auth, desktop, file
+#             explorer, system settings, user management / permission
+#             control) against a real ArozOS server built from src/
+# The system suite exercises the Go core, so this workflow triggers on
+# any change to src/ as well as the test harness itself.
 
 on:
   push:
     paths:
-      - "src/web/Cine Studio/**"
+      - "src/**"
       - "test/e2e/playwright/**"
       - ".github/workflows/e2e-playwright.yml"
   pull_request:
     paths:
-      - "src/web/Cine Studio/**"
+      - "src/**"
       - "test/e2e/playwright/**"
       - ".github/workflows/e2e-playwright.yml"
 
@@ -30,6 +33,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+
+      - name: Build ArozOS server binary
+        working-directory: src
+        run: go build -o arozos .
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -43,3 +56,11 @@ jobs:
 
       - name: Run E2E tests
         run: npm test
+
+      - name: Upload ArozOS server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arozos-server-log
+          path: test/e2e/playwright/.instance/server.log
+          if-no-files-found: ignore

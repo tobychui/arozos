@@ -1,10 +1,12 @@
 {
-  "name": "cinestudio-e2e",
+  "name": "arozos-e2e",
   "version": "1.0.0",
   "private": true,
-  "description": "Playwright end-to-end tests for the Cine Studio ArozOS WebApp",
+  "description": "Playwright end-to-end tests for ArozOS (critical paths + WebApps)",
   "scripts": {
-    "test": "node run.js"
+    "test": "node run.js",
+    "test:static": "E2E_SUITE=static node run.js",
+    "test:system": "E2E_SUITE=system node run.js"
   },
   "devDependencies": {
     "playwright": "1.56.1"
