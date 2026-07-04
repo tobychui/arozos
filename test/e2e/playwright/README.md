@@ -34,7 +34,13 @@ test/e2e/playwright/
     │                     quick access panel, desktop sign-out
     ├── 030-file-explorer.js  File Manager UI + full file lifecycle:
     │                     create/rename/copy/move/properties/trash, CSRF
+    ├── 035-file-transfer.js  upload / download round-trip, search,
+    │                     share-link lifecycle (create/list/public
+    │                     download/delete)
     ├── 040-system-settings.js  System Setting UI + settings catalogue
+    ├── 055-account.js     account settings UI + password change (wrong
+    │                     old password refused, old password stops
+    │                     working, new password signs in)
     ├── 050-users-permissions.js  group + user CRUD, module visibility,
     │                     admin-only endpoint enforcement
     ├── 060-webapps-core.js  WebApp wave 1: NotepadA (incl. real file
