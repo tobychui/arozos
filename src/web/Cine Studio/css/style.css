@@ -861,6 +861,7 @@ input[type="range"].insp-slider::-moz-range-thumb, #tl-zoom::-moz-range-thumb {
 }
 .track-header .th-toggle:hover { background: var(--bg-hover); color: var(--text); }
 .track-header .th-toggle.off { color: var(--text-faint); }
+.track-header.solo .th-name { color: var(--accent); font-weight: 600; }
 .track-header .th-toggle svg { width: 14px; height: 14px; }
 
 #tl-scroll {

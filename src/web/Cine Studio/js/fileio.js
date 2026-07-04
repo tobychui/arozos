@@ -25,7 +25,8 @@ CS.fileio = {
                 return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type, srcKind: m.srcKind || "" };
             }),
             tracks: CS.project.tracks,
-            clips: CS.project.clips
+            clips: CS.project.clips,
+            markers: CS.project.markers || []
         }, null, 1);
     },
 
@@ -88,9 +89,14 @@ CS.fileio = {
             return c;
         });
 
+        CS.project.markers = Array.isArray(data.markers) ? data.markers : [];
+
         CS.history = { stack: [], index: -1 };
         CS.pushHistory("Open Project");
         CS.markClean();
+        if (CS.session && filepath) {
+            CS.session.recordRecent(CS.project.name, filepath);
+        }
         CS.player.applyProjectSize();
         CS.media.renderBin();
         CS.timeline.render();
@@ -209,6 +215,7 @@ CS.fileio = {
                 CS.project.fileName = filename;
                 CS.project.name = CS.baseName(filename);
                 CS.markClean();
+                if (CS.session) { CS.session.recordRecent(CS.project.name, filepath); }
                 CS.toast("Saved " + filename);
             }, undefined, function () {
                 CS.toast("Save failed - check permissions", true);
@@ -333,6 +340,9 @@ CS.fileio = {
         CS.showMenuUnder(anchorEl, [
             { label: "New Project...", icon: "file", action: CS.fileio.newProjectDialog },
             { label: "Open Project...", icon: "folder", action: CS.fileio.openDialog },
+            { label: "Open Recent", icon: "history", action: function () {
+                CS.session.openRecentMenu(anchorEl);
+            } },
             { sep: true },
             { label: "Save", icon: "save", action: CS.fileio.saveProject },
             { label: "Save As...", icon: "save", action: CS.fileio.saveProjectAs },

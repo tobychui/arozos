@@ -53,6 +53,13 @@ CS.iconPaths = {
     "minus":         '<path d="M5 12h14"/>',
     "plus":          '<path d="M12 5v14"/><path d="M5 12h14"/>',
     "plus-square":   '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 9v6"/><path d="M9 12h6"/>',
+    "magnet":        '<path d="M5 4h4v8a3 3 0 0 0 6 0V4h4v8a7 7 0 0 1-14 0V4z"/><path d="M5 8h4"/><path d="M15 8h4"/>',
+    "loop":          '<path d="M17 3l3 3-3 3"/><path d="M20 6H8a4 4 0 0 0-4 4v1"/><path d="M7 21l-3-3 3-3"/><path d="M4 18h12a4 4 0 0 0 4-4v-1"/>',
+    "copy":          '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    "marker":        '<path d="M6 3h9l3 4-3 4H6"/><path d="M6 3v18"/>',
+    "camera":        '<rect x="3" y="7" width="13" height="12" rx="2"/><path d="M16 12l5-3v8l-5-3"/>',
+    "detach":        '<path d="M4 10v4h3l5 4V6l-5 4H4z"/><path d="M17 5l4 4"/><path d="M21 5l-4 4"/>',
+    "history":       '<path d="M3 4v5h5"/><path d="M3.5 9a8.5 8.5 0 1 1-1 6"/><path d="M12 8v4l3 2"/>',
 
     "film":          '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 4v16"/><path d="M3 9h5"/><path d="M3 15h5"/><path d="M16 9h5"/><path d="M16 15h5"/>',
     "speaker":       '<path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M15.5 9.5a4 4 0 0 1 0 5"/><path d="M18 7a7.5 7.5 0 0 1 0 10"/>',
