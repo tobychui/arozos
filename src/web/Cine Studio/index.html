@@ -126,7 +126,10 @@
         <!-- Preview player -->
         <div id="preview">
             <div id="preview-stage">
-                <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+                <div id="canvas-wrap">
+                    <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+                    <canvas id="preview-overlay"></canvas>
+                </div>
                 <div id="preview-empty">
                     <span data-icon="nav-media" class="big"></span>
                     <p>Import media and drag it to the timeline</p>
@@ -201,7 +204,7 @@
     </div>
 
     <!-- Hidden helpers -->
-    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*" style="display:none;">
+    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*,.pxs,.asproj" style="display:none;">
     <div id="element-pool" style="display:none;"></div>
     <div id="toast-holder"></div>
     <div id="modal-holder"></div>
@@ -216,6 +219,7 @@
     <script src="js/transitions.js"></script>
     <script src="js/panels.js"></script>
     <script src="js/player.js"></script>
+    <script src="js/previewctl.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/inspector.js"></script>
     <script src="js/fileio.js"></script>

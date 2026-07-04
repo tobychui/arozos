@@ -22,7 +22,7 @@ CS.fileio = {
             name: CS.project.name,
             settings: CS.project.settings,
             media: CS.project.media.map(function (m) {
-                return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type };
+                return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type, srcKind: m.srcKind || "" };
             }),
             tracks: CS.project.tracks,
             clips: CS.project.clips
@@ -55,6 +55,8 @@ CS.fileio = {
                 name: m.name,
                 vpath: m.vpath || "",
                 blobUrl: "",
+                compositeUrl: "",
+                srcKind: m.srcKind || "",
                 type: m.type,
                 duration: m.type === "image" ? CS.IMAGE_DEFAULT_DURATION : 0,
                 width: 0,

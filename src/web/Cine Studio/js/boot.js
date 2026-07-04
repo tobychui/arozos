@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     CS.media.init();
     CS.player.init();
+    CS.previewctl.init();
     CS.timeline.init();
     CS.inspector.init();
 
@@ -84,6 +85,7 @@ document.addEventListener("DOMContentLoaded", function () {
         CS.inspector.autoTab();
         CS.inspector.render();
         CS.panels.refresh();
+        CS.previewctl.redraw();
     };
 
     /* ---------- keyboard shortcuts ---------- */
