@@ -1,0 +1,28 @@
+/*
+	Audio Studio Module Register Script
+
+	A multi-track audio recorder / editor WebApp.
+	Do not call any user scope functions in this script.
+*/
+
+var _MODULE_ROOT_DIR = "Audio Studio";
+
+//Setup the module information
+var moduleLaunchInfo = {
+	Name: "Audio Studio",
+	Desc: "Multi-track audio recording and editing studio",
+	Group: "Media",
+	IconPath: _MODULE_ROOT_DIR + "/img/icon.svg",
+	Version: "1.0.0",
+	StartDir: _MODULE_ROOT_DIR + "/index.html",
+	SupportFW: true,
+	LaunchFWDir: _MODULE_ROOT_DIR + "/index.html",
+	SupportEmb: true,
+	LaunchEmb: _MODULE_ROOT_DIR + "/index.html",
+	InitFWSize: [1280, 720],
+	InitEmbSize: [1080, 580],
+	SupportedExt: [".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".webm", ".asproj"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

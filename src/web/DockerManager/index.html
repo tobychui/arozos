@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#0a84ff">
+    <link rel="stylesheet" href="script/xterm/xterm.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="script/dockermanager.js"></script>
+    <script src="script/ace/ace.js"></script>
+    <script src="script/xterm/xterm.js"></script>
+    <script src="script/xterm/xterm-addon-fit.js"></script>
+    <title>Docker Manager</title>
+    <style>
+        :root {
+            --bg:#f5f5f7; --panel:#ffffff; --panel-2:#fafafb; --row-hover:#f3f6fb;
+            --border:#e4e4e7; --border-soft:#eeeef0; --text:#1d1d1f; --dim:#86868b;
+            --accent:#0a84ff; --ok:#30d158; --ok-text:#1a8c3a; --amber-text:#b26a00; --danger:#ff453a;
+            --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
+        }
+        body.dark {
+            --bg:#1c1c1e; --panel:#2c2c2e; --panel-2:#242426; --row-hover:#3434375e;
+            --border:#3a3a3c; --border-soft:#333335; --text:#f5f5f7; --dim:#98989d;
+            --ok-text:#30d158; --amber-text:#ff9f0a;
+            --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.4);
+        }
+        * { box-sizing: border-box; }
+        html, body { height:100%; margin:0; }
+        body {
+            background: var(--bg); color: var(--text); overflow:hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+            font-size: 13px;
+        }
+
+        /* ---------- Icon system (mask-recolored SVGs) ---------- */
+        .ic { display:inline-block; width:1.05em; height:1.05em; background-color:currentColor; vertical-align:-0.16em;
+            -webkit-mask:var(--ic) no-repeat center / contain; mask:var(--ic) no-repeat center / contain; flex-shrink:0; }
+        .ic-container { --ic:url(img/icons/container.svg); }
+        .ic-images    { --ic:url(img/icons/images.svg); }
+        .ic-stacks    { --ic:url(img/icons/stacks.svg); }
+        .ic-register  { --ic:url(img/icons/register.svg); }
+        .ic-refresh   { --ic:url(img/icons/refresh.svg); }
+        .ic-add       { --ic:url(img/icons/add.svg); }
+        .ic-addbox    { --ic:url(img/icons/add_box.svg); }
+        .ic-start     { --ic:url(img/icons/start.svg); }
+        .ic-stop      { --ic:url(img/icons/stop.svg); }
+        .ic-terminal  { --ic:url(img/icons/terminal.svg); }
+        .ic-logs      { --ic:url(img/icons/logs.svg); }
+        .ic-setting   { --ic:url(img/icons/setting.svg); }
+        .ic-info      { --ic:url(img/icons/info.svg); }
+        .ic-delete    { --ic:url(img/icons/delete.svg); }
+        .ic-edit      { --ic:url(img/icons/edit.svg); }
+        /* Drawn glyphs with no provided equivalent */
+        .ic-close     { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z'/></svg>"); }
+        .ic-download  { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M11 3h2v8h3l-4 4.5L8 11h3zM5 18h14v2H5z'/></svg>"); }
+        .ic-search    { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M15.5 14h-.79l-.28-.27a6.5 6.5 0 10-.7.7l.27.28v.79l5 4.99L20.49 19zm-6 0A4.5 4.5 0 1114 9.5 4.5 4.5 0 019.5 14z'/></svg>"); }
+        .ic-warning   { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/></svg>"); }
+        .ic-popout    { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z'/></svg>"); }
+        .ic-cpu       { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 2h2v2h2V2h2v2h1a3 3 0 013 3v1h2v2h-2v2h2v2h-2v1a3 3 0 01-3 3h-1v2h-2v-2h-2v2H9v-2H8a3 3 0 01-3-3v-1H3v-2h2v-2H3V8h2V7a3 3 0 013-3h1V2zm-1 5a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1H8zm2 2h4v4h-4V9z'/></svg>"); }
+        .ic-ram       { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M2 7h20v8h-2v3h-2v-3h-2v3h-2v-3h-2v3H10v-3H8v3H6v-3H4v3H2V7zm3 3v3h2v-3H5zm5 0v3h2v-3h-2zm5 0v3h2v-3h-2z'/></svg>"); }
+        .ic-storage   { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2c4.42 0 8 1.34 8 3v14c0 1.66-3.58 3-8 3s-8-1.34-8-3V5c0-1.66 3.58-3 8-3zm0 2C8.13 4 6 4.99 6 5.5S8.13 7 12 7s6-.99 6-1.5S15.87 4 12 4zm6 4.6c-1.5.86-3.9 1.4-6 1.4s-4.5-.54-6-1.4V19c0 .5 2.13 1.5 6 1.5s6-1 6-1.5V8.6z'/></svg>"); }
+        .ic-load      { --ic:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 4a9 9 0 018.66 11.5H3.34A9 9 0 0112 4zm0 2a7 7 0 00-6.71 5h13.42A7 7 0 0012 6zm1.5 3.5l1.4 1.4-3.2 3.2a1.5 1.5 0 11-1.4-1.4l3.2-3.2z'/></svg>"); }
+
+        /* ---------- Top progress bar ---------- */
+        #dm-progress { position:fixed; top:0; left:0; right:0; height:3px; z-index:1200; opacity:0; transition:opacity .2s; pointer-events:none; }
+        #dm-progress.active { opacity:1; }
+        #dm-progress::before { content:''; position:absolute; height:100%; width:35%; border-radius:2px; background:var(--accent); animation:dmbar 1.1s infinite cubic-bezier(.4,0,.2,1); }
+        @keyframes dmbar { 0%{left:-35%;} 100%{left:100%;} }
+
+        /* ---------- App shell ---------- */
+        .dm-app { display:flex; height:100vh; }
+        .dm-sidebar { width:210px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--border); padding:16px 12px; display:flex; flex-direction:column; overflow:auto; }
+        .dm-brand { display:flex; align-items:center; gap:9px; padding:4px 8px 16px 8px; font-weight:650; font-size:14.5px; }
+        .dm-brand img { width:22px; height:22px; }
+        .dm-nav-item { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:8px; color:var(--text); cursor:pointer; font-size:13.5px; font-weight:500; margin-bottom:2px; user-select:none; }
+        .dm-nav-item:hover { background:var(--panel-2); }
+        body.dark .dm-nav-item:hover { background:#3a3a3c; }
+        .dm-nav-item.active { background:var(--accent); color:#fff; }
+        .dm-nav-item .ic { width:18px; height:18px; }
+        .dm-side-spacer { flex:1; }
+        .dm-side-foot { font-size:11px; color:var(--dim); padding:8px; }
+        .dm-burger { display:none; }
+
+        .dm-main { flex:1; overflow:auto; padding:22px 26px 40px 26px; }
+        .dm-section { display:none; }
+        .dm-section.active { display:block; }
+        .dm-section-head { display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+        .dm-section-head h2 { font-size:21px; font-weight:650; margin:0; letter-spacing:-.01em; }
+        .dm-section-head .actions { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+        /* ---------- Cards & tables ---------- */
+        .dm-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+        .dm-tablewrap { overflow-x:auto; }
+        .dm-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .dm-table th { text-align:left; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--dim); font-weight:600; padding:11px 14px; border-bottom:1px solid var(--border); background:var(--panel-2); }
+        .dm-table td { padding:10px 14px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+        .dm-table tbody tr:last-child td { border-bottom:none; }
+        .dm-table tbody tr.clickable { cursor:pointer; }
+        .dm-table tbody tr:hover { background:var(--row-hover); }
+        .dm-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size:11.5px; }
+        .dm-empty { text-align:center; color:var(--dim); padding:30px; }
+
+        /* ---------- Resource overview cards ---------- */
+        .dm-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+        .stat-card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:13px 16px; }
+        .sc-head { display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--dim); font-weight:600; margin-bottom:7px; }
+        .sc-head .ic { width:15px; height:15px; color:var(--accent); }
+        .sc-val { font-size:22px; font-weight:680; letter-spacing:-.02em; line-height:1.1; }
+        .sc-val small { font-size:12px; font-weight:600; color:var(--dim); }
+        .sc-sub { font-size:11px; color:var(--dim); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .spark { display:block; width:100%; height:24px; margin-top:8px; }
+        .spark polyline { fill:none; stroke:var(--accent); stroke-width:2; vector-effect:non-scaling-stroke; stroke-linejoin:round; stroke-linecap:round; }
+        .spark .fillarea { fill:var(--accent); opacity:.10; stroke:none; }
+        @media (max-width: 860px) { .dm-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+        /* ---------- Pills ---------- */
+        .pill { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+        .pill .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+        .pill.green { background:rgba(48,209,88,.14); color:var(--ok-text); }
+        .pill.gray  { background:rgba(142,142,147,.16); color:#6e6e73; }
+        .pill.amber { background:rgba(255,159,10,.16); color:var(--amber-text); }
+        body.dark .pill.gray { color:#aeaeb2; }
+
+        /* ---------- Buttons ---------- */
+        .btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--panel); color:var(--text); border-radius:8px; font-size:13px; font-weight:550; padding:7px 13px; cursor:pointer; transition:.12s; font-family:inherit; white-space:nowrap; }
+        .btn:hover { background:var(--panel-2); }
+        body.dark .btn:hover { background:#3a3a3c; }
+        .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+        .btn.primary:hover { filter:brightness(1.08); background:var(--accent); }
+        .btn.danger { color:var(--danger); border-color:rgba(255,69,58,.4); }
+        .btn.danger:hover { background:rgba(255,69,58,.08); }
+        .btn.sm { padding:5px 10px; font-size:12px; }
+        .btn[disabled] { opacity:.5; cursor:default; pointer-events:none; }
+        .iconbtn { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background:var(--panel); color:var(--text); border-radius:7px; cursor:pointer; transition:.12s; }
+        .iconbtn:hover { background:var(--panel-2); }
+        body.dark .iconbtn:hover { background:#3a3a3c; }
+        .iconbtn.green { color:var(--ok-text); }
+        .iconbtn.danger { color:var(--danger); }
+        .iconbtn .ic { width:16px; height:16px; }
+        .btnrow { display:inline-flex; gap:6px; }
+
+        .is-busy { color:transparent !important; position:relative; pointer-events:none; }
+        .is-busy > * { visibility:hidden; }
+        .is-busy::after { content:''; position:absolute; width:14px; height:14px; top:50%; left:50%; margin:-7px 0 0 -7px; border:2px solid rgba(0,0,0,.18); border-top-color:rgba(0,0,0,.55); border-radius:50%; animation:dmspin .6s linear infinite; }
+        .btn.primary.is-busy::after { border-color:rgba(255,255,255,.45); border-top-color:#fff; }
+        body.dark .is-busy::after { border-color:rgba(255,255,255,.25); border-top-color:rgba(255,255,255,.75); }
+        @keyframes dmspin { to { transform:rotate(360deg); } }
+
+        /* ---------- Form fields ---------- */
+        .field2 { margin-bottom:14px; }
+        .field2:last-child { margin-bottom:0; }
+        .lbl { display:block; font-size:12px; font-weight:600; color:var(--dim); margin-bottom:6px; }
+        .fld { width:100%; background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 11px; font-size:13px; font-family:inherit; outline:none; }
+        textarea.fld { resize:vertical; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size:12px; }
+        .fld:focus { border-color:var(--accent); }
+        select.fld { appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%2386868b'/></svg>"); background-repeat:no-repeat; background-position:right 11px center; padding-right:28px; }
+        .row2 { display:flex; gap:12px; } .row2 > * { flex:1; min-width:0; }
+        code { background:var(--panel-2); padding:1px 5px; border-radius:4px; font-size:11.5px; }
+        body.dark code { background:#3a3a3c; }
+        .note { font-size:11.5px; color:var(--dim); margin-top:6px; line-height:1.5; }
+        .inline-input { display:inline-flex; }
+        .inline-input .fld { border-top-right-radius:0; border-bottom-right-radius:0; min-width:240px; }
+        .inline-input .btn { border-top-left-radius:0; border-bottom-left-radius:0; }
+
+        .msg { font-size:12px; border-radius:8px; padding:9px 11px; line-height:1.5; display:flex; gap:8px; align-items:flex-start; }
+        .msg .ic { margin-top:1px; }
+        .msg.warn { background:rgba(255,159,10,.1); border:1px solid rgba(255,159,10,.4); color:var(--text); }
+        .msg.warn .ic { color:var(--amber-text); }
+        .msg.err  { background:rgba(255,69,58,.1); border:1px solid rgba(255,69,58,.4); color:var(--text); }
+        .msg.ok   { background:rgba(48,209,88,.12); border:1px solid rgba(48,209,88,.4); color:var(--text); }
+        .msg.info { background:var(--panel-2); border:1px solid var(--border); color:var(--dim); }
+
+        /* ---------- Drawers ---------- */
+        #dm-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.28); opacity:0; pointer-events:none; transition:opacity .22s; z-index:1000; }
+        #dm-backdrop.show { opacity:1; pointer-events:auto; }
+        .drawer { position:fixed; top:0; right:0; height:100%; width:540px; max-width:94vw; background:var(--panel); z-index:1001; box-shadow:none; transform:translateX(100%); transition:transform .28s cubic-bezier(.32,.72,0,1); display:flex; flex-direction:column; }
+        .drawer.open { transform:translateX(0); box-shadow:-10px 0 40px rgba(0,0,0,.18); }
+        .drawer.wide { width:780px; }
+        .drawer-head { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px; }
+        .drawer-head .ttl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .drawer-head .head-actions { margin-left:auto; display:flex; gap:6px; align-items:center; }
+        .drawer-head .drawer-close { cursor:pointer; color:var(--dim); width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:7px; }
+        .drawer-head .drawer-close:hover { background:var(--panel-2); }
+        .drawer-body { flex:1; overflow:auto; padding:20px; }
+        .drawer-foot { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+        .drawer-foot .status { margin-right:auto; font-size:12px; color:var(--dim); }
+
+        .term-pre { background:#0f1419; color:#d6e2ef; border-radius:0; padding:14px; font-family: ui-monospace,'SF Mono',Menlo,Consolas,monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; height:100%; overflow:auto; margin:0; }
+        .drawer-body.term { padding:0; display:flex; flex-direction:column; overflow:hidden; }
+        .console-warn { background:rgba(255,69,58,.12); color:#ff6b5e; font-size:12px; padding:9px 14px; display:flex; gap:8px; align-items:flex-start; }
+        .console-bar { display:flex; gap:8px; align-items:center; padding:8px 14px; background:#0f1419; border-bottom:1px solid #222; }
+        .console-bar label { color:#9fb0c0; font-size:12px; }
+        #dm-console-term { flex:1; width:100%; min-height:0; background:#0f1419; padding:6px 10px; overflow:hidden; }
+
+        /* ---------- Container details ---------- */
+        .d-actions { display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+        .d-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 18px; margin-bottom:6px; }
+        .d-kv .d-k { font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.03em; margin-bottom:3px; }
+        .d-kv .d-v { font-size:13px; word-break:break-word; }
+        .d-sec-title { font-weight:650; font-size:13.5px; margin:20px 0 8px; }
+        .d-table { width:100%; border-collapse:collapse; font-size:12.5px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+        .d-table th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:var(--dim); font-weight:600; padding:8px 10px; background:var(--panel-2); border-bottom:1px solid var(--border); }
+        .d-table td { padding:8px 10px; border-bottom:1px solid var(--border-soft); vertical-align:top; }
+        .d-table tr:last-child td { border-bottom:none; }
+        .env-list { background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace; font-size:11.5px; max-height:220px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+
+        #dm-toast { display:none; position:fixed; bottom:22px; right:22px; z-index:1300; padding:11px 16px; border-radius:10px; font-size:12.5px; font-weight:600; color:#fff; box-shadow:0 6px 24px rgba(0,0,0,.28); }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 860px) {
+            .dm-app { flex-direction:column; }
+            .dm-sidebar { width:100%; height:auto; flex-direction:row; align-items:center; flex-wrap:nowrap; overflow-x:auto; padding:8px 10px; border-right:none; border-bottom:1px solid var(--border); gap:4px; }
+            .dm-brand { padding:4px 8px; white-space:nowrap; }
+            .dm-brand span { display:none; }
+            .dm-nav-item { margin-bottom:0; white-space:nowrap; padding:8px 11px; }
+            .dm-nav-item span { display:inline; }
+            .dm-side-spacer, .dm-side-foot { display:none; }
+            .dm-main { padding:16px 14px 40px; }
+            .drawer, .drawer.wide { width:100%; max-width:100%; }
+            .d-grid { grid-template-columns:1fr; }
+            .inline-input .fld { min-width:0; }
+        }
+        @media (max-width: 520px) {
+            .dm-nav-item span { display:none; }
+            .dm-section-head h2 { font-size:18px; }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="dm-progress"></div>
+
+    <div class="dm-app">
+        <nav class="dm-sidebar">
+            <div class="dm-brand"><img src="img/icon.svg" alt=""> <span>Docker Manager</span></div>
+            <div class="dm-nav-item active" data-section="containers"><span class="ic ic-container"></span><span>Containers</span></div>
+            <div class="dm-nav-item" data-section="images"><span class="ic ic-images"></span><span>Images</span></div>
+            <div class="dm-nav-item" data-section="compose"><span class="ic ic-stacks"></span><span>Compose Stacks</span></div>
+            <div class="dm-nav-item" data-section="registries"><span class="ic ic-register"></span><span>Registries</span></div>
+            <div class="dm-side-spacer"></div>
+            <div class="dm-side-foot">Admin-only. Docker access is root-equivalent on this host.</div>
+        </nav>
+
+        <main class="dm-main">
+            <!-- Containers -->
+            <section class="dm-section active" data-section="containers">
+                <div class="dm-section-head">
+                    <h2>Containers</h2>
+                    <div class="actions"><button class="btn sm" id="dm-c-refresh"><span class="ic ic-refresh"></span> Refresh</button></div>
+                </div>
+                <div class="dm-stats">
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-cpu"></span> CPU</div>
+                        <div class="sc-val" id="st-cpu">—</div>
+                        <div class="sc-sub" id="st-cpu-sub">— cores</div>
+                        <svg class="spark" id="sp-cpu" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-ram"></span> RAM</div>
+                        <div class="sc-val" id="st-ram">—</div>
+                        <div class="sc-sub" id="st-ram-sub">—</div>
+                        <svg class="spark" id="sp-ram" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-storage"></span> Storage</div>
+                        <div class="sc-val" id="st-storage">—</div>
+                        <div class="sc-sub" id="st-storage-sub">—</div>
+                        <svg class="spark" id="sp-storage" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="sc-head"><span class="ic ic-load"></span> Load</div>
+                        <div class="sc-val" id="st-load">—</div>
+                        <div class="sc-sub" id="st-load-sub">—</div>
+                        <svg class="spark" id="sp-load" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
+                    </div>
+                </div>
+                <div class="dm-card"><div class="dm-tablewrap"><table class="dm-table">
+                    <thead><tr><th style="width:130px;">Status</th><th>Container</th><th style="width:200px;">Actions</th></tr></thead>
+                    <tbody id="dm-c-body"><tr><td colspan="3" class="dm-empty">Loading…</td></tr></tbody>
+                </table></div></div>
+                <div class="note">Click a row to open full container details.</div>
+            </section>
+
+            <!-- Images -->
+            <section class="dm-section" data-section="images">
+                <div class="dm-section-head">
+                    <h2>Images</h2>
+                    <div class="actions">
+                        <span class="inline-input"><input type="text" class="fld" id="dm-pull-ref" placeholder="nginx:alpine or registry/repo:tag"><button class="btn primary" id="dm-pull-btn"><span class="ic ic-download"></span> Pull</button></span>
+                        <button class="btn sm" id="dm-i-refresh"><span class="ic ic-refresh"></span> Refresh</button>
+                    </div>
+                </div>
+                <div class="dm-card"><div class="dm-tablewrap"><table class="dm-table">
+                    <thead><tr><th>Repository</th><th>Tag</th><th>Size</th><th>Created</th><th>Image ID</th><th style="width:90px;">Actions</th></tr></thead>
+                    <tbody id="dm-i-body"><tr><td colspan="6" class="dm-empty">Loading…</td></tr></tbody>
+                </table></div></div>
+            </section>
+
+            <!-- Compose -->
+            <section class="dm-section" data-section="compose">
+                <div class="dm-section-head">
+                    <h2>Compose Stacks</h2>
+                    <div class="actions">
+                        <button class="btn primary sm" id="dm-stack-new"><span class="ic ic-addbox"></span> New Stack</button>
+                        <button class="btn sm" id="dm-stack-refresh"><span class="ic ic-refresh"></span> Refresh</button>
+                    </div>
+                </div>
+                <div id="dm-compose-unavail" class="msg warn" style="display:none; margin-bottom:14px;"><span class="ic ic-warning"></span><div>The Docker Compose v2 plugin was not detected on this host. Install <code>docker-compose-plugin</code> to manage stacks.</div></div>
+                <div class="dm-card" id="dm-stack-card"><div class="dm-tablewrap"><table class="dm-table">
+                    <thead><tr><th>Stack</th><th>State</th><th>Auto-start</th><th style="width:230px;">Actions</th></tr></thead>
+                    <tbody id="dm-stack-body"><tr><td colspan="4" class="dm-empty">Loading…</td></tr></tbody>
+                </table></div></div>
+                <div class="note">Stacks live in <code>./system/docker/stacks/&lt;name&gt;/docker-compose.yml</code>. Stacks with auto-start enabled are brought up on server boot.</div>
+            </section>
+
+            <!-- Registries -->
+            <section class="dm-section" data-section="registries">
+                <div class="dm-section-head">
+                    <h2>Registries</h2>
+                    <div class="actions"><button class="btn sm" id="dm-r-refresh"><span class="ic ic-refresh"></span> Refresh</button></div>
+                </div>
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+                    <div class="dm-card" style="flex:1; min-width:280px; padding:18px;">
+                        <div style="font-weight:650; margin-bottom:12px;">Login</div>
+                        <div class="field2"><label class="lbl">Registry (blank = Docker Hub)</label><input type="text" class="fld" id="dm-login-registry" placeholder="registry.example.com:5000"></div>
+                        <div class="field2"><label class="lbl">Username</label><input type="text" class="fld" id="dm-login-user" autocomplete="off"></div>
+                        <div class="field2"><label class="lbl">Password / Token</label><input type="password" class="fld" id="dm-login-pass" autocomplete="off"></div>
+                        <button class="btn primary" id="dm-login-btn">Login</button>
+                        <div class="note">Credentials are stored by the Docker CLI, never by ArozOS. The password is sent once and never logged.</div>
+                        <div style="font-weight:650; margin:16px 0 8px;">Configured registries</div>
+                        <table class="dm-table" style="border:1px solid var(--border); border-radius:8px;"><tbody id="dm-r-body"><tr><td class="dm-empty">Loading…</td></tr></tbody></table>
+                    </div>
+                    <div class="dm-card" style="flex:1; min-width:280px; padding:18px;">
+                        <div style="font-weight:650; margin-bottom:12px;">Search Docker Hub</div>
+                        <span class="inline-input" style="width:100%;"><input type="text" class="fld" id="dm-search-term" placeholder="e.g. nginx" style="flex:1;"><button class="btn" id="dm-search-btn"><span class="ic ic-search"></span> Search</button></span>
+                        <table class="dm-table" style="margin-top:14px; border:1px solid var(--border); border-radius:8px;">
+                            <thead><tr><th>Name</th><th>Stars</th><th style="width:70px;"></th></tr></thead>
+                            <tbody id="dm-search-body"><tr><td colspan="3" class="dm-empty">Enter a term and search.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ============ Drawers ============ -->
+    <div id="dm-backdrop"></div>
+
+    <!-- Container details -->
+    <aside class="drawer wide" id="dm-details-drawer">
+        <div class="drawer-head"><span class="ic ic-container"></span> <span class="ttl">Container: <span id="dm-details-title" class="dm-mono"></span></span><div class="head-actions"><div class="drawer-close"><span class="ic ic-close"></span></div></div></div>
+        <div class="drawer-body" id="dm-details-body"></div>
+    </aside>
+
+    <!-- Logs (container + stack) -->
+    <aside class="drawer wide" id="dm-log-drawer">
+        <div class="drawer-head"><span class="ic ic-logs"></span> <span class="ttl">Logs: <span id="dm-log-title" class="dm-mono"></span></span><div class="head-actions"><div class="drawer-close"><span class="ic ic-close"></span></div></div></div>
+        <div class="drawer-body term"><pre id="dm-log-output" class="term-pre"></pre></div>
+    </aside>
+
+    <!-- Pull progress -->
+    <aside class="drawer wide" id="dm-pull-drawer">
+        <div class="drawer-head"><span class="ic ic-download"></span> <span class="ttl">Pulling: <span id="dm-pull-title" class="dm-mono"></span></span><div class="head-actions"><div class="drawer-close"><span class="ic ic-close"></span></div></div></div>
+        <div class="drawer-body term"><pre id="dm-log-output-pull" class="term-pre"></pre></div>
+    </aside>
+
+    <!-- Run Image / Recreate -->
+    <aside class="drawer" id="dm-run-drawer">
+        <div class="drawer-head"><span class="ic ic-start"></span> <span class="ttl" id="dm-run-title">Run Image</span><div class="head-actions"><div class="drawer-close"><span class="ic ic-close"></span></div></div></div>
+        <div class="drawer-body">
+            <div class="msg warn" id="dm-run-warn" style="display:none; margin-bottom:14px;"><span class="ic ic-warning"></span><div><b>Recreate</b> deletes the existing container and launches a new one with these settings. This cannot be undone.</div></div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Image</label><input type="text" class="fld" id="dm-run-image" placeholder="nginx:alpine"></div>
+                <div class="field2"><label class="lbl">Container name (optional)</label><input type="text" class="fld" id="dm-run-name" placeholder="web1"></div>
+            </div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Port mappings (one per line)</label><textarea class="fld" id="dm-run-ports" rows="3" placeholder="8080:80&#10;127.0.0.1:443:443/tcp"></textarea></div>
+                <div class="field2"><label class="lbl">Volumes (src:dst[:mode])</label><textarea class="fld" id="dm-run-volumes" rows="3" placeholder="/srv/data:/data&#10;named:/var/lib:ro"></textarea></div>
+            </div>
+            <div class="field2"><label class="lbl">Environment variables (KEY=value per line)</label><textarea class="fld" id="dm-run-env" rows="2" placeholder="TZ=UTC&#10;APP_DEBUG=1"></textarea></div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Restart policy</label><select class="fld" id="dm-run-restart"><option value="">no</option><option value="always">always</option><option value="unless-stopped">unless-stopped</option><option value="on-failure">on-failure</option></select></div>
+                <div class="field2"><label class="lbl">Network (optional)</label><input type="text" class="fld" id="dm-run-network" placeholder="bridge"></div>
+            </div>
+            <div class="field2"><label class="lbl">Command override (optional)</label><input type="text" class="fld" id="dm-run-command" placeholder="nginx -g 'daemon off;'"></div>
+        </div>
+        <div class="drawer-foot">
+            <button class="btn drawer-close">Cancel</button>
+            <button class="btn" id="dm-run-createonly">Create (don't start)</button>
+            <button class="btn primary" id="dm-run-go"><span class="ic ic-start"></span> <span id="dm-run-gotext">Run</span></button>
+        </div>
+    </aside>
+
+    <!-- Container config -->
+    <aside class="drawer" id="dm-cfg-drawer">
+        <div class="drawer-head"><span class="ic ic-setting"></span> <span class="ttl">Configure: <span id="dm-cfg-title" class="dm-mono"></span></span><div class="head-actions"><div class="drawer-close"><span class="ic ic-close"></span></div></div></div>
+        <div class="drawer-body">
+            <div class="field2"><label class="lbl">Rename</label><span class="inline-input" style="width:100%;"><input type="text" class="fld" id="dm-cfg-name" style="flex:1;"><button class="btn" id="dm-cfg-rename">Rename</button></span></div>
+            <div style="height:1px; background:var(--border); margin:16px 0;"></div>
+            <div style="font-weight:600; margin-bottom:10px;">Live update <span class="note" style="display:inline;">(applied without recreating)</span></div>
+            <div class="row2">
+                <div class="field2"><label class="lbl">Restart policy</label><select class="fld" id="dm-cfg-restart"><option value="">(unchanged)</option><option value="no">no</option><option value="always">always</option><option value="unless-stopped">unless-stopped</option><option value="on-failure">on-failure</option></select></div>
+                <div class="field2"><label class="lbl">Memory limit</label><input type="text" class="fld" id="dm-cfg-memory" placeholder="512m"></div>
+                <div class="field2"><label class="lbl">CPUs</label><input type="text" class="fld" id="dm-cfg-cpus" placeholder="1.5"></div>
+            </div>
+            <div class="msg info" style="margin-top:6px;"><div>Changing ports, volumes or environment needs a <b>recreate</b>. <a id="dm-cfg-recreate" style="cursor:pointer; font-weight:600; color:var(--accent);">Recreate with new settings…</a></div></div>
+        </div>
+        <div class="drawer-foot"><button class="btn drawer-close">Close</button><button class="btn primary" id="dm-cfg-apply">Apply live update</button></div>
+    </aside>
+
+    <!-- Compose YAML editor -->
+    <aside class="drawer wide" id="dm-stack-drawer">
+        <div class="drawer-head"><span class="ic ic-edit"></span> <span class="ttl" id="dm-stack-modal-title">New Stack</span><div class="head-actions"><div class="drawer-close"><span class="ic ic-close"></span></div></div></div>
+        <div class="drawer-body">
+            <div class="field2"><label class="lbl">Stack name (letters, digits, dash, underscore)</label><input type="text" class="fld" id="dm-stack-name" placeholder="my-stack"></div>
+            <div class="field2"><label class="lbl">docker-compose.yml</label><div id="dm-stack-editor" style="height:48vh; width:100%; border:1px solid var(--border); border-radius:8px;"></div></div>
+            <div class="msg" id="dm-stack-validate-msg" style="display:none;"></div>
+        </div>
+        <div class="drawer-foot">
+            <span class="status" id="dm-stack-status"></span>
+            <button class="btn drawer-close">Cancel</button>
+            <button class="btn" id="dm-stack-validate">Validate</button>
+            <button class="btn" id="dm-stack-save">Save</button>
+            <button class="btn primary" id="dm-stack-savedeploy"><span class="ic ic-start"></span> Save &amp; Deploy</button>
+        </div>
+    </aside>
+
+    <!-- Exec console -->
+    <aside class="drawer wide" id="dm-console-drawer">
+        <div class="drawer-head"><span class="ic ic-terminal"></span> <span class="ttl">Console: <span id="dm-console-title" class="dm-mono"></span></span>
+            <div class="head-actions">
+                <div class="drawer-close" id="dm-console-popout" title="Open in window" style="display:none;"><span class="ic ic-popout"></span></div>
+                <div class="drawer-close"><span class="ic ic-close"></span></div>
+            </div>
+        </div>
+        <div class="drawer-body term">
+            <div class="console-warn"><span class="ic ic-warning"></span><div>You are connected to a <b>live shell inside this container</b>. Commands run with the container's privileges and can affect the host.</div></div>
+            <div class="console-bar">
+                <label>Shell:</label>
+                <select class="fld" id="dm-console-shell" style="width:90px; padding:5px 8px;"><option value="sh">sh</option><option value="bash">bash</option></select>
+                <button class="btn sm" id="dm-console-connect">Reconnect</button>
+            </div>
+            <div id="dm-console-term"></div>
+        </div>
+    </aside>
+
+    <div id="dm-toast"></div>
+
+    <script>
+    (function () {
+        DM.applyTheme();
+        var inDesktop = (typeof ao_module_virtualDesktop !== "undefined") && ao_module_virtualDesktop;
+
+        /* progress / busy */
+        var pending = 0;
+        function progressStart() { pending++; document.getElementById("dm-progress").classList.add("active"); }
+        function progressDone() { pending = Math.max(0, pending - 1); if (pending === 0) document.getElementById("dm-progress").classList.remove("active"); }
+        function setBusy($btn, on) { if ($btn && $btn.length) { $btn.toggleClass("is-busy", !!on); $btn.prop("disabled", !!on); } }
+        function track(xhr, $btn) { setBusy($btn, true); progressStart(); xhr.always(function () { setBusy($btn, false); progressDone(); }); return xhr; }
+
+        /* drawer manager — a stack so layered drawers open/close independently */
+        var drawerStack = [];
+        function openDrawer(id, onClose) {
+            drawerStack.push({ id: id, onClose: onClose || null });
+            document.getElementById("dm-backdrop").classList.add("show");
+            document.getElementById(id).classList.add("open");
+        }
+        function closeDrawer() { // close only the top-most drawer
+            var top = drawerStack.pop();
+            if (!top) return;
+            document.getElementById(top.id).classList.remove("open");
+            if (top.onClose) { try { top.onClose(); } catch (e) {} }
+            if (drawerStack.length === 0) document.getElementById("dm-backdrop").classList.remove("show");
+        }
+        function closeAllDrawers() { while (drawerStack.length) closeDrawer(); }
+        $(document).on("click", ".drawer-close", function (e) { if (e.currentTarget.id === "dm-console-popout") return; closeDrawer(); });
+        $("#dm-backdrop").on("click", closeDrawer);
+
+        /* navigation */
+        var loaded = { containers: true };
+        function showSection(name) {
+            $(".dm-nav-item").removeClass("active"); $('.dm-nav-item[data-section="' + name + '"]').addClass("active");
+            $(".dm-section").removeClass("active"); $('.dm-section[data-section="' + name + '"]').addClass("active");
+            if (!loaded[name]) { loaded[name] = true; if (name === "images") loadImages(); else if (name === "registries") loadRegistries(); else if (name === "compose") loadComposeTab(); }
+        }
+        $(".dm-nav-item").on("click", function () { showSection($(this).data("section")); });
+
+        /* ============ Containers ============ */
+        var $cBody = $("#dm-c-body");
+        function stateBadge(state) {
+            var s = (state || "").toLowerCase();
+            var cls = s === "running" ? "green" : (s === "paused" || s === "restarting" || s === "created" ? "amber" : "gray");
+            return '<span class="pill ' + cls + '"><span class="dot"></span>' + DM.esc(state || "-") + '</span>';
+        }
+        function actionBtns(c) {
+            var running = (c.State || "").toLowerCase() === "running";
+            var ref = DM.esc(c.ID || c.Names), nm = DM.esc(c.Names);
+            var h = '<div class="btnrow">';
+            if (running) {
+                h += '<div class="iconbtn" title="Stop" data-act="stop" data-id="' + ref + '"><span class="ic ic-stop"></span></div>';
+                h += '<div class="iconbtn" title="Restart" data-act="restart" data-id="' + ref + '"><span class="ic ic-refresh"></span></div>';
+                h += '<div class="iconbtn" title="Console" data-act="console" data-id="' + ref + '" data-name="' + nm + '"><span class="ic ic-terminal"></span></div>';
+            } else {
+                h += '<div class="iconbtn green" title="Start" data-act="start" data-id="' + ref + '"><span class="ic ic-start"></span></div>';
+            }
+            h += '<div class="iconbtn" title="Logs" data-act="logs" data-id="' + ref + '" data-name="' + nm + '"><span class="ic ic-logs"></span></div>';
+            h += '<div class="iconbtn" title="Configure" data-act="config" data-id="' + ref + '" data-name="' + nm + '"><span class="ic ic-setting"></span></div>';
+            h += '<div class="iconbtn danger" title="Remove" data-act="remove" data-id="' + ref + '" data-name="' + nm + '"><span class="ic ic-delete"></span></div>';
+            h += '</div>';
+            return h;
+        }
+        function loadContainers() {
+            $cBody.html('<tr><td colspan="3" class="dm-empty">Loading…</td></tr>');
+            track(DM.get("containers/list", function (list) {
+                if (list && list.error) { $cBody.html('<tr><td colspan="3" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
+                if (!list || list.length === 0) { $cBody.html('<tr><td colspan="3" class="dm-empty">No containers found.</td></tr>'); return; }
+                $cBody.html(list.map(function (c) {
+                    return '<tr class="clickable" data-cid="' + DM.esc(c.ID || c.Names) + '" data-cname="' + DM.esc(c.Names) + '">' +
+                        '<td>' + stateBadge(c.State) + '</td>' +
+                        '<td><div class="dm-mono">' + DM.esc(c.Names) + '</div><div class="dm-mono" style="color:var(--dim);font-size:10.5px;">' + DM.esc(c.Image) + '</div></td>' +
+                        '<td>' + actionBtns(c) + '</td></tr>';
+                }).join(""));
+            }, function () { $cBody.html('<tr><td colspan="3" class="dm-empty">Failed to load (administrator access required).</td></tr>'); }));
+        }
+        function doAction(act, id, $btn) {
+            track(DM.post("containers/" + act, { id: id }, function (r) {
+                if (r && r.error) { DM.toast(act + " failed: " + r.error, false); return; }
+                DM.toast("Container " + act + " ok.", true); loadContainers();
+            }, function () { DM.toast(act + " request failed.", false); }), $btn);
+        }
+        function handleContainerAction(act, id, name, $btn) {
+            if (act === "logs") { openLogs(id, name); return; }
+            if (act === "console") { openConsole(id, name); return; }
+            if (act === "config") { openConfig(id, name); return; }
+            if (act === "remove") { if (!confirm("Remove container \"" + (name || id) + "\"? This force-stops and deletes it. This cannot be undone.")) return; doAction("remove", id, $btn); return; }
+            doAction(act, id, $btn);
+        }
+
+        /* logs */
+        var logSocket = null;
+        function closeLogSocket() { if (logSocket) { try { logSocket.close(); } catch (e) {} logSocket = null; } }
+        function streamLog(title, wsPath) {
+            $("#dm-log-title").text(title); $("#dm-log-output").text("");
+            openDrawer("dm-log-drawer", closeLogSocket);
+            try {
+                logSocket = new WebSocket(DM.wsURL(wsPath));
+                logSocket.onmessage = function (ev) { var o = document.getElementById("dm-log-output"); var b = o.scrollTop + o.clientHeight >= o.scrollHeight - 20; o.textContent += ev.data; if (b) o.scrollTop = o.scrollHeight; };
+                logSocket.onerror = function () { DM.toast("Log stream error.", false); };
+            } catch (e) { DM.toast("Unable to open log stream.", false); }
+        }
+        function openLogs(id, name) { streamLog(name || id, "containers/logs?id=" + encodeURIComponent(id)); }
+
+        /* details */
+        function dkv(k, v) { return '<div class="d-kv"><div class="d-k">' + k + '</div><div class="d-v">' + (v || '<span style="color:var(--dim)">—</span>') + '</div></div>'; }
+        function renderDetails(d, name, ref) {
+            if (!d) { return '<div class="dm-empty">No data.</div>'; }
+            var idShort = (d.Id || "").substring(0, 12);
+            var running = d.State && d.State.Running;
+            var cmd = (d.Config && d.Config.Cmd) ? d.Config.Cmd.join(" ") : "";
+            var html = '';
+            // action bar
+            html += '<div class="d-actions">';
+            if (running) {
+                html += '<button class="btn sm" data-dact="stop" data-id="' + DM.esc(ref) + '"><span class="ic ic-stop"></span> Stop</button>';
+                html += '<button class="btn sm" data-dact="restart" data-id="' + DM.esc(ref) + '"><span class="ic ic-refresh"></span> Restart</button>';
+                html += '<button class="btn sm" data-dact="console" data-id="' + DM.esc(ref) + '" data-name="' + DM.esc(name) + '"><span class="ic ic-terminal"></span> Console</button>';
+            } else {
+                html += '<button class="btn sm" data-dact="start" data-id="' + DM.esc(ref) + '"><span class="ic ic-start"></span> Start</button>';
+            }
+            html += '<button class="btn sm" data-dact="logs" data-id="' + DM.esc(ref) + '" data-name="' + DM.esc(name) + '"><span class="ic ic-logs"></span> Logs</button>';
+            html += '<button class="btn sm" data-dact="config" data-id="' + DM.esc(ref) + '" data-name="' + DM.esc(name) + '"><span class="ic ic-setting"></span> Configure</button>';
+            html += '<button class="btn sm danger" data-dact="remove" data-id="' + DM.esc(ref) + '" data-name="' + DM.esc(name) + '"><span class="ic ic-delete"></span> Remove</button>';
+            html += '</div>';
+            // overview
+            html += '<div class="d-grid">';
+            html += dkv("State", stateBadge(d.State && d.State.Status));
+            html += dkv("Image", '<span class="dm-mono">' + DM.esc((d.Config && d.Config.Image) || "") + '</span>');
+            html += dkv("Container ID", '<span class="dm-mono">' + DM.esc(idShort) + '</span>');
+            html += dkv("Created", DM.esc((d.Created || "").replace("T", " ").substring(0, 19)));
+            html += dkv("Restart Policy", DM.esc((d.HostConfig && d.HostConfig.RestartPolicy && d.HostConfig.RestartPolicy.Name) || "no"));
+            html += dkv("Started", DM.esc((d.State && d.State.StartedAt || "").replace("T", " ").substring(0, 19)));
+            html += '</div>';
+            if (cmd) { html += '<div class="d-sec-title">Command</div><div class="env-list">' + DM.esc(cmd) + '</div>'; }
+            // ports
+            var ports = (d.NetworkSettings && d.NetworkSettings.Ports) || {};
+            var pkeys = Object.keys(ports);
+            html += '<div class="d-sec-title">Ports</div>';
+            if (pkeys.length === 0) { html += '<div class="note">No exposed ports.</div>'; }
+            else {
+                html += '<table class="d-table"><thead><tr><th>Container Port</th><th>Protocol</th><th>Published To (host)</th></tr></thead><tbody>';
+                pkeys.forEach(function (cp) {
+                    var parts = cp.split("/"); var binds = ports[cp];
+                    var to = (binds && binds.length) ? binds.map(function (b) { return DM.esc((b.HostIp || "") + ":" + (b.HostPort || "")); }).join("<br>") : '<span style="color:var(--dim)">not published</span>';
+                    html += '<tr><td class="dm-mono">' + DM.esc(parts[0]) + '</td><td>' + DM.esc(parts[1] || "tcp") + '</td><td class="dm-mono">' + to + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            }
+            // mounts
+            var mounts = d.Mounts || [];
+            html += '<div class="d-sec-title">Mounts</div>';
+            if (mounts.length === 0) { html += '<div class="note">No mounts.</div>'; }
+            else {
+                html += '<table class="d-table"><thead><tr><th>Source</th><th>Destination</th><th>Mode</th></tr></thead><tbody>';
+                mounts.forEach(function (m) { html += '<tr><td class="dm-mono">' + DM.esc(m.Source || m.Name || "") + '</td><td class="dm-mono">' + DM.esc(m.Destination || "") + '</td><td>' + DM.esc((m.RW === false ? "ro" : (m.Mode || "rw"))) + '</td></tr>'; });
+                html += '</tbody></table>';
+            }
+            // networks
+            var nets = (d.NetworkSettings && d.NetworkSettings.Networks) || {};
+            var nkeys = Object.keys(nets);
+            if (nkeys.length) {
+                html += '<div class="d-sec-title">Networks</div><table class="d-table"><thead><tr><th>Network</th><th>IP Address</th><th>Gateway</th></tr></thead><tbody>';
+                nkeys.forEach(function (nk) { var n = nets[nk]; html += '<tr><td class="dm-mono">' + DM.esc(nk) + '</td><td class="dm-mono">' + DM.esc(n.IPAddress || "") + '</td><td class="dm-mono">' + DM.esc(n.Gateway || "") + '</td></tr>'; });
+                html += '</tbody></table>';
+            }
+            // env
+            var env = (d.Config && d.Config.Env) || [];
+            if (env.length) { html += '<div class="d-sec-title">Environment</div><div class="env-list">' + env.map(DM.esc).join("\n") + '</div>'; }
+            return html;
+        }
+        function openDetails(id, name) {
+            $("#dm-details-title").text(name || id);
+            $("#dm-details-body").html('<div class="dm-empty">Loading…</div>');
+            openDrawer("dm-details-drawer");
+            DM.get("containers/inspect?id=" + encodeURIComponent(id), function (data) {
+                if (data && data.error) { $("#dm-details-body").html('<div class="dm-empty">' + DM.esc(data.error) + '</div>'); return; }
+                var d = Array.isArray(data) ? data[0] : data;
+                $("#dm-details-body").html(renderDetails(d, name || id, id));
+            }, function () { $("#dm-details-body").html('<div class="dm-empty">Failed to load (admin only).</div>'); });
+        }
+
+        // row click -> details (ignore clicks on action buttons)
+        $cBody.on("click", "tr.clickable", function (e) {
+            if ($(e.target).closest("[data-act]").length) return;
+            openDetails(String($(this).data("cid")), String($(this).data("cname")));
+        });
+        // row action buttons
+        $cBody.on("click", "[data-act]", function (e) {
+            e.stopPropagation();
+            var $b = $(this); handleContainerAction($b.data("act"), String($b.data("id")), $b.data("name"), $b);
+        });
+        // details action buttons
+        $("#dm-details-body").on("click", "[data-dact]", function () {
+            var $b = $(this), act = $b.data("dact"), id = String($b.data("id")), name = $b.data("name");
+            if (act === "remove") { if (!confirm("Remove container \"" + (name || id) + "\"? This cannot be undone.")) return; closeAllDrawers(); doAction("remove", id); return; }
+            if (act === "logs" || act === "console" || act === "config") { handleContainerAction(act, id, name, $b); return; }
+            handleContainerAction(act, id, name, $b);
+        });
+        $("#dm-c-refresh").on("click", loadContainers);
+
+        /* ============ Images ============ */
+        var $iBody = $("#dm-i-body");
+        function loadImages() {
+            $iBody.html('<tr><td colspan="6" class="dm-empty">Loading…</td></tr>');
+            track(DM.get("images/list", function (list) {
+                if (list && list.error) { $iBody.html('<tr><td colspan="6" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
+                if (!list || list.length === 0) { $iBody.html('<tr><td colspan="6" class="dm-empty">No images found.</td></tr>'); return; }
+                $iBody.html(list.map(function (img) {
+                    var idShort = (img.ID || "").replace("sha256:", "").substring(0, 12);
+                    return '<tr><td class="dm-mono">' + DM.esc(img.Repository) + '</td><td class="dm-mono">' + DM.esc(img.Tag) + '</td><td>' + DM.esc(img.Size || "") + '</td><td>' + DM.esc(img.CreatedSince || "") + '</td><td class="dm-mono">' + DM.esc(idShort) + '</td>' +
+                        '<td><div class="btnrow"><div class="iconbtn green" title="Run" data-act="runimg" data-ref="' + DM.esc(img.Repository + ":" + img.Tag) + '"><span class="ic ic-start"></span></div><div class="iconbtn danger" title="Remove" data-act="rmi" data-id="' + DM.esc(img.ID) + '" data-name="' + DM.esc(img.Repository + ":" + img.Tag) + '"><span class="ic ic-delete"></span></div></div></td></tr>';
+                }).join(""));
+            }, function () { $iBody.html('<tr><td colspan="6" class="dm-empty">Failed to load (admin only).</td></tr>'); }));
+        }
+        var pullSocket = null;
+        function pullImage(ref) {
+            $("#dm-pull-title").text(ref); $("#dm-log-output-pull").text("Starting pull…\n");
+            openDrawer("dm-pull-drawer", function () { if (pullSocket) { try { pullSocket.close(); } catch (e) {} pullSocket = null; } loadImages(); });
+            try {
+                pullSocket = new WebSocket(DM.wsURL("images/pull?image=" + encodeURIComponent(ref)));
+                pullSocket.onmessage = function (ev) { var o = document.getElementById("dm-log-output-pull"); o.textContent += ev.data; o.scrollTop = o.scrollHeight; };
+                pullSocket.onclose = function () { document.getElementById("dm-log-output-pull").textContent += "\n[pull finished]"; };
+                pullSocket.onerror = function () { DM.toast("Pull stream error.", false); };
+            } catch (e) { DM.toast("Unable to start pull.", false); }
+        }
+        $iBody.on("click", "[data-act='rmi']", function () {
+            var $b = $(this), id = String($b.data("id")), name = $b.data("name");
+            if (!confirm("Remove image \"" + (name || id) + "\"? This cannot be undone.")) return;
+            track(DM.post("images/remove", { id: id }, function (r) { if (r && r.error) { DM.toast("Remove failed: " + r.error, false); return; } DM.toast("Image removed.", true); loadImages(); }, function () { DM.toast("Remove request failed.", false); }), $b);
+        });
+        $iBody.on("click", "[data-act='runimg']", function () { openRunDrawer({ image: String($(this).data("ref")) }, ""); });
+        $("#dm-pull-btn").on("click", function () { var ref = $("#dm-pull-ref").val().trim(); if (!ref) { DM.toast("Enter an image reference.", false); return; } pullImage(ref); });
+        $("#dm-i-refresh").on("click", loadImages);
+
+        /* ============ Registries ============ */
+        function loadRegistries() {
+            var $rb = $("#dm-r-body"); $rb.html('<tr><td class="dm-empty">Loading…</td></tr>');
+            track(DM.get("registry/list", function (list) {
+                if (list && list.error) { $rb.html('<tr><td class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
+                if (!list || list.length === 0) { $rb.html('<tr><td class="dm-empty">No registries logged in.</td></tr>'); return; }
+                $rb.html(list.map(function (reg) { return '<tr><td class="dm-mono">' + DM.esc(reg) + '</td><td style="text-align:right;"><button class="btn sm" data-logout="' + DM.esc(reg) + '">Logout</button></td></tr>'; }).join(""));
+            }, function () { $rb.html('<tr><td class="dm-empty">Failed to load (admin only).</td></tr>'); }));
+        }
+        $("#dm-login-btn").on("click", function () {
+            var $b = $(this), data = { registry: $("#dm-login-registry").val().trim(), username: $("#dm-login-user").val().trim(), password: $("#dm-login-pass").val() };
+            if (!data.username || !data.password) { DM.toast("Username and password required.", false); return; }
+            track(DM.post("registry/login", data, function (r) { if (r && r.error) { DM.toast("Login failed: " + r.error, false); return; } DM.toast("Logged in.", true); $("#dm-login-pass").val(""); loadRegistries(); }, function () { DM.toast("Login request failed.", false); }), $b);
+        });
+        $("#dm-r-body").on("click", "[data-logout]", function () {
+            var $b = $(this), reg = String($b.data("logout"));
+            track(DM.post("registry/logout", { registry: reg === "https://index.docker.io/v1/" ? "" : reg }, function (r) { if (r && r.error) { DM.toast("Logout failed: " + r.error, false); return; } DM.toast("Logged out.", true); loadRegistries(); }, function () { DM.toast("Logout request failed.", false); }), $b);
+        });
+        function doSearch() {
+            var term = $("#dm-search-term").val().trim(), $sb = $("#dm-search-body"); if (!term) return;
+            $sb.html('<tr><td colspan="3" class="dm-empty">Searching…</td></tr>');
+            track(DM.get("registry/search?term=" + encodeURIComponent(term), function (list) {
+                if (list && list.error) { $sb.html('<tr><td colspan="3" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
+                if (!list || list.length === 0) { $sb.html('<tr><td colspan="3" class="dm-empty">No results.</td></tr>'); return; }
+                $sb.html(list.map(function (sr) { var off = sr.IsOfficial && sr.IsOfficial.indexOf("OK") >= 0 ? ' <span style="color:var(--ok-text);font-size:10px;">official</span>' : ''; return '<tr><td class="dm-mono">' + DM.esc(sr.Name) + off + '</td><td>' + DM.esc(sr.StarCount || "") + '</td><td><button class="btn sm primary" data-pull="' + DM.esc(sr.Name) + '">Pull</button></td></tr>'; }).join(""));
+            }, function () { $sb.html('<tr><td colspan="3" class="dm-empty">Search failed (admin only).</td></tr>'); }), $("#dm-search-btn"));
+        }
+        $("#dm-search-btn").on("click", doSearch);
+        $("#dm-search-term").on("keydown", function (e) { if (e.key === "Enter") doSearch(); });
+        $("#dm-search-body").on("click", "[data-pull]", function () { showSection("images"); pullImage(String($(this).data("pull"))); });
+        $("#dm-r-refresh").on("click", loadRegistries);
+
+        /* ============ Run / Recreate ============ */
+        var recreateOldId = "";
+        function linesToArray(sel) { return $(sel).val().split("\n").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; }); }
+        function collectRunConfig() { return { image: $("#dm-run-image").val().trim(), name: $("#dm-run-name").val().trim(), ports: linesToArray("#dm-run-ports"), volumes: linesToArray("#dm-run-volumes"), env: linesToArray("#dm-run-env"), restartPolicy: $("#dm-run-restart").val(), network: $("#dm-run-network").val().trim(), command: $("#dm-run-command").val().trim() }; }
+        function fillRunForm(cfg) {
+            $("#dm-run-image").val(cfg.image || ""); $("#dm-run-name").val(cfg.name || "");
+            $("#dm-run-ports").val((cfg.ports || []).join("\n")); $("#dm-run-volumes").val((cfg.volumes || []).join("\n"));
+            $("#dm-run-env").val((cfg.env || []).join("\n")); $("#dm-run-network").val(cfg.network || ""); $("#dm-run-command").val(cfg.command || ""); $("#dm-run-restart").val(cfg.restartPolicy || "");
+        }
+        function openRunDrawer(prefill, oldId) {
+            recreateOldId = oldId || ""; var recreate = !!recreateOldId;
+            $("#dm-run-title").text(recreate ? "Recreate Container" : "Run Image"); $("#dm-run-warn").toggle(recreate);
+            $("#dm-run-gotext").text(recreate ? "Recreate" : "Run"); $("#dm-run-createonly").toggle(!recreate);
+            fillRunForm(prefill || {}); openDrawer("dm-run-drawer");
+        }
+        function inspectToConfig(d) {
+            var cfg = { ports: [], volumes: [], env: [] }; if (!d) return cfg;
+            cfg.image = (d.Config && d.Config.Image) || ""; cfg.name = (d.Name || "").replace(/^\//, ""); cfg.env = (d.Config && d.Config.Env) || [];
+            if (d.HostConfig) {
+                cfg.volumes = d.HostConfig.Binds || [];
+                cfg.network = d.HostConfig.NetworkMode && d.HostConfig.NetworkMode !== "default" ? d.HostConfig.NetworkMode : "";
+                if (d.HostConfig.RestartPolicy && d.HostConfig.RestartPolicy.Name && d.HostConfig.RestartPolicy.Name !== "no") cfg.restartPolicy = d.HostConfig.RestartPolicy.Name;
+                var pb = d.HostConfig.PortBindings || {};
+                Object.keys(pb).forEach(function (cp) { var spec = cp.split("/")[0], proto = cp.indexOf("/") >= 0 ? "/" + cp.split("/")[1] : ""; (pb[cp] || []).forEach(function (b) { var host = (b.HostIp ? b.HostIp + ":" : "") + (b.HostPort || ""); cfg.ports.push((host ? host + ":" : "") + spec + (proto === "/tcp" ? "" : proto)); }); });
+            }
+            return cfg;
+        }
+        function runOrRecreate(createOnly, $btn) {
+            var cfg = collectRunConfig(); if (!cfg.image) { DM.toast("Image is required.", false); return; }
+            var url = recreateOldId ? (DM.api + "containers/recreate?oldId=" + encodeURIComponent(recreateOldId)) : (DM.api + "containers/" + (createOnly ? "create" : "run"));
+            track($.ajax({ url: url, method: "POST", data: JSON.stringify(cfg), contentType: "application/json" })
+                .done(function (r) { if (r && r.error) { DM.toast("Failed: " + r.error, false); return; } DM.toast(recreateOldId ? "Container recreated." : (createOnly ? "Container created." : "Container started."), true); closeAllDrawers(); showSection("containers"); loadContainers(); })
+                .fail(function () { DM.toast("Request failed.", false); }), $btn);
+        }
+        $("#dm-run-go").on("click", function () { runOrRecreate(false, $(this)); });
+        $("#dm-run-createonly").on("click", function () { runOrRecreate(true, $(this)); });
+
+        /* ============ Config ============ */
+        var cfgRef = "";
+        function openConfig(id, name) { cfgRef = id; $("#dm-cfg-title").text(name || id); $("#dm-cfg-name").val(name || ""); $("#dm-cfg-memory").val(""); $("#dm-cfg-cpus").val(""); $("#dm-cfg-restart").val(""); openDrawer("dm-cfg-drawer"); }
+        $("#dm-cfg-rename").on("click", function () {
+            var $b = $(this), nn = $("#dm-cfg-name").val().trim(); if (!nn) { DM.toast("Enter a new name.", false); return; }
+            track(DM.post("containers/rename", { id: cfgRef, name: nn }, function (r) { if (r && r.error) { DM.toast("Rename failed: " + r.error, false); return; } DM.toast("Renamed.", true); closeAllDrawers(); loadContainers(); }, function () { DM.toast("Rename request failed.", false); }), $b);
+        });
+        $("#dm-cfg-apply").on("click", function () {
+            var $b = $(this), data = { id: cfgRef, restartPolicy: $("#dm-cfg-restart").val(), memory: $("#dm-cfg-memory").val().trim(), cpus: $("#dm-cfg-cpus").val().trim() };
+            if (!data.restartPolicy && !data.memory && !data.cpus) { DM.toast("Nothing to update.", false); return; }
+            track(DM.post("containers/update", data, function (r) { if (r && r.error) { DM.toast("Update failed: " + r.error, false); return; } DM.toast("Updated.", true); closeAllDrawers(); loadContainers(); }, function () { DM.toast("Update request failed.", false); }), $b);
+        });
+        $("#dm-cfg-recreate").on("click", function () {
+            var ref = cfgRef; closeAllDrawers();
+            DM.get("containers/inspect?id=" + encodeURIComponent(ref), function (data) { var d = Array.isArray(data) ? data[0] : data; openRunDrawer(inspectToConfig(d), ref); }, function () { openRunDrawer({}, ref); });
+        });
+
+        /* ============ Compose ============ */
+        var $stackBody = $("#dm-stack-body"); var aceEditor = null, composeUnavailable = false;
+        function ensureEditor() { if (aceEditor) return aceEditor; aceEditor = ace.edit("dm-stack-editor"); aceEditor.session.setMode("ace/mode/yaml"); aceEditor.setOptions({ fontSize: "13px", showPrintMargin: false, tabSize: 2, useSoftTabs: true }); aceEditor.setTheme(document.body.classList.contains("dark") ? "ace/theme/monokai" : "ace/theme/chrome"); return aceEditor; }
+        function loadStacks() {
+            $stackBody.html('<tr><td colspan="4" class="dm-empty">Loading…</td></tr>');
+            track(DM.get("compose/list", function (list) {
+                if (list && list.error) { $stackBody.html('<tr><td colspan="4" class="dm-empty">' + DM.esc(list.error) + '</td></tr>'); return; }
+                if (!list || list.length === 0) { $stackBody.html('<tr><td colspan="4" class="dm-empty">No stacks yet. Click "New Stack" to create one.</td></tr>'); return; }
+                $stackBody.html(list.map(function (s) {
+                    var sb = s.running ? '<span class="pill green"><span class="dot"></span>running</span>' : '<span class="pill gray"><span class="dot"></span>stopped</span>';
+                    var n = DM.esc(s.name);
+                    var auto = (s.disabled ? '<span style="color:var(--dim);">disabled</span>' : '<span style="color:var(--ok-text);">enabled</span>') + ' <button class="btn sm" data-sact="toggle" data-name="' + n + '" data-disabled="' + (s.disabled ? "1" : "0") + '">' + (s.disabled ? "Enable" : "Disable") + '</button>';
+                    return '<tr><td class="dm-mono">' + n + '</td><td>' + sb + '</td><td>' + auto + '</td>' +
+                        '<td><div class="btnrow">' +
+                        '<div class="iconbtn" title="Edit" data-sact="edit" data-name="' + n + '"><span class="ic ic-edit"></span></div>' +
+                        '<div class="iconbtn green" title="Deploy" data-sact="deploy" data-name="' + n + '"><span class="ic ic-start"></span></div>' +
+                        '<div class="iconbtn" title="Stop" data-sact="down" data-name="' + n + '"><span class="ic ic-stop"></span></div>' +
+                        '<div class="iconbtn" title="Logs" data-sact="logs" data-name="' + n + '"><span class="ic ic-logs"></span></div>' +
+                        '<div class="iconbtn danger" title="Delete" data-sact="delete" data-name="' + n + '"><span class="ic ic-delete"></span></div>' +
+                        '</div></td></tr>';
+                }).join(""));
+            }, function () { $stackBody.html('<tr><td colspan="4" class="dm-empty">Failed to load (admin only).</td></tr>'); }));
+        }
+        function openStackEditor(name, content) {
+            $("#dm-stack-modal-title").text(name ? ("Edit Stack: " + name) : "New Stack"); $("#dm-stack-name").val(name || "").prop("disabled", !!name);
+            $("#dm-stack-validate-msg").hide(); $("#dm-stack-status").text(""); openDrawer("dm-stack-drawer");
+            setTimeout(function () { var ed = ensureEditor(); ed.setValue(content || "services:\n  app:\n    image: nginx:alpine\n    ports:\n      - \"8080:80\"\n", -1); ed.resize(); }, 80);
+        }
+        function currentStackPayload() { return { name: $("#dm-stack-name").val().trim(), content: aceEditor ? aceEditor.getValue() : "" }; }
+        function showValidateMsg(ok, text) { $("#dm-stack-validate-msg").removeClass("ok err").addClass(ok ? "ok" : "err").html("<div>" + DM.esc(text) + "</div>").show(); }
+        function setStackStatus(t) { $("#dm-stack-status").text(t || ""); }
+        function saveStack(thenDeploy, $btn) {
+            var payload = currentStackPayload(); if (!payload.name) { DM.toast("Stack name is required.", false); return; }
+            setStackStatus("Validating & saving…");
+            track($.ajax({ url: DM.api + "compose/save", method: "POST", data: JSON.stringify(payload), contentType: "application/json" })
+                .done(function (r) {
+                    if (r && r.error) { setStackStatus(""); showValidateMsg(false, r.error); return; }
+                    if (thenDeploy) {
+                        setStackStatus("Deploying… pulling images may take a while.");
+                        track(DM.post("compose/deploy", { name: payload.name }, function (rr) { setStackStatus(""); if (rr && rr.error) { DM.toast("Deploy failed: " + rr.error, false); return; } DM.toast("Stack deployed.", true); closeAllDrawers(); loadStacks(); }, function () { setStackStatus(""); DM.toast("Deploy request failed.", false); }), $btn);
+                    } else { setStackStatus(""); DM.toast("Stack saved.", true); closeAllDrawers(); loadStacks(); }
+                })
+                .fail(function () { setStackStatus(""); DM.toast("Save request failed.", false); }), thenDeploy ? null : $btn);
+        }
+        function validateStack() {
+            var payload = currentStackPayload(); if (!payload.name) { DM.toast("Stack name is required to validate.", false); return; }
+            track($.ajax({ url: DM.api + "compose/save", method: "POST", data: JSON.stringify(payload), contentType: "application/json" })
+                .done(function (r) { if (r && r.error) showValidateMsg(false, r.error); else { showValidateMsg(true, "Compose file is valid and saved."); loadStacks(); } })
+                .fail(function () { DM.toast("Validate request failed.", false); }), $("#dm-stack-validate"));
+        }
+        $("#dm-stack-new").on("click", function () { if (composeUnavailable) return; openStackEditor("", ""); });
+        $("#dm-stack-refresh").on("click", loadStacks);
+        $("#dm-stack-validate").on("click", validateStack);
+        $("#dm-stack-save").on("click", function () { saveStack(false, $(this)); });
+        $("#dm-stack-savedeploy").on("click", function () { saveStack(true, $(this)); });
+        $stackBody.on("click", "[data-sact]", function () {
+            var $b = $(this), act = $b.data("sact"), name = String($b.data("name"));
+            if (act === "edit") { track(DM.get("compose/get?name=" + encodeURIComponent(name), function (r) { if (r && r.error) { DM.toast(r.error, false); return; } openStackEditor(name, r.content); }, function () { DM.toast("Failed to load stack.", false); }), $b); return; }
+            if (act === "logs") { streamLog("stack: " + name, "compose/logs?name=" + encodeURIComponent(name)); return; }
+            if (act === "toggle") { var disabled = String($b.data("disabled")) === "1"; track(DM.post("compose/disable", { name: name, disabled: disabled ? "false" : "true" }, function (r) { if (r && r.error) { DM.toast(r.error, false); return; } loadStacks(); }, function () { DM.toast("Toggle failed.", false); }), $b); return; }
+            if (act === "delete") { if (!confirm("Delete stack \"" + name + "\"? This stops its containers and deletes the stack files. This cannot be undone.")) return; track(DM.post("compose/delete", { name: name }, function (r) { if (r && r.error) { DM.toast("Delete failed: " + r.error, false); return; } DM.toast("Stack deleted.", true); loadStacks(); }, function () { DM.toast("Delete request failed.", false); }), $b); return; }
+            if (act === "down" && !confirm("Stop stack \"" + name + "\"? This removes its running containers (the stack files are kept).")) return;
+            if (act === "deploy") DM.toast("Deploying stack… this can take a while.", null);
+            track(DM.post("compose/" + act, { name: name }, function (r) { if (r && r.error) { DM.toast(act + " failed: " + r.error, false); return; } DM.toast("Stack " + act + " ok.", true); loadStacks(); }, function () { DM.toast(act + " request failed.", false); }), $b);
+        });
+        function loadComposeTab() {
+            DM.get("engine/status", function (st) { composeUnavailable = !(st && st.composeAvailable); $("#dm-compose-unavail").toggle(composeUnavailable); $("#dm-stack-card").toggle(!composeUnavailable); $("#dm-stack-new").prop("disabled", composeUnavailable); if (!composeUnavailable) loadStacks(); }, function () { loadStacks(); });
+        }
+
+        /* ============ Console ============ */
+        var consoleSocket = null, term = null, fitAddon = null, consoleRef = "", consoleName = "";
+        function disposeConsole() { if (consoleSocket) { try { consoleSocket.close(); } catch (e) {} consoleSocket = null; } if (term) { try { term.dispose(); } catch (e) {} term = null; } fitAddon = null; }
+        function sendResize() { if (term && consoleSocket && consoleSocket.readyState === 1) consoleSocket.send(JSON.stringify({ type: "resize", rows: term.rows, cols: term.cols })); }
+        function connectConsole() {
+            if (consoleSocket) { try { consoleSocket.close(); } catch (e) {} consoleSocket = null; }
+            if (term) { try { term.dispose(); } catch (e) {} term = null; }
+            var shell = $("#dm-console-shell").val() || "sh";
+            term = new Terminal({ cursorBlink: true, fontSize: 13, theme: { background: "#0f1419", foreground: "#d6e2ef" } });
+            fitAddon = new FitAddon.FitAddon(); term.loadAddon(fitAddon);
+            term.open(document.getElementById("dm-console-term"));
+            setTimeout(function () { try { fitAddon.fit(); } catch (e) {} term.focus(); }, 130);
+            consoleSocket = new WebSocket(DM.wsURL("console/exec?id=" + encodeURIComponent(consoleRef) + "&shell=" + encodeURIComponent(shell)));
+            consoleSocket.binaryType = "arraybuffer";
+            consoleSocket.onopen = function () { sendResize(); };
+            consoleSocket.onmessage = function (ev) { if (typeof ev.data === "string") term.write(ev.data); else term.write(new Uint8Array(ev.data)); };
+            consoleSocket.onclose = function () { if (term) term.write("\r\n[session closed]\r\n"); };
+            consoleSocket.onerror = function () { DM.toast("Console connection error.", false); };
+            term.onData(function (d) { if (consoleSocket && consoleSocket.readyState === 1) consoleSocket.send(new TextEncoder().encode(d)); });
+            term.onResize(function () { sendResize(); });
+        }
+        function openConsole(id, name) {
+            consoleRef = id; consoleName = name || id; $("#dm-console-title").text(consoleName);
+            $("#dm-console-popout").toggle(!!inDesktop);
+            openDrawer("dm-console-drawer", disposeConsole);
+            setTimeout(connectConsole, 180);
+        }
+        $("#dm-console-popout").on("click", function () {
+            var shell = $("#dm-console-shell").val() || "sh";
+            var url = "DockerManager/console.html?id=" + encodeURIComponent(consoleRef) + "&shell=" + encodeURIComponent(shell) + "&name=" + encodeURIComponent(consoleName);
+            if (typeof ao_module_newfw === "function") {
+                ao_module_newfw({ url: url, width: 900, height: 600, appicon: "DockerManager/img/icon.svg", title: "Console: " + consoleName });
+            } else { window.open("../" + url, "_blank"); }
+            closeDrawer();
+        });
+        $(window).on("resize", function () { if (fitAddon && term && $("#dm-console-drawer").hasClass("open")) { try { fitAddon.fit(); } catch (e) {} } });
+        $("#dm-console-connect").on("click", connectConsole);
+
+        /* ============ Host resource overview ============ */
+        var statHist = { cpu: [], ram: [], storage: [], load: [] };
+        function fmtGB(b) { if (!b || b < 0) return "0 GB"; return (b / 1073741824).toFixed(2) + " GB"; }
+        function pushHist(k, v) { var a = statHist[k]; a.push(v); if (a.length > 40) a.shift(); }
+        function renderSpark(svgId, arr, max) {
+            var svg = document.getElementById(svgId); if (!svg) return;
+            if (arr.length < 2) { svg.innerHTML = ""; return; }
+            var m = (max != null) ? max : Math.max.apply(null, arr.concat([1])); if (m <= 0) m = 1;
+            var n = arr.length;
+            var pts = arr.map(function (v, i) { var x = (i / (n - 1)) * 100; var y = 23 - Math.max(0, Math.min(1, v / m)) * 21; return x.toFixed(1) + "," + y.toFixed(1); });
+            svg.innerHTML = '<polygon class="fillarea" points="0,24 ' + pts.join(" ") + ' 100,24"></polygon><polyline points="' + pts.join(" ") + '"></polyline>';
+        }
+        function loadHostStats() {
+            DM.get("host/stats", function (s) {
+                if (!s || s.error) return;
+                $("#st-cpu").text((s.cpuPercent || 0).toFixed(1) + "%");
+                $("#st-cpu-sub").text((s.cpuCores || 0) + " cores");
+                pushHist("cpu", s.cpuPercent || 0);
+                $("#st-ram").text((s.ramPercent || 0).toFixed(1) + "%");
+                $("#st-ram-sub").text(fmtGB(s.ramUsed) + " / " + fmtGB(s.ramTotal));
+                pushHist("ram", s.ramPercent || 0);
+                if (s.storageAvailable) {
+                    $("#st-storage").text((s.storagePercent || 0).toFixed(1) + "%");
+                    $("#st-storage-sub").text(fmtGB(s.storageUsed) + " / " + fmtGB(s.storageTotal));
+                    pushHist("storage", s.storagePercent || 0);
+                } else { $("#st-storage").text("n/a"); $("#st-storage-sub").text("unavailable"); }
+                if (s.loadAvailable) {
+                    $("#st-load").html((s.load1 || 0).toFixed(2) + ' <small>1m</small>');
+                    $("#st-load-sub").text("5m " + (s.load5 || 0).toFixed(2) + "   15m " + (s.load15 || 0).toFixed(2));
+                    pushHist("load", s.load1 || 0);
+                } else { $("#st-load").text("n/a"); $("#st-load-sub").text("unavailable"); }
+                renderSpark("sp-cpu", statHist.cpu, 100);
+                renderSpark("sp-ram", statHist.ram, 100);
+                renderSpark("sp-storage", statHist.storage, 100);
+                renderSpark("sp-load", statHist.load, null);
+            });
+        }
+        loadHostStats();
+        setInterval(loadHostStats, 4000);
+
+        loadContainers();
+    })();
+    </script>
+</body>
+
+</html>

@@ -299,7 +299,7 @@ PS.bindWorkspaceEvents = function () {
         }
 
         if (PS.selTransform.dragging) {
-            PS.selTransform.onMove(PS.cursorPos);
+            PS.selTransform.onMove(PS.cursorPos, e);
             return;
         }
 

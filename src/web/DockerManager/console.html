@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="script/xterm/xterm.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="script/dockermanager.js"></script>
+    <script src="script/xterm/xterm.js"></script>
+    <script src="script/xterm/xterm-addon-fit.js"></script>
+    <title>Docker Console</title>
+    <style>
+        html, body { height:100%; margin:0; background:#0f1419; overflow:hidden; }
+        #bar { display:flex; align-items:center; gap:10px; padding:7px 12px; background:#171c22; border-bottom:1px solid #222;
+            font-family:-apple-system, 'Segoe UI', system-ui, sans-serif; color:#cdd6df; font-size:12.5px; }
+        #bar .warn { color:#ff6b5e; font-weight:600; }
+        #bar select, #bar button { background:#222a33; color:#cdd6df; border:1px solid #333; border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer; }
+        #term { position:absolute; top:38px; left:0; right:0; bottom:0; padding:6px 10px; overflow:hidden; background:#0f1419; }
+    </style>
+</head>
+
+<body>
+    <div id="bar">
+        <span class="warn">Live container shell</span>
+        <span id="cname" style="font-family:ui-monospace,Menlo,Consolas,monospace;"></span>
+        <span style="margin-left:auto;">Shell:</span>
+        <select id="shell"><option value="sh">sh</option><option value="bash">bash</option></select>
+        <button id="reconnect">Reconnect</button>
+    </div>
+    <div id="term"></div>
+
+    <script>
+    (function () {
+        function qp(name) { var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search); return m ? decodeURIComponent(m[1]) : ""; }
+        var id = qp("id"), name = qp("name") || id;
+        document.getElementById("cname").textContent = name;
+        if (qp("shell")) document.getElementById("shell").value = qp("shell");
+        if (typeof ao_module_setWindowTitle === "function") { try { ao_module_setWindowTitle("Console: " + name); } catch (e) {} }
+
+        var socket = null, term = null, fit = null;
+        function sendResize() { if (term && socket && socket.readyState === 1) socket.send(JSON.stringify({ type: "resize", rows: term.rows, cols: term.cols })); }
+        function connect() {
+            if (socket) { try { socket.close(); } catch (e) {} socket = null; }
+            if (term) { try { term.dispose(); } catch (e) {} term = null; }
+            term = new Terminal({ cursorBlink: true, fontSize: 13, theme: { background: "#0f1419", foreground: "#d6e2ef" } });
+            fit = new FitAddon.FitAddon(); term.loadAddon(fit);
+            term.open(document.getElementById("term"));
+            setTimeout(function () { try { fit.fit(); } catch (e) {} term.focus(); }, 60);
+            socket = new WebSocket(DM.wsURL("console/exec?id=" + encodeURIComponent(id) + "&shell=" + encodeURIComponent(document.getElementById("shell").value || "sh")));
+            socket.binaryType = "arraybuffer";
+            socket.onopen = function () { sendResize(); };
+            socket.onmessage = function (ev) { if (typeof ev.data === "string") term.write(ev.data); else term.write(new Uint8Array(ev.data)); };
+            socket.onclose = function () { if (term) term.write("\r\n[session closed]\r\n"); };
+            term.onData(function (d) { if (socket && socket.readyState === 1) socket.send(new TextEncoder().encode(d)); });
+            term.onResize(sendResize);
+        }
+        window.addEventListener("resize", function () { if (fit && term) { try { fit.fit(); } catch (e) {} } });
+        window.addEventListener("beforeunload", function () { if (socket) { try { socket.close(); } catch (e) {} } });
+        document.getElementById("reconnect").addEventListener("click", connect);
+        if (id) connect(); else document.getElementById("term").textContent = "Missing container id.";
+    })();
+    </script>
+</body>
+
+</html>

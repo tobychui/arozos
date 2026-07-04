@@ -521,6 +521,35 @@ PS.selTransform = (function () {
                  w: Math.round(r - x), h: Math.round(bot - y) };
     }
 
+    // Re-shape freely-computed bounds so they keep the original aspect ratio
+    // (Shift held). Corner handles anchor the opposite corner; edge handles
+    // derive the other dimension and stay centered on the untouched axis.
+    function constrainAspect(handle, orig, nb) {
+        var MIN = 2;
+        var ratio = orig.w / (orig.h || 1);
+        var w2, h2, x, y;
+
+        if (handle.length === 2) {
+            // corner: uniform scale driven by the dominant axis
+            var s = Math.max(nb.w / orig.w, nb.h / orig.h);
+            w2 = Math.max(MIN, Math.round(orig.w * s));
+            h2 = Math.max(MIN, Math.round(orig.h * s));
+            x = (handle.indexOf("w") >= 0) ? orig.x + orig.w - w2 : orig.x;
+            y = (handle.indexOf("n") >= 0) ? orig.y + orig.h - h2 : orig.y;
+        } else if (handle === "e" || handle === "w") {
+            w2 = Math.max(MIN, nb.w);
+            h2 = Math.max(MIN, Math.round(w2 / ratio));
+            x = nb.x;
+            y = Math.round(orig.y + orig.h / 2 - h2 / 2);
+        } else {
+            h2 = Math.max(MIN, nb.h);
+            w2 = Math.max(MIN, Math.round(h2 * ratio));
+            y = nb.y;
+            x = Math.round(orig.x + orig.w / 2 - w2 / 2);
+        }
+        return { x: x, y: y, w: w2, h: h2 };
+    }
+
     // Scale origMask (doc-sized) from origBounds region to newBounds
     function scaleMask(origMask, origBounds, newBounds) {
         var mask = PS.makeMaskCanvas();
@@ -593,11 +622,16 @@ PS.selTransform = (function () {
         },
 
         // Call on pointermove while dragging; updates live selection +
-        // (when possible) a live preview of the scaled content
-        onMove: function (pt) {
+        // (when possible) a live preview of the scaled content. Holding
+        // Shift keeps the selection's original aspect ratio while it is
+        // held, releasing it mid-drag returns to free scaling.
+        onMove: function (pt, e) {
             if (!state) { return; }
             var delta = { x: pt.x - state.startPt.x, y: pt.y - state.startPt.y };
             var nb = computeBounds(state.handle, state.origBounds, delta);
+            if (e && e.shiftKey) {
+                nb = constrainAspect(state.handle, state.origBounds, nb);
+            }
             state.lastBounds = nb;
             var mask = scaleMask(state.origMask, state.origBounds, nb);
             state.lastMask = mask;

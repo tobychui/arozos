@@ -143,6 +143,7 @@ func RunStartup() {
 	AdvanceSettingInit()      //System Advance Settings
 	AIModelSettingInit()      //AI Model (OpenAI / Anthropic) config, pricing, quota & usage metrics
 	CNNInferenceSettingInit() //CXNNAIO vision-inference server config & connectivity test
+	DockerServiceInit()       //Docker container/image/compose management, only if Docker detected on host
 	AGIRuntimeManagerInit()   //AGI VM lifecycle monitor (Developer Options tab)
 	StartupFlagsInit()        //System BootFlag settibg
 	HardwarePowerInit()       //Start host power manager
