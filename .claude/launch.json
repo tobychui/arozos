@@ -8,6 +8,12 @@
       "port": 8123
     },
     {
+      "name": "webroot-static-alt",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8126", "--directory", "src/web"],
+      "port": 8126
+    },
+    {
       "name": "framework-static",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8124", "--directory", "src/framework"],
