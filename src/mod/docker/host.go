@@ -6,8 +6,8 @@ package docker
 	Lightweight host resource snapshot for the Docker Manager overview cards
 	(CPU / RAM / Storage / Load). CPU and RAM reuse the shared usageinfo monitor;
 	storage and load average are read via build-tagged platform helpers
-	(host_linux.go / host_darwin.go / host_windows.go) so each platform reports
-	what it can and the rest degrade to "unavailable".
+	(host_linux.go / host_bsd.go / host_windows.go / host_other.go) so each
+	platform reports what it can and the rest degrade to "unavailable".
 */
 
 import (
