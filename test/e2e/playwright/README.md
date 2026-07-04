@@ -35,9 +35,30 @@ test/e2e/playwright/
     ├── 030-file-explorer.js  File Manager UI + full file lifecycle:
     │                     create/rename/copy/move/properties/trash, CSRF
     ├── 040-system-settings.js  System Setting UI + settings catalogue
-    └── 050-users-permissions.js  group + user CRUD, module visibility,
-                          admin-only endpoint enforcement
+    ├── 050-users-permissions.js  group + user CRUD, module visibility,
+    │                     admin-only endpoint enforcement
+    └── 060-webapps-core.js  WebApp wave 1: NotepadA (incl. real file
+                          open), Text, Photo, Music, Video, PDF Viewer,
+                          Zip File Manager
 ```
+
+## WebApp coverage roadmap
+
+All 44 WebApps under `src/web` were inventoried (name, group, file
+associations) and ranked; waves land in this order:
+
+1. **Core daily drivers** *(covered by `060-webapps-core.js`)* -
+   NotepadA, Text, Photo, Music, Video, PDF Viewer, Zip File Manager -
+   the default openers for everyday file types.
+2. **Office / productivity** - Code Studio, MDEditor, Calendar, Notes,
+   Memo, Reminders, OfficeViewer, Dashboard (alt interface module).
+3. **Media / creative** - Musicify, Movie, Manga, Paint, Pixel Studio,
+   Audio Studio, Camera, Recorder, FFmpeg Factory (Cine Studio already
+   has its own deep static suite).
+4. **Utilities / dev / network** - Calculator, Clock, Browser,
+   Speedtest, Web Downloader, Web Builder, SQLite Admin, Terminal,
+   AGIForge, Serverless, AIChat, OTPAuth, Productivity,
+   OnScreenKeyboard, Arozcast, Management Gateway, UnitTest, CronDemo.
 
 ## How the system suite works
 
