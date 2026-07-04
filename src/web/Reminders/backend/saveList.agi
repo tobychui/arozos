@@ -1,0 +1,38 @@
+/*
+    Reminders - Save (create or update) a single list.
+    POST: listData (JSON string of a list object)
+*/
+requirelib("filelib");
+
+var dataPath = "user:/Document/Reminders/data.json";
+
+var ls;
+try {
+    ls = JSON.parse(listData);
+} catch (e) {
+    sendJSONResp({ error: "Invalid list data" });
+}
+
+if (ls) {
+    if (!ls.id || ls.id === "") {
+        var ts = new Date().getTime();
+        ls.id = "ls_" + ts.toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    var data = { lists: [], reminders: [] };
+    if (filelib.fileExists(dataPath)) {
+        try {
+            var parsed = JSON.parse(filelib.readFile(dataPath));
+            if (parsed && Array.isArray(parsed.lists) && Array.isArray(parsed.reminders)) data = parsed;
+        } catch (e) {}
+    }
+
+    var found = false;
+    for (var i = 0; i < data.lists.length; i++) {
+        if (data.lists[i].id === ls.id) { data.lists[i] = ls; found = true; break; }
+    }
+    if (!found) data.lists.push(ls);
+
+    filelib.writeFile(dataPath, JSON.stringify(data));
+    sendJSONResp({ ok: true, id: ls.id });
+}

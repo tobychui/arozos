@@ -145,13 +145,21 @@
                         <div class="item" data-value="smb">SMB</div>
                         <div class="item" data-value="ftp">FTP</div>
                         <div class="item" data-value="sftp">SFTP</div>
+                        <div class="item" data-value="s3">S3 / S3-Compatible</div>
                     </div>
                 </div>
             </div>
             <div class="localfs">
                 <div class="field">
                     <label>Mount Device</label>
-                    <input type="text" name="mountdev" placeholder="e.g. /dev/sda1">
+                    <div class="ui action input">
+                        <input type="text" name="mountdev" placeholder="e.g. /dev/sda1">
+                        <button class="ui button" type="button" onclick="showDevicePicker();"><i class="search icon"></i> Browse</button>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Partition UUID <small style="font-weight:normal;color:#888;">(recommended for USB drives &mdash; survives device renames across reboots)</small></label>
+                    <input type="text" name="diskuuid" id="diskuuidInput" placeholder="Auto-filled when using Browse, or paste manually">
                 </div>
                 <div class="field">
                     <label>Mount Point</label>
@@ -168,15 +176,32 @@
             <div class="networkfs" style="display:none;">
                 <div class="ui divider"></div>
                 <p>Security and Authentication</p>
+
+                <!-- S3-specific path format and credential guide (shown only for s3 type) -->
+                <div class="s3hint" style="display:none;">
+                    <div class="ui info message" style="margin-bottom:1em;">
+                        <div class="header"><i class="cloud icon"></i> S3 / S3-Compatible Storage</div>
+                        <p><b>Path format:</b></p>
+                        <ul>
+                            <li><code>s3.amazonaws.com/my-bucket</code> &mdash; AWS S3</li>
+                            <li><code>s3.us-west-2.amazonaws.com/my-bucket/prefix</code> &mdash; AWS S3 with region &amp; prefix</li>
+                            <li><code>http://192.168.1.100:9000/my-bucket</code> &mdash; MinIO (local, no SSL)</li>
+                            <li><code>s3.wasabisys.com/my-bucket</code> &mdash; Wasabi</li>
+                            <li><code>&lt;account&gt;.r2.cloudflarestorage.com/my-bucket</code> &mdash; Cloudflare R2</li>
+                        </ul>
+                        <p>Prepend <code>http://</code> to disable SSL (e.g. local MinIO). HTTPS is used by default.</p>
+                    </div>
+                </div>
+
                 <div class="field">
-                    <label>Username</label>
-                    <input type="text" name="username" placeholder="">
+                    <label id="usernameLabel">Username</label>
+                    <input type="text" name="username" id="usernameInput" placeholder="">
                 </div>
                 <div class="field">
-                    <label>Password</label>
-                    <input type="password" name="password" placeholder="">
+                    <label id="passwordLabel">Password</label>
+                    <input type="password" name="password" id="passwordInput" placeholder="">
                 </div>
-                <small>Leave Username / Password field empty for using the old config</small>
+                <small id="authHint">Leave Username / Password field empty for using the old config</small>
                 <br><br>
             </div>
             <button class="ui right floated button" onclick='handleCancel();'>Cancel</button>
@@ -184,11 +209,29 @@
             <br><br><br><br>
         </form>
     </div>
+    <!-- Device Picker Modal -->
+    <div class="ui modal" id="devicePickerModal">
+        <div class="header"><i class="hdd icon"></i> Select a Partition</div>
+        <div class="scrolling content" style="max-height:60vh;">
+            <div id="devicePickerContent">
+                <div class="ui active centered inline loader"></div>
+            </div>
+        </div>
+        <div class="actions">
+            <div class="ui deny button"><i class="times icon"></i> Cancel</div>
+        </div>
+    </div>
+
     <script>
         //Get target fsh uuid and group from hash
         var targetFSH = "";
         var opr = "set";
-        $(".ui.dropdown").dropdown();
+        // Initialise all dropdowns; wire the filesystem-type dropdown to the
+        // change handler so the S3 / local-fs sections toggle correctly.
+        $(".ui.dropdown").not("#fstype").dropdown();
+        $("#fstype").dropdown({
+            onChange: function(value){ handleFileSystemTypeChange(value); }
+        });
         $(".ui.checkbox").checkbox();
 
         $(document).ready(function(){
@@ -269,11 +312,15 @@
 
         function checkPathProtocol(object){
             var newPath = $(object).val();
-            if (newPath.startsWith("http://") || newPath.startsWith("https://")){
-                //WebDAV
-                $("#fstype").dropdown("set selected", "webdav");
-                //newPath = newPath.replace("http://", "");
-                //newPath = newPath.replace("https://", "");
+            if (newPath.startsWith("s3://")){
+                //S3-compatible (strip scheme, keep endpoint/bucket/prefix)
+                $("#fstype").dropdown("set selected", "s3");
+                newPath = newPath.replace("s3://", "");
+                $(object).val(newPath);
+            }else if (newPath.startsWith("http://") || newPath.startsWith("https://")){
+                // http(s):// is ambiguous — it could be WebDAV or an explicit
+                // S3-compatible endpoint (e.g. http://minio:9000/bucket).
+                // Do not auto-select a filesystem type; let the user choose.
                 $(object).val(newPath);
             }else if (newPath.startsWith("ftp://")){
                 //FTP
@@ -313,11 +360,30 @@
                 $(".localfs").show();
                 $(".networkfs").hide();
             }
+
+            // S3-specific credential labels and hint panel
+            if (fstype === "s3"){
+                $(".s3hint").show();
+                $("#usernameLabel").text("Access Key ID");
+                $("#passwordLabel").text("Secret Access Key");
+                $("#usernameInput").attr("placeholder", "e.g. AKIAIOSFODNN7EXAMPLE");
+                $("#passwordInput").attr("placeholder", "e.g. wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLE");
+                $("#authHint").text("Enter your S3 Access Key ID and Secret Access Key.");
+                $("input[name=path]").attr("placeholder", "e.g. s3.amazonaws.com/my-bucket or http://192.168.1.100:9000/my-bucket");
+            }else{
+                $(".s3hint").hide();
+                $("#usernameLabel").text("Username");
+                $("#passwordLabel").text("Password");
+                $("#usernameInput").attr("placeholder", "");
+                $("#passwordInput").attr("placeholder", "");
+                $("#authHint").text("Leave Username / Password field empty for using the old config");
+                $("input[name=path]").attr("placeholder", "e.g. /media/mydrive");
+            }
         }
 
         function isNetworkFs(name){
             name = name.trim();
-            if (name == "webdav" || name == "smb" || name == "ftp" || name == "sftp"){
+            if (name == "webdav" || name == "smb" || name == "ftp" || name == "sftp" || name == "s3"){
                 return true;
             }
             return false;
@@ -338,10 +404,91 @@
             handleFileSystemTypeChange(option.filesystem);
             $("input[name=mountdev]").val(option.mountdev);
             $("input[name=mountpt]").val(option.mountpt);
-            if (option.automount == true){
-                //$("input[name=automount]")[0].checked = true;
-                $("#automount").parent().checkbox("set checked");
+            if (option.diskuuid){
+                $('#diskuuidInput').val(option.diskuuid);
             }
+            if (option.automount == true){
+                //$('input[name=automount]')[0].checked = true;
+                $('#automount').parent().checkbox('set checked');
+            }
+        }
+
+        /* ── Device Picker ──────────────────────────────────────────────── */
+
+        function _bytesToSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function showDevicePicker() {
+            $('#devicePickerContent').html('<div class="ui active centered inline loader" style="margin:2em auto;"></div>');
+            $('#devicePickerModal').modal('show');
+
+            $.get('../../system/disk/diskmg/devices', function(data) {
+                if (!data || data.error) {
+                    $('#devicePickerContent').html('<div class="ui error message">' + (data && data.error ? data.error : 'Failed to load devices') + '</div>');
+                    return;
+                }
+                if (data.length === 0) {
+                    $('#devicePickerContent').html('<div class="ui warning message">No block devices found.</div>');
+                    return;
+                }
+
+                var html = '<div class="ui middle aligned divided list">';
+                data.forEach(function(disk) {
+                    html += '<div class="item" style="padding:10px 0;">';
+                    html += '<div style="font-weight:bold; margin-bottom:6px;"><i class="hdd icon"></i>' + disk.name;
+                    if (disk.model) html += ' <span style="color:#888; font-weight:normal;">(' + disk.model + ')</span>';
+                    html += ' &mdash; ' + _bytesToSize(disk.size) + '</div>';
+
+                    if (disk.partitions && disk.partitions.length > 0) {
+                        disk.partitions.forEach(function(part) {
+                            var escapedDev  = part.devpath.replace(/'/g, "\\'");
+                            var escapedUUID = (part.uuid  || '').replace(/'/g, "\\'");
+                            var escapedFs   = (part.fstype || '').replace(/'/g, "\\'");
+                            html += '<div class="ui segment" style="cursor:pointer; margin:3px 0; padding:8px 12px;" '
+                                  + 'onclick="selectPartition(\'' + escapedDev + '\',\'' + escapedUUID + '\',\'' + escapedFs + '\')">';
+                            html += '<div><i class="file outline icon"></i><b>' + part.name + '</b> (' + _bytesToSize(part.size) + ')';
+                            if (part.label) html += ' <span style="color:#666;">\u201c' + part.label + '\u201d</span>';
+                            html += '</div>';
+                            html += '<div style="margin-top:4px; font-size:90%; color:#666;">';
+                            if (part.fstype)     html += '<span><i class="database icon"></i>' + part.fstype + '</span>&nbsp;&nbsp;';
+                            if (part.uuid)       html += '<span style="font-family:monospace;"><i class="key icon"></i>' + part.uuid + '</span>';
+                            if (part.mountpoint) html += '&nbsp;&nbsp;<span><i class="map marker alternate icon"></i>' + part.mountpoint + '</span>';
+                            if (!part.fstype && !part.uuid) html += '<span style="color:#aaa;">Unformatted / no filesystem detected</span>';
+                            html += '</div></div>';
+                        });
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+                $('#devicePickerContent').html(html);
+            }).fail(function() {
+                $('#devicePickerContent').html('<div class="ui error message">Could not reach the server. Is hardware management enabled?</div>');
+            });
+        }
+
+        function selectPartition(devpath, uuid, fstype) {
+            $('input[name=mountdev]').val(devpath);
+            if (uuid) {
+                $('#diskuuidInput').val(uuid);
+            }
+            if (fstype && fstype !== '') {
+                var fstypeMap = {
+                    'ntfs': 'ntfs', 'ntfs-3g': 'ntfs',
+                    'ext4': 'ext4', 'ext3': 'ext3', 'ext2': 'ext4',
+                    'vfat': 'vfat', 'fat': 'vfat', 'fat32': 'vfat',
+                    'btrfs': 'btrfs'
+                };
+                var mapped = fstypeMap[fstype.toLowerCase()];
+                if (mapped) {
+                    $('#fstype').dropdown('set selected', mapped);
+                    handleFileSystemTypeChange(mapped);
+                }
+            }
+            $('#devicePickerModal').modal('hide');
         }
 
         function handleCancel(){

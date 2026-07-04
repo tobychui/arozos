@@ -1,0 +1,19 @@
+/*
+    Notes - Read note content
+    POST: noteId (string)
+*/
+requirelib("filelib");
+
+// Validate noteId - only alphanumeric, underscore, hyphen allowed
+var safeId = noteId.replace(/[^a-zA-Z0-9_-]/g, "");
+if (safeId.length === 0 || safeId !== noteId) {
+    sendJSONResp({ error: "Invalid note ID" });
+} else {
+    var notePath = "user:/Document/Notes/" + safeId + ".txt";
+    if (!filelib.fileExists(notePath)) {
+        sendJSONResp({ error: "Note not found" });
+    } else {
+        var content = filelib.readFile(notePath);
+        sendJSONResp({ content: content });
+    }
+}

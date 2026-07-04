@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.3s ease;
+        }
+
+        body.light-mode {
+            background-color: #f0f0f0;
+        }
+
+        body.dark-mode {
+            background-color: #1c1c1e;
+        }
+
+        .calculator {
+            width: 300px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35);
+        }
+
+        /* ── Display ── */
+        .display {
+            padding: 16px 20px 12px;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-end;
+            position: relative;
+        }
+
+        body.light-mode .display {
+            background: #d9d9d9;
+            color: #1c1c1e;
+        }
+
+        body.dark-mode .display {
+            background: #000000;
+            color: #ffffff;
+        }
+
+        .expression {
+            font-size: 14px;
+            min-height: 20px;
+            opacity: 0.55;
+            word-break: break-all;
+            text-align: right;
+            margin-bottom: 4px;
+        }
+
+        .result {
+            font-size: 52px;
+            font-weight: 300;
+            letter-spacing: -1px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
+            transition: font-size 0.1s ease;
+        }
+
+        /* theme toggle inside display */
+        .theme-toggle {
+            position: absolute;
+            top: 10px;
+            left: 14px;
+            cursor: pointer;
+            font-size: 16px;
+            opacity: 0.45;
+            user-select: none;
+            transition: opacity 0.2s;
+        }
+
+        .theme-toggle:hover {
+            opacity: 0.8;
+        }
+
+        /* ── Buttons ── */
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+        }
+
+        body.light-mode .buttons {
+            background-color: #c8c8c8;
+        }
+
+        body.dark-mode .buttons {
+            background-color: #000000;
+        }
+
+        .btn {
+            border: none;
+            cursor: pointer;
+            font-size: 22px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 19px 0;
+            transition: filter 0.08s ease;
+            user-select: none;
+            outline: none;
+        }
+
+        .btn:active {
+            filter: brightness(1.35);
+        }
+
+        /* Function buttons: AC, ±, % */
+        body.light-mode .btn-func {
+            background: #d4d4d2;
+            color: #1c1c1e;
+        }
+
+        body.dark-mode .btn-func {
+            background: #505050;
+            color: #ffffff;
+        }
+
+        /* Operator buttons: ÷ × − + = */
+        .btn-op {
+            background: #ff9f0a;
+            color: #ffffff;
+        }
+
+        .btn-op.active-op {
+            background: #ffffff;
+            color: #ff9f0a;
+        }
+
+        /* Number / decimal buttons */
+        body.light-mode .btn-num {
+            background: #ffffff;
+            color: #1c1c1e;
+        }
+
+        body.dark-mode .btn-num {
+            background: #333333;
+            color: #ffffff;
+        }
+
+        /* Zero spans two columns */
+        .btn-zero {
+            grid-column: span 2;
+            text-align: left;
+            padding-left: 30px;
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <div class="calculator">
+        <!-- Display -->
+        <div class="display">
+            <span class="theme-toggle" id="themeToggle" title="Toggle theme">&#9679;</span>
+            <div class="expression" id="expression"></div>
+            <div class="result" id="result">0</div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="buttons">
+            <!-- Row 1 -->
+            <button class="btn btn-func" data-action="clear">AC</button>
+            <button class="btn btn-func" data-action="sign">&#177;</button>
+            <button class="btn btn-func" data-action="percent">%</button>
+            <button class="btn btn-op"   data-action="op" data-op="&divide;">&divide;</button>
+
+            <!-- Row 2 -->
+            <button class="btn btn-num" data-action="num" data-val="7">7</button>
+            <button class="btn btn-num" data-action="num" data-val="8">8</button>
+            <button class="btn btn-num" data-action="num" data-val="9">9</button>
+            <button class="btn btn-op"  data-action="op" data-op="&times;">&times;</button>
+
+            <!-- Row 3 -->
+            <button class="btn btn-num" data-action="num" data-val="4">4</button>
+            <button class="btn btn-num" data-action="num" data-val="5">5</button>
+            <button class="btn btn-num" data-action="num" data-val="6">6</button>
+            <button class="btn btn-op"  data-action="op" data-op="&minus;">&minus;</button>
+
+            <!-- Row 4 -->
+            <button class="btn btn-num" data-action="num" data-val="1">1</button>
+            <button class="btn btn-num" data-action="num" data-val="2">2</button>
+            <button class="btn btn-num" data-action="num" data-val="3">3</button>
+            <button class="btn btn-op"  data-action="op" data-op="+">+</button>
+
+            <!-- Row 5 -->
+            <button class="btn btn-num btn-zero" data-action="num" data-val="0">0</button>
+            <button class="btn btn-num" data-action="decimal">.</button>
+            <button class="btn btn-op"  data-action="equals">=</button>
+        </div>
+    </div>
+
+    <script>
+        // -- Display initialization and state management for calculator logic --
+        ao_module_setFixedWindowSize();
+
+        // ── State ──────────────────────────────────────────────────────────────
+        var currentValue    = '0';
+        var previousValue   = '';
+        var operator        = null;
+        var shouldReset     = false;
+        var expressionStr   = '';
+
+        // ── Display helpers ────────────────────────────────────────────────────
+        function updateDisplay() {
+            var resultEl     = document.getElementById('result');
+            var expressionEl = document.getElementById('expression');
+
+            // Scale font size for long numbers
+            if (currentValue.length > 11) {
+                resultEl.style.fontSize = '28px';
+            } else if (currentValue.length > 8) {
+                resultEl.style.fontSize = '38px';
+            } else {
+                resultEl.style.fontSize = '52px';
+            }
+
+            resultEl.textContent     = currentValue;
+            expressionEl.textContent = expressionStr;
+        }
+
+        function highlightOperator(op) {
+            document.querySelectorAll('.btn-op').forEach(function(btn) {
+                btn.classList.remove('active-op');
+                if (op && btn.dataset.op === op) {
+                    btn.classList.add('active-op');
+                }
+            });
+        }
+
+        // ── Core operations ────────────────────────────────────────────────────
+        function handleNumber(val) {
+            if (shouldReset) {
+                currentValue = val;
+                shouldReset  = false;
+            } else {
+                currentValue = (currentValue === '0') ? val
+                    : (currentValue.length < 12 ? currentValue + val : currentValue);
+            }
+            updateDisplay();
+        }
+
+        function handleOperator(op) {
+            if (operator && !shouldReset) {
+                performCalculation();
+            }
+            previousValue = currentValue;
+            operator      = op;
+            shouldReset   = true;
+            expressionStr = currentValue + ' ' + op;
+            highlightOperator(op);
+            updateDisplay();
+        }
+
+        function performCalculation() {
+            if (!operator || previousValue === '') return;
+
+            var prev = parseFloat(previousValue);
+            var curr = parseFloat(currentValue);
+            var result;
+
+            if (operator === '÷') {
+                if (curr === 0) {
+                    currentValue  = 'Error';
+                    operator      = null;
+                    previousValue = '';
+                    shouldReset   = true;
+                    expressionStr = '';
+                    highlightOperator(null);
+                    updateDisplay();
+                    return;
+                }
+                result = prev / curr;
+            } else if (operator === '×') {
+                result = prev * curr;
+            } else if (operator === '−') {
+                result = prev - curr;
+            } else if (operator === '+') {
+                result = prev + curr;
+            } else {
+                return;
+            }
+
+            expressionStr = previousValue + ' ' + operator + ' ' + currentValue + ' =';
+
+            // Format: avoid floating-point noise, cap to 10 significant digits
+            if (Number.isInteger(result) && Math.abs(result) < 1e13) {
+                currentValue = result.toString();
+            } else {
+                currentValue = parseFloat(result.toPrecision(10)).toString();
+            }
+
+            operator      = null;
+            previousValue = '';
+            shouldReset   = true;
+            highlightOperator(null);
+            updateDisplay();
+        }
+
+        function handleClear() {
+            currentValue  = '0';
+            previousValue = '';
+            operator      = null;
+            shouldReset   = false;
+            expressionStr = '';
+            highlightOperator(null);
+            document.querySelector('[data-action="clear"]').textContent = 'AC';
+            updateDisplay();
+        }
+
+        function handleSign() {
+            if (currentValue === '0' || currentValue === 'Error') return;
+            currentValue = currentValue.startsWith('-')
+                ? currentValue.slice(1)
+                : '-' + currentValue;
+            updateDisplay();
+        }
+
+        function handlePercent() {
+            if (currentValue === 'Error') return;
+            currentValue = parseFloat((parseFloat(currentValue) / 100).toPrecision(10)).toString();
+            updateDisplay();
+        }
+
+        function handleDecimal() {
+            if (shouldReset) {
+                currentValue = '0.';
+                shouldReset  = false;
+            } else if (!currentValue.includes('.')) {
+                currentValue += '.';
+            }
+            updateDisplay();
+        }
+
+        // ── Event listeners ────────────────────────────────────────────────────
+        document.querySelectorAll('.btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var action = this.dataset.action;
+
+                // Once a digit/decimal is typed, switch AC → C
+                if (action === 'num' || action === 'decimal') {
+                    document.querySelector('[data-action="clear"]').textContent = 'C';
+                }
+
+                switch (action) {
+                    case 'num':     handleNumber(this.dataset.val); break;
+                    case 'op':      handleOperator(this.dataset.op); break;
+                    case 'equals':  performCalculation(); break;
+                    case 'clear':   handleClear(); break;
+                    case 'sign':    handleSign(); break;
+                    case 'percent': handlePercent(); break;
+                    case 'decimal': handleDecimal(); break;
+                }
+            });
+        });
+
+        // Keyboard support
+        document.addEventListener('keydown', function(e) {
+            if (e.key >= '0' && e.key <= '9')  { handleNumber(e.key); document.querySelector('[data-action="clear"]').textContent = 'C'; }
+            else if (e.key === '+')             handleOperator('+');
+            else if (e.key === '-')             handleOperator('−');
+            else if (e.key === '*')             handleOperator('×');
+            else if (e.key === '/')             { e.preventDefault(); handleOperator('÷'); }
+            else if (e.key === 'Enter' || e.key === '=') performCalculation();
+            else if (e.key === 'Escape')        handleClear();
+            else if (e.key === '.')             { handleDecimal(); document.querySelector('[data-action="clear"]').textContent = 'C'; }
+            else if (e.key === '%')             handlePercent();
+            else if (e.key === 'Backspace') {
+                if (currentValue.length > 1 && currentValue !== 'Error') {
+                    currentValue = currentValue.slice(0, -1) || '0';
+                } else {
+                    handleClear();
+                }
+                updateDisplay();
+            }
+        });
+
+        // ── Theme ───────────────────────────────────────────────────────────────
+        function applyTheme(theme) {
+            var isDark = (theme !== 'white');
+            document.body.classList.toggle('dark-mode',  isDark);
+            document.body.classList.toggle('light-mode', !isDark);
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            var isDark = document.body.classList.contains('dark-mode');
+            applyTheme(isDark ? 'white' : 'dark');
+        });
+
+        // Initialise theme from system preference
+        ao_module_getSystemThemeColor(function(themeColor) {
+            applyTheme(themeColor === 'whiteTheme' ? 'white' : 'dark');
+        });
+
+        // Initial render
+        updateDisplay();
+    </script>
+</body>
+</html>

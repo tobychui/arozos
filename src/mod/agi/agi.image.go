@@ -12,7 +12,6 @@ import (
 	"image/png"
 	_ "image/png"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +22,10 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -37,7 +39,8 @@ import (
 func (g *Gateway) ImageLibRegister() {
 	err := g.RegisterLib("imagelib", g.injectImageLibFunctions)
 	if err != nil {
-		log.Fatal(err)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 
@@ -598,6 +601,46 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		return result
 	})
 
+	//Convert a RAW photo (ARW/CR2/DNG/NEF/RAF/ORF) to a normal JPEG, require (input, output)
+	vm.Set("_imagelib_rawToJPEG", func(call otto.FunctionCall) otto.Value {
+		vsrc, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		vdest, err := call.Argument(1).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		//Convert the virtual paths to real paths
+		srcfsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		destfsh, rdest, err := static.VirtualPathToRealPath(vdest, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		if !srcfsh.FileSystemAbstraction.FileExists(rsrc) {
+			g.RaiseError(errors.New("File not exists! Given " + rsrc))
+			return otto.FalseValue()
+		}
+
+		err = convertRawToJPEG(srcfsh, rsrc, destfsh, rdest)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		return otto.TrueValue()
+	})
+
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var imagelib = {};
@@ -608,5 +651,30 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		imagelib.loadThumbString = _imagelib_loadThumbString;
 		imagelib.hasExif = _imagelib_hasExif;
 		imagelib.getExif = _imagelib_getExif;
+		imagelib.rawToJPEG = _imagelib_rawToJPEG;
 	`)
+}
+
+// convertRawToJPEG renders a RAW photo (ARW, CR2, DNG, NEF, RAF, ORF) into a
+// standard JPEG by extracting its embedded full-size preview, then writes the
+// result to destRpath on destFsh. It returns an error when the source is not a
+// supported RAW format, when the output is not a .jpg/.jpeg file, or when any
+// read / render / write step fails. WriteFile is used for the output so this
+// works on every filesystem abstraction, including buffered ones (S3, FTP, WebDAV).
+func convertRawToJPEG(srcFsh *filesystem.FileSystemHandler, srcRpath string, destFsh *filesystem.FileSystemHandler, destRpath string) error {
+	if !metadata.IsRawImageFile(srcRpath) {
+		return errors.New("source is not a supported RAW image: " + filepath.Base(srcRpath))
+	}
+
+	destExt := strings.ToLower(filepath.Ext(destRpath))
+	if destExt != ".jpg" && destExt != ".jpeg" {
+		return errors.New("output file must have a .jpg or .jpeg extension")
+	}
+
+	jpegData, err := metadata.RenderRAWImage(srcFsh, srcRpath)
+	if err != nil {
+		return err
+	}
+
+	return destFsh.FileSystemAbstraction.WriteFile(destRpath, jpegData, 0775)
 }

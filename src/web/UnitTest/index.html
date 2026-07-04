@@ -4,77 +4,540 @@
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
         <meta charset="UTF-8">
-        <meta name="theme-color" content="#4b75ff">
-        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <meta name="theme-color" content="#0078d4">
         <script src="../script/jquery.min.js"></script>
         <script src="../script/ao_module.js"></script>
-        <script src="../script/semantic/semantic.min.js"></script>
-        <title>Unit Test</title>
+        <title>Unit Tester</title>
         <style>
-            body{
-                background-color:white;
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+            body {
+                font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+                font-size: 14px;
+                background: #f3f3f3;
+                color: #201f1e;
+                min-height: 100vh;
             }
 
-            .success{
-                color: #20c942;
+            /* ── Nav bar ───────────────────────────────────────────── */
+            .nav-bar {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                height: 48px;
+                background: rgba(243,243,243,0.9);
+                backdrop-filter: blur(20px) saturate(180%);
+                border-bottom: 1px solid rgba(0,0,0,0.08);
+                display: flex;
+                align-items: center;
+                padding: 0 20px;
+                gap: 4px;
             }
 
-            .failed{
-                color: #eb4034;
+            .nav-brand {
+                font-size: 13px;
+                font-weight: 600;
+                color: #201f1e;
+                margin-right: 12px;
+                white-space: nowrap;
+            }
+
+            .nav-tab {
+                display: inline-flex;
+                align-items: center;
+                height: 48px;
+                padding: 0 12px;
+                font-size: 13px;
+                color: #605e5c;
+                text-decoration: none;
+                border-bottom: 2px solid transparent;
+                transition: color 0.1s, border-color 0.1s;
+                white-space: nowrap;
+            }
+            .nav-tab:hover { color: #201f1e; }
+            .nav-tab.active { color: #0078d4; border-bottom-color: #0078d4; font-weight: 600; }
+
+            /* ── Content ───────────────────────────────────────────── */
+            .content {
+                max-width: 880px;
+                margin: 24px auto;
+                padding: 0 20px;
+            }
+
+            /* ── Toolbar ───────────────────────────────────────────── */
+            .toolbar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 14px;
+                flex-wrap: wrap;
+            }
+
+            .toolbar-sep {
+                width: 1px;
+                height: 20px;
+                background: #d1d1d1;
+                margin: 0 4px;
+            }
+
+            .summary-text {
+                font-size: 12px;
+                color: #797775;
+            }
+
+            /* ── Buttons ───────────────────────────────────────────── */
+            .btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 16px;
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: 13px;
+                font-weight: 400;
+                cursor: pointer;
+                border: 1px solid transparent;
+                transition: background 0.1s, border-color 0.1s;
+                line-height: 1;
+                text-decoration: none;
+                white-space: nowrap;
+            }
+            .btn-primary {
+                background: #0078d4;
+                color: #fff;
+                border-color: #0078d4;
+            }
+            .btn-primary:hover { background: #106ebe; border-color: #106ebe; }
+            .btn-primary:active { background: #005a9e; }
+
+            .btn-secondary {
+                background: #fff;
+                color: #201f1e;
+                border-color: #d1d1d1;
+            }
+            .btn-secondary:hover { background: #f5f5f5; border-color: #c0c0c0; }
+            .btn-secondary:active { background: #ebebeb; }
+
+            .btn-ghost {
+                background: transparent;
+                color: #605e5c;
+                border-color: transparent;
+                padding: 5px 10px;
+            }
+            .btn-ghost:hover { background: rgba(0,0,0,0.05); color: #201f1e; }
+
+            /* ── Stats pills ───────────────────────────────────────── */
+            .stats-bar {
+                display: none;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 14px;
+                flex-wrap: wrap;
+            }
+
+            .stat-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                background: #fff;
+                border: 1px solid #e0e0e0;
+            }
+            .stat-pill.all    { color: #201f1e; }
+            .stat-pill.passed { background: #dff6dd; border-color: #bad7b9; color: #107c10; }
+            .stat-pill.failed { background: #fde7e9; border-color: #f1b8bb; color: #c50f1f; }
+            .stat-pill.pending{ color: #797775; }
+
+            /* ── Test list card ────────────────────────────────────── */
+            .test-list {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            }
+
+            .test-list-header {
+                padding: 10px 16px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #797775;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                border-bottom: 1px solid #f0f0f0;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .test-list-header .col-name   { flex: 1; }
+            .test-list-header .col-status { width: 82px; text-align: center; }
+            .test-list-header .col-action { width: 52px; }
+
+            .test-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 16px;
+                border-bottom: 1px solid #f5f5f5;
+                transition: background 0.1s;
+            }
+            .test-item:last-of-type { border-bottom: none; }
+            .test-item:hover { background: #fafafa; }
+
+            .test-idx {
+                font-size: 11px;
+                color: #bbb;
+                font-variant-numeric: tabular-nums;
+                width: 22px;
+                text-align: right;
+                flex-shrink: 0;
+            }
+
+            .test-info { flex: 1; min-width: 0; }
+
+            .test-name {
+                font-size: 13px;
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .test-script {
+                font-size: 11px;
+                color: #a0a0a0;
+                font-family: 'Cascadia Code', 'Consolas', monospace;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-top: 1px;
+            }
+
+            /* ── Status badge ──────────────────────────────────────── */
+            .status-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                width: 82px;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .status-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .s-pending { background: #f3f3f3; color: #797775; }
+            .s-pending .status-dot { background: #c0c0c0; }
+
+            .s-running { background: #eff6fc; color: #0078d4; }
+            .s-running .status-dot {
+                background: #0078d4;
+                animation: pulse 1s ease-in-out infinite;
+            }
+
+            .s-pass { background: #dff6dd; color: #107c10; }
+            .s-pass .status-dot { background: #107c10; }
+
+            .s-fail { background: #fde7e9; color: #c50f1f; }
+            .s-fail .status-dot { background: #c50f1f; }
+
+            @keyframes pulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50%       { opacity: 0.4; transform: scale(0.7); }
+            }
+
+            /* Run button column */
+            .col-action { width: 52px; flex-shrink: 0; text-align: right; }
+
+            .btn-run {
+                padding: 4px 10px;
+                font-size: 12px;
+                border-radius: 3px;
+                background: transparent;
+                border: 1px solid #d1d1d1;
+                color: #444;
+                cursor: pointer;
+                font-family: inherit;
+                transition: background 0.1s;
+            }
+            .btn-run:hover { background: #f0f0f0; }
+            .btn-run:active { background: #e5e5e5; }
+            .btn-run:disabled { opacity: 0.45; cursor: default; }
+
+            /* ── Result area ───────────────────────────────────────── */
+            .result-area {
+                display: none;
+                padding: 10px 16px 12px 50px;
+                font-family: 'Cascadia Code', 'Consolas', monospace;
+                font-size: 12px;
+                line-height: 1.5;
+                background: #fafafa;
+                border-top: 1px solid #f0f0f0;
+                border-left: 3px solid transparent;
+                word-break: break-all;
+                color: #323130;
+            }
+            .result-area.r-pass { border-left-color: #107c10; }
+            .result-area.r-fail { border-left-color: #c50f1f; }
+            .result-area a { color: #0078d4; text-decoration: none; font-size: 11px; }
+            .result-area a:hover { text-decoration: underline; }
+
+            .result-label {
+                font-size: 10px;
+                font-weight: 700;
+                color: #a0a0a0;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 4px;
+            }
+            .result-label + .result-label { margin-top: 8px; }
+
+            .result-table { border-collapse: collapse; font-size: 12px; margin-bottom: 4px; }
+            .result-table td { padding: 1px 0; vertical-align: top; }
+            .result-table td:first-child { color: #797775; font-weight: 600; width: 70px; padding-right: 10px; white-space: nowrap; }
+
+            .stack-block {
+                background: #f0f0f0;
+                border-left: 3px solid #bbb;
+                padding: 6px 10px;
+                white-space: pre-wrap;
+                word-break: break-all;
+                line-height: 1.55;
+                border-radius: 0 3px 3px 0;
+                font-size: 11px;
+                color: #323130;
+                margin-bottom: 6px;
+            }
+
+            /* ── Empty / loading states ────────────────────────────── */
+            .list-placeholder {
+                padding: 40px 20px;
+                text-align: center;
+                color: #a0a0a0;
+                font-size: 13px;
+            }
+            .list-placeholder .icon {
+                font-size: 28px;
+                margin-bottom: 8px;
             }
         </style>
     </head>
     <body>
-	<br><br>
-		<div class="ui text container">
-			<h3>AGI Unit Testing Module</h3>
-            <button class="ui button" onclick="openGateway();">Open AGI Gateway (No File)</button>
-            <button class="ui button" onclick="runtest();">Run Unit Test</button>
-            <a class="ui button" href="wstest.html">Open WebSocket Test</a>
-            <a class="ui blue button" href="backend.html">Open Backend Unit Test</a>
-            <div class="ui divider"></div>
-            <p>Test Results</p>
-            <table class="ui celled table">
-                <thead>
-                  <tr><th>Script</th>
-                  <th>Results</th>
-                  <th>Status</th>
-                </tr></thead>
-                <tbody id="results">
-                 
-                </tbody>
-              </table>
-		</div>
-        <br><br>
-       <script>
-           function openGateway(){
-                window.open("../system/ajgi/interface");
-           }
 
-			function runtest(){
-				$("#results").html("");
-				//Get a list of test to be run
-				ao_module_agirun("UnitTest/list.agi",{testdata: "Hello World"}, function(data){
-                    data.forEach(test => {
-                        let scriptname = test.split("/").pop();
-                        let thisScriptPath = JSON.parse(JSON.stringify(test));
-                        ao_module_agirun(test, {foo: "Hello", bar: "World"}, function(data){
-                            //Success callback
-                            $("#results").append(`<tr class="positive">
-                                <td data-label="">${scriptname}</td>
-                                <td data-label="">${JSON.stringify(data)}</td>
-                                <td data-label="">Success</td>
-                            </tr>`);
-                        }, function(){
-                            $("#results").append(`<tr class="negative">
-                                <td data-label="">${scriptname}</td>
-                                <td data-label=""><a href="../system/ajgi/interface?script=${thisScriptPath}" target="_blank">Open Debug Interface</a></td>
-                                <td data-label="">Failed</td>
-                            </tr>`);
-                        }, 10000);
-                    });
-				})
-			}
-	   </script>
+        <!-- Nav bar -->
+        <nav class="nav-bar">
+            <span class="nav-brand">Unit Tester</span>
+            <a class="nav-tab active" href="index.html">AGI Scripts</a>
+            <a class="nav-tab" href="backend.html">ao_backend</a>
+            <a class="nav-tab" href="wstest.html">WebSocket</a>
+            <a class="nav-tab" href="devmode.html">Dev Mode</a>
+        </nav>
+
+        <!-- Content -->
+        <div class="content">
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <button class="btn btn-primary" id="btnRunAll" onclick="runAll()">&#9654;&nbsp; Run All</button>
+                <button class="btn btn-secondary" onclick="clearResults()">Clear</button>
+                <div class="toolbar-sep"></div>
+                <span class="summary-text" id="summaryText">Loading tests&hellip;</span>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-bar" id="statsBar">
+                <span class="stat-pill all"><span id="statTotal">0</span> total</span>
+                <span class="stat-pill passed">&#10003;&nbsp;<span id="statPass">0</span> passed</span>
+                <span class="stat-pill failed">&#10007;&nbsp;<span id="statFail">0</span> failed</span>
+                <span class="stat-pill pending">&middot;&nbsp;<span id="statPending">0</span> pending</span>
+            </div>
+
+            <!-- Test list -->
+            <div class="test-list" id="testList">
+                <div class="list-placeholder">
+                    <div class="icon">&#9711;</div>
+                    Loading test scripts&hellip;
+                </div>
+            </div>
+
+        </div>
+
+        <script>
+            var AGI_DEV = true;
+            var tests = [];
+
+            /* ── Bootstrap ─────────────────────────────────────── */
+            ao_module_agirun("UnitTest/list.agi", {}, function(data) {
+                tests = data.map(function(script, i) {
+                    return { id: i, script: script, name: script.split("/").pop(), state: "pending" };
+                });
+                renderList();
+                updateStats();
+            }, function() {
+                document.getElementById("testList").innerHTML =
+                    '<div class="list-placeholder"><div class="icon">&#9888;</div>Failed to load test list. Check that the module is registered.</div>';
+                document.getElementById("summaryText").textContent = "Error loading tests";
+            });
+
+            /* ── Render ────────────────────────────────────────── */
+            function renderList() {
+                if (tests.length === 0) {
+                    document.getElementById("testList").innerHTML =
+                        '<div class="list-placeholder"><div class="icon">&#9711;</div>No test scripts found in UnitTest/backend/</div>';
+                    document.getElementById("summaryText").textContent = "0 tests";
+                    return;
+                }
+
+                let header = `<div class="test-list-header">
+                    <span style="width:22px;flex-shrink:0"></span>
+                    <span class="col-name">Script</span>
+                    <span class="col-status">Status</span>
+                    <span class="col-action"></span>
+                </div>`;
+
+                let rows = tests.map(function(t) {
+                    return `<div class="test-item" id="item_${t.id}">
+                        <span class="test-idx">${t.id + 1}</span>
+                        <div class="test-info">
+                            <div class="test-name">${escHtml(t.name)}</div>
+                            <div class="test-script">${escHtml(t.script)}</div>
+                        </div>
+                        <span class="status-badge s-pending" id="badge_${t.id}">
+                            <span class="status-dot"></span>Pending
+                        </span>
+                        <div class="col-action">
+                            <button class="btn-run" id="runbtn_${t.id}" onclick="runTest(${t.id})">Run</button>
+                        </div>
+                    </div>
+                    <div class="result-area" id="result_${t.id}"></div>`;
+                }).join("");
+
+                document.getElementById("testList").innerHTML = header + rows;
+                document.getElementById("summaryText").textContent = tests.length + " tests";
+            }
+
+            /* ── Run logic ─────────────────────────────────────── */
+            function runTest(id) {
+                let t = tests[id];
+                setStatus(id, "running");
+                let btn = document.getElementById("runbtn_" + id);
+                if (btn) { btn.disabled = true; }
+
+                ao_module_agirun(t.script, { foo: "Hello", bar: "World" }, function(data) {
+                    setStatus(id, "pass");
+                    let body = (typeof data === "string") ? escHtml(data) : escHtml(JSON.stringify(data));
+                    showResult(id, "pass", body || "<em style='color:#aaa'>empty response</em>");
+                    if (btn) { btn.disabled = false; }
+                }, function(xhr) {
+                    setStatus(id, "fail");
+                    showResult(id, "fail", renderDevError(t.script, xhr));
+                    if (btn) { btn.disabled = false; }
+                }, 10000);
+            }
+
+            function runAll() {
+                let btn = document.getElementById("btnRunAll");
+                btn.disabled = true;
+                btn.textContent = "Running…";
+                let pending = tests.length;
+                if (pending === 0) { btn.disabled = false; btn.innerHTML = "&#9654;&nbsp; Run All"; return; }
+                tests.forEach(function(t) { runTest(t.id); });
+                // Re-enable after last test finishes (poll state)
+                let checkDone = setInterval(function() {
+                    let still = tests.filter(function(t) { return t.state === "running"; }).length;
+                    if (still === 0) {
+                        clearInterval(checkDone);
+                        btn.disabled = false;
+                        btn.innerHTML = "&#9654;&nbsp; Run All";
+                    }
+                }, 300);
+            }
+
+            function clearResults() {
+                tests.forEach(function(t) {
+                    t.state = "pending";
+                    setStatus(t.id, "pending");
+                    let r = document.getElementById("result_" + t.id);
+                    if (r) { r.style.display = "none"; r.innerHTML = ""; r.className = "result-area"; }
+                });
+                updateStats();
+            }
+
+            /* ── Helpers ───────────────────────────────────────── */
+            function setStatus(id, state) {
+                tests[id].state = state;
+                let badge = document.getElementById("badge_" + id);
+                if (!badge) return;
+                let labels = { pending: "Pending", running: "Running", pass: "Passed", fail: "Failed" };
+                badge.className = "status-badge s-" + state;
+                badge.innerHTML = '<span class="status-dot"></span>' + labels[state];
+                updateStats();
+            }
+
+            function showResult(id, type, content) {
+                let div = document.getElementById("result_" + id);
+                if (!div) return;
+                div.className = "result-area r-" + type;
+                div.innerHTML = content;
+                div.style.display = "block";
+            }
+
+            function updateStats() {
+                let total   = tests.length;
+                let passed  = tests.filter(function(t) { return t.state === "pass"; }).length;
+                let failed  = tests.filter(function(t) { return t.state === "fail"; }).length;
+                let pending = tests.filter(function(t) { return t.state === "pending" || t.state === "running"; }).length;
+                document.getElementById("statTotal").textContent   = total;
+                document.getElementById("statPass").textContent    = passed;
+                document.getElementById("statFail").textContent    = failed;
+                document.getElementById("statPending").textContent = pending;
+                let bar = document.getElementById("statsBar");
+                if (total > 0) bar.style.display = "flex";
+            }
+
+            function renderDevError(scriptPath, xhr) {
+                let e = {};
+                try { e = JSON.parse(xhr.responseText); } catch(_) {}
+                let gatewayLink = '<a href="../system/ajgi/interface?script=' +
+                    encodeURIComponent(scriptPath) + '" target="_blank">Open in AGI Gateway &#8599;</a>';
+                if (!e.error) {
+                    // Non-JSON response — generic fallback
+                    let raw = escHtml(xhr.responseText || "(empty response)");
+                    return '<div class="result-label">Error (HTTP ' + (xhr.status||"?") + ')</div>' +
+                           '<div style="margin-bottom:6px">' + (raw.length < 300 ? raw : raw.slice(0,300) + "…") + '</div>' +
+                           gatewayLink;
+                }
+                let msg   = escHtml(e.message    || "(no message)");
+                let stack = escHtml(e.stacktrace || "(no stack trace)");
+                let scr   = escHtml(e.script     || "(unknown)");
+                let usr   = escHtml(e.user       || "(unknown)");
+                return '<div class="result-label">Error (HTTP ' + (xhr.status||"?") + ')</div>' +
+                       '<table class="result-table">' +
+                       '<tr><td>Message</td><td>' + msg + '</td></tr>' +
+                       '<tr><td>Script</td><td>' + scr + '</td></tr>' +
+                       '<tr><td>User</td><td>' + usr + '</td></tr>' +
+                       '</table>' +
+                       '<div class="result-label">Stack Trace</div>' +
+                       '<div class="stack-block">' + (e.message === e.stacktrace ? msg : stack) + '</div>' +
+                       gatewayLink;
+            }
+
+            function escHtml(s) {
+                return String(s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+        </script>
     </body>
 </html>

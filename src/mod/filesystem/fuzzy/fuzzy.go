@@ -56,7 +56,7 @@ func (m *Matcher) Match(filename string) bool {
 	return true
 }
 
-//Check if a fuzzyKey require precise searching
+// Check if a fuzzyKey require precise searching
 func buildFuzzyChunks(fuzzyInput string, caseSensitive bool) ([]string, []string) {
 	includeList := []string{}
 	excludeList := []string{}

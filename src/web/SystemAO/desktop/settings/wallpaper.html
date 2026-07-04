@@ -1,0 +1,283 @@
+<!-- Wallpaper Settings — loaded into SystemAO/system_setting/index.html via jQuery .load() -->
+<!-- Paths resolve relative to SystemAO/system_setting/                                   -->
+<style>
+#wp-root {
+    --wp-text:    #1a1a1a;
+    --wp-dim:     #5a5a5a;
+    --wp-muted:   #9a9a9a;
+    --wp-border:  rgba(0,0,0,0.10);
+    --wp-green:   #107c10;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    color: var(--wp-text);
+    padding: 4px 0 32px;
+}
+body.dark #wp-root {
+    --wp-text:    #f0f0f0;
+    --wp-dim:     #b0b0b0;
+    --wp-muted:   #808080;
+    --wp-border:  rgba(255,255,255,0.10);
+}
+#wp-root h3.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--wp-text);
+    margin: 0 0 4px;
+}
+#wp-root .section-desc {
+    font-size: 12px;
+    color: var(--wp-muted);
+    margin: 0 0 12px;
+}
+#wp-root .wp-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--wp-border);
+}
+#wp-root .wp-section:last-child { border-bottom: none; }
+#wp-root .preview-main {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--wp-border);
+    background: #ccc;
+    display: block;
+}
+#wp-root .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+}
+#wp-root .preview-grid img {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--wp-border);
+    background: #eee;
+}
+#wp-root .wp-btn-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+#wp-root .btn {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--wp-border);
+    background: transparent;
+    color: var(--wp-text);
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#wp-root .btn:hover { opacity: 0.8; }
+#wp-root .btn.primary {
+    background: var(--wp-green);
+    color: #fff;
+    border-color: var(--wp-green);
+}
+#wp-root .confirm-msg {
+    display: none;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(16,124,16,0.1);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--wp-green);
+}
+body.dark #wp-root .confirm-msg { background: rgba(16,124,16,0.15); }
+#wp-root .wp-path-text {
+    font-size: 13px;
+    color: var(--wp-dim);
+    font-style: italic;
+    margin: 6px 0;
+    word-break: break-all;
+}
+</style>
+
+<div id="wp-root">
+    <div class="wp-section">
+        <h3 class="section-title" locale="wp/pack-title">Wallpaper Pack</h3>
+        <p class="section-desc" locale="wp/pack-desc">Set your desktop background wallpaper theme.</p>
+        <img id="wp-main-preview" class="preview-main" src="">
+        <div id="wp-preview-grid" class="preview-grid"></div>
+        <div style="margin-top:12px;">
+            <select id="wp-pack-select" class="ui fluid dropdown allowSelectDefaultThemes" onchange="wpHandlePackChange(this.value)">
+                <option value="">Wallpaper Packs</option>
+            </select>
+        </div>
+        <div class="wp-btn-group">
+            <button class="btn primary allowSelectDefaultThemes" onclick="wpApply()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 8.5L6 12.5L14 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span locale="wp/apply">Apply Wallpaper</span>
+            </button>
+        </div>
+        <div id="wp-apply-confirm" class="confirm-msg"><span locale="wp/applied">Wallpaper updated. You should see the change in a moment.</span></div>
+    </div>
+
+    <div class="wp-section">
+        <h3 class="section-title" locale="wp/interval-title">Wallpaper Interval</h3>
+        <p class="section-desc" locale="wp/interval-desc">Set the interval between wallpaper image cycles.</p>
+        <select id="wp-interval" class="ui fluid dropdown" onchange="wpHandleIntervalChange(this.value)">
+            <option value="10">10 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">60 seconds</option>
+            <option value="180">3 minutes</option>
+            <option value="300">5 minutes</option>
+            <option value="600">10 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600">1 hour</option>
+        </select>
+        <div id="wp-interval-confirm" class="confirm-msg"><span locale="wp/interval-updated">Wallpaper interval updated. This setting applies to this browser only.</span></div>
+    </div>
+
+    <div class="wp-section">
+        <h3 class="section-title" locale="wp/folder-title">Custom Wallpaper Folder</h3>
+        <p class="section-desc" locale="wp/folder-desc">Use images from a folder as desktop wallpapers instead of the built-in packs.</p>
+        <div id="wp-folder-path" class="wp-path-text" locale="wp/folder-disabled">Disabled</div>
+        <div class="wp-btn-group">
+            <button class="btn" onclick="wpSelectFolder()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M1 4a1 1 0 011-1h4l2 2h6a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                <span locale="wp/folder-select">Select Folder</span>
+            </button>
+            <button class="btn" onclick="wpClearFolder()" style="color:#c42b1c;">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                <span locale="wp/folder-clear">Clear Selection</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var wpLocale = NewAppLocale();
+    var wpThemeList = [];
+    var wpStartingUp = true;
+
+    wpLocale.init("../locale/system_settings/desktop.json", function () {
+        wpLocale.translate();
+
+        $("#wp-pack-select").dropdown();
+        $("#wp-interval").dropdown();
+
+        var savedInterval = localStorage.getItem("ao/desktop/backgroundInterval") || "30";
+        $("#wp-interval").dropdown("set selected", savedInterval);
+
+        wpInitFolderState(function (currentTheme) {
+            wpInitPreview(currentTheme);
+        });
+    });
+
+    function wpInitFolderState(cb) {
+        $.get("../../system/desktop/theme?get=true", function (data) {
+            if (data.includes(":/")) {
+                $("#wp-folder-path").text(data).css("font-style", "normal");
+                $(".allowSelectDefaultThemes").addClass("disabled");
+            } else {
+                $("#wp-folder-path").text(wpLocale.getString("wp/folder-disabled", "Disabled")).css("font-style", "italic");
+            }
+            if (cb) cb(data);
+        });
+    }
+
+    function wpInitPreview(currentTheme) {
+        $.get("../../system/desktop/theme", function (data) {
+            wpThemeList = data;
+            $("#wp-pack-select").html('<option value="">Wallpaper Packs</option>');
+            wpThemeList.forEach(function (tp) {
+                var encoded = encodeURIComponent(JSON.stringify(tp));
+                var label = tp.Theme.charAt(0).toUpperCase() + tp.Theme.slice(1);
+                $("#wp-pack-select").append('<option value="' + encoded + '">' + label + '</option>');
+            });
+
+            $("#wp-main-preview").attr("src", "../../img/desktop/bg/nobg.jpg");
+
+            if (currentTheme && currentTheme.includes(":/")) {
+                $.get("../../system/desktop/theme?load=" + currentTheme, function (imgList) {
+                    wpLoadCustomPreview(imgList);
+                    wpStartingUp = false;
+                });
+            } else {
+                var matched = null;
+                wpThemeList.forEach(function (t) { if (t.Theme === currentTheme) matched = t; });
+                if (matched) {
+                    wpLoadPackPreview(matched);
+                    var label = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
+                    $("#wp-pack-select").dropdown("set selected", label);
+                }
+                wpStartingUp = false;
+            }
+        });
+    }
+
+    function wpLoadPackPreview(themeObj) {
+        var imgs = themeObj.Bglist;
+        $("#wp-main-preview").attr("src", "../../img/desktop/bg/" + themeObj.Theme + "/" + imgs[0]);
+        $("#wp-preview-grid").html("");
+        for (var i = 1; i < imgs.length && i < 5; i++) {
+            $("#wp-preview-grid").append('<img src="../../img/desktop/bg/' + themeObj.Theme + '/' + imgs[i] + '">');
+        }
+    }
+
+    function wpLoadCustomPreview(imgList) {
+        $("#wp-main-preview").attr("src", "../../media/?file=" + imgList[0]);
+        $("#wp-preview-grid").html("");
+        for (var i = 1; i < imgList.length && i < 5; i++) {
+            $("#wp-preview-grid").append('<img src="../../media/?file=' + imgList[i] + '">');
+        }
+    }
+
+    window.wpHandlePackChange = function (value) {
+        if (!value) return;
+        wpLoadPackPreview(JSON.parse(decodeURIComponent(value)));
+    };
+
+    window.wpHandleIntervalChange = function (newInterval) {
+        if (wpStartingUp) return;
+        localStorage.setItem("ao/desktop/backgroundInterval", newInterval);
+        $("#wp-interval-confirm").stop(true).finish().slideDown("fast").delay(3000).slideUp("fast");
+        if (ao_module_virtualDesktop && parent.backgroundIntervalCounter) {
+            parent.clearInterval(parent.backgroundIntervalCounter);
+            parent.initBackgroundSwitchingAnimation();
+        }
+    };
+
+    window.wpApply = function () {
+        var val = $("#wp-pack-select").val();
+        if (!val) return;
+        var themeObj = JSON.parse(decodeURIComponent(val));
+        $.get("../../system/desktop/theme?set=" + themeObj.Theme, function () {
+            if (ao_module_virtualDesktop) parent.changeDesktopTheme(themeObj.Theme);
+            wpInitPreview(themeObj.Theme);
+            $("#wp-apply-confirm").stop(true).finish().slideDown("fast").delay(3000).slideUp("fast");
+        });
+    };
+
+    window.wpFolderSelected = function (filedata) {
+        var filepath = filedata[0].filepath;
+        $("#wp-folder-path").text(filepath).css("font-style", "normal");
+        $.get("../../system/desktop/theme?set=" + filepath, function () {
+            if (ao_module_virtualDesktop) parent.changeDesktopTheme(filepath);
+            $(".allowSelectDefaultThemes").addClass("disabled");
+            wpInitFolderState(function (t) { wpInitPreview(t); });
+        });
+    };
+
+    window.wpSelectFolder = function () {
+        ao_module_openFileSelector(window.wpFolderSelected, undefined, "folder", false, {fnameOverride: "wpFolderSelected"});
+    };
+
+    window.wpClearFolder = function () {
+        $.get("../../system/desktop/theme?set=default", function () {
+            if (ao_module_virtualDesktop) parent.changeDesktopTheme("default");
+            $(".allowSelectDefaultThemes").removeClass("disabled");
+            wpInitFolderState(function (t) { wpInitPreview(t); });
+        });
+    };
+}());
+</script>

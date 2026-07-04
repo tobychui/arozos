@@ -1,0 +1,21 @@
+/*
+    Text - Typora-style text & markdown editor for ArozOS
+    A WYSIWYG markdown editor that also handles plain text files, with image
+    import, remappable shortcuts, dark theme and PDF/HTML export.
+*/
+
+var moduleLaunchInfo = {
+    Name: "Text",
+    Desc: "Text & markdown editor",
+    Group: "Utilities",
+    IconPath: "Text/img/module_icon.png",
+    Version: "2.0",
+    StartDir: "Text/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Text/index.html",
+    SupportEmb: false,
+    InitFWSize: [940, 620],
+    SupportedExt: [".txt", ".md", ".markdown", ".mdown", ".mkd", ".csv", ".log", ".ini", ".conf"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

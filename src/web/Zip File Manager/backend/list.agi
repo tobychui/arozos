@@ -1,0 +1,20 @@
+/*
+	ZipFileManager - List directory contents inside a zip
+
+	POST params:
+	  src  - virtual path to the zip file
+	  dir  - directory path within the zip (empty = root)
+*/
+requirelib("ziplib");
+
+if (typeof src === "undefined" || src === "") {
+	sendJSONResp(JSON.stringify({error: "Missing src parameter"}));
+} else {
+	try {
+		var dirPath = (typeof dir !== "undefined") ? dir : "";
+		var items = ziplib.listZipFileDir(src, dirPath);
+		sendJSONResp(JSON.stringify(items));
+	} catch(e) {
+		sendJSONResp(JSON.stringify({error: e.toString()}));
+	}
+}

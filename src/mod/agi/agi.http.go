@@ -5,14 +5,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -27,7 +29,8 @@ import (
 func (g *Gateway) HTTPLibRegister() {
 	err := g.RegisterLib("http", g.injectHTTPFunctions)
 	if err != nil {
-		log.Fatal(err)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 
@@ -94,7 +97,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println(err)
+			logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 			return otto.NullValue()
 		}
 		defer resp.Body.Close()
@@ -249,7 +252,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 
 		r, err := otto.ToValue(string(sEnc))
 		if err != nil {
-			log.Println(err.Error())
+			logger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.NullValue()
 		}
 		return r

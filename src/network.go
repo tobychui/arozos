@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -343,7 +342,7 @@ func FileServerInit() {
 	SambaShareManager, err = samba.NewSambaShareManager(userHandler)
 	if err != nil {
 		//Disable samba if not installed or platform not supported
-		log.Println("[INFO] Samba Share Manager Disabled: " + err.Error())
+		systemWideLogger.PrintAndLog("System", "[INFO] Samba Share Manager Disabled: "+err.Error(), nil)
 	}
 
 	//Register Endpoints

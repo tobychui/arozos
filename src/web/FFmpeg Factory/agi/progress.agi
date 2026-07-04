@@ -1,0 +1,26 @@
+/*
+    FFmpeg Factory - Progress
+    Returns the current conversion progress JSON for a given task ID.
+
+    Expected POST parameter:
+      id - the task ID
+*/
+requirelib("filelib");
+
+if (typeof id === "undefined" || id === "" || id === "undefined") {
+    sendJSONResp(JSON.stringify({ error: "missing_id" }));
+} else {
+    var progressVpath = "tmp:/ffmpeg_factory/" + id + ".progress.json";
+
+    if (!filelib.fileExists(progressVpath)) {
+        sendJSONResp(JSON.stringify({ error: "not_found" }));
+    } else {
+        var content = filelib.readFile(progressVpath);
+        if (content === false || content === "") {
+            sendJSONResp(JSON.stringify({ error: "empty" }));
+        } else {
+            // The progress file is already valid JSON written by the Go layer
+            sendResp(content);
+        }
+    }
+}

@@ -1,0 +1,37 @@
+/*
+    Dashboard - Save Checklist
+    Writes the checklist to user:/Dashboard/checklist.json.
+    POST parameters:
+        checklist - JSON array string of checklist items
+*/
+requirelib("filelib");
+
+var checklistPath = "user:/Dashboard/checklist.json";
+
+if (!checklist || checklist === "") {
+    sendJSONResp({ error: "Missing checklist parameter" });
+} else {
+    try {
+        var parsed = JSON.parse(checklist);
+        if (!Array.isArray(parsed)) {
+            sendJSONResp({ error: "Invalid checklist format: expected array" });
+        } else {
+            // Sanitize: limit count and field lengths
+            var safe = [];
+            for (var i = 0; i < parsed.length && i < 200; i++) {
+                var item = parsed[i];
+                if (item && typeof item === "object") {
+                    safe.push({
+                        id:   String(item.id   || "").substring(0, 64),
+                        text: String(item.text || "").substring(0, 500),
+                        done: item.done === true
+                    });
+                }
+            }
+            filelib.writeFile(checklistPath, JSON.stringify(safe));
+            sendJSONResp({ success: true });
+        }
+    } catch (e) {
+        sendJSONResp({ error: "Invalid checklist format" });
+    }
+}

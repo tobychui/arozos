@@ -1,0 +1,40 @@
+/*
+    Reminders - Save (create or update) a single reminder.
+    POST: reminderData (JSON string of a reminder object)
+*/
+requirelib("filelib");
+
+var dataPath = "user:/Document/Reminders/data.json";
+
+var rm;
+try {
+    rm = JSON.parse(reminderData);
+} catch (e) {
+    sendJSONResp({ error: "Invalid reminder data" });
+}
+
+if (rm) {
+    // Ensure the reminder has an id
+    if (!rm.id || rm.id === "") {
+        var ts = new Date().getTime();
+        rm.id = "rm_" + ts.toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    var data = { lists: [], reminders: [] };
+    if (filelib.fileExists(dataPath)) {
+        try {
+            var parsed = JSON.parse(filelib.readFile(dataPath));
+            if (parsed && Array.isArray(parsed.lists) && Array.isArray(parsed.reminders)) data = parsed;
+        } catch (e) {}
+    }
+
+    // Upsert by id
+    var found = false;
+    for (var i = 0; i < data.reminders.length; i++) {
+        if (data.reminders[i].id === rm.id) { data.reminders[i] = rm; found = true; break; }
+    }
+    if (!found) data.reminders.push(rm);
+
+    filelib.writeFile(dataPath, JSON.stringify(data));
+    sendJSONResp({ ok: true, id: rm.id });
+}

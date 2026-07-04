@@ -1,457 +1,789 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>User List</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-    </head>
-    <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <div class="ui header">
-                    <i class="user icon"></i>
-                        <div class="content">
-                        Manage Users
-                        <div class="sub header">Manage registered users</div>
-                    </div>
-                </div>
-                <button class="ui primary small button" onclick="showNewUserUI();">
-                    <i class="add icon"></i>Create
-                </button>
-                <button id="editbtn" class="ui small disabled button" onclick="showEditUI();">
-                    <i class="edit icon"></i>Edit
-                </button>
-               
-                <button id="editUserButton" class="ui small negative disabled right floated button" onclick="removeUser();">
-                    Remove
-                </button>
-                <button id="deselectAllBtn" class="ui small right floated basic button" onclick="deselectAll();" style="display: none;">
-                    <i class="remove icon"></i>Deselect All
-                </button>
-            </div>
-            <div class="ui styled fluid accordion">
-                <div class="title">
-                    <i class="dropdown icon"></i>
-                    Advance Operations
-                </div>
-                <div class="content">
-                    <h3>Import from CSV</h3>
-                    <p>Example Structure of the csv format (one user per row)</p>
-                    <table class="ui mini celled table" style="max-width: 500px;">
-                        <tbody>
-                            <tr>
-                              <td>User Name</td>
-                              <td>Default Password</td>
-                              <td>Default Group</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p>(Please make sure the group exists before import)</p>
-                    <button id="importbtn" class="ui small green button" onclick="importFromCSV();">
-                        <i class="upload icon"></i>Import from CSV
-                    </button>
-                    <button id="importbtn" class="ui small button" onclick="window.open('../users/template.csv');">
-                        Download CSV Template
-                    </button>
-                    <div class="ui divider"></div>
-                    <h3>Multi-Selection Remove</h3>
-                    <p>Select multiple users by their user group</p>
-                    <div class="ui selection dropdown">
-                        <input id="usergroupselector" type="hidden" name="Group">
-                        <i class="dropdown icon"></i>
-                        <div class="default text">Group</div>
-                        <div id="grouplist" class="menu">
-                        </div>
-                    </div>
-                    <button class="ui red button" onclick="deleteUsersInGroup();">Remove All Users in Group</button>
-                    <br><br>
-                    <div class="ui checkbox">
-                        <input id="mustbeonegroup" type="checkbox" name="iff">
-                        <label>only if the user is in exactly one group</label>
-                    </div>
-                </div>
-            </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>User List</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent; }
 
-            <table class="ui very basic celled table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Permission Group</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody id="userTable" >
-                 
-                </tbody>
-              </table>
-              <br><br>
+    #ul-root {
+        --ul-text:        #1d1d1f;
+        --ul-dim:         #6e6e73;
+        --ul-muted:       #98989d;
+        --ul-divider:     #d2d2d7;
+        --ul-selected:    rgba(0,113,227,0.08);
+        --ul-hover:       rgba(0,0,0,0.045);
+        --ul-active:      rgba(0,0,0,0.09);
+        --ul-accent:      #0071e3;
+        --ul-danger:      #ff3b30;
+        --ul-bg:          #ffffff;
+        --ul-card-bg:     #f5f5f7;
+        --ul-card-border: #e5e5ea;
+        --ul-shadow:      rgba(0,0,0,0.10);
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        color: var(--ul-text);
+        background: var(--ul-bg);
+        border-radius: 0.6em;
+    }
+
+    #ul-root.dark {
+        --ul-text:        #f0f0f0;
+        --ul-dim:         #a0a0a5;
+        --ul-muted:       #dadada;
+        --ul-divider:     #3a3a3c;
+        --ul-hover:       rgba(255,255,255,0.06);
+        --ul-selected:    rgba(41,151,255,0.12);
+        --ul-active:      rgba(255,255,255,0.12);
+        --ul-accent:      #2997ff;
+        --ul-danger:      #ff453a;
+        --ul-bg:          #2b2b2b;
+        --ul-card-bg:     #3a3a3c;
+        --ul-card-border: #48484a;
+        --ul-shadow:      rgba(0,0,0,0.45);
+    }
+
+    #ul-page { padding: 16px 0 24px; }
+
+    /* ── Toolbar ── */
+    #ul-toolbar {
+        padding: 4px 12px 10px;
+    }
+    #ul-btn-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    /* ── Selected row ── */
+    .ul-user-row.selected { background: var(--ul-selected); }
+
+
+
+    /* ── Buttons ── */
+    .ul-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 13px;
+        border-radius: 6px;
+        border: 1px solid var(--ul-card-border);
+        font-family: inherit;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.1s, opacity 0.1s;
+        outline: none;
+        background: var(--ul-card-bg);
+        color: var(--ul-text);
+        white-space: nowrap;
+    }
+    .ul-btn:hover  { background: var(--ul-hover); }
+    .ul-btn:active { background: var(--ul-active); }
+    .ul-btn.primary { background: var(--ul-accent); color: #fff; border-color: var(--ul-accent); }
+    .ul-btn.primary:hover { opacity: 0.85; background: var(--ul-accent); }
+    .ul-btn.danger  { color: var(--ul-danger); border-color: var(--ul-danger); background: transparent; }
+    .ul-btn.danger:hover  { background: rgba(255,59,48,0.08); }
+    #ul-root.dark .ul-btn.danger:hover { background: rgba(255,69,58,0.13); }
+    .ul-btn.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+    .ul-btn.loading  { opacity: 0.55; cursor: default; pointer-events: none; }
+
+    /* ── Section label ── */
+    .ul-section-label {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0 16px;
+        margin: 12px 0 6px;
+    }
+
+    /* ── List card ── */
+    .ul-list {
+        border: 1px solid var(--ul-divider);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 0 12px 6px;
+        background: var(--ul-bg);
+    }
+
+    /* ── Column header row ── */
+    #ul-col-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 14px;
+        background: var(--ul-card-bg);
+        border-bottom: 1px solid var(--ul-divider);
+    }
+    .ul-col-user  { flex: 1; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ul-muted); }
+    .ul-col-check { width: 18px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; color: var(--ul-muted); }
+
+    /* ── User rows ── */
+    .ul-user-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--ul-divider);
+        cursor: pointer;
+        transition: background 0.08s;
+        user-select: none;
+    }
+    .ul-user-row:last-child { border-bottom: none; }
+    .ul-user-row:hover     { background: var(--ul-hover); }
+
+    .ul-user-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 1px solid var(--ul-card-border);
+        background: var(--ul-card-bg);
+    }
+
+    .ul-user-info { flex: 1; min-width: 0; }
+    .ul-user-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ul-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .ul-user-groups { font-size: 11.5px; color: var(--ul-dim); margin-top: 1px; }
+
+    .ul-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 10.5px;
+        padding: 1px 7px;
+        border-radius: 20px;
+        background: rgba(0,113,227,0.10);
+        color: var(--ul-accent);
+        font-weight: 500;
+        margin-right: 3px;
+    }
+    .ul-badge.invalid { background: rgba(255,59,48,0.10); color: var(--ul-danger); }
+
+    .ul-row-checkbox {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        accent-color: var(--ul-accent);
+        cursor: pointer;
+    }
+    .ul-empty {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--ul-muted);
+        font-size: 13px;
+    }
+
+    /* ── Advanced section ── */
+    .ul-adv-trigger {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .ul-adv-chevron {
+        width: 12px;
+        height: 12px;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+        fill: none;
+        stroke: var(--ul-muted);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .ul-adv-chevron.open { transform: rotate(180deg); }
+    #ul-advanced { display: none; }
+    #ul-advanced.open { display: block; }
+
+    /* ── Advanced cards ── */
+    .ul-adv-card {
+        border: 1px solid var(--ul-divider);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 0 12px 6px;
+        background: var(--ul-bg);
+    }
+    .ul-adv-card-header {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ul-text);
+        padding: 9px 14px;
+        background: var(--ul-card-bg);
+        border-bottom: 1px solid var(--ul-divider);
+    }
+    .ul-adv-card-body { padding: 12px 14px; }
+    .ul-adv-desc {
+        font-size: 12.5px;
+        color: var(--ul-dim);
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+    .ul-adv-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+    .ul-mono-table {
+        border: 1px solid var(--ul-divider);
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        font-size: 12px;
+        width: 100%;
+        max-width: 380px;
+        border-collapse: collapse;
+    }
+    .ul-mono-table td {
+        padding: 5px 10px;
+        border-bottom: 1px solid var(--ul-divider);
+        color: var(--ul-dim);
+    }
+    .ul-mono-table tr:last-child td { border-bottom: none; }
+
+    /* ── Select ── */
+    .ul-select {
+        font-size: 13px;
+        font-family: inherit;
+        color: var(--ul-text);
+        background: var(--ul-card-bg);
+        border: 1px solid var(--ul-card-border);
+        border-radius: 6px;
+        padding: 5px 8px;
+        outline: none;
+        cursor: pointer;
+    }
+    .ul-select:focus { border-color: var(--ul-accent); }
+
+    .ul-check-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 12.5px;
+        color: var(--ul-dim);
+    }
+
+    /* ── Modal overlays ── */
+    .ul-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9000;
+        background: rgba(0,0,0,0.48);
+        align-items: center;
+        justify-content: center;
+    }
+    .ul-modal-overlay.open { display: flex; }
+
+    .ul-modal {
+        background: var(--ul-bg);
+        border: 1px solid var(--ul-divider);
+        border-radius: 12px;
+        padding: 22px 24px;
+        width: 460px;
+        max-width: 95vw;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 16px 60px rgba(0,0,0,0.3);
+    }
+    .ul-modal-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--ul-text);
+        margin-bottom: 12px;
+    }
+    .ul-modal-title.danger { color: var(--ul-danger); }
+    .ul-modal-desc {
+        font-size: 13px;
+        color: var(--ul-dim);
+        margin-bottom: 14px;
+        line-height: 1.5;
+    }
+    .ul-modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+        margin-bottom: 16px;
+    }
+    .ul-modal-table th {
+        text-align: left;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ul-muted);
+        padding: 0 8px 8px;
+        border-bottom: 1px solid var(--ul-divider);
+    }
+    .ul-modal-table td {
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--ul-divider);
+        color: var(--ul-text);
+    }
+    .ul-modal-table tbody tr:last-child td { border-bottom: none; }
+
+    #removePendingUsers {
+        margin-bottom: 16px;
+        border: 1px solid var(--ul-divider);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .ul-remove-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--ul-divider);
+        font-size: 13px;
+        color: var(--ul-text);
+    }
+    .ul-remove-item:last-child { border-bottom: none; }
+    .ul-remove-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ul-danger); flex-shrink: 0; }
+
+    .ul-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .ul-error-msg { font-size: 13px; color: var(--ul-danger); margin-bottom: 16px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+<!-- Import confirm modal -->
+<div class="ul-modal-overlay" id="confirmImport">
+    <div class="ul-modal" id="ul-root-modal-import">
+        <div class="ul-modal-title" locale="userlist/modal-import-title">Import Users</div>
+        <div class="ul-modal-desc" locale="userlist/modal-import-desc">Confirm importing the following users?</div>
+        <table class="ul-modal-table">
+            <thead><tr>
+                <th locale="userlist/modal-col-username">Username</th>
+                <th locale="userlist/modal-col-pw">Default Password</th>
+                <th locale="userlist/modal-col-group">Group</th>
+            </tr></thead>
+            <tbody id="userImportPreview"></tbody>
+        </table>
+        <div class="ul-modal-actions">
+            <button class="ul-btn" onclick="ulHideModal('confirmImport')" locale="userlist/modal-cancel">Cancel</button>
+            <button class="ul-btn primary" onclick="confirmImportUsers()" locale="userlist/modal-import-confirm">Import</button>
         </div>
-        <!-- Import Confirm Dialog-->
-        <div class="ui modal" id="confirmImport">
-            <i class="close icon"></i>
-            <div class="header">
-                Import Users
-            </div>
-            <div class="content">
-                <div class="description">
-                <div class="ui header">Confirm importing the following users?</div>
-                <table class="ui celled table">
-                    <thead>
-                      <tr><th>Username</th>
-                      <th>Default Password</th>
-                      <th>Group</th>
-                    </tr></thead>
-                    <tbody id="userImportPreview">
-                     
+    </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="ul-modal-overlay" id="deleteConfirmDialog">
+    <div class="ul-modal">
+        <div class="ul-modal-title danger" locale="userlist/modal-delete-title">Remove Users</div>
+        <div class="ul-modal-desc" locale="userlist/modal-delete-desc">The following users will be removed from the system. This action is <strong>NOT REVERSIBLE</strong>.</div>
+        <div id="removePendingUsers"></div>
+        <div class="ul-modal-actions">
+            <button class="ul-btn" onclick="ulHideModal('deleteConfirmDialog')" locale="userlist/modal-cancel">Cancel</button>
+            <button class="ul-btn danger" id="ul-confirm-removal-btn" onclick="confirmRemoval(this)" locale="userlist/modal-confirm-removal">Confirm Removal</button>
+        </div>
+    </div>
+</div>
+
+<!-- Error modal -->
+<div class="ul-modal-overlay" id="ul-error-modal">
+    <div class="ul-modal">
+        <div class="ul-modal-title danger" locale="userlist/modal-error-title">Some accounts could not be created</div>
+        <div class="ul-error-msg errormessage"></div>
+        <div class="ul-modal-actions">
+            <button class="ul-btn primary" onclick="ulHideModal('ul-error-modal')" locale="userlist/modal-ok">OK</button>
+        </div>
+    </div>
+</div>
+<div id="ul-root">
+<div id="ul-page">
+    <!-- User list -->
+    <div class="ul-section-label" locale="userlist/section-users">Users</div>
+    <div class="ul-list">
+        <div id="ul-col-header">
+            <div style="width:34px;flex-shrink:0;"></div>
+            <div class="ul-col-user" locale="userlist/col-user">Username / Group</div>
+            <div class="ul-col-check"></div>
+        </div>
+        <div id="userTable">
+            <div class="ul-empty" locale="userlist/loading">Loading…</div>
+        </div>
+    </div>
+     <!-- Toolbar -->
+    <div id="ul-toolbar">
+        <div id="ul-btn-row">
+            <button class="ul-btn primary" onclick="showNewUserUI()">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                <span locale="userlist/create">Create</span>
+            </button>
+            <button id="ul-edit-btn" class="ul-btn disabled" onclick="ulEditSelectedUser()">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span locale="userlist/edit">Edit</span>
+            </button>
+            <button id="deselectAllBtn" class="ul-btn" onclick="deselectAll();" style="display:none;">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                <span locale="userlist/deselect-all">Deselect All</span>
+            </button>
+            <button id="editUserButton" class="ul-btn danger disabled" onclick="removeUser()" style="margin-left:auto;">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 3h10M4 3V2h4v1M5 6v3M7 6v3M2 3l.8 8h6.4L10 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span locale="userlist/remove-selected">Remove Selected</span>
+            </button>
+        </div>
+    </div>
+   
+
+    <!-- Advanced section -->
+    <div class="ul-section-label ul-adv-trigger" onclick="ulToggleAdv(this)" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+        <span locale="userlist/section-advanced">Advanced Operations</span>
+        <svg class="ul-adv-chevron" viewBox="0 0 12 12" style="margin-right:4px;">
+            <polyline points="2,4 6,8 10,4"/>
+        </svg>
+    </div>
+    <div id="ul-advanced">
+
+        <!-- CSV Import -->
+        <div class="ul-adv-card">
+            <div class="ul-adv-card-header" locale="userlist/csv-title">Import from CSV</div>
+            <div class="ul-adv-card-body">
+                <div class="ul-adv-desc" locale="userlist/csv-desc">One user per row, in the following format. Make sure the group exists before importing.</div>
+                <table class="ul-mono-table">
+                    <tbody>
+                        <tr>
+                            <td locale="userlist/csv-col-name">User Name</td>
+                            <td locale="userlist/csv-col-pw">Default Password</td>
+                            <td locale="userlist/csv-col-group">Default Group</td>
+                        </tr>
                     </tbody>
-                  </table>
-                </div>
-            </div>
-            <div class="actions">
-                <div class="ui black deny button">
-                Cancel
-                </div>
-                <div class="ui positive right labeled icon button" onclick="confirmImportUsers();">
-                OK
-                <i class="checkmark icon"></i>
-                </div>
-            </div>
-        </div>
-        <!-- Delete Confirm Dialog -->
-        <div class="ui modal" id="deleteConfirmDialog">
-            <i class="close icon"></i>
-            <div class="header" style="color: #eb4034;">
-              <i class="user times icon"></i> Remove Users
-            </div>
-            <div class="content">
-              <div class="description">
-                <div class="ui header">The following users will be removed from the system. This action is <span style="color: #eb4034;">NOT REVERSIBLE</span>.</div>
-                <div id="removePendingUsers" class="ui bulleted list">
-
-                </div>
-              </div>
-            </div>
-            <div class="actions">
-              <div class="ui black deny button">
-                Cancel
-              </div>
-              <div class="ui red right labeled icon button" onclick="confirmRemoval(this);">
-                Confirm Removal
-                <i class="checkmark icon"></i>
-              </div>
-            </div>
-          </div>
-        <!-- Error Display Dialog-->
-        <div class="ui basic modal errormodal">
-            <div class="ui icon header">
-                <i class="red remove icon"></i>
-                Some accounts cannot be created
-            </div>
-            <div class="content">
-                <p class="errormessage"></p>
-            </div>
-            <div class="actions">
-                <div class="ui ok inverted button">
-                    <i class="checkmark icon"></i>
-                    OK
+                </table>
+                <div class="ul-adv-row">
+                    <button class="ul-btn primary" onclick="importFromCSV()">
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                        <span locale="userlist/csv-import-btn">Import from CSV</span>
+                    </button>
+                    <button class="ul-btn" onclick="window.open('../users/template.csv');">
+                        <span locale="userlist/csv-template-btn">Download Template</span>
+                    </button>
                 </div>
             </div>
         </div>
-        <script>
-            //Init UI elements
-            $('.ui.accordion').accordion();
-            $('.ui.dropdown').dropdown();
 
-            //Init group list
-            $.get("../../system/permission/listgroup", function(data){
-                $("#grouplist").html("");
-                if (data.error !== undefined){
-                    console.log(data.error);
-                }else{
-                    data.forEach(group => {
-                        $("#grouplist").append(`<div class="item" data-value="${group}">${group}</div>`);
-                    });
+        <!-- Group remove -->
+        <div class="ul-adv-card">
+            <div class="ul-adv-card-header" locale="userlist/grp-remove-title">Multi-Selection Remove</div>
+            <div class="ul-adv-card-body">
+                <div class="ul-adv-desc" locale="userlist/grp-remove-desc">Remove all users belonging to a permission group.</div>
+                <div class="ul-adv-row">
+                    <select id="usergroupselector" class="ul-select">
+                        <option value="" locale="userlist/grp-select-placeholder">Select a group…</option>
+                    </select>
+                    <button class="ul-btn danger" onclick="deleteUsersInGroup()">
+                        <span locale="userlist/grp-remove-btn">Remove All Users in Group</span>
+                    </button>
+                </div>
+                <div class="ul-check-row">
+                    <input type="checkbox" id="mustbeonegroup" class="ul-row-checkbox">
+                    <label for="mustbeonegroup" locale="userlist/grp-one-group">Only if the user is in exactly one group</label>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</div>
+
+<script>
+    /* ── Locale ── */
+    var ulLocale = NewAppLocale();
+
+    /* ── Theme detection ── */
+    (function() {
+        if (typeof(preferredTheme) !== 'undefined' && preferredTheme){
+            document.getElementById('ul-root').classList.toggle('dark', preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+            return;
+        }
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    document.getElementById('ul-root').classList.toggle('dark', c !== 'whiteTheme');
+                });
+            } 
+        } catch(e) {}
+    })();
+
+    window.detailPageThemeCallback = function(isDark) {
+        var el = document.getElementById('ul-root');
+        if (el) el.classList.toggle('dark', isDark);
+    };
+
+    /* ── Modal helpers ── */
+    function ulShowModal(id) { document.getElementById(id).classList.add('open'); }
+    function ulHideModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    /* ── Advanced toggle ── */
+    function ulToggleAdv(trigger) {
+        var adv = document.getElementById('ul-advanced');
+        var chevron = trigger.querySelector('.ul-adv-chevron');
+        adv.classList.toggle('open');
+        chevron.classList.toggle('open');
+    }
+
+    /* ── Row selection state ── */
+    var currentSelectedUser = "";
+
+    function ulSelectUserRow(username, rowEl) {
+        $('.ul-user-row').removeClass('selected');
+        $(rowEl).addClass('selected');
+        currentSelectedUser = username;
+        $('#ul-edit-btn').removeClass('disabled');
+    }
+
+    function ulEditSelectedUser() {
+        if (!currentSelectedUser) return;
+        showEditUI(currentSelectedUser);
+    }
+
+    /* ── Row click: single-click selects for edit, checkbox handles bulk ops ── */
+    function ulRowClick(event, username) {
+        var cb = event.currentTarget.querySelector('.selectUser');
+        if (event.target === cb) return; // let checkbox handle itself
+        ulSelectUserRow(username, event.currentTarget);
+    }
+
+    /* ── Group list ── */
+    $.get("../../system/permission/listgroup", function(data) {
+        var sel = document.getElementById('usergroupselector');
+        if (data.error !== undefined) { console.log(data.error); return; }
+        data.forEach(function(group) {
+            var opt = document.createElement('option');
+            opt.value = group;
+            opt.textContent = group;
+            sel.appendChild(opt);
+        });
+    });
+
+    /* ── User list ── */
+    var validGroups = [];
+    function initUserList() {
+        currentSelectedUser = "";
+        $('#ul-edit-btn').addClass('disabled');
+        var loadingText = ulLocale.getString('userlist/loading', 'Loading\u2026');
+        $("#userTable").html('<div class="ul-empty">' + loadingText + '</div>');
+
+        $.get("../../system/permission/listgroup", function(groupData) {
+            validGroups = groupData;
+
+            $.ajax({
+                url: "../../system/users/list",
+                success: function(data) {
+                    $("#userTable").html("");
+                    if (!data || data.length === 0) {
+                        var emptyText = ulLocale.getString('userlist/no-users', 'No users found');
+                        $("#userTable").html('<div class="ul-empty">' + emptyText + '</div>');
+                        return;
+                    }
+                    for (var i = 0; i < data.length; i++) {
+                        var username   = data[i][0];
+                        var group      = data[i][1];
+                        var profilePic = data[i][2] || "../users/img/noprofileicon.png";
+                        var isSelf     = data[i][3];
+                        var usernameEscaped = username.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+                        var groupDisplay = group.map(function(g) {
+                            var cls = validGroups.indexOf(g) === -1 ? ' invalid' : '';
+                            return '<span class="ul-badge' + cls + '">' + $('<span>').text(g).html() + (cls ? ' \u26a0' : '') + '</span>';
+                        }).join('');
+
+                        $("#userTable").append(
+                            '<div class="ul-user-row" onclick="ulRowClick(event, \'' + usernameEscaped + '\')">' +
+                                '<img src="' + profilePic + '" class="ul-user-avatar" onerror="this.src=\'../users/img/noprofileicon.png\'">' +
+                                '<div class="ul-user-info">' +
+                                    '<div class="ul-user-name">' + $('<span>').text(username).html() + '</div>' +
+                                    '<div class="ul-user-groups">' + groupDisplay + '</div>' +
+                                '</div>' +
+                                '<input type="checkbox" class="ul-row-checkbox selectUser" value="' + username + '" self="' + isSelf + '" onchange="handleUserSelection();" onclick="event.stopPropagation();">' +
+                            '</div>'
+                        );
+                    }
+                },
+                error: function() {
+                    var errText = ulLocale.getString('userlist/load-error', 'Failed to load user list.');
+                    $("#userTable").html('<div class="ul-empty">' + errText + '</div>');
+                }
+            });
+        });
+    }
+
+    /* ── Import from CSV ── */
+    var importPendingData = "";
+    function importFromCSV() {
+        ao_module_selectFiles(function(files) {
+            var targetFile = files[0];
+            ao_module_utils.readFileFromFileObject(targetFile, function(content) {
+                $("#userImportPreview").html("");
+                var lines = content.split("\r\n").join("\n").split("\n");
+                lines.forEach(function(line) {
+                    var parts = line.split(",");
+                    if (line.length < 3) return;
+                    $("#userImportPreview").append(
+                        '<tr><td>' + $('<span>').text(parts[0]).html() + '</td>' +
+                        '<td>' + $('<span>').text(parts[1]).html() + '</td>' +
+                        '<td>' + $('<span>').text(parts[2]).html() + '</td></tr>'
+                    );
+                });
+                ulShowModal('confirmImport');
+                importPendingData = content;
+            });
+        }, "file", ".csv", false);
+    }
+
+    /* ── Delete users in group ── */
+    var deletePendingGroup = "";
+    function deleteUsersInGroup() {
+        var targetGroup = $("#usergroupselector").val();
+        if (!targetGroup) return;
+        deletePendingGroup = targetGroup;
+
+        $.get("../../system/users/list", function(data) {
+            var usernames = [];
+            data.forEach(function(user) {
+                var userGroup = user[1];
+                if ($("#mustbeonegroup")[0].checked) {
+                    if (userGroup.length === 1 && userGroup[0] === deletePendingGroup) usernames.push(user[0]);
+                } else {
+                    if (userGroup.includes(deletePendingGroup)) usernames.push(user[0]);
                 }
             });
 
+            $("#removePendingUsers").html("");
+            usernames.forEach(function(u) {
+                $("#removePendingUsers").append(
+                    '<div class="ul-remove-item"><div class="ul-remove-dot"></div>' + $('<span>').text(u).html() + '</div>'
+                );
+            });
+            ulShowModal('deleteConfirmDialog');
+        });
+    }
 
-            //Init User List
-            var validGroups = [];
-            initUserList();
-            function initUserList(){
-                $("#userTable").html("");
-                $("#editbtn").addClass('disabled');
-                
-                // First, fetch the valid groups list
-                $.get("../../system/permission/listgroup", function(groupData){
-                    validGroups = groupData;
-                    
-                    // Then load the user list
-                    $.ajax({
-                        url: "../../system/users/list",
-                        success: function(data){
-                            for (var i =0; i < data.length; i++){
-                                var username = data[i][0];
-                                var group = data[i][1];
-                                var profilePic = data[i][2];
-                                if (profilePic == ""){
-                                    profilePic = "../users/img/noprofileicon.png"
-                                }
-                                var accountStatus = data[i][3];
-                                
-                                // Check each group and add invalid label if needed
-                                var groupDisplay = group.map(function(g) {
-                                    if (validGroups.indexOf(g) === -1) {
-                                        return g + ' <span class="ui mini red label">Invalid</span>';
-                                    }
-                                    return g;
-                                }).join("/");
-                                
-                                $("#userTable").append(`<tr>
-                                    <td>
-                                        <h4 class="ui image header">
-                                            <img src="${profilePic}" class="ui mini rounded image">
-                                            <div class="content">
-                                            ${username}
-                                        </div>
-                                    </h4>
-                                </td>
-                                <td>
-                                    ${groupDisplay}
-                                </td>
-                                <td>
-                                    <div class="ui checkbox">
-                                        <input type="checkbox" class="selectUser" value="${username}" self="${data[i][3]}" onchange="handleUserSelection();">
-                                        <label></label>
-                                    </div>
-                                </td>
-                            </tr>`);
-                            }
-                        },
-                        error: function(data){
-                            $("#userTable").html("<p> Failed to load user database. </p>");
-                        }
-                    });
-                });
+    function confirmRemoval(btn) {
+        $(btn).addClass("loading");
+        $.ajax({
+            url: "../../system/auth/groupdel",
+            data: { group: deletePendingGroup, exact: $("#mustbeonegroup")[0].checked },
+            success: function() {
+                ulHideModal('deleteConfirmDialog');
+                $(btn).removeClass("loading");
+                initUserList();
             }
+        });
+    }
 
-            var importPendingData = "";
-            function importFromCSV(){
-                //Open the native file selector for uploading a csv file
-                ao_module_selectFiles(function(files){
-                    var targetFile = files[0];
-                    console.log(targetFile, files);
-                    //Read the csv file into string
-                    ao_module_utils.readFileFromFileObject(targetFile, function(content){
-                        //Render the preview user list
-                        $("#userImportPreview").html("");
-                        var lines = content.split("\r\n").join("\n").split("\n");
-                        lines.forEach(line => {
-                            var data = line.split(",");
-                            if (line.length < 3){
-                                return;
-                            }
-                            $("#userImportPreview").append(`
-                                <tr>
-                                    <td data-label="Name">${data[0]}</td>
-                                    <td data-label="DP">${data[1]}</td>
-                                    <td data-label="Group">${data[2]}</td>
-                                </tr>`);
-                        });
-                        $("#confirmImport").modal("show");
-                        //Post the content to server side
-                        importPendingData = content;
-                    });
-                }, "file", ".csv", false);
-            }
-
-            var deletePendingGroup = "";
-            function deleteUsersInGroup(){
-                var targetGroup = $("#usergroupselector").val();
-                if (targetGroup == ""){
-                    return;
-                }
-                deletePendingGroup = targetGroup;
-                
-                $.get("../../system/users/list", function(data){
-                    var username = [];
-                    data.forEach(user => {
-                        var userGroup = user[1];
-                        if ($("#mustbeonegroup")[0].checked == true){
-                            if (userGroup.length == 1 && userGroup[0] == (deletePendingGroup)){
-                                username.push(user[0]);
-                            }
-                        }else{
-                            if (userGroup.includes(deletePendingGroup)){
-                                username.push(user[0]);
-                            }
-                        }
-                       
-                    });
-
-                    $("#removePendingUsers").html("");
-                    username.forEach(thisuser => {
-                        $("#removePendingUsers").append(`<div class="item">${thisuser}</div>`);
-                    });
-                });
-
-
-                $("#deleteConfirmDialog").modal("show");
-
-            }
-
-            function confirmRemoval(btn){
-                let group = deletePendingGroup;
-                let removeUsersWithOneGroupOnly = $("#mustbeonegroup")[0].checked;
-                $(btn).addClass("loading");
-                $.ajax({
-                    url :"../../system/auth/groupdel",
-                    data: {group: group, exact: removeUsersWithOneGroupOnly},
-                    success: function(data){
-                        $("#deleteConfirmDialog").modal("hide");
-                        $(btn).removeClass("loading");
-                        initUserList();
-                    }
-                })
-            }
-
-            function confirmImportUsers(){
-                $.ajax({
-                    url: "../../system/auth/csvimport",
-                    data: {csv: importPendingData},
-                    success: function(data){
-                        //The returned data should ba list of errors (if any)
-                        if (data.length == 0){
-                            //Reload the list
-                            initUserList();
-                        }else{
-                            //Display error list
-                            console.log(data);
-                            $(".errormodal").modal("show");
-                            var errmsg = data.join("<br>");
-                            $(".errormessage").html(errmsg); 
-                            initUserList();
-                        }
-                    }
-                });
-            }
-
-            function showNewUserUI(){
-                ao_module_newfw({
-                    url: "user.html",
-                    width: 530,
-                    height: 740,
-                    appicon: "SystemAO/users/img/user-white.svg",
-                    title: "Create New User",
-                    callback: "finishCreateHandler",
-                    parent: ao_module_windowID
-                });
-            }
-
-            function showEditUI(){
-                var username = $(".selectUser:checked").first().val();
-                ao_module_newfw({
-                    url:"SystemAO/users/editUser.html#" + encodeURIComponent(username),
-                    width: 530,
-                    height: 740,
-                    appicon: "SystemAO/users/img/user-white.svg",
-                    title: "Edit User",
-                    callback: "finishCreateHandler",
-                    parent: ao_module_windowID
-                });
-            }
-
-            function removeUser(){
-                var selectedUsers = $(".selectUser:checked");
-                var usernames = [];
-                
-                selectedUsers.each(function(){
-                    usernames.push($(this).val());
-                });
-                
-                if (usernames.length === 0) {
-                    return;
-                }
-                
-                var confirmMessage = usernames.length === 1 
-                    ? "Remove " + usernames[0] + " from the system PERMANENTLY?"
-                    : "Remove " + usernames.length + " users from the system PERMANENTLY?";
-                    
-                if (confirm(confirmMessage)){
-                    $.ajax({
-                        url: "../../system/users/removeUser",
-                        data: {usernames: JSON.stringify(usernames)},
-                        method: "POST",
-                        success: function(data){
-                            if (data.error !== undefined){
-                                alert(data.error);
-                            }else{
-                                //Reload the list
-                                initUserList();
-                            }
-                        },
-                        error: function(xhr, status, error){
-                            alert("Failed to remove user(s): " + error);
-                        }
-                    });
-                }
-            }
-
-            function finishCreateHandler(state){
-                if (state){
+    function confirmImportUsers() {
+        $.ajax({
+            url: "../../system/auth/csvimport",
+            data: { csv: importPendingData },
+            success: function(data) {
+                ulHideModal('confirmImport');
+                if (data.length === 0) {
+                    initUserList();
+                } else {
+                    $(".errormessage").html(data.join("<br>"));
+                    ulShowModal('ul-error-modal');
                     initUserList();
                 }
             }
+        });
+    }
 
-            function handleUserSelection(){
-                var selectedUsers = $(".selectUser:checked");
-                var selectedCount = selectedUsers.length;
-                
-                // Check if the current user is in the selection
-                var currentUserSelected = false;
-                selectedUsers.each(function(){
-                    if ($(this).attr("self") === "true") {
-                        currentUserSelected = true;
-                        return false; // break the loop
-                    }
-                });
-                
-                if (selectedCount === 0) {
-                    // No users selected
-                    $("#editUserButton").addClass("disabled");
-                    $("#editbtn").addClass("disabled");
-                    $("#deselectAllBtn").hide();
-                } else if (selectedCount === 1) {
-                    // Single user selected
-                    var isSelf = selectedUsers.first().attr("self") === "true";
-                    if (isSelf) {
-                        $("#editUserButton").addClass("disabled");
-                    } else {
-                        $("#editUserButton").removeClass("disabled");
-                    }
-                    $("#editbtn").removeClass("disabled");
-                    $("#deselectAllBtn").hide();
-                } else {
-                    // Multiple users selected
-                    if (currentUserSelected) {
-                        // Current user is in the selection, disable delete button
-                        $("#editUserButton").addClass("disabled");
-                    } else {
-                        $("#editUserButton").removeClass("disabled");
-                    }
-                    $("#editbtn").addClass("disabled"); // Disable edit for multiple selection
-                    $("#deselectAllBtn").show();
-                }
-            }
-            
-            function deselectAll(){
-                $(".selectUser:checked").prop('checked', false);
-                handleUserSelection();
-            }
-        </script>
-    </body>
+    /* ── Window open helpers ── */
+    function showNewUserUI() {
+        ao_module_newfw({
+            url: "SystemAO/users/newUser.html",
+            width: 530, height: 740,
+            appicon: "SystemAO/users/img/user-white.svg",
+            title: "Create New User",
+            callback: "finishCreateHandler",
+            parent: ao_module_windowID
+        });
+    }
+
+    function showEditUI(username) {
+        ao_module_newfw({
+            url: "SystemAO/users/editUser.html#" + encodeURIComponent(username),
+            width: 530, height: 740,
+            appicon: "SystemAO/users/img/user-white.svg",
+            title: "Edit User",
+            callback: "finishCreateHandler",
+            parent: ao_module_windowID
+        });
+    }
+
+    function removeUser() {
+        var usernames = [];
+        $(".selectUser:checked").each(function() { usernames.push($(this).val()); });
+        if (usernames.length === 0) return;
+
+        var msg = usernames.length === 1
+            ? "Remove " + usernames[0] + " from the system PERMANENTLY?"
+            : "Remove " + usernames.length + " users from the system PERMANENTLY?";
+
+        if (confirm(msg)) {
+            $.ajax({
+                url: "../../system/users/removeUser",
+                data: { usernames: JSON.stringify(usernames) },
+                method: "POST",
+                success: function(data) {
+                    if (data.error !== undefined) { alert(data.error); }
+                    else { initUserList(); }
+                },
+                error: function(xhr, status, error) { alert("Failed to remove user(s): " + error); }
+            });
+        }
+    }
+
+    function finishCreateHandler(state) { if (state) initUserList(); }
+
+    function handleUserSelection() {
+        var selected = $(".selectUser:checked");
+        var count = selected.length;
+        var selfSelected = false;
+        selected.each(function() {
+            if ($(this).attr("self") === "true") { selfSelected = true; return false; }
+        });
+
+        if (count === 0) {
+            $("#editUserButton").addClass("disabled");
+            $("#deselectAllBtn").hide();
+        } else {
+            if (selfSelected) { $("#editUserButton").addClass("disabled"); }
+            else              { $("#editUserButton").removeClass("disabled"); }
+            if (count > 1) { $("#deselectAllBtn").show(); }
+            else           { $("#deselectAllBtn").hide(); }
+        }
+    }
+
+    function deselectAll() {
+        $(".selectUser:checked").prop('checked', false);
+        handleUserSelection();
+    }
+
+    /* ── Init ── */
+    ulLocale.init("../locale/system_settings/userlist.json", function() {
+        ulLocale.translate();
+        initUserList();
+    });
+</script>
+</body>
 </html>

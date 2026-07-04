@@ -30,4 +30,16 @@ src/system/auth/authlog.db
 src/system/bridge.json
 src/system/cron.json
 src/system/smtp_conf.json
-/src/web/FFmpeg Factory
+*.exe~
+/src/tmp
+/src/test
+
+# Test-generated BoltDB artifacts created by package tests
+src/mod/**/system/auth/authlog.db
+src/mod/**/system/auth/authlog.db.lock
+src/launcher.exe
+.DS_Store
+src/ffmpeg
+/src/dist
+/apps
+/src/framework

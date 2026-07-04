@@ -1,250 +1,543 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
     <meta charset="UTF-8">
-    <meta name="theme-color" content="#4b75ff">
-    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <meta name="theme-color" content="#141414">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
-    <script src="../script/semantic/semantic.min.js"></script>
-    <title>WebSocket Test</title>
-</head>
+    <title>Speed Test</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
 
+        :root {
+            --bg:           #ffffff;
+            --text:         #141414;
+            --text-muted:   #777;
+            --divider:      #e8e8e8;
+            --progress-bg:  #e8e8e8;
+            --progress-fg:  #141414;
+            --btn-bg:       #141414;
+            --btn-hover:    #333;
+            --btn-text:     #ffffff;
+            --btn-disabled: rgba(20, 20, 20, 0.35);
+        }
+
+        body.dark {
+            --bg:           #141414;
+            --text:         #f0f0f0;
+            --text-muted:   #666;
+            --divider:      #2a2a2a;
+            --progress-bg:  #2a2a2a;
+            --progress-fg:  #f0f0f0;
+            --btn-bg:       #f0f0f0;
+            --btn-hover:    #d8d8d8;
+            --btn-text:     #141414;
+            --btn-disabled: rgba(240, 240, 240, 0.30);
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            transition: background 0.15s, color 0.15s;
+            overflow: hidden;
+        }
+
+        /* ── Shell ── */
+        .wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px 28px;
+            gap: 0;
+        }
+
+        /* ── Subtitle above the number ── */
+        .phase-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 0.2px;
+            margin-bottom: 4px;
+            align-self: flex-start;
+        }
+
+        /* ── The big number ── */
+        .hero {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            margin-bottom: 14px;
+            align-self: flex-start;
+        }
+
+        .hero-num {
+            font-size: 88px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -4px;
+            color: var(--text);
+            transition: color 0.2s;
+            min-width: 3ch;   /* prevent layout shift */
+        }
+
+        .hero-right {
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 10px;
+            gap: 2px;
+        }
+
+        .hero-unit {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+            line-height: 1;
+            min-height: 26px;
+        }
+
+        .hero-sublabel {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        /* Pulse animation during active testing */
+        @keyframes testing-pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.45; }
+        }
+        .hero-num.pulsing { animation: testing-pulse 1.3s ease-in-out infinite; }
+
+        /* ── Slim progress bar ── */
+        .progress-track {
+            width: 100%;
+            height: 3px;
+            background: var(--progress-bg);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 18px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .progress-track.visible { opacity: 1; }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 2px;
+            background: var(--progress-fg);
+            transition: width 0.25s ease;
+        }
+
+        /* ── Secondary metrics (ping + upload) ── */
+        .metrics {
+            width: 100%;
+            border-top: 1px solid var(--divider);
+            padding-top: 14px;
+            margin-bottom: 18px;
+            display: flex;
+            gap: 0;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+        .metrics.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .metric-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .metric-col + .metric-col {
+            border-left: 1px solid var(--divider);
+            padding-left: 20px;
+        }
+
+        .metric-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .metric-val {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 1px;
+            letter-spacing: 0.2px;
+        }
+
+        /* Pulse on the metric while its phase is active */
+        .metric-val.pulsing { animation: testing-pulse 1.3s ease-in-out infinite; }
+
+        /* ── Button ── */
+        .st-btn {
+            width: 100%;
+            padding: 11px 0;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            letter-spacing: 0.2px;
+            transition: background 0.1s, transform 0.08s;
+        }
+        .st-btn:hover:not(:disabled)  { background: var(--btn-hover); }
+        .st-btn:active:not(:disabled) { transform: scale(0.98); }
+        .st-btn:disabled {
+            background: var(--btn-disabled);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Narrow screens ── */
+        @media (max-width: 340px) {
+            .hero-num  { font-size: 68px; }
+            .hero-unit { font-size: 20px; }
+            .metric-val { font-size: 22px; }
+        }
+    </style>
+</head>
 <body>
-    <br><br>
-    <div class="ui container">
-        <div class="ui three statistics" id="stat">
-            <div class="statistic">
-                <div class="value" id="dl" style="padding: 5px;">
-                    -
-                </div>
-                <div class="label" id="dll">
-                    Download
-                </div>
-            </div>
-            <div class="statistic">
-                <div class="value" id="ul" style="padding: 5px;">
-                    -
-                </div>
-                <div class="label" id="ull">
-                    Upload
-                </div>
-            </div>
-            <div class="statistic">
-                <div class="value" id="ping" style="padding: 5px;">
-                    -
-                </div>
-                <div class="label" id="pingl">
-                    Ping
-                </div>
-            </div>
-        </div>
-        <br>
-        <div>
-            <div class="ui top attached teal progress" id="progressbar" style="display: none">
-                <div class="bar">
-                    <div class="progress"></div>
-                </div>
-            </div>
-            <button class="ui fluid button" onclick="startBench();" id="startbtn">Test</button>
+<div class="wrap">
+
+    <!-- Phase label -->
+    <div class="phase-label" id="phaseLabel">Your internet speed:</div>
+
+    <!-- Big download number -->
+    <div class="hero">
+        <div class="hero-num" id="heroNum">—</div>
+        <div class="hero-right">
+            <div class="hero-unit"     id="heroUnit"></div>
+            <div class="hero-sublabel" id="heroSub">Download</div>
         </div>
     </div>
 
-</body>
+    <!-- Slim progress bar -->
+    <div class="progress-track" id="progressTrack">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <!-- Secondary metrics: Latency + Upload -->
+    <div class="metrics" id="metrics">
+
+        <div class="metric-col">
+            <div class="metric-title">Latency</div>
+            <div class="metric-val" id="ping">—</div>
+            <div class="metric-unit" id="pingl">ms</div>
+        </div>
+
+        <div class="metric-col">
+            <div class="metric-title">Upload</div>
+            <div class="metric-val" id="ul">—</div>
+            <div class="metric-unit" id="ull"></div>
+        </div>
+
+    </div>
+
+    <!-- Action button -->
+    <button class="st-btn" id="startbtn" onclick="startBench()">Go</button>
+
+</div><!-- /.wrap -->
+
 <script>
     ao_module_setFixedWindowSize();
-    autoResize();
-    $('#progressbar').progress({
-        label: 'ratio',
-        text: {
-            ratio: ''
-        },
-        total: 100,
-        percent: 0
+
+    /* ── Theme ── */
+    ao_module_getSystemThemeColor(function(color) {
+        document.body.classList.toggle('dark', color !== 'whiteTheme');
     });
 
-    $(window).on('resize', function() {
-        autoResize();
-    });
+    /* ── UI helpers ─────────────────────────────────────────────────────── */
 
-    function autoResize() {
-        if ($(window).width() < 550) {
-            $("#stat").attr("class", "ui three horizontal statistics");
-        } else {
-            $("#stat").attr("class", "ui three statistics");
-        }
+    function setProgress(pct) {
+        document.getElementById('progressFill').style.width =
+            Math.max(0, Math.min(100, pct)) + '%';
     }
 
+    function showBar() { document.getElementById('progressTrack').classList.add('visible'); }
+    function hideBar() { document.getElementById('progressTrack').classList.remove('visible'); }
+
+    /** Update the big hero number. phase = small sublabel below the unit. */
+    function setHero(val, unit, phase) {
+        document.getElementById('heroNum').textContent  = (val  === null || val  === undefined) ? '—' : val;
+        document.getElementById('heroUnit').textContent = unit  || '';
+        document.getElementById('heroSub').textContent  = phase || '';
+    }
+
+    /** Pulse the hero number (true = animate, false = stop). */
+    function setHeroPulse(on) {
+        document.getElementById('heroNum').classList.toggle('pulsing', on);
+    }
+
+    /** Reveal the secondary metrics section. */
+    function showMetrics() {
+        document.getElementById('metrics').classList.add('visible');
+    }
+
+    /** Pulse a secondary metric value. */
+    function setMetricPulse(id, on) {
+        document.getElementById(id).classList.toggle('pulsing', on);
+    }
+
+    /* ── Test orchestration ─────────────────────────────────────────────── */
+
     function startBench() {
-        $('#progressbar').removeAttr('style');
-        $('#progressbar').progress('set progress', 0);
-        $("#startbtn").attr('disabled', 'disabled');
-        $("#startbtn").html('Testing...');
+        // Reset secondaries
+        document.getElementById('ping').textContent  = '—';
+        document.getElementById('pingl').textContent = 'ms';
+        document.getElementById('ul').textContent    = '—';
+        document.getElementById('ull').textContent   = '';
+        document.getElementById('metrics').classList.remove('visible');
+
+        setHero('—', '', 'Download');
+        setHeroPulse(false);
+        setProgress(0);
+        showBar();
+
+        document.getElementById('phaseLabel').textContent = 'Testing your internet speed…';
+
+        var btn = document.getElementById('startbtn');
+        btn.disabled    = true;
+        btn.textContent = 'Testing…';
+
         downloadBench();
     }
 
+    /* ── Download ─────────────────────────────────────────────────────────
+       Live speed is read from counting DATA: frame bytes so the big number
+       animates upward in real time, just like fast.com.
+       ──────────────────────────────────────────────────────────────────── */
     function downloadBench() {
-        $("#dl").text("⏱️");
-        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+        setHero('—', '', 'Download');
+        setHeroPulse(true);
+        setProgress(0);
 
-        socket.onopen = function(e) {
-            $("#dl").text("⌛");
-            socket.send("DWL");
-            $('#progressbar').progress('set progress', 0);
-        };
+        var dlBytes = 0;
+        var dlStart = null;
 
-        socket.onmessage = function(event) {
-            if (event.data.indexOf("DATA:") == -1) {
-                if (event.data.indexOf("TTL_BANDWIDTH") != -1) {
-                    let bandwidth = event.data.split("=")[1].split(" ");
-                    $("#dl").text(bandwidth[0]);
-                    $("#dll").text("Download (" + bandwidth[1] + ")");
-                    uploadBench();
+        var socket = new WebSocket(wsEndpoint() +
+            '/system/ajgi/interface?script=Speedtest/special/wspeedtest.js');
+
+        socket.onopen = function() { socket.send('DWL'); };
+
+        socket.onmessage = function(ev) {
+            if (ev.data.indexOf('DATA:') === 0) {
+                if (dlStart === null) dlStart = performance.now();
+                dlBytes += ev.data.length;
+                var elapsed = (performance.now() - dlStart) / 1000;
+                if (elapsed > 0.3) {
+                    var sp = bytesToSpeed(dlBytes / elapsed).split(' ');
+                    setHero(sp[0], sp[1], 'Download');
                 }
-                if (event.data.indexOf("TIME_DIFF") != -1) {
-                    let timediff = parseInt(event.data.split("=")[1]);
-                    $('#progressbar').progress('increment', timediff / 5 * 100);
-                }
+                return;
+            }
+
+            if (ev.data.indexOf('TIME_DIFF=') === 0) {
+                var td = parseFloat(ev.data.split('=')[1]);
+                setProgress(Math.min(td / 5 * 100, 96));
+                return;
+            }
+
+            if (ev.data.indexOf('TTL_BANDWIDTH=') === 0) {
+                var parts = ev.data.split('=')[1].split(' ');
+                setHero(parts[0], parts[1], 'Download');
+                setHeroPulse(false);
+                setProgress(100);
+                setTimeout(uploadBench, 350);
             }
         };
 
-        socket.onerror = function(error) {
-            if ($("#dl").text() != "⌛") {
-                $("#dl").text("❌");
-            }
+        socket.onerror = function() {
+            setHero('Error', '', 'Download');
+            setHeroPulse(false);
         };
     }
 
+    /* ── Upload ─────────────────────────────────────────────────────────── */
     function uploadBench() {
-        $("#ul").text("⏱️");
-        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+        showMetrics();
+        setMetricPulse('ul', true);
+        setProgress(0);
 
-        socket.onopen = function(e) {
-            $("#ul").text("⌛");
-            socket.send("UPL");
-            setTimeout(executeULTest, 1000, socket);
+        var socket = new WebSocket(wsEndpoint() +
+            '/system/ajgi/interface?script=Speedtest/special/wspeedtest.js');
+
+        socket.onopen = function() {
+            socket.send('UPL');
+            setTimeout(function() { runUpload(socket); }, 800);
         };
 
-        socket.onerror = function(error) {
-            if ($("#ul").text() != "⌛") {
-                $("#ul").text("❌");
-            }
+        socket.onerror = function() {
+            setMetricPulse('ul', false);
+            document.getElementById('ul').textContent = 'Error';
         };
     }
 
-    function executeULTest(socket) {
-        $('#progressbar').progress('set progress', 0);
-        let CurrentMB = 0;
-        let start = new Date();
-        while (socket.bufferedAmount < 10485760 * 10) {
-            socket.send(new ArrayBuffer(32768));
-            CurrentMB += 32768;
+    function runUpload(socket) {
+        var CHUNK    = 32768;
+        var MAX_BUF  = 10485760 * 10;
+        var bytesSent = 0;
+        var start    = performance.now();
+
+        while (socket.bufferedAmount < MAX_BUF) {
+            socket.send(new ArrayBuffer(CHUNK));
+            bytesSent += CHUNK;
         }
-        let checker = setInterval(function() {
-            if (socket.bufferedAmount == 0) {
-                let end = new Date();
-                CurrentDif = (end.getTime() - start.getTime()) / 1000;
-                socket.send("stop");
-                let bandwidth = bytesToSpeed(CurrentMB / CurrentDif).split(" ");
-                $("#ul").text(bandwidth[0]);
-                $("#ull").text("Upload (" + bandwidth[1] + ")");
-                $('#progressbar').progress('set progress', 0);
+
+        var initialBuf = socket.bufferedAmount;
+
+        var checker = setInterval(function() {
+            var remaining = socket.bufferedAmount;
+
+            if (remaining === 0) {
                 clearInterval(checker);
-                pingTest();
+                socket.send('stop');
+
+                var elapsed = (performance.now() - start) / 1000;
+                var sp = bytesToSpeed(bytesSent / elapsed).split(' ');
+                document.getElementById('ul').textContent  = sp[0];
+                document.getElementById('ull').textContent = sp[1];
+                setMetricPulse('ul', false);
+                setProgress(100);
+                setTimeout(pingTest, 350);
+
             } else {
-                //(1 - (socket.bufferedAmount / (10485760 * 10))) * 100
-                $('#progressbar').progress('set progress', 100 - (socket.bufferedAmount / 1048576));
+                setProgress((1 - remaining / initialBuf) * 100);
+
+                var sent    = bytesSent - remaining;
+                var elapsed = (performance.now() - start) / 1000;
+                if (elapsed > 0.2 && sent > 0) {
+                    var sp = bytesToSpeed(sent / elapsed).split(' ');
+                    document.getElementById('ul').textContent  = sp[0];
+                    document.getElementById('ull').textContent = sp[1];
+                }
             }
         }, 100);
     }
 
+    /* ── Ping ────────────────────────────────────────────────────────────
+       Message timeline (5 total):
+         [0] "DWL/UPL?"  – server handshake
+         [1] "UPL"       – pingTest() preamble
+         [2-4]           – 3 × "rcvTime,sndTime" echoes
+       clientSend[0..2] aligns with serverResp[2..4] after splicing.
+       ──────────────────────────────────────────────────────────────────── */
     function pingTest() {
-        $('#progressbar').progress('set progress', 0);
-        let clientSendTimeStamp = [];
-        let serverResponseTimeStamp = [];
-        let clientReceiveTimeStamp = [];
-        $("#ping").text("⏱️");
-        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+        setMetricPulse('ping', true);
+        setProgress(0);
 
-        socket.onopen = function(e) {
-            $("#ping").text("⌛");
-            socket.send("PING");
-            setTimeout(executePingTest, 500, socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, 0);
+        var clientSend = [];
+        var serverResp = [];
+        var clientRecv = [];
+
+        var socket = new WebSocket(wsEndpoint() +
+            '/system/ajgi/interface?script=Speedtest/special/wspeedtest.js');
+
+        socket.onopen = function() {
+            socket.send('PING');
+            setTimeout(function() { doPing(socket, clientSend, 0); }, 500);
         };
 
-        socket.onmessage = function(event) {
-            clientReceiveTimeStamp.push(new Date().getTime());
-            serverResponseTimeStamp.push(event.data);
-            if (clientReceiveTimeStamp.length == 5) {
-                setTimeout(showPingResult, 2000, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp);
+        socket.onmessage = function(ev) {
+            clientRecv.push(performance.now());
+            serverResp.push(ev.data);
+            var n = clientRecv.length;
+            if (n >= 3) setProgress(Math.min((n - 2) / 3 * 100, 96));
+            if (n === 5) {
+                setTimeout(function() {
+                    showPingResult(clientSend, serverResp, clientRecv);
+                }, 600);
             }
-            $('#progressbar').progress('increment', 16.67);
         };
 
-        socket.onerror = function(error) {
-            if ($("#ping").text() != "⌛") {
-                $("#ping").text("❌");
-            }
+        socket.onerror = function() {
+            setMetricPulse('ping', false);
+            document.getElementById('ping').textContent = 'Error';
         };
     }
 
-    function executePingTest(socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, count) {
-        let clientTime = new Date();
-        socket.send(clientTime);
-        clientSendTimeStamp.push(clientTime.getTime());
+    function doPing(socket, clientSend, count) {
+        clientSend.push(performance.now());
+        socket.send(String(Date.now()));
         count++;
-        $('#progressbar').progress('increment', 16.67);
         if (count < 3) {
-            setTimeout(executePingTest, 1000, socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, count);
+            setTimeout(function() { doPing(socket, clientSend, count); }, 1000);
         }
     }
 
-    function showPingResult(clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp) {
-        serverResponseTimeStamp.shift();
-        serverResponseTimeStamp.shift();
-        clientReceiveTimeStamp.shift();
-        clientReceiveTimeStamp.shift();
-        let diff = 0;
-        for (let i = 0; i < clientSendTimeStamp.length; i++) {
-            diff += (clientReceiveTimeStamp[i] - clientSendTimeStamp[i]) - (serverResponseTimeStamp[i].split(",")[1] - serverResponseTimeStamp[i].split(",")[0]);
+    function showPingResult(clientSend, serverResp, clientRecv) {
+        serverResp.splice(0, 2);
+        clientRecv.splice(0, 2);
+
+        var total = 0;
+        var n = Math.min(clientSend.length, clientRecv.length, serverResp.length);
+        for (var i = 0; i < n; i++) {
+            var rtt     = clientRecv[i] - clientSend[i];
+            var parts   = (serverResp[i] || '').split(',');
+            var srvProc = (parts.length === 2)
+                ? (parseFloat(parts[1]) - parseFloat(parts[0])) : 0;
+            total += Math.max(0, rtt - srvProc);
         }
-        $("#ping").text(Math.round((diff / clientSendTimeStamp.length) * 100) / 100);
-        $("#pingl").text("Ping (ms)");
-        //restart the test
-        $('#progressbar').attr('style', 'display: none');
-        $("#startbtn").html('Re-Test');
-        $("#startbtn").attr('onclick', 'location.reload();');
-        $("#startbtn").removeAttr('disabled');
+
+        var avgMs = n > 0 ? (Math.round(total / n * 100) / 100) : 0;
+        document.getElementById('ping').textContent  = avgMs.toFixed(2);
+        document.getElementById('pingl').textContent = 'ms';
+        setMetricPulse('ping', false);
+        setProgress(100);
+
+        setTimeout(function() {
+            hideBar();
+            document.getElementById('phaseLabel').textContent = 'Your internet speed:';
+            var btn = document.getElementById('startbtn');
+            btn.textContent = 'Go again';
+            btn.disabled    = false;
+            btn.onclick     = function() { location.reload(); };
+        }, 400);
     }
 
-    function getWSEndpoint() {
-        //Open opeartion in websocket
-        let protocol = "wss://";
-        if (location.protocol !== 'https:') {
-            protocol = "ws://";
-        }
-        wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
-        return wsControlEndpoint;
+    /* ── Shared helpers ─────────────────────────────────────────────────── */
+
+    function wsEndpoint() {
+        var proto = (location.protocol === 'https:') ? 'wss://' : 'ws://';
+        return proto + location.hostname + ':' + location.port;
     }
 
-    //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
-    function bytesToSize(bytes) {
-        let sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        if (bytes == 0) return '0 Byte';
-        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-        return Math.round((bytes / Math.pow(1024, i)) * 100, 3) / 100 + ' ' + sizes[i];
-    }
-
-    function bytesToSpeed(bytes) {
-        bytes = bytes * 8;
-        let sizes = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
-        if (bytes == 0) return '0 Byte';
-        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1000)));
-        return Math.round((bytes / Math.pow(1000, i)) * 100, 3) / 100 + ' ' + sizes[i];
+    function bytesToSpeed(bytesPerSec) {
+        var bps   = bytesPerSec * 8;
+        var units = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
+        if (bps === 0) return '0 bps';
+        var i = Math.floor(Math.log(bps) / Math.log(1000));
+        return (Math.round(bps / Math.pow(1000, i) * 100) / 100) + ' ' + units[i];
     }
 </script>
-
+</body>
 </html>

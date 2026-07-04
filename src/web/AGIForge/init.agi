@@ -1,0 +1,34 @@
+/*
+    AGI Forge — Module Registration
+    ===============================
+    A terminal-style copilot for ArozOS. Describe a task in plain language and
+    AGI Forge asks the configured AI model (see System Settings > AI
+    Integration > AI Model) to write an AGI script for it — using the live AGI
+    API reference and the list of installed modules as context — then runs
+    the script in a sandboxed VM and hands back the output (and any generated
+    file).
+
+    Backend scripts (next to this init.agi):
+        backend/generate.agi   natural language -> AGI script via llm
+        backend/run.agi        executes a generated script, captures output
+        backend/models.agi     lists the available models for the picker
+*/
+
+newDBTableIfNotExists("AGIForge");
+
+var moduleLaunchInfo = {
+    Name: "AGI Forge",
+    Desc: "Describe a task in plain words — AI writes an AGI script, runs it, and hands you the result.",
+    Group: "Development",
+    IconPath: "AGIForge/img/icon.svg",
+    Version: "1.0",
+    StartDir: "AGIForge/index.html",
+    SupportFW: true,
+    LaunchFWDir: "AGIForge/index.html",
+    InitFWSize: [960, 700],
+    SupportEmb: false,
+    SupportedExt: []
+};
+
+console.log("Registering AGI Forge module");
+registerModule(JSON.stringify(moduleLaunchInfo));

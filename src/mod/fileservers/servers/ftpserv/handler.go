@@ -10,7 +10,7 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-//Start the FTP Server by request
+// Start the FTP Server by request
 func (m *Manager) HandleFTPServerStart(w http.ResponseWriter, r *http.Request) {
 	err := m.StartFtpServer()
 	if err != nil {
@@ -19,13 +19,13 @@ func (m *Manager) HandleFTPServerStart(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Stop the FTP server by request
+// Stop the FTP server by request
 func (m *Manager) HandleFTPServerStop(w http.ResponseWriter, r *http.Request) {
 	m.StopFtpServer()
 	utils.SendOK(w)
 }
 
-//Get the FTP server status
+// Get the FTP server status
 func (m *Manager) HandleFTPServerStatus(w http.ResponseWriter, r *http.Request) {
 	status, err := m.GetFtpServerStatus()
 	if err != nil {
@@ -37,7 +37,7 @@ func (m *Manager) HandleFTPServerStatus(w http.ResponseWriter, r *http.Request) 
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Update UPnP setting on FTP server
+// Update UPnP setting on FTP server
 func (m *Manager) HandleFTPUPnP(w http.ResponseWriter, r *http.Request) {
 	enable, _ := utils.GetPara(r, "enable")
 	if enable == "true" {
@@ -55,7 +55,7 @@ func (m *Manager) HandleFTPUPnP(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Update access permission on FTP server
+// Update access permission on FTP server
 func (m *Manager) HandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) {
 	//Get groups paramter from post req
 	groupString, err := utils.PostPara(r, "groups")
@@ -79,7 +79,7 @@ func (m *Manager) HandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) 
 	utils.SendOK(w)
 }
 
-//Handle FTP Set access port
+// Handle FTP Set access port
 func (m *Manager) HandleFTPSetPort(w http.ResponseWriter, r *http.Request) {
 	port, err := utils.PostPara(r, "port")
 	if err != nil {
@@ -104,11 +104,11 @@ func (m *Manager) HandleFTPSetPort(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	Handle the settings for passive mode related files
+Handle the settings for passive mode related files
 
-	Example set commands
-	set=ip&ip=123.456.789.1
-	set=mode&passive=true
+Example set commands
+set=ip&ip=123.456.789.1
+set=mode&passive=true
 */
 func (m *Manager) HandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request) {
 	set, err := utils.PostPara(r, "set")

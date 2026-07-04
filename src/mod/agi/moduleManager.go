@@ -2,10 +2,10 @@ package agi
 
 import (
 	"errors"
-	"log"
 
 	"imuslab.com/arozos/mod/agi/static"
 	apt "imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -52,15 +52,19 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.ShareLibRegister()
 	g.IoTLibRegister()
 	g.AppdataLibRegister()
+	g.SysinfoLibRegister()
 	//g.AudioLibRegister() //work in progress
 	g.ZipLibRegister()
+	g.LLMLibRegister()
+	g.CNNLibRegister()
+	g.SQLiteLibRegister()
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")
 	if ffmpegExists {
 		g.FFmpegLibRegister()
 	} else {
-		log.Println("[AGI] ffmpeg not installed on host OS. Bypassing module.")
+		logger.PrintAndLog("Agi", "[AGI] ffmpeg not installed on host OS. Bypassing module.", nil)
 	}
 
 }

@@ -1,149 +1,565 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Disk SMART</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
-        <link rel="stylesheet" href="../disk/quota/script/Chart.min.css">
-        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
-        <script src="../disk/quota/script/Chart.min.js"></script>
-        <style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Disk SMART</title>
+    <script src="../../../script/jquery.min.js"></script>
+    <script src="../../../script/applocale.js"></script>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
 
-        </style>
-    </head>
-    <body>
-        <div class="ui container">
-            <p>Drive SMART</p>
-            <h1 class="ui header">
-                <span id="healthy">Loading</span>
-                <div class="sub header"><span id="totaldisk">N/A</span> disks detected.</div>
-            </h1>
-            <div class="ui divider"></div>
-            <p id="loadWarning"><i class="ui loading spinner icon"></i> Loading SMART data...</p>
-                <div id="smart-holder" class="ui unstackable items">
-                  </div>
-            <br>
-            <div class="ui divider"></div>
-        </div>
-        <div class="ui modal smartdetails">
-          <i class="close icon"></i>
-          <div class="header">
-            SMART Information (<span id="modal_model"></span>)
-          </div>
-          <div class="content">
-            <table class="ui very basic fluid celled table">
-              <thead>
-                <tr><th>ID</th>
-                <th>Name</th>
-                <th>Value</th>
-                <th>Worst</th>
-                <th>Thresh</th>
-                <th>Status</th>
-              </tr></thead>
-              <tbody id="modal_smart">
-                <tr>
-                  <td>
-                    ...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="actions">
-            <div class="ui black deny button">
-              Close
-            </div>
-          </div>
-        </div>
-        <script>
-          var smart_template = `<div class="item">
-              <div class="tiny image" style="width: auto !important; margin-top: -10px;">
-                <img src="/SystemAO/disk/smart/img/hard-drive.svg" style="height:60px;width:auto; padding: 8px;">
-              </div>
-              <div class="content">
-                <p class="header">{model}</p>
-                <button class="ui right floated icon button" id="{id}" onclick="showDetails(this)"><i class="info icon"></i></button>
-                <div class="meta"><span>{status}</span></div>
-                <div class="description"><p></p></div>
-                <div class="extra">{capacity}</div>
-              </div>
-            </div>`;
-          var smartDATA;  
-          $.getJSON("/system/disk/smart/getSMART", function(data) {
-                smartDATA = data;
+    #sm-root {
+        --sm-bg:        #f3f3f3;
+        --sm-card:      #ffffff;
+        --sm-border:    #e0e0e0;
+        --sm-text:      #1b1b1b;
+        --sm-dim:       #5a5a5a;
+        --sm-muted:     #8a8a8a;
+        --sm-accent:    #0067c0;
+        --sm-ok:        #107c10;
+        --sm-ok-bg:     #dff6dd;
+        --sm-warn:      #7a4100;
+        --sm-warn-bg:   #fff4ce;
+        --sm-danger:    #c42b1c;
+        --sm-danger-bg: #fde7e9;
+        --sm-shadow:    0 1px 4px rgba(0,0,0,0.08);
+        --sm-radius:    6px;
 
-                $("#mainmenu").html("");
-                if (data.devices == null || $(data).length == 0) {
-                    //$("#smart-holder").append(append("-1","No disk find!","",-1));
-                    $("#healthy").text("No disks detected.");
-                    $("#totaldisk").text("0");
-                }else{
-                  $.each(data.devices, function(index, value) {
-                    $("#smart-holder").append(append(index,value.smart.model_name,value.smart.healthy,value.smart.user_capacity.bytes));
-                  });
-                  $("#healthy").text(data.healthy);
-                  $("#totaldisk").text(data.devices.length);
-                }
-                $("#loadWarning").remove();
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--sm-text);
+        background: var(--sm-bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    #sm-root.dark {
+        --sm-bg:        #202020;
+        --sm-card:      #2d2d2d;
+        --sm-border:    #404040;
+        --sm-text:      #e8e8e8;
+        --sm-dim:       #aaaaaa;
+        --sm-muted:     #666666;
+        --sm-accent:    #60cdff;
+        --sm-ok:        #6ccb5f;
+        --sm-ok-bg:     #1a3a1a;
+        --sm-warn:      #ffd966;
+        --sm-warn-bg:   #3a2e00;
+        --sm-danger:    #ff7070;
+        --sm-danger-bg: #3a1a1a;
+        --sm-shadow:    0 1px 6px rgba(0,0,0,0.4);
+    }
+
+    body { background: var(--sm-bg); }
+
+    /* ── Hero bar ── */
+    #sm-hero {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 16px 14px;
+    }
+
+    #sm-hero-icon {
+        width: 34px;
+        height: 34px;
+        flex-shrink: 0;
+        opacity: 0.82;
+    }
+
+    #sm-root.dark #sm-hero-icon { filter: brightness(1.4); }
+
+    #sm-hero-info { flex: 1; min-width: 0; }
+
+    #sm-hero-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--sm-text);
+        margin-bottom: 2px;
+    }
+
+    #sm-hero-sub {
+        font-size: 12px;
+        color: var(--sm-dim);
+    }
+
+    /* ── Status badge ── */
+    .sm-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px 3px 7px;
+        border-radius: 99px;
+        font-size: 12px;
+        font-weight: 600;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .sm-badge.ok      { color: var(--sm-ok);     background: var(--sm-ok-bg); }
+    .sm-badge.warn    { color: var(--sm-warn);   background: var(--sm-warn-bg); }
+    .sm-badge.danger  { color: var(--sm-danger); background: var(--sm-danger-bg); }
+    .sm-badge.unknown { color: var(--sm-muted);  background: var(--sm-border); }
+
+    .sm-badge-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .sm-badge.ok      .sm-badge-dot { background: var(--sm-ok); }
+    .sm-badge.warn    .sm-badge-dot { background: var(--sm-warn); }
+    .sm-badge.danger  .sm-badge-dot { background: var(--sm-danger); }
+    .sm-badge.unknown .sm-badge-dot { background: var(--sm-muted); }
+
+    /* ── Disk card ── */
+    .sm-card {
+        background: var(--sm-card);
+        border: 1px solid var(--sm-border);
+        border-radius: var(--sm-radius);
+        margin: 0 12px 10px;
+        box-shadow: var(--sm-shadow);
+        overflow: hidden;
+    }
+
+    /* Card header: icon + model + badge */
+    .sm-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+    }
+
+    .sm-card-icon {
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        opacity: 0.8;
+    }
+
+    #sm-root.dark .sm-card-icon { filter: brightness(1.4); }
+
+    .sm-card-name { flex: 1; min-width: 0; }
+
+    .sm-card-model {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--sm-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sm-card-device {
+        font-size: 11.5px;
+        color: var(--sm-muted);
+        margin-top: 1px;
+    }
+
+    /* ── Divider ── */
+    .sm-divider { height: 1px; background: var(--sm-border); }
+
+    /* ── Info grid ── */
+    .sm-info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        padding: 10px 16px 14px;
+    }
+
+    .sm-info-cell { padding: 5px 0; }
+
+    .sm-info-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--sm-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 2px;
+    }
+
+    .sm-info-val {
+        font-size: 12.5px;
+        color: var(--sm-text);
+        word-break: break-word;
+    }
+
+    .sm-na { color: var(--sm-muted); font-style: italic; }
+
+    /* ── Accordion toggle ── */
+    .sm-accordion-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 9px 16px;
+        cursor: pointer;
+        user-select: none;
+        border: none;
+        border-top: 1px solid var(--sm-border);
+        background: transparent;
+        font-family: inherit;
+        transition: background 0.1s;
+    }
+
+    .sm-accordion-btn:hover { background: rgba(0,0,0,0.03); }
+    #sm-root.dark .sm-accordion-btn:hover { background: rgba(255,255,255,0.05); }
+
+    .sm-accordion-label {
+        flex: 1;
+        text-align: left;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--sm-dim);
+    }
+
+    .sm-chevron {
+        width: 14px;
+        height: 14px;
+        color: var(--sm-muted);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .sm-chevron.open { transform: rotate(180deg); }
+
+    /* ── SMART table ── */
+    .sm-accordion-body {
+        display: none;
+        border-top: 1px solid var(--sm-border);
+        overflow-x: auto;
+    }
+
+    .sm-accordion-body.open { display: block; }
+
+    .sm-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+    }
+
+    .sm-table th {
+        text-align: left;
+        padding: 7px 10px;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--sm-muted);
+        background: var(--sm-bg);
+        border-bottom: 1px solid var(--sm-border);
+        white-space: nowrap;
+    }
+
+    .sm-table td {
+        padding: 6px 10px;
+        color: var(--sm-text);
+        border-bottom: 1px solid var(--sm-border);
+        white-space: nowrap;
+    }
+
+    .sm-table tbody tr:last-child td { border-bottom: none; }
+    .sm-table tbody tr:hover td { background: rgba(0,0,0,0.025); }
+    #sm-root.dark .sm-table tbody tr:hover td { background: rgba(255,255,255,0.04); }
+
+    .sm-attr-ok     { color: var(--sm-ok);     font-weight: 500; }
+    .sm-attr-warn   { color: var(--sm-warn);   font-weight: 500; }
+    .sm-attr-danger { color: var(--sm-danger); font-weight: 500; }
+
+    /* ── Loading / error / empty ── */
+    .sm-status-row {
+        padding: 20px 16px;
+        font-size: 13px;
+        color: var(--sm-dim);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .sm-status-row.sm-error { color: var(--sm-danger); }
+
+    .sm-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--sm-border);
+        border-top-color: var(--sm-accent);
+        border-radius: 50%;
+        animation: sm-spin 0.7s linear infinite;
+        flex-shrink: 0;
+    }
+
+    @keyframes sm-spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div id="sm-root">
+
+    <!-- Hero -->
+    <div id="sm-hero">
+        <img id="sm-hero-icon" src="../disk/smart/img/hard-drive.svg" alt="">
+        <div id="sm-hero-info">
+            <div id="sm-hero-title" locale="smart/title">Drive SMART</div>
+            <div id="sm-hero-sub"><span id="sm-disk-count">&mdash;</span></div>
+        </div>
+        <span id="sm-overall-badge" class="sm-badge unknown">
+            <span class="sm-badge-dot"></span>
+            <span id="sm-overall-text" locale="smart/loading">Loading&hellip;</span>
+        </span>
+    </div>
+
+    <!-- Disk list -->
+    <div id="sm-list">
+        <div class="sm-status-row">
+            <div class="sm-spinner"></div>
+            <span locale="smart/loading">Loading SMART data&hellip;</span>
+        </div>
+    </div>
+
+</div>
+<script>
+    /* ── Locale ── */
+    var smLocale = NewAppLocale();
+
+    /* ── Theme detection ── */
+    (function() {
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    document.getElementById('sm-root').classList.toggle('dark', c !== 'whiteTheme');
+                });
+                return;
+            }
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined')                       t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) document.getElementById('sm-root').classList.toggle('dark', t === 'dark' || t === 'darkTheme');
+        } catch(e) {}
+    })();
+
+    window.detailPageThemeCallback = function(isDark) {
+        var el = document.getElementById('sm-root');
+        if (el) el.classList.toggle('dark', isDark);
+    };
+
+    /* ── Accordion toggle ── */
+    function smToggle(btn) {
+        var body    = btn.nextElementSibling;
+        var chevron = btn.querySelector('.sm-chevron');
+        body.classList.toggle('open');
+        chevron.classList.toggle('open');
+    }
+
+    /* ── Helpers ── */
+    function healthClass(status) {
+        if (!status) return 'unknown';
+        var s = status.toLowerCase();
+        if (s === 'normal' || s === 'passed' || s === 'ok') return 'ok';
+        if (s === 'attention') return 'warn';
+        if (s === 'failing')   return 'danger';
+        return 'unknown';
+    }
+
+    function attrClass(status) {
+        if (!status) return '';
+        var s = status.toLowerCase();
+        if (s === 'normal')    return 'sm-attr-ok';
+        if (s === 'attention') return 'sm-attr-warn';
+        if (s === 'failing')   return 'sm-attr-danger';
+        return '';
+    }
+
+    function diskSize(bytes) {
+        if (!bytes || bytes <= 0) return smLocale.getString('smart/unknown-cap', 'Unknown');
+        if (bytes >= 1e12) return (bytes / 1e12).toFixed(1) + ' TB';
+        if (bytes >= 1e9)  return (bytes / 1e9).toFixed(1)  + ' GB';
+        if (bytes >= 1e6)  return (bytes / 1e6).toFixed(1)  + ' MB';
+        return bytes + ' B';
+    }
+
+    function driveType(rpm) {
+        if (rpm > 0) return 'HDD (' + rpm + ' RPM)';
+        return smLocale.getString('smart/ssd', 'SSD / NVMe');
+    }
+
+    function esc(v) { return $('<span>').text(String(v)).html(); }
+
+    function naOrVal(v) {
+        return (v && v !== '' && String(v) !== '0')
+            ? esc(v)
+            : '<span class="sm-na">N/A</span>';
+    }
+
+    /* ── Render one disk card ── */
+    function renderDisk(dev) {
+        var s       = dev.smart || {};
+        var hClass  = healthClass(s.healthy);
+        var hLabel  = s.healthy || smLocale.getString('smart/unknown', 'Unknown');
+        var model   = s.model_name  || smLocale.getString('smart/unknown', 'Unknown');
+        var devName = dev.name || dev.info_name || '';
+
+        /* interface string: prefer sata_version, fall back to interface_speed.max */
+        var interfaceStr = '';
+        if (s.sata_version && s.sata_version.string) {
+            interfaceStr = s.sata_version.string;
+        } else if (s.interface_speed && s.interface_speed.max && s.interface_speed.max.string) {
+            interfaceStr = s.interface_speed.max.string;
+        }
+
+        /* -- basic info pairs -- */
+        var infoRows = [
+            { label: smLocale.getString('smart/col-model-family', 'Model Family'), val: naOrVal(s.model_family) },
+            { label: smLocale.getString('smart/col-serial',       'Serial Number'), val: naOrVal(s.serial_number) },
+            { label: smLocale.getString('smart/col-firmware',     'Firmware'),      val: naOrVal(s.firmware_version) },
+            { label: smLocale.getString('smart/col-capacity',     'Capacity'),      val: diskSize(s.user_capacity && s.user_capacity.bytes) },
+            { label: smLocale.getString('smart/col-type',         'Drive Type'),    val: driveType(s.rotation_rate) },
+            { label: smLocale.getString('smart/col-interface',    'Interface'),     val: naOrVal(interfaceStr) }
+        ];
+
+        var infoHtml = '';
+        infoRows.forEach(function(r) {
+            infoHtml +=
+                '<div class="sm-info-cell">' +
+                  '<div class="sm-info-label">' + esc(r.label) + '</div>' +
+                  '<div class="sm-info-val">'   + r.val        + '</div>' +
+                '</div>';
+        });
+
+        /* -- SMART attribute rows -- */
+        var tableRows = '';
+        var table = s.ata_smart_attributes && s.ata_smart_attributes.table;
+        if (table && table.length > 0) {
+            table.forEach(function(attr) {
+                tableRows +=
+                    '<tr>' +
+                      '<td>' + attr.id + '</td>' +
+                      '<td>' + esc(attr.name) + '</td>' +
+                      '<td>' + attr.value  + '</td>' +
+                      '<td>' + attr.worst  + '</td>' +
+                      '<td>' + attr.thresh + '</td>' +
+                      '<td class="' + attrClass(attr.healthy) + '">' + esc(attr.healthy || '\u2014') + '</td>' +
+                    '</tr>';
             });
+        } else {
+            tableRows =
+                '<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--sm-muted)">' +
+                esc(smLocale.getString('smart/no-attrs', 'No SMART attributes available')) +
+                '</td></tr>';
+        }
 
-            //Execute once when the page load, to destroy the old model
-            /*
-              This section was added because once the page changed, multiple modal
-              is appended to the page which lead to duplication of modal when calling
-              modal("show"). Do not remove the 3 lines below.
-            */
-            $(".loadedModal").modal('destroy');
-            $(".loadedModal").remove();
-            $(".smartdetails").addClass("loadedModal");
+        var card =
+            '<div class="sm-card">' +
 
-            
-            function append(id, name, status, capacity){
-              var tmp = smart_template;
-              tmp = tmp.replaceAll("{id}",id);
-              tmp = tmp.replaceAll("{model}",name);
-              tmp = tmp.replaceAll("{status}",status);
-              tmp = tmp.replaceAll("{capacity}",disksize(capacity));
-              return tmp;
+              /* header */
+              '<div class="sm-card-header">' +
+                '<img class="sm-card-icon" src="../disk/smart/img/hard-drive.svg" alt="">' +
+                '<div class="sm-card-name">' +
+                  '<div class="sm-card-model">' + esc(model)   + '</div>' +
+                  '<div class="sm-card-device">' + esc(devName) + '</div>' +
+                '</div>' +
+                '<span class="sm-badge ' + hClass + '">' +
+                  '<span class="sm-badge-dot"></span>' +
+                  esc(hLabel) +
+                '</span>' +
+              '</div>' +
+
+              /* divider */
+              '<div class="sm-divider"></div>' +
+
+              /* info grid */
+              '<div class="sm-info-grid">' + infoHtml + '</div>' +
+
+              /* accordion toggle */
+              '<button class="sm-accordion-btn" onclick="smToggle(this)">' +
+                '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;color:var(--sm-muted)">' +
+                  '<rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/>' +
+                  '<path d="M2 6h12M6 2v12" stroke="currentColor" stroke-width="1.1"/>' +
+                '</svg>' +
+                '<span class="sm-accordion-label">' +
+                  esc(smLocale.getString('smart/details-toggle', 'SMART Attributes')) +
+                '</span>' +
+                '<svg class="sm-chevron" viewBox="0 0 16 16" fill="none">' +
+                  '<path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                '</svg>' +
+              '</button>' +
+
+              /* accordion body */
+              '<div class="sm-accordion-body">' +
+                '<table class="sm-table">' +
+                  '<thead><tr>' +
+                    '<th>' + esc(smLocale.getString('smart/th-id',     'ID'))        + '</th>' +
+                    '<th>' + esc(smLocale.getString('smart/th-name',   'Attribute')) + '</th>' +
+                    '<th>' + esc(smLocale.getString('smart/th-value',  'Value'))     + '</th>' +
+                    '<th>' + esc(smLocale.getString('smart/th-worst',  'Worst'))     + '</th>' +
+                    '<th>' + esc(smLocale.getString('smart/th-thresh', 'Thresh'))    + '</th>' +
+                    '<th>' + esc(smLocale.getString('smart/th-status', 'Status'))    + '</th>' +
+                  '</tr></thead>' +
+                  '<tbody>' + tableRows + '</tbody>' +
+                '</table>' +
+              '</div>' +
+
+            '</div>';
+
+        $('#sm-list').append(card);
+    }
+
+    /* ── Load & render ── */
+    function initSMART() {
+        $('#sm-list').html(
+            '<div class="sm-status-row">' +
+              '<div class="sm-spinner"></div>' +
+              '<span>' + esc(smLocale.getString('smart/loading', 'Loading SMART data\u2026')) + '</span>' +
+            '</div>'
+        );
+
+        $.getJSON('../../system/disk/smart/getSMART', function(data) {
+            $('#sm-list').html('');
+
+            if (!data.devices || data.devices.length === 0) {
+                $('#sm-list').html(
+                    '<div class="sm-status-row">' +
+                    esc(smLocale.getString('smart/no-disks', 'No disks detected.')) +
+                    '</div>'
+                );
+                $('#sm-disk-count').text(smLocale.getString('smart/sub-no-disks', '0 disks detected'));
+                document.getElementById('sm-overall-badge').className = 'sm-badge unknown';
+                document.getElementById('sm-overall-text').textContent = smLocale.getString('smart/unknown', 'Unknown');
+                return;
             }
 
-          function disksize(size) {
-            if (size >= 1000000000000) {
-                return Math.floor(size / 1000000000000) + " TB";
-            } else if (size >= 1000000000) {
-                return Math.floor(size / 1000000000) + " GB";
-            } else if (size >= 1000000) {
-                return Math.floor(size / 1000000) + " MB";
-            } else if (size >= 1024) {
-                return Math.floor(size / 1000) + " KB";
-            } else if (size > 0) {
-                return size + " Bytes";
-            } else if (size == 0) {
-                return "Unknown capacity";
-            } else {
-                return "";
-            }
-          }
+            data.devices.forEach(function(dev) { renderDisk(dev); });
 
-          function showDetails(selector) {
-            $("#modal_smart").html("");
-            var id = $(selector).attr("id");
-            $("#modal_model").text(smartDATA.devices[id].smart.model_name);
-            $.each(smartDATA.devices[id].smart.ata_smart_attributes.table, function(index, value) {
-                    $("#modal_smart").append("<tr>");
-                    $("#modal_smart").append("<td>" + value.id + "</td>");
-                    $("#modal_smart").append("<td>" + value.name + "</td>");
-                    $("#modal_smart").append("<td>" + value.value + "</td>");
-                    $("#modal_smart").append("<td>" + value.worst + "</td>");
-                    $("#modal_smart").append("<td>" + value.thresh + "</td>");
-                    $("#modal_smart").append("<td>" + value.healthy + "</td>");
-                    $("#modal_smart").append("</tr>");
-            });
-            $('.smartdetails').modal('show');
-          }
-        </script>
-   
-    </body>
+            /* overall badge */
+            document.getElementById('sm-overall-badge').className = 'sm-badge ' + healthClass(data.healthy);
+            document.getElementById('sm-overall-text').textContent = data.healthy || smLocale.getString('smart/unknown', 'Unknown');
+
+            /* sub-line */
+            var n = data.devices.length;
+            $('#sm-disk-count').text(
+                n + '\u00a0' + smLocale.getString(
+                    n === 1 ? 'smart/sub-disk-single' : 'smart/sub-disks',
+                    n === 1 ? 'disk detected' : 'disks detected'
+                )
+            );
+        }).fail(function() {
+            $('#sm-list').html(
+                '<div class="sm-status-row sm-error">' +
+                esc(smLocale.getString('smart/load-error', 'Failed to load SMART data.')) +
+                '</div>'
+            );
+        });
+    }
+
+    /* ── Bootstrap ── */
+    smLocale.init('../locale/system_settings/smart.json', function() {
+        smLocale.translate();
+        initSMART();
+    });
+</script>
+</body>
 </html>

@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,10 +46,40 @@ func DesktopInit() {
 	//Initialize desktop database
 	err := sysdb.NewTable("desktop")
 	if err != nil {
-		log.Println("Unable to create database table for Desktop. Please validation your installation.")
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", "Unable to create database table for Desktop. Please validation your installation.", nil)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
+
+	//Register Desktop settings sub-items
+	registerSetting(settingModule{
+		Name:     "Wallpaper",
+		Desc:     "Desktop Wallpaper Settings",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/wallpaper.html",
+	})
+	registerSetting(settingModule{
+		Name:     "Sounds",
+		Desc:     "System Sound Settings",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/sounds.html",
+	})
+	registerSetting(settingModule{
+		Name:     "Theme",
+		Desc:     "System Theme Color",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/theme.html",
+	})
+	registerSetting(settingModule{
+		Name:     "Mobile UX",
+		Desc:     "Mobile Desktop Shortcuts",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/mobile_ux.html",
+	})
 
 	//Register Desktop Module
 	moduleHandler.RegisterModule(module.ModuleInfo{

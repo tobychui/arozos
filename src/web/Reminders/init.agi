@@ -1,0 +1,19 @@
+/*
+    Reminders Module Registration
+*/
+
+var moduleLaunchInfo = {
+    Name: "Reminders",
+    Desc: "Organise your to-dos with lists, due dates, flags and priorities",
+    Group: "Office",
+    IconPath: "Reminders/img/icon.svg",
+    Version: "1.0",
+    StartDir: "Reminders/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Reminders/index.html",
+    SupportEmb: false,
+    InitFWSize: [980, 680],
+    SupportedExt: []
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

@@ -1,0 +1,24 @@
+/*
+	ZipFileManager - Extract selected files/folders from a zip
+
+	POST params:
+	  src   - virtual path to the zip file
+	  files - JSON array string of paths within the zip to extract
+	  dest  - destination virtual path (folder)
+*/
+requirelib("ziplib");
+
+if (typeof src === "undefined" || src === "" ||
+	typeof files === "undefined" || files === "" ||
+	typeof dest === "undefined" || dest === "") {
+	sendJSONResp(JSON.stringify({error: "Missing src, files, or dest parameter"}));
+} else {
+	try {
+		// Pass files as a raw JSON string — the Go backend parses it directly,
+		// avoiding Otto JS→Go array export type ambiguity.
+		var ok = ziplib.extractPartialZip(src, files, dest);
+		sendJSONResp(JSON.stringify({success: ok}));
+	} catch(e) {
+		sendJSONResp(JSON.stringify({error: e.toString()}));
+	}
+}

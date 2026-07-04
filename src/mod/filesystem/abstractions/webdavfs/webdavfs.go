@@ -2,9 +2,9 @@ package webdavfs
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/studio-b12/gowebdav"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -37,10 +38,10 @@ func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, pas
 	c := gowebdav.NewClient(root, user, password)
 	err := c.Connect()
 	if err != nil {
-		log.Println("[WebDAV FS] Unable to connect to remote: ", err.Error())
+		logger.PrintAndLog("Webdavfs", fmt.Sprint("[WebDAV FS] Unable to connect to remote: ", err.Error()), nil)
 		return nil, err
 	} else {
-		log.Println("[WebDAV FS] Connected to remote: " + root)
+		logger.PrintAndLog("Webdavfs", "[WebDAV FS] Connected to remote: "+root, nil)
 	}
 	return &WebDAVFileSystem{
 		UUID:      UUID,
@@ -178,7 +179,7 @@ func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	s, err := e.Stat(filename)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Webdavfs", fmt.Sprint(err), nil)
 		return 0
 	}
 

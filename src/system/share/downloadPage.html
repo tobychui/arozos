@@ -1,137 +1,498 @@
 <!DOCTYPE HTML>
 <html>
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>{{filename}} - {{hostname}} File Share</title>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>{{filename}} - {{hostname}} File Share</title>
 
-    <meta name="description" content="File shared from  {{hostname}}">
+  <meta name="description" content="File shared from {{hostname}}">
+  <meta property="og:url" content="{{requri}}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{filename}}">
+  <meta property="og:description" content="File shared from {{hostname}}">
+  <meta property="og:image" content="{{opg_image}}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="twitter:domain" content="{{host}}">
+  <meta property="twitter:url" content="{{requri}}">
+  <meta name="twitter:title" content="{{filename}}">
+  <meta name="twitter:description" content="File shared from {{hostname}}">
+  <meta name="twitter:image" content="{{opg_image}}">
 
-    <!-- Facebook Meta Tags -->
-    <meta property="og:url" content="{{requri}}">
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="{{filename}}">
-    <meta property="og:description" content="File shared from {{hostname}}">
-    <meta property="og:image" content="{{opg_image}}">
-  
-    <!-- Twitter Meta Tags -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta property="twitter:domain" content="{{host}}">
-    <meta property="twitter:url" content="{{requri}}">
-    <meta name="twitter:title" content="{{filename}}">
-    <meta name="twitter:description" content="File shared from {{hostname}}">
-    <meta name="twitter:image" content="{{opg_image}}">
+  <script type="application/javascript" src="../../script/jquery.min.js"></script>
+  <link rel="icon" type="image/png" href="../../img/public/share/share.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg:        #f0f2f5;
+      --surface:   #ffffff;
+      --surface2:  #f7f8fa;
+      --border:    #e4e6ea;
+      --text:      #1a1a2e;
+      --muted:     #6b7280;
+      --accent:    #d4920d;
+      --accent-h:  #b87c09;
+      --accent-fg: #1a1a1a;
+      --shadow:    none;
+      --radius:    16px;
+      --trans:     0.2s ease;
+    }
 
-    <link rel="stylesheet" href="../../script/skeleton/offline.css">
-    <link rel="stylesheet" href="../../script/skeleton/normalize.css">
-    <link rel="stylesheet" href="../../script/skeleton/skeleton.css">
-    <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <link rel="icon" type="image/png" href="../../img/public/share/share.png" />
-    <style>
+    [data-theme="dark"] {
+      --bg:        #0f0f12;
+      --surface:   #1c1c22;
+      --surface2:  #26262f;
+      --border:    #32323c;
+      --text:      #e8e8f0;
+      --muted:     #888899;
+      --accent: #fbbf24;
+      --accent-h: #f59e0b;
+      --shadow:    none;
+    }
 
-        body{
-            padding-bottom: 100px;
-        }
-        .bar{
-            height: 12px;
-            background-color: #1a1a1a;
-            width: 100%;
-        }
-
-        .footer{
-            position: fixed;
-            bottom: 0px;
-            height: 50px;
-            width: 100%;
-            background-color: #1a1a1a;
-            padding: 20px;
-            color: white;
-        }
-
-        .filename{
-          word-break: break-word;
-        }
-    </style>
-    </head>
-    <body>
-        <div class="bar"></div>
-        <br>
-        <div class="container">
-            <h5>{{hostname}} File Sharing</h5>
-            <h3 class="filename">{{filename}}</h3>
-            <div class="row">
-                <div class="one-half column">
-                    <table class="u-full-width">
-                        <thead>
-                          <tr>
-                            <th>Property</th>
-                            <th>Value</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td>MIME Type</td>
-                            <td>{{mime}}</td>
-                          </tr>
-                          <tr>
-                            <td>File Extension</td>
-                            <td>{{ext}}</td>
-                          </tr>
-                          <tr>
-                            <td>File Size</td>
-                            <td>{{size}}</td>
-                          </tr>
-                          <tr>
-                            <td>Last Modification Time</td>
-                            <td>{{modtime}}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    <a href="{{downloadurl}}"><button class="button-primary">Download</button></a>
-                    <button id="sharebtn" onclick="share();">Share</button>
-                    <br><br>
-                    <p>Request File ID: {{reqid}}</p>
-                    <p>Request Timestamp: {{reqtime}}</p>
-                </div>
-                <div class="one-half column">
-                    {{previewer}}
-                    <!-- <img style="pointer-events: none;" src=""> -->
-                </div>
-            </div>
-           
-        </div>
-        <div class="footer">
-            <div class="container">
-                Cloud File Sharing Interface, Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
-            </div>
-        </div>
-      
-
-        
-    <script>
-      if (location.protocol !== 'https:') {
-         document.getElementById("sharebtn").remove()
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:        #0f0f12;
+        --surface:   #1c1c22;
+        --surface2:  #26262f;
+        --border:    #32323c;
+        --text:      #e8e8f0;
+        --muted:     #888899;
+        --accent:    #fbbf24;
+        --accent-h:  #f59e0b;
+        --shadow:    none;
       }
+    }
 
-      function share(){
-        let shareData = {
-          title: "{{filename}}",
-          text: '{{filename}} - File Share from {{hostname}}',
-          url: window.location.href,
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background var(--trans), color var(--trans);
+    }
 
-        navigator.share(shareData).then(() =>
-          function(){
-            //Share succ
-          }
-        ).catch((e) =>
-          function(){
-              //Share failed
-          }
-        )
+    .icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    /* top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-brand {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+      text-decoration: none;
+    }
+    .topbar-brand span { color: var(--text); font-weight: 400; }
+
+    .theme-toggle {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      cursor: pointer;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color var(--trans), color var(--trans);
+    }
+    #themeIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+    /* main layout */
+    .page-wrap {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px 100px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: 860px;
+      overflow: hidden;
+    }
+
+    /* card hero */
+    .card-hero {
+      padding: 36px 36px 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 28px;
+    }
+
+    .file-icon-wrap {
+      flex-shrink: 0;
+      width: 80px;
+      height: 80px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+
+    .file-icon-wrap svg {
+      width: 40px;
+      height: 40px;
+      display: block;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .hero-info { flex: 1; min-width: 0; }
+    .hero-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .hero-filename {
+      font-size: 1.55rem;
+      font-weight: 700;
+      word-break: break-word;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+    .hero-host {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    /* divider */
+    .divider { height: 1px; background: var(--border); margin: 0 36px; }
+
+    /* meta grid */
+    .meta-grid {
+      padding: 24px 36px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .meta-item { display: flex; flex-direction: column; gap: 4px; }
+    .meta-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .meta-value {
+      font-size: 0.9rem;
+      font-weight: 500;
+      word-break: break-all;
+    }
+
+    /* action row */
+    .action-row {
+      padding: 20px 36px 28px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 28px;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: background var(--trans), transform 0.1s, box-shadow var(--trans);
+    }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-fg);
+      flex: 1;
+      justify-content: center;
+      min-width: 160px;
+    }
+    .btn-primary:hover { background: var(--accent-h); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      justify-content: center;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* preview panel */
+    .preview-panel {
+      padding: 0 36px 28px;
+    }
+    .preview-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .preview-inner {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      overflow: hidden;
+    }
+    .preview-inner img,
+    .preview-inner video,
+    .preview-inner audio { max-width: 100%; border-radius: 8px; }
+
+    /* embed code textarea (from previewer sub-templates) */
+    .preview-inner textarea,
+    .u-full-width { width: 100%; }
+    .preview-inner textarea {
+      margin-top: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: monospace;
+      font-size: 0.78rem;
+      padding: 10px;
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* meta footer */
+    .card-footer {
+      padding: 14px 36px;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .card-footer-item { font-size: 0.75rem; color: var(--muted); }
+    .card-footer-item strong { color: var(--text); }
+
+    /* page footer */
+    .page-footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+    .page-footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 580px) {
+      .card-hero { padding: 24px 20px 18px; gap: 16px; }
+      .meta-grid { padding: 18px 20px; }
+      .action-row { padding: 16px 20px 22px; }
+      .preview-panel { padding: 0 20px 22px; }
+      .card-footer { padding: 12px 20px; }
+      .divider { margin: 0 20px; }
+      .file-icon-wrap { width: 62px; height: 62px; font-size: 1.9rem; border-radius: 14px; }
+      .hero-filename { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <a class="topbar-brand" href="#">{{hostname}} <span>File Share</span></a>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+      <span id="themeIcon"></span>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </header>
+
+  <main class="page-wrap">
+    <div class="card">
+      <div class="card-hero">
+        <div class="file-icon-wrap" id="fileIcon"></div>
+        <div class="hero-info">
+          <div class="hero-tag">Shared File</div>
+          <div class="hero-filename">{{filename}}</div>
+          <div class="hero-host">Shared from <strong>{{hostname}}</strong></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">File Size</span>
+          <span class="meta-value">{{size}}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">File Type</span>
+          <span class="meta-value">{{ext}}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">MIME</span>
+          <span class="meta-value">{{mime}}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Last Modified</span>
+          <span class="meta-value">{{modtime}}</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="action-row">
+        <a class="btn btn-primary" href="{{downloadurl}}" id="downloadBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download File
+        </a>
+        <button class="btn btn-secondary" id="sharebtn" onclick="doShare()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+      </div>
+
+      <div id="previewSection" style="display:none;">
+        <div class="divider"></div>
+        <div class="preview-panel">
+          <div class="preview-label">Preview</div>
+          <div class="preview-inner">
+            {{previewer}}
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <span class="card-footer-item">ID: <strong>{{reqid}}</strong></span>
+        <span class="card-footer-item">Timestamp: <strong>{{reqtime}}</strong></span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="page-footer">
+    Cloud File Sharing Interface - Powered by <a href="https://os.aroz.org">arozos</a>
+  </footer>
+
+  <script>
+    var ICONS = {
+      moon: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>',
+      sun: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"></line><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"></line><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"></line></svg>',
+      file: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+      image: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-8 8"></path></svg>',
+      video: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"></rect><polygon points="17,10 22,7 22,17 17,14"></polygon></svg>',
+      audio: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"></path><circle cx="6" cy="18" r="3"></circle><circle cx="16" cy="16" r="3"></circle></svg>',
+      pdf: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2a2 2 0 0 1 0 4H8z"></path><path d="M14 13h3"></path><path d="M14 17h2"></path></svg>',
+      archive: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="8" y1="4" x2="8" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>',
+      text: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="14" y2="17"></line></svg>'
+    };
+
+    // Theme
+    (function() {
+      var saved = localStorage.getItem('shareTheme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var isDark = saved ? saved === 'dark' : prefersDark;
+      if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+      updateThemeBtn(isDark);
+    })();
+
+    function updateThemeBtn(isDark) {
+      var icon = document.getElementById('themeIcon');
+      var label = document.getElementById('themeLabel');
+      if (!icon) return;
+      icon.innerHTML = isDark ? ICONS.sun : ICONS.moon;
+      label.textContent = isDark ? 'Light' : 'Dark';
+    }
+
+    function toggleTheme() {
+      var root = document.documentElement;
+      var isDark = root.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem('shareTheme', 'light');
+      } else {
+        root.setAttribute('data-theme', 'dark');
+        localStorage.setItem('shareTheme', 'dark');
       }
-      
-    </script>
-    </body>
+      updateThemeBtn(!isDark);
+    }
+
+    // File icon
+    (function() {
+      var mime = "{{mime}}".toLowerCase();
+      var ext  = "{{ext}}".toLowerCase();
+      var icon = ICONS.file;
+      if (mime.startsWith("image/"))                             icon = ICONS.image;
+      else if (mime.startsWith("video/"))                       icon = ICONS.video;
+      else if (mime.startsWith("audio/"))                       icon = ICONS.audio;
+      else if (mime === "application/pdf")                      icon = ICONS.pdf;
+      else if (mime.includes("zip") || mime.includes("tar") ||
+               mime.includes("gzip") || mime.includes("7z"))   icon = ICONS.archive;
+      else if (mime.includes("text/") || ext.includes(".txt")) icon = ICONS.text;
+      document.getElementById("fileIcon").innerHTML = icon;
+    })();
+
+    // Show preview section only if previewer has content
+    (function() {
+      var inner = document.querySelector('.preview-inner');
+      if (inner && inner.textContent.trim().length > 0) {
+        document.getElementById('previewSection').style.display = '';
+      }
+    })();
+
+    // Share button
+    if (location.protocol !== 'https:') {
+      var sb = document.getElementById("sharebtn");
+      if (sb) sb.style.display = "none";
+    }
+
+    function doShare() {
+      navigator.share({
+        title: "{{filename}}",
+        text: '{{filename}} - File Share from {{hostname}}',
+        url: window.location.href,
+      }).catch(function(){});
+    }
+  </script>
+</body>
 </html>

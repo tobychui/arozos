@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>AGI Forge</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:      #1e1e1e;
+            --bg2:     #252526;
+            --bg3:     #2d2d2d;
+            --bg4:     #333334;
+            --border:  #3c3c3c;
+            --fg:      #d4d4d4;
+            --dim:     #858585;
+            --green:   #4ec94e;
+            --mint:    #27e0a0;
+            --red:     #f44747;
+            --yellow:  #dcdcaa;
+            --blue:    #569cd6;
+            --orange:  #ce9178;
+            --purple:  #c586c0;
+            --numlit:  #b5cea8;
+            --comment: #6a9955;
+        }
+
+        html, body { height: 100%; background: var(--bg); color: var(--fg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px; overflow: hidden; }
+
+        .mono { font-family: 'Cascadia Code','SFMono-Regular','Consolas','Liberation Mono','Courier New',monospace; }
+
+        .app { display: flex; flex-direction: column; height: 100vh; }
+
+        /* ── Topbar ──────────────────────────────────────────────────── */
+        .topbar { flex-shrink: 0; height: 46px; background: var(--bg3);
+            border-bottom: 1px solid var(--border); display: flex; align-items: center;
+            gap: 10px; padding: 0 12px; }
+        .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+        .logo { width: 26px; height: 26px; flex-shrink: 0; border-radius: 6px;
+            background: linear-gradient(135deg, var(--green), var(--mint));
+            color: #0a0a0a; display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 15px; }
+        .brand .bt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+        .brand .bt b { font-size: 14px; color: var(--fg); }
+        .brand .bt i { font-size: 11px; color: var(--dim); font-style: normal;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .tb-controls { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .model-wrap { font-size: 11px; color: var(--dim); display: flex; align-items: center; gap: 5px; }
+        select#modelSel { background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+            border-radius: 4px; padding: 4px 6px; font-size: 12px; max-width: 190px; outline: none; }
+        select#modelSel:focus { border-color: var(--blue); }
+        .switch { font-size: 11px; color: var(--dim); display: flex; align-items: center;
+            gap: 5px; cursor: pointer; user-select: none; white-space: nowrap; }
+        .switch input { accent-color: var(--green); cursor: pointer; }
+        .tb-btn { padding: 5px 11px; background: transparent; border: 1px solid var(--border);
+            color: var(--dim); cursor: pointer; border-radius: 4px; font-size: 12px;
+            transition: background .1s, color .1s; white-space: nowrap; }
+        .tb-btn:hover { background: var(--bg2); color: var(--fg); }
+
+        /* ── Conversation ────────────────────────────────────────────── */
+        .convo { flex: 1; overflow-y: auto; scroll-behavior: smooth;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .convo::-webkit-scrollbar { width: 8px; }
+        .convo::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .inner { max-width: 880px; margin: 0 auto; padding: 18px 18px 30px; }
+
+        .turn { margin-bottom: 18px; }
+        .role { display: flex; align-items: center; gap: 7px; font-size: 11px;
+            font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+            color: var(--dim); margin-bottom: 7px; }
+        .role-badge { width: 18px; height: 18px; border-radius: 5px; display: flex;
+            align-items: center; justify-content: center; font-size: 11px; }
+        .role-badge.you { background: var(--bg4); color: var(--fg); }
+        .role-badge.ai  { background: linear-gradient(135deg, var(--green), var(--mint)); color: #0a0a0a; }
+
+        .turn-user .bubble { background: var(--bg2); border: 1px solid var(--border);
+            border-left: 3px solid var(--green); border-radius: 6px; padding: 10px 13px;
+            white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+
+        .a-body { line-height: 1.55; }
+        .explanation { white-space: pre-wrap; word-break: break-word; margin-bottom: 11px; }
+        .explanation:empty { display: none; }
+
+        /* thinking dots */
+        .thinking { display: flex; align-items: center; gap: 6px; color: var(--dim);
+            font-size: 13px; padding: 4px 0; }
+        .thinking .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+            animation: bounce 1.2s infinite ease-in-out; }
+        .thinking .dot:nth-child(2) { animation-delay: .15s; }
+        .thinking .dot:nth-child(3) { animation-delay: .3s; }
+        @keyframes bounce { 0%,80%,100%{ transform: translateY(0); opacity:.4 } 40%{ transform: translateY(-5px); opacity:1 } }
+
+        /* ── Code card ───────────────────────────────────────────────── */
+        .code-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+            background: #1b1b1b; margin-bottom: 10px; }
+        .code-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+            background: var(--bg3); border-bottom: 1px solid var(--border); }
+        .code-title { font-size: 11px; color: var(--dim); flex: 1; }
+        .code-title b { color: var(--mint); font-weight: 600; }
+        .code-actions { display: flex; gap: 6px; }
+        .ca-btn { padding: 3px 10px; background: transparent; border: 1px solid var(--border);
+            color: var(--dim); cursor: pointer; border-radius: 4px; font-size: 11px; white-space: nowrap; }
+        .ca-btn:hover { color: var(--fg); background: var(--bg2); }
+        .ca-btn.run { border-color: var(--green); color: var(--green); }
+        .ca-btn.run:hover { background: var(--green); color: #0a0a0a; }
+        .ca-btn:disabled { opacity: .45; cursor: default; }
+
+        pre.code { margin: 0; padding: 11px 13px; overflow-x: auto; font-size: 12.5px;
+            line-height: 1.6; tab-size: 4; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        pre.code::-webkit-scrollbar { height: 8px; }
+        pre.code::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        textarea.code-edit { width: 100%; min-height: 160px; border: none; resize: vertical;
+            background: #1b1b1b; color: var(--fg); padding: 11px 13px; font-size: 12.5px;
+            line-height: 1.6; outline: none; tab-size: 4; }
+
+        .tk-kw  { color: var(--blue); }
+        .tk-str { color: var(--orange); }
+        .tk-num { color: var(--numlit); }
+        .tk-com { color: var(--comment); font-style: italic; }
+        .tk-fn  { color: var(--yellow); }
+
+        /* ── Run output ──────────────────────────────────────────────── */
+        .run-area { margin-top: 2px; }
+        .run-head { display: flex; align-items: center; gap: 8px; margin: 9px 0 6px; }
+        .status { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px;
+            display: inline-flex; align-items: center; gap: 5px; }
+        .status.running { background: rgba(220,220,170,.12); color: var(--yellow); }
+        .status.ok      { background: rgba(78,201,78,.13);  color: var(--green); }
+        .status.err     { background: rgba(244,71,71,.13);  color: var(--red); }
+        .status .sd { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status.running .sd { animation: blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+        .run-meta { font-size: 11px; color: var(--dim); }
+
+        .out { border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px;
+            margin-bottom: 7px; font-size: 12.5px; line-height: 1.55; overflow-x: auto;
+            white-space: pre-wrap; word-break: break-word; scrollbar-width: thin; }
+        .out-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+            color: var(--dim); margin-bottom: 4px; }
+        .out.stdout { background: #161616; color: var(--fg); }
+        .out.logs   { background: var(--bg2); color: var(--yellow); }
+        .out.err    { background: rgba(244,71,71,.07); border-color: rgba(244,71,71,.4); color: #ff9a9a; }
+
+        .files { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
+        .file-chip { display: flex; align-items: center; gap: 10px; background: var(--bg2);
+            border: 1px solid var(--border); border-left: 3px solid var(--mint);
+            border-radius: 6px; padding: 8px 11px; }
+        .file-chip.missing { border-left-color: var(--dim); opacity: .8; }
+        .fc-ico { font-size: 17px; }
+        .fc-info { flex: 1; min-width: 0; }
+        .fc-name { font-size: 12.5px; color: var(--fg); word-break: break-all; }
+        .fc-sub { font-size: 10.5px; color: var(--dim); }
+        .fc-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .fc-btn { padding: 4px 11px; border-radius: 5px; font-size: 11px; cursor: pointer;
+            border: 1px solid var(--border); text-decoration: none; white-space: nowrap;
+            color: var(--dim); background: transparent; }
+        .fc-btn:hover { color: var(--fg); background: var(--bg3); }
+        .fc-btn.dl { border-color: var(--mint); color: var(--mint); }
+        .fc-btn.dl:hover { background: var(--mint); color: #0a0a0a; }
+
+        .fix-btn { margin-top: 4px; padding: 5px 13px; background: transparent;
+            border: 1px solid var(--red); color: var(--red); cursor: pointer;
+            border-radius: 5px; font-size: 12px; }
+        .fix-btn:hover { background: var(--red); color: #fff; }
+
+        /* ── Empty state ─────────────────────────────────────────────── */
+        .empty { text-align: center; padding: 6vh 14px 20px; }
+        .empty-logo { width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 15px;
+            background: linear-gradient(135deg, var(--green), var(--mint)); color: #0a0a0a;
+            display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; }
+        .empty h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .empty p { color: var(--dim); max-width: 480px; margin: 0 auto 20px; line-height: 1.55; }
+        .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 9px;
+            max-width: 560px; margin: 0 auto; }
+        .ex { text-align: left; background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 8px; padding: 11px 13px; cursor: pointer; color: var(--fg);
+            font-size: 12.5px; line-height: 1.4; transition: border-color .12s, background .12s; }
+        .ex:hover { border-color: var(--green); background: var(--bg3); }
+        .ex span { display: block; color: var(--dim); font-size: 11px; margin-top: 3px; }
+        .empty-note { margin-top: 22px; font-size: 11.5px; color: var(--dim); }
+        .empty-note a { color: var(--blue); cursor: pointer; text-decoration: none; }
+        .empty-note a:hover { text-decoration: underline; }
+
+        /* ── Composer ────────────────────────────────────────────────── */
+        .composer-wrap { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--bg2); }
+        .composer { max-width: 880px; margin: 0 auto; display: flex; align-items: flex-end;
+            gap: 8px; padding: 10px 18px 4px; }
+        #ta { flex: 1; resize: none; background: var(--bg); color: var(--fg);
+            border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+            font-family: inherit; font-size: 14px; line-height: 1.45; outline: none;
+            max-height: 180px; overflow-y: auto; }
+        #ta:focus { border-color: var(--green); }
+        #ta::placeholder { color: var(--dim); }
+        #send { flex-shrink: 0; padding: 10px 16px; background: linear-gradient(135deg, var(--green), var(--mint));
+            border: none; color: #0a0a0a; font-weight: 700; cursor: pointer; border-radius: 8px;
+            font-size: 13px; }
+        #send:hover { filter: brightness(1.08); }
+        #send:disabled { opacity: .5; cursor: default; filter: none; }
+        .composer-hint { max-width: 880px; margin: 0 auto; padding: 2px 18px 9px;
+            font-size: 10.5px; color: var(--dim); text-align: center; }
+
+        /* ── Responsive ──────────────────────────────────────────────── */
+        @media (max-width: 720px) {
+            .brand .bt i { display: none; }
+            .inner { padding: 14px 12px 26px; }
+            .composer { padding: 9px 12px 4px; }
+            .composer-hint { padding: 2px 12px 8px; }
+            .examples { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 540px) {
+            body { font-size: 13.5px; }
+            .topbar { gap: 6px; padding: 0 9px; }
+            .model-wrap { display: none; }
+            .tb-controls { gap: 7px; }
+            .switch { font-size: 11px; }
+            .brand .bt b { font-size: 13px; }
+            .code-actions .ca-btn { padding: 3px 8px; }
+            .empty h1 { font-size: 21px; }
+            #send { padding: 10px 13px; }
+            .fc-actions { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="brand">
+                <div class="logo">&#10095;</div>
+                <div class="bt">
+                    <b>AGI Forge</b>
+                    <i>natural language &rarr; AGI script &rarr; result</i>
+                </div>
+            </div>
+            <div class="tb-controls">
+                <label class="model-wrap">model
+                    <select id="modelSel"><option value="">default</option></select>
+                </label>
+                <label class="switch"><input type="checkbox" id="autorun" checked> auto-run</label>
+                <button class="tb-btn" id="clearBtn" onclick="resetConvo()">New</button>
+            </div>
+        </div>
+
+        <!-- Conversation -->
+        <div class="convo" id="convo">
+            <div class="inner" id="inner">
+                <div class="empty" id="empty">
+                    <div class="empty-logo">&#10095;</div>
+                    <h1>What should we build?</h1>
+                    <p>Describe a task in plain language. AGI Forge writes an AGI script
+                       grounded in the live API reference, runs it on your ArozOS server,
+                       and hands back the output &mdash; including any file it generates.</p>
+                    <div class="examples" id="examples"></div>
+                    <div class="empty-note">
+                        Uses your configured AI model &middot;
+                        <a onclick="openAISettings()">Configure endpoint &amp; key</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Composer -->
+        <div class="composer-wrap">
+            <div class="composer">
+                <textarea id="ta" rows="1" placeholder="Describe a task&hellip;  e.g. &ldquo;list the 10 largest files on my Desktop&rdquo;"
+                          autocomplete="off" spellcheck="false"></textarea>
+                <button id="send" onclick="onSend()">Send &#9654;</button>
+            </div>
+            <div class="composer-hint">
+                Enter to send &middot; Shift+Enter for a new line &middot;
+                generated scripts run on the server with your permissions
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+    /* ════════════════════════════════════════════════════════════════════
+       AGI Forge — front-end controller
+       Pipeline:  prompt → generate.agi (LLM writes script) → run.agi (exec)
+       ════════════════════════════════════════════════════════════════════ */
+
+    var convo = [];          // [{role, content}] conversation history for grounding
+    var models = [];
+    var currentModel = "";
+    var busy = false;
+
+    var EXAMPLES = [
+        { t: "List the 10 largest files on my Desktop", s: "filelib · walk + sort" },
+        { t: "Write a text file to my Desktop containing today's date and a hello message", s: "filelib · writeFile + download" },
+        { t: "Show this server's CPU, RAM and disk usage", s: "sysinfo" },
+        { t: "Make a CSV of every image under user:/Photo with its file size", s: "filelib · CSV output file" }
+    ];
+
+    /* ── boot ──────────────────────────────────────────────────────────── */
+    $(document).ready(function () {
+        renderExamples();
+        loadModels();
+
+        var ta = document.getElementById("ta");
+        ta.addEventListener("input", autoGrow);
+        ta.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+        });
+        document.getElementById("autorun").checked = true;
+        ta.focus();
+    });
+
+    function renderExamples() {
+        var box = document.getElementById("examples");
+        box.innerHTML = "";
+        EXAMPLES.forEach(function (ex) {
+            var b = document.createElement("button");
+            b.className = "ex";
+            b.innerHTML = escHtml(ex.t) + "<span>" + escHtml(ex.s) + "</span>";
+            b.onclick = function () {
+                var ta = document.getElementById("ta");
+                ta.value = ex.t; autoGrow(); onSend();
+            };
+            box.appendChild(b);
+        });
+    }
+
+    function loadModels() {
+        ao_module_agirun("AGIForge/backend/models.agi", {}, function (data) {
+            var resp = parseJSON(data);
+            var sel = document.getElementById("modelSel");
+            if (!resp || !resp.models || !resp.models.length) return;
+            models = resp.models;
+            currentModel = resp["default"] || "";
+            sel.innerHTML = "";
+            models.forEach(function (m) {
+                var o = document.createElement("option");
+                o.value = m; o.textContent = m;
+                if (m === currentModel) o.selected = true;
+                sel.appendChild(o);
+            });
+            sel.onchange = function () { currentModel = sel.value; };
+        }, function () { /* picker stays on "default" */ });
+    }
+
+    /* ── send a prompt ─────────────────────────────────────────────────── */
+    function onSend() {
+        var ta = document.getElementById("ta");
+        var text = ta.value.trim();
+        if (!text || busy) return;
+        ta.value = ""; autoGrow();
+        send(text);
+    }
+
+    function send(text) {
+        busy = true;
+        setComposer(false);
+        hideEmpty();
+        addUserTurn(text);
+
+        var a = addAssistantTurn();
+        var historySnapshot = convo.slice();
+
+        ao_module_agirun("AGIForge/backend/generate.agi",
+            {
+                prompt: text,
+                history: JSON.stringify(historySnapshot),
+                options: JSON.stringify({ model: currentModel })
+            },
+            function (data) {
+                var resp = parseJSON(data);
+                convo.push({ role: "user", content: text });
+                if (!resp || !resp.ok) {
+                    a.fail((resp && resp.error) ? resp.error : "The model did not return a script.", true);
+                    finishBusy();
+                    return;
+                }
+                // record assistant turn for follow-up grounding
+                // NOTE: the closing tags are written as "<\/...>" so this literal
+                // string does not prematurely terminate the inline <script> block.
+                convo.push({
+                    role: "assistant",
+                    content: "<explanation>\n" + (resp.explanation || "") +
+                             "\n<\/explanation>\n<script>\n" + (resp.script || "") + "\n<\/script>"
+                });
+                a.fill(resp.explanation || "", resp.script || "", resp.model || currentModel);
+                finishBusy();
+                if (resp.script && resp.script.trim() !== "" && document.getElementById("autorun").checked) {
+                    a.run();
+                }
+            },
+            function () {
+                convo.push({ role: "user", content: text });
+                a.fail("Could not reach the generator backend.", false);
+                finishBusy();
+            },
+            120000);
+    }
+
+    function finishBusy() { busy = false; setComposer(true); }
+
+    /* ── conversation rendering ────────────────────────────────────────── */
+    function addUserTurn(text) {
+        var t = el("div", "turn turn-user");
+        var role = el("div", "role");
+        role.innerHTML = '<span class="role-badge you">&#128100;</span> You';
+        var bubble = el("div", "bubble");
+        bubble.textContent = text;
+        t.appendChild(role); t.appendChild(bubble);
+        innerEl().appendChild(t);
+        scrollDown();
+    }
+
+    // Builds an assistant turn and returns handles to populate it.
+    function addAssistantTurn() {
+        var t = el("div", "turn turn-assistant");
+        var role = el("div", "role");
+        role.innerHTML = '<span class="role-badge ai">&#10095;</span> AGI Forge';
+        var body = el("div", "a-body");
+        body.innerHTML = '<div class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span> writing AGI script&hellip;</div>';
+        t.appendChild(role); t.appendChild(body);
+        innerEl().appendChild(t);
+        scrollDown();
+
+        var state = { script: "", editing: false, ran: false, codeEl: null, editEl: null, runArea: null };
+
+        function fail(msg, configHint) {
+            var h = '<div class="out err"><div class="out-label">Error</div>' + escHtml(msg) + '</div>';
+            if (configHint) {
+                h += '<div class="empty-note" style="text-align:left;margin-top:2px">' +
+                     'Make sure an AI endpoint and API key are set in ' +
+                     '<a onclick="openAISettings()">System Settings &rsaquo; Developer Options &rsaquo; AI Model</a>.</div>';
+            }
+            body.innerHTML = h;
+            scrollDown();
+        }
+
+        function fill(explanation, script, model) {
+            state.script = script;
+            body.innerHTML = "";
+
+            if (explanation) {
+                var ex = el("div", "explanation");
+                ex.innerHTML = nl2br(escHtml(explanation));
+                body.appendChild(ex);
+            }
+
+            if (!script || script.trim() === "") {
+                var none = el("div", "out logs");
+                none.textContent = "The model did not produce a runnable script.";
+                body.appendChild(none);
+                scrollDown();
+                return;
+            }
+
+            // Code card
+            var card = el("div", "code-card");
+            var head = el("div", "code-head");
+            var title = el("span", "code-title");
+            title.innerHTML = '&#9217; <b>generated.agi</b>' + (model ? '  &middot; ' + escHtml(model) : '');
+            var actions = el("div", "code-actions");
+
+            var copyBtn = mkBtn("ca-btn", "Copy", function () { copyText(state.script, copyBtn); });
+            var editBtn = mkBtn("ca-btn", "Edit", function () { toggleEdit(editBtn); });
+            var runBtn  = mkBtn("ca-btn run", "&#9654; Run", function () { run(); });
+            state.runBtn = runBtn;
+            actions.appendChild(copyBtn); actions.appendChild(editBtn); actions.appendChild(runBtn);
+            head.appendChild(title); head.appendChild(actions);
+
+            var pre = el("pre", "code mono");
+            var codeEl = document.createElement("code");
+            codeEl.innerHTML = highlightJS(script);
+            pre.appendChild(codeEl);
+            state.codeEl = codeEl;
+
+            var edit = document.createElement("textarea");
+            edit.className = "code-edit mono";
+            edit.style.display = "none";
+            edit.value = script;
+            edit.addEventListener("input", function () { state.script = edit.value; });
+            state.editEl = edit;
+
+            card.appendChild(head); card.appendChild(pre); card.appendChild(edit);
+            body.appendChild(card);
+
+            var runArea = el("div", "run-area");
+            body.appendChild(runArea);
+            state.runArea = runArea;
+
+            scrollDown();
+        }
+
+        function toggleEdit(btn) {
+            state.editing = !state.editing;
+            if (state.editing) {
+                state.editEl.value = state.script;
+                state.editEl.style.display = "block";
+                state.codeEl.parentNode.style.display = "none";
+                btn.textContent = "Done";
+                state.editEl.focus();
+            } else {
+                state.script = state.editEl.value;
+                state.codeEl.innerHTML = highlightJS(state.script);
+                state.editEl.style.display = "none";
+                state.codeEl.parentNode.style.display = "block";
+                btn.textContent = "Edit";
+            }
+        }
+
+        function run() {
+            if (state.editing) { state.script = state.editEl.value; }
+            if (!state.script || state.script.trim() === "") return;
+            if (state.runBtn) { state.runBtn.disabled = true; }
+
+            var ra = state.runArea;
+            ra.innerHTML = '<div class="run-head"><span class="status running"><span class="sd"></span>Running</span></div>';
+            scrollDown();
+            var started = Date.now();
+
+            ao_module_agirun("AGIForge/backend/run.agi", { script: state.script },
+                function (data) {
+                    var r = parseJSON(data);
+                    if (!r) { r = { error: true, errorMsg: "Unreadable response from runner", output: "", logs: [], files: [] }; }
+                    renderRun(ra, r, Date.now() - started);
+                    if (state.runBtn) { state.runBtn.disabled = false; state.runBtn.innerHTML = "&#10227; Re-run"; }
+                },
+                function () {
+                    renderRun(ra, { error: true, errorMsg: "Runner backend unreachable", output: "", logs: [], files: [] }, Date.now() - started);
+                    if (state.runBtn) { state.runBtn.disabled = false; }
+                },
+                120000);
+        }
+
+        return { fail: fail, fill: fill, run: run };
+    }
+
+    function renderRun(ra, r, ms) {
+        ra.innerHTML = "";
+        var isErr = !!r.error;
+
+        var head = el("div", "run-head");
+        var st = el("span", "status " + (isErr ? "err" : "ok"));
+        st.innerHTML = '<span class="sd"></span>' + (isErr ? "Failed" : "Done");
+        head.appendChild(st);
+        var meta = el("span", "run-meta");
+        meta.textContent = (ms >= 0 ? (ms < 1000 ? ms + " ms" : (ms / 1000).toFixed(1) + " s") : "");
+        head.appendChild(meta);
+        ra.appendChild(head);
+
+        // stdout / response
+        if (r.output && ("" + r.output).trim() !== "") {
+            var o = el("div", "out stdout");
+            o.innerHTML = '<div class="out-label">Output</div>';
+            var pre = document.createElement("span");
+            pre.className = "mono";
+            pre.textContent = r.output;
+            o.appendChild(pre);
+            ra.appendChild(o);
+        }
+
+        // console logs
+        if (r.logs && r.logs.length) {
+            var lg = el("div", "out logs mono");
+            lg.innerHTML = '<div class="out-label" style="font-family:-apple-system,sans-serif">Console</div>';
+            r.logs.forEach(function (l) {
+                var line = document.createElement("div");
+                line.textContent = "· " + l;
+                lg.appendChild(line);
+            });
+            ra.appendChild(lg);
+        }
+
+        // error
+        if (isErr) {
+            var e = el("div", "out err");
+            e.innerHTML = '<div class="out-label">Error</div>';
+            var em = document.createElement("span");
+            em.className = "mono";
+            em.textContent = r.errorMsg || "Script failed";
+            e.appendChild(em);
+            ra.appendChild(e);
+
+            var fix = mkBtn("fix-btn", "&#10024; Ask AI to fix it", function () {
+                if (busy) return;
+                send("The AGI script you just gave me failed when I ran it. The error was:\n\n" +
+                     (r.errorMsg || "(unknown error)") +
+                     "\n\nPlease return a corrected, complete script.");
+            });
+            ra.appendChild(fix);
+        }
+
+        // generated files
+        if (r.files && r.files.length) {
+            var fwrap = el("div", "files");
+            r.files.forEach(function (f) { fwrap.appendChild(buildFileChip(f)); });
+            ra.appendChild(fwrap);
+        }
+
+        if (!isErr && (!r.output || ("" + r.output).trim() === "") &&
+            (!r.logs || !r.logs.length) && (!r.files || !r.files.length)) {
+            var none = el("div", "out logs");
+            none.textContent = "Script finished with no output.";
+            ra.appendChild(none);
+        }
+        scrollDown();
+    }
+
+    function buildFileChip(f) {
+        var chip = el("div", "file-chip" + (f.exists ? "" : " missing"));
+        var ico = el("div", "fc-ico"); ico.textContent = f.exists ? "📄" : "⚠";
+        var info = el("div", "fc-info");
+        var name = el("div", "fc-name"); name.textContent = f.name || f.path;
+        var sub = el("div", "fc-sub");
+        sub.textContent = f.exists
+            ? (f.path + (f.size >= 0 ? "  ·  " + formatBytes(f.size) : ""))
+            : (f.path + "  ·  not found on disk");
+        info.appendChild(name); info.appendChild(sub);
+        chip.appendChild(ico); chip.appendChild(info);
+
+        if (f.exists) {
+            var actions = el("div", "fc-actions");
+            var dl = document.createElement("a");
+            dl.className = "fc-btn dl";
+            dl.innerHTML = "&#11015; Download";
+            dl.href = (ao_root || "/") + "media/download/?file=" + encodeURIComponent(f.path);
+            dl.setAttribute("download", f.name || "");
+            dl.target = "_blank";
+            actions.appendChild(dl);
+
+            var open = mkBtn("fc-btn", "Open in Files", function () {
+                var slash = f.path.lastIndexOf("/");
+                var dir = slash >= 0 ? f.path.substring(0, slash) : f.path;
+                try { ao_module_openPath(dir, f.name); } catch (e) { }
+            });
+            actions.appendChild(open);
+            chip.appendChild(actions);
+        }
+        return chip;
+    }
+
+    /* ── controls ──────────────────────────────────────────────────────── */
+    function resetConvo() {
+        if (busy) return;
+        convo = [];
+        innerEl().innerHTML = "";
+        var empty = el("div", "empty");
+        empty.id = "empty";
+        empty.innerHTML =
+            '<div class="empty-logo">&#10095;</div>' +
+            '<h1>What should we build?</h1>' +
+            '<p>Describe a task in plain language. AGI Forge writes an AGI script grounded in the live ' +
+            'API reference, runs it on your ArozOS server, and hands back the output &mdash; including any file it generates.</p>' +
+            '<div class="examples" id="examples"></div>' +
+            '<div class="empty-note">Uses your configured AI model &middot; ' +
+            '<a onclick="openAISettings()">Configure endpoint &amp; key</a></div>';
+        innerEl().appendChild(empty);
+        renderExamples();
+        document.getElementById("ta").focus();
+    }
+
+    function openAISettings() {
+        try {
+            ao_module_openSetting("Developer Options", "AI Model");
+        } catch (e) {
+            alert("Open System Settings › Developer Options › AI Model to set the AI endpoint, API key and default model.");
+        }
+    }
+
+    /* ── small helpers ─────────────────────────────────────────────────── */
+    function el(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+    function mkBtn(cls, html, fn) { var b = el("button", cls); b.innerHTML = html; b.onclick = fn; return b; }
+    function innerEl() { return document.getElementById("inner"); }
+    function hideEmpty() { var e = document.getElementById("empty"); if (e) e.parentNode.removeChild(e); }
+    function scrollDown() { var c = document.getElementById("convo"); c.scrollTop = c.scrollHeight; }
+    function setComposer(on) {
+        document.getElementById("send").disabled = !on;
+        document.getElementById("ta").disabled = !on;
+        if (on) document.getElementById("ta").focus();
+    }
+    function autoGrow() {
+        var ta = document.getElementById("ta");
+        ta.style.height = "auto";
+        ta.style.height = Math.min(ta.scrollHeight, 180) + "px";
+    }
+    function parseJSON(d) { try { return (typeof d === "string") ? JSON.parse(d) : d; } catch (e) { return null; } }
+    function escHtml(s) {
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function nl2br(s) { return s.replace(/\n/g, "<br>"); }
+    function copyText(text, btn) {
+        var done = function () { var o = btn.textContent; btn.textContent = "Copied"; setTimeout(function () { btn.textContent = o; }, 1200); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+        } else { fallbackCopy(text); done(); }
+    }
+    function fallbackCopy(text) {
+        var ta = document.createElement("textarea"); ta.value = text;
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); } catch (e) { }
+        document.body.removeChild(ta);
+    }
+    function formatBytes(b) {
+        if (b < 0) return "";
+        if (b < 1024) return b + " B";
+        var u = ["KB", "MB", "GB", "TB"], i = -1;
+        do { b /= 1024; i++; } while (b >= 1024 && i < u.length - 1);
+        return b.toFixed(1) + " " + u[i];
+    }
+
+    /* ── minimal, safe JS syntax highlighter ───────────────────────────── */
+    function highlightJS(code) {
+        try {
+            var kw = /^(?:var|function|return|if|else|for|while|do|switch|case|default|break|continue|new|typeof|instanceof|in|this|null|true|false|undefined|try|catch|finally|throw|delete|void)$/;
+            var re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][A-Za-z0-9_$]*)/g;
+            var out = "", last = 0, m;
+            while ((m = re.exec(code)) !== null) {
+                out += escHtml(code.slice(last, m.index));
+                var tok = m[0];
+                if (m[1]) { out += '<span class="tk-com">' + escHtml(tok) + '</span>'; }
+                else if (m[2]) { out += '<span class="tk-str">' + escHtml(tok) + '</span>'; }
+                else if (m[3]) { out += '<span class="tk-num">' + escHtml(tok) + '</span>'; }
+                else if (m[4]) {
+                    if (kw.test(tok)) { out += '<span class="tk-kw">' + escHtml(tok) + '</span>'; }
+                    else if (/^\s*\(/.test(code.slice(re.lastIndex))) { out += '<span class="tk-fn">' + escHtml(tok) + '</span>'; }
+                    else { out += escHtml(tok); }
+                } else { out += escHtml(tok); }
+                last = re.lastIndex;
+            }
+            out += escHtml(code.slice(last));
+            return out;
+        } catch (e) { return escHtml(code); }
+    }
+    </script>
+</body>
+</html>

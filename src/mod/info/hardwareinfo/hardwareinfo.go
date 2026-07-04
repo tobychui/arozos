@@ -2,11 +2,12 @@ package hardwareinfo
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -58,12 +59,12 @@ PrintSystemHardwareDebugMessage print system information on Windows.
 Which is lagging but helpful for debugging wmic on Windows
 */
 func PrintSystemHardwareDebugMessage() {
-	log.Println("Windows Version: " + wmicGetinfo("os", "Caption")[0])
-	log.Println("Total Memory: " + wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")[0] + "B")
-	log.Println("Processor: " + wmicGetinfo("cpu", "Name")[0])
-	log.Println("Following disk was detected:")
+	logger.PrintAndLog("Hardwareinfo", "Windows Version: "+wmicGetinfo("os", "Caption")[0], nil)
+	logger.PrintAndLog("Hardwareinfo", "Total Memory: "+wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")[0]+"B", nil)
+	logger.PrintAndLog("Hardwareinfo", "Processor: "+wmicGetinfo("cpu", "Name")[0], nil)
+	logger.PrintAndLog("Hardwareinfo", "Following disk was detected:", nil)
 	for _, info := range wmicGetinfo("diskdrive", "Model") {
-		log.Println(info)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(info), nil)
 	}
 }
 
@@ -71,7 +72,7 @@ func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(s.hostInfo)
 	if err != nil {
-		log.Println(err)
+		logger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return
 	}
 

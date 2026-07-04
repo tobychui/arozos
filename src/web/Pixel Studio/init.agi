@@ -1,0 +1,30 @@
+/*
+	Pixel Studio - Layered image editor for ArozOS
+	Module registration script
+
+	Do not call any user / filepath functions in this script.
+*/
+
+//Create the database table used by backend/prefs.js to store per-user settings
+newDBTableIfNotExists("Pixel Studio");
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+	Name: "Pixel Studio",
+	Desc: "Photoshop-like layered image editor",
+	Group: "Media",
+	IconPath: "Pixel Studio/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "Pixel Studio/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Pixel Studio/index.html",
+	SupportEmb: false,
+	InitFWSize: [1280, 820],
+	SupportedExt: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pxs"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));
+
+//Register a custom icon for .pxs files so the file manager shows it instead of a generic icon
+registerExtensionIcon(".pxs", "img/file_icon.png");

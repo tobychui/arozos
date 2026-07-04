@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Studio</title>
+    <link rel="icon" type="image/svg+xml" href="img/icon.svg">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="style/audiostudio.css">
+</head>
+<body>
+    <div id="appRoot">
+        <!-- ============ Toolbar ============ -->
+        <div id="toolbar">
+            <div class="tbGroup">
+                <button class="tbBtn" id="btnGoStart" title="Go to start">
+                    <svg viewBox="0 0 16 16"><path d="M2 2h2v12H2zM14 2v12L5 8z"/></svg>
+                </button>
+                <button class="tbBtn playBtn" id="btnPlay" title="Play / Pause">
+                    <svg viewBox="0 0 16 16"><path id="playIcon" d="M3 1.5v13l11-6.5z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnStop" title="Stop">
+                    <svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/></svg>
+                </button>
+                <button class="tbBtn" id="btnGoEnd" title="Go to end">
+                    <svg viewBox="0 0 16 16"><path d="M12 2h2v12h-2zM2 2v12l9-6z"/></svg>
+                </button>
+                <button class="tbBtn recBtn" id="btnRecord" title="Record">
+                    <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/></svg>
+                </button>
+            </div>
+
+            <div class="tbGroup">
+                <button class="tbBtn" id="btnUndo" title="Undo">
+                    <svg viewBox="0 0 16 16"><path d="M6.5 3 2 7l4.5 4V8.3c3 0 5.4.6 7.5 3.2-.6-4.2-3.4-6.4-7.5-6.5z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnRedo" title="Redo">
+                    <svg viewBox="0 0 16 16"><path d="M9.5 3 14 7l-4.5 4V8.3c-3 0-5.4.6-7.5 3.2.6-4.2 3.4-6.4 7.5-6.5z"/></svg>
+                </button>
+            </div>
+
+            <div class="tbGroup">
+                <button class="tbBtn" id="btnSplit" title="Split clip at cursor">
+                    <svg viewBox="0 0 16 16"><path d="M7.4 1h1.2v3h-1.2zM7.4 6h1.2v4h-1.2zM7.4 12h1.2v3h-1.2zM1 5.5h4.5v5H1zm9.5 0H15v5h-4.5z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnCopy" title="Copy selection">
+                    <svg viewBox="0 0 16 16"><path d="M4 1h8v2H6v8H4zM6 4h8v11H6z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnCut" title="Cut selection (close gap)">
+                    <svg viewBox="0 0 16 16"><path d="M3.5 1 8 8.2 12.5 1h1.4L9 9.5a3 3 0 1 1-1-.8L8 8.7l-.1.1a3 3 0 1 1-1-.9L2.1 1zM4.5 10.7a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4zm7 0a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnPaste" title="Paste at cursor">
+                    <svg viewBox="0 0 16 16"><path d="M6 1h4v2h3v12H3V3h3zm-1.5 3.5v9h7v-9zM6.5 7h3v1.2h-3zm0 2.6h3v1.2h-3z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnMuteSel" title="Silence selection (set audio content to no sound)">
+                    <svg viewBox="0 0 16 16"><path d="M2 6h3l4-3.5v11L5 10H2zM11 6l4 4m0-4-4 4" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M2 6h3l4-3.5v11L5 10H2z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnDeleteSel" title="Delete selection">
+                    <svg viewBox="0 0 16 16"><path d="M6 1h4v1.5h4V4H2V2.5h4zM3 5h10l-.8 10H3.8zm3.2 2 .3 6h1L7.2 7zm2.6 0 .3 6h1l-.3-6z"/></svg>
+                </button>
+            </div>
+
+            <div class="tbGroup">
+                <div id="timeDisplay" title="Current position">00h00m00.00s</div>
+            </div>
+
+            <div class="tbGroup">
+                <label class="tbCheckbox" title="Snap edits to the grid">
+                    <input type="checkbox" id="snapCheck">
+                    <span>Snap</span>
+                </label>
+            </div>
+
+            <div class="tbGroup">
+                <button class="tbBtn" id="btnZoomIn" title="Zoom in">
+                    <svg viewBox="0 0 16 16"><path d="M6.5 1a5.5 5.5 0 1 1 0 11c-1.2 0-2.3-.4-3.2-1L1 13.3 -0.3 12 2 9.7A5.5 5.5 0 0 1 6.5 1zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM5.9 4h1.2v1.9H9v1.2H7.1V9H5.9V7.1H4V5.9h1.9z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnZoomOut" title="Zoom out">
+                    <svg viewBox="0 0 16 16"><path d="M6.5 1a5.5 5.5 0 1 1 0 11c-1.2 0-2.3-.4-3.2-1L1 13.3 -0.3 12 2 9.7A5.5 5.5 0 0 1 6.5 1zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 5.9h5v1.2H4z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnZoomFit" title="Zoom to fit project">
+                    <svg viewBox="0 0 16 16"><path d="M1 4V1h3v1.3H2.3V4zM12 1h3v3h-1.3V2.3H12zM2.3 12v1.7H4V15H1v-3zM13.7 12H15v3h-3v-1.3h1.7zM4 6.5h8v3H4z"/></svg>
+                </button>
+            </div>
+
+            <div class="tbGroup" id="meterWrap">
+                <canvas id="meterCanvas" width="150" height="16"></canvas>
+            </div>
+
+            <div id="toolbarSpacer"></div>
+
+            <div class="tbGroup">
+                <button class="tbBtn" id="btnImport" title="Import audio file">
+                    <svg viewBox="0 0 16 16"><path d="M7.4 1h1.2v7.2l2.6-2.6.9.9L8 10.6 3.9 6.5l.9-.9 2.6 2.6zM2 12h12v1.5H2z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnSave" title="Save to server (project or WAV mix)">
+                    <svg viewBox="0 0 16 16"><path d="M2 2h9.5L14 4.5V14H2zm2 1.5v3h7v-3zm4.5.5h1.5v2H8.5zM4.5 9v3.5h7V9z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnExport" title="Export mix as WAV (download)">
+                    <svg viewBox="0 0 16 16"><path d="M8.6 10.6H7.4V3.4L4.8 6l-.9-.9L8 1l4.1 4.1-.9.9-2.6-2.6zM2 12h12v1.5H2z"/></svg>
+                </button>
+            </div>
+
+            <div class="tbGroup">
+                <button class="tbBtn" id="btnShortcuts" title="Keyboard shortcuts">
+                    <svg viewBox="0 0 16 16"><path d="M1 4h14v8H1zm1.5 1.5V7H4V5.5zm2.8 0V7h1.5V5.5zm2.9 0V7h1.5V5.5zm2.9 0V7h1.4V5.5zM2.5 8v1.5H4V8zm2.8 0v1.5h1.5V8zm2.9 0v1.5h1.5V8zm2.9 0v1.5h1.4V8zM4 10v.8h8V10z"/></svg>
+                </button>
+                <button class="tbBtn" id="btnSettings" title="Editor preferences">
+                    <svg viewBox="0 0 16 16"><path d="M8 5.2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6zm-1.2-4h2.4l.4 1.8c.5.2 1 .4 1.4.8l1.8-.6 1.2 2-1.4 1.3a5 5 0 0 1 0 1.6l1.4 1.3-1.2 2-1.8-.6c-.4.4-.9.6-1.4.8l-.4 1.8H6.8l-.4-1.8a5 5 0 0 1-1.4-.8l-1.8.6-1.2-2 1.4-1.3a5 5 0 0 1 0-1.6L2 5.2l1.2-2 1.8.6c.4-.4.9-.6 1.4-.8z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ============ Main workspace ============ -->
+        <div id="main">
+            <div id="leftCol">
+                <div id="tracksBar">
+                    <span>Tracks</span>
+                    <button id="addTrackBtn" title="Add a new track">
+                        <svg viewBox="0 0 16 16"><path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>
+                        <span>Add track</span>
+                    </button>
+                </div>
+                <div id="headerScroll">
+                    <div id="headerList"></div>
+                </div>
+            </div>
+            <div id="rightCol">
+                <div id="rulerWrap">
+                    <canvas id="rulerCanvas"></canvas>
+                </div>
+                <div id="laneView">
+                    <div id="laneList">
+                        <div id="playhead"></div>
+                    </div>
+                    <div id="emptyHint" style="display: none;">
+                        <b>Your project is empty</b><br>
+                        Press the record button (or <kbd id="hintRecKey">R</kbd>) to record from your microphone,<br>
+                        or use the import button to load an audio file.
+                    </div>
+                </div>
+                <div id="hscroll">
+                    <div id="hscrollInner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastArea"></div>
+    <input type="file" id="importFileInput" accept="audio/*,video/webm,.asproj" multiple style="display: none;">
+
+    <script src="script/audio-engine.js"></script>
+    <script src="script/project.js"></script>
+    <script src="script/effects.js"></script>
+    <script src="script/storage.js"></script>
+    <script src="script/shortcuts.js"></script>
+    <script src="script/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+/*
+    Calendar - Initialize
+    Ensures the Calendar directory exists and returns all events.
+*/
+requirelib("filelib");
+
+var calDir    = "user:/Document/Calendar";
+var evPath    = "user:/Document/Calendar/events.json";
+
+filelib.mkdir(calDir);
+
+var events = [];
+if (filelib.fileExists(evPath)) {
+    try {
+        var raw    = filelib.readFile(evPath);
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) events = parsed;
+    } catch (e) {}
+}
+
+sendJSONResp({ events: events });

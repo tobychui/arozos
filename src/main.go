@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,8 @@ import (
 	"time"
 
 	console "imuslab.com/arozos/mod/console"
+	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -55,6 +56,12 @@ func executeShutdownSequence() {
 	//Shutdown network services
 	StopNetworkServices()
 
+	//Shutdown Arozcast TURN relay
+	if arozcastTurnRunning() {
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down Arozcast TURN relay", nil)
+		arozcastStopTurnRelay()
+	}
+
 	//Shutdown FTP Server
 	if FTPManager != nil {
 		systemWideLogger.PrintAndLog("System", "<!> Shutting down FTP Server", nil)
@@ -71,6 +78,7 @@ func executeShutdownSequence() {
 func main() {
 	//Parse startup flags and paramters
 	flag.Parse()
+	logger.SetGlobalJSONOutput(*log_format == "json")
 
 	//Handle version printing
 	if *show_version {
@@ -89,9 +97,14 @@ func main() {
 	os.RemoveAll(*tmp_directory)
 	os.Mkdir(*tmp_directory, 0777)
 
+	// Initialize a temporary stdout-only logger so calls before RunStartup are safe.
+	// RunStartup will replace this with a file-backed logger.
+	systemWideLogger, _ = logger.NewTmpLogger()
+	logger.SetDefaultLogger(systemWideLogger)
+
 	//Print copyRight information
-	log.Println("ArozOS(C) " + strconv.Itoa(time.Now().Year()) + " " + deviceVendor + ".")
-	log.Println("ArozOS " + build_version + " Revision " + internal_version)
+	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)
+	systemWideLogger.PrintAndLog("System", "ArozOS "+build_version+" Revision "+internal_version, nil)
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020
@@ -104,9 +117,27 @@ func main() {
 	Run_Test()
 
 	//Initiate all the static files transfer
-	fs := http.FileServer(http.Dir("./web"))
+	baseFileServer := http.FileServer(http.Dir("./web"))
+	vendorWebDir := filepath.Join(vendorResRoot, "web")
+	// Wrap the base file server: serve from vendorResRoot/web/ when a matching
+	// file exists there, falling through to ./web/ otherwise.
+	fileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vendorPath := filepath.Join(vendorWebDir, filepath.FromSlash(r.URL.Path))
+		if !vendorWebExists {
+			// Early exit if the vendor web directory doesn't exist, to avoid unnecessary file existence checks on every request.
+			baseFileServer.ServeHTTP(w, r)
+			return
+		}
+		if info, err := os.Stat(vendorPath); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, vendorPath)
+			return
+		}
+		baseFileServer.ServeHTTP(w, r)
+	})
+	vendorWebExists = fs.FileExists(vendorWebDir)
+
 	//Updates 2022-09-06: Gzip handler moved inside the master router
-	http.Handle("/", mrouter(fs))
+	http.Handle("/", mrouter(fileServer))
 
 	//Setup handler for Ctrl +C
 	SetupCloseHandler()
@@ -117,16 +148,16 @@ func main() {
 			if !*disable_http {
 				go func() {
 					address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
-					log.Println("Standard (HTTP) Web server listening at", address)
+					systemWideLogger.PrintAndLog("System", fmt.Sprint("Standard (HTTP) Web server listening at", address), nil)
 					http.ListenAndServe(address, nil)
 				}()
 			}
 			address := fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
-			log.Println("Secure (HTTPS) Web server listening at", address)
+			systemWideLogger.PrintAndLog("System", fmt.Sprint("Secure (HTTPS) Web server listening at", address), nil)
 			http.ListenAndServeTLS(address, *tls_cert, *tls_key, nil)
 		} else {
 			address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
-			log.Println("Web server listening at", address)
+			systemWideLogger.PrintAndLog("System", fmt.Sprint("Web server listening at", address), nil)
 			http.ListenAndServe(address, nil)
 		}
 	}()

@@ -3,7 +3,8 @@ package modules
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	agi "imuslab.com/arozos/mod/agi"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -32,45 +34,48 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 		return errors.New("*Module Installer* Installer file not found. Given: " + realpath)
 	}
 
-	//Install it
+	//Unzip to a temporary folder; always clean it up when we're done
 	unzipTmpFolder := "./tmp/installer/" + strconv.Itoa(int(time.Now().Unix()))
 	err := fs.Unzip(realpath, unzipTmpFolder)
 	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(unzipTmpFolder)
 
-	//Move the module(s) to the web root
+	//Find sub-folders that contain init.agi – those are valid module folders
 	files, _ := filepath.Glob(unzipTmpFolder + "/*")
 	folders := []string{}
 	for _, file := range files {
 		if utils.IsDir(file) && utils.FileExists(filepath.Join(file, "init.agi")) {
-			//This looks like a module folder
 			folders = append(folders, file)
 		}
 	}
-	/*
-		for _, folder := range folders {
-			//Copy the module
-			//WIP
 
-					err = fs.CopyDir(folder, "./web/"+filepath.Base(folder))
-					if err != nil {
-						log.Println(err)
-						continue
-					}
+	if len(folders) == 0 {
+		return errors.New("*Module Installer* No valid module found in zip (no sub-folder containing init.agi)")
+	}
 
-
-				//Activate the module
-				m.ActivateModuleByRoot("./web/"+filepath.Base(folder), gateway)
-				m.ModuleSortList()
-
+	//Move each valid module folder into the web root
+	installedFolders := []string{}
+	for _, folder := range folders {
+		destPath := filepath.Join("./web", filepath.Base(folder))
+		//Remove any existing installation first (supports updating)
+		if utils.FileExists(destPath) {
+			os.RemoveAll(destPath)
 		}
-	*/
+		if err := os.Rename(folder, destPath); err != nil {
+			logger.PrintAndLog("Modules", fmt.Sprint("*Module Installer* Failed to move module:", err), nil)
+			return errors.New("Failed to install " + filepath.Base(folder) + ": " + err.Error())
+		}
+		installedFolders = append(installedFolders, destPath)
+	}
 
-	//Remove the tmp folder
-	os.RemoveAll(unzipTmpFolder)
+	//Activate each installed module and refresh the sorted list
+	for _, folder := range installedFolders {
+		m.ActivateModuleByRoot(folder, gateway)
+	}
+	m.ModuleSortList()
 
-	//OK
 	return nil
 }
 
@@ -94,7 +99,7 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 // Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
 	//Download the module from the gitURL
-	log.Println("Starting module installation by Git cloning ", gitURL)
+	logger.PrintAndLog("Modules", fmt.Sprint("Starting module installation by Git cloning ", gitURL), nil)
 	newDownloadUUID := uuid.NewV4().String()
 	downloadFolder := filepath.Join(m.tmpDirectory, "download", newDownloadUUID)
 	os.MkdirAll(downloadFolder, 0777)
@@ -127,7 +132,7 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	/*
 		for _, src := range copyPendingList {
 			fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
-				log.Println("Copying ", filename)
+				logger.PrintAndLog("Modules", fmt.Sprint("Copying ", filename), nil)
 			})
 		}
 	*/
@@ -155,15 +160,15 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 			//Load this as an module
 			startDef, err := os.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
 			if err != nil {
-				log.Println("*Module Activator* Failed to read init.agi from " + filepath.Base(moduleFolder))
+				logger.PrintAndLog("Modules", "*Module Activator* Failed to read init.agi from "+filepath.Base(moduleFolder), nil)
 				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
 			}
 
 			//Execute the init script using AGI
-			log.Println("Starting module: ", filepath.Base(moduleFolder))
+			logger.PrintAndLog("Modules", fmt.Sprint("Starting module: ", filepath.Base(moduleFolder)), nil)
 			err = gateway.RunScript(string(startDef))
 			if err != nil {
-				log.Println("*Module Activator* " + filepath.Base(moduleFolder) + " Starting failed" + err.Error())
+				logger.PrintAndLog("Modules", "*Module Activator* "+filepath.Base(moduleFolder)+" Starting failed"+err.Error(), nil)
 				return errors.New(filepath.Base(moduleFolder) + " Starting failed: " + err.Error())
 
 			}
@@ -177,56 +182,63 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 // Handle and return the information of the current installed modules
 func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r *http.Request) {
 	type ModuleInstallInfo struct {
-		Name          string //Name of the module
-		Desc          string //Description of module
-		Group         string //Group of the module
-		Version       string //Version of the module
-		IconPath      string //The icon access path of the module
-		InstallDate   string //The last editing date of the module file
-		DiskSpace     int64  //Disk space used
-		Uninstallable bool   //Indicate if this can be uninstall or disabled
+		Name          string // Name of the module
+		Desc          string // Description of module
+		Group         string // Group of the module
+		Version       string // Version of the module
+		IconPath      string // The icon access path of the module
+		InstallDate   string // The last editing date of the module folder
+		InitAGIDate   string // Last modification date of init.agi specifically
+		InstallDir    string // Path on disk (forward-slash, relative to server root)
+		DiskSpace     int64  // Disk space used
+		Uninstallable bool   // Indicate if this can be uninstalled
 	}
 
 	results := []ModuleInstallInfo{}
 	for _, mod := range m.LoadedModule {
-		//Get total size
-		if mod.StartDir != "" {
-			//Only allow uninstalling of modules with start dir (aka installable)
-
-			//Check if WebApp or subservice
-			if utils.FileExists(filepath.Join("./web", mod.StartDir)) {
-				//This is a WebApp module
-				totalsize, _ := fs.GetDirctorySize(filepath.Join("./web", filepath.Dir(mod.StartDir)), false)
-
-				//Get mod time
-				mtime, err := fs.GetModTime(filepath.Join("./web", filepath.Dir(mod.StartDir)))
-				if err != nil {
-					log.Println(err)
-				}
-				t := time.Unix(mtime, 0)
-
-				//Check allow uninstall state
-				canUninstall := true
-				if mod.Name == "System Setting" || mod.Group == "System Tools" {
-					canUninstall = false
-				}
-
-				results = append(results, ModuleInstallInfo{
-					mod.Name,
-					mod.Desc,
-					mod.Group,
-					mod.Version,
-					mod.IconPath,
-					t.Format("2006-01-02"),
-					totalsize,
-					canUninstall,
-				})
-			} else {
-				//Subservice
-			}
-
+		if mod.StartDir == "" {
+			continue
+		}
+		if !utils.FileExists(filepath.Join("./web", mod.StartDir)) {
+			continue
 		}
 
+		dirPath := filepath.Join("./web", filepath.Dir(mod.StartDir))
+		totalsize, _ := fs.GetDirctorySize(dirPath, false)
+
+		// Folder mod time (kept for backward compat)
+		mtime, err := fs.GetModTime(dirPath)
+		if err != nil {
+			logger.PrintAndLog("Modules", fmt.Sprint(err), nil)
+		}
+		t := time.Unix(mtime, 0)
+
+		// init.agi mod time (more precise install/update date)
+		agiDate := ""
+		agiPath := filepath.Join(dirPath, "init.agi")
+		if utils.FileExists(agiPath) {
+			if agiInfo, statErr := os.Stat(agiPath); statErr == nil {
+				agiDate = agiInfo.ModTime().Format("2006-01-02")
+			}
+		}
+
+		canUninstall := true
+		if mod.Name == "System Setting" || mod.Group == "System Tools" {
+			canUninstall = false
+		}
+
+		results = append(results, ModuleInstallInfo{
+			Name:          mod.Name,
+			Desc:          mod.Desc,
+			Group:         mod.Group,
+			Version:       mod.Version,
+			IconPath:      mod.IconPath,
+			InstallDate:   t.Format("2006-01-02"),
+			InitAGIDate:   agiDate,
+			InstallDir:    filepath.ToSlash(dirPath),
+			DiskSpace:     totalsize,
+			Uninstallable: canUninstall,
+		})
 	}
 
 	js, _ := json.Marshal(results)
@@ -252,7 +264,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if the module exists
 	if utils.FileExists(filepath.Join("./web", moduleName)) {
 		//Remove the module
-		log.Println("Removing Module: ", moduleName)
+		logger.PrintAndLog("Modules", fmt.Sprint("Removing Module: ", moduleName), nil)
 		os.RemoveAll(filepath.Join("./web", moduleName))
 
 		//Unregister the module from loaded list
@@ -265,8 +277,65 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 
 		m.LoadedModule = newLoadedModuleList
 
+		// Fire the uninstall hook so subsystems can clean up (e.g. remove cron jobs)
+		if m.OnModuleUninstall != nil {
+			m.OnModuleUninstall(moduleName)
+		}
+
 	} else {
 		return errors.New("Module not exists")
 	}
 	return nil
+}
+
+// HandleUploadAndInstall accepts a multipart-uploaded zip file and installs it.
+// The file must be submitted in the "zipfile" field.
+func (m *ModuleHandler) HandleUploadAndInstall(w http.ResponseWriter, r *http.Request, gateway *agi.Gateway) {
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		utils.SendErrorResponse(w, "Failed to parse upload: "+err.Error())
+		return
+	}
+
+	file, header, err := r.FormFile("zipfile")
+	if err != nil {
+		utils.SendErrorResponse(w, "No zip file provided")
+		return
+	}
+	defer file.Close()
+
+	if filepath.Ext(header.Filename) != ".zip" {
+		utils.SendErrorResponse(w, "Only .zip files are accepted")
+		return
+	}
+
+	// Save to a temporary path
+	tmpDir := filepath.Join(m.tmpDirectory, "installer")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		utils.SendErrorResponse(w, "Failed to create temp directory")
+		return
+	}
+	tmpPath := filepath.Join(tmpDir, strconv.FormatInt(time.Now().UnixNano(), 10)+"_upload.zip")
+
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		utils.SendErrorResponse(w, "Failed to create temp file: "+err.Error())
+		return
+	}
+	if _, err = io.Copy(out, file); err != nil {
+		out.Close()
+		os.Remove(tmpPath)
+		utils.SendErrorResponse(w, "Failed to write upload: "+err.Error())
+		return
+	}
+	out.Close()
+
+	// Install and clean up regardless of outcome
+	installErr := m.InstallViaZip(tmpPath, gateway)
+	os.Remove(tmpPath)
+
+	if installErr != nil {
+		utils.SendErrorResponse(w, "Installation failed: "+installErr.Error())
+		return
+	}
+	utils.SendOK(w)
 }

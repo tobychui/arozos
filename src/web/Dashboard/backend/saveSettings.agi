@@ -1,0 +1,53 @@
+/*
+    Dashboard - Save Settings
+    Writes dashboard settings to user:/Dashboard/settings.json.
+    POST parameters:
+        settings - JSON string of the settings object
+*/
+requirelib("filelib");
+
+var settingsPath = "user:/Dashboard/settings.json";
+
+if (!settings || settings === "") {
+    sendJSONResp({ error: "Missing settings parameter" });
+} else {
+    try {
+        var parsed = JSON.parse(settings);
+
+        // Sanitize: validate and whitelist fields
+        var lat = parseFloat(parsed.latitude);
+        var lon = parseFloat(parsed.longitude);
+        if (isNaN(lat) || lat < -90 || lat > 90)   lat = 51.5074;
+        if (isNaN(lon) || lon < -180 || lon > 180) lon = -0.1278;
+
+        var validThemes = ["dark", "light", "midnight", "ocean", "forest", "sunset", "rose", "slate"];
+        var theme = (validThemes.indexOf(String(parsed.theme)) >= 0) ? String(parsed.theme) : "dark";
+
+        var safe = {
+            latitude:        lat,
+            longitude:       lon,
+            cityName:        String(parsed.cityName || "My Location").substring(0, 100),
+            theme:           theme,
+            pinnedApps:      Array.isArray(parsed.pinnedApps) ? parsed.pinnedApps.slice(0, 50) : [],
+            showWeather:     parsed.showWeather     !== false,
+            showHiddenApps:  parsed.showHiddenApps  === true,
+            showSysInfo:     parsed.showSysInfo     !== false,
+            showCalendar:    parsed.showCalendar    !== false,
+            showStorage:     parsed.showStorage     !== false,
+            temperatureUnit: (parsed.temperatureUnit === "fahrenheit") ? "fahrenheit" : "celsius"
+        };
+
+        // Sanitize pinned app names - alphanumeric, spaces, hyphens, underscores only
+        var safePinned = [];
+        for (var i = 0; i < safe.pinnedApps.length; i++) {
+            var name = String(safe.pinnedApps[i]).substring(0, 128);
+            safePinned.push(name);
+        }
+        safe.pinnedApps = safePinned;
+
+        filelib.writeFile(settingsPath, JSON.stringify(safe));
+        sendJSONResp({ success: true });
+    } catch (e) {
+        sendJSONResp({ error: "Invalid settings format" });
+    }
+}

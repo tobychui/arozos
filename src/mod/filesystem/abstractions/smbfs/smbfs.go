@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/hirochachacha/go-smb2"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -39,16 +39,16 @@ type ServerMessageBlockFileSystemAbstraction struct {
 }
 
 func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, ipaddr string, rootShare string, username string, password string) (ServerMessageBlockFileSystemAbstraction, error) {
-	log.Println("[SMB-FS] Connecting to " + uuid + ":/ (" + ipaddr + ")")
+	logger.PrintAndLog("Smbfs", "[SMB-FS] Connecting to "+uuid+":/ ("+ipaddr+")", nil)
 	//Patch the ip address if port not found
 	if !strings.Contains(ipaddr, ":") {
-		log.Println("[SMB-FS] Port not set. Using default SMB port (:445)")
+		logger.PrintAndLog("Smbfs", "[SMB-FS] Port not set. Using default SMB port (:445)", nil)
 		ipaddr = ipaddr + ":445" //Default port for SMB
 	}
 	nd := net.Dialer{Timeout: 10 * time.Second}
 	conn, err := nd.Dial("tcp", ipaddr)
 	if err != nil {
-		log.Println("[SMB-FS] Unable to connect to remote: ", err.Error())
+		logger.PrintAndLog("Smbfs", fmt.Sprint("[SMB-FS] Unable to connect to remote: ", err.Error()), nil)
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
 
@@ -61,7 +61,7 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 
 	s, err := d.Dial(conn)
 	if err != nil {
-		log.Println("[SMB-FS] Unable to connect to remote: ", err.Error())
+		logger.PrintAndLog("Smbfs", fmt.Sprint("[SMB-FS] Unable to connect to remote: ", err.Error()), nil)
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
 
@@ -76,10 +76,10 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 	//Mound remote storage
 	fs, err := s.Mount(thisSmbRoot)
 	if err != nil {
-		log.Println("[SMB-FS] Unable to connect to remote: ", err.Error())
+		logger.PrintAndLog("Smbfs", fmt.Sprint("[SMB-FS] Unable to connect to remote: ", err.Error()), nil)
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
-	log.Println("[SMB-FS] Mounted SMB Root Share: " + thisSmbRoot)
+	logger.PrintAndLog("Smbfs", "[SMB-FS] Mounted SMB Root Share: "+thisSmbRoot, nil)
 
 	done := make(chan bool)
 	fsAbstraction := ServerMessageBlockFileSystemAbstraction{
