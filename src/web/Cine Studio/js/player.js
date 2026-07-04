@@ -21,6 +21,7 @@ CS.player = {
     exportDest: null,
     lastTick: 0,
     rafId: 0,
+    rate: 1,          //shuttle rate: 1 = normal, 2/4/8 = fast, negative = reverse
 
     init: function () {
         CS.player.canvas = document.getElementById("preview-canvas");
@@ -43,6 +44,10 @@ CS.player = {
             CS.state.safeArea = !CS.state.safeArea;
             this.classList.toggle("active", CS.state.safeArea);
             CS.player.render();
+        });
+        document.getElementById("btn-loop").addEventListener("click", function () {
+            CS.state.loop = !CS.state.loop;
+            this.classList.toggle("active", CS.state.loop);
         });
 
         var zoomBtn = document.getElementById("btn-preview-zoom");
@@ -175,13 +180,31 @@ CS.player = {
     /* ---------- transport ---------- */
 
     toggle: function () {
-        if (CS.state.playing) { CS.player.pause(); } else { CS.player.play(); }
+        if (CS.state.playing) { CS.player.pause(); } else { CS.player.setRate(1); CS.player.play(); }
+    },
+
+    //JKL shuttle: L speeds up forward, J speeds up backward, K pauses
+    setRate: function (r) {
+        CS.player.rate = r;
+    },
+
+    shuttle: function (dir) {
+        var r = CS.player.rate;
+        if (!CS.state.playing || (dir > 0 && r < 0) || (dir < 0 && r > 0)) {
+            r = dir; //start at 1x in the requested direction
+        } else {
+            r = CS.clamp(r * 2, -8, 8); //same direction: double up to 8x
+        }
+        CS.player.setRate(r);
+        if (!CS.state.playing) { CS.player.play(); }
+        CS.toast("Playback " + (r > 0 ? "" : "-") + Math.abs(r) + "x");
     },
 
     play: function () {
         var dur = CS.timelineDuration();
         if (dur <= 0) { CS.toast("Timeline is empty"); return; }
-        if (CS.state.playhead >= dur - 0.01) { CS.state.playhead = 0; }
+        if (CS.player.rate > 0 && CS.state.playhead >= dur - 0.01) { CS.state.playhead = 0; }
+        if (CS.player.rate < 0 && CS.state.playhead <= 0.01) { CS.state.playhead = dur; }
         CS.player.initAudioBus();
         CS.state.playing = true;
         CS.player.lastTick = performance.now();
@@ -195,6 +218,7 @@ CS.player = {
 
     pause: function () {
         CS.state.playing = false;
+        CS.player.rate = 1;
         cancelAnimationFrame(CS.player.rafId);
         Object.keys(CS.player.pool).forEach(function (id) {
             if (!CS.player.pool[id].paused) { CS.player.pool[id].pause(); }
@@ -232,17 +256,31 @@ CS.player = {
         if (!CS.state.playing) { return; }
         var dt = (now - CS.player.lastTick) / 1000;
         CS.player.lastTick = now;
-        CS.state.playhead += dt;
+        CS.state.playhead += dt * CS.player.rate;
 
         var dur = CS.timelineDuration();
-        if (CS.state.playhead >= dur) {
-            CS.state.playhead = dur;
+        //Reverse shuttle reached the head of the timeline
+        if (CS.player.rate < 0 && CS.state.playhead <= 0) {
+            CS.state.playhead = 0;
             CS.player.syncElements();
             CS.player.render();
             CS.player.updateTransportUI();
             CS.timeline.updatePlayhead();
             CS.player.pause();
             return;
+        }
+        if (CS.player.rate > 0 && CS.state.playhead >= dur) {
+            if (CS.state.loop) {
+                CS.state.playhead = 0; //loop back around and keep rolling
+            } else {
+                CS.state.playhead = dur;
+                CS.player.syncElements();
+                CS.player.render();
+                CS.player.updateTransportUI();
+                CS.timeline.updatePlayhead();
+                CS.player.pause();
+                return;
+            }
         }
 
         CS.player.syncElements();
@@ -266,6 +304,11 @@ CS.player = {
     syncElements: function () {
         var t = CS.state.playhead;
         var frozen = CS.transitions.frozenTargets(t);
+        var rate = CS.player.rate;
+        var reverse = CS.state.playing && rate < 0;
+        //Track solo: when any audio track is soloed, other audio tracks mute
+        var anySolo = CS.project.tracks.some(function (tr) { return tr.kind === "audio" && tr.solo; });
+
         CS.project.clips.forEach(function (clip) {
             if (clip.kind === "title" || clip.kind === "color") { return; }
             var media = CS.getMedia(clip.mediaId);
@@ -273,20 +316,29 @@ CS.player = {
             var track = CS.getTrack(clip.trackId);
             var el = CS.player.ensureElement(clip, media);
             var active = CS.player.activeAt(clip, t) && track && track.visible;
-            var target = clip.in + (t - clip.start);
+            var speed = CS.clipSpeed(clip);
+            var target = clip.in + (t - clip.start) * speed;
 
             //Volume: clip setting shaped by any fade in/out effects
             var vol = (clip.props.volume === undefined ? 100 : clip.props.volume) / 100;
             vol *= CS.effects.fadeAlpha(clip, t);
             el.volume = CS.clamp(vol, 0, 1);
-            el.muted = !!(track && track.muted);
+            var soloMuted = anySolo && track && track.kind === "audio" && !track.solo;
+            el.muted = !!(track && track.muted) || soloMuted;
 
-            if (CS.state.playing && active) {
+            if (CS.state.playing && active && !reverse) {
+                try { el.playbackRate = CS.clamp(speed * Math.max(rate, 0.0625), 0.0625, 16); } catch (e) {}
                 if (el.paused) {
                     try { el.currentTime = target; } catch (e) {}
                     var p = el.play();
                     if (p && p.catch) { p.catch(function () {}); }
-                } else if (Math.abs(el.currentTime - target) > 0.14) {
+                } else if (Math.abs(el.currentTime - target) > 0.14 * Math.max(1, Math.abs(rate))) {
+                    try { el.currentTime = target; } catch (e) {}
+                }
+            } else if (CS.state.playing && active && reverse) {
+                //Media elements cannot play backwards: step frames by seeking
+                if (!el.paused) { el.pause(); }
+                if (Math.abs(el.currentTime - target) > 0.05) {
                     try { el.currentTime = target; } catch (e) {}
                 }
             } else if (CS.state.playing && !active) {
@@ -412,9 +464,14 @@ CS.player = {
         dh *= userScale;
 
         ctx.save();
+        if (p.blend && p.blend !== "normal") {
+            ctx.globalCompositeOperation = p.blend;
+        }
         ctx.translate(W / 2 + (p.x || 0), H / 2 + (p.y || 0));
         if (p.rotation) { ctx.rotate(p.rotation * Math.PI / 180); }
-        if (fx.mirror) { ctx.scale(-1, 1); }
+        var flipX = (fx.mirror ? -1 : 1) * (p.flipH ? -1 : 1);
+        var flipY = p.flipV ? -1 : 1;
+        if (flipX !== 1 || flipY !== 1) { ctx.scale(flipX, flipY); }
         var alpha = CS.clamp((p.opacity === undefined ? 100 : p.opacity) / 100, 0, 1) * fx.alpha;
         if (opts.alphaMul !== undefined) { alpha *= CS.clamp(opts.alphaMul, 0, 1); }
         ctx.globalAlpha = alpha;

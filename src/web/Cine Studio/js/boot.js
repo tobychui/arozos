@@ -110,11 +110,30 @@ document.addEventListener("DOMContentLoaded", function () {
         } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "z") {
             ev.preventDefault();
             CS.undo();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "c") {
+            ev.preventDefault();
+            CS.copySelectedClips();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "v") {
+            ev.preventDefault();
+            CS.pasteClipsAtPlayhead();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "d") {
+            ev.preventDefault();
+            CS.duplicateSelectedClips();
         } else if (ev.key === "Delete" || ev.key === "Backspace") {
             if (CS.state.selectedClipId) {
                 ev.preventDefault();
-                CS.deleteSelectedClip();
+                if (ev.shiftKey) { CS.rippleDeleteSelected(); }
+                else { CS.deleteSelectedClip(); }
             }
+        } else if (ev.key.toLowerCase() === "m" && !ev.ctrlKey && !ev.metaKey) {
+            if (ev.shiftKey) { CS.gotoMarker(1); }
+            else { CS.toggleMarkerAtPlayhead(); }
+        } else if (ev.key.toLowerCase() === "j") {
+            CS.player.shuttle(-1);
+        } else if (ev.key.toLowerCase() === "k") {
+            CS.player.pause();
+        } else if (ev.key.toLowerCase() === "l") {
+            CS.player.shuttle(1);
         } else if (ev.key.toLowerCase() === "v") {
             CS.timeline.setTool("select");
         } else if (ev.key.toLowerCase() === "b") {
@@ -152,5 +171,11 @@ document.addEventListener("DOMContentLoaded", function () {
     CS.updateSaveState();
 
     //Open a project / media passed by the desktop (double-click on .cine)
-    CS.fileio.openLaunchFiles();
+    var openedLaunchFile = CS.fileio.openLaunchFiles();
+
+    //Auto-save loop + crash recovery offer (skip when launched with a file)
+    CS.session.init();
+    if (!openedLaunchFile) {
+        CS.session.checkRecovery();
+    }
 });

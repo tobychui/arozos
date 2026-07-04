@@ -126,6 +126,55 @@ CS.inspector = {
             CS.inspector.numChip(null, p.opacity, "%", function (v) { p.opacity = CS.clamp(v, 0, 100); }, 1)
         ]);
 
+        CS.inspector.row(transform, "Blend", [
+            CS.inspector.select([
+                { v: "normal", l: "Normal" },
+                { v: "multiply", l: "Multiply" },
+                { v: "screen", l: "Screen" },
+                { v: "overlay", l: "Overlay" },
+                { v: "lighter", l: "Add" },
+                { v: "soft-light", l: "Soft Light" },
+                { v: "difference", l: "Difference" }
+            ], p.blend || "normal", function (v) {
+                p.blend = v;
+                CS.commit("Blend Mode");
+            })
+        ]);
+
+        CS.inspector.row(transform, "Flip", [
+            CS.inspector.toggleChip("Horizontal", !!p.flipH, function (on) {
+                p.flipH = on;
+                CS.commit("Flip Horizontal");
+            }),
+            CS.inspector.toggleChip("Vertical", !!p.flipV, function (on) {
+                p.flipV = on;
+                CS.commit("Flip Vertical");
+            })
+        ]);
+
+        //---- Speed (media-backed clips only; generated clips trim freely) ----
+        var media = CS.getMedia(clip.mediaId);
+        if (media && (media.type === "video" || media.type === "audio")) {
+            var speed = CS.inspector.section(body, "Speed", function () {
+                p.speed = 1;
+                CS.commit("Reset Speed");
+            });
+            CS.inspector.row(speed, "Rate", [
+                CS.inspector.slider(25, 400, 5, Math.round(CS.clipSpeed(clip) * 100), function (v) {
+                    p.speed = v / 100;
+                    CS.timeline.clampTrimOverlap(clip);
+                }),
+                CS.inspector.numChip(null, Math.round(CS.clipSpeed(clip) * 100), "%", function (v) {
+                    p.speed = CS.clamp(v, 10, 800) / 100;
+                    CS.timeline.clampTrimOverlap(clip);
+                }, 5)
+            ]);
+            var spNote = document.createElement("div");
+            spNote.className = "modal-note";
+            spNote.textContent = "Changes clip length on the timeline; audio pitch follows the rate.";
+            speed.appendChild(spNote);
+        }
+
         //---- Crop ----
         var crop = CS.inspector.section(body, "Crop", function () {
             p.crop = "fit";
@@ -425,6 +474,27 @@ CS.inspector = {
         });
         dial.title = "Drag up / down to rotate";
         return dial;
+    },
+
+    //Small on/off pill used for boolean properties (flip H / V)
+    toggleChip: function (labelText, on, onChange) {
+        var btn = document.createElement("button");
+        btn.className = "insp-select";
+        btn.style.minWidth = "0";
+        btn.style.flex = "1";
+        btn.style.justifyContent = "center";
+        function paint() {
+            btn.style.color = on ? "var(--accent)" : "var(--text)";
+            btn.style.boxShadow = on ? "inset 0 0 0 1px var(--accent)" : "none";
+        }
+        btn.textContent = labelText;
+        paint();
+        btn.addEventListener("click", function () {
+            on = !on;
+            paint();
+            onChange(on);
+        });
+        return btn;
     },
 
     select: function (options, value, onChange) {

@@ -145,6 +145,7 @@
                     <button class="pb-btn" id="btn-prev-edit" title="Previous edit point"><span data-icon="skip-back"></span></button>
                     <button class="pb-btn play" id="btn-play" title="Play / Pause (Space)"><span data-icon="play" id="play-icon"></span></button>
                     <button class="pb-btn" id="btn-next-edit" title="Next edit point"><span data-icon="skip-fwd"></span></button>
+                    <button class="pb-btn" id="btn-loop" title="Loop playback"><span data-icon="loop"></span></button>
                 </div>
                 <div class="pb-right">
                     <button class="pb-btn wide" id="btn-preview-zoom"><span id="preview-zoom-label">Fit</span><span data-icon="chevron-down" class="mini"></span></button>
@@ -174,6 +175,9 @@
             <button class="tlt-btn" id="tool-crop" title="Crop"><span data-icon="crop"></span></button>
             <button class="tlt-btn" id="tool-text" title="Text"><span data-icon="nav-text"></span></button>
             <button class="tlt-btn" id="tool-audio" title="Audio mixer"><span data-icon="waveform"></span></button>
+            <span class="tlt-sep"></span>
+            <button class="tlt-btn active" id="btn-snap" title="Toggle snapping"><span data-icon="magnet"></span></button>
+            <button class="tlt-btn" id="btn-marker" title="Add / remove marker at playhead (M)"><span data-icon="marker"></span></button>
         </div>
         <div class="tlt-right">
             <button class="tlt-btn" id="btn-undo" title="Undo (Ctrl+Z)"><span data-icon="undo"></span></button>
@@ -218,6 +222,7 @@
     <script src="js/titles.js"></script>
     <script src="js/transitions.js"></script>
     <script src="js/panels.js"></script>
+    <script src="js/session.js"></script>
     <script src="js/player.js"></script>
     <script src="js/previewctl.js"></script>
     <script src="js/timeline.js"></script>
