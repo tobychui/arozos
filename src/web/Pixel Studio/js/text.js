@@ -208,6 +208,15 @@ PS.startTextEditOnLayer = function (layer) {
     var t = layer.text;
     var host = PS.el("text-edit-host");
 
+    // reflect this layer's actual settings in the options bar so a later
+    // option tweak doesn't force-sync the layer to stale tool values
+    var o = PS.toolOpts.text;
+    o.font = t.font;
+    o.size = t.size;
+    o.bold = !!t.bold;
+    o.italic = !!t.italic;
+    if (PS.tool === "text") { PS.renderOptionsBar(); }
+
     var ed = document.createElement("textarea");
     ed.className = "text-editor";
     ed.value = t.content;
@@ -416,7 +425,10 @@ PS.registerTool("text", {
     }
 });
 
-// live-apply option changes to the open text editing session
+// live-apply option changes to the open text editing session: the visible
+// glyphs are the layer canvas's (the textarea is transparent), so the layer
+// must be re-rendered here — not just the editor's CSS — for font / size /
+// bold / italic changes to show up in real time while still editing
 PS.applyTextOptionToEdit = function () {
     var te = PS.textEdit;
     if (!te) { return; }
@@ -425,5 +437,7 @@ PS.applyTextOptionToEdit = function () {
     te.layer.text.size = o.size;
     te.layer.text.bold = o.bold;
     te.layer.text.italic = o.italic;
+    PS.renderTextLayer(te.layer);
     PS.positionTextEditor();
+    PS.requestRender();
 };

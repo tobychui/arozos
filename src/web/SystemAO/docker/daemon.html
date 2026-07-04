@@ -1,0 +1,187 @@
+<style>
+#dkd-root {
+    --dk-bg: #ffffff; --dk-border: #e5e5e5; --dk-text: #1f1f1f; --dk-dim: #676767;
+    --dk-soft: #f5f5f5; --dk-soft2: #efefef; --dk-accent: #2b6cb0; --dk-accent-text:#fff;
+    --dk-ok: #107c10; --dk-warn: #b7791f; --dk-danger: #c42b1c;
+    --dk-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    background: var(--dk-bg); border: 1px solid var(--dk-border); border-radius: 12px;
+    box-shadow: var(--dk-shadow); color: var(--dk-text); padding: 16px; margin-bottom: 4px;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px;
+}
+body.dark #dkd-root {
+    --dk-bg:#2b2b2b; --dk-border:#3b3b3b; --dk-text:#ececec; --dk-dim:#aaaaaa;
+    --dk-soft:#343434; --dk-soft2:#3c3c3c; --dk-accent:#4a90d9; --dk-ok:#2ecc71;
+    --dk-warn:#e0a838; --dk-danger:#ff6b5e; --dk-shadow:0 8px 22px rgba(0,0,0,0.3);
+}
+#dkd-root * { box-sizing: border-box; }
+.dkd-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.dkd-title { font-size:17px; font-weight:600; }
+.dkd-sub { font-size:12px; color:var(--dk-dim); margin-top:2px; }
+.dkd-card { border:1px solid var(--dk-border); border-radius:10px; background:var(--dk-soft); padding:14px; margin-bottom:12px; }
+.dkd-card-title { font-size:13.5px; font-weight:600; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+.dkd-card-desc { font-size:11.5px; color:var(--dk-dim); margin-bottom:12px; line-height:1.5; }
+.dkd-grid { display:grid; grid-template-columns: repeat(2, minmax(120px,1fr)); gap:8px; margin-bottom:14px; }
+.dkd-metric { border:1px solid var(--dk-border); border-radius:10px; background:var(--dk-bg); padding:10px; }
+.dkd-metric .lab { font-size:11px; color:var(--dk-dim); margin-bottom:4px; }
+.dkd-metric .val { font-size:16px; font-weight:600; }
+.dkd-metric .val.ok { color:var(--dk-ok); } .dkd-metric .val.off { color:var(--dk-danger); }
+#dkd-root code { background:var(--dk-soft2); padding:1px 5px; border-radius:4px; font-size:11.5px; }
+.dkd-btn { border:1px solid var(--dk-border); background:var(--dk-bg); color:var(--dk-text); border-radius:8px;
+    font-size:12.5px; font-weight:600; padding:8px 14px; cursor:pointer; transition:.12s; }
+.dkd-btn:hover { background:var(--dk-soft2); }
+.dkd-btn.primary { background:var(--dk-accent); color:var(--dk-accent-text); border-color:var(--dk-accent); }
+.dkd-btn.danger { border-color:var(--dk-danger); color:var(--dk-danger); }
+.dkd-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.dkd-result { font-size:12px; color:var(--dk-dim); margin-left:4px; align-self:center; }
+.dkd-notice { border:1px solid var(--dk-warn); border-left-width:4px; border-radius:8px;
+    background:rgba(183,121,31,0.08); padding:10px 12px; margin-bottom:14px; font-size:12px; line-height:1.5;
+    display:flex; gap:10px; align-items:flex-start; }
+.dkd-notice i.icon { color:var(--dk-warn); margin:0; }
+</style>
+
+<div id="dkd-root">
+    <div class="dkd-head">
+        <div>
+            <div class="dkd-title">Docker Daemon</div>
+            <div class="dkd-sub">Control the Docker daemon service and edit its configuration.</div>
+        </div>
+    </div>
+
+    <div class="dkd-notice">
+        <i class="exclamation triangle icon"></i>
+        <div>Service control uses the host init system (systemd) and requires ArozOS to run with sufficient privilege (root). Stopping the daemon stops every running container.</div>
+    </div>
+
+    <div class="dkd-card">
+        <div class="dkd-card-title">Service</div>
+        <div class="dkd-card-desc">Current state of the <code>docker</code> system service.</div>
+        <div class="dkd-grid">
+            <div class="dkd-metric"><div class="lab">Service</div><div class="val" id="dkd-active">...</div></div>
+            <div class="dkd-metric"><div class="lab">Start on boot</div><div class="val" id="dkd-enabled">...</div></div>
+        </div>
+        <div class="dkd-actions">
+            <button class="dkd-btn primary" id="dkd-start"><i class="play icon"></i> Start</button>
+            <button class="dkd-btn danger" id="dkd-stop"><i class="stop icon"></i> Stop</button>
+            <button class="dkd-btn danger" id="dkd-restart"><i class="redo icon"></i> Restart</button>
+            <button class="dkd-btn" id="dkd-enable"><i class="check icon"></i> Enable autostart</button>
+            <button class="dkd-btn" id="dkd-disable"><i class="times icon"></i> Disable autostart</button>
+            <span class="dkd-result" id="dkd-svc-result"></span>
+        </div>
+    </div>
+
+    <div class="dkd-card">
+        <div class="dkd-card-title">Daemon Configuration</div>
+        <div class="dkd-card-desc">
+            <code>daemon.json</code> at <code id="dkd-path">...</code>. <span id="dkd-editbadge"></span>
+            Changes apply only after the daemon is restarted (use the Restart button above), which briefly stops all containers.
+        </div>
+        <textarea id="dkd-content" spellcheck="false" style="width:100%;height:150px;background:var(--dk-bg);border:1px solid var(--dk-border);color:var(--dk-text);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;" placeholder='{ "registry-mirrors": [] }'></textarea>
+        <div class="dkd-actions" style="margin-top:10px;">
+            <button class="dkd-btn" id="dkd-save" style="display:none;">Save daemon.json</button>
+            <span class="dkd-result" id="dkd-cfg-result"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var API = "../../system/docker/";
+
+    (function applyTheme(){
+        try { if (typeof preferredTheme !== 'undefined') { document.body.classList.toggle('dark', (preferredTheme==='dark'||preferredTheme==='darkTheme')); return; } } catch(e){}
+        if (typeof ao_module_getSystemThemeColor === 'function') { ao_module_getSystemThemeColor(function(c){ document.body.classList.toggle('dark', c!=='whiteTheme'); }); }
+    })();
+
+    function el(id){ return document.getElementById(id); }
+
+    function loadStatus(){
+        $.get(API + "service/status", function(d){
+            if (d && d.error){ el("dkd-svc-result").textContent = d.error; return; }
+            if (!d.available){
+                el("dkd-active").textContent = "Unsupported";
+                el("dkd-active").className = "val off";
+                el("dkd-enabled").textContent = "-";
+                el("dkd-svc-result").textContent = d.message || "Service control not available on this host.";
+                ["dkd-start","dkd-stop","dkd-restart","dkd-enable","dkd-disable"].forEach(function(i){ el(i).disabled = true; });
+                return;
+            }
+            el("dkd-active").textContent = d.active ? "Running" : "Stopped";
+            el("dkd-active").className = "val " + (d.active ? "ok" : "off");
+            el("dkd-enabled").textContent = d.enabled ? "Enabled" : "Disabled";
+            el("dkd-enabled").className = "val " + (d.enabled ? "ok" : "off");
+        }).fail(function(){ el("dkd-svc-result").textContent = "Failed to load (admin only)."; });
+    }
+
+    // Non-destructive actions run directly; stop/restart re-prompt for the password.
+    function doAction(action){
+        el("dkd-svc-result").textContent = "Working...";
+        $.post(API + "service/action", { action: action }, function(r){
+            if (r && r.error){ el("dkd-svc-result").textContent = "Error: " + r.error; return; }
+            el("dkd-svc-result").textContent = action + " ok.";
+            setTimeout(loadStatus, 600);
+        }).fail(function(){ el("dkd-svc-result").textContent = action + " request failed."; });
+    }
+
+    function confirmAction(action){
+        var apiObject = {
+            api: "../../system/docker/service/action",
+            data: { "action": action },
+            title: "<i class='yellow exclamation triangle icon'></i> DOCKER DAEMON " + action.toUpperCase() + " <i class='yellow exclamation triangle icon'></i>",
+            desc: action === "stop"
+                ? "Stop the Docker daemon? This stops all running containers."
+                : "Restart the Docker daemon? This briefly stops all running containers.",
+            thisuser: true, method: "POST", success: undefined
+        };
+        apiObject = encodeURIComponent(JSON.stringify(apiObject));
+        parent.newFloatWindow({
+            url: "SystemAO/security/authreq.html#" + apiObject,
+            width: 480, height: 300,
+            appicon: "SystemAO/docker/img/small_icon.svg",
+            title: "Confirm Docker Daemon " + action,
+            parent: ao_module_windowID,
+            callback: "handleDaemonServiceCallback"
+        });
+    }
+    window.handleDaemonServiceCallback = function(data){
+        if (data && data.error){ el("dkd-svc-result").textContent = "Error: " + data.error; }
+        else { el("dkd-svc-result").textContent = "Done."; setTimeout(loadStatus, 800); }
+    };
+
+    /* daemon.json config */
+    function loadConfig(){
+        $.get(API + "daemon/get", function(d){
+            if (d && d.error){ el("dkd-cfg-result").textContent = d.error; return; }
+            el("dkd-path").textContent = d.path || "?";
+            el("dkd-content").value = d.content || "";
+            if (d.editable){
+                el("dkd-editbadge").innerHTML = '<b style="color:var(--dk-ok);">Editable.</b>';
+                el("dkd-content").removeAttribute("readonly");
+                el("dkd-save").style.display = "inline-block";
+            } else {
+                el("dkd-editbadge").innerHTML = '<b style="color:var(--dk-warn);">Read-only on this host.</b>';
+                el("dkd-content").setAttribute("readonly","readonly");
+                el("dkd-save").style.display = "none";
+            }
+        }).fail(function(){ el("dkd-cfg-result").textContent = "Failed to load (admin only)."; });
+    }
+    function saveConfig(){
+        el("dkd-cfg-result").textContent = "Saving...";
+        $.ajax({ url: API + "daemon/save", method: "POST", data: JSON.stringify({ content: el("dkd-content").value }), contentType: "application/json" })
+            .done(function(r){
+                if (r && r.error){ el("dkd-cfg-result").textContent = "Error: " + r.error; return; }
+                el("dkd-cfg-result").textContent = "Saved. Restart the daemon to apply.";
+            })
+            .fail(function(){ el("dkd-cfg-result").textContent = "Save request failed."; });
+    }
+
+    el("dkd-start").addEventListener("click", function(){ doAction("start"); });
+    el("dkd-stop").addEventListener("click", function(){ confirmAction("stop"); });
+    el("dkd-restart").addEventListener("click", function(){ confirmAction("restart"); });
+    el("dkd-enable").addEventListener("click", function(){ doAction("enable"); });
+    el("dkd-disable").addEventListener("click", function(){ doAction("disable"); });
+    el("dkd-save").addEventListener("click", saveConfig);
+
+    loadStatus();
+    loadConfig();
+})();
+</script>
