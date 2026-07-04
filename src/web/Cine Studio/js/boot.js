@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     CS.media.init();
     CS.player.init();
+    CS.previewctl.init();
     CS.timeline.init();
     CS.inspector.init();
 
@@ -36,26 +37,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     document.getElementById("btn-settings").addEventListener("click", CS.fileio.settingsDialog);
 
-    //macOS traffic lights: red closes the float window
-    document.querySelector(".tl-close").addEventListener("click", function () {
-        function doClose() {
-            if (typeof ao_module_close !== "undefined") { ao_module_close(); }
-        }
-        if (CS.state.dirty) {
-            CS.confirm("Unsaved changes", "Close Cine Studio and discard unsaved changes?", doClose);
-        } else {
-            doClose();
-        }
-    });
-    document.querySelector(".tl-min").addEventListener("click", function () {
-        CS.toast("Use the desktop window controls to minimize");
-    });
-    document.querySelector(".tl-max").addEventListener("click", function () {
-        var stage = document.getElementById("preview-stage");
-        if (stage.requestFullscreen && !document.fullscreenElement) { stage.requestFullscreen(); }
-        else if (document.fullscreenElement) { document.exitFullscreen(); }
-    });
-
     /* ---------- nav rail ---------- */
 
     var navItems = document.querySelectorAll("#navrail .nav-item[data-nav]");
@@ -68,21 +49,33 @@ document.addEventListener("DOMContentLoaded", function () {
         navItems[i].addEventListener("click", function () {
             var nav = this.getAttribute("data-nav");
             var kindLabel = document.getElementById("bin-kind-label");
+            activateNav(nav);
             if (nav === "media") {
-                activateNav(nav);
                 CS.state.binKind = "all";
                 kindLabel.textContent = "All Clips";
+                CS.panels.show("media");
                 CS.media.renderBin();
             } else if (nav === "audio") {
-                activateNav(nav);
                 CS.state.binKind = "audio";
                 kindLabel.textContent = "Audio";
+                CS.panels.show("media");
                 CS.media.renderBin();
-            } else {
-                CS.toast(this.querySelector("label").textContent + " is not available in this version");
+            } else if (nav === "effects") {
+                CS.panels.show("fx");
+            } else if (nav === "titles" || nav === "text") {
+                CS.panels.show("titles");
+            } else if (nav === "transitions") {
+                CS.panels.show("transitions");
+            } else if (nav === "elements") {
+                CS.panels.show("elements");
+            } else if (nav === "filters") {
+                CS.panels.show("filters");
+            } else if (nav === "libraries") {
+                CS.panels.show("libraries");
             }
         });
     }
+    CS.panels.show("media");
 
     /* ---------- selection hook: keep inspector tab sensible ---------- */
 
@@ -91,6 +84,8 @@ document.addEventListener("DOMContentLoaded", function () {
         origSelect(clipId);
         CS.inspector.autoTab();
         CS.inspector.render();
+        CS.panels.refresh();
+        CS.previewctl.redraw();
     };
 
     /* ---------- keyboard shortcuts ---------- */
@@ -115,17 +110,38 @@ document.addEventListener("DOMContentLoaded", function () {
         } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "z") {
             ev.preventDefault();
             CS.undo();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "c") {
+            ev.preventDefault();
+            CS.copySelectedClips();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "v") {
+            ev.preventDefault();
+            CS.pasteClipsAtPlayhead();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "d") {
+            ev.preventDefault();
+            CS.duplicateSelectedClips();
         } else if (ev.key === "Delete" || ev.key === "Backspace") {
             if (CS.state.selectedClipId) {
                 ev.preventDefault();
-                CS.deleteSelectedClip();
+                if (ev.shiftKey) { CS.rippleDeleteSelected(); }
+                else { CS.deleteSelectedClip(); }
             }
+        } else if (ev.key.toLowerCase() === "m" && !ev.ctrlKey && !ev.metaKey) {
+            if (ev.shiftKey) { CS.gotoMarker(1); }
+            else { CS.toggleMarkerAtPlayhead(); }
+        } else if (ev.key.toLowerCase() === "j") {
+            CS.player.shuttle(-1);
+        } else if (ev.key.toLowerCase() === "k") {
+            CS.player.pause();
+        } else if (ev.key.toLowerCase() === "l") {
+            CS.player.shuttle(1);
         } else if (ev.key.toLowerCase() === "v") {
             CS.timeline.setTool("select");
         } else if (ev.key.toLowerCase() === "b") {
             CS.timeline.setTool("blade");
         } else if (ev.key.toLowerCase() === "s" && !ev.ctrlKey && !ev.metaKey) {
             CS.splitAtPlayhead();
+        } else if (ev.key.toLowerCase() === "t" && !ev.ctrlKey && !ev.metaKey) {
+            CS.titles.insertPreset("title");
         } else if (ev.key === "ArrowLeft") {
             ev.preventDefault();
             CS.player.seek(CS.state.playhead - (ev.shiftKey ? 10 : 1) / fps);
@@ -155,5 +171,11 @@ document.addEventListener("DOMContentLoaded", function () {
     CS.updateSaveState();
 
     //Open a project / media passed by the desktop (double-click on .cine)
-    CS.fileio.openLaunchFiles();
+    var openedLaunchFile = CS.fileio.openLaunchFiles();
+
+    //Auto-save loop + crash recovery offer (skip when launched with a file)
+    CS.session.init();
+    if (!openedLaunchFile) {
+        CS.session.checkRecovery();
+    }
 });

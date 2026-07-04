@@ -54,14 +54,30 @@ CS.timeline = {
         document.getElementById("tool-select").addEventListener("click", function () { CS.timeline.setTool("select"); });
         document.getElementById("tool-blade").addEventListener("click", function () { CS.timeline.setTool("blade"); });
         document.getElementById("tool-crop").addEventListener("click", function () {
-            CS.toast("Use the Crop section in the inspector");
+            //Jump to the Crop controls in the inspector
+            document.getElementById("inspector").classList.remove("hidden");
+            CS.inspector.activeTab = "video";
+            CS.inspector._collapsed["Crop"] = false;
+            CS.inspector.updateTabs();
+            CS.inspector.render();
+            if (!CS.selectedClip()) { CS.toast("Select a clip to crop"); }
         });
         document.getElementById("tool-text").addEventListener("click", function () {
-            CS.toast("Titles are not available in this version");
+            CS.titles.insertPreset("title");
         });
         document.getElementById("tool-audio").addEventListener("click", function () {
-            CS.toast("Use the Audio tab in the inspector");
+            document.getElementById("inspector").classList.remove("hidden");
+            CS.inspector.activeTab = "audio";
+            CS.inspector.updateTabs();
+            CS.inspector.render();
+            if (!CS.selectedClip()) { CS.toast("Select a clip to adjust its audio"); }
         });
+        document.getElementById("btn-snap").addEventListener("click", function () {
+            CS.state.snap = !CS.state.snap;
+            this.classList.toggle("active", CS.state.snap);
+            CS.toast("Snapping " + (CS.state.snap ? "on" : "off"));
+        });
+        document.getElementById("btn-marker").addEventListener("click", CS.toggleMarkerAtPlayhead);
         document.getElementById("btn-undo").addEventListener("click", CS.undo);
         document.getElementById("btn-redo").addEventListener("click", CS.redo);
         document.getElementById("btn-delete-clip").addEventListener("click", CS.deleteSelectedClip);
@@ -71,6 +87,31 @@ CS.timeline = {
                 { label: "Add video track", icon: "film", action: function () { CS.addTrack("video"); } },
                 { label: "Add audio track", icon: "speaker", action: function () { CS.addTrack("audio"); } }
             ]);
+        });
+
+        //Dropping media on the empty area beyond the lanes creates a track
+        var content = document.getElementById("tl-content");
+        content.addEventListener("dragover", function (ev) {
+            ev.preventDefault();
+        });
+        content.addEventListener("drop", function (ev) {
+            if (ev.target.closest && ev.target.closest(".tl-track")) { return; } //lane handled it
+            ev.preventDefault();
+            var mediaId = ev.dataTransfer && ev.dataTransfer.getData("cinestudio/media");
+            if (!mediaId) { return; }
+            var media = CS.getMedia(mediaId);
+            if (!media) { return; }
+            if (media.offline) { CS.toast("Cannot use offline media", true); return; }
+            var kind = media.type === "audio" ? "audio" : "video";
+            var trackId = CS.createTrack(kind);
+            var s = document.getElementById("tl-scroll");
+            var rect = s.getBoundingClientRect();
+            var t = Math.max(0, (ev.clientX - rect.left + s.scrollLeft) / CS.state.zoom);
+            var clip = CS.addClipToTimeline(media, trackId, t);
+            if (clip) {
+                CS.state.selectedClipId = clip.id;
+                CS.commit("Add Clip on New Track");
+            }
         });
     },
 
@@ -123,7 +164,7 @@ CS.timeline = {
         holder.innerHTML = "";
         CS.tracksInDisplayOrder().forEach(function (track) {
             var h = document.createElement("div");
-            h.className = "track-header";
+            h.className = "track-header" + (track.solo ? " solo" : "");
             h.style.height = CS.timeline.trackHeight(track) + "px";
 
             var icon = document.createElement("span");
@@ -160,15 +201,25 @@ CS.timeline = {
     trackMenu: function (track, x, y) {
         var empty = CS.clipsOnTrack(track.id).length === 0;
         var sameKind = CS.project.tracks.filter(function (t) { return t.kind === track.kind; }).length;
-        CS.showMenu([
-            {
-                label: "Delete track", icon: "trash", disabled: !empty || sameKind <= 1,
+        var items = [];
+        if (track.kind === "audio") {
+            items.push({
+                label: "Solo", icon: "speaker", checked: !!track.solo,
                 action: function () {
-                    CS.project.tracks = CS.project.tracks.filter(function (t) { return t.id !== track.id; });
-                    CS.commit("Delete Track");
+                    track.solo = !track.solo;
+                    CS.commit(track.solo ? "Solo Track" : "Unsolo Track");
                 }
+            });
+            items.push({ sep: true });
+        }
+        items.push({
+            label: "Delete track", icon: "trash", disabled: !empty || sameKind <= 1,
+            action: function () {
+                CS.project.tracks = CS.project.tracks.filter(function (t) { return t.id !== track.id; });
+                CS.commit("Delete Track");
             }
-        ], x, y);
+        });
+        CS.showMenu(items, x, y);
     },
 
     renderTracks: function () {
@@ -210,7 +261,23 @@ CS.timeline = {
         el.style.width = w + "px";
         if (clip.id === CS.state.selectedClipId) { el.classList.add("selected"); }
 
-        if (!media || media.offline) {
+        if (clip.kind === "title") {
+            el.classList.add("title-clip");
+            var tlbl = document.createElement("span");
+            tlbl.className = "clip-label";
+            tlbl.textContent = (clip.props.text && clip.props.text.content) || "Title";
+            el.appendChild(tlbl);
+        } else if (clip.kind === "color") {
+            el.classList.add("color-clip");
+            var cspec = clip.props.color || {};
+            el.style.background = cspec.c1
+                ? "linear-gradient(180deg, " + cspec.c0 + ", " + cspec.c1 + ")"
+                : (cspec.c0 || "#000");
+            var clbl = document.createElement("span");
+            clbl.className = "clip-label";
+            clbl.textContent = "Color";
+            el.appendChild(clbl);
+        } else if (!media || media.offline) {
             el.classList.add("offline");
             var lbl = document.createElement("span");
             lbl.className = "clip-label";
@@ -239,6 +306,19 @@ CS.timeline = {
             el.appendChild(strip);
         }
 
+        //Markers: effect stack + transition-in
+        if (clip.props.effects && clip.props.effects.length) {
+            var fxBadge = document.createElement("span");
+            fxBadge.className = "clip-fx";
+            fxBadge.textContent = "fx";
+            el.appendChild(fxBadge);
+        }
+        if (clip.props.transition && clip.props.transition.type !== "none") {
+            var trMark = document.createElement("span");
+            trMark.className = "clip-tr";
+            el.appendChild(trMark);
+        }
+
         //Trim handles
         ["left", "right"].forEach(function (side) {
             var handle = document.createElement("div");
@@ -261,20 +341,44 @@ CS.timeline = {
                 }
                 return;
             }
-            CS.selectClip(clip.id);
+            if (ev.shiftKey) {
+                //Shift-click: extend / shrink the multi-selection, no drag
+                CS.toggleSelectClip(clip.id);
+                return;
+            }
+            if ((CS.state.selectedClipIds || []).indexOf(clip.id) < 0) {
+                CS.selectClip(clip.id);
+            } else {
+                //Clicked inside an existing multi-selection: keep the group
+                CS.state.selectedClipId = clip.id;
+                CS.timeline.refreshSelection();
+                CS.inspector.render();
+            }
             CS.timeline.beginDrag(ev, clip, el, "move");
         });
 
         el.addEventListener("contextmenu", function (ev) {
             ev.preventDefault();
-            CS.selectClip(clip.id);
+            if ((CS.state.selectedClipIds || []).indexOf(clip.id) < 0) {
+                CS.selectClip(clip.id);
+            }
+            var canDetach = media && media.type === "video" && track.kind === "video" &&
+                !clip.props.audioDetached;
             CS.showMenu([
+                { label: "Copy", icon: "copy", action: CS.copySelectedClips },
+                { label: "Paste at playhead", icon: "copy", disabled: !CS.clipClipboard, action: CS.pasteClipsAtPlayhead },
+                { label: "Duplicate", icon: "plus-square", action: CS.duplicateSelectedClips },
+                { sep: true },
                 { label: "Split at playhead", icon: "scissors", action: CS.splitAtPlayhead },
+                { label: "Detach audio", icon: "detach", disabled: !canDetach, action: function () {
+                    CS.detachAudio(clip);
+                } },
                 { label: "Reset properties", icon: "rotate-ccw", action: function () {
                     clip.props = CS.defaultClipProps();
                     CS.commit("Reset Clip");
                 } },
                 { sep: true },
+                { label: "Ripple delete", icon: "trash", action: CS.rippleDeleteSelected },
                 { label: "Delete", icon: "trash", action: CS.deleteSelectedClip }
             ], ev.clientX, ev.clientY);
         });
@@ -323,9 +427,10 @@ CS.timeline = {
     },
 
     refreshSelection: function () {
+        var ids = CS.state.selectedClipIds || [];
         var nodes = document.querySelectorAll(".tl-clip");
         for (var i = 0; i < nodes.length; i++) {
-            nodes[i].classList.toggle("selected", nodes[i].dataset.clipId === CS.state.selectedClipId);
+            nodes[i].classList.toggle("selected", ids.indexOf(nodes[i].dataset.clipId) >= 0);
         }
     },
 
@@ -334,11 +439,22 @@ CS.timeline = {
     beginDrag: function (ev, clip, el, mode) {
         if (CS.state.tool === "blade") { return; }
         CS.player.pause();
-        el.setPointerCapture(ev.pointerId);
+        //Move mode drags the whole selection when the clip belongs to it
+        var group = [{ clip: clip, origStart: clip.start }];
+        if (mode === "move") {
+            var ids = CS.state.selectedClipIds || [];
+            if (ids.indexOf(clip.id) >= 0 && ids.length > 1) {
+                group = ids.map(function (id) {
+                    var c = CS.getClip(id);
+                    return c ? { clip: c, origStart: c.start } : null;
+                }).filter(function (g) { return !!g; });
+            }
+        }
         CS.timeline._drag = {
             mode: mode,
             clip: clip,
             el: el,
+            group: group,
             pointerId: ev.pointerId,
             startX: ev.clientX,
             startY: ev.clientY,
@@ -348,8 +464,10 @@ CS.timeline = {
             origTrackId: clip.trackId,
             moved: false
         };
-        el.onpointermove = CS.timeline.onDragMove;
-        el.onpointerup = CS.timeline.onDragEnd;
+        //Track on the window: element-level capture is silently lost when
+        //the clip is reparented into another lane mid-drag
+        window.addEventListener("pointermove", CS.timeline.onDragMove);
+        window.addEventListener("pointerup", CS.timeline.onDragEnd);
     },
 
     onDragMove: function (ev) {
@@ -362,7 +480,8 @@ CS.timeline = {
         var dt = dx / CS.state.zoom;
         var clip = d.clip;
         var media = CS.getMedia(clip.mediaId);
-        var isImage = media && media.type === "image";
+        //Images, titles and color boards have no intrinsic duration
+        var isImage = !media || media.type === "image";
 
         if (d.mode === "move") {
             var target = Math.max(0, d.origStart + dt);
@@ -370,35 +489,67 @@ CS.timeline = {
             //If no snap on the left edge, try snapping the right edge
             clip.start = target;
 
-            //Vertical: move across compatible tracks
+            //Group move: apply the (snapped) primary delta to every member
+            var appliedDt = clip.start - d.origStart;
+            d.group.forEach(function (g) {
+                if (g.clip.id === clip.id) { return; }
+                g.clip.start = Math.max(0, g.origStart + appliedDt);
+                var gel = document.querySelector('.tl-clip[data-clip-id="' + g.clip.id + '"]');
+                if (gel) { gel.style.left = (g.clip.start * CS.state.zoom) + "px"; }
+            });
+
+            //Vertical: move across compatible tracks (single-clip drags only)
+            var isAudioClip = media && media.type === "audio";
             var lane = CS.timeline.laneUnderPointer(ev.clientY);
-            if (lane) {
+            d.newTrackKind = null;
+            if (d.group.length > 1) {
+                //group drags stay on their own tracks
+            } else if (lane) {
                 var track = CS.getTrack(lane.dataset.trackId);
-                var kindOk = track && ((track.kind === "audio") === (media && media.type === "audio"));
+                var kindOk = track && ((track.kind === "audio") === isAudioClip);
                 if (kindOk && track.id !== clip.trackId) {
                     clip.trackId = track.id;
                     lane.appendChild(d.el);
+                }
+            } else {
+                //Dragged past the outermost lanes: offer a brand-new track
+                //(video above the top lane, audio below the bottom lane)
+                var lanesRect = document.getElementById("tl-tracks").getBoundingClientRect();
+                if (isAudioClip && ev.clientY > lanesRect.bottom) {
+                    d.newTrackKind = "audio";
+                } else if (!isAudioClip && ev.clientY < lanesRect.top) {
+                    d.newTrackKind = "video";
+                } else if (!isAudioClip && ev.clientY > lanesRect.bottom) {
+                    //below everything also works for video: stack a new track on top
+                    d.newTrackKind = "video";
                 }
             }
             d.el.style.left = (clip.start * CS.state.zoom) + "px";
         } else {
             var minDur = CS.timeline.MIN_CLIP_DUR;
+            //Timeline deltas convert to source-time deltas via the clip speed
+            var v = isImage ? 1 : CS.clipSpeed(clip);
             if (d.mode === "trim-l") {
                 var newStart = d.origStart + dt;
-                var maxStart = d.origStart + (d.origOut - d.origIn) - minDur;
-                newStart = CS.clamp(newStart, isImage ? 0 : d.origStart - d.origIn, maxStart);
+                var maxStart = d.origStart + (d.origOut - d.origIn) / v - minDur;
+                newStart = CS.clamp(newStart, isImage ? 0 : d.origStart - d.origIn / v, maxStart);
                 newStart = Math.max(0, CS.timeline.applySnap(newStart, clip, "trim"));
                 var delta = newStart - d.origStart;
                 clip.start = newStart;
-                clip.in = isImage ? 0 : d.origIn + delta;
-                if (isImage) { clip.out = d.origOut - delta; }
+                if (isImage) {
+                    //Free-duration clips renormalize to in = 0
+                    clip.in = 0;
+                    clip.out = (d.origOut - d.origIn) - delta;
+                } else {
+                    clip.in = d.origIn + delta * v;
+                }
             } else {
-                var newOut = d.origOut + dt;
+                var newOut = d.origOut + dt * v;
                 var maxOut = isImage ? 1e9 : (media && media.duration ? media.duration : d.origOut);
-                newOut = CS.clamp(newOut, d.origIn + minDur, maxOut);
-                var endTime = clip.start + (newOut - clip.in);
+                newOut = CS.clamp(newOut, d.origIn + minDur * v, maxOut);
+                var endTime = clip.start + (newOut - clip.in) / v;
                 endTime = CS.timeline.applySnap(endTime, clip, "end");
-                newOut = CS.clamp(endTime - clip.start + clip.in, d.origIn + minDur, maxOut);
+                newOut = CS.clamp((endTime - clip.start) * v + clip.in, d.origIn + minDur * v, maxOut);
                 clip.out = newOut;
             }
             d.el.style.left = (clip.start * CS.state.zoom) + "px";
@@ -419,8 +570,8 @@ CS.timeline = {
     onDragEnd: function (ev) {
         var d = CS.timeline._drag;
         if (!d) { return; }
-        d.el.onpointermove = null;
-        d.el.onpointerup = null;
+        window.removeEventListener("pointermove", CS.timeline.onDragMove);
+        window.removeEventListener("pointerup", CS.timeline.onDragEnd);
         CS.timeline._drag = null;
         CS.timeline.hideSnapGuide();
 
@@ -431,7 +582,14 @@ CS.timeline = {
 
         var clip = d.clip;
         if (d.mode === "move") {
-            clip.start = CS.timeline.resolveOverlap(clip, clip.trackId, clip.start);
+            if (d.newTrackKind && d.group.length === 1) {
+                clip.trackId = CS.createTrack(d.newTrackKind);
+            }
+            //Settle every group member without overlaps, left to right
+            d.group.slice().sort(function (a, b) { return a.clip.start - b.clip.start; })
+                .forEach(function (g) {
+                    g.clip.start = CS.timeline.resolveOverlap(g.clip, g.clip.trackId, g.clip.start);
+                });
         } else {
             //Trimming may have created an overlap with the next clip: clamp
             CS.timeline.clampTrimOverlap(clip);
@@ -457,11 +615,13 @@ CS.timeline = {
             pts.push(c.start);
             pts.push(CS.clipEnd(c));
         });
+        (CS.project.markers || []).forEach(function (m) { pts.push(m.time); });
         return pts;
     },
 
     //Snap the candidate time (for the given clip edge) to nearby targets
     applySnap: function (time, clip, edge) {
+        if (!CS.state.snap) { CS.timeline.hideSnapGuide(); return time; }
         var threshold = 8 / CS.state.zoom;
         var targets = CS.timeline.snapTargets(clip);
         var dur = CS.clipDuration(clip);
@@ -535,18 +695,21 @@ CS.timeline = {
     },
 
     clampTrimOverlap: function (clip) {
+        var v = CS.clipSpeed(clip);
         var others = CS.clipsOnTrack(clip.trackId).filter(function (c) { return c.id !== clip.id; });
         others.forEach(function (o) {
             //clip's tail overlaps o's head
             if (clip.start < o.start && CS.clipEnd(clip) > o.start) {
-                clip.out = clip.in + (o.start - clip.start);
+                clip.out = clip.in + (o.start - clip.start) * v;
             }
             //clip's head overlaps o's tail
             if (clip.start >= o.start && clip.start < CS.clipEnd(o)) {
                 var shift = CS.clipEnd(o) - clip.start;
                 clip.start += shift;
-                clip.in += shift;
-                if (clip.out - clip.in < CS.timeline.MIN_CLIP_DUR) { clip.out = clip.in + CS.timeline.MIN_CLIP_DUR; }
+                clip.in += shift * v;
+                if (clip.out - clip.in < CS.timeline.MIN_CLIP_DUR * v) {
+                    clip.out = clip.in + CS.timeline.MIN_CLIP_DUR * v;
+                }
             }
         });
     },
@@ -647,6 +810,19 @@ CS.timeline = {
                 ctx.fillRect(x, h - 6, 1, 6);
             }
         }
+        //timeline markers: small flags pinned to the bottom of the ruler
+        (CS.project.markers || []).forEach(function (m) {
+            var mx = m.time * zoom - scrollLeft;
+            if (mx < -8 || mx > w + 8) { return; }
+            ctx.fillStyle = "#f6c945";
+            ctx.beginPath();
+            ctx.moveTo(mx, h - 1);
+            ctx.lineTo(mx - 5, h - 9);
+            ctx.lineTo(mx + 5, h - 9);
+            ctx.closePath();
+            ctx.fill();
+        });
+
         //bottom hairline
         ctx.fillStyle = "#1c1c22";
         ctx.fillRect(0, h - 1, w, 1);

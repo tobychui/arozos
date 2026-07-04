@@ -17,7 +17,7 @@ var moduleLaunchInfo = {
 	LaunchFWDir: "Cine Studio/index.html",
 	SupportEmb: false,
 	InitFWSize: [1280, 850],
-	SupportedExt: [".cine"]
+	SupportedExt: [".cine", ".pxs", ".asproj"]
 }
 
 //Register the module

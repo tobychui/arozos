@@ -98,10 +98,38 @@ CS.exporter = {
     quickMenu: function (anchorEl) {
         CS.showMenuUnder(anchorEl, [
             { label: "Export Video...", icon: "export-up", action: CS.exporter.dialog },
+            { label: "Export Current Frame (PNG)", icon: "camera", action: CS.exporter.exportFrame },
             { sep: true },
             { label: "Save Project", icon: "save", action: CS.fileio.saveProject },
             { label: "Save Project As...", icon: "save", action: CS.fileio.saveProjectAs }
         ]);
+    },
+
+    //Save the frame under the playhead as a PNG still
+    exportFrame: function () {
+        CS.player.syncElements();
+        CS.player.renderFrame(CS.player.ctx, CS.state.playhead);
+        var tc = CS.timecode(CS.state.playhead).replace(/:/g, ".");
+        var defaultName = (CS.project.name || "Frame") + " " + tc + ".png";
+        CS.player.canvas.toBlob(function (blob) {
+            if (!blob) { CS.toast("Could not capture the frame", true); return; }
+            if (CS.inArozOS() && typeof ao_module_openFileSelector !== "undefined") {
+                window.csFrameCallback = function csFrameCallback(filedata) {
+                    if (!filedata || !filedata.length) { return; }
+                    var f = filedata[0];
+                    var file = new File([blob], f.filename, { type: "image/png" });
+                    ao_module_uploadFile(file, CS.dirOf(f.filepath), function () {
+                        CS.toast("Exported " + f.filename);
+                    });
+                };
+                ao_module_openFileSelector(window.csFrameCallback, CS.APP_ROOT + "/Exports", "new", false, {
+                    defaultName: defaultName
+                });
+            } else {
+                CS.fileio.downloadBlob(blob, defaultName);
+            }
+            CS.player.render(); //repaint overlays the frame render skipped
+        }, "image/png");
     },
 
     /* ---------- recording ---------- */
@@ -163,6 +191,9 @@ CS.exporter = {
         CS.exporter.recorder.onstop = CS.exporter.onRecorderStop;
 
         CS.exporter.active = true;
+        //Loop must not swallow the end-of-timeline stop that ends the export
+        CS.exporter._loopWas = CS.state.loop;
+        CS.state.loop = false;
         CS.exporter.showProgress();
 
         //Roll from the very beginning and let the player drive the frames
@@ -239,6 +270,10 @@ CS.exporter = {
 
     onRecorderStop: function () {
         CS.exporter.detachAudioTap();
+        if (CS.exporter._loopWas !== undefined) {
+            CS.state.loop = CS.exporter._loopWas;
+            CS.exporter._loopWas = undefined;
+        }
         var wasCancelled = CS.exporter.cancelled;
         CS.exporter.cancelled = false;
         var chunks = CS.exporter.chunks;

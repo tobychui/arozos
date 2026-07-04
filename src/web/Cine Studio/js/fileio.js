@@ -22,10 +22,11 @@ CS.fileio = {
             name: CS.project.name,
             settings: CS.project.settings,
             media: CS.project.media.map(function (m) {
-                return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type };
+                return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type, srcKind: m.srcKind || "" };
             }),
             tracks: CS.project.tracks,
-            clips: CS.project.clips
+            clips: CS.project.clips,
+            markers: CS.project.markers || []
         }, null, 1);
     },
 
@@ -55,6 +56,8 @@ CS.fileio = {
                 name: m.name,
                 vpath: m.vpath || "",
                 blobUrl: "",
+                compositeUrl: "",
+                srcKind: m.srcKind || "",
                 type: m.type,
                 duration: m.type === "image" ? CS.IMAGE_DEFAULT_DURATION : 0,
                 width: 0,
@@ -75,9 +78,10 @@ CS.fileio = {
             }
         });
 
-        //Restore clips, keeping only ones whose media still exists
+        //Restore clips: generated clips (titles / color boards) have no
+        //media; anything else must reference a surviving media entry
         CS.project.clips = (data.clips || []).filter(function (c) {
-            return CS.getMedia(c.mediaId);
+            return c.kind === "title" || c.kind === "color" || CS.getMedia(c.mediaId);
         }).map(function (c) {
             var props = CS.defaultClipProps();
             Object.keys(c.props || {}).forEach(function (k) { props[k] = c.props[k]; });
@@ -85,9 +89,14 @@ CS.fileio = {
             return c;
         });
 
+        CS.project.markers = Array.isArray(data.markers) ? data.markers : [];
+
         CS.history = { stack: [], index: -1 };
         CS.pushHistory("Open Project");
         CS.markClean();
+        if (CS.session && filepath) {
+            CS.session.recordRecent(CS.project.name, filepath);
+        }
         CS.player.applyProjectSize();
         CS.media.renderBin();
         CS.timeline.render();
@@ -206,6 +215,7 @@ CS.fileio = {
                 CS.project.fileName = filename;
                 CS.project.name = CS.baseName(filename);
                 CS.markClean();
+                if (CS.session) { CS.session.recordRecent(CS.project.name, filepath); }
                 CS.toast("Saved " + filename);
             }, undefined, function () {
                 CS.toast("Save failed - check permissions", true);
@@ -330,6 +340,9 @@ CS.fileio = {
         CS.showMenuUnder(anchorEl, [
             { label: "New Project...", icon: "file", action: CS.fileio.newProjectDialog },
             { label: "Open Project...", icon: "folder", action: CS.fileio.openDialog },
+            { label: "Open Recent", icon: "history", action: function () {
+                CS.session.openRecentMenu(anchorEl);
+            } },
             { sep: true },
             { label: "Save", icon: "save", action: CS.fileio.saveProject },
             { label: "Save As...", icon: "save", action: CS.fileio.saveProjectAs },

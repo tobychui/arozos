@@ -14,11 +14,6 @@
     <!-- ======================= Top bar ======================= -->
     <div id="topbar">
         <div class="tb-left">
-            <div id="traffic-lights">
-                <span class="tl tl-close" title="Close"></span>
-                <span class="tl tl-min" title="Minimize"></span>
-                <span class="tl tl-max" title="Zoom"></span>
-            </div>
             <button class="tb-btn" id="btn-open-project" title="Open project">
                 <span data-icon="folder"></span><span data-icon="chevron-down" class="mini"></span>
             </button>
@@ -94,12 +89,47 @@
             </div>
             <div id="bin-grid"></div>
             <div class="bin-footer"><span id="bin-count">0 items</span></div>
+
+            <!-- Side panels swapped in by the nav rail -->
+            <div class="side-panel" id="panel-fx">
+                <div class="sp-title">Effects</div>
+                <div class="sp-hint">Click an effect to apply it to the selected clip</div>
+                <div class="sp-grid" id="fx-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-titles">
+                <div class="sp-title">Titles</div>
+                <div class="sp-hint">Click a style to add a title at the playhead</div>
+                <div class="sp-grid" id="titles-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-transitions">
+                <div class="sp-title">Transitions</div>
+                <div class="sp-hint">Click to apply to the selected clip; it blends from the previous clip on the same track</div>
+                <div class="sp-grid" id="transitions-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-elements">
+                <div class="sp-title">Elements</div>
+                <div class="sp-hint">Solid and gradient backgrounds for titles and overlays</div>
+                <div class="sp-grid" id="elements-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-filters">
+                <div class="sp-title">Filters</div>
+                <div class="sp-hint">Click a look to apply it to the selected clip</div>
+                <div class="sp-grid" id="filters-grid"></div>
+            </div>
+            <div class="side-panel" id="panel-libraries">
+                <div class="sp-title">Libraries</div>
+                <div class="sp-hint">Projects saved in Cine Studio/Projects</div>
+                <div id="libraries-list"></div>
+            </div>
         </div>
 
         <!-- Preview player -->
         <div id="preview">
             <div id="preview-stage">
-                <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+                <div id="canvas-wrap">
+                    <canvas id="preview-canvas" width="1920" height="1080"></canvas>
+                    <canvas id="preview-overlay"></canvas>
+                </div>
                 <div id="preview-empty">
                     <span data-icon="nav-media" class="big"></span>
                     <p>Import media and drag it to the timeline</p>
@@ -115,6 +145,7 @@
                     <button class="pb-btn" id="btn-prev-edit" title="Previous edit point"><span data-icon="skip-back"></span></button>
                     <button class="pb-btn play" id="btn-play" title="Play / Pause (Space)"><span data-icon="play" id="play-icon"></span></button>
                     <button class="pb-btn" id="btn-next-edit" title="Next edit point"><span data-icon="skip-fwd"></span></button>
+                    <button class="pb-btn" id="btn-loop" title="Loop playback"><span data-icon="loop"></span></button>
                 </div>
                 <div class="pb-right">
                     <button class="pb-btn wide" id="btn-preview-zoom"><span id="preview-zoom-label">Fit</span><span data-icon="chevron-down" class="mini"></span></button>
@@ -144,6 +175,9 @@
             <button class="tlt-btn" id="tool-crop" title="Crop"><span data-icon="crop"></span></button>
             <button class="tlt-btn" id="tool-text" title="Text"><span data-icon="nav-text"></span></button>
             <button class="tlt-btn" id="tool-audio" title="Audio mixer"><span data-icon="waveform"></span></button>
+            <span class="tlt-sep"></span>
+            <button class="tlt-btn active" id="btn-snap" title="Toggle snapping"><span data-icon="magnet"></span></button>
+            <button class="tlt-btn" id="btn-marker" title="Add / remove marker at playhead (M)"><span data-icon="marker"></span></button>
         </div>
         <div class="tlt-right">
             <button class="tlt-btn" id="btn-undo" title="Undo (Ctrl+Z)"><span data-icon="undo"></span></button>
@@ -174,7 +208,7 @@
     </div>
 
     <!-- Hidden helpers -->
-    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*" style="display:none;">
+    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*,.pxs,.asproj" style="display:none;">
     <div id="element-pool" style="display:none;"></div>
     <div id="toast-holder"></div>
     <div id="modal-holder"></div>
@@ -184,7 +218,13 @@
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
     <script src="js/media.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/titles.js"></script>
+    <script src="js/transitions.js"></script>
+    <script src="js/panels.js"></script>
+    <script src="js/session.js"></script>
     <script src="js/player.js"></script>
+    <script src="js/previewctl.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/inspector.js"></script>
     <script src="js/fileio.js"></script>

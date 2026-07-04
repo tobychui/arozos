@@ -55,11 +55,12 @@ CS.inspector = {
         var clip = CS.selectedClip();
 
         if (CS.inspector.activeTab === "effects") {
-            CS.inspector.placeholder(body, "Effects are not available in this version. Use the Color section on the Video tab for exposure, contrast and saturation.");
+            CS.inspector.renderEffectsTab(body, clip);
             return;
         }
         if (CS.inspector.activeTab === "transition") {
-            CS.inspector.placeholder(body, "Transitions are not available in this version. Clips cut from one to the next.");
+            CS.transitions.renderTab(body, clip);
+            CS.applyIcons(body);
             return;
         }
 
@@ -95,6 +96,11 @@ CS.inspector = {
     renderVideoTab: function (body, clip) {
         var p = clip.props;
 
+        //---- Text (title clips only) ----
+        if (clip.kind === "title") {
+            CS.titles.buildTextSection(body, clip);
+        }
+
         //---- Transform ----
         var transform = CS.inspector.section(body, "Transform", function () {
             p.x = 0; p.y = 0; p.scale = 100; p.rotation = 0; p.opacity = 100;
@@ -119,6 +125,55 @@ CS.inspector = {
             CS.inspector.slider(0, 100, 1, p.opacity, function (v) { p.opacity = v; }),
             CS.inspector.numChip(null, p.opacity, "%", function (v) { p.opacity = CS.clamp(v, 0, 100); }, 1)
         ]);
+
+        CS.inspector.row(transform, "Blend", [
+            CS.inspector.select([
+                { v: "normal", l: "Normal" },
+                { v: "multiply", l: "Multiply" },
+                { v: "screen", l: "Screen" },
+                { v: "overlay", l: "Overlay" },
+                { v: "lighter", l: "Add" },
+                { v: "soft-light", l: "Soft Light" },
+                { v: "difference", l: "Difference" }
+            ], p.blend || "normal", function (v) {
+                p.blend = v;
+                CS.commit("Blend Mode");
+            })
+        ]);
+
+        CS.inspector.row(transform, "Flip", [
+            CS.inspector.toggleChip("Horizontal", !!p.flipH, function (on) {
+                p.flipH = on;
+                CS.commit("Flip Horizontal");
+            }),
+            CS.inspector.toggleChip("Vertical", !!p.flipV, function (on) {
+                p.flipV = on;
+                CS.commit("Flip Vertical");
+            })
+        ]);
+
+        //---- Speed (media-backed clips only; generated clips trim freely) ----
+        var media = CS.getMedia(clip.mediaId);
+        if (media && (media.type === "video" || media.type === "audio")) {
+            var speed = CS.inspector.section(body, "Speed", function () {
+                p.speed = 1;
+                CS.commit("Reset Speed");
+            });
+            CS.inspector.row(speed, "Rate", [
+                CS.inspector.slider(25, 400, 5, Math.round(CS.clipSpeed(clip) * 100), function (v) {
+                    p.speed = v / 100;
+                    CS.timeline.clampTrimOverlap(clip);
+                }),
+                CS.inspector.numChip(null, Math.round(CS.clipSpeed(clip) * 100), "%", function (v) {
+                    p.speed = CS.clamp(v, 10, 800) / 100;
+                    CS.timeline.clampTrimOverlap(clip);
+                }, 5)
+            ]);
+            var spNote = document.createElement("div");
+            spNote.className = "modal-note";
+            spNote.textContent = "Changes clip length on the timeline; audio pitch follows the rate.";
+            speed.appendChild(spNote);
+        }
 
         //---- Crop ----
         var crop = CS.inspector.section(body, "Crop", function () {
@@ -149,11 +204,7 @@ CS.inspector = {
                 { v: "cool", l: "Cool" },
                 { v: "vivid", l: "Vivid" }
             ], p.preset || "default", function (v) {
-                p.preset = v;
-                if (v === "mono") { p.saturation = 0; }
-                if (v === "vivid") { p.saturation = 1.35; p.contrast = 10; }
-                if (v === "default") { p.exposure = 0; p.contrast = 0; p.saturation = 1; }
-                CS.commit("Color Preset");
+                CS.inspector.applyPreset(clip, v);
             })
         ]);
         CS.inspector.row(color, "Exposure", [
@@ -178,6 +229,87 @@ CS.inspector = {
             CS.commit("Reset All");
         });
         body.appendChild(reset);
+
+        CS.applyIcons(body);
+    },
+
+    //Shared by the Color preset dropdown and the Filters gallery panel
+    applyPreset: function (clip, v) {
+        var p = clip.props;
+        p.preset = v;
+        if (v === "mono") { p.saturation = 0; }
+        if (v === "vivid") { p.saturation = 1.35; p.contrast = 10; }
+        if (v === "default") { p.exposure = 0; p.contrast = 0; p.saturation = 1; }
+        CS.commit("Color Preset");
+        CS.panels.refresh();
+    },
+
+    /* ---------- effects tab ---------- */
+
+    renderEffectsTab: function (body, clip) {
+        if (!clip) {
+            CS.inspector.placeholder(body, "Select a clip on the timeline, then add effects here or from the Effects panel on the left.");
+            return;
+        }
+        var track = CS.getTrack(clip.trackId);
+        var isAudio = track && track.kind === "audio";
+
+        //Add-effect dropdown (only effects not applied yet, audio gets fades only)
+        var available = CS.effects.registry.filter(function (def) {
+            if (isAudio && !def.audioOk) { return false; }
+            return !CS.effects.clipHas(clip, def.type);
+        });
+        var addBtn = document.createElement("button");
+        addBtn.className = "insp-select";
+        addBtn.style.width = "100%";
+        addBtn.style.marginTop = "10px";
+        addBtn.innerHTML = "<span></span>" + '<span data-icon="plus" class="mini"></span>';
+        addBtn.firstChild.textContent = "Add Effect";
+        addBtn.addEventListener("click", function () {
+            if (!available.length) { CS.toast("All available effects are applied"); return; }
+            CS.showMenuUnder(addBtn, available.map(function (def) {
+                return {
+                    label: def.name,
+                    action: function () { CS.effects.applyToClip(clip, def.type); }
+                };
+            }));
+        });
+        body.appendChild(addBtn);
+
+        var list = clip.props.effects || [];
+        if (!list.length) {
+            CS.inspector.placeholder(body, isAudio
+                ? "No effects on this clip. Fade In and Fade Out shape the clip volume."
+                : "No effects on this clip. Add one above or from the Effects panel.");
+            CS.applyIcons(body);
+            return;
+        }
+
+        list.forEach(function (e) {
+            var def = CS.effects.get(e.type);
+            if (!def) { return; }
+            var sec = CS.inspector.section(body, def.name, function () {
+                CS.effects.removeFromClip(clip, e.type);
+            });
+            //Repurpose the section reset button as a remove button
+            var head = sec.parentNode.querySelector(".sec-reset");
+            head.innerHTML = CS.iconSVG("trash");
+            head.title = "Remove effect";
+
+            if (def.noParam) {
+                var note = document.createElement("div");
+                note.className = "modal-note";
+                note.textContent = "This effect has no settings.";
+                sec.appendChild(note);
+            } else {
+                CS.inspector.row(sec, "Amount", [
+                    CS.inspector.slider(def.min, def.max, def.step || 1, e.amount, function (v) { e.amount = v; }),
+                    CS.inspector.numChip(null, e.amount, def.unit, function (v) {
+                        e.amount = CS.clamp(v, def.min, def.max);
+                    }, def.step || 1, (def.step && def.step < 1) ? 1 : 0)
+                ]);
+            }
+        });
 
         CS.applyIcons(body);
     },
@@ -342,6 +474,27 @@ CS.inspector = {
         });
         dial.title = "Drag up / down to rotate";
         return dial;
+    },
+
+    //Small on/off pill used for boolean properties (flip H / V)
+    toggleChip: function (labelText, on, onChange) {
+        var btn = document.createElement("button");
+        btn.className = "insp-select";
+        btn.style.minWidth = "0";
+        btn.style.flex = "1";
+        btn.style.justifyContent = "center";
+        function paint() {
+            btn.style.color = on ? "var(--accent)" : "var(--text)";
+            btn.style.boxShadow = on ? "inset 0 0 0 1px var(--accent)" : "none";
+        }
+        btn.textContent = labelText;
+        paint();
+        btn.addEventListener("click", function () {
+            on = !on;
+            paint();
+            onChange(on);
+        });
+        return btn;
     },
 
     select: function (options, value, onChange) {
