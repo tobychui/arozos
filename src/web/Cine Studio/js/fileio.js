@@ -75,9 +75,10 @@ CS.fileio = {
             }
         });
 
-        //Restore clips, keeping only ones whose media still exists
+        //Restore clips: generated clips (titles / color boards) have no
+        //media; anything else must reference a surviving media entry
         CS.project.clips = (data.clips || []).filter(function (c) {
-            return CS.getMedia(c.mediaId);
+            return c.kind === "title" || c.kind === "color" || CS.getMedia(c.mediaId);
         }).map(function (c) {
             var props = CS.defaultClipProps();
             Object.keys(c.props || {}).forEach(function (k) { props[k] = c.props[k]; });

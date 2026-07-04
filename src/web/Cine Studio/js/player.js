@@ -265,7 +265,9 @@ CS.player = {
 
     syncElements: function () {
         var t = CS.state.playhead;
+        var frozen = CS.transitions.frozenTargets(t);
         CS.project.clips.forEach(function (clip) {
+            if (clip.kind === "title" || clip.kind === "color") { return; }
             var media = CS.getMedia(clip.mediaId);
             if (!media || media.type === "image" || media.offline) { return; }
             var track = CS.getTrack(clip.trackId);
@@ -273,7 +275,10 @@ CS.player = {
             var active = CS.player.activeAt(clip, t) && track && track.visible;
             var target = clip.in + (t - clip.start);
 
-            el.volume = CS.clamp((clip.props.volume === undefined ? 100 : clip.props.volume) / 100, 0, 1);
+            //Volume: clip setting shaped by any fade in/out effects
+            var vol = (clip.props.volume === undefined ? 100 : clip.props.volume) / 100;
+            vol *= CS.effects.fadeAlpha(clip, t);
+            el.volume = CS.clamp(vol, 0, 1);
             el.muted = !!(track && track.muted);
 
             if (CS.state.playing && active) {
@@ -287,10 +292,12 @@ CS.player = {
             } else if (CS.state.playing && !active) {
                 if (!el.paused) { el.pause(); }
             } else {
-                //Paused scrub: park the element on the exact frame
+                //Paused scrub: park the element on the exact frame; a clip
+                //feeding a transition freezes on its own last frame instead
                 if (!el.paused) { el.pause(); }
-                if (active && Math.abs(el.currentTime - target) > 0.03) {
-                    try { el.currentTime = target; } catch (e) {}
+                var parkAt = active ? target : frozen[clip.id];
+                if (parkAt !== undefined && Math.abs(el.currentTime - parkAt) > 0.03) {
+                    try { el.currentTime = parkAt; } catch (e) {}
                 }
             }
         });
@@ -340,7 +347,12 @@ CS.player = {
             if (!track.visible) { return; }
             CS.clipsOnTrack(track.id).forEach(function (clip) {
                 if (!CS.player.activeAt(clip, t)) { return; }
-                CS.player.drawClip(ctx, clip, W, H);
+                var win = CS.transitions.windowAt(clip, t);
+                if (win) {
+                    CS.transitions.draw(ctx, clip, t, W, H, win);
+                } else {
+                    CS.player.drawClip(ctx, clip, W, H, t, {});
+                }
             });
         });
 
@@ -348,27 +360,43 @@ CS.player = {
         ctx.globalAlpha = 1;
     },
 
-    drawClip: function (ctx, clip, W, H) {
-        var media = CS.getMedia(clip.mediaId);
-        if (!media || media.offline) { return; }
-
+    drawClip: function (ctx, clip, W, H, t, opts) {
+        opts = opts || {};
         var src, sw, sh;
-        if (media.type === "video") {
-            src = CS.player.pool[clip.id];
-            if (!src || src.readyState < 2) { return; }
-            sw = src.videoWidth;
-            sh = src.videoHeight;
-        } else if (media.type === "image") {
-            src = CS.player.ensureImage(media);
-            if (!src.complete || !src.naturalWidth) { return; }
-            sw = src.naturalWidth;
-            sh = src.naturalHeight;
+
+        if (clip.kind === "title" || clip.kind === "color") {
+            src = CS.titles.renderSource(clip, W, H);
+            sw = src.width;
+            sh = src.height;
         } else {
-            return; //audio has no visual
+            var media = CS.getMedia(clip.mediaId);
+            if (!media || media.offline) { return; }
+            if (media.type === "video") {
+                src = CS.player.pool[clip.id];
+                if (!src || src.readyState < 2) { return; }
+                sw = src.videoWidth;
+                sh = src.videoHeight;
+            } else if (media.type === "image") {
+                src = CS.player.ensureImage(media);
+                if (!src.complete || !src.naturalWidth) { return; }
+                sw = src.naturalWidth;
+                sh = src.naturalHeight;
+            } else {
+                return; //audio has no visual
+            }
         }
         if (!sw || !sh) { return; }
 
         var p = clip.props;
+        var fx = CS.effects.analyze(clip, t === undefined ? CS.state.playhead : t, W);
+        if (fx.alpha <= 0) { return; }
+
+        if (fx.pixelate > 1) {
+            src = CS.effects.pixelateSource(src, sw, sh, fx.pixelate);
+            sw = src.width;
+            sh = src.height;
+        }
+
         var dw, dh;
         if (p.crop === "stretch") {
             dw = W;
@@ -385,12 +413,22 @@ CS.player = {
         ctx.save();
         ctx.translate(W / 2 + (p.x || 0), H / 2 + (p.y || 0));
         if (p.rotation) { ctx.rotate(p.rotation * Math.PI / 180); }
-        ctx.globalAlpha = CS.clamp((p.opacity === undefined ? 100 : p.opacity) / 100, 0, 1);
-        ctx.filter = CS.player.buildFilter(p);
+        if (fx.mirror) { ctx.scale(-1, 1); }
+        var alpha = CS.clamp((p.opacity === undefined ? 100 : p.opacity) / 100, 0, 1) * fx.alpha;
+        if (opts.alphaMul !== undefined) { alpha *= CS.clamp(opts.alphaMul, 0, 1); }
+        ctx.globalAlpha = alpha;
+        var baseFilter = CS.player.buildFilter(p);
+        var filterStr = ((baseFilter === "none" ? "" : baseFilter) + fx.filter).trim();
+        ctx.filter = filterStr || "none";
+        if (fx.pixelate > 1) { ctx.imageSmoothingEnabled = false; }
         try {
             ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
         } catch (e) { /* frame not decodable yet */ }
         ctx.restore();
+
+        //Full-frame overlays after the clip itself
+        if (fx.vignette > 0) { CS.effects.drawVignette(ctx, W, H, fx.vignette * fx.alpha); }
+        if (fx.grain > 0) { CS.effects.drawGrain(ctx, W, H, fx.grain); }
     },
 
     drawSafeArea: function (ctx) {

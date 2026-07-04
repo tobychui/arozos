@@ -341,6 +341,7 @@ CS.media = {
     renderBin: function () {
         var grid = document.getElementById("bin-grid");
         grid.innerHTML = "";
+        grid.classList.toggle("list-mode", CS.state.binView === "list");
         var items = CS.media.filteredMedia();
 
         if (items.length === 0) {
@@ -522,7 +523,9 @@ CS.media = {
             kindBtn.click();
         });
         document.getElementById("btn-bin-view").addEventListener("click", function () {
-            CS.toast("Grid view is the only view in this version");
+            CS.state.binView = CS.state.binView === "list" ? "grid" : "list";
+            CS.setIcon(this.querySelector("[data-icon]"), CS.state.binView === "list" ? "nav-elements" : "list-view");
+            CS.media.renderBin();
         });
 
         //Accept drops from the ArozOS File Manager

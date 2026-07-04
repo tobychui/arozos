@@ -54,13 +54,23 @@ CS.timeline = {
         document.getElementById("tool-select").addEventListener("click", function () { CS.timeline.setTool("select"); });
         document.getElementById("tool-blade").addEventListener("click", function () { CS.timeline.setTool("blade"); });
         document.getElementById("tool-crop").addEventListener("click", function () {
-            CS.toast("Use the Crop section in the inspector");
+            //Jump to the Crop controls in the inspector
+            document.getElementById("inspector").classList.remove("hidden");
+            CS.inspector.activeTab = "video";
+            CS.inspector._collapsed["Crop"] = false;
+            CS.inspector.updateTabs();
+            CS.inspector.render();
+            if (!CS.selectedClip()) { CS.toast("Select a clip to crop"); }
         });
         document.getElementById("tool-text").addEventListener("click", function () {
-            CS.toast("Titles are not available in this version");
+            CS.titles.insertPreset("title");
         });
         document.getElementById("tool-audio").addEventListener("click", function () {
-            CS.toast("Use the Audio tab in the inspector");
+            document.getElementById("inspector").classList.remove("hidden");
+            CS.inspector.activeTab = "audio";
+            CS.inspector.updateTabs();
+            CS.inspector.render();
+            if (!CS.selectedClip()) { CS.toast("Select a clip to adjust its audio"); }
         });
         document.getElementById("btn-undo").addEventListener("click", CS.undo);
         document.getElementById("btn-redo").addEventListener("click", CS.redo);
@@ -210,7 +220,23 @@ CS.timeline = {
         el.style.width = w + "px";
         if (clip.id === CS.state.selectedClipId) { el.classList.add("selected"); }
 
-        if (!media || media.offline) {
+        if (clip.kind === "title") {
+            el.classList.add("title-clip");
+            var tlbl = document.createElement("span");
+            tlbl.className = "clip-label";
+            tlbl.textContent = (clip.props.text && clip.props.text.content) || "Title";
+            el.appendChild(tlbl);
+        } else if (clip.kind === "color") {
+            el.classList.add("color-clip");
+            var cspec = clip.props.color || {};
+            el.style.background = cspec.c1
+                ? "linear-gradient(180deg, " + cspec.c0 + ", " + cspec.c1 + ")"
+                : (cspec.c0 || "#000");
+            var clbl = document.createElement("span");
+            clbl.className = "clip-label";
+            clbl.textContent = "Color";
+            el.appendChild(clbl);
+        } else if (!media || media.offline) {
             el.classList.add("offline");
             var lbl = document.createElement("span");
             lbl.className = "clip-label";
@@ -237,6 +263,19 @@ CS.timeline = {
             strip.className = "clip-strip";
             CS.timeline.fillFilmstrip(strip, media, w, CS.timeline.trackHeight(track) - 10);
             el.appendChild(strip);
+        }
+
+        //Markers: effect stack + transition-in
+        if (clip.props.effects && clip.props.effects.length) {
+            var fxBadge = document.createElement("span");
+            fxBadge.className = "clip-fx";
+            fxBadge.textContent = "fx";
+            el.appendChild(fxBadge);
+        }
+        if (clip.props.transition && clip.props.transition.type !== "none") {
+            var trMark = document.createElement("span");
+            trMark.className = "clip-tr";
+            el.appendChild(trMark);
         }
 
         //Trim handles
@@ -362,7 +401,8 @@ CS.timeline = {
         var dt = dx / CS.state.zoom;
         var clip = d.clip;
         var media = CS.getMedia(clip.mediaId);
-        var isImage = media && media.type === "image";
+        //Images, titles and color boards have no intrinsic duration
+        var isImage = !media || media.type === "image";
 
         if (d.mode === "move") {
             var target = Math.max(0, d.origStart + dt);
@@ -390,8 +430,13 @@ CS.timeline = {
                 newStart = Math.max(0, CS.timeline.applySnap(newStart, clip, "trim"));
                 var delta = newStart - d.origStart;
                 clip.start = newStart;
-                clip.in = isImage ? 0 : d.origIn + delta;
-                if (isImage) { clip.out = d.origOut - delta; }
+                if (isImage) {
+                    //Free-duration clips renormalize to in = 0
+                    clip.in = 0;
+                    clip.out = (d.origOut - d.origIn) - delta;
+                } else {
+                    clip.in = d.origIn + delta;
+                }
             } else {
                 var newOut = d.origOut + dt;
                 var maxOut = isImage ? 1e9 : (media && media.duration ? media.duration : d.origOut);

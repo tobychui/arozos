@@ -34,7 +34,9 @@ CS.defaultClipProps = function () {
         exposure: 0,
         contrast: 0,
         saturation: 1,
-        volume: 100
+        volume: 100,
+        effects: [],
+        transition: null
     };
 };
 
@@ -70,6 +72,7 @@ CS.newProject = function (opts) {
         safeArea: false,
         binKind: "all",
         binSearch: "",
+        binView: "grid",
         dirty: false
     };
     CS.history = { stack: [], index: -1 };
