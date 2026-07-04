@@ -37,28 +37,47 @@ test/e2e/playwright/
     ├── 040-system-settings.js  System Setting UI + settings catalogue
     ├── 050-users-permissions.js  group + user CRUD, module visibility,
     │                     admin-only endpoint enforcement
-    └── 060-webapps-core.js  WebApp wave 1: NotepadA (incl. real file
-                          open), Text, Photo, Music, Video, PDF Viewer,
-                          Zip File Manager
+    ├── 060-webapps-core.js  WebApp wave 1: NotepadA (incl. real file
+    │                     open), Text, Photo, Music, Video, PDF Viewer,
+    │                     Zip File Manager
+    ├── 070-webapps-office.js  WebApp wave 2: Code Studio, MDEditor
+    │                     (incl. real file open), Calendar, Notes, Memo,
+    │                     Reminders, OfficeViewer, Dashboard
+    ├── 080-webapps-media.js  WebApp wave 3: Musicify, Movie, Manga,
+    │                     Paint, Pixel Studio, Audio Studio, Camera,
+    │                     Recorder, FFmpeg Factory
+    └── 090-webapps-utilities.js  WebApp wave 4: Calculator (incl. a
+                          real calculation), Clock, Browser, Speedtest,
+                          Web Downloader, Web Builder, SQLite Admin,
+                          Terminal, AGIForge, AIChat, OTPAuth,
+                          Productivity, OnScreenKeyboard, Arozcast,
+                          Management Gateway, UnitTest, CronDemo,
+                          Serverless
 ```
 
-## WebApp coverage roadmap
+## WebApp coverage
 
 All 44 WebApps under `src/web` were inventoried (name, group, file
-associations) and ranked; waves land in this order:
+associations) and ranked into four waves, now all covered:
 
-1. **Core daily drivers** *(covered by `060-webapps-core.js`)* -
-   NotepadA, Text, Photo, Music, Video, PDF Viewer, Zip File Manager -
-   the default openers for everyday file types.
-2. **Office / productivity** - Code Studio, MDEditor, Calendar, Notes,
-   Memo, Reminders, OfficeViewer, Dashboard (alt interface module).
-3. **Media / creative** - Musicify, Movie, Manga, Paint, Pixel Studio,
-   Audio Studio, Camera, Recorder, FFmpeg Factory (Cine Studio already
-   has its own deep static suite).
-4. **Utilities / dev / network** - Calculator, Clock, Browser,
-   Speedtest, Web Downloader, Web Builder, SQLite Admin, Terminal,
-   AGIForge, Serverless, AIChat, OTPAuth, Productivity,
-   OnScreenKeyboard, Arozcast, Management Gateway, UnitTest, CronDemo.
+1. **Core daily drivers** *(`060-webapps-core.js`)* - NotepadA, Text,
+   Photo, Music, Video, PDF Viewer, Zip File Manager - the default
+   openers for everyday file types.
+2. **Office / productivity** *(`070-webapps-office.js`)* - Code Studio,
+   MDEditor, Calendar, Notes, Memo, Reminders, OfficeViewer, Dashboard.
+3. **Media / creative** *(`080-webapps-media.js`)* - Musicify, Movie,
+   Manga, Paint, Pixel Studio, Audio Studio, Camera, Recorder, FFmpeg
+   Factory. Cine Studio keeps its own deep static suite under `specs/`.
+4. **Utilities / dev / network** *(`090-webapps-utilities.js`)* -
+   Calculator, Clock, Browser, Speedtest, Web Downloader, Web Builder,
+   SQLite Admin, Terminal, AGIForge, AIChat, OTPAuth, Productivity,
+   OnScreenKeyboard, Arozcast, Management Gateway, UnitTest, CronDemo,
+   Serverless.
+
+The WebApp specs are load-and-render smoke tests (plus a few real
+interactions: opening files in NotepadA / MDEditor, a Calculator sum);
+they guard against apps that break outright. Deeper per-app behavioural
+coverage can grow inside each wave spec over time.
 
 ## How the system suite works
 
