@@ -32,6 +32,14 @@ test/e2e/playwright/
     │                     session persistence, logout, gated redirects
     ├── 020-desktop.js    desktop shell, start menu, module list,
     │                     quick access panel, desktop sign-out
+    ├── 021-desktop-api.js  every /system/desktop endpoint: host, user
+    │                     (self/target/noicon), theme, preference, icon
+    │                     location, shortcut create/list/rename
+    ├── 022-desktop-ui.js  clock, wallpaper frame, panels, start-menu
+    │                     search filtering, notifications, launch icons
+    ├── 023-desktop-windows.js  float window lifecycle (launch, focus/
+    │                     z-order, max/restore, minimize, close) and
+    │                     wallpaper + icon context menus
     ├── 030-file-explorer.js  File Manager UI + full file lifecycle:
     │                     create/rename/copy/move/properties/trash, CSRF
     ├── 035-file-transfer.js  upload / download round-trip, search,
