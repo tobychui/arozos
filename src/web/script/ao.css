@@ -74,12 +74,13 @@ body.darkTheme .ui.header .sub.header{
     color:white;
     display: inline-block;
     position:absolute;
-    left:40.5px;
-    top:5px;
+    left:28.5px;
+    top:-1px;
     max-width: calc(100% - 140px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding: 5px 10px;
 }
 
 .floatWindow .controls .moduleicon{
@@ -252,6 +253,6 @@ body.darkTheme .ui.header .sub.header{
 
 
 .fwdragger {
-    --text-outline-color: rgba(36, 36, 36, 0.75);
-    text-shadow: 1px 0 0 var(--text-outline-color), 0 -1px 0 var(--text-outline-color), 0 1px 0 var(--text-outline-color), -1px 0 0 var(--text-outline-color);
+    --text-outline-color: rgba(36, 36, 36, 0.9);
+    text-shadow: 0 0 10px var(--text-outline-color), 0px 0px 4px var(--text-outline-color), 0px 0px 2px var(--text-outline-color);
 }
