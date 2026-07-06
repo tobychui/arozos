@@ -70,13 +70,53 @@ const GLRender = (function () {
     uniform int   uLutEnabled;
     uniform float uLutAmount;
     uniform float uLutSize;
+    uniform vec3  uLutDomainMin;
+    uniform vec3  uLutDomainMax;
 
     const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
+    // True sRGB OETF — matches how LUTs (and Photoshop) expect their input, and
+    // exactly inverts the sRGB decode applied to 8-bit source images on load.
     vec3 toDisplay(vec3 c){
         c = max(c, vec3(0.0));
-        // sRGB OETF (approx) — good enough for editing.
-        return pow(c, vec3(1.0/2.2));
+        vec3 lo = c * 12.92;
+        vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
+        return mix(lo, hi, step(vec3(0.0031308), c));
+    }
+
+    // Fetch an exact LUT lattice point (requires NEAREST filtering on uLUT).
+    vec3 lutFetch(vec3 idx){
+        return texture(uLUT, (idx + 0.5) / uLutSize).rgb;
+    }
+
+    // Tetrahedral interpolation of the 3D LUT — the same method Photoshop /
+    // Resolve use. Avoids the cyan/green cast that GPU trilinear introduces on
+    // film-style LUTs.
+    vec3 lutTetra(vec3 rgb){
+        vec3 pos = clamp(rgb, 0.0, 1.0) * (uLutSize - 1.0);
+        vec3 b = floor(pos);
+        vec3 f = pos - b;
+        vec3 V000 = lutFetch(b);
+        vec3 V111 = lutFetch(b + vec3(1.0));
+        vec3 r;
+        if (f.r > f.g) {
+            if (f.g > f.b) {                 // R > G > B
+                r = (1.0 - f.r) * V000 + (f.r - f.g) * lutFetch(b + vec3(1.0, 0.0, 0.0)) + (f.g - f.b) * lutFetch(b + vec3(1.0, 1.0, 0.0)) + f.b * V111;
+            } else if (f.r > f.b) {          // R > B > G
+                r = (1.0 - f.r) * V000 + (f.r - f.b) * lutFetch(b + vec3(1.0, 0.0, 0.0)) + (f.b - f.g) * lutFetch(b + vec3(1.0, 0.0, 1.0)) + f.g * V111;
+            } else {                         // B > R > G
+                r = (1.0 - f.b) * V000 + (f.b - f.r) * lutFetch(b + vec3(0.0, 0.0, 1.0)) + (f.r - f.g) * lutFetch(b + vec3(1.0, 0.0, 1.0)) + f.g * V111;
+            }
+        } else {
+            if (f.b > f.g) {                 // B > G > R
+                r = (1.0 - f.b) * V000 + (f.b - f.g) * lutFetch(b + vec3(0.0, 0.0, 1.0)) + (f.g - f.r) * lutFetch(b + vec3(0.0, 1.0, 1.0)) + f.r * V111;
+            } else if (f.b > f.r) {          // G > B > R
+                r = (1.0 - f.g) * V000 + (f.g - f.b) * lutFetch(b + vec3(0.0, 1.0, 0.0)) + (f.b - f.r) * lutFetch(b + vec3(0.0, 1.0, 1.0)) + f.r * V111;
+            } else {                         // G > R > B
+                r = (1.0 - f.g) * V000 + (f.g - f.r) * lutFetch(b + vec3(0.0, 1.0, 0.0)) + (f.r - f.b) * lutFetch(b + vec3(1.0, 1.0, 0.0)) + f.b * V111;
+            }
+        }
+        return r;
     }
 
     vec3 develop(vec3 lin, vec3 blurLin, vec2 uv){
@@ -140,11 +180,10 @@ const GLRender = (function () {
         }
         v = clamp(v, 0.0, 1.0);
 
-        // 9. 3D LUT colour grade.
+        // 9. 3D LUT colour grade (tetrahedral, domain-mapped).
         if (uLutEnabled == 1){
-            float N = uLutSize;
-            vec3 lc = v * (N - 1.0) / N + 0.5 / N;
-            vec3 graded = texture(uLUT, lc).rgb;
+            vec3 dom = (clamp(v, 0.0, 1.0) - uLutDomainMin) / max(uLutDomainMax - uLutDomainMin, vec3(1e-5));
+            vec3 graded = lutTetra(clamp(dom, 0.0, 1.0));
             v = mix(v, graded, uLutAmount);
         }
         return clamp(v, 0.0, 1.0);
@@ -230,8 +269,9 @@ const GLRender = (function () {
         const tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_3D, tex);
         gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA16F, n, n, n, 0, gl.RGBA, gl.FLOAT, d);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        // NEAREST: tetrahedral interpolation fetches exact lattice points itself.
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
@@ -332,13 +372,17 @@ const GLRender = (function () {
         const tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_3D, tex);
         gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA16F, n, n, n, 0, gl.RGBA, gl.FLOAT, rgba);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        // NEAREST: tetrahedral interpolation is done in the shader, so we must
+        // read exact lattice values rather than GPU trilinear samples.
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
         this.lutTex = tex;
         this.lutSize = n;
+        this.lutDomainMin = (lut.domainMin && lut.domainMin.length === 3) ? lut.domainMin : [0, 0, 0];
+        this.lutDomainMax = (lut.domainMax && lut.domainMax.length === 3) ? lut.domainMax : [1, 1, 1];
     };
 
     // Compute relative white-balance gains from temperature/tint sliders.
@@ -404,10 +448,15 @@ const GLRender = (function () {
             gl.uniform1i(u("uLutEnabled"), 1);
             gl.uniform1f(u("uLutAmount"), p.lutAmount != null ? p.lutAmount : 1.0);
             gl.uniform1f(u("uLutSize"), this.lutSize);
+            var dmin = this.lutDomainMin || [0, 0, 0], dmax = this.lutDomainMax || [1, 1, 1];
+            gl.uniform3f(u("uLutDomainMin"), dmin[0], dmin[1], dmin[2]);
+            gl.uniform3f(u("uLutDomainMax"), dmax[0], dmax[1], dmax[2]);
         } else {
             gl.bindTexture(gl.TEXTURE_3D, this.dummyLut);
             gl.uniform1i(u("uLutEnabled"), 0);
             gl.uniform1f(u("uLutSize"), 2.0);
+            gl.uniform3f(u("uLutDomainMin"), 0, 0, 0);
+            gl.uniform3f(u("uLutDomainMax"), 1, 1, 1);
         }
 
         gl.drawArrays(gl.TRIANGLES, 0, 3);
