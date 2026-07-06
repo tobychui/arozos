@@ -139,6 +139,7 @@ const RawDecoder = (function () {
             if (visited[offset]) return null;
             visited[offset] = true;
             const count = dv.getUint16(offset, little);
+            if (count > 4096) return null; // not a real IFD — bogus offset
             const tags = {};
             const subOffsets = [];
             let p = offset + 2;
@@ -149,7 +150,10 @@ const RawDecoder = (function () {
                 const cnt = dv.getUint32(p + 4, little);
                 const valOff = dv.getUint32(p + 8, little);
                 tags[tag] = { type: type, count: cnt, valueOffset: valOff, entryOffset: p + 8 };
-                if (tag === 0x014A || tag === 0x8769 || tag === 0x927C /* makernote */) {
+                // Follow SubIFD (0x014A) and the ExifIFD (0x8769) pointers. Do NOT
+                // recurse the MakerNote (0x927C): its bytes are not IFD offsets and
+                // treating them as such can be pathologically slow on real files.
+                if (tag === 0x014A || tag === 0x8769) {
                     const v = readValues(dv, type, cnt, valOff, p + 8);
                     if (v) v.forEach((o) => subOffsets.push(o));
                 }
@@ -311,20 +315,52 @@ const RawDecoder = (function () {
         return out;
     }
 
-    // Fill gaps in "meta" from the embedded / whole-file JPEG's EXIF.
+    // Collect every embedded JPEG (IFD-pointed + brute-force SOI/EOI scan).
+    // Sony ARW keeps EXIF in the small thumbnail, not the large preview, so we
+    // must be able to inspect all of them — not just the biggest.
+    function collectJpegRanges(u8, tiff) {
+        const ranges = [];
+        const seen = {};
+        const add = (off, len) => {
+            if (off >= 0 && len > 100 && off + len <= u8.length &&
+                u8[off] === 0xFF && u8[off + 1] === 0xD8 && !seen[off]) {
+                seen[off] = true; ranges.push({ off: off, len: len });
+            }
+        };
+        if (tiff) {
+            tiff.ifds.forEach((ifd) => {
+                const off = ifd.get(T.JPEGOffset), len = ifd.get(T.JPEGLength);
+                if (off && len) add(off[0], len[0]);
+                const so = ifd.get(T.StripOffsets), sc = ifd.get(T.StripByteCounts);
+                if (so && sc && so.length === 1) add(so[0], sc[0]);
+            });
+        }
+        for (let i = 0; i + 2 < u8.length; i++) {
+            if (u8[i] === 0xFF && u8[i + 1] === 0xD8 && u8[i + 2] === 0xFF) {
+                for (let j = i + 2; j + 1 < u8.length; j++) {
+                    if (u8[j] === 0xFF && u8[j + 1] === 0xD9) { add(i, j - i + 1); i = j + 1; break; }
+                }
+            }
+        }
+        return ranges;
+    }
+
+    // Fill gaps in "meta" from EXIF found in any embedded / whole-file JPEG.
     function enrichMetaFromJpeg(buf, tiff, meta) {
         if (metaHasExif(meta) && meta.iso && meta.aperture && meta.shutter) return meta;
         try {
             const u8 = new Uint8Array(buf);
-            let jbytes = null;
-            if (u8[0] === 0xFF && u8[1] === 0xD8) jbytes = u8;
-            else {
-                const r = findEmbeddedJpegRange(u8, tiff);
-                if (r) jbytes = u8.subarray(r.off, r.off + r.len);
+            if (u8[0] === 0xFF && u8[1] === 0xD8) {
+                const em0 = parseJpegExif(u8);
+                if (em0) meta = mergeMeta(meta, em0);
             }
-            if (!jbytes) return meta;
-            const em = parseJpegExif(jbytes);
-            return em ? mergeMeta(meta, em) : meta;
+            const ranges = collectJpegRanges(u8, tiff);
+            for (let k = 0; k < ranges.length; k++) {
+                if (meta.iso && meta.aperture && meta.shutter) break;
+                const em = parseJpegExif(u8.subarray(ranges[k].off, ranges[k].off + ranges[k].len));
+                if (em) meta = mergeMeta(meta, em);
+            }
+            return meta;
         } catch (e) { return meta; }
     }
 
