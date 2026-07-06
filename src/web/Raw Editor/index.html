@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1b1e24">
+    <title>Raw Editor</title>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark">
+    <div id="app">
+        <!-- Top toolbar -->
+        <div id="toolbar">
+            <div class="tb-group">
+                <button class="tbtn" id="btnOpen" title="Open image / RAW"><i class="folder open outline icon"></i></button>
+                <button class="tbtn" id="btnFit" title="Fit to window"><i class="expand icon"></i></button>
+                <button class="tbtn" id="btnZoom100" title="Zoom 100%">1:1</button>
+            </div>
+            <div class="tb-title" id="fileTitle">No image loaded</div>
+            <div class="tb-group">
+                <div id="histoBox">
+                    <canvas id="histogram" width="264" height="90"></canvas>
+                    <div id="exifLine">
+                        <span id="exifShutter">--</span>
+                        <span id="exifAperture">--</span>
+                        <span id="exifIso">--</span>
+                        <span id="exifFocal">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body: canvas stage + develop panel -->
+        <div id="body">
+            <div id="stage">
+                <div id="dropHint">
+                    <i class="images outline icon huge"></i>
+                    <p>Open a RAW (ARW, DNG, NEF, CR2 ...) or image file to begin.</p>
+                    <button class="ui inverted button" id="btnOpen2"><i class="folder open icon"></i> Open file</button>
+                    <p class="tiny-note">You can also drag a file here.</p>
+                </div>
+                <canvas id="view" style="display:none;"></canvas>
+                <div id="loader" style="display:none;">
+                    <div class="spinner"></div>
+                    <div id="loaderText">Decoding RAW...</div>
+                </div>
+            </div>
+
+            <div id="panel">
+                <div class="panel-tab-row">
+                    <div class="panel-tab active"><i class="adjust icon"></i> Basic</div>
+                    <div class="panel-tab" id="lutTab"><i class="film icon"></i> LUT</div>
+                </div>
+
+                <!-- BASIC -->
+                <div class="panel-page" id="pageBasic">
+                    <div class="row treatment-row">
+                        <span class="lbl">Treatment</span>
+                        <label class="radio"><input type="radio" name="treatment" value="color" checked> Color</label>
+                        <label class="radio"><input type="radio" name="treatment" value="bw"> B &amp; W</label>
+                    </div>
+
+                    <div class="row wb-row">
+                        <span class="lbl">White Balance</span>
+                        <select id="wbPreset" class="mini-select">
+                            <option value="asshot">As Shot</option>
+                            <option value="auto">Auto</option>
+                            <option value="daylight">Daylight</option>
+                            <option value="cloudy">Cloudy</option>
+                            <option value="shade">Shade</option>
+                            <option value="tungsten">Tungsten</option>
+                            <option value="fluorescent">Fluorescent</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+
+                    <div class="slider" data-key="temperature" data-min="2000" data-max="50000" data-def="5500" data-step="10"><span class="s-name">Temperature</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="tint" data-min="-150" data-max="150" data-def="0" data-step="1"><span class="s-name">Tint</span><input type="range"><input class="s-val" type="number"></div>
+
+                    <div class="row autodef-row">
+                        <button class="link-btn" id="btnAuto">Auto</button>
+                        <button class="link-btn" id="btnDefault">Default</button>
+                    </div>
+
+                    <div class="slider" data-key="exposure" data-min="-5" data-max="5" data-def="0" data-step="0.01"><span class="s-name">Exposure</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="contrast" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Contrast</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="highlights" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Highlights</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="shadows" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Shadows</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="whites" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Whites</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="blacks" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Blacks</span><input type="range"><input class="s-val" type="number"></div>
+
+                    <div class="divider-line"></div>
+
+                    <div class="slider" data-key="clarity" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Clarity</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="dehaze" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Dehaze</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="vibrance" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Vibrance</span><input type="range"><input class="s-val" type="number"></div>
+                    <div class="slider" data-key="saturation" data-min="-100" data-max="100" data-def="0" data-step="1"><span class="s-name">Saturation</span><input type="range"><input class="s-val" type="number"></div>
+                </div>
+
+                <!-- LUT -->
+                <div class="panel-page" id="pageLut" style="display:none;">
+                    <div class="lut-intro">Apply a 3D colour lookup table (.cube). LUTs are applied after all Basic adjustments.</div>
+                    <button class="ui tiny inverted fluid button" id="btnLoadLut"><i class="upload icon"></i> Load .cube LUT</button>
+                    <input type="file" id="lutFile" accept=".cube" style="display:none;">
+                    <div id="lutInfo" class="lut-info" style="display:none;">
+                        <div class="row"><span class="lbl">LUT</span><span id="lutName" class="lut-name">-</span></div>
+                        <div class="row toggle-row">
+                            <span class="lbl">Enabled</span>
+                            <label class="switch"><input type="checkbox" id="lutEnabled" checked><span class="track"></span></label>
+                        </div>
+                        <div class="slider" data-key="lutAmount" data-min="0" data-max="100" data-def="100" data-step="1"><span class="s-name">Amount</span><input type="range"><input class="s-val" type="number"></div>
+                        <button class="link-btn" id="btnClearLut">Remove LUT</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div id="statusbar">
+            <button class="ui tiny inverted button" id="btnSave"><i class="save icon"></i> Save Image...</button>
+            <div class="status-info" id="statusInfo">-</div>
+            <div class="sb-right">
+                <button class="ui tiny inverted button" id="btnReset"><i class="undo icon"></i> Reset</button>
+                <button class="ui tiny primary button" id="btnDone">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/rawdecoder.js"></script>
+    <script src="js/lut.js"></script>
+    <script src="js/glrender.js"></script>
+    <script src="js/editor.js"></script>
+</body>
+</html>
