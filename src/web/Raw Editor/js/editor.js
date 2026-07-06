@@ -27,6 +27,7 @@
     state.baseTemp = 5500;
     state.treatment = "color";
     state.lutEnabled = true;
+    state.lutLogInput = false;
     // Per-group bypass ("eye") toggles.
     state.groupOn = { light: true, color: true, effects: true, lut: true };
 
@@ -136,7 +137,8 @@
             grain: g.effects ? state.grain : 0,
             // LUT group
             lutEnabled: !!(lut && state.lutEnabled && g.lut),
-            lutAmount: state.lutAmount / 100
+            lutAmount: state.lutAmount / 100,
+            lutLogInput: state.lutLogInput
         };
         if (state.treatment === "bw") { p.saturation = -100; p.vibrance = 0; }
         return p;
@@ -466,6 +468,12 @@
         if (g) { g.classList.remove("bypassed"); }
         state.groupOn.lut = true;
         document.getElementById("lutEnabled").checked = true;
+        // Auto-enable "Log input" for log->display conversion LUTs (F-Log, S-Log,
+        // V-Log, Log-C, C-Log ...), which expect a flat log signal.
+        var tag = ((parsed.title || "") + " " + (displayName || "")).toLowerCase();
+        var isLog = /(^|[^a-z])(f-?log|s-?log|v-?log|log-?c|c-?log|n-?log|d-?log|z-?log|log3|rec709|to_rec|to709|_log|log_)/.test(tag) || tag.indexOf("log") >= 0;
+        state.lutLogInput = isLog;
+        document.getElementById("lutLogInput").checked = isLog;
         document.getElementById("lutInfo").style.display = "block";
         document.getElementById("lutName").textContent = (parsed.title ? parsed.title + "  " : "") + displayName + "  (" + parsed.size + "³)";
         scheduleRender();
@@ -560,6 +568,10 @@
 
     document.getElementById("lutEnabled").addEventListener("change", function () {
         state.lutEnabled = this.checked;
+        scheduleRender();
+    });
+    document.getElementById("lutLogInput").addEventListener("change", function () {
+        state.lutLogInput = this.checked;
         scheduleRender();
     });
     document.getElementById("btnClearLut").addEventListener("click", function () {
