@@ -61,9 +61,12 @@ html, body {
     display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 #view {
-    max-width: calc(100% - 24px); max-height: calc(100% - 24px);
-    object-fit: contain; box-shadow: 0 2px 26px rgba(0,0,0,0.55);
+    position: absolute; left: 50%; top: 50%;
+    transform-origin: center center; will-change: transform;
+    box-shadow: 0 2px 26px rgba(0,0,0,0.55);
+    image-rendering: auto;
 }
+#stage.panning { cursor: grabbing; }
 #stage.dragover { outline: 2px dashed var(--accent); outline-offset: -12px; }
 
 #dropHint { text-align: center; color: var(--muted); }
@@ -130,8 +133,6 @@ html, body {
 .pill:hover { background: #414141; }
 .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-/* Profile */
-.profile-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
 .mini-select {
     flex: 1; background: #262626; color: var(--text);
     border: 1px solid var(--line2); border-radius: 4px; height: 26px; padding: 0 6px;
@@ -239,16 +240,6 @@ html, body {
 .switch input:checked + .track { background: var(--accent); }
 .switch input:checked + .track:before { transform: translateX(17px); }
 
-/* Decorative tool strip */
-#toolstrip {
-    width: 40px; background: var(--titlebar);
-    border-left: 1px solid var(--line);
-    display: flex; flex-direction: column; align-items: center;
-    padding-top: 10px; gap: 16px;
-}
-#toolstrip i.icon { color: var(--muted2); font-size: 15px; margin: 0; cursor: default; }
-#toolstrip i.icon.active { color: var(--text); }
-
 /* ---- Status bar ---- */
 #statusbar {
     height: 46px; display: flex; align-items: center; gap: 12px;
@@ -261,6 +252,7 @@ html, body {
 }
 .zoom-label { color: var(--muted); font-size: 11.5px; cursor: pointer; }
 .zoom-label:hover { color: var(--text); }
+.zoom-readout { color: var(--muted2); font-size: 11.5px; min-width: 40px; }
 .status-info {
     flex: 1; text-align: center; color: var(--muted2); font-size: 11.5px;
     text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--line2);

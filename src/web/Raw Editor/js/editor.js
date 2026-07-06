@@ -272,6 +272,7 @@
             document.getElementById("view").style.display = "block";
             applyMeta(res.meta, filename, res);
             resetAll(true);
+            fitToWindow();
             hideLoader();
         }).catch(function (err) {
             hideLoader();
@@ -613,20 +614,82 @@
         } catch (err) { /* ignore */ }
     });
 
-    // Zoom buttons (CSS driven, simple fit / 1:1 toggle)
-    var oneToOne = false;
-    function fitToWindow() {
-        oneToOne = false;
+    // =====================================================================
+    //  Zoom & pan  (scroll to zoom at cursor, right/middle-drag to pan)
+    // =====================================================================
+    var vz = { zoom: 1, fit: 1, panX: 0, panY: 0 };
+
+    function applyTransform() {
         var v = document.getElementById("view");
-        v.style.maxWidth = ""; v.style.maxHeight = ""; v.style.width = ""; v.style.height = "";
+        v.style.transform = "translate(-50%,-50%) translate(" + vz.panX + "px," + vz.panY + "px) scale(" + vz.zoom + ")";
     }
+    function updateZoomLabel() {
+        var el = document.getElementById("zoomReadout");
+        if (el) el.textContent = Math.round(vz.zoom * 100) + "%";
+    }
+    function computeFit() {
+        var v = document.getElementById("view");
+        if (!v.width) return 1;
+        var pad = 32;
+        return Math.min((stage.clientWidth - pad) / v.width, (stage.clientHeight - pad) / v.height);
+    }
+    function fitToWindow() {
+        vz.fit = computeFit();
+        vz.zoom = vz.fit; vz.panX = 0; vz.panY = 0;
+        applyTransform(); updateZoomLabel();
+    }
+    function zoomActual() {
+        vz.zoom = 1; vz.panX = 0; vz.panY = 0;
+        applyTransform(); updateZoomLabel();
+    }
+    function setZoomAt(z2, cx, cy) {
+        z2 = Math.max(vz.fit * 0.5, Math.min(16, z2));
+        // Keep the image point under the cursor fixed while zooming.
+        vz.panX = cx - (z2 / vz.zoom) * (cx - vz.panX);
+        vz.panY = cy - (z2 / vz.zoom) * (cy - vz.panY);
+        vz.zoom = z2;
+        applyTransform(); updateZoomLabel();
+    }
+
     document.getElementById("btnFit").addEventListener("click", fitToWindow);
     document.getElementById("btnZoomFit").addEventListener("click", fitToWindow);
-    document.getElementById("btnZoom100").addEventListener("click", function () {
-        oneToOne = !oneToOne;
-        var v = document.getElementById("view");
-        if (oneToOne && decoded) { v.style.maxWidth = "none"; v.style.maxHeight = "none"; v.style.width = decoded.width + "px"; v.style.height = decoded.height + "px"; }
-        else { fitToWindow(); }
+    document.getElementById("btnZoom100").addEventListener("click", zoomActual);
+
+    // Scroll to zoom, centred on the cursor.
+    stage.addEventListener("wheel", function (e) {
+        if (!decoded) return;
+        e.preventDefault();
+        var rect = stage.getBoundingClientRect();
+        var cx = e.clientX - (rect.left + rect.width / 2);
+        var cy = e.clientY - (rect.top + rect.height / 2);
+        var factor = Math.pow(1.0016, -e.deltaY);
+        setZoomAt(vz.zoom * factor, cx, cy);
+    }, { passive: false });
+
+    // Right / middle mouse button drag to pan.
+    var panning = false, lastX = 0, lastY = 0;
+    stage.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    stage.addEventListener("mousedown", function (e) {
+        if (!decoded || (e.button !== 2 && e.button !== 1)) return;
+        panning = true; lastX = e.clientX; lastY = e.clientY;
+        stage.classList.add("panning");
+        e.preventDefault();
+    });
+    window.addEventListener("mousemove", function (e) {
+        if (!panning) return;
+        vz.panX += e.clientX - lastX; vz.panY += e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        applyTransform();
+    });
+    window.addEventListener("mouseup", function () {
+        if (panning) { panning = false; stage.classList.remove("panning"); }
+    });
+
+    // Re-fit on window resize while the view is at fit zoom.
+    window.addEventListener("resize", function () {
+        if (!decoded) return;
+        if (Math.abs(vz.zoom - vz.fit) < 0.001 && vz.panX === 0 && vz.panY === 0) fitToWindow();
+        else vz.fit = computeFit();
     });
 
     // =====================================================================

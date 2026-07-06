@@ -66,17 +66,6 @@
                         </div>
                     </div>
 
-                    <!-- Profile -->
-                    <div class="profile-row">
-                        <span class="lbl">Profile</span>
-                        <select id="profileSelect" class="mini-select">
-                            <option>Adobe Color</option>
-                            <option>Adobe Standard</option>
-                            <option>Camera Neutral</option>
-                            <option>Camera Vivid</option>
-                        </select>
-                    </div>
-
                     <!-- LIGHT -->
                     <div class="group" data-group="light">
                         <div class="group-head">
@@ -170,15 +159,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Decorative panel selector strip -->
-            <div id="toolstrip">
-                <i class="adjust icon active" title="Edit"></i>
-                <i class="crop icon" title="Crop"></i>
-                <i class="magic icon" title="Healing"></i>
-                <i class="paint brush icon" title="Masking"></i>
-                <i class="tint icon" title="Color grade"></i>
-            </div>
         </div>
 
         <!-- Bottom bar -->
@@ -187,6 +167,7 @@
                 <canvas id="filmstrip" width="72" height="48"></canvas>
                 <span class="zoom-label" id="btnZoomFit">Fit</span>
                 <button class="pill" id="btnZoom100">100%</button>
+                <span class="zoom-readout" id="zoomReadout"></span>
             </div>
             <div class="status-info" id="statusInfo">-</div>
             <div class="sb-right">
