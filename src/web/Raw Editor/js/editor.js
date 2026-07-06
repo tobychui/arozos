@@ -285,12 +285,12 @@
         defaults.temperature = state.baseTemp;
         document.getElementById("fileTitle").textContent =
             (filename || "Untitled") + (meta && meta.camera ? "   —   " + meta.camera : "");
-        ao_module_setWindowTitle("Raw Editor - " + (filename || "Untitled"));
-        // EXIF line
+        // EXIF line (set before the title call so nothing can block it)
         setText("exifShutter", meta && meta.shutter ? formatShutter(meta.shutter) : "--");
         setText("exifAperture", meta && meta.aperture ? "f/" + round1(meta.aperture) : "--");
         setText("exifIso", meta && meta.iso ? "ISO " + meta.iso : "--");
         setText("exifFocal", meta && meta.focal ? Math.round(meta.focal) + " mm" : "--");
+        try { ao_module_setWindowTitle("Raw Editor - " + (filename || "Untitled")); } catch (e) { /* ignore */ }
         // Status line
         var srcLabel = { "raw-demosaic": "RAW demosaiced", "embedded-preview": "Embedded preview", "image": "Image" }[res.source] || res.source;
         setText("statusInfo", srcLabel + "   ·   " + res.width + " x " + res.height + " px");

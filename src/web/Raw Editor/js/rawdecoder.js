@@ -206,10 +206,9 @@ const RawDecoder = (function () {
     //  Embedded JPEG preview extraction (robust fallback)
     // ======================================================================
 
-    // Return a Blob for the largest embedded JPEG, using IFD pointers first,
-    // then a brute force SOI/EOI scan.
-    function extractEmbeddedJpeg(buf, tiff) {
-        const u8 = new Uint8Array(buf);
+    // Locate the largest embedded JPEG, using IFD pointers first then a brute
+    // force SOI/EOI scan. Returns { off, len } into the source bytes or null.
+    function findEmbeddedJpegRange(u8, tiff) {
         let best = null;
 
         if (tiff) {
@@ -234,16 +233,12 @@ const RawDecoder = (function () {
                 }
             });
         }
-
-        if (best) {
-            return new Blob([u8.subarray(best.off, best.off + best.len)], { type: "image/jpeg" });
-        }
+        if (best) return best;
 
         // Brute force: find the largest FFD8..FFD9 span.
         let bestStart = -1, bestEnd = -1;
         for (let i = 0; i + 1 < u8.length; i++) {
             if (u8[i] === 0xFF && u8[i + 1] === 0xD8 && u8[i + 2] === 0xFF) {
-                // scan forward for matching EOI
                 for (let j = i + 2; j + 1 < u8.length; j++) {
                     if (u8[j] === 0xFF && u8[j + 1] === 0xD9) {
                         if (j - i > bestEnd - bestStart) { bestStart = i; bestEnd = j + 1; }
@@ -254,9 +249,83 @@ const RawDecoder = (function () {
             }
         }
         if (bestStart >= 0 && bestEnd - bestStart > 2000) {
-            return new Blob([u8.subarray(bestStart, bestEnd + 1)], { type: "image/jpeg" });
+            return { off: bestStart, len: bestEnd - bestStart + 1 };
         }
         return null;
+    }
+
+    function extractEmbeddedJpeg(buf, tiff) {
+        const u8 = new Uint8Array(buf);
+        const r = findEmbeddedJpegRange(u8, tiff);
+        return r ? new Blob([u8.subarray(r.off, r.off + r.len)], { type: "image/jpeg" }) : null;
+    }
+
+    // ======================================================================
+    //  EXIF from a JPEG APP1 segment (covers plain JPEGs, embedded previews,
+    //  and RAWs whose main TIFF structure we could not parse).
+    // ======================================================================
+
+    // jbytes: a Uint8Array starting at a JPEG SOI (0xFFD8). Returns meta or null.
+    function parseJpegExif(jbytes) {
+        if (!jbytes || jbytes.length < 4 || jbytes[0] !== 0xFF || jbytes[1] !== 0xD8) return null;
+        let i = 2;
+        while (i + 4 < jbytes.length) {
+            if (jbytes[i] !== 0xFF) { i++; continue; }
+            const marker = jbytes[i + 1];
+            if (marker === 0xD9 || marker === 0xDA) break; // EOI / start of scan
+            const len = (jbytes[i + 2] << 8) | jbytes[i + 3];
+            if (len < 2) break;
+            if (marker === 0xE1) {
+                const o = i + 4;
+                // "Exif\0\0"
+                if (jbytes[o] === 0x45 && jbytes[o + 1] === 0x78 && jbytes[o + 2] === 0x69 &&
+                    jbytes[o + 3] === 0x66 && jbytes[o + 4] === 0 && jbytes[o + 5] === 0) {
+                    const tiffStart = o + 6;
+                    const tiffLen = (len - 2) - 6;
+                    if (tiffLen > 8 && tiffStart + tiffLen <= jbytes.length) {
+                        try {
+                            const sub = jbytes.slice(tiffStart, tiffStart + tiffLen).buffer;
+                            return readMeta(parseTIFF(sub));
+                        } catch (e) { return null; }
+                    }
+                }
+            }
+            i += 2 + len;
+        }
+        return null;
+    }
+
+    function metaHasExif(m) {
+        return m && (m.iso || m.aperture || m.shutter || m.focal || m.camera);
+    }
+
+    function mergeMeta(primary, secondary) {
+        if (!secondary) return primary;
+        if (!primary) return secondary;
+        const out = Object.assign({}, primary);
+        ["camera", "iso", "shutter", "aperture", "focal"].forEach((k) => {
+            if ((out[k] === "" || out[k] === 0 || out[k] == null) && secondary[k]) out[k] = secondary[k];
+        });
+        if (!out.wb && secondary.wb) out.wb = secondary.wb;
+        if ((!out.temp || out.temp === 5500) && secondary.temp) out.temp = secondary.temp;
+        return out;
+    }
+
+    // Fill gaps in "meta" from the embedded / whole-file JPEG's EXIF.
+    function enrichMetaFromJpeg(buf, tiff, meta) {
+        if (metaHasExif(meta) && meta.iso && meta.aperture && meta.shutter) return meta;
+        try {
+            const u8 = new Uint8Array(buf);
+            let jbytes = null;
+            if (u8[0] === 0xFF && u8[1] === 0xD8) jbytes = u8;
+            else {
+                const r = findEmbeddedJpegRange(u8, tiff);
+                if (r) jbytes = u8.subarray(r.off, r.off + r.len);
+            }
+            if (!jbytes) return meta;
+            const em = parseJpegExif(jbytes);
+            return em ? mergeMeta(meta, em) : meta;
+        } catch (e) { return meta; }
     }
 
     // ======================================================================
@@ -552,17 +621,23 @@ const RawDecoder = (function () {
             const ext = extOf(filename);
             const blob = new Blob([buf]);
 
-            // Plain images: hand straight to the browser.
+            // Plain images: hand straight to the browser, but still read EXIF
+            // from the JPEG APP1 segment so shooting info is shown.
             if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].indexOf(ext) >= 0) {
+                let imgMeta = emptyMeta();
+                try { imgMeta = enrichMetaFromJpeg(buf, null, imgMeta); } catch (e) { imgMeta = emptyMeta(); }
                 decodeBlobAsImage(blob).then((work) => {
-                    resolve({ width: work.width, height: work.height, data: work.data, meta: emptyMeta(), source: "image" });
+                    resolve({ width: work.width, height: work.height, data: work.data, meta: imgMeta, source: "image" });
                 }).catch(reject);
                 return;
             }
 
             let tiff = null;
             try { tiff = parseTIFF(buf); } catch (e) { tiff = null; }
-            const meta = tiff ? readMeta(tiff) : emptyMeta();
+            let meta = tiff ? readMeta(tiff) : emptyMeta();
+            // Fill any missing EXIF from the embedded JPEG preview — this rescues
+            // shooting info when the RAW's TIFF structure could not be parsed.
+            try { meta = enrichMetaFromJpeg(buf, tiff, meta); } catch (e) { /* keep meta */ }
 
             // For RAW containers, try to demosaic; otherwise fall back to preview.
             const isRaw = RAW_EXTS.indexOf(ext) >= 0 || (tiff && ext !== "tif" && ext !== "tiff");
