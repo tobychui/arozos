@@ -210,29 +210,38 @@ const RawDecoder = (function () {
     //  Embedded JPEG preview extraction (robust fallback)
     // ======================================================================
 
-    // Locate the largest embedded JPEG, using IFD pointers first then a brute
-    // force SOI/EOI scan. Returns { off, len } into the source bytes or null.
+    // True only for a real, decodable JPEG (SOI at start, EOI at end). This
+    // rejects lossless-JPEG-compressed CFA raw streams, which also start with
+    // 0xFFD8 but are NOT displayable images.
+    function looksLikeJpeg(u8, off, len) {
+        return off >= 0 && len > 1000 && off + len <= u8.length &&
+            u8[off] === 0xFF && u8[off + 1] === 0xD8 &&
+            u8[off + len - 2] === 0xFF && u8[off + len - 1] === 0xD9;
+    }
+
+    // Locate the largest embedded preview JPEG, using IFD pointers first then a
+    // brute force SOI/EOI scan. CFA / raw IFDs (Photometric 32803) are ignored —
+    // their compressed data starts with 0xFFD8 but is not a viewable image.
+    // Returns { off, len } into the source bytes or null.
     function findEmbeddedJpegRange(u8, tiff) {
         let best = null;
 
         if (tiff) {
             tiff.ifds.forEach((ifd) => {
+                const photo = ifd.get(T.Photometric);
+                if (photo && photo[0] === 32803) return; // CFA raw — never a preview
                 const off = ifd.get(T.JPEGOffset);
                 const len = ifd.get(T.JPEGLength);
-                if (off && len && off[0] > 0 && len[0] > 0 && off[0] + len[0] <= u8.length) {
-                    if (u8[off[0]] === 0xFF && u8[off[0] + 1] === 0xD8) {
-                        if (!best || len[0] > best.len) best = { off: off[0], len: len[0] };
-                    }
+                if (off && len && looksLikeJpeg(u8, off[0], len[0])) {
+                    if (!best || len[0] > best.len) best = { off: off[0], len: len[0] };
                 }
                 // Some previews are stored as a full strip with Compression 6/7.
                 const comp = ifd.get(T.Compression);
                 if (comp && (comp[0] === 6 || comp[0] === 7 || comp[0] === 99)) {
                     const so = ifd.get(T.StripOffsets);
                     const sc = ifd.get(T.StripByteCounts);
-                    if (so && sc && so.length === 1 && sc[0] > 1000 && so[0] + sc[0] <= u8.length) {
-                        if (u8[so[0]] === 0xFF && u8[so[0] + 1] === 0xD8) {
-                            if (!best || sc[0] > best.len) best = { off: so[0], len: sc[0] };
-                        }
+                    if (so && sc && so.length === 1 && looksLikeJpeg(u8, so[0], sc[0])) {
+                        if (!best || sc[0] > best.len) best = { off: so[0], len: sc[0] };
                     }
                 }
             });
@@ -329,15 +338,19 @@ const RawDecoder = (function () {
         };
         if (tiff) {
             tiff.ifds.forEach((ifd) => {
+                const photo = ifd.get(T.Photometric);
+                if (photo && photo[0] === 32803) return; // skip CFA raw stream
                 const off = ifd.get(T.JPEGOffset), len = ifd.get(T.JPEGLength);
                 if (off && len) add(off[0], len[0]);
                 const so = ifd.get(T.StripOffsets), sc = ifd.get(T.StripByteCounts);
                 if (so && sc && so.length === 1) add(so[0], sc[0]);
             });
         }
+        // Brute-force SOI/EOI scan, capped so a huge false-positive (e.g. raw
+        // data containing 0xFFD8) can't produce a multi-megabyte junk range.
         for (let i = 0; i + 2 < u8.length; i++) {
             if (u8[i] === 0xFF && u8[i + 1] === 0xD8 && u8[i + 2] === 0xFF) {
-                for (let j = i + 2; j + 1 < u8.length; j++) {
+                for (let j = i + 2; j + 1 < u8.length && j - i < 4000000; j++) {
                     if (u8[j] === 0xFF && u8[j + 1] === 0xD9) { add(i, j - i + 1); i = j + 1; break; }
                 }
             }
