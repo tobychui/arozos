@@ -72,8 +72,30 @@ const GLRender = (function () {
     uniform float uLutSize;
     uniform vec3  uLutDomainMin;
     uniform vec3  uLutDomainMax;
+    uniform int   uLutLogInput;
 
     const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+    // sRGB EOTF (display -> scene linear); inverse of toDisplay().
+    vec3 toLinear(vec3 c){
+        vec3 lo = c / 12.92;
+        vec3 hi = pow((c + 0.055) / 1.055, vec3(2.4));
+        return mix(lo, hi, step(vec3(0.04045), c));
+    }
+
+    // Log-flatten for feeding "log -> display" conversion LUTs from an already
+    // display-referred image. A true camera log curve (F-Log/S-Log) assumes ~14
+    // stops of scene-linear; a display JPEG has ~2.5, so a real log encode either
+    // fogs the shadows or greys the highlights. Instead we use a clean log2
+    // flatten that maps 0->0 and 1->1 (blacks stay black, whites stay white) but
+    // lifts the mid-tones, giving the LUT the low-contrast signal it expects
+    // without the wash-out. LOG_STOPS controls how flat.
+    vec3 linearToFLog(vec3 lin){
+        const float LOG_STOPS = 6.0;
+        float k = exp2(LOG_STOPS) - 1.0;
+        vec3 x = max(lin, vec3(0.0));
+        return log2(1.0 + x * k) / LOG_STOPS;
+    }
 
     // True sRGB OETF — matches how LUTs (and Photoshop) expect their input, and
     // exactly inverts the sRGB decode applied to 8-bit source images on load.
@@ -182,7 +204,12 @@ const GLRender = (function () {
 
         // 9. 3D LUT colour grade (tetrahedral, domain-mapped).
         if (uLutEnabled == 1){
-            vec3 dom = (clamp(v, 0.0, 1.0) - uLutDomainMin) / max(uLutDomainMax - uLutDomainMin, vec3(1e-5));
+            vec3 lutIn = clamp(v, 0.0, 1.0);
+            // For "log to display" LUTs, feed the flat log signal they expect.
+            if (uLutLogInput == 1){
+                lutIn = clamp(linearToFLog(toLinear(lutIn)), 0.0, 1.0);
+            }
+            vec3 dom = (lutIn - uLutDomainMin) / max(uLutDomainMax - uLutDomainMin, vec3(1e-5));
             vec3 graded = lutTetra(clamp(dom, 0.0, 1.0));
             v = mix(v, graded, uLutAmount);
         }
@@ -448,6 +475,7 @@ const GLRender = (function () {
             gl.uniform1i(u("uLutEnabled"), 1);
             gl.uniform1f(u("uLutAmount"), p.lutAmount != null ? p.lutAmount : 1.0);
             gl.uniform1f(u("uLutSize"), this.lutSize);
+            gl.uniform1i(u("uLutLogInput"), p.lutLogInput ? 1 : 0);
             var dmin = this.lutDomainMin || [0, 0, 0], dmax = this.lutDomainMax || [1, 1, 1];
             gl.uniform3f(u("uLutDomainMin"), dmin[0], dmin[1], dmin[2]);
             gl.uniform3f(u("uLutDomainMax"), dmax[0], dmax[1], dmax[2]);
@@ -455,6 +483,7 @@ const GLRender = (function () {
             gl.bindTexture(gl.TEXTURE_3D, this.dummyLut);
             gl.uniform1i(u("uLutEnabled"), 0);
             gl.uniform1f(u("uLutSize"), 2.0);
+            gl.uniform1i(u("uLutLogInput"), 0);
             gl.uniform3f(u("uLutDomainMin"), 0, 0, 0);
             gl.uniform3f(u("uLutDomainMax"), 1, 1, 1);
         }
