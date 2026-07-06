@@ -66,7 +66,8 @@ html, body {
     box-shadow: 0 2px 26px rgba(0,0,0,0.55);
     image-rendering: auto;
 }
-#stage.panning { cursor: grabbing; }
+#view { cursor: grab; }
+#stage.panning, #stage.panning #view { cursor: grabbing; }
 #stage.dragover { outline: 2px dashed var(--accent); outline-offset: -12px; }
 
 #dropHint { text-align: center; color: var(--muted); }
@@ -134,8 +135,10 @@ html, body {
 .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .mini-select {
-    flex: 1; background: #262626; color: var(--text);
+    flex: 1; min-width: 0; max-width: 100%;
+    background: #262626; color: var(--text);
     border: 1px solid var(--line2); border-radius: 4px; height: 26px; padding: 0 6px;
+    text-overflow: ellipsis;
 }
 
 /* Groups */

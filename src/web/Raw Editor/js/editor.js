@@ -666,11 +666,10 @@
         setZoomAt(vz.zoom * factor, cx, cy);
     }, { passive: false });
 
-    // Right / middle mouse button drag to pan.
+    // Left (or middle) mouse button drag to pan.
     var panning = false, lastX = 0, lastY = 0;
-    stage.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     stage.addEventListener("mousedown", function (e) {
-        if (!decoded || (e.button !== 2 && e.button !== 1)) return;
+        if (!decoded || (e.button !== 0 && e.button !== 1)) return;
         panning = true; lastX = e.clientX; lastY = e.clientY;
         stage.classList.add("panning");
         e.preventDefault();
