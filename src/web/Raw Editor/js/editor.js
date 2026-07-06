@@ -20,13 +20,15 @@
     var defaults = {
         temperature: 5500, tint: 0, exposure: 0, contrast: 0,
         highlights: 0, shadows: 0, whites: 0, blacks: 0,
-        clarity: 0, dehaze: 0, vibrance: 0, saturation: 0,
-        lutAmount: 100
+        texture: 0, clarity: 0, dehaze: 0, vibrance: 0, saturation: 0,
+        vignette: 0, grain: 0, lutAmount: 100
     };
     var state = Object.assign({}, defaults);
     state.baseTemp = 5500;
     state.treatment = "color";
     state.lutEnabled = true;
+    // Per-group bypass ("eye") toggles.
+    state.groupOn = { light: true, color: true, effects: true, lut: true };
 
     // ---- init WebGL ------------------------------------------------------
     try {
@@ -111,15 +113,29 @@
     }
 
     function getParams() {
+        var g = state.groupOn;
         var p = {
             baseTemp: state.baseTemp,
-            temperature: state.temperature, tint: state.tint,
-            exposure: state.exposure, contrast: state.contrast,
-            highlights: state.highlights, shadows: state.shadows,
-            whites: state.whites, blacks: state.blacks,
-            clarity: state.clarity, dehaze: state.dehaze,
-            vibrance: state.vibrance, saturation: state.saturation,
-            lutEnabled: !!(lut && state.lutEnabled),
+            // Color group
+            temperature: g.color ? state.temperature : state.baseTemp,
+            tint: g.color ? state.tint : 0,
+            vibrance: g.color ? state.vibrance : 0,
+            saturation: g.color ? state.saturation : 0,
+            // Light group
+            exposure: g.light ? state.exposure : 0,
+            contrast: g.light ? state.contrast : 0,
+            highlights: g.light ? state.highlights : 0,
+            shadows: g.light ? state.shadows : 0,
+            whites: g.light ? state.whites : 0,
+            blacks: g.light ? state.blacks : 0,
+            // Effects group
+            texture: g.effects ? state.texture : 0,
+            clarity: g.effects ? state.clarity : 0,
+            dehaze: g.effects ? state.dehaze : 0,
+            vignette: g.effects ? state.vignette : 0,
+            grain: g.effects ? state.grain : 0,
+            // LUT group
+            lutEnabled: !!(lut && state.lutEnabled && g.lut),
             lutAmount: state.lutAmount / 100
         };
         if (state.treatment === "bw") { p.saturation = -100; p.vibrance = 0; }
@@ -130,6 +146,7 @@
         if (!renderer || !decoded) return;
         renderer.render(getParams());
         updateHistogram();
+        updateFilmstrip();
     }
 
     // =====================================================================
@@ -162,6 +179,27 @@
         drawChannel(ctx, r, max, "rgba(255,80,80,0.75)");
         drawChannel(ctx, g, max, "rgba(90,220,90,0.75)");
         drawChannel(ctx, b, max, "rgba(90,140,255,0.75)");
+
+        // Clipping indicators (fraction of pixels pinned to 0 / 255).
+        var totalPx = histSmall.width * histSmall.height;
+        var hi = Math.max(r[255], g[255], b[255]);
+        var lo = Math.max(r[0], g[0], b[0]);
+        var ch = document.getElementById("clipHigh");
+        var cs = document.getElementById("clipShadow");
+        if (ch) ch.classList.toggle("active-high", hi / totalPx > 0.01);
+        if (cs) cs.classList.toggle("active-shadow", lo / totalPx > 0.01);
+    }
+
+    // Small preview thumbnail in the bottom filmstrip.
+    function updateFilmstrip() {
+        var fs = document.getElementById("filmstrip");
+        var v = document.getElementById("view");
+        if (!fs || !v.width) return;
+        var ctx = fs.getContext("2d");
+        ctx.fillStyle = "#111"; ctx.fillRect(0, 0, fs.width, fs.height);
+        var s = Math.min(fs.width / v.width, fs.height / v.height);
+        var w = v.width * s, h = v.height * s;
+        try { ctx.drawImage(v, (fs.width - w) / 2, (fs.height - h) / 2, w, h); } catch (e) { /* ignore */ }
     }
 
     function drawChannel(ctx, arr, max, color) {
@@ -345,28 +383,47 @@
             setSliderByKey(k, def);
         });
         state.treatment = "color";
-        document.querySelector('input[name=treatment][value=color]').checked = true;
+        document.getElementById("btnBW").classList.remove("active");
         document.getElementById("wbPreset").value = "asshot";
         if (keepImage) scheduleRender();
     }
 
     document.getElementById("btnReset").addEventListener("click", function () { resetAll(true); });
 
-    // Treatment radios
-    document.querySelectorAll('input[name=treatment]').forEach(function (r) {
-        r.addEventListener("change", function () { state.treatment = this.value; scheduleRender(); });
+    // Treatment (B&W) toggle in the Edit header
+    document.getElementById("btnBW").addEventListener("click", function () {
+        state.treatment = (state.treatment === "bw") ? "color" : "bw";
+        this.classList.toggle("active", state.treatment === "bw");
+        scheduleRender();
+    });
+
+    // Auto white balance eyedropper
+    document.getElementById("btnEyedrop").addEventListener("click", function () {
+        autoWhiteBalance();
+        document.getElementById("wbPreset").value = "auto";
+        scheduleRender();
     });
 
     // =====================================================================
-    //  Tabs
+    //  Collapsible groups (chevron) + per-group bypass (eye)
     // =====================================================================
-    document.querySelectorAll(".panel-tab").forEach(function (tab, idx) {
-        tab.addEventListener("click", function () {
-            document.querySelectorAll(".panel-tab").forEach(function (t) { t.classList.remove("active"); });
-            tab.classList.add("active");
-            document.getElementById("pageBasic").style.display = idx === 0 ? "block" : "none";
-            document.getElementById("pageLut").style.display = idx === 1 ? "block" : "none";
+    document.querySelectorAll(".group-head").forEach(function (head) {
+        var group = head.parentElement;
+        head.addEventListener("click", function (e) {
+            if (e.target.classList.contains("eye-toggle")) return;
+            group.classList.toggle("collapsed");
         });
+        var eye = head.querySelector(".eye-toggle");
+        if (eye) {
+            eye.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var key = group.dataset.group;
+                state.groupOn[key] = !state.groupOn[key];
+                group.classList.toggle("bypassed", !state.groupOn[key]);
+                eye.className = state.groupOn[key] ? "eye icon eye-toggle" : "eye slash icon eye-toggle";
+                scheduleRender();
+            });
+        }
     });
 
     // =====================================================================
@@ -452,16 +509,18 @@
 
     // Zoom buttons (CSS driven, simple fit / 1:1 toggle)
     var oneToOne = false;
-    document.getElementById("btnFit").addEventListener("click", function () {
+    function fitToWindow() {
         oneToOne = false;
         var v = document.getElementById("view");
-        v.style.maxWidth = "100%"; v.style.maxHeight = "100%"; v.style.width = ""; v.style.height = "";
-    });
+        v.style.maxWidth = ""; v.style.maxHeight = ""; v.style.width = ""; v.style.height = "";
+    }
+    document.getElementById("btnFit").addEventListener("click", fitToWindow);
+    document.getElementById("btnZoomFit").addEventListener("click", fitToWindow);
     document.getElementById("btnZoom100").addEventListener("click", function () {
         oneToOne = !oneToOne;
         var v = document.getElementById("view");
         if (oneToOne && decoded) { v.style.maxWidth = "none"; v.style.maxHeight = "none"; v.style.width = decoded.width + "px"; v.style.height = decoded.height + "px"; }
-        else { v.style.maxWidth = "100%"; v.style.maxHeight = "100%"; v.style.width = ""; v.style.height = ""; }
+        else { fitToWindow(); }
     });
 
     // =====================================================================
@@ -469,6 +528,9 @@
     // =====================================================================
     document.getElementById("btnSave").addEventListener("click", saveImage);
     document.getElementById("btnDone").addEventListener("click", openInPixelStudio);
+    document.getElementById("btnCancel").addEventListener("click", function () {
+        if (typeof ao_module_close === "function") ao_module_close();
+    });
 
     // Hand the developed image off to Pixel Studio: write the current develop to
     // a temporary file (tmp:/ is cleared automatically) then launch Pixel Studio

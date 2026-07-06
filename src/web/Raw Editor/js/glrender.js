@@ -60,10 +60,13 @@ const GLRender = (function () {
     uniform float uShadows;
     uniform float uWhites;
     uniform float uBlacks;
+    uniform float uTexture;
     uniform float uClarity;
     uniform float uDehaze;
     uniform float uVibrance;
     uniform float uSaturation;
+    uniform float uVignette;
+    uniform float uGrain;
     uniform int   uLutEnabled;
     uniform float uLutAmount;
     uniform float uLutSize;
@@ -76,7 +79,7 @@ const GLRender = (function () {
         return pow(c, vec3(1.0/2.2));
     }
 
-    vec3 develop(vec3 lin, vec3 blurLin){
+    vec3 develop(vec3 lin, vec3 blurLin, vec2 uv){
         // 1. White balance + exposure in linear light.
         lin *= uWB;
         lin *= exp2(uExposure);
@@ -101,9 +104,10 @@ const GLRender = (function () {
         v += uWhites     * 0.4 * whMask;
         v += uBlacks     * 0.4 * bkMask;
 
-        // 5. Clarity — midtone local contrast from the low-pass luma.
+        // 5. Texture (fine local contrast) + Clarity (midtone local contrast).
         float detail = L - bl;
         float midMask = 1.0 - clamp(abs(L - 0.5) * 2.0, 0.0, 1.0);
+        v += uTexture * detail * 1.4;
         v += uClarity * detail * midMask * 2.0;
 
         // 6. Dehaze — pull local contrast harder and lift low areas.
@@ -125,7 +129,18 @@ const GLRender = (function () {
         lum = dot(v, LUMA);
         v = clamp(mix(vec3(lum), v, 1.0 + uSaturation), 0.0, 1.0);
 
-        // 8. 3D LUT colour grade.
+        // 8. Vignette (radial) and grain (post effects).
+        if (abs(uVignette) > 0.001){
+            float dd = distance(uv, vec2(0.5)) * 1.41421;
+            v *= clamp(1.0 + uVignette * 0.9 * (dd * dd - 0.25), 0.0, 4.0);
+        }
+        if (uGrain > 0.001){
+            float n = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
+            v += (n - 0.5) * uGrain * 0.18;
+        }
+        v = clamp(v, 0.0, 1.0);
+
+        // 9. 3D LUT colour grade.
         if (uLutEnabled == 1){
             float N = uLutSize;
             vec3 lc = v * (N - 1.0) / N + 0.5 / N;
@@ -138,7 +153,7 @@ const GLRender = (function () {
     void main(){
         vec3 lin = texture(uImage, vUv).rgb;
         vec3 blurLin = texture(uBlur, vUv).rgb;
-        frag = vec4(develop(lin, blurLin), 1.0);
+        frag = vec4(develop(lin, blurLin, vUv), 1.0);
     }`;
 
     function compile(gl, type, src) {
@@ -373,10 +388,13 @@ const GLRender = (function () {
         gl.uniform1f(u("uShadows"), p.shadows / 100);
         gl.uniform1f(u("uWhites"), p.whites / 100);
         gl.uniform1f(u("uBlacks"), p.blacks / 100);
+        gl.uniform1f(u("uTexture"), p.texture / 100);
         gl.uniform1f(u("uClarity"), p.clarity / 100);
         gl.uniform1f(u("uDehaze"), p.dehaze / 100);
         gl.uniform1f(u("uVibrance"), p.vibrance / 100);
         gl.uniform1f(u("uSaturation"), p.saturation / 100);
+        gl.uniform1f(u("uVignette"), p.vignette / 100);
+        gl.uniform1f(u("uGrain"), p.grain / 100);
 
         // Always keep a complete 3D texture on the uLUT sampler (see dummyLut).
         gl.activeTexture(gl.TEXTURE2);
