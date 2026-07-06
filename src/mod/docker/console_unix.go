@@ -1,14 +1,14 @@
-//go:build linux || darwin
+//go:build linux || darwin || freebsd
 
 package docker
 
 /*
 	console_unix.go
 
-	Real PTY-backed `docker exec -it` for Linux/macOS hosts using
+	Real PTY-backed `docker exec -it` for Linux/macOS/FreeBSD hosts using
 	github.com/creack/pty (MIT). Isolated behind a build tag so non-PTY
-	platforms (Windows) compile against console_windows.go instead, per the
-	project's cross-platform rule.
+	platforms (Windows and any other GOOS) compile against console_other.go
+	instead, per the project's cross-platform rule.
 */
 
 import (

@@ -7,8 +7,8 @@ package docker
 	to xterm.js over a websocket. The PTY allocation is platform-specific and
 	lives in build-tagged files:
 
-	    console_unix.go    (linux || darwin) — real PTY via github.com/creack/pty
-	    console_windows.go (windows)         — returns "not supported"
+	    console_unix.go   (linux || darwin || freebsd) — real PTY via github.com/creack/pty
+	    console_other.go  (all other GOOS, incl. windows) — returns "not supported"
 
 	Wire protocol:
 	    server -> client : binary frames  = raw terminal output bytes
