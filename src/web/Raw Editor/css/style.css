@@ -228,6 +228,8 @@ html, body {
 
 /* LUT */
 .lut-intro { color: var(--muted); font-size: 11.5px; margin: 6px 0 10px 0; line-height: 1.45; }
+.lut-intro .mono { font-family: "SFMono-Regular", Menlo, Consolas, monospace; color: var(--text); font-size: 11px; }
+.lut-hint { color: var(--muted2); font-size: 11px; margin: 4px 0 10px 0; }
 .lut-info { margin-top: 12px; }
 .lut-name { color: var(--text); font-size: 11.5px; word-break: break-all; text-align: right; flex: 1; }
 .switch { position: relative; display: inline-block; width: 36px; height: 19px; }

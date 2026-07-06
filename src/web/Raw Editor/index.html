@@ -148,8 +148,14 @@
                             <i class="eye icon eye-toggle" title="Toggle LUT"></i>
                         </div>
                         <div class="group-body">
-                            <div class="lut-intro">Apply a 3D colour lookup table (.cube), applied after all adjustments.</div>
-                            <button class="ui tiny inverted fluid button" id="btnLoadLut"><i class="upload icon"></i> Load .cube LUT</button>
+                            <div class="lut-intro">Drop <b>.cube</b> LUT files into <span class="mono">user:/RawEditor/LUTs</span> with the Files app, then pick one here. LUTs apply after all adjustments.</div>
+                            <div class="wb-row">
+                                <span class="lbl">Library</span>
+                                <select id="lutLibrary" class="mini-select"><option value="">&mdash; Select a LUT &mdash;</option></select>
+                                <button class="ic-btn eyedrop" id="btnLutRefresh" title="Rescan LUT folder"><i class="sync icon"></i></button>
+                            </div>
+                            <div id="lutEmpty" class="lut-hint">Scanning LUT folder&hellip;</div>
+                            <button class="ui tiny inverted fluid button" id="btnLoadLut"><i class="upload icon"></i> Import .cube to library</button>
                             <input type="file" id="lutFile" accept=".cube" style="display:none;">
                             <div id="lutInfo" class="lut-info" style="display:none;">
                                 <div class="wb-row"><span class="lbl">LUT</span><span id="lutName" class="lut-name">-</span></div>

@@ -427,31 +427,136 @@
     });
 
     // =====================================================================
-    //  LUT
+    //  LUT  (library folder in the user's ArozOS storage + local import)
     // =====================================================================
+    var LUT_ROOT = "user:/RawEditor";       // parent folder
+    var LUT_DIR = "user:/RawEditor/LUTs";   // where .cube files live
+
+    function inDesktop() {
+        return (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop) || window.parent !== window;
+    }
+
+    // --- minimal ArozOS file-system helpers ---
+    function fsPost(url, body) {
+        return fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body
+        });
+    }
+    function fsListDir(dir) {
+        return fsPost("../system/file_system/listDir", "dir=" + encodeURIComponent(dir)).then(function (r) { return r.json(); });
+    }
+    function fsCSRF() {
+        return fetch("../system/csrf/new").then(function (r) { return r.text(); });
+    }
+    function fsNewFolder(src, name) {
+        return fsCSRF().then(function (token) {
+            return fsPost("../system/file_system/newItem",
+                "type=folder&src=" + encodeURIComponent(src) + "&filename=" + encodeURIComponent(name) + "&csrft=" + encodeURIComponent(token));
+        });
+    }
+
+    function applyLut(parsed, displayName) {
+        lut = parsed;
+        renderer.setLUT(lut);
+        state.lutEnabled = true;
+        var g = document.querySelector('.group[data-group="lut"]');
+        if (g) { g.classList.remove("bypassed"); }
+        state.groupOn.lut = true;
+        document.getElementById("lutEnabled").checked = true;
+        document.getElementById("lutInfo").style.display = "block";
+        document.getElementById("lutName").textContent = (parsed.title ? parsed.title + "  " : "") + displayName + "  (" + parsed.size + "³)";
+        scheduleRender();
+    }
+
+    // Load a LUT stored in the user's storage by virtual path.
+    function loadLutFromPath(filepath, name) {
+        fetch("../media?file=" + encodeURIComponent(filepath)).then(function (r) {
+            if (!r.ok) throw new Error("Could not read file (HTTP " + r.status + ")");
+            return r.text();
+        }).then(function (text) {
+            applyLut(LUTParser.parse(text), name);
+        }).catch(function (e) { alert("Could not load LUT: " + e.message); });
+    }
+
+    // Populate the library dropdown from a listDir result.
+    function populateLutLibrary(list) {
+        var sel = document.getElementById("lutLibrary");
+        var hint = document.getElementById("lutEmpty");
+        var current = sel.value;
+        sel.innerHTML = '<option value="">— Select a LUT —</option>';
+        var cubes = (list || []).filter(function (f) { return !f.IsDir && /\.cube$/i.test(f.Filename); });
+        cubes.sort(function (a, b) { return a.Filename.toLowerCase() < b.Filename.toLowerCase() ? -1 : 1; });
+        cubes.forEach(function (f) {
+            var o = document.createElement("option");
+            o.value = f.Filepath;
+            o.textContent = f.Filename.replace(/\.cube$/i, "");
+            sel.appendChild(o);
+        });
+        if (current) sel.value = current;
+        if (hint) {
+            hint.textContent = cubes.length
+                ? (cubes.length + " LUT" + (cubes.length > 1 ? "s" : "") + " in library")
+                : "No LUTs yet — add .cube files to user:/RawEditor/LUTs or import one below.";
+        }
+    }
+
+    // List the LUT folder, creating it (and its parent) on first use.
+    function refreshLutLibrary() {
+        if (!inDesktop()) {
+            var hint = document.getElementById("lutEmpty");
+            if (hint) hint.textContent = "Library needs the ArozOS desktop — use Import below.";
+            return;
+        }
+        fsListDir(LUT_DIR).then(function (list) {
+            if (list && list.error) {
+                // Folder missing — create parent then LUT folder, then retry.
+                return fsNewFolder("user:/", "RawEditor").catch(function () { }).then(function () {
+                    return fsNewFolder(LUT_ROOT + "/", "LUTs").catch(function () { });
+                }).then(function () { return fsListDir(LUT_DIR); });
+            }
+            return list;
+        }).then(function (list) {
+            populateLutLibrary(Array.isArray(list) ? list : []);
+        }).catch(function () {
+            var hint = document.getElementById("lutEmpty");
+            if (hint) hint.textContent = "Could not read the LUT folder.";
+        });
+    }
+
+    document.getElementById("lutLibrary").addEventListener("change", function () {
+        if (!this.value) return;
+        loadLutFromPath(this.value, this.options[this.selectedIndex].text);
+    });
+    document.getElementById("btnLutRefresh").addEventListener("click", refreshLutLibrary);
+
+    // Import: load a local .cube immediately and (in desktop) save it to the library.
     document.getElementById("btnLoadLut").addEventListener("click", function () {
         document.getElementById("lutFile").click();
     });
     document.getElementById("lutFile").addEventListener("change", function () {
         var f = this.files[0];
+        this.value = "";
         if (!f) return;
         var reader = new FileReader();
         reader.onload = function () {
-            try {
-                lut = LUTParser.parse(reader.result);
-                renderer.setLUT(lut);
-                state.lutEnabled = true;
-                document.getElementById("lutEnabled").checked = true;
-                document.getElementById("lutInfo").style.display = "block";
-                document.getElementById("lutName").textContent = (lut.title ? lut.title + "  " : "") + f.name + "  (" + lut.size + "³)";
-                scheduleRender();
-            } catch (e) {
-                alert("Could not load LUT: " + e.message);
+            var parsed;
+            try { parsed = LUTParser.parse(reader.result); }
+            catch (e) { alert("Could not load LUT: " + e.message); return; }
+            applyLut(parsed, f.name.replace(/\.cube$/i, ""));
+            // Persist into the library so it shows up next time.
+            if (inDesktop() && typeof ao_module_uploadFile === "function") {
+                fsNewFolder("user:/", "RawEditor").catch(function () { }).then(function () {
+                    return fsNewFolder(LUT_ROOT + "/", "LUTs").catch(function () { });
+                }).then(function () {
+                    ao_module_uploadFile(f, LUT_DIR, function () { refreshLutLibrary(); });
+                });
             }
         };
         reader.readAsText(f);
-        this.value = "";
     });
+
     document.getElementById("lutEnabled").addEventListener("change", function () {
         state.lutEnabled = this.checked;
         scheduleRender();
@@ -460,6 +565,7 @@
         lut = null;
         renderer.setLUT(null);
         document.getElementById("lutInfo").style.display = "none";
+        document.getElementById("lutLibrary").value = "";
         scheduleRender();
     });
 
@@ -624,6 +730,7 @@
     //  Boot
     // =====================================================================
     initSliders();
+    refreshLutLibrary();
 
     if (glOK) {
         var inputFiles = (typeof ao_module_loadInputFiles === "function") ? ao_module_loadInputFiles() : null;
