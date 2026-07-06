@@ -468,9 +468,52 @@
     //  Save + Done
     // =====================================================================
     document.getElementById("btnSave").addEventListener("click", saveImage);
-    document.getElementById("btnDone").addEventListener("click", function () {
-        if (typeof ao_module_close === "function") ao_module_close();
-    });
+    document.getElementById("btnDone").addEventListener("click", openInPixelStudio);
+
+    // Hand the developed image off to Pixel Studio: write the current develop to
+    // a temporary file (tmp:/ is cleared automatically) then launch Pixel Studio
+    // as a float window with that file as its input.
+    function openInPixelStudio() {
+        var inDesktop = (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop);
+        if (!decoded || !renderer) {
+            if (typeof ao_module_close === "function") ao_module_close();
+            return;
+        }
+        if (!inDesktop || typeof ao_module_uploadFile !== "function") {
+            // Outside the ArozOS desktop we cannot open another module — just save.
+            saveImage();
+            return;
+        }
+        doRender(); // ensure the canvas holds the latest develop
+        var view = document.getElementById("view");
+        view.toBlob(function (blob) {
+            if (!blob) { alert("Failed to encode image."); return; }
+            var base = (sourceFile && sourceFile.filename) ? stripExt(sourceFile.filename) : "Untitled";
+            var fname = base + "_raw_" + Date.now() + ".jpg";
+            var tmpDir = "tmp:/RawEditor";
+            var file = ao_module_utils.blobToFile(blob, fname);
+            showLoader("Opening in Pixel Studio...");
+            ao_module_uploadFile(file, tmpDir, function () {
+                hideLoader();
+                launchPixelStudio(tmpDir + "/" + fname, fname);
+                if (typeof ao_module_close === "function") ao_module_close();
+            }, undefined, function () {
+                hideLoader();
+                alert("Could not hand the image to Pixel Studio. Try 'Save Image...' instead.");
+            });
+        }, "image/jpeg", 0.95);
+    }
+
+    function launchPixelStudio(filepath, filename) {
+        var hash = encodeURIComponent(JSON.stringify([{ filename: filename, filepath: filepath }]));
+        ao_module_newfw({
+            url: "Pixel Studio/index.html#" + hash,
+            width: 1280,
+            height: 820,
+            appicon: "Pixel Studio/img/module_icon.png",
+            title: "Pixel Studio - " + filename
+        });
+    }
 
     function saveImage() {
         if (!decoded || !renderer) { alert("Nothing to save yet."); return; }
