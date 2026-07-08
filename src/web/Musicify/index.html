@@ -1585,6 +1585,12 @@
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
+                        <div x-show="_isIOS()" style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
+                            <span style="font-size:12px;color:var(--text3);">
+                                <i class="ui info circle icon" style="color:var(--accent);"></i>
+                                On iPhone &amp; iPad the bars use a simulated animation rather than true audio analysis. This is intentional: analysing the live audio signal would route playback through Web Audio, which iOS stops when the screen locks. The simulated animation keeps background playback working while still hiding the album art.
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Mobile Volume subsection -->

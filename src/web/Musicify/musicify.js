@@ -130,6 +130,7 @@ function musicifyApp() {
         _analyser: null,
         _vizData: null,
         _vizAnimId: null,
+        _syntheticViz: false,          // iOS: animate the bars without Web Audio so screen-lock doesn't stop playback
 
         // ── Arozcast ─────────────────────────────────────────────────────────
         castMode: false,
@@ -1539,7 +1540,16 @@ function musicifyApp() {
         // done once per element (createMediaElementSource throws on a second call),
         // so the analyser is created once and simply left connected afterwards.
         _ensureAnalyser() {
-            if (this._analyser || !this._audio) return;
+            if (this._analyser || this._syntheticViz || !this._audio) return;
+            // iOS: routing the <audio> element through a Web Audio AudioContext
+            // (createMediaElementSource) hands playback to that context, which iOS
+            // suspends when the screen locks — stopping background audio. Skip Web
+            // Audio there and drive the bars with a synthetic animation instead, so
+            // playback behaves exactly like non-privacy mode.
+            if (this._isIOS()) {
+                this._syntheticViz = true;
+                return;
+            }
             try {
                 var AudioCtx = window.AudioContext || window.webkitAudioContext;
                 this._audioCtx = new AudioCtx();
@@ -1581,6 +1591,16 @@ function musicifyApp() {
                     var dist = Math.abs(i - mid);
                     var idx = Math.min(binCount - 1, dist * step);
                     heights[i] = Math.max(0.06, this._vizData[idx] / 255);
+                }
+            } else if (this._syntheticViz) {
+                // iOS fallback: procedurally animated, center-weighted bars that
+                // pulse while playing and settle when paused (no real FFT).
+                var t = performance.now() / 1000;
+                var active = this.isPlaying ? 1 : 0;
+                for (var k = 0; k < bars; k++) {
+                    var envelope = 1 - (Math.abs(k - mid) / mid) * 0.7; // taller in the middle
+                    var wave = 0.5 + 0.30 * Math.sin(t * 3.1 + k * 0.5) + 0.15 * Math.sin(t * 5.7 + k * 0.9);
+                    heights[k] = Math.max(0.06, Math.min(1, 0.08 + active * Math.max(0, wave) * envelope * 0.9));
                 }
             } else {
                 for (var j = 0; j < bars; j++) heights[j] = 0.06;
