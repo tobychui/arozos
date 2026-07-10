@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=yes" />
+    <meta name="theme-color" content="#1b4f9c" />
+    <meta name="description" content="ArozOS MeetRoom video conferencing" />
+    <title>MeetRoom</title>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="app.css">
+</head>
+
+<body>
+    <!-- ================= Lobby ================= -->
+    <div id="lobby">
+        <div class="lobby-inner">
+            <div class="lobby-brand">
+                <img src="img/module_icon.svg" alt="MeetRoom">
+                <div>
+                    <h1>MeetRoom</h1>
+                    <p>Video meetings with chat, screen sharing and file sharing</p>
+                </div>
+            </div>
+            <div class="ui two stackable cards lobby-cards">
+                <div class="ui card">
+                    <div class="content">
+                        <div class="header"><i class="video icon"></i> New Meeting</div>
+                        <div class="description">
+                            <div class="ui form">
+                                <div class="field">
+                                    <label>Meeting title (optional)</label>
+                                    <input type="text" id="createTitle" maxlength="64" placeholder="My meeting">
+                                </div>
+                                <div class="field">
+                                    <label>Password (optional)</label>
+                                    <input type="password" id="createPassword" autocomplete="new-password" placeholder="Leave empty for an open room">
+                                </div>
+                                <button id="createBtn" class="ui primary fluid button">
+                                    <i class="video icon"></i> Start Meeting
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui card">
+                    <div class="content">
+                        <div class="header"><i class="sign-in icon"></i> Join Meeting</div>
+                        <div class="description">
+                            <div class="ui form">
+                                <div class="field">
+                                    <label>Meeting ID</label>
+                                    <input type="text" id="joinRoomId" placeholder="123-456-789">
+                                </div>
+                                <div class="field">
+                                    <label>Password</label>
+                                    <input type="password" id="joinPassword" autocomplete="off" placeholder="If the room is protected">
+                                </div>
+                                <button id="joinBtn" class="ui teal fluid button">
+                                    <i class="sign-in icon"></i> Join
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="lobbyError" class="ui negative message" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- ================= Meeting room ================= -->
+    <div id="room" style="display:none;">
+        <div id="roomHeader">
+            <div class="room-titles">
+                <span id="roomTitle"></span>
+                <span id="roomIdTag" class="ui small basic label" title="Click to copy meeting ID">
+                    <i class="copy outline icon"></i><span id="roomIdText"></span>
+                </span>
+            </div>
+            <div class="room-meta">
+                <i class="user icon"></i><span id="participantCount">1</span>
+            </div>
+        </div>
+
+        <div id="reconnectBanner" style="display:none;">
+            <i class="spinner loading icon"></i> <span id="reconnectText">Connection lost - reconnecting...</span>
+        </div>
+
+        <div id="roomBody">
+            <div id="videoGrid"></div>
+            <div id="chatPanel" style="display:none;">
+                <div class="chat-header">
+                    <i class="comments icon"></i> Meeting Chat
+                    <i id="chatCloseBtn" class="close icon chat-close"></i>
+                </div>
+                <div id="chatMessages"></div>
+                <div class="chat-input">
+                    <div id="uploadStatus" style="display:none;">
+                        <i class="spinner loading icon"></i> <span id="uploadStatusText">Uploading...</span>
+                    </div>
+                    <div class="ui small action input fluid">
+                        <input type="text" id="chatText" maxlength="4000" placeholder="Type a message...">
+                        <button id="attachBtn" class="ui icon button" title="Share a file">
+                            <i class="paperclip icon"></i>
+                        </button>
+                        <button id="chatSendBtn" class="ui primary icon button" title="Send">
+                            <i class="paper plane icon"></i>
+                        </button>
+                    </div>
+                    <input type="file" id="attachInput" style="display:none;">
+                </div>
+            </div>
+        </div>
+
+        <div id="controlBar">
+            <button id="micBtn" class="ctrl-btn" title="Mute / unmute microphone">
+                <i class="microphone icon"></i><span>Mute</span>
+            </button>
+            <button id="camBtn" class="ctrl-btn" title="Start / stop camera">
+                <i class="video icon"></i><span>Camera</span>
+            </button>
+            <button id="shareBtn" class="ctrl-btn" title="Share your screen">
+                <i class="desktop icon"></i><span>Share</span>
+            </button>
+            <button id="chatBtn" class="ctrl-btn" title="Open chat">
+                <i class="comments icon"></i><span>Chat</span>
+                <span id="chatBadge" class="chat-badge" style="display:none;"></span>
+            </button>
+            <button id="inviteBtn" class="ctrl-btn" title="Copy invite info">
+                <i class="share alternate icon"></i><span>Invite</span>
+            </button>
+            <button id="leaveBtn" class="ctrl-btn ctrl-danger" title="Leave the meeting">
+                <i class="sign-out icon"></i><span>Leave</span>
+            </button>
+            <button id="endBtn" class="ctrl-btn ctrl-danger" title="End the meeting for everyone" style="display:none;">
+                <i class="stop circle icon"></i><span>End</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
