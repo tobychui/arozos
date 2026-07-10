@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sheets</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../common/office.css">
+    <link rel="stylesheet" href="sheets.css">
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../common/office.js"></script>
+    <script src="../common/charts.js"></script>
+    <script src="formula.js"></script>
+</head>
+<body data-officeapp="sheets">
+    <div class="of-toolbar of-noprint" id="toolbar"></div>
+    <div id="shFxBar" class="of-noprint">
+        <input id="shNameBox" spellcheck="false" title="Cell reference (type a ref and press Enter to jump)">
+        <span id="shFxLabel">fx</span>
+        <input id="shFxInput" spellcheck="false" placeholder="">
+    </div>
+    <div class="of-workspace" id="workspace">
+        <div id="shGridWrap">
+            <div id="shCorner" title="Select all"></div>
+            <div id="shColHead"><div id="shColHeadIn"></div></div>
+            <div id="shRowHead"><div id="shRowHeadIn"></div></div>
+            <div id="shGrid">
+                <div id="shSpacer"></div>
+                <div id="shCells"></div>
+                <div id="shRangeBox"></div>
+                <div id="shFillHandle" title="Drag to fill"></div>
+                <div id="shChartLayer"></div>
+                <textarea id="shCellInput" rows="1" spellcheck="false"></textarea>
+            </div>
+        </div>
+    </div>
+    <div id="shTabs" class="of-noprint">
+        <button id="shAddSheet" type="button" title="Add sheet"><i class="plus icon"></i></button>
+        <div id="shTabList"></div>
+    </div>
+    <div id="shPrintArea"></div>
+    <script src="sheets.js"></script>
+    <script src="sheets_io.js"></script>
+</body>
+</html>

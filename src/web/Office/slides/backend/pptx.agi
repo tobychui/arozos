@@ -1,0 +1,73 @@
+/*
+    Slides - PPTX import / export backend
+
+    Bridges the Slides webapp to the "office" AGI library (mod/office).
+
+    POST parameters:
+        action = "import" | "export"
+
+        import:  src  - virtual path of the .pptx to read
+                 -> {"body": <Slides body schema object>}
+
+        export:  dest - virtual path of the .pptx to write
+                 data - serialized Slides body JSON (images/charts inlined
+                        as data URLs by the front end)
+                 -> "OK"
+*/
+
+function main(){
+    if (!requirelib("office")){
+        sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+        return;
+    }
+
+    if (typeof action === "undefined"){
+        sendJSONResp(JSON.stringify({ error: "action is required" }));
+        return;
+    }
+
+    if (action == "import"){
+        if (typeof src === "undefined" || !src || src.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "src is required" }));
+            return;
+        }
+        try {
+            var bodyJson = office.pptxToPresentation(src);
+            if (!bodyJson){
+                sendJSONResp(JSON.stringify({ error: "unable to parse the pptx file" }));
+                return;
+            }
+            //bodyJson is already a JSON string - concat instead of re-encoding
+            sendJSONResp('{"body":' + bodyJson + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "import failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            var ok = office.presentationToPptx(data, dest);
+            if (!ok){
+                sendJSONResp(JSON.stringify({ error: "unable to write the pptx file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    sendJSONResp(JSON.stringify({ error: "unknown action: " + action }));
+}
+
+main();

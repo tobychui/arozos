@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Docs</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../common/office.css">
+    <link rel="stylesheet" href="docs.css">
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../common/office.js"></script>
+    <script src="../common/lib/marked.min.js"></script>
+    <!-- Dynamic print stylesheet: docs.js writes the @page rule (size,
+         orientation, margins, optional page-number margin box) in here
+         whenever the page setup changes. Static print rules live in docs.css. -->
+    <style id="pagePrintStyle"></style>
+</head>
+<body data-officeapp="docs">
+
+    <!-- Toolbar (buttons are built by docs.js) -->
+    <div class="of-toolbar of-noprint" id="toolbar"></div>
+
+    <!-- Workspace: gray scroll area holding the white paper sheet -->
+    <div class="of-workspace" id="workspace">
+        <div id="pageWrap">
+            <div id="page">
+                <div id="docHeader" class="doc-hf" contenteditable="true"
+                     data-placeholder="Header - click to edit" spellcheck="false"></div>
+                <div id="editor" contenteditable="true" spellcheck="true"></div>
+                <div id="docFooter" class="doc-hf" contenteditable="true"
+                     data-placeholder="Footer - click to edit" spellcheck="false"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Find and Replace floating panel (non-modal so the document stays visible) -->
+    <div id="findPanel" class="of-find-panel of-noprint" style="display:none;">
+        <div class="fp-row">
+            <input type="text" id="findInput" class="of-tinput" placeholder="Find in document">
+            <span id="findCount" class="fp-count">0/0</span>
+            <button type="button" class="of-tbtn" id="findPrev" title="Previous match (Shift+Enter)"><i class="chevron up icon"></i></button>
+            <button type="button" class="of-tbtn" id="findNext" title="Next match (Enter)"><i class="chevron down icon"></i></button>
+            <button type="button" class="of-tbtn" id="findClose" title="Close (Esc)"><i class="close icon"></i></button>
+        </div>
+        <div class="fp-row" id="replaceRow" style="display:none;">
+            <input type="text" id="replaceInput" class="of-tinput" placeholder="Replace with">
+            <button type="button" class="of-btn" id="replaceOne" title="Replace current match">Replace</button>
+            <button type="button" class="of-btn" id="replaceAllBtn" title="Replace every match">All</button>
+        </div>
+    </div>
+
+    <!-- Hidden input for "Insert image from this device" -->
+    <input type="file" id="deviceImageInput" accept="image/*" style="display:none;">
+
+    <script src="docs.js"></script>
+</body>
+</html>

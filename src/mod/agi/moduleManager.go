@@ -58,6 +58,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.LLMLibRegister()
 	g.CNNLibRegister()
 	g.SQLiteLibRegister()
+	g.OfficeLibRegister()
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")

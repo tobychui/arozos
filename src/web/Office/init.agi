@@ -1,0 +1,65 @@
+/*
+    ArozOS Office Suite - Module Register Script
+
+    Registers three webapps (Docs, Sheets, Slides) that live inside the
+    shared src/web/Office/ folder. All three share the resources under
+    Office/common/ (framework, chrome CSS, chart renderer, vendored libs
+    and the AGI file-saver backend).
+
+    Native file formats (JSON envelope, see Office/common/CONTRACT.md):
+        .doca - Docs   (word processor document)
+        .xlsa - Sheets (spreadsheet workbook)
+        .ppta - Slides (presentation)
+*/
+
+//Docs - word processor
+registerModule(JSON.stringify({
+    Name: "Docs",
+    Desc: "ArozOS Office word processor",
+    Group: "Office",
+    IconPath: "Office/img/docs.svg",
+    Version: "1.0",
+    StartDir: "Office/docs/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Office/docs/index.html",
+    SupportEmb: true,
+    LaunchEmb: "Office/docs/index.html",
+    InitFWSize: [1080, 700],
+    InitEmbSize: [1080, 700],
+    SupportedExt: [".doca"]
+}));
+
+//Sheets - spreadsheet
+registerModule(JSON.stringify({
+    Name: "Sheets",
+    Desc: "ArozOS Office spreadsheet",
+    Group: "Office",
+    IconPath: "Office/img/sheets.svg",
+    Version: "1.0",
+    StartDir: "Office/sheets/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Office/sheets/index.html",
+    SupportEmb: true,
+    LaunchEmb: "Office/sheets/index.html",
+    InitFWSize: [1180, 720],
+    InitEmbSize: [1180, 720],
+    SupportedExt: [".xlsa", ".csv", ".tsv", ".xlsx"]
+}));
+
+
+//Slides - presentation
+registerModule(JSON.stringify({
+    Name: "Slides",
+    Desc: "ArozOS Office presentation editor",
+    Group: "Office",
+    IconPath: "Office/img/slides.svg",
+    Version: "1.0",
+    StartDir: "Office/slides/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Office/slides/index.html",
+    SupportEmb: true,
+    LaunchEmb: "Office/slides/index.html",
+    InitFWSize: [1220, 740],
+    InitEmbSize: [1220, 740],
+    SupportedExt: [".ppta", ".pptx"]
+}));

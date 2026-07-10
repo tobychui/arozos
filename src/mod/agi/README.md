@@ -273,6 +273,7 @@ Registered library IDs:
 - `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
 - `llm` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
 - `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
+- `office` (ArozOS Office suite document converters — currently PowerPoint .pptx import/export)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -1139,6 +1140,71 @@ directly (all optional):
 
 `cnn.faceCompare` uses its own options shape instead: `model`, `threshold`,
 `a_cropped`, `b_cropped`.
+
+## office API
+
+Converters between the ArozOS Office suite webapps (`src/web/Office/`) and
+common office file formats. Backed by `mod/office` (pure Go, no external
+dependencies). Word (.docx) and Excel (.xlsx) helpers will join this library
+as the Docs and Sheets webapps mature.
+
+Load:
+
+```javascript
+requirelib("office");
+```
+
+### `office.pptxToPresentation(srcVpath)`
+Parse a PowerPoint `.pptx` file into the Slides document body schema (see
+`src/web/Office/common/CONTRACT.md`). Returns the body as a **JSON string**,
+or throws on failure. Embedded pictures are inlined as `data:` URLs; text
+boxes, preset shapes, connector lines and tables map to their Slides object
+types. Unsupported content (video, native charts, SmartArt) is skipped.
+
+```javascript
+requirelib("office");
+var bodyJson = office.pptxToPresentation("user:/Desktop/deck.pptx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.presentationToPptx(bodyJson, destVpath)`
+Build a `.pptx` from a serialized Slides body JSON string and write it to
+`destVpath`. Returns `true` on success. Image objects must be inlined as
+`data:` URLs and chart objects should carry a client-rendered PNG in
+`props.png` (the Slides webapp does both automatically before calling).
+
+```javascript
+requirelib("office");
+if (office.presentationToPptx(data, "user:/Desktop/out.pptx")){
+    sendResp("OK");
+}
+```
+
+### `office.xlsxToWorkbook(srcVpath)`
+Parse an Excel `.xlsx` file into the Sheets document body schema. Returns
+the body as a **JSON string**, or throws on failure. Handles values,
+formulas (recalculated by the webapp), shared/inline strings, cell styles,
+number formats, column widths / row heights, merged cells and frozen panes.
+Charts, pivot tables and conditional formatting are skipped. Legacy binary
+`.xls` is rejected with a message asking for `.xlsx`.
+
+```javascript
+requirelib("office");
+var bodyJson = office.xlsxToWorkbook("user:/Desktop/report.xlsx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.workbookToXlsx(bodyJson, destVpath)`
+Build a `.xlsx` from a serialized Sheets body JSON string and write it to
+`destVpath`. Returns `true` on success. Formulas are written natively so
+Excel recalculates them; webapp charts and filters are not exported.
+
+```javascript
+requirelib("office");
+if (office.workbookToXlsx(data, "user:/Desktop/out.xlsx")){
+    sendResp("OK");
+}
+```
 
 ## ffmpeg API
 

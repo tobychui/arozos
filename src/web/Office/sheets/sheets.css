@@ -1,0 +1,359 @@
+/*
+    ArozOS Office - Sheets stylesheet
+    Grid chrome, cells, selection, sheet tabs, charts and print rules.
+    Uses the shared office.css variables; dark mode via body.dark.
+*/
+
+:root {
+    --sh-headbg: var(--of-chrome-bg2);
+    --sh-gridline: #dadce0;
+    --sh-sel-bg: rgba(30, 158, 64, 0.10);
+    --sh-frozen-shadow: rgba(60, 64, 67, 0.25);
+}
+body.dark {
+    --sh-gridline: #43464b;
+    --sh-sel-bg: rgba(76, 192, 106, 0.14);
+}
+
+/* ============ formula bar ============ */
+#shFxBar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background: var(--of-chrome-bg);
+    border-bottom: 1px solid var(--of-border);
+    flex: 0 0 auto;
+}
+#shNameBox {
+    width: 90px;
+    height: 26px;
+    text-align: center;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-size: 13px;
+    outline: none;
+}
+#shNameBox:focus { border-color: var(--of-accent); }
+#shFxLabel {
+    color: var(--of-fg-soft);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    user-select: none;
+}
+#shFxInput {
+    flex: 1 1 auto;
+    height: 26px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font-size: 13px;
+    font-family: Consolas, "Courier New", monospace;
+    outline: none;
+    padding: 0 6px;
+}
+#shFxInput:focus { border-color: var(--of-accent); background: var(--of-chrome-bg2); }
+
+/* ============ grid layout ============ */
+#workspace { overflow: hidden; display: flex; }
+#shGridWrap {
+    flex: 1 1 auto;
+    position: relative;
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    grid-template-rows: 24px 1fr;
+    overflow: hidden;
+    background: var(--of-bg);
+}
+#shCorner {
+    grid-column: 1;
+    grid-row: 1;
+    background: var(--sh-headbg);
+    border-right: 1px solid var(--of-border);
+    border-bottom: 1px solid var(--of-border);
+    cursor: pointer;
+    z-index: 30;
+}
+#shColHead {
+    grid-column: 2;
+    grid-row: 1;
+    overflow: hidden;
+    position: relative;
+    background: var(--sh-headbg);
+    border-bottom: 1px solid var(--of-border);
+    z-index: 20;
+    user-select: none;
+}
+#shRowHead {
+    grid-column: 1;
+    grid-row: 2;
+    overflow: hidden;
+    position: relative;
+    background: var(--sh-headbg);
+    border-right: 1px solid var(--of-border);
+    z-index: 20;
+    user-select: none;
+}
+#shColHeadIn, #shRowHeadIn { position: absolute; left: 0; top: 0; }
+#shGrid {
+    grid-column: 2;
+    grid-row: 2;
+    overflow: auto;
+    position: relative;
+    background: var(--of-paper);
+}
+#shSpacer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; }
+#shCells { position: absolute; left: 0; top: 0; }
+
+/* headers */
+.sh-colh, .sh-rowh {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--of-fg-soft);
+    background: var(--sh-headbg);
+    box-sizing: border-box;
+    border-right: 1px solid var(--sh-gridline);
+    border-bottom: 1px solid var(--sh-gridline);
+    cursor: pointer;
+    overflow: hidden;
+}
+.sh-colh.sel, .sh-rowh.sel {
+    background: var(--of-accent-soft);
+    color: var(--of-accent);
+    font-weight: 600;
+}
+.sh-rz {
+    position: absolute;
+    z-index: 5;
+}
+.sh-rz-col { top: 0; height: 100%; width: 7px; cursor: col-resize; }
+.sh-rz-row { left: 0; width: 100%; height: 7px; cursor: row-resize; }
+.sh-rz:hover { background: var(--of-accent-soft); }
+.sh-filter-btn {
+    position: absolute;
+    right: 1px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    line-height: 13px;
+    text-align: center;
+    font-size: 9px;
+    border-radius: 3px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--sh-gridline);
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    z-index: 6;
+}
+.sh-filter-btn.on { background: var(--of-accent); color: #fff; border-color: var(--of-accent); }
+
+/* cells */
+.sh-cell {
+    position: absolute;
+    box-sizing: border-box;
+    border-right: 1px solid var(--sh-gridline);
+    border-bottom: 1px solid var(--sh-gridline);
+    padding: 0 4px;
+    font-size: 13px;
+    color: var(--of-fg);
+    background: var(--of-paper);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: pre;
+    cursor: cell;
+    user-select: none;
+}
+.sh-cell.num { justify-content: flex-end; }
+.sh-cell.ctr { justify-content: center; }
+.sh-cell.rgt { justify-content: flex-end; }
+.sh-cell.lft { justify-content: flex-start; }
+.sh-cell.wrap { white-space: pre-wrap; word-break: break-word; align-items: flex-start; }
+.sh-cell.sel { background-color: var(--sh-sel-bg); }
+.sh-cell.err { color: var(--of-danger); }
+.sh-cell.b { font-weight: 700; }
+.sh-cell.i { font-style: italic; }
+.sh-cell.u { text-decoration: underline; }
+.sh-cell.frozen { z-index: 12; }
+.sh-cell.frozen-corner { z-index: 14; }
+
+/* active cell + range border + fill handle */
+#shRangeBox {
+    position: absolute;
+    border: 2px solid var(--of-accent);
+    pointer-events: none;
+    box-sizing: border-box;
+    display: none;
+    z-index: 15;
+}
+#shFillHandle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--of-accent);
+    border: 1px solid var(--of-paper);
+    box-sizing: border-box;
+    cursor: crosshair;
+    display: none;
+    z-index: 16;
+}
+#shGrid.sh-filling, #shGrid.sh-filling .sh-cell { cursor: crosshair; }
+
+/* floating cell editor */
+#shCellInput {
+    position: absolute;
+    display: none;
+    z-index: 40;
+    border: 2px solid var(--of-accent);
+    outline: none;
+    resize: none;
+    padding: 1px 3px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--of-paper);
+    color: var(--of-fg);
+    box-sizing: border-box;
+    overflow: hidden;
+    line-height: 20px;
+}
+
+/* charts layer */
+#shChartLayer { position: absolute; left: 0; top: 0; z-index: 25; }
+.sh-chart {
+    position: absolute;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px var(--of-shadow);
+    box-sizing: border-box;
+    padding: 4px;
+    color: var(--of-fg);
+    cursor: move;
+    overflow: hidden;
+}
+.sh-chart.sel { border: 2px solid var(--of-accent); }
+.sh-chart-rz {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    background:
+        linear-gradient(135deg, transparent 50%, var(--of-fg-soft) 50%);
+    opacity: 0.5;
+    border-bottom-right-radius: 6px;
+}
+
+/* ============ sheet tabs ============ */
+#shTabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    background: var(--of-chrome-bg);
+    border-top: 1px solid var(--of-border);
+    flex: 0 0 auto;
+    user-select: none;
+    overflow-x: auto;
+}
+#shAddSheet {
+    border: none;
+    background: transparent;
+    color: var(--of-fg-soft);
+    width: 28px;
+    height: 26px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+#shAddSheet:hover { background: var(--of-hover); color: var(--of-fg); }
+#shAddSheet i.icon { margin: 0 !important; }
+#shTabList { display: flex; gap: 2px; }
+.sh-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 14px;
+    border-radius: 4px 4px 0 0;
+    font-size: 13px;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    white-space: nowrap;
+    border-top: 3px solid transparent;
+}
+.sh-tab:hover { background: var(--of-hover); }
+.sh-tab.active {
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-weight: 600;
+}
+.sh-tab .sh-tab-color {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+/* filter dialog list */
+.sh-filter-list {
+    max-height: 40vh;
+    overflow-y: auto;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    padding: 6px;
+    margin-top: 6px;
+}
+.sh-filter-list label {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 !important;
+    color: var(--of-fg) !important;
+    cursor: pointer;
+}
+.sh-filter-list input[type="checkbox"] { width: auto !important; }
+
+/* chart dialog data grid (shared look with slides) */
+.sh-grid-table { border-collapse: collapse; width: 100%; }
+.sh-grid-table td { padding: 1px; }
+.sh-grid-table input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-size: 12px;
+    outline: none;
+}
+.sh-dialog-row { display: flex; gap: 10px; }
+.sh-dialog-row > div { flex: 1; }
+
+/* ============ print ============ */
+#shPrintArea { display: none; }
+@media print {
+    #workspace, #shFxBar, #shTabs { display: none !important; }
+    #shPrintArea { display: block !important; }
+    #shPrintArea table { border-collapse: collapse; font-size: 11px; }
+    #shPrintArea td, #shPrintArea th {
+        border: 1px solid #999;
+        padding: 2px 6px;
+        white-space: pre;
+    }
+}
+
+/* touch */
+@media (pointer: coarse) {
+    .sh-rz-col { width: 12px; }
+    .sh-rz-row { height: 12px; }
+}
