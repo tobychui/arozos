@@ -757,7 +757,7 @@
                         status('Uploading…');
                         return uploadBlob(new Blob([outBytes], { type: 'application/pdf' }), outName, outDir).then(function(){
                             showToast('<strong>' + escHtml(outName) + '</strong> saved to ' + escHtml(outDir) +
-                                '. Original text kept selectable.', false);
+                                '.', false);
                             done();
                         });
                     }).catch(function(err){
