@@ -13,10 +13,25 @@
         or starting a screen share never needs SDP renegotiation.
       - The newcomer is always the offerer: on "welcome" it creates an
         offer to every existing peer; existing peers answer.
+
+    Resilience:
+      - An app-level ping/pong heartbeat detects half-dead sockets (e.g.
+        a silently dropped network) and force-closes them.
+      - When the signaling socket drops mid-meeting, the client keeps the
+        room UI and local media alive and reconnects with capped
+        exponential backoff. Reconnecting rejoins as a fresh peer, so the
+        WebRTC mesh is rebuilt from the new "welcome" frame. If the room
+        cannot be reached again within RECONNECT_WINDOW_MS (or no longer
+        exists), the client gives up and returns to the lobby.
 */
 
 (function () {
     "use strict";
+
+    var HEARTBEAT_INTERVAL_MS = 15000; //app-level ping cadence
+    var HEARTBEAT_TIMEOUT_MS = 40000;  //no pong for this long = dead socket
+    var RECONNECT_WINDOW_MS = 60000;   //give up reconnecting after this long
+    var RECONNECT_MAX_DELAY_MS = 10000; //backoff cap between attempts
 
     var API = {
         create: "/system/meetroom/create",
@@ -48,7 +63,14 @@
         sharing: false,
         chatOpen: false,
         unreadChat: 0,
-        leaving: false
+        leaving: false,
+        currentRoomId: "",
+        reconnecting: false,
+        reconnectDeadline: 0,
+        reconnectAttempt: 0,
+        reconnectTimer: null,
+        heartbeatTimer: null,
+        lastPong: 0
     };
 
     /* ================= Small helpers ================= */
@@ -198,6 +220,7 @@
     }
 
     function openSignalingSocket(roomId) {
+        state.currentRoomId = roomId;
         var proto = location.protocol === "https:" ? "wss://" : "ws://";
         var url = proto + location.host + API.ws +
             "?roomid=" + encodeURIComponent(roomId) +
@@ -211,10 +234,13 @@
             handleServerMessage(msg);
         };
         ws.onclose = function () {
-            if (state.connected && !state.leaving) {
-                cleanupRoom();
-                showLobbyError("Connection to the meeting was lost.");
-            } else if (!state.connected) {
+            stopHeartbeat();
+            if (state.leaving) return;
+            if (state.connected || state.reconnecting) {
+                //Dropped mid-meeting (or a reconnect attempt failed):
+                //keep the room alive and retry.
+                beginReconnect();
+            } else {
                 showLobbyError("Could not join: the room may not exist or the password is wrong.");
             }
         };
@@ -226,23 +252,128 @@
         }
     }
 
+    /* ================= Heartbeat & auto-reconnect ================= */
+
+    function startHeartbeat() {
+        stopHeartbeat();
+        state.lastPong = Date.now();
+        state.heartbeatTimer = setInterval(function () {
+            if (Date.now() - state.lastPong > HEARTBEAT_TIMEOUT_MS) {
+                //Half-dead socket: force-close so onclose starts reconnecting
+                if (state.ws) { try { state.ws.close(); } catch (e) { } }
+                return;
+            }
+            sendFrame({ type: "ping" });
+        }, HEARTBEAT_INTERVAL_MS);
+    }
+
+    function stopHeartbeat() {
+        if (state.heartbeatTimer) {
+            clearInterval(state.heartbeatTimer);
+            state.heartbeatTimer = null;
+        }
+    }
+
+    function showReconnectBanner(show, text) {
+        $id("reconnectBanner").style.display = show ? "" : "none";
+        if (text) $id("reconnectText").textContent = text;
+    }
+
+    function beginReconnect() {
+        if (!state.reconnecting) {
+            //First drop: open the give-up window and freeze the mesh
+            state.reconnecting = true;
+            state.connected = false;
+            state.reconnectDeadline = Date.now() + RECONNECT_WINDOW_MS;
+            state.reconnectAttempt = 0;
+            addSystemChat("Connection lost - trying to reconnect...");
+        }
+        scheduleReconnectAttempt();
+    }
+
+    function scheduleReconnectAttempt() {
+        if (state.leaving || !state.reconnecting) return;
+        if (Date.now() > state.reconnectDeadline) {
+            giveUpReconnect("Connection to the meeting was lost and could not be re-established.");
+            return;
+        }
+        state.reconnectAttempt++;
+        var delay = Math.min(1000 * Math.pow(2, state.reconnectAttempt - 1), RECONNECT_MAX_DELAY_MS);
+        showReconnectBanner(true, "Connection lost - reconnecting (attempt " + state.reconnectAttempt + ")...");
+        state.reconnectTimer = setTimeout(tryReconnect, delay);
+    }
+
+    function tryReconnect() {
+        if (state.leaving || !state.reconnecting) return;
+        //Probe the room first: if the meeting ended (or was swept) while we
+        //were offline there is nothing to reconnect to.
+        fetch(API.info + "?roomid=" + encodeURIComponent(state.currentRoomId)).then(function (r) {
+            return r.json();
+        }).then(function (info) {
+            if (state.leaving || !state.reconnecting) return;
+            if (!info || info.exists === false) {
+                giveUpReconnect("The meeting is no longer available.");
+                return;
+            }
+            //Refresh the ICE config: built-in TURN credentials are
+            //short-lived and may have expired while we were offline.
+            fetch(API.ice).then(function (r) { return r.json(); }).then(function (cfg) {
+                if (cfg && cfg.iceServers && cfg.iceServers.length > 0) {
+                    state.iceConfig = cfg;
+                }
+            }).catch(function () { }).then(function () {
+                if (state.leaving || !state.reconnecting) return;
+                openSignalingSocket(state.currentRoomId);
+            });
+        }).catch(function () {
+            //Server unreachable: back off and retry within the window
+            scheduleReconnectAttempt();
+        });
+    }
+
+    function giveUpReconnect(msg) {
+        state.reconnecting = false;
+        state.leaving = true;
+        cleanupRoom();
+        showLobbyError(msg);
+    }
+
     /* ================= Server messages ================= */
 
     function handleServerMessage(msg) {
         switch (msg.type) {
             case "welcome":
+                var wasReconnect = state.reconnecting;
+                state.reconnecting = false;
+                if (state.reconnectTimer) {
+                    clearTimeout(state.reconnectTimer);
+                    state.reconnectTimer = null;
+                }
+                showReconnectBanner(false);
                 state.connected = true;
                 state.myPeerId = msg.peerid;
                 state.username = msg.username;
                 state.isHost = msg.isHost;
                 state.room = msg.room;
-                showRoomUI();
+                //Peer connections from before a drop are stale; rebuild the
+                //mesh from scratch as the fresh peer the server sees us as.
+                Object.keys(state.peers).forEach(function (peerId) {
+                    removePeer(peerId);
+                });
+                showRoomUI(wasReconnect);
                 (msg.peers || []).forEach(function (peerInfo) {
                     var peer = createPeerRecord(peerInfo);
                     startOfferTo(peer);
                 });
+                startHeartbeat();
                 broadcastState();
                 updateParticipantCount();
+                if (wasReconnect) {
+                    addSystemChat("Reconnected to the meeting");
+                }
+                break;
+            case "pong":
+                state.lastPong = Date.now();
                 break;
             case "peer-join":
                 createPeerRecord(msg.peer);
@@ -465,7 +596,7 @@
 
     /* ================= Room UI ================= */
 
-    function showRoomUI() {
+    function showRoomUI(isReconnect) {
         $id("lobby").style.display = "none";
         $id("room").style.display = "flex";
         $id("roomTitle").textContent = state.room.title;
@@ -475,16 +606,21 @@
 
         //Local tile
         addVideoTile("local", state.username, true);
-        if (state.localStream) {
+        if (state.localStream && !state.sharing) {
             attachStreamToTile("local", state.localStream);
         }
-        state.micOn = !!state.micTrack;
-        state.camOn = !!state.camTrack;
+        if (!isReconnect) {
+            //Keep the user's mute / camera choices across a reconnect
+            state.micOn = !!state.micTrack;
+            state.camOn = !!state.camTrack;
+        }
         if (!state.micTrack) $id("micBtn").disabled = true;
         if (!state.camTrack) $id("camBtn").disabled = true;
         refreshControlButtons();
         refreshLocalTile();
-        addSystemChat("You joined the meeting as " + state.username);
+        if (!isReconnect) {
+            addSystemChat("You joined the meeting as " + state.username);
+        }
     }
 
     function refreshLocalTile() {
@@ -644,6 +780,11 @@
         var input = $id("chatText");
         var text = input.value.trim();
         if (text === "") return;
+        if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+            //Keep the draft in the input so nothing is lost mid-reconnect
+            addSystemChat("Reconnecting - message not sent, please retry in a moment");
+            return;
+        }
         sendFrame({ type: "chat", text: text });
         input.value = "";
     }
@@ -723,6 +864,10 @@
         var file = this.files[0];
         this.value = "";
         if (!file) return;
+        if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+            addSystemChat("Reconnecting - please try sharing the file again in a moment");
+            return;
+        }
 
         var form = new FormData();
         form.append("roomid", state.room.id);
@@ -750,6 +895,14 @@
     /* ================= Teardown ================= */
 
     function cleanupRoom() {
+        stopHeartbeat();
+        if (state.reconnectTimer) {
+            clearTimeout(state.reconnectTimer);
+            state.reconnectTimer = null;
+        }
+        state.reconnecting = false;
+        state.currentRoomId = "";
+        showReconnectBanner(false);
         if (state.ws) {
             var ws = state.ws;
             state.ws = null;

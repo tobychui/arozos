@@ -21,11 +21,20 @@ package main
 	                    {"type":"chat","text":"..."}
 	                    {"type":"file","fileid":"..."}               announce uploaded file
 	                    {"type":"state","audio":b,"video":b,"screen":b}
+	                    {"type":"ping"}                              app-level heartbeat
 	                    {"type":"end"}                               host only
 	  server -> client: {"type":"welcome",...}, {"type":"peer-join",...},
 	                    {"type":"peer-leave",...}, {"type":"signal","from":..},
 	                    {"type":"chat",...}, {"type":"file",...},
-	                    {"type":"state",...}, {"type":"room-closed"}
+	                    {"type":"state",...}, {"type":"pong"},
+	                    {"type":"room-closed"}
+
+	Liveness: the server sends a WebSocket protocol ping every
+	mrPingInterval and enforces mrReadTimeout as a read deadline (refreshed
+	by pongs and by any incoming frame), so a silently dead client is
+	removed from the room after at most mrReadTimeout. The client keeps its
+	own app-level ping/pong heartbeat and auto-reconnects with backoff when
+	the socket drops (see web/MeetRoom/app.js).
 
 	Media never touches the server: clients negotiate WebRTC peer-to-peer
 	connections through this relay, using the same STUN/TURN configuration
@@ -51,6 +60,9 @@ const (
 	mrMaxChatLength  = 4000             // runes per chat message
 	mrMaxSocketFrame = 512 << 10        // 512KB per signaling frame (SDP blobs included)
 	mrSweepInterval  = 30 * time.Second // idle room sweep cadence
+	mrPingInterval   = 20 * time.Second // server keepalive ping cadence on signaling sockets
+	mrReadTimeout    = 60 * time.Second // drop a participant whose socket goes silent this long
+	mrWriteTimeout   = 10 * time.Second // per-frame write deadline on signaling sockets
 )
 
 var (
@@ -335,18 +347,42 @@ func MeetRoomInit() {
 		}
 		conn.SetReadLimit(mrMaxSocketFrame)
 
+		//Liveness: a client that goes silent (no frames and no pong
+		//replies) past mrReadTimeout is dropped so it does not linger as a
+		//ghost participant after a network failure.
+		conn.SetReadDeadline(time.Now().Add(mrReadTimeout))
+		conn.SetPongHandler(func(string) error {
+			conn.SetReadDeadline(time.Now().Add(mrReadTimeout))
+			return nil
+		})
+
 		participant, err := room.AddParticipant(userinfo.Username)
 		if err != nil {
 			conn.Close()
 			return
 		}
 
-		//Writer: drain the send channel until it is closed, then hang up.
+		//Writer: drain the send channel until it is closed, interleaving
+		//keepalive pings, then hang up.
 		go func() {
+			pinger := time.NewTicker(mrPingInterval)
+			defer pinger.Stop()
 			defer conn.Close()
-			for msg := range participant.Send {
-				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-					return
+			for {
+				select {
+				case msg, ok := <-participant.Send:
+					if !ok {
+						return
+					}
+					conn.SetWriteDeadline(time.Now().Add(mrWriteTimeout))
+					if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+						return
+					}
+				case <-pinger.C:
+					conn.SetWriteDeadline(time.Now().Add(mrWriteTimeout))
+					if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+						return
+					}
 				}
 			}
 		}()
@@ -392,6 +428,7 @@ func MeetRoomInit() {
 			if err != nil {
 				return
 			}
+			conn.SetReadDeadline(time.Now().Add(mrReadTimeout))
 			var frame struct {
 				Type   string          `json:"type"`
 				To     int             `json:"to"`
@@ -453,6 +490,10 @@ func MeetRoomInit() {
 					"video":  frame.Video,
 					"screen": frame.Screen,
 				}), participant.PeerID)
+			case "ping":
+				//App-level heartbeat: lets the client detect a half-dead
+				//connection and trigger its auto-reconnect logic.
+				room.SendTo(participant.PeerID, []byte(`{"type":"pong"}`))
 			case "end":
 				if participant.IsHost {
 					mrEndMeeting(room.ID)

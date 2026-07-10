@@ -96,6 +96,15 @@ body {
     color: #9aa4b2;
 }
 
+#reconnectBanner {
+    flex: 0 0 auto;
+    background: #7a5b1e;
+    color: #ffe9b8;
+    padding: 0.45em 1em;
+    font-size: 0.9em;
+    text-align: center;
+}
+
 #roomBody {
     flex: 1 1 auto;
     display: flex;
