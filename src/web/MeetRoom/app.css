@@ -61,6 +61,7 @@ body {
     height: 100vh;
     background: #16181d;
     color: #e6e8ec;
+    position: relative;
 }
 
 #roomHeader {
@@ -281,10 +282,128 @@ body {
     opacity: 0.8;
 }
 
+.chat-msg .chat-image {
+    display: block;
+    max-width: 100%;
+    max-height: 220px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 4px;
+}
+
 .chat-input {
     flex: 0 0 auto;
     padding: 0.7em;
     border-top: 1px solid #2b2f38;
+}
+
+/* Participants / attendance panel */
+#peoplePanel {
+    flex: 0 0 320px;
+    display: flex;
+    flex-direction: column;
+    background: #1e2128;
+    border-left: 1px solid #2b2f38;
+    min-width: 0;
+}
+
+#attendanceList {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 0.8em;
+}
+
+.attendance-group {
+    font-size: 0.78em;
+    color: #9aa4b2;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0.6em 0 0.4em 0;
+}
+
+.attendance-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    background: #262a33;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+}
+
+.attendance-entry .icon {
+    margin: 0;
+    color: #9aa4b2;
+}
+
+.attendance-entry.present .icon {
+    color: #7bed9f;
+}
+
+.attendance-entry .attendee-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.attendance-entry .host-tag {
+    flex: 0 0 auto;
+    font-size: 0.72em;
+    background: #2f80ed;
+    color: #fff;
+    border-radius: 8px;
+    padding: 1px 8px;
+}
+
+.attendance-entry .attendee-times {
+    flex: 0 0 auto;
+    font-size: 0.75em;
+    color: #9aa4b2;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* New chat message popup */
+#msgToast {
+    position: absolute;
+    right: 16px;
+    bottom: 78px;
+    max-width: 300px;
+    background: #262a33;
+    color: #e6e8ec;
+    border: 1px solid #3a3f4a;
+    border-left: 3px solid #2f80ed;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+    z-index: 30;
+}
+
+#msgToast .toast-title {
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+#msgToast .toast-title .icon {
+    margin: 0;
+    color: #7db4ff;
+}
+
+#msgToast .toast-body {
+    font-size: 0.85em;
+    color: #c3c9d4;
+    word-break: break-word;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
 }
 
 #uploadStatus {
@@ -371,7 +490,8 @@ body {
 
 /* Narrow layouts (embedded / mobile) */
 @media (max-width: 720px) {
-    #chatPanel {
+    #chatPanel,
+    #peoplePanel {
         position: absolute;
         right: 0;
         top: 0;

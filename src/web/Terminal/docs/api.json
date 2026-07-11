@@ -1,6 +1,6 @@
 {
   "_note": "This file is the source for the Terminal in-app documentation panel. It is derived from mod/agi/README.md. Whenever README.md is updated, this file MUST also be updated to keep the in-app help in sync.",
-  "_version": "3.0",
+  "_version": "3.3",
   "sections": [
     {
       "id": "core",
@@ -921,6 +921,134 @@
           "desc": "Remove a registered task.",
           "ret": "bool",
           "example": "requirelib(\"scheduler\");\nscheduler.unregister(\"MyApp_Sync\");"
+        }
+      ]
+    },
+    {
+      "id": "sharedspace",
+      "name": "sharedspace",
+      "desc": "Shared collaboration areas where multiple users share texts, images and files together. The space ID is the access capability. MeetRoom binds one space to every meeting room.",
+      "load": "requirelib(\"sharedspace\");",
+      "functions": [
+        {
+          "name": "sharedspace.createSpace",
+          "sig": "sharedspace.createSpace(name)",
+          "desc": "Create a new space owned by the calling user.",
+          "ret": "object {spaceid, name, owner, items, createdat}",
+          "example": "requirelib(\"sharedspace\");\nvar space = sharedspace.createSpace(\"Design sync\");\nsendJSONResp(space);"
+        },
+        {
+          "name": "sharedspace.listMySpaces",
+          "sig": "sharedspace.listMySpaces()",
+          "desc": "List the spaces owned by the calling user.",
+          "ret": "array",
+          "example": "requirelib(\"sharedspace\");\nsendJSONResp(sharedspace.listMySpaces());"
+        },
+        {
+          "name": "sharedspace.getSpaceInfo",
+          "sig": "sharedspace.getSpaceInfo(spaceid)",
+          "desc": "Describe a space by ID. Returns {exists:false} for unknown IDs.",
+          "ret": "object",
+          "example": "requirelib(\"sharedspace\");\nvar info = sharedspace.getSpaceInfo(spaceid);"
+        },
+        {
+          "name": "sharedspace.addText",
+          "sig": "sharedspace.addText(spaceid, text)",
+          "desc": "Post a text snippet (max 4000 chars) into the space.",
+          "ret": "string item ID or null",
+          "example": "requirelib(\"sharedspace\");\nvar itemid = sharedspace.addText(spaceid, \"hello everyone\");"
+        },
+        {
+          "name": "sharedspace.addFile",
+          "sig": "sharedspace.addFile(spaceid, vpath)",
+          "desc": "Copy a file from the calling user's storage into the space. Raster images (png/jpg/jpeg/gif/webp/bmp) become image items.",
+          "ret": "string item ID or null",
+          "example": "requirelib(\"sharedspace\");\nvar itemid = sharedspace.addFile(spaceid, \"user:/Photo/cat.png\");"
+        },
+        {
+          "name": "sharedspace.listItems",
+          "sig": "sharedspace.listItems(spaceid)",
+          "desc": "Chronological item list: {itemid, type, name, text, size, uploader, origin, time}.",
+          "ret": "array or null",
+          "example": "requirelib(\"sharedspace\");\nsendJSONResp(sharedspace.listItems(spaceid));"
+        },
+        {
+          "name": "sharedspace.getText",
+          "sig": "sharedspace.getText(spaceid, itemid)",
+          "desc": "Read the content of a text item.",
+          "ret": "string or null",
+          "example": "requirelib(\"sharedspace\");\nvar text = sharedspace.getText(spaceid, itemid);"
+        },
+        {
+          "name": "sharedspace.saveFileTo",
+          "sig": "sharedspace.saveFileTo(spaceid, itemid, destVpath)",
+          "desc": "Copy an image / file item into the calling user's storage.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.saveFileTo(spaceid, itemid, \"user:/Desktop/shared.png\");"
+        },
+        {
+          "name": "sharedspace.removeItem",
+          "sig": "sharedspace.removeItem(spaceid, itemid)",
+          "desc": "Remove an item. Uploader or space owner only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.removeItem(spaceid, itemid);"
+        },
+        {
+          "name": "sharedspace.deleteSpace",
+          "sig": "sharedspace.deleteSpace(spaceid)",
+          "desc": "Delete a space and all its items. Space owner only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.deleteSpace(spaceid);"
+        }
+      ]
+    },
+    {
+      "id": "meetroom",
+      "name": "meetroom",
+      "desc": "Control interface for the MeetRoom video conferencing WebApp: create rooms, end meetings, export attendance. Requires access permission to the MeetRoom module. Every room owns a shared space carrying its chat and files.",
+      "load": "requirelib(\"meetroom\");",
+      "functions": [
+        {
+          "name": "meetroom.createRoom",
+          "sig": "meetroom.createRoom(title, password)",
+          "desc": "Create a meeting room hosted by the calling user. Both arguments optional.",
+          "ret": "object {roomid, displayid, title, host, protected, participants, createdat, spaceid}",
+          "example": "requirelib(\"meetroom\");\nvar room = meetroom.createRoom(\"Weekly standup\", \"\");\nsendJSONResp(room);"
+        },
+        {
+          "name": "meetroom.getRoomInfo",
+          "sig": "meetroom.getRoomInfo(roomid)",
+          "desc": "Describe a room. Returns {exists:false} for unknown IDs. spaceid is only included for the host.",
+          "ret": "object or null",
+          "example": "requirelib(\"meetroom\");\nvar info = meetroom.getRoomInfo(\"123456789\");"
+        },
+        {
+          "name": "meetroom.getRoomSpace",
+          "sig": "meetroom.getRoomSpace(roomid, password)",
+          "desc": "Return the room's shared space ID after passing the room password check. Post into that space with the sharedspace lib to chat into the live meeting.",
+          "ret": "string or null",
+          "example": "requirelib(\"meetroom\");\nrequirelib(\"sharedspace\");\nvar spaceid = meetroom.getRoomSpace(\"123456789\", \"\");\nif (spaceid !== null) sharedspace.addText(spaceid, \"hello meeting\");"
+        },
+        {
+          "name": "meetroom.listMyRooms",
+          "sig": "meetroom.listMyRooms()",
+          "desc": "List the live rooms hosted by the calling user.",
+          "ret": "array",
+          "example": "requirelib(\"meetroom\");\nsendJSONResp(meetroom.listMyRooms());"
+        },
+        {
+          "name": "meetroom.endRoom",
+          "sig": "meetroom.endRoom(roomid)",
+          "desc": "End the meeting for everyone. Host only.",
+          "ret": "bool",
+          "example": "requirelib(\"meetroom\");\nmeetroom.endRoom(\"123456789\");"
+        },
+        {
+          "name": "meetroom.getAttendance",
+          "sig": "meetroom.getAttendance(roomid)",
+          "desc": "Export the attendance log: {username, joinedat, leftat, present} per join; leftat is 0 while connected. Host or connected participant only.",
+          "ret": "array or null",
+          "example": "requirelib(\"meetroom\");\nvar log = meetroom.getAttendance(\"123456789\");\nsendJSONResp(log);"
         }
       ]
     },

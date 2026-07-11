@@ -22,7 +22,9 @@ import (
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
+	"imuslab.com/arozos/mod/meetroom"
 	"imuslab.com/arozos/mod/share"
+	"imuslab.com/arozos/mod/sharedspace"
 	"imuslab.com/arozos/mod/time/nightly"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -37,7 +39,7 @@ import (
 */
 
 var (
-	AgiVersion string = "3.2" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "3.3" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
@@ -59,17 +61,19 @@ type AgiSysInfo struct {
 	LoadedModule    []string
 
 	//System Handlers
-	Logger               *logger.Logger
-	UserHandler          *user.UserHandler
-	ReservedTables       []string
-	PackageManager       *apt.AptPackageManager
+	Logger                *logger.Logger
+	UserHandler           *user.UserHandler
+	ReservedTables        []string
+	PackageManager        *apt.AptPackageManager
 	ModuleRegisterParser  func(string) error
 	ModuleListProvider    func(username string) string //Returns JSON of accessible modules for a user
 	ExtIconRegisterParser func(ext, iconPath string)   //Called when registerExtensionIcon() fires in an init.agi
-	FileSystemRender     *metadata.RenderHandler
-	IotManager           *iot.Manager
-	ShareManager         *share.Manager
-	NightlyManager       *nightly.TaskManager
+	FileSystemRender      *metadata.RenderHandler
+	IotManager            *iot.Manager
+	ShareManager          *share.Manager
+	NightlyManager        *nightly.TaskManager
+	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)
+	SharedSpaceManager    *sharedspace.Manager //Shared collaboration spaces for the sharedspace lib (nil disables the lib)
 
 	//Scanning Roots
 	StartupRoot    string

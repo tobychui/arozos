@@ -15,22 +15,24 @@ var (
 func AGIInit() {
 	//Create new AGI Gateway object
 	gw, err := agi.NewGateway(agi.AgiSysInfo{
-		BuildVersion:         build_version,
-		InternalVersion:      internal_version,
-		LoadedModule:         moduleHandler.GetModuleNameList(),
-		ReservedTables:       []string{"auth", "permisson", "register", "desktop"},
+		BuildVersion:          build_version,
+		InternalVersion:       internal_version,
+		LoadedModule:          moduleHandler.GetModuleNameList(),
+		ReservedTables:        []string{"auth", "permisson", "register", "desktop"},
 		ModuleRegisterParser:  moduleHandler.RegisterModuleFromAGI,
 		ExtIconRegisterParser: moduleHandler.RegisterExtIcon,
-		ModuleListProvider:   moduleHandler.GetModuleListJSONForUser,
-		PackageManager:       packageManager,
-		Logger:               systemWideLogger,
-		UserHandler:          userHandler,
-		StartupRoot:          "./web",
-		ActivateScope:        []string{"./web", "./subservice"},
-		FileSystemRender:     thumbRenderHandler,
-		ShareManager:         shareManager,
-		NightlyManager:       nightlyManager,
-		TempFolderPath:       *tmp_directory,
+		ModuleListProvider:    moduleHandler.GetModuleListJSONForUser,
+		PackageManager:        packageManager,
+		Logger:                systemWideLogger,
+		UserHandler:           userHandler,
+		StartupRoot:           "./web",
+		ActivateScope:         []string{"./web", "./subservice"},
+		FileSystemRender:      thumbRenderHandler,
+		ShareManager:          shareManager,
+		NightlyManager:        nightlyManager,
+		MeetRoomManager:       meetRoomManager,
+		SharedSpaceManager:    sharedSpaceManager,
+		TempFolderPath:        *tmp_directory,
 	})
 	if err != nil {
 		systemWideLogger.PrintAndLog("AGI", "AGI Gateway Initialization Failed", err)

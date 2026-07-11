@@ -12,7 +12,7 @@ package main
 	  GET  /system/meetroom/info?roomid=XXXXXXXXX             --> {"exists":..,"protected":..}
 	  GET  /system/meetroom/ws?roomid=&password=              --> WebSocket signaling upgrade
 	  POST /system/meetroom/upload      multipart (file)      --> {"fileid":...}
-	  GET  /system/meetroom/download?roomid=&password=&fileid=
+	  GET  /system/meetroom/download?roomid=&password=&fileid=[&inline=1]
 	  GET  /system/meetroom/end?roomid=                       --> host ends the meeting
 	  GET  /system/meetroom/iceservers                        --> WebRTC ICE config
 
@@ -21,13 +21,20 @@ package main
 	                    {"type":"chat","text":"..."}
 	                    {"type":"file","fileid":"..."}               announce uploaded file
 	                    {"type":"state","audio":b,"video":b,"screen":b}
+	                    {"type":"attendance"}                        request the join/leave log
 	                    {"type":"ping"}                              app-level heartbeat
 	                    {"type":"end"}                               host only
 	  server -> client: {"type":"welcome",...}, {"type":"peer-join",...},
 	                    {"type":"peer-leave",...}, {"type":"signal","from":..},
 	                    {"type":"chat",...}, {"type":"file",...},
-	                    {"type":"state",...}, {"type":"pong"},
-	                    {"type":"room-closed"}
+	                    {"type":"state",...}, {"type":"attendance",...},
+	                    {"type":"pong"}, {"type":"room-closed"}
+
+	Shared space integration: every room owns a mod/sharedspace space (its ID
+	travels with the room). Chat and uploads mirror into the space with
+	origin meetroom.OriginMeetRoom; items posted into the space by AGI
+	scripts flow back through mrSpaceItemBroadcast as chat / file frames
+	with peer ID 0 (a reserved ID no real participant ever gets).
 
 	Liveness: the server sends a WebSocket protocol ping every
 	mrPingInterval and enforces mrReadTimeout as a read deadline (refreshed
@@ -53,6 +60,7 @@ import (
 	"github.com/gorilla/websocket"
 	"imuslab.com/arozos/mod/meetroom"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/sharedspace"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -120,9 +128,62 @@ func mrEndMeeting(roomID string) {
 	meetRoomManager.CloseRoom(roomID)
 }
 
+// mrAttendanceList renders a room's join/leave log for the client. leftat is
+// 0 while the participant is still connected.
+func mrAttendanceList(room *meetroom.Room) []map[string]interface{} {
+	records := room.Attendance()
+	list := make([]map[string]interface{}, 0, len(records))
+	for _, record := range records {
+		entry := map[string]interface{}{
+			"username": record.Username,
+			"joinedat": record.JoinedAt.Unix(),
+			"present":  record.Present(),
+			"leftat":   int64(0),
+		}
+		if !record.Present() {
+			entry["leftat"] = record.LeftAt.Unix()
+		}
+		list = append(list, entry)
+	}
+	return list
+}
+
+// mrSpaceItemBroadcast pushes items posted into a room's shared space from
+// outside the room (e.g. by AGI scripts) into the meeting as live chat /
+// file frames. Peer ID 0 marks server-side senders: real participants are
+// numbered from 1.
+func mrSpaceItemBroadcast(room *meetroom.Room, item *sharedspace.Item) {
+	if item.Type == sharedspace.ItemTypeText {
+		room.Broadcast(mrMarshalOrDrop(map[string]interface{}{
+			"type":     "chat",
+			"from":     0,
+			"username": item.Uploader,
+			"text":     item.Text,
+			"time":     item.CreatedAt.Unix(),
+		}), -1)
+		return
+	}
+	room.Broadcast(mrMarshalOrDrop(map[string]interface{}{
+		"type":     "file",
+		"from":     0,
+		"username": item.Uploader,
+		"fileid":   item.ID,
+		"name":     item.Name,
+		"size":     item.Size,
+		"time":     item.CreatedAt.Unix(),
+	}), -1)
+}
+
 // MeetRoomInit wires up the MeetRoom video conferencing endpoints.
 func MeetRoomInit() {
 	meetRoomManager = meetroom.NewManager("")
+
+	//Give every room a shared space (chat + files mirror into it, AGI
+	//scripts post into it) and bridge external posts back into the meeting.
+	if sharedSpaceManager != nil {
+		meetRoomManager.BindSpaceManager(sharedSpaceManager)
+		meetRoomManager.SetSpaceItemHandler(mrSpaceItemBroadcast)
+	}
 
 	//Sweep abandoned rooms so forgotten meetings do not accumulate
 	go func() {
@@ -316,7 +377,16 @@ func MeetRoomInit() {
 			}
 			return c
 		}, attachment.Name)
-		w.Header().Set("Content-Disposition", "attachment; filename=\""+fallback+"\"; filename*=UTF-8''"+url.PathEscape(attachment.Name))
+
+		//inline=1 lets the chat render images directly in the browser. Only
+		//raster images may be served inline: anything else (notably SVG,
+		//which can carry scripts) keeps the attachment disposition.
+		disposition := "attachment"
+		if r.URL.Query().Get("inline") == "1" && sharedspace.IsImageName(attachment.Name) {
+			disposition = "inline"
+		}
+		w.Header().Set("Content-Disposition", disposition+"; filename=\""+fallback+"\"; filename*=UTF-8''"+url.PathEscape(attachment.Name))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if ctype := mime.TypeByExtension(strings.ToLower(filepathExt(attachment.Name))); ctype != "" {
 			w.Header().Set("Content-Type", ctype)
 		} else {
@@ -467,6 +537,9 @@ func MeetRoomInit() {
 					"text":     text,
 					"time":     time.Now().Unix(),
 				}), -1)
+				//Mirror into the room's shared space so AGI scripts can
+				//read the conversation
+				meetRoomManager.LogChat(room.ID, participant.Username, text)
 			case "file":
 				attachment, ok := meetRoomManager.GetAttachment(room.ID, frame.FileID)
 				if !ok {
@@ -490,6 +563,14 @@ func MeetRoomInit() {
 					"video":  frame.Video,
 					"screen": frame.Screen,
 				}), participant.PeerID)
+			case "attendance":
+				//Send the requester the room's join/leave log (the
+				//participants side panel polls this on open and on
+				//peer-join / peer-leave)
+				room.SendTo(participant.PeerID, mrMarshalOrDrop(map[string]interface{}{
+					"type":    "attendance",
+					"records": mrAttendanceList(room),
+				}))
 			case "ping":
 				//App-level heartbeat: lets the client detect a half-dead
 				//connection and trigger its auto-reconnect logic.

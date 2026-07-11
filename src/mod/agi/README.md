@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.0` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.3` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -1508,6 +1508,160 @@ The cron script must reside inside the webapp's own web folder, **not** in user 
 ```
 
 The scheduler calls `cron.agi` with the permissions of the user who approved it, so all file-system and database operations are scoped to that user.
+
+---
+
+## sharedspace API
+
+Load:
+
+```javascript
+requirelib("sharedspace");
+```
+
+A **shared space** is an in-memory area where multiple different users can
+share texts, images and files together. The random space ID acts as the
+access capability: any user whose script knows the ID can read and post
+items. Blob items (images / files) are stored in temporary server storage
+and, like the spaces themselves, do not survive a server restart. MeetRoom
+binds one space to every meeting room (see the meetroom API), so this
+library is also how scripts read a live meeting's chat and post messages or
+files into it.
+
+### `sharedspace.createSpace(name)` → object
+
+Create a new space owned by the calling user. Returns
+`{ spaceid, name, owner, items, createdat }`.
+
+```javascript
+requirelib("sharedspace");
+var space = sharedspace.createSpace("Design sync");
+sendJSONResp(space);
+```
+
+### `sharedspace.listMySpaces()` → array
+
+List the spaces owned by the calling user (same fields as `createSpace`).
+
+### `sharedspace.getSpaceInfo(spaceid)` → object
+
+Describe a space by ID. Returns `{ exists: false }` for unknown IDs.
+
+### `sharedspace.addText(spaceid, text)` → string | null
+
+Post a text snippet (clipped to 4000 characters) into the space. Returns the
+new item ID, or `null` on failure.
+
+### `sharedspace.addFile(spaceid, vpath)` → string | null
+
+Copy a file from the calling user's storage into the space. Files with a
+raster-image extension (png / jpg / jpeg / gif / webp / bmp) are stored as
+`image` items, everything else as `file`. Returns the new item ID.
+
+```javascript
+requirelib("sharedspace");
+var itemid = sharedspace.addFile(spaceid, "user:/Photo/cat.png");
+```
+
+### `sharedspace.listItems(spaceid)` → array | null
+
+Chronological list of items:
+`{ itemid, type, name, text, size, uploader, origin, time }`. `type` is
+`"text"`, `"image"` or `"file"`; `text` is only filled for text items.
+
+### `sharedspace.getText(spaceid, itemid)` → string | null
+
+Read the content of a text item.
+
+### `sharedspace.saveFileTo(spaceid, itemid, destVpath)` → bool
+
+Copy an image / file item into the calling user's storage.
+
+### `sharedspace.removeItem(spaceid, itemid)` → bool
+
+Remove an item. Only the item's uploader or the space owner may remove it.
+
+### `sharedspace.deleteSpace(spaceid)` → bool
+
+Delete a space and all its items. Space owner only.
+
+---
+
+## meetroom API
+
+Load:
+
+```javascript
+requirelib("meetroom");
+```
+
+Control interface for the MeetRoom video conferencing WebApp. The library is
+only injected for users who have access permission to the **MeetRoom**
+module (the same gate as the `/system/meetroom/*` endpoints). Every meeting
+room owns a shared space where the room's chat and file attachments are
+mirrored; posting into that space with the sharedspace API delivers the item
+into the live meeting chat.
+
+### `meetroom.createRoom(title, password)` → object
+
+Create a meeting room hosted by the calling user. Both arguments are
+optional (`""` for an untitled / open room). Returns
+`{ roomid, displayid, title, host, protected, participants, createdat, spaceid }`
+where `spaceid` is the room's shared space.
+
+```javascript
+requirelib("meetroom");
+var room = meetroom.createRoom("Weekly standup", "");
+sendJSONResp({ invite: room.displayid, space: room.spaceid });
+```
+
+### `meetroom.getRoomInfo(roomid)` → object | null
+
+Describe a room. Returns `{ exists: false }` for unknown IDs. `spaceid` is
+included only when the calling user is the room's host.
+
+### `meetroom.getRoomSpace(roomid, password)` → string | null
+
+Return the room's shared space ID after passing the same password check the
+join endpoint applies. Use this to chat with a meeting you were invited to:
+
+```javascript
+requirelib("meetroom");
+requirelib("sharedspace");
+var spaceid = meetroom.getRoomSpace("123456789", "roomPassword");
+if (spaceid !== null) {
+    sharedspace.addText(spaceid, "Reminder: meeting notes are due today");
+}
+```
+
+### `meetroom.listMyRooms()` → array
+
+List the live rooms hosted by the calling user (same fields as `createRoom`).
+
+### `meetroom.endRoom(roomid)` → bool
+
+End the meeting for everyone. Host only.
+
+### `meetroom.getAttendance(roomid)` → array | null
+
+Export the room's attendance log:
+`{ username, joinedat, leftat, present }` per join (`leftat` is `0` while the
+participant is still connected). Only the host or a currently connected
+participant may read it.
+
+```javascript
+requirelib("meetroom");
+var log = meetroom.getAttendance("123456789");
+if (log !== null) {
+    var report = "";
+    for (var i = 0; i < log.length; i++) {
+        report += log[i].username + "," + log[i].joinedat + "," + log[i].leftat + "\n";
+    }
+    if (requirelib("filelib")) {
+        filelib.writeFile("user:/Desktop/attendance.csv", report);
+    }
+}
+```
 
 ---
 

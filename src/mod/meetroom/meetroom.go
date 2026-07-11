@@ -7,7 +7,16 @@ package meetroom
 	This package implements the server-side room state for the MeetRoom
 	video conferencing WebApp: meeting rooms joinable by ID + optional
 	password, the participant registry used by the WebSocket signaling
-	relay, and temporary attachment storage for in-meeting file sharing.
+	relay, an attendance log of every join / leave, and temporary
+	attachment storage for in-meeting file sharing.
+
+	When a sharedspace.Manager is bound (BindSpaceManager), every room
+	created afterwards owns a shared space: chat messages and uploaded
+	attachments are mirrored into it (origin OriginMeetRoom) so AGI
+	scripts can read the meeting content, and items posted into the
+	space from outside the room (e.g. by AGI scripts) are handed to the
+	transport layer through SetSpaceItemHandler so they appear in the
+	meeting live. The space is deleted together with the room.
 
 	The package is transport-agnostic: the HTTP / WebSocket handlers live
 	in the main package (src/meetroom.go) and only push byte slices into
@@ -29,6 +38,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/sharedspace"
 )
 
 var (
@@ -47,7 +58,13 @@ const (
 	sendBufferSize   = 256       // per-participant outgoing frame buffer
 	maxTitleLength   = 64        // room title is clipped to this many runes
 	maxNameLength    = 128       // attachment file names are clipped to this many runes
+	maxAttendance    = 1000      // attendance records kept per room (oldest dropped)
 	DefaultMaxUpload = 128 << 20 // 128MB per attachment
+
+	//OriginMeetRoom tags shared-space items mirrored from the room itself so
+	//the space item bridge can filter its own echoes
+	OriginMeetRoom = "meetroom"
+
 	DefaultEmptyIdle = 10 * time.Minute
 )
 
@@ -78,15 +95,31 @@ type Attachment struct {
 	DiskPath string
 }
 
+// AttendanceRecord is one join / leave entry in a room's attendance log.
+// LeftAt is the zero time while the participant is still in the meeting.
+type AttendanceRecord struct {
+	Username string
+	PeerID   int
+	JoinedAt time.Time
+	LeftAt   time.Time
+}
+
+// Present reports whether this record's participant is still in the room.
+func (a *AttendanceRecord) Present() bool {
+	return a.LeftAt.IsZero()
+}
+
 // Room is one live meeting room.
 type Room struct {
 	ID           string
 	Title        string
 	Host         string
+	SpaceID      string // bound shared space, empty when no space manager is set
 	CreatedAt    time.Time
 	passwordHash []byte // nil when the room has no password
 	participants map[int]*Participant
 	attachments  map[string]*Attachment
+	attendance   []*AttendanceRecord
 	nextPeerID   int
 	lastActivity time.Time
 	closed       bool
@@ -97,6 +130,8 @@ type Room struct {
 type Manager struct {
 	rooms       map[string]*Room
 	storageRoot string
+	spaces      *sharedspace.Manager                     // optional shared-space binding
+	onSpaceItem func(room *Room, item *sharedspace.Item) // bridge for externally posted space items
 	mu          sync.RWMutex
 }
 
@@ -114,6 +149,36 @@ func NewManager(storageRoot string) *Manager {
 		rooms:       make(map[string]*Room),
 		storageRoot: storageRoot,
 	}
+}
+
+// BindSpaceManager links the manager to a shared-space manager. Every room
+// created afterwards owns a shared space that mirrors its chat and
+// attachments and accepts posts from AGI scripts.
+func (m *Manager) BindSpaceManager(sm *sharedspace.Manager) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.spaces = sm
+}
+
+// SetSpaceItemHandler sets the callback invoked when an item lands in a
+// room's shared space from outside the room itself (anything whose origin is
+// not OriginMeetRoom, e.g. an AGI script). The transport layer uses it to
+// push the item into the meeting as a live chat / file message.
+func (m *Manager) SetSpaceItemHandler(fn func(room *Room, item *sharedspace.Item)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onSpaceItem = fn
+}
+
+// spaceOf returns the shared space bound to the room, if any.
+func (m *Manager) spaceOf(room *Room) (*sharedspace.Space, bool) {
+	m.mu.RLock()
+	sm := m.spaces
+	m.mu.RUnlock()
+	if sm == nil || room.SpaceID == "" {
+		return nil, false
+	}
+	return sm.GetSpace(room.SpaceID)
 }
 
 // hashRoomPassword derives the stored hash for a room password. The room ID
@@ -158,12 +223,32 @@ func (m *Manager) CreateRoom(host string, title string, password string) *Room {
 		CreatedAt:    time.Now(),
 		participants: make(map[int]*Participant),
 		attachments:  make(map[string]*Attachment),
+		attendance:   []*AttendanceRecord{},
 		nextPeerID:   1,
 		lastActivity: time.Now(),
 	}
 	if password != "" {
 		room.passwordHash = hashRoomPassword(id, password)
 	}
+
+	//Bind a shared space to the room: chat / attachments mirror into it and
+	//externally posted items (AGI) flow back through the item bridge.
+	if m.spaces != nil {
+		space := m.spaces.CreateSpace(host, title)
+		room.SpaceID = space.ID
+		space.Subscribe(OriginMeetRoom, func(item *sharedspace.Item) {
+			if item.Origin == OriginMeetRoom {
+				return //the room's own echo, already delivered over WebSocket
+			}
+			m.mu.RLock()
+			handler := m.onSpaceItem
+			m.mu.RUnlock()
+			if handler != nil {
+				handler(room, item)
+			}
+		})
+	}
+
 	m.rooms[id] = room
 	return room
 }
@@ -234,6 +319,14 @@ func (r *Room) AddParticipant(username string) (*Participant, error) {
 	}
 	r.nextPeerID++
 	r.participants[p.PeerID] = p
+	r.attendance = append(r.attendance, &AttendanceRecord{
+		Username: username,
+		PeerID:   p.PeerID,
+		JoinedAt: p.joinedAt,
+	})
+	if len(r.attendance) > maxAttendance {
+		r.attendance = r.attendance[len(r.attendance)-maxAttendance:]
+	}
 	r.lastActivity = time.Now()
 	return p, nil
 }
@@ -245,11 +338,42 @@ func (r *Room) RemoveParticipant(peerID int) {
 	if ok {
 		delete(r.participants, peerID)
 	}
+	for _, record := range r.attendance {
+		if record.PeerID == peerID && record.Present() {
+			record.LeftAt = time.Now()
+			break
+		}
+	}
 	r.lastActivity = time.Now()
 	r.mu.Unlock()
 	if ok {
 		p.CloseSend()
 	}
+}
+
+// Attendance returns a snapshot of the room's join / leave log in
+// chronological join order.
+func (r *Room) Attendance() []AttendanceRecord {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	list := make([]AttendanceRecord, 0, len(r.attendance))
+	for _, record := range r.attendance {
+		list = append(list, *record)
+	}
+	return list
+}
+
+// HasParticipantUsername reports whether a user with the given username is
+// currently connected to the room.
+func (r *Room) HasParticipantUsername(username string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range r.participants {
+		if p.Username == username {
+			return true
+		}
+	}
+	return false
 }
 
 // Participants returns a snapshot of the current participants.
@@ -320,7 +444,8 @@ func (r *Room) Touch() {
 
 // SaveAttachment streams src to disk (up to maxSize bytes) and registers the
 // file in the room under a random ID. name is display-only and never used as
-// a filesystem path.
+// a filesystem path. Rooms with a bound shared space store the file in the
+// space instead, so AGI scripts can access it too.
 func (m *Manager) SaveAttachment(roomID string, name string, uploader string, src io.Reader, maxSize int64) (*Attachment, error) {
 	room, ok := m.GetRoom(roomID)
 	if !ok {
@@ -328,6 +453,32 @@ func (m *Manager) SaveAttachment(roomID string, name string, uploader string, sr
 	}
 	if maxSize <= 0 {
 		maxSize = DefaultMaxUpload
+	}
+
+	//Space-backed room: the shared space owns the blob storage
+	if space, ok := m.spaceOf(room); ok {
+		itemType := sharedspace.ItemTypeFile
+		if sharedspace.IsImageName(name) {
+			itemType = sharedspace.ItemTypeImage
+		}
+		item, err := space.SaveBlob(itemType, name, uploader, OriginMeetRoom, src, maxSize)
+		if err != nil {
+			if err == sharedspace.ErrItemTooLarge {
+				return nil, ErrAttachmentTooLarge
+			}
+			if err == sharedspace.ErrSpaceClosed {
+				return nil, ErrRoomClosed
+			}
+			return nil, err
+		}
+		room.Touch()
+		return &Attachment{
+			ID:       item.ID,
+			Name:     item.Name,
+			Size:     item.Size,
+			Uploader: item.Uploader,
+			DiskPath: item.DiskPath,
+		}, nil
 	}
 
 	idBytes := make([]byte, 16)
@@ -377,16 +528,57 @@ func (m *Manager) SaveAttachment(roomID string, name string, uploader string, sr
 	return attachment, nil
 }
 
-// GetAttachment looks up a shared file in a room by its ID.
+// GetAttachment looks up a shared file in a room by its ID, consulting the
+// bound shared space when the room has one (covering both room uploads and
+// files posted into the space by AGI scripts).
 func (m *Manager) GetAttachment(roomID string, fileID string) (*Attachment, bool) {
 	room, ok := m.GetRoom(roomID)
 	if !ok {
 		return nil, false
 	}
 	room.mu.Lock()
-	defer room.mu.Unlock()
 	attachment, ok := room.attachments[fileID]
-	return attachment, ok
+	room.mu.Unlock()
+	if ok {
+		return attachment, true
+	}
+	if space, hasSpace := m.spaceOf(room); hasSpace {
+		if item, found := space.GetItem(fileID); found && item.DiskPath != "" {
+			return &Attachment{
+				ID:       item.ID,
+				Name:     item.Name,
+				Size:     item.Size,
+				Uploader: item.Uploader,
+				DiskPath: item.DiskPath,
+			}, true
+		}
+	}
+	return nil, false
+}
+
+// LogChat mirrors a chat message into the room's bound shared space so AGI
+// scripts can read the meeting conversation. No-op for rooms without a space.
+func (m *Manager) LogChat(roomID string, username string, text string) {
+	room, ok := m.GetRoom(roomID)
+	if !ok {
+		return
+	}
+	if space, hasSpace := m.spaceOf(room); hasSpace {
+		space.AddText(username, text, OriginMeetRoom)
+	}
+}
+
+// ListRoomsByHost returns a snapshot of the live rooms hosted by host.
+func (m *Manager) ListRoomsByHost(host string) []*Room {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	hosted := []*Room{}
+	for _, room := range m.rooms {
+		if room.Host == host {
+			hosted = append(hosted, room)
+		}
+	}
+	return hosted
 }
 
 // CloseRoom removes the room, closes every participant's send channel and
@@ -418,6 +610,14 @@ func (m *Manager) CloseRoom(id string) []*Participant {
 		p.CloseSend()
 	}
 	os.RemoveAll(filepath.Join(m.storageRoot, id))
+
+	//The bound shared space lives and dies with the room
+	m.mu.RLock()
+	sm := m.spaces
+	m.mu.RUnlock()
+	if sm != nil && room.SpaceID != "" {
+		sm.DeleteSpace(room.SpaceID)
+	}
 	return members
 }
 
