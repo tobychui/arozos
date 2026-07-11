@@ -491,6 +491,78 @@ func TestSpaceItemBridge(t *testing.T) {
 	}
 }
 
+func TestRoomRidesSpaceChannel(t *testing.T) {
+	//The meeting's realtime transport is the bound space's channel: meeting
+	//participants appear as channel subscribers, and generic subscribers on
+	//the same space receive meeting frames live.
+	m, sm := newSpaceBoundManager(t)
+	room := m.CreateRoom("alice", "", "")
+	space, ok := sm.GetSpace(room.SpaceID)
+	if !ok {
+		t.Fatalf("bound space not found")
+	}
+	channel := space.Channel()
+
+	host, _ := room.AddParticipant("alice")
+	guest, _ := room.AddParticipant("bob")
+	if channel.Count() != room.ParticipantCount() {
+		t.Errorf("channel has %d subscribers, room has %d participants", channel.Count(), room.ParticipantCount())
+	}
+	if _, ok := channel.Get(host.PeerID); !ok {
+		t.Errorf("host peer ID %d not a channel subscriber", host.PeerID)
+	}
+
+	//A generic space subscriber (e.g. a sharedspace WebSocket client)
+	//receives room broadcasts without being a meeting participant
+	watcher, err := channel.Join("watcher")
+	if err != nil {
+		t.Fatalf("generic Join() error = %v", err)
+	}
+	if room.ParticipantCount() != 2 {
+		t.Errorf("generic subscriber leaked into the meeting roster")
+	}
+	room.Broadcast([]byte(`{"type":"chat","text":"hi"}`), host.PeerID)
+	select {
+	case msg := <-watcher.Send:
+		if string(msg) != `{"type":"chat","text":"hi"}` {
+			t.Errorf("watcher received %q", msg)
+		}
+	default:
+		t.Errorf("generic space subscriber did not receive the room broadcast")
+	}
+	//Targeted sends reach meeting participants through the channel
+	if !room.SendTo(guest.PeerID, []byte("direct")) {
+		t.Errorf("SendTo(guest) = false")
+	}
+
+	//Closing the room tears down the shared channel: everyone drops
+	m.CloseRoom(room.ID)
+	if _, open := <-watcher.Send; open {
+		t.Errorf("generic subscriber still connected after CloseRoom")
+	}
+	if _, err := channel.Join("late"); err == nil {
+		t.Errorf("channel still accepts subscribers after CloseRoom")
+	}
+}
+
+func TestUnboundRoomStandaloneChannel(t *testing.T) {
+	//Rooms without a space manager run on a standalone channel with the
+	//same transport semantics.
+	m := newTestManager(t)
+	room := m.CreateRoom("alice", "", "")
+	a, _ := room.AddParticipant("alice")
+	b, _ := room.AddParticipant("bob")
+
+	room.Broadcast([]byte("frame"), a.PeerID)
+	if msg := <-b.Send; string(msg) != "frame" {
+		t.Errorf("b received %q, want frame", msg)
+	}
+	room.RemoveParticipant(b.PeerID)
+	if room.ParticipantCount() != 1 {
+		t.Errorf("ParticipantCount() = %d, want 1", room.ParticipantCount())
+	}
+}
+
 func TestParticipantMessageIsValidJSONFrame(t *testing.T) {
 	//Guards the wire contract: frames pushed by the transport layer are
 	//opaque bytes; make sure Broadcast does not mutate or alias them.

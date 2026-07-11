@@ -55,7 +55,6 @@ var (
 
 const (
 	roomIDLength     = 9         // digits in a meeting room ID, Zoom style
-	sendBufferSize   = 256       // per-participant outgoing frame buffer
 	maxTitleLength   = 64        // room title is clipped to this many runes
 	maxNameLength    = 128       // attachment file names are clipped to this many runes
 	maxAttendance    = 1000      // attendance records kept per room (oldest dropped)
@@ -68,20 +67,24 @@ const (
 	DefaultEmptyIdle = 10 * time.Minute
 )
 
-// Participant is one connected member of a room. The transport layer
-// (WebSocket handler) drains Send and writes each frame to the socket.
+// Participant is one connected member of a room. Since the migration onto
+// the sharedspace channel layer it is a thin wrapper around a channel
+// subscriber: PeerID and Send alias the subscriber's ID and send buffer.
+// The transport layer (WebSocket handler) drains Send and writes each frame
+// to the socket.
 type Participant struct {
 	PeerID   int
 	Username string
 	IsHost   bool
-	Send     chan []byte
+	Send     chan []byte // same channel value as sub.Send
 	joinedAt time.Time
-	once     sync.Once
+	sub      *sharedspace.Subscriber
 }
 
-// CloseSend closes the participant's send channel exactly once.
+// CloseSend closes the participant's send channel exactly once (delegated to
+// the underlying subscriber, which owns the close-once guarantee).
 func (p *Participant) CloseSend() {
-	p.once.Do(func() { close(p.Send) })
+	p.sub.CloseSend()
 }
 
 // Attachment is a file shared into a room, stored on local disk until the
@@ -109,7 +112,12 @@ func (a *AttendanceRecord) Present() bool {
 	return a.LeftAt.IsZero()
 }
 
-// Room is one live meeting room.
+// Room is one live meeting room. The realtime transport (participant
+// registry, broadcast, targeted send) rides the room's sharedspace channel:
+// for space-bound rooms that hub is shared with generic space subscribers,
+// so AGI-facing clients on the space receive meeting frames live. The
+// participants map is the meeting roster proper (host flag, attendance
+// identity) and is always a subset of the channel's subscribers.
 type Room struct {
 	ID           string
 	Title        string
@@ -120,7 +128,7 @@ type Room struct {
 	participants map[int]*Participant
 	attachments  map[string]*Attachment
 	attendance   []*AttendanceRecord
-	nextPeerID   int
+	channel      *sharedspace.Channel // set once in CreateRoom, immutable afterwards
 	lastActivity time.Time
 	closed       bool
 	mu           sync.Mutex
@@ -224,18 +232,19 @@ func (m *Manager) CreateRoom(host string, title string, password string) *Room {
 		participants: make(map[int]*Participant),
 		attachments:  make(map[string]*Attachment),
 		attendance:   []*AttendanceRecord{},
-		nextPeerID:   1,
 		lastActivity: time.Now(),
 	}
 	if password != "" {
 		room.passwordHash = hashRoomPassword(id, password)
 	}
 
-	//Bind a shared space to the room: chat / attachments mirror into it and
-	//externally posted items (AGI) flow back through the item bridge.
+	//Bind a shared space to the room: chat / attachments mirror into it,
+	//externally posted items (AGI) flow back through the item bridge, and
+	//the space's realtime channel carries the meeting signaling.
 	if m.spaces != nil {
 		space := m.spaces.CreateSpace(host, title)
 		room.SpaceID = space.ID
+		room.channel = space.Channel()
 		space.Subscribe(OriginMeetRoom, func(item *sharedspace.Item) {
 			if item.Origin == OriginMeetRoom {
 				return //the room's own echo, already delivered over WebSocket
@@ -247,6 +256,10 @@ func (m *Manager) CreateRoom(host string, title string, password string) *Room {
 				handler(room, item)
 			}
 		})
+	} else {
+		//No space manager bound (e.g. unit tests): the room still needs a
+		//realtime hub of its own
+		room.channel = sharedspace.NewStandaloneChannel()
 	}
 
 	m.rooms[id] = room
@@ -302,22 +315,40 @@ func (r *Room) CheckPassword(password string) bool {
 	return subtle.ConstantTimeCompare(r.passwordHash, candidate) == 1
 }
 
-// AddParticipant registers a new participant and returns it. The transport
+// AddParticipant joins the room's channel as a new subscriber, registers it
+// in the meeting roster and returns the wrapping participant. The transport
 // layer must drain the returned participant's Send channel.
 func (r *Room) AddParticipant(username string) (*Participant, error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.closed {
+		r.mu.Unlock()
 		return nil, ErrRoomClosed
 	}
+	r.mu.Unlock()
+
+	//Rooms bind open spaces, so the channel ACL always admits; a closed
+	//channel means the room was torn down while we were joining.
+	sub, err := r.channel.Join(username)
+	if err != nil {
+		return nil, ErrRoomClosed
+	}
+
 	p := &Participant{
-		PeerID:   r.nextPeerID,
+		PeerID:   sub.ID,
 		Username: username,
 		IsHost:   username == r.Host,
-		Send:     make(chan []byte, sendBufferSize),
-		joinedAt: time.Now(),
+		Send:     sub.Send,
+		joinedAt: sub.JoinedAt(),
+		sub:      sub,
 	}
-	r.nextPeerID++
+
+	r.mu.Lock()
+	if r.closed {
+		//The room closed between the pre-check and the channel join
+		r.mu.Unlock()
+		r.channel.Leave(sub.ID)
+		return nil, ErrRoomClosed
+	}
 	r.participants[p.PeerID] = p
 	r.attendance = append(r.attendance, &AttendanceRecord{
 		Username: username,
@@ -328,13 +359,14 @@ func (r *Room) AddParticipant(username string) (*Participant, error) {
 		r.attendance = r.attendance[len(r.attendance)-maxAttendance:]
 	}
 	r.lastActivity = time.Now()
+	r.mu.Unlock()
 	return p, nil
 }
 
 // RemoveParticipant unregisters a participant and closes its send channel.
 func (r *Room) RemoveParticipant(peerID int) {
 	r.mu.Lock()
-	p, ok := r.participants[peerID]
+	_, ok := r.participants[peerID]
 	if ok {
 		delete(r.participants, peerID)
 	}
@@ -347,7 +379,7 @@ func (r *Room) RemoveParticipant(peerID int) {
 	r.lastActivity = time.Now()
 	r.mu.Unlock()
 	if ok {
-		p.CloseSend()
+		r.channel.Leave(peerID)
 	}
 }
 
@@ -402,37 +434,19 @@ func (r *Room) GetParticipant(peerID int) (*Participant, bool) {
 	return p, ok
 }
 
-// Broadcast queues msg to every participant except excludePeerID (pass a
-// negative value to send to everyone). Full send buffers drop the frame
-// rather than blocking the room.
+// Broadcast queues msg to every channel subscriber except excludePeerID
+// (pass a negative value to send to everyone). For space-bound rooms this
+// includes generic space subscribers, so clients connected through the
+// sharedspace WebSocket receive meeting frames too. Full send buffers drop
+// the frame rather than blocking the room.
 func (r *Room) Broadcast(msg []byte, excludePeerID int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for id, p := range r.participants {
-		if id == excludePeerID {
-			continue
-		}
-		select {
-		case p.Send <- append([]byte(nil), msg...):
-		default:
-		}
-	}
+	r.channel.Broadcast(msg, excludePeerID)
 }
 
-// SendTo queues msg to a single participant. It reports whether the peer
-// exists in the room.
+// SendTo queues msg to a single channel subscriber. It reports whether the
+// peer exists on the room's channel.
 func (r *Room) SendTo(peerID int, msg []byte) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	p, ok := r.participants[peerID]
-	if !ok {
-		return false
-	}
-	select {
-	case p.Send <- append([]byte(nil), msg...):
-	default:
-	}
-	return true
+	return r.channel.SendTo(peerID, msg)
 }
 
 // Touch refreshes the room's idle timer.
@@ -606,9 +620,9 @@ func (m *Manager) CloseRoom(id string) []*Participant {
 	room.attachments = make(map[string]*Attachment)
 	room.mu.Unlock()
 
-	for _, p := range members {
-		p.CloseSend()
-	}
+	//Tearing the channel down closes every subscriber's send buffer (the
+	//meeting participants and, for bound rooms, generic space subscribers)
+	room.channel.Close()
 	os.RemoveAll(filepath.Join(m.storageRoot, id))
 
 	//The bound shared space lives and dies with the room
