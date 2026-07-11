@@ -36,12 +36,17 @@
     var API = {
         create: "/system/meetroom/create",
         join: "/system/meetroom/join",
+        info: "/system/meetroom/info",
         end: "/system/meetroom/end",
         ice: "/system/meetroom/iceservers",
         upload: "/system/meetroom/upload",
         download: "/system/meetroom/download",
         ws: "/system/meetroom/ws"
     };
+
+    //File extensions the chat renders inline as images; must match the
+    //server-side raster whitelist (mod/sharedspace IsImageName)
+    var IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "bmp"];
 
     var state = {
         ws: null,
@@ -62,6 +67,7 @@
         camOn: true,
         sharing: false,
         chatOpen: false,
+        peopleOpen: false,
         unreadChat: 0,
         leaving: false,
         currentRoomId: "",
@@ -81,6 +87,12 @@
         var div = document.createElement("div");
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    //For values placed inside HTML attributes: escapeHtml does not cover
+    //quotes, so escape them explicitly to stay inside the attribute.
+    function escapeAttr(text) {
+        return escapeHtml(text).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
 
     function formatBytes(bytes) {
@@ -119,6 +131,63 @@
         if (typeof ao_module_setWindowTitle === "function") {
             try { ao_module_setWindowTitle(title); } catch (e) { }
         }
+    }
+
+    function isImageName(name) {
+        var idx = name.lastIndexOf(".");
+        if (idx < 0) return false;
+        return IMAGE_EXTS.indexOf(name.substring(idx + 1).toLowerCase()) >= 0;
+    }
+
+    /* ================= Sound effects ================= */
+    //Short synthesized chimes via WebAudio: no bundled audio assets needed.
+    //The context is created lazily on the first join (a user gesture has
+    //happened by then, so autoplay policies allow it).
+
+    var audioCtx = null;
+
+    function playChime(notes) {
+        try {
+            if (!audioCtx) {
+                var Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                audioCtx = new Ctx();
+            }
+            if (audioCtx.state === "suspended") {
+                var resumed = audioCtx.resume();
+                if (resumed && resumed.catch) resumed.catch(function () { });
+            }
+            var t = audioCtx.currentTime;
+            notes.forEach(function (note) {
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.type = "sine";
+                osc.frequency.value = note.freq;
+                gain.gain.setValueAtTime(0.0001, t + note.at);
+                gain.gain.linearRampToValueAtTime(0.12, t + note.at + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + note.at + note.len);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t + note.at);
+                osc.stop(t + note.at + note.len + 0.05);
+            });
+        } catch (e) { }
+    }
+
+    function playJoinSound() {
+        //Ascending two-note chime (C5 -> G5)
+        playChime([
+            { freq: 523.25, at: 0, len: 0.18 },
+            { freq: 783.99, at: 0.13, len: 0.25 }
+        ]);
+    }
+
+    function playLeaveSound() {
+        //Descending two-note chime (E5 -> G4)
+        playChime([
+            { freq: 659.25, at: 0, len: 0.18 },
+            { freq: 392.00, at: 0.13, len: 0.25 }
+        ]);
     }
 
     /* ================= Lobby actions ================= */
@@ -370,6 +439,8 @@
                 updateParticipantCount();
                 if (wasReconnect) {
                     addSystemChat("Reconnected to the meeting");
+                } else {
+                    playJoinSound();
                 }
                 break;
             case "pong":
@@ -378,13 +449,17 @@
             case "peer-join":
                 createPeerRecord(msg.peer);
                 addSystemChat(msg.peer.username + " joined the meeting");
+                playJoinSound();
                 broadcastState(); //let the newcomer learn our mute/cam state
                 updateParticipantCount();
+                refreshAttendance();
                 break;
             case "peer-leave":
                 removePeer(msg.peerid);
                 addSystemChat(msg.username + " left the meeting");
+                playLeaveSound();
                 updateParticipantCount();
+                refreshAttendance();
                 break;
             case "signal":
                 handleSignal(msg.from, msg.data);
@@ -397,6 +472,9 @@
                 break;
             case "state":
                 updatePeerState(msg);
+                break;
+            case "attendance":
+                renderAttendance(msg.records || []);
                 break;
             case "room-closed":
                 state.leaving = true;
@@ -743,6 +821,7 @@
 
     $id("leaveBtn").addEventListener("click", function () {
         state.leaving = true;
+        playLeaveSound();
         cleanupRoom();
         showLobbyError("");
     });
@@ -751,6 +830,7 @@
         if (!confirm("End the meeting for all participants?")) return;
         sendFrame({ type: "end" });
         state.leaving = true;
+        playLeaveSound();
         cleanupRoom();
         showLobbyError("");
     });
@@ -766,6 +846,8 @@
         state.chatOpen = open;
         $id("chatPanel").style.display = open ? "flex" : "none";
         if (open) {
+            if (state.peopleOpen) togglePeople(false);
+            hideMessageToast();
             state.unreadChat = 0;
             $id("chatBadge").style.display = "none";
             $id("chatText").focus();
@@ -775,6 +857,93 @@
 
     $id("chatBtn").addEventListener("click", function () { toggleChat(!state.chatOpen); });
     $id("chatCloseBtn").addEventListener("click", function () { toggleChat(false); });
+
+    /* ================= Participants & attendance ================= */
+
+    function togglePeople(open) {
+        state.peopleOpen = open;
+        $id("peoplePanel").style.display = open ? "flex" : "none";
+        if (open) {
+            if (state.chatOpen) toggleChat(false);
+            refreshAttendance();
+        }
+    }
+
+    $id("peopleBtn").addEventListener("click", function () { togglePeople(!state.peopleOpen); });
+    $id("peopleCloseBtn").addEventListener("click", function () { togglePeople(false); });
+
+    //Ask the server for the join/leave log; the reply arrives as an
+    //"attendance" frame and lands in renderAttendance()
+    function refreshAttendance() {
+        if (!state.peopleOpen) return;
+        sendFrame({ type: "attendance" });
+    }
+
+    function attendanceTime(unixTime) {
+        return new Date(unixTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function attendanceEntry(record) {
+        var entry = document.createElement("div");
+        entry.className = "attendance-entry" + (record.present ? " present" : "");
+        var times = record.present
+            ? "joined " + attendanceTime(record.joinedat)
+            : attendanceTime(record.joinedat) + " - " + attendanceTime(record.leftat);
+        entry.innerHTML =
+            '<i class="' + (record.present ? "user icon" : "sign-out icon") + '"></i>' +
+            '<span class="attendee-name">' + escapeHtml(record.username) + '</span>' +
+            (state.room && record.username === state.room.host ? '<span class="host-tag">Host</span>' : "") +
+            '<span class="attendee-times">' + escapeHtml(times) + '</span>';
+        return entry;
+    }
+
+    function renderAttendance(records) {
+        var box = $id("attendanceList");
+        box.innerHTML = "";
+        var present = records.filter(function (r) { return r.present; });
+        var past = records.filter(function (r) { return !r.present; });
+
+        var groupPresent = document.createElement("div");
+        groupPresent.className = "attendance-group";
+        groupPresent.textContent = "In meeting (" + present.length + ")";
+        box.appendChild(groupPresent);
+        present.forEach(function (record) { box.appendChild(attendanceEntry(record)); });
+
+        if (past.length > 0) {
+            var groupPast = document.createElement("div");
+            groupPast.className = "attendance-group";
+            groupPast.textContent = "Left the meeting (" + past.length + ")";
+            box.appendChild(groupPast);
+            past.forEach(function (record) { box.appendChild(attendanceEntry(record)); });
+        }
+    }
+
+    /* ================= New message popup ================= */
+
+    var toastTimer = null;
+
+    function showMessageToast(title, body) {
+        if (state.chatOpen) return; //already reading the chat
+        var toast = $id("msgToast");
+        toast.querySelector(".toast-title span").textContent = title;
+        toast.querySelector(".toast-body").textContent = body;
+        toast.style.display = "block";
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(hideMessageToast, 6000);
+    }
+
+    function hideMessageToast() {
+        if (toastTimer) {
+            clearTimeout(toastTimer);
+            toastTimer = null;
+        }
+        $id("msgToast").style.display = "none";
+    }
+
+    $id("msgToast").addEventListener("click", function () {
+        hideMessageToast();
+        toggleChat(true);
+    });
 
     function sendChat() {
         var input = $id("chatText");
@@ -825,7 +994,10 @@
             '<div class="msg-meta">' + escapeHtml(msg.username) + " - " + chatTimestamp(msg.time) + '</div>' +
             '<div class="msg-body">' + escapeHtml(msg.text) + '</div>';
         appendChatNode(node);
-        if (!own) bumpUnread();
+        if (!own) {
+            bumpUnread();
+            showMessageToast(msg.username, msg.text);
+        }
     }
 
     function addFileMessage(msg) {
@@ -836,15 +1008,39 @@
             "&fileid=" + encodeURIComponent(msg.fileid);
         var node = document.createElement("div");
         node.className = "chat-msg" + (own ? " own" : "");
+
+        //Images render inline so nobody has to download them; clicking the
+        //preview opens the full-size image in a new tab (inline=1 keeps the
+        //browser from forcing a download). Everything else stays a link.
+        var body;
+        if (isImageName(msg.name)) {
+            var inlineHref = href + "&inline=1";
+            body =
+                '<a target="_blank" rel="noopener" href="' + inlineHref + '" title="Open full size">' +
+                '<img class="chat-image" src="' + inlineHref + '" alt="' + escapeAttr(msg.name) + '">' +
+                '</a>' +
+                '<a class="file-link" href="' + href + '" download>' +
+                '<i class="download icon"></i>' + escapeHtml(msg.name) +
+                '</a> <span class="file-size">(' + formatBytes(msg.size) + ')</span>';
+        } else {
+            body =
+                '<a class="file-link" target="_blank" rel="noopener" href="' + href + '" download>' +
+                '<i class="file outline icon"></i>' + escapeHtml(msg.name) +
+                '</a> <span class="file-size">(' + formatBytes(msg.size) + ')</span>';
+        }
         node.innerHTML =
             '<div class="msg-meta">' + escapeHtml(msg.username) + " - " + chatTimestamp(msg.time) + '</div>' +
-            '<div class="msg-body">' +
-            '<a class="file-link" target="_blank" rel="noopener" href="' + href + '" download>' +
-            '<i class="file outline icon"></i>' + escapeHtml(msg.name) +
-            '</a> <span class="file-size">(' + formatBytes(msg.size) + ')</span>' +
-            '</div>';
+            '<div class="msg-body">' + body + '</div>';
         appendChatNode(node);
-        if (!own) bumpUnread();
+        var preview = node.querySelector(".chat-image");
+        if (preview) {
+            //Keep the newest message visible once the preview finishes loading
+            preview.addEventListener("load", scrollChat);
+        }
+        if (!own) {
+            bumpUnread();
+            showMessageToast(msg.username, "Shared " + (isImageName(msg.name) ? "an image: " : "a file: ") + msg.name);
+        }
     }
 
     function addSystemChat(text) {
@@ -860,22 +1056,22 @@
         $id("attachInput").click();
     });
 
-    $id("attachInput").addEventListener("change", function () {
-        var file = this.files[0];
-        this.value = "";
+    //Upload a file (or pasted image blob) and announce it to the room
+    function uploadAndAnnounce(file, displayName) {
         if (!file) return;
         if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
             addSystemChat("Reconnecting - please try sharing the file again in a moment");
             return;
         }
+        var name = displayName || file.name;
 
         var form = new FormData();
         form.append("roomid", state.room.id);
         form.append("password", state.password);
-        form.append("file", file);
+        form.append("file", file, name);
 
         $id("uploadStatus").style.display = "";
-        $id("uploadStatusText").textContent = "Uploading " + file.name + "...";
+        $id("uploadStatusText").textContent = "Uploading " + name + "...";
 
         fetch(API.upload, { method: "POST", body: form }).then(function (r) {
             return r.json();
@@ -890,6 +1086,29 @@
             $id("uploadStatus").style.display = "none";
             addSystemChat("Upload failed");
         });
+    }
+
+    $id("attachInput").addEventListener("change", function () {
+        var file = this.files[0];
+        this.value = "";
+        uploadAndAnnounce(file);
+    });
+
+    //Ctrl+V in the meeting attaches a copied image (screenshot, copied
+    //picture, ...) to the chat
+    document.addEventListener("paste", function (e) {
+        if (!state.connected) return;
+        var items = (e.clipboardData && e.clipboardData.items) || [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].kind !== "file" || items[i].type.indexOf("image/") !== 0) continue;
+            var blob = items[i].getAsFile();
+            if (!blob) continue;
+            e.preventDefault();
+            if (!state.chatOpen) toggleChat(true);
+            var ext = (items[i].type.split("/")[1] || "png").split("+")[0];
+            uploadAndAnnounce(blob, "pasted-image-" + Date.now() + "." + ext);
+            return;
+        }
     });
 
     /* ================= Teardown ================= */
@@ -931,10 +1150,13 @@
 
         $id("videoGrid").innerHTML = "";
         $id("chatMessages").innerHTML = "";
+        $id("attendanceList").innerHTML = "";
         $id("chatBadge").style.display = "none";
         $id("micBtn").disabled = false;
         $id("camBtn").disabled = false;
+        hideMessageToast();
         toggleChat(false);
+        togglePeople(false);
         $id("room").style.display = "none";
         $id("lobby").style.display = "flex";
         setWindowTitle("MeetRoom");

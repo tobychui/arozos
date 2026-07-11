@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.0` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.4` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -273,6 +273,8 @@ Registered library IDs:
 - `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
 - `llm` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
 - `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
+- `sharedspace` (multi-user collaboration spaces: texts / images / files / documents, ACLs, persistence)
+- `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -1508,6 +1510,262 @@ The cron script must reside inside the webapp's own web folder, **not** in user 
 ```
 
 The scheduler calls `cron.agi` with the permissions of the user who approved it, so all file-system and database operations are scoped to that user.
+
+---
+
+## sharedspace API
+
+Load:
+
+```javascript
+requirelib("sharedspace");
+```
+
+A **shared space** is an area where multiple different users can share
+texts, images, files and collaboratively edited documents together - the
+collaboration backbone behind chat-style apps, document collaboration and
+MeetRoom meetings. Every space carries:
+
+- an **access mode**: `"open"` (default - the random space ID acts as the
+  capability, anyone who knows it can read and post), `"public"`
+  (discoverable via `listPublicSpaces`, any logged-in user can self-join)
+  or `"private"` (members only, invited by the owner or a space admin);
+- a **member list** with roles `owner` / `admin` / `member`;
+- a **metadata** key-value store (managers only, capped);
+- a **persistent** flag: persistent spaces (and their items, files and
+  documents) survive server restarts; ephemeral spaces (the default, and
+  what MeetRoom uses) are gone after a restart.
+
+Web clients get the same feature set over `/system/sharedspace/*` and a
+realtime WebSocket channel (`/system/sharedspace/ws`), so items and
+document patches posted from AGI appear live in connected clients.
+MeetRoom binds one space to every meeting room (see the meetroom API), so
+this library is also how scripts read a live meeting's chat and post
+messages or files into it.
+
+### `sharedspace.createSpace(name)` → object
+
+Create a new space owned by the calling user. Returns
+`{ spaceid, name, owner, items, createdat }`.
+
+```javascript
+requirelib("sharedspace");
+var space = sharedspace.createSpace("Design sync");
+sendJSONResp(space);
+```
+
+### `sharedspace.listMySpaces()` → array
+
+List the spaces owned by the calling user (same fields as `createSpace`).
+
+### `sharedspace.getSpaceInfo(spaceid)` → object
+
+Describe a space by ID. Returns `{ exists: false }` for unknown IDs.
+
+### `sharedspace.addText(spaceid, text)` → string | null
+
+Post a text snippet (clipped to 4000 characters) into the space. Returns the
+new item ID, or `null` on failure.
+
+### `sharedspace.addFile(spaceid, vpath)` → string | null
+
+Copy a file from the calling user's storage into the space. Files with a
+raster-image extension (png / jpg / jpeg / gif / webp / bmp) are stored as
+`image` items, everything else as `file`. Returns the new item ID.
+
+```javascript
+requirelib("sharedspace");
+var itemid = sharedspace.addFile(spaceid, "user:/Photo/cat.png");
+```
+
+### `sharedspace.listItems(spaceid)` → array | null
+
+Chronological list of items:
+`{ itemid, type, name, text, size, uploader, origin, time }`. `type` is
+`"text"`, `"image"` or `"file"`; `text` is only filled for text items.
+
+### `sharedspace.getText(spaceid, itemid)` → string | null
+
+Read the content of a text item.
+
+### `sharedspace.saveFileTo(spaceid, itemid, destVpath)` → bool
+
+Copy an image / file item into the calling user's storage.
+
+### `sharedspace.removeItem(spaceid, itemid)` → bool
+
+Remove an item. Only the item's uploader, a space admin or the space owner
+may remove it.
+
+### `sharedspace.deleteSpace(spaceid)` → bool
+
+Delete a space and all its items. Space owner or a space admin only.
+
+### `sharedspace.createSpaceAdvanced(name, options)` → object | null
+
+Create a space with options: `{ access, persistent, metadata }`. Returns the
+space descriptor (`{ spaceid, name, owner, access, persistent, items, docs,
+members, metadata, createdat }` - the same shape every listing below uses),
+or `null` when e.g. persistence is disabled by the administrator.
+
+```javascript
+requirelib("sharedspace");
+var space = sharedspace.createSpaceAdvanced("Team chat", {
+    access: "private",
+    persistent: true,
+    metadata: { purpose: "chat" }
+});
+```
+
+### `sharedspace.listPublicSpaces()` → array
+
+The public space directory (descriptors of every `"public"` space).
+
+### `sharedspace.listJoinedSpaces()` → array
+
+Descriptors of every space the calling user belongs to (owner, admin or
+member). `listMySpaces()` remains the owned-only subset.
+
+### `sharedspace.joinSpace(spaceid)` / `sharedspace.leaveSpace(spaceid)` → bool
+
+Self-join a public (or open) space as a member / leave a space. Private
+spaces are invite-only, so `joinSpace` fails on them.
+
+### `sharedspace.setAccess(spaceid, access)` → bool
+
+Change the access mode (`"open"`, `"public"` or `"private"`). Managers only.
+
+### `sharedspace.setMeta(spaceid, key, value)` / `sharedspace.getMeta(spaceid)` → bool / object
+
+Set (empty value deletes) or read the space metadata. Writing requires
+manager rights; reading requires read access.
+
+### `sharedspace.addMember(spaceid, username, role)` → bool
+
+Invite a user with role `"admin"` or `"member"` (default). Managers only.
+
+### `sharedspace.removeMember(spaceid, username)` → bool
+
+Remove a member (managers) or leave (self). The owner cannot be removed.
+
+### `sharedspace.listMembers(spaceid)` → object | null
+
+Member map `{ username: role, ... }`. Members and managers only.
+
+### `sharedspace.createDoc(spaceid, name)` → object | null
+
+Create a collaborative document. Returns the document snapshot
+`{ docid, name, creator, revision, content, createdat, updatedat, updatedby }`.
+
+### `sharedspace.listDocs(spaceid)` → array | null
+
+Document snapshots without their `content`.
+
+### `sharedspace.getDoc(spaceid, docid)` → object | null
+
+One document with its full content - also the recovery path after an update
+conflict.
+
+### `sharedspace.updateDoc(spaceid, docid, baserev, content)` → object | null
+
+Compare-and-swap update: the new `content` replaces the document body only
+when `baserev` matches the document's current revision. Returns
+`{ ok: true, revision }` on success or
+`{ ok: false, conflict: true, revision }` when someone else updated the
+document first - re-fetch with `getDoc`, merge your change and retry.
+Debounce saves (~500ms): every accepted revision is one database write, and
+live WebSocket clients receive each revision as a patch frame.
+
+```javascript
+requirelib("sharedspace");
+var doc = sharedspace.getDoc(spaceid, docid);
+var result = sharedspace.updateDoc(spaceid, docid, doc.revision, doc.content + "\nAppended by AGI");
+if (result !== null && result.conflict) {
+    // someone got there first: re-fetch, rebase, retry
+}
+```
+
+### `sharedspace.deleteDoc(spaceid, docid)` → bool
+
+Delete a document. Creator or space managers only.
+
+---
+
+## meetroom API
+
+Load:
+
+```javascript
+requirelib("meetroom");
+```
+
+Control interface for the MeetRoom video conferencing WebApp. The library is
+only injected for users who have access permission to the **MeetRoom**
+module (the same gate as the `/system/meetroom/*` endpoints). Every meeting
+room owns a shared space where the room's chat and file attachments are
+mirrored; posting into that space with the sharedspace API delivers the item
+into the live meeting chat.
+
+### `meetroom.createRoom(title, password)` → object
+
+Create a meeting room hosted by the calling user. Both arguments are
+optional (`""` for an untitled / open room). Returns
+`{ roomid, displayid, title, host, protected, participants, createdat, spaceid }`
+where `spaceid` is the room's shared space.
+
+```javascript
+requirelib("meetroom");
+var room = meetroom.createRoom("Weekly standup", "");
+sendJSONResp({ invite: room.displayid, space: room.spaceid });
+```
+
+### `meetroom.getRoomInfo(roomid)` → object | null
+
+Describe a room. Returns `{ exists: false }` for unknown IDs. `spaceid` is
+included only when the calling user is the room's host.
+
+### `meetroom.getRoomSpace(roomid, password)` → string | null
+
+Return the room's shared space ID after passing the same password check the
+join endpoint applies. Use this to chat with a meeting you were invited to:
+
+```javascript
+requirelib("meetroom");
+requirelib("sharedspace");
+var spaceid = meetroom.getRoomSpace("123456789", "roomPassword");
+if (spaceid !== null) {
+    sharedspace.addText(spaceid, "Reminder: meeting notes are due today");
+}
+```
+
+### `meetroom.listMyRooms()` → array
+
+List the live rooms hosted by the calling user (same fields as `createRoom`).
+
+### `meetroom.endRoom(roomid)` → bool
+
+End the meeting for everyone. Host only.
+
+### `meetroom.getAttendance(roomid)` → array | null
+
+Export the room's attendance log:
+`{ username, joinedat, leftat, present }` per join (`leftat` is `0` while the
+participant is still connected). Only the host or a currently connected
+participant may read it.
+
+```javascript
+requirelib("meetroom");
+var log = meetroom.getAttendance("123456789");
+if (log !== null) {
+    var report = "";
+    for (var i = 0; i < log.length; i++) {
+        report += log[i].username + "," + log[i].joinedat + "," + log[i].leftat + "\n";
+    }
+    if (requirelib("filelib")) {
+        filelib.writeFile("user:/Desktop/attendance.csv", report);
+    }
+}
+```
 
 ---
 

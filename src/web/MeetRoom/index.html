@@ -102,7 +102,7 @@
                         <i class="spinner loading icon"></i> <span id="uploadStatusText">Uploading...</span>
                     </div>
                     <div class="ui small action input fluid">
-                        <input type="text" id="chatText" maxlength="4000" placeholder="Type a message...">
+                        <input type="text" id="chatText" maxlength="4000" placeholder="Type a message... (Ctrl+V pastes an image)">
                         <button id="attachBtn" class="ui icon button" title="Share a file">
                             <i class="paperclip icon"></i>
                         </button>
@@ -113,6 +113,18 @@
                     <input type="file" id="attachInput" style="display:none;">
                 </div>
             </div>
+            <div id="peoplePanel" style="display:none;">
+                <div class="chat-header">
+                    <i class="users icon"></i> Participants
+                    <i id="peopleCloseBtn" class="close icon chat-close"></i>
+                </div>
+                <div id="attendanceList"></div>
+            </div>
+        </div>
+
+        <div id="msgToast" style="display:none;" title="Click to open the chat">
+            <div class="toast-title"><i class="comment icon"></i><span></span></div>
+            <div class="toast-body"></div>
         </div>
 
         <div id="controlBar">
@@ -128,6 +140,9 @@
             <button id="chatBtn" class="ctrl-btn" title="Open chat">
                 <i class="comments icon"></i><span>Chat</span>
                 <span id="chatBadge" class="chat-badge" style="display:none;"></span>
+            </button>
+            <button id="peopleBtn" class="ctrl-btn" title="Participants and attendance">
+                <i class="users icon"></i><span>People</span>
             </button>
             <button id="inviteBtn" class="ctrl-btn" title="Copy invite info">
                 <i class="share alternate icon"></i><span>Invite</span>
