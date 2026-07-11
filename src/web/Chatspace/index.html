@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=yes" />
+    <meta name="theme-color" content="#481349" />
+    <meta name="description" content="ArozOS Chatspace team chat" />
+    <title>Chatspace</title>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="app.css">
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- ================= Left rail ================= -->
+        <div id="rail">
+            <div id="wsIcon" title="Chatspace"><img src="img/module_icon.svg" alt="Chatspace"></div>
+            <button class="rail-btn active" data-view="home" title="Home">
+                <i class="home icon"></i><span>Home</span>
+            </button>
+            <button class="rail-btn" data-view="dms" title="Direct messages">
+                <i class="comments outline icon"></i><span>DMs</span>
+            </button>
+            <button class="rail-btn" data-view="activity" title="Activity">
+                <i class="bell outline icon"></i><span>Activity</span>
+                <span id="railActivityDot" class="rail-dot" style="display:none;"></span>
+            </button>
+            <button class="rail-btn" data-view="later" title="Later">
+                <i class="bookmark outline icon"></i><span>Later</span>
+            </button>
+            <button class="rail-btn" id="railBrowseBtn" title="Browse channels">
+                <i class="ellipsis horizontal icon"></i><span>More</span>
+            </button>
+            <div class="rail-spacer"></div>
+            <button class="rail-btn rail-plus" id="railNewBtn" title="New message">
+                <i class="plus icon"></i>
+            </button>
+            <div id="railAvatar" title="You"></div>
+        </div>
+
+        <!-- ================= Top bar ================= -->
+        <div id="topbar">
+            <div class="tb-history">
+                <button class="tb-btn" id="histBackBtn" title="Back"><i class="arrow left icon"></i></button>
+                <button class="tb-btn" id="histFwdBtn" title="Forward"><i class="arrow right icon"></i></button>
+                <button class="tb-btn" id="qsOpenBtn" title="Jump to... (Ctrl+K)"><i class="clock outline icon"></i></button>
+            </div>
+            <div id="searchBox">
+                <i class="search icon"></i>
+                <input type="text" id="searchInput" placeholder="Search Chatspace" autocomplete="off">
+                <div id="searchResults" style="display:none;"></div>
+            </div>
+            <div class="tb-right">
+                <button class="tb-btn" id="helpBtn" title="About Chatspace"><i class="question circle outline icon"></i></button>
+            </div>
+        </div>
+
+        <!-- ================= Workspace body ================= -->
+        <div id="body">
+
+            <!-- Sidebar -->
+            <div id="sidebar">
+                <div id="sbHeader">
+                    <span id="sbWorkspaceName">Chatspace <i class="chevron down icon"></i></span>
+                    <button class="sb-hbtn" id="sbComposeBtn" title="New message"><i class="edit outline icon"></i></button>
+                </div>
+                <div id="sbScroll">
+                    <!-- Home view -->
+                    <div class="sb-view" id="sbViewHome">
+                        <div class="sb-navlist">
+                            <div class="sb-item sb-nav" data-nav="threads"><i class="comment outline icon"></i>Threads</div>
+                            <div class="sb-item sb-nav" data-nav="drafts"><i class="send icon"></i>Drafts &amp; sent
+                                <span class="sb-count" id="draftCount" style="display:none;"></span>
+                            </div>
+                            <div class="sb-item sb-nav" data-nav="activity"><i class="bell outline icon"></i>Activity</div>
+                            <div class="sb-item sb-nav" data-nav="later"><i class="bookmark outline icon"></i>Later</div>
+                        </div>
+
+                        <div class="sb-section" id="sbStarredSection" style="display:none;">
+                            <div class="sb-section-title" data-collapse="starred"><i class="caret down icon"></i>Starred</div>
+                            <div class="sb-section-items" id="sbStarredList"></div>
+                        </div>
+
+                        <div class="sb-section">
+                            <div class="sb-section-title" data-collapse="channels"><i class="caret down icon"></i>Channels</div>
+                            <div class="sb-section-items" id="sbChannelList"></div>
+                            <div class="sb-item sb-add" id="sbAddChannelBtn"><span class="sb-plusbox"><i class="plus icon"></i></span>Add channels</div>
+                        </div>
+
+                        <div class="sb-section">
+                            <div class="sb-section-title" data-collapse="dms"><i class="caret down icon"></i>Direct messages</div>
+                            <div class="sb-section-items" id="sbDmList"></div>
+                            <div class="sb-item sb-add" id="sbNewDmBtn"><span class="sb-plusbox"><i class="plus icon"></i></span>New message</div>
+                        </div>
+                    </div>
+
+                    <!-- Alternative sidebar views (DMs / Activity / Later / Threads / Drafts) -->
+                    <div class="sb-view" id="sbViewAlt" style="display:none;">
+                        <div id="sbAltTitle" class="sb-alt-title"></div>
+                        <div id="sbAltBody"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <div id="content">
+                <div id="channelHeader" style="display:none;">
+                    <div class="ch-left">
+                        <button id="chNameBtn" title="Channel details">
+                            <span id="chName"></span> <i class="chevron down icon"></i>
+                        </button>
+                        <button id="chStarBtn" title="Star"><i class="star outline icon"></i></button>
+                        <span id="chTopic" title="Topic"></span>
+                    </div>
+                    <div class="ch-right">
+                        <button id="chMembersBtn" title="View members">
+                            <span id="chFacepile"></span><span id="chMemberCount"></span>
+                        </button>
+                        <button id="chHuddleBtn" title="Start a call in MeetRoom"><i class="headphones icon"></i></button>
+                        <button id="chDetailsBtn" title="Channel details"><i class="info circle icon"></i></button>
+                    </div>
+                </div>
+
+                <div id="previewBanner" style="display:none;">
+                    <div>You are viewing <b id="pvName"></b></div>
+                    <button class="cs-btn cs-btn-primary" id="pvJoinBtn">Join channel</button>
+                </div>
+
+                <div id="offlineBanner" style="display:none;">
+                    <i class="spinner loading icon"></i> Connection lost - reconnecting...
+                </div>
+
+                <div id="messages"></div>
+
+                <div id="emptyState">
+                    <img src="img/module_icon.svg" alt="">
+                    <h2>Welcome to Chatspace</h2>
+                    <p>Pick a channel on the left, browse public channels or start a direct message.</p>
+                </div>
+
+                <div id="typingBar">&nbsp;</div>
+
+                <div id="composerWrap" style="display:none;">
+                    <div id="composer">
+                        <div id="fmtToolbar">
+                            <button class="fmt-btn" data-fmt="bold" title="Bold"><i class="bold icon"></i></button>
+                            <button class="fmt-btn" data-fmt="italic" title="Italic"><i class="italic icon"></i></button>
+                            <button class="fmt-btn" data-fmt="strike" title="Strikethrough"><i class="strikethrough icon"></i></button>
+                            <span class="fmt-sep"></span>
+                            <button class="fmt-btn" data-fmt="link" title="Link"><i class="linkify icon"></i></button>
+                            <span class="fmt-sep"></span>
+                            <button class="fmt-btn" data-fmt="ol" title="Ordered list"><i class="list ol icon"></i></button>
+                            <button class="fmt-btn" data-fmt="ul" title="Bulleted list"><i class="list ul icon"></i></button>
+                            <span class="fmt-sep"></span>
+                            <button class="fmt-btn" data-fmt="quote" title="Blockquote"><i class="quote left icon"></i></button>
+                            <span class="fmt-sep"></span>
+                            <button class="fmt-btn" data-fmt="code" title="Code"><i class="code icon"></i></button>
+                            <button class="fmt-btn" data-fmt="codeblock" title="Code block"><i class="file code outline icon"></i></button>
+                        </div>
+                        <textarea id="composeInput" rows="1" placeholder="Message"></textarea>
+                        <div id="composerBottom">
+                            <div class="cb-left">
+                                <button class="cb-btn cb-plus" id="attachBtn" title="Attach a file"><i class="plus icon"></i></button>
+                                <button class="cb-btn" id="fmtToggleBtn" title="Hide formatting"><span class="cb-aa">Aa</span></button>
+                                <button class="cb-btn" id="iconPickBtn" title="Icon shortcodes"><i class="smile outline icon"></i></button>
+                                <button class="cb-btn" id="mentionBtn" title="Mention someone"><i class="at icon"></i></button>
+                            </div>
+                            <div class="cb-right">
+                                <button id="sendBtn" title="Send now" disabled><i class="paper plane icon"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="composerHint">
+                        <span><b>Shift + Enter</b> to add a new line</span>
+                    </div>
+                </div>
+                <input type="file" id="attachInput" style="display:none;" multiple>
+            </div>
+
+            <!-- Right panel (thread / details / profile) -->
+            <div id="rightPanel" style="display:none;">
+                <div id="rpHeader">
+                    <span id="rpTitle">Thread</span>
+                    <span id="rpSubtitle"></span>
+                    <button id="rpCloseBtn" title="Close"><i class="close icon"></i></button>
+                </div>
+                <div id="rpBody"></div>
+                <div id="rpComposerWrap" style="display:none;">
+                    <div id="rpComposer">
+                        <textarea id="rpComposeInput" rows="1" placeholder="Reply..."></textarea>
+                        <div class="rp-compose-row">
+                            <label class="rp-alsosend"><input type="checkbox" id="rpAlsoSend"> Also send to channel</label>
+                            <button id="rpSendBtn" title="Send" disabled><i class="paper plane icon"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= Modals ================= -->
+    <div class="cs-overlay" id="qsModal" style="display:none;">
+        <div class="cs-modal cs-modal-qs">
+            <input type="text" id="qsInput" placeholder="Jump to a channel or conversation" autocomplete="off">
+            <div id="qsResults"></div>
+        </div>
+    </div>
+
+    <div class="cs-overlay" id="createModal" style="display:none;">
+        <div class="cs-modal">
+            <div class="cs-modal-head">
+                <h3>Create a channel</h3>
+                <button class="cs-modal-x" data-close="createModal"><i class="close icon"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <label class="cs-label">Name</label>
+                <div class="cs-input-hash">
+                    <i class="hashtag icon"></i>
+                    <input type="text" id="ncName" maxlength="60" placeholder="e.g. plan-budget" autocomplete="off">
+                </div>
+                <div class="cs-field-hint">Channels are where conversations happen around a topic. Use a name that is easy to find and understand.</div>
+                <label class="cs-label">Description <span class="cs-optional">(optional)</span></label>
+                <input type="text" id="ncDesc" maxlength="250" placeholder="What is this channel about?" autocomplete="off">
+                <div class="cs-toggle-row">
+                    <div>
+                        <b>Make private</b>
+                        <div class="cs-field-hint">When a channel is set to private, it can only be viewed or joined by invitation.</div>
+                    </div>
+                    <label class="cs-switch"><input type="checkbox" id="ncPrivate"><span class="cs-slider"></span></label>
+                </div>
+                <div class="cs-modal-error" id="ncError" style="display:none;"></div>
+            </div>
+            <div class="cs-modal-foot">
+                <button class="cs-btn cs-btn-primary" id="ncCreateBtn">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="cs-overlay" id="browseModal" style="display:none;">
+        <div class="cs-modal cs-modal-wide">
+            <div class="cs-modal-head">
+                <h3>Browse channels</h3>
+                <button class="cs-modal-x" data-close="browseModal"><i class="close icon"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <input type="text" id="browseFilter" placeholder="Search channels" autocomplete="off">
+                <div id="browseList" class="cs-modal-list"></div>
+            </div>
+            <div class="cs-modal-foot">
+                <button class="cs-btn" data-close="browseModal">Close</button>
+                <button class="cs-btn cs-btn-primary" id="browseCreateBtn">Create channel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="cs-overlay" id="dmModal" style="display:none;">
+        <div class="cs-modal">
+            <div class="cs-modal-head">
+                <h3>New message</h3>
+                <button class="cs-modal-x" data-close="dmModal"><i class="close icon"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <label class="cs-label">To:</label>
+                <input type="text" id="dmFilter" placeholder="Search people" autocomplete="off">
+                <div id="dmUserList" class="cs-modal-list"></div>
+            </div>
+            <div class="cs-modal-foot">
+                <button class="cs-btn cs-btn-primary" id="dmStartBtn" disabled>Go</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="cs-overlay" id="inviteModal" style="display:none;">
+        <div class="cs-modal">
+            <div class="cs-modal-head">
+                <h3 id="inviteTitle">Add people</h3>
+                <button class="cs-modal-x" data-close="inviteModal"><i class="close icon"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <input type="text" id="inviteFilter" placeholder="Search people" autocomplete="off">
+                <div id="inviteUserList" class="cs-modal-list"></div>
+            </div>
+            <div class="cs-modal-foot">
+                <button class="cs-btn cs-btn-primary" id="inviteAddBtn" disabled>Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="cs-overlay" id="helpModal" style="display:none;">
+        <div class="cs-modal">
+            <div class="cs-modal-head">
+                <h3>About Chatspace</h3>
+                <button class="cs-modal-x" data-close="helpModal"><i class="close icon"></i></button>
+            </div>
+            <div class="cs-modal-body">
+                <p>Chatspace is a team chat WebApp built on the ArozOS shared space
+                    collaboration backbone. Channels and direct messages are shared
+                    spaces; messages, threads, reactions and pins travel as space items
+                    in realtime over the space WebSocket channel.</p>
+                <p><b>Formatting:</b> *bold*, _italic_, ~strike~, `code`,
+                    ```code block```, &gt; quote, - bulleted lists, :thumbsup: icon
+                    shortcodes and @username mentions.</p>
+                <p><b>Shortcuts:</b> Ctrl+K jump to a conversation, Enter to send,
+                    Shift+Enter for a new line, Up arrow to edit your last message.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Icon (reaction / shortcode) picker popover -->
+    <div id="iconPicker" style="display:none;"></div>
+    <!-- Mention autocomplete popover -->
+    <div id="mentionPicker" style="display:none;"></div>
+
+    <!-- Toasts -->
+    <div id="toastZone"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
