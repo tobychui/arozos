@@ -1,6 +1,6 @@
 {
   "_note": "This file is the source for the Terminal in-app documentation panel. It is derived from mod/agi/README.md. Whenever README.md is updated, this file MUST also be updated to keep the in-app help in sync.",
-  "_version": "3.3",
+  "_version": "3.4",
   "sections": [
     {
       "id": "core",
@@ -927,14 +927,14 @@
     {
       "id": "sharedspace",
       "name": "sharedspace",
-      "desc": "Shared collaboration areas where multiple users share texts, images and files together. The space ID is the access capability. MeetRoom binds one space to every meeting room.",
+      "desc": "Multi-user collaboration spaces: texts, images, files and revision-synced documents with open/public/private access control, member roles, metadata and optional persistence. Web clients get the same spaces over /system/sharedspace/* plus a realtime WebSocket channel. MeetRoom binds one space to every meeting room.",
       "load": "requirelib(\"sharedspace\");",
       "functions": [
         {
           "name": "sharedspace.createSpace",
           "sig": "sharedspace.createSpace(name)",
-          "desc": "Create a new space owned by the calling user.",
-          "ret": "object {spaceid, name, owner, items, createdat}",
+          "desc": "Create a new open, ephemeral space owned by the calling user.",
+          "ret": "object {spaceid, name, owner, access, persistent, items, docs, members, metadata, createdat}",
           "example": "requirelib(\"sharedspace\");\nvar space = sharedspace.createSpace(\"Design sync\");\nsendJSONResp(space);"
         },
         {
@@ -947,7 +947,7 @@
         {
           "name": "sharedspace.getSpaceInfo",
           "sig": "sharedspace.getSpaceInfo(spaceid)",
-          "desc": "Describe a space by ID. Returns {exists:false} for unknown IDs.",
+          "desc": "Describe a space by ID (includes myrole/ismember). Returns {exists:false} for unknown or unreadable spaces.",
           "ret": "object",
           "example": "requirelib(\"sharedspace\");\nvar info = sharedspace.getSpaceInfo(spaceid);"
         },
@@ -989,16 +989,128 @@
         {
           "name": "sharedspace.removeItem",
           "sig": "sharedspace.removeItem(spaceid, itemid)",
-          "desc": "Remove an item. Uploader or space owner only.",
+          "desc": "Remove an item. Uploader, space admin or space owner only.",
           "ret": "bool",
           "example": "requirelib(\"sharedspace\");\nsharedspace.removeItem(spaceid, itemid);"
         },
         {
           "name": "sharedspace.deleteSpace",
           "sig": "sharedspace.deleteSpace(spaceid)",
-          "desc": "Delete a space and all its items. Space owner only.",
+          "desc": "Delete a space and all its items. Space owner or space admin only.",
           "ret": "bool",
           "example": "requirelib(\"sharedspace\");\nsharedspace.deleteSpace(spaceid);"
+        },
+        {
+          "name": "sharedspace.createSpaceAdvanced",
+          "sig": "sharedspace.createSpaceAdvanced(name, options)",
+          "desc": "Create a space with options {access:'open'|'public'|'private', persistent:bool, metadata:{...}}. Persistent spaces survive restarts.",
+          "ret": "object descriptor or null",
+          "example": "requirelib(\"sharedspace\");\nvar space = sharedspace.createSpaceAdvanced(\"Team chat\", {access:\"private\", persistent:true});"
+        },
+        {
+          "name": "sharedspace.listPublicSpaces",
+          "sig": "sharedspace.listPublicSpaces()",
+          "desc": "The public space directory (every space with access 'public').",
+          "ret": "array of descriptors",
+          "example": "requirelib(\"sharedspace\");\nsendJSONResp(sharedspace.listPublicSpaces());"
+        },
+        {
+          "name": "sharedspace.listJoinedSpaces",
+          "sig": "sharedspace.listJoinedSpaces()",
+          "desc": "Spaces the calling user belongs to (owner, admin or member).",
+          "ret": "array of descriptors",
+          "example": "requirelib(\"sharedspace\");\nsendJSONResp(sharedspace.listJoinedSpaces());"
+        },
+        {
+          "name": "sharedspace.joinSpace",
+          "sig": "sharedspace.joinSpace(spaceid)",
+          "desc": "Self-join a public (or open) space as a member. Private spaces are invite-only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.joinSpace(spaceid);"
+        },
+        {
+          "name": "sharedspace.leaveSpace",
+          "sig": "sharedspace.leaveSpace(spaceid)",
+          "desc": "Leave a space. The owner cannot leave.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.leaveSpace(spaceid);"
+        },
+        {
+          "name": "sharedspace.setAccess",
+          "sig": "sharedspace.setAccess(spaceid, access)",
+          "desc": "Change the access mode ('open', 'public' or 'private'). Managers only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.setAccess(spaceid, \"private\");"
+        },
+        {
+          "name": "sharedspace.setMeta",
+          "sig": "sharedspace.setMeta(spaceid, key, value)",
+          "desc": "Set (empty value deletes) a metadata entry. Managers only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.setMeta(spaceid, \"purpose\", \"chat\");"
+        },
+        {
+          "name": "sharedspace.getMeta",
+          "sig": "sharedspace.getMeta(spaceid)",
+          "desc": "Read the space metadata map.",
+          "ret": "object or null",
+          "example": "requirelib(\"sharedspace\");\nvar meta = sharedspace.getMeta(spaceid);"
+        },
+        {
+          "name": "sharedspace.addMember",
+          "sig": "sharedspace.addMember(spaceid, username, role)",
+          "desc": "Invite a user with role 'admin' or 'member' (default). Managers only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.addMember(spaceid, \"bob\", \"member\");"
+        },
+        {
+          "name": "sharedspace.removeMember",
+          "sig": "sharedspace.removeMember(spaceid, username)",
+          "desc": "Remove a member (managers) or leave (self). The owner cannot be removed.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.removeMember(spaceid, \"bob\");"
+        },
+        {
+          "name": "sharedspace.listMembers",
+          "sig": "sharedspace.listMembers(spaceid)",
+          "desc": "Member map {username: role}. Members and managers only.",
+          "ret": "object or null",
+          "example": "requirelib(\"sharedspace\");\nvar members = sharedspace.listMembers(spaceid);"
+        },
+        {
+          "name": "sharedspace.createDoc",
+          "sig": "sharedspace.createDoc(spaceid, name)",
+          "desc": "Create a collaborative document (revision 1, empty content).",
+          "ret": "object {docid, name, creator, revision, content, createdat, updatedat, updatedby} or null",
+          "example": "requirelib(\"sharedspace\");\nvar doc = sharedspace.createDoc(spaceid, \"Meeting notes\");"
+        },
+        {
+          "name": "sharedspace.listDocs",
+          "sig": "sharedspace.listDocs(spaceid)",
+          "desc": "Document snapshots without their content.",
+          "ret": "array or null",
+          "example": "requirelib(\"sharedspace\");\nsendJSONResp(sharedspace.listDocs(spaceid));"
+        },
+        {
+          "name": "sharedspace.getDoc",
+          "sig": "sharedspace.getDoc(spaceid, docid)",
+          "desc": "One document with full content - also the recovery path after an update conflict.",
+          "ret": "object or null",
+          "example": "requirelib(\"sharedspace\");\nvar doc = sharedspace.getDoc(spaceid, docid);"
+        },
+        {
+          "name": "sharedspace.updateDoc",
+          "sig": "sharedspace.updateDoc(spaceid, docid, baserev, content)",
+          "desc": "Compare-and-swap update: content replaces the body only when baserev matches the current revision. On conflict re-fetch with getDoc, merge and retry. Debounce saves (~500ms).",
+          "ret": "{ok:true, revision} | {ok:false, conflict:true, revision} | null",
+          "example": "requirelib(\"sharedspace\");\nvar doc = sharedspace.getDoc(spaceid, docid);\nvar r = sharedspace.updateDoc(spaceid, docid, doc.revision, doc.content + \"\\nmore\");"
+        },
+        {
+          "name": "sharedspace.deleteDoc",
+          "sig": "sharedspace.deleteDoc(spaceid, docid)",
+          "desc": "Delete a document. Creator or space managers only.",
+          "ret": "bool",
+          "example": "requirelib(\"sharedspace\");\nsharedspace.deleteDoc(spaceid, docid);"
         }
       ]
     },

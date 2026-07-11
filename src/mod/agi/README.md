@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.3` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.4` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -273,6 +273,8 @@ Registered library IDs:
 - `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
 - `llm` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
 - `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
+- `sharedspace` (multi-user collaboration spaces: texts / images / files / documents, ACLs, persistence)
+- `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -1519,14 +1521,27 @@ Load:
 requirelib("sharedspace");
 ```
 
-A **shared space** is an in-memory area where multiple different users can
-share texts, images and files together. The random space ID acts as the
-access capability: any user whose script knows the ID can read and post
-items. Blob items (images / files) are stored in temporary server storage
-and, like the spaces themselves, do not survive a server restart. MeetRoom
-binds one space to every meeting room (see the meetroom API), so this
-library is also how scripts read a live meeting's chat and post messages or
-files into it.
+A **shared space** is an area where multiple different users can share
+texts, images, files and collaboratively edited documents together - the
+collaboration backbone behind chat-style apps, document collaboration and
+MeetRoom meetings. Every space carries:
+
+- an **access mode**: `"open"` (default - the random space ID acts as the
+  capability, anyone who knows it can read and post), `"public"`
+  (discoverable via `listPublicSpaces`, any logged-in user can self-join)
+  or `"private"` (members only, invited by the owner or a space admin);
+- a **member list** with roles `owner` / `admin` / `member`;
+- a **metadata** key-value store (managers only, capped);
+- a **persistent** flag: persistent spaces (and their items, files and
+  documents) survive server restarts; ephemeral spaces (the default, and
+  what MeetRoom uses) are gone after a restart.
+
+Web clients get the same feature set over `/system/sharedspace/*` and a
+realtime WebSocket channel (`/system/sharedspace/ws`), so items and
+document patches posted from AGI appear live in connected clients.
+MeetRoom binds one space to every meeting room (see the meetroom API), so
+this library is also how scripts read a live meeting's chat and post
+messages or files into it.
 
 ### `sharedspace.createSpace(name)` → object
 
@@ -1579,11 +1594,100 @@ Copy an image / file item into the calling user's storage.
 
 ### `sharedspace.removeItem(spaceid, itemid)` → bool
 
-Remove an item. Only the item's uploader or the space owner may remove it.
+Remove an item. Only the item's uploader, a space admin or the space owner
+may remove it.
 
 ### `sharedspace.deleteSpace(spaceid)` → bool
 
-Delete a space and all its items. Space owner only.
+Delete a space and all its items. Space owner or a space admin only.
+
+### `sharedspace.createSpaceAdvanced(name, options)` → object | null
+
+Create a space with options: `{ access, persistent, metadata }`. Returns the
+space descriptor (`{ spaceid, name, owner, access, persistent, items, docs,
+members, metadata, createdat }` - the same shape every listing below uses),
+or `null` when e.g. persistence is disabled by the administrator.
+
+```javascript
+requirelib("sharedspace");
+var space = sharedspace.createSpaceAdvanced("Team chat", {
+    access: "private",
+    persistent: true,
+    metadata: { purpose: "chat" }
+});
+```
+
+### `sharedspace.listPublicSpaces()` → array
+
+The public space directory (descriptors of every `"public"` space).
+
+### `sharedspace.listJoinedSpaces()` → array
+
+Descriptors of every space the calling user belongs to (owner, admin or
+member). `listMySpaces()` remains the owned-only subset.
+
+### `sharedspace.joinSpace(spaceid)` / `sharedspace.leaveSpace(spaceid)` → bool
+
+Self-join a public (or open) space as a member / leave a space. Private
+spaces are invite-only, so `joinSpace` fails on them.
+
+### `sharedspace.setAccess(spaceid, access)` → bool
+
+Change the access mode (`"open"`, `"public"` or `"private"`). Managers only.
+
+### `sharedspace.setMeta(spaceid, key, value)` / `sharedspace.getMeta(spaceid)` → bool / object
+
+Set (empty value deletes) or read the space metadata. Writing requires
+manager rights; reading requires read access.
+
+### `sharedspace.addMember(spaceid, username, role)` → bool
+
+Invite a user with role `"admin"` or `"member"` (default). Managers only.
+
+### `sharedspace.removeMember(spaceid, username)` → bool
+
+Remove a member (managers) or leave (self). The owner cannot be removed.
+
+### `sharedspace.listMembers(spaceid)` → object | null
+
+Member map `{ username: role, ... }`. Members and managers only.
+
+### `sharedspace.createDoc(spaceid, name)` → object | null
+
+Create a collaborative document. Returns the document snapshot
+`{ docid, name, creator, revision, content, createdat, updatedat, updatedby }`.
+
+### `sharedspace.listDocs(spaceid)` → array | null
+
+Document snapshots without their `content`.
+
+### `sharedspace.getDoc(spaceid, docid)` → object | null
+
+One document with its full content - also the recovery path after an update
+conflict.
+
+### `sharedspace.updateDoc(spaceid, docid, baserev, content)` → object | null
+
+Compare-and-swap update: the new `content` replaces the document body only
+when `baserev` matches the document's current revision. Returns
+`{ ok: true, revision }` on success or
+`{ ok: false, conflict: true, revision }` when someone else updated the
+document first - re-fetch with `getDoc`, merge your change and retry.
+Debounce saves (~500ms): every accepted revision is one database write, and
+live WebSocket clients receive each revision as a patch frame.
+
+```javascript
+requirelib("sharedspace");
+var doc = sharedspace.getDoc(spaceid, docid);
+var result = sharedspace.updateDoc(spaceid, docid, doc.revision, doc.content + "\nAppended by AGI");
+if (result !== null && result.conflict) {
+    // someone got there first: re-fetch, rebase, retry
+}
+```
+
+### `sharedspace.deleteDoc(spaceid, docid)` → bool
+
+Delete a document. Creator or space managers only.
 
 ---
 

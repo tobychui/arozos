@@ -34,11 +34,14 @@ ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
   registered in `LoadAllFunctionalModules`
   ([`src/mod/agi/moduleManager.go`](src/mod/agi/moduleManager.go)): `filelib`,
   `imagelib`, `http`, `share`, `iot`, `appdata`, `sysinfo`, `ziplib` (incl. 7z),
-  `sqlite`, `aimodel`, `sharedspace` (multi-user text/image/file sharing areas,
-  [`src/mod/sharedspace/`](src/mod/sharedspace/)), `meetroom` (MeetRoom room
-  creation/control, gated by MeetRoom module permission), and `ffmpeg` (only
-  when ffmpeg is on the host), plus `websocket` and `scheduler` which are
-  injected only in an HTTP request context.
+  `sqlite`, `aimodel`, `sharedspace` (multi-user collaboration spaces with
+  texts/images/files, revision-synced documents, open/public/private ACLs and
+  optional persistence, [`src/mod/sharedspace/`](src/mod/sharedspace/); web
+  clients reach the same spaces via `/system/sharedspace/*` + WebSocket),
+  `meetroom` (MeetRoom room creation/control, gated by MeetRoom module
+  permission), and `ffmpeg` (only when ffmpeg is on the host), plus
+  `websocket` and `scheduler` which are injected only in an HTTP request
+  context.
 - **Execution entry points:**
   - **`init.agi`** — a web app's startup/registration script, scanned at boot
     from `./web/*/init.agi` (`InitiateAllWebAppModules`) and run with **system
