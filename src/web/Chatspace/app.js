@@ -43,6 +43,7 @@
         bootstrap: "../system/ajgi/interface?script=Chatspace/backend/bootstrap.js",
         createChannel: "../system/ajgi/interface?script=Chatspace/backend/createChannel.js",
         openDm: "../system/ajgi/interface?script=Chatspace/backend/openDm.js",
+        aibot: "../system/ajgi/interface?script=Chatspace/backend/aibot.js",
         info: "../system/sharedspace/info",
         join: "../system/sharedspace/join",
         leave: "../system/sharedspace/leave",
@@ -100,6 +101,16 @@
     var AVATAR_COLORS = ["#e01e5a", "#36c5f0", "#2eb67d", "#ecb22e",
         "#764fa5", "#e8912d", "#5b6dcd", "#00a3a3"];
 
+    //Broadcast mentions: "@everyone" / "@channel" address every member of
+    //the conversation (badge + notification for everybody).
+    var BROADCAST_MENTIONS = { everyone: true, channel: true };
+
+    //The built-in AI assistant: mention "@ai" in any conversation to have
+    //backend/aibot.js answer through the AGI LLM library.
+    var AI_HANDLE = "ai";
+    var AI_DISPLAY = "Chatspace AI";
+    var AI_THINKING_MS = 45000; //thinking indicator cap while awaiting the reply
+
     /* ================= State ================= */
 
     var state = {
@@ -114,6 +125,8 @@
         rpProfileUser: null,
         railView: "home",
         sbNav: null,      // "threads"|"drafts"|"activity"|"later" alt list
+        mainView: "convo", // "convo" | "activity" (main pane content)
+        activityTab: "all",
         editing: null,    // {convoId, itemId} composer edit target
         navHist: [],
         navPos: -1,
@@ -416,16 +429,33 @@
 
     function mentionsMe(text) {
         if (!text || !state.username) return false;
+        //Broadcast mentions address everyone in the conversation
+        if (/(^|[\s(>])@(everyone|channel)(?![A-Za-z0-9_.\-])/.test(text)) return true;
         var re = new RegExp("(^|[\\s(>])@" + state.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9_.\\-])");
         return re.test(text);
+    }
+
+    function mentionsAi(text) {
+        return /(^|[\s(>])@ai(?![A-Za-z0-9_.\-])/i.test(text || "");
     }
 
     //Rebuild the full message model of a conversation from its raw item
     //stream. Spaces cap items at ~1k, so a full re-reduce stays cheap and
     //keeps every edge case (out-of-order arrival, deletions) correct.
+    //Same-second tiebreak: an assistant reply always sorts after the human
+    //message that triggered it (item times have one-second resolution).
+    function itemBotRank(item) {
+        if (item.csBotRank === undefined) {
+            var env = parseEnvelope(item.text || "");
+            item.csBotRank = (env && env.bot) ? 1 : 0;
+        }
+        return item.csBotRank;
+    }
+
     function reduceConvo(convo) {
         convo.items.sort(function (a, b) {
             if (a.time !== b.time) return a.time - b.time;
+            if (itemBotRank(a) !== itemBotRank(b)) return itemBotRank(a) - itemBotRank(b);
             return a.itemid < b.itemid ? -1 : (a.itemid > b.itemid ? 1 : 0);
         });
 
@@ -441,7 +471,8 @@
                 msgs[item.itemid] = {
                     id: item.itemid, user: item.uploader, time: item.time,
                     kind: item.type, text: "", name: item.name, size: item.size,
-                    thread: null, broadcast: false, replies: [], replyUsers: [],
+                    thread: null, broadcast: false, bot: false,
+                    replies: [], replyUsers: [],
                     lastReplyTime: 0, reactions: {}, pinned: false, edited: false
                 };
                 return;
@@ -456,7 +487,8 @@
                 id: item.itemid, user: item.uploader, time: item.time,
                 kind: "text", text: text, name: "", size: 0,
                 thread: env && env.th ? String(env.th) : null,
-                broadcast: !!(env && env.bc), replies: [], replyUsers: [],
+                broadcast: !!(env && env.bc), bot: !!(env && env.bot),
+                replies: [], replyUsers: [],
                 lastReplyTime: 0, reactions: {}, pinned: false, edited: false
             };
         });
@@ -624,6 +656,28 @@
         }
         sendEnvelope(convo, env);
         markRead(convo);
+        if (mentionsAi(text)) triggerAiBot(convo, text, threadId || "");
+    }
+
+    //Summon the built-in assistant: backend/aibot.js reads the recent
+    //conversation, asks the configured LLM and posts the reply into the
+    //space (it arrives like any other realtime item). A typing indicator
+    //stands in while the model thinks.
+    function triggerAiBot(convo, text, threadId) {
+        convo.typing[AI_DISPLAY] = Date.now() + AI_THINKING_MS;
+        if (state.active === convo.id) renderTyping();
+        var clearThinking = function () {
+            delete convo.typing[AI_DISPLAY];
+            if (state.active === convo.id) renderTyping();
+        };
+        $.post(API.aibot, { spaceid: convo.id, prompt: text, thread: threadId }, function (data) {
+            clearThinking();
+            var err = apiFail(data);
+            if (err) showToast(AI_DISPLAY, err);
+        }, "json").fail(function () {
+            clearThinking();
+            showToast(AI_DISPLAY, "The assistant did not answer - is the AGI gateway reachable?");
+        });
     }
 
     function toggleReaction(convo, msgId, code) {
@@ -805,24 +859,31 @@
         var env = parseEnvelope(item.text || "");
         var isMessage = item.type !== "text" || !env || env.a === "msg";
         var mine = item.uploader === state.username;
+        var isBot = !!(env && env.bot);
 
-        if (state.active === convo.id) {
+        if (state.active === convo.id && state.mainView === "convo") {
             var stick = isScrolledToBottom();
             renderMain();
             renderRightPanel();
             if (stick || mine) scrollMessagesToBottom();
             if (state.focused) markRead(convo);
+            //Ease the fresh message in
+            var fresh = $id("msg-" + item.itemid);
+            if (fresh) fresh.classList.add("msg-new");
         }
+
+        if (isBot) delete convo.typing[AI_DISPLAY];
 
         if (isMessage && !mine) {
             var text = env ? String(env.t || "") : (item.type === "text" ? item.text : "Shared " + item.name);
+            var sender = isBot ? AI_DISPLAY : item.uploader;
             var notify = false;
             if (convo.kind === "dm") notify = true;
             if (mentionsMe(text)) notify = true;
             if (notify && (!state.focused || state.active !== convo.id)) {
                 playNotifySound();
                 showToast(
-                    convo.kind === "dm" ? item.uploader : item.uploader + " in #" + convoLabel(convo),
+                    convo.kind === "dm" ? sender : sender + " in #" + convoLabel(convo),
                     text || item.name || "",
                     function () { setActive(convo.id); }
                 );
@@ -956,6 +1017,7 @@
             if (state.rpMode === "thread" || state.rpMode === "details") closeRightPanel();
             state.editing = null;
         }
+        state.mainView = "convo";
         state.prefs.lastActive = spaceid;
         savePrefs();
         if (!convo.loaded && !convo.loading) fetchItems(convo);
@@ -1011,8 +1073,15 @@
             if (!ICON_BY_CODE[code]) return m;
             return stash(store, '<i class="' + ICON_BY_CODE[code] + ' icon cs-ic" title=":' + code + ':"></i>');
         });
-        //Mentions of real users
+        //Mentions: real users, broadcast tokens (@everyone/@channel) and
+        //the built-in @ai assistant
         html = html.replace(/(^|[^A-Za-z0-9_.\-])@([A-Za-z0-9_.\-]+)/g, function (m, lead, name) {
+            if (BROADCAST_MENTIONS[name.toLowerCase()]) {
+                return lead + stash(store, '<span class="mention mention-me">@' + escapeHtml(name) + '</span>');
+            }
+            if (name.toLowerCase() === AI_HANDLE && !state.users[name]) {
+                return lead + stash(store, '<span class="mention mention-ai"><i class="magic icon"></i>@' + escapeHtml(name) + '</span>');
+            }
             if (!state.users[name]) return m;
             var cls = name === state.username ? "mention mention-me" : "mention";
             return lead + stash(store, '<span class="' + cls + '" data-user="' + escapeAttr(name) + '">@' + escapeHtml(name) + '</span>');
@@ -1265,6 +1334,60 @@
             latest > (state.prefs.activitySeen || 0) ? "" : "none";
     }
 
+    /* ---- Activity as a full main-pane view ---- */
+
+    function openActivityView() {
+        state.mainView = "activity";
+        state.prefs.activitySeen = Math.floor(Date.now() / 1000);
+        savePrefs();
+        renderMain();
+        renderActivityDot();
+    }
+
+    function activityRowHtml(ev, convo) {
+        var what = ev.type === "mention" ? "mentioned you in" :
+            (ev.type === "reaction" ? "reacted to your message in" : "replied to your thread in");
+        var where = (convo.kind === "dm" ? "" : "#") + convoLabel(convo);
+        var body = ev.type === "reaction"
+            ? '<i class="' + (ICON_BY_CODE[ev.extra] || "smile") + ' icon"></i> reacted with :' + escapeHtml(ev.extra) + ':'
+            : escapeHtml(String(ev.extra || "").substring(0, 200));
+        return '<div class="ap-row" data-convo="' + escapeAttr(ev.convoId) + '" data-msg="' + escapeAttr(ev.msgId) + '"' +
+            (ev.type === "reply" ? ' data-thread="1"' : "") + '>' +
+            '<span class="avatar ap-avatar">' + avatarHtml(ev.user, 13) + '</span>' +
+            '<div class="ap-main">' +
+            '<div class="ap-title"><b>' + escapeHtml(ev.user) + '</b> ' + escapeHtml(what) + ' <b>' + escapeHtml(where) + '</b></div>' +
+            '<div class="ap-snippet">' + body + '</div>' +
+            '</div>' +
+            '<span class="ap-time">' + escapeHtml(fmtAgo(ev.time)) + '</span>' +
+            '</div>';
+    }
+
+    function renderActivityPane() {
+        Array.prototype.forEach.call(document.querySelectorAll(".ap-tab"), function (tab) {
+            tab.classList.toggle("active", tab.getAttribute("data-aptab") === state.activityTab);
+        });
+        var events = collectActivity().filter(function (ev) {
+            return state.activityTab === "all" || ev.type === state.activityTab;
+        });
+        var html = "";
+        events.forEach(function (ev) {
+            var convo = state.convos[ev.convoId];
+            if (convo) html += activityRowHtml(ev, convo);
+        });
+        if (html === "") {
+            html = '<div class="ap-empty"><i class="bell outline icon"></i>' +
+                '<h3>Nothing new for you</h3>' +
+                '<p>Mentions of you or @everyone, replies to your threads and reactions to your messages show up here.</p></div>';
+        }
+        $id("apList").innerHTML = html;
+        Array.prototype.forEach.call(document.querySelectorAll("#apList .ap-row"), function (row) {
+            row.addEventListener("click", function () {
+                jumpToMessage(row.getAttribute("data-convo"), row.getAttribute("data-msg"),
+                    row.getAttribute("data-thread") === "1");
+            });
+        });
+    }
+
     function renderDraftCount() {
         var count = 0;
         Object.keys(state.prefs.drafts).forEach(function (key) {
@@ -1289,6 +1412,22 @@
     }
 
     function renderMain() {
+        //Activity takes over the whole content pane, Slack style
+        if (state.mainView === "activity") {
+            $id("channelHeader").style.display = "none";
+            $id("emptyState").style.display = "none";
+            $id("messages").style.display = "none";
+            $id("composerWrap").style.display = "none";
+            $id("previewBanner").style.display = "none";
+            $id("offlineBanner").style.display = "none";
+            $id("typingBar").style.display = "none";
+            $id("activityPane").style.display = "";
+            renderActivityPane();
+            return;
+        }
+        $id("activityPane").style.display = "none";
+        $id("typingBar").style.display = "";
+
         var convo = activeConvo();
         var has = !!convo;
         $id("channelHeader").style.display = has ? "" : "none";
@@ -1391,7 +1530,7 @@
                 box.appendChild(divider);
                 prev = null;
             }
-            var compact = prev && prev.user === msg.user && prev.kind !== "sys" &&
+            var compact = prev && prev.user === msg.user && prev.bot === msg.bot &&
                 (msg.time - prev.time) < COMPACT_WINDOW_S && !msg.pinned;
             box.appendChild(buildMsgNode(convo, msg, { compact: compact }));
             prev = msg;
@@ -1406,8 +1545,12 @@
         node.className = "msg" + (opts.compact ? " compact" : "");
         node.id = (opts.idPrefix || "msg-") + msg.id;
 
-        var gutter = '<div class="msg-gutter">' +
-            '<div class="msg-avatar" data-profile="' + escapeAttr(msg.user) + '">' + avatarHtml(msg.user, 16) + '</div>' +
+        //Bot replies render as the assistant (Slack app style), whoever
+        //triggered them
+        var avatarCell = msg.bot
+            ? '<div class="msg-avatar avatar-ai"><i class="magic icon"></i></div>'
+            : '<div class="msg-avatar" data-profile="' + escapeAttr(msg.user) + '">' + avatarHtml(msg.user, 16) + '</div>';
+        var gutter = '<div class="msg-gutter">' + avatarCell +
             '<div class="msg-hovertime">' + escapeHtml(fmtTime(msg.time)) + '</div>' +
             '</div>';
 
@@ -1415,8 +1558,10 @@
         if (msg.pinned) {
             body += '<div class="msg-pin-flag"><i class="thumbtack icon"></i> Pinned to this conversation</div>';
         }
-        body += '<div class="msg-head">' +
-            '<span class="msg-user" data-profile="' + escapeAttr(msg.user) + '">' + escapeHtml(msg.user) + '</span>' +
+        var authorHtml = msg.bot
+            ? '<span class="msg-user">' + escapeHtml(AI_DISPLAY) + '</span><span class="app-badge">APP</span>'
+            : '<span class="msg-user" data-profile="' + escapeAttr(msg.user) + '">' + escapeHtml(msg.user) + '</span>';
+        body += '<div class="msg-head">' + authorHtml +
             '<span class="msg-time" title="' + escapeAttr(fmtFull(msg.time)) + '">' + escapeHtml(fmtTime(msg.time)) + '</span>' +
             '</div>';
 
@@ -1486,7 +1631,7 @@
             '<i class="bookmark ' + (saved ? "" : "outline ") + 'icon"></i></button>';
         actions += '<button class="ma-btn' + (msg.pinned ? " pinned" : "") + '" data-pin="1" title="' + (msg.pinned ? "Unpin" : "Pin to conversation") + '">' +
             '<i class="thumbtack icon"></i></button>';
-        if (msg.user === state.username && msg.kind === "text") {
+        if (msg.user === state.username && msg.kind === "text" && !msg.bot) {
             actions += '<button class="ma-btn" data-edit="1" title="Edit message"><i class="pencil icon"></i></button>';
         }
         if (msg.user === state.username || canManage(convo)) {
@@ -2143,15 +2288,31 @@
         mentionMode = { prefixStart: prefixStart };
         var picker = $id("mentionPicker");
         var lowered = (filter || "").toLowerCase();
-        var candidates = state.userOrder.filter(function (name) {
-            return name.toLowerCase().indexOf(lowered) === 0 && name !== state.username;
-        }).slice(0, 8);
+        var candidates = [];
+        //Built-in handles first: the AI assistant and, in channels, the
+        //broadcast mention that pings every member
+        if (AI_HANDLE.indexOf(lowered) === 0) {
+            candidates.push({ name: AI_HANDLE, special: '<i class="magic icon"></i>', sub: AI_DISPLAY });
+        }
+        if ("everyone".indexOf(lowered) === 0) {
+            candidates.push({ name: "everyone", special: '<i class="users icon"></i>', sub: "Notify everyone here" });
+        }
+        state.userOrder.forEach(function (name) {
+            if (name.toLowerCase().indexOf(lowered) === 0 && name !== state.username) {
+                candidates.push({ name: name });
+            }
+        });
+        candidates = candidates.slice(0, 9);
         if (candidates.length === 0) { closePickers(); return; }
         var html = "";
-        candidates.forEach(function (name, idx) {
-            html += '<div class="mp-row' + (idx === 0 ? " selected" : "") + '" data-name="' + escapeAttr(name) + '">' +
-                '<span class="avatar">' + avatarHtml(name, 10) + '</span>' + escapeHtml(name) +
-                (isOnline(name) ? ' <span class="presence-dot online" style="margin:0;"></span>' : "") + '</div>';
+        candidates.forEach(function (entry, idx) {
+            var lead = entry.special
+                ? '<span class="avatar avatar-ai">' + entry.special + '</span>'
+                : '<span class="avatar">' + avatarHtml(entry.name, 10) + '</span>';
+            html += '<div class="mp-row' + (idx === 0 ? " selected" : "") + '" data-name="' + escapeAttr(entry.name) + '">' +
+                lead + escapeHtml(entry.name) +
+                (entry.sub ? ' <span class="mp-sub">' + escapeHtml(entry.sub) + '</span>' : "") +
+                (!entry.special && isOnline(entry.name) ? ' <span class="presence-dot online" style="margin:0;"></span>' : "") + '</div>';
         });
         picker.innerHTML = html;
         picker.style.display = "";
@@ -2547,6 +2708,14 @@
         Array.prototype.forEach.call(document.querySelectorAll(".rail-btn[data-view]"), function (btn) {
             btn.classList.toggle("active", btn.getAttribute("data-view") === view);
         });
+        //Activity is a full main-pane view; the other rail views only swap
+        //the sidebar and keep the open conversation
+        if (view === "activity") {
+            openActivityView();
+        } else if (state.mainView === "activity") {
+            state.mainView = "convo";
+            renderMain();
+        }
         renderSidebar();
     }
 
@@ -2583,7 +2752,14 @@
         Array.prototype.forEach.call(document.querySelectorAll(".sb-nav"), function (item) {
             item.addEventListener("click", function () {
                 state.sbNav = item.getAttribute("data-nav");
+                if (state.sbNav === "activity") openActivityView();
                 renderSidebar();
+            });
+        });
+        Array.prototype.forEach.call(document.querySelectorAll(".ap-tab"), function (tab) {
+            tab.addEventListener("click", function () {
+                state.activityTab = tab.getAttribute("data-aptab");
+                renderActivityPane();
             });
         });
         Array.prototype.forEach.call(document.querySelectorAll(".sb-section-title"), function (title) {
@@ -2613,7 +2789,19 @@
             else openDetails();
         });
         $id("chHuddleBtn").addEventListener("click", function () {
-            window.open("../MeetRoom/index.html", "_blank");
+            //Inside the ArozOS desktop this opens MeetRoom as a floatWindow;
+            //ao_module_newfw itself falls back to window.open elsewhere
+            if (typeof ao_module_newfw === "function") {
+                ao_module_newfw({
+                    url: "MeetRoom/index.html",
+                    title: "MeetRoom",
+                    appicon: "MeetRoom/img/module_icon.svg",
+                    width: 1080,
+                    height: 700
+                });
+            } else {
+                window.open("../MeetRoom/index.html", "_blank");
+            }
         });
         $id("pvJoinBtn").addEventListener("click", joinActiveChannel);
         $id("rpCloseBtn").addEventListener("click", function () {

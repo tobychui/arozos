@@ -134,6 +134,20 @@
                     <i class="spinner loading icon"></i> Connection lost - reconnecting...
                 </div>
 
+                <!-- Activity view (mentions / thread replies / reactions), Slack style -->
+                <div id="activityPane" style="display:none;">
+                    <div class="ap-head">
+                        <h2><i class="bell outline icon"></i> Activity</h2>
+                    </div>
+                    <div class="ap-tabs">
+                        <button class="ap-tab active" data-aptab="all">All</button>
+                        <button class="ap-tab" data-aptab="mention">Mentions</button>
+                        <button class="ap-tab" data-aptab="reply">Threads</button>
+                        <button class="ap-tab" data-aptab="reaction">Reactions</button>
+                    </div>
+                    <div id="apList"></div>
+                </div>
+
                 <div id="messages"></div>
 
                 <div id="emptyState">
