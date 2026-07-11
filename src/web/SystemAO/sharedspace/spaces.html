@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <!-- ao_module is provided by the parent frame; ao_module.js is not needed standalone -->
+    <script src="../../script/jquery.min.js"></script>
+    <title>Shared Spaces</title>
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { background: transparent; overflow-x: hidden; }
+
+    #ss-root {
+        --bg:      #f2f2f7;
+        --card:    #ffffff;
+        --border:  rgba(0,0,0,0.10);
+        --text:    #1d1d1f;
+        --dim:     #6e6e73;
+        --muted:   #aeaeb2;
+        --accent:  #007AFF;
+        --accentH: #0063d1;
+        --success: #34c759;
+        --danger:  #ff3b30;
+        --radius:  12px;
+        --shadow:  0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg);
+        min-height: 100vh;
+        padding: 18px 18px 32px 18px;
+    }
+
+    #ss-root h1 { font-size: 1.35em; margin-bottom: 2px; }
+    #ss-root .subtitle { color: var(--dim); margin-bottom: 16px; }
+
+    .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 14px 16px;
+        margin-bottom: 16px;
+    }
+    .card h2 { font-size: 1.05em; margin-bottom: 10px; }
+
+    .conf-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .conf-field label { display: block; color: var(--dim); margin-bottom: 4px; }
+    .conf-field input[type="number"] {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 13px;
+    }
+    .conf-field .checkline { display: flex; align-items: center; gap: 6px; padding-top: 7px; }
+
+    .btn {
+        display: inline-block;
+        border: none;
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+    }
+    .btn:hover { background: var(--accentH); }
+    .btn.secondary { background: rgba(0,0,0,0.06); color: var(--text); }
+    .btn.secondary:hover { background: rgba(0,0,0,0.12); }
+    .btn.danger { background: var(--danger); }
+    .btn.danger:hover { background: #d70015; }
+    .btn.mini { padding: 4px 10px; font-size: 12px; }
+
+    #statusMsg { display: none; margin-left: 10px; color: var(--success); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+        text-align: left;
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+    th { color: var(--dim); font-weight: 600; }
+    td.name-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+    .tablewrap { overflow-x: auto; }
+    .pill {
+        display: inline-block;
+        border-radius: 10px;
+        padding: 1px 9px;
+        font-size: 12px;
+        background: rgba(0,0,0,0.06);
+        color: var(--dim);
+    }
+    .pill.public { background: rgba(52,199,89,0.15); color: #1e7d3c; }
+    .pill.private { background: rgba(255,59,48,0.12); color: #a52a22; }
+    .pill.persist { background: rgba(0,122,255,0.12); color: #0a58b6; }
+    .empty-row { color: var(--muted); text-align: center; padding: 18px 0; }
+    </style>
+</head>
+<body>
+<div id="ss-root">
+    <h1>Shared Spaces</h1>
+    <div class="subtitle">Collaboration spaces used by web apps, AGI scripts and MeetRoom meetings</div>
+
+    <div class="card">
+        <h2>Limits and Retention</h2>
+        <div class="conf-grid">
+            <div class="conf-field">
+                <label for="confMaxUpload">Max upload size (MB)</label>
+                <input type="number" id="confMaxUpload" min="1" step="1">
+            </div>
+            <div class="conf-field">
+                <label for="confMaxItems">Items per space</label>
+                <input type="number" id="confMaxItems" min="1" step="1">
+            </div>
+            <div class="conf-field">
+                <label for="confRetention">Retention (days, 0 = keep forever)</label>
+                <input type="number" id="confRetention" min="0" step="1">
+            </div>
+            <div class="conf-field">
+                <label>Persistent spaces</label>
+                <div class="checkline">
+                    <input type="checkbox" id="confAllowPersistent">
+                    <span>Allow creating persistent spaces</span>
+                </div>
+            </div>
+        </div>
+        <button class="btn" id="saveConfigBtn">Save Settings</button>
+        <span id="statusMsg">Saved</span>
+    </div>
+
+    <div class="card">
+        <h2>Live Spaces <button class="btn secondary mini" id="refreshBtn" style="float:right;">Refresh</button></h2>
+        <div class="tablewrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Owner</th>
+                        <th>Access</th>
+                        <th>Storage</th>
+                        <th>Items</th>
+                        <th>Docs</th>
+                        <th>Members</th>
+                        <th>Online</th>
+                        <th>Size</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="spacesTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function escapeHtml(text) {
+        return $("<div>").text(text === undefined || text === null ? "" : String(text)).html();
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        var units = ["KB", "MB", "GB"];
+        var value = bytes;
+        for (var i = 0; i < units.length; i++) {
+            value = value / 1024;
+            if (value < 1024 || i === units.length - 1) {
+                return value.toFixed(1) + " " + units[i];
+            }
+        }
+    }
+
+    function loadConfig() {
+        $.get("/system/sharedspace/admin/config", function (data) {
+            if (data.error !== undefined) return;
+            $("#confMaxUpload").val(Math.round(data.maxupload / (1024 * 1024)));
+            $("#confMaxItems").val(data.maxitems);
+            $("#confRetention").val(data.retentiondays);
+            $("#confAllowPersistent").prop("checked", data.allowpersistent === true);
+        }, "json");
+    }
+
+    function saveConfig() {
+        $.post("/system/sharedspace/admin/setconfig", {
+            maxupload: Math.max(1, parseInt($("#confMaxUpload").val()) || 0) * 1024 * 1024,
+            maxitems: $("#confMaxItems").val(),
+            retentiondays: $("#confRetention").val(),
+            allowpersistent: $("#confAllowPersistent").prop("checked") ? "true" : "false"
+        }, function () {
+            $("#statusMsg").show().delay(1500).fadeOut();
+            loadConfig();
+        });
+    }
+
+    function accessPill(access) {
+        var cls = access === "public" ? "public" : (access === "private" ? "private" : "");
+        return '<span class="pill ' + cls + '">' + escapeHtml(access) + '</span>';
+    }
+
+    function loadSpaces() {
+        $.get("/system/sharedspace/admin/list", function (data) {
+            var tbody = $("#spacesTable");
+            tbody.empty();
+            if (data.error !== undefined || !Array.isArray(data) || data.length === 0) {
+                tbody.append('<tr><td colspan="11" class="empty-row">No live shared spaces</td></tr>');
+                return;
+            }
+            data.sort(function (a, b) { return b.createdat - a.createdat; });
+            data.forEach(function (space) {
+                var row = $("<tr>");
+                row.append($('<td class="name-cell">').attr("title", space.spaceid).text(space.name));
+                row.append($("<td>").text(space.owner));
+                row.append($("<td>").html(accessPill(space.access)));
+                row.append($("<td>").html(space.persistent ? '<span class="pill persist">persistent</span>' : '<span class="pill">ephemeral</span>'));
+                row.append($("<td>").text(space.items));
+                row.append($("<td>").text(space.docs));
+                row.append($("<td>").text(space.members));
+                row.append($("<td>").text(space.subscribers));
+                row.append($("<td>").text(formatBytes(space.diskusage)));
+                row.append($("<td>").text(new Date(space.createdat * 1000).toLocaleString()));
+                var deleteBtn = $('<button class="btn danger mini">Delete</button>').on("click", function () {
+                    if (!confirm('Delete the space "' + space.name + '" and all its content?')) return;
+                    $.post("/system/sharedspace/admin/delete", { spaceid: space.spaceid }, function () {
+                        loadSpaces();
+                    });
+                });
+                row.append($("<td>").append(deleteBtn));
+                tbody.append(row);
+            });
+        }, "json");
+    }
+
+    $("#saveConfigBtn").on("click", saveConfig);
+    $("#refreshBtn").on("click", loadSpaces);
+    loadConfig();
+    loadSpaces();
+</script>
+</body>
+</html>
