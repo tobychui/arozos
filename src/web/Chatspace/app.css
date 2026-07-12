@@ -286,7 +286,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     overflow: hidden;
 }
 
-.sb-item i.icon { font-size: 13px; width: 18px; margin: 0; text-align: center; flex-shrink: 0; position: relative; top: 1px; }
+.sb-item i.icon { font-size: 13px; width: 18px; margin: 0; text-align: center; flex-shrink: 0; position: relative; top: -1px; }
 
 .sb-item:hover { background: var(--cs-sb-hover); }
 .sb-item.active { background: var(--cs-sb-active); color: #fff; }
