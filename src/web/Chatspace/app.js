@@ -44,6 +44,7 @@
         createChannel: "../system/ajgi/interface?script=Chatspace/backend/createChannel.js",
         openDm: "../system/ajgi/interface?script=Chatspace/backend/openDm.js",
         aibot: "../system/ajgi/interface?script=Chatspace/backend/aibot.js",
+        saveToArozOS: "../system/ajgi/interface?script=Chatspace/backend/saveToArozOS.js",
         info: "../system/sharedspace/info",
         join: "../system/sharedspace/join",
         leave: "../system/sharedspace/leave",
@@ -69,6 +70,16 @@
     var TYPING_TTL_MS = 4000;
     var TYPING_EMIT_MS = 2500;
     var IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "bmp"];
+    var VIDEO_EXTS = ["mp4", "webm", "ogv", "mov", "m4v", "mkv"];
+    var AUDIO_EXTS = ["mp3", "wav", "ogg", "oga", "m4a", "flac", "aac"];
+    //Files rendered as an inline text preview (fetched and escaped client
+    //side). Kept to plain-text / code types; never rendered as HTML.
+    var TEXT_EXTS = ["txt", "md", "markdown", "log", "csv", "tsv", "json",
+        "xml", "yaml", "yml", "ini", "conf", "cfg", "js", "ts", "css", "html",
+        "htm", "go", "py", "java", "c", "cpp", "h", "hpp", "sh", "bat", "rb",
+        "php", "sql", "agi", "svg"];
+    var TEXT_PREVIEW_MAX_BYTES = 256 * 1024; //do not fetch huge files inline
+    var TEXT_PREVIEW_MAX_CHARS = 6000;       //cap what we render
 
     //Icon shortcodes: ":code:" in message text renders as a Semantic UI
     //icon; the same set powers reactions. Emoji glyphs are never used.
@@ -182,11 +193,15 @@
         }
     }
 
-    function isImageName(name) {
+    function extOf(name) {
         var idx = String(name).lastIndexOf(".");
-        if (idx < 0) return false;
-        return IMAGE_EXTS.indexOf(String(name).substring(idx + 1).toLowerCase()) >= 0;
+        return idx < 0 ? "" : String(name).substring(idx + 1).toLowerCase();
     }
+
+    function isImageName(name) { return IMAGE_EXTS.indexOf(extOf(name)) >= 0; }
+    function isVideoName(name) { return VIDEO_EXTS.indexOf(extOf(name)) >= 0; }
+    function isAudioName(name) { return AUDIO_EXTS.indexOf(extOf(name)) >= 0; }
+    function isTextName(name) { return TEXT_EXTS.indexOf(extOf(name)) >= 0; }
 
     function fmtTime(unix) {
         return new Date(unix * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -273,7 +288,9 @@
     function avatarHtml(username, fontPx) {
         var user = state.users[username];
         if (user && user.icon) {
-            return '<img src="' + escapeAttr(user.icon) + '" alt="">';
+            //The class constrains the image to its container regardless of
+            //the profile picture's own (possibly large) dimensions
+            return '<img class="cs-avatar-img" src="' + escapeAttr(user.icon) + '" alt="">';
         }
         var initial = username ? username.substring(0, 1) : "?";
         return '<div class="avatar-fallback" style="background:' + avatarColor(username || "?") +
@@ -1599,29 +1616,46 @@
 
         if (msg.kind === "image" || msg.kind === "file") {
             //Slack-style attachment: a filename bar with a collapse chevron
-            //above the preview, hover actions overlaid on the preview
-            var dlHref = API.download + "?spaceid=" + encodeURIComponent(convo.id) +
-                "&itemid=" + encodeURIComponent(msg.id);
-            var inlineHref = dlHref + "&inline=1";
+            //above the preview. Images, video, audio and text files get an
+            //inline preview; the download control asks where to save.
+            var dlHref = downloadHref(convo.id, msg.id, false);
+            var inlineHref = downloadHref(convo.id, msg.id, true);
             var collapsed = !!state.collapsedFiles[msg.id];
+            var dlBtn = '<button class="fa-btn dl-menu-btn" data-dl-space="' + escapeAttr(convo.id) +
+                '" data-dl-item="' + escapeAttr(msg.id) + '" data-dl-name="' + escapeAttr(msg.name) +
+                '" title="Download or save"><i class="download icon"></i></button>';
             body += '<div class="file-head" data-collapse-file="' + escapeAttr(msg.id) + '" ' +
                 'title="' + (collapsed ? "Show preview" : "Hide preview") + '">' +
                 '<span class="file-head-name">' + escapeHtml(msg.name) + '</span> ' +
                 '<i class="chevron ' + (collapsed ? "right" : "down") + ' icon"></i></div>';
-            if (!collapsed && msg.kind === "image") {
+            if (collapsed) {
+                //nothing else - the bar alone
+            } else if (msg.kind === "image") {
                 body += '<div class="file-preview">' +
                     '<img class="msg-img" data-lightbox="' + escapeAttr(msg.id) + '" src="' + inlineHref + '" alt="' + escapeAttr(msg.name) + '" title="Click to preview">' +
-                    '<div class="file-actions">' +
-                    '<a class="fa-btn" href="' + dlHref + '" download title="Download"><i class="download icon"></i></a>' +
+                    '<div class="file-actions">' + dlBtn +
                     '<a class="fa-btn" href="' + inlineHref + '" target="_blank" rel="noopener" title="Open in new tab"><i class="external alternate icon"></i></a>' +
                     '</div></div>';
-            } else if (!collapsed) {
+            } else if (isVideoName(msg.name)) {
+                body += '<div class="file-preview media-preview">' +
+                    '<video class="msg-video" controls preload="metadata" src="' + dlHref + '"></video>' +
+                    '<div class="media-foot"><span class="file-size">' + formatBytes(msg.size) + '</span>' + dlBtn + '</div></div>';
+            } else if (isAudioName(msg.name)) {
+                body += '<div class="file-preview media-preview">' +
+                    '<audio class="msg-audio" controls preload="metadata" src="' + dlHref + '"></audio>' +
+                    '<div class="media-foot"><span class="file-size">' + formatBytes(msg.size) + '</span>' + dlBtn + '</div></div>';
+            } else if (isTextName(msg.name) && msg.size <= TEXT_PREVIEW_MAX_BYTES) {
+                body += '<div class="file-preview text-preview-wrap">' +
+                    '<pre class="text-preview" data-tp-space="' + escapeAttr(convo.id) + '" data-tp-item="' + escapeAttr(msg.id) +
+                    '"><span class="tp-loading"><i class="spinner loading icon"></i> Loading preview...</span></pre>' +
+                    '<div class="media-foot"><span class="file-size">' + formatBytes(msg.size) + '</span>' + dlBtn + '</div></div>';
+            } else {
                 body += '<div class="file-preview">' +
-                    '<a class="msg-file" href="' + dlHref + '" download>' +
+                    '<div class="msg-file">' +
                     '<i class="file outline icon"></i>' +
                     '<span><span class="file-name">' + escapeHtml(msg.name) + '</span><br>' +
                     '<span class="file-size">' + formatBytes(msg.size) + '</span></span>' +
-                    '<i class="download icon file-dl-hint"></i></a></div>';
+                    dlBtn + '</div></div>';
             }
         } else {
             body += '<div class="msg-text">' + renderRich(msg.text) +
@@ -1768,6 +1802,47 @@
                 renderRightPanel();
             });
         }
+        //Download / save-to-ArozOS chooser
+        Array.prototype.forEach.call(node.querySelectorAll(".dl-menu-btn"), function (btn) {
+            btn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                openDownloadMenu(btn, btn.getAttribute("data-dl-space"),
+                    btn.getAttribute("data-dl-item"), btn.getAttribute("data-dl-name"));
+            });
+        });
+        //Text file inline preview: fetch + escape (never rendered as HTML)
+        var tp = node.querySelector(".text-preview[data-tp-item]");
+        if (tp) fillTextPreview(tp, convo.id, msg.id);
+        //Keep the newest message in view once media reports its dimensions
+        var media = node.querySelector(".msg-video, .msg-audio");
+        if (media) media.addEventListener("loadedmetadata", function () {
+            if (state.active === convo.id && isScrolledToBottom()) scrollMessagesToBottom();
+        });
+    }
+
+    function fillTextPreview(pre, spaceid, itemid) {
+        fetch(downloadHref(spaceid, itemid, false), { credentials: "same-origin" })
+            .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+            .then(function (text) {
+                var truncated = text.length > TEXT_PREVIEW_MAX_CHARS;
+                if (truncated) text = text.substring(0, TEXT_PREVIEW_MAX_CHARS);
+                //textContent keeps it inert - the file body is never HTML
+                pre.textContent = text;
+                if (truncated) {
+                    var more = document.createElement("div");
+                    more.className = "tp-more";
+                    more.textContent = "Preview truncated - download the file to see the rest";
+                    pre.appendChild(more);
+                }
+                if (state.active === spaceid && isScrolledToBottom()) scrollMessagesToBottom();
+            })
+            .catch(function () {
+                pre.textContent = "";
+                var err = document.createElement("span");
+                err.className = "tp-loading";
+                err.textContent = "Preview unavailable";
+                pre.appendChild(err);
+            });
     }
 
     function appendSysline(text) {
@@ -1856,6 +1931,63 @@
         if (next < 0 || next >= lightbox.images.length) return;
         lightbox.index = next;
         renderLightbox();
+    }
+
+    /* ---- download / save-to-ArozOS chooser ---- */
+
+    //Trigger a plain browser download of the attachment to the local device
+    function downloadToDevice(spaceid, itemid, name) {
+        var a = document.createElement("a");
+        a.href = downloadHref(spaceid, itemid, false);
+        a.download = name || "";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    //Copy the attachment into the user's ArozOS storage. Uses the desktop
+    //folder picker when available, else falls back to user:/Desktop.
+    function saveToArozOS(spaceid, itemid, name) {
+        var doSave = function (folder) {
+            showToast("Saving", "Copying " + name + " to " + folder + "...");
+            $.post(API.saveToArozOS, { spaceid: spaceid, itemid: itemid, dest: folder }, function (data) {
+                var err = apiFail(data);
+                if (err) { showToast("Could not save", err); return; }
+                showToast("Saved to ArozOS", data.path || folder);
+            }, "json").fail(function () {
+                showToast("Chatspace", "Could not reach the server to save the file");
+            });
+        };
+        if (typeof ao_module_openFileSelector === "function") {
+            //Folder picker (works in the ArozOS desktop and standalone)
+            try {
+                ao_module_openFileSelector(function (files) {
+                    if (files && files.length > 0) doSave(files[0].filepath);
+                }, "user:/", "folder", false);
+                return;
+            } catch (e) { /* fall through to the default location */ }
+        }
+        doSave("user:/Desktop");
+    }
+
+    function openDownloadMenu(anchor, spaceid, itemid, name) {
+        var menu = $id("downloadMenu");
+        menu.innerHTML =
+            '<div class="dl-row" data-dl-act="device"><i class="download icon"></i>' +
+            '<div><b>Download to this device</b><span>Save a copy on your computer</span></div></div>' +
+            '<div class="dl-row" data-dl-act="arozos"><i class="hdd outline icon"></i>' +
+            '<div><b>Save to ArozOS files</b><span>Keep it in your ArozOS storage</span></div></div>';
+        menu.style.display = "";
+        positionPopover(menu, anchor);
+        Array.prototype.forEach.call(menu.querySelectorAll(".dl-row"), function (row) {
+            row.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var act = row.getAttribute("data-dl-act");
+                closePickers();
+                if (act === "device") downloadToDevice(spaceid, itemid, name);
+                else saveToArozOS(spaceid, itemid, name);
+            });
+        });
     }
 
     /* ---- day divider "Jump to..." menu ---- */
@@ -2535,12 +2667,13 @@
         $id("iconPicker").style.display = "none";
         $id("mentionPicker").style.display = "none";
         $id("jumpMenu").style.display = "none";
+        $id("downloadMenu").style.display = "none";
         mentionMode = null;
     }
 
     document.addEventListener("click", function (e) {
         if (!$id("iconPicker").contains(e.target) && !$id("mentionPicker").contains(e.target) &&
-            !$id("jumpMenu").contains(e.target)) {
+            !$id("jumpMenu").contains(e.target) && !$id("downloadMenu").contains(e.target)) {
             closePickers();
         }
         if (!$id("searchBox").contains(e.target)) {

@@ -729,6 +729,80 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 .file-dl-hint { visibility: hidden; color: var(--cs-muted); }
 .msg-file:hover .file-dl-hint { visibility: visible; }
 
+.dl-menu-btn { background: none; }
+
+/* video / audio / text previews */
+.media-preview { display: block; }
+
+.msg-video {
+    display: block;
+    max-width: 420px;
+    max-height: 300px;
+    width: 100%;
+    border-radius: 12px;
+    background: #000;
+    border: 1px solid var(--cs-border);
+}
+
+.msg-audio { display: block; width: 360px; max-width: 100%; margin: 2px 0; }
+
+.media-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+}
+
+.media-foot .file-size { font-size: 12px; color: var(--cs-muted); }
+.media-foot .dl-menu-btn { margin-left: -4px; }
+
+.text-preview-wrap { max-width: 520px; }
+
+.text-preview {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    background: #f6f6f6;
+    border: 1px solid var(--cs-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 2px 0;
+    max-height: 260px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--cs-text);
+}
+
+.tp-loading { color: var(--cs-muted); }
+.tp-more { color: var(--cs-muted); font-style: italic; margin-top: 6px; font-family: inherit; }
+
+/* download / save chooser popover */
+#downloadMenu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+    z-index: 500;
+    padding: 6px;
+    width: 280px;
+}
+
+.dl-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.dl-row:hover { background: var(--cs-hover); }
+.dl-row > i.icon { font-size: 17px; color: var(--cs-muted); margin: 0; width: 20px; text-align: center; }
+.dl-row b { display: block; font-size: 13.5px; font-weight: 700; }
+.dl-row span { display: block; font-size: 12px; color: var(--cs-muted); }
+
 .msg-img {
     display: block;
     max-width: 360px;
@@ -1665,6 +1739,10 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 /* ================= Avatars ================= */
 
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Every avatar image fills its container, whatever the source dimensions
+   (profile pictures can be large - e.g. 280x280) */
+.cs-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .avatar-fallback {
     width: 100%;
