@@ -879,7 +879,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     color: var(--cs-text);
 }
 
-.react-pill i.icon { margin: 0; font-size: 13px; position: relative; top: -1px; }
+.react-pill i.icon { margin: 0; font-size: 13px; position: relative; top: -2px; }
 .react-pill:hover { border-color: #b8b8b8; background: #fff; }
 .react-pill.mine { background: #e8f5fa; border-color: #1d9bd1; color: #1264a3; }
 
