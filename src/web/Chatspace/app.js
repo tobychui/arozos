@@ -1587,8 +1587,7 @@
                 '<i class="chevron ' + (collapsed ? "right" : "down") + ' icon"></i></div>';
             if (!collapsed && msg.kind === "image") {
                 body += '<div class="file-preview">' +
-                    '<a href="' + inlineHref + '" target="_blank" rel="noopener" title="Open full size">' +
-                    '<img class="msg-img" src="' + inlineHref + '" alt="' + escapeAttr(msg.name) + '"></a>' +
+                    '<img class="msg-img" data-lightbox="' + escapeAttr(msg.id) + '" src="' + inlineHref + '" alt="' + escapeAttr(msg.name) + '" title="Click to preview">' +
                     '<div class="file-actions">' +
                     '<a class="fa-btn" href="' + dlHref + '" download title="Download"><i class="download icon"></i></a>' +
                     '<a class="fa-btn" href="' + inlineHref + '" target="_blank" rel="noopener" title="Open in new tab"><i class="external alternate icon"></i></a>' +
@@ -1726,9 +1725,15 @@
             });
         });
         var img = node.querySelector(".msg-img");
-        if (img) img.addEventListener("load", function () {
-            if (state.active === convo.id && isScrolledToBottom()) scrollMessagesToBottom();
-        });
+        if (img) {
+            img.addEventListener("load", function () {
+                if (state.active === convo.id && isScrolledToBottom()) scrollMessagesToBottom();
+            });
+            img.addEventListener("click", function (e) {
+                e.stopPropagation();
+                openLightbox(convo, msg.id);
+            });
+        }
         var fileHead = node.querySelector("[data-collapse-file]");
         if (fileHead) {
             fileHead.addEventListener("click", function (e) {
@@ -1771,6 +1776,64 @@
     }
 
     setInterval(renderTyping, 1500);
+
+    /* ---- image lightbox ---- */
+
+    var lightbox = { convoId: null, images: [], index: 0 };
+
+    function downloadHref(convoId, itemId, inline) {
+        return API.download + "?spaceid=" + encodeURIComponent(convoId) +
+            "&itemid=" + encodeURIComponent(itemId) + (inline ? "&inline=1" : "");
+    }
+
+    //Open the in-app preview over an image message; arrows move through
+    //every image of the conversation in chronological order
+    function openLightbox(convo, itemId) {
+        var images = [];
+        Object.keys(convo.msgs).forEach(function (id) {
+            if (convo.msgs[id].kind === "image") images.push(convo.msgs[id]);
+        });
+        images.sort(function (a, b) { return a.time - b.time || (a.id < b.id ? -1 : 1); });
+        var index = 0;
+        images.forEach(function (msg, i) { if (msg.id === itemId) index = i; });
+        lightbox = { convoId: convo.id, images: images, index: index };
+        renderLightbox();
+        $id("lightbox").style.display = "flex";
+    }
+
+    function closeLightbox() {
+        $id("lightbox").style.display = "none";
+        $id("lbImg").src = "";
+    }
+
+    function lightboxOpen() {
+        return $id("lightbox").style.display !== "none";
+    }
+
+    function renderLightbox() {
+        var msg = lightbox.images[lightbox.index];
+        if (!msg) { closeLightbox(); return; }
+        var img = $id("lbImg");
+        img.classList.remove("zoomed");
+        img.src = downloadHref(lightbox.convoId, msg.id, true);
+        img.alt = msg.name;
+        $id("lbAvatar").innerHTML = avatarHtml(msg.user, 12);
+        $id("lbUser").textContent = msg.user;
+        $id("lbFile").textContent = msg.name + " (" + formatBytes(msg.size) + ")";
+        $id("lbDownload").href = downloadHref(lightbox.convoId, msg.id, false);
+        $id("lbOpen").href = downloadHref(lightbox.convoId, msg.id, true);
+        var multi = lightbox.images.length > 1;
+        $id("lbPrev").style.visibility = multi && lightbox.index > 0 ? "" : "hidden";
+        $id("lbNext").style.visibility = multi && lightbox.index < lightbox.images.length - 1 ? "" : "hidden";
+        $id("lbCounter").textContent = multi ? (lightbox.index + 1) + " of " + lightbox.images.length : "";
+    }
+
+    function lightboxNav(step) {
+        var next = lightbox.index + step;
+        if (next < 0 || next >= lightbox.images.length) return;
+        lightbox.index = next;
+        renderLightbox();
+    }
 
     /* ---- day divider "Jump to..." menu ---- */
 
@@ -3143,12 +3206,32 @@
             }
         });
 
+        //Image lightbox
+        $id("lbClose").addEventListener("click", closeLightbox);
+        $id("lbPrev").addEventListener("click", function () { lightboxNav(-1); });
+        $id("lbNext").addEventListener("click", function () { lightboxNav(1); });
+        $id("lightbox").addEventListener("mousedown", function (e) {
+            //Backdrop click closes; clicks on the image / chrome do not
+            if (e.target === this || e.target === $id("lbStage")) closeLightbox();
+        });
+        $id("lbImg").addEventListener("click", function () {
+            this.classList.toggle("zoomed");
+        });
+
         //Global keys
         document.addEventListener("keydown", function (e) {
             if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
                 e.preventDefault();
                 openQuickSwitcher();
-            } else if (e.key === "Escape") {
+                return;
+            }
+            if (lightboxOpen()) {
+                if (e.key === "Escape") closeLightbox();
+                else if (e.key === "ArrowLeft") lightboxNav(-1);
+                else if (e.key === "ArrowRight") lightboxNav(1);
+                return;
+            }
+            if (e.key === "Escape") {
                 Array.prototype.forEach.call(document.querySelectorAll(".cs-overlay"), function (overlay) {
                     overlay.style.display = "none";
                 });

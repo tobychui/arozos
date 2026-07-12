@@ -352,6 +352,28 @@
     <!-- Day divider "Jump to..." menu -->
     <div id="jumpMenu" style="display:none;"></div>
 
+    <!-- Image lightbox preview -->
+    <div id="lightbox" style="display:none;">
+        <div class="lb-topbar">
+            <div class="lb-meta">
+                <span class="avatar" id="lbAvatar"></span>
+                <div>
+                    <div id="lbUser"></div>
+                    <div id="lbFile"></div>
+                </div>
+            </div>
+            <div class="lb-actions">
+                <a class="lb-btn" id="lbDownload" href="#" download title="Download"><i class="download icon"></i></a>
+                <a class="lb-btn" id="lbOpen" href="#" target="_blank" rel="noopener" title="Open in new tab"><i class="external alternate icon"></i></a>
+                <button class="lb-btn" id="lbClose" title="Close (Esc)"><i class="close icon"></i></button>
+            </div>
+        </div>
+        <button class="lb-nav lb-prev" id="lbPrev" title="Previous image"><i class="chevron left icon"></i></button>
+        <div id="lbStage"><img id="lbImg" src="" alt=""></div>
+        <button class="lb-nav lb-next" id="lbNext" title="Next image"><i class="chevron right icon"></i></button>
+        <div class="lb-counter" id="lbCounter"></div>
+    </div>
+
     <!-- Icon (reaction / shortcode) picker popover -->
     <div id="iconPicker" style="display:none;"></div>
     <!-- Mention autocomplete popover -->
