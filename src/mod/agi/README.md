@@ -275,6 +275,7 @@ Registered library IDs:
 - `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
 - `sharedspace` (multi-user collaboration spaces: texts / images / files / documents, ACLs, persistence)
 - `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
+- `office` (ArozOS Office suite: .pptx / .xlsx / .docx converters + native zip container pack/unpack)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -1141,6 +1142,125 @@ directly (all optional):
 
 `cnn.faceCompare` uses its own options shape instead: `model`, `threshold`,
 `a_cropped`, `b_cropped`.
+
+## office API
+
+Converters between the ArozOS Office suite webapps (`src/web/Office/`) and
+common office file formats. Backed by `mod/office` (pure Go, no external
+dependencies). Word (.docx) and Excel (.xlsx) helpers will join this library
+as the Docs and Sheets webapps mature.
+
+Load:
+
+```javascript
+requirelib("office");
+```
+
+### `office.pptxToPresentation(srcVpath)`
+Parse a PowerPoint `.pptx` file into the Slides document body schema (see
+`src/web/Office/common/CONTRACT.md`). Returns the body as a **JSON string**,
+or throws on failure. Embedded pictures are inlined as `data:` URLs; text
+boxes, preset shapes, connector lines and tables map to their Slides object
+types. Unsupported content (video, native charts, SmartArt) is skipped.
+
+```javascript
+requirelib("office");
+var bodyJson = office.pptxToPresentation("user:/Desktop/deck.pptx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.presentationToPptx(bodyJson, destVpath)`
+Build a `.pptx` from a serialized Slides body JSON string and write it to
+`destVpath`. Returns `true` on success. Image objects must be inlined as
+`data:` URLs and chart objects should carry a client-rendered PNG in
+`props.png` (the Slides webapp does both automatically before calling).
+
+```javascript
+requirelib("office");
+if (office.presentationToPptx(data, "user:/Desktop/out.pptx")){
+    sendResp("OK");
+}
+```
+
+### `office.xlsxToWorkbook(srcVpath)`
+Parse an Excel `.xlsx` file into the Sheets document body schema. Returns
+the body as a **JSON string**, or throws on failure. Handles values,
+formulas (recalculated by the webapp), shared/inline strings, cell styles,
+number formats, column widths / row heights, merged cells and frozen panes.
+Charts, pivot tables and conditional formatting are skipped. Legacy binary
+`.xls` is rejected with a message asking for `.xlsx`.
+
+```javascript
+requirelib("office");
+var bodyJson = office.xlsxToWorkbook("user:/Desktop/report.xlsx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.workbookToXlsx(bodyJson, destVpath)`
+Build a `.xlsx` from a serialized Sheets body JSON string and write it to
+`destVpath`. Returns `true` on success. Formulas are written natively so
+Excel recalculates them; webapp charts and filters are not exported.
+
+```javascript
+requirelib("office");
+if (office.workbookToXlsx(data, "user:/Desktop/out.xlsx")){
+    sendResp("OK");
+}
+```
+
+### `office.docxToDocument(srcVpath)`
+Parse a Word `.docx` file into the Docs document body schema. Returns the
+body as a **JSON string**, or throws on failure. Handles paragraphs,
+heading/title styles, alignment, inline formatting (bold/italic/underline/
+strikethrough, color, size), hyperlinks, lists, tables, embedded images
+(inlined as `data:` URLs), header/footer text and page geometry. Tracked
+changes, footnotes and text boxes are ignored. Legacy binary `.doc` is
+rejected with a message asking for `.docx`.
+
+```javascript
+requirelib("office");
+var bodyJson = office.docxToDocument("user:/Desktop/report.docx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.documentToDocx(bodyJson, destVpath)`
+Build a `.docx` from a serialized Docs body JSON string and write it to
+`destVpath`. Returns `true` on success. Images must be inlined as `data:`
+URLs (the Docs webapp does this automatically before calling).
+
+```javascript
+requirelib("office");
+if (office.documentToDocx(data, "user:/Desktop/out.docx")){
+    sendResp("OK");
+}
+```
+
+### `office.packToFile(envelopeJson, destVpath)`
+Write an Office suite native file (`.doca` / `.xlsa` / `.ppta`) as a **zip
+container**: `document.json` plus deduplicated binary `assets/`. Media data
+URLs and legacy `media?file=` links inside the envelope become embedded
+assets, so the file stays portable when copied to another machine. Returns
+`true` on success.
+
+### `office.unpackFromFile(srcVpath)`
+Read a native Office suite file and return its envelope **JSON string**
+with embedded assets re-inlined as `data:` URLs. Legacy plain-JSON
+documents pass through unchanged, so old files keep opening (and are
+upgraded to the container format on their next save).
+
+### `office.unpackToWorkdir(srcVpath, workdirBase)`
+Read a native Office suite container and return its envelope **JSON string**
+with binary assets extracted into `<workdirBase>/<doc-hash>/` and referenced
+by `media?file=` links instead of inline base64 - so the JSON stays small
+even for video-heavy documents (the Office webapps use
+`user:/.appdata/Office/cache` as the working directory). Legacy plain-JSON
+documents pass through unchanged.
+
+```javascript
+requirelib("office");
+var envelope = office.unpackToWorkdir("user:/Documents/deck.ppta", "user:/.appdata/Office/cache");
+sendJSONResp('{"envelope":' + envelope + '}');
+```
 
 ## ffmpeg API
 

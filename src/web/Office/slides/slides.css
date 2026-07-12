@@ -1,0 +1,525 @@
+/*
+    ArozOS Office - Slides
+    App-specific styles. Light + dark theming via the --of-* variables
+    from ../common/office.css (dark mode = body.dark).
+*/
+
+/* ============ Layout ============ */
+#workspace {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+/* ---- Thumbnail rail ---- */
+#slRail {
+    flex: 0 0 180px;
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    background: var(--of-chrome-bg2);
+    border-right: 1px solid var(--of-border);
+    overflow: hidden;
+    user-select: none;
+}
+#slThumbs {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 8px 4px 8px;
+}
+#slRailAdd {
+    flex: 0 0 auto;
+    margin: 6px 8px 8px 8px;
+    padding: 6px 8px;
+    border: 1px dashed var(--of-border);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+}
+#slRailAdd:hover { background: var(--of-hover); color: var(--of-fg); }
+#slRailAdd i.icon { margin: 0 2px 0 0 !important; font-size: 11px !important; }
+
+.sl-thumb {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    margin-bottom: 10px;
+    position: relative;
+    cursor: pointer;
+}
+.sl-thumb-num {
+    flex: 0 0 14px;
+    width: 14px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--of-fg-soft);
+    padding-top: 2px;
+}
+.sl-thumb-view {
+    position: relative;
+    width: 136px;
+    height: 76.5px;
+    overflow: hidden;
+    border: 2px solid var(--of-border);
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: content-box;
+}
+.sl-thumb.active .sl-thumb-view {
+    border-color: var(--of-accent);
+    box-shadow: 0 0 0 1px var(--of-accent);
+}
+.sl-thumb-mini {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 960px;
+    height: 540px;
+    transform: scale(0.141667);
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+.sl-thumb.drop-before::before,
+.sl-thumb.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 0;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--of-accent);
+    z-index: 5;
+}
+.sl-thumb.drop-before::before { top: -7px; }
+.sl-thumb.drop-after::after { bottom: -7px; }
+.sl-thumb.dragging { opacity: 0.45; }
+
+/* ---- Center column ---- */
+#slMain {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#slCanvasArea {
+    flex: 1 1 auto;
+    overflow: auto;
+    display: flex;
+    position: relative;
+}
+#slCanvasWrap {
+    margin: auto;
+    padding: 20px;
+    flex: 0 0 auto;
+    box-sizing: content-box;
+}
+#slCanvas {
+    position: relative;
+    width: 960px;
+    height: 540px;
+    transform-origin: 0 0;
+    box-shadow: 0 3px 18px var(--of-paper-shadow);
+    background: #fff;
+    user-select: none;
+}
+#slCanvas.sl-drawmode { cursor: crosshair; }
+
+/* ---- Notes bar ---- */
+#slNotes {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--of-border);
+    background: var(--of-chrome-bg);
+}
+#slNotesHead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    user-select: none;
+}
+#slNotesHead:hover { color: var(--of-fg); }
+#slNotesHead i.icon { margin: 0 !important; font-size: 11px !important; transition: transform 0.15s ease; }
+#slNotes.collapsed #slNotesHead i.icon { transform: rotate(-90deg); }
+#slNotesText {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    height: 86px;
+    resize: none;
+    border: none;
+    outline: none;
+    padding: 4px 14px 10px 14px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+}
+#slNotes.collapsed #slNotesText { display: none; }
+
+/* ============ Slide surface & objects ============ */
+.sl-slidebase {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+#slSlideLayer { position: absolute; inset: 0; }
+#slOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 600;
+}
+
+.sl-obj { position: absolute; box-sizing: border-box; }
+.sl-obj > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.sl-obj img { display: block; width: 100%; height: 100%; pointer-events: none; }
+
+.sl-text-in {
+    width: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    outline: none;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.3;
+    padding: 2px 4px;
+    cursor: default;
+}
+.sl-text-in ul, .sl-text-in ol {
+    margin: 0;
+    padding-left: 1.3em;
+    white-space: normal;
+}
+.sl-text-in li { text-align: left; }
+.sl-editing, .sl-editing * { user-select: text !important; }
+/* table column / row resize bars (only present in table edit mode) */
+.sl-tbl-rz {
+    position: absolute;
+    z-index: 30;
+    user-select: none !important;
+}
+.sl-tbl-rz-col { top: 0; bottom: 0; width: 7px; cursor: col-resize; }
+.sl-tbl-rz-row { left: 0; right: 0; height: 7px; cursor: row-resize; }
+.sl-tbl-rz:hover { background: var(--of-accent-soft); }
+.sl-editing .sl-text-in, .sl-editing .sl-shape-text { cursor: text; }
+.sl-obj.sl-editing { outline: 1px dashed var(--of-accent); }
+
+.sl-shape-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    outline: none;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.25;
+    pointer-events: none;
+}
+.sl-editing .sl-shape-text { pointer-events: auto; }
+
+/* tables */
+table.sl-table {
+    border-collapse: collapse;
+    width: 100%;
+    height: 100%;
+    table-layout: fixed;
+    background: transparent;
+}
+.sl-table td, .sl-table th {
+    border: 1px solid rgba(128, 128, 128, 0.55);
+    padding: 3px 8px;
+    vertical-align: top;
+    overflow: hidden;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-weight: normal;
+    text-align: left;
+    outline: none;
+}
+.sl-table tr.sl-thead td {
+    font-weight: 600;
+    border-bottom-width: 2px;
+}
+
+/* chart */
+.sl-chart-box { width: 100%; height: 100%; overflow: hidden; }
+.sl-chart-box svg { display: block; width: 100%; height: 100%; }
+
+/* ============ Selection overlay ============ */
+.sl-frame {
+    position: absolute;
+    border: 1.5px solid var(--of-accent);
+    box-sizing: border-box;
+    pointer-events: none;
+}
+.sl-frame.sl-frame-line { border: none; }
+.sl-h {
+    position: absolute;
+    background: #ffffff;
+    border: 1.5px solid var(--of-accent);
+    border-radius: 50%;
+    box-sizing: border-box;
+    pointer-events: auto;
+    z-index: 610;
+}
+body.dark .sl-h { background: #2b2d31; }
+.sl-h[data-h="n"], .sl-h[data-h="s"] { cursor: ns-resize; }
+.sl-h[data-h="e"], .sl-h[data-h="w"] { cursor: ew-resize; }
+.sl-h[data-h="nw"], .sl-h[data-h="se"] { cursor: nwse-resize; }
+.sl-h[data-h="ne"], .sl-h[data-h="sw"] { cursor: nesw-resize; }
+.sl-h[data-h="rot"] { cursor: grab; }
+.sl-h[data-h="p1"], .sl-h[data-h="p2"] { cursor: move; }
+.sl-rot-stem {
+    position: absolute;
+    background: var(--of-accent);
+    pointer-events: none;
+}
+
+/* guides + marquee */
+.sl-guide {
+    position: absolute;
+    background: #e8452c;
+    display: none;
+    pointer-events: none;
+    z-index: 620;
+}
+#slGuideV { top: 0; bottom: 0; left: 480px; }
+#slGuideH { left: 0; right: 0; top: 270px; }
+#slMarquee {
+    position: absolute;
+    border: 1px dashed var(--of-accent);
+    background: var(--of-accent-soft);
+    display: none;
+    pointer-events: none;
+    z-index: 620;
+}
+
+/* ============ Toolbar extras ============ */
+#toolbar .of-tinput.sl-num { width: 46px; text-align: center; }
+#toolbar .sl-tlabel {
+    font-size: 11px;
+    color: var(--of-fg-soft);
+    margin: 0 2px 0 6px;
+    user-select: none;
+}
+#toolbar .sl-spacer { flex: 1 1 auto; }
+#toolbar .sl-present-btn {
+    background: var(--of-accent);
+    color: #fff;
+    border-radius: 4px;
+    padding: 0 12px;
+}
+#toolbar .sl-present-btn:hover { filter: brightness(1.08); background: var(--of-accent); color: #fff; }
+
+/* ============ Dialog helpers ============ */
+.sl-grid-table { border-collapse: collapse; }
+.sl-grid-table td { padding: 2px; }
+.sl-grid-table input {
+    width: 92px;
+    padding: 5px 7px;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+}
+.sl-grid-table input:focus { border-color: var(--of-accent); }
+.sl-grid-tools { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.sl-grid-tools .of-btn { padding: 4px 10px; font-size: 12px; }
+.sl-dialog-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.sl-dialog-row > div { flex: 1 1 auto; }
+.sl-swatch-row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+
+/* theme picker swatches (Design dialog) */
+.sl-theme-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.sl-theme-card {
+    width: 128px;
+    cursor: pointer;
+    border: 2px solid var(--of-border);
+    border-radius: 6px;
+    overflow: hidden;
+    text-align: center;
+}
+.sl-theme-card.active { border-color: var(--of-accent); }
+.sl-theme-card .sl-theme-prev {
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+}
+.sl-theme-card .sl-theme-name {
+    font-size: 12px;
+    padding: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+}
+
+/* ============ Present mode ============ */
+.slp-overlay {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 3000;
+    overflow: hidden;
+    cursor: default;
+}
+.slp-stage {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 960px;
+    height: 540px;
+    transform-origin: center center;
+    background: #fff;
+    overflow: hidden;
+}
+.slp-hud {
+    position: absolute;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(0, 0, 0, 0.35);
+    padding: 3px 10px;
+    border-radius: 4px;
+    user-select: none;
+    z-index: 3010;
+}
+.slp-timer { top: 12px; right: 14px; font-variant-numeric: tabular-nums; }
+.slp-counter { bottom: 12px; right: 14px; }
+.slp-nav { bottom: 12px; left: 14px; padding: 0; background: transparent; }
+.slp-btn {
+    border: none;
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.7);
+    width: 34px;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 4px;
+}
+.slp-btn:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.slp-btn i.icon { margin: 0 !important; }
+
+/* laser pointer (L key) */
+.slp-laser {
+    display: none;
+    position: fixed;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 60, 60, 0.95) 0%, rgba(255, 60, 60, 0.45) 55%, transparent 70%);
+    box-shadow: 0 0 12px 4px rgba(255, 60, 60, 0.45);
+    pointer-events: none;
+    z-index: 3020;
+}
+
+/* slide entry transitions */
+@keyframes slpTrFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slpTrSlide {
+    from { opacity: 0; transform: translate(-40%, -50%) scale(var(--slp-sc, 1)); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(var(--slp-sc, 1)); }
+}
+@keyframes slpTrZoom {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(calc(var(--slp-sc, 1) * 0.75)); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(var(--slp-sc, 1)); }
+}
+.slp-stage.slp-tr-fade { animation: slpTrFade 0.45s ease both; }
+.slp-stage.slp-tr-slide { animation: slpTrSlide 0.45s ease both; }
+.slp-stage.slp-tr-zoom { animation: slpTrZoom 0.45s ease both; }
+
+/* object entrance animations (click-to-reveal) */
+@keyframes slpAnimFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slpAnimSlide {
+    from { opacity: 0; translate: -60px 0; }
+    to { opacity: 1; translate: 0 0; }
+}
+@keyframes slpAnimZoom {
+    from { opacity: 0; scale: 0.5; }
+    to { opacity: 1; scale: 1; }
+}
+.slp-anim-fade { animation: slpAnimFade 0.4s ease both; }
+.slp-anim-slide { animation: slpAnimSlide 0.4s ease both; }
+.slp-anim-zoom { animation: slpAnimZoom 0.4s ease both; }
+
+/* embedded media: inert while editing / in thumbnails, live in present */
+.sl-media { display: block; width: 100%; height: 100%; }
+#slSlideLayer .sl-media,
+.sl-thumb-mini .sl-media,
+#slPrintArea .sl-media { pointer-events: none; }
+.sl-audio-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    background: rgba(127, 127, 127, 0.12);
+    border-radius: 8px;
+    padding: 6px 10px;
+    box-sizing: border-box;
+}
+.sl-audio-box i.icon { color: var(--of-fg-soft); flex: 0 0 auto; }
+.sl-audio-box audio { flex: 1 1 auto; height: 36px; }
+.slp-end {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 20px;
+    font-family: "Segoe UI", Arial, sans-serif;
+    z-index: 3005;
+}
+
+/* ============ Print ============ */
+/* Inline links inside slide text: Semantic UI's global anchor reset strips
+   the underline and recolors, so restore the classic link look on every
+   slide surface (editor layer, thumbnails, print pages, present stage,
+   presenter popup - they all carry .sl-slidebase). */
+.sl-slidebase a[href] {
+    color: #1a73e8;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+#slPrintArea { display: none; }
+@media print {
+    #workspace { display: none !important; }
+    #slPrintArea { display: block !important; }
+    .sl-print-page {
+        position: relative;
+        width: 960px;
+        height: 540px;
+        overflow: hidden;
+        page-break-after: always;
+        break-inside: avoid;
+    }
+}
+
+/* ============ Small screens ============ */
+@media (max-width: 700px) {
+    #slRail { flex: 0 0 120px; width: 120px; }
+    .sl-thumb-view { width: 88px; height: 49.5px; }
+    .sl-thumb-mini { transform: scale(0.091667); }
+}

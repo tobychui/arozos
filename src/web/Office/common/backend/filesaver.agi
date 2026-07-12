@@ -1,0 +1,33 @@
+/*
+    ArozOS Office Suite - FileSaver backend
+    Writes serialized office document content to a file on the server.
+    Shared by Docs, Sheets and Slides.
+
+    Required POST parameters:
+        filepath  - virtual path to the target file (e.g. user:/Documents/report.doca)
+        content   - serialized document content to write
+
+    Response: JSON {"error": "..."} on failure, "OK" on success
+*/
+
+function main(){
+    if (!requirelib("filelib")){
+        sendJSONResp(JSON.stringify({ error: "filelib unavailable" }));
+        return;
+    }
+
+    if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
+        sendJSONResp(JSON.stringify({ error: "filepath is required" }));
+        return;
+    }
+
+    var ok = filelib.writeFile(filepath, (typeof content === "undefined" ? "" : content));
+    if (!ok){
+        sendJSONResp(JSON.stringify({ error: "unable to write file" }));
+        return;
+    }
+
+    sendResp("OK");
+}
+
+main();

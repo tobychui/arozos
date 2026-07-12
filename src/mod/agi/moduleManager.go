@@ -58,6 +58,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.LLMLibRegister()
 	g.CNNLibRegister()
 	g.SQLiteLibRegister()
+	g.OfficeLibRegister()
 
 	//Shared collaboration spaces + MeetRoom control, only when the host
 	//system wired the managers in (see src/agi.go)

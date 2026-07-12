@@ -1,0 +1,486 @@
+/*
+    ArozOS Office - Docs (word processor) stylesheet
+    Chrome (menubar/toolbar/statusbar/dialogs) is styled by ../common/office.css
+    via the --of-* variables; this file styles the paper workspace, the editor
+    content, the find panel and printing.
+
+    Dark mode choice: the paper ALWAYS stays white with dark text (like a real
+    docs app) while the chrome around it follows the theme. This is deliberate
+    and consistent - editor content colors are therefore fixed, not themed.
+*/
+
+/* ============ Workspace / paper ============ */
+#workspace {
+    padding: 26px 12px 64px;
+}
+#pageWrap {
+    width: -moz-max-content;
+    width: max-content;
+    max-width: 100%;
+    margin: 0 auto;
+}
+#page {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #1f2328;
+    box-shadow: 0 1px 3px var(--of-paper-shadow), 0 4px 14px var(--of-paper-shadow);
+    border-radius: 2px;
+}
+body.dark #page {
+    /* paper stays white in dark mode - deliberate, see header comment */
+    background: #ffffff;
+    color: #1f2328;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 6px 22px rgba(0, 0, 0, 0.6);
+}
+
+/* ============ Header / footer areas ============ */
+.doc-hf {
+    flex: 0 0 auto;
+    min-height: 1.3em;
+    outline: none;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    color: #6b7078;
+    padding: 2px 0;
+    border-bottom: 1px dashed transparent;
+    cursor: text;
+}
+#docFooter {
+    border-bottom: none;
+    border-top: 1px dashed transparent;
+}
+.doc-hf:hover, .doc-hf:focus {
+    border-color: #c9cdd3;
+}
+.doc-hf:empty::before {
+    content: attr(data-placeholder);
+    color: #c2c6cc;
+    pointer-events: none;
+}
+#docHeader { margin-bottom: 14px; }
+#docFooter { margin-top: 14px; }
+
+/* ============ Editor content ============ */
+#editor {
+    flex: 1 1 auto;
+    outline: none;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    caret-color: #1a73e8;
+}
+#editor p, #editor div { margin: 0 0 8pt; }
+#editor h1, #editor h2, #editor h3, #editor h4 {
+    margin: 14pt 0 6pt;
+    line-height: 1.25;
+    font-weight: 600;
+    color: #1f2328;
+}
+#editor h1 { font-size: 20pt; }
+#editor h2 { font-size: 16pt; }
+#editor h3 { font-size: 13pt; }
+#editor h4 { font-size: 11pt; font-style: italic; }
+#editor .doc-title {
+    font-size: 26pt;
+    font-weight: 400;
+    margin: 0 0 12pt;
+}
+#editor a { color: #1a58c2; text-decoration: underline; cursor: text; }
+#editor a:hover { color: #0f3f96; }
+#editor hr {
+    border: none;
+    border-top: 1px solid #c9cdd3;
+    margin: 14pt 0;
+}
+#editor blockquote {
+    border-left: 3px solid #c3c7cc;
+    margin: 8pt 0;
+    padding: 2pt 0 2pt 12px;
+    color: #5f6368;
+}
+#editor pre {
+    background: #f1f3f4;
+    border: 1px solid #e2e5e9;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10pt;
+    line-height: 1.45;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    margin: 8pt 0;
+}
+#editor ul, #editor ol { margin: 4pt 0 8pt; padding-left: 28px; }
+#editor li { margin: 2pt 0; }
+
+/* Images */
+#editor img {
+    max-width: 100%;
+    height: auto;
+    cursor: default;
+}
+#editor img.of-selimg {
+    outline: 2px solid var(--of-accent);
+    outline-offset: 1px;
+}
+.of-img-handle {
+    position: fixed;
+    width: 13px;
+    height: 13px;
+    background: var(--of-accent);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    cursor: nwse-resize;
+    z-index: 1200;
+    touch-action: none;
+}
+
+/* Tables */
+#editor table.of-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8pt 0;
+}
+#editor table.of-table td, #editor table.of-table th {
+    border: 1px solid #b9bec7;
+    padding: 4px 8px;
+    min-width: 2em;
+    vertical-align: top;
+}
+#editor table.of-table th { background: #f1f3f4; font-weight: 600; }
+
+/* Multi-column layout: title/author blocks marked via
+   Format > Page layout > Span all columns stretch across every column */
+#editor .col-span-all { column-span: all; }
+
+/* Page guides: dashed lines showing where printed pages break */
+#pageGuides {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+.doc-pageguide {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 2px dashed #b7c8e4;
+}
+.doc-pageguide::after {
+    content: attr(data-label);
+    position: absolute;
+    right: 2px;
+    top: -9px;
+    font-size: 9px;
+    line-height: 16px;
+    padding: 0 6px;
+    color: #6a86b8;
+    background: #eef3fb;
+    border: 1px solid #b7c8e4;
+    border-radius: 8px;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Layout boxes: visualize which regions span all columns (orange) and
+   which flow inside the columns (blue) - View > Layout boxes */
+#page { position: relative; }
+body.doc-show-boxes #editor > * {
+    outline: 1px dashed rgba(66, 133, 244, 0.55);
+    outline-offset: 1px;
+}
+body.doc-show-boxes #editor > .col-span-all {
+    outline: 2px solid rgba(224, 123, 31, 0.75);
+    outline-offset: 1px;
+    position: relative;
+}
+body.doc-show-boxes #editor > .col-span-all::after {
+    content: "full width";
+    position: absolute;
+    top: -9px;
+    right: 0;
+    font-size: 9px;
+    line-height: 14px;
+    padding: 0 6px;
+    color: #fff;
+    background: rgba(224, 123, 31, 0.85);
+    border-radius: 7px;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-weight: 600;
+    font-style: normal;
+}
+
+/* Checklists - checkbox drawn with ::before, never an emoji glyph */
+#editor ul.of-checklist {
+    list-style: none;
+    padding-left: 28px;
+}
+#editor ul.of-checklist > li {
+    position: relative;
+    margin: 3pt 0;
+}
+#editor ul.of-checklist > li::before {
+    content: "";
+    position: absolute;
+    left: -22px;
+    top: 0.22em;
+    width: 13px;
+    height: 13px;
+    box-sizing: border-box;
+    border: 1.5px solid #8a8f98;
+    border-radius: 3px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 11px;
+    text-align: center;
+}
+#editor ul.of-checklist > li:hover::before { border-color: var(--of-accent); }
+#editor ul.of-checklist > li.checked::before {
+    content: "\2713";
+    background: var(--of-accent);
+    border-color: var(--of-accent);
+    color: #fff;
+}
+#editor ul.of-checklist > li.checked {
+    text-decoration: line-through;
+    color: #9aa0a6;
+}
+
+/* Find highlights */
+#editor span.of-find-hit { background: #ffe66b; color: #202124; border-radius: 2px; }
+#editor span.of-find-hit.of-find-cur { background: #ffab40; }
+
+/* ============ Find panel ============ */
+.of-find-panel {
+    position: fixed;
+    top: 92px;
+    right: 26px;
+    z-index: 1000;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px var(--of-shadow);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: calc(100vw - 40px);
+}
+.of-find-panel .fp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.of-find-panel .of-tinput { width: 200px; flex: 1 1 auto; }
+.of-find-panel .of-btn { padding: 5px 10px; white-space: nowrap; }
+.fp-count {
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    min-width: 40px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* ============ Toolbar tweaks ============ */
+#toolbar .of-tselect { max-width: 132px; }
+#toolbar select.tb-style { width: 96px; }
+#toolbar select.tb-font { width: 118px; }
+#toolbar select.tb-size { width: 58px; }
+.tb-color-wrap {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.tb-color-wrap:hover { background: var(--of-hover); }
+.tb-color-wrap i.icon { margin: 0 !important; font-size: 12px !important; line-height: 1 !important; }
+.tb-color-wrap input[type="color"] {
+    width: 20px;
+    height: 7px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* ============ Special characters dialog ============ */
+.sc-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--of-border);
+    padding-bottom: 8px;
+}
+.sc-tab {
+    border: 1px solid var(--of-border);
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.sc-tab:hover { background: var(--of-hover); }
+.sc-tab.active {
+    background: var(--of-accent);
+    border-color: var(--of-accent);
+    color: #fff;
+}
+.sc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+    gap: 4px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+.sc-char {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--of-fg);
+    border-radius: 6px;
+    font-size: 19px;
+    height: 38px;
+    cursor: pointer;
+    line-height: 1;
+}
+.sc-char:hover {
+    background: var(--of-hover);
+    border-color: var(--of-border);
+}
+
+/* ============ Page setup dialog ============ */
+.ps-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+}
+.ps-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    color: var(--of-fg);
+}
+.ps-check input { width: auto; }
+
+/* ============ Link / image / table dialogs ============ */
+.dlg-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+}
+
+/* ============ Print ============ */
+@media print {
+    #workspace { padding: 0; overflow: visible; }
+    #pageWrap { width: auto; margin: 0; }
+    #page {
+        box-shadow: none !important;
+        border-radius: 0;
+        zoom: 1 !important;   /* cancel the on-screen zoom set inline by the framework */
+        display: block;
+    }
+    .of-find-panel, .of-img-handle { display: none !important; }
+    .doc-hf { border: none !important; color: #444; }
+    .doc-hf:empty { display: none; }
+    .doc-hf:empty::before { content: none; }
+    #editor img.of-selimg { outline: none; }
+    #editor span.of-find-hit { background: transparent; }
+    #editor a { color: #1a58c2; }
+}
+
+/* ============ Review: comments ============ */
+#editor span.doc-cmt {
+    background: rgba(255, 213, 79, 0.35);
+    border-bottom: 2px solid #f0b429;
+    cursor: pointer;
+}
+#editor span.doc-cmt.flash {
+    background: rgba(255, 179, 0, 0.6);
+    transition: background 0.3s;
+}
+body.dark #editor span.doc-cmt { background: rgba(255, 213, 79, 0.22); }
+
+#docCmtPanel {
+    position: fixed;
+    top: 92px;
+    right: 12px;
+    bottom: 40px;
+    width: 270px;
+    z-index: 850;
+    display: flex;
+    flex-direction: column;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    overflow: hidden;
+}
+.doc-cmt-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--of-fg);
+    border-bottom: 1px solid var(--of-border);
+}
+.doc-cmt-head i.icon { margin: 0; color: var(--of-fg-soft); }
+.doc-cmt-count { color: var(--of-fg-soft); font-weight: 400; }
+.doc-cmt-close { margin-left: auto; }
+.doc-cmt-list { flex: 1; overflow-y: auto; padding: 8px; }
+.doc-cmt-empty { font-size: 12.5px; color: var(--of-fg-soft); padding: 8px 4px; }
+.doc-cmt-card {
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    background: var(--of-chrome-bg2);
+}
+.doc-cmt-card:hover { border-color: var(--of-fg-soft); }
+.doc-cmt-card.active { border-color: var(--of-accent); box-shadow: 0 0 0 1px var(--of-accent); }
+.doc-cmt-quote {
+    font-size: 11.5px;
+    color: var(--of-fg-soft);
+    border-left: 3px solid #f0b429;
+    padding-left: 6px;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.doc-cmt-body { font-size: 13px; color: var(--of-fg); white-space: pre-wrap; }
+.doc-cmt-when { font-size: 10.5px; color: var(--of-fg-soft); margin-top: 5px; }
+.doc-cmt-actions { display: flex; gap: 2px; margin-top: 4px; }
+
+/* ============ Review: track changes ============ */
+#editor ins.doc-ins {
+    color: #188038;
+    text-decoration: underline;
+    background: rgba(24, 128, 56, 0.08);
+}
+#editor del.doc-del {
+    color: #c5221f;
+    text-decoration: line-through;
+    background: rgba(197, 34, 31, 0.08);
+}
+body.dark #editor ins.doc-ins { color: #6dd58c; background: rgba(109, 213, 140, 0.1); }
+body.dark #editor del.doc-del { color: #f28b82; background: rgba(242, 139, 130, 0.1); }
+
+@media print {
+    #docCmtPanel { display: none !important; }
+}
