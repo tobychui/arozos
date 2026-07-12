@@ -286,7 +286,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     overflow: hidden;
 }
 
-.sb-item i.icon { font-size: 13px; width: 18px; margin: 0; text-align: center; flex-shrink: 0; }
+.sb-item i.icon { font-size: 13px; width: 18px; margin: 0; text-align: center; flex-shrink: 0; position: relative; top: -3px; }
 
 .sb-item:hover { background: var(--cs-sb-hover); }
 .sb-item.active { background: var(--cs-sb-active); color: #fff; }
@@ -336,7 +336,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     flex-shrink: 0;
 }
 
-.sb-plusbox i.icon { font-size: 10px; width: auto; }
+.sb-plusbox i.icon { font-size: 11px; width: 100%; height: 100%; line-height: 18px; text-align: center; margin: 0; top: 0; }
 
 .sb-avatar {
     width: 20px;
@@ -879,7 +879,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     color: var(--cs-text);
 }
 
-.react-pill i.icon { margin: 0; font-size: 13px; }
+.react-pill i.icon { margin: 0; font-size: 13px; position: relative; top: -2px; }
 .react-pill:hover { border-color: #b8b8b8; background: #fff; }
 .react-pill.mine { background: #e8f5fa; border-color: #1d9bd1; color: #1264a3; }
 
