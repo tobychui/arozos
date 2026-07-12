@@ -43,6 +43,9 @@ body, input, textarea, button {
 
 button { background: none; border: none; cursor: pointer; padding: 0; }
 
+/* Mobile-only affordances are hidden on the desktop layout */
+.rail-mobile-only, .ch-back, .sb-mobile-avatar { display: none; }
+
 #app {
     display: grid;
     grid-template-columns: 68px 1fr;
@@ -1750,10 +1753,186 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 /* ================= Narrow layouts ================= */
 
-@media (max-width: 900px) {
+@media (min-width: 769px) and (max-width: 1040px) {
     #sidebar { width: 200px; min-width: 170px; }
-    #rightPanel { position: absolute; right: 4px; top: 48px; bottom: 8px; box-shadow: 0 0 24px rgba(0, 0, 0, 0.35); }
-    .rail-btn span { display: none; }
-    #app { grid-template-columns: 52px 1fr; }
-    .rail-btn { width: 42px; }
+    #rightPanel { width: 340px; min-width: 300px; }
+}
+
+/* ================= Mobile / PWA layout (Slack mobile pattern) =================
+
+   Single column: the purple sidebar is the "list" screen, the white
+   content card is the conversation/activity screen sliding over it, and
+   the rail becomes a bottom tab bar. #app gets .mobile-detail (from JS)
+   to bring the detail screen forward. */
+
+@media (max-width: 768px) {
+    html, body { height: 100dvh; }
+
+    #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+        grid-template-areas:
+            "body"
+            "rail";
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    #topbar { display: none; }
+
+    /* ---- bottom tab bar ---- */
+    #rail {
+        flex-direction: row;
+        align-items: stretch;
+        justify-content: space-around;
+        gap: 0;
+        padding: 6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        z-index: 20;
+    }
+
+    #wsIcon, .rail-spacer, #railAvatar,
+    .rail-btn[data-view="later"] { display: none; }
+
+    .rail-mobile-only { display: flex; }
+
+    .rail-btn {
+        flex: 1;
+        width: auto;
+        gap: 3px;
+        padding: 4px 0;
+        font-size: 10px;
+    }
+
+    .rail-btn span { display: block; }
+    .rail-btn i.icon { font-size: 19px; }
+    .rail-dot { right: calc(50% - 16px); top: 2px; }
+
+    /* Compose FAB, floating above the bar on the list screen */
+    .rail-plus {
+        position: fixed;
+        right: 16px;
+        bottom: calc(70px + env(safe-area-inset-bottom));
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: var(--cs-frame);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        z-index: 30;
+    }
+
+    .rail-plus i.icon { font-size: 20px; }
+    #app.mobile-detail .rail-plus { display: none; }
+
+    /* ---- body: two stacked screens ---- */
+    #body { display: block; position: relative; padding: 0; gap: 0; overflow: hidden; }
+
+    #sidebar {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        min-width: 0;
+        z-index: 1;
+        padding-top: env(safe-area-inset-top);
+    }
+
+    #sbHeader { padding: 12px 16px; }
+    #sbWorkspaceName { font-size: 20px; }
+    .sb-header-right { display: flex; align-items: center; gap: 10px; }
+    .sb-mobile-avatar {
+        display: block;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+    }
+    .sb-mobile-avatar img, .sb-mobile-avatar .avatar-fallback { border-radius: 8px; }
+
+    .sb-item { height: 40px; font-size: 16px; }
+    .sb-section-title { font-size: 15px; padding: 6px 16px; }
+
+    #content {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        border-radius: 0;
+        z-index: 2;
+        transform: translateX(100%);
+        transition: transform 0.24s ease;
+        padding-top: env(safe-area-inset-top);
+    }
+
+    #app.mobile-detail #content { transform: translateX(0); }
+
+    .ch-back { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; color: var(--cs-muted); font-size: 16px; flex-shrink: 0; }
+    .ch-back i.icon { margin: 0; }
+    #channelHeader { height: 54px; padding: 0 8px; }
+    #chTopic { display: none; }
+    #chNameBtn { font-size: 16px; }
+    .ch-right button { height: 38px; min-width: 38px; }
+
+    .ap-head { display: flex; align-items: center; gap: 6px; }
+    .ap-head .ch-back { display: flex; }
+
+    #messages { padding: 8px 0; }
+    .msg { padding: 6px 14px; }
+    .msg-actions { top: -12px; right: 8px; }
+
+    #composerWrap { padding: 0 10px calc(6px + env(safe-area-inset-bottom)) 10px; }
+    #composerHint { display: none; }
+    #typingBar { padding: 0 16px; }
+    /* Collapse the formatting toolbar; the Aa button reveals it */
+    #fmtToolbar { display: none; }
+
+    .msg-img { max-width: 78vw; }
+
+    /* ---- right panel: full-screen overlay ---- */
+    #rightPanel {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        min-width: 0;
+        border-radius: 0;
+        z-index: 60;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ---- modals: full screen sheets ---- */
+    .cs-overlay { padding: 0; align-items: stretch; }
+    .cs-modal, .cs-modal-wide, .cs-modal-details, .cs-modal-qs {
+        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        height: 100%;
+        border-radius: 0;
+        padding-top: env(safe-area-inset-top);
+    }
+    .cs-modal-qs { padding: calc(12px + env(safe-area-inset-top)) 12px 12px 12px; }
+    #qsResults { max-height: none; flex: 1; }
+    .cs-modal-body { flex: 1; }
+    .cs-modal-list { max-height: none; }
+
+    /* ---- search dropdown / popovers ---- */
+    #searchResults { max-height: 70vh; }
+    #iconPicker { width: 90vw; max-width: 300px; }
+    #mentionPicker { width: 82vw; max-width: 300px; }
+
+    /* ---- toasts above the tab bar ---- */
+    #toastZone {
+        top: auto;
+        bottom: calc(74px + env(safe-area-inset-bottom));
+        left: 10px;
+        right: 10px;
+    }
+    .toast { width: auto; }
+
+    /* ---- lightbox chrome clears the notch ---- */
+    #lightbox { padding-top: env(safe-area-inset-top); }
+    #lbStage { padding: 0 10px 12px 10px; }
+    .lb-nav { width: 40px; height: 40px; }
 }

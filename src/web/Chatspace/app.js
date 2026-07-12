@@ -145,6 +145,21 @@
 
     function $id(id) { return document.getElementById(id); }
 
+    /* ---- mobile navigation (single-column, Slack-style) ---- */
+
+    //On narrow screens the sidebar (list) and content (conversation /
+    //activity) become two stacked screens; a class on #app slides the
+    //detail screen over the list.
+    function isMobile() { return window.matchMedia("(max-width: 768px)").matches; }
+
+    function showMobileDetail() {
+        if (isMobile()) $id("app").classList.add("mobile-detail");
+    }
+
+    function showMobileList() {
+        $id("app").classList.remove("mobile-detail");
+    }
+
     function escapeHtml(text) {
         var div = document.createElement("div");
         div.textContent = text === undefined || text === null ? "" : String(text);
@@ -1026,11 +1041,13 @@
         savePrefs();
         if (!convo.loaded && !convo.loading) fetchItems(convo);
         if (state.focused) markRead(convo);
+        showMobileDetail();
         renderAll();
         restoreDraft();
         scrollMessagesToBottom();
         var input = $id("composeInput");
-        if (input && convo.desc.ismember) input.focus();
+        //Do not steal focus (and pop the keyboard) on touch screens
+        if (input && convo.desc.ismember && !isMobile()) input.focus();
     }
 
     function navGo(step) {
@@ -1344,6 +1361,7 @@
         state.mainView = "activity";
         state.prefs.activitySeen = Math.floor(Date.now() / 1000);
         savePrefs();
+        showMobileDetail();
         renderMain();
         renderActivityDot();
     }
@@ -2959,9 +2977,13 @@
         //the sidebar and keep the open conversation
         if (view === "activity") {
             openActivityView();
-        } else if (state.mainView === "activity") {
-            state.mainView = "convo";
-            renderMain();
+        } else {
+            if (state.mainView === "activity") {
+                state.mainView = "convo";
+                renderMain();
+            }
+            //On mobile, the other tabs bring the list screen forward
+            showMobileList();
         }
         renderSidebar();
     }
@@ -2978,6 +3000,11 @@
         $id("railBrowseBtn").addEventListener("click", openBrowseModal);
         $id("railNewBtn").addEventListener("click", openDmModal);
         $id("railAvatar").addEventListener("click", function () { openProfile(state.username); });
+        $id("railSearchBtn").addEventListener("click", openQuickSwitcher);
+        $id("sbAvatarBtn").addEventListener("click", function () { openProfile(state.username); });
+        //Mobile: back out of a conversation / activity to the list screen
+        $id("chBackBtn").addEventListener("click", showMobileList);
+        $id("apBackBtn").addEventListener("click", showMobileList);
 
         //Topbar
         $id("histBackBtn").addEventListener("click", function () { navGo(-1); });
@@ -3122,10 +3149,12 @@
             });
         });
         $id("fmtToggleBtn").addEventListener("click", function () {
+            //Robust across layouts: the bar starts hidden on mobile (CSS) and
+            //shown on desktop, so read the computed state rather than assume
             var bar = $id("fmtToolbar");
-            var hidden = bar.style.display === "none";
-            bar.style.display = hidden ? "" : "none";
-            this.classList.toggle("fmt-hidden", !hidden);
+            var shown = window.getComputedStyle(bar).display !== "none";
+            bar.style.display = shown ? "none" : "flex";
+            this.classList.toggle("fmt-hidden", shown);
         });
         $id("iconPickBtn").addEventListener("click", function (e) {
             e.stopPropagation();
@@ -3296,6 +3325,7 @@
             bootstrapWorkspace(function (ok) {
                 state.booted = true;
                 $id("railAvatar").innerHTML = avatarHtml(state.username, 14);
+                $id("sbAvatarBtn").innerHTML = avatarHtml(state.username, 12);
                 if (!ok) { renderAll(); return; }
                 //Restore the last conversation, or land in #general
                 var target = state.prefs.lastActive && state.convos[state.prefs.lastActive]
@@ -3309,8 +3339,14 @@
                     var joined = joinedConvos();
                     if (joined.length > 0) target = joined[0].id;
                 }
-                if (target) setActive(target);
-                else renderAll();
+                if (target) {
+                    setActive(target);
+                    //On phones, land on the Home list (Slack behaviour); the
+                    //conversation is preloaded behind it for an instant open
+                    if (isMobile()) showMobileList();
+                } else {
+                    renderAll();
+                }
             });
         });
 

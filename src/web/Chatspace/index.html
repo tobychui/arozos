@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=yes" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
     <meta name="theme-color" content="#481349" />
     <meta name="description" content="ArozOS Chatspace team chat" />
     <title>Chatspace</title>
@@ -40,6 +40,9 @@
             <button class="rail-btn" id="railBrowseBtn" title="Browse channels">
                 <i class="ellipsis horizontal icon"></i><span>More</span>
             </button>
+            <button class="rail-btn rail-mobile-only" id="railSearchBtn" title="Search">
+                <i class="search icon"></i><span>Search</span>
+            </button>
             <div class="rail-spacer"></div>
             <button class="rail-btn rail-plus" id="railNewBtn" title="New message">
                 <i class="plus icon"></i>
@@ -71,7 +74,10 @@
             <div id="sidebar">
                 <div id="sbHeader">
                     <span id="sbWorkspaceName">Chatspace <i class="chevron down icon"></i></span>
-                    <button class="sb-hbtn" id="sbComposeBtn" title="New message"><i class="edit outline icon"></i></button>
+                    <div class="sb-header-right">
+                        <button class="sb-hbtn" id="sbComposeBtn" title="New message"><i class="edit outline icon"></i></button>
+                        <button class="sb-hbtn sb-mobile-avatar" id="sbAvatarBtn" title="You"></button>
+                    </div>
                 </div>
                 <div id="sbScroll">
                     <!-- Home view -->
@@ -115,6 +121,7 @@
             <div id="content">
                 <div id="channelHeader" style="display:none;">
                     <div class="ch-left">
+                        <button id="chBackBtn" class="ch-back" title="Back"><i class="arrow left icon"></i></button>
                         <button id="chNameBtn" title="Channel details">
                             <span id="chName"></span> <i class="chevron down icon"></i>
                         </button>
@@ -142,6 +149,7 @@
                 <!-- Activity view (mentions / thread replies / reactions), Slack style -->
                 <div id="activityPane" style="display:none;">
                     <div class="ap-head">
+                        <button id="apBackBtn" class="ch-back" title="Back"><i class="arrow left icon"></i></button>
                         <h2><i class="bell outline icon"></i> Activity</h2>
                     </div>
                     <div class="ap-tabs">
