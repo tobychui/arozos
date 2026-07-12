@@ -98,6 +98,15 @@ eq("rewrite off-grid -> #REF!", F.rewriteRelative("=A1", -1, 0), "=#REF!");
 eq("rewrite inside function", F.rewriteRelative("=SUM(A1:B2)", 2, 0), "=SUM(C1:D2)");
 eq("rewrite ignores strings", F.rewriteRelative('="A1"&B1', 1, 0), '="A1"&C1');
 
+/* moved-range rewriting (drag-to-move semantics) */
+var mv = { c1: 0, r1: 0, c2: 1, r2: 1 };   // A1:B2 moved...
+eq("move: ref inside follows", F.rewriteMovedRange("=A1+C5", mv, 2, 3), "=C4+C5");
+eq("move: absolute inside follows", F.rewriteMovedRange("=$A$1", mv, 2, 3), "=$C$4");
+eq("move: outside untouched", F.rewriteMovedRange("=C5*D6", mv, 2, 3), "=C5*D6");
+eq("move: range endpoints follow", F.rewriteMovedRange("=SUM(A1:B2)", mv, 1, 1), "=SUM(B2:C3)");
+eq("move: off-grid -> #REF!", F.rewriteMovedRange("=A1", mv, -1, 0), "=#REF!");
+eq("move: strings untouched", F.rewriteMovedRange('="A1"&A1', mv, 1, 0), '="A1"&B1');
+
 /* insert / delete adjustment */
 eq("insert row shifts", F.adjustInsertDelete("=A5", "row", 2, 1), "=A6");
 eq("insert row before untouched", F.adjustInsertDelete("=A1", "row", 2, 1), "=A1");

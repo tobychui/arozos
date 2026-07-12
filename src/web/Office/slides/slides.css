@@ -195,6 +195,12 @@
     padding: 2px 4px;
     cursor: default;
 }
+.sl-text-in ul, .sl-text-in ol {
+    margin: 0;
+    padding-left: 1.3em;
+    white-space: normal;
+}
+.sl-text-in li { text-align: left; }
 .sl-editing, .sl-editing * { user-select: text !important; }
 /* table column / row resize bars (only present in table edit mode) */
 .sl-tbl-rz {
@@ -413,6 +419,67 @@ body.dark .sl-h { background: #2b2d31; }
 }
 .slp-btn:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .slp-btn i.icon { margin: 0 !important; }
+
+/* laser pointer (L key) */
+.slp-laser {
+    display: none;
+    position: fixed;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 60, 60, 0.95) 0%, rgba(255, 60, 60, 0.45) 55%, transparent 70%);
+    box-shadow: 0 0 12px 4px rgba(255, 60, 60, 0.45);
+    pointer-events: none;
+    z-index: 3020;
+}
+
+/* slide entry transitions */
+@keyframes slpTrFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slpTrSlide {
+    from { opacity: 0; transform: translate(-40%, -50%) scale(var(--slp-sc, 1)); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(var(--slp-sc, 1)); }
+}
+@keyframes slpTrZoom {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(calc(var(--slp-sc, 1) * 0.75)); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(var(--slp-sc, 1)); }
+}
+.slp-stage.slp-tr-fade { animation: slpTrFade 0.45s ease both; }
+.slp-stage.slp-tr-slide { animation: slpTrSlide 0.45s ease both; }
+.slp-stage.slp-tr-zoom { animation: slpTrZoom 0.45s ease both; }
+
+/* object entrance animations (click-to-reveal) */
+@keyframes slpAnimFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slpAnimSlide {
+    from { opacity: 0; translate: -60px 0; }
+    to { opacity: 1; translate: 0 0; }
+}
+@keyframes slpAnimZoom {
+    from { opacity: 0; scale: 0.5; }
+    to { opacity: 1; scale: 1; }
+}
+.slp-anim-fade { animation: slpAnimFade 0.4s ease both; }
+.slp-anim-slide { animation: slpAnimSlide 0.4s ease both; }
+.slp-anim-zoom { animation: slpAnimZoom 0.4s ease both; }
+
+/* embedded media: inert while editing / in thumbnails, live in present */
+.sl-media { display: block; width: 100%; height: 100%; }
+#slSlideLayer .sl-media,
+.sl-thumb-mini .sl-media,
+#slPrintArea .sl-media { pointer-events: none; }
+.sl-audio-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    background: rgba(127, 127, 127, 0.12);
+    border-radius: 8px;
+    padding: 6px 10px;
+    box-sizing: border-box;
+}
+.sl-audio-box i.icon { color: var(--of-fg-soft); flex: 0 0 auto; }
+.sl-audio-box audio { flex: 1 1 auto; height: 36px; }
 .slp-end {
     position: absolute;
     inset: 0;

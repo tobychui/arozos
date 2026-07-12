@@ -26,7 +26,7 @@ func sampleWorkbook() *Workbook {
 					"B4": {V: "=SUM(B2:B3)"},
 					"C2": {V: "0.5", S: &CellStyle{Fmt: "percent", Dec: intp(0)}},
 					"D2": {V: "TRUE"},
-					"E2": {V: "'0123"},          // forced text with leading zero
+					"E2": {V: "'0123"}, // forced text with leading zero
 					"F2": {V: "wrapped text", S: &CellStyle{Wrap: true, Fc: "#cc0000", Fs: 18}},
 				},
 				ColW:   map[string]float64{"0": 140},

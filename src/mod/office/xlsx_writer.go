@@ -23,14 +23,14 @@ import (
 /* ---------- style table ---------- */
 
 type xlsxStyleTable struct {
-	numFmts  []string          // custom format codes, id = 164 + index
-	fonts    []string          // font xml fragments
-	fills    []string          // fill xml fragments
-	xfs      []string          // cellXfs xf fragments
-	fontIdx  map[string]int
-	fillIdx  map[string]int
-	numIdx   map[string]int
-	xfIdx    map[string]int
+	numFmts []string // custom format codes, id = 164 + index
+	fonts   []string // font xml fragments
+	fills   []string // fill xml fragments
+	xfs     []string // cellXfs xf fragments
+	fontIdx map[string]int
+	fillIdx map[string]int
+	numIdx  map[string]int
+	xfIdx   map[string]int
 }
 
 func newStyleTable() *xlsxStyleTable {

@@ -17,7 +17,7 @@ registerModule(JSON.stringify({
     Name: "Docs",
     Desc: "ArozOS Office word processor",
     Group: "Office",
-    IconPath: "Office/img/docs.svg",
+    IconPath: "Office/docs/docs.png",
     Version: "1.0",
     StartDir: "Office/docs/index.html",
     SupportFW: true,
@@ -26,7 +26,7 @@ registerModule(JSON.stringify({
     LaunchEmb: "Office/docs/index.html",
     InitFWSize: [1080, 700],
     InitEmbSize: [1080, 700],
-    SupportedExt: [".doca"]
+    SupportedExt: [".doca", ".docx"]
 }));
 
 //Sheets - spreadsheet
@@ -34,7 +34,7 @@ registerModule(JSON.stringify({
     Name: "Sheets",
     Desc: "ArozOS Office spreadsheet",
     Group: "Office",
-    IconPath: "Office/img/sheets.svg",
+    IconPath: "Office/sheets/sheets.png",
     Version: "1.0",
     StartDir: "Office/sheets/index.html",
     SupportFW: true,
@@ -52,7 +52,7 @@ registerModule(JSON.stringify({
     Name: "Slides",
     Desc: "ArozOS Office presentation editor",
     Group: "Office",
-    IconPath: "Office/img/slides.svg",
+    IconPath: "Office/slides/slides.png",
     Version: "1.0",
     StartDir: "Office/slides/index.html",
     SupportFW: true,
@@ -63,3 +63,9 @@ registerModule(JSON.stringify({
     InitEmbSize: [1220, 740],
     SupportedExt: [".ppta", ".pptx"]
 }));
+
+//Register office specific file icons
+registerExtensionIcon(".doca", "img/file_icon_docs.png");
+registerExtensionIcon(".xlsa", "img/file_icon_sheets.png");
+registerExtensionIcon(".ppta", "img/file_icon_slides.png");
+

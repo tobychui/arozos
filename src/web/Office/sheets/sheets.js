@@ -895,6 +895,15 @@ var SheetsApp = (function () {
             e.preventDefault();
             return;
         }
+        // grab the selection border to move the whole block
+        var gp = gridPos(e);
+        if (onSelBorder(gp)) {
+            commitEdit(false);
+            drag = { mode: "movesel", srcRg: selRange(), grab: cellAtPos(gp), mv: { dC: 0, dR: 0 } };
+            try { gridEl.setPointerCapture(e.pointerId); } catch (err) { }
+            e.preventDefault();
+            return;
+        }
         commitEdit(false);
         var pos = cellAtPos(gridPos(e));
         if (e.shiftKey) {
@@ -910,7 +919,12 @@ var SheetsApp = (function () {
         e.preventDefault();
     }
     function onGridPointerMove(e) {
-        if (!drag) return;
+        if (!drag) {
+            // hover feedback: the selection border is grabbable
+            var onEdge = e.target !== fillEl && onSelBorder(gridPos(e));
+            gridEl.style.cursor = onEdge ? "move" : "";
+            return;
+        }
         lastPointerEvt = e;
         if (!rafPending) {
             rafPending = true;
@@ -928,6 +942,18 @@ var SheetsApp = (function () {
                 selCols = selRows = null;
                 afterSelChange();
             }
+        } else if (drag.mode === "movesel") {
+            var srg = drag.srcRg;
+            var dC = clamp(pos.c - drag.grab.c, -srg.c1, sheet().cols - 1 - srg.c2);
+            var dR = clamp(pos.r - drag.grab.r, -srg.r1, sheet().rows - 1 - srg.r2);
+            drag.mv = { dC: dC, dR: dR };
+            var ga = cellRect(srg.c1 + dC, srg.r1 + dR);
+            var gb = cellRect(srg.c2 + dC, srg.r2 + dR);
+            rangeBoxEl.style.display = "block";
+            rangeBoxEl.style.left = ga.x + "px";
+            rangeBoxEl.style.top = ga.y + "px";
+            rangeBoxEl.style.width = (gb.x + gb.w - ga.x) + "px";
+            rangeBoxEl.style.height = (gb.y + gb.h - ga.y) + "px";
         } else if (drag.mode === "fill") {
             var rg = drag.startRg;
             // constrain to a single axis: whichever dominates
@@ -957,6 +983,9 @@ var SheetsApp = (function () {
             applyFill(d.startRg, d.fillTo.dC, d.fillTo.dR);
         } else if (d.mode === "fill") {
             renderGrid();
+        } else if (d.mode === "movesel") {
+            if (d.mv && (d.mv.dC || d.mv.dR)) moveRange(d.srcRg, d.mv.dC, d.mv.dR);
+            else renderGrid();   // restore the range box
         }
     }
     function onGridDblClick(e) {
@@ -1369,6 +1398,74 @@ var SheetsApp = (function () {
         return { first: vals[0], last: vals[n - 1], step: step };
     }
 
+    /* ================= move selection (drag the range border) ================= */
+    /* Excel semantics: the block's cells (values + styles) relocate;
+       every formula reference pointing INTO the source range - from inside
+       or outside the block - follows it. Other references are untouched. */
+    function moveRange(rg, dC, dR) {
+        if (!dC && !dR) return;
+        var s = sheet();
+        growTo(rg.c2 + dC + 2, rg.r2 + dR + 2);
+        // snapshot + clear source
+        var snapCells = {};
+        var r, c, k;
+        for (r = rg.r1; r <= rg.r2; r++) {
+            for (c = rg.c1; c <= rg.c2; c++) {
+                k = key(c, r);
+                if (s.cells[k]) {
+                    snapCells[c + "," + r] = s.cells[k];
+                    delete s.cells[k];
+                }
+            }
+        }
+        // write to target (overwrites whatever was there)
+        for (r = rg.r1; r <= rg.r2; r++) {
+            for (c = rg.c1; c <= rg.c2; c++) {
+                k = key(c + dC, r + dR);
+                var cell = snapCells[c + "," + r];
+                if (cell) s.cells[k] = cell;
+                else delete s.cells[k];
+            }
+        }
+        // references into the moved range follow it (moved formulas included)
+        Object.keys(s.cells).forEach(function (ck) {
+            var cl = s.cells[ck];
+            if (cl && cl.v && String(cl.v).charAt(0) === "=") {
+                cl.v = F.rewriteMovedRange(cl.v, rg, dC, dR);
+            }
+        });
+        // merges wholly inside the source range move with it
+        s.merges = s.merges.map(function (m) {
+            var mr = parseRange(m);
+            if (!mr) return null;
+            if (mr.c1 >= rg.c1 && mr.c2 <= rg.c2 && mr.r1 >= rg.r1 && mr.r2 <= rg.r2) {
+                return rangeStr({ c1: mr.c1 + dC, r1: mr.r1 + dR, c2: mr.c2 + dC, r2: mr.r2 + dR });
+            }
+            return m;
+        }).filter(function (m) { return !!m; });
+        // select the block at its new home
+        anchor = { c: rg.c1 + dC, r: rg.r1 + dR };
+        head = { c: rg.c2 + dC, r: rg.r2 + dR };
+        selCols = selRows = null;
+        commit();
+        OfficeApp.setStatus("Moved " + rangeStr(rg) + " to " + rangeStr(selRange()));
+    }
+
+    /* is the pointer on the selection border band (but not the fill handle)? */
+    function onSelBorder(p) {
+        if (editing || selChart || selCols || selRows) return false;
+        var rg = selRange();
+        var a = cellRect(rg.c1, rg.r1), b = cellRect(rg.c2, rg.r2);
+        var x1 = a.x, y1 = a.y, x2 = b.x + b.w, y2 = b.y + b.h;
+        var t = 5;
+        if (Math.abs(p.x - x2) <= 8 && Math.abs(p.y - y2) <= 8) return false;   // fill handle corner
+        var inX = p.x >= x1 - t && p.x <= x2 + t;
+        var inY = p.y >= y1 - t && p.y <= y2 + t;
+        var nearL = Math.abs(p.x - x1) <= t, nearR = Math.abs(p.x - x2) <= t;
+        var nearT = Math.abs(p.y - y1) <= t, nearB = Math.abs(p.y - y2) <= t;
+        return (inY && (nearL || nearR)) || (inX && (nearT || nearB));
+    }
+
     /* ================= sort ================= */
     function sortSelection(asc) {
         commitEdit(false);
@@ -1763,6 +1860,7 @@ var SheetsApp = (function () {
             appIcon: "../img/sheets.svg",
             extension: ".xlsa",
             fileTypeName: "Spreadsheet",
+            packed: true,
             defaultFileName: "New Spreadsheet",
 
             serialize: function () { return deep(body); },

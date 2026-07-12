@@ -834,7 +834,7 @@
   {
    "id": "office",
    "name": "office",
-   "desc": "ArozOS Office suite document converters (currently PowerPoint .pptx import/export). Backed by mod/office.",
+   "desc": "ArozOS Office suite document converters (.pptx, .xlsx and .docx import/export). Backed by mod/office.",
    "load": "requirelib(\"office\");",
    "functions": [
     {
@@ -850,6 +850,55 @@
      "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Returns true on success.",
      "ret": "bool",
      "example": "requirelib(\"office\");\nif (office.presentationToPptx(data, \"user:/Desktop/out.pptx\")){\n    sendResp(\"OK\");\n}"
+    },
+    {
+     "name": "office.xlsxToWorkbook",
+     "sig": "office.xlsxToWorkbook(srcVpath)",
+     "desc": "Parse a .xlsx file into the Sheets document body schema. Returns the body as a JSON string. Values, formulas, styles, number formats, merges and frozen panes are converted; charts are skipped. Legacy binary .xls is rejected.",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.xlsxToWorkbook(\"user:/Desktop/report.xlsx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.workbookToXlsx",
+     "sig": "office.workbookToXlsx(bodyJson, destVpath)",
+     "desc": "Build a .xlsx from a serialized Sheets body JSON string and write it to destVpath. Formulas are written natively so Excel recalculates them. Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"office\");\nif (office.workbookToXlsx(data, \"user:/Desktop/out.xlsx\")){\n    sendResp(\"OK\");\n}"
+    },
+    {
+     "name": "office.docxToDocument",
+     "sig": "office.docxToDocument(srcVpath)",
+     "desc": "Parse a .docx file into the Docs document body schema. Returns the body as a JSON string. Paragraphs, headings, inline formatting, links, lists, tables, images, header/footer and page setup are converted. Legacy binary .doc is rejected.",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.docxToDocument(\"user:/Desktop/report.docx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.documentToDocx",
+     "sig": "office.documentToDocx(bodyJson, destVpath)",
+     "desc": "Build a .docx from a serialized Docs body JSON string and write it to destVpath. Images must be data: URLs. Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"office\");\nif (office.documentToDocx(data, \"user:/Desktop/out.docx\")){\n    sendResp(\"OK\");\n}"
+    },
+    {
+     "name": "office.packToFile",
+     "sig": "office.packToFile(envelopeJson, destVpath)",
+     "desc": "Write an Office suite native file (.doca/.xlsa/.ppta) as a zip container: document.json plus deduplicated binary assets. Media data URLs and legacy media?file= links inside the envelope become embedded assets, making the file portable. Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"office\");\nif (office.packToFile(content, \"user:/Documents/report.doca\")){\n    sendResp(\"OK\");\n}"
+    },
+    {
+     "name": "office.unpackFromFile",
+     "sig": "office.unpackFromFile(srcVpath)",
+     "desc": "Read a native Office suite file and return its envelope JSON string with embedded assets re-inlined as data URLs. Legacy plain-JSON documents pass through unchanged.",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar envelope = office.unpackFromFile(\"user:/Documents/report.doca\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
+    },
+    {
+     "name": "office.unpackToWorkdir",
+     "sig": "office.unpackToWorkdir(srcVpath, workdirBase)",
+     "desc": "Read a native Office suite container and return its envelope JSON with binary assets extracted into <workdirBase>/<doc-hash>/ and referenced by media?file= links (keeps the JSON small even for video-heavy documents). Legacy plain-JSON files pass through unchanged.",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar envelope = office.unpackToWorkdir(\"user:/Documents/deck.ppta\", \"user:/.appdata/Office/cache\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
     }
    ]
   },

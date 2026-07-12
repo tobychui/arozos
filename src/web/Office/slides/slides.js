@@ -11,14 +11,18 @@
                 id: "s-xxxx",
                 bg: "#rrggbb" | null,  // null = use theme background
                 notes: "speaker notes plain text",
+                transition: "none" | "fade" | "slide" | "zoom",   // entry transition
                 objects: [
                     {
                         id: "o-xxxx",
-                        type: "text" | "image" | "shape" | "line" | "table" | "chart",
+                        type: "text" | "image" | "shape" | "line" | "table" |
+                              "chart" | "video" | "audio",
                         x, y, w, h,    // slide units; for "line" w/h is the
                                        // vector to the 2nd endpoint (may be negative)
                         rot: 0,        // degrees, rotation about center (not lines)
                         z: 1,          // stacking order (mirrors array order)
+                        group: "g-xx", // optional: objects sharing a group id
+                                       // select and move as one unit
                         props: { ... } // per type:
                         //  text : { html, fontSize, color, align, bold, italic, underline }
                         //  image: { src, fit: "contain"|"cover"|"fill" }
@@ -26,8 +30,15 @@
                         //                 "arrow"|"star"|"chevron",
                         //           fill, stroke, strokeW, text, textColor, fontSize, bold }
                         //  line : { stroke, strokeW, dash, arrowEnd }
-                        //  table: { rows: [["a","b"],...], headerRow, colW?, fontSize, color }
+                        //  table: { rows: [["a","b"],...], headerRow, colW?, rowH?, fontSize, color }
                         //  chart: { spec: <OfficeCharts spec> }
+                        //  video: { src (data URL), autoplay }
+                        //  audio: { src (data URL), autoplay }
+                        // any type may also carry:
+                        //  anim: "" | "fade" | "slide" | "zoom"   entrance animation,
+                        //        revealed click-by-click in present mode
+                        //  link: "" | "#3" (go to slide 3) | "https://..."
+                        //        followed when clicked in present mode
                     }
                 ]
             }
@@ -54,8 +65,22 @@ var SlidesApp = (function () {
 
     var TYPE_NAMES = {
         text: "Text box", image: "Image", shape: "Shape",
-        line: "Line", table: "Table", chart: "Chart"
+        line: "Line", table: "Table", chart: "Chart",
+        video: "Video", audio: "Audio"
     };
+    var TRANSITIONS = [
+        { key: "none", label: "None" },
+        { key: "fade", label: "Fade" },
+        { key: "slide", label: "Slide in" },
+        { key: "zoom", label: "Zoom" }
+    ];
+    var ANIMS = [
+        { key: "", label: "None" },
+        { key: "fade", label: "Fade in" },
+        { key: "slide", label: "Slide in" },
+        { key: "zoom", label: "Zoom in" }
+    ];
+    var MEDIA_MAX_BYTES = 200 * 1024 * 1024;  // uploads stream to the workdir
 
     var SHAPE_KINDS = [
         { kind: "rect",     label: "Rectangle" },
@@ -126,12 +151,21 @@ var SlidesApp = (function () {
     function newSlide(kind) {
         var th = themeOf ? themeOf() : THEMES.clean;
         var textColor = (body ? themeOf() : th).text;
-        var s = { id: genId("s"), bg: null, notes: "", objects: [] };
+        var s = { id: genId("s"), bg: null, notes: "", transition: "none", objects: [] };
         if (kind === "title") {
             s.objects.push(newTextObj("Presentation title", 80, 190, 800, 90, 44, "center", textColor));
             s.objects.push(newTextObj("Subtitle", 180, 300, 600, 50, 20, "center", textColor));
         } else if (kind === "normal") {
             s.objects.push(newTextObj("Slide title", 50, 34, 860, 66, 32, "left", textColor));
+        } else if (kind === "content") {
+            s.objects.push(newTextObj("Slide title", 50, 34, 860, 66, 32, "left", textColor));
+            s.objects.push(newTextObj("Content", 50, 130, 860, 360, 22, "left", textColor));
+        } else if (kind === "two") {
+            s.objects.push(newTextObj("Slide title", 50, 34, 860, 66, 32, "left", textColor));
+            s.objects.push(newTextObj("Left content", 50, 130, 420, 360, 20, "left", textColor));
+            s.objects.push(newTextObj("Right content", 490, 130, 420, 360, 20, "left", textColor));
+        } else if (kind === "caption") {
+            s.objects.push(newTextObj("Caption", 80, 440, 800, 60, 20, "center", textColor));
         }
         s.objects.forEach(function (o, i) { o.z = i + 1; });
         return s;
@@ -153,6 +187,7 @@ var SlidesApp = (function () {
             s.id = s.id || genId("s");
             s.bg = s.bg || null;
             s.notes = typeof s.notes === "string" ? s.notes : "";
+            if (typeof s.transition !== "string") s.transition = "none";
             if (!Array.isArray(s.objects)) s.objects = [];
             s.objects = s.objects.filter(function (o) { return o && TYPE_NAMES[o.type]; });
             s.objects.forEach(function (o, i) {
@@ -287,7 +322,7 @@ var SlidesApp = (function () {
     /* Table cells store a limited HTML subset (so per-cell bold/color/font
        formatting survives edit mode). This sanitizer keeps only inline
        formatting produced by execCommand and strips everything else. */
-    var CELL_OK_TAGS = { B: 1, I: 1, U: 1, STRONG: 1, EM: 1, S: 1, STRIKE: 1, SPAN: 1, FONT: 1, BR: 1, SUB: 1, SUP: 1 };
+    var CELL_OK_TAGS = { B: 1, I: 1, U: 1, STRONG: 1, EM: 1, S: 1, STRIKE: 1, SPAN: 1, FONT: 1, BR: 1, SUB: 1, SUP: 1, A: 1 };
     var CELL_OK_STYLES = ["font-size", "color", "font-family", "font-weight", "font-style", "text-decoration", "background-color"];
     function sanitizeCellHtml(html) {
         if (html === undefined || html === null) return "";
@@ -319,7 +354,9 @@ var SlidesApp = (function () {
                     Array.prototype.slice.call(ch.attributes).forEach(function (a) {
                         var an = a.name.toLowerCase();
                         var ok = an === "style" ||
-                            (ch.tagName === "FONT" && (an === "color" || an === "face" || an === "size"));
+                            (ch.tagName === "FONT" && (an === "color" || an === "face" || an === "size")) ||
+                            (ch.tagName === "A" && an === "href" &&
+                                /^(https?:\/\/|#)/i.test(a.value));
                         if (!ok) ch.removeAttribute(a.name);
                     });
                     if (ch.getAttribute("style")) {
@@ -402,6 +439,15 @@ var SlidesApp = (function () {
                 d.innerHTML = '<div class="sl-chart-box">' +
                     OfficeCharts.renderToString(o.props.spec || {}, Math.max(60, o.w), Math.max(60, o.h)) +
                     "</div>";
+                break;
+            case "video":
+                d.innerHTML = '<video class="sl-media" src="' + esc(o.props.src || "") +
+                    '" preload="metadata" controls' + (o.props.autoplay ? " autoplay muted" : "") + "></video>";
+                break;
+            case "audio":
+                d.innerHTML = '<div class="sl-audio-box"><i class="music icon"></i>' +
+                    '<audio class="sl-media" src="' + esc(o.props.src || "") +
+                    '" preload="metadata" controls' + (o.props.autoplay ? " autoplay" : "") + "></audio></div>";
                 break;
         }
         return d;
@@ -659,6 +705,7 @@ var SlidesApp = (function () {
         }
         el.addEventListener("focusout", onEditFocusOut);
         if (window.OfficeTextEditBar) OfficeTextEditBar.reposition();
+        syncListButtonState();
     }
 
     /* After a model mutation of the current slide: redraw, record undo,
@@ -713,9 +760,9 @@ var SlidesApp = (function () {
     }
 
     /* ================= slide operations ================= */
-    function addSlideAfter(i) {
+    function addSlideAfter(i, layout) {
         endEdit(true);
-        body.slides.splice(i + 1, 0, newSlide("normal"));
+        body.slides.splice(i + 1, 0, newSlide(layout || "normal"));
         structCommit(i + 1);
     }
     function duplicateSlide(i) {
@@ -806,9 +853,14 @@ var SlidesApp = (function () {
         if (!clip || !clip.length) return false;
         var slide = curSlide();
         var ids = [];
+        var gidMap = {};   // pasted copies form their own new groups
         clip.forEach(function (c) {
             var n = deep(c);
             n.id = genId();
+            if (n.group) {
+                if (!gidMap[n.group]) gidMap[n.group] = genId("g");
+                n.group = gidMap[n.group];
+            }
             n.x += 15; n.y += 15;
             n.z = slide.objects.length + 1;
             slide.objects.push(n);
@@ -898,6 +950,110 @@ var SlidesApp = (function () {
         commit();
     }
 
+    /* ---------- grouping ---------- */
+    function groupSelection() {
+        var so = selObjs();
+        if (so.length < 2) {
+            OfficeApp.setStatus("Select two or more objects to group them", "error");
+            return;
+        }
+        var gid = genId("g");
+        so.forEach(function (o) { o.group = gid; });
+        commit();
+        OfficeApp.setStatus("Grouped " + so.length + " objects");
+    }
+    function ungroupSelection() {
+        var so = selObjs();
+        var any = false;
+        so.forEach(function (o) { if (o.group) { delete o.group; any = true; } });
+        if (any) {
+            commit();
+            OfficeApp.setStatus("Ungrouped");
+        }
+    }
+    function selectionHasGroup() {
+        return selObjs().some(function (o) { return !!o.group; });
+    }
+    /* expand an id list with every member of the touched groups */
+    function expandGroups(ids) {
+        var gids = {};
+        ids.forEach(function (id) {
+            var o = objById(id);
+            if (o && o.group) gids[o.group] = true;
+        });
+        if (!Object.keys(gids).length) return ids;
+        var out = ids.slice();
+        curSlide().objects.forEach(function (o) {
+            if (o.group && gids[o.group] && out.indexOf(o.id) < 0) out.push(o.id);
+        });
+        return out;
+    }
+
+    /* ---------- animation / link ---------- */
+    function setAnimation(key) {
+        applyToSel(function (o) {
+            if (key) o.props.anim = key;
+            else delete o.props.anim;
+            return true;
+        });
+        OfficeApp.setStatus(key
+            ? "Entrance animation set - objects appear click-by-click in present mode"
+            : "Animation removed");
+    }
+    function linkDialog() {
+        var so = selObjs();
+        if (so.length !== 1) {
+            OfficeApp.setStatus("Select a single object to link", "error");
+            return;
+        }
+        var o = so[0];
+        var cur = o.props.link || "";
+        var isSlide = /^#\d+$/.test(cur);
+        var $b = $(
+            '<div><label style="display:flex;align-items:center;gap:6px;">' +
+            '<input type="radio" name="slLinkKind" value="url" style="width:auto;"' + (isSlide ? "" : " checked") + "> Web address</label>" +
+            '<input type="text" id="slLinkUrl" placeholder="https://..." value="' + esc(isSlide ? "" : cur) + '">' +
+            '<label style="display:flex;align-items:center;gap:6px;margin-top:10px;">' +
+            '<input type="radio" name="slLinkKind" value="slide" style="width:auto;"' + (isSlide ? " checked" : "") + "> Go to slide</label>" +
+            '<input type="number" id="slLinkSlide" min="1" max="' + body.slides.length + '" value="' +
+            (isSlide ? cur.substring(1) : "1") + '"></div>'
+        );
+        OfficeApp.dialog({
+            title: "Object link (opens in present mode)",
+            body: $b,
+            buttons: [
+                {
+                    label: "Remove link", danger: true,
+                    action: function (close) {
+                        close();
+                        delete o.props.link;
+                        commit();
+                    }
+                },
+                { label: "Cancel" },
+                {
+                    label: "Apply", primary: true,
+                    action: function (close, $bd) {
+                        var kind = $bd.find('input[name="slLinkKind"]:checked').val();
+                        if (kind === "slide") {
+                            var n = clamp(parseInt($bd.find("#slLinkSlide").val(), 10) || 1, 1, body.slides.length);
+                            o.props.link = "#" + n;
+                        } else {
+                            var u = $bd.find("#slLinkUrl").val().trim();
+                            if (!/^https?:\/\//i.test(u)) {
+                                OfficeApp.toast("Enter a full http(s):// address", "error");
+                                return;
+                            }
+                            o.props.link = u;
+                        }
+                        close();
+                        commit();
+                    }
+                }
+            ]
+        });
+    }
+
     /* Apply a property mutation to selected objects; commit when changed. */
     function applyToSel(fn) {
         var so = selObjs();
@@ -957,7 +1113,9 @@ var SlidesApp = (function () {
         try {
             ao_module_openFileSelector(function (files) {
                 (files || []).forEach(function (f) {
-                    placeImage(aoRoot() + "media?file=" + encodeURIComponent(f.filepath));
+                    // reference the storage file - packToFile embeds it into
+                    // the container at save time, keeping edits lightweight
+                    placeImage(OfficeApp.mediaUrl(f.filepath));
                 });
             }, "user:/Desktop", "file", true, { filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"] });
         } catch (e) {
@@ -971,6 +1129,56 @@ var SlidesApp = (function () {
         OfficeApp.prompt("Insert image from URL", "Image URL", "https://", function (v) {
             if (v) placeImage(v.trim());
         });
+    }
+
+    /* ---------- video / audio (workdir-linked, packed on save) ---------- */
+    function placeMedia(kind, src) {
+        var geo = kind === "video"
+            ? { x: 240, y: 135, w: 480, h: 270 }
+            : { x: 280, y: 240, w: 400, h: 64 };
+        addObj(kind, { src: src, autoplay: false }, geo);
+        OfficeApp.setStatus(TYPE_NAMES[kind] + " inserted - it plays with its controls in present mode");
+    }
+    function mediaBlobToObject(kind, blob, name) {
+        if (blob.size > MEDIA_MAX_BYTES) {
+            OfficeApp.toast("File is too large (max " + Math.round(MEDIA_MAX_BYTES / 1048576) + " MB)", "error");
+            return;
+        }
+        // big files stream to user:/.appdata/Office/uploads and are linked;
+        // the container save embeds them without a giant POST payload
+        OfficeApp.showBusy("Importing " + (name || TYPE_NAMES[kind].toLowerCase()) + "...");
+        OfficeApp.blobToSrc(blob, name || (kind + ".bin"), function (src) {
+            OfficeApp.hideBusy();
+            placeMedia(kind, src);
+        }, function (msg) {
+            OfficeApp.hideBusy();
+            OfficeApp.toast(msg, "error");
+        });
+    }
+    function mediaFromStorage(kind) {
+        var filters = kind === "video"
+            ? ["mp4", "webm", "ogv"]
+            : ["mp3", "wav", "ogg", "flac", "aac"];
+        try {
+            ao_module_openFileSelector(function (files) {
+                if (!files || !files.length) return;
+                // just link it - packToFile embeds the file at save time
+                placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
+            }, "user:/Desktop", "file", false, { filter: filters });
+        } catch (e) {
+            OfficeApp.toast("File selector is not available here", "error");
+        }
+    }
+    function mediaFromDevice(kind) {
+        var input = document.createElement("input");
+        input.type = "file";
+        input.accept = kind === "video" ? "video/*" : "audio/*";
+        input.onchange = function () {
+            if (input.files && input.files[0]) {
+                mediaBlobToObject(kind, input.files[0], input.files[0].name);
+            }
+        };
+        input.click();
     }
 
     function tableDialog() {
@@ -1335,6 +1543,7 @@ var SlidesApp = (function () {
             try { document.execCommand("selectAll", false, null); } catch (e) { }
             el.addEventListener("focusout", onEditFocusOut);
             showTextEditBar(o, el);
+            syncListButtonState();
         } else if (o.type === "table") {
             editingId = id;
             editingKind = "table";
@@ -1364,6 +1573,35 @@ var SlidesApp = (function () {
             }
         });
     }
+    /* Bulleted / numbered lists only make sense inside a full text box
+       (not a shape's single-line caption). Auto-enters edit mode when a
+       lone text object is selected but not yet being edited. */
+    function toggleList(cmd) {
+        if (editingId && editingKind === "text") {
+            try { document.execCommand(cmd); } catch (e) { }
+            syncListButtonState();
+            return;
+        }
+        var so = selObjs();
+        if (so.length === 1 && so[0].type === "text") {
+            startEdit(so[0].id);
+            setTimeout(function () {
+                try { document.execCommand(cmd); } catch (e) { }
+                syncListButtonState();
+            }, 0);
+            return;
+        }
+        OfficeApp.setStatus("Double-click a text box to edit it, then toggle the list", "error");
+    }
+    function syncListButtonState() {
+        var ul = false, ol = false;
+        if (editingId && editingKind === "text") {
+            try { ul = document.queryCommandState("insertUnorderedList"); } catch (e) { }
+            try { ol = document.queryCommandState("insertOrderedList"); } catch (e) { }
+        }
+        $("#slBtnUL").toggleClass("active", !!ul);
+        $("#slBtnOL").toggleClass("active", !!ol);
+    }
     function onEditFocusOut() {
         var id = editingId;
         setTimeout(function () {
@@ -1382,6 +1620,7 @@ var SlidesApp = (function () {
         editingId = null;
         editingKind = null;
         if (window.OfficeTextEditBar) OfficeTextEditBar.hide();
+        syncListButtonState();
         var changed = false;
         if (o && el) {
             if (kind === "text") {
@@ -1528,7 +1767,8 @@ var SlidesApp = (function () {
             var pendingToggle = null, pendingCollapse = null;
             var wasSelected = sel.length === 1 && sel[0] === id && !e.shiftKey;
             if (sel.indexOf(id) < 0) {
-                setSel(e.shiftKey ? sel.concat([id]) : [id]);
+                // clicking a grouped object selects its whole group
+                setSel(expandGroups(e.shiftKey ? sel.concat([id]) : [id]));
             } else if (e.shiftKey) {
                 pendingToggle = id;
             } else if (sel.length > 1) {
@@ -1727,7 +1967,7 @@ var SlidesApp = (function () {
                     var bb = getBBox(oo);
                     return bb.x < rx + rw && bb.x + bb.w > rx && bb.y < ry + rh && bb.y + bb.h > ry;
                 }).map(function (oo) { return oo.id; });
-                setSel(drag.baseSel.concat(hits));
+                setSel(expandGroups(drag.baseSel.concat(hits)));
                 break;
             }
         }
@@ -1768,7 +2008,7 @@ var SlidesApp = (function () {
             if (d.pendingToggle) {
                 setSel(sel.filter(function (id) { return id !== d.pendingToggle; }));
             } else if (d.pendingCollapse) {
-                setSel([d.pendingCollapse]);
+                setSel(expandGroups([d.pendingCollapse]));
             } else if (d.wasSelected) {
                 // second click on an already-selected object enters text edit
                 var co = objById(d.clickedId);
@@ -1831,7 +2071,29 @@ var SlidesApp = (function () {
                 { label: "Delete", icon: "trash alternate outline", key: "Del", action: deleteSelection },
                 { sep: true },
                 { label: "Order", icon: "bars", sub: orderSub() },
-                { label: "Align to slide", icon: "align center", sub: alignSub() }
+                { label: "Align to slide", icon: "align center", sub: alignSub() },
+                { sep: true },
+                {
+                    label: "Group", icon: "object group outline", key: "Ctrl+G",
+                    enabled: function () { return sel.length >= 2; },
+                    action: groupSelection
+                },
+                {
+                    label: "Ungroup", key: "Ctrl+Shift+G",
+                    enabled: selectionHasGroup,
+                    action: ungroupSelection
+                },
+                {
+                    label: "Animate (entrance)", icon: "magic",
+                    sub: ANIMS.map(function (a) {
+                        return {
+                            label: a.label,
+                            checked: function () { return (o.props.anim || "") === a.key; },
+                            action: function () { setAnimation(a.key); }
+                        };
+                    })
+                },
+                { label: "Link...", icon: "linkify", action: linkDialog }
             ];
             if (o.type === "text" || o.type === "shape") {
                 items.push({ sep: true });
@@ -1987,9 +2249,12 @@ var SlidesApp = (function () {
 
     /* ================= system clipboard & drag-drop images ================= */
     function fileToImage(file) {
-        var reader = new FileReader();
-        reader.onload = function () { placeImage(reader.result); };
-        reader.readAsDataURL(file);
+        // small images inline; big ones upload to the Office workdir
+        OfficeApp.blobToSrc(file, file.name || "pasted.png", function (src) {
+            placeImage(src);
+        }, function (msg) {
+            OfficeApp.toast(msg, "error");
+        });
     }
 
     /* Native paste event: screenshots / copied images become image objects,
@@ -2133,6 +2398,15 @@ var SlidesApp = (function () {
         $tb.append(fmtBtn("underline", "Underline", "underline", "underline", "slBtnUnderline"));
         $tb.append('<div class="of-tsep"></div>');
 
+        function listBtn(icon, title, cmd, id) {
+            var $b = tbtn(icon, title, function () { toggleList(cmd); }, id);
+            $b.on("mousedown", function (e) { e.preventDefault(); }); // keep text caret
+            return $b;
+        }
+        $tb.append(listBtn("list ul", "Bulleted list (Ctrl+Shift+8)", "insertUnorderedList", "slBtnUL"));
+        $tb.append(listBtn("list ol", "Numbered list (Ctrl+Shift+7)", "insertOrderedList", "slBtnOL"));
+        $tb.append('<div class="of-tsep"></div>');
+
         [["align left", "left"], ["align center", "center"], ["align right", "right"]].forEach(function (a) {
             $tb.append(tbtn(a[0], "Align text " + a[1], function () {
                 applyToSel(function (o) {
@@ -2205,8 +2479,18 @@ var SlidesApp = (function () {
 
         $tb.append('<div class="sl-spacer"></div>');
         var $present = $('<button type="button" class="of-tbtn sl-present-btn" title="Present (F5)">' +
-            '<i class="play icon"></i>&nbsp;Present</button>');
-        $present.on("click", function () { startPresent(cur); });
+            '<i class="play icon"></i>&nbsp;Present&nbsp;<i class="caret down icon"></i></button>');
+        $present.on("click", function (e) {
+            var r = e.currentTarget.getBoundingClientRect();
+            OfficeApp.showContextMenu(r.left, r.bottom + 4, [
+                { label: "Present", icon: "play", key: "F5", action: function () { startPresent(cur); } },
+                {
+                    label: "Present with presenter view", icon: "desktop",
+                    action: function () { startPresent(cur, { presenter: true }); }
+                },
+                { label: "Present from beginning", icon: "play circle outline", action: function () { startPresent(0); } }
+            ]);
+        });
         $tb.append($present);
     }
 
@@ -2261,9 +2545,9 @@ var SlidesApp = (function () {
     }
 
     /* ================= present / print ================= */
-    function startPresent(fromIndex) {
+    function startPresent(fromIndex, opts) {
         endEdit(true);
-        if (window.SlidesPresent) SlidesPresent.start(fromIndex);
+        if (window.SlidesPresent) SlidesPresent.start(fromIndex, opts);
     }
     function fillPrintArea() {
         var $pa = $("#slPrintArea").empty();
@@ -2375,6 +2659,11 @@ var SlidesApp = (function () {
                     }).catch(function () { /* leave original src; exporter skips it */ }));
                 }
             });
+            // video/audio cannot be represented by the exporter - drop them
+            // so their (potentially huge) data URLs never leave the browser
+            s.objects = s.objects.filter(function (o) {
+                return o.type !== "video" && o.type !== "audio";
+            });
         });
         return Promise.all(jobs).then(function () { return b; });
     }
@@ -2436,8 +2725,35 @@ var SlidesApp = (function () {
             { label: "Table...", icon: "table", action: tableDialog },
             { label: "Chart...", icon: "chart bar", action: function () { chartDialog(null); } },
             { sep: true },
-            { label: "New slide", icon: "plus", key: "Ctrl+M", action: function () { addSlideAfter(cur); } }
+            {
+                label: "Video", icon: "film", sub: [
+                    { label: "From ArozOS storage...", icon: "folder open", action: function () { mediaFromStorage("video"); } },
+                    { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("video"); } }
+                ]
+            },
+            {
+                label: "Audio", icon: "music", sub: [
+                    { label: "From ArozOS storage...", icon: "folder open", action: function () { mediaFromStorage("audio"); } },
+                    { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("audio"); } }
+                ]
+            },
+            { sep: true },
+            { label: "New slide", icon: "plus", key: "Ctrl+M", action: function () { addSlideAfter(cur); } },
+            { label: "New slide from layout", icon: "th large", sub: layoutMenuItems }
         ];
+    }
+    var LAYOUTS = [
+        { key: "blank", label: "Blank" },
+        { key: "title", label: "Title slide" },
+        { key: "normal", label: "Title only" },
+        { key: "content", label: "Title and content" },
+        { key: "two", label: "Two content boxes" },
+        { key: "caption", label: "Caption (bottom text)" }
+    ];
+    function layoutMenuItems() {
+        return LAYOUTS.map(function (l) {
+            return { label: l.label, action: function () { addSlideAfter(cur, l.key); } };
+        });
     }
     function slideMenuItems() {
         return [
@@ -2456,14 +2772,87 @@ var SlidesApp = (function () {
                 action: function () { moveSlide(cur, 1); }
             },
             { sep: true },
+            {
+                label: "Transition", icon: "exchange", sub: function () {
+                    var items = TRANSITIONS.map(function (t) {
+                        return {
+                            label: t.label,
+                            checked: function () { return (curSlide().transition || "none") === t.key; },
+                            action: function () {
+                                curSlide().transition = t.key;
+                                commit();
+                            }
+                        };
+                    });
+                    items.push({ sep: true });
+                    items.push({
+                        label: "Apply to all slides",
+                        action: function () {
+                            var t = curSlide().transition || "none";
+                            body.slides.forEach(function (s) { s.transition = t; });
+                            commit();
+                            OfficeApp.setStatus("Transition applied to every slide");
+                        }
+                    });
+                    return items;
+                }
+            },
+            { sep: true },
             { label: "Background...", icon: "paint brush", action: function () { bgDialog(cur); } }
         ];
     }
     function formatMenuItems() {
         var hasSel = function () { return sel.length > 0; };
+        var inTextEdit = function () { return editingId && editingKind === "text"; };
+        var listState = function (cmd) {
+            if (!inTextEdit()) return false;
+            try { return document.queryCommandState(cmd); } catch (e) { return false; }
+        };
         return [
+            {
+                label: "Bulleted list", icon: "list ul", key: "Ctrl+Shift+8",
+                checked: function () { return listState("insertUnorderedList"); },
+                action: function () { toggleList("insertUnorderedList"); }
+            },
+            {
+                label: "Numbered list", icon: "list ol", key: "Ctrl+Shift+7",
+                checked: function () { return listState("insertOrderedList"); },
+                action: function () { toggleList("insertOrderedList"); }
+            },
+            { sep: true },
             { label: "Align to slide", icon: "align center", enabled: hasSel, sub: alignSub },
             { label: "Order", icon: "bars", enabled: hasSel, sub: orderSub },
+            { sep: true },
+            {
+                label: "Group", icon: "object group outline", key: "Ctrl+G",
+                enabled: function () { return sel.length >= 2; },
+                action: groupSelection
+            },
+            {
+                label: "Ungroup", key: "Ctrl+Shift+G",
+                enabled: selectionHasGroup,
+                action: ungroupSelection
+            },
+            { sep: true },
+            {
+                label: "Animate (entrance)", icon: "magic", enabled: hasSel,
+                sub: function () {
+                    var so = selObjs();
+                    var current = so.length ? (so[0].props.anim || "") : "";
+                    return ANIMS.map(function (a) {
+                        return {
+                            label: a.label,
+                            checked: current === a.key,
+                            action: function () { setAnimation(a.key); }
+                        };
+                    });
+                }
+            },
+            {
+                label: "Link...", icon: "linkify",
+                enabled: function () { return sel.length === 1; },
+                action: linkDialog
+            },
             { sep: true },
             { label: "Duplicate object", icon: "clone outline", key: "Ctrl+D", enabled: hasSel, action: duplicateSelection },
             { label: "Delete object", icon: "trash alternate outline", key: "Del", enabled: hasSel, action: deleteSelection }
@@ -2503,6 +2892,12 @@ var SlidesApp = (function () {
         canvasEl.addEventListener("pointercancel", onCanvasPointerUp);
         canvasEl.addEventListener("dblclick", onCanvasDblClick);
         canvasEl.addEventListener("contextmenu", onCanvasContextMenu);
+        // links inside text boxes must never navigate the editor itself -
+        // they only activate in present mode
+        canvasEl.addEventListener("click", function (e) {
+            var a = e.target.closest ? e.target.closest("a[href]") : null;
+            if (a && layerEl.contains(a)) e.preventDefault();
+        });
 
         // click on the gray area around the canvas deselects
         document.getElementById("slCanvasArea").addEventListener("pointerdown", function (e) {
@@ -2516,18 +2911,16 @@ var SlidesApp = (function () {
 
         $("#slDeviceImage").on("change", function () {
             var files = this.files;
-            for (var i = 0; i < files.length; i++) {
-                (function (f) {
-                    var reader = new FileReader();
-                    reader.onload = function () { placeImage(reader.result); };
-                    reader.readAsDataURL(f);
-                })(files[i]);
-            }
+            for (var i = 0; i < files.length; i++) fileToImage(files[i]);
             this.value = "";
         });
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("resize", layoutCanvas);
+        // live list-button state as the caret moves through the text box
+        document.addEventListener("selectionchange", function () {
+            if (editingId && editingKind === "text") syncListButtonState();
+        });
     }
 
     function init() {
@@ -2542,6 +2935,7 @@ var SlidesApp = (function () {
             appIcon: "../img/slides.svg",
             extension: ".ppta",
             fileTypeName: "Presentation",
+            packed: true,
             defaultFileName: "New Presentation",
 
             serialize: function () { return deep(body); },
@@ -2648,6 +3042,10 @@ var SlidesApp = (function () {
             ],
             viewMenuExtras: [
                 { label: "Present", icon: "play", key: "F5", action: function () { startPresent(cur); } },
+                {
+                    label: "Present with presenter view", icon: "desktop",
+                    action: function () { startPresent(cur, { presenter: true }); }
+                },
                 { label: "Present from beginning", icon: "play circle outline", action: function () { startPresent(0); } },
                 { sep: true },
                 {
@@ -2684,6 +3082,12 @@ var SlidesApp = (function () {
         updateStatus();
 
         OfficeApp.registerShortcut("Ctrl+M", function () { addSlideAfter(cur); });
+        OfficeApp.registerShortcut("Ctrl+Shift+8", function () { toggleList("insertUnorderedList"); });
+        OfficeApp.registerShortcut("Ctrl+Shift+*", function () { toggleList("insertUnorderedList"); });
+        OfficeApp.registerShortcut("Ctrl+Shift+7", function () { toggleList("insertOrderedList"); });
+        OfficeApp.registerShortcut("Ctrl+Shift+&", function () { toggleList("insertOrderedList"); });
+        OfficeApp.registerShortcut("Ctrl+G", function () { if (!editingId) groupSelection(); });
+        OfficeApp.registerShortcut("Ctrl+Shift+G", function () { if (!editingId) ungroupSelection(); });
 
         zoomPct = OfficeApp.getZoom();
         layoutCanvas();

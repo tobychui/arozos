@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -182,6 +183,60 @@ var brRe = regexp.MustCompile(`(?i)<br\s*/?>`)
 var blockCloseRe = regexp.MustCompile(`(?i)</(div|p|li|h[1-6])>`)
 var blockOpenRe = regexp.MustCompile(`(?i)<(div|p|li|h[1-6])(\s[^>]*)?>`)
 var tagRe = regexp.MustCompile(`<[^>]*>`)
+var listTagRe = regexp.MustCompile(`(?i)<(/?)(ul|ol|li)(\s[^>]*)?>`)
+
+// flattenListMarkers rewrites <ul>/<ol>/<li> into text lines with visible
+// bullet / number prefixes so lists survive flattening (e.g. pptx export)
+func flattenListMarkers(s string) string {
+	type listCtx struct {
+		ordered bool
+		counter int
+	}
+	var stack []listCtx
+	var out strings.Builder
+	last := 0
+	for _, m := range listTagRe.FindAllStringSubmatchIndex(s, -1) {
+		out.WriteString(s[last:m[0]])
+		last = m[1]
+		closing := m[2] != m[3] // group 1 non-empty = "/"
+		tag := strings.ToLower(s[m[4]:m[5]])
+		switch tag {
+		case "ul", "ol":
+			if closing {
+				if len(stack) > 0 {
+					stack = stack[:len(stack)-1]
+				}
+			} else {
+				stack = append(stack, listCtx{ordered: tag == "ol"})
+				out.WriteString("\n")
+			}
+		case "li":
+			if closing {
+				out.WriteString("\n")
+			} else {
+				indent := strings.Repeat("  ", maxInt(0, len(stack)-1))
+				if len(stack) > 0 && stack[len(stack)-1].ordered {
+					stack[len(stack)-1].counter++
+					out.WriteString(indent + strconv.Itoa(stack[len(stack)-1].counter) + ". ")
+				} else {
+					out.WriteString(indent + "• ")
+				}
+			}
+		}
+	}
+	out.WriteString(s[last:])
+	// collapse the double newlines produced by adjacent list boundaries
+	return strings.TrimPrefix(multiNlRe.ReplaceAllString(out.String(), "\n"), "\n")
+}
+
+var multiNlRe = regexp.MustCompile(`\n{2,}`)
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
 
 // htmlToLines flattens the limited contenteditable HTML stored in text
 // objects into plain-text lines (one per paragraph)
@@ -189,7 +244,8 @@ func htmlToLines(h string) []string {
 	if h == "" {
 		return []string{""}
 	}
-	s := brRe.ReplaceAllString(h, "\n")
+	s := flattenListMarkers(h)
+	s = brRe.ReplaceAllString(s, "\n")
 	s = blockCloseRe.ReplaceAllString(s, "\n")
 	s = blockOpenRe.ReplaceAllString(s, "")
 	s = tagRe.ReplaceAllString(s, "")

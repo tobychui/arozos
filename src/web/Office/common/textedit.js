@@ -10,7 +10,11 @@
 
     Usage:
         OfficeTextEditBar.show({
-            anchor: domElement,          // float above this element
+            anchor: domElement,          // editing root (selection scoping +
+                                         // default float position)
+            getRect: function(){...},    // OPTIONAL: DOMRect to float above
+                                         // instead of the anchor box (e.g.
+                                         // the live text selection in Docs)
             fontSize: 24,                // initial size shown in the box
             onFontSize: function(px){…}  // OPTIONAL: also apply size to the
                                          // whole object (host model), used
@@ -53,6 +57,83 @@ var OfficeTextEditBar = (function () {
     }
     function hasTextSelection() {
         return savedRange && !savedRange.collapsed;
+    }
+
+    /* ---------- reflect the selection's formatting in the controls ---------- */
+    function rgbToHex(c) {
+        if (!c) return null;
+        if (c.charAt(0) === "#") {
+            if (c.length === 4) {
+                return ("#" + c[1] + c[1] + c[2] + c[2] + c[3] + c[3]).toLowerCase();
+            }
+            return c.toLowerCase();
+        }
+        var m = /^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(c);
+        if (!m) return null;
+        var h = function (n) { return ("0" + parseInt(n, 10).toString(16)).slice(-2); };
+        return "#" + h(m[1]) + h(m[2]) + h(m[3]);
+    }
+    /* text nodes intersecting the range (capped - enough to detect "mixed") */
+    function rangeTextNodes(range, cap) {
+        var out = [];
+        try {
+            var walker = document.createTreeWalker(
+                range.commonAncestorContainer, NodeFilter.SHOW_TEXT, null);
+            var n;
+            while ((n = walker.nextNode()) && out.length < (cap || 40)) {
+                if (n.nodeValue.trim() === "") continue;
+                if (range.intersectsNode(n)) out.push(n);
+            }
+        } catch (e) { }
+        return out;
+    }
+    /* update color / size / font inputs from the current selection: a single
+       uniform value shows as-is; mixed values fall back to defaults */
+    function syncFromSelection() {
+        if (!$bar || !anchorEl) return;
+        var sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+        var range = sel.getRangeAt(0);
+        if (!anchorEl.contains(range.commonAncestorContainer)) return;
+
+        var nodes = rangeTextNodes(range);
+        if (nodes.length === 0) {
+            var an = sel.anchorNode;
+            if (an && an.nodeType === 3) an = an.parentNode;
+            if (an && an.nodeType === 1 && anchorEl.contains(an)) nodes = [{ parentNode: an }];
+        }
+        if (nodes.length === 0) return;
+
+        var color = null, size = null, family = null, mixedC = false, mixedS = false, mixedF = false;
+        for (var i = 0; i < nodes.length; i++) {
+            var el = nodes[i].parentNode;
+            if (!el || el.nodeType !== 1) continue;
+            var cs = getComputedStyle(el);
+            var c = rgbToHex(cs.color);
+            var s = Math.round(parseFloat(cs.fontSize));
+            var f = (cs.fontFamily || "").split(",")[0].replace(/["']/g, "").trim().toLowerCase();
+            if (color === null) { color = c; size = s; family = f; }
+            else {
+                if (c !== color) mixedC = true;
+                if (s !== size) mixedS = true;
+                if (f !== family) mixedF = true;
+            }
+        }
+        $bar.find(".of-te-color").val(mixedC || !color ? "#000000" : color);
+        if (!mixedS && size) $bar.find(".of-te-size").val(size);
+        if (!mixedF && family) {
+            $bar.find(".of-te-font option").each(function () {
+                if (this.value.toLowerCase() === family) {
+                    $bar.find(".of-te-font").val(this.value);
+                    return false;
+                }
+            });
+        }
+    }
+    var syncTimer = null;
+    function scheduleSync() {
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(syncFromSelection, 120);
     }
     function exec(cmd, val) {
         restoreSelection();
@@ -120,19 +201,54 @@ var OfficeTextEditBar = (function () {
         $bar.append($color);
         $bar.append('<span class="of-te-sep"></span>');
 
+        $bar.append(btn("linkify", "Insert link (empty removes)", function () {
+            if (!hasTextSelection()) {
+                if (window.OfficeApp) OfficeApp.setStatus("Select the text to link first", "error");
+                return;
+            }
+            // current link at the selection start, if any
+            var cur = "";
+            try {
+                var n = savedRange.startContainer;
+                if (n.nodeType === 3) n = n.parentNode;
+                var a = n.closest ? n.closest("a") : null;
+                if (a) cur = a.getAttribute("href") || "";
+            } catch (e) { }
+            OfficeApp.prompt("Insert link", "Web address (leave empty to remove the link)",
+                cur || "https://", function (v) {
+                    if (v === null) return;   // cancelled
+                    v = String(v).trim();
+                    if (v === "" || v === "https://") {
+                        exec("unlink");
+                        return;
+                    }
+                    if (!/^(https?:\/\/|#)/i.test(v)) v = "https://" + v;
+                    exec("createLink", v);
+                });
+        }));
+        $bar.append('<span class="of-te-sep"></span>');
+
         $bar.append(btn("align left", "Align left", function () { exec("justifyLeft"); }));
         $bar.append(btn("align center", "Align center", function () { exec("justifyCenter"); }));
         $bar.append(btn("align right", "Align right", function () { exec("justifyRight"); }));
 
-        // keep selection fresh while the user works inside the editor
-        $(document).on("selectionchange.oftexbar", saveSelection);
+        // keep selection fresh while the user works inside the editor, and
+        // mirror its color/size/font in the controls
+        $(document).on("selectionchange.oftexbar", function () {
+            saveSelection();
+            scheduleSync();
+        });
         $("body").append($bar);
     }
 
     /* ---------- position ---------- */
     function reposition() {
         if (!$bar || !anchorEl) return;
-        var r = anchorEl.getBoundingClientRect();
+        var r = null;
+        if (opts && opts.getRect) {
+            try { r = opts.getRect(); } catch (e) { r = null; }
+        }
+        if (!r) r = anchorEl.getBoundingClientRect();
         var w = $bar.outerWidth(), h = $bar.outerHeight();
         var x = r.left + (r.width - w) / 2;
         var y = r.top - h - 8;
@@ -152,6 +268,7 @@ var OfficeTextEditBar = (function () {
         if (opts.fontSize) $bar.find(".of-te-size").val(Math.round(opts.fontSize));
         savedRange = null;
         saveSelection();
+        syncFromSelection();
         reposition();
     }
     function hide() {

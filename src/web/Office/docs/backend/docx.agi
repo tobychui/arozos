@@ -1,0 +1,76 @@
+/*
+    Docs - DOCX import / export backend
+
+    Bridges the Docs webapp to the "office" AGI library (mod/office).
+
+    POST parameters:
+        action = "import" | "export"
+
+        import:  src  - virtual path of the .docx to read
+                 -> {"body": <Docs body schema object>}
+
+        export:  dest - virtual path of the .docx to write
+                 data - serialized Docs body JSON (images inlined as
+                        data URLs by the front end)
+                 -> "OK"
+
+    Legacy binary .doc is not supported (the office lib rejects it with a
+    helpful message).
+*/
+
+function main(){
+    if (!requirelib("office")){
+        sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+        return;
+    }
+
+    if (typeof action === "undefined"){
+        sendJSONResp(JSON.stringify({ error: "action is required" }));
+        return;
+    }
+
+    if (action == "import"){
+        if (typeof src === "undefined" || !src || src.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "src is required" }));
+            return;
+        }
+        try {
+            var bodyJson = office.docxToDocument(src);
+            if (!bodyJson){
+                sendJSONResp(JSON.stringify({ error: "unable to parse the docx file" }));
+                return;
+            }
+            //bodyJson is already a JSON string - concat instead of re-encoding
+            sendJSONResp('{"body":' + bodyJson + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "import failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            var ok = office.documentToDocx(data, dest);
+            if (!ok){
+                sendJSONResp(JSON.stringify({ error: "unable to write the docx file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    sendJSONResp(JSON.stringify({ error: "unknown action: " + action }));
+}
+
+main();

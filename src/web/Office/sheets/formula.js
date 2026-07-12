@@ -660,6 +660,19 @@ var SheetFormula = (function () {
             return refText(t.absC, c, t.absR, r);
         });
     }
+    /* Excel "move cells" semantics: every reference (absolute ones too)
+       that points INSIDE the moved source range follows it to the new
+       location; references outside the range are untouched. rg is
+       {c1,r1,c2,r2} inclusive, 0-based. */
+    function rewriteMovedRange(formula, rg, dCol, dRow) {
+        return transformRefs(formula, function (t) {
+            if (t.col < rg.c1 || t.col > rg.c2 || t.row < rg.r1 || t.row > rg.r2) return null;
+            var c = t.col + dCol;
+            var r = t.row + dRow;
+            if (c < 0 || r < 0) return ERR.REF;
+            return refText(t.absC, c, t.absR, r);
+        });
+    }
     function adjustInsertDelete(formula, axis, index, count) {
         return transformRefs(formula, function (t) {
             var v = axis === "col" ? t.col : t.row;
@@ -693,6 +706,7 @@ var SheetFormula = (function () {
         literalValue: literalValue,
         numToText: numToText,
         rewriteRelative: rewriteRelative,
+        rewriteMovedRange: rewriteMovedRange,
         adjustInsertDelete: adjustInsertDelete,
         dateToSerial: dateToSerial,
         serialToDate: serialToDate

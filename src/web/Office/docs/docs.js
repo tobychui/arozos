@@ -102,7 +102,9 @@
             size: "A4",
             orientation: "portrait",
             margins: { top: 20, right: 20, bottom: 20, left: 20 },
-            pageNumbers: false
+            pageNumbers: false,
+            columns: 1,        // 1-3 text columns (2 = IEEE-style)
+            colGap: 8          // gap between columns, mm
         };
     }
     function num(v, def) {
@@ -242,7 +244,9 @@
                 margins: {
                     top: pageConf.margins.top, right: pageConf.margins.right,
                     bottom: pageConf.margins.bottom, left: pageConf.margins.left
-                }
+                },
+                columns: pageConf.columns,
+                colGap: pageConf.colGap
             },
             header: hfText(headerEl),
             footer: hfText(footerEl),
@@ -264,6 +268,8 @@
             top: num(m.top, 20), right: num(m.right, 20),
             bottom: num(m.bottom, 20), left: num(m.left, 20)
         };
+        pageConf.columns = Math.min(3, Math.max(1, Math.round(num(p.columns, 1))));
+        pageConf.colGap = Math.min(30, Math.max(2, num(p.colGap, 8)));
         pageConf.pageNumbers = !!b.pageNumbers;
         applyPageSetup();
         updateCounts();
@@ -431,6 +437,20 @@
             $styleSel.append($("<option></option>").attr("value", s.v).text(s.label));
         });
         $styleSel.on("change", function () { applyParagraphStyle(this.value); });
+        // hidden file input for Insert > Image > From this device
+        $("#deviceImageInput").on("change", function () {
+            var files = this.files;
+            for (var i = 0; i < files.length; i++) {
+                (function (f) {
+                    OfficeApp.blobToSrc(f, f.name || "image.png", function (src) {
+                        insertImage(src);
+                    }, function (msg) {
+                        OfficeApp.toast(msg, "error");
+                    });
+                })(files[i]);
+            }
+            this.value = "";
+        });
         $t.append($styleSel);
 
         $fontSel = $('<select class="of-tselect tb-font" title="Font family"></select>');
@@ -642,8 +662,9 @@
         try {
             ao_module_openFileSelector(function (files) {
                 if (files && files.length > 0) {
-                    var root = (typeof ao_root !== "undefined") ? ao_root : "../../";
-                    insertImage(root + "media?file=" + encodeURIComponent(files[0].filepath));
+                    // reference the storage file - packToFile embeds it into
+                    // the container at save time, keeping edits lightweight
+                    insertImage(OfficeApp.mediaUrl(files[0].filepath));
                 }
             }, "user:/Desktop", "file", false, {
                 filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"]
@@ -1002,7 +1023,19 @@
         pageEl.style.width = w + "mm";
         pageEl.style.minHeight = h + "mm";
         pageEl.style.padding = m.top + "mm " + m.right + "mm " + m.bottom + "mm " + m.left + "mm";
+        // multi-column text layout (2 = IEEE-paper style); blocks marked
+        // with .col-span-all (title, authors) stretch across every column
+        if (pageConf.columns > 1) {
+            editor.style.columnCount = pageConf.columns;
+            editor.style.columnGap = pageConf.colGap + "mm";
+            editor.style.columnFill = "balance";
+        } else {
+            editor.style.columnCount = "";
+            editor.style.columnGap = "";
+            editor.style.columnFill = "";
+        }
         updatePrintStyle();
+        updatePageGuides();
     }
     function updatePrintStyle() {
         var m = pageConf.margins;
@@ -1022,6 +1055,108 @@
         var tag = document.getElementById("pagePrintStyle");
         if (tag) tag.textContent = css;
     }
+    /* ---------- page guides (visual pagination) ---------- */
+    var MM_PX = 96 / 25.4;
+    function pageGuidesOn() { return OfficeApp.getSetting("pageGuides", true); }
+    function updatePageGuides() {
+        var holder = document.getElementById("pageGuides");
+        if (!holder) {
+            holder = document.createElement("div");
+            holder.id = "pageGuides";
+            holder.className = "of-noprint";
+            pageEl.appendChild(holder);
+        }
+        holder.innerHTML = "";
+        var d = PAGE_SIZES[pageConf.size] || PAGE_SIZES.A4;
+        var pageHmm = (pageConf.orientation === "landscape") ? d.w : d.h;
+        var m = pageConf.margins;
+        var innerHpx = (pageHmm - m.top - m.bottom) * MM_PX;
+        var topPx = m.top * MM_PX;
+        // small epsilon guards against 1px scrollHeight rounding creating
+        // a phantom extra page
+        var contentH = pageEl.scrollHeight - topPx - m.bottom * MM_PX - 6;
+        var pages = Math.max(1, Math.ceil(contentH / Math.max(60, innerHpx)));
+        if (pageGuidesOn()) {
+            for (var n = 1; n < pages; n++) {
+                var g = document.createElement("div");
+                g.className = "doc-pageguide";
+                g.style.top = (topPx + n * innerHpx) + "px";
+                g.setAttribute("data-label", "Page " + (n + 1));
+                holder.appendChild(g);
+            }
+        }
+        return pages;
+    }
+    function toggleLayoutBoxes() {
+        var on = !document.body.classList.contains("doc-show-boxes");
+        document.body.classList.toggle("doc-show-boxes", on);
+        OfficeApp.setSetting("layoutBoxes", on);
+        OfficeApp.setStatus(on
+            ? "Layout boxes on - orange = full width (spans all columns), blue = column text"
+            : "Layout boxes off");
+    }
+
+    /* ---------- layout presets ---------- */
+    function setColumns(count, gap) {
+        pageConf.columns = Math.min(3, Math.max(1, count));
+        if (gap !== undefined) pageConf.colGap = gap;
+        applyPageSetup();
+        afterEdit(true);
+        OfficeApp.setStatus(count > 1 ? count + "-column layout applied" : "Single column layout");
+    }
+    function applyIeeePreset() {
+        // IEEE conference paper geometry: US Letter, 0.75in top, 1in bottom,
+        // 0.625in sides, two columns with a 0.17in gap
+        pageConf.size = "Letter";
+        pageConf.orientation = "portrait";
+        pageConf.margins = { top: 19, right: 16, bottom: 25, left: 16 };
+        pageConf.columns = 2;
+        pageConf.colGap = 5;
+        applyPageSetup();
+        afterEdit(true);
+        OfficeApp.setStatus("IEEE paper layout applied - mark the title block with Format > Page layout > Span all columns");
+    }
+    function toggleSpanAll() {
+        var blocks = getSelectedBlocks();
+        if (!blocks.length) {
+            OfficeApp.setStatus("Place the cursor in the paragraph(s) to span first", "error");
+            return;
+        }
+        var on = !blocks[0].classList.contains("col-span-all");
+        blocks.forEach(function (b) { b.classList.toggle("col-span-all", on); });
+        afterEdit(true);
+    }
+    function layoutMenuItems() {
+        return [
+            {
+                label: "Single column",
+                checked: function () { return pageConf.columns === 1; },
+                action: function () { setColumns(1); }
+            },
+            {
+                label: "Two columns",
+                checked: function () { return pageConf.columns === 2; },
+                action: function () { setColumns(2); }
+            },
+            {
+                label: "Three columns",
+                checked: function () { return pageConf.columns === 3; },
+                action: function () { setColumns(3); }
+            },
+            { sep: true },
+            { label: "IEEE paper preset", icon: "graduation cap", action: applyIeeePreset },
+            { sep: true },
+            {
+                label: "Span all columns",
+                checked: function () {
+                    var b = getSelectedBlocks();
+                    return b.length > 0 && b[0].classList.contains("col-span-all");
+                },
+                action: toggleSpanAll
+            }
+        ];
+    }
+
     function pageSetupDialog() {
         var $b = $("<div></div>");
         var $grid = $('<div class="ps-grid"></div>');
@@ -1045,6 +1180,11 @@
                 .addClass("ps-m-" + f[0]).val(f[2]);
             $grid.append($("<div></div>").append("<label>" + f[1] + "</label>").append($in));
         });
+        var $cols = $('<select class="ps-cols"><option value="1">1 (single)</option><option value="2">2 (IEEE style)</option><option value="3">3</option></select>');
+        $cols.val(String(pageConf.columns));
+        $grid.append($("<div></div>").append("<label>Text columns</label>").append($cols));
+        var $gap = $('<input type="number" min="2" max="30" step="1" class="ps-gap">').val(pageConf.colGap);
+        $grid.append($("<div></div>").append("<label>Column gap (mm)</label>").append($gap));
         $b.append($grid);
         var $chk = $('<label class="ps-check"><input type="checkbox" class="ps-pn"> Print page numbers (bottom center, browser support permitting)</label>');
         $chk.find("input").prop("checked", pageConf.pageNumbers);
@@ -1063,6 +1203,8 @@
                         bottom: clampMm($body.find(".ps-m-bottom").val()),
                         left: clampMm($body.find(".ps-m-left").val())
                     };
+                    pageConf.columns = Math.min(3, Math.max(1, parseInt($body.find(".ps-cols").val(), 10) || 1));
+                    pageConf.colGap = Math.min(30, Math.max(2, num($body.find(".ps-gap").val(), 8)));
                     pageConf.pageNumbers = $body.find(".ps-pn").prop("checked");
                     close();
                     applyPageSetup();
@@ -1084,9 +1226,11 @@
         var text = editor.innerText || "";
         var words = (text.match(/\S+/g) || []).length;
         var chars = text.replace(/\n/g, "").length;
+        var pages = updatePageGuides();
         OfficeApp.updateStatusItem("wc",
             words + " word" + (words === 1 ? "" : "s") + " · " +
-            chars + " character" + (chars === 1 ? "" : "s"));
+            chars + " character" + (chars === 1 ? "" : "s") + " · " +
+            pages + " page" + (pages === 1 ? "" : "s"));
     }
 
     /* ================= paste ================= */
@@ -1100,9 +1244,12 @@
             if (items[i].kind === "file" && items[i].type.indexOf("image/") === 0) {
                 var f = items[i].getAsFile();
                 if (f) {
-                    var reader = new FileReader();
-                    reader.onload = function (ev) { insertImage(ev.target.result); };
-                    reader.readAsDataURL(f);
+                    // small images inline; big ones upload to the workdir
+                    OfficeApp.blobToSrc(f, f.name || "pasted.png", function (src) {
+                        insertImage(src);
+                    }, function (msg) {
+                        OfficeApp.toast(msg, "error");
+                    });
                     return;
                 }
             }
@@ -1336,6 +1483,268 @@
         setImportedContent(sanitizeHtml(text, { keepClasses: false }));
     }
 
+    /* ================= DOCX import / export (office AGI lib) ================= */
+    var DOCX_BACKEND = "Office/docs/backend/docx.agi";
+
+    function importDocx(fp, fn) {
+        OfficeApp.showBusy("Importing " + fn + "...");
+        ao_module_agirun(DOCX_BACKEND, { action: "import", src: fp }, function (data) {
+            OfficeApp.hideBusy();
+            if (!data || data.error) {
+                OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
+                return;
+            }
+            var b = data.body;
+            if (typeof b === "string") {
+                try { b = JSON.parse(b); } catch (e) { b = null; }
+            }
+            if (!b || typeof b.html !== "string") {
+                OfficeApp.toast("Import failed: unexpected response", "error");
+                return;
+            }
+            loadBody(b);
+            undo.reset(snapshot());
+            OfficeApp.markDirty();
+            OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .doca");
+        }, function () {
+            OfficeApp.hideBusy();
+            OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
+        }, 120000);
+    }
+    function importDocxDialog() {
+        try {
+            ao_module_openFileSelector(function (files) {
+                if (files && files.length > 0) importDocx(files[0].filepath, files[0].filename);
+            }, "user:/Desktop", "file", false, { filter: ["docx"] });
+        } catch (e) {
+            OfficeApp.toast("File selector is not available here", "error");
+        }
+    }
+
+    /* inline storage-served images (media?file=...) as data URLs so the
+       server-side exporter can embed them */
+    function inlineImagesForExport(html) {
+        var div = document.createElement("div");
+        div.innerHTML = html;
+        var imgs = Array.prototype.slice.call(div.querySelectorAll("img"));
+        var jobs = imgs.filter(function (im) {
+            return im.src && !/^data:/i.test(im.getAttribute("src") || "");
+        }).map(function (im) {
+            return fetch(im.src).then(function (r) {
+                if (!r.ok) throw new Error("http " + r.status);
+                return r.blob();
+            }).then(function (blob) {
+                return new Promise(function (resolve) {
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                        im.setAttribute("src", reader.result);
+                        resolve();
+                    };
+                    reader.onerror = function () { resolve(); };
+                    reader.readAsDataURL(blob);
+                });
+            }).catch(function () { /* leave the URL; exporter skips it */ });
+        });
+        return Promise.all(jobs).then(function () { return div.innerHTML; });
+    }
+    function exportDocx() {
+        var defName = exportBaseName() + ".docx";
+        try {
+            ao_module_openFileSelector(function (files) {
+                if (!files || !files.length) return;
+                var fp = files[0].filepath;
+                if (!/\.docx$/i.test(fp)) fp += ".docx";
+                OfficeApp.showBusy("Exporting Word file...");
+                var body = currentBody();
+                inlineImagesForExport(body.html).then(function (inlined) {
+                    body.html = inlined;
+                    ao_module_agirun(DOCX_BACKEND, {
+                        action: "export",
+                        dest: fp,
+                        data: JSON.stringify(body)
+                    }, function (data) {
+                        OfficeApp.hideBusy();
+                        if (data && data.error) {
+                            OfficeApp.toast("Export failed: " + data.error, "error");
+                        } else {
+                            OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                            OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                        }
+                    }, function () {
+                        OfficeApp.hideBusy();
+                        OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
+                    }, 180000);
+                });
+            }, "user:/Desktop", "new", false, { defaultName: defName });
+        } catch (e) {
+            OfficeApp.toast("File selector is not available here", "error");
+        }
+    }
+
+    /* ================= floating selection format bar ================= */
+    /* PowerPoint-style mini toolbar (shared OfficeTextEditBar) floating
+       above the current text selection inside the editor. */
+    function initSelectionBar() {
+        if (!window.OfficeTextEditBar) return;
+        var barTimer = null;
+        function selRect() {
+            var sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+            var range = sel.getRangeAt(0);
+            if (!editor.contains(range.commonAncestorContainer)) return null;
+            var r = range.getBoundingClientRect();
+            if (!r || (r.width === 0 && r.height === 0)) return null;
+            return r;
+        }
+        function currentSelFontPx() {
+            var n = window.getSelection().anchorNode;
+            if (n && n.nodeType === 3) n = n.parentNode;
+            if (!n || !editor.contains(n)) return 15;
+            var fs = parseFloat(getComputedStyle(n).fontSize);
+            return isNaN(fs) ? 15 : Math.round(fs);
+        }
+        document.addEventListener("selectionchange", function () {
+            clearTimeout(barTimer);
+            barTimer = setTimeout(function () {
+                if ($(".of-dialog-overlay").length) return;
+                var r = selRect();
+                if (r) {
+                    if (!OfficeTextEditBar.isVisible()) {
+                        OfficeTextEditBar.show({
+                            anchor: editor,
+                            getRect: selRect,
+                            fontSize: currentSelFontPx(),
+                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); }
+                        });
+                    } else {
+                        OfficeTextEditBar.reposition();
+                    }
+                } else if (OfficeTextEditBar.isVisible() &&
+                    !OfficeTextEditBar.contains(document.activeElement)) {
+                    OfficeTextEditBar.hide();
+                }
+            }, 180);
+        });
+        // keep the bar glued to the text when the document scrolls
+        workspaceEl.addEventListener("scroll", function () {
+            if (OfficeTextEditBar.isVisible()) OfficeTextEditBar.reposition();
+        });
+    }
+
+    /* ================= table column / row resizing ================= */
+    /* Drag a cell's right border to resize its column (Word-style: the
+       neighbour column compensates; the table's outer edge grows the
+       table). Drag a bottom border to change the row height. */
+    var tblDrag = null;
+    function zoomFactor() { return (OfficeApp.getZoom() || 100) / 100; }
+    function tableBorderHit(e) {
+        if (inHeaderFooter()) return null;
+        var cell = e.target.closest ? e.target.closest("td,th") : null;
+        if (!cell || !editor.contains(cell)) return null;
+        var r = cell.getBoundingClientRect();
+        var HOT = 5;
+        if (e.clientX >= r.right - HOT && e.clientX <= r.right + HOT) return { cell: cell, type: "col" };
+        if (e.clientY >= r.bottom - HOT && e.clientY <= r.bottom + HOT) return { cell: cell, type: "row" };
+        return null;
+    }
+    function cellColIndex(cell) {
+        var i = 0;
+        var n = cell;
+        while (n.previousElementSibling) { n = n.previousElementSibling; i++; }
+        return i;
+    }
+    /* give the table an explicit colgroup so column widths stick */
+    function ensureColgroup(table) {
+        var cg = table.querySelector("colgroup");
+        var firstRow = table.rows.length ? table.rows[0] : null;
+        if (!firstRow) return null;
+        var cols = firstRow.cells.length;
+        if (!cg || cg.children.length !== cols) {
+            if (cg) cg.parentNode.removeChild(cg);
+            cg = document.createElement("colgroup");
+            for (var i = 0; i < cols; i++) {
+                var col = document.createElement("col");
+                col.style.width = firstRow.cells[i].offsetWidth + "px";
+                cg.appendChild(col);
+            }
+            table.insertBefore(cg, table.firstChild);
+            table.style.tableLayout = "fixed";
+            table.style.width = table.offsetWidth + "px";
+        }
+        return cg;
+    }
+    function onTblPointerMove(e) {
+        if (tblDrag) {
+            var z = zoomFactor();
+            if (tblDrag.type === "col") {
+                var dx = (e.clientX - tblDrag.startX) / z;
+                var cols = tblDrag.cg.children;
+                var i = tblDrag.idx;
+                if (i < cols.length - 1) {
+                    // inner border: this column grows, the neighbour shrinks
+                    var wA = Math.max(24, tblDrag.wA + dx);
+                    var give = wA - tblDrag.wA;
+                    var wB = Math.max(24, tblDrag.wB - give);
+                    cols[i].style.width = Math.round(tblDrag.wA + tblDrag.wB - wB) + "px";
+                    cols[i + 1].style.width = Math.round(wB) + "px";
+                } else {
+                    // outer border: the whole table grows/shrinks
+                    var w = Math.max(24, tblDrag.wA + dx);
+                    cols[i].style.width = Math.round(w) + "px";
+                    tblDrag.table.style.width = Math.round(tblDrag.tw + (w - tblDrag.wA)) + "px";
+                }
+            } else {
+                var dy = (e.clientY - tblDrag.startY) / z;
+                tblDrag.row.style.height = Math.max(18, Math.round(tblDrag.h + dy)) + "px";
+            }
+            e.preventDefault();
+            return;
+        }
+        var hit = tableBorderHit(e);
+        editor.style.cursor = hit ? (hit.type === "col" ? "col-resize" : "row-resize") : "";
+    }
+    function onTblPointerDown(e) {
+        var hit = tableBorderHit(e);
+        if (!hit) return;
+        var table = hit.cell.closest("table");
+        if (!table) return;
+        e.preventDefault();   // keep the caret where it is
+        if (hit.type === "col") {
+            var cg = ensureColgroup(table);
+            if (!cg) return;
+            var idx = cellColIndex(hit.cell);
+            if (idx >= cg.children.length) idx = cg.children.length - 1;
+            tblDrag = {
+                type: "col", table: table, cg: cg, idx: idx,
+                startX: e.clientX,
+                wA: parseFloat(cg.children[idx].style.width) || hit.cell.offsetWidth,
+                wB: (idx < cg.children.length - 1)
+                    ? (parseFloat(cg.children[idx + 1].style.width) || 0)
+                    : 0,
+                tw: table.offsetWidth
+            };
+        } else {
+            var row = hit.cell.parentElement;
+            tblDrag = { type: "row", row: row, startY: e.clientY, h: row.offsetHeight };
+        }
+        document.addEventListener("pointermove", onTblPointerMove);
+        document.addEventListener("pointerup", onTblPointerUp);
+        document.body.style.userSelect = "none";
+    }
+    function onTblPointerUp() {
+        document.removeEventListener("pointermove", onTblPointerMove);
+        document.removeEventListener("pointerup", onTblPointerUp);
+        document.body.style.userSelect = "";
+        if (tblDrag) {
+            tblDrag = null;
+            afterEdit(true);
+        }
+    }
+    function initTableResize() {
+        editor.addEventListener("pointermove", onTblPointerMove);
+        editor.addEventListener("pointerdown", onTblPointerDown);
+    }
+
     /* ================= editor events ================= */
     function bindEditorEvents() {
         editor.addEventListener("input", function () {
@@ -1394,12 +1803,36 @@
                 afterEdit(false);
             }
         });
-        // table cell context menu
+        // editor context menu: table ops + multi-column region control
         editor.addEventListener("contextmenu", function (e) {
+            var items = [];
             var cell = e.target.closest ? e.target.closest("td,th") : null;
             if (cell && cell.closest("table.of-table") && editor.contains(cell)) {
+                items = items.concat(tableContextItems(cell));
+            }
+            if (pageConf.columns > 1) {
+                // let the user pick which region spans the full page width
+                var block = e.target.closest ? e.target.closest(BLOCK_SEL) : null;
+                if (block && editor.contains(block)) {
+                    if (items.length) items.push({ sep: true });
+                    items.push({
+                        label: "Full width (span all columns)", icon: "columns",
+                        checked: function () { return block.classList.contains("col-span-all"); },
+                        action: function () {
+                            block.classList.toggle("col-span-all");
+                            afterEdit(true);
+                        }
+                    });
+                    items.push({
+                        label: "Show layout boxes",
+                        checked: function () { return document.body.classList.contains("doc-show-boxes"); },
+                        action: toggleLayoutBoxes
+                    });
+                }
+            }
+            if (items.length) {
                 e.preventDefault();
-                OfficeApp.showContextMenu(e.clientX, e.clientY, tableContextItems(cell));
+                OfficeApp.showContextMenu(e.clientX, e.clientY, items);
             }
         });
         // deselect image when clicking anywhere else / typing starts elsewhere
@@ -1474,6 +1907,7 @@
             appIcon: "../img/docs.svg",
             extension: ".doca",
             fileTypeName: "Document",
+            packed: true,
             defaultFileName: "New Document",
 
             serialize: function () { return currentBody(); },
@@ -1492,6 +1926,9 @@
                 ".md": function (text) { importMd(text); },
                 ".html": function (text) { importHtml(text); },
                 ".htm": function (text) { importHtml(text); }
+            },
+            binaryImporters: {
+                ".docx": importDocx
             },
 
             onUndo: doUndo,
@@ -1520,6 +1957,8 @@
                     title: "Format",
                     items: function () {
                         return [
+                            { label: "Page layout", icon: "columns", sub: layoutMenuItems },
+                            { sep: true },
                             {
                                 label: "Paragraph style", icon: "paragraph",
                                 sub: PARA_STYLES.map(function (s) {
@@ -1560,9 +1999,11 @@
             ],
             fileMenuExtras: [
                 { label: "Page setup...", icon: "file alternate outline", action: pageSetupDialog },
+                { label: "Import Word (.docx)...", icon: "file word outline", action: importDocxDialog },
                 {
                     label: "Export", icon: "external alternate",
                     sub: [
+                        { label: "Word (.docx)", icon: "file word outline", action: exportDocx },
                         { label: "PDF (via print dialog)", icon: "file pdf outline", action: exportPDF },
                         { label: "Web page (.html)", icon: "file code outline", action: exportHTML },
                         { label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown },
@@ -1575,6 +2016,31 @@
                 { label: "Find and replace...", icon: "exchange", key: "Ctrl+H", action: function () { openFind(true); } },
                 { sep: true },
                 { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll }
+            ],
+
+            viewMenuExtras: [
+                {
+                    label: "Page guides",
+                    checked: pageGuidesOn,
+                    action: function () {
+                        OfficeApp.setSetting("pageGuides", !pageGuidesOn());
+                        updatePageGuides();
+                    }
+                },
+                {
+                    label: "Layout boxes (regions)",
+                    checked: function () { return document.body.classList.contains("doc-show-boxes"); },
+                    action: toggleLayoutBoxes
+                },
+                {
+                    label: "Spell check",
+                    checked: function () { return editor.spellcheck; },
+                    action: function () {
+                        editor.spellcheck = !editor.spellcheck;
+                        OfficeApp.setSetting("spellcheck", editor.spellcheck);
+                        editor.focus();
+                    }
+                }
             ],
 
             zoomTarget: "#page",
@@ -1591,7 +2057,13 @@
         });
 
         bindShortcuts();
+        initSelectionBar();
+        initTableResize();
         OfficeApp.addStatusItem("wc", "0 words · 0 characters");
+        if (OfficeApp.getSetting("layoutBoxes", false)) {
+            document.body.classList.add("doc-show-boxes");
+        }
+        editor.spellcheck = OfficeApp.getSetting("spellcheck", true);
         updateCounts();
         editor.focus();
     });

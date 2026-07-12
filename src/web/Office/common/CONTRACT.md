@@ -180,6 +180,24 @@ undo.undo(); undo.redo(); undo.canUndo(); undo.canRedo();
 Your app owns only `body`. **Document your body schema in a comment at the top
 of your app.js** so the other apps / future importers can read it.
 
+## Packed native files (zip container)
+
+All three apps set `packed: true` in `OfficeApp.init`. Native files
+(`.doca` / `.xlsa` / `.ppta`) are then saved through
+`common/backend/container.agi` -> `office.packToFile` as a **zip**:
+`document.json` (the envelope, media replaced by `asset://<hash>.<ext>`)
+plus deduplicated binary `assets/`. Loads go through
+`office.unpackToWorkdir`, which extracts assets into
+`user:/.appdata/Office/cache/<doc>/` and links them via `media?file=` so
+the JSON stays small. **Never store large media as base64 in the model**:
+use `OfficeApp.mediaUrl(vpath)` for storage picks and
+`OfficeApp.blobToSrc(blob, name, cb, errcb)` for device/pasted blobs
+(<=1 MB stays inline, bigger streams to `user:/.appdata/Office/uploads/`
+via the system upload endpoint). The packer embeds both forms at save
+time. The framework also writes rolling session snapshots to
+`user:/.appdata/Office/session/<app>.osession` (autosave tick + after
+save) and offers "Restore from previous session" on blank startup.
+
 ## OfficeTextEditBar (common/textedit.js) — shared floating format bar
 
 A PowerPoint-style mini toolbar that floats above a contenteditable element
@@ -205,6 +223,18 @@ Menu note: submenus (`sub:` items) render as body-level floating panels, so
 they are never clipped by a scrolling menu — `closeAllMenus()` (and any menu
 item click) removes them all. Context menus clamp to the viewport and scroll
 when taller than it.
+
+## Slides Stage 2 additions (slides.js)
+
+Slide objects may carry: `group` (shared id; grouped objects select/move as
+one), `props.anim` ("fade"|"slide"|"zoom" entrance, revealed click-by-click
+in present mode), `props.link` ("#N" -> slide N, or an http(s) URL, followed
+on click while presenting). New object types `video` / `audio` embed media as
+data URLs (dropped on .pptx export, kept in the packed .ppta). Each slide has
+`transition` ("none"|"fade"|"slide"|"zoom"). Text boxes support `<ul>`/`<ol>`
+lists via execCommand; htmlToLines (mod/office) flattens them to bullet/number
+prefixes for .pptx. present.js adds transitions, click-to-reveal animations,
+laser pointer (L), interactive links, and a presenter-view popup.
 
 ## OfficeCharts (common/charts.js) — for Sheets and Slides
 

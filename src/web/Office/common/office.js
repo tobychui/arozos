@@ -166,6 +166,123 @@ var OfficeApp = (function () {
         });
     }
 
+    /* ---------- media (working-directory based, no base64 megabytes) ---------- */
+    var WORKDIR = "user:/.appdata/Office";
+    var DATAURL_MAX = 1024 * 1024;   // blobs under 1 MB may stay inline
+    var workdirReady = false;
+    function mediaUrl(vpath) {
+        // page-relative form matching what the server-side unpacker writes;
+        // the packer recognizes it and embeds the file at save time
+        return "../../media?file=" + encodeURIComponent(vpath);
+    }
+    function prepareWorkdir(cb, errcb) {
+        if (workdirReady) { cb(); return; }
+        ao_module_agirun(CONTAINER_BACKEND, { action: "prepare" }, function (data) {
+            if (data && data.error) { if (errcb) errcb(data.error); return; }
+            workdirReady = true;
+            cb();
+        }, function () {
+            if (errcb) errcb("connection error");
+        });
+    }
+    /* Turn a Blob/File into a document-storable src string. Small images
+       stay inline data URLs; anything bigger is streamed to the Office
+       working directory through the system upload endpoint and referenced
+       by a media?file= link (packToFile embeds it into the container). */
+    function blobToSrc(blob, filename, cb, errcb) {
+        errcb = errcb || function (msg) { setStatus(msg, "error"); };
+        var asDataURL = function (failMsg) {
+            // inline fallback only for small payloads - big base64 blobs
+            // would break the save POST again
+            if (blob.size > 8 * 1024 * 1024) {
+                errcb(failMsg || "File is too large to embed without an ArozOS backend");
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function () { cb(reader.result); };
+            reader.onerror = function () { errcb("Could not read the file"); };
+            reader.readAsDataURL(blob);
+        };
+        if (blob.size <= DATAURL_MAX) { asDataURL(); return; }
+        if (typeof ao_module_uploadFile !== "function") { asDataURL(); return; }
+        prepareWorkdir(function () {
+            var safe = String(filename || "media").replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 80);
+            var name = Date.now().toString(36) + "-" + safe;
+            var file;
+            try {
+                file = new File([blob], name, { type: blob.type || "application/octet-stream" });
+            } catch (e) { asDataURL(); return; }
+            ao_module_uploadFile(file, WORKDIR + "/uploads",
+                function (resp) {
+                    if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
+                        errcb("Upload failed: " + resp);
+                        return;
+                    }
+                    cb(mediaUrl(WORKDIR + "/uploads/" + name));
+                },
+                undefined,
+                function () { asDataURL("Upload failed and the file is too large to embed"); });
+        }, function () { asDataURL(); });
+    }
+
+    /* ---------- session snapshots ("Restore from previous session") ---------- */
+    function saveSession() {
+        if (!cfg || !cfg.packed) return;
+        var env;
+        try { env = buildEnvelopeNoBump(); } catch (e) { return; }
+        // annotate a COPY of meta - session bookkeeping must not leak into
+        // the real document file
+        var m = {};
+        Object.keys(env.meta || {}).forEach(function (k) { m[k] = env.meta[k]; });
+        m._sessionAt = now();
+        m._origin = filepath ? { fp: filepath, fn: filename } : null;
+        env.meta = m;
+        ao_module_agirun(CONTAINER_BACKEND, {
+            action: "session-save",
+            app: cfg.appType,
+            content: JSON.stringify(env)
+        }, function () { }, function () { }, 60000);
+    }
+    function trySessionRestore() {
+        ao_module_agirun(CONTAINER_BACKEND, {
+            action: "session-load",
+            app: cfg.appType
+        }, function (data) {
+            var env = data && data.envelope;
+            if (typeof env === "string") {
+                try { env = JSON.parse(env); } catch (e) { env = null; }
+            }
+            if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType || !env.body) {
+                checkDraft();
+                return;
+            }
+            var m = env.meta || {};
+            var when = m._sessionAt ? new Date(m._sessionAt).toLocaleString() : "an earlier session";
+            var what = m._origin && m._origin.fn ? escapeHtml(m._origin.fn) : "an unsaved document";
+            confirmDialog("Restore from previous session?",
+                "You were working on <b>" + what + "</b> (" + escapeHtml(when) + ").",
+                "Restore", "Start fresh",
+                function (restore) {
+                    if (!restore) { checkDraft(); return; }
+                    var origin = m._origin;
+                    delete m._sessionAt;
+                    delete m._origin;
+                    meta = m;
+                    if (origin && origin.fp) {
+                        filepath = origin.fp;
+                        filename = origin.fn;
+                    }
+                    cfg.deserialize(env.body);
+                    markDirty();
+                    updateTitle();
+                    setStatus("Previous session restored - remember to save");
+                });
+        }, function () {
+            // backend unreachable (standalone preview): fall back to drafts
+            checkDraft();
+        }, 60000);
+    }
+
     /* ---------- envelope ---------- */
     function buildEnvelope() {
         var m = meta || {};
@@ -298,8 +415,11 @@ var OfficeApp = (function () {
     }
 
     /* ---------- document lifecycle ---------- */
-    function loadNativeText(text, fp, fn) {
-        var env = parseEnvelope(text);
+    var CONTAINER_BACKEND = "Office/common/backend/container.agi";
+    function loadNativeEnvelope(env, fp, fn) {
+        if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType) {
+            throw new Error("Not a valid " + cfg.fileTypeName + " file");
+        }
         meta = env.meta || {};
         filepath = fp; filename = fn;
         loadedFromImport = false;
@@ -308,6 +428,9 @@ var OfficeApp = (function () {
         addRecent(fp, fn);
         setStatus("Opened " + fn);
         checkDraft();
+    }
+    function loadNativeText(text, fp, fn) {
+        loadNativeEnvelope(parseEnvelope(text), fp, fn);
     }
     function loadImportText(text, fp, fn) {
         var ext = extOf(fn);
@@ -337,6 +460,28 @@ var OfficeApp = (function () {
             return;
         }
         setStatus("Opening " + fn + "...", "info", 0);
+        // packed apps store native files as zip containers with embedded
+        // assets - those must be unpacked server-side, not fetched as text
+        if (cfg.packed && extOf(fn) === cfg.extension) {
+            ao_module_agirun(CONTAINER_BACKEND, { action: "load", filepath: fp }, function (data) {
+                if (!data || data.error) {
+                    setStatus("Failed to open " + fn + ": " + ((data && data.error) || "no response"), "error");
+                    return;
+                }
+                var env = data.envelope;
+                if (typeof env === "string") {
+                    try { env = JSON.parse(env); } catch (e) { env = null; }
+                }
+                try {
+                    loadNativeEnvelope(env, fp, fn);
+                } catch (err) {
+                    setStatus("Cannot open " + fn + ": " + err.message, "error");
+                }
+            }, function () {
+                setStatus("Failed to load " + fn, "error");
+            }, 120000);
+            return;
+        }
         vfsLoad(fp, function (text) {
             try {
                 if (extOf(fn) === cfg.extension) {
@@ -413,16 +558,32 @@ var OfficeApp = (function () {
         var env;
         try { env = buildEnvelope(); }
         catch (e) { setStatus("Save failed: " + e.message, "error"); return; }
-        vfsSave(fp, JSON.stringify(env), function () {
+        var payload = JSON.stringify(env);
+        var done = function () {
             filepath = fp; filename = fn;
             loadedFromImport = false;
             markClean();
             addRecent(fp, fn);
             setStatus("Saved " + fn);
+            saveSession();   // keep the session snapshot in step with the file
             if (cb) cb();
-        }, function (err) {
+        };
+        var fail = function (err) {
             setStatus("Save failed: " + err, "error");
-        });
+        };
+        if (cfg.packed) {
+            // native zip container: media data URLs become embedded assets
+            ao_module_agirun(CONTAINER_BACKEND, {
+                action: "save", filepath: fp, content: payload
+            }, function (data) {
+                if (data && data.error) fail(data.error);
+                else done();
+            }, function () {
+                fail("connection error");
+            }, 120000);
+        } else {
+            vfsSave(fp, payload, done, fail);
+        }
     }
 
     /* ---------- autosave ---------- */
@@ -430,6 +591,10 @@ var OfficeApp = (function () {
     function autosaveTick() {
         if (dirty && filepath && autosaveEnabled()) {
             save();
+        } else if (dirty) {
+            // unsaved (or autosave-off) documents still get a session
+            // snapshot so "Restore from previous session" can recover them
+            saveSession();
         }
     }
 
@@ -904,7 +1069,11 @@ var OfficeApp = (function () {
         } else {
             cfg.create();
             markClean();
-            checkDraft();
+            if (cfg.packed) {
+                trySessionRestore();   // falls back to checkDraft() itself
+            } else {
+                checkDraft();
+            }
         }
 
         // autosave + unload guard
@@ -960,9 +1129,11 @@ var OfficeApp = (function () {
         getSetting: getSetting,
         setSetting: setSetting,
         getRecents: getRecents,
-        // vfs
+        // vfs / media
         vfsLoad: vfsLoad,
         vfsSave: vfsSave,
+        blobToSrc: blobToSrc,
+        mediaUrl: mediaUrl,
         // utils
         escapeHtml: escapeHtml,
         basename: basename,

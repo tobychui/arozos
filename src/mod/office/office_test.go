@@ -346,3 +346,35 @@ func TestEmuConversion(t *testing.T) {
 		t.Errorf("emuToPx(9144000) = %v, want 960", px)
 	}
 }
+
+func TestHtmlToLinesLists(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"bullet list", "intro<ul><li>alpha</li><li>beta</li></ul>",
+			[]string{"intro", "• alpha", "• beta"}},
+		{"numbered list", "<ol><li>one</li><li>two</li><li>three</li></ol>",
+			[]string{"1. one", "2. two", "3. three"}},
+		{"nested", "<ul><li>a<ul><li>a1</li></ul></li><li>b</li></ul>",
+			[]string{"• a", "  • a1", "• b"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := htmlToLines(tc.in)
+			// drop trailing empties for comparison
+			for len(got) > 0 && strings.TrimSpace(got[len(got)-1]) == "" {
+				got = got[:len(got)-1]
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("lines = %q, want %q", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("line %d = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}

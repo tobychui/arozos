@@ -154,6 +154,66 @@ body.dark #page {
 }
 #editor table.of-table th { background: #f1f3f4; font-weight: 600; }
 
+/* Multi-column layout: title/author blocks marked via
+   Format > Page layout > Span all columns stretch across every column */
+#editor .col-span-all { column-span: all; }
+
+/* Page guides: dashed lines showing where printed pages break */
+#pageGuides {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+.doc-pageguide {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 2px dashed #b7c8e4;
+}
+.doc-pageguide::after {
+    content: attr(data-label);
+    position: absolute;
+    right: 2px;
+    top: -9px;
+    font-size: 9px;
+    line-height: 16px;
+    padding: 0 6px;
+    color: #6a86b8;
+    background: #eef3fb;
+    border: 1px solid #b7c8e4;
+    border-radius: 8px;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Layout boxes: visualize which regions span all columns (orange) and
+   which flow inside the columns (blue) - View > Layout boxes */
+#page { position: relative; }
+body.doc-show-boxes #editor > * {
+    outline: 1px dashed rgba(66, 133, 244, 0.55);
+    outline-offset: 1px;
+}
+body.doc-show-boxes #editor > .col-span-all {
+    outline: 2px solid rgba(224, 123, 31, 0.75);
+    outline-offset: 1px;
+    position: relative;
+}
+body.doc-show-boxes #editor > .col-span-all::after {
+    content: "full width";
+    position: absolute;
+    top: -9px;
+    right: 0;
+    font-size: 9px;
+    line-height: 14px;
+    padding: 0 6px;
+    color: #fff;
+    background: rgba(224, 123, 31, 0.85);
+    border-radius: 7px;
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-weight: 600;
+    font-style: normal;
+}
+
 /* Checklists - checkbox drawn with ::before, never an emoji glyph */
 #editor ul.of-checklist {
     list-style: none;

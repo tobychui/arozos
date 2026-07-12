@@ -49,12 +49,12 @@ type CellStyle struct {
 	B    bool    `json:"b,omitempty"`
 	I    bool    `json:"i,omitempty"`
 	U    bool    `json:"u,omitempty"`
-	Al   string  `json:"al,omitempty"`   // "l" | "c" | "r"
-	Bg   string  `json:"bg,omitempty"`   // fill color
-	Fc   string  `json:"fc,omitempty"`   // font color
-	Fs   float64 `json:"fs,omitempty"`   // font size px
-	Fmt  string  `json:"fmt,omitempty"`  // general|number|percent|currency|date|text
-	Dec  *int    `json:"dec,omitempty"`  // decimals
+	Al   string  `json:"al,omitempty"`  // "l" | "c" | "r"
+	Bg   string  `json:"bg,omitempty"`  // fill color
+	Fc   string  `json:"fc,omitempty"`  // font color
+	Fs   float64 `json:"fs,omitempty"`  // font size px
+	Fmt  string  `json:"fmt,omitempty"` // general|number|percent|currency|date|text
+	Dec  *int    `json:"dec,omitempty"` // decimals
 	Wrap bool    `json:"wrap,omitempty"`
 	Bd   int     `json:"bd,omitempty"` // 1 = thin borders
 }
