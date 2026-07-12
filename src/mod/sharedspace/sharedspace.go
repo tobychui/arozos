@@ -206,7 +206,7 @@ type Manager struct {
 // ManagerOptions configures NewManagerWithOptions.
 type ManagerOptions struct {
 	EphemeralRoot   string             // "" -> a folder inside os.TempDir(); wiped at construction
-	PersistentRoot  string             // durable blob root, e.g. "system/sharedspace"; "" disables persistence
+	PersistentRoot  string             // durable blob root, e.g. "files/sharedspace"; "" disables persistence
 	MaxUpload       int64              // per-blob size limit; 0 -> DefaultMaxUpload
 	DefaultMaxItems int                // per-space item cap; 0 -> DefaultMaxItems
 	Database        *database.Database // nil disables persistence

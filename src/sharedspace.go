@@ -296,12 +296,33 @@ func ssBroadcastSpaceEvent(space *sharedspace.Space) func(*sharedspace.SpaceEven
 	}
 }
 
+// ssResolvePersistRoot returns the durable blob root for shared spaces.
+// Space files live with the user data under the -root directory (default
+// ./files) rather than the system folder; a storage tree from the previous
+// layout under system/ is migrated over once. Blob disk paths are always
+// recomputed from this root at load time (see mod/sharedspace/persistence.go),
+// so relocating the tree is safe.
+func ssResolvePersistRoot() string {
+	persistRoot := filepath.Join(*root_directory, "sharedspace")
+	legacyRoot := filepath.Join("system", "sharedspace")
+	if utils.FileExists(legacyRoot) && !utils.FileExists(persistRoot) {
+		os.MkdirAll(filepath.Dir(persistRoot), 0775)
+		if err := os.Rename(legacyRoot, persistRoot); err != nil {
+			//e.g. the user root sits on another mount - keep the data usable
+			systemWideLogger.PrintAndLog("SharedSpace", "Could not move shared space storage to "+persistRoot+", keeping "+legacyRoot, err)
+			return legacyRoot
+		}
+		systemWideLogger.PrintAndLog("SharedSpace", "Shared space storage migrated from "+legacyRoot+" to "+persistRoot, nil)
+	}
+	return persistRoot
+}
+
 // SharedSpaceInit creates the system-wide shared collaboration space manager
 // and wires up its HTTP / WebSocket endpoints and the admin surface.
 // Must be initiated before MeetRoomInit and AGIInit (see startup.go).
 func SharedSpaceInit() {
 	sharedSpaceManager = sharedspace.NewManagerWithOptions(sharedspace.ManagerOptions{
-		PersistentRoot:  filepath.Join("system", "sharedspace"),
+		PersistentRoot:  ssResolvePersistRoot(),
 		Database:        sysdb,
 		MaxUpload:       ssConfInt64(ssConfMaxUpload, sharedspace.DefaultMaxUpload),
 		DefaultMaxItems: int(ssConfInt64(ssConfMaxItems, sharedspace.DefaultMaxItems)),

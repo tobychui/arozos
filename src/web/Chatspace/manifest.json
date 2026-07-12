@@ -1,0 +1,29 @@
+{
+    "name": "Chatspace",
+    "short_name": "Chatspace",
+    "description": "Team chat with channels, threads, reactions and file sharing",
+    "start_url": "index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "any",
+    "theme_color": "#481349",
+    "background_color": "#3b0e3c",
+    "icons": [
+        {
+            "src": "img/module_icon.svg",
+            "type": "image/svg+xml",
+            "sizes": "any",
+            "purpose": "any"
+        },
+        {
+            "src": "img/logo192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "img/logo512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ]
+}

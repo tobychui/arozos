@@ -1,0 +1,31 @@
+/*
+	Chatspace Module Register Script
+
+	Slack-style team chat WebApp built entirely on the ArozOS shared
+	space collaboration backbone (mod/sharedspace): channels and direct
+	messages are shared spaces, messages / reactions / threads / pins are
+	space text items carrying a small JSON envelope, file attachments are
+	space blobs, and realtime delivery + presence + typing indicators ride
+	the per-space WebSocket channel (/system/sharedspace/ws).
+
+	Server-side logic (workspace bootstrap, channel creation, DM
+	find-or-create) runs as AGI backend scripts in ./backend using
+	requirelib("sharedspace").
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+	Name: "Chatspace",
+	Desc: "Team chat with channels, threads, reactions and file sharing",
+	Group: "Internet",
+	IconPath: "Chatspace/img/module_icon.svg",
+	Version: "1.0.0",
+	StartDir: "Chatspace/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Chatspace/index.html",
+	SupportEmb: false,
+	InitFWSize: [1280, 800]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));
