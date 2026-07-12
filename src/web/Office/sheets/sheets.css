@@ -357,3 +357,14 @@ body.dark {
     .sh-rz-col { width: 12px; }
     .sh-rz-row { height: 12px; }
 }
+
+/* cell note indicator: small corner triangle, note text in the title tooltip */
+.sh-cell.note::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    border: 4px solid transparent;
+    border-top-color: #e8a13c;
+    border-right-color: #e8a13c;
+}

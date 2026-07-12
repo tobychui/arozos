@@ -399,3 +399,88 @@ body.doc-show-boxes #editor > .col-span-all::after {
     #editor span.of-find-hit { background: transparent; }
     #editor a { color: #1a58c2; }
 }
+
+/* ============ Review: comments ============ */
+#editor span.doc-cmt {
+    background: rgba(255, 213, 79, 0.35);
+    border-bottom: 2px solid #f0b429;
+    cursor: pointer;
+}
+#editor span.doc-cmt.flash {
+    background: rgba(255, 179, 0, 0.6);
+    transition: background 0.3s;
+}
+body.dark #editor span.doc-cmt { background: rgba(255, 213, 79, 0.22); }
+
+#docCmtPanel {
+    position: fixed;
+    top: 92px;
+    right: 12px;
+    bottom: 40px;
+    width: 270px;
+    z-index: 850;
+    display: flex;
+    flex-direction: column;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    overflow: hidden;
+}
+.doc-cmt-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--of-fg);
+    border-bottom: 1px solid var(--of-border);
+}
+.doc-cmt-head i.icon { margin: 0; color: var(--of-fg-soft); }
+.doc-cmt-count { color: var(--of-fg-soft); font-weight: 400; }
+.doc-cmt-close { margin-left: auto; }
+.doc-cmt-list { flex: 1; overflow-y: auto; padding: 8px; }
+.doc-cmt-empty { font-size: 12.5px; color: var(--of-fg-soft); padding: 8px 4px; }
+.doc-cmt-card {
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    background: var(--of-chrome-bg2);
+}
+.doc-cmt-card:hover { border-color: var(--of-fg-soft); }
+.doc-cmt-card.active { border-color: var(--of-accent); box-shadow: 0 0 0 1px var(--of-accent); }
+.doc-cmt-quote {
+    font-size: 11.5px;
+    color: var(--of-fg-soft);
+    border-left: 3px solid #f0b429;
+    padding-left: 6px;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.doc-cmt-body { font-size: 13px; color: var(--of-fg); white-space: pre-wrap; }
+.doc-cmt-when { font-size: 10.5px; color: var(--of-fg-soft); margin-top: 5px; }
+.doc-cmt-actions { display: flex; gap: 2px; margin-top: 4px; }
+
+/* ============ Review: track changes ============ */
+#editor ins.doc-ins {
+    color: #188038;
+    text-decoration: underline;
+    background: rgba(24, 128, 56, 0.08);
+}
+#editor del.doc-del {
+    color: #c5221f;
+    text-decoration: line-through;
+    background: rgba(197, 34, 31, 0.08);
+}
+body.dark #editor ins.doc-ins { color: #6dd58c; background: rgba(109, 213, 140, 0.1); }
+body.dark #editor del.doc-del { color: #f28b82; background: rgba(242, 139, 130, 0.1); }
+
+@media print {
+    #docCmtPanel { display: none !important; }
+}

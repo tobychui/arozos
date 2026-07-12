@@ -666,7 +666,17 @@ var OfficeApp = (function () {
         return ((e.ctrlKey || e.metaKey) ? "ctrl+" : "") + (e.altKey ? "alt+" : "") +
             (e.shiftKey ? "shift+" : "") + key;
     }
-    function registerShortcut(combo, handler) {
+    // Registers through the shared OfficeHotkeys registry when loaded
+    // (hotkeys.js); the local map only remains as a standalone fallback.
+    // opts (optional) pass straight through: description/group make the
+    // binding show up in the Ctrl+/ help dialog, when() gates it.
+    function registerShortcut(combo, handler, opts) {
+        if (window.OfficeHotkeys) {
+            return OfficeHotkeys.register(combo, function (e) {
+                closeAllMenus();
+                return handler(e);
+            }, $.extend({ allowInInput: true, inDialogs: true, group: "General" }, opts || {}));
+        }
         shortcuts[normalizeCombo(combo)] = handler;
     }
     function handleKeydown(e) {
@@ -1035,21 +1045,32 @@ var OfficeApp = (function () {
         $("body").append(buildStatusbar());
 
         // shortcuts (standard)
-        registerShortcut("Ctrl+S", function () { save(); });
-        registerShortcut("Ctrl+Shift+S", function () { saveAs(); });
-        registerShortcut("Ctrl+O", function () { openDialog(); });
-        registerShortcut("Ctrl+Alt+N", function () { newDocument(); });
-        registerShortcut("Ctrl+P", function () { printDoc(); });
-        registerShortcut("Ctrl+=", function () { zoomStep(1); });
+        registerShortcut("Ctrl+S", function () { save(); }, { description: "Save" });
+        registerShortcut("Ctrl+Shift+S", function () { saveAs(); }, { description: "Save as..." });
+        registerShortcut("Ctrl+O", function () { openDialog(); }, { description: "Open..." });
+        registerShortcut("Ctrl+Alt+N", function () { newDocument(); }, { description: "New document" });
+        registerShortcut("Ctrl+P", function () { printDoc(); }, { description: "Print" });
+        registerShortcut("Ctrl+=", function () { zoomStep(1); }, { description: "Zoom in" });
         registerShortcut("Ctrl++", function () { zoomStep(1); });
-        registerShortcut("Ctrl+-", function () { zoomStep(-1); });
-        registerShortcut("Ctrl+0", function () { setZoom(100); });
-        if (cfg.onUndo) registerShortcut("Ctrl+Z", function () { cfg.onUndo(); });
+        registerShortcut("Ctrl+-", function () { zoomStep(-1); }, { description: "Zoom out" });
+        registerShortcut("Ctrl+0", function () { setZoom(100); }, { description: "Reset zoom" });
+        if (cfg.onUndo) registerShortcut("Ctrl+Z", function () { cfg.onUndo(); }, { description: "Undo" });
         if (cfg.onRedo) {
-            registerShortcut("Ctrl+Y", function () { cfg.onRedo(); });
+            registerShortcut("Ctrl+Y", function () { cfg.onRedo(); }, { description: "Redo" });
             registerShortcut("Ctrl+Shift+Z", function () { cfg.onRedo(); });
         }
-        window.addEventListener("keydown", handleKeydown, true);
+        if (window.OfficeHotkeys) {
+            registerShortcut("Ctrl+/", function () { OfficeHotkeys.showHelp(); },
+                { description: "Keyboard shortcuts help" });
+            // Escape falls through (return false) so app-level Escape
+            // handlers still run after any open menu is closed
+            OfficeHotkeys.register("Escape", function () {
+                closeAllMenus();
+                return false;
+            }, { id: "of.menuclose", allowInInput: true, inDialogs: true });
+        } else {
+            window.addEventListener("keydown", handleKeydown, true);
+        }
 
         // theme + zoom
         applyTheme();

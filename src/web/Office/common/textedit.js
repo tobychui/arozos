@@ -119,7 +119,9 @@ var OfficeTextEditBar = (function () {
                 if (f !== family) mixedF = true;
             }
         }
-        $bar.find(".of-te-color").val(mixedC || !color ? "#000000" : color);
+        var $fc = $bar.find(".of-te-forecolor");
+        $fc.data("cur", mixedC || !color ? "#000000" : color);
+        $fc.find(".of-te-cbar").css("background", mixedC || !color ? "#000000" : color);
         if (!mixedS && size) $bar.find(".of-te-size").val(size);
         if (!mixedF && family) {
             $bar.find(".of-te-font option").each(function () {
@@ -164,6 +166,9 @@ var OfficeTextEditBar = (function () {
     /* ---------- build ---------- */
     function build() {
         $bar = $('<div class="of-textedit-bar of-noprint"></div>');
+        var $row1 = $('<div class="of-te-row"></div>');
+        var $row2 = $('<div class="of-te-row"></div>');
+        $bar.append($row1).append($row2);
 
         var $font = $('<select class="of-te-font" title="Font family"></select>');
         FONTS.forEach(function (f) {
@@ -171,7 +176,7 @@ var OfficeTextEditBar = (function () {
         });
         $font.on("mousedown", saveSelection);
         $font.on("change", function () { exec("fontName", $font.val()); });
-        $bar.append($font);
+        $row1.append($font);
 
         var $size = $('<input type="number" class="of-te-size" min="6" max="200" step="1" title="Font size (px)">');
         $size.on("mousedown", saveSelection);
@@ -180,8 +185,8 @@ var OfficeTextEditBar = (function () {
             $size.val(v);
             applyFontSizePx(v);
         });
-        $bar.append($size);
-        $bar.append('<span class="of-te-sep"></span>');
+        $row1.append($size);
+        $row1.append('<span class="of-te-sep"></span>');
 
         function btn(icon, title, fn) {
             var $b = $('<button type="button" class="of-te-btn" title="' + title + '"><i class="' + icon + ' icon"></i></button>');
@@ -190,18 +195,55 @@ var OfficeTextEditBar = (function () {
             $b.on("click", fn);
             return $b;
         }
-        $bar.append(btn("bold", "Bold (Ctrl+B)", function () { exec("bold"); }));
-        $bar.append(btn("italic", "Italic (Ctrl+I)", function () { exec("italic"); }));
-        $bar.append(btn("underline", "Underline (Ctrl+U)", function () { exec("underline"); }));
-        $bar.append('<span class="of-te-sep"></span>');
+        $row1.append(btn("bold", "Bold (Ctrl+B)", function () { exec("bold"); }));
+        $row1.append(btn("italic", "Italic (Ctrl+I)", function () { exec("italic"); }));
+        $row1.append(btn("underline", "Underline (Ctrl+U)", function () { exec("underline"); }));
+        $row1.append('<span class="of-te-sep"></span>');
+        $row1.append(btn("align left", "Align left", function () { exec("justifyLeft"); }));
+        $row1.append(btn("align center", "Align center", function () { exec("justifyCenter"); }));
+        $row1.append(btn("align right", "Align right", function () { exec("justifyRight"); }));
 
-        var $color = $('<input type="color" class="of-te-color" title="Text color" value="#202124">');
-        $color.on("mousedown", saveSelection);
-        $color.on("change", function () { exec("foreColor", $color.val()); });
-        $bar.append($color);
-        $bar.append('<span class="of-te-sep"></span>');
+        /* icon button with a color bar underneath; opens OfficeColorPicker */
+        function colorBtn(icon, title, initial, cpOpts, apply) {
+            var $b = $('<button type="button" class="of-te-btn of-te-cbtn" title="' + title + '">' +
+                '<i class="' + icon + ' icon"></i><span class="of-te-cbar"></span></button>');
+            $b.find(".of-te-cbar").css("background", initial);
+            $b.on("mousedown", function (e) { e.preventDefault(); saveSelection(); });
+            $b.on("click", function () {
+                OfficeColorPicker.open({
+                    anchor: $b[0],
+                    value: $b.data("cur") || initial,
+                    allowNone: !!cpOpts.allowNone,
+                    noneLabel: cpOpts.noneLabel,
+                    onPick: function (hex) {
+                        $b.data("cur", hex);
+                        $b.find(".of-te-cbar").css("background", hex || "transparent");
+                        apply(hex);
+                    }
+                });
+            });
+            return $b;
+        }
+        $row2.append(colorBtn("font", "Text color", "#202124", {}, function (hex) {
+            if (hex) exec("foreColor", hex);
+        }).addClass("of-te-forecolor"));
+        $row2.append(colorBtn("paint brush", "Highlight color", "#ffff00",
+            { allowNone: true, noneLabel: "No highlight" }, function (hex) {
+                // hiliteColor targets just the selected text; some engines
+                // only know backColor
+                restoreSelection();
+                try {
+                    if (!document.execCommand("hiliteColor", false, hex || "transparent")) {
+                        document.execCommand("backColor", false, hex || "transparent");
+                    }
+                } catch (e) {
+                    try { document.execCommand("backColor", false, hex || "transparent"); } catch (e2) { }
+                }
+                saveSelection();
+            }));
+        $row2.append('<span class="of-te-sep"></span>');
 
-        $bar.append(btn("linkify", "Insert link (empty removes)", function () {
+        $row2.append(btn("linkify", "Insert link (empty removes)", function () {
             if (!hasTextSelection()) {
                 if (window.OfficeApp) OfficeApp.setStatus("Select the text to link first", "error");
                 return;
@@ -226,11 +268,6 @@ var OfficeTextEditBar = (function () {
                     exec("createLink", v);
                 });
         }));
-        $bar.append('<span class="of-te-sep"></span>');
-
-        $bar.append(btn("align left", "Align left", function () { exec("justifyLeft"); }));
-        $bar.append(btn("align center", "Align center", function () { exec("justifyCenter"); }));
-        $bar.append(btn("align right", "Align right", function () { exec("justifyRight"); }));
 
         // keep selection fresh while the user works inside the editor, and
         // mirror its color/size/font in the controls
@@ -275,6 +312,7 @@ var OfficeTextEditBar = (function () {
         if ($bar) {
             $bar.remove();
             $bar = null;
+            if (window.OfficeColorPicker) OfficeColorPicker.close();
         }
         $(document).off("selectionchange.oftexbar");
         anchorEl = null;
@@ -282,7 +320,10 @@ var OfficeTextEditBar = (function () {
         savedRange = null;
     }
     function contains(node) {
-        return !!($bar && node && $bar[0].contains(node));
+        if ($bar && node && $bar[0].contains(node)) return true;
+        // the color picker popup belongs to the bar: focus inside it (e.g.
+        // its hex field) must still count as "editing" for the host
+        return !!(window.OfficeColorPicker && OfficeColorPicker.contains(node));
     }
     function isVisible() { return !!$bar; }
 

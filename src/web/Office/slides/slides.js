@@ -839,9 +839,34 @@ var SlidesApp = (function () {
         sel = [];
         commit();
     }
+    /* Object copies also ride the SYSTEM clipboard as marker JSON.
+       Without this, Ctrl+C on an object left the system clipboard holding
+       whatever was copied before (e.g. an old screenshot), and the paste
+       handler - which rightly checks clipboard images first - pasted that
+       stale content instead of duplicating the object. Bonus: objects now
+       paste across two Slides windows. */
+    var OBJ_CLIP_MARKER = "arozos-slides-objects";
+    function objectClipboardText() {
+        return JSON.stringify({ app: OBJ_CLIP_MARKER, version: 1, objects: clip });
+    }
+    function parseObjectClipboardText(t) {
+        if (!t || t.indexOf(OBJ_CLIP_MARKER) < 0) return null;
+        try {
+            var o = JSON.parse(t);
+            if (o && o.app === OBJ_CLIP_MARKER && Array.isArray(o.objects) && o.objects.length) {
+                return o.objects;
+            }
+        } catch (e) { }
+        return null;
+    }
     function copySelection() {
         if (!sel.length) return;
         clip = selObjs().map(deep);
+        // async system-clipboard sync for menu/toolbar copies; real Ctrl+C
+        // goes through the "copy" event which sets it synchronously
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(objectClipboardText()).catch(function () { });
+        }
         OfficeApp.setStatus(clip.length + " object" + (clip.length > 1 ? "s" : "") + " copied");
     }
     function cutSelection() {
@@ -1340,9 +1365,11 @@ var SlidesApp = (function () {
             '<div class="sl-swatch-row"><input type="checkbox" id="slBgTheme" style="width:auto;"' +
             (slide.bg ? "" : " checked") + ">" +
             '<label for="slBgTheme" style="display:inline;margin:0;">Use theme background</label></div>' +
-            '<div class="sl-swatch-row"><label style="display:inline;margin:0;">Custom color</label>' +
-            '<input type="color" id="slBgColor" value="' + esc(initial) + '" style="width:60px;height:32px;padding:2px;"></div>'
+            '<div class="sl-swatch-row"><label style="display:inline;margin:0;">Custom color</label></div>'
         );
+        $b.children().last().append(OfficeColorPicker.swatchInput({
+            id: "slBgColor", title: "Slide background color", value: initial
+        }).css({ width: "60px", height: "32px" }));
         $b.find("#slBgColor").on("input", function () {
             $b.find("#slBgTheme").prop("checked", false);
         });
@@ -2174,77 +2201,94 @@ var SlidesApp = (function () {
         return t && (t.isContentEditable ||
             /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ""));
     }
-    function onKeyDown(e) {
-        if (window.SlidesPresent && SlidesPresent.isActive()) return;
-        if (e.key === "F5") {
-            e.preventDefault();
-            endEdit(true);
-            startPresent(cur);
-            return;
-        }
-        if ($(".of-dialog-overlay").length) return;
-        if (editingId || isTypingTarget(e.target)) {
-            if (e.key === "Escape" && editingId) {
-                e.preventDefault();
-                endEdit(true);
-            }
-            return;
-        }
-        var ctrl = e.ctrlKey || e.metaKey;
-        var k = (e.key || "").toLowerCase();
-        if (ctrl && k === "d") {
-            e.preventDefault();
+    function presActive() {
+        return !!(window.SlidesPresent && SlidesPresent.isActive());
+    }
+    /* All editor keys go through the shared OfficeHotkeys registry
+       (common/hotkeys.js) - `when` gates replace the old hand-rolled
+       onKeyDown ordering, and descriptions feed the Ctrl+/ help dialog.
+       Ctrl+C/X/V are NOT consumed here: the native copy/cut/paste events
+       (initClipboardAndDnd) own them so the system clipboard stays in
+       sync with the object clipboard. */
+    function registerHotkeys() {
+        var HK = OfficeHotkeys;
+        var GS = "Slides", GO = "Objects", GT = "Text editing";
+        var notPresenting = function () { return !presActive(); };
+        var editorIdle = function () { return !presActive() && !editingId; };
+
+        HK.register("F5", function () { endEdit(true); startPresent(cur); },
+            { id: "sl.present", description: "Start presentation", group: GS, allowInInput: true, when: notPresenting });
+        HK.register("Shift+F5", function () { endEdit(true); startPresent(0); },
+            { id: "sl.present0", description: "Present from beginning", group: GS, allowInInput: true, when: notPresenting });
+        HK.register("Ctrl+M", function () { addSlideAfter(cur); },
+            { id: "sl.newslide", description: "New slide", group: GS, allowInInput: true, when: notPresenting });
+        HK.register("PageUp", function () { selectSlide(cur - 1); },
+            { id: "sl.prevslide", description: "Previous slide", group: GS, when: editorIdle });
+        HK.register("PageDown", function () { selectSlide(cur + 1); },
+            { id: "sl.nextslide", description: "Next slide", group: GS, when: editorIdle });
+
+        HK.register("Ctrl+D", function () {
             if (sel.length) duplicateSelection();
             else duplicateSlide(cur);
-            return;
-        }
-        if (ctrl && k === "c") { if (sel.length) { e.preventDefault(); copySelection(); } return; }
-        if (ctrl && k === "x") { if (sel.length) { e.preventDefault(); cutSelection(); } return; }
-        // Ctrl+V is NOT handled here on purpose: the native "paste" event
-        // (onPasteEvent) fires and decides between clipboard images,
-        // internal object clipboard and plain text.
-        if (ctrl && k === "a") { e.preventDefault(); selectAllObjects(); return; }
-        if (ctrl && k === "m") { e.preventDefault(); addSlideAfter(cur); return; }
-        if (ctrl) return;
+        }, { id: "sl.duplicate", description: "Duplicate object / slide", group: GO, when: editorIdle });
+        HK.register("Ctrl+A", function () { selectAllObjects(); },
+            { id: "sl.selectall", description: "Select all objects", group: GO, when: editorIdle });
+        HK.register("Ctrl+G", function () { groupSelection(); },
+            { id: "sl.group", description: "Group objects", group: GO, when: editorIdle });
+        HK.register("Ctrl+Shift+G", function () { ungroupSelection(); },
+            { id: "sl.ungroup", description: "Ungroup objects", group: GO, when: editorIdle });
+        HK.register("Tab", function () { cycleSelection(); },
+            { id: "sl.cycle", description: "Cycle through objects", group: GO, when: editorIdle });
+        HK.register("Delete", function () { deleteSelection(); },
+            { id: "sl.delete", description: "Delete selection", group: GO, when: function () { return editorIdle() && sel.length > 0; } });
+        HK.register("Backspace", function () { deleteSelection(); },
+            { id: "sl.delete2", when: function () { return editorIdle() && sel.length > 0; } });
+        HK.register("Escape", function () {
+            if (editingId) { endEdit(true); return; }
+            if (pendingDraw) { disarmDraw(); return; }
+            if (sel.length) { setSel([]); return; }
+            return false;
+        }, { id: "sl.escape", allowInInput: true, when: notPresenting });
 
-        switch (e.key) {
-            case "Delete":
-            case "Backspace":
-                if (sel.length) { e.preventDefault(); deleteSelection(); }
-                return;
-            case "Escape":
-                if (pendingDraw) disarmDraw();
-                else setSel([]);
-                return;
-            case "Tab":
-                e.preventDefault();
-                cycleSelection();
-                return;
-            case "ArrowLeft":
-            case "ArrowRight":
-            case "ArrowUp":
-            case "ArrowDown":
+        // arrows: nudge the selection (Shift = 10 px) or walk the deck
+        ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].forEach(function (k) {
+            var move = function (e) {
                 if (sel.length) {
-                    e.preventDefault();
                     var step = e.shiftKey ? 10 : 1;
-                    var dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
-                    var dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
-                    nudgeSelection(dx, dy);
-                } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    nudgeSelection(
+                        k === "ArrowLeft" ? -step : k === "ArrowRight" ? step : 0,
+                        k === "ArrowUp" ? -step : k === "ArrowDown" ? step : 0);
+                } else if (e.shiftKey) {
+                    return false;
+                } else if (k === "ArrowUp" || k === "ArrowLeft") {
                     selectSlide(cur - 1);
                 } else {
                     selectSlide(cur + 1);
                 }
-                return;
-            case "PageUp":
-                e.preventDefault();
-                selectSlide(cur - 1);
-                return;
-            case "PageDown":
-                e.preventDefault();
-                selectSlide(cur + 1);
-                return;
-        }
+            };
+            var desc = k === "ArrowLeft" ? "Nudge selection / change slide (Shift = 10 px)" : "";
+            HK.register(k, move, { id: "sl.arrow." + k, description: desc, group: GO, when: editorIdle });
+            HK.register("Shift+" + k, move, { id: "sl.sarrow." + k, when: editorIdle });
+        });
+
+        // list toggles work while typing inside a text box
+        HK.register("Ctrl+Shift+8", function () { toggleList("insertUnorderedList"); },
+            { id: "sl.ul", description: "Bulleted list", group: GT, allowInInput: true, when: notPresenting });
+        HK.register("Ctrl+Shift+*", function () { toggleList("insertUnorderedList"); },
+            { id: "sl.ul2", allowInInput: true, when: notPresenting });
+        HK.register("Ctrl+Shift+7", function () { toggleList("insertOrderedList"); },
+            { id: "sl.ol", description: "Numbered list", group: GT, allowInInput: true, when: notPresenting });
+        HK.register("Ctrl+Shift+&", function () { toggleList("insertOrderedList"); },
+            { id: "sl.ol2", allowInInput: true, when: notPresenting });
+
+        // documentation-only entries: the native clipboard events do the
+        // actual work, the fall-through handler just lists them in help
+        HK.register("Ctrl+C", function () { return false; },
+            { id: "sl.copy.doc", description: "Copy objects / text", group: GO, allowInInput: true });
+        HK.register("Ctrl+X", function () { return false; },
+            { id: "sl.cut.doc", description: "Cut objects / text", group: GO, allowInInput: true });
+        HK.register("Ctrl+V", function () { return false; },
+            { id: "sl.paste.doc", description: "Paste", group: GO, allowInInput: true });
     }
 
     /* ================= system clipboard & drag-drop images ================= */
@@ -2265,6 +2309,15 @@ var SlidesApp = (function () {
         if (editingId || isTypingTarget(e.target) || $(".of-dialog-overlay").length) return;
         var cd = e.clipboardData;
         if (!cd) return;
+        // our own object clipboard (marker JSON written by Ctrl+C on
+        // objects) wins over everything - it IS the newest copy
+        var objs = parseObjectClipboardText(cd.getData("text/plain"));
+        if (objs) {
+            e.preventDefault();
+            clip = objs.map(deep);
+            pasteClipboard();
+            return;
+        }
         var i, handled = false;
         var items = cd.items || [];
         for (i = 0; i < items.length; i++) {
@@ -2308,6 +2361,22 @@ var SlidesApp = (function () {
     }
     function initClipboardAndDnd() {
         document.addEventListener("paste", onPasteEvent);
+        // Ctrl+C / Ctrl+X in object mode: put the objects on the system
+        // clipboard (synchronously - no permission prompt in a user
+        // gesture) so the next paste deterministically duplicates them
+        function onCopyCutEvent(e, isCut) {
+            if (presActive() || editingId || isTypingTarget(e.target) ||
+                $(".of-dialog-overlay").length) return;
+            if (!sel.length) return;
+            copySelection();
+            if (e.clipboardData) {
+                e.clipboardData.setData("text/plain", objectClipboardText());
+                e.preventDefault();
+            }
+            if (isCut) deleteSelection();
+        }
+        document.addEventListener("copy", function (e) { onCopyCutEvent(e, false); });
+        document.addEventListener("cut", function (e) { onCopyCutEvent(e, true); });
         var area = document.getElementById("slCanvasArea");
         area.addEventListener("dragover", function (e) {
             if (dragSlideIdx >= 0) return;
@@ -2418,7 +2487,7 @@ var SlidesApp = (function () {
         $tb.append('<div class="of-tsep"></div>');
 
         function colorInput(id, title, def) {
-            return $('<input type="color" class="of-tcolor" id="' + id + '" title="' + esc(title) + '" value="' + def + '">');
+            return OfficeColorPicker.swatchInput({ id: id, title: title, value: def });
         }
         $tb.append('<span class="sl-tlabel">Text</span>');
         var $tc = colorInput("slTextColor", "Text color", "#202124");
@@ -2503,10 +2572,11 @@ var SlidesApp = (function () {
             $("#slFontSize").val(Number(p.fontSize) || (o.type === "table" ? 16 : 24));
         }
         var tcol = o.type === "shape" ? p.textColor : p.color;
-        if (tcol && /^#[0-9a-fA-F]{6}$/.test(tcol)) $("#slTextColor").val(tcol);
-        if (o.type === "shape" && p.fill && /^#[0-9a-fA-F]{6}$/.test(p.fill)) $("#slFillColor").val(p.fill);
+        // trigger of-cp-refresh so the swatch buttons repaint their chip
+        if (tcol && /^#[0-9a-fA-F]{6}$/.test(tcol)) $("#slTextColor").val(tcol).trigger("of-cp-refresh");
+        if (o.type === "shape" && p.fill && /^#[0-9a-fA-F]{6}$/.test(p.fill)) $("#slFillColor").val(p.fill).trigger("of-cp-refresh");
         if ((o.type === "shape" || o.type === "line") && p.stroke && /^#[0-9a-fA-F]{6}$/.test(p.stroke)) {
-            $("#slStrokeColor").val(p.stroke);
+            $("#slStrokeColor").val(p.stroke).trigger("of-cp-refresh");
         }
         if (o.type === "shape" || o.type === "line") $("#slStrokeW").val(Number(p.strokeW) || 0);
         $("#slBtnBold").toggleClass("active", !!p.bold);
@@ -2893,10 +2963,22 @@ var SlidesApp = (function () {
         canvasEl.addEventListener("dblclick", onCanvasDblClick);
         canvasEl.addEventListener("contextmenu", onCanvasContextMenu);
         // links inside text boxes must never navigate the editor itself -
-        // they only activate in present mode
+        // Ctrl+click follows them (like Docs/Word), a plain click only edits
         canvasEl.addEventListener("click", function (e) {
             var a = e.target.closest ? e.target.closest("a[href]") : null;
-            if (a && layerEl.contains(a)) e.preventDefault();
+            if (!a || !layerEl.contains(a)) return;
+            e.preventDefault();
+            var href = a.getAttribute("href") || "";
+            if (!(e.ctrlKey || e.metaKey)) {
+                OfficeApp.setStatus("Ctrl+Click to open link: " + href, "info", 4000);
+                return;
+            }
+            if (/^https?:\/\//i.test(href)) {
+                window.open(href, "_blank", "noopener");
+            } else if (/^#\d+$/.test(href)) {
+                var n = parseInt(href.substring(1), 10) - 1;
+                if (n >= 0 && n < body.slides.length) selectSlide(n);
+            }
         });
 
         // click on the gray area around the canvas deselects
@@ -2915,7 +2997,7 @@ var SlidesApp = (function () {
             this.value = "";
         });
 
-        window.addEventListener("keydown", onKeyDown);
+        registerHotkeys();
         window.addEventListener("resize", layoutCanvas);
         // live list-button state as the caret moves through the text box
         document.addEventListener("selectionchange", function () {
@@ -2978,19 +3060,27 @@ var SlidesApp = (function () {
                     }
                     return;
                 }
-                // menu-driven paste: async clipboard - try images first, then
-                // the internal object clipboard, then plain text
+                // menu-driven paste: async clipboard - our object marker
+                // wins, then images, internal object clipboard, plain text
                 var fallback = function () {
-                    if (pasteClipboard()) return;
                     if (navigator.clipboard && navigator.clipboard.readText) {
                         navigator.clipboard.readText().then(function (t) {
+                            var objs = parseObjectClipboardText(t);
+                            if (objs) {
+                                clip = objs.map(deep);
+                                pasteClipboard();
+                                return;
+                            }
+                            if (pasteClipboard()) return;
                             if (!t) return;
                             var th = themeOf();
                             addObj("text", { html: esc(t).replace(/\n/g, "<br>"), fontSize: 24, color: th.text, align: "left" },
                                 { x: 280, y: 220, w: 400, h: 90 });
                         }).catch(function () {
-                            OfficeApp.setStatus("Nothing to paste", "error");
+                            if (!pasteClipboard()) OfficeApp.setStatus("Nothing to paste", "error");
                         });
+                    } else if (!pasteClipboard()) {
+                        OfficeApp.setStatus("Nothing to paste", "error");
                     }
                 };
                 if (navigator.clipboard && navigator.clipboard.read) {
@@ -3080,14 +3170,6 @@ var SlidesApp = (function () {
         OfficeApp.addStatusItem("slide", "");
         OfficeApp.addStatusItem("sel", "");
         updateStatus();
-
-        OfficeApp.registerShortcut("Ctrl+M", function () { addSlideAfter(cur); });
-        OfficeApp.registerShortcut("Ctrl+Shift+8", function () { toggleList("insertUnorderedList"); });
-        OfficeApp.registerShortcut("Ctrl+Shift+*", function () { toggleList("insertUnorderedList"); });
-        OfficeApp.registerShortcut("Ctrl+Shift+7", function () { toggleList("insertOrderedList"); });
-        OfficeApp.registerShortcut("Ctrl+Shift+&", function () { toggleList("insertOrderedList"); });
-        OfficeApp.registerShortcut("Ctrl+G", function () { if (!editingId) groupSelection(); });
-        OfficeApp.registerShortcut("Ctrl+Shift+G", function () { if (!editingId) ungroupSelection(); });
 
         zoomPct = OfficeApp.getZoom();
         layoutCanvas();

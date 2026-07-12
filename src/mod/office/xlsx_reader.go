@@ -7,7 +7,8 @@ package office
 	numbers, booleans, formulas, cell styles (bold/italic/underline, font
 	color/size, fill, alignment, wrap), number formats (mapped back to the
 	webapp's fmt names), column widths, row heights, merged cells and
-	frozen panes. Charts, pivot tables and conditional formatting are
+	frozen panes. Bar/line/pie charts are mapped back to the webapp chart
+	model (xlsx_charts.go); pivot tables and conditional formatting are
 	ignored. Legacy binary .xls is rejected up front.
 */
 
@@ -62,6 +63,7 @@ func ParseXlsx(data []byte) (*Workbook, error) {
 	styleMap := parseXlsxStyles(files["xl/styles.xml"])
 
 	wb := &Workbook{Sheets: []*WorkSheet{}, Active: 0}
+	chartIDSeq := 0
 	if bv := wbTree.path("bookViews", "workbookView"); bv != nil {
 		if at, err := strconv.Atoi(bv.attr("activeTab")); err == nil {
 			wb.Active = at
@@ -95,6 +97,8 @@ func ParseXlsx(data []byte) (*Workbook, error) {
 		}
 		ws := parseWorksheet(tree, shared, styleMap)
 		ws.Name = name
+		parseSheetDrawing(files, partPath, tree, ws, &chartIDSeq)
+		parseSheetComments(files, partPath, ws)
 		wb.Sheets = append(wb.Sheets, ws)
 	}
 	if len(wb.Sheets) == 0 {

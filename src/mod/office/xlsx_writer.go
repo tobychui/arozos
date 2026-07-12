@@ -6,8 +6,9 @@ package office
 	Produced parts: [Content_Types].xml, root rels, xl/workbook.xml (+rels),
 	xl/styles.xml (deduplicated dynamic style table) and one worksheet per
 	sheet. Strings are written inline (no sharedStrings part). Formulas are
-	written as <f> elements so Excel recalculates them on open; charts and
-	filters from the webapp are not representable and are skipped.
+	written as <f> elements so Excel recalculates them on open. Webapp
+	charts become native DrawingML chart parts (xlsx_charts.go); filters
+	are not representable and are skipped.
 */
 
 import (
@@ -249,10 +250,44 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 
 	styles := newStyleTable()
 
+	// sheet names are needed up front: chart series formulas reference them
+	usedNames := map[string]bool{}
+	sheetNames := make([]string, len(wb.Sheets))
+	for i, ws := range wb.Sheets {
+		sheetNames[i] = sanitizeSheetName(ws.Name, i, usedNames)
+	}
+
+	// charts: every sheet with charts gets one drawing part; every chart
+	// gets its own chart part (numbered globally). Notes become a
+	// comments part + VML legacyDrawing per sheet.
+	sheetCharts := make([][]*xlsxChart, len(wb.Sheets))
+	sheetNoteList := make([][]xlsxNote, len(wb.Sheets))
+	totalCharts := 0
+	anyNotes := false
+	for i, ws := range wb.Sheets {
+		sheetCharts[i] = parseSheetCharts(ws.Charts)
+		totalCharts += len(sheetCharts[i])
+		sheetNoteList[i] = sheetNotes(ws)
+		if len(sheetNoteList[i]) > 0 {
+			anyNotes = true
+		}
+	}
+	// relationship ids inside each sheet's rels file: drawing first (when
+	// charts exist), then comments + vml - must match the writer loop below
+	sheetLegacyRid := func(i int) string {
+		if len(sheetNoteList[i]) == 0 {
+			return ""
+		}
+		if len(sheetCharts[i]) > 0 {
+			return "rId3"
+		}
+		return "rId2"
+	}
+
 	// worksheets (rendered first so the style table is complete)
 	sheetXMLs := make([]string, len(wb.Sheets))
 	for i, ws := range wb.Sheets {
-		sheetXMLs[i] = buildWorksheetXML(ws, styles)
+		sheetXMLs[i] = buildWorksheetXML(ws, styles, len(sheetCharts[i]) > 0, sheetLegacyRid(i))
 	}
 
 	// [Content_Types].xml
@@ -261,9 +296,29 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 	ct.WriteString(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`)
 	ct.WriteString(`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`)
 	ct.WriteString(`<Default Extension="xml" ContentType="application/xml"/>`)
+	if anyNotes {
+		ct.WriteString(`<Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>`)
+	}
 	ct.WriteString(`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`)
 	for i := range wb.Sheets {
 		ct.WriteString(fmt.Sprintf(`<Override PartName="/xl/worksheets/sheet%d.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`, i+1))
+	}
+	drawingNo := 0
+	for i := range wb.Sheets {
+		if len(sheetCharts[i]) > 0 {
+			drawingNo++
+			ct.WriteString(fmt.Sprintf(`<Override PartName="/xl/drawings/drawing%d.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`, drawingNo))
+		}
+	}
+	for c := 1; c <= totalCharts; c++ {
+		ct.WriteString(fmt.Sprintf(`<Override PartName="/xl/charts/chart%d.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`, c))
+	}
+	commentsNo := 0
+	for i := range wb.Sheets {
+		if len(sheetNoteList[i]) > 0 {
+			commentsNo++
+			ct.WriteString(fmt.Sprintf(`<Override PartName="/xl/comments%d.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/>`, commentsNo))
+		}
 	}
 	ct.WriteString(`<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`)
 	ct.WriteString(`</Types>`)
@@ -290,10 +345,8 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 	wbXML.WriteString(fmt.Sprintf(`<bookViews><workbookView activeTab="%d"/></bookViews><sheets>`, active))
 	wbRels.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
-	usedNames := map[string]bool{}
-	for i, ws := range wb.Sheets {
-		name := sanitizeSheetName(ws.Name, i, usedNames)
-		wbXML.WriteString(fmt.Sprintf(`<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, xmlEscape(name), i+1, i+1))
+	for i := range wb.Sheets {
+		wbXML.WriteString(fmt.Sprintf(`<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, xmlEscape(sheetNames[i]), i+1, i+1))
 		wbRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, i+1, i+1))
 	}
 	wbXML.WriteString(`</sheets></workbook>`)
@@ -311,6 +364,67 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 	}
 	for i, xml := range sheetXMLs {
 		if err := addFile(fmt.Sprintf("xl/worksheets/sheet%d.xml", i+1), xml); err != nil {
+			return nil, err
+		}
+	}
+
+	// per-sheet extras: chart drawings and note comments (+VML). The rId
+	// allocation here must match sheetLegacyRid above: drawing = rId1,
+	// then comments, then vml.
+	drawingNo = 0
+	chartNo := 0
+	commentsNo = 0
+	for i, ws := range wb.Sheets {
+		charts := sheetCharts[i]
+		notes := sheetNoteList[i]
+		if len(charts) == 0 && len(notes) == 0 {
+			continue
+		}
+		var sRels strings.Builder
+		sRels.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
+			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
+		rid := 0
+		if len(charts) > 0 {
+			drawingNo++
+			rid++
+			sRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing%d.xml"/>`, rid, drawingNo))
+			var dRels strings.Builder
+			dRels.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
+				`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
+			relIDs := make([]string, len(charts))
+			for j, ch := range charts {
+				chartNo++
+				relIDs[j] = fmt.Sprintf("rId%d", j+1)
+				dRels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart%d.xml"/>`, relIDs[j], chartNo))
+				if err := addFile(fmt.Sprintf("xl/charts/chart%d.xml", chartNo),
+					buildChartXML(ws, ch, sheetNames[i])); err != nil {
+					return nil, err
+				}
+			}
+			dRels.WriteString(`</Relationships>`)
+			if err := addFile(fmt.Sprintf("xl/drawings/_rels/drawing%d.xml.rels", drawingNo), dRels.String()); err != nil {
+				return nil, err
+			}
+			if err := addFile(fmt.Sprintf("xl/drawings/drawing%d.xml", drawingNo),
+				buildDrawingXML(charts, relIDs)); err != nil {
+				return nil, err
+			}
+		}
+		if len(notes) > 0 {
+			commentsNo++
+			rid++
+			sRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments%d.xml"/>`, rid, commentsNo))
+			rid++
+			sRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing" Target="../drawings/vmlDrawing%d.vml"/>`, rid, commentsNo))
+			if err := addFile(fmt.Sprintf("xl/comments%d.xml", commentsNo), buildCommentsXML(notes)); err != nil {
+				return nil, err
+			}
+			if err := addFile(fmt.Sprintf("xl/drawings/vmlDrawing%d.vml", commentsNo), buildVmlXML(notes)); err != nil {
+				return nil, err
+			}
+		}
+		sRels.WriteString(`</Relationships>`)
+		if err := addFile(fmt.Sprintf("xl/worksheets/_rels/sheet%d.xml.rels", i+1), sRels.String()); err != nil {
 			return nil, err
 		}
 	}
@@ -354,10 +468,11 @@ type xlsxCellOut struct {
 	xml string
 }
 
-func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable) string {
+func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable, hasDrawing bool, legacyRid string) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
-	sb.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`)
+	sb.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"` +
+		` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`)
 
 	// freeze pane
 	if ws.Freeze != nil && (ws.Freeze.R > 0 || ws.Freeze.C > 0) {
@@ -456,6 +571,12 @@ func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable) string {
 		}
 	}
 
+	if hasDrawing {
+		sb.WriteString(`<drawing r:id="rId1"/>`)
+	}
+	if legacyRid != "" {
+		sb.WriteString(`<legacyDrawing r:id="` + legacyRid + `"/>`)
+	}
 	sb.WriteString(`</worksheet>`)
 	return sb.String()
 }

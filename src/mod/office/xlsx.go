@@ -33,15 +33,18 @@ type WorkSheet struct {
 	RowH   map[string]float64   `json:"rowH,omitempty"`
 	Merges []string             `json:"merges,omitempty"`
 	Freeze *FreezePane          `json:"freeze,omitempty"`
-	// passthrough blobs owned by the webapp; not representable in xlsx
+	// Charts round-trip as native DrawingML chart parts (xlsx_charts.go);
+	// Filter is a webapp-owned blob not representable in xlsx
 	Charts json.RawMessage `json:"charts,omitempty"`
 	Filter json.RawMessage `json:"filter,omitempty"`
 }
 
 // WorkCell holds the raw input ("=" prefix marks a formula) plus style
+// and an optional cell note (round-tripped as an xlsx comment)
 type WorkCell struct {
 	V string     `json:"v"`
 	S *CellStyle `json:"s,omitempty"`
+	N string     `json:"n,omitempty"`
 }
 
 // CellStyle mirrors the "s" style object of sheets.js

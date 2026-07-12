@@ -144,6 +144,8 @@ var SheetsIO = (function () {
             Core.selectChart(ch.id);
             OfficeApp.showContextMenu(e.clientX, e.clientY, [
                 { label: "Edit chart...", icon: "chart bar", action: function () { chartDialog(ch); } },
+                { label: "Copy chart", icon: "copy", key: "Ctrl+C", action: function () { Core.copySelectedChart(false, null); } },
+                { label: "Cut chart", icon: "cut", key: "Ctrl+X", action: function () { Core.copySelectedChart(true, null); } },
                 { label: "Delete chart", icon: "trash alternate outline", key: "Del", action: function () { deleteChart(ch.id); } }
             ]);
         });
@@ -154,7 +156,11 @@ var SheetsIO = (function () {
         var opts = existing ? (existing.opts || {}) : {};
         var $b = $(
             '<div class="sh-dialog-row">' +
-            '<div><label>Data range</label><input type="text" id="shChRange"></div>' +
+            '<div><label>Data range</label><div style="display:flex;gap:6px;">' +
+            '<input type="text" id="shChRange" style="flex:1;min-width:0;">' +
+            '<button type="button" class="of-tbtn" id="shChPick" title="Select the range on the grid"' +
+            ' style="flex:0 0 auto;border:1px solid var(--of-border);"><i class="crosshairs icon"></i></button>' +
+            "</div></div>" +
             '<div style="flex:0 0 110px;"><label>Type</label><select id="shChType">' +
             '<option value="bar">Bar</option><option value="line">Line</option><option value="pie">Pie</option>' +
             "</select></div></div>" +
@@ -166,6 +172,12 @@ var SheetsIO = (function () {
             "</div>"
         );
         $b.find("#shChRange").val(rg);
+        // crosshair: hide the dialog, drag the range on the grid, come back
+        $b.find("#shChPick").on("click", function () {
+            Core.pickRangeFromGrid(function (rgStr) {
+                if (rgStr) $b.find("#shChRange").val(rgStr);
+            });
+        });
         $b.find("#shChType").val(opts.type || "bar");
         $b.find("#shChTitle").val(opts.title || "");
         $b.find("#shChHead").prop("checked", opts.headerRow !== false);
@@ -425,6 +437,213 @@ var SheetsIO = (function () {
     }
 
     /* ================= print ================= */
+    /* ================= pivot tables ================= */
+    /* A pivot lives on its own generated sheet. The config is stored on
+       that sheet as `pivot: {srcSheet, range, rowField, colField, valField,
+       agg}` (field values are 0-based column offsets inside the range,
+       colField -1 = none), so "Refresh pivot table" can recompute after
+       the source data changes. Output cells are plain values - a static
+       snapshot, like "paste values" of a pivot. */
+    var PIVOT_AGGS = [
+        ["sum", "Sum"], ["count", "Count"], ["avg", "Average"],
+        ["min", "Min"], ["max", "Max"]
+    ];
+    function pivotHeaders(vals) {
+        if (!vals || !vals.length) return [];
+        return vals[0].map(function (h, i) {
+            var t = (h === null || h === undefined) ? "" : String(h);
+            return t === "" ? "Column " + (i + 1) : t;
+        });
+    }
+    function aggResult(b, agg) {
+        if (!b) return "";
+        switch (agg) {
+            case "count": return b.n;
+            case "avg": return b.cnt ? b.sum / b.cnt : "";
+            case "min": return b.min === null ? "" : b.min;
+            case "max": return b.max === null ? "" : b.max;
+            default: return b.sum;
+        }
+    }
+    // -> { headers: [col labels], rows: [[rowLabel, v1, v2, ..., total]] , colLabels }
+    function computePivot(cfg) {
+        var vals = Core.readRangeValues(cfg.srcSheet, cfg.range);
+        if (!vals || vals.length < 2) return null;
+        var headers = pivotHeaders(vals);
+        var dataRows = vals.slice(1);
+        var hasCols = cfg.colField >= 0;
+        var rKeys = [], cKeys = [], buckets = {};
+        var K = function (rk, ck) { return rk + "\u0000" + ck; };
+        dataRows.forEach(function (row) {
+            var rv = row[cfg.rowField];
+            var rk = (rv === null || rv === undefined) ? "" : String(rv);
+            var cv = hasCols ? row[cfg.colField] : "__all__";
+            var ck = (cv === null || cv === undefined) ? "" : String(cv);
+            if (rKeys.indexOf(rk) < 0) rKeys.push(rk);
+            if (hasCols && cKeys.indexOf(ck) < 0) cKeys.push(ck);
+            // one bucket per cell plus per-row/-column/grand totals
+            [K(rk, ck), K(rk, "__total__"), K("__total__", ck), K("__total__", "__total__")]
+                .forEach(function (bk) {
+                    var b = buckets[bk] ||
+                        (buckets[bk] = { sum: 0, cnt: 0, n: 0, min: null, max: null });
+                    b.n++;
+                    var v = row[cfg.valField];
+                    var num = typeof v === "number" ? v : parseFloat(v);
+                    if (!isNaN(num) && isFinite(num)) {
+                        b.sum += num;
+                        b.cnt++;
+                        b.min = b.min === null ? num : Math.min(b.min, num);
+                        b.max = b.max === null ? num : Math.max(b.max, num);
+                    }
+                });
+        });
+        rKeys.sort();
+        cKeys.sort();
+        var aggLabel = "";
+        PIVOT_AGGS.forEach(function (a) { if (a[0] === cfg.agg) aggLabel = a[1]; });
+        var colLabels = hasCols ? cKeys.concat(["Grand Total"]) :
+            [aggLabel + " of " + headers[cfg.valField]];
+        var out = [];
+        rKeys.concat(["Grand Total"]).forEach(function (rk) {
+            var bk = rk === "Grand Total" ? "__total__" : rk;
+            var row = [rk];
+            if (hasCols) {
+                cKeys.forEach(function (ck) { row.push(aggResult(buckets[K(bk, ck)], cfg.agg)); });
+                row.push(aggResult(buckets[K(bk, "__total__")], cfg.agg));
+            } else {
+                row.push(aggResult(buckets[K(bk, "__all__")], cfg.agg));
+            }
+            out.push(row);
+        });
+        return { cornerLabel: headers[cfg.rowField], colLabels: colLabels, rows: out };
+    }
+    // write the computed pivot into a sheet's cell map (replacing it)
+    function writePivotCells(s, pv) {
+        s.cells = {};
+        var bold = { b: true };
+        var put = function (c, r, v, styled) {
+            if (v === "" || v === null || v === undefined) return;
+            var cell = { v: String(v) };
+            if (styled) cell.s = $.extend({}, bold);
+            s.cells[F.cellName(c, r)] = cell;
+        };
+        put(0, 0, pv.cornerLabel, true);
+        pv.colLabels.forEach(function (cl, i) { put(i + 1, 0, cl, true); });
+        pv.rows.forEach(function (row, r) {
+            row.forEach(function (v, c) {
+                put(c, r + 1, v, c === 0 || r === pv.rows.length - 1);
+            });
+        });
+        s.cols = Math.max(26, pv.colLabels.length + 4);
+        s.rows = Math.max(200, pv.rows.length + 20);
+    }
+    function pivotDialog() {
+        var rg = Core.selRange();
+        if (rg.c1 === rg.c2 && rg.r1 === rg.r2) rg = Core.usedRange();
+        var srcSheet = Core.activeSheetIndex();
+        var $b = $(
+            '<label>Source data range (first row = headers)</label>' +
+            '<div style="display:flex;gap:6px;">' +
+            '<input type="text" id="shPvRange" style="flex:1;min-width:0;">' +
+            '<button type="button" class="of-tbtn" id="shPvPick" title="Select the range on the grid"' +
+            ' style="flex:0 0 auto;border:1px solid var(--of-border);"><i class="crosshairs icon"></i></button>' +
+            "</div>" +
+            '<div class="sh-dialog-row" style="margin-top:8px;">' +
+            '<div><label>Rows</label><select id="shPvRow"></select></div>' +
+            '<div><label>Columns</label><select id="shPvCol"></select></div>' +
+            "</div>" +
+            '<div class="sh-dialog-row">' +
+            '<div><label>Values</label><select id="shPvVal"></select></div>' +
+            '<div><label>Aggregate by</label><select id="shPvAgg"></select></div>' +
+            "</div>"
+        );
+        PIVOT_AGGS.forEach(function (a) {
+            $b.find("#shPvAgg").append($("<option></option>").attr("value", a[0]).text(a[1]));
+        });
+        function fillFields() {
+            var vals = Core.readRangeValues(srcSheet, $b.find("#shPvRange").val().trim());
+            var headers = pivotHeaders(vals);
+            var $row = $b.find("#shPvRow").empty();
+            var $col = $b.find("#shPvCol").empty().append('<option value="-1">(none)</option>');
+            var $val = $b.find("#shPvVal").empty();
+            headers.forEach(function (h, i) {
+                var $o = $("<option></option>").attr("value", i).text(h);
+                $row.append($o);
+                $col.append($o.clone());
+                $val.append($o.clone());
+            });
+            if (headers.length > 1) $val.val(String(headers.length - 1));
+        }
+        $b.find("#shPvRange").val(Core.rangeStr(rg)).on("change", fillFields);
+        $b.find("#shPvPick").on("click", function () {
+            Core.pickRangeFromGrid(function (rgStr) {
+                if (rgStr) {
+                    $b.find("#shPvRange").val(rgStr);
+                    fillFields();
+                }
+            });
+        });
+        fillFields();
+        OfficeApp.dialog({
+            title: "Create pivot table",
+            body: $b,
+            buttons: [
+                { label: "Cancel" },
+                {
+                    label: "Create", primary: true,
+                    action: function (close, $bd) {
+                        var cfg = {
+                            srcSheet: srcSheet,
+                            range: $bd.find("#shPvRange").val().trim(),
+                            rowField: parseInt($bd.find("#shPvRow").val(), 10) || 0,
+                            colField: parseInt($bd.find("#shPvCol").val(), 10),
+                            valField: parseInt($bd.find("#shPvVal").val(), 10) || 0,
+                            agg: $bd.find("#shPvAgg").val()
+                        };
+                        if (isNaN(cfg.colField)) cfg.colField = -1;
+                        if (!Core.parseRange(cfg.range)) {
+                            OfficeApp.toast("Invalid range: " + cfg.range, "error");
+                            return;
+                        }
+                        var pv = computePivot(cfg);
+                        if (!pv) {
+                            OfficeApp.toast("The source range needs a header row plus data rows", "error");
+                            return;
+                        }
+                        close();
+                        var data = Core.newSheetData("Pivot");
+                        data.pivot = cfg;
+                        writePivotCells(data, pv);
+                        Core.addSheetNamed("Pivot", data);
+                        OfficeApp.setStatus("Pivot table created - Data > Refresh pivot table recomputes it");
+                    }
+                }
+            ]
+        });
+    }
+    function refreshPivot() {
+        var s = Core.sheet();
+        var cfg = s.pivot;
+        if (!cfg) {
+            OfficeApp.toast("The active sheet is not a pivot table", "error");
+            return;
+        }
+        if (cfg.srcSheet >= 0 && Core.getBody().sheets[cfg.srcSheet]) {
+            var pv = computePivot(cfg);
+            if (!pv) {
+                OfficeApp.toast("Pivot source range no longer has data", "error");
+                return;
+            }
+            writePivotCells(s, pv);
+            Core.rebuildCalc();
+            Core.commit();
+            Core.renderAll();
+            OfficeApp.setStatus("Pivot table refreshed");
+        } else {
+            OfficeApp.toast("Pivot source sheet no longer exists", "error");
+        }
+    }
+
     function fillPrintArea() {
         var $pa = $("#shPrintArea").empty();
         var ur = Core.usedRange();
@@ -454,6 +673,8 @@ var SheetsIO = (function () {
         importXlsx: importXlsx,
         importXlsxDialog: importXlsxDialog,
         exportXlsx: exportXlsx,
+        pivotDialog: pivotDialog,
+        refreshPivot: refreshPivot,
         fillPrintArea: fillPrintArea
     };
 })();

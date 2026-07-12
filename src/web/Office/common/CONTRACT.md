@@ -39,9 +39,12 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <link rel="stylesheet" href="app.css">
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
-    <!-- optional: ../common/charts.js, ../common/lib/marked.min.js,
-         ../common/lib/pdf-lib.min.js, ../common/lib/html2canvas.min.js -->
+    <script src="../common/colorpicker.js"></script>
+    <!-- optional: ../common/charts.js, ../common/textedit.js,
+         ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js,
+         ../common/lib/html2canvas.min.js -->
 </head>
 <body data-officeapp="docs">   <!-- docs | sheets | slides -->
     <!-- app builds its own toolbar + workspace; framework injects
@@ -149,7 +152,40 @@ For other backend needs write an `.agi` script under your app folder and call
 Utils: `escapeHtml basename dirname extOf stripExt`.
 
 Reserved shortcuts (framework): Ctrl+S/Shift+S/O/Alt+N/P/=/-/0, Ctrl+Z/Y via
-your hooks. Register everything else yourself.
+your hooks, Ctrl+/ (shortcuts help). Register everything else yourself.
+
+## OfficeHotkeys (common/hotkeys.js) — shared keyboard registry
+
+**All keyboard shortcuts must go through OfficeHotkeys** — never add your
+own window/document `keydown` listeners for shortcuts. One capture-phase
+listener dispatches everything, `Ctrl+/` shows an auto-generated help
+dialog, and Cmd normalizes to Ctrl. `OfficeApp.registerShortcut(combo, fn,
+opts)` is a thin wrapper (adds menu-closing, defaults `allowInInput` +
+`inDialogs` to true); use `OfficeHotkeys.register` directly for guarded or
+editor-mode bindings:
+
+```js
+OfficeHotkeys.register("Ctrl+Shift+G", handler, {
+    id: "slides.ungroup",        // stable id: re-register replaces, unregister(id)
+    description: "Ungroup",      // shown in Ctrl+/ help; omit to hide
+    group: "Objects",            // help dialog section
+    when: function(e){...},      // gate; falsy = skip (next handler / native)
+    allowInInput: false,         // default: skipped while typing in inputs /
+                                 // textarea / contenteditable
+    inDialogs: false             // default: skipped while a dialog is open
+});
+// handler returns false -> falls through (next handler, then browser default)
+// registered later wins (LIFO): app bindings shadow framework ones
+```
+
+Do NOT consume Ctrl+C/X/V in hotkey handlers — bind the native
+`copy`/`cut`/`paste` events instead so the system clipboard stays in sync
+(see slides.js: object copies ride the system clipboard as marker JSON
+`{"app":"arozos-slides-objects",...}` and paste checks that marker first).
+If you want them listed in the help dialog, register them with a
+`return false` handler (documentation-only entry).
+Slides is fully migrated; Sheets and Docs still have legacy app-level
+keydown listeners (migrate them the same way).
 
 ## OfficeUndoStack
 
@@ -198,13 +234,35 @@ time. The framework also writes rolling session snapshots to
 `user:/.appdata/Office/session/<app>.osession` (autosave tick + after
 save) and offers "Restore from previous session" on blank startup.
 
+## OfficeColorPicker (common/colorpicker.js) — shared color picker
+
+The suite-wide replacement for `<input type="color">` (never use the native
+input). A Google-Docs-style square-swatch palette + custom HSV picker +
+eyedropper; recent custom colors persist in localStorage across all apps.
+
+```js
+OfficeColorPicker.open({ anchor: el, value: "#ff0000",
+    allowNone: true, noneLabel: "No fill",
+    onPick: function(hex){ /* "#rrggbb", or "" when none picked */ } });
+OfficeColorPicker.close(); OfficeColorPicker.isOpen();
+OfficeColorPicker.contains(node);   // focus-inside checks
+
+// toolbar drop-in: a <button> that keeps input[type=color] semantics —
+// .val() get/set plus "input"/"change" events on pick. After a
+// programmatic .val(x), trigger "of-cp-refresh" to repaint the chip.
+var $c = OfficeColorPicker.swatchInput({ id, title, value, allowNone, noneLabel });
+```
+
 ## OfficeTextEditBar (common/textedit.js) — shared floating format bar
 
-A PowerPoint-style mini toolbar that floats above a contenteditable element
-while it is being edited (font family, size, B/I/U, color, alignment).
-Operates on the live selection via `document.execCommand`; the host just
-serializes the resulting innerHTML afterwards. Used by Slides; Docs should
-reuse it.
+A PowerPoint-style mini toolbar (two rows) that floats above a
+contenteditable element while it is being edited: row 1 = font family,
+size, B/I/U, alignment; row 2 = text color, highlight (both via
+OfficeColorPicker), insert/remove link. Operates on the live selection via
+`document.execCommand`; the host just serializes the resulting innerHTML
+afterwards. Used by Slides and Docs. `contains(node)` also treats focus
+inside the color picker popup as "still editing" — hosts must use it in
+their focusout checks.
 
 ```js
 OfficeTextEditBar.show({

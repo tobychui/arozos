@@ -15,14 +15,21 @@
         },
         header: "plain text shown at the top of the paper",
         footer: "plain text shown at the bottom of the paper",
-        pageNumbers: false      // print page numbers (best-effort @page margin box)
+        pageNumbers: false,     // print page numbers (best-effort @page margin box)
+        comments: [ { id, text, at, resolved } ],   // review comments; anchored
+                                // in html as <span class="doc-cmt" data-cid>
+        trackChanges: false     // "suggest edits" mode; pending suggestions
+                                // live in html as ins.doc-ins / del.doc-del
     }
 
     Notes:
       - html is produced by cleanedHtml(): find/replace highlight spans and
         image-selection classes are stripped before serialisation.
       - Known allowed classes inside html: doc-title (title paragraph),
-        of-checklist (on UL), checked (on LI), of-table (on TABLE).
+        of-checklist (on UL), checked (on LI), of-table (on TABLE),
+        doc-cmt (comment anchor), doc-ins / doc-del (tracked changes).
+      - Foreign exports (docx/html/md/txt) use resolvedHtml(): suggestions
+        applied as if accepted, comment anchors unwrapped.
 */
 
 (function () {
@@ -96,6 +103,8 @@
     var stateTimer = null;
     var $fontSel, $sizeSel, $styleSel;
     var findState = { hits: [], cur: -1 };
+    var comments = [];             // review comments [{id,text,at,resolved}]
+    var suggesting = false;        // track-changes ("suggest edits") mode
 
     function defaultPageConf() {
         return {
@@ -250,7 +259,9 @@
             },
             header: hfText(headerEl),
             footer: hfText(footerEl),
-            pageNumbers: !!pageConf.pageNumbers
+            pageNumbers: !!pageConf.pageNumbers,
+            comments: JSON.parse(JSON.stringify(comments)),
+            trackChanges: suggesting
         };
     }
     function loadBody(b) {
@@ -271,8 +282,13 @@
         pageConf.columns = Math.min(3, Math.max(1, Math.round(num(p.columns, 1))));
         pageConf.colGap = Math.min(30, Math.max(2, num(p.colGap, 8)));
         pageConf.pageNumbers = !!b.pageNumbers;
+        comments = Array.isArray(b.comments) ?
+            JSON.parse(JSON.stringify(b.comments)) : [];
+        suggesting = !!b.trackChanges;
         applyPageSetup();
         updateCounts();
+        renderCommentsPanel();
+        updateSuggestStatus();
     }
 
     /* ================= undo / redo ================= */
@@ -474,33 +490,46 @@
         btn("underline", "Underline (Ctrl+U)", function () { exec("underline"); }, "underline");
         btn("strikethrough", "Strikethrough (Ctrl+Shift+X)", function () { exec("strikeThrough"); }, "strikeThrough");
 
-        // text color + highlight color
-        function colorControl(icon, title, defVal, applyFn) {
-            var $w = $('<label class="tb-color-wrap"></label>').attr("title", title);
-            $w.append('<i class="' + icon + ' icon"></i>');
-            var $in = $('<input type="color">').val(defVal);
-            $in.on("input", function () {
-                if (inHeaderFooter()) return;
-                restoreSel();
-                applyFn(this.value);
-                OfficeApp.markDirty();
+        // text color + highlight color (shared OfficeColorPicker popup)
+        function colorControl(icon, title, defVal, cpOpts, applyFn) {
+            var $w = $('<button type="button" class="of-tbtn of-te-cbtn"></button>').attr("title", title);
+            $w.append('<i class="' + icon + ' icon"></i><span class="of-te-cbar"></span>');
+            $w.find(".of-te-cbar").css("background", defVal);
+            // selection is tracked globally (trackSelection); just keep it
+            $w.on("mousedown", function (e) { e.preventDefault(); });
+            $w.on("click", function () {
+                OfficeColorPicker.open({
+                    anchor: $w[0],
+                    value: $w.data("cur") || defVal,
+                    allowNone: !!cpOpts.allowNone,
+                    noneLabel: cpOpts.noneLabel,
+                    onPick: function (hex) {
+                        if (inHeaderFooter()) return;
+                        $w.data("cur", hex);
+                        $w.find(".of-te-cbar").css("background", hex || "transparent");
+                        restoreSel();
+                        applyFn(hex);
+                        OfficeApp.markDirty();
+                        afterEdit(true);
+                    }
+                });
             });
-            $in.on("change", function () { afterEdit(true); });
-            $w.append($in);
             $t.append($w);
         }
-        colorControl("font", "Text color", "#000000", function (v) {
+        colorControl("font", "Text color", "#000000", {}, function (v) {
+            if (!v) return;
             try { document.execCommand("foreColor", false, v); } catch (e) { }
         });
-        colorControl("paint brush", "Highlight color", "#ffff00", function (v) {
-            try {
-                if (!document.execCommand("hiliteColor", false, v)) {
-                    document.execCommand("backColor", false, v);
+        colorControl("paint brush", "Highlight color", "#ffff00",
+            { allowNone: true, noneLabel: "No highlight" }, function (v) {
+                try {
+                    if (!document.execCommand("hiliteColor", false, v || "transparent")) {
+                        document.execCommand("backColor", false, v || "transparent");
+                    }
+                } catch (e) {
+                    try { document.execCommand("backColor", false, v || "transparent"); } catch (e2) { }
                 }
-            } catch (e) {
-                try { document.execCommand("backColor", false, v); } catch (e2) { }
-            }
-        });
+            });
         sep();
 
         btn("align left", "Align left", function () { exec("justifyLeft"); }, "justifyLeft");
@@ -1231,6 +1260,359 @@
             words + " word" + (words === 1 ? "" : "s") + " · " +
             chars + " character" + (chars === 1 ? "" : "s") + " · " +
             pages + " page" + (pages === 1 ? "" : "s"));
+        updateSuggestStatus();
+    }
+
+    /* ================= review: comments ================= */
+    /* Comments live in body.comments [{id, text, at, resolved}] and are
+       anchored in the content as <span class="doc-cmt" data-cid="...">.
+       Resolving/deleting unwraps the anchor; anchors whose text was
+       edited away show as orphaned cards. */
+    function genCmtId() {
+        return "cm-" + Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+    }
+    function cmtSpan(id) {
+        return editor.querySelector('span.doc-cmt[data-cid="' + id + '"]');
+    }
+    function unwrapEl(el) {
+        while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+        el.parentNode.removeChild(el);
+    }
+    function commentDialog(existing) {
+        restoreSel();
+        var range = null;
+        if (!existing) {
+            var sel = window.getSelection();
+            if (savedRange && !savedRange.collapsed && editor.contains(savedRange.commonAncestorContainer)) {
+                range = savedRange.cloneRange();
+            } else if (sel && sel.rangeCount && !sel.getRangeAt(0).collapsed &&
+                editor.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                range = sel.getRangeAt(0).cloneRange();
+            }
+            if (!range) {
+                OfficeApp.setStatus("Select the text to comment on first", "error");
+                return;
+            }
+        }
+        var $b = $('<label>Comment</label>' +
+            '<textarea id="docCmtText" rows="4" style="width:100%;resize:vertical;"></textarea>');
+        if (existing) $b.filter("textarea").val(existing.text);
+        OfficeApp.dialog({
+            title: existing ? "Edit comment" : "Add comment",
+            body: $b,
+            buttons: [
+                { label: "Cancel" },
+                {
+                    label: existing ? "Save" : "Comment", primary: true,
+                    action: function (close, $bd) {
+                        var text = String($bd.find("#docCmtText").val() || "").trim();
+                        close();
+                        if (!text) return;
+                        if (existing) {
+                            existing.text = text;
+                        } else {
+                            var id = genCmtId();
+                            var span = document.createElement("span");
+                            span.className = "doc-cmt";
+                            span.setAttribute("data-cid", id);
+                            try {
+                                range.surroundContents(span);
+                            } catch (e) {
+                                // selection crosses element boundaries
+                                span.appendChild(range.extractContents());
+                                range.insertNode(span);
+                            }
+                            comments.push({ id: id, text: text, at: Date.now(), resolved: false });
+                        }
+                        afterEdit(true);
+                        renderCommentsPanel();
+                        showCommentsPanel(true);
+                    }
+                }
+            ]
+        });
+        setTimeout(function () { $("#docCmtText").focus(); }, 50);
+    }
+    function commentById(id) {
+        for (var i = 0; i < comments.length; i++) if (comments[i].id === id) return comments[i];
+        return null;
+    }
+    function resolveComment(id, remove) {
+        var span = cmtSpan(id);
+        if (span) unwrapEl(span);
+        if (remove) {
+            comments = comments.filter(function (c) { return c.id !== id; });
+        } else {
+            var c = commentById(id);
+            if (c) c.resolved = true;
+        }
+        editor.normalize();
+        afterEdit(true);
+        renderCommentsPanel();
+    }
+    function openComments() { return comments.filter(function (c) { return !c.resolved; }); }
+    function showCommentsPanel(show) {
+        $("#docCmtPanel").toggle(show);
+        OfficeApp.setSetting("cmtPanel", show);
+    }
+    function commentsPanelVisible() { return $("#docCmtPanel").is(":visible"); }
+    function renderCommentsPanel(activeId) {
+        var $p = $("#docCmtPanel");
+        if (!$p.length) return;
+        var $list = $p.find(".doc-cmt-list").empty();
+        var open = openComments();
+        $p.find(".doc-cmt-count").text(open.length ? open.length : "");
+        if (!open.length) {
+            $list.append('<div class="doc-cmt-empty">No comments. Select some text and use ' +
+                'Insert &gt; Comment (Ctrl+Alt+M).</div>');
+            return;
+        }
+        open.forEach(function (c) {
+            var span = cmtSpan(c.id);
+            var quote = span ? span.textContent : "";
+            if (quote.length > 60) quote = quote.substring(0, 60) + "…";
+            var $card = $('<div class="doc-cmt-card' + (c.id === activeId ? " active" : "") + '"></div>');
+            $card.append($('<div class="doc-cmt-quote"></div>')
+                .text(quote || "(commented text was removed)"));
+            $card.append($('<div class="doc-cmt-body"></div>').text(c.text));
+            $card.append('<div class="doc-cmt-when">' +
+                new Date(c.at).toLocaleString() + "</div>");
+            var $acts = $('<div class="doc-cmt-actions"></div>');
+            var act = function (icon, title, fn) {
+                var $a = $('<button type="button" class="of-te-btn" title="' + title + '">' +
+                    '<i class="' + icon + ' icon"></i></button>');
+                $a.on("click", function (e) { e.stopPropagation(); fn(); });
+                return $a;
+            };
+            $acts.append(act("check", "Resolve (remove the highlight)", function () { resolveComment(c.id, false); }));
+            $acts.append(act("pencil alternate", "Edit comment", function () { commentDialog(c); renderCommentsPanel(c.id); }));
+            $acts.append(act("trash alternate outline", "Delete comment", function () { resolveComment(c.id, true); }));
+            $card.append($acts);
+            $card.on("click", function () {
+                var sp = cmtSpan(c.id);
+                if (sp) {
+                    sp.scrollIntoView({ block: "center", behavior: "smooth" });
+                    $(".doc-cmt.flash").removeClass("flash");
+                    sp.classList.add("flash");
+                    setTimeout(function () { sp.classList.remove("flash"); }, 1600);
+                }
+                renderCommentsPanel(c.id);
+            });
+            $list.append($card);
+        });
+    }
+    function buildCommentsPanel() {
+        var $p = $('<div id="docCmtPanel" class="of-noprint">' +
+            '<div class="doc-cmt-head"><i class="comments outline icon"></i> Comments ' +
+            '<span class="doc-cmt-count"></span>' +
+            '<button type="button" class="of-te-btn doc-cmt-close" title="Close panel">' +
+            '<i class="close icon"></i></button></div>' +
+            '<div class="doc-cmt-list"></div></div>');
+        $p.find(".doc-cmt-close").on("click", function () { showCommentsPanel(false); });
+        $("body").append($p);
+        $p.hide();
+    }
+
+    /* ================= review: track changes (suggest mode) ================= */
+    /* While "Suggest edits" is on, typing becomes <ins class="doc-ins"> and
+       deleting wraps content in <del class="doc-del"> instead of removing
+       it. Every suggestion can be accepted or rejected (context menu or
+       Edit menu); foreign exports (docx/html/md/txt) behave as if all
+       suggestions were accepted. Paragraph splits/merges are not tracked. */
+    function tagOf(node, selector) {
+        if (!node) return null;
+        if (node.nodeType === 3) node = node.parentNode;
+        return node && node.closest ? node.closest(selector) : null;
+    }
+    function suggestInsert(text) {
+        if (!text) return;
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        var range = sel.getRangeAt(0);
+        if (!range.collapsed) {
+            suggestDeleteRange(range);
+            sel = window.getSelection();
+            range = sel.getRangeAt(0);
+        }
+        var tn = document.createTextNode(text);
+        var insHost = tagOf(range.startContainer, "ins.doc-ins");
+        var delHost = tagOf(range.startContainer, "del.doc-del");
+        if (insHost && !delHost) {
+            range.insertNode(tn);            // grow the existing suggestion
+        } else {
+            var ins = document.createElement("ins");
+            ins.className = "doc-ins";
+            ins.appendChild(tn);
+            if (delHost) {
+                // typing at a suggested deletion: the insertion goes after it
+                delHost.parentNode.insertBefore(ins, delHost.nextSibling);
+            } else {
+                range.insertNode(ins);
+            }
+        }
+        var r2 = document.createRange();
+        r2.setStart(tn, tn.nodeValue.length);
+        r2.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r2);
+        afterEdit(false);
+    }
+    function suggestDeleteRange(range) {
+        var texts = [];
+        if (range.commonAncestorContainer.nodeType === 3) {
+            texts = [range.commonAncestorContainer];
+        } else {
+            var walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT, null);
+            var n;
+            while ((n = walker.nextNode())) {
+                if (n.nodeValue !== "" && range.intersectsNode(n)) texts.push(n);
+            }
+        }
+        var caret = document.createRange();
+        caret.setStart(range.startContainer, range.startOffset);
+        caret.collapse(true);
+        texts.forEach(function (tn) {
+            var s = tn === range.startContainer ? range.startOffset : 0;
+            var e2 = tn === range.endContainer ? range.endOffset : tn.nodeValue.length;
+            if (e2 <= s) return;
+            if (tagOf(tn, "del.doc-del")) return;          // already marked deleted
+            var mid = tn;
+            if (s > 0) mid = mid.splitText(s);
+            if (e2 - s < mid.nodeValue.length) mid.splitText(e2 - s);
+            if (tagOf(mid, "ins.doc-ins")) {
+                // deleting our own suggestion: really remove it
+                mid.parentNode.removeChild(mid);
+                return;
+            }
+            var del = document.createElement("del");
+            del.className = "doc-del";
+            mid.parentNode.insertBefore(del, mid);
+            del.appendChild(mid);
+        });
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(caret);
+    }
+    function suggestDeleteCollapsed(forward) {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !sel.modify) return;
+        sel.modify("extend", forward ? "forward" : "backward", "character");
+        if (!sel.rangeCount) return;
+        var r = sel.getRangeAt(0);
+        if (r.collapsed) return;
+        var probe = forward ? r.endContainer : r.startContainer;
+        if (tagOf(probe, "ins.doc-ins") && !tagOf(probe, "del.doc-del")) {
+            // deleting inside our own insertion: real delete
+            try { document.execCommand(forward ? "forwardDelete" : "delete"); } catch (e) { }
+            return;
+        }
+        if (tagOf(probe, "del.doc-del")) {
+            // already suggested deleted: just step over it
+            if (forward) sel.collapse(r.endContainer, r.endOffset);
+            else sel.collapse(r.startContainer, r.startOffset);
+            return;
+        }
+        suggestDeleteRange(r);
+    }
+    function onEditorBeforeInput(e) {
+        if (!suggesting || inHeaderFooter()) return;
+        var t = e.inputType || "";
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        if (!editor.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+        if (t === "insertText") {
+            // insertCompositionText is NOT handled: it is not cancelable, so
+            // intercepting it would double-insert IME (e.g. CJK) input -
+            // composed text stays untracked instead
+            if (e.data === null || e.data === undefined) return;
+            e.preventDefault();
+            suggestInsert(e.data);
+        } else if (t.indexOf("delete") === 0) {
+            e.preventDefault();
+            var r = sel.getRangeAt(0);
+            if (!r.collapsed) suggestDeleteRange(r);
+            else suggestDeleteCollapsed(t === "deleteContentForward" || t === "deleteWordForward");
+            afterEdit(false);
+        }
+        // insertParagraph / formatting / drops stay untracked (limitation)
+    }
+    function allSuggestions() {
+        return editor.querySelectorAll("ins.doc-ins, del.doc-del");
+    }
+    function resolveSuggestion(el, accept) {
+        var isIns = el.tagName === "INS";
+        if (isIns === accept) unwrapEl(el);    // keep the content
+        else el.parentNode.removeChild(el);    // drop it
+        editor.normalize();
+        afterEdit(true);
+    }
+    function resolveAllSuggestions(accept) {
+        var list = allSuggestions();
+        if (!list.length) return;
+        for (var i = 0; i < list.length; i++) {
+            var el = list[i];
+            if (el.tagName === "INS" === accept) unwrapEl(el);
+            else if (el.parentNode) el.parentNode.removeChild(el);
+        }
+        editor.normalize();
+        afterEdit(true);
+        OfficeApp.setStatus((accept ? "Accepted " : "Rejected ") + list.length + " suggestion(s)");
+    }
+    function setSuggesting(on) {
+        suggesting = !!on;
+        OfficeApp.markDirty();
+        updateSuggestStatus();
+    }
+    function updateSuggestStatus() {
+        var pending = allSuggestions().length;
+        var html = "";
+        if (suggesting) {
+            html = '<i class="pencil alternate icon"></i>Suggesting' +
+                (pending ? " · " + pending + " pending" : "");
+        } else if (pending) {
+            html = pending + " suggestion(s) pending";
+        }
+        OfficeApp.updateStatusItem("suggest", html);
+    }
+    /* content with every suggestion accepted and comment anchors unwrapped -
+       what foreign exports (docx/html/md/txt) should contain */
+    function resolvedHtml() {
+        var div = document.createElement("div");
+        div.innerHTML = cleanedHtml();
+        var list = div.querySelectorAll("ins.doc-ins, del.doc-del, span.doc-cmt");
+        for (var i = 0; i < list.length; i++) {
+            var el = list[i];
+            if (el.tagName === "DEL") el.parentNode.removeChild(el);
+            else unwrapEl(el);
+        }
+        div.normalize();
+        return div.innerHTML;
+    }
+
+    /* ================= copy / cut of a selected image =================
+       Image selection is app-level (selectImage), not a DOM range, so the
+       browser's native copy has nothing to grab. Put the image on the
+       system clipboard as HTML - handleEditorPaste's text/html branch
+       (and other apps) take it from there. */
+    function handleImageCopyCut(e, isCut) {
+        if (!selectedImg) return;
+        if (!e.clipboardData) return;
+        var clone = selectedImg.cloneNode(false);
+        clone.classList.remove("of-selimg");
+        if (!clone.getAttribute("class")) clone.removeAttribute("class");
+        // absolute URL so the image also resolves outside this page
+        try { clone.src = selectedImg.src; } catch (err) { }
+        e.clipboardData.setData("text/html", clone.outerHTML);
+        e.clipboardData.setData("text/plain", "");
+        e.preventDefault();
+        if (isCut) {
+            var img = selectedImg;
+            deselectImage();
+            if (img.parentNode) img.parentNode.removeChild(img);
+            afterEdit(true);
+        } else {
+            OfficeApp.setStatus("Image copied");
+        }
     }
 
     /* ================= paste ================= */
@@ -1259,6 +1641,10 @@
         if (html) {
             var clean = sanitizeHtml(html, { keepClasses: false });
             if (clean) {
+                if (suggesting && !inHeaderFooter()) {
+                    // pasted content is a suggestion too
+                    clean = '<ins class="doc-ins">' + clean + "</ins>";
+                }
                 try { document.execCommand("insertHTML", false, clean); } catch (err) { }
                 afterEdit(true);
                 return;
@@ -1267,6 +1653,11 @@
         // 3. plain text
         var t = cd.getData("text/plain");
         if (t) {
+            if (suggesting && !inHeaderFooter()) {
+                suggestInsert(t);
+                afterEdit(true);
+                return;
+            }
             try { document.execCommand("insertText", false, t); } catch (err) { }
             afterEdit(true);
         }
@@ -1314,17 +1705,19 @@
         var out = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n" +
             "<title>" + esc(title) + "</title>\n<style>" + EXPORT_CSS + "</style>\n</head>\n<body>\n";
         if (body.header) out += '<div class="hf">' + esc(body.header) + "</div>\n";
-        out += body.html + "\n";
+        out += resolvedHtml() + "\n";
         if (body.footer) out += '<div class="hf">' + esc(body.footer) + "</div>\n";
         out += "</body>\n</html>\n";
         downloadFile(title + ".html", "text/html", out);
     }
     function exportText() {
-        downloadFile(exportBaseName() + ".txt", "text/plain", editor.innerText || "");
+        var div = document.createElement("div");
+        div.innerHTML = resolvedHtml();
+        downloadFile(exportBaseName() + ".txt", "text/plain", div.innerText || "");
     }
     function exportMarkdown() {
         var div = document.createElement("div");
-        div.innerHTML = currentBody().html;
+        div.innerHTML = resolvedHtml();
         var md = htmlToMarkdown(div).replace(/\n{3,}/g, "\n\n").trim() + "\n";
         downloadFile(exportBaseName() + ".md", "text/markdown", md);
     }
@@ -1556,6 +1949,8 @@
                 if (!/\.docx$/i.test(fp)) fp += ".docx";
                 OfficeApp.showBusy("Exporting Word file...");
                 var body = currentBody();
+                // suggestions applied, comment anchors unwrapped
+                body.html = resolvedHtml();
                 inlineImagesForExport(body.html).then(function (inlined) {
                     body.html = inlined;
                     ao_module_agirun(DOCX_BACKEND, {
@@ -1753,6 +2148,10 @@
             undo.pushDebounced(snapshot, 600);
         });
         editor.addEventListener("paste", handleEditorPaste);
+        document.addEventListener("copy", function (e) { handleImageCopyCut(e, false); });
+        document.addEventListener("cut", function (e) { handleImageCopyCut(e, true); });
+        // track changes: intercept typing/deleting while suggesting
+        editor.addEventListener("beforeinput", onEditorBeforeInput);
         editor.addEventListener("click", function (e) {
             var t = e.target;
             // checklist checkbox toggle (click lands in the ::before gutter)
@@ -1772,6 +2171,11 @@
                 return;
             }
             if (selectedImg) deselectImage();
+            var cmtHit = t.closest ? t.closest("span.doc-cmt") : null;
+            if (cmtHit && editor.contains(cmtHit)) {
+                showCommentsPanel(true);
+                renderCommentsPanel(cmtHit.getAttribute("data-cid"));
+            }
             var a = t.closest ? t.closest("a") : null;
             if (a && editor.contains(a)) {
                 e.preventDefault();
@@ -1806,6 +2210,49 @@
         // editor context menu: table ops + multi-column region control
         editor.addEventListener("contextmenu", function (e) {
             var items = [];
+            // review: accept/reject the suggestion under the pointer
+            var sug = e.target.closest ? e.target.closest("ins.doc-ins, del.doc-del") : null;
+            if (sug && editor.contains(sug)) {
+                var what = sug.tagName === "INS" ? "insertion" : "deletion";
+                items.push({
+                    label: "Accept " + what, icon: "check",
+                    action: function () { resolveSuggestion(sug, true); }
+                });
+                items.push({
+                    label: "Reject " + what, icon: "times",
+                    action: function () { resolveSuggestion(sug, false); }
+                });
+                items.push({ sep: true });
+            }
+            // review: comment actions
+            var cmtEl = e.target.closest ? e.target.closest("span.doc-cmt") : null;
+            if (cmtEl && editor.contains(cmtEl)) {
+                var cm = commentById(cmtEl.getAttribute("data-cid"));
+                if (cm) {
+                    items.push({
+                        label: "View comment", icon: "comment outline",
+                        action: function () {
+                            showCommentsPanel(true);
+                            renderCommentsPanel(cm.id);
+                        }
+                    });
+                    items.push({
+                        label: "Resolve comment", icon: "check",
+                        action: function () { resolveComment(cm.id, false); }
+                    });
+                    items.push({ sep: true });
+                }
+            } else {
+                var selNow = window.getSelection();
+                if (selNow && selNow.rangeCount && !selNow.getRangeAt(0).collapsed &&
+                    editor.contains(selNow.getRangeAt(0).commonAncestorContainer)) {
+                    items.push({
+                        label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M",
+                        action: function () { commentDialog(null); }
+                    });
+                    items.push({ sep: true });
+                }
+            }
             var cell = e.target.closest ? e.target.closest("td,th") : null;
             if (cell && cell.closest("table.of-table") && editor.contains(cell)) {
                 items = items.concat(tableContextItems(cell));
@@ -1866,13 +2313,15 @@
 
     /* ================= shortcuts ================= */
     function bindShortcuts() {
-        OfficeApp.registerShortcut("Ctrl+B", function () { exec("bold"); });
-        OfficeApp.registerShortcut("Ctrl+I", function () { exec("italic"); });
-        OfficeApp.registerShortcut("Ctrl+U", function () { exec("underline"); });
-        OfficeApp.registerShortcut("Ctrl+Shift+X", function () { exec("strikeThrough"); });
-        OfficeApp.registerShortcut("Ctrl+K", linkDialog);
-        OfficeApp.registerShortcut("Ctrl+F", function () { openFind(false); });
-        OfficeApp.registerShortcut("Ctrl+H", function () { openFind(true); });
+        OfficeApp.registerShortcut("Ctrl+B", function () { exec("bold"); }, { description: "Bold", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+I", function () { exec("italic"); }, { description: "Italic", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+U", function () { exec("underline"); }, { description: "Underline", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+Shift+X", function () { exec("strikeThrough"); }, { description: "Strikethrough", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+K", linkDialog, { description: "Insert link", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+Alt+M", function () { commentDialog(null); },
+            { description: "Add comment", group: "Review" });
+        OfficeApp.registerShortcut("Ctrl+F", function () { openFind(false); }, { description: "Find" });
+        OfficeApp.registerShortcut("Ctrl+H", function () { openFind(true); }, { description: "Find and replace" });
         // lists - register both the digit and the shifted symbol (layout dependent)
         OfficeApp.registerShortcut("Ctrl+Shift+7", function () { exec("insertOrderedList"); });
         OfficeApp.registerShortcut("Ctrl+Shift+&", function () { exec("insertOrderedList"); });
@@ -1944,6 +2393,7 @@
                             { label: "Image", icon: "image outline", sub: imageMenuItems() },
                             { label: "Table...", icon: "table", action: insertTableDialog },
                             { label: "Link...", icon: "linkify", key: "Ctrl+K", action: linkDialog },
+                            { label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M", action: function () { commentDialog(null); } },
                             { sep: true },
                             { label: "Horizontal rule", icon: "minus", action: function () { exec("insertHorizontalRule"); } },
                             { label: "Code block", icon: "code", action: function () { applyParagraphStyle("pre"); } },
@@ -2015,7 +2465,23 @@
                 { label: "Find...", icon: "search", key: "Ctrl+F", action: function () { openFind(false); } },
                 { label: "Find and replace...", icon: "exchange", key: "Ctrl+H", action: function () { openFind(true); } },
                 { sep: true },
-                { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll }
+                { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll },
+                { sep: true },
+                {
+                    label: "Suggest edits", icon: "pencil alternate",
+                    checked: function () { return suggesting; },
+                    action: function () { setSuggesting(!suggesting); }
+                },
+                {
+                    label: "Accept all suggestions", icon: "check circle outline",
+                    enabled: function () { return allSuggestions().length > 0; },
+                    action: function () { resolveAllSuggestions(true); }
+                },
+                {
+                    label: "Reject all suggestions", icon: "times circle outline",
+                    enabled: function () { return allSuggestions().length > 0; },
+                    action: function () { resolveAllSuggestions(false); }
+                }
             ],
 
             viewMenuExtras: [
@@ -2031,6 +2497,11 @@
                     label: "Layout boxes (regions)",
                     checked: function () { return document.body.classList.contains("doc-show-boxes"); },
                     action: toggleLayoutBoxes
+                },
+                {
+                    label: "Comments panel",
+                    checked: function () { return commentsPanelVisible(); },
+                    action: function () { showCommentsPanel(!commentsPanelVisible()); }
                 },
                 {
                     label: "Spell check",
@@ -2059,7 +2530,11 @@
         bindShortcuts();
         initSelectionBar();
         initTableResize();
+        buildCommentsPanel();
+        OfficeApp.addStatusItem("suggest", "");
         OfficeApp.addStatusItem("wc", "0 words · 0 characters");
+        if (OfficeApp.getSetting("cmtPanel", false)) showCommentsPanel(true);
+        updateSuggestStatus();
         if (OfficeApp.getSetting("layoutBoxes", false)) {
             document.body.classList.add("doc-show-boxes");
         }

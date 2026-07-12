@@ -11,6 +11,7 @@
                 cols: 26, rows: 200,             // logical grid size
                 cells: {                         // sparse, keyed "A1"
                     "A1": { v: "raw input ('=' prefix = formula)",
+                            n: "cell note",      // optional; xlsx comment
                             s: {                 // style, all optional
                                 b,i,u: bool,
                                 al: "l"|"c"|"r",
@@ -32,7 +33,13 @@
                             range: "A1:B5",
                             opts: { type: "bar"|"line"|"pie", title,
                                     headerRow: bool, labelCol: bool,
-                                    stacked: bool } } ]
+                                    stacked: bool } } ],
+                pivot: { srcSheet: 0,            // only on generated pivot
+                         range: "A1:C10",        // sheets (sheets_io.js);
+                         rowField: 0,            // fields are 0-based col
+                         colField: 1,            // offsets in range, -1=none
+                         valField: 2,
+                         agg: "sum"|"count"|"avg"|"min"|"max" }
             }
         ],
         active: 0
@@ -441,7 +448,13 @@ var SheetsApp = (function () {
         var cls = cellClasses(c, r, s, fmtd, inSel);
         if (pinX !== null || pinY !== null) cls += " frozen";
         if (pinX !== null && pinY !== null) cls += " frozen-corner";
-        return '<div class="' + cls + '" data-c="' + c + '" data-r="' + r + '" style="' +
+        var cellData = sheet().cells[k];
+        var noteAttr = "";
+        if (cellData && cellData.n) {
+            cls += " note";
+            noteAttr = ' title="' + esc(cellData.n) + '"';
+        }
+        return '<div class="' + cls + '" data-c="' + c + '" data-r="' + r + '"' + noteAttr + ' style="' +
             cellStyleCss(s, rect) + '">' + esc(text) + "</div>";
     }
     function renderGrid() {
@@ -585,6 +598,48 @@ var SheetsApp = (function () {
         commit();
         renderAll();
     }
+    /* ================= cell notes ================= */
+    function noteAt(c, r) {
+        var cell = sheet().cells[key(c, r)];
+        return (cell && cell.n) || "";
+    }
+    function setNote(c, r, text) {
+        text = String(text || "").trim();
+        var s = sheet(), k = key(c, r);
+        var cell = s.cells[k];
+        if (text) {
+            if (!cell) { cell = { v: "" }; s.cells[k] = cell; }
+            cell.n = text;
+        } else if (cell) {
+            delete cell.n;
+            if (cell.v === "" && !cell.s) delete s.cells[k];
+        }
+        commit();
+    }
+    function noteDialog(c, r) {
+        var $b = $('<label>Note for ' + esc(key(c, r)) + '</label>' +
+            '<textarea id="shNoteText" rows="5" style="width:100%;resize:vertical;"></textarea>');
+        $b.filter("textarea").val(noteAt(c, r));
+        var existing = noteAt(c, r) !== "";
+        var buttons = [{ label: "Cancel" }];
+        if (existing) {
+            buttons.push({
+                label: "Delete note", danger: true,
+                action: function (close) { close(); setNote(c, r, ""); }
+            });
+        }
+        buttons.push({
+            label: "Save", primary: true,
+            action: function (close, $bd) {
+                var v = $bd.find("#shNoteText").val();
+                close();
+                setNote(c, r, v);
+            }
+        });
+        OfficeApp.dialog({ title: existing ? "Edit note" : "Add note", body: $b, buttons: buttons });
+        setTimeout(function () { $("#shNoteText").focus(); }, 50);
+    }
+
     function renameSheetDialog(i) {
         OfficeApp.prompt("Rename sheet", "Sheet name", body.sheets[i].name, function (v) {
             if (!v) return;
@@ -709,6 +764,7 @@ var SheetsApp = (function () {
         var c = editing.c, r = editing.r;
         var val = editing.viaFx ? $("#shFxInput").val() : inputEl.value;
         editing = null;
+        refPick = null;
         inputEl.style.display = "none";
         if (val !== rawAt(c, r)) {
             setRaw(c, r, val);
@@ -722,6 +778,7 @@ var SheetsApp = (function () {
     function cancelEdit() {
         if (!editing) return;
         editing = null;
+        refPick = null;
         inputEl.style.display = "none";
         gridEl.focus();
         syncFxBar();
@@ -777,6 +834,14 @@ var SheetsApp = (function () {
         scrollIntoView(c, r);
     }
     function onKeyDown(e) {
+        // grid range picking for a hidden dialog: Escape cancels it
+        if (rangePickCb && e.key === "Escape") {
+            e.preventDefault();
+            var cb = rangePickCb;
+            rangePickCb = null;
+            cb(null);
+            return;
+        }
         if ($(".of-dialog-overlay").length) return;
         var ctrl = e.ctrlKey || e.metaKey;
         var k = e.key;
@@ -815,7 +880,11 @@ var SheetsApp = (function () {
             case "Home": e.preventDefault(); setActive(0, head.r); scrollIntoView(0, head.r); return;
             case "PageDown": e.preventDefault(); moveHead(0, 20, e.shiftKey); return;
             case "PageUp": e.preventDefault(); moveHead(0, -20, e.shiftKey); return;
-            case "F2": e.preventDefault(); startEdit(); return;
+            case "F2":
+                e.preventDefault();
+                if (e.shiftKey) noteDialog(anchor.c, anchor.r);
+                else startEdit();
+                return;
             case "Delete":
             case "Backspace":
                 e.preventDefault();
@@ -853,6 +922,114 @@ var SheetsApp = (function () {
             e.preventDefault();
         }
         setTimeout(function () { if (editing) $("#shFxInput").val(inputEl.value); }, 0);
+    }
+
+    /* ================= cross-sheet reads + sheet creation (pivot) ================= */
+    /* Computed values of a range on ANY sheet. The calculator is bound to
+       the active sheet, so flip it, read, flip back. */
+    function readRangeValues(sheetIdx, rgStr) {
+        var rg = parseRange(rgStr);
+        if (!rg || sheetIdx < 0 || sheetIdx >= body.sheets.length) return null;
+        var saved = body.active;
+        var out = [];
+        try {
+            if (sheetIdx !== saved) { body.active = sheetIdx; rebuildCalc(); }
+            for (var r = rg.r1; r <= rg.r2; r++) {
+                var row = [];
+                for (var c = rg.c1; c <= rg.c2; c++) row.push(calc.value(c, r));
+                out.push(row);
+            }
+        } finally {
+            if (body.active !== saved) { body.active = saved; rebuildCalc(); }
+        }
+        return out;
+    }
+    // append a sheet (unique name derived from base) and make it active
+    function addSheetNamed(base, data) {
+        var names = body.sheets.map(function (s) { return s.name; });
+        var name = base, n = 2;
+        while (names.indexOf(name) >= 0) name = base + " " + (n++);
+        data.name = name;
+        body.sheets.push(normalizeBody({ sheets: [data], active: 0 }).sheets[0]);
+        body.active = body.sheets.length - 1;
+        rebuildCalc();
+        commit();
+        renderAll();
+        return body.sheets[body.active];
+    }
+
+    /* ================= range picking (formulas + dialogs) ================= */
+    /* While editing an "=" formula, pressing the mouse on the grid inserts
+       the cell/range reference at the caret and live-updates it during the
+       drag - the Excel/Google Sheets gesture. */
+    var refPick = null;      // {insertAt, len, lastVal, start:{c,r}}
+    var rangePickCb = null;  // dialog "pick a range on the grid" callback
+    function refEditorEl() {
+        return editing && editing.viaFx ? document.getElementById("shFxInput") : inputEl;
+    }
+    function refCaret(el) {
+        return el.selectionStart !== null && el.selectionStart !== undefined ?
+            el.selectionStart : el.value.length;
+    }
+    // a reference may be inserted when the caret follows an operator /
+    // opening paren / comma / "=" - or sits right after a just-picked ref
+    function canPickRef() {
+        if (!editing) return false;
+        var el = refEditorEl();
+        var v = el.value;
+        if (v.charAt(0) !== "=") return false;
+        var caret = refCaret(el);
+        if (refPick && refPick.lastVal === v && caret === refPick.insertAt + refPick.len) return true;
+        return /[=+\-*\/(,:<>&^%]\s*$/.test(v.substring(0, caret));
+    }
+    function refPickApply(a, b) {
+        var el = refEditorEl();
+        var txt = (a.c === b.c && a.r === b.r) ? key(a.c, a.r) :
+            rangeStr({
+                c1: Math.min(a.c, b.c), r1: Math.min(a.r, b.r),
+                c2: Math.max(a.c, b.c), r2: Math.max(a.r, b.r)
+            });
+        var v = el.value;
+        el.value = v.substring(0, refPick.insertAt) + txt + v.substring(refPick.insertAt + refPick.len);
+        refPick.len = txt.length;
+        refPick.lastVal = el.value;
+        try {
+            el.setSelectionRange(refPick.insertAt + txt.length, refPick.insertAt + txt.length);
+        } catch (err) { }
+        // keep the twin editor in sync (cell input <-> formula bar)
+        if (editing.viaFx) inputEl.value = el.value;
+        else $("#shFxInput").val(el.value);
+        // outline the picked range on the grid
+        var ra = cellRect(Math.min(a.c, b.c), Math.min(a.r, b.r));
+        var rb = cellRect(Math.max(a.c, b.c), Math.max(a.r, b.r));
+        rangeBoxEl.style.display = "block";
+        rangeBoxEl.style.left = ra.x + "px";
+        rangeBoxEl.style.top = ra.y + "px";
+        rangeBoxEl.style.width = (rb.x + rb.w - ra.x) + "px";
+        rangeBoxEl.style.height = (rb.y + rb.h - ra.y) + "px";
+    }
+    function beginRefPick(pos) {
+        var el = refEditorEl();
+        var caret = refCaret(el);
+        // clicking again right after a picked ref replaces that ref
+        if (!(refPick && refPick.lastVal === el.value && caret === refPick.insertAt + refPick.len)) {
+            refPick = { insertAt: caret, len: 0, lastVal: el.value };
+        }
+        refPick.start = pos;
+        refPickApply(pos, pos);
+    }
+    /* Dialogs call this (via SheetsApp.pickRangeFromGrid) to let the user
+       drag a range while the dialog is temporarily hidden; cb gets the
+       "A1:B5" string, or null when cancelled with Escape. */
+    function pickRangeFromGrid(cb) {
+        var $ov = $(".of-dialog-overlay");
+        $ov.hide();
+        OfficeApp.setStatus("Drag on the grid to select a range (Esc cancels)", "info", 0);
+        rangePickCb = function (rgStr) {
+            $ov.show();
+            OfficeApp.setStatus("");
+            cb(rgStr);
+        };
     }
 
     /* ================= mouse ================= */
@@ -893,6 +1070,15 @@ var SheetsApp = (function () {
             gridEl.classList.add("sh-filling");
             try { gridEl.setPointerCapture(e.pointerId); } catch (err) { }
             e.preventDefault();
+            return;
+        }
+        // editing a formula: the press picks a reference instead of
+        // committing the edit
+        if (editing && canPickRef()) {
+            beginRefPick(cellAtPos(gridPos(e)));
+            drag = { mode: "refpick" };
+            try { gridEl.setPointerCapture(e.pointerId); } catch (err) { }
+            e.preventDefault();   // also keeps focus in the editor
             return;
         }
         // grab the selection border to move the whole block
@@ -954,6 +1140,8 @@ var SheetsApp = (function () {
             rangeBoxEl.style.top = ga.y + "px";
             rangeBoxEl.style.width = (gb.x + gb.w - ga.x) + "px";
             rangeBoxEl.style.height = (gb.y + gb.h - ga.y) + "px";
+        } else if (drag.mode === "refpick") {
+            if (refPick && editing) refPickApply(refPick.start, pos);
         } else if (drag.mode === "fill") {
             var rg = drag.startRg;
             // constrain to a single axis: whichever dominates
@@ -986,6 +1174,13 @@ var SheetsApp = (function () {
         } else if (d.mode === "movesel") {
             if (d.mv && (d.mv.dC || d.mv.dR)) moveRange(d.srcRg, d.mv.dC, d.mv.dR);
             else renderGrid();   // restore the range box
+        } else if (d.mode === "refpick") {
+            // keep editing; put the caret back in the formula editor
+            if (editing) try { refEditorEl().focus(); } catch (err) { }
+        } else if (d.mode === "sel" && rangePickCb) {
+            var cb = rangePickCb;
+            rangePickCb = null;
+            cb(rangeStr(selRange()));
         }
     }
     function onGridDblClick(e) {
@@ -1252,8 +1447,61 @@ var SheetsApp = (function () {
         }
         return { w: rg.c2 - rg.c1 + 1, h: rg.r2 - rg.r1 + 1, src: { c: rg.c1, r: rg.r1 }, cells: rows, rg: rg };
     }
+    /* charts ride the system clipboard as marker JSON, like cells ride
+       it as TSV - so Ctrl+C on a selected chart pastes a chart, even
+       into another Sheets window */
+    var CHART_CLIP_MARKER = "arozos-sheets-chart";
+    function selectedChartObj() {
+        if (!selChart) return null;
+        var charts = sheet().charts || [];
+        for (var i = 0; i < charts.length; i++) {
+            if (charts[i].id === selChart) return charts[i];
+        }
+        return null;
+    }
+    function parseChartClipboardText(t) {
+        if (!t || t.indexOf(CHART_CLIP_MARKER) < 0) return null;
+        try {
+            var o = JSON.parse(t);
+            if (o && o.app === CHART_CLIP_MARKER && o.chart && o.chart.range) return o.chart;
+        } catch (e) { }
+        return null;
+    }
+    // e = ClipboardEvent for sync writes (Ctrl+C); null = menu path (async)
+    function copySelectedChart(isCut, e) {
+        var ch = selectedChartObj();
+        if (!ch) return false;
+        var txt = JSON.stringify({ app: CHART_CLIP_MARKER, version: 1, chart: deep(ch) });
+        if (e && e.clipboardData) {
+            e.clipboardData.setData("text/plain", txt);
+            e.preventDefault();
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).catch(function () { });
+        }
+        if (isCut) {
+            var s = sheet();
+            s.charts = (s.charts || []).filter(function (c) { return c.id !== ch.id; });
+            selChart = null;
+            commit();
+        }
+        OfficeApp.setStatus(isCut ? "Chart cut" : "Chart copied");
+        return true;
+    }
+    function pasteChart(ch) {
+        var s = sheet();
+        var n = deep(ch);
+        n.id = "ch-" + Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+        n.x = (Number(n.x) || 0) + 20;
+        n.y = (Number(n.y) || 0) + 20;
+        if (!s.charts) s.charts = [];
+        s.charts.push(n);
+        selChart = n.id;
+        commit();
+        OfficeApp.setStatus("Chart pasted");
+    }
     function onCopy(e, isCut) {
         if (editing || isTypingTarget(document.activeElement) && document.activeElement !== gridEl) return;
+        if (copySelectedChart(isCut, e)) return;
         var rg = selRange();
         clipInternal = buildInternalClip(rg);
         clipTsv = tsvOfRange(rg, true);
@@ -1269,7 +1517,10 @@ var SheetsApp = (function () {
         if (isTypingTarget(document.activeElement) && document.activeElement !== gridEl) return;
         var text = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
         e.preventDefault();
-        if (clipInternal && text === clipTsv) {
+        var chp = parseChartClipboardText(text);
+        if (chp) {
+            pasteChart(chp);
+        } else if (clipInternal && text === clipTsv) {
             pasteInternal();
         } else if (text) {
             pasteText(text);
@@ -1572,6 +1823,17 @@ var SheetsApp = (function () {
                 label: "Sort range Z → A", icon: "sort amount up",
                 action: function () { sortSelection(false); }
             },
+            { sep: true },
+            {
+                label: (noteAt(anchor.c, anchor.r) ? "Edit note..." : "Add note..."),
+                icon: "sticky note outline", key: "Shift+F2",
+                action: function () { noteDialog(anchor.c, anchor.r); }
+            },
+            {
+                label: "Delete note", icon: "sticky note",
+                enabled: function () { return noteAt(anchor.c, anchor.r) !== ""; },
+                action: function () { setNote(anchor.c, anchor.r, ""); }
+            },
             { sep: true }
         ];
         if (multi) items.push({ label: "Merge cells", icon: "compress", action: mergeSelection });
@@ -1584,6 +1846,7 @@ var SheetsApp = (function () {
     function execClipboard(op) {
         // menu-driven clipboard: fall back to internal buffer + async API
         if (op === "copy" || op === "cut") {
+            if (copySelectedChart(op === "cut", null)) return;
             var rg = selRange();
             clipInternal = buildInternalClip(rg);
             clipTsv = tsvOfRange(rg, true);
@@ -1595,7 +1858,9 @@ var SheetsApp = (function () {
         } else {
             if (navigator.clipboard && navigator.clipboard.readText) {
                 navigator.clipboard.readText().then(function (t) {
-                    if (clipInternal && t === clipTsv) pasteInternal();
+                    var chp = parseChartClipboardText(t);
+                    if (chp) pasteChart(chp);
+                    else if (clipInternal && t === clipTsv) pasteInternal();
                     else if (t) pasteText(t);
                     else if (clipInternal) pasteInternal();
                 }).catch(function () {
@@ -1634,16 +1899,21 @@ var SheetsApp = (function () {
         $tb.append(tbtn("bold", "Bold (Ctrl+B)", function () { toggleStyleFlag("b"); }, "shBtnBold"));
         $tb.append(tbtn("italic", "Italic (Ctrl+I)", function () { toggleStyleFlag("i"); }, "shBtnItalic"));
         $tb.append(tbtn("underline", "Underline (Ctrl+U)", function () { toggleStyleFlag("u"); }, "shBtnUnderline"));
-        var $tc = $('<input type="color" class="of-tcolor" id="shTextColor" title="Text color" value="#202124">');
+        var $tc = OfficeColorPicker.swatchInput({
+            id: "shTextColor", title: "Text color", value: "#202124"
+        });
         $tc.on("change", function () {
             var v = $tc.val();
             applyStyle(function (st) { st.fc = v; });
         });
         $tb.append($tc);
-        var $fc = $('<input type="color" class="of-tcolor" id="shFillColor" title="Fill color" value="#ffff88">');
+        var $fc = OfficeColorPicker.swatchInput({
+            id: "shFillColor", title: "Fill color", value: "#ffff88",
+            allowNone: true, noneLabel: "No fill"
+        });
         $fc.on("change", function () {
             var v = $fc.val();
-            applyStyle(function (st) { st.bg = v; });
+            applyStyle(function (st) { if (v) st.bg = v; else delete st.bg; });
         });
         $tb.append($fc);
         $tb.append(tbtn("th", "Toggle borders", function () {
@@ -1736,6 +2006,16 @@ var SheetsApp = (function () {
             {
                 label: sheet().filter ? "Remove filter" : "Create filter", icon: "filter",
                 action: function () { if (window.SheetsIO) SheetsIO.toggleFilter(); }
+            },
+            { sep: true },
+            {
+                label: "Pivot table...", icon: "table",
+                action: function () { if (window.SheetsIO) SheetsIO.pivotDialog(); }
+            },
+            {
+                label: "Refresh pivot table", icon: "sync alternate",
+                enabled: function () { return !!sheet().pivot; },
+                action: function () { if (window.SheetsIO) SheetsIO.refreshPivot(); }
             },
             { sep: true },
             {
@@ -1954,6 +2234,11 @@ var SheetsApp = (function () {
         },
         selectChart: function (id) { selChart = id; renderGrid(); },
         selectedChart: function () { return selChart; },
+        copySelectedChart: copySelectedChart,
+        pickRangeFromGrid: pickRangeFromGrid,
+        readRangeValues: readRangeValues,
+        addSheetNamed: addSheetNamed,
+        activeSheetIndex: function () { return body.active; },
         valueAt: valueAt,
         displayText: displayText,
         rawAt: rawAt,

@@ -493,6 +493,16 @@ body.dark .sl-h { background: #2b2d31; }
 }
 
 /* ============ Print ============ */
+/* Inline links inside slide text: Semantic UI's global anchor reset strips
+   the underline and recolors, so restore the classic link look on every
+   slide surface (editor layer, thumbnails, print pages, present stage,
+   presenter popup - they all carry .sl-slidebase). */
+.sl-slidebase a[href] {
+    color: #1a73e8;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 #slPrintArea { display: none; }
 @media print {
     #workspace { display: none !important; }
