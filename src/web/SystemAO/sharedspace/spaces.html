@@ -104,6 +104,29 @@
     .pill.private { background: rgba(255,59,48,0.12); color: #a52a22; }
     .pill.persist { background: rgba(0,122,255,0.12); color: #0a58b6; }
     .empty-row { color: var(--muted); text-align: center; padding: 18px 0; }
+
+    /* ── Dark theme (System Settings toggles .dark on #ss-root) ── */
+    #ss-root.dark {
+        --bg:      #1c1c1e;
+        --card:    #2c2c2e;
+        --border:  rgba(255,255,255,0.12);
+        --text:    #ececec;
+        --dim:     #aeaeb2;
+        --muted:   #6e6e73;
+        --shadow:  0 1px 3px rgba(0,0,0,0.4), 0 1px 8px rgba(0,0,0,0.3);
+    }
+    #ss-root.dark .conf-field input[type="number"] {
+        background: #1c1c1e;
+        color: var(--text);
+        border-color: var(--border);
+    }
+    #ss-root.dark .btn.secondary { background: rgba(255,255,255,0.10); color: var(--text); }
+    #ss-root.dark .btn.secondary:hover { background: rgba(255,255,255,0.16); }
+    #ss-root.dark .pill { background: rgba(255,255,255,0.10); color: var(--dim); }
+    #ss-root.dark .pill.public { background: rgba(52,199,89,0.22); color: #5be084; }
+    #ss-root.dark .pill.private { background: rgba(255,59,48,0.22); color: #ff8a80; }
+    #ss-root.dark .pill.persist { background: rgba(10,132,255,0.24); color: #7fbcff; }
+    #ss-root.dark table tr:hover > td { background: rgba(255,255,255,0.04); }
     </style>
 </head>
 <body>
@@ -244,6 +267,23 @@
     $("#refreshBtn").on("click", loadSpaces);
     loadConfig();
     loadSpaces();
+
+    /* ── Theme: follow the System Settings host (light / dark) ── */
+    (function () {
+        var root = document.getElementById("ss-root");
+        if (root && typeof preferredTheme !== "undefined") {
+            root.classList.toggle("dark", preferredTheme === "dark" || preferredTheme === "darkTheme");
+        } else if (root && window.matchMedia) {
+            //Standalone (opened outside System Settings): follow the OS
+            root.classList.toggle("dark", window.matchMedia("(prefers-color-scheme: dark)").matches);
+        }
+    })();
+
+    //Live toggle from the desktop dark/light switch
+    window.detailPageThemeCallback = function (isDark) {
+        var root = document.getElementById("ss-root");
+        if (root) root.classList.toggle("dark", isDark);
+    };
 </script>
 </body>
 </html>

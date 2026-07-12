@@ -10,8 +10,8 @@
 :root {
     --cs-frame: #481349;
     --cs-frame-dark: #3b0e3c;
-    --cs-sb-hover: rgba(255, 255, 255, 0.10);
-    --cs-sb-active: rgba(0, 0, 0, 0.30);
+    --cs-sb-hover: rgba(255, 255, 255, 0.08);
+    --cs-sb-active: #5b2e5c;
     --cs-onpurple: rgba(255, 255, 255, 0.78);
     --cs-onpurple-dim: rgba(255, 255, 255, 0.55);
     --cs-badge: #cd2553;

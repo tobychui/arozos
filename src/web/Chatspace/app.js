@@ -586,15 +586,20 @@
         recountUnread(convo);
     }
 
+    //Unread + mention counters that drive the sidebar badge. Every message
+    //(including thread replies) since the last read is counted; a message
+    //that @mentions me (or @everyone / @channel) also bumps the mention
+    //count. The badge itself only appears for DMs (unread count) or for
+    //channels with mentions - see convoItemHtml.
     function recountUnread(convo) {
         var since = state.prefs.lastRead[convo.id] || 0;
         var unread = 0;
         var mentions = 0;
-        convo.roots.forEach(function (msg) {
-            if (msg.time > since && msg.user !== state.username) {
-                unread++;
-                if (mentionsMe(msg.text)) mentions++;
-            }
+        Object.keys(convo.msgs).forEach(function (id) {
+            var msg = convo.msgs[id];
+            if (msg.time <= since || msg.user === state.username) return;
+            unread++;
+            if (msg.kind === "text" && mentionsMe(msg.text)) mentions++;
         });
         convo.unread = unread;
         convo.mentions = mentions;
