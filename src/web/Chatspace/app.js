@@ -49,6 +49,7 @@
         leave: "../system/sharedspace/leave",
         del: "../system/sharedspace/delete",
         meta: "../system/sharedspace/meta",
+        access: "../system/sharedspace/access",
         membersAdd: "../system/sharedspace/members/add",
         membersRemove: "../system/sharedspace/members/remove",
         items: "../system/sharedspace/items",
@@ -127,6 +128,8 @@
         sbNav: null,      // "threads"|"drafts"|"activity"|"later" alt list
         mainView: "convo", // "convo" | "activity" (main pane content)
         activityTab: "all",
+        detailsTab: "about", // active tab in the channel details modal
+        collapsedFiles: {},  // itemid -> true when the preview is folded
         editing: null,    // {convoId, itemId} composer edit target
         navHist: [],
         navPos: -1,
@@ -921,7 +924,7 @@
         convo.desc.members = Object.keys(convo.members).length;
         if (state.active === convo.id) {
             renderChannelHeader();
-            if (state.rpMode === "details") renderRightPanel();
+            if (detailsModalOpen()) renderDetailsModal();
         }
     }
 
@@ -950,7 +953,8 @@
 
     function renderPresence() {
         renderSidebar();
-        if (state.rpMode === "profile" || state.rpMode === "details") renderRightPanel();
+        if (state.rpMode === "profile") renderRightPanel();
+        if (detailsModalOpen()) renderDetailsModal();
     }
 
     /* ================= Workspace bootstrap ================= */
@@ -1526,7 +1530,12 @@
                 lastDay = day;
                 var divider = document.createElement("div");
                 divider.className = "day-divider";
-                divider.innerHTML = "<span>" + escapeHtml(fmtDayLabel(msg.time)) + "</span>";
+                divider.innerHTML = '<span class="day-pill" title="Jump to a date">' +
+                    escapeHtml(fmtDayLabel(msg.time)) + ' <i class="chevron down icon"></i></span>';
+                divider.querySelector(".day-pill").addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    openJumpMenu(this);
+                });
                 box.appendChild(divider);
                 prev = null;
             }
@@ -1565,24 +1574,33 @@
             '<span class="msg-time" title="' + escapeAttr(fmtFull(msg.time)) + '">' + escapeHtml(fmtTime(msg.time)) + '</span>' +
             '</div>';
 
-        if (msg.kind === "image") {
-            var inlineHref = API.download + "?spaceid=" + encodeURIComponent(convo.id) +
-                "&itemid=" + encodeURIComponent(msg.id) + "&inline=1";
+        if (msg.kind === "image" || msg.kind === "file") {
+            //Slack-style attachment: a filename bar with a collapse chevron
+            //above the preview, hover actions overlaid on the preview
             var dlHref = API.download + "?spaceid=" + encodeURIComponent(convo.id) +
                 "&itemid=" + encodeURIComponent(msg.id);
-            body += '<div class="msg-text">' + escapeHtml(msg.name) + '</div>' +
-                '<a href="' + inlineHref + '" target="_blank" rel="noopener">' +
-                '<img class="msg-img" src="' + inlineHref + '" alt="' + escapeAttr(msg.name) + '"></a>' +
-                '<div><a class="msg-file" href="' + dlHref + '" download><i class="download icon"></i>' +
-                '<span><span class="file-name">' + escapeHtml(msg.name) + '</span>' +
-                '<span class="file-size"> &middot; ' + formatBytes(msg.size) + '</span></span></a></div>';
-        } else if (msg.kind === "file") {
-            var href = API.download + "?spaceid=" + encodeURIComponent(convo.id) +
-                "&itemid=" + encodeURIComponent(msg.id);
-            body += '<a class="msg-file" href="' + href + '" download>' +
-                '<i class="file outline icon"></i>' +
-                '<span><span class="file-name">' + escapeHtml(msg.name) + '</span><br>' +
-                '<span class="file-size">' + formatBytes(msg.size) + '</span></span></a>';
+            var inlineHref = dlHref + "&inline=1";
+            var collapsed = !!state.collapsedFiles[msg.id];
+            body += '<div class="file-head" data-collapse-file="' + escapeAttr(msg.id) + '" ' +
+                'title="' + (collapsed ? "Show preview" : "Hide preview") + '">' +
+                '<span class="file-head-name">' + escapeHtml(msg.name) + '</span> ' +
+                '<i class="chevron ' + (collapsed ? "right" : "down") + ' icon"></i></div>';
+            if (!collapsed && msg.kind === "image") {
+                body += '<div class="file-preview">' +
+                    '<a href="' + inlineHref + '" target="_blank" rel="noopener" title="Open full size">' +
+                    '<img class="msg-img" src="' + inlineHref + '" alt="' + escapeAttr(msg.name) + '"></a>' +
+                    '<div class="file-actions">' +
+                    '<a class="fa-btn" href="' + dlHref + '" download title="Download"><i class="download icon"></i></a>' +
+                    '<a class="fa-btn" href="' + inlineHref + '" target="_blank" rel="noopener" title="Open in new tab"><i class="external alternate icon"></i></a>' +
+                    '</div></div>';
+            } else if (!collapsed) {
+                body += '<div class="file-preview">' +
+                    '<a class="msg-file" href="' + dlHref + '" download>' +
+                    '<i class="file outline icon"></i>' +
+                    '<span><span class="file-name">' + escapeHtml(msg.name) + '</span><br>' +
+                    '<span class="file-size">' + formatBytes(msg.size) + '</span></span>' +
+                    '<i class="download icon file-dl-hint"></i></a></div>';
+            }
         } else {
             body += '<div class="msg-text">' + renderRich(msg.text) +
                 (msg.edited ? ' <span class="msg-edited">(edited)</span>' : "") + '</div>';
@@ -1711,6 +1729,17 @@
         if (img) img.addEventListener("load", function () {
             if (state.active === convo.id && isScrolledToBottom()) scrollMessagesToBottom();
         });
+        var fileHead = node.querySelector("[data-collapse-file]");
+        if (fileHead) {
+            fileHead.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var id = fileHead.getAttribute("data-collapse-file");
+                if (state.collapsedFiles[id]) delete state.collapsedFiles[id];
+                else state.collapsedFiles[id] = true;
+                renderMain();
+                renderRightPanel();
+            });
+        }
     }
 
     function appendSysline(text) {
@@ -1742,6 +1771,68 @@
     }
 
     setInterval(renderTyping, 1500);
+
+    /* ---- day divider "Jump to..." menu ---- */
+
+    //Scroll to the first message on or after the given time (or the last
+    //message when everything is older) and flash it.
+    function jumpToTime(targetUnix) {
+        var convo = activeConvo();
+        if (!convo || convo.roots.length === 0) return;
+        var target = convo.roots[convo.roots.length - 1];
+        for (var i = 0; i < convo.roots.length; i++) {
+            if (convo.roots[i].time >= targetUnix) {
+                target = convo.roots[i];
+                break;
+            }
+        }
+        var node = $id("msg-" + target.id);
+        if (node) {
+            node.scrollIntoView({ block: "center" });
+            node.classList.add("highlight");
+            setTimeout(function () { node.classList.remove("highlight"); }, 2500);
+        }
+    }
+
+    function startOfDay(date) {
+        return Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000);
+    }
+
+    function openJumpMenu(anchor) {
+        var menu = $id("jumpMenu");
+        menu.innerHTML =
+            '<div class="jm-label">Jump to...</div>' +
+            '<div class="jm-row" data-jmp="today">Today</div>' +
+            '<div class="jm-row" data-jmp="week">Last week</div>' +
+            '<div class="jm-row" data-jmp="month">Last month</div>' +
+            '<div class="jm-sep"></div>' +
+            '<label class="jm-row jm-date">Jump to a specific date' +
+            '<input type="date" id="jmDate"></label>';
+        menu.style.display = "";
+        positionPopover(menu, anchor);
+        Array.prototype.forEach.call(menu.querySelectorAll("[data-jmp]"), function (row) {
+            row.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var now = new Date();
+                var kind = row.getAttribute("data-jmp");
+                var when = startOfDay(now);
+                if (kind === "week") when = startOfDay(new Date(now.getTime() - 7 * 86400000));
+                if (kind === "month") when = startOfDay(new Date(now.getTime() - 30 * 86400000));
+                closePickers();
+                jumpToTime(when);
+            });
+        });
+        var dateInput = $id("jmDate");
+        dateInput.addEventListener("click", function (e) { e.stopPropagation(); });
+        dateInput.addEventListener("change", function (e) {
+            e.stopPropagation();
+            if (!this.value) return;
+            var parts = this.value.split("-");
+            var picked = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            closePickers();
+            jumpToTime(startOfDay(picked));
+        });
+    }
 
     function jumpToMessage(convoId, msgId, openThreadPanel) {
         var convo = state.convos[convoId];
@@ -1808,8 +1899,14 @@
     }
 
     function openDetails() {
-        state.rpMode = "details";
-        renderRightPanel();
+        if (!activeConvo()) return;
+        state.detailsTab = "about";
+        renderDetailsModal();
+        openModal("detailsModal");
+    }
+
+    function detailsModalOpen() {
+        return $id("detailsModal").style.display !== "none";
     }
 
     function openProfile(username) {
@@ -1828,8 +1925,6 @@
 
         if (state.rpMode === "thread") {
             renderThreadPanel(convo);
-        } else if (state.rpMode === "details") {
-            renderDetailsPanel(convo);
         } else if (state.rpMode === "profile") {
             renderProfilePanel(state.rpProfileUser);
         }
@@ -1864,101 +1959,160 @@
         body.scrollTop = body.scrollHeight;
     }
 
-    function renderDetailsPanel(convo) {
+    //Slack-style tabbed channel details modal (About / Members / Settings)
+    function renderDetailsModal() {
+        var convo = activeConvo();
+        if (!convo) { closeModal("detailsModal"); return; }
         var isDm = convo.kind === "dm";
-        $id("rpTitle").textContent = isDm ? "Conversation details" : "Channel details";
-        $id("rpSubtitle").textContent = (isDm ? "" : "#") + convoLabel(convo);
         var meta = metaOf(convo.desc);
         var manager = canManage(convo);
+
+        var prefixIcon = isDm ? "" :
+            (convo.desc.access === "private" ? '<i class="lock icon"></i> ' : '<i class="hashtag icon"></i> ');
+        $id("dtName").innerHTML = prefixIcon + escapeHtml(convoLabel(convo));
+        $id("dtStarBtn").innerHTML = '<i class="star ' + (isStarred(convo.id) ? "" : "outline ") + 'icon"></i> ' +
+            (isStarred(convo.id) ? "Starred" : "Star");
+        $id("dtMemberCount").textContent = Object.keys(convo.members).length || convo.desc.members || 0;
+        Array.prototype.forEach.call(document.querySelectorAll(".dt-tab"), function (tab) {
+            tab.classList.toggle("active", tab.getAttribute("data-dtab") === state.detailsTab);
+        });
+
+        if (state.detailsTab === "about") renderDetailsAbout(convo, meta, manager, isDm);
+        else if (state.detailsTab === "members") renderDetailsMembers(convo, manager);
+        else renderDetailsSettings(convo, manager, isDm);
+    }
+
+    function renderDetailsAbout(convo, meta, manager, isDm) {
         var html = "";
-
-        html += '<div class="rp-section"><h4>Topic</h4><div class="rp-value">' +
+        html += '<div class="dt-section"><h4>Topic</h4><div class="dt-value">' +
             (meta["cs-topic"] ? escapeHtml(meta["cs-topic"]) : '<span style="color:var(--cs-muted);">Add a topic</span>') +
-            (manager ? '<span class="rp-editlink" id="rpEditTopic">Edit</span>' : "") + '</div></div>';
-
+            (manager ? '<span class="rp-editlink" id="dtEditTopic">Edit</span>' : "") + '</div></div>';
         if (!isDm) {
-            html += '<div class="rp-section"><h4>Description</h4><div class="rp-value">' +
-                (meta["cs-desc"] ? escapeHtml(meta["cs-desc"]) : '<span style="color:var(--cs-muted);">None</span>') +
-                '</div></div>';
-            html += '<div class="rp-section"><h4>Created by</h4><div class="rp-value">' +
-                escapeHtml(convo.desc.owner) + '</div>' +
-                '<div class="rp-sub">' + new Date((convo.desc.createdat || 0) * 1000).toLocaleDateString() +
-                ' &middot; ' + escapeHtml(convo.desc.access) + " channel" +
+            html += '<div class="dt-section"><h4>Description</h4><div class="dt-value">' +
+                (meta["cs-desc"] ? escapeHtml(meta["cs-desc"]) : '<span style="color:var(--cs-muted);">Add a description</span>') +
+                (manager ? '<span class="rp-editlink" id="dtEditDesc">Edit</span>' : "") + '</div></div>';
+            html += '<div class="dt-section"><h4>Created by</h4><div class="dt-value">' +
+                escapeHtml(convo.desc.owner) + ' on ' +
+                new Date((convo.desc.createdat || 0) * 1000).toLocaleDateString() + '</div>' +
+                '<div class="rp-sub">' + escapeHtml(convo.desc.access) + " channel" +
                 (convo.desc.persistent ? "" : " &middot; not persistent (history is lost on server restart)") +
                 '</div></div>';
         }
-
         //Pinned messages
         var pinned = convo.roots.filter(function (msg) { return msg.pinned; });
         if (pinned.length > 0) {
-            html += '<div class="rp-section"><h4><i class="thumbtack icon"></i> Pinned</h4>';
+            html += '<div class="dt-section"><h4><i class="thumbtack icon"></i> Pinned</h4>';
             pinned.forEach(function (msg) {
-                html += '<div class="rp-value" style="cursor:pointer;padding:3px 0;" data-jump="' + escapeAttr(msg.id) + '">' +
+                html += '<div class="dt-value" style="cursor:pointer;padding:3px 0;" data-jump="' + escapeAttr(msg.id) + '">' +
                     '<b>' + escapeHtml(msg.user) + ':</b> ' +
                     escapeHtml((msg.text || msg.name || "").substring(0, 80)) + '</div>';
             });
             html += '</div>';
         }
+        html += '<div class="dt-section" style="border-bottom:none;"><div class="rp-sub">Conversation ID: ' +
+            escapeHtml(convo.id) + '</div></div>';
 
-        //Members
-        var names = Object.keys(convo.members).sort();
-        html += '<div class="rp-section" style="border-bottom:none;padding-bottom:2px;"><h4>Members &middot; ' +
-            names.length + '</h4></div>';
-        if (manager || !isDm) {
-            html += '<div class="rp-action-row" id="rpInviteBtn"><i class="user plus icon"></i>Add people</div>';
-        }
-        names.forEach(function (name) {
-            var role = convo.members[name];
-            html += '<div class="rp-member-row" data-member="' + escapeAttr(name) + '">' +
-                '<span class="avatar">' + avatarHtml(name, 11) + '</span>' +
-                '<span class="presence-dot' + (isOnline(name) ? " online" : "") + '" style="margin:0;border-color:#fff;"></span>' +
-                '<span class="member-name">' + escapeHtml(name) + (name === state.username ? " (you)" : "") + '</span>' +
-                '<span class="member-role">' + escapeHtml(role) + '</span>' +
-                (manager && name !== state.username && name !== convo.desc.owner
-                    ? '<button class="member-remove" data-kick="' + escapeAttr(name) + '" title="Remove">Remove</button>' : "") +
-                '</div>';
-        });
-
-        html += '<div style="height:8px;"></div>';
-        if (!isDm && manager) {
-            html += '<div class="rp-action-row" id="rpRenameBtn"><i class="pencil icon"></i>Rename channel</div>';
-        }
-        if (!isDm && convoLabel(convo) !== "general") {
-            html += '<div class="rp-action-row danger" id="rpLeaveBtn"><i class="sign out icon"></i>Leave channel</div>';
-        }
-        if (manager) {
-            html += '<div class="rp-action-row danger" id="rpDeleteBtn"><i class="trash icon"></i>Delete this ' +
-                (isDm ? "conversation" : "channel") + '</div>';
-        }
-
-        var body = $id("rpBody");
+        var body = $id("dtBody");
         body.innerHTML = html;
-
-        var editTopic = $id("rpEditTopic");
+        var editTopic = $id("dtEditTopic");
         if (editTopic) editTopic.addEventListener("click", function () { editTopicPrompt(convo); });
-        var invite = $id("rpInviteBtn");
-        if (invite) invite.addEventListener("click", function () { openInviteModal(convo); });
-        var rename = $id("rpRenameBtn");
-        if (rename) rename.addEventListener("click", function () { renameChannelPrompt(convo); });
-        var leave = $id("rpLeaveBtn");
-        if (leave) leave.addEventListener("click", function () { leaveConvo(convo); });
-        var del = $id("rpDeleteBtn");
-        if (del) del.addEventListener("click", function () { deleteConvo(convo); });
+        var editDesc = $id("dtEditDesc");
+        if (editDesc) editDesc.addEventListener("click", function () { editDescPrompt(convo); });
         Array.prototype.forEach.call(body.querySelectorAll("[data-jump]"), function (row) {
             row.addEventListener("click", function () {
+                closeModal("detailsModal");
                 jumpToMessage(convo.id, row.getAttribute("data-jump"));
             });
         });
-        Array.prototype.forEach.call(body.querySelectorAll("[data-kick]"), function (btn) {
-            btn.addEventListener("click", function (e) {
-                e.stopPropagation();
-                var target = btn.getAttribute("data-kick");
-                if (!confirm("Remove " + target + " from this conversation?")) return;
-                $.post(API.membersRemove, { spaceid: convo.id, username: target }, function (data) {
-                    var err = apiFail(data);
-                    if (err) showToast("Could not remove", err);
-                }, "json");
+    }
+
+    function renderDetailsMembers(convo, manager) {
+        var body = $id("dtBody");
+        body.innerHTML =
+            '<div class="dt-find"><i class="search icon"></i>' +
+            '<input type="text" id="dtMemberFilter" placeholder="Find members" autocomplete="off"></div>' +
+            '<div class="rp-action-row" id="dtInviteBtn"><span class="dt-addicon"><i class="user plus icon"></i></span>Add people</div>' +
+            '<div id="dtMemberRows"></div>';
+
+        var renderRows = function () {
+            var filter = $id("dtMemberFilter").value.trim().toLowerCase();
+            var names = Object.keys(convo.members).sort();
+            var html = "";
+            names.forEach(function (name) {
+                if (filter && name.toLowerCase().indexOf(filter) < 0) return;
+                var role = convo.members[name];
+                var roleTag = role === "owner" ? "Channel Manager" : (role === "admin" ? "Admin" : "");
+                html += '<div class="rp-member-row" data-member="' + escapeAttr(name) + '">' +
+                    '<span class="avatar">' + avatarHtml(name, 11) + '</span>' +
+                    '<span class="presence-dot' + (isOnline(name) ? " online" : "") + '" style="margin:0;border-color:#fff;"></span>' +
+                    '<span class="member-name">' + escapeHtml(name) + (name === state.username ? " (you)" : "") + '</span>' +
+                    (roleTag ? '<span class="dt-role-tag">' + escapeHtml(roleTag) + '</span>' : "") +
+                    (manager && name !== state.username && name !== convo.desc.owner
+                        ? '<button class="member-remove" data-kick="' + escapeAttr(name) + '" title="Remove">Remove</button>' : "") +
+                    '</div>';
             });
+            if (html === "") html = '<div class="alt-empty" style="color:var(--cs-muted);">Nobody matches</div>';
+            $id("dtMemberRows").innerHTML = html;
+
+            Array.prototype.forEach.call(document.querySelectorAll("#dtMemberRows [data-kick]"), function (btn) {
+                btn.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    var target = btn.getAttribute("data-kick");
+                    if (!confirm("Remove " + target + " from this conversation?")) return;
+                    $.post(API.membersRemove, { spaceid: convo.id, username: target }, function (data) {
+                        var err = apiFail(data);
+                        if (err) showToast("Could not remove", err);
+                    }, "json");
+                });
+            });
+            Array.prototype.forEach.call(document.querySelectorAll("#dtMemberRows .rp-member-row"), function (row) {
+                row.addEventListener("click", function () {
+                    closeModal("detailsModal");
+                    openProfile(row.getAttribute("data-member"));
+                });
+            });
+        };
+        renderRows();
+        $id("dtMemberFilter").addEventListener("input", renderRows);
+        $id("dtInviteBtn").addEventListener("click", function () {
+            closeModal("detailsModal");
+            openInviteModal(convo);
+        });
+    }
+
+    function renderDetailsSettings(convo, manager, isDm) {
+        var html = "";
+        if (!isDm && manager) {
+            html += '<div class="rp-action-row" id="dtRenameBtn"><i class="pencil icon"></i>Rename channel</div>';
+            html += '<div class="rp-action-row" id="dtAccessBtn"><i class="' +
+                (convo.desc.access === "private" ? "unlock" : "lock") + ' icon"></i>Change to a ' +
+                (convo.desc.access === "private" ? "public" : "private") + ' channel</div>';
+        }
+        if (!isDm && convoLabel(convo) !== "general") {
+            html += '<div class="rp-action-row danger" id="dtLeaveBtn"><i class="sign out icon"></i>Leave channel</div>';
+        }
+        if (manager) {
+            html += '<div class="rp-action-row danger" id="dtDeleteBtn"><i class="trash icon"></i>Delete this ' +
+                (isDm ? "conversation" : "channel") + '</div>';
+        }
+        if (html === "") {
+            html = '<div class="alt-empty" style="color:var(--cs-muted);">Only channel managers can change the settings here.</div>';
+        }
+        $id("dtBody").innerHTML = html;
+
+        var rename = $id("dtRenameBtn");
+        if (rename) rename.addEventListener("click", function () { renameChannelPrompt(convo); });
+        var access = $id("dtAccessBtn");
+        if (access) access.addEventListener("click", function () { toggleChannelAccess(convo); });
+        var leave = $id("dtLeaveBtn");
+        if (leave) leave.addEventListener("click", function () {
+            closeModal("detailsModal");
+            leaveConvo(convo);
+        });
+        var del = $id("dtDeleteBtn");
+        if (del) del.addEventListener("click", function () {
+            closeModal("detailsModal");
+            deleteConvo(convo);
         });
     }
 
@@ -1996,7 +2150,35 @@
             convo.desc.metadata = convo.desc.metadata || {};
             convo.desc.metadata["cs-topic"] = topic;
             renderChannelHeader();
-            if (state.rpMode === "details") renderRightPanel();
+            if (detailsModalOpen()) renderDetailsModal();
+        }, "json");
+    }
+
+    function editDescPrompt(convo) {
+        var current = metaOf(convo.desc)["cs-desc"] || "";
+        var desc = prompt("Set the description for this channel:", current);
+        if (desc === null) return;
+        $.post(API.meta, { spaceid: convo.id, key: "cs-desc", value: desc }, function (data) {
+            var err = apiFail(data);
+            if (err) { showToast("Could not set description", err); return; }
+            convo.desc.metadata = convo.desc.metadata || {};
+            convo.desc.metadata["cs-desc"] = desc;
+            if (detailsModalOpen()) renderDetailsModal();
+        }, "json");
+    }
+
+    function toggleChannelAccess(convo) {
+        var target = convo.desc.access === "private" ? "public" : "private";
+        var note = target === "private"
+            ? "Only invited members will be able to see or join it."
+            : "Anyone on this server will be able to find and join it.";
+        if (!confirm("Change #" + convoLabel(convo) + " to a " + target + " channel? " + note)) return;
+        $.post(API.access, { spaceid: convo.id, access: target }, function (data) {
+            var err = apiFail(data);
+            if (err) { showToast("Could not change visibility", err); return; }
+            convo.desc.access = target;
+            renderAll();
+            if (detailsModalOpen()) renderDetailsModal();
         }, "json");
     }
 
@@ -2266,11 +2448,13 @@
     function closePickers() {
         $id("iconPicker").style.display = "none";
         $id("mentionPicker").style.display = "none";
+        $id("jumpMenu").style.display = "none";
         mentionMode = null;
     }
 
     document.addEventListener("click", function (e) {
-        if (!$id("iconPicker").contains(e.target) && !$id("mentionPicker").contains(e.target)) {
+        if (!$id("iconPicker").contains(e.target) && !$id("mentionPicker").contains(e.target) &&
+            !$id("jumpMenu").contains(e.target)) {
             closePickers();
         }
         if (!$id("searchBox").contains(e.target)) {
@@ -2570,7 +2754,7 @@
                 var err = apiFail(data);
                 if (err) showToast("Could not add " + name, err);
                 pending--;
-                if (pending === 0 && state.rpMode === "details") renderRightPanel();
+                if (pending === 0 && detailsModalOpen()) renderDetailsModal();
             }, "json");
         });
         closeModal("inviteModal");
@@ -2778,7 +2962,29 @@
         //Channel header
         $id("chNameBtn").addEventListener("click", openDetails);
         $id("chDetailsBtn").addEventListener("click", openDetails);
-        $id("chMembersBtn").addEventListener("click", openDetails);
+        $id("chMembersBtn").addEventListener("click", function () {
+            state.detailsTab = "members";
+            renderDetailsModal();
+            openModal("detailsModal");
+        });
+
+        //Details modal
+        Array.prototype.forEach.call(document.querySelectorAll(".dt-tab"), function (tab) {
+            tab.addEventListener("click", function () {
+                state.detailsTab = tab.getAttribute("data-dtab");
+                renderDetailsModal();
+            });
+        });
+        $id("dtStarBtn").addEventListener("click", function () {
+            if (state.active) {
+                toggleStar(state.active);
+                renderDetailsModal();
+            }
+        });
+        $id("dtHuddleBtn").addEventListener("click", function () {
+            closeModal("detailsModal");
+            $id("chHuddleBtn").click();
+        });
         $id("chStarBtn").addEventListener("click", function () {
             if (state.active) toggleStar(state.active);
         });
@@ -2994,6 +3200,12 @@
 
     function boot() {
         wireEvents();
+        //PWA: offline app shell (the API surface always goes to the network)
+        if ("serviceWorker" in navigator) {
+            try {
+                navigator.serviceWorker.register("sw.js").catch(function () { });
+            } catch (e) { }
+        }
         loadUsers(function () {
             //Prefs are keyed by username, so load them as soon as we know
             //who we are - before any item fetch computes unread counts

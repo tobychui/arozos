@@ -7,6 +7,11 @@
     <meta name="theme-color" content="#481349" />
     <meta name="description" content="ArozOS Chatspace team chat" />
     <title>Chatspace</title>
+    <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+    <link rel="apple-touch-icon" href="img/logo192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="../script/semantic/semantic.min.css">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
@@ -323,6 +328,29 @@
             </div>
         </div>
     </div>
+
+    <!-- Channel / conversation details (Slack-style tabbed modal) -->
+    <div class="cs-overlay" id="detailsModal" style="display:none;">
+        <div class="cs-modal cs-modal-details">
+            <div class="cs-modal-head">
+                <h3 id="dtName"></h3>
+                <button class="cs-modal-x" data-close="detailsModal"><i class="close icon"></i></button>
+            </div>
+            <div class="dt-actions">
+                <button class="cs-btn" id="dtStarBtn"><i class="star outline icon"></i></button>
+                <button class="cs-btn" id="dtHuddleBtn"><i class="headphones icon"></i> Huddle</button>
+            </div>
+            <div class="dt-tabs">
+                <button class="dt-tab active" data-dtab="about">About</button>
+                <button class="dt-tab" data-dtab="members">Members <span id="dtMemberCount"></span></button>
+                <button class="dt-tab" data-dtab="settings">Settings</button>
+            </div>
+            <div class="cs-modal-body" id="dtBody"></div>
+        </div>
+    </div>
+
+    <!-- Day divider "Jump to..." menu -->
+    <div id="jumpMenu" style="display:none;"></div>
 
     <!-- Icon (reaction / shortcode) picker popover -->
     <div id="iconPicker" style="display:none;"></div>
