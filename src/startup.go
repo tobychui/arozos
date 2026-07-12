@@ -127,10 +127,12 @@ func RunStartup() {
 	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 
 	//8 Start AGI and Subservice modules (Must start after module)
-	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
-	SchedulerInit()  //Start System Scheudler
-	SubserviceInit() //Subservice Handler
-	ArozcastInit()   //Arozcast remote projection pub/sub relay
+	SharedSpaceInit() //Shared collaboration space manager, must start before MeetRoom and AGI
+	MeetRoomInit()    //MeetRoom video conferencing signaling backend, before AGI so the meetroom lib can bind
+	AGIInit()         //ArOZ Javascript Gateway Interface, must start after fs
+	SchedulerInit()   //Start System Scheudler
+	SubserviceInit()  //Subservice Handler
+	ArozcastInit()    //Arozcast remote projection pub/sub relay
 
 	//9. Initiate System Settings Handlers
 	SystemSettingInit()       //Start System Setting Core

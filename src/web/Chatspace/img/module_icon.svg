@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Chatspace module icon: chat bubble with a channel hash, drawn locally -->
+  <defs>
+    <linearGradient id="csbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d2f75"/>
+      <stop offset="1" stop-color="#3f0e40"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#csbg)"/>
+  <!-- speech bubble -->
+  <path d="M64 26c-22.6 0-41 15.2-41 34 0 10.6 5.9 20 15.1 26.2-.6 4.6-2.5 10.2-6.9 14.4-.9.9-.3 2.5 1 2.5 8.6-.2 15.8-3.6 20.7-7.2 3.5.8 7.3 1.2 11.1 1.2 22.6 0 41-15.2 41-34s-18.4-37.1-41-37.1z"
+        fill="#ffffff" opacity="0.96"/>
+  <!-- hash glyph -->
+  <g stroke="#5a2a5f" stroke-width="7" stroke-linecap="round">
+    <line x1="56" y1="44" x2="50" y2="78"/>
+    <line x1="76" y1="44" x2="70" y2="78"/>
+    <line x1="45" y1="53" x2="83" y2="53"/>
+    <line x1="42" y1="69" x2="80" y2="69"/>
+  </g>
+</svg>
