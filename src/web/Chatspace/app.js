@@ -2099,17 +2099,55 @@
 
     /* ================= Right panel ================= */
 
-    function closeRightPanel() {
+    //PWA history integration: the thread / profile panel is a full-screen
+    //sub-view on mobile, so opening it pushes a single history entry. The
+    //device or browser Back button then closes the panel instead of leaving
+    //the app, matching the behaviour of a native chat client.
+    //  active   - a sentinel entry is currently on the history stack
+    //  suppress - true during an internal convo switch, so the transient
+    //             close-then-reopen reuses the sentinel instead of unwinding
+    //             and re-pushing it (which would race the async popstate).
+    var panelHist = { active: false, suppress: false };
+
+    function pushPanelHistory() {
+        if (!panelHist.active) {
+            panelHist.active = true;
+            try { history.pushState({ csPanel: 1 }, ""); } catch (e) { /* history unavailable */ }
+        }
+    }
+
+    //fromPop === true when invoked from the popstate handler: the browser has
+    //already unwound our sentinel, so we must not call history.back() again.
+    function closeRightPanel(fromPop) {
+        var wasOpen = !!state.rpMode;
         state.rpMode = null;
         state.activeThread = null;
         state.rpProfileUser = null;
+        //Drop any in-progress thread-scoped edit so it cannot leak into the
+        //main composer's draft/edit state once the panel is gone.
+        if (state.editing && state.editing.thread) state.editing = null;
         $id("rightPanel").style.display = "none";
+        if (!wasOpen || panelHist.suppress) return;
+        if (fromPop) { panelHist.active = false; return; }
+        if (panelHist.active) {
+            //UI dismissal (close button / Esc / convo switch): consume the entry
+            panelHist.active = false;
+            try { history.back(); } catch (e) { /* history unavailable */ }
+        }
     }
 
     function openThread(convoId, rootId) {
-        if (state.active !== convoId) setActive(convoId);
+        //Switching convo may close a currently open thread; suppress the
+        //history unwind during that internal transition so we reuse the
+        //sentinel we are about to keep (avoids an async popstate race).
+        if (state.active !== convoId) {
+            panelHist.suppress = true;
+            setActive(convoId);
+            panelHist.suppress = false;
+        }
         state.rpMode = "thread";
         state.activeThread = rootId;
+        pushPanelHistory();
         renderRightPanel();
         restoreDraft(true);
         var input = $id("rpComposeInput");
@@ -2130,6 +2168,7 @@
     function openProfile(username) {
         state.rpMode = "profile";
         state.rpProfileUser = username;
+        pushPanelHistory();
         renderRightPanel();
     }
 
@@ -2513,7 +2552,7 @@
             showToast("Message too long", "Messages are capped at " + MAX_MSG_LEN + " characters");
             return;
         }
-        if (state.editing) {
+        if (state.editing && !state.editing.thread) {
             sendEdit(convo, state.editing.itemId, text);
             state.editing = null;
             updateComposerPlaceholder();
@@ -2534,8 +2573,14 @@
         var input = $id("rpComposeInput");
         var text = input.value.trim();
         if (text === "" || text.length > MAX_MSG_LEN) return;
-        sendMessage(convo, text, state.activeThread, $id("rpAlsoSend").checked);
+        if (state.editing && state.editing.thread) {
+            sendEdit(convo, state.editing.itemId, text);
+            state.editing = null;
+        } else {
+            sendMessage(convo, text, state.activeThread, $id("rpAlsoSend").checked);
+        }
         input.value = "";
+        autoGrow(input);
         $id("rpAlsoSend").checked = false;
         delete state.prefs.drafts[draftKey(true)];
         savePrefs();
@@ -2554,6 +2599,28 @@
         input.focus();
     }
 
+    //Edit a reply from inside the open thread panel (parity with the main
+    //composer's inline edit); keeps the edit bound to the thread composer.
+    function startEditInThread(convo, msg) {
+        state.editing = { convoId: convo.id, itemId: msg.id, thread: true };
+        var input = $id("rpComposeInput");
+        input.value = msg.text;
+        autoGrow(input);
+        input.placeholder = "Edit your reply - Enter to save, Esc to cancel";
+        refreshSendButtons();
+        input.focus();
+    }
+
+    function cancelThreadEdit() {
+        if (!state.editing || !state.editing.thread) return;
+        state.editing = null;
+        var input = $id("rpComposeInput");
+        input.value = state.prefs.drafts[draftKey(true)] || "";
+        input.placeholder = "Reply...";
+        autoGrow(input);
+        refreshSendButtons();
+    }
+
     function editLastOwnMessage() {
         var convo = activeConvo();
         if (!convo) return;
@@ -2563,6 +2630,64 @@
                 startEdit(convo, msg);
                 return;
             }
+        }
+    }
+
+    //Up-arrow-to-edit inside the thread panel: pick the last own reply
+    function editLastOwnThreadReply() {
+        var convo = activeConvo();
+        if (!convo || !state.activeThread) return;
+        var root = convo.msgs[state.activeThread];
+        if (!root) return;
+        for (var i = root.replies.length - 1; i >= 0; i--) {
+            var msg = convo.msgs[root.replies[i]];
+            if (msg && msg.user === state.username && msg.kind === "text" && !msg.bot) {
+                startEditInThread(convo, msg);
+                return;
+            }
+        }
+    }
+
+    //Shared keydown logic for both composers. `opts.thread` selects the
+    //thread composer behaviour (reply submit / thread-scoped inline edit).
+    function composerKeydown(e, opts) {
+        var input = e.currentTarget;
+        //Mention autocomplete captures navigation keys while it is open
+        if (mentionPickerOpen()) {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                moveMentionSelection(1);
+                return;
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveMentionSelection(-1);
+                return;
+            } else if (e.key === "Enter" || e.key === "Tab") {
+                if (confirmMention()) { e.preventDefault(); return; }
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                closePickers();
+                return;
+            }
+        }
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (opts.thread) submitThreadComposer();
+            else submitComposer();
+        } else if (e.key === "Escape" && state.editing) {
+            //Cancel an in-progress inline edit (do not also close the thread)
+            e.stopPropagation();
+            if (opts.thread) cancelThreadEdit();
+            else {
+                state.editing = null;
+                input.value = state.prefs.drafts[draftKey(false)] || "";
+                updateComposerPlaceholder();
+                refreshSendButtons();
+            }
+        } else if (e.key === "ArrowUp" && input.value === "") {
+            if (opts.thread) editLastOwnThreadReply();
+            else editLastOwnMessage();
         }
     }
 
@@ -2663,6 +2788,12 @@
         popover.style.visibility = "";
     }
 
+    function anyPickerOpen() {
+        return ["iconPicker", "mentionPicker", "jumpMenu", "downloadMenu"].some(function (id) {
+            return $id(id).style.display !== "none";
+        });
+    }
+
     function closePickers() {
         $id("iconPicker").style.display = "none";
         $id("mentionPicker").style.display = "none";
@@ -2681,14 +2812,22 @@
         }
     });
 
-    //Mention autocomplete over the composer: opened by the @ button or by
-    //typing "@..." at the caret
-    var mentionMode = null; // {prefixStart} when open
+    //Mention autocomplete over a composer: opened by the @ button or by
+    //typing "@..." at the caret. The picker is fully keyboard driven -
+    //Up/Down move the highlight, Enter/Tab confirm, Esc dismisses - and it
+    //works over whichever composer (main or thread) currently has focus.
+    var mentionMode = null; // {prefixStart, input, anchor} when open
 
-    function openMentionPicker(filter, prefixStart) {
+    function mentionPickerOpen() {
+        return !!mentionMode && $id("mentionPicker").style.display !== "none";
+    }
+
+    function openMentionPicker(filter, prefixStart, input, anchor) {
         var convo = activeConvo();
         if (!convo) return;
-        mentionMode = { prefixStart: prefixStart };
+        input = input || $id("composeInput");
+        anchor = anchor || $id("composer");
+        mentionMode = { prefixStart: prefixStart, input: input, anchor: anchor };
         var picker = $id("mentionPicker");
         var lowered = (filter || "").toLowerCase();
         var candidates = [];
@@ -2719,17 +2858,42 @@
         });
         picker.innerHTML = html;
         picker.style.display = "";
-        positionPopover(picker, $id("composer"));
+        positionPopover(picker, anchor);
         Array.prototype.forEach.call(picker.querySelectorAll(".mp-row"), function (row) {
-            row.addEventListener("click", function (e) {
+            row.addEventListener("mousedown", function (e) {
+                //mousedown (not click) so the composer keeps focus/selection
+                e.preventDefault();
                 e.stopPropagation();
                 insertMention(row.getAttribute("data-name"));
             });
         });
     }
 
+    //Move the mention highlight by delta (wraps around) and keep it visible
+    function moveMentionSelection(delta) {
+        var rows = $id("mentionPicker").querySelectorAll(".mp-row");
+        if (rows.length === 0) return;
+        var cur = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].classList.contains("selected")) { cur = i; break; }
+        }
+        rows[cur].classList.remove("selected");
+        var next = (cur + delta + rows.length) % rows.length;
+        rows[next].classList.add("selected");
+        rows[next].scrollIntoView({ block: "nearest" });
+    }
+
+    //Confirm the highlighted mention; returns false when nothing is picked
+    function confirmMention() {
+        var selected = $id("mentionPicker").querySelector(".mp-row.selected") ||
+            $id("mentionPicker").querySelector(".mp-row");
+        if (!selected) return false;
+        insertMention(selected.getAttribute("data-name"));
+        return true;
+    }
+
     function insertMention(name) {
-        var input = $id("composeInput");
+        var input = (mentionMode && mentionMode.input) || $id("composeInput");
         var caret = input.selectionStart;
         var start = mentionMode ? mentionMode.prefixStart : caret;
         input.value = input.value.substring(0, start) + "@" + name + " " + input.value.substring(caret);
@@ -2740,13 +2904,13 @@
         refreshSendButtons();
     }
 
-    function detectMentionTyping() {
-        var input = $id("composeInput");
+    function detectMentionTyping(input, anchor) {
+        input = input || $id("composeInput");
         var caret = input.selectionStart;
         var upto = input.value.substring(0, caret);
         var match = upto.match(/(^|[\s(])@([A-Za-z0-9_.\-]*)$/);
         if (match) {
-            openMentionPicker(match[2], caret - match[2].length - 1);
+            openMentionPicker(match[2], caret - match[2].length - 1, input, anchor);
         } else if (mentionMode) {
             closePickers();
         }
@@ -3252,31 +3416,7 @@
             detectMentionTyping();
         });
         input.addEventListener("keydown", function (e) {
-            if ($id("mentionPicker").style.display !== "none") {
-                if (e.key === "Enter" || e.key === "Tab") {
-                    var selected = document.querySelector("#mentionPicker .mp-row.selected") ||
-                        document.querySelector("#mentionPicker .mp-row");
-                    if (selected) {
-                        e.preventDefault();
-                        insertMention(selected.getAttribute("data-name"));
-                        return;
-                    }
-                } else if (e.key === "Escape") {
-                    closePickers();
-                    return;
-                }
-            }
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitComposer();
-            } else if (e.key === "Escape" && state.editing) {
-                state.editing = null;
-                input.value = state.prefs.drafts[draftKey(false)] || "";
-                updateComposerPlaceholder();
-                refreshSendButtons();
-            } else if (e.key === "ArrowUp" && input.value === "") {
-                editLastOwnMessage();
-            }
+            composerKeydown(e, { thread: false });
         });
         input.addEventListener("blur", saveDraft);
         $id("sendBtn").addEventListener("click", submitComposer);
@@ -3318,18 +3458,16 @@
             this.value = "";
         });
 
-        //Thread composer
+        //Thread composer - same keyboard affordances as the main composer
         var rpInput = $id("rpComposeInput");
         rpInput.addEventListener("input", function () {
             autoGrow(rpInput);
             refreshSendButtons();
             emitTyping(activeConvo());
+            detectMentionTyping(rpInput, $id("rpComposer"));
         });
         rpInput.addEventListener("keydown", function (e) {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitThreadComposer();
-            }
+            composerKeydown(e, { thread: true });
         });
         rpInput.addEventListener("blur", saveDraft);
         $id("rpSendBtn").addEventListener("click", submitThreadComposer);
@@ -3399,10 +3537,22 @@
                 return;
             }
             if (e.key === "Escape") {
+                //Close the top-most layer only, so one Esc peels back one level:
+                //popovers first, then open modals, then the thread / detail panel.
+                if (anyPickerOpen()) { closePickers(); return; }
+                var closedModal = false;
                 Array.prototype.forEach.call(document.querySelectorAll(".cs-overlay"), function (overlay) {
-                    overlay.style.display = "none";
+                    if (overlay.style.display !== "none") { overlay.style.display = "none"; closedModal = true; }
                 });
+                if (closedModal) return;
+                if (state.rpMode) { closeRightPanel(); return; }
             }
+        });
+
+        //PWA / native Back button closes the thread (or profile) panel first
+        window.addEventListener("popstate", function () {
+            if (state.rpMode) closeRightPanel(true);
+            else panelHist.active = false;
         });
 
         //Focus tracking drives read-marking and notification muting
