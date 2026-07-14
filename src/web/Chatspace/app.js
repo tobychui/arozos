@@ -1117,8 +1117,10 @@
             return stash(store, '<i class="' + ICON_BY_CODE[code] + ' icon cs-ic" title=":' + code + ':"></i>');
         });
         //Mentions: real users, broadcast tokens (@everyone/@channel) and
-        //the built-in @ai assistant
-        html = html.replace(/(^|[^A-Za-z0-9_.\-])@([A-Za-z0-9_.\-]+)/g, function (m, lead, name) {
+        //the built-in @ai assistant. The name class includes "@" so email
+        //style usernames (e.g. admin@example.com) are captured whole instead
+        //of stopping at the embedded "@" and only highlighting "admin".
+        html = html.replace(/(^|[^A-Za-z0-9_.\-@])@([A-Za-z0-9_.\-@]+)/g, function (m, lead, name) {
             if (BROADCAST_MENTIONS[name.toLowerCase()]) {
                 return lead + stash(store, '<span class="mention mention-me">@' + escapeHtml(name) + '</span>');
             }
@@ -2908,7 +2910,7 @@
         input = input || $id("composeInput");
         var caret = input.selectionStart;
         var upto = input.value.substring(0, caret);
-        var match = upto.match(/(^|[\s(])@([A-Za-z0-9_.\-]*)$/);
+        var match = upto.match(/(^|[\s(])@([A-Za-z0-9_.\-@]*)$/);
         if (match) {
             openMentionPicker(match[2], caret - match[2].length - 1, input, anchor);
         } else if (mentionMode) {

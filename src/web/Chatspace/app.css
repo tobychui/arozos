@@ -424,9 +424,15 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     flex-shrink: 0;
 }
 
-.ch-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* overflow:hidden stops the name / topic from spilling over the right-hand
+   action buttons (star, members, huddle) when the pane is narrow. */
+.ch-left { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 
 #chNameBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;              /* let the channel name truncate instead of pushing siblings out */
     font-size: 17.5px;
     font-weight: 900;
     color: var(--cs-text);
@@ -436,7 +442,8 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 }
 
 #chNameBtn:hover { background: var(--cs-hover); }
-#chNameBtn i.icon { font-size: 11px; color: var(--cs-muted); }
+#chNameBtn i.icon { font-size: 11px; color: var(--cs-muted); flex-shrink: 0; }
+#chName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 #chStarBtn {
     color: var(--cs-muted);
@@ -444,6 +451,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     height: 28px;
     border-radius: 6px;
     font-size: 14px;
+    flex-shrink: 0;
 }
 
 #chStarBtn:hover { background: var(--cs-hover); }
@@ -458,6 +466,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     text-overflow: ellipsis;
     cursor: pointer;
     min-width: 0;
+    flex-shrink: 100;         /* the secondary topic yields space before the name truncates */
 }
 
 #chTopic:hover { text-decoration: underline; }
