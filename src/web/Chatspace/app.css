@@ -48,13 +48,18 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 #app {
     display: grid;
-    grid-template-columns: 68px 1fr;
+    /* minmax(0, 1fr) floors the body track at 0 instead of its min-content;
+       without it the sidebar + content + right (thread) panel min-widths
+       force the track wider than the viewport, pushing the panel - and its
+       close button - off the right edge on narrow / floatWindow widths. */
+    grid-template-columns: 68px minmax(0, 1fr);
     grid-template-rows: 44px 1fr;
     grid-template-areas:
         "topbar topbar"
         "rail body";
     height: 100vh;
     width: 100vw;
+    overflow: hidden;
 }
 
 /* ================= Left rail ================= */
@@ -224,6 +229,9 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     grid-area: body;
     display: flex;
     min-height: 0;
+    /* Allow the flex row to shrink to its grid track so the thread panel
+       and its close button stay within the viewport when space is tight. */
+    min-width: 0;
     padding: 0 4px 4px 0;
     gap: 4px;
 }
