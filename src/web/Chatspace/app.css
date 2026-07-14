@@ -221,6 +221,12 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 .sr-row .sr-time { color: var(--cs-muted); font-size: 11px; white-space: nowrap; }
 .sr-empty { padding: 14px; color: var(--cs-muted); font-size: 13px; }
 
+/* Search empty-state hint (shown when the box is focused but blank) */
+.sr-hint { padding: 16px 14px 12px 14px; border-bottom: 1px solid var(--cs-border); }
+.sr-hint-title { font-weight: 700; font-size: 14px; color: var(--cs-text); display: flex; align-items: center; gap: 6px; }
+.sr-hint-title i.icon { color: var(--cs-muted); font-size: 13px; margin: 0; }
+.sr-hint-sub { margin-top: 4px; font-size: 12.5px; color: var(--cs-muted); line-height: 1.4; }
+
 .tb-right { display: flex; }
 
 /* ================= Body grid ================= */
@@ -319,7 +325,9 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     align-items: center;
     gap: 4px;
     font-size: 14px;
-    padding: 3px 16px;
+    /* left pad matches an item row (margin 8 + padding 16) so the collapse
+       caret sits in the same column as the # / lock / + row icons */
+    padding: 3px 16px 3px 24px;
     color: var(--cs-onpurple-dim);
     cursor: pointer;
     user-select: none;
@@ -1208,8 +1216,10 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 .rp-section h4 { margin: 0 0 4px 0; font-size: 13px; }
 .rp-section .rp-value { font-size: 13.5px; }
 .rp-section .rp-sub { font-size: 12px; color: var(--cs-muted); margin-top: 2px; }
-.rp-section .rp-editlink { font-size: 12px; color: var(--cs-link); cursor: pointer; margin-left: 8px; font-weight: 600; }
-.rp-section .rp-editlink:hover { text-decoration: underline; }
+/* Global so the Edit link keeps its gap in the details modal too, not just
+   inside .rp-section (otherwise it renders as "Add a topicEdit"). */
+.rp-editlink { font-size: 12px; color: var(--cs-link); cursor: pointer; margin-left: 8px; font-weight: 600; }
+.rp-editlink:hover { text-decoration: underline; }
 
 .rp-action-row {
     display: flex;

@@ -1236,16 +1236,14 @@
         starred.forEach(function (convo) { starredHtml += convoItemHtml(convo); });
         $id("sbStarredList").innerHTML = starredHtml;
 
+        //Starred conversations are surfaced in the Starred shortcut section
+        //but still listed under their own Channels / Direct messages section.
         var chHtml = "";
-        channels.forEach(function (convo) {
-            if (!isStarred(convo.id)) chHtml += convoItemHtml(convo);
-        });
+        channels.forEach(function (convo) { chHtml += convoItemHtml(convo); });
         $id("sbChannelList").innerHTML = chHtml;
 
         var dmHtml = "";
-        dms.forEach(function (convo) {
-            if (!isStarred(convo.id)) dmHtml += convoItemHtml(convo);
-        });
+        dms.forEach(function (convo) { dmHtml += convoItemHtml(convo); });
         $id("sbDmList").innerHTML = dmHtml;
 
         //Collapse states
@@ -1777,7 +1775,9 @@
                 openProfile(el.getAttribute("data-profile"));
             });
         });
-        Array.prototype.forEach.call(node.querySelectorAll(".mention"), function (el) {
+        //Only real-user mentions carry data-user and open a profile; broadcast
+        //(@everyone/@channel) and the @ai handle are not people, so skip them.
+        Array.prototype.forEach.call(node.querySelectorAll(".mention[data-user]"), function (el) {
             el.addEventListener("click", function (e) {
                 e.stopPropagation();
                 openProfile(el.getAttribute("data-user"));
@@ -3214,10 +3214,51 @@
 
     var searchTimer = null;
 
+    //Wire jump-on-click for every result / recent row in the search dropdown
+    function wireSearchRows(box) {
+        Array.prototype.forEach.call(box.querySelectorAll(".sr-row"), function (row) {
+            row.addEventListener("click", function () {
+                box.style.display = "none";
+                $id("searchInput").value = "";
+                var convoId = row.getAttribute("data-convo");
+                var msgId = row.getAttribute("data-msg");
+                if (msgId) jumpToMessage(convoId, msgId);
+                else setActive(convoId);
+            });
+        });
+    }
+
+    //Slack-style empty state shown when the search box is focused but blank:
+    //a short hint plus recent conversations as quick jumps.
+    function showSearchEmptyState() {
+        var box = $id("searchResults");
+        var html = '<div class="sr-hint">' +
+            '<div class="sr-hint-title"><i class="search icon"></i>Search messages, files and more</div>' +
+            '<div class="sr-hint-sub">Looking for a particular message, file or conversation? ' +
+            'If it happened in Chatspace, you can find it here.</div></div>';
+        var recents = joinedConvos().slice();
+        recents.sort(function (a, b) {
+            var ta = a.roots.length ? a.roots[a.roots.length - 1].time : 0;
+            var tb = b.roots.length ? b.roots[b.roots.length - 1].time : 0;
+            return tb - ta;
+        });
+        recents = recents.slice(0, 6);
+        if (recents.length > 0) {
+            html += '<div class="sr-group">Recent</div>';
+            recents.forEach(function (convo) {
+                html += '<div class="sr-row" data-convo="' + escapeAttr(convo.id) + '">' +
+                    '<span class="sr-convo">' + (convo.kind === "dm" ? "" : "#") + escapeHtml(convoLabel(convo)) + '</span></div>';
+            });
+        }
+        box.innerHTML = html;
+        box.style.display = "";
+        wireSearchRows(box);
+    }
+
     function runSearch() {
         var query = $id("searchInput").value.trim().toLowerCase();
         var box = $id("searchResults");
-        if (query === "") { box.style.display = "none"; return; }
+        if (query === "") { showSearchEmptyState(); return; }
 
         var convoHits = [];
         var msgHits = [];
@@ -3257,16 +3298,7 @@
         if (html === "") html = '<div class="sr-empty">No results for "' + escapeHtml(query) + '"</div>';
         box.innerHTML = html;
         box.style.display = "";
-        Array.prototype.forEach.call(box.querySelectorAll(".sr-row"), function (row) {
-            row.addEventListener("click", function () {
-                box.style.display = "none";
-                $id("searchInput").value = "";
-                var convoId = row.getAttribute("data-convo");
-                var msgId = row.getAttribute("data-msg");
-                if (msgId) jumpToMessage(convoId, msgId);
-                else setActive(convoId);
-            });
-        });
+        wireSearchRows(box);
     }
 
     /* ================= Rail views ================= */
@@ -3320,7 +3352,8 @@
             searchTimer = setTimeout(runSearch, 200);
         });
         $id("searchInput").addEventListener("focus", function () {
-            if (this.value.trim() !== "") runSearch();
+            //Show results when there is a query, otherwise the empty-state hint
+            runSearch();
         });
 
         //Sidebar
