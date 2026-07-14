@@ -431,12 +431,62 @@ Load:
 requirelib("http");
 ```
 
-### `http.get(url)`
+### `http.request(options)`
+Curl-like request giving full control over the method, headers and body. Returns
+a response object `{ok, status, statusText, headers, body, error}` (`error` is a
+non-empty string when the request could not be completed; `body` is base64 when
+`responseType` is `"base64"`).
+
+Supported `options`:
+
+| Field | Description |
+|-------|-------------|
+| `url` | Target URL (required) |
+| `method` | HTTP method, default `GET` (case-insensitive) |
+| `headers` | Object of request headers to set, e.g. `{"Authorization":"Bearer x"}` |
+| `body` | Raw text request body |
+| `json` | Object sent as a JSON body (sets `Content-Type: application/json`) |
+| `form` | Object sent as `application/x-www-form-urlencoded` |
+| `bodyBase64` | Binary request body, base64 encoded (sets `application/octet-stream`) |
+| `contentType` | Override the `Content-Type` header |
+| `username` / `password` | HTTP basic auth credentials |
+| `timeout` | Timeout in seconds (`0` / omitted = no timeout) |
+| `followRedirect` | Follow 3xx redirects (default `true`) |
+| `responseType` | `"text"` (default) or `"base64"` for binary responses |
+
+Body precedence when several are supplied: `bodyBase64` > `form` > `json` > `body`.
+
 ```javascript
-var body = http.get("https://example.com");
+var resp = http.request({
+    url: "https://example.com/api",
+    method: "POST",
+    headers: {"Authorization": "Bearer TOKEN"},
+    json: {a: 1, b: 2}
+});
+if (resp.ok){
+    console.log(resp.status, resp.body);
+}
 ```
 
-### `http.post(url, jsonString)`
+Convenience helpers built on `http.request` (all return the response object):
+`http.put(url, body, headers, contentType)`,
+`http.patch(url, body, headers, contentType)`,
+`http.delete(url, headers)`,
+`http.postForm(url, formObject, headers)` and
+`http.postJSON(url, object, headers)`.
+
+### `http.get(url, headers)`
+`headers` is optional. Without it, returns the body string (or `null` on error)
+for backward compatibility; with it, returns the response body string.
+```javascript
+var body = http.get("https://example.com");
+var body2 = http.get("https://example.com", {"Authorization": "Bearer x"});
+```
+
+### `http.post(url, body, headers, contentType)`
+`headers` and `contentType` are optional. Without them the body is sent as JSON
+(backward compatible); with them the given headers / content type are used.
+Returns the response body string.
 ```javascript
 var body = http.post("https://example.com/api", JSON.stringify({a:1}));
 ```

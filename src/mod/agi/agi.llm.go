@@ -58,8 +58,10 @@ const (
 	//key field was left untouched. When received, the stored key is kept.
 	llmKeyMask = "********"
 
-	//llmRequestTimeout is the maximum time to wait for a completion.
-	llmRequestTimeout = 120 * time.Second
+	//llmRequestTimeout is the maximum time to wait for a completion. Large
+	//reasoning / agentic models can legitimately take many minutes to reply,
+	//so this is set generously to 60 minutes to avoid cutting long calls short.
+	llmRequestTimeout = 60 * time.Minute
 )
 
 // llmMetricsMux guards read-modify-write cycles on the metrics record so
