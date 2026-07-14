@@ -2979,6 +2979,7 @@
 
     function openBrowseModal() {
         $id("browseFilter").value = "";
+        browseKb = 0;
         renderBrowseList();
         openModal("browseModal");
         //Refresh the public directory while the modal is open
@@ -3030,6 +3031,41 @@
                 previewChannel(btn.getAttribute("data-preview"));
             });
         });
+        Array.prototype.forEach.call(document.querySelectorAll("#browseList .browse-row"), function (row, idx) {
+            row.addEventListener("mouseenter", function () { browseKb = idx; applyBrowseFocus(); });
+        });
+        applyBrowseFocus();
+    }
+
+    //Keyboard control for the Browse channels list: arrows move the cursor,
+    //Enter triggers the highlighted row's Open / View button.
+    var browseKb = 0;
+
+    function applyBrowseFocus() {
+        var rows = $id("browseList").querySelectorAll(".browse-row");
+        if (browseKb > rows.length - 1) browseKb = rows.length - 1;
+        if (browseKb < 0) browseKb = 0;
+        for (var i = 0; i < rows.length; i++) rows[i].classList.toggle("kbfocus", i === browseKb);
+    }
+
+    function browseKeydown(e) {
+        var rows = $id("browseList").querySelectorAll(".browse-row");
+        if (rows.length === 0) return;
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            browseKb = (browseKb + 1) % rows.length;
+            applyBrowseFocus();
+            rows[browseKb].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            browseKb = (browseKb - 1 + rows.length) % rows.length;
+            applyBrowseFocus();
+            rows[browseKb].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            var btn = rows[browseKb] && rows[browseKb].querySelector("button[data-open],button[data-preview]");
+            if (btn) btn.click();
+        }
     }
 
     //Open a public channel the user has not joined: read-only preview with
@@ -3594,7 +3630,8 @@
         $id("ncName").addEventListener("keyup", function (e) {
             if (e.key === "Enter") submitCreateChannel();
         });
-        $id("browseFilter").addEventListener("input", renderBrowseList);
+        $id("browseFilter").addEventListener("input", function () { browseKb = 0; renderBrowseList(); });
+        $id("browseFilter").addEventListener("keydown", browseKeydown);
         $id("browseCreateBtn").addEventListener("click", function () {
             closeModal("browseModal");
             openCreateModal();
