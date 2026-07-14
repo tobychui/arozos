@@ -354,18 +354,39 @@
    "load": "requirelib(\"http\");",
    "functions": [
     {
+     "name": "http.request",
+     "sig": "http.request(options)",
+     "desc": "Curl-like request. options: {url, method, headers, body, json, form, bodyBase64, contentType, username, password, timeout, followRedirect, responseType}. Returns a response object {ok, status, statusText, headers, body, error}. Body precedence: bodyBase64 > form > json > body; responseType 'base64' returns a binary body base64 encoded.",
+     "ret": "object",
+     "example": "requirelib(\"http\");\nvar resp = http.request({url:\"https://example.com/api\", method:\"POST\", headers:{\"Authorization\":\"Bearer x\"}, json:{a:1}});\nif (resp.ok){ console.log(resp.status, resp.body); }"
+    },
+    {
      "name": "http.get",
-     "sig": "http.get(url)",
-     "desc": "Perform an HTTP GET and return the response body as a string.",
+     "sig": "http.get(url, headers)",
+     "desc": "Perform an HTTP GET and return the response body as a string. headers is optional.",
      "ret": "string",
      "example": "requirelib(\"http\");\nvar body = http.get(\"https://example.com/api\");"
     },
     {
      "name": "http.post",
-     "sig": "http.post(url, jsonString)",
-     "desc": "Perform an HTTP POST with JSON body and return the response body.",
+     "sig": "http.post(url, body, headers, contentType)",
+     "desc": "Perform an HTTP POST and return the response body. Without headers/contentType the body is sent as JSON (backward compatible).",
      "ret": "string",
      "example": "requirelib(\"http\");\nvar resp = http.post(\"https://example.com/api\", JSON.stringify({a:1}));"
+    },
+    {
+     "name": "http.put / http.patch / http.delete",
+     "sig": "http.put(url, body, headers, contentType)",
+     "desc": "Method helpers built on http.request; each returns the response object. http.delete(url, headers) sends no body.",
+     "ret": "object",
+     "example": "requirelib(\"http\");\nvar resp = http.put(\"https://example.com/api/1\", JSON.stringify({a:1}), {\"Content-Type\":\"application/json\"});"
+    },
+    {
+     "name": "http.postForm / http.postJSON",
+     "sig": "http.postForm(url, formObject, headers)",
+     "desc": "POST helpers built on http.request. postForm sends application/x-www-form-urlencoded; postJSON sends a JSON body. Both return the response object.",
+     "ret": "object",
+     "example": "requirelib(\"http\");\nvar resp = http.postForm(\"https://example.com/api\", {a:1, b:2});"
     },
     {
      "name": "http.head",
