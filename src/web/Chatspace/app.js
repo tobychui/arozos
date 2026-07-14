@@ -3060,8 +3060,8 @@
             if (excluded && excluded[name]) return;
             if (lowered && name.toLowerCase().indexOf(lowered) < 0) return;
             html += '<div class="pick-row' + (picked[name] ? " picked" : "") + '" data-name="' + escapeAttr(name) + '">' +
-                '<span class="avatar">' + avatarHtml(name, 11) + '</span>' +
-                '<span class="presence-dot' + (isOnline(name) ? " online" : "") + '" style="margin:0;border-color:#fff;"></span>' +
+                '<span class="avatar">' + avatarHtml(name, 11) +
+                '<span class="presence-dot' + (isOnline(name) ? " online" : "") + '"></span></span>' +
                 '<span class="pick-name">' + escapeHtml(name) + '</span>' +
                 '<i class="check icon pick-check"></i></div>';
         });
@@ -3072,9 +3072,41 @@
     function openDmModal() {
         dmPicked = {};
         $id("dmFilter").value = "";
+        pickKb.dmUserList = 0;
         renderDmPicker();
         openModal("dmModal");
         $id("dmFilter").focus();
+    }
+
+    //Keyboard cursor for the people/channel picker lists (arrows + Enter).
+    var pickKb = { dmUserList: 0, inviteUserList: 0 };
+
+    function applyPickFocus(listId) {
+        var rows = $id(listId).querySelectorAll(".pick-row");
+        var idx = pickKb[listId] || 0;
+        if (idx > rows.length - 1) idx = rows.length - 1;
+        if (idx < 0) idx = 0;
+        pickKb[listId] = idx;
+        for (var i = 0; i < rows.length; i++) rows[i].classList.toggle("kbfocus", i === idx);
+    }
+
+    function pickerKeydown(e, listId) {
+        var rows = $id(listId).querySelectorAll(".pick-row");
+        if (rows.length === 0) return;
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            pickKb[listId] = (pickKb[listId] + 1) % rows.length;
+            applyPickFocus(listId);
+            rows[pickKb[listId]].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            pickKb[listId] = (pickKb[listId] - 1 + rows.length) % rows.length;
+            applyPickFocus(listId);
+            rows[pickKb[listId]].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (rows[pickKb[listId]]) rows[pickKb[listId]].click();
+        }
     }
 
     function renderDmPicker() {
@@ -3088,6 +3120,7 @@
                 renderDmPicker();
             });
         });
+        applyPickFocus("dmUserList");
     }
 
     function openDmWith(usernames) {
@@ -3109,6 +3142,7 @@
         inviteConvo = convo;
         invitePicked = {};
         $id("inviteFilter").value = "";
+        pickKb.inviteUserList = 0;
         $id("inviteTitle").textContent = "Add people to " + (convo.kind === "dm" ? "the conversation" : "#" + convoLabel(convo));
         renderInvitePicker();
         openModal("inviteModal");
@@ -3127,6 +3161,7 @@
                 renderInvitePicker();
             });
         });
+        applyPickFocus("inviteUserList");
     }
 
     function submitInvite() {
@@ -3216,16 +3251,62 @@
 
     //Wire jump-on-click for every result / recent row in the search dropdown
     function wireSearchRows(box) {
-        Array.prototype.forEach.call(box.querySelectorAll(".sr-row"), function (row) {
-            row.addEventListener("click", function () {
-                box.style.display = "none";
-                $id("searchInput").value = "";
-                var convoId = row.getAttribute("data-convo");
-                var msgId = row.getAttribute("data-msg");
-                if (msgId) jumpToMessage(convoId, msgId);
-                else setActive(convoId);
-            });
+        Array.prototype.forEach.call(box.querySelectorAll(".sr-row"), function (row, idx) {
+            row.addEventListener("mouseenter", function () { setSearchSelection(idx); });
+            row.addEventListener("click", function () { activateSearchRow(row); });
         });
+        searchSel = 0;
+        applySearchSelection();
+    }
+
+    var searchSel = 0; //keyboard cursor into the search dropdown rows
+
+    function searchRows() { return $id("searchResults").querySelectorAll(".sr-row"); }
+
+    function applySearchSelection() {
+        var rows = searchRows();
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].classList.toggle("selected", i === searchSel);
+        }
+    }
+
+    function setSearchSelection(idx) {
+        searchSel = idx;
+        applySearchSelection();
+    }
+
+    function moveSearchSelection(delta) {
+        var rows = searchRows();
+        if (rows.length === 0) return;
+        searchSel = (searchSel + delta + rows.length) % rows.length;
+        applySearchSelection();
+        rows[searchSel].scrollIntoView({ block: "nearest" });
+    }
+
+    function activateSearchRow(row) {
+        $id("searchResults").style.display = "none";
+        $id("searchInput").value = "";
+        var convoId = row.getAttribute("data-convo");
+        var msgId = row.getAttribute("data-msg");
+        if (!convoId) return;
+        if (msgId) jumpToMessage(convoId, msgId);
+        else setActive(convoId);
+    }
+
+    //Keyboard control for the search box: arrows move the highlight, Enter
+    //opens it, Escape dismisses the dropdown.
+    function searchKeydown(e) {
+        var box = $id("searchResults");
+        if (box.style.display === "none") return;
+        if (e.key === "ArrowDown") { e.preventDefault(); moveSearchSelection(1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); moveSearchSelection(-1); }
+        else if (e.key === "Enter") {
+            var rows = searchRows();
+            if (rows[searchSel]) { e.preventDefault(); activateSearchRow(rows[searchSel]); }
+        } else if (e.key === "Escape") {
+            box.style.display = "none";
+            $id("searchInput").blur();
+        }
     }
 
     //Slack-style empty state shown when the search box is focused but blank:
@@ -3355,6 +3436,7 @@
             //Show results when there is a query, otherwise the empty-state hint
             runSearch();
         });
+        $id("searchInput").addEventListener("keydown", searchKeydown);
 
         //Sidebar
         $id("sbComposeBtn").addEventListener("click", openDmModal);
@@ -3517,11 +3599,13 @@
             closeModal("browseModal");
             openCreateModal();
         });
-        $id("dmFilter").addEventListener("input", renderDmPicker);
+        $id("dmFilter").addEventListener("input", function () { pickKb.dmUserList = 0; renderDmPicker(); });
+        $id("dmFilter").addEventListener("keydown", function (e) { pickerKeydown(e, "dmUserList"); });
         $id("dmStartBtn").addEventListener("click", function () {
             openDmWith(Object.keys(dmPicked));
         });
-        $id("inviteFilter").addEventListener("input", renderInvitePicker);
+        $id("inviteFilter").addEventListener("input", function () { pickKb.inviteUserList = 0; renderInvitePicker(); });
+        $id("inviteFilter").addEventListener("keydown", function (e) { pickerKeydown(e, "inviteUserList"); });
         $id("inviteAddBtn").addEventListener("click", submitInvite);
 
         //Quick switcher

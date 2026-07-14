@@ -215,7 +215,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     font-size: 13px;
 }
 
-.sr-row:hover { background: #f0eef1; }
+.sr-row:hover, .sr-row.selected { background: #f0eef1; }
 .sr-row .sr-convo { font-weight: 700; white-space: nowrap; }
 .sr-row .sr-snippet { color: var(--cs-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .sr-row .sr-time { color: var(--cs-muted); font-size: 11px; white-space: nowrap; }
@@ -1424,8 +1424,12 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     font-size: 14px;
 }
 
-.pick-row:hover { background: var(--cs-hover); }
-.pick-row .avatar { width: 26px; height: 26px; border-radius: 6px; overflow: hidden; }
+.pick-row:hover, .pick-row.kbfocus { background: var(--cs-hover); }
+/* position:relative + overflow:visible so the presence dot can overlay the
+   avatar corner instead of floating as a separate column between avatar/name */
+.pick-row .avatar { width: 26px; height: 26px; border-radius: 6px; position: relative; }
+.pick-row .avatar > .cs-avatar-img, .pick-row .avatar > .avatar-fallback { border-radius: 6px; overflow: hidden; }
+.pick-row .avatar .presence-dot { position: absolute; right: -3px; bottom: -3px; margin: 0; border: 2px solid #fff; }
 .pick-row .pick-name { flex: 1; font-weight: 600; }
 .pick-row .pick-check { color: var(--cs-green); visibility: hidden; }
 .pick-row.picked .pick-check { visibility: visible; }
