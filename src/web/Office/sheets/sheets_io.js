@@ -56,6 +56,17 @@ var SheetsIO = (function () {
         };
     }
 
+    // cross-app copy: a chart as a self-contained <img> (SVG snapshot) so it
+    // can be pasted into Slides / Docs
+    function chartToImageHtml(chart) {
+        var w = Math.max(120, (chart.w || 460) - 10);
+        var h = Math.max(90, (chart.h || 300) - 10);
+        var svg = OfficeCharts.renderToString(specFromChart(chart), w, h);
+        // charts inherit currentColor for their text - pin it for the snapshot
+        svg = svg.replace("<svg ", '<svg color="#202124" ');
+        return OfficeClipboard.imageHtml(OfficeClipboard.svgImageSrc(svg), chart.w, chart.h);
+    }
+
     function renderCharts() {
         var layer = document.getElementById("shChartLayer");
         if (!layer) return;
@@ -675,6 +686,7 @@ var SheetsIO = (function () {
         exportXlsx: exportXlsx,
         pivotDialog: pivotDialog,
         refreshPivot: refreshPivot,
+        chartToImageHtml: chartToImageHtml,
         fillPrintArea: fillPrintArea
     };
 })();

@@ -31,6 +31,9 @@ var OfficeTextEditBar = (function () {
         "Arial", "Georgia", "Times New Roman", "Courier New", "Verdana",
         "Segoe UI", "Tahoma", "Trebuchet MS", "Impact", "Comic Sans MS"
     ];
+    // ladder the enlarge / shrink buttons step through
+    var SIZE_STEPS = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36,
+        40, 44, 48, 54, 60, 66, 72, 80, 88, 96, 120, 144];
     var $bar = null;
     var anchorEl = null;
     var opts = null;
@@ -49,6 +52,14 @@ var OfficeTextEditBar = (function () {
     function restoreSelection() {
         if (!savedRange) return false;
         try {
+            // focus the contenteditable that owns the range so execCommand
+            // targets it - after a modal (the Insert-link prompt) closes,
+            // document.activeElement is <body> and commands would no-op
+            var host = savedRange.commonAncestorContainer;
+            if (host && host.nodeType === 3) host = host.parentNode;
+            var ce = host && host.closest ?
+                host.closest('[contenteditable=""],[contenteditable="true"]') : null;
+            if (ce && ce.focus) ce.focus({ preventScroll: true });
             var sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(savedRange);
@@ -186,7 +197,6 @@ var OfficeTextEditBar = (function () {
             applyFontSizePx(v);
         });
         $row1.append($size);
-        $row1.append('<span class="of-te-sep"></span>');
 
         function btn(icon, title, fn) {
             var $b = $('<button type="button" class="of-te-btn" title="' + title + '"><i class="' + icon + ' icon"></i></button>');
@@ -195,34 +205,69 @@ var OfficeTextEditBar = (function () {
             $b.on("click", fn);
             return $b;
         }
+        // step to the next / previous size on the ladder (falls back to +/-4)
+        function stepFontSize(dir) {
+            var cur = parseInt($size.val(), 10) || 24;
+            var v = cur, i;
+            if (dir > 0) {
+                for (i = 0; i < SIZE_STEPS.length; i++) {
+                    if (SIZE_STEPS[i] > cur) { v = SIZE_STEPS[i]; break; }
+                }
+                if (v === cur) v = cur + 4;
+            } else {
+                for (i = SIZE_STEPS.length - 1; i >= 0; i--) {
+                    if (SIZE_STEPS[i] < cur) { v = SIZE_STEPS[i]; break; }
+                }
+                if (v === cur) v = cur - 4;
+            }
+            v = Math.max(6, Math.min(200, v));
+            $size.val(v);
+            applyFontSizePx(v);
+        }
+        $row1.append(btn("plus", "Increase font size", function () { stepFontSize(1); }));
+        $row1.append(btn("minus", "Decrease font size", function () { stepFontSize(-1); }));
+        $row1.append('<span class="of-te-sep"></span>');
         $row1.append(btn("bold", "Bold (Ctrl+B)", function () { exec("bold"); }));
         $row1.append(btn("italic", "Italic (Ctrl+I)", function () { exec("italic"); }));
         $row1.append(btn("underline", "Underline (Ctrl+U)", function () { exec("underline"); }));
-        $row1.append('<span class="of-te-sep"></span>');
-        $row1.append(btn("align left", "Align left", function () { exec("justifyLeft"); }));
-        $row1.append(btn("align center", "Align center", function () { exec("justifyCenter"); }));
-        $row1.append(btn("align right", "Align right", function () { exec("justifyRight"); }));
+        //$row1.append('<span class="of-te-sep"></span>');
+        $row2.append(btn("align left", "Align left", function () { exec("justifyLeft"); }));
+        $row2.append(btn("align center", "Align center", function () { exec("justifyCenter"); }));
+        $row2.append(btn("align right", "Align right", function () { exec("justifyRight"); }));
 
-        /* icon button with a color bar underneath; opens OfficeColorPicker */
+        /* Split colour control: the icon (with a colour bar underneath)
+           applies the CURRENT colour directly; the narrow caret opens the
+           picker to change it. The returned wrapper carries data("cur") and
+           the .of-te-cbar so syncFromSelection keeps working unchanged. */
         function colorBtn(icon, title, initial, cpOpts, apply) {
-            var $b = $('<button type="button" class="of-te-btn of-te-cbtn" title="' + title + '">' +
-                '<i class="' + icon + ' icon"></i><span class="of-te-cbar"></span></button>');
-            $b.find(".of-te-cbar").css("background", initial);
-            $b.on("mousedown", function (e) { e.preventDefault(); saveSelection(); });
-            $b.on("click", function () {
+            var $wrap = $('<span class="of-te-split"></span>');
+            var $main = $('<button type="button" class="of-te-btn of-te-cbtn of-te-cmain" title="' +
+                title + '"><i class="' + icon + ' icon"></i><span class="of-te-cbar"></span></button>');
+            var $caret = $('<button type="button" class="of-te-btn of-te-ccaret" title="Choose ' +
+                title.toLowerCase() + '"><i class="caret down icon"></i></button>');
+            $wrap.append($main).append($caret);
+            $wrap.data("cur", initial);
+            $main.find(".of-te-cbar").css("background", initial);
+
+            // keep the text selection alive when clicking either half
+            $wrap.on("mousedown", function (e) { e.preventDefault(); saveSelection(); });
+            // icon -> apply the current colour immediately
+            $main.on("click", function () { apply($wrap.data("cur")); });
+            // caret -> open the picker; picking updates the current colour
+            $caret.on("click", function () {
                 OfficeColorPicker.open({
-                    anchor: $b[0],
-                    value: $b.data("cur") || initial,
+                    anchor: $wrap[0],
+                    value: $wrap.data("cur") || initial,
                     allowNone: !!cpOpts.allowNone,
                     noneLabel: cpOpts.noneLabel,
                     onPick: function (hex) {
-                        $b.data("cur", hex);
-                        $b.find(".of-te-cbar").css("background", hex || "transparent");
+                        $wrap.data("cur", hex);
+                        $main.find(".of-te-cbar").css("background", hex || "transparent");
                         apply(hex);
                     }
                 });
             });
-            return $b;
+            return $wrap;
         }
         $row2.append(colorBtn("font", "Text color", "#202124", {}, function (hex) {
             if (hex) exec("foreColor", hex);
@@ -268,6 +313,10 @@ var OfficeTextEditBar = (function () {
                     exec("createLink", v);
                 });
         }));
+        $row2.append('<span class="of-te-sep"></span>');
+        $row2.append(btn("list ul", "Bulleted list", function () { exec("insertUnorderedList"); }));
+        $row2.append(btn("list ol", "Numbered list", function () { exec("insertOrderedList"); }));
+        $row2.append(btn("eraser", "Clear formatting", function () { exec("removeFormat"); }));
 
         // keep selection fresh while the user works inside the editor, and
         // mirror its color/size/font in the controls

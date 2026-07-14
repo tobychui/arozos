@@ -846,6 +846,36 @@ var SlidesApp = (function () {
        stale content instead of duplicating the object. Bonus: objects now
        paste across two Slides windows. */
     var OBJ_CLIP_MARKER = "arozos-slides-objects";
+    /* A shared text/html snapshot of the copied objects so they can be
+       pasted into Docs/Sheets (and external editors). Images/text/tables/
+       shapes carry over; video/audio/lines are same-app only. */
+    function objectsToHtml(objs) {
+        if (!objs || !objs.length) return "";
+        var parts = [];
+        objs.forEach(function (o) {
+            if (o.type === "image") {
+                parts.push(OfficeClipboard.imageHtml(absoluteMedia(o.props.src), o.w, o.h));
+            } else if (o.type === "text") {
+                parts.push('<div>' + (o.props.html || "") + "</div>");
+            } else if (o.type === "table") {
+                parts.push(tableHtml(o));
+            } else if (o.type === "shape") {
+                parts.push(OfficeClipboard.imageHtml(
+                    OfficeClipboard.svgImageSrc(shapeSvg(o)), o.w, o.h));
+            } else if (o.type === "chart") {
+                // render the chart spec to a self-contained SVG snapshot
+                var csvg = OfficeCharts.renderToString(o.props.spec || {},
+                    Math.max(60, o.w), Math.max(60, o.h));
+                csvg = csvg.replace("<svg ", '<svg color="#202124" ');
+                parts.push(OfficeClipboard.imageHtml(
+                    OfficeClipboard.svgImageSrc(csvg), o.w, o.h));
+            }
+        });
+        return parts.join("\n");
+    }
+    // media?file= links are relative to Office/<app>/; Docs sits at the same
+    // depth so they resolve unchanged, but make device data URLs pass through
+    function absoluteMedia(src) { return src || ""; }
     function objectClipboardText() {
         return JSON.stringify({ app: OBJ_CLIP_MARKER, version: 1, objects: clip });
     }
@@ -862,11 +892,13 @@ var SlidesApp = (function () {
     function copySelection() {
         if (!sel.length) return;
         clip = selObjs().map(deep);
-        // async system-clipboard sync for menu/toolbar copies; real Ctrl+C
-        // goes through the "copy" event which sets it synchronously
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(objectClipboardText()).catch(function () { });
-        }
+        // async system-clipboard sync for menu/toolbar copies (writes both
+        // the object marker and the shared text/html); real Ctrl+C goes
+        // through the "copy" event which sets both synchronously
+        OfficeClipboard.writeAsync({
+            text: objectClipboardText(),
+            html: objectsToHtml(clip)
+        }).catch(function () { });
         OfficeApp.setStatus(clip.length + " object" + (clip.length > 1 ? "s" : "") + " copied");
     }
     function cutSelection() {
@@ -1636,6 +1668,10 @@ var SlidesApp = (function () {
             var el = objEl(id);
             // focus moving into the floating format bar is still "editing"
             if (window.OfficeTextEditBar && OfficeTextEditBar.contains(document.activeElement)) return;
+            // a dialog opened over the editor (e.g. the Insert-link prompt)
+            // must not tear down the edit - otherwise the box re-renders and
+            // the command applies to a dead selection
+            if ($(".of-dialog-overlay").length) return;
             if (el && !el.contains(document.activeElement)) endEdit(true);
         }, 0);
     }
@@ -2327,14 +2363,48 @@ var SlidesApp = (function () {
             }
         }
         if (handled) { e.preventDefault(); return; }
+        // cross-app: a Docs picture / Sheets chart / cells arrive as text/html
+        var html = cd.getData("text/html");
+        if (html && pasteForeignHtml(html)) { e.preventDefault(); return; }
         if (clip && clip.length) { e.preventDefault(); pasteClipboard(); return; }
         var t = cd.getData("text/plain");
-        if (t) {
+        if (t && !OfficeClipboard.isMarker(t)) {
             e.preventDefault();
             var th = themeOf();
             addObj("text", { html: esc(t).replace(/\n/g, "<br>"), fontSize: 24, color: th.text, align: "left" },
                 { x: 280, y: 220, w: 400, h: 90 });
         }
+    }
+    /* Build slide objects from a shared text/html payload. Returns true when
+       something was inserted. */
+    function pasteForeignHtml(html) {
+        var p = OfficeClipboard.parse(html);
+        if (!p.hasContent) return false;
+        if (p.images.length) {
+            p.images.forEach(function (im) { placeImage(im.src); });
+            return true;
+        }
+        if (p.tables.length) {
+            objectFromHtmlTable(p.tables[0]);
+            return true;
+        }
+        // rich text -> a text box (sanitize to the inline subset we allow)
+        var frag = sanitizeCellHtml(p.html);
+        if (frag.replace(/<[^>]*>/g, "").replace(/\s/g, "") === "") return false;
+        var th = themeOf();
+        addObj("text", { html: frag, fontSize: 24, color: th.text, align: "left" },
+            { x: 240, y: 200, w: 480, h: 120 });
+        return true;
+    }
+    function objectFromHtmlTable(rows) {
+        var data = rows.map(function (tr) {
+            return tr.map(function (cell) { return sanitizeCellHtml(cell.innerHTML); });
+        });
+        var cols = data[0] ? data[0].length : 1;
+        var w = Math.min(880, Math.max(240, cols * 140));
+        var h = Math.min(480, Math.max(80, data.length * 34));
+        addObj("table", { rows: data, headerRow: false, fontSize: 16 },
+            { x: Math.round((SLIDE_W - w) / 2), y: Math.round((SLIDE_H - h) / 2), w: w, h: h });
     }
 
     /* Drop image files (or an image URL) onto the slide canvas. */
@@ -2371,6 +2441,8 @@ var SlidesApp = (function () {
             copySelection();
             if (e.clipboardData) {
                 e.clipboardData.setData("text/plain", objectClipboardText());
+                var html = objectsToHtml(clip);
+                if (html) e.clipboardData.setData("text/html", html);
                 e.preventDefault();
             }
             if (isCut) deleteSelection();

@@ -309,6 +309,7 @@ body.of-app {
     flex: 1 1 auto;
 }
 .of-dialog-body label { display: block; margin: 8px 0 4px; color: var(--of-fg-soft); font-size: 13px; }
+.of-dim { color: var(--of-fg-soft); font-size: 12px; }
 .of-dialog-body input[type="text"], .of-dialog-body input[type="number"], .of-dialog-body select, .of-dialog-body textarea {
     width: 100%;
     box-sizing: border-box;
@@ -472,6 +473,22 @@ body.of-app {
     background: #202124;
     pointer-events: none;
 }
+/* split colour control: swatch button (applies current) + caret (picker) */
+.of-te-split { display: inline-flex; align-items: stretch; }
+.of-te-split .of-te-cmain {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.of-te-ccaret {
+    width: 13px;
+    min-width: 13px;
+    padding: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 1px solid var(--of-border);
+    color: var(--of-fg-soft);
+}
+.of-te-ccaret i.icon { font-size: 9px !important; }
 
 /* ============ Keyboard shortcuts help (hotkeys.js) ============ */
 .of-hk-help { max-height: 60vh; overflow-y: auto; }

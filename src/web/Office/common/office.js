@@ -243,6 +243,14 @@ var OfficeApp = (function () {
             content: JSON.stringify(env)
         }, function () { }, function () { }, 60000);
     }
+    // drop the saved session snapshot so it stops prompting on next launch
+    function deleteSession() {
+        if (!cfg || !cfg.packed) return;
+        ao_module_agirun(CONTAINER_BACKEND, {
+            action: "session-delete",
+            app: cfg.appType
+        }, function () { }, function () { }, 60000);
+    }
     function trySessionRestore() {
         ao_module_agirun(CONTAINER_BACKEND, {
             action: "session-load",
@@ -259,24 +267,40 @@ var OfficeApp = (function () {
             var m = env.meta || {};
             var when = m._sessionAt ? new Date(m._sessionAt).toLocaleString() : "an earlier session";
             var what = m._origin && m._origin.fn ? escapeHtml(m._origin.fn) : "an unsaved document";
-            confirmDialog("Restore from previous session?",
-                "You were working on <b>" + what + "</b> (" + escapeHtml(when) + ").",
-                "Restore", "Start fresh",
-                function (restore) {
-                    if (!restore) { checkDraft(); return; }
-                    var origin = m._origin;
-                    delete m._sessionAt;
-                    delete m._origin;
-                    meta = m;
-                    if (origin && origin.fp) {
-                        filepath = origin.fp;
-                        filename = origin.fn;
+            var restore = function () {
+                var origin = m._origin;
+                delete m._sessionAt;
+                delete m._origin;
+                meta = m;
+                if (origin && origin.fp) {
+                    filepath = origin.fp;
+                    filename = origin.fn;
+                }
+                cfg.deserialize(env.body);
+                markDirty();
+                updateTitle();
+                setStatus("Previous session restored - remember to save");
+            };
+            dialog({
+                title: "Restore from previous session?",
+                body: "You were working on <b>" + what + "</b> (" + escapeHtml(when) + ").<br><br>" +
+                    '<span class="of-dim">Discarding deletes the saved snapshot so it won\'t ' +
+                    "be offered again.</span>",
+                dismissable: true,
+                buttons: [
+                    // keeps the snapshot: dismiss now, may be offered next launch
+                    { label: "Start fresh", action: function (close) { close(); checkDraft(); } },
+                    // deletes the snapshot so it stops prompting
+                    {
+                        label: "Discard", danger: true,
+                        action: function (close) { close(); deleteSession(); checkDraft(); }
+                    },
+                    {
+                        label: "Restore", primary: true,
+                        action: function (close) { close(); restore(); }
                     }
-                    cfg.deserialize(env.body);
-                    markDirty();
-                    updateTitle();
-                    setStatus("Previous session restored - remember to save");
-                });
+                ]
+            });
         }, function () {
             // backend unreachable (standalone preview): fall back to drafts
             checkDraft();
@@ -1106,8 +1130,46 @@ var OfficeApp = (function () {
                 e.returnValue = "";
             }
         });
+        installFloatWindowCloseGuard();
 
         updateTitle();
+    }
+
+    /* The desktop routes a floatWindow's X button through the iframe's
+       ao_module_close() (see ao_module.js + desktop.html: it calls
+       contentWindow.ao_module_close() when defined). beforeunload does NOT
+       fire when the desktop just removes the iframe, so override that hook
+       to confirm before discarding unsaved changes. */
+    function installFloatWindowCloseGuard() {
+        if (typeof window.ao_module_close !== "function") return;
+        var reallyClose = function () {
+            markClean();   // never re-prompt while the window tears down
+            if (typeof window.ao_module_closeHandler === "function") {
+                ao_module_closeHandler();
+            }
+        };
+        window.ao_module_close = function () {
+            if (!dirty) { reallyClose(); return; }
+            dialog({
+                title: "Unsaved changes",
+                body: "<b>" + escapeHtml(filename || (cfg.defaultFileName + cfg.extension)) +
+                    "</b> has unsaved changes. Close it anyway?",
+                dismissable: true,
+                buttons: [
+                    { label: "Cancel" },
+                    {
+                        label: "Close without saving", danger: true,
+                        action: function (close) { close(); reallyClose(); }
+                    },
+                    {
+                        label: "Save & close", primary: true,
+                        // save() only calls back on success, so a failed or
+                        // cancelled save leaves the window open
+                        action: function (close) { close(); save(reallyClose); }
+                    }
+                ]
+            });
+        };
     }
 
     /* ---------- public API ---------- */

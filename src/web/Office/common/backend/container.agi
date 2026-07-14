@@ -20,13 +20,15 @@
 
     POST parameters:
         action = "save" | "load" | "prepare" | "session-save" |
-                 "session-load"
+                 "session-load" | "session-delete"
 
-        save:          filepath, content(envelope JSON)      -> "OK"
-        load:          filepath                              -> {"envelope": {...}}
-        prepare:       (none)                                -> "OK" (workdir exists)
-        session-save:  app, content(envelope JSON)           -> "OK"
-        session-load:  app                                   -> {"envelope": {...}} or {"none": true}
+        save:           filepath, content(envelope JSON)     -> "OK"
+        load:           filepath                             -> {"envelope": {...}}
+        prepare:        (none)                               -> "OK" (workdir exists)
+        session-save:   app, content(envelope JSON)          -> "OK"
+        session-load:   app                                  -> {"envelope": {...}} or {"none": true}
+        session-delete: app  (drop the snapshot so it stops  -> "OK"
+                              prompting on next launch)
 
     Legacy plain-JSON documents load transparently and are upgraded to the
     container format on their next save. When the office lib is unavailable
@@ -175,6 +177,28 @@ function main(){
             sendJSONResp('{"envelope":' + sess + '}');
         } catch (e) {
             sendJSONResp(JSON.stringify({ none: true, error: e.message }));
+        }
+        return;
+    }
+
+    if (action == "session-delete"){
+        if (typeof app === "undefined"){
+            sendJSONResp(JSON.stringify({ error: "app is required" }));
+            return;
+        }
+        if (!requirelib("filelib")){
+            sendJSONResp(JSON.stringify({ error: "filelib unavailable" }));
+            return;
+        }
+        try {
+            var target = WORKDIR + "/session/" + safeAppName(app) + ".osession";
+            //deleting a non-existent snapshot is a no-op success
+            if (filelib.fileExists(target)){
+                filelib.deleteFile(target);
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "session delete failed: " + e.message }));
         }
         return;
     }

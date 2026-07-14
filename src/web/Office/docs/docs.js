@@ -1650,9 +1650,10 @@
                 return;
             }
         }
-        // 3. plain text
+        // 3. plain text (ignore another app's raw marker JSON - its rich
+        //    text/html form was handled above)
         var t = cd.getData("text/plain");
-        if (t) {
+        if (t && !(window.OfficeClipboard && OfficeClipboard.isMarker(t))) {
             if (suggesting && !inHeaderFooter()) {
                 suggestInsert(t);
                 afterEdit(true);

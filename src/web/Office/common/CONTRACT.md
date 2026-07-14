@@ -42,6 +42,7 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
+    <script src="../common/clipboard.js"></script>
     <!-- optional: ../common/charts.js, ../common/textedit.js,
          ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js,
          ../common/lib/html2canvas.min.js -->
@@ -232,7 +233,40 @@ use `OfficeApp.mediaUrl(vpath)` for storage picks and
 via the system upload endpoint). The packer embeds both forms at save
 time. The framework also writes rolling session snapshots to
 `user:/.appdata/Office/session/<app>.osession` (autosave tick + after
-save) and offers "Restore from previous session" on blank startup.
+save) and offers "Restore from previous session" on blank startup. That
+dialog's **Discard** button deletes the snapshot (container.agi
+`session-delete`) so it stops prompting; **Start fresh** keeps it for a
+later launch. The framework also intercepts the floatWindow close button
+(overriding `ao_module_close`) to confirm before discarding unsaved
+changes (Cancel / Close without saving / Save & close).
+
+## OfficeClipboard (common/clipboard.js) — cross-app copy/paste
+
+Each app keeps a high-fidelity **text/plain** clipboard format (Slides
+object JSON, Sheets TSV / chart-marker JSON). To move content *between*
+apps, on copy also write a shared **text/html** snapshot, and on paste
+consume it only after your own text/plain marker is absent.
+
+```js
+OfficeClipboard.imageHtml(src, w, h)     // "<img ...>"
+OfficeClipboard.tableHtml(rows, {headerRow})   // rows: [[cellHtml,...]]
+OfficeClipboard.svgImageSrc(svg)         // rasterizable SVG -> data: URL
+OfficeClipboard.parse(html)  // -> {images:[{src,w,h}], tables:[[[cellEl]]],
+                             //     text, html, hasContent}
+OfficeClipboard.isMarker(text)   // true = another app's raw marker JSON;
+                                 // never insert it as plain text
+OfficeClipboard.writeAsync({html, text})  // menu-driven copies (no event)
+```
+
+Copy pattern (in a `copy`/`cut` event handler): set BOTH
+`e.clipboardData.setData("text/plain", myMarker)` and
+`setData("text/html", OfficeClipboard.imageHtml/tableHtml(...))`, then
+`preventDefault()`. Paste pattern: honour your own marker first; else
+`OfficeClipboard.parse(getData("text/html"))` and place images/tables/
+text; guard the plain-text fallback with `!OfficeClipboard.isMarker(t)`
+so a foreign marker never lands as literal JSON. Media picks stay as
+`media?file=` links — Docs and Slides sit at the same `Office/<app>/`
+depth, so the relative URL resolves in both.
 
 ## OfficeColorPicker (common/colorpicker.js) — shared color picker
 

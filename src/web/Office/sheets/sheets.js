@@ -1472,11 +1472,13 @@ var SheetsApp = (function () {
         var ch = selectedChartObj();
         if (!ch) return false;
         var txt = JSON.stringify({ app: CHART_CLIP_MARKER, version: 1, chart: deep(ch) });
+        var html = (window.SheetsIO && SheetsIO.chartToImageHtml) ? SheetsIO.chartToImageHtml(ch) : "";
         if (e && e.clipboardData) {
             e.clipboardData.setData("text/plain", txt);
+            if (html) e.clipboardData.setData("text/html", html);
             e.preventDefault();
-        } else if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(txt).catch(function () { });
+        } else {
+            OfficeClipboard.writeAsync({ text: txt, html: html }).catch(function () { });
         }
         if (isCut) {
             var s = sheet();
@@ -1499,6 +1501,18 @@ var SheetsApp = (function () {
         commit();
         OfficeApp.setStatus("Chart pasted");
     }
+    // an HTML <table> snapshot of a range so cells paste into Docs/Slides
+    function htmlOfRange(rg) {
+        var rows = [];
+        for (var r = rg.r1; r <= rg.r2; r++) {
+            var row = [];
+            for (var c = rg.c1; c <= rg.c2; c++) {
+                row.push(esc(displayText(c, r)));
+            }
+            rows.push(row);
+        }
+        return OfficeClipboard.tableHtml(rows);
+    }
     function onCopy(e, isCut) {
         if (editing || isTypingTarget(document.activeElement) && document.activeElement !== gridEl) return;
         if (copySelectedChart(isCut, e)) return;
@@ -1508,6 +1522,7 @@ var SheetsApp = (function () {
         clipCut = !!isCut;
         if (e && e.clipboardData) {
             e.clipboardData.setData("text/plain", clipTsv);
+            e.clipboardData.setData("text/html", htmlOfRange(rg));
             e.preventDefault();
         }
         OfficeApp.setStatus((isCut ? "Cut " : "Copied ") + (clipInternal.w * clipInternal.h) + " cell(s)");
@@ -1515,16 +1530,46 @@ var SheetsApp = (function () {
     function onPaste(e) {
         if (editing) return;
         if (isTypingTarget(document.activeElement) && document.activeElement !== gridEl) return;
-        var text = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
+        var cd = e.clipboardData;
+        var text = cd ? cd.getData("text/plain") : "";
+        var html = cd ? cd.getData("text/html") : "";
         e.preventDefault();
         var chp = parseChartClipboardText(text);
-        if (chp) {
-            pasteChart(chp);
-        } else if (clipInternal && text === clipTsv) {
-            pasteInternal();
-        } else if (text) {
-            pasteText(text);
+        if (chp) { pasteChart(chp); return; }
+        // same-app cells: full fidelity (formulas / styles)
+        if (clipInternal && text === clipTsv) { pasteInternal(); return; }
+        // a foreign app's marker JSON is never real cell text - use the
+        // shared text/html instead (Slides table -> cells)
+        if (OfficeClipboard.isMarker(text)) { pasteForeignHtml(html); return; }
+        if (text) { pasteText(text); return; }
+        pasteForeignHtml(html);
+    }
+    // ingest a shared text/html payload into the grid; images have no cell
+    // home so they are declined with a hint
+    function pasteForeignHtml(html) {
+        var p = OfficeClipboard.parse(html);
+        if (p.tables.length) { pasteHtmlTable(p.tables[0]); return; }
+        if (p.images.length) {
+            OfficeApp.setStatus("Can't paste an image into a cell - paste it into Slides or Docs", "error");
+            return;
         }
+        if (p.text.replace(/\s/g, "")) pasteText(p.text);
+    }
+    function pasteHtmlTable(rows) {
+        var s = sheet();
+        rows.forEach(function (tr, r) {
+            tr.forEach(function (cell, c) {
+                var tc = anchor.c + c, tr2 = anchor.r + r;
+                if (tc >= MAX_COLS || tr2 >= MAX_ROWS) return;
+                growTo(tc + 1, tr2 + 1);
+                setRaw(tc, tr2, (cell.textContent || "").replace(/\s+/g, " ").trim());
+            });
+        });
+        head = {
+            c: clamp(anchor.c + (rows[0] ? rows[0].length - 1 : 0), 0, s.cols - 1),
+            r: clamp(anchor.r + rows.length - 1, 0, s.rows - 1)
+        };
+        commit();
     }
     function pasteInternal() {
         var s = sheet();
@@ -1860,6 +1905,7 @@ var SheetsApp = (function () {
                 navigator.clipboard.readText().then(function (t) {
                     var chp = parseChartClipboardText(t);
                     if (chp) pasteChart(chp);
+                    else if (OfficeClipboard.isMarker(t)) OfficeApp.setStatus("Use Ctrl+V to paste this here", "info");
                     else if (clipInternal && t === clipTsv) pasteInternal();
                     else if (t) pasteText(t);
                     else if (clipInternal) pasteInternal();
