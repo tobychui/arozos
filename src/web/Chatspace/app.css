@@ -949,7 +949,11 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 /* thread summary bar */
 
 .msg-thread-bar {
-    display: inline-flex;
+    /* block-level (own line) so it sits below an inline-block image preview
+       instead of floating to its right, but width:fit-content keeps the
+       compact pill shape */
+    display: flex;
+    width: fit-content;
     align-items: center;
     gap: 8px;
     margin-top: 4px;
