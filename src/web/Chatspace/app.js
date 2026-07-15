@@ -1117,8 +1117,10 @@
             return stash(store, '<i class="' + ICON_BY_CODE[code] + ' icon cs-ic" title=":' + code + ':"></i>');
         });
         //Mentions: real users, broadcast tokens (@everyone/@channel) and
-        //the built-in @ai assistant
-        html = html.replace(/(^|[^A-Za-z0-9_.\-])@([A-Za-z0-9_.\-]+)/g, function (m, lead, name) {
+        //the built-in @ai assistant. The name class includes "@" so email
+        //style usernames (e.g. admin@example.com) are captured whole instead
+        //of stopping at the embedded "@" and only highlighting "admin".
+        html = html.replace(/(^|[^A-Za-z0-9_.\-@])@([A-Za-z0-9_.\-@]+)/g, function (m, lead, name) {
             if (BROADCAST_MENTIONS[name.toLowerCase()]) {
                 return lead + stash(store, '<span class="mention mention-me">@' + escapeHtml(name) + '</span>');
             }
@@ -1234,16 +1236,14 @@
         starred.forEach(function (convo) { starredHtml += convoItemHtml(convo); });
         $id("sbStarredList").innerHTML = starredHtml;
 
+        //Starred conversations are surfaced in the Starred shortcut section
+        //but still listed under their own Channels / Direct messages section.
         var chHtml = "";
-        channels.forEach(function (convo) {
-            if (!isStarred(convo.id)) chHtml += convoItemHtml(convo);
-        });
+        channels.forEach(function (convo) { chHtml += convoItemHtml(convo); });
         $id("sbChannelList").innerHTML = chHtml;
 
         var dmHtml = "";
-        dms.forEach(function (convo) {
-            if (!isStarred(convo.id)) dmHtml += convoItemHtml(convo);
-        });
+        dms.forEach(function (convo) { dmHtml += convoItemHtml(convo); });
         $id("sbDmList").innerHTML = dmHtml;
 
         //Collapse states
@@ -1775,7 +1775,9 @@
                 openProfile(el.getAttribute("data-profile"));
             });
         });
-        Array.prototype.forEach.call(node.querySelectorAll(".mention"), function (el) {
+        //Only real-user mentions carry data-user and open a profile; broadcast
+        //(@everyone/@channel) and the @ai handle are not people, so skip them.
+        Array.prototype.forEach.call(node.querySelectorAll(".mention[data-user]"), function (el) {
             el.addEventListener("click", function (e) {
                 e.stopPropagation();
                 openProfile(el.getAttribute("data-user"));
@@ -1817,6 +1819,15 @@
         var media = node.querySelector(".msg-video, .msg-audio");
         if (media) media.addEventListener("loadedmetadata", function () {
             if (state.active === convo.id && isScrolledToBottom()) scrollMessagesToBottom();
+        });
+        //Right-click context menu (mirrors the hover actions). Defer to the
+        //native menu when the user has selected text inside this message so
+        //browser copy still works.
+        node.addEventListener("contextmenu", function (e) {
+            var sel = window.getSelection();
+            if (sel && !sel.isCollapsed && sel.anchorNode && node.contains(sel.anchorNode)) return;
+            e.preventDefault();
+            openMsgContextMenu(e.clientX, e.clientY, convo, msg, node);
         });
     }
 
@@ -1990,6 +2001,120 @@
         });
     }
 
+    /* ---- message right-click context menu ---- */
+
+    var cmKeyHandler = null; //active keyboard shortcut handler while the menu is open
+
+    function clearCmKeys() {
+        if (cmKeyHandler) {
+            document.removeEventListener("keydown", cmKeyHandler, true);
+            cmKeyHandler = null;
+        }
+    }
+
+    function openMsgContextMenu(x, y, convo, msg, node) {
+        closePickers();
+        var menu = $id("msgContextMenu");
+        var inThread = !!node.closest("#rpBody");
+        var saved = isSaved(convo.id, msg.id);
+        var canEdit = msg.user === state.username && msg.kind === "text" && !msg.bot;
+        var canDel = msg.user === state.username || canManage(convo);
+
+        var items = [
+            { act: "react", icon: "smile outline", label: "Add reaction", key: "R" },
+            { act: "thread", icon: "comment outline", label: "Reply in thread", key: "T" }
+        ];
+        if (msg.kind === "text") items.push({ act: "copy", icon: "copy outline", label: "Copy text", key: "C" });
+        items.push({ sep: true });
+        items.push({ act: "save", icon: "bookmark" + (saved ? "" : " outline"), label: saved ? "Remove from Later" : "Save for later", key: "A" });
+        items.push({ act: "pin", icon: "thumbtack", label: msg.pinned ? "Unpin from conversation" : "Pin to conversation", key: "P" });
+        if (canEdit || canDel) items.push({ sep: true });
+        if (canEdit) items.push({ act: "edit", icon: "pencil", label: "Edit message", key: "E" });
+        if (canDel) items.push({ act: "delete", icon: "trash", label: "Delete message", key: "␡", danger: true });
+
+        var html = "";
+        items.forEach(function (it) {
+            if (it.sep) { html += '<div class="cm-sep"></div>'; return; }
+            html += '<div class="cm-row' + (it.danger ? " danger" : "") + '" data-cm="' + it.act + '">' +
+                '<i class="' + it.icon + ' icon"></i><span class="cm-label">' + it.label + '</span>' +
+                '<span class="cm-key">' + it.key + '</span></div>';
+        });
+        menu.innerHTML = html;
+        menu.style.display = "";
+        positionMenuAt(menu, x, y);
+        Array.prototype.forEach.call(menu.querySelectorAll(".cm-row"), function (row) {
+            row.addEventListener("click", function (ev) {
+                ev.stopPropagation();
+                runMsgAction(row.getAttribute("data-cm"), convo, msg, node, inThread);
+            });
+        });
+
+        //The single-key shortcuts shown on the right are live while the menu
+        //is open (Slack behaviour). Ctrl/Cmd combos are left to the browser.
+        var keymap = {};
+        items.forEach(function (it) { if (it.act && it.key) keymap[it.key.toUpperCase()] = it.act; });
+        clearCmKeys();
+        cmKeyHandler = function (ev) {
+            if (menu.style.display === "none") { clearCmKeys(); return; }
+            if (ev.key === "Escape") { ev.preventDefault(); closePickers(); return; }
+            if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+            var act = (ev.key === "Delete" || ev.key === "Backspace") ? "delete" : keymap[ev.key.toUpperCase()];
+            if (act) { ev.preventDefault(); runMsgAction(act, convo, msg, node, inThread); }
+        };
+        document.addEventListener("keydown", cmKeyHandler, true);
+    }
+
+    function runMsgAction(act, convo, msg, node, inThread) {
+        clearCmKeys();
+        if (act === "react") {
+            //Keep the message as a stable anchor while the icon picker opens
+            $id("msgContextMenu").style.display = "none";
+            openIconPicker(node, function (code) { toggleReaction(convo, msg.id, code); });
+            return;
+        }
+        closePickers();
+        if (act === "thread") openThread(convo.id, msg.thread || msg.id);
+        else if (act === "copy") copyToClipboard(msg.text);
+        else if (act === "save") toggleSaved(convo.id, msg.id);
+        else if (act === "pin") togglePin(convo, msg.id);
+        else if (act === "edit") { inThread ? startEditInThread(convo, msg) : startEdit(convo, msg); }
+        else if (act === "delete") deleteMessage(convo, msg.id);
+    }
+
+    function copyToClipboard(text) {
+        function ok() { showToast("Copied", "Message text copied to the clipboard"); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(ok, function () { legacyCopy(text, ok); });
+        } else {
+            legacyCopy(text, ok);
+        }
+    }
+
+    function legacyCopy(text, ok) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { if (document.execCommand("copy")) ok(); } catch (e) { /* clipboard blocked */ }
+        document.body.removeChild(ta);
+    }
+
+    //Position a fixed popover at the cursor, flipping so it stays on-screen.
+    function positionMenuAt(menu, x, y) {
+        menu.style.visibility = "hidden";
+        menu.style.left = "0px";
+        menu.style.top = "0px";
+        var w = menu.offsetWidth;
+        var h = menu.offsetHeight;
+        var left = x + w + 8 > window.innerWidth ? x - w : x;
+        var top = y + h + 8 > window.innerHeight ? y - h : y;
+        menu.style.left = Math.max(8, left) + "px";
+        menu.style.top = Math.max(8, top) + "px";
+        menu.style.visibility = "";
+    }
+
     /* ---- day divider "Jump to..." menu ---- */
 
     //Scroll to the first message on or after the given time (or the last
@@ -2099,17 +2224,55 @@
 
     /* ================= Right panel ================= */
 
-    function closeRightPanel() {
+    //PWA history integration: the thread / profile panel is a full-screen
+    //sub-view on mobile, so opening it pushes a single history entry. The
+    //device or browser Back button then closes the panel instead of leaving
+    //the app, matching the behaviour of a native chat client.
+    //  active   - a sentinel entry is currently on the history stack
+    //  suppress - true during an internal convo switch, so the transient
+    //             close-then-reopen reuses the sentinel instead of unwinding
+    //             and re-pushing it (which would race the async popstate).
+    var panelHist = { active: false, suppress: false };
+
+    function pushPanelHistory() {
+        if (!panelHist.active) {
+            panelHist.active = true;
+            try { history.pushState({ csPanel: 1 }, ""); } catch (e) { /* history unavailable */ }
+        }
+    }
+
+    //fromPop === true when invoked from the popstate handler: the browser has
+    //already unwound our sentinel, so we must not call history.back() again.
+    function closeRightPanel(fromPop) {
+        var wasOpen = !!state.rpMode;
         state.rpMode = null;
         state.activeThread = null;
         state.rpProfileUser = null;
+        //Drop any in-progress thread-scoped edit so it cannot leak into the
+        //main composer's draft/edit state once the panel is gone.
+        if (state.editing && state.editing.thread) state.editing = null;
         $id("rightPanel").style.display = "none";
+        if (!wasOpen || panelHist.suppress) return;
+        if (fromPop) { panelHist.active = false; return; }
+        if (panelHist.active) {
+            //UI dismissal (close button / Esc / convo switch): consume the entry
+            panelHist.active = false;
+            try { history.back(); } catch (e) { /* history unavailable */ }
+        }
     }
 
     function openThread(convoId, rootId) {
-        if (state.active !== convoId) setActive(convoId);
+        //Switching convo may close a currently open thread; suppress the
+        //history unwind during that internal transition so we reuse the
+        //sentinel we are about to keep (avoids an async popstate race).
+        if (state.active !== convoId) {
+            panelHist.suppress = true;
+            setActive(convoId);
+            panelHist.suppress = false;
+        }
         state.rpMode = "thread";
         state.activeThread = rootId;
+        pushPanelHistory();
         renderRightPanel();
         restoreDraft(true);
         var input = $id("rpComposeInput");
@@ -2130,6 +2293,7 @@
     function openProfile(username) {
         state.rpMode = "profile";
         state.rpProfileUser = username;
+        pushPanelHistory();
         renderRightPanel();
     }
 
@@ -2513,7 +2677,7 @@
             showToast("Message too long", "Messages are capped at " + MAX_MSG_LEN + " characters");
             return;
         }
-        if (state.editing) {
+        if (state.editing && !state.editing.thread) {
             sendEdit(convo, state.editing.itemId, text);
             state.editing = null;
             updateComposerPlaceholder();
@@ -2534,8 +2698,14 @@
         var input = $id("rpComposeInput");
         var text = input.value.trim();
         if (text === "" || text.length > MAX_MSG_LEN) return;
-        sendMessage(convo, text, state.activeThread, $id("rpAlsoSend").checked);
+        if (state.editing && state.editing.thread) {
+            sendEdit(convo, state.editing.itemId, text);
+            state.editing = null;
+        } else {
+            sendMessage(convo, text, state.activeThread, $id("rpAlsoSend").checked);
+        }
         input.value = "";
+        autoGrow(input);
         $id("rpAlsoSend").checked = false;
         delete state.prefs.drafts[draftKey(true)];
         savePrefs();
@@ -2554,6 +2724,28 @@
         input.focus();
     }
 
+    //Edit a reply from inside the open thread panel (parity with the main
+    //composer's inline edit); keeps the edit bound to the thread composer.
+    function startEditInThread(convo, msg) {
+        state.editing = { convoId: convo.id, itemId: msg.id, thread: true };
+        var input = $id("rpComposeInput");
+        input.value = msg.text;
+        autoGrow(input);
+        input.placeholder = "Edit your reply - Enter to save, Esc to cancel";
+        refreshSendButtons();
+        input.focus();
+    }
+
+    function cancelThreadEdit() {
+        if (!state.editing || !state.editing.thread) return;
+        state.editing = null;
+        var input = $id("rpComposeInput");
+        input.value = state.prefs.drafts[draftKey(true)] || "";
+        input.placeholder = "Reply...";
+        autoGrow(input);
+        refreshSendButtons();
+    }
+
     function editLastOwnMessage() {
         var convo = activeConvo();
         if (!convo) return;
@@ -2563,6 +2755,64 @@
                 startEdit(convo, msg);
                 return;
             }
+        }
+    }
+
+    //Up-arrow-to-edit inside the thread panel: pick the last own reply
+    function editLastOwnThreadReply() {
+        var convo = activeConvo();
+        if (!convo || !state.activeThread) return;
+        var root = convo.msgs[state.activeThread];
+        if (!root) return;
+        for (var i = root.replies.length - 1; i >= 0; i--) {
+            var msg = convo.msgs[root.replies[i]];
+            if (msg && msg.user === state.username && msg.kind === "text" && !msg.bot) {
+                startEditInThread(convo, msg);
+                return;
+            }
+        }
+    }
+
+    //Shared keydown logic for both composers. `opts.thread` selects the
+    //thread composer behaviour (reply submit / thread-scoped inline edit).
+    function composerKeydown(e, opts) {
+        var input = e.currentTarget;
+        //Mention autocomplete captures navigation keys while it is open
+        if (mentionPickerOpen()) {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                moveMentionSelection(1);
+                return;
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveMentionSelection(-1);
+                return;
+            } else if (e.key === "Enter" || e.key === "Tab") {
+                if (confirmMention()) { e.preventDefault(); return; }
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                closePickers();
+                return;
+            }
+        }
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (opts.thread) submitThreadComposer();
+            else submitComposer();
+        } else if (e.key === "Escape" && state.editing) {
+            //Cancel an in-progress inline edit (do not also close the thread)
+            e.stopPropagation();
+            if (opts.thread) cancelThreadEdit();
+            else {
+                state.editing = null;
+                input.value = state.prefs.drafts[draftKey(false)] || "";
+                updateComposerPlaceholder();
+                refreshSendButtons();
+            }
+        } else if (e.key === "ArrowUp" && input.value === "") {
+            if (opts.thread) editLastOwnThreadReply();
+            else editLastOwnMessage();
         }
     }
 
@@ -2663,17 +2913,26 @@
         popover.style.visibility = "";
     }
 
+    function anyPickerOpen() {
+        return ["iconPicker", "mentionPicker", "jumpMenu", "downloadMenu", "msgContextMenu"].some(function (id) {
+            return $id(id).style.display !== "none";
+        });
+    }
+
     function closePickers() {
         $id("iconPicker").style.display = "none";
         $id("mentionPicker").style.display = "none";
         $id("jumpMenu").style.display = "none";
         $id("downloadMenu").style.display = "none";
+        $id("msgContextMenu").style.display = "none";
+        clearCmKeys();
         mentionMode = null;
     }
 
     document.addEventListener("click", function (e) {
         if (!$id("iconPicker").contains(e.target) && !$id("mentionPicker").contains(e.target) &&
-            !$id("jumpMenu").contains(e.target) && !$id("downloadMenu").contains(e.target)) {
+            !$id("jumpMenu").contains(e.target) && !$id("downloadMenu").contains(e.target) &&
+            !$id("msgContextMenu").contains(e.target)) {
             closePickers();
         }
         if (!$id("searchBox").contains(e.target)) {
@@ -2681,14 +2940,22 @@
         }
     });
 
-    //Mention autocomplete over the composer: opened by the @ button or by
-    //typing "@..." at the caret
-    var mentionMode = null; // {prefixStart} when open
+    //Mention autocomplete over a composer: opened by the @ button or by
+    //typing "@..." at the caret. The picker is fully keyboard driven -
+    //Up/Down move the highlight, Enter/Tab confirm, Esc dismisses - and it
+    //works over whichever composer (main or thread) currently has focus.
+    var mentionMode = null; // {prefixStart, input, anchor} when open
 
-    function openMentionPicker(filter, prefixStart) {
+    function mentionPickerOpen() {
+        return !!mentionMode && $id("mentionPicker").style.display !== "none";
+    }
+
+    function openMentionPicker(filter, prefixStart, input, anchor) {
         var convo = activeConvo();
         if (!convo) return;
-        mentionMode = { prefixStart: prefixStart };
+        input = input || $id("composeInput");
+        anchor = anchor || $id("composer");
+        mentionMode = { prefixStart: prefixStart, input: input, anchor: anchor };
         var picker = $id("mentionPicker");
         var lowered = (filter || "").toLowerCase();
         var candidates = [];
@@ -2719,17 +2986,42 @@
         });
         picker.innerHTML = html;
         picker.style.display = "";
-        positionPopover(picker, $id("composer"));
+        positionPopover(picker, anchor);
         Array.prototype.forEach.call(picker.querySelectorAll(".mp-row"), function (row) {
-            row.addEventListener("click", function (e) {
+            row.addEventListener("mousedown", function (e) {
+                //mousedown (not click) so the composer keeps focus/selection
+                e.preventDefault();
                 e.stopPropagation();
                 insertMention(row.getAttribute("data-name"));
             });
         });
     }
 
+    //Move the mention highlight by delta (wraps around) and keep it visible
+    function moveMentionSelection(delta) {
+        var rows = $id("mentionPicker").querySelectorAll(".mp-row");
+        if (rows.length === 0) return;
+        var cur = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].classList.contains("selected")) { cur = i; break; }
+        }
+        rows[cur].classList.remove("selected");
+        var next = (cur + delta + rows.length) % rows.length;
+        rows[next].classList.add("selected");
+        rows[next].scrollIntoView({ block: "nearest" });
+    }
+
+    //Confirm the highlighted mention; returns false when nothing is picked
+    function confirmMention() {
+        var selected = $id("mentionPicker").querySelector(".mp-row.selected") ||
+            $id("mentionPicker").querySelector(".mp-row");
+        if (!selected) return false;
+        insertMention(selected.getAttribute("data-name"));
+        return true;
+    }
+
     function insertMention(name) {
-        var input = $id("composeInput");
+        var input = (mentionMode && mentionMode.input) || $id("composeInput");
         var caret = input.selectionStart;
         var start = mentionMode ? mentionMode.prefixStart : caret;
         input.value = input.value.substring(0, start) + "@" + name + " " + input.value.substring(caret);
@@ -2740,13 +3032,13 @@
         refreshSendButtons();
     }
 
-    function detectMentionTyping() {
-        var input = $id("composeInput");
+    function detectMentionTyping(input, anchor) {
+        input = input || $id("composeInput");
         var caret = input.selectionStart;
         var upto = input.value.substring(0, caret);
-        var match = upto.match(/(^|[\s(])@([A-Za-z0-9_.\-]*)$/);
+        var match = upto.match(/(^|[\s(])@([A-Za-z0-9_.\-@]*)$/);
         if (match) {
-            openMentionPicker(match[2], caret - match[2].length - 1);
+            openMentionPicker(match[2], caret - match[2].length - 1, input, anchor);
         } else if (mentionMode) {
             closePickers();
         }
@@ -2813,6 +3105,7 @@
 
     function openBrowseModal() {
         $id("browseFilter").value = "";
+        browseKb = 0;
         renderBrowseList();
         openModal("browseModal");
         //Refresh the public directory while the modal is open
@@ -2864,6 +3157,41 @@
                 previewChannel(btn.getAttribute("data-preview"));
             });
         });
+        Array.prototype.forEach.call(document.querySelectorAll("#browseList .browse-row"), function (row, idx) {
+            row.addEventListener("mouseenter", function () { browseKb = idx; applyBrowseFocus(); });
+        });
+        applyBrowseFocus();
+    }
+
+    //Keyboard control for the Browse channels list: arrows move the cursor,
+    //Enter triggers the highlighted row's Open / View button.
+    var browseKb = 0;
+
+    function applyBrowseFocus() {
+        var rows = $id("browseList").querySelectorAll(".browse-row");
+        if (browseKb > rows.length - 1) browseKb = rows.length - 1;
+        if (browseKb < 0) browseKb = 0;
+        for (var i = 0; i < rows.length; i++) rows[i].classList.toggle("kbfocus", i === browseKb);
+    }
+
+    function browseKeydown(e) {
+        var rows = $id("browseList").querySelectorAll(".browse-row");
+        if (rows.length === 0) return;
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            browseKb = (browseKb + 1) % rows.length;
+            applyBrowseFocus();
+            rows[browseKb].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            browseKb = (browseKb - 1 + rows.length) % rows.length;
+            applyBrowseFocus();
+            rows[browseKb].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            var btn = rows[browseKb] && rows[browseKb].querySelector("button[data-open],button[data-preview]");
+            if (btn) btn.click();
+        }
     }
 
     //Open a public channel the user has not joined: read-only preview with
@@ -2894,8 +3222,8 @@
             if (excluded && excluded[name]) return;
             if (lowered && name.toLowerCase().indexOf(lowered) < 0) return;
             html += '<div class="pick-row' + (picked[name] ? " picked" : "") + '" data-name="' + escapeAttr(name) + '">' +
-                '<span class="avatar">' + avatarHtml(name, 11) + '</span>' +
-                '<span class="presence-dot' + (isOnline(name) ? " online" : "") + '" style="margin:0;border-color:#fff;"></span>' +
+                '<span class="avatar">' + avatarHtml(name, 11) +
+                '<span class="presence-dot' + (isOnline(name) ? " online" : "") + '"></span></span>' +
                 '<span class="pick-name">' + escapeHtml(name) + '</span>' +
                 '<i class="check icon pick-check"></i></div>';
         });
@@ -2906,9 +3234,41 @@
     function openDmModal() {
         dmPicked = {};
         $id("dmFilter").value = "";
+        pickKb.dmUserList = 0;
         renderDmPicker();
         openModal("dmModal");
         $id("dmFilter").focus();
+    }
+
+    //Keyboard cursor for the people/channel picker lists (arrows + Enter).
+    var pickKb = { dmUserList: 0, inviteUserList: 0 };
+
+    function applyPickFocus(listId) {
+        var rows = $id(listId).querySelectorAll(".pick-row");
+        var idx = pickKb[listId] || 0;
+        if (idx > rows.length - 1) idx = rows.length - 1;
+        if (idx < 0) idx = 0;
+        pickKb[listId] = idx;
+        for (var i = 0; i < rows.length; i++) rows[i].classList.toggle("kbfocus", i === idx);
+    }
+
+    function pickerKeydown(e, listId) {
+        var rows = $id(listId).querySelectorAll(".pick-row");
+        if (rows.length === 0) return;
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            pickKb[listId] = (pickKb[listId] + 1) % rows.length;
+            applyPickFocus(listId);
+            rows[pickKb[listId]].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            pickKb[listId] = (pickKb[listId] - 1 + rows.length) % rows.length;
+            applyPickFocus(listId);
+            rows[pickKb[listId]].scrollIntoView({ block: "nearest" });
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (rows[pickKb[listId]]) rows[pickKb[listId]].click();
+        }
     }
 
     function renderDmPicker() {
@@ -2922,6 +3282,7 @@
                 renderDmPicker();
             });
         });
+        applyPickFocus("dmUserList");
     }
 
     function openDmWith(usernames) {
@@ -2943,6 +3304,7 @@
         inviteConvo = convo;
         invitePicked = {};
         $id("inviteFilter").value = "";
+        pickKb.inviteUserList = 0;
         $id("inviteTitle").textContent = "Add people to " + (convo.kind === "dm" ? "the conversation" : "#" + convoLabel(convo));
         renderInvitePicker();
         openModal("inviteModal");
@@ -2961,6 +3323,7 @@
                 renderInvitePicker();
             });
         });
+        applyPickFocus("inviteUserList");
     }
 
     function submitInvite() {
@@ -3048,10 +3411,97 @@
 
     var searchTimer = null;
 
+    //Wire jump-on-click for every result / recent row in the search dropdown
+    function wireSearchRows(box) {
+        Array.prototype.forEach.call(box.querySelectorAll(".sr-row"), function (row, idx) {
+            row.addEventListener("mouseenter", function () { setSearchSelection(idx); });
+            row.addEventListener("click", function () { activateSearchRow(row); });
+        });
+        searchSel = 0;
+        applySearchSelection();
+    }
+
+    var searchSel = 0; //keyboard cursor into the search dropdown rows
+
+    function searchRows() { return $id("searchResults").querySelectorAll(".sr-row"); }
+
+    function applySearchSelection() {
+        var rows = searchRows();
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].classList.toggle("selected", i === searchSel);
+        }
+    }
+
+    function setSearchSelection(idx) {
+        searchSel = idx;
+        applySearchSelection();
+    }
+
+    function moveSearchSelection(delta) {
+        var rows = searchRows();
+        if (rows.length === 0) return;
+        searchSel = (searchSel + delta + rows.length) % rows.length;
+        applySearchSelection();
+        rows[searchSel].scrollIntoView({ block: "nearest" });
+    }
+
+    function activateSearchRow(row) {
+        $id("searchResults").style.display = "none";
+        $id("searchInput").value = "";
+        var convoId = row.getAttribute("data-convo");
+        var msgId = row.getAttribute("data-msg");
+        if (!convoId) return;
+        if (msgId) jumpToMessage(convoId, msgId);
+        else setActive(convoId);
+    }
+
+    //Keyboard control for the search box: arrows move the highlight, Enter
+    //opens it, Escape dismisses the dropdown.
+    function searchKeydown(e) {
+        var box = $id("searchResults");
+        if (box.style.display === "none") return;
+        if (e.key === "ArrowDown") { e.preventDefault(); moveSearchSelection(1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); moveSearchSelection(-1); }
+        else if (e.key === "Enter") {
+            var rows = searchRows();
+            if (rows[searchSel]) { e.preventDefault(); activateSearchRow(rows[searchSel]); }
+        } else if (e.key === "Escape") {
+            box.style.display = "none";
+            $id("searchInput").blur();
+        }
+    }
+
+    //Slack-style empty state shown when the search box is focused but blank:
+    //a short hint plus recent conversations as quick jumps.
+    function showSearchEmptyState() {
+        var box = $id("searchResults");
+        var html = '<div class="sr-hint">' +
+            '<div class="sr-hint-title"><i class="search icon"></i>Search messages, files and more</div>' +
+            '<div class="sr-hint-sub">Looking for a particular message, file or conversation? ' +
+            'If it happened in Chatspace, you can find it here.</div></div>';
+        var recents = joinedConvos().slice();
+        recents.sort(function (a, b) {
+            var ta = a.roots.length ? a.roots[a.roots.length - 1].time : 0;
+            var tb = b.roots.length ? b.roots[b.roots.length - 1].time : 0;
+            return tb - ta;
+        });
+        recents = recents.slice(0, 6);
+        if (recents.length > 0) {
+            html += '<div class="sr-group">Recent</div>';
+            recents.forEach(function (convo) {
+                html += '<div class="sr-row" data-convo="' + escapeAttr(convo.id) + '">' +
+                    '<span class="sr-convo">' + (convo.kind === "dm" ? "" : "#") + escapeHtml(convoLabel(convo)) + '</span></div>';
+            });
+        }
+        box.innerHTML = html;
+        box.style.display = "";
+        wireSearchRows(box);
+    }
+
     function runSearch() {
         var query = $id("searchInput").value.trim().toLowerCase();
         var box = $id("searchResults");
-        if (query === "") { box.style.display = "none"; return; }
+        if (query === "") { showSearchEmptyState(); return; }
 
         var convoHits = [];
         var msgHits = [];
@@ -3091,16 +3541,7 @@
         if (html === "") html = '<div class="sr-empty">No results for "' + escapeHtml(query) + '"</div>';
         box.innerHTML = html;
         box.style.display = "";
-        Array.prototype.forEach.call(box.querySelectorAll(".sr-row"), function (row) {
-            row.addEventListener("click", function () {
-                box.style.display = "none";
-                $id("searchInput").value = "";
-                var convoId = row.getAttribute("data-convo");
-                var msgId = row.getAttribute("data-msg");
-                if (msgId) jumpToMessage(convoId, msgId);
-                else setActive(convoId);
-            });
-        });
+        wireSearchRows(box);
     }
 
     /* ================= Rail views ================= */
@@ -3154,8 +3595,10 @@
             searchTimer = setTimeout(runSearch, 200);
         });
         $id("searchInput").addEventListener("focus", function () {
-            if (this.value.trim() !== "") runSearch();
+            //Show results when there is a query, otherwise the empty-state hint
+            runSearch();
         });
+        $id("searchInput").addEventListener("keydown", searchKeydown);
 
         //Sidebar
         $id("sbComposeBtn").addEventListener("click", openDmModal);
@@ -3252,31 +3695,7 @@
             detectMentionTyping();
         });
         input.addEventListener("keydown", function (e) {
-            if ($id("mentionPicker").style.display !== "none") {
-                if (e.key === "Enter" || e.key === "Tab") {
-                    var selected = document.querySelector("#mentionPicker .mp-row.selected") ||
-                        document.querySelector("#mentionPicker .mp-row");
-                    if (selected) {
-                        e.preventDefault();
-                        insertMention(selected.getAttribute("data-name"));
-                        return;
-                    }
-                } else if (e.key === "Escape") {
-                    closePickers();
-                    return;
-                }
-            }
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitComposer();
-            } else if (e.key === "Escape" && state.editing) {
-                state.editing = null;
-                input.value = state.prefs.drafts[draftKey(false)] || "";
-                updateComposerPlaceholder();
-                refreshSendButtons();
-            } else if (e.key === "ArrowUp" && input.value === "") {
-                editLastOwnMessage();
-            }
+            composerKeydown(e, { thread: false });
         });
         input.addEventListener("blur", saveDraft);
         $id("sendBtn").addEventListener("click", submitComposer);
@@ -3318,18 +3737,16 @@
             this.value = "";
         });
 
-        //Thread composer
+        //Thread composer - same keyboard affordances as the main composer
         var rpInput = $id("rpComposeInput");
         rpInput.addEventListener("input", function () {
             autoGrow(rpInput);
             refreshSendButtons();
             emitTyping(activeConvo());
+            detectMentionTyping(rpInput, $id("rpComposer"));
         });
         rpInput.addEventListener("keydown", function (e) {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitThreadComposer();
-            }
+            composerKeydown(e, { thread: true });
         });
         rpInput.addEventListener("blur", saveDraft);
         $id("rpSendBtn").addEventListener("click", submitThreadComposer);
@@ -3339,16 +3756,19 @@
         $id("ncName").addEventListener("keyup", function (e) {
             if (e.key === "Enter") submitCreateChannel();
         });
-        $id("browseFilter").addEventListener("input", renderBrowseList);
+        $id("browseFilter").addEventListener("input", function () { browseKb = 0; renderBrowseList(); });
+        $id("browseFilter").addEventListener("keydown", browseKeydown);
         $id("browseCreateBtn").addEventListener("click", function () {
             closeModal("browseModal");
             openCreateModal();
         });
-        $id("dmFilter").addEventListener("input", renderDmPicker);
+        $id("dmFilter").addEventListener("input", function () { pickKb.dmUserList = 0; renderDmPicker(); });
+        $id("dmFilter").addEventListener("keydown", function (e) { pickerKeydown(e, "dmUserList"); });
         $id("dmStartBtn").addEventListener("click", function () {
             openDmWith(Object.keys(dmPicked));
         });
-        $id("inviteFilter").addEventListener("input", renderInvitePicker);
+        $id("inviteFilter").addEventListener("input", function () { pickKb.inviteUserList = 0; renderInvitePicker(); });
+        $id("inviteFilter").addEventListener("keydown", function (e) { pickerKeydown(e, "inviteUserList"); });
         $id("inviteAddBtn").addEventListener("click", submitInvite);
 
         //Quick switcher
@@ -3399,10 +3819,22 @@
                 return;
             }
             if (e.key === "Escape") {
+                //Close the top-most layer only, so one Esc peels back one level:
+                //popovers first, then open modals, then the thread / detail panel.
+                if (anyPickerOpen()) { closePickers(); return; }
+                var closedModal = false;
                 Array.prototype.forEach.call(document.querySelectorAll(".cs-overlay"), function (overlay) {
-                    overlay.style.display = "none";
+                    if (overlay.style.display !== "none") { overlay.style.display = "none"; closedModal = true; }
                 });
+                if (closedModal) return;
+                if (state.rpMode) { closeRightPanel(); return; }
             }
+        });
+
+        //PWA / native Back button closes the thread (or profile) panel first
+        window.addEventListener("popstate", function () {
+            if (state.rpMode) closeRightPanel(true);
+            else panelHist.active = false;
         });
 
         //Focus tracking drives read-marking and notification muting
