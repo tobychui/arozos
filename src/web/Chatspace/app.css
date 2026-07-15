@@ -756,6 +756,38 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 .dl-menu-btn { background: none; }
 
+/* message right-click context menu */
+#msgContextMenu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+    z-index: 500;
+    padding: 6px 0;
+    width: 240px;
+    max-width: calc(100vw - 16px);
+}
+
+.cm-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--cs-text);
+}
+
+.cm-row:hover { background: var(--cs-hover); }
+.cm-row i.icon { width: 18px; text-align: center; margin: 0; font-size: 14px; color: var(--cs-muted); flex-shrink: 0; }
+.cm-label { flex: 1; }
+.cm-key { font-size: 12px; color: var(--cs-muted); flex-shrink: 0; }
+.cm-row.danger { color: #c22f2f; }
+.cm-row.danger i.icon { color: #c22f2f; }
+.cm-row.danger:hover { background: #fdeaea; }
+.cm-sep { border-top: 1px solid var(--cs-border); margin: 5px 0; }
+
 /* video / audio / text previews */
 .media-preview { display: block; }
 
@@ -781,7 +813,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 .media-foot .file-size { font-size: 12px; color: var(--cs-muted); }
 .media-foot .dl-menu-btn { margin-left: -4px; }
 
-.text-preview-wrap { max-width: 520px; }
+.text-preview-wrap { max-width: min(520px, 100%); }
 
 .text-preview {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
@@ -830,7 +862,10 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 .msg-img {
     display: block;
-    max-width: 360px;
+    /* min(...,100%) keeps the 360px cap in the wide pane but never exceeds a
+       narrow container (e.g. the thread panel), which used to force a
+       horizontal scrollbar */
+    max-width: min(360px, 100%);
     max-height: 280px;
     border-radius: 12px;
     border: 1px solid var(--cs-border);

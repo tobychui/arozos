@@ -1820,6 +1820,15 @@
         if (media) media.addEventListener("loadedmetadata", function () {
             if (state.active === convo.id && isScrolledToBottom()) scrollMessagesToBottom();
         });
+        //Right-click context menu (mirrors the hover actions). Defer to the
+        //native menu when the user has selected text inside this message so
+        //browser copy still works.
+        node.addEventListener("contextmenu", function (e) {
+            var sel = window.getSelection();
+            if (sel && !sel.isCollapsed && sel.anchorNode && node.contains(sel.anchorNode)) return;
+            e.preventDefault();
+            openMsgContextMenu(e.clientX, e.clientY, convo, msg, node);
+        });
     }
 
     function fillTextPreview(pre, spaceid, itemid) {
@@ -1990,6 +1999,120 @@
                 else saveToArozOS(spaceid, itemid, name);
             });
         });
+    }
+
+    /* ---- message right-click context menu ---- */
+
+    var cmKeyHandler = null; //active keyboard shortcut handler while the menu is open
+
+    function clearCmKeys() {
+        if (cmKeyHandler) {
+            document.removeEventListener("keydown", cmKeyHandler, true);
+            cmKeyHandler = null;
+        }
+    }
+
+    function openMsgContextMenu(x, y, convo, msg, node) {
+        closePickers();
+        var menu = $id("msgContextMenu");
+        var inThread = !!node.closest("#rpBody");
+        var saved = isSaved(convo.id, msg.id);
+        var canEdit = msg.user === state.username && msg.kind === "text" && !msg.bot;
+        var canDel = msg.user === state.username || canManage(convo);
+
+        var items = [
+            { act: "react", icon: "smile outline", label: "Add reaction", key: "R" },
+            { act: "thread", icon: "comment outline", label: "Reply in thread", key: "T" }
+        ];
+        if (msg.kind === "text") items.push({ act: "copy", icon: "copy outline", label: "Copy text", key: "C" });
+        items.push({ sep: true });
+        items.push({ act: "save", icon: "bookmark" + (saved ? "" : " outline"), label: saved ? "Remove from Later" : "Save for later", key: "A" });
+        items.push({ act: "pin", icon: "thumbtack", label: msg.pinned ? "Unpin from conversation" : "Pin to conversation", key: "P" });
+        if (canEdit || canDel) items.push({ sep: true });
+        if (canEdit) items.push({ act: "edit", icon: "pencil", label: "Edit message", key: "E" });
+        if (canDel) items.push({ act: "delete", icon: "trash", label: "Delete message", key: "␡", danger: true });
+
+        var html = "";
+        items.forEach(function (it) {
+            if (it.sep) { html += '<div class="cm-sep"></div>'; return; }
+            html += '<div class="cm-row' + (it.danger ? " danger" : "") + '" data-cm="' + it.act + '">' +
+                '<i class="' + it.icon + ' icon"></i><span class="cm-label">' + it.label + '</span>' +
+                '<span class="cm-key">' + it.key + '</span></div>';
+        });
+        menu.innerHTML = html;
+        menu.style.display = "";
+        positionMenuAt(menu, x, y);
+        Array.prototype.forEach.call(menu.querySelectorAll(".cm-row"), function (row) {
+            row.addEventListener("click", function (ev) {
+                ev.stopPropagation();
+                runMsgAction(row.getAttribute("data-cm"), convo, msg, node, inThread);
+            });
+        });
+
+        //The single-key shortcuts shown on the right are live while the menu
+        //is open (Slack behaviour). Ctrl/Cmd combos are left to the browser.
+        var keymap = {};
+        items.forEach(function (it) { if (it.act && it.key) keymap[it.key.toUpperCase()] = it.act; });
+        clearCmKeys();
+        cmKeyHandler = function (ev) {
+            if (menu.style.display === "none") { clearCmKeys(); return; }
+            if (ev.key === "Escape") { ev.preventDefault(); closePickers(); return; }
+            if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+            var act = (ev.key === "Delete" || ev.key === "Backspace") ? "delete" : keymap[ev.key.toUpperCase()];
+            if (act) { ev.preventDefault(); runMsgAction(act, convo, msg, node, inThread); }
+        };
+        document.addEventListener("keydown", cmKeyHandler, true);
+    }
+
+    function runMsgAction(act, convo, msg, node, inThread) {
+        clearCmKeys();
+        if (act === "react") {
+            //Keep the message as a stable anchor while the icon picker opens
+            $id("msgContextMenu").style.display = "none";
+            openIconPicker(node, function (code) { toggleReaction(convo, msg.id, code); });
+            return;
+        }
+        closePickers();
+        if (act === "thread") openThread(convo.id, msg.thread || msg.id);
+        else if (act === "copy") copyToClipboard(msg.text);
+        else if (act === "save") toggleSaved(convo.id, msg.id);
+        else if (act === "pin") togglePin(convo, msg.id);
+        else if (act === "edit") { inThread ? startEditInThread(convo, msg) : startEdit(convo, msg); }
+        else if (act === "delete") deleteMessage(convo, msg.id);
+    }
+
+    function copyToClipboard(text) {
+        function ok() { showToast("Copied", "Message text copied to the clipboard"); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(ok, function () { legacyCopy(text, ok); });
+        } else {
+            legacyCopy(text, ok);
+        }
+    }
+
+    function legacyCopy(text, ok) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { if (document.execCommand("copy")) ok(); } catch (e) { /* clipboard blocked */ }
+        document.body.removeChild(ta);
+    }
+
+    //Position a fixed popover at the cursor, flipping so it stays on-screen.
+    function positionMenuAt(menu, x, y) {
+        menu.style.visibility = "hidden";
+        menu.style.left = "0px";
+        menu.style.top = "0px";
+        var w = menu.offsetWidth;
+        var h = menu.offsetHeight;
+        var left = x + w + 8 > window.innerWidth ? x - w : x;
+        var top = y + h + 8 > window.innerHeight ? y - h : y;
+        menu.style.left = Math.max(8, left) + "px";
+        menu.style.top = Math.max(8, top) + "px";
+        menu.style.visibility = "";
     }
 
     /* ---- day divider "Jump to..." menu ---- */
@@ -2791,7 +2914,7 @@
     }
 
     function anyPickerOpen() {
-        return ["iconPicker", "mentionPicker", "jumpMenu", "downloadMenu"].some(function (id) {
+        return ["iconPicker", "mentionPicker", "jumpMenu", "downloadMenu", "msgContextMenu"].some(function (id) {
             return $id(id).style.display !== "none";
         });
     }
@@ -2801,12 +2924,15 @@
         $id("mentionPicker").style.display = "none";
         $id("jumpMenu").style.display = "none";
         $id("downloadMenu").style.display = "none";
+        $id("msgContextMenu").style.display = "none";
+        clearCmKeys();
         mentionMode = null;
     }
 
     document.addEventListener("click", function (e) {
         if (!$id("iconPicker").contains(e.target) && !$id("mentionPicker").contains(e.target) &&
-            !$id("jumpMenu").contains(e.target) && !$id("downloadMenu").contains(e.target)) {
+            !$id("jumpMenu").contains(e.target) && !$id("downloadMenu").contains(e.target) &&
+            !$id("msgContextMenu").contains(e.target)) {
             closePickers();
         }
         if (!$id("searchBox").contains(e.target)) {
