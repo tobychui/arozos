@@ -27,7 +27,9 @@
         image-selection classes are stripped before serialisation.
       - Known allowed classes inside html: doc-title (title paragraph),
         of-checklist (on UL), checked (on LI), of-table (on TABLE),
-        doc-cmt (comment anchor), doc-ins / doc-del (tracked changes).
+        doc-cmt (comment anchor), doc-ins / doc-del (tracked changes),
+        doc-pagebreak (explicit page break block; exports as a real
+        <w:br w:type="page"/> and is sized on screen by layoutPageBreaks).
       - Foreign exports (docx/html/md/txt) use resolvedHtml(): suggestions
         applied as if accepted, comment anchors unwrapped.
 */
@@ -225,6 +227,8 @@
     /* ================= serialize / deserialize ================= */
     function cleanedHtml() {
         var clone = editor.cloneNode(true);
+        // strip layout-only automatic page spacers (visual pagination)
+        removeAutoBreaks(clone);
         // strip find highlight spans
         var hits = clone.querySelectorAll("span.of-find-hit");
         for (var i = 0; i < hits.length; i++) {
@@ -269,6 +273,7 @@
         closeFind();
         deselectImage();
         editor.innerHTML = sanitizeHtml(b.html || "<p><br></p>", { keepClasses: true }) || "<p><br></p>";
+        normalizePageBreaks();
         headerEl.textContent = b.header || "";
         footerEl.textContent = b.footer || "";
         var p = b.page || {};
@@ -574,6 +579,8 @@
         stateTimer = setTimeout(updateToolbarState, 90);
     }
     function updateToolbarState() {
+        // contextual menubar menus (Table) follow the caret
+        if (OfficeApp.updateMenus) OfficeApp.updateMenus();
         var states = ["bold", "italic", "underline", "strikeThrough",
             "justifyLeft", "justifyCenter", "justifyRight", "justifyFull",
             "insertUnorderedList", "insertOrderedList"];
@@ -798,39 +805,134 @@
     }
 
     /* ================= tables ================= */
+    /* Word-style drag-over grid table creator (Insert > Table) */
+    var TGRID_COLS = 10, TGRID_ROWS = 8;
+    function insertTable(rows, cols) {
+        var html = '<table class="of-table"><tbody>';
+        for (var r = 0; r < rows; r++) {
+            html += "<tr>";
+            for (var c = 0; c < cols; c++) html += "<td><br></td>";
+            html += "</tr>";
+        }
+        html += "</tbody></table><p><br></p>";
+        restoreSel();
+        try { document.execCommand("insertHTML", false, html); } catch (e) { }
+        afterEdit(true);
+    }
     function insertTableDialog() {
         if (inHeaderFooter()) return;
-        var $b = $('<div class="dlg-two-col"></div>');
-        $b.append("<div><label>Rows</label><input type='number' min='1' max='50' class='tbl-rows' value='3'></div>");
-        $b.append("<div><label>Columns</label><input type='number' min='1' max='20' class='tbl-cols' value='3'></div>");
-        OfficeApp.dialog({
+        var $b = $("<div></div>");
+        var $label = $('<div class="doc-tgrid-label">1 × 1</div>');
+        var $grid = $('<div class="doc-tgrid"></div>');
+        var dlg;
+        var hotR = 1, hotC = 1;
+        function paint() {
+            $grid.children().each(function () {
+                var r = parseInt($(this).attr("data-r"), 10);
+                var c = parseInt($(this).attr("data-c"), 10);
+                $(this).toggleClass("hot", r <= hotR && c <= hotC);
+            });
+            $label.text(hotC + " × " + hotR);
+        }
+        for (var r = 1; r <= TGRID_ROWS; r++) {
+            for (var c = 1; c <= TGRID_COLS; c++) {
+                var $cell = $('<button type="button" class="doc-tgrid-cell"></button>')
+                    .attr("data-r", r).attr("data-c", c);
+                $grid.append($cell);
+            }
+        }
+        // hover / drag over the grid selects the size, click (or release)
+        // inserts - matching the Word ribbon gesture
+        $grid.on("pointerover pointermove", ".doc-tgrid-cell", function () {
+            hotR = parseInt($(this).attr("data-r"), 10);
+            hotC = parseInt($(this).attr("data-c"), 10);
+            paint();
+        });
+        $grid.on("click pointerup", ".doc-tgrid-cell", function () {
+            var rr = parseInt($(this).attr("data-r"), 10);
+            var cc = parseInt($(this).attr("data-c"), 10);
+            dlg.close();
+            insertTable(rr, cc);
+        });
+        var $custom = $('<div class="dlg-two-col" style="margin-top:10px;"></div>');
+        $custom.append("<div><label>Rows</label><input type='number' min='1' max='50' class='tbl-rows' value='3'></div>");
+        $custom.append("<div><label>Columns</label><input type='number' min='1' max='20' class='tbl-cols' value='3'></div>");
+        $b.append($label).append($grid)
+            .append('<label style="margin-top:12px;">Custom size</label>')
+            .append($custom);
+        dlg = OfficeApp.dialog({
             title: "Insert table",
             body: $b,
             buttons: [
                 { label: "Cancel" },
-                { label: "Insert", primary: true, action: function (close, $body) {
-                    var rows = Math.min(50, Math.max(1, parseInt($body.find(".tbl-rows").val(), 10) || 3));
-                    var cols = Math.min(20, Math.max(1, parseInt($body.find(".tbl-cols").val(), 10) || 3));
-                    close();
-                    var html = '<table class="of-table"><tbody>';
-                    for (var r = 0; r < rows; r++) {
-                        html += "<tr>";
-                        for (var c = 0; c < cols; c++) html += "<td><br></td>";
-                        html += "</tr>";
+                {
+                    label: "Insert custom size", action: function (close, $body) {
+                        var rows = Math.min(50, Math.max(1, parseInt($body.find(".tbl-rows").val(), 10) || 3));
+                        var cols = Math.min(20, Math.max(1, parseInt($body.find(".tbl-cols").val(), 10) || 3));
+                        close();
+                        insertTable(rows, cols);
                     }
-                    html += "</tbody></table><p><br></p>";
-                    restoreSel();
-                    try { document.execCommand("insertHTML", false, html); } catch (e) { }
-                    afterEdit(true);
-                } }
+                }
             ]
         });
+        paint();
+    }
+
+    /* ---------- table styling (themes / borders / banding) ----------
+       The style state lives in data attributes on the <table> so toggles
+       know it and re-application after row/column edits keeps banding
+       consistent; the rendered look is plain inline CSS (survives the
+       native format, HTML export and - for shading - docx). Cells with
+       data-cellbg carry a user-picked background that themes/banding
+       never overwrite. */
+    var TABLE_THEMES = [
+        { name: "Plain",       bc: "#b9bec7", headbg: "#eef1f5", bandbg: "#f4f6f9", headfc: "" },
+        { name: "Blue",        bc: "#a9c6e8", headbg: "#d9e7f8", bandbg: "#eef4fc", headfc: "" },
+        { name: "Green",       bc: "#b2d8b4", headbg: "#d9efdb", bandbg: "#effaf0", headfc: "" },
+        { name: "Orange",      bc: "#f0c9a4", headbg: "#fbe3c9", bandbg: "#fdf3e7", headfc: "" },
+        { name: "Dark header", bc: "#9aa0a6", headbg: "#3c4043", bandbg: "#f1f3f4", headfc: "#ffffff" }
+    ];
+    function applyTableStyle(table) {
+        var bw = parseFloat(table.getAttribute("data-th-bw")) || 1;
+        var bc = table.getAttribute("data-th-bc") || "#b9bec7";
+        var headOn = table.getAttribute("data-th-head") === "1";
+        var bandOn = table.getAttribute("data-th-band") === "1";
+        var headBg = table.getAttribute("data-th-headbg") || "#e8eaed";
+        var headFc = table.getAttribute("data-th-headfc") || "";
+        var bandBg = table.getAttribute("data-th-bandbg") || "#f4f5f7";
+        for (var r = 0; r < table.rows.length; r++) {
+            var row = table.rows[r];
+            for (var c = 0; c < row.cells.length; c++) {
+                var cell = row.cells[c];
+                cell.style.border = bw + "px solid " + bc;
+                var custom = cell.getAttribute("data-cellbg");
+                var isHead = headOn && r === 0;
+                var isBand = bandOn && ((r - (headOn ? 1 : 0)) % 2 === 1);
+                if (custom) cell.style.backgroundColor = custom;
+                else if (isHead) cell.style.backgroundColor = headBg;
+                else if (isBand) cell.style.backgroundColor = bandBg;
+                else cell.style.backgroundColor = "";
+                cell.style.fontWeight = isHead ? "700" : "";
+                cell.style.color = (isHead && headFc) ? headFc : "";
+            }
+        }
+        afterEdit(true);
+    }
+    function currentCell() {
+        var n = savedRange ? savedRange.startContainer : null;
+        if (n && n.nodeType === 3) n = n.parentNode;
+        var cell = n && n.closest ? n.closest("td,th") : null;
+        return cell && editor.contains(cell) ? cell : null;
+    }
+    function currentTable() {
+        var cell = currentCell();
+        return cell ? cell.closest("table") : null;
     }
     function tableAddRow(table, index) {
         var cols = (table.rows[0] ? table.rows[0].cells.length : 1);
         var tr = table.insertRow(index);
         for (var i = 0; i < cols; i++) tr.insertCell(-1).innerHTML = "<br>";
-        afterEdit(true);
+        applyTableStyle(table);
     }
     function tableAddCol(table, index) {
         for (var i = 0; i < table.rows.length; i++) {
@@ -838,12 +940,16 @@
             var at = Math.min(index, row.cells.length);
             row.insertCell(at).innerHTML = "<br>";
         }
-        afterEdit(true);
+        applyTableStyle(table);
     }
     function tableDelRow(table, ri) {
         table.deleteRow(ri);
-        if (table.rows.length === 0 && table.parentNode) table.parentNode.removeChild(table);
-        afterEdit(true);
+        if (table.rows.length === 0 && table.parentNode) {
+            table.parentNode.removeChild(table);
+            afterEdit(true);
+            return;
+        }
+        applyTableStyle(table);
     }
     function tableDelCol(table, ci) {
         var empty = true;
@@ -852,8 +958,98 @@
             if (row.cells.length > ci) row.deleteCell(ci);
             if (row.cells.length > 0) empty = false;
         }
-        if (empty && table.parentNode) table.parentNode.removeChild(table);
-        afterEdit(true);
+        if (empty && table.parentNode) {
+            table.parentNode.removeChild(table);
+            afterEdit(true);
+            return;
+        }
+        applyTableStyle(table);
+    }
+    /* the contextual "Table" menubar menu (visible while the caret is in a
+       table) - also reused as a submenu of the table context menu */
+    function tableMenuItems() { return tableMenuItemsFor(currentCell()); }
+    function tableMenuItemsFor(cell) {
+        var table = cell ? cell.closest("table") : null;
+        if (!table) {
+            return [{ label: "Click inside a table first", enabled: function () { return false; }, action: function () { } }];
+        }
+        function toggleAttr(attr) {
+            table.setAttribute(attr, table.getAttribute(attr) === "1" ? "" : "1");
+            applyTableStyle(table);
+        }
+        var items = [
+            {
+                label: "Header row", icon: "heading",
+                checked: function () { return table.getAttribute("data-th-head") === "1"; },
+                action: function () { toggleAttr("data-th-head"); }
+            },
+            {
+                label: "Banded rows", icon: "bars",
+                checked: function () { return table.getAttribute("data-th-band") === "1"; },
+                action: function () { toggleAttr("data-th-band"); }
+            },
+            {
+                label: "Table theme", icon: "paint brush",
+                sub: TABLE_THEMES.map(function (t) {
+                    return {
+                        label: t.name,
+                        action: function () {
+                            table.setAttribute("data-th-bc", t.bc);
+                            table.setAttribute("data-th-headbg", t.headbg);
+                            table.setAttribute("data-th-headfc", t.headfc);
+                            table.setAttribute("data-th-bandbg", t.bandbg);
+                            table.setAttribute("data-th-head", "1");
+                            table.setAttribute("data-th-band", "1");
+                            applyTableStyle(table);
+                        }
+                    };
+                })
+            },
+            {
+                label: "Border weight", icon: "window minimize outline",
+                sub: [0.5, 1, 2, 3].map(function (w) {
+                    return {
+                        label: w + " px",
+                        checked: function () { return (parseFloat(table.getAttribute("data-th-bw")) || 1) === w; },
+                        action: function () {
+                            table.setAttribute("data-th-bw", String(w));
+                            applyTableStyle(table);
+                        }
+                    };
+                })
+            },
+            {
+                label: "Border color...", icon: "pencil alternate",
+                action: function () {
+                    OfficeColorPicker.open({
+                        anchor: cell,
+                        value: table.getAttribute("data-th-bc") || "#b9bec7",
+                        onPick: function (hex) {
+                            if (!hex) return;
+                            table.setAttribute("data-th-bc", hex);
+                            applyTableStyle(table);
+                        }
+                    });
+                }
+            },
+            {
+                label: "Cell background...", icon: "square full",
+                action: function () {
+                    OfficeColorPicker.open({
+                        anchor: cell,
+                        value: cell.getAttribute("data-cellbg") || "#ffffff",
+                        allowNone: true, noneLabel: "Clear (use theme)",
+                        onPick: function (hex) {
+                            if (hex) cell.setAttribute("data-cellbg", hex);
+                            else cell.removeAttribute("data-cellbg");
+                            applyTableStyle(table);
+                        }
+                    });
+                }
+            },
+            { sep: true }
+        ];
+        return items.concat(tableContextItems(cell));
     }
     function tableContextItems(cell) {
         var table = cell.closest("table");
@@ -1086,7 +1282,74 @@
     }
     /* ---------- page guides (visual pagination) ---------- */
     var MM_PX = 96 / 25.4;
+    var PAGE_GAP_PX = 24;    // visual gap between two sheets at a page break
     function pageGuidesOn() { return OfficeApp.getSetting("pageGuides", true); }
+    // element top in layout px relative to #page (CSS zoom safe - unlike
+    // getBoundingClientRect, offsetTop is not scaled)
+    function offsetTopInPage(el) {
+        var y = 0;
+        while (el && el !== pageEl) {
+            y += el.offsetTop;
+            el = el.offsetParent;
+        }
+        return y;
+    }
+    /* True multi-page rendering.
+       Every page boundary - explicit (Insert > Page break) or automatic
+       (content overflow) - is a real block in the flow that eats the rest
+       of its sheet and paints the gap between two separate sheets:
+         - explicit breaks are .doc-pagebreak (persisted, exported to docx)
+         - automatic ones are .doc-pagebreak.doc-autobreak, layout-only
+           spacers inserted before the block that crosses the boundary and
+           STRIPPED from serialization (cleanedHtml)
+       Blocks taller than a page cannot be split, and CSS multi-column
+       layouts reflow around inserted blocks, so those cases fall back to
+       the dotted guide line. */
+    var GAP_OVERHANG_PX = 26;   // gap band reaches past the sheet edge so it
+                                // also cuts the sheet's side shadow
+    function gapMarkup() {
+        return '<div class="doc-pb-gap"><div class="doc-pb-gap-in"></div></div>';
+    }
+    function removeAutoBreaks(root) {
+        var list = root.querySelectorAll(".doc-autobreak");
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].parentNode) list[i].parentNode.removeChild(list[i]);
+        }
+    }
+    /* stretch a break element so the next content starts at the top of the
+       following sheet; returns that sheet's content-top offset */
+    function stretchBreak(el, pageStart, innerHpx, topPx, mLeftPx, mRightPx, mBotPx) {
+        el.style.height = "0px";
+        var top = offsetTopInPage(el);
+        // a break can sit several auto-pages further down (guarded above,
+        // but keep the math safe)
+        while (top >= pageStart + innerHpx) pageStart += innerHpx;
+        var rest = Math.max(0, pageStart + innerHpx - top);
+        el.style.height = (rest + mBotPx + PAGE_GAP_PX + topPx) + "px";
+        var gap = el.querySelector(".doc-pb-gap");
+        if (gap) {
+            gap.style.top = (rest + mBotPx) + "px";
+            gap.style.height = PAGE_GAP_PX + "px";
+            gap.style.left = -(mLeftPx + GAP_OVERHANG_PX) + "px";
+            gap.style.right = -(mRightPx + GAP_OVERHANG_PX) + "px";
+            var inner = gap.firstChild;
+            if (inner) {
+                // the sheet-edge shadows only span the actual sheet width
+                inner.style.left = GAP_OVERHANG_PX + "px";
+                inner.style.right = GAP_OVERHANG_PX + "px";
+            }
+        }
+        return top + parseFloat(el.style.height);
+    }
+    // first top-level editor block extending past the boundary (the one that
+    // must move to the next sheet)
+    function blockAtBoundary(boundary) {
+        for (var c = editor.firstElementChild; c; c = c.nextElementSibling) {
+            var top = offsetTopInPage(c);
+            if (top + c.offsetHeight > boundary + 1) return c;
+        }
+        return null;
+    }
     function updatePageGuides() {
         var holder = document.getElementById("pageGuides");
         if (!holder) {
@@ -1099,22 +1362,97 @@
         var d = PAGE_SIZES[pageConf.size] || PAGE_SIZES.A4;
         var pageHmm = (pageConf.orientation === "landscape") ? d.w : d.h;
         var m = pageConf.margins;
-        var innerHpx = (pageHmm - m.top - m.bottom) * MM_PX;
+        var innerHpx = Math.max(60, (pageHmm - m.top - m.bottom) * MM_PX);
         var topPx = m.top * MM_PX;
-        // small epsilon guards against 1px scrollHeight rounding creating
-        // a phantom extra page
-        var contentH = pageEl.scrollHeight - topPx - m.bottom * MM_PX - 6;
-        var pages = Math.max(1, Math.ceil(contentH / Math.max(60, innerHpx)));
-        if (pageGuidesOn()) {
-            for (var n = 1; n < pages; n++) {
+        var mL = m.left * MM_PX, mR = m.right * MM_PX, mB = m.bottom * MM_PX;
+        var multiCol = pageConf.columns > 1;
+
+        // relayout from the natural flow (self-heal breaks that arrived
+        // without their gap markup, e.g. via raw HTML)
+        removeAutoBreaks(editor);
+        normalizePageBreaks();
+        var breaks = Array.prototype.slice.call(editor.querySelectorAll(".doc-pagebreak"));
+        var i;
+        for (i = 0; i < breaks.length; i++) breaks[i].style.height = "0px";
+
+        var pages = 1;
+        var pageStart = topPx;
+        var bi = 0;
+        var guard = 0;
+        while (guard++ < 400) {
+            var boundary = pageStart + innerHpx;
+            // (a) an explicit break on this page ends it early
+            if (bi < breaks.length && offsetTopInPage(breaks[bi]) <= boundary + 0.5) {
+                pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
+                pages++;
+                continue;
+            }
+            // small epsilon guards against 1px scrollHeight rounding creating
+            // a phantom extra page
+            if (boundary >= pageEl.scrollHeight - mB - 6 - 0.5) break;
+            // (b) automatic overflow: separate the sheets for real by pushing
+            // the crossing block onto the next sheet with a layout-only spacer
+            if (!multiCol) {
+                var block = blockAtBoundary(boundary);
+                if (block && block === breaks[bi]) {
+                    // the boundary lands just before an explicit break - the
+                    // break itself owns this cut
+                    pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
+                    pages++;
+                    continue;
+                }
+                if (block && offsetTopInPage(block) > pageStart + 1) {
+                    var sp = document.createElement("div");
+                    sp.className = "doc-pagebreak doc-autobreak";
+                    sp.setAttribute("contenteditable", "false");
+                    sp.innerHTML = gapMarkup();
+                    block.parentNode.insertBefore(sp, block);
+                    pageStart = stretchBreak(sp, pageStart, innerHpx, topPx, mL, mR, mB);
+                    pages++;
+                    continue;
+                }
+            }
+            // (c) unsplittable block / multi-column layout: dotted fallback
+            if (pageGuidesOn()) {
                 var g = document.createElement("div");
                 g.className = "doc-pageguide";
-                g.style.top = (topPx + n * innerHpx) + "px";
-                g.setAttribute("data-label", "Page " + (n + 1));
+                g.style.top = boundary + "px";
+                g.setAttribute("data-label", "Page " + (pages + 1));
                 holder.appendChild(g);
             }
+            pageStart = boundary;
+            pages++;
         }
+        // the last sheet always shows at full page height
+        pageEl.style.minHeight = (pageStart + innerHpx + mB) + "px";
         return pages;
+    }
+    /* ---------- explicit page breaks ---------- */
+    function pageBreakHtml() {
+        return '<div class="doc-pagebreak" contenteditable="false">' +
+            gapMarkup() + "</div>";
+    }
+    // imported / restored breaks may lack the gap child or the guard attribute
+    function normalizePageBreaks() {
+        var list = editor.querySelectorAll(".doc-pagebreak");
+        for (var i = 0; i < list.length; i++) {
+            list[i].setAttribute("contenteditable", "false");
+            if (!list[i].querySelector(".doc-pb-gap-in")) {
+                list[i].innerHTML = gapMarkup();
+            }
+        }
+    }
+    function insertPageBreak() {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        // trailing paragraph so there is always somewhere to type on the new page
+        try {
+            document.execCommand("insertHTML", false, pageBreakHtml() + "<p><br></p>");
+        } catch (e) { return; }
+        normalizePageBreaks();
+        afterEdit(true);
+        updatePageGuides();
+        OfficeApp.setStatus("Page break inserted");
     }
     function toggleLayoutBoxes() {
         var on = !document.body.classList.contains("doc-show-boxes");
@@ -1613,6 +1951,88 @@
         } else {
             OfficeApp.setStatus("Image copied");
         }
+    }
+
+    /* ================= menu-driven clipboard =================
+       Ctrl+X/C/V go through the native events; menu clicks have no event,
+       so use the async clipboard API (image > html > plain text, mirroring
+       handleEditorPaste, including suggest-mode wrapping). */
+    function menuCutCopy(isCut) {
+        if (selectedImg) {
+            // image selection is app-level - write it as HTML ourselves
+            var clone = selectedImg.cloneNode(false);
+            clone.classList.remove("of-selimg");
+            if (!clone.getAttribute("class")) clone.removeAttribute("class");
+            try { clone.src = selectedImg.src; } catch (e) { }
+            OfficeClipboard.writeAsync({ html: clone.outerHTML, text: "" }).catch(function () { });
+            if (isCut) {
+                var img = selectedImg;
+                deselectImage();
+                if (img.parentNode) img.parentNode.removeChild(img);
+                afterEdit(true);
+            } else {
+                OfficeApp.setStatus("Image copied");
+            }
+            return;
+        }
+        restoreSel();
+        try { document.execCommand(isCut ? "cut" : "copy"); } catch (e) { }
+        if (isCut) afterEdit(true);
+    }
+    function pasteFromMenu(plainOnly) {
+        var fallbackText = function () {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(function (t) {
+                    if (!t) return;
+                    restoreSel();
+                    if (suggesting && !inHeaderFooter()) suggestInsert(t);
+                    else { try { document.execCommand("insertText", false, t); } catch (e) { } }
+                    afterEdit(true);
+                }).catch(function () {
+                    OfficeApp.setStatus("Paste blocked by the browser - use Ctrl+V instead", "error");
+                });
+            } else {
+                OfficeApp.setStatus("Use Ctrl+V to paste here", "error");
+            }
+        };
+        if (plainOnly || !(navigator.clipboard && navigator.clipboard.read)) {
+            fallbackText();
+            return;
+        }
+        navigator.clipboard.read().then(function (cbItems) {
+            var img = null, htmlIt = null;
+            cbItems.forEach(function (it) {
+                it.types.forEach(function (ty) {
+                    if (!img && ty.indexOf("image/") === 0) img = { it: it, ty: ty };
+                    if (!htmlIt && ty === "text/html") htmlIt = it;
+                });
+            });
+            if (img) {
+                img.it.getType(img.ty).then(function (blob) {
+                    OfficeApp.blobToSrc(blob, "pasted.png", function (src) {
+                        restoreSel();
+                        insertImage(src);
+                    }, function (msg) { OfficeApp.toast(msg, "error"); });
+                }).catch(fallbackText);
+                return;
+            }
+            if (htmlIt) {
+                htmlIt.getType("text/html").then(function (blob) {
+                    return blob.text();
+                }).then(function (html) {
+                    var clean = sanitizeHtml(html, { keepClasses: false });
+                    if (!clean) { fallbackText(); return; }
+                    if (suggesting && !inHeaderFooter()) {
+                        clean = '<ins class="doc-ins">' + clean + "</ins>";
+                    }
+                    restoreSel();
+                    try { document.execCommand("insertHTML", false, clean); } catch (e) { }
+                    afterEdit(true);
+                }).catch(fallbackText);
+                return;
+            }
+            fallbackText();
+        }).catch(fallbackText);
     }
 
     /* ================= paste ================= */
@@ -2256,13 +2676,13 @@
             }
             var cell = e.target.closest ? e.target.closest("td,th") : null;
             if (cell && cell.closest("table.of-table") && editor.contains(cell)) {
-                items = items.concat(tableContextItems(cell));
+                items.push({ label: "Table", icon: "table", sub: tableMenuItemsFor(cell) });
+                items.push({ sep: true });
             }
             if (pageConf.columns > 1) {
                 // let the user pick which region spans the full page width
                 var block = e.target.closest ? e.target.closest(BLOCK_SEL) : null;
                 if (block && editor.contains(block)) {
-                    if (items.length) items.push({ sep: true });
                     items.push({
                         label: "Full width (span all columns)", icon: "columns",
                         checked: function () { return block.classList.contains("col-span-all"); },
@@ -2276,12 +2696,31 @@
                         checked: function () { return document.body.classList.contains("doc-show-boxes"); },
                         action: toggleLayoutBoxes
                     });
+                    items.push({ sep: true });
                 }
             }
-            if (items.length) {
-                e.preventDefault();
-                OfficeApp.showContextMenu(e.clientX, e.clientY, items);
-            }
+            // standard edit block (like Google Docs / Word)
+            var selNow2 = window.getSelection();
+            var canCopy = !!selectedImg || !!(selNow2 && selNow2.rangeCount &&
+                !selNow2.getRangeAt(0).collapsed &&
+                editor.contains(selNow2.getRangeAt(0).commonAncestorContainer));
+            var copyOk = function () { return canCopy; };
+            items.push({ label: "Cut", icon: "cut", key: "Ctrl+X", enabled: copyOk, action: function () { menuCutCopy(true); } });
+            items.push({ label: "Copy", icon: "copy", key: "Ctrl+C", enabled: copyOk, action: function () { menuCutCopy(false); } });
+            items.push({ label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { pasteFromMenu(false); } });
+            items.push({ label: "Paste without formatting", icon: "clipboard outline", action: function () { pasteFromMenu(true); } });
+            items.push({ sep: true });
+            items.push({ label: "Bold", icon: "bold", key: "Ctrl+B", action: function () { exec("bold"); } });
+            items.push({ label: "Italic", icon: "italic", key: "Ctrl+I", action: function () { exec("italic"); } });
+            items.push({ label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { exec("underline"); } });
+            items.push({ label: "Clear formatting", icon: "eraser", action: clearFormatting });
+            items.push({ sep: true });
+            items.push({ label: "Insert link...", icon: "linkify", key: "Ctrl+K", action: linkDialog });
+            items.push({ label: "Insert page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak });
+            items.push({ sep: true });
+            items.push({ label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll });
+            e.preventDefault();
+            OfficeApp.showContextMenu(e.clientX, e.clientY, items);
         });
         // deselect image when clicking anywhere else / typing starts elsewhere
         document.addEventListener("mousedown", function (e) {
@@ -2321,6 +2760,8 @@
         OfficeApp.registerShortcut("Ctrl+K", linkDialog, { description: "Insert link", group: "Text" });
         OfficeApp.registerShortcut("Ctrl+Alt+M", function () { commentDialog(null); },
             { description: "Add comment", group: "Review" });
+        OfficeApp.registerShortcut("Ctrl+Enter", insertPageBreak,
+            { description: "Insert page break", group: "Text" });
         OfficeApp.registerShortcut("Ctrl+F", function () { openFind(false); }, { description: "Find" });
         OfficeApp.registerShortcut("Ctrl+H", function () { openFind(true); }, { description: "Find and replace" });
         // lists - register both the digit and the shifted symbol (layout dependent)
@@ -2386,6 +2827,12 @@
             canUndo: function () { return undo.canUndo(); },
             canRedo: function () { return undo.canRedo(); },
 
+            // Edit menubar clipboard shares the context-menu implementations
+            // (image-aware copy, async rich paste)
+            onCut: function () { menuCutCopy(true); },
+            onCopy: function () { menuCutCopy(false); },
+            onPaste: function () { pasteFromMenu(false); },
+
             menus: [
                 {
                     title: "Insert",
@@ -2396,6 +2843,7 @@
                             { label: "Link...", icon: "linkify", key: "Ctrl+K", action: linkDialog },
                             { label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M", action: function () { commentDialog(null); } },
                             { sep: true },
+                            { label: "Page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak },
                             { label: "Horizontal rule", icon: "minus", action: function () { exec("insertHorizontalRule"); } },
                             { label: "Code block", icon: "code", action: function () { applyParagraphStyle("pre"); } },
                             { label: "Block quote", icon: "quote left", action: function () { applyParagraphStyle("blockquote"); } },
@@ -2446,6 +2894,12 @@
                             { label: "Clear formatting", icon: "eraser", action: clearFormatting }
                         ];
                     }
+                },
+                {
+                    // contextual: only visible while the caret is in a table
+                    title: "Table",
+                    when: function () { return !!currentTable(); },
+                    items: tableMenuItems
                 }
             ],
             fileMenuExtras: [
@@ -2495,7 +2949,7 @@
                     }
                 },
                 {
-                    label: "Layout boxes (regions)",
+                    label: "Layout boxes",
                     checked: function () { return document.body.classList.contains("doc-show-boxes"); },
                     action: toggleLayoutBoxes
                 },

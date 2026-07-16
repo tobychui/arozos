@@ -365,6 +365,11 @@ func (b *docxBuilder) walkBlocks(n *html.Node, f runFormat, listLevel int, listT
 
 // dispatchBlock emits ONE block-level element
 func (b *docxBuilder) dispatchBlock(c *html.Node, f runFormat, listLevel int, listType string) {
+	// explicit page break inserted in the editor (Insert > Page break)
+	if strings.Contains(" "+htmlAttr(c, "class")+" ", " doc-pagebreak ") {
+		b.body.WriteString(`<w:p><w:r><w:br w:type="page"/></w:r></w:p>`)
+		return
+	}
 	switch c.Data {
 	case "p", "div":
 		b.emitParagraph(c, f, paraProps(c, ""), listLevel, listType)
@@ -745,8 +750,10 @@ func buildHfPart(root, text string, pageNumbers bool) string {
 			`<w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>` +
 			`<w:r><w:fldChar w:fldCharType="end"/></w:r>`)
 	}
+	// no <w:jc>: the editor renders header/footer text left aligned, so the
+	// export must not silently centre it
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
-		`<w:` + root + ` ` + docxNs + `><w:p><w:pPr><w:jc w:val="center"/></w:pPr>` +
+		`<w:` + root + ` ` + docxNs + `><w:p>` +
 		runs.String() + `</w:p></w:` + root + `>`
 }
 

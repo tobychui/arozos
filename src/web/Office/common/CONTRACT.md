@@ -105,6 +105,9 @@ OfficeApp.init({
 
     // --- menus ---
     menus: [ { title: "Insert", items: [ …items… ] }, … ],  // placed between Edit and View
+    // a menu may carry when: fn -> bool (contextual, e.g. Docs' Table menu);
+    // it starts hidden - call OfficeApp.updateMenus() (e.g. on selection
+    // change) to re-evaluate visibility
     fileMenuExtras: [ …items… ],   // e.g. Export submenu — after Save As
     editMenuExtras: [ …items… ],   // after Cut/Copy/Paste
     viewMenuExtras: [ …items… ],   // after zoom/theme

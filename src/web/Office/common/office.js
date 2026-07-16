@@ -284,15 +284,14 @@ var OfficeApp = (function () {
             dialog({
                 title: "Restore from previous session?",
                 body: "You were working on <b>" + what + "</b> (" + escapeHtml(when) + ").<br><br>" +
-                    '<span class="of-dim">Discarding deletes the saved snapshot so it won\'t ' +
-                    "be offered again.</span>",
+                    '<span class="of-dim">Start fresh deletes the saved snapshot.</span>',
                 dismissable: true,
                 buttons: [
                     // keeps the snapshot: dismiss now, may be offered next launch
-                    { label: "Start fresh", action: function (close) { close(); checkDraft(); } },
+                    //{ label: "Start fresh", action: function (close) { close(); checkDraft(); } },
                     // deletes the snapshot so it stops prompting
                     {
-                        label: "Discard", danger: true,
+                        label: "Start fresh", danger: true,
                         action: function (close) { close(); deleteSession(); checkDraft(); }
                     },
                     {
@@ -802,6 +801,12 @@ var OfficeApp = (function () {
             var $m = $('<div class="of-menu" tabindex="-1">' + escapeHtml(m.title) + "</div>");
             var $drop = $('<div class="of-menu-drop"></div>');
             $m.append($drop);
+            // contextual menus (e.g. Table) only show when their condition
+            // holds; the app re-evaluates via OfficeApp.updateMenus()
+            if (m.when) {
+                $m.data("when", m.when);
+                $m.hide();
+            }
             $m.on("click", function (ev) {
                 if ($(ev.target).closest(".of-menu-drop").length) return;
                 var wasOpen = $m.hasClass("open");
@@ -830,6 +835,17 @@ var OfficeApp = (function () {
     }
     function refreshMenuChecks() {
         // menus re-render on open; nothing to do live
+    }
+    // show/hide conditional menubar menus (menu defs carrying when: fn)
+    function updateMenus() {
+        $(".of-menubar .of-menu").each(function () {
+            var w = $(this).data("when");
+            if (!w) return;
+            var on = false;
+            try { on = !!w(); } catch (e) { }
+            if (!on && $(this).hasClass("open")) closeAllMenus();
+            $(this).toggle(on);
+        });
     }
     function standardMenus() {
         var fileItems = function () {
@@ -1199,6 +1215,7 @@ var OfficeApp = (function () {
         showBusy: showBusy,
         hideBusy: hideBusy,
         closeAllMenus: closeAllMenus,
+        updateMenus: updateMenus,
         // features
         registerShortcut: registerShortcut,
         print: printDoc,

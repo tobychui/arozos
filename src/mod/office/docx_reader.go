@@ -456,7 +456,12 @@ func (cv *docxConv) runToHTML(r *xnode) string {
 		case "t":
 			body.WriteString(xmlEscape(n.Text))
 		case "br", "cr":
-			body.WriteString("<br>")
+			if n.attr("type") == "page" {
+				// explicit page break -> the editor's page break block
+				body.WriteString(`<div class="doc-pagebreak" contenteditable="false"></div>`)
+			} else {
+				body.WriteString("<br>")
+			}
 		case "tab":
 			body.WriteString("&nbsp;&nbsp;&nbsp;&nbsp;")
 		case "drawing", "pict", "object":

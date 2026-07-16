@@ -25,7 +25,8 @@
     box-sizing: border-box;
     background: #ffffff;
     color: #1f2328;
-    box-shadow: 0 1px 3px var(--of-paper-shadow), 0 4px 14px var(--of-paper-shadow);
+    /*box-shadow: 0 1px 3px var(--of-paper-shadow), 0 4px 14px var(--of-paper-shadow); */
+    border: 1px solid #e2e5e9;
     border-radius: 2px;
 }
 body.dark #page {
@@ -73,7 +74,7 @@ body.dark #page {
     overflow-wrap: break-word;
     caret-color: #1a73e8;
 }
-#editor p, #editor div { margin: 0 0 8pt; }
+#editor p, #editor div { margin: 0 0 0pt; }
 #editor h1, #editor h2, #editor h3, #editor h4 {
     margin: 14pt 0 6pt;
     line-height: 1.25;
@@ -184,6 +185,74 @@ body.dark #page {
     border: 1px solid #b7c8e4;
     border-radius: 8px;
     font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* ============ Page breaks (explicit + automatic pagination) ============
+   Real blocks in the flow, stretched by updatePageGuides() to eat the rest
+   of their sheet. The .doc-pb-gap child paints the cut between the two
+   sheets: it reaches PAST the sheet edges (GAP_OVERHANG_PX) so it also
+   erases the sheet's side shadow across the gap - each page keeps its own
+   separate vertical shadow. The .doc-pb-gap-in child draws the two facing
+   sheet edges across the actual sheet width only. */
+.doc-pagebreak {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    break-after: page;
+    page-break-after: always;
+}
+.doc-pb-gap {
+    position: absolute;
+    background: var(--of-bg);
+    pointer-events: none;
+}
+.doc-pb-gap-in {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    /* left/right set inline to the overhang so edges align with the sheet */
+    /* box-shadow: inset 0 4px 6px -4px var(--of-paper-shadow),
+                inset 0 -4px 6px -4px var(--of-paper-shadow); */
+    border-top: 1px solid rgba(60, 64, 67, 0.16);
+    border-bottom: 1px solid rgba(60, 64, 67, 0.16);
+}
+@media print {
+    /* the sheet cut is a screen affordance; the printer paginates for real */
+    .doc-pagebreak { height: 0 !important; }
+    .doc-pb-gap { display: none; }
+    /* automatic spacers are layout-only - the printer re-paginates */
+    .doc-autobreak { display: none !important; }
+}
+
+/* ============ Table grid creator (Insert > Table) ============ */
+.doc-tgrid-label {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--of-fg);
+    margin-bottom: 8px;
+}
+.doc-tgrid {
+    display: grid;
+    grid-template-columns: repeat(10, 20px);
+    gap: 3px;
+    justify-content: center;
+    touch-action: none;
+}
+.doc-tgrid-cell {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg2);
+    cursor: pointer;
+}
+.doc-tgrid-cell.hot {
+    background: var(--of-accent-soft);
+    border-color: var(--of-accent);
 }
 
 /* Layout boxes: visualize which regions span all columns (orange) and
