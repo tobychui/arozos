@@ -6875,6 +6875,90 @@
             });
         }
 
+        /*
+            Server-side notification delivery (Notification Agent: desktop)
+
+            The desktop notification agent (mod/notification/agents/desktopn)
+            buffers notifications for this user on the server. We poll it on a
+            timer and render each one into the notification list, briefly show
+            the notification bar as a popup, and — when the user has granted
+            permission — raise a browser (Chrome) push notification too.
+        */
+        var arozNotificationSeenIds = {};
+        var arozNotificationPollTimer = null;
+
+        function arozNotificationIcon(priority){
+            switch (String(priority || "").toLowerCase()){
+                case "high": return "exclamation circle";
+                case "low": return "info circle";
+                default: return "bell";
+            }
+        }
+
+        function requestDesktopNotificationPermission(){
+            try {
+                if (typeof Notification !== "undefined" && Notification.permission === "default"){
+                    Notification.requestPermission();
+                }
+            } catch (e) { /* Notification API unavailable */ }
+        }
+
+        function showBrowserPush(title, body, priority){
+            try {
+                if (typeof Notification !== "undefined" && Notification.permission === "granted"){
+                    var n = new Notification(title, { body: body });
+                    //Auto-close low/medium priority pushes so they do not pile up.
+                    if (String(priority).toLowerCase() !== "high"){
+                        setTimeout(function(){ try { n.close(); } catch (e) {} }, 8000);
+                    }
+                }
+            } catch (e) { /* ignore push errors */ }
+        }
+
+        function renderServerNotification(item){
+            if (!item) return;
+            if (item.id && arozNotificationSeenIds[item.id]) return;
+            if (item.id) arozNotificationSeenIds[item.id] = true;
+
+            var title = item.title || "Notification";
+            var message = item.message || "";
+            if (item.sender){
+                message = message + (message ? " " : "") + "(" + item.sender + ")";
+            }
+            //Add to the notification list + desktop popup (null redirect option).
+            sendNotification(title, message, arozNotificationIcon(item.priority), null);
+            //Briefly reveal the notification bar as a desktop popup.
+            toggleNotification("show");
+            setTimeout(function(){ toggleNotification("hide"); }, 4500);
+            //Raise a browser/Chrome push notification.
+            showBrowserPush(title, message, item.priority);
+        }
+
+        function pollServerNotifications(){
+            $.ajax({
+                url: "system/notification/desktop/list",
+                method: "GET",
+                dataType: "json",
+                success: function(items){
+                    if (!Array.isArray(items)) return;
+                    items.forEach(renderServerNotification);
+                },
+                error: function(){ /* transient; retry on next tick */ }
+            });
+        }
+
+        function startServerNotificationPolling(){
+            if (arozNotificationPollTimer !== null) return;
+            requestDesktopNotificationPermission();
+            pollServerNotifications();
+            arozNotificationPollTimer = setInterval(pollServerNotifications, 15000);
+        }
+
+        //Begin polling once the desktop scripts have loaded.
+        $(document).ready(function(){
+            startServerNotificationPolling();
+        });
+
         function hideAllContextMenus() {
             $("#subcontextmenu").hide();
             $("#contextmenu").hide()

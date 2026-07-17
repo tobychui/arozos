@@ -276,6 +276,7 @@ Registered library IDs:
 - `sharedspace` (multi-user collaboration spaces: texts / images / files / documents, ACLs, persistence)
 - `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
 - `office` (ArozOS Office suite: .pptx / .xlsx / .docx converters + native zip container pack/unpack)
+- `notification` (raise notifications to users via the core notification system, with priority - requires the host to wire in a notification sender)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -1935,6 +1936,46 @@ if (log !== null) {
         filelib.writeFile("user:/Desktop/attendance.csv", report);
     }
 }
+```
+
+---
+
+## notification API
+
+Load:
+
+```javascript
+requirelib("notification");
+```
+
+Raise notifications to ArozOS users through the core notification system. The
+delivery channel (Telegram, desktop, email, custom webhook) is decided by each
+receiving user's own notification preferences; the script only chooses the
+priority so users receive it according to their settings. Available only when
+the host wired a notification sender into the AGI gateway.
+
+Priority is `"low"`, `"medium"` (default) or `"high"`. Convenience constants
+`notification.PRIORITY_LOW`, `notification.PRIORITY_MEDIUM` and
+`notification.PRIORITY_HIGH` are provided.
+
+### `notification.send(title, message, priority)`
+
+Send a notification to the current user. Returns `true` on success.
+
+```javascript
+requirelib("notification");
+notification.send("Backup done", "Your nightly backup finished");
+notification.send("Disk failing", "SMART error on /dev/sda", notification.PRIORITY_HIGH);
+```
+
+### `notification.sendToUser(username, title, message, priority)`
+
+Send a notification to another user. **Requires admin permission.** Returns
+`true` on success.
+
+```javascript
+requirelib("notification");
+notification.sendToUser("bob", "Hi Bob", "A message for you", "low");
 ```
 
 ---

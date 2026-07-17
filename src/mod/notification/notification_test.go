@@ -175,6 +175,7 @@ func TestNotificationPayload_Fields(t *testing.T) {
 		Message:       "msg",
 		Receiver:      []string{"user1", "user2"},
 		Sender:        "module-x",
+		Priority:      PriorityHigh,
 		ReciverAgents: []string{"agent-a"},
 	}
 
@@ -183,5 +184,97 @@ func TestNotificationPayload_Fields(t *testing.T) {
 	}
 	if len(p.Receiver) != 2 {
 		t.Errorf("expected 2 receivers, got %d", len(p.Receiver))
+	}
+	if p.Priority != PriorityHigh {
+		t.Errorf("unexpected Priority: %d", p.Priority)
+	}
+}
+
+// TestPriorityFromString verifies the string -> priority mapping including the
+// fallback for unknown values.
+func TestPriorityFromString(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{"low", PriorityLow},
+		{"LOW", PriorityLow},
+		{"medium", PriorityMedium},
+		{"normal", PriorityMedium},
+		{"high", PriorityHigh},
+		{"  High ", PriorityHigh},
+		{"urgent", PriorityHigh},
+		{"nonsense", PriorityMedium},
+		{"", PriorityMedium},
+	}
+	for _, c := range cases {
+		if got := PriorityFromString(c.in); got != c.want {
+			t.Errorf("PriorityFromString(%q) = %d, want %d", c.in, got, c.want)
+		}
+	}
+}
+
+// TestPriorityToString verifies the priority -> string mapping round-trips the
+// known constants and defaults unknown values to medium.
+func TestPriorityToString(t *testing.T) {
+	cases := []struct {
+		in   int
+		want string
+	}{
+		{PriorityLow, "low"},
+		{PriorityMedium, "medium"},
+		{PriorityHigh, "high"},
+		{0, "medium"},
+		{99, "medium"},
+	}
+	for _, c := range cases {
+		if got := PriorityToString(c.in); got != c.want {
+			t.Errorf("PriorityToString(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// TestNormalizePriority verifies clamping of out-of-range priority values.
+func TestNormalizePriority(t *testing.T) {
+	cases := []struct {
+		in   int
+		want int
+	}{
+		{0, PriorityMedium},
+		{-5, PriorityMedium},
+		{PriorityLow, PriorityLow},
+		{PriorityMedium, PriorityMedium},
+		{PriorityHigh, PriorityHigh},
+		{100, PriorityHigh},
+	}
+	for _, c := range cases {
+		if got := NormalizePriority(c.in); got != c.want {
+			t.Errorf("NormalizePriority(%d) = %d, want %d", c.in, got, c.want)
+		}
+	}
+}
+
+// TestGetAgentByName verifies lookup of a registered agent by name.
+func TestGetAgentByName(t *testing.T) {
+	q := NewNotificationQueue()
+	q.RegisterNotificationAgent(&mockAgent{name: "agent-x", isConsumer: true})
+
+	if got := q.GetAgentByName("agent-x"); got == nil || got.Name() != "agent-x" {
+		t.Errorf("expected to find agent-x, got %v", got)
+	}
+	if got := q.GetAgentByName("missing"); got != nil {
+		t.Errorf("expected nil for missing agent, got %v", got)
+	}
+}
+
+// TestListConsumerAgentNames verifies that only consumer agents are listed.
+func TestListConsumerAgentNames(t *testing.T) {
+	q := NewNotificationQueue()
+	q.RegisterNotificationAgent(&mockAgent{name: "consumer-1", isConsumer: true})
+	q.RegisterNotificationAgent(&mockAgent{name: "producer-only", isConsumer: false, isProducer: true})
+
+	names := q.ListConsumerAgentNames()
+	if len(names) != 1 || names[0] != "consumer-1" {
+		t.Errorf("expected [consumer-1], got %v", names)
 	}
 }

@@ -1051,6 +1051,35 @@
      "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80);"
     }
    ]
+  },
+  {
+   "id": "notification",
+   "name": "notification",
+   "desc": "Raise notifications to ArozOS users through the core notification system. The delivery channel (Telegram, desktop, email, custom webhook) is chosen by each receiving user's own notification preferences; the script only sets the priority (low / medium / high). Available when the host wired the notification system in.",
+   "load": "requirelib(\"notification\");",
+   "functions": [
+    {
+     "name": "notification.send",
+     "sig": "notification.send(title, message, priority)",
+     "desc": "Send a notification to the current user. priority is optional and one of \"low\", \"medium\" (default) or \"high\". Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"notification\");\nnotification.send(\"Backup done\", \"Your nightly backup finished\");\nnotification.send(\"Disk failing\", \"SMART error on /dev/sda\", notification.PRIORITY_HIGH);"
+    },
+    {
+     "name": "notification.sendToUser",
+     "sig": "notification.sendToUser(username, title, message, priority)",
+     "desc": "Send a notification to another user. Requires admin permission. priority is optional (low / medium / high). Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"notification\");\nnotification.sendToUser(\"bob\", \"Hi Bob\", \"A message for you\", \"low\");"
+    },
+    {
+     "name": "notification.PRIORITY_LOW / PRIORITY_MEDIUM / PRIORITY_HIGH",
+     "sig": "notification.PRIORITY_HIGH",
+     "desc": "Convenience string constants (\"low\", \"medium\", \"high\") for the priority argument.",
+     "ret": "string",
+     "example": "requirelib(\"notification\");\nnotification.send(\"Urgent\", \"Something needs attention\", notification.PRIORITY_HIGH);"
+    }
+   ]
   }
  ]
 }
