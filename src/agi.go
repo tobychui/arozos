@@ -33,6 +33,7 @@ func AGIInit() {
 		MeetRoomManager:       meetRoomManager,
 		SharedSpaceManager:    sharedSpaceManager,
 		TempFolderPath:        *tmp_directory,
+		NotificationSender:    sendUserNotification,
 	})
 	if err != nil {
 		systemWideLogger.PrintAndLog("AGI", "AGI Gateway Initialization Failed", err)
