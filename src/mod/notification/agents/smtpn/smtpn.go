@@ -198,7 +198,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 			"hostname":  a.Hostname,
 			"uuid":      systemUUID,
 			"id":        incomingNotification.ID,
-			"timestamp": time.Now().Format("2006-01-02 3:4:5 PM"),
+			"timestamp": time.Now().Format("2006-01-02 3:04:05 PM"),
 		})
 		if err != nil {
 			logger.PrintAndLog("Smtpn", "[SMTP] Template load failed: "+err.Error(), nil)
