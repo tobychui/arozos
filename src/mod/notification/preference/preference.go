@@ -3,10 +3,13 @@ package preference
 /*
 	Notification User Preferences
 
-	This package stores, per user, how they want to receive notifications:
-	which delivery agents are enabled, the minimum priority they care about,
-	and the per-user secrets needed by some agents (Telegram chat id, custom
-	webhook target).
+	This package stores, per user, how they want to receive notifications: a
+	delivery matrix mapping each agent (channel) to the set of priorities the
+	user wants to receive through it, plus the per-user secrets needed by some
+	agents (Telegram chat id, custom webhook target).
+
+	The matrix lets a user say, for example, "email only for high priority,
+	desktop for everything, Telegram for medium and high".
 
 	Storage is delegated to a KVStore (satisfied by mod/database.Database) so
 	the logic here stays unit-testable with an in-memory fake.
@@ -32,19 +35,20 @@ type KVStore interface {
 
 // UserPreference captures a single user's notification delivery settings.
 type UserPreference struct {
-	//EnabledAgents maps an agent name (e.g. "desktop", "telegram", "smtpn",
-	//"webhook") to whether the user wants notifications delivered through it.
-	EnabledAgents map[string]bool `json:"enabledAgents"`
-	//MinPriority is the lowest priority the user wishes to receive
-	//(notification.PriorityLow / Medium / High). Lower priority notifications
-	//are dropped for this user.
-	MinPriority int `json:"minPriority"`
+	//Channels is the delivery matrix: agent name (e.g. "desktop", "telegram",
+	//"smtpn", "webhook") -> priority label ("low" / "medium" / "high") ->
+	//whether the user wants that agent to deliver notifications of that
+	//priority.
+	Channels map[string]map[string]bool `json:"channels"`
 	//TelegramChatID is the user's linked Telegram chat id (used by the
 	//telegram agent).
 	TelegramChatID string `json:"telegramChatID"`
 	//Webhook is the user's custom HTML API target (used by the webhook agent).
 	Webhook webhookn.Target `json:"webhook"`
 }
+
+// priorityLabels are the valid columns of the delivery matrix.
+var priorityLabels = []string{"low", "medium", "high"}
 
 // Store persists UserPreference values in a KVStore table.
 type Store struct {
@@ -67,19 +71,39 @@ func NewStore(db KVStore) (*Store, error) {
 }
 
 // DefaultPreference returns the preference applied to users who have never
-// customised their settings: the desktop channel on, everything else off, and
-// the lowest priority threshold so nothing is silently dropped.
+// customised their settings: the desktop channel on for every priority so
+// nothing is silently dropped, and all other channels off.
 func DefaultPreference() UserPreference {
 	return UserPreference{
-		EnabledAgents: map[string]bool{
-			"desktop": true,
+		Channels: map[string]map[string]bool{
+			"desktop": {"low": true, "medium": true, "high": true},
 		},
-		MinPriority: notification.PriorityLow,
 	}
 }
 
 func prefKey(username string) string {
 	return "pref/" + username
+}
+
+// normalizeChannels ensures the matrix is non-nil and only contains valid
+// priority labels.
+func normalizeChannels(channels map[string]map[string]bool) map[string]map[string]bool {
+	normalized := map[string]map[string]bool{}
+	for agent, priorities := range channels {
+		if priorities == nil {
+			continue
+		}
+		row := map[string]bool{}
+		for _, label := range priorityLabels {
+			if priorities[label] {
+				row[label] = true
+			}
+		}
+		if len(row) > 0 {
+			normalized[agent] = row
+		}
+	}
+	return normalized
 }
 
 // Get returns the stored preference for a user, or DefaultPreference when the
@@ -96,12 +120,7 @@ func (s *Store) Get(username string) UserPreference {
 	if err := json.Unmarshal([]byte(raw), &pref); err != nil {
 		return DefaultPreference()
 	}
-	if pref.EnabledAgents == nil {
-		pref.EnabledAgents = map[string]bool{}
-	}
-	if pref.MinPriority == 0 {
-		pref.MinPriority = notification.PriorityLow
-	}
+	pref.Channels = normalizeChannels(pref.Channels)
 	return pref
 }
 
@@ -110,10 +129,7 @@ func (s *Store) Set(username string, pref UserPreference) error {
 	if username == "" {
 		return errors.New("username cannot be empty")
 	}
-	pref.MinPriority = notification.NormalizePriority(pref.MinPriority)
-	if pref.EnabledAgents == nil {
-		pref.EnabledAgents = map[string]bool{}
-	}
+	pref.Channels = normalizeChannels(pref.Channels)
 	js, err := json.Marshal(pref)
 	if err != nil {
 		return err
@@ -146,20 +162,18 @@ func (s *Store) WebhookResolver() func(string) (webhookn.Target, error) {
 }
 
 // ResolveAgents decides which of the registered consumer agents should receive
-// a notification of the given priority for a user. requestedAgents, when
-// non-empty, restricts delivery to the intersection of the user's enabled
-// agents and the producer's requested channels. Returns nil when the
-// notification should be dropped for this user (below their priority threshold
-// or no enabled channel).
+// a notification of the given priority for a user, based on the user's delivery
+// matrix. requestedAgents, when non-empty, further restricts delivery to the
+// intersection with the producer's requested channels. Returns nil when no
+// channel is enabled for this user at this priority.
 func (s *Store) ResolveAgents(username string, priority int, availableAgents []string, requestedAgents []string) []string {
 	pref := s.Get(username)
-	if notification.NormalizePriority(priority) < pref.MinPriority {
-		return nil
-	}
+	label := notification.PriorityToString(notification.NormalizePriority(priority))
 
 	resolved := []string{}
 	for _, agentName := range availableAgents {
-		if !pref.EnabledAgents[agentName] {
+		row := pref.Channels[agentName]
+		if row == nil || !row[label] {
 			continue
 		}
 		if len(requestedAgents) > 0 && !contains(requestedAgents, agentName) {

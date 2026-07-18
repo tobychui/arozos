@@ -72,6 +72,26 @@ body.dark #ntf-root {
 .ntf-row > .ntf-field { flex:1; min-width:140px; }
 .ntf-toast { display:none; margin-top:10px; padding:8px 12px; border-radius:8px; font-size:12.5px; color:#fff; }
 .ntf-hidden { display:none !important; }
+
+/* Delivery matrix */
+.ntf-matrix-wrap { overflow-x:auto; }
+table.ntf-matrix { width:100%; border-collapse:collapse; font-size:12.5px; }
+table.ntf-matrix th, table.ntf-matrix td { padding:8px 10px; text-align:center; border-bottom:1px solid var(--ntf-border); }
+table.ntf-matrix thead th { color:var(--ntf-dim); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; }
+table.ntf-matrix th.ntf-matrix-channel, table.ntf-matrix td.ntf-matrix-channel { text-align:left; }
+table.ntf-matrix td.ntf-matrix-channel .ntf-chan-name { font-weight:600; text-transform:capitalize; }
+table.ntf-matrix td.ntf-matrix-channel .ntf-chan-desc { font-size:11px; color:var(--ntf-dim); }
+table.ntf-matrix td.ntf-matrix-channel.ntf-chan-off .ntf-chan-name { color:var(--ntf-dim); }
+table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:var(--ntf-accent); }
+.ntf-col-tag { font-size:10.5px; padding:1px 6px; border-radius:9px; border:1px solid var(--ntf-border); color:var(--ntf-dim); }
+.ntf-prio-low { color:#8a8f98; }
+.ntf-prio-high { color:var(--ntf-danger); }
+
+/* Browser permission pill */
+.ntf-perm { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.ntf-perm .ntf-pill { font-size:11.5px; padding:3px 10px; border-radius:12px; border:1px solid var(--ntf-border); color:var(--ntf-dim); display:inline-flex; align-items:center; gap:6px; }
+.ntf-perm .ntf-pill.granted { color:var(--ntf-ok); border-color:var(--ntf-ok); }
+.ntf-perm .ntf-pill.denied { color:var(--ntf-danger); border-color:var(--ntf-danger); }
 </style>
 
 <div id="ntf-root">
@@ -83,19 +103,34 @@ body.dark #ntf-root {
         </div>
     </div>
 
-    <!-- Delivery channels -->
+    <!-- Delivery matrix -->
     <div class="ntf-card">
-        <div class="ntf-card-title"><i class="paper plane icon"></i> Delivery Channels</div>
-        <div class="ntf-card-desc">Enable the channels you want to receive notifications through. Some channels require the extra details below.</div>
-        <div id="ntf-agent-list"><div style="color:var(--ntf-dim);">Loading channels…</div></div>
-        <div class="ntf-field" style="margin-top:12px;">
-            <label>Minimum priority to receive</label>
-            <select id="ntf-min-priority">
-                <option value="low">Low — receive everything</option>
-                <option value="medium">Medium — skip low priority</option>
-                <option value="high">High — only urgent</option>
-            </select>
-            <div class="ntf-hint">Notifications below this priority are not delivered to you on any channel.</div>
+        <div class="ntf-card-title"><i class="th icon"></i> Delivery Matrix</div>
+        <div class="ntf-card-desc">Pick which channels deliver each priority of notification. For example, get everything on the desktop but only high-priority alerts by email. A channel with no ticks is off. Channels needing extra details are configured below.</div>
+        <div class="ntf-matrix-wrap">
+            <table class="ntf-matrix" id="ntf-matrix">
+                <thead>
+                    <tr>
+                        <th class="ntf-matrix-channel">Channel</th>
+                        <th><span class="ntf-prio-low">Low</span></th>
+                        <th>Medium</th>
+                        <th><span class="ntf-prio-high">High</span></th>
+                    </tr>
+                </thead>
+                <tbody id="ntf-matrix-body">
+                    <tr><td colspan="4" style="color:var(--ntf-dim);">Loading channels…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Browser notifications -->
+    <div class="ntf-card">
+        <div class="ntf-card-title"><i class="chrome icon"></i> Browser Notifications</div>
+        <div class="ntf-card-desc">Allow ArozOS to raise browser (Chrome / Edge / Firefox) notifications on your device when the desktop tab is not focused. This grants permission for this browser only.</div>
+        <div class="ntf-perm">
+            <button class="ntf-btn" id="ntf-perm-btn">Enable browser notifications</button>
+            <span class="ntf-pill" id="ntf-perm-status"><i class="circle outline icon"></i> Checking…</span>
         </div>
     </div>
 
@@ -232,34 +267,40 @@ body.dark #ntf-root {
     }
 
     function boot(N) {
-        var agentList = document.getElementById("ntf-agent-list");
-        var currentAgents = [];
+        var matrixBody = document.getElementById("ntf-matrix-body");
+        var PRIORITIES = N.PRIORITIES; // ["low","medium","high"]
+        //Friendly display names for known agents (fallback = the agent name).
+        var CHANNEL_LABELS = { smtpn: "Email", telegram: "Telegram", desktop: "Desktop", webhook: "Custom Webhook" };
 
-        function renderAgents(agents, enabledMap) {
-            currentAgents = agents;
-            agentList.innerHTML = "";
+        function channelLabel(name) {
+            return CHANNEL_LABELS[name] || (name.charAt(0).toUpperCase() + name.slice(1));
+        }
+
+        function renderMatrix(agents, channels) {
+            matrixBody.innerHTML = "";
             if (!agents.length) {
-                agentList.innerHTML = '<div style="color:var(--ntf-dim);">No delivery channels registered.</div>';
+                matrixBody.innerHTML = '<tr><td colspan="4" style="color:var(--ntf-dim);">No delivery channels registered.</td></tr>';
                 return;
             }
             agents.forEach(function (a) {
-                var enabled = !!(enabledMap && enabledMap[a.name]);
-                var tag = "";
+                var row = channels[a.name] || {};
+                var note = "";
                 if (!a.available) {
-                    tag = '<span class="ntf-tag warn">Not configured by admin</span>';
+                    note = '<div class="ntf-chan-desc">Not configured by administrator</div>';
                 } else if (a.requiresUserSetup) {
-                    tag = '<span class="ntf-tag">Needs your details below</span>';
+                    note = '<div class="ntf-chan-desc">Needs your details below</div>';
+                } else {
+                    note = '<div class="ntf-chan-desc">' + N.escapeHtml(a.desc) + '</div>';
                 }
-                var row = document.createElement("div");
-                row.className = "ntf-agent";
-                row.innerHTML =
-                    '<div class="ntf-agent-info">' +
-                        '<div class="ntf-agent-name">' + N.escapeHtml(a.name) + '</div>' +
-                        '<div class="ntf-agent-desc">' + N.escapeHtml(a.desc) + '</div>' +
-                    '</div>' + tag +
-                    '<label class="ntf-switch"><input type="checkbox" data-agent="' + N.escapeHtml(a.name) + '"' +
-                        (enabled ? " checked" : "") + '><span class="ntf-slider"></span></label>';
-                agentList.appendChild(row);
+                var tr = document.createElement("tr");
+                var cells = '<td class="ntf-matrix-channel' + (a.available ? '' : ' ntf-chan-off') + '">' +
+                    '<div class="ntf-chan-name">' + N.escapeHtml(channelLabel(a.name)) + '</div>' + note + '</td>';
+                PRIORITIES.forEach(function (label) {
+                    cells += '<td><input type="checkbox" data-agent="' + N.escapeHtml(a.name) +
+                        '" data-priority="' + label + '"' + (row[label] ? " checked" : "") + '></td>';
+                });
+                tr.innerHTML = cells;
+                matrixBody.appendChild(tr);
             });
 
             // Toggle per-user detail cards based on which agents exist.
@@ -267,19 +308,22 @@ body.dark #ntf-root {
             document.getElementById("ntf-webhook-card").classList.toggle("ntf-hidden", !agents.some(function (a) { return a.name === "webhook"; }));
         }
 
-        function collectEnabledAgents() {
-            var map = {};
-            $("#ntf-agent-list input[type=checkbox]").each(function () {
-                map[$(this).attr("data-agent")] = this.checked;
+        function collectMatrix() {
+            var channels = {};
+            $("#ntf-matrix-body input[type=checkbox]").each(function () {
+                if (!this.checked) return;
+                var agent = $(this).attr("data-agent");
+                var priority = $(this).attr("data-priority");
+                if (!channels[agent]) channels[agent] = {};
+                channels[agent][priority] = true;
             });
-            return map;
+            return N.normalizeMatrix(channels);
         }
 
         function loadPreference() {
             $.ajax({ url: API + "agents", method: "GET", success: function (agents) {
                 $.ajax({ url: API + "preference", method: "GET", success: function (pref) {
-                    renderAgents(agents, pref.enabledAgents || {});
-                    $("#ntf-min-priority").val(N.priorityToLabel(pref.minPriority));
+                    renderMatrix(agents, pref.channels || {});
                     $("#ntf-telegram-chatid").val(pref.telegramChatID || "");
                     if (pref.webhook) {
                         $("#ntf-webhook-url").val(pref.webhook.url || "");
@@ -298,8 +342,7 @@ body.dark #ntf-root {
                 return;
             }
             var payload = N.buildPreferencePayload({
-                enabledAgents: collectEnabledAgents(),
-                minPriority: $("#ntf-min-priority").val(),
+                channels: collectMatrix(),
                 telegramChatID: $("#ntf-telegram-chatid").val(),
                 webhookURL: url,
                 webhookMethod: $("#ntf-webhook-method").val(),
@@ -311,6 +354,41 @@ body.dark #ntf-root {
                 toast("Preferences saved", true);
             }, error: function () { toast("Failed to save preferences", false); }});
         }
+
+        /* ── Browser notification permission ── */
+        function refreshPermissionUI() {
+            var ctor = (typeof Notification !== "undefined") ? Notification : undefined;
+            var state = N.browserPermissionState(ctor);
+            var pill = document.getElementById("ntf-perm-status");
+            var btn = document.getElementById("ntf-perm-btn");
+            pill.className = "ntf-pill";
+            if (state === "granted") {
+                pill.classList.add("granted");
+                pill.innerHTML = '<i class="check circle icon"></i> Enabled';
+                btn.disabled = true;
+            } else if (state === "denied") {
+                pill.classList.add("denied");
+                pill.innerHTML = '<i class="times circle icon"></i> Blocked in browser settings';
+                btn.disabled = true;
+            } else if (state === "unsupported") {
+                pill.innerHTML = '<i class="ban icon"></i> Not supported by this browser';
+                btn.disabled = true;
+            } else {
+                pill.innerHTML = '<i class="circle outline icon"></i> Not enabled';
+                btn.disabled = false;
+            }
+        }
+
+        function requestPermission() {
+            if (typeof Notification === "undefined") { refreshPermissionUI(); return; }
+            try {
+                var p = Notification.requestPermission(function () { refreshPermissionUI(); });
+                if (p && typeof p.then === "function") { p.then(refreshPermissionUI); }
+            } catch (e) { refreshPermissionUI(); }
+        }
+
+        document.getElementById("ntf-perm-btn").addEventListener("click", requestPermission);
+        refreshPermissionUI();
 
         function sendTest() {
             $.ajax({ url: API + "test", method: "POST",

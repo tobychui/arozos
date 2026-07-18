@@ -136,15 +136,16 @@ func handleNotificationPreference(w http.ResponseWriter, r *http.Request) {
 	//POST: save preference
 	pref := notificationPreferenceStore.Get(userinfo.Username)
 
-	if enabledAgents, err := utils.PostPara(r, "enabledAgents"); err == nil {
-		parsed := map[string]bool{}
-		if jsonErr := json.Unmarshal([]byte(enabledAgents), &parsed); jsonErr == nil {
-			pref.EnabledAgents = parsed
+	//The delivery matrix: agent name -> priority label ("low"/"medium"/"high")
+	//-> enabled. Sent as a JSON object in the "channels" parameter.
+	if channels, err := utils.PostPara(r, "channels"); err == nil {
+		parsed := map[string]map[string]bool{}
+		if jsonErr := json.Unmarshal([]byte(channels), &parsed); jsonErr == nil {
+			pref.Channels = parsed
+		} else {
+			utils.SendErrorResponse(w, "Invalid channels matrix")
+			return
 		}
-	}
-
-	if minPriority, err := utils.PostPara(r, "minPriority"); err == nil {
-		pref.MinPriority = parsePriority(minPriority)
 	}
 
 	if chatID, err := utils.PostPara(r, "telegramChatID"); err == nil {

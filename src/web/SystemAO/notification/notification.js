@@ -70,17 +70,12 @@
     }
 
     // buildPreferencePayload converts the settings UI state into the flat
-    // parameter object expected by POST /system/notification/preference.
-    // enabledAgents is serialised to JSON; the min priority is normalised to a
-    // textual value the backend accepts.
+    // parameter object expected by POST /system/notification/preference. The
+    // delivery matrix (channels) is serialised to JSON.
     function buildPreferencePayload(state) {
         state = state || {};
-        var enabled = state.enabledAgents || {};
         var payload = {
-            enabledAgents: JSON.stringify(enabled),
-            minPriority: typeof state.minPriority === "number"
-                ? priorityToLabel(state.minPriority)
-                : String(state.minPriority || "low").toLowerCase()
+            channels: JSON.stringify(state.channels || {})
         };
         if (state.telegramChatID !== undefined) payload.telegramChatID = String(state.telegramChatID);
         if (state.webhookURL !== undefined) payload.webhookURL = String(state.webhookURL);
@@ -88,6 +83,29 @@
         if (state.webhookContentType !== undefined) payload.webhookContentType = String(state.webhookContentType);
         if (state.webhookBody !== undefined) payload.webhookBody = String(state.webhookBody);
         return payload;
+    }
+
+    // normalizeMatrix returns a clean channel->priority->bool matrix that only
+    // contains the valid priority labels and true entries.
+    function normalizeMatrix(channels) {
+        var out = {};
+        channels = channels || {};
+        Object.keys(channels).forEach(function (agent) {
+            var row = channels[agent] || {};
+            var cleaned = {};
+            PRIORITIES.forEach(function (label) {
+                if (row[label]) cleaned[label] = true;
+            });
+            if (Object.keys(cleaned).length > 0) out[agent] = cleaned;
+        });
+        return out;
+    }
+
+    // browserPermissionState reports the current browser notification
+    // permission ("granted" / "denied" / "default" / "unsupported").
+    function browserPermissionState(notificationCtor) {
+        if (typeof notificationCtor === "undefined" || !notificationCtor) return "unsupported";
+        return notificationCtor.permission || "default";
     }
 
     // dedupeNotifications filters out notifications whose id is already present
@@ -144,6 +162,8 @@
         escapeHtml: escapeHtml,
         isValidWebhookURL: isValidWebhookURL,
         buildPreferencePayload: buildPreferencePayload,
+        normalizeMatrix: normalizeMatrix,
+        browserPermissionState: browserPermissionState,
         dedupeNotifications: dedupeNotifications,
         shouldShowBrowserPush: shouldShowBrowserPush,
         deliveryChannelForFocus: deliveryChannelForFocus,

@@ -61,30 +61,35 @@ func TestGet_DefaultWhenMissing(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	pref := s.Get("newuser")
-	if !pref.EnabledAgents["desktop"] {
-		t.Error("expected desktop enabled by default")
-	}
-	if pref.MinPriority != notification.PriorityLow {
-		t.Errorf("expected default min priority low, got %d", pref.MinPriority)
+	//Default: desktop enabled for every priority.
+	for _, label := range []string{"low", "medium", "high"} {
+		if !pref.Channels["desktop"][label] {
+			t.Errorf("expected desktop enabled by default for %s", label)
+		}
 	}
 }
 
 func TestSetAndGet_RoundTrip(t *testing.T) {
 	s, _ := NewStore(newFakeKV())
 	in := UserPreference{
-		EnabledAgents:  map[string]bool{"telegram": true, "desktop": false},
-		MinPriority:    notification.PriorityHigh,
+		Channels: map[string]map[string]bool{
+			"telegram": {"high": true},
+			"desktop":  {"low": true, "medium": true, "high": true},
+		},
 		TelegramChatID: "999",
 	}
 	if err := s.Set("alice", in); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := s.Get("alice")
-	if !out.EnabledAgents["telegram"] || out.EnabledAgents["desktop"] {
-		t.Errorf("enabled agents did not round-trip: %+v", out.EnabledAgents)
+	if !out.Channels["telegram"]["high"] {
+		t.Errorf("telegram/high did not round-trip: %+v", out.Channels)
 	}
-	if out.MinPriority != notification.PriorityHigh {
-		t.Errorf("min priority did not round-trip: %d", out.MinPriority)
+	if out.Channels["telegram"]["low"] {
+		t.Errorf("telegram/low should be false: %+v", out.Channels)
+	}
+	if !out.Channels["desktop"]["medium"] {
+		t.Errorf("desktop/medium did not round-trip: %+v", out.Channels)
 	}
 	if out.TelegramChatID != "999" {
 		t.Errorf("telegram chat id did not round-trip: %s", out.TelegramChatID)
@@ -98,11 +103,24 @@ func TestSet_EmptyUsername(t *testing.T) {
 	}
 }
 
-func TestSet_NormalizesPriority(t *testing.T) {
+func TestSet_NormalizesChannels(t *testing.T) {
 	s, _ := NewStore(newFakeKV())
-	s.Set("bob", UserPreference{MinPriority: 999})
-	if got := s.Get("bob").MinPriority; got != notification.PriorityHigh {
-		t.Errorf("expected priority clamped to high, got %d", got)
+	//Include an invalid priority label and an all-false row that should be dropped.
+	s.Set("bob", UserPreference{
+		Channels: map[string]map[string]bool{
+			"desktop":  {"high": true, "bogus": true},
+			"telegram": {"low": false, "medium": false, "high": false},
+		},
+	})
+	out := s.Get("bob")
+	if out.Channels["desktop"]["high"] != true {
+		t.Errorf("expected desktop/high retained")
+	}
+	if _, ok := out.Channels["desktop"]["bogus"]; ok {
+		t.Errorf("expected invalid priority label dropped")
+	}
+	if _, ok := out.Channels["telegram"]; ok {
+		t.Errorf("expected all-false telegram row dropped, got %+v", out.Channels)
 	}
 }
 
@@ -138,34 +156,40 @@ func TestWebhookResolver(t *testing.T) {
 	}
 }
 
-func TestResolveAgents(t *testing.T) {
+func TestResolveAgents_Matrix(t *testing.T) {
 	s, _ := NewStore(newFakeKV())
 	s.Set("alice", UserPreference{
-		EnabledAgents: map[string]bool{"desktop": true, "telegram": true, "smtpn": false},
-		MinPriority:   notification.PriorityMedium,
+		Channels: map[string]map[string]bool{
+			"desktop":  {"low": true, "medium": true, "high": true},
+			"telegram": {"high": true},
+			"smtpn":    {"high": true},
+		},
 	})
 	available := []string{"desktop", "telegram", "smtpn", "webhook"}
 
-	//Below threshold -> dropped.
-	if got := s.ResolveAgents("alice", notification.PriorityLow, available, nil); got != nil {
-		t.Errorf("expected nil for below-threshold priority, got %v", got)
+	//Low priority -> only desktop.
+	low := s.ResolveAgents("alice", notification.PriorityLow, available, nil)
+	if len(low) != 1 || low[0] != "desktop" {
+		t.Errorf("expected [desktop] for low, got %v", low)
 	}
 
-	//At/above threshold -> only enabled agents.
-	got := s.ResolveAgents("alice", notification.PriorityHigh, available, nil)
-	if len(got) != 2 || !contains(got, "desktop") || !contains(got, "telegram") {
-		t.Errorf("expected [desktop telegram], got %v", got)
+	//High priority -> desktop, telegram, smtpn (order follows available list).
+	high := s.ResolveAgents("alice", notification.PriorityHigh, available, nil)
+	if len(high) != 3 || !contains(high, "desktop") || !contains(high, "telegram") || !contains(high, "smtpn") {
+		t.Errorf("expected [desktop telegram smtpn] for high, got %v", high)
 	}
 
 	//Requested subset restricts further.
-	got = s.ResolveAgents("alice", notification.PriorityHigh, available, []string{"telegram"})
+	got := s.ResolveAgents("alice", notification.PriorityHigh, available, []string{"telegram"})
 	if len(got) != 1 || got[0] != "telegram" {
 		t.Errorf("expected [telegram], got %v", got)
 	}
 
-	//Requested agent that is not enabled -> dropped.
-	if got := s.ResolveAgents("alice", notification.PriorityHigh, available, []string{"smtpn"}); got != nil {
-		t.Errorf("expected nil when requested agent disabled, got %v", got)
+	//A priority with no enabled channel returns nil (medium: only desktop is on,
+	//telegram/smtpn are high-only).
+	med := s.ResolveAgents("alice", notification.PriorityMedium, []string{"telegram", "smtpn"}, nil)
+	if med != nil {
+		t.Errorf("expected nil when no channel enabled at this priority, got %v", med)
 	}
 }
 
