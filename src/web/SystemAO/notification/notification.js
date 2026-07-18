@@ -2,10 +2,9 @@
     notification.js
 
     Pure, DOM-free helper logic shared by the ArozOS notification settings page
-    and exercised by the webapp unit tests (notification.test.js / tests.html).
+    (SystemAO/notification/index.html) and the web desktop (desktop.html).
 
-    Everything here is deterministic and side-effect free so it can be unit
-    tested both in the browser and under Node.js.
+    Everything here is deterministic and side-effect free.
 */
 (function (root, factory) {
     if (typeof module === "object" && module.exports) {
