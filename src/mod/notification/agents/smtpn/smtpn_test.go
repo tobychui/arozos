@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	notification "imuslab.com/arozos/mod/notification"
@@ -143,22 +144,19 @@ func TestAgent_IsProducer(t *testing.T) {
 	}
 }
 
-// TestLoadLogoDataURI_MissingReturnsEmpty verifies the helper degrades to an
-// empty string when the brand asset is not present in the current directory
-// (the normal case in tests, which do not run from the app root).
-func TestLoadLogoDataURI_MissingReturnsEmpty(t *testing.T) {
-	// t.Chdir would keep us in the test's temp dir; the asset path is relative
-	// to the app root which does not exist here.
-	if got := loadLogoDataURI(); got != "" {
-		t.Errorf("expected empty data URI when asset missing, got %q", got[:min(len(got), 40)])
+// TestLoadLogoBytes_MissingReturnsNil verifies the helper returns nil when the
+// brand asset is not present in the current directory (the normal case in
+// tests, which do not run from the app root).
+func TestLoadLogoBytes_MissingReturnsNil(t *testing.T) {
+	if got := loadLogoBytes(); got != nil {
+		t.Errorf("expected nil when asset missing, got %d bytes", len(got))
 	}
 }
 
-// TestLoadLogoDataURI_EncodesFile verifies that when the asset exists it is
-// returned as a base64 PNG data URI.
-func TestLoadLogoDataURI_EncodesFile(t *testing.T) {
+// TestLoadLogoBytes_ReadsFile verifies the raw asset bytes are returned when
+// the asset exists.
+func TestLoadLogoBytes_ReadsFile(t *testing.T) {
 	dir := t.TempDir()
-	// Recreate the expected relative asset path under a temp working directory.
 	assetDir := filepath.Join(dir, "web", "img", "public", "pwa")
 	if err := os.MkdirAll(assetDir, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -168,10 +166,69 @@ func TestLoadLogoDataURI_EncodesFile(t *testing.T) {
 	}
 	t.Chdir(dir)
 
-	got := loadLogoDataURI()
-	want := "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("PNGDATA"))
-	if got != want {
-		t.Errorf("unexpected data URI: got %q want %q", got, want)
+	if got := string(loadLogoBytes()); got != "PNGDATA" {
+		t.Errorf("unexpected bytes: %q", got)
+	}
+}
+
+// TestWrapBase64 verifies base64 content is split into 76-character lines.
+func TestWrapBase64(t *testing.T) {
+	long := strings.Repeat("A", 200)
+	wrapped := wrapBase64(long)
+	for _, line := range strings.Split(wrapped, "\r\n") {
+		if len(line) > 76 {
+			t.Errorf("line exceeds 76 chars: %d", len(line))
+		}
+	}
+	//Stripping the CRLFs should recover the original content.
+	if strings.ReplaceAll(wrapped, "\r\n", "") != long {
+		t.Error("wrapBase64 altered the content")
+	}
+}
+
+// TestBuildEmailMessage_NoLogo verifies a plain text/html message is produced
+// when no logo is supplied.
+func TestBuildEmailMessage_NoLogo(t *testing.T) {
+	msg := string(buildEmailMessage("ArozOS <no-reply@example.com>", "u@example.com", "Hi", "<b>body</b>", nil))
+	if !strings.Contains(msg, "Content-Type: text/html") {
+		t.Errorf("expected text/html content type, got:\n%s", msg)
+	}
+	if strings.Contains(msg, "multipart/related") {
+		t.Error("did not expect multipart for a logo-less message")
+	}
+	if !strings.Contains(msg, "Subject: Hi") {
+		t.Error("expected subject header")
+	}
+}
+
+// TestBuildEmailMessage_WithLogo verifies a multipart/related message with an
+// inline CID image is produced when a logo is supplied.
+func TestBuildEmailMessage_WithLogo(t *testing.T) {
+	msg := string(buildEmailMessage("ArozOS <no-reply@example.com>", "u@example.com", "Alert", "<img src=\"cid:arozoslogo\">", []byte("PNGDATA")))
+	if !strings.Contains(msg, "multipart/related") {
+		t.Error("expected multipart/related content type")
+	}
+	if !strings.Contains(msg, "Content-ID: <arozoslogo>") {
+		t.Error("expected inline image Content-ID")
+	}
+	if !strings.Contains(msg, "Content-Disposition: inline") {
+		t.Error("expected inline content disposition for the image")
+	}
+	//The PNG bytes should appear base64-encoded in the image part.
+	if !strings.Contains(msg, base64.StdEncoding.EncodeToString([]byte("PNGDATA"))) {
+		t.Error("expected base64-encoded image bytes")
+	}
+}
+
+// TestBuildEmailMessage_EncodesUnicodeSubject verifies a non-ASCII subject is
+// RFC 2047 encoded rather than passed through raw.
+func TestBuildEmailMessage_EncodesUnicodeSubject(t *testing.T) {
+	msg := string(buildEmailMessage("x <x@example.com>", "u@example.com", "Disk failing — urgent", "<b>b</b>", nil))
+	if strings.Contains(msg, "Subject: Disk failing — urgent") {
+		t.Error("expected the unicode subject to be encoded, not raw")
+	}
+	if !strings.Contains(strings.ToLower(msg), "=?utf-8?") {
+		t.Errorf("expected RFC 2047 encoded-word subject, got:\n%s", msg)
 	}
 }
 
