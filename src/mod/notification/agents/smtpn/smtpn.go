@@ -9,6 +9,7 @@ package smtpn
 */
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,8 +23,23 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
+// logoAssetPath is the ArozOS brand icon embedded (as a data URI) in the email
+// footer so it renders without the mail client fetching a remote resource.
+const logoAssetPath = "./web/img/public/pwa/192.png"
+
+// loadLogoDataURI reads the brand icon and returns it as a base64 data URI, or
+// an empty string when the asset cannot be read (e.g. outside the app root).
+func loadLogoDataURI() string {
+	data, err := os.ReadFile(logoAssetPath)
+	if err != nil {
+		return ""
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(data)
+}
+
 type Agent struct {
 	Hostname              string `json:"-"`
+	SystemVersion         string `json:"-"` //Host version string shown in the email footer (optional)
 	SMTPSenderDisplayName string
 	SMTPSender            string
 	SMTPPassword          string
@@ -105,11 +121,17 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		thisEmail := thisEntry[1]
 
 		//Load email template
+		systemVersion := a.SystemVersion
+		if systemVersion == "" {
+			systemVersion = "unknown"
+		}
 		s, err := utils.Templateload("./system/www/smtpn.html", map[string]string{
 			"receiver":  "Hello " + thisUser + ",",
 			"message":   incomingNotification.Message,
 			"sender":    incomingNotification.Sender,
 			"hostname":  a.Hostname,
+			"version":   systemVersion,
+			"logo":      loadLogoDataURI(),
 			"timestamp": time.Now().Format("2006-01-02 3:4:5 PM"),
 		})
 		if err != nil {

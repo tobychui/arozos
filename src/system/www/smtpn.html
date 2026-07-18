@@ -16,29 +16,51 @@
     <![endif]-->
     <style>
         table, td, div, h1, p {font-family: Arial, sans-serif;}
-		.theme{
-			background: rgb(0,130,255);
-			background: linear-gradient(90deg, rgba(0,130,255,1) 0%, rgba(62,146,248,1) 46%, rgba(249,249,249,1) 100%);
-		}
     </style>
 </head>
-<body style="margin:0; padding:0;">
-    <table role="presentation" style="width:100%;border-collapse:collapse;border:0;border-spacing:0;background-color: #fcfcfc;">
+<body style="margin:0; padding:0; background-color:#f4f4f5;">
+    <table role="presentation" style="width:100%;border-collapse:collapse;border:0;border-spacing:0;background-color:#f4f4f5;">
         <tr>
-            <td class="theme" style="padding: 1em; color: #595959; color: white;">
-				<b>System Notification from {{hostname}}</b>
-            </td>
-        </tr>
-		<tr>
-            <td style="padding:1.2em;">
-                <p>{{receiver}}</p>
-				<p style="margin-left: 2em;">{{message}}</p>
-				<p>{{sender}}</p>
-            </td>
-        </tr>
-		<tr style="border-top: 1px solid #d4d4d4 !important;">
-            <td style="padding:0.8em; padding-left: 1.2em; font-size: 0.8em;">
-				This message was automatically sent by {{hostname}} on {{timestamp}}.
+            <td align="center" style="padding:24px 12px;">
+                <table role="presentation" style="width:600px;max-width:100%;border-collapse:collapse;border:1px solid #e5e5e5;border-spacing:0;background-color:#ffffff;border-radius:10px;overflow:hidden;">
+                    <!-- Simplistic top bar -->
+                    <tr>
+                        <td style="padding:16px 24px;border-bottom:1px solid #ededed;">
+                            <span style="font-size:15px;font-weight:600;color:#1f1f1f;">Notification</span>
+                            <span style="font-size:12px;color:#8a8a8a;">&nbsp;from {{hostname}}</span>
+                        </td>
+                    </tr>
+                    <!-- Message body -->
+                    <tr>
+                        <td style="padding:24px;color:#33373b;">
+                            <p style="margin:0 0 12px 0;">{{receiver}}</p>
+                            <div style="margin:0 0 16px 0;line-height:1.55;">{{message}}</div>
+                            <p style="margin:0;color:#8a8a8a;font-size:13px;">&mdash; {{sender}}</p>
+                        </td>
+                    </tr>
+                    <!-- System info card (business-card style) -->
+                    <tr>
+                        <td style="padding:20px 24px;border-top:1px solid #ededed;background-color:#fafafa;">
+                            <table role="presentation" style="border-collapse:collapse;border-spacing:0;">
+                                <tr>
+                                    <td valign="top" style="padding-right:20px;border-right:1px solid #e5e5e5;">
+                                        <img src="{{logo}}" width="56" height="56" alt="ArozOS" style="display:block;width:56px;height:56px;border-radius:12px;">
+                                    </td>
+                                    <td valign="top" style="padding-left:20px;font-family:'Courier New',monospace;">
+                                        <div style="font-size:14px;font-weight:700;color:#1f1f1f;">ArOZ Online System</div>
+                                        <div style="font-size:12px;color:#5a5a5a;margin-top:2px;">General purpose web desktop system</div>
+                                        <div style="font-size:12px;color:#5a5a5a;margin-top:10px;line-height:1.6;">
+                                            Host: <strong style="color:#33373b;">{{hostname}}</strong><br>
+                                            Version: {{version}}<br>
+                                            Sent: {{timestamp}}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                <div style="font-size:11px;color:#a0a0a0;margin-top:12px;">This message was sent automatically by your ArozOS host. Please do not reply.</div>
             </td>
         </tr>
     </table>

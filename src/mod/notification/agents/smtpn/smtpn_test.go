@@ -1,6 +1,7 @@
 package smtpn
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -139,6 +140,38 @@ func TestAgent_IsProducer(t *testing.T) {
 	a := Agent{}
 	if a.IsProducer() {
 		t.Error("expected IsProducer() to return false for SMTP agent")
+	}
+}
+
+// TestLoadLogoDataURI_MissingReturnsEmpty verifies the helper degrades to an
+// empty string when the brand asset is not present in the current directory
+// (the normal case in tests, which do not run from the app root).
+func TestLoadLogoDataURI_MissingReturnsEmpty(t *testing.T) {
+	// t.Chdir would keep us in the test's temp dir; the asset path is relative
+	// to the app root which does not exist here.
+	if got := loadLogoDataURI(); got != "" {
+		t.Errorf("expected empty data URI when asset missing, got %q", got[:min(len(got), 40)])
+	}
+}
+
+// TestLoadLogoDataURI_EncodesFile verifies that when the asset exists it is
+// returned as a base64 PNG data URI.
+func TestLoadLogoDataURI_EncodesFile(t *testing.T) {
+	dir := t.TempDir()
+	// Recreate the expected relative asset path under a temp working directory.
+	assetDir := filepath.Join(dir, "web", "img", "public", "pwa")
+	if err := os.MkdirAll(assetDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(assetDir, "192.png"), []byte("PNGDATA"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	t.Chdir(dir)
+
+	got := loadLogoDataURI()
+	want := "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("PNGDATA"))
+	if got != want {
+		t.Errorf("unexpected data URI: got %q want %q", got, want)
 	}
 }
 

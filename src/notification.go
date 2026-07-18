@@ -65,6 +65,7 @@ func notificationInit() {
 	if err != nil {
 		systemWideLogger.PrintAndLog("Notification", "Unable to start smtpn agent: "+err.Error(), nil)
 	} else {
+		smtpAgent.SystemVersion = build_version + " v" + internal_version
 		smtpNotificationAgent = smtpAgent
 		notificationQueue.RegisterNotificationAgent(smtpAgent)
 	}
