@@ -27,9 +27,10 @@ body.dark #ntf-root {
     --ntf-danger: #ff6b5e;
 }
 #ntf-root * { box-sizing: border-box; }
-.ntf-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-.ntf-head .ntf-title { font-size:17px; font-weight:600; }
-.ntf-head .ntf-sub { font-size:12px; color:var(--ntf-dim); margin-top:2px; }
+/* Simplistic top bar */
+.ntf-topbar { display:flex; align-items:baseline; gap:10px; padding-bottom:12px; margin-bottom:18px; border-bottom:1px solid var(--ntf-border); }
+.ntf-topbar .ntf-topbar-title { font-size:15px; font-weight:600; letter-spacing:.01em; }
+.ntf-topbar .ntf-topbar-sub { font-size:12px; color:var(--ntf-dim); }
 .ntf-card {
     border:1px solid var(--ntf-border);
     border-radius:10px;
@@ -92,15 +93,30 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
 .ntf-perm .ntf-pill { font-size:11.5px; padding:3px 10px; border-radius:12px; border:1px solid var(--ntf-border); color:var(--ntf-dim); display:inline-flex; align-items:center; gap:6px; }
 .ntf-perm .ntf-pill.granted { color:var(--ntf-ok); border-color:var(--ntf-ok); }
 .ntf-perm .ntf-pill.denied { color:var(--ntf-danger); border-color:var(--ntf-danger); }
+
+/* Author / credit card (bottom) */
+.ntf-credit { display:flex; align-items:stretch; margin-top:24px; padding-top:20px; border-top:1px solid var(--ntf-border);
+    font-family: 'Courier New', ui-monospace, 'SFMono-Regular', Menlo, monospace; }
+.ntf-credit-logo { display:flex; align-items:center; justify-content:center; padding:0 26px 0 4px; }
+.ntf-credit-logo img { width:64px; height:64px; border-radius:12px; }
+.ntf-credit-body { border-left:1px solid var(--ntf-border); padding-left:26px; min-width:0; }
+.ntf-credit-name { font-size:15px; font-weight:700; margin-bottom:8px; }
+.ntf-credit-tag { font-size:12.5px; line-height:1.5; margin-bottom:4px; }
+.ntf-credit-links { font-size:12.5px; line-height:1.6; margin-bottom:12px; word-break:break-word; }
+.ntf-credit-links a { color:inherit; text-decoration:underline; }
+.ntf-credit-note { font-size:11.5px; color:var(--ntf-dim); line-height:1.5; }
+.ntf-credit mark { background:#fde047; color:#1f1f1f; padding:0 2px; border-radius:2px; }
+@media (max-width:520px) {
+    .ntf-credit { flex-direction:column; }
+    .ntf-credit-logo { justify-content:flex-start; padding:0 0 14px 0; }
+    .ntf-credit-body { border-left:none; padding-left:0; }
+}
 </style>
 
 <div id="ntf-root">
-    <div class="ntf-head">
-        <i class="big bell icon" style="color:var(--ntf-accent);"></i>
-        <div>
-            <div class="ntf-title">Notifications</div>
-            <div class="ntf-sub">Choose how ArozOS reaches you and configure delivery agents.</div>
-        </div>
+    <div class="ntf-topbar">
+        <span class="ntf-topbar-title">Notifications</span>
+        <span class="ntf-topbar-sub">Delivery preferences</span>
     </div>
 
     <!-- Delivery matrix -->
@@ -227,6 +243,22 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
         </div>
         <div class="ntf-actions">
             <button class="ntf-btn" id="ntf-admin-save-smtp">Save SMTP settings</button>
+        </div>
+    </div>
+
+    <!-- Author / credit card -->
+    <div class="ntf-credit">
+        <div class="ntf-credit-logo">
+            <img src="../../img/system/favicon.png" alt="ArozOS">
+        </div>
+        <div class="ntf-credit-body">
+            <div class="ntf-credit-name">tobychui</div>
+            <div class="ntf-credit-tag">Maker and software developer from Hong Kong</div>
+            <div class="ntf-credit-links">
+                Email: <a href="mailto:toby@imuslab.com">toby@imuslab.com</a> or <a href="mailto:imuslab@gmail.com"><mark>imuslab@gmail.com</mark></a>
+                &nbsp; Web: <a href="https://imuslab.com" target="_blank" rel="noopener">https://<mark>imuslab.com</mark></a>
+            </div>
+            <div class="ntf-credit-note">The notification module is part of the <mark>ArozOS</mark> project &mdash; a general purpose web desktop system created and maintained by tobychui.</div>
         </div>
     </div>
 </div>
