@@ -679,6 +679,47 @@
             z-index:1114;
         }
 
+        /* Notification toast (transient popup for incoming notifications) */
+        #notificationToastContainer{
+            position: fixed;
+            right: 1em;
+            bottom: calc(36px + 1em);
+            width: 340px;
+            max-width: calc(100% - 2em);
+            z-index: 1116;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .notificationToast{
+            pointer-events: auto;
+            background-color: var(--body_background_secondary, #17161f);
+            color: var(--text_color, #ffffff);
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.28);
+            padding: 12px 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity .25s ease, transform .25s ease;
+            border-left: 4px solid #4d6bff;
+        }
+        .notificationToast.show{ opacity: 1; transform: translateY(0); }
+        .notificationToast.priority-high{ border-left-color: #e0403a; }
+        .notificationToast.priority-low{ border-left-color: #9aa0aa; }
+        .notificationToast .toastIcon{ flex-shrink:0; margin-top:2px; opacity:0.9; }
+        .notificationToast .toastBody{ flex:1; min-width:0; }
+        .notificationToast .toastTitle{ font-weight:600; font-size:13.5px; margin:0 0 2px 0; }
+        .notificationToast .toastMessage{
+            font-size:12px; opacity:0.85; margin:0; line-height:1.4;
+            overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+        }
+        .notificationToast .toastClose{ flex-shrink:0; cursor:pointer; opacity:0.6; }
+        .notificationToast .toastClose:hover{ opacity:1; }
+
         .notificationbar .content{
             position: fixed;
             background-color:var(--body_background_secondary);
@@ -1196,8 +1237,11 @@
         align="center" draggable="false">
     </div>
 
+    <!-- Transient notification toasts -->
+    <div id="notificationToastContainer"></div>
+
     <!-- Calendar and Notification -->
-    <div class="notificationbar" style="display:none;">        
+    <div class="notificationbar" style="display:none;">
         <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'></div>
         <div class="content">
             <div id="notificationlist">
@@ -6880,9 +6924,9 @@
 
             The desktop notification agent (mod/notification/agents/desktopn)
             buffers notifications for this user on the server. We poll it on a
-            timer and render each one into the notification list, briefly show
-            the notification bar as a popup, and — when the user has granted
-            permission — raise a browser (Chrome) push notification too.
+            timer and, for each new one, add it to the notification list, show a
+            transient toast, and — only when this page is not focused — raise a
+            browser (Chrome) push notification instead.
         */
         var arozNotificationSeenIds = {};
         var arozNotificationPollTimer = null;
@@ -6895,6 +6939,14 @@
             }
         }
 
+        //pageIsFocused reports whether the desktop tab is currently in the
+        //foreground, so we can pick a toast (focused) vs a browser push (not).
+        function pageIsFocused(){
+            if (typeof document.hidden === "boolean" && document.hidden) return false;
+            if (typeof document.hasFocus === "function") return document.hasFocus();
+            return true;
+        }
+
         function requestDesktopNotificationPermission(){
             try {
                 if (typeof Notification !== "undefined" && Notification.permission === "default"){
@@ -6903,10 +6955,50 @@
             } catch (e) { /* Notification API unavailable */ }
         }
 
+        //showNotificationToast renders a transient popup in the bottom-right of
+        //the desktop. It auto-dismisses and can be closed manually.
+        function showNotificationToast(title, message, priority){
+            var container = document.getElementById("notificationToastContainer");
+            if (!container) return;
+            var p = String(priority || "medium").toLowerCase();
+
+            var toast = document.createElement("div");
+            toast.className = "notificationToast priority-" + p;
+            toast.innerHTML =
+                '<i class="' + arozNotificationIcon(p) + ' icon toastIcon"></i>' +
+                '<div class="toastBody">' +
+                    '<p class="toastTitle"></p>' +
+                    '<p class="toastMessage"></p>' +
+                '</div>' +
+                '<i class="remove icon toastClose"></i>';
+            //Assign text via textContent so notification content cannot inject markup.
+            toast.querySelector(".toastTitle").textContent = title;
+            toast.querySelector(".toastMessage").textContent = message;
+
+            function dismiss(){
+                toast.classList.remove("show");
+                setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+            }
+            toast.querySelector(".toastClose").addEventListener("click", dismiss);
+            toast.addEventListener("click", function(e){
+                if (e.target && e.target.classList.contains("toastClose")) return;
+                toggleNotification("show"); //open the full list on click
+                dismiss();
+            });
+
+            container.appendChild(toast);
+            //Trigger the enter transition on the next frame.
+            requestAnimationFrame(function(){ toast.classList.add("show"); });
+            //Auto dismiss (longer for high priority).
+            setTimeout(dismiss, p === "high" ? 9000 : 5000);
+        }
+
         function showBrowserPush(title, body, priority){
             try {
                 if (typeof Notification !== "undefined" && Notification.permission === "granted"){
                     var n = new Notification(title, { body: body });
+                    //Focus this tab when the user clicks the OS notification.
+                    n.onclick = function(){ try { window.focus(); } catch (e) {} n.close(); };
                     //Auto-close low/medium priority pushes so they do not pile up.
                     if (String(priority).toLowerCase() !== "high"){
                         setTimeout(function(){ try { n.close(); } catch (e) {} }, 8000);
@@ -6925,13 +7017,16 @@
             if (item.sender){
                 message = message + (message ? " " : "") + "(" + item.sender + ")";
             }
-            //Add to the notification list + desktop popup (null redirect option).
+            //Always add it to the persistent notification list.
             sendNotification(title, message, arozNotificationIcon(item.priority), null);
-            //Briefly reveal the notification bar as a desktop popup.
-            toggleNotification("show");
-            setTimeout(function(){ toggleNotification("hide"); }, 4500);
-            //Raise a browser/Chrome push notification.
-            showBrowserPush(title, message, item.priority);
+
+            if (pageIsFocused()){
+                //Foreground: show an in-page toast.
+                showNotificationToast(title, message, item.priority);
+            } else {
+                //Backgrounded / unfocused: raise a browser (Chrome) push instead.
+                showBrowserPush(title, message, item.priority);
+            }
         }
 
         function pollServerNotifications(){
