@@ -65,9 +65,12 @@ body.dark #ntf-root {
 .ntf-slider::before { content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
 .ntf-switch input:checked + .ntf-slider { background:var(--ntf-accent); }
 .ntf-switch input:checked + .ntf-slider::before { transform:translateX(20px); }
-.ntf-btn { padding:8px 16px; border:1px solid var(--ntf-border); border-radius:8px; background:var(--ntf-bg); color:var(--ntf-text); font-size:13px; cursor:pointer; }
+.ntf-btn { height:36px; padding:0 16px; border:1px solid var(--ntf-border); border-radius:8px; background:var(--ntf-bg); color:var(--ntf-text); font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1; box-sizing:border-box; vertical-align:middle; }
 .ntf-btn.primary { background:var(--ntf-accent); color:#fff; border-color:var(--ntf-accent); }
+.ntf-select { height:36px; padding:0 30px 0 10px; border:1px solid var(--ntf-border); border-radius:8px; background:var(--ntf-bg); color:var(--ntf-text); font-size:13px; font-family:inherit; box-sizing:border-box; cursor:pointer; vertical-align:middle; }
 .ntf-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+/* Keep Semantic icons aligned inside our flex controls (they ship a right margin + baseline that offsets them) */
+#ntf-root i.icon { margin:0; line-height:1; height:auto; vertical-align:middle; }
 .ntf-row { display:flex; gap:10px; flex-wrap:wrap; }
 .ntf-row > .ntf-field { flex:1; min-width:140px; }
 .ntf-toast { display:none; margin-top:10px; padding:8px 12px; border-radius:8px; font-size:12.5px; color:#fff; }
@@ -175,12 +178,20 @@ table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer;
 
     <div class="ntf-actions">
         <button class="ntf-btn primary" id="ntf-save">Save preferences</button>
-        <select id="ntf-test-priority" style="padding:8px 10px; border-radius:8px;">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-        </select>
-        <button class="ntf-btn" id="ntf-test">Send test notification</button>
+    </div>
+
+    <!-- Test notification -->
+    <div class="ntf-card">
+        <div class="ntf-card-title"><i class="paper plane icon"></i> Send a Test Notification</div>
+        <div class="ntf-card-desc">Send yourself a notification at the chosen priority to check your setup. It is routed just like a real one, so it only arrives on the channels you enabled for that priority.</div>
+        <div class="ntf-actions" style="margin-top:0;">
+            <select class="ntf-select" id="ntf-test-priority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+            </select>
+            <button class="ntf-btn" id="ntf-test">Send test notification</button>
+        </div>
     </div>
     <div class="ntf-toast" id="ntf-toast"></div>
 
