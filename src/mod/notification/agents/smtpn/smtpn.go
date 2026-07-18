@@ -205,7 +205,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		}
 
 		from := a.SMTPSenderDisplayName + " <" + a.SMTPSender + ">"
-		msg := buildEmailMessage(from, thisEmail, incomingNotification.Title, s, loadLogoBytes())
+		msg := buildEmailMessage(from, thisEmail, buildSubject(incomingNotification), s, loadLogoBytes())
 
 		//Login to the SMTP server
 		auth := smtp.PlainAuth("", a.SMTPSender, a.SMTPPassword, a.SMTPDomain)
@@ -217,6 +217,22 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 	}
 
 	return nil
+}
+
+// buildSubject prefixes the notification title with its priority (e.g.
+// "[High] Disk failing") when a priority is set on the payload.
+func buildSubject(n *notification.NotificationPayload) string {
+	if n.Priority <= 0 {
+		//No priority set on the payload; use the title as-is.
+		return n.Title
+	}
+	label := notification.PriorityToString(notification.NormalizePriority(n.Priority))
+	if label == "" {
+		return n.Title
+	}
+	//Capitalise the first letter: "high" -> "High".
+	label = strings.ToUpper(label[:1]) + label[1:]
+	return "[" + label + "] " + n.Title
 }
 
 func (a Agent) ProduceNotification(producerListeningEndpoint *notification.AgentProducerFunction) {

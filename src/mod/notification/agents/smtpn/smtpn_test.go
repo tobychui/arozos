@@ -232,6 +232,30 @@ func TestBuildEmailMessage_EncodesUnicodeSubject(t *testing.T) {
 	}
 }
 
+// TestBuildSubject verifies the priority prefix is added only when a priority
+// is set on the payload.
+func TestBuildSubject(t *testing.T) {
+	cases := []struct {
+		name     string
+		priority int
+		title    string
+		want     string
+	}{
+		{"no priority", 0, "Backup done", "Backup done"},
+		{"low", notification.PriorityLow, "Info", "[Low] Info"},
+		{"medium", notification.PriorityMedium, "Notice", "[Medium] Notice"},
+		{"high", notification.PriorityHigh, "Disk failing", "[High] Disk failing"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := buildSubject(&notification.NotificationPayload{Title: c.title, Priority: c.priority})
+			if got != c.want {
+				t.Errorf("buildSubject = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
 // TestAgent_ProduceNotification_NoOp verifies that ProduceNotification does
 // not panic (it is a no-op in this implementation).
 func TestAgent_ProduceNotification_NoOp(t *testing.T) {
