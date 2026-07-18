@@ -115,6 +115,28 @@
         return priorityToInt(notificationPriority) >= priorityToInt(minPriority);
     }
 
+    // deliveryChannelForFocus picks how an incoming desktop notification is
+    // surfaced: an in-page "toast" when the desktop tab is focused, or a
+    // browser (Chrome) "push" when it is not (hidden tab / unfocused window).
+    function deliveryChannelForFocus(isFocused) {
+        return isFocused ? "toast" : "push";
+    }
+
+    // toastPriorityClass returns the CSS modifier class for a toast of the
+    // given priority (accepts a textual or numeric priority).
+    function toastPriorityClass(priority) {
+        var label = typeof priority === "number" ? priorityToLabel(priority) : String(priority || "medium").toLowerCase();
+        if (label !== "high" && label !== "low") label = "medium";
+        return "priority-" + label;
+    }
+
+    // toastDurationMs returns how long a toast of the given priority should stay
+    // on screen before auto-dismissing (high priority lingers longer).
+    function toastDurationMs(priority) {
+        var label = typeof priority === "number" ? priorityToLabel(priority) : String(priority || "medium").toLowerCase();
+        return label === "high" ? 9000 : 5000;
+    }
+
     return {
         PRIORITIES: PRIORITIES,
         priorityToInt: priorityToInt,
@@ -124,6 +146,9 @@
         isValidWebhookURL: isValidWebhookURL,
         buildPreferencePayload: buildPreferencePayload,
         dedupeNotifications: dedupeNotifications,
-        shouldShowBrowserPush: shouldShowBrowserPush
+        shouldShowBrowserPush: shouldShowBrowserPush,
+        deliveryChannelForFocus: deliveryChannelForFocus,
+        toastPriorityClass: toastPriorityClass,
+        toastDurationMs: toastDurationMs
     };
 });

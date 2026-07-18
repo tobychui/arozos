@@ -1363,7 +1363,9 @@
         </div>
         <div id="offline_minigame"></div>
         <script src="SystemAO/desktop/minigame.js"></script>
-        
+        <!-- Shared notification helper logic (also unit-tested in SystemAO/notification) -->
+        <script src="SystemAO/notification/notification.js"></script>
+
     </div>
 
     <!-- Background Task Panel -->
@@ -6961,9 +6963,16 @@
             var container = document.getElementById("notificationToastContainer");
             if (!container) return;
             var p = String(priority || "medium").toLowerCase();
+            //Use the shared, unit-tested helpers when available, with local fallbacks.
+            var priorityClass = (typeof NotificationUI !== "undefined")
+                ? NotificationUI.toastPriorityClass(p)
+                : ("priority-" + (p === "high" || p === "low" ? p : "medium"));
+            var durationMs = (typeof NotificationUI !== "undefined")
+                ? NotificationUI.toastDurationMs(p)
+                : (p === "high" ? 9000 : 5000);
 
             var toast = document.createElement("div");
-            toast.className = "notificationToast priority-" + p;
+            toast.className = "notificationToast " + priorityClass;
             toast.innerHTML =
                 '<i class="' + arozNotificationIcon(p) + ' icon toastIcon"></i>' +
                 '<div class="toastBody">' +
@@ -6990,7 +6999,7 @@
             //Trigger the enter transition on the next frame.
             requestAnimationFrame(function(){ toast.classList.add("show"); });
             //Auto dismiss (longer for high priority).
-            setTimeout(dismiss, p === "high" ? 9000 : 5000);
+            setTimeout(dismiss, durationMs);
         }
 
         function showBrowserPush(title, body, priority){
@@ -7020,7 +7029,12 @@
             //Always add it to the persistent notification list.
             sendNotification(title, message, arozNotificationIcon(item.priority), null);
 
-            if (pageIsFocused()){
+            //Decide how to surface it: toast when focused, browser push when not.
+            var channel = (typeof NotificationUI !== "undefined")
+                ? NotificationUI.deliveryChannelForFocus(pageIsFocused())
+                : (pageIsFocused() ? "toast" : "push");
+
+            if (channel === "toast"){
                 //Foreground: show an in-page toast.
                 showNotificationToast(title, message, item.priority);
             } else {

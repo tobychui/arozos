@@ -94,6 +94,23 @@
         assert(N.shouldShowBrowserPush("medium", "medium"), "push shown when priority equals threshold");
         assert(!N.shouldShowBrowserPush("low", "high"), "push hidden when priority below threshold");
 
+        // deliveryChannelForFocus: toast when focused, browser push when not
+        eq(N.deliveryChannelForFocus(true), "toast", "focused desktop -> toast");
+        eq(N.deliveryChannelForFocus(false), "push", "unfocused desktop -> browser push");
+
+        // toastPriorityClass
+        eq(N.toastPriorityClass("high"), "priority-high", "toastPriorityClass high");
+        eq(N.toastPriorityClass("low"), "priority-low", "toastPriorityClass low");
+        eq(N.toastPriorityClass("medium"), "priority-medium", "toastPriorityClass medium");
+        eq(N.toastPriorityClass("bogus"), "priority-medium", "toastPriorityClass unknown -> medium");
+        eq(N.toastPriorityClass(3), "priority-high", "toastPriorityClass numeric high");
+
+        // toastDurationMs: high priority lingers longer
+        eq(N.toastDurationMs("high"), 9000, "toastDurationMs high = 9000ms");
+        eq(N.toastDurationMs("medium"), 5000, "toastDurationMs medium = 5000ms");
+        eq(N.toastDurationMs("low"), 5000, "toastDurationMs low = 5000ms");
+        eq(N.toastDurationMs(3), 9000, "toastDurationMs numeric high = 9000ms");
+
         return results;
     }
 
