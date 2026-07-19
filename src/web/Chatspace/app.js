@@ -148,7 +148,11 @@
         booted: false,
         prefs: {
             lastRead: {}, starred: [], saved: [], drafts: {},
-            collapsed: {}, lastActive: "", activitySeen: 0
+            collapsed: {}, lastActive: "", activitySeen: 0,
+            //Play an audible chime for incoming messages while the app is open.
+            sound: true,
+            //Raise native OS / ArozOS desktop notifications for DMs & mentions.
+            desktopNotify: true
         }
     };
 
@@ -297,40 +301,159 @@
             ';font-size:' + (fontPx || 14) + 'px;">' + escapeHtml(initial) + '</div>';
     }
 
-    /* ================= Sound (WebAudio chime, no bundled assets) ================= */
+    /* ================= Sound (WebAudio chime, no bundled assets) =================
+
+       Two chimes, both synthesised on the fly (no bundled audio asset): a
+       prominent rising two-note chime for DMs / @mentions and a soft single
+       note for ordinary new messages, so the app gives an audible cue for
+       every incoming message while it is open. Both honour the per-user
+       "sound" preference and share a short throttle so a burst of messages
+       cannot machine-gun the speaker. */
 
     var audioCtx = null;
     var lastChime = 0;
 
-    function playNotifySound() {
+    //Create (once) and resume the shared AudioContext. Resume only takes
+    //effect during / after a user gesture, so unlockMedia() warms it up on the
+    //first interaction; until then the browser keeps it suspended and silent.
+    function ensureAudioCtx() {
+        if (!audioCtx) {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            audioCtx = new Ctx();
+        }
+        if (audioCtx.state === "suspended") {
+            var p = audioCtx.resume();
+            if (p && p.catch) p.catch(function () { });
+        }
+        return audioCtx;
+    }
+
+    //Play a chime built from a list of {freq, at, len, vol} sine-wave notes.
+    function playChime(notes) {
+        if (!state.prefs.sound) return;
         var now = Date.now();
-        if (now - lastChime < 3000) return;
+        if (now - lastChime < 1500) return;
         lastChime = now;
         try {
-            if (!audioCtx) {
-                var Ctx = window.AudioContext || window.webkitAudioContext;
-                if (!Ctx) return;
-                audioCtx = new Ctx();
-            }
-            if (audioCtx.state === "suspended") {
-                var p = audioCtx.resume();
-                if (p && p.catch) p.catch(function () { });
-            }
-            var t = audioCtx.currentTime;
-            [{ freq: 830, at: 0, len: 0.09 }, { freq: 1245, at: 0.09, len: 0.16 }].forEach(function (note) {
-                var osc = audioCtx.createOscillator();
-                var gain = audioCtx.createGain();
+            var ctx = ensureAudioCtx();
+            if (!ctx) return;
+            var t = ctx.currentTime;
+            notes.forEach(function (note) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
                 osc.type = "sine";
                 osc.frequency.value = note.freq;
                 gain.gain.setValueAtTime(0.0001, t + note.at);
-                gain.gain.linearRampToValueAtTime(0.08, t + note.at + 0.02);
+                gain.gain.linearRampToValueAtTime(note.vol || 0.08, t + note.at + 0.02);
                 gain.gain.exponentialRampToValueAtTime(0.0001, t + note.at + note.len);
                 osc.connect(gain);
-                gain.connect(audioCtx.destination);
+                gain.connect(ctx.destination);
                 osc.start(t + note.at);
                 osc.stop(t + note.at + note.len + 0.05);
             });
         } catch (e) { }
+    }
+
+    //Prominent rising chime for DMs and @mentions.
+    function playNotifySound() {
+        playChime([{ freq: 830, at: 0, len: 0.09 }, { freq: 1245, at: 0.09, len: 0.16 }]);
+    }
+
+    //Soft single note for ordinary new channel messages.
+    function playMessageChime() {
+        playChime([{ freq: 660, at: 0, len: 0.12, vol: 0.05 }]);
+    }
+
+    /* ================= Native notifications =================
+
+       "Native" here means the OS-level browser Notification API - the same
+       mechanism the ArozOS desktop uses for its own push notifications - so
+       users are alerted to DMs and @mentions even when the Chatspace window is
+       backgrounded or behind another app. When Chatspace is embedded in the
+       ArozOS virtual desktop we additionally mirror the alert into the desktop
+       notification centre so it is logged alongside system notifications.
+       Permission is requested lazily on the first user gesture (unlockMedia)
+       and whenever the user turns the preference on. */
+
+    //Icon shown on the OS notification; absolute so it resolves regardless of
+    //the embedding (float window / embedded / standalone PWA) context.
+    var NOTIFY_ICON = (function () {
+        try { return new URL("img/logo192.png", location.href).href; }
+        catch (e) { return "img/logo192.png"; }
+    })();
+
+    function nativeNotifySupported() {
+        return typeof window.Notification !== "undefined";
+    }
+
+    //Ask the browser for notification permission (a no-op unless still the
+    //"default", unasked state). Browsers gate this behind a user gesture.
+    function requestNotifyPermission() {
+        if (!nativeNotifySupported()) return;
+        try {
+            if (Notification.permission === "default") {
+                var p = Notification.requestPermission();
+                if (p && p.then) p.then(function () { }, function () { });
+            }
+        } catch (e) { }
+    }
+
+    //Raise an OS notification for a message and, inside the ArozOS desktop,
+    //mirror it into the desktop notification centre. Clicking focuses us and
+    //opens the conversation. Returns true when an OS notification was shown.
+    function nativeNotify(title, body, convoId) {
+        if (!state.prefs.desktopNotify) return false;
+        var shown = false;
+        if (nativeNotifySupported() && Notification.permission === "granted") {
+            try {
+                var n = new Notification(title, {
+                    body: body,
+                    icon: NOTIFY_ICON,
+                    tag: "chatspace-" + convoId,
+                    renotify: true
+                });
+                n.onclick = function () {
+                    try { window.focus(); } catch (e) { }
+                    if (typeof ao_module_focus === "function") {
+                        try { ao_module_focus(); } catch (e) { }
+                    }
+                    setActive(convoId);
+                    n.close();
+                };
+                //Auto-close so alerts do not pile up at the OS level.
+                setTimeout(function () { try { n.close(); } catch (e) { } }, 8000);
+                shown = true;
+            } catch (e) { }
+        }
+        mirrorToDesktopCentre(title, body);
+        return shown;
+    }
+
+    //Best-effort hand-off to the ArozOS desktop notification centre when we
+    //run inside the virtual desktop iframe. Guarded so a standalone / PWA
+    //launch (no parent desktop) simply skips it. The desktop helper
+    //interpolates its arguments as HTML, so escape the chat text first.
+    function mirrorToDesktopCentre(title, body) {
+        if (typeof ao_module_virtualDesktop === "undefined" || !ao_module_virtualDesktop) return;
+        try {
+            if (window.parent && typeof window.parent.sendNotification === "function") {
+                window.parent.sendNotification(escapeHtml(title), escapeHtml(body), "comment", null);
+            }
+        } catch (e) { /* cross-frame access or helper unavailable */ }
+    }
+
+    //Unlock audio + request notification permission on the first user gesture
+    //(browsers gate both behind one). Runs once, then detaches itself.
+    var mediaUnlocked = false;
+    function unlockMedia() {
+        if (mediaUnlocked) return;
+        mediaUnlocked = true;
+        ensureAudioCtx();
+        if (state.prefs.desktopNotify) requestNotifyPermission();
+        document.removeEventListener("click", unlockMedia);
+        document.removeEventListener("keydown", unlockMedia);
+        document.removeEventListener("touchstart", unlockMedia);
     }
 
     /* ================= Toasts ================= */
@@ -917,16 +1040,25 @@
         if (isMessage && !mine) {
             var text = env ? String(env.t || "") : (item.type === "text" ? item.text : "Shared " + item.name);
             var sender = isBot ? AI_DISPLAY : item.uploader;
-            var notify = false;
-            if (convo.kind === "dm") notify = true;
-            if (mentionsMe(text)) notify = true;
-            if (notify && (!state.focused || state.active !== convo.id)) {
-                playNotifySound();
-                showToast(
-                    convo.kind === "dm" ? sender : sender + " in #" + convoLabel(convo),
-                    text || item.name || "",
-                    function () { setActive(convo.id); }
-                );
+            var notify = (convo.kind === "dm") || mentionsMe(text);
+            //Away = the user is not reading this conversation right now
+            //(another convo open, or the window is in the background).
+            var away = !state.focused || state.active !== convo.id;
+
+            //Audible cue for every incoming message while the app is open: a
+            //prominent chime for DMs / @mentions, a soft one otherwise.
+            if (notify) playNotifySound();
+            else playMessageChime();
+
+            //Surface DMs / @mentions the user is not currently reading. When
+            //the window is backgrounded, push it through the native
+            //notification system (OS notification + ArozOS desktop centre);
+            //the in-app toast is shown regardless so it is waiting on return.
+            if (notify && away) {
+                var heading = convo.kind === "dm" ? sender : sender + " in #" + convoLabel(convo);
+                var preview = text || item.name || "";
+                if (!state.focused) nativeNotify(heading, preview, convo.id);
+                showToast(heading, preview, function () { setActive(convo.id); });
             }
         }
         delete convo.typing[item.uploader];
@@ -2515,9 +2647,60 @@
             html += '<div class="rp-section"><h4>Groups</h4><div class="rp-value">' +
                 escapeHtml(groups.join(", ")) + '</div></div>';
         }
+        //Your own profile doubles as the notification preferences panel.
+        if (username === state.username) {
+            html += '<div class="rp-section"><h4>Notifications</h4>' +
+                '<div class="cs-toggle-row"><span>Play a sound for new messages</span>' +
+                '<label class="cs-switch"><input type="checkbox" id="prefSound"' +
+                (state.prefs.sound ? ' checked' : '') + '><span class="cs-slider"></span></label></div>' +
+                '<div class="cs-toggle-row"><span>Desktop notifications for DMs &amp; mentions</span>' +
+                '<label class="cs-switch"><input type="checkbox" id="prefDesktopNotify"' +
+                (state.prefs.desktopNotify ? ' checked' : '') + '><span class="cs-slider"></span></label></div>' +
+                '<div class="cs-field-hint" id="rpNotifHint" style="display:none;"></div>' +
+                '</div>';
+        }
         $id("rpBody").innerHTML = html;
         var dmBtn = $id("rpDmBtn");
         if (dmBtn) dmBtn.addEventListener("click", function () { openDmWith([username]); });
+
+        var soundToggle = $id("prefSound");
+        if (soundToggle) {
+            soundToggle.addEventListener("change", function () {
+                state.prefs.sound = this.checked;
+                savePrefs();
+                if (this.checked) playNotifySound(); //audible confirmation
+            });
+        }
+        var notifyToggle = $id("prefDesktopNotify");
+        if (notifyToggle) {
+            notifyToggle.addEventListener("change", function () {
+                state.prefs.desktopNotify = this.checked;
+                savePrefs();
+                if (this.checked) requestNotifyPermission();
+                renderNotifyHint();
+            });
+            renderNotifyHint();
+        }
+    }
+
+    //Show the current browser permission state under the desktop-notification
+    //toggle so the user understands why alerts may not appear.
+    function renderNotifyHint() {
+        var hint = $id("rpNotifHint");
+        if (!hint) return;
+        var msg = "";
+        if (state.prefs.desktopNotify) {
+            if (!nativeNotifySupported()) {
+                msg = "This browser does not support desktop notifications; " +
+                    "in-app alerts and sounds will still work.";
+            } else if (Notification.permission === "denied") {
+                msg = "Desktop notifications are blocked in your browser settings.";
+            } else if (Notification.permission === "default") {
+                msg = "Allow notifications when your browser prompts, to receive them.";
+            }
+        }
+        hint.textContent = msg;
+        hint.style.display = msg ? "" : "none";
     }
 
     /* ================= Channel management actions ================= */
@@ -3844,6 +4027,12 @@
             if (convo) { markRead(convo); renderSidebar(); }
         });
         window.addEventListener("blur", function () { state.focused = false; });
+
+        //Browsers gate audio playback and the notification-permission prompt
+        //behind a user gesture, so unlock both on the first interaction.
+        document.addEventListener("click", unlockMedia);
+        document.addEventListener("keydown", unlockMedia);
+        document.addEventListener("touchstart", unlockMedia);
 
         //Drag & drop / paste uploads
         var content = $id("content");
