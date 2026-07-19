@@ -1,13 +1,13 @@
 /*
     ArozOS Office - Slides: present mode + export helpers
-    Requires slides.js (SlidesApp), html2canvas, pdf-lib (PDFLib).
+    Requires slides.js (SlidesApp) and html2canvas.
 
     SlidesPresent - fullscreen presentation with keyboard/click navigation,
                     slide transitions, click-to-reveal entrance animations,
                     interactive object links, a laser pointer (L key),
                     slide counter, presenter timer and a presenter view
                     popup (current + next slide + speaker notes).
-    SlidesExport  - PDF (html2canvas -> pdf-lib) and PNG export.
+    SlidesExport  - PNG export (PDF export is server-side, see slides.js).
 */
 
 var SlidesPresent = (function () {
@@ -427,38 +427,8 @@ var SlidesExport = (function () {
         return OfficeApp.stripExt(n);
     }
 
-    function exportPDF() {
-        var body = SlidesApp.getBody();
-        if (!body || !body.slides.length) return;
-        if (typeof PDFLib === "undefined" || typeof html2canvas === "undefined") {
-            OfficeApp.toast("Export libraries failed to load", "error");
-            return;
-        }
-        OfficeApp.showBusy("Exporting PDF...");
-        PDFLib.PDFDocument.create().then(function (pdf) {
-            var chain = Promise.resolve();
-            body.slides.forEach(function (slide, i) {
-                chain = chain.then(function () {
-                    OfficeApp.showBusy("Exporting PDF... slide " + (i + 1) + " of " + body.slides.length);
-                    return rasterizeSlide(slide, 2).then(function (canvas) {
-                        var dataUrl = canvas.toDataURL("image/png");
-                        return pdf.embedPng(dataUrl).then(function (img) {
-                            var page = pdf.addPage([960, 540]);
-                            page.drawImage(img, { x: 0, y: 0, width: 960, height: 540 });
-                        });
-                    });
-                });
-            });
-            return chain.then(function () { return pdf.save(); });
-        }).then(function (bytes) {
-            OfficeApp.hideBusy();
-            downloadBlob(new Blob([bytes], { type: "application/pdf" }), docName() + ".pdf");
-            OfficeApp.setStatus("Exported " + docName() + ".pdf");
-        }).catch(function (err) {
-            OfficeApp.hideBusy();
-            OfficeApp.toast("PDF export failed: " + (err && err.message ? err.message : "unknown error"), "error");
-        });
-    }
+    /* PDF export moved server-side (slides.js exportPdf -> pptx.agi
+       "export-pdf" -> mod/office real-text renderer). */
 
     function canvasToBlob(canvas) {
         return new Promise(function (resolve, reject) {
@@ -499,5 +469,5 @@ var SlidesExport = (function () {
     }
 
     /* Rasterize slides for external use (kept for future features). */
-    return { exportPDF: exportPDF, exportPNG: exportPNG, rasterizeSlide: rasterizeSlide };
+    return { exportPNG: exportPNG, rasterizeSlide: rasterizeSlide };
 })();

@@ -463,6 +463,12 @@ body.of-app {
     gap: 3px;
 }
 .of-te-row + .of-te-row { margin-top: 3px; }
+/* table tool section: divider line above the extra row */
+.of-te-hr {
+    height: 1px;
+    background: var(--of-border);
+    margin: 4px 0 3px;
+}
 /* color buttons: tool icon with the current color as a bar underneath */
 .of-te-cbtn { flex-direction: column; gap: 1px; padding-top: 3px; }
 .of-te-cbtn i.icon { font-size: 11px !important; line-height: 1; height: auto; }

@@ -18,6 +18,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/gif"  // natural-size probing in buildImageRun
+	_ "image/jpeg" // natural-size probing in buildImageRun
+	_ "image/png"  // natural-size probing in buildImageRun
 	"strconv"
 	"strings"
 
@@ -527,15 +531,21 @@ func (b *docxBuilder) emitTable(n *html.Node, f runFormat) {
 	if cols == 0 {
 		cols = 1
 	}
+	// mirror the editor: fixed layout, the table's own width (inline px/%
+	// after a resize, 100% otherwise) and per-column widths from the
+	// colgroup (px or %, equal split when absent)
+	pcts := tableColPercents(n, cols)
+	tblPct := tableWidthPct(n)
+	const tblTwips = 9026.0 // A4 text width (210mm - 2x25.4mm margins)
 	var grid strings.Builder
 	grid.WriteString("<w:tblGrid>")
-	colW := 9000 / cols // ~full width in twips split evenly
 	for i := 0; i < cols; i++ {
-		grid.WriteString(fmt.Sprintf(`<w:gridCol w:w="%d"/>`, colW))
+		grid.WriteString(fmt.Sprintf(`<w:gridCol w:w="%d"/>`, int(tblTwips*(tblPct/100)*pcts[i]/100)))
 	}
 	grid.WriteString("</w:tblGrid>")
 
-	b.body.WriteString(`<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="0" w:type="auto"/>` +
+	b.body.WriteString(`<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/>` +
+		fmt.Sprintf(`<w:tblW w:w="%d" w:type="pct"/><w:tblLayout w:type="fixed"/>`, int(tblPct*50)) +
 		`<w:tblBorders><w:top w:val="single" w:sz="4" w:color="999999"/><w:left w:val="single" w:sz="4" w:color="999999"/>` +
 		`<w:bottom w:val="single" w:sz="4" w:color="999999"/><w:right w:val="single" w:sz="4" w:color="999999"/>` +
 		`<w:insideH w:val="single" w:sz="4" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:color="999999"/></w:tblBorders></w:tblPr>` +
@@ -551,6 +561,7 @@ func (b *docxBuilder) emitTable(n *html.Node, f runFormat) {
 				walkRows(c)
 			case "tr":
 				b.body.WriteString("<w:tr>")
+				ci := 0
 				for td := c.FirstChild; td != nil; td = td.NextSibling {
 					if td.Type != html.ElementNode || (td.Data != "td" && td.Data != "th") {
 						continue
@@ -559,12 +570,27 @@ func (b *docxBuilder) emitTable(n *html.Node, f runFormat) {
 					if td.Data == "th" {
 						cf.b = true
 					}
-					b.body.WriteString(`<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>`)
+					st := htmlAttr(td, "style")
+					if fw := styleProp(st, "font-weight"); fw == "700" || fw == "bold" {
+						cf.b = true
+					}
+					pct := 100.0 / float64(cols)
+					if ci < len(pcts) {
+						pct = pcts[ci]
+					}
+					// tcW in fiftieths of a percent keeps the editor's
+					// column proportions under the fixed layout
+					tcPr := fmt.Sprintf(`<w:tcW w:w="%d" w:type="pct"/>`, int(pct*50))
+					if bg := cssColorHex(styleProp(st, "background-color")); bg != "" {
+						tcPr += `<w:shd w:val="clear" w:color="auto" w:fill="` + bg + `"/>`
+					}
+					b.body.WriteString(`<w:tc><w:tcPr>` + tcPr + `</w:tcPr>`)
 					p := &paraOut{owner: b}
 					b.inlineRuns(td, cf, p)
 					p.any = true
 					p.flush()
 					b.body.WriteString("</w:tc>")
+					ci++
 				}
 				b.body.WriteString("</w:tr>")
 			}
@@ -572,6 +598,112 @@ func (b *docxBuilder) emitTable(n *html.Node, f runFormat) {
 	}
 	walkRows(n)
 	b.body.WriteString("</w:tbl>")
+}
+
+// tableColPercents reads the editor's <colgroup><col> widths (percent OR
+// pixel units - the column resizer writes px), normalized to 100; equal
+// split when absent or malformed
+func tableColPercents(tbl *html.Node, cols int) []float64 {
+	out := make([]float64, cols)
+	got := 0
+	for cg := tbl.FirstChild; cg != nil; cg = cg.NextSibling {
+		if cg.Type != html.ElementNode || cg.Data != "colgroup" {
+			continue
+		}
+		for col := cg.FirstChild; col != nil && got < cols; col = col.NextSibling {
+			if col.Type != html.ElementNode || col.Data != "col" {
+				continue
+			}
+			ws := strings.TrimSpace(styleProp(htmlAttr(col, "style"), "width"))
+			num := strings.TrimSuffix(strings.TrimSuffix(ws, "%"), "px")
+			if (strings.HasSuffix(ws, "%") || strings.HasSuffix(ws, "px")) && num != ws {
+				if v, err := strconv.ParseFloat(num, 64); err == nil && v > 0 {
+					out[got] = v // any unit: normalized by the sum below
+					got++
+					continue
+				}
+			}
+			got = 0 // one bad entry: fall back to the equal split
+			break
+		}
+		break
+	}
+	if got != cols {
+		for i := range out {
+			out[i] = 100.0 / float64(cols)
+		}
+		return out
+	}
+	sum := 0.0
+	for _, v := range out {
+		sum += v
+	}
+	if sum > 0 {
+		for i := range out {
+			out[i] = out[i] * 100 / sum
+		}
+	}
+	return out
+}
+
+// tableWidthPct reads the table's own inline width (set by the editor's
+// column resizer in px, or a percent) as a percentage of the text width;
+// 100 when absent
+func tableWidthPct(tbl *html.Node) float64 {
+	const textWpx = 620.0
+	ws := strings.TrimSpace(styleProp(htmlAttr(tbl, "style"), "width"))
+	if strings.HasSuffix(ws, "%") {
+		if v, err := strconv.ParseFloat(strings.TrimSuffix(ws, "%"), 64); err == nil && v > 1 {
+			if v > 100 {
+				v = 100
+			}
+			return v
+		}
+	}
+	if strings.HasSuffix(ws, "px") {
+		if v, err := strconv.ParseFloat(strings.TrimSuffix(ws, "px"), 64); err == nil && v > 10 {
+			pct := v * 100 / textWpx
+			if pct > 100 {
+				pct = 100
+			}
+			return pct
+		}
+	}
+	return 100
+}
+
+// cssColorHex normalizes "#rgb", "#rrggbb" or "rgb(r, g, b)" to "RRGGBB"
+// ("" when unparseable or transparent)
+func cssColorHex(c string) string {
+	c = strings.TrimSpace(c)
+	if c == "" || c == "transparent" {
+		return ""
+	}
+	if strings.HasPrefix(c, "#") {
+		h := hexColor(c, "")
+		return h
+	}
+	if strings.HasPrefix(c, "rgb") {
+		open := strings.Index(c, "(")
+		close := strings.Index(c, ")")
+		if open < 0 || close <= open {
+			return ""
+		}
+		parts := strings.Split(c[open+1:close], ",")
+		if len(parts) < 3 {
+			return ""
+		}
+		out := ""
+		for i := 0; i < 3; i++ {
+			v, err := strconv.Atoi(strings.TrimSpace(parts[i]))
+			if err != nil || v < 0 || v > 255 {
+				return ""
+			}
+			out += fmt.Sprintf("%02X", v)
+		}
+		return out
+	}
+	return ""
 }
 
 /* ---------- inline runs ---------- */
@@ -634,26 +766,53 @@ func (b *docxBuilder) buildImageRun(n *html.Node) string {
 	b.rels = append(b.rels, fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image%d.%s"/>`, rid, idx, ext))
 	b.media = append(b.media, mediaEntry{index: idx, ext: ext, data: data})
 
-	// display size: width attr/style (px), default 400px, keep 4:3-ish box
-	wPx := 400.0
-	if wa := htmlAttr(n, "width"); wa != "" {
-		if v, err := strconv.ParseFloat(strings.TrimSuffix(wa, "px"), 64); err == nil && v > 0 {
-			wPx = v
+	// natural pixel size from the image bytes - the truth for aspect ratio
+	natW, natH := 0, 0
+	if imgCfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+		natW, natH = imgCfg.Width, imgCfg.Height
+	}
+	pxAttr := func(name string) float64 {
+		if a := htmlAttr(n, name); a != "" {
+			if v, err := strconv.ParseFloat(strings.TrimSuffix(a, "px"), 64); err == nil && v > 0 {
+				return v
+			}
 		}
-	} else if ws := styleProp(htmlAttr(n, "style"), "width"); strings.HasSuffix(ws, "px") {
-		if v, err := strconv.ParseFloat(strings.TrimSuffix(ws, "px"), 64); err == nil && v > 0 {
-			wPx = v
+		if s := styleProp(htmlAttr(n, "style"), name); strings.HasSuffix(s, "px") {
+			if v, err := strconv.ParseFloat(strings.TrimSuffix(s, "px"), 64); err == nil && v > 0 {
+				return v
+			}
+		}
+		return 0
+	}
+	wPx := pxAttr("width")
+	hPx := pxAttr("height")
+	// derive the missing dimension from the natural aspect (the editor
+	// resizes with height:auto, so usually only width is present)
+	switch {
+	case wPx > 0 && hPx <= 0:
+		if natW > 0 && natH > 0 {
+			hPx = wPx * float64(natH) / float64(natW)
+		} else {
+			hPx = wPx * 3 / 4
+		}
+	case hPx > 0 && wPx <= 0:
+		if natW > 0 && natH > 0 {
+			wPx = hPx * float64(natW) / float64(natH)
+		} else {
+			wPx = hPx * 4 / 3
+		}
+	case wPx <= 0 && hPx <= 0:
+		if natW > 0 && natH > 0 {
+			wPx, hPx = float64(natW), float64(natH)
+		} else {
+			wPx, hPx = 400, 300
 		}
 	}
-	hPx := wPx * 3 / 4
-	if hs := styleProp(htmlAttr(n, "style"), "height"); strings.HasSuffix(hs, "px") {
-		if v, err := strconv.ParseFloat(strings.TrimSuffix(hs, "px"), 64); err == nil && v > 0 {
-			hPx = v
-		}
-	} else if ha := htmlAttr(n, "height"); ha != "" {
-		if v, err := strconv.ParseFloat(strings.TrimSuffix(ha, "px"), 64); err == nil && v > 0 {
-			hPx = v
-		}
+	// keep the picture inside the text column (A4 with default margins)
+	const maxWpx = 620.0
+	if wPx > maxWpx {
+		hPx = hPx * maxWpx / wPx
+		wPx = maxWpx
 	}
 	cx, cy := pxToEmu(wPx), pxToEmu(hPx)
 
@@ -759,8 +918,14 @@ func buildHfPart(root, text string, pageNumbers bool) string {
 
 /* ---------- static parts ---------- */
 
+// The style sheet pins the EDITOR's typography explicitly (Arial 11pt,
+// 1.5 line height, zero paragraph spacing; headings 14pt/6pt margins at
+// 1.25) so Word cannot substitute its own Normal defaults - that
+// substitution is what made exported pages break earlier than the
+// editor's page preview. Spacing units: half-points for sz, twentieths
+// of a point for spacing, 240ths of a line for w:line (auto rule).
 const docxStyles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:rPr><w:sz w:val="52"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:i/><w:sz w:val="22"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="20"/></w:rPr></w:style></w:styles>`
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:pPr><w:spacing w:before="0" w:after="0" w:line="360" w:lineRule="auto"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="280" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="52"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="280" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr><w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="280" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="280" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading4"><w:name w:val="heading 4"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="280" w:after="120" w:line="300" w:lineRule="auto"/></w:pPr><w:rPr><w:b/><w:i/><w:sz w:val="22"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading5"><w:name w:val="heading 5"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading6"><w:name w:val="heading 6"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="20"/></w:rPr></w:style></w:styles>`
 
 const docxNumbering = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl><w:lvl w:ilvl="1"><w:numFmt w:val="bullet"/><w:lvlText w:val="◦"/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl><w:lvl w:ilvl="2"><w:numFmt w:val="bullet"/><w:lvlText w:val="-"/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr></w:lvl><w:lvl w:ilvl="3"><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum><w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl><w:lvl w:ilvl="1"><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl><w:lvl w:ilvl="2"><w:numFmt w:val="lowerRoman"/><w:lvlText w:val="%3."/><w:pPr><w:ind w:left="2160" w:hanging="360"/></w:pPr></w:lvl><w:lvl w:ilvl="3"><w:numFmt w:val="decimal"/><w:lvlText w:val="%4."/><w:pPr><w:ind w:left="2880" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>`

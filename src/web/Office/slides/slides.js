@@ -704,7 +704,9 @@ var SlidesApp = (function () {
             }
         }
         el.addEventListener("focusout", onEditFocusOut);
-        if (window.OfficeTextEditBar) OfficeTextEditBar.reposition();
+        // the re-render replaced the object element - re-anchor the floating
+        // bar to the fresh node (also refreshes its table-op section)
+        showTextEditBar(o, el);
         syncListButtonState();
     }
 
@@ -1523,6 +1525,74 @@ var SlidesApp = (function () {
         commit();
     }
 
+    /* ---------- table ops for the floating text-edit bar ----------
+       Rendered by OfficeTextEditBar as an extra divider-separated section
+       while a table object is being edited. */
+    function currentTableObj() {
+        if (editingId) {
+            var eo = objById(editingId);
+            if (eo && eo.type === "table") return eo;
+        }
+        var so = selObjs();
+        if (so.length === 1 && so[0].type === "table") return so[0];
+        return null;
+    }
+    function withTableObj(fn) {
+        var o = currentTableObj();
+        if (o) fn(o);
+    }
+    function slidesTableOps() {
+        return [
+            {
+                icon: "angle up", title: "Insert row above",
+                fn: function () { withTableObj(function (o) { tableAddRow(o, false); }); }
+            },
+            {
+                icon: "angle down", title: "Insert row below",
+                fn: function () { withTableObj(function (o) { tableAddRow(o, true); }); }
+            },
+            {
+                icon: "angle left", title: "Insert column left",
+                fn: function () { withTableObj(function (o) { tableAddCol(o, false); }); }
+            },
+            {
+                icon: "angle right", title: "Insert column right",
+                fn: function () { withTableObj(function (o) { tableAddCol(o, true); }); }
+            },
+            {
+                icon: "minus", title: "Delete row",
+                fn: function () { withTableObj(function (o) { tableDelRow(o); }); }
+            },
+            {
+                icon: "eraser", title: "Delete column",
+                fn: function () { withTableObj(function (o) { tableDelCol(o); }); }
+            },
+            {
+                icon: "trash alternate outline", title: "Delete table",
+                fn: function () {
+                    withTableObj(function (o) {
+                        endEdit(false);
+                        setSel([o.id]);
+                        deleteSelection();
+                    });
+                }
+            },
+            {
+                icon: "heading", title: "Header row",
+                active: function () {
+                    var o = currentTableObj();
+                    return !!(o && o.props.headerRow);
+                },
+                fn: function () {
+                    withTableObj(function (o) {
+                        o.props.headerRow = !o.props.headerRow;
+                        commit();
+                    });
+                }
+            }
+        ];
+    }
+
     /* ---------- table column / row resizing (edit mode) ---------- */
     function ensureTableGrid(o) {
         var rows = o.props.rows || [];
@@ -1629,7 +1699,8 @@ var SlidesApp = (function () {
                 o.props.fontSize = px;
                 $("#slFontSize").val(px);
                 commit();
-            }
+            },
+            tableOps: o.type === "table" ? slidesTableOps() : null
         });
     }
     /* Bulleted / numbered lists only make sense inside a full text box
@@ -2704,10 +2775,12 @@ var SlidesApp = (function () {
     /* ================= PPTX import / export ================= */
     var PPTX_BACKEND = "Office/slides/backend/pptx.agi";
 
-    /* Load a .pptx from ArozOS storage through the "office" AGI lib. */
-    function importPptx(fp, fn) {
+    /* Load a .pptx ("import") or .odp ("import-odf") from ArozOS storage
+       through the "office" AGI lib. */
+    function importPptx(fp, fn, action) {
+        action = action || "import";
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(PPTX_BACKEND, { action: "import", src: fp }, function (data) {
+        ao_module_agirun(PPTX_BACKEND, { action: action, src: fp }, function (data) {
             OfficeApp.hideBusy();
             if (!data || data.error) {
                 OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
@@ -2734,11 +2807,16 @@ var SlidesApp = (function () {
             OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
         }, 120000);
     }
+    function importOdp(fp, fn) { importPptx(fp, fn, "import-odf"); }
     function importPptxDialog() {
         try {
             ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) importPptx(files[0].filepath, files[0].filename);
-            }, "user:/Desktop", "file", false, { filter: ["pptx"] });
+                if (files && files.length > 0) {
+                    var fp = files[0].filepath, fn = files[0].filename;
+                    if (/\.odp$/i.test(fn)) importOdp(fp, fn);
+                    else importPptx(fp, fn);
+                }
+            }, "user:/Desktop", "file", false, { filter: ["pptx", "odp"] });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -2784,6 +2862,44 @@ var SlidesApp = (function () {
         });
     }
 
+    /* Capture a poster frame of a video source as a PNG data URL - used as
+       the embedded media poster in pptx exports and the placeholder image
+       in pdf exports. Resolves null when the frame cannot be captured
+       (unsupported codec etc.); exports fall back to a generic poster. */
+    function captureVideoFrame(src) {
+        return new Promise(function (resolve) {
+            var v = document.createElement("video");
+            var done = false;
+            var timer = null;
+            function finish(result) {
+                if (done) return;
+                done = true;
+                if (timer) clearTimeout(timer);
+                v.removeAttribute("src");
+                try { v.load(); } catch (e) { /* detach only */ }
+                resolve(result);
+            }
+            timer = setTimeout(function () { finish(null); }, 8000);
+            v.muted = true;
+            v.preload = "auto";
+            v.addEventListener("error", function () { finish(null); });
+            v.addEventListener("loadeddata", function () {
+                // seek slightly in so black lead-in frames are skipped
+                try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); } catch (e) { finish(null); }
+            });
+            v.addEventListener("seeked", function () {
+                try {
+                    var c = document.createElement("canvas");
+                    c.width = v.videoWidth || 480;
+                    c.height = v.videoHeight || 270;
+                    c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+                    finish(c.toDataURL("image/png"));
+                } catch (e) { finish(null); }
+            });
+            v.src = src;
+        });
+    }
+
     /* Deep-clone the body and inline every image / chart as a dataURL so the
        server-side exporter can embed them into the .pptx. */
     function prepareBodyForPptx() {
@@ -2799,29 +2915,37 @@ var SlidesApp = (function () {
                     jobs.push(urlToDataUrl(o.props.src).then(function (durl) {
                         o.props.src = durl;
                     }).catch(function () { /* leave original src; exporter skips it */ }));
+                } else if (o.type === "video" && o.props.src) {
+                    // grab a real frame for the poster image; the media file
+                    // itself keeps its media?file= link - the server-side
+                    // exporter resolves the bytes (pptx: sidecar zip), so
+                    // they never ride this JSON payload
+                    jobs.push(captureVideoFrame(o.props.src).then(function (png) {
+                        if (png) o.props.png = png;
+                    }));
                 }
-            });
-            // video/audio cannot be represented by the exporter - drop them
-            // so their (potentially huge) data URLs never leave the browser
-            s.objects = s.objects.filter(function (o) {
-                return o.type !== "video" && o.type !== "audio";
+                // audio keeps its link untouched (no frame to capture)
             });
         });
         return Promise.all(jobs).then(function () { return b; });
     }
 
-    function exportPptx() {
+    // shared by .pptx ("export"), .odp ("export-odf") and .pdf
+    // ("export-pdf"): all need the prepared body (charts rastered to PNG,
+    // images inlined, video poster frames captured)
+    function exportSlidesFile(ext, action, busyLabel) {
         endEdit(true);
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ".pptx";
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ext;
+        var extRe = new RegExp("\\" + ext + "$", "i");
         try {
             ao_module_openFileSelector(function (files) {
                 if (!files || !files.length) return;
                 var fp = files[0].filepath;
-                if (!/\.pptx$/i.test(fp)) fp += ".pptx";
-                OfficeApp.showBusy("Exporting PowerPoint file...");
+                if (!extRe.test(fp)) fp += ext;
+                OfficeApp.showBusy(busyLabel);
                 prepareBodyForPptx().then(function (prepared) {
                     ao_module_agirun(PPTX_BACKEND, {
-                        action: "export",
+                        action: action,
                         dest: fp,
                         data: JSON.stringify(prepared)
                     }, function (data) {
@@ -2830,7 +2954,13 @@ var SlidesApp = (function () {
                             OfficeApp.toast("Export failed: " + data.error, "error");
                         } else {
                             OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                            OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                            if (data && data.mediaZip) {
+                                // pptx export packs video/audio into a sidecar zip
+                                OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
+                                    " - video/audio files saved to " + OfficeApp.basename(data.mediaZip));
+                            } else {
+                                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                            }
                         }
                     }, function () {
                         OfficeApp.hideBusy();
@@ -2845,6 +2975,11 @@ var SlidesApp = (function () {
             OfficeApp.toast("File selector is not available here", "error");
         }
     }
+    function exportPptx() { exportSlidesFile(".pptx", "export", "Exporting PowerPoint file..."); }
+    function exportOdp() { exportSlidesFile(".odp", "export-odf", "Exporting OpenDocument file..."); }
+    // server-side real-text PDF (mod/office); video/audio render their
+    // captured poster frame (or a generic placeholder)
+    function exportPdf() { exportSlidesFile(".pdf", "export-pdf", "Exporting PDF..."); }
 
     /* ================= menus ================= */
     function insertMenuItems() {
@@ -3177,10 +3312,11 @@ var SlidesApp = (function () {
                 { title: "Design", items: designMenuItems }
             ],
             binaryImporters: {
-                ".pptx": importPptx
+                ".pptx": function (fp, fn) { importPptx(fp, fn); },
+                ".odp": importOdp
             },
             fileMenuExtras: [
-                { label: "Import PowerPoint (.pptx)...", icon: "file powerpoint outline", action: importPptxDialog },
+                { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
                 {
                     label: "Export", icon: "external alternate", sub: [
                         {
@@ -3188,8 +3324,12 @@ var SlidesApp = (function () {
                             action: exportPptx
                         },
                         {
+                            label: "OpenDocument (.odp)", icon: "file alternate outline",
+                            action: exportOdp
+                        },
+                        {
                             label: "PDF document (.pdf)", icon: "file pdf outline",
-                            action: function () { SlidesExport.exportPDF(); }
+                            action: exportPdf
                         },
                         {
                             label: "Current slide as PNG", icon: "file image outline",

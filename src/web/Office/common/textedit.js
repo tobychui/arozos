@@ -16,10 +16,18 @@
                                          // instead of the anchor box (e.g.
                                          // the live text selection in Docs)
             fontSize: 24,                // initial size shown in the box
-            onFontSize: function(px){…}  // OPTIONAL: also apply size to the
+            onFontSize: function(px){…}, // OPTIONAL: also apply size to the
                                          // whole object (host model), used
                                          // when there is no text selection
+            tableOps: [                  // OPTIONAL: table tool section shown
+                { icon: "angle up",      // under a divider while the host is
+                  title: "Insert row",   // inside a table
+                  fn: function(btnEl){…},
+                  active: function(){…} }// optional toggle state
+            ]
         });
+        OfficeTextEditBar.setTableOps(ops)  // swap/clear the table section
+                                            // while the bar stays open
         OfficeTextEditBar.reposition();  // after the anchor moved/resized
         OfficeTextEditBar.hide();
         OfficeTextEditBar.contains(node) // host focusout checks: focus moved
@@ -38,6 +46,7 @@ var OfficeTextEditBar = (function () {
     var anchorEl = null;
     var opts = null;
     var savedRange = null;
+    var renderTableOpsFn = null;   // set while the bar exists (build())
 
     /* ---------- selection keeping ---------- */
     // interacting with bar controls (select/input) steals focus from the
@@ -318,6 +327,30 @@ var OfficeTextEditBar = (function () {
         $row2.append(btn("list ol", "Numbered list", function () { exec("insertOrderedList"); }));
         $row2.append(btn("eraser", "Clear formatting", function () { exec("removeFormat"); }));
 
+        // table tool section: a divider + one extra row, only rendered while
+        // the host reports the caret/selection is inside a table
+        var $tblWrap = $('<div class="of-te-tblwrap"><div class="of-te-hr"></div>' +
+            '<div class="of-te-row of-te-tblrow"></div></div>');
+        $bar.append($tblWrap);
+        renderTableOpsFn = function (ops) {
+            var $row = $tblWrap.find(".of-te-tblrow").empty();
+            if (!ops || !ops.length) {
+                $tblWrap.hide();
+                return;
+            }
+            ops.forEach(function (d) {
+                var $b = btn(d.icon, d.title, function () {
+                    d.fn(this);
+                    if (d.active) $b.toggleClass("active", !!d.active());
+                    reposition();
+                });
+                if (d.active && d.active()) $b.addClass("active");
+                $row.append($b);
+            });
+            $tblWrap.show();
+        };
+        renderTableOpsFn(opts.tableOps || null);
+
         // keep selection fresh while the user works inside the editor, and
         // mirror its color/size/font in the controls
         $(document).on("selectionchange.oftexbar", function () {
@@ -361,6 +394,7 @@ var OfficeTextEditBar = (function () {
         if ($bar) {
             $bar.remove();
             $bar = null;
+            renderTableOpsFn = null;
             if (window.OfficeColorPicker) OfficeColorPicker.close();
         }
         $(document).off("selectionchange.oftexbar");
@@ -376,11 +410,20 @@ var OfficeTextEditBar = (function () {
     }
     function isVisible() { return !!$bar; }
 
+    // swap or clear the table section while the bar stays open (the Docs
+    // selection bar is reused across selection changes)
+    function setTableOps(ops) {
+        if (!renderTableOpsFn) return;
+        renderTableOpsFn(ops || null);
+        reposition();
+    }
+
     return {
         show: show,
         hide: hide,
         reposition: reposition,
         contains: contains,
-        isVisible: isVisible
+        isVisible: isVisible,
+        setTableOps: setTableOps
     };
 })();

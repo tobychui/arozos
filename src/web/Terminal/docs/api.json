@@ -868,9 +868,9 @@
     {
      "name": "office.presentationToPptx",
      "sig": "office.presentationToPptx(bodyJson, destVpath)",
-     "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"office\");\nif (office.presentationToPptx(data, \"user:/Desktop/out.pptx\")){\n    sendResp(\"OK\");\n}"
+     "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Video/audio are not embedded: each renders as its poster frame and the media files are packed into a sidecar zip next to the pptx. Returns true, or the sidecar zip vpath (string) when one was written.",
+     "ret": "bool | string",
+     "example": "requirelib(\"office\");\nvar r = office.presentationToPptx(data, \"user:/Desktop/out.pptx\");\nif (r){ sendResp(\"OK\"); }"
     },
     {
      "name": "office.xlsxToWorkbook",
@@ -920,6 +920,69 @@
      "desc": "Read a native Office suite container and return its envelope JSON with binary assets extracted into <workdirBase>/<doc-hash>/ and referenced by media?file= links (keeps the JSON small even for video-heavy documents). Legacy plain-JSON files pass through unchanged.",
      "ret": "string (JSON)",
      "example": "requirelib(\"office\");\nvar envelope = office.unpackToWorkdir(\"user:/Documents/deck.ppta\", \"user:/.appdata/Office/cache\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
+    },
+    {
+     "name": "office.odtToDocument",
+     "sig": "office.odtToDocument(srcVpath)",
+     "desc": "Read an OpenDocument Text (.odt) file and return the Docs body schema as a JSON string (formatting, links, lists, tables, pictures as data URLs, page geometry, header/footer, page breaks).",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.odtToDocument(\"user:/Documents/notes.odt\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.documentToOdt",
+     "sig": "office.documentToOdt(jsonStr, destVpath)",
+     "desc": "Build an OpenDocument Text (.odt) file from a serialized Docs body JSON and write it to destVpath. Same subset as the docx exporter.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.documentToOdt(data, \"user:/Documents/notes.odt\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.odsToWorkbook",
+     "sig": "office.odsToWorkbook(srcVpath)",
+     "desc": "Read an OpenDocument Spreadsheet (.ods) and return the Sheets body schema as a JSON string. ODF of:= formulas are translated back to plain A1 references; styles, widths, merges and cell notes are kept.",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.odsToWorkbook(\"user:/Documents/report.ods\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.workbookToOds",
+     "sig": "office.workbookToOds(jsonStr, destVpath)",
+     "desc": "Build an OpenDocument Spreadsheet (.ods) from a serialized Sheets body JSON and write it to destVpath (formulas rewritten to ODF of:= syntax).",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.workbookToOds(data, \"user:/Documents/report.ods\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.odpToPresentation",
+     "sig": "office.odpToPresentation(srcVpath)",
+     "desc": "Read an OpenDocument Presentation (.odp) and return the Slides body schema as a JSON string, scaled into the 960x540 editor space (text, images, shapes, lines, tables, backgrounds, notes).",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.odpToPresentation(\"user:/Documents/deck.odp\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.presentationToOdp",
+     "sig": "office.presentationToOdp(jsonStr, destVpath)",
+     "desc": "Build an OpenDocument Presentation (.odp) from a serialized Slides body JSON and write it to destVpath. Charts use their client-side PNG raster; video/audio objects are skipped.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.presentationToOdp(data, \"user:/Documents/deck.odp\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.documentToPdf",
+     "sig": "office.documentToPdf(jsonStr, destVpath)",
+     "desc": "Build a PDF with real selectable text from a serialized Docs body JSON and write it to destVpath. Renders headings, inline styles, links, lists, tables, inline images, page breaks, page geometry and header/footer with page numbers. Latin-1 core fonts; other characters are transliterated.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.documentToPdf(data, \"user:/Desktop/report.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.workbookPrintToPdf",
+     "sig": "office.workbookPrintToPdf(printJson, destVpath)",
+     "desc": "Build a real-text PDF from a Sheets print model ({sheets:[{name,colW,rowH,rows:[[{t,b,i,u,fc,bg,al}]]}]}) - formatted display strings plus styles computed by the web client. One A4-landscape section per sheet, columns scaled to fit the page.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.workbookPrintToPdf(printModelJson, \"user:/Desktop/sheet.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.presentationToPdf",
+     "sig": "office.presentationToPdf(jsonStr, destVpath)",
+     "desc": "Build a real-text PDF from a serialized Slides body JSON: one page per slide at the deck canvas size. Text and tables stay selectable; images/charts embed from data URLs; video/audio render their captured poster frame (props.png) or a generic placeholder.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.presentationToPdf(data, \"user:/Desktop/deck.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
     }
    ]
   },

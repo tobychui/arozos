@@ -12,7 +12,10 @@
         export:  dest - virtual path of the .pptx to write
                  data - serialized Slides body JSON (images/charts inlined
                         as data URLs by the front end)
-                 -> "OK"
+                 -> {"ok":true, "mediaZip": <vpath or null>}
+                 Video/audio files are not embedded in the pptx: they are
+                 packed into <dest basename>.zip next to it (mediaZip),
+                 and the slides show their captured poster frames.
 */
 
 function main(){
@@ -55,9 +58,74 @@ function main(){
             return;
         }
         try {
-            var ok = office.presentationToPptx(data, dest);
-            if (!ok){
+            // returns true, or the vpath (string) of the media sidecar
+            // zip when the deck contains video/audio files
+            var r = office.presentationToPptx(data, dest);
+            if (!r){
                 sendJSONResp(JSON.stringify({ error: "unable to write the pptx file" }));
+                return;
+            }
+            sendJSONResp(JSON.stringify({
+                ok: true,
+                mediaZip: (typeof r === "string") ? r : null
+            }));
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "import-odf"){
+        if (typeof src === "undefined" || !src || src.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "src is required" }));
+            return;
+        }
+        try {
+            var odfBody = office.odpToPresentation(src);
+            if (!odfBody){
+                sendJSONResp(JSON.stringify({ error: "unable to parse the odp file" }));
+                return;
+            }
+            sendJSONResp('{"body":' + odfBody + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "import failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export-odf"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            if (!office.presentationToOdp(data, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the odp file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export-pdf"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            if (!office.presentationToPdf(data, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
                 return;
             }
             sendResp("OK");

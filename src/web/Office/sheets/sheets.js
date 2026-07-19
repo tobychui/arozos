@@ -944,6 +944,60 @@ var SheetsApp = (function () {
         }
         return out;
     }
+    /* Print model for the server-side PDF exporter (sheets_io exportPdf):
+       per sheet, the used-range grid of formatted display strings plus the
+       print-relevant styles and the raw (unzoomed) column widths / row
+       heights in css px. Flips the active sheet like readRangeValues so
+       formulas evaluate against the right sheet. */
+    function buildPrintModel() {
+        var saved = body.active;
+        var out = { sheets: [] };
+        try {
+            for (var i = 0; i < body.sheets.length; i++) {
+                if (body.active !== i) { body.active = i; rebuildCalc(); }
+                var s = sheet();
+                var ur = usedRange();
+                var colW = [], rowH = [], rows = [];
+                for (var c = ur.c1; c <= ur.c2; c++) {
+                    var w = s.colW[String(c)];
+                    colW.push(w !== undefined ? w : DEF_COLW);
+                }
+                for (var r = ur.r1; r <= ur.r2; r++) {
+                    var h = s.rowH[String(r)];
+                    rowH.push(h !== undefined ? h : DEF_ROWH);
+                    var row = [];
+                    for (var cc = ur.c1; cc <= ur.c2; cc++) {
+                        var st = styleAt(cc, r);
+                        var t, num = false;
+                        if ((st.fmt || "general") === "text") {
+                            var raw = rawAt(cc, r);
+                            t = raw === undefined ? "" : String(raw);
+                        } else {
+                            var fv = formatValue(valueAt(cc, r), st);
+                            t = fv.text;
+                            num = !!fv.num;
+                        }
+                        var cell = { t: t };
+                        if (st.b) cell.b = true;
+                        if (st.i) cell.i = true;
+                        if (st.u) cell.u = true;
+                        if (st.fc) cell.fc = st.fc;
+                        if (st.bg) cell.bg = st.bg;
+                        // numbers right-align on screen when no explicit align
+                        var al = st.al || (num ? "r" : "");
+                        if (al) cell.al = al;
+                        row.push(cell);
+                    }
+                    rows.push(row);
+                }
+                out.sheets.push({ name: s.name, colW: colW, rowH: rowH, rows: rows });
+            }
+        } finally {
+            if (body.active !== saved) { body.active = saved; rebuildCalc(); }
+        }
+        return out;
+    }
+
     // append a sheet (unique name derived from base) and make it active
     function addSheetNamed(base, data) {
         var names = body.sheets.map(function (s) { return s.name; });
@@ -2213,7 +2267,8 @@ var SheetsApp = (function () {
                 ".tsv": function (text, fn) { SheetsIO.importDelimited(text, fn, "\t"); }
             },
             binaryImporters: {
-                ".xlsx": function (fp, fn) { SheetsIO.importXlsx(fp, fn); }
+                ".xlsx": function (fp, fn) { SheetsIO.importXlsx(fp, fn); },
+                ".ods": function (fp, fn) { SheetsIO.importOds(fp, fn); }
             },
 
             onUndo: doUndo,
@@ -2232,12 +2287,14 @@ var SheetsApp = (function () {
             ],
             fileMenuExtras: [
                 {
-                    label: "Import Excel (.xlsx)...", icon: "file excel outline",
+                    label: "Import Excel / OpenDocument...", icon: "file excel outline",
                     action: function () { SheetsIO.importXlsxDialog(); }
                 },
                 {
                     label: "Export", icon: "external alternate", sub: [
                         { label: "Excel (.xlsx)", icon: "file excel outline", action: function () { SheetsIO.exportXlsx(); } },
+                        { label: "OpenDocument (.ods)", icon: "file alternate outline", action: function () { SheetsIO.exportOds(); } },
+                        { label: "PDF document (.pdf)", icon: "file pdf outline", action: function () { SheetsIO.exportPdf(); } },
                         { label: "CSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited(","); } },
                         { label: "TSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited("\t"); } }
                     ]
@@ -2283,6 +2340,7 @@ var SheetsApp = (function () {
         copySelectedChart: copySelectedChart,
         pickRangeFromGrid: pickRangeFromGrid,
         readRangeValues: readRangeValues,
+        buildPrintModel: buildPrintModel,
         addSheetNamed: addSheetNamed,
         activeSheetIndex: function () { return body.active; },
         valueAt: valueAt,

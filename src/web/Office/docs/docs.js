@@ -579,8 +579,6 @@
         stateTimer = setTimeout(updateToolbarState, 90);
     }
     function updateToolbarState() {
-        // contextual menubar menus (Table) follow the caret
-        if (OfficeApp.updateMenus) OfficeApp.updateMenus();
         var states = ["bold", "italic", "underline", "strikeThrough",
             "justifyLeft", "justifyCenter", "justifyRight", "justifyFull",
             "insertUnorderedList", "insertOrderedList"];
@@ -919,9 +917,25 @@
         afterEdit(true);
     }
     function currentCell() {
-        var n = savedRange ? savedRange.startContainer : null;
+        if (!savedRange) return null;
+        var n = savedRange.startContainer;
         if (n && n.nodeType === 3) n = n.parentNode;
-        var cell = n && n.closest ? n.closest("td,th") : null;
+        if (!n || !n.closest || !editor.contains(n)) return null;
+        var cell = n.closest("td,th");
+        if (!cell) {
+            // multi-cell selections anchor at the row/tbody/table level -
+            // descend through the range start to the first selected cell
+            var host = n.closest("table, tbody, tr");
+            if (host) {
+                var child = savedRange.startContainer.childNodes ?
+                    savedRange.startContainer.childNodes[savedRange.startOffset] : null;
+                if (child && child.nodeType === 1) {
+                    if (child.matches && child.matches("td,th")) cell = child;
+                    else if (child.querySelector) cell = child.querySelector("td,th");
+                }
+                if (!cell) cell = host.querySelector("td,th");
+            }
+        }
         return cell && editor.contains(cell) ? cell : null;
     }
     function currentTable() {
@@ -965,8 +979,157 @@
         }
         applyTableStyle(table);
     }
-    /* the contextual "Table" menubar menu (visible while the caret is in a
-       table) - also reused as a submenu of the table context menu */
+    /* ---------- table ops for the floating text-edit bar ----------
+       Rendered by OfficeTextEditBar as an extra divider-separated section
+       while the selection is inside a table (incl. multi-cell selections).
+       Empty array = section hidden. */
+    function withTable(fn) {
+        var cell = currentCell();
+        var table = cell ? cell.closest("table") : null;
+        if (table) fn(table, cell);
+    }
+    function docsTableOps() {
+        if (!currentCell()) return null;
+        return [
+            {
+                icon: "angle up", title: "Insert row above",
+                fn: function () { withTable(function (t, cell) { tableAddRow(t, cell.parentNode.rowIndex); }); }
+            },
+            {
+                icon: "angle down", title: "Insert row below",
+                fn: function () { withTable(function (t, cell) { tableAddRow(t, cell.parentNode.rowIndex + 1); }); }
+            },
+            {
+                icon: "angle left", title: "Insert column left",
+                fn: function () { withTable(function (t, cell) { tableAddCol(t, cell.cellIndex); }); }
+            },
+            {
+                icon: "angle right", title: "Insert column right",
+                fn: function () { withTable(function (t, cell) { tableAddCol(t, cell.cellIndex + 1); }); }
+            },
+            {
+                icon: "minus", title: "Delete row",
+                fn: function () { withTable(function (t, cell) { tableDelRow(t, cell.parentNode.rowIndex); }); }
+            },
+            {
+                icon: "eraser", title: "Delete column",
+                fn: function () { withTable(function (t, cell) { tableDelCol(t, cell.cellIndex); }); }
+            },
+            {
+                icon: "trash alternate outline", title: "Delete table",
+                fn: function () {
+                    withTable(function (t) {
+                        if (t.parentNode) t.parentNode.removeChild(t);
+                        afterEdit(true);
+                        OfficeTextEditBar.setTableOps(null);
+                    });
+                }
+            },
+            {
+                icon: "heading", title: "Header row",
+                active: function () {
+                    var c = currentCell();
+                    var t = c ? c.closest("table") : null;
+                    return !!(t && t.getAttribute("data-th-head") === "1");
+                },
+                fn: function () {
+                    withTable(function (t) {
+                        t.setAttribute("data-th-head", t.getAttribute("data-th-head") === "1" ? "" : "1");
+                        applyTableStyle(t);
+                    });
+                }
+            },
+            {
+                icon: "bars", title: "Banded rows",
+                active: function () {
+                    var c = currentCell();
+                    var t = c ? c.closest("table") : null;
+                    return !!(t && t.getAttribute("data-th-band") === "1");
+                },
+                fn: function () {
+                    withTable(function (t) {
+                        t.setAttribute("data-th-band", t.getAttribute("data-th-band") === "1" ? "" : "1");
+                        applyTableStyle(t);
+                    });
+                }
+            },
+            {
+                icon: "paint brush", title: "Table theme...",
+                fn: function (btnEl) {
+                    withTable(function (t) {
+                        var r = btnEl.getBoundingClientRect();
+                        OfficeApp.showContextMenu(r.left, r.bottom + 2, TABLE_THEMES.map(function (th) {
+                            return {
+                                label: th.name,
+                                action: function () {
+                                    t.setAttribute("data-th-bc", th.bc);
+                                    t.setAttribute("data-th-headbg", th.headbg);
+                                    t.setAttribute("data-th-headfc", th.headfc);
+                                    t.setAttribute("data-th-bandbg", th.bandbg);
+                                    t.setAttribute("data-th-head", "1");
+                                    t.setAttribute("data-th-band", "1");
+                                    applyTableStyle(t);
+                                }
+                            };
+                        }));
+                    });
+                }
+            },
+            {
+                icon: "window minimize outline", title: "Border weight...",
+                fn: function (btnEl) {
+                    withTable(function (t) {
+                        var r = btnEl.getBoundingClientRect();
+                        OfficeApp.showContextMenu(r.left, r.bottom + 2, [0.5, 1, 2, 3].map(function (w) {
+                            return {
+                                label: w + " px",
+                                checked: (parseFloat(t.getAttribute("data-th-bw")) || 1) === w,
+                                action: function () {
+                                    t.setAttribute("data-th-bw", String(w));
+                                    applyTableStyle(t);
+                                }
+                            };
+                        }));
+                    });
+                }
+            },
+            {
+                icon: "pencil alternate", title: "Border color...",
+                fn: function (btnEl) {
+                    withTable(function (t) {
+                        OfficeColorPicker.open({
+                            anchor: btnEl,
+                            value: t.getAttribute("data-th-bc") || "#b9bec7",
+                            onPick: function (hex) {
+                                if (!hex) return;
+                                t.setAttribute("data-th-bc", hex);
+                                applyTableStyle(t);
+                            }
+                        });
+                    });
+                }
+            },
+            {
+                icon: "square full", title: "Cell background...",
+                fn: function (btnEl) {
+                    withTable(function (t, cell) {
+                        OfficeColorPicker.open({
+                            anchor: btnEl,
+                            value: cell.getAttribute("data-cellbg") || "#ffffff",
+                            allowNone: true, noneLabel: "Clear (use theme)",
+                            onPick: function (hex) {
+                                if (hex) cell.setAttribute("data-cellbg", hex);
+                                else cell.removeAttribute("data-cellbg");
+                                applyTableStyle(t);
+                            }
+                        });
+                    });
+                }
+            }
+        ];
+    }
+
+    /* table items reused as a submenu of the right-click context menu */
     function tableMenuItems() { return tableMenuItemsFor(currentCell()); }
     function tableMenuItemsFor(cell) {
         var table = cell ? cell.closest("table") : null;
@@ -2099,10 +2262,7 @@
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
     }
-    function exportPDF() {
-        OfficeApp.toast('In the print dialog, choose "Save as PDF" as the destination');
-        setTimeout(function () { OfficeApp.print(); }, 900);
-    }
+    function exportPdf() { exportDocFile(".pdf", "export-pdf", "Exporting PDF..."); }
     var EXPORT_CSS =
         "body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;" +
         "color:#1f2328;max-width:820px;margin:24px auto;padding:0 18px;}" +
@@ -2300,9 +2460,10 @@
     /* ================= DOCX import / export (office AGI lib) ================= */
     var DOCX_BACKEND = "Office/docs/backend/docx.agi";
 
-    function importDocx(fp, fn) {
+    // shared by .docx ("import") and .odt ("import-odf")
+    function importDocFile(fp, fn, action) {
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(DOCX_BACKEND, { action: "import", src: fp }, function (data) {
+        ao_module_agirun(DOCX_BACKEND, { action: action, src: fp }, function (data) {
             OfficeApp.hideBusy();
             if (!data || data.error) {
                 OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
@@ -2325,11 +2486,17 @@
             OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
         }, 120000);
     }
+    function importDocx(fp, fn) { importDocFile(fp, fn, "import"); }
+    function importOdt(fp, fn) { importDocFile(fp, fn, "import-odf"); }
     function importDocxDialog() {
         try {
             ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) importDocx(files[0].filepath, files[0].filename);
-            }, "user:/Desktop", "file", false, { filter: ["docx"] });
+                if (files && files.length > 0) {
+                    var fp = files[0].filepath, fn = files[0].filename;
+                    if (/\.odt$/i.test(fn)) importOdt(fp, fn);
+                    else importDocx(fp, fn);
+                }
+            }, "user:/Desktop", "file", false, { filter: ["docx", "odt"] });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -2337,6 +2504,87 @@
 
     /* inline storage-served images (media?file=...) as data URLs so the
        server-side exporter can embed them */
+    /* Rasterize an <img> whose src Word cannot embed (SVG charts pasted from
+       Sheets/Slides, webp, ...) into a PNG data URL at 2x its display size.
+       Keeps/sets the width attribute so the docx writer sizes it like the
+       editor does. */
+    function rasterizeImgToPng(im) {
+        return new Promise(function (resolve) {
+            var probe = new Image();
+            probe.onload = function () {
+                try {
+                    var w = parseInt(im.getAttribute("width"), 10) ||
+                        parseFloat((im.getAttribute("style") || "").replace(/^.*width:\s*([\d.]+)px.*$/, "$1")) ||
+                        probe.naturalWidth || 400;
+                    var h = w * (probe.naturalHeight || 300) / (probe.naturalWidth || 400);
+                    var cv = document.createElement("canvas");
+                    cv.width = Math.max(1, Math.round(w * 2));
+                    cv.height = Math.max(1, Math.round(h * 2));
+                    var ctx = cv.getContext("2d");
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, cv.width, cv.height);
+                    ctx.drawImage(probe, 0, 0, cv.width, cv.height);
+                    im.setAttribute("src", cv.toDataURL("image/png"));
+                    im.setAttribute("width", String(Math.round(w)));
+                    im.setAttribute("height", String(Math.round(h)));
+                } catch (e) { /* leave as-is; exporter will skip it */ }
+                resolve();
+            };
+            probe.onerror = function () { resolve(); };
+            probe.src = im.getAttribute("src");
+        });
+    }
+    /* Emoji characters have no glyphs in the PDF core fonts, so before a
+       PDF export they are rasterized (canvas + the platform emoji font)
+       into small inline images the server-side renderer can draw. */
+    var emojiPngCache = {};
+    function emojiToPng(ch) {
+        if (emojiPngCache[ch]) return emojiPngCache[ch];
+        var c = document.createElement("canvas");
+        c.width = 36; c.height = 36;
+        var ctx = c.getContext("2d");
+        ctx.font = '30px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText(ch, 18, 20);
+        var durl = c.toDataURL("image/png");
+        emojiPngCache[ch] = durl;
+        return durl;
+    }
+    function rasterizeEmojiForPdf(html) {
+        var re;
+        try {
+            re = new RegExp("\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic}\\uFE0F?)*", "gu");
+        } catch (e) {
+            return html; // very old engine without unicode property escapes
+        }
+        var root = document.createElement("div");
+        root.innerHTML = html;
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        var nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach(function (tn) {
+            var t = tn.nodeValue || "";
+            re.lastIndex = 0;
+            if (!re.test(t)) return;
+            re.lastIndex = 0;
+            var frag = document.createDocumentFragment();
+            var last = 0, m;
+            while ((m = re.exec(t)) !== null) {
+                if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+                var img = document.createElement("img");
+                img.src = emojiToPng(m[0]);
+                img.setAttribute("width", "14");
+                img.setAttribute("height", "14");
+                frag.appendChild(img);
+                last = m.index + m[0].length;
+            }
+            if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
+            tn.parentNode.replaceChild(frag, tn);
+        });
+        return root.innerHTML;
+    }
+
     function inlineImagesForExport(html) {
         var div = document.createElement("div");
         div.innerHTML = html;
@@ -2359,23 +2607,38 @@
                 });
             }).catch(function () { /* leave the URL; exporter skips it */ });
         });
-        return Promise.all(jobs).then(function () { return div.innerHTML; });
+        return Promise.all(jobs).then(function () {
+            // second pass: convert anything Word cannot embed (svg charts,
+            // webp/bmp) to PNG so it survives as a real, sized picture
+            var conv = Array.prototype.slice.call(div.querySelectorAll("img"))
+                .filter(function (im) {
+                    return /^data:image\/(svg|webp|bmp)/i.test(im.getAttribute("src") || "");
+                })
+                .map(rasterizeImgToPng);
+            return Promise.all(conv);
+        }).then(function () { return div.innerHTML; });
     }
-    function exportDocx() {
-        var defName = exportBaseName() + ".docx";
+    // shared by .docx ("export") and .odt ("export-odf")
+    function exportDocFile(ext, action, busyLabel) {
+        var defName = exportBaseName() + ext;
+        var extRe = new RegExp("\\" + ext + "$", "i");
         try {
             ao_module_openFileSelector(function (files) {
                 if (!files || !files.length) return;
                 var fp = files[0].filepath;
-                if (!/\.docx$/i.test(fp)) fp += ".docx";
-                OfficeApp.showBusy("Exporting Word file...");
+                if (!extRe.test(fp)) fp += ext;
+                OfficeApp.showBusy(busyLabel);
                 var body = currentBody();
                 // suggestions applied, comment anchors unwrapped
                 body.html = resolvedHtml();
+                if (action === "export-pdf") {
+                    // PDF core fonts have no emoji glyphs - rasterize them
+                    body.html = rasterizeEmojiForPdf(body.html);
+                }
                 inlineImagesForExport(body.html).then(function (inlined) {
                     body.html = inlined;
                     ao_module_agirun(DOCX_BACKEND, {
-                        action: "export",
+                        action: action,
                         dest: fp,
                         data: JSON.stringify(body)
                     }, function (data) {
@@ -2396,6 +2659,8 @@
             OfficeApp.toast("File selector is not available here", "error");
         }
     }
+    function exportDocx() { exportDocFile(".docx", "export", "Exporting Word file..."); }
+    function exportOdt() { exportDocFile(".odt", "export-odf", "Exporting OpenDocument file..."); }
 
     /* ================= floating selection format bar ================= */
     /* PowerPoint-style mini toolbar (shared OfficeTextEditBar) floating
@@ -2430,10 +2695,13 @@
                             anchor: editor,
                             getRect: selRect,
                             fontSize: currentSelFontPx(),
-                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); }
+                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); },
+                            tableOps: docsTableOps()
                         });
                     } else {
-                        OfficeTextEditBar.reposition();
+                        // the bar is reused across selection moves - keep the
+                        // table section in step with where the caret sits
+                        OfficeTextEditBar.setTableOps(docsTableOps());
                     }
                 } else if (OfficeTextEditBar.isVisible() &&
                     !OfficeTextEditBar.contains(document.activeElement)) {
@@ -2819,7 +3087,8 @@
                 ".htm": function (text) { importHtml(text); }
             },
             binaryImporters: {
-                ".docx": importDocx
+                ".docx": importDocx,
+                ".odt": importOdt
             },
 
             onUndo: doUndo,
@@ -2894,22 +3163,17 @@
                             { label: "Clear formatting", icon: "eraser", action: clearFormatting }
                         ];
                     }
-                },
-                {
-                    // contextual: only visible while the caret is in a table
-                    title: "Table",
-                    when: function () { return !!currentTable(); },
-                    items: tableMenuItems
                 }
             ],
             fileMenuExtras: [
                 { label: "Page setup...", icon: "file alternate outline", action: pageSetupDialog },
-                { label: "Import Word (.docx)...", icon: "file word outline", action: importDocxDialog },
+                { label: "Import Word / OpenDocument...", icon: "file word outline", action: importDocxDialog },
                 {
                     label: "Export", icon: "external alternate",
                     sub: [
                         { label: "Word (.docx)", icon: "file word outline", action: exportDocx },
-                        { label: "PDF (via print dialog)", icon: "file pdf outline", action: exportPDF },
+                        { label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt },
+                        { label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf },
                         { label: "Web page (.html)", icon: "file code outline", action: exportHTML },
                         { label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown },
                         { label: "Plain text (.txt)", icon: "file outline", action: exportText }

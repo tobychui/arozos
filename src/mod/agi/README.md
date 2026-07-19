@@ -1222,13 +1222,20 @@ sendJSONResp('{"body":' + bodyJson + '}');
 
 ### `office.presentationToPptx(bodyJson, destVpath)`
 Build a `.pptx` from a serialized Slides body JSON string and write it to
-`destVpath`. Returns `true` on success. Image objects must be inlined as
-`data:` URLs and chart objects should carry a client-rendered PNG in
-`props.png` (the Slides webapp does both automatically before calling).
+`destVpath`. Image objects must be inlined as `data:` URLs and chart
+objects should carry a client-rendered PNG in `props.png` (the Slides
+webapp does both automatically before calling). Video/audio objects are
+**not embedded**: each renders as a poster picture (the captured frame in
+`props.png`, or a generated placeholder) and the media files themselves
+are packed into a sidecar zip written next to the pptx as
+`<dest basename>.zip`. Returns `true` on success, or the sidecar zip's
+vpath (a string, also truthy) when one was written.
 
 ```javascript
 requirelib("office");
-if (office.presentationToPptx(data, "user:/Desktop/out.pptx")){
+var r = office.presentationToPptx(data, "user:/Desktop/out.pptx");
+if (r){
+    // r === "user:/Desktop/out.zip" when the deck had video/audio
     sendResp("OK");
 }
 ```
@@ -1311,6 +1318,81 @@ documents pass through unchanged.
 requirelib("office");
 var envelope = office.unpackToWorkdir("user:/Documents/deck.ppta", "user:/.appdata/Office/cache");
 sendJSONResp('{"envelope":' + envelope + '}');
+```
+
+### `office.odtToDocument(srcVpath)`
+Read an OpenDocument Text file (`.odt`) and return the Docs body schema as
+a **JSON string** (headings, inline formatting, links, lists, tables with
+column widths and cell shading, embedded pictures as `data:` URLs, page
+geometry, header/footer and page breaks).
+
+### `office.documentToOdt(jsonStr, destVpath)`
+Build an `.odt` from a serialized Docs body JSON and write it to
+`destVpath`. Covers the same subset as the docx exporter. Returns `true`
+on success.
+
+### `office.odsToWorkbook(srcVpath)`
+Read an OpenDocument Spreadsheet (`.ods`) and return the Sheets body
+schema as a **JSON string**. Formulas are translated from the ODF
+`of:=SUM([.A1:.B2])` syntax back to plain `=SUM(A1:B2)` references; cell
+styles, column widths, row heights, merges and cell notes
+(`office:annotation`) are kept.
+
+### `office.workbookToOds(jsonStr, destVpath)`
+Build an `.ods` from a serialized Sheets body JSON and write it to
+`destVpath` (formulas rewritten to the ODF syntax so LibreOffice
+recalculates them). Returns `true` on success.
+
+### `office.odpToPresentation(srcVpath)`
+Read an OpenDocument Presentation (`.odp`) and return the Slides body
+schema as a **JSON string**, scaled into the 960x540 editor space (text
+boxes, images, basic shapes, lines, tables, slide backgrounds and speaker
+notes).
+
+### `office.presentationToOdp(jsonStr, destVpath)`
+Build an `.odp` from a serialized Slides body JSON and write it to
+`destVpath`. Charts export through their client-side PNG raster
+(`props.png`), like the pptx exporter; video/audio objects are skipped.
+Returns `true` on success.
+
+```javascript
+requirelib("office");
+var bodyJson = office.odsToWorkbook("user:/Documents/report.ods");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.documentToPdf(jsonStr, destVpath)`
+Build a **PDF with real, selectable text** (not a page raster) from a
+serialized Docs body JSON and write it to `destVpath`. Renders the same
+HTML subset as the docx exporter: headings/paragraph styles, inline
+bold/italic/underline/color/size/highlight, clickable links, lists, tables with
+column widths, cell shading and cell content (block text, lists and
+images inside cells), inline data-URL images, explicit page
+breaks, page size/orientation/margins, and header/footer text with
+optional page numbers. Core PDF fonts are Latin-1; characters outside
+that range are transliterated. Returns `true` on success.
+
+### `office.workbookPrintToPdf(printJson, destVpath)`
+Build a real-text PDF from a Sheets **print model** (not the raw
+workbook JSON): `{"sheets":[{"name","colW":[px],"rowH":[px],"rows":
+[[{"t","b","i","u","fc","bg","al"}]]}]}` — formatted display strings
+plus print-relevant styles, computed by the web client (which owns
+formula evaluation). One A4-landscape section per sheet, columns scaled
+down to fit when the sheet is wider than the page. Returns `true` on
+success.
+
+### `office.presentationToPdf(jsonStr, destVpath)`
+Build a real-text PDF from a serialized Slides body JSON: one page per
+slide at the deck's canvas size (960x540 default). Text boxes, shape
+captions and tables are selectable text; images and charts embed from
+their client-inlined data URLs; video/audio objects render their
+captured poster frame (`props.png`) or a generic placeholder. Returns
+`true` on success.
+
+```javascript
+requirelib("office");
+var ok = office.documentToPdf(bodyJsonString, "user:/Desktop/report.pdf");
+if (ok) { sendResp("OK"); }
 ```
 
 ## ffmpeg API

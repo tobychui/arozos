@@ -4,7 +4,7 @@
     Bridges the Docs webapp to the "office" AGI library (mod/office).
 
     POST parameters:
-        action = "import" | "export"
+        action = "import" | "export" | "import-odf" | "export-odf"
 
         import:  src  - virtual path of the .docx to read
                  -> {"body": <Docs body schema object>}
@@ -13,6 +13,12 @@
                  data - serialized Docs body JSON (images inlined as
                         data URLs by the front end)
                  -> "OK"
+
+        import-odf / export-odf: same contract for OpenDocument (.odt)
+
+        export-pdf: dest - virtual path of the .pdf to write
+                    data - serialized Docs body JSON (same as export)
+                    -> "OK"   (server-side real-text PDF, mod/office)
 
     Legacy binary .doc is not supported (the office lib rejects it with a
     helpful message).
@@ -61,6 +67,66 @@ function main(){
             var ok = office.documentToDocx(data, dest);
             if (!ok){
                 sendJSONResp(JSON.stringify({ error: "unable to write the docx file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "import-odf"){
+        if (typeof src === "undefined" || !src || src.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "src is required" }));
+            return;
+        }
+        try {
+            var odtBody = office.odtToDocument(src);
+            if (!odtBody){
+                sendJSONResp(JSON.stringify({ error: "unable to parse the odt file" }));
+                return;
+            }
+            sendJSONResp('{"body":' + odtBody + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "import failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export-odf"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            if (!office.documentToOdt(data, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the odt file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export-pdf"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            if (!office.documentToPdf(data, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
                 return;
             }
             sendResp("OK");

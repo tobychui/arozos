@@ -20,6 +20,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-ldap/ldap v3.0.3+incompatible
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/gorilla/sessions v1.4.0
 	github.com/gorilla/websocket v1.5.3

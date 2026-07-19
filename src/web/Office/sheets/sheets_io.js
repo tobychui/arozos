@@ -384,9 +384,11 @@ var SheetsIO = (function () {
     }
 
     /* ================= XLSX (server-side via the office AGI lib) ================= */
-    function importXlsx(fp, fn) {
+    // shared by .xlsx ("import") and .ods ("import-odf")
+    function importXlsx(fp, fn, action) {
+        action = action || "import";
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(XLSX_BACKEND, { action: "import", src: fp }, function (data) {
+        ao_module_agirun(XLSX_BACKEND, { action: action, src: fp }, function (data) {
             OfficeApp.hideBusy();
             if (!data || data.error) {
                 OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
@@ -408,27 +410,76 @@ var SheetsIO = (function () {
             OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
         }, 120000);
     }
+    function importOds(fp, fn) { importXlsx(fp, fn, "import-odf"); }
     function importXlsxDialog() {
         try {
             ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) importXlsx(files[0].filepath, files[0].filename);
-            }, "user:/Desktop", "file", false, { filter: ["xlsx"] });
+                if (files && files.length > 0) {
+                    var fp = files[0].filepath, fn = files[0].filename;
+                    if (/\.ods$/i.test(fn)) importOds(fp, fn);
+                    else importXlsx(fp, fn);
+                }
+            }, "user:/Desktop", "file", false, { filter: ["xlsx", "ods"] });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
     }
-    function exportXlsx() {
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ".xlsx";
+    // shared by .xlsx ("export") and .ods ("export-odf")
+    function exportSheetFile(ext, action, busyLabel) {
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ext;
+        var extRe = new RegExp("\\" + ext + "$", "i");
         try {
             ao_module_openFileSelector(function (files) {
                 if (!files || !files.length) return;
                 var fp = files[0].filepath;
-                if (!/\.xlsx$/i.test(fp)) fp += ".xlsx";
-                OfficeApp.showBusy("Exporting Excel file...");
+                if (!extRe.test(fp)) fp += ext;
+                OfficeApp.showBusy(busyLabel);
                 ao_module_agirun(XLSX_BACKEND, {
-                    action: "export",
+                    action: action,
                     dest: fp,
                     data: JSON.stringify(Core.getBody())
+                }, function (data) {
+                    OfficeApp.hideBusy();
+                    if (data && data.error) {
+                        OfficeApp.toast("Export failed: " + data.error, "error");
+                    } else {
+                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                    }
+                }, function () {
+                    OfficeApp.hideBusy();
+                    OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
+                }, 180000);
+            }, "user:/Desktop", "new", false, { defaultName: defName });
+        } catch (e) {
+            OfficeApp.toast("File selector is not available here", "error");
+        }
+    }
+    function exportXlsx() { exportSheetFile(".xlsx", "export", "Exporting Excel file..."); }
+    function exportOds() { exportSheetFile(".ods", "export-odf", "Exporting OpenDocument file..."); }
+    // server-side real-text PDF: posts the client-computed print model
+    // (formatted display strings + styles) instead of the raw workbook,
+    // since formula evaluation lives in this client
+    function exportPdf() {
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ".pdf";
+        try {
+            ao_module_openFileSelector(function (files) {
+                if (!files || !files.length) return;
+                var fp = files[0].filepath;
+                if (!/\.pdf$/i.test(fp)) fp += ".pdf";
+                OfficeApp.showBusy("Exporting PDF...");
+                var model;
+                try {
+                    model = Core.buildPrintModel();
+                } catch (e) {
+                    OfficeApp.hideBusy();
+                    OfficeApp.toast("Export failed: " + e.message, "error");
+                    return;
+                }
+                ao_module_agirun(XLSX_BACKEND, {
+                    action: "export-pdf",
+                    dest: fp,
+                    data: JSON.stringify(model)
                 }, function (data) {
                     OfficeApp.hideBusy();
                     if (data && data.error) {
@@ -682,8 +733,11 @@ var SheetsIO = (function () {
         importDelimited: importDelimited,
         exportDelimited: exportDelimited,
         importXlsx: importXlsx,
+        importOds: importOds,
         importXlsxDialog: importXlsxDialog,
         exportXlsx: exportXlsx,
+        exportOds: exportOds,
+        exportPdf: exportPdf,
         pivotDialog: pivotDialog,
         refreshPivot: refreshPivot,
         chartToImageHtml: chartToImageHtml,
