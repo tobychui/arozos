@@ -253,5 +253,4 @@ body.darkTheme .ui.header .sub.header{
 
 .fwdragger {
     --text-outline-color: rgba(36, 36, 36, 0.75);
-    text-shadow: 1px 0 0 var(--text-outline-color), 0 -1px 0 var(--text-outline-color), 0 1px 0 var(--text-outline-color), -1px 0 0 var(--text-outline-color);
 }

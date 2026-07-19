@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <link rel="icon" href="img/small_icon.png">
+    <!-- ao_module is provided by the parent frame; ao_module.js is not needed standalone -->
+    <script src="../../../script/jquery.min.js"></script>
+    <title>Screen Share Relay</title>
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { background: transparent; overflow-x: hidden; }
+
+    /* ── Design tokens ── */
+    #ac-root {
+        --bg:        #f2f2f7;
+        --card:      #ffffff;
+        --border:    rgba(0,0,0,0.10);
+        --text:      #1d1d1f;
+        --dim:       #6e6e73;
+        --muted:     #aeaeb2;
+        --accent:    #007AFF;
+        --accentH:   #0063d1;
+        --success:   #34c759;
+        --danger:    #ff3b30;
+        --warn-bg:   #fff7ed;
+        --warn-text: #7c4e00;
+        --warn-bdr:  rgba(255,149,0,0.28);
+        --radius:    12px;
+        --shadow:    0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    /* ── Dark mode ── */
+    #ac-root.dark {
+        --bg:        #000000;
+        --card:      #1c1c1e;
+        --border:    rgba(255,255,255,0.10);
+        --text:      #f2f2f7;
+        --dim:       #98989d;
+        --muted:     #636366;
+        --accent:    #0a84ff;
+        --accentH:   #409cff;
+        --success:   #30d158;
+        --danger:    #ff453a;
+        --warn-bg:   #2d1f00;
+        --warn-text: #ffd60a;
+        --warn-bdr:  rgba(255,214,10,0.22);
+        --shadow:    0 1px 3px rgba(0,0,0,0.4), 0 1px 8px rgba(0,0,0,0.3);
+    }
+
+    /* ── Page header ── */
+    .ac-page-hd {
+        padding: 18px 16px 6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .ac-page-hd-icon {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(145deg, #007AFF, #5ac8fa);
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(0,122,255,0.30);
+    }
+    .ac-page-hd-icon svg { display: block; }
+    .ac-page-hd-text h1 {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.2px;
+    }
+    .ac-page-hd-text p {
+        font-size: 12px;
+        color: var(--dim);
+        margin-top: 2px;
+    }
+
+    /* ── Section cards ── */
+    .ac-card {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin: 10px 12px;
+        overflow: hidden;
+    }
+    .ac-card-hd {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px 11px;
+        border-bottom: 1px solid var(--border);
+    }
+    .ac-card-hd-icon { color: var(--dim); flex-shrink: 0; }
+    .ac-card-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--dim);
+        flex: 1;
+    }
+    .ac-card-body { padding: 16px; }
+
+    /* ── Info list ── */
+    .ac-info-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .ac-info-list li {
+        display: flex;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--dim);
+        line-height: 1.5;
+    }
+    .ac-info-list li::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex-shrink: 0;
+        margin-top: 6px;
+    }
+    .ac-info-list code {
+        font-family: "SF Mono", "Menlo", "Courier New", monospace;
+        font-size: 11.5px;
+        background: rgba(0,0,0,0.05);
+        padding: 1px 5px;
+        border-radius: 5px;
+        color: var(--text);
+        word-break: break-all;
+    }
+    #ac-root.dark .ac-info-list code { background: rgba(255,255,255,0.08); }
+
+    /* ── Setting rows ── */
+    .ac-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .ac-row:last-of-type { border-bottom: none; }
+    .ac-row-text { flex: 1; min-width: 0; }
+    .ac-row-label { font-size: 13px; font-weight: 500; color: var(--text); }
+    .ac-row-desc { font-size: 11.5px; color: var(--dim); margin-top: 2px; }
+    .ac-row-value {
+        font-size: 12.5px;
+        color: var(--dim);
+        font-family: "SF Mono", "Menlo", "Courier New", monospace;
+        text-align: right;
+        flex-shrink: 0;
+        max-width: 55%;
+        word-break: break-all;
+    }
+
+    /* ── Status badge ── */
+    .ac-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 999px;
+        flex-shrink: 0;
+    }
+    .ac-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .ac-badge.on  { background: rgba(52,199,89,0.14);  color: var(--success); }
+    .ac-badge.on .dot  { background: var(--success); }
+    .ac-badge.off { background: rgba(142,142,147,0.18); color: var(--muted); }
+    .ac-badge.off .dot { background: var(--muted); }
+
+    /* ── Toggle switch ── */
+    .ac-toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; cursor: pointer; }
+    .ac-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .ac-toggle-track {
+        position: absolute; inset: 0;
+        background: var(--muted);
+        border-radius: 15.5px;
+        transition: background 0.22s;
+    }
+    .ac-toggle-track::after {
+        content: '';
+        position: absolute; left: 3px; top: 3px;
+        width: 25px; height: 25px;
+        background: #fff; border-radius: 50%;
+        transition: left 0.2s cubic-bezier(.4,0,.2,1);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.22);
+    }
+    .ac-toggle input:checked + .ac-toggle-track { background: var(--accent); }
+    .ac-toggle input:checked + .ac-toggle-track::after { left: 23px; }
+    .ac-toggle input:disabled + .ac-toggle-track { opacity: 0.5; }
+
+    /* ── Warning banner ── */
+    .ac-warn {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-bdr);
+        border-radius: 8px;
+        padding: 10px 13px;
+        font-size: 12px;
+        color: var(--warn-text);
+        line-height: 1.5;
+        margin-top: 12px;
+    }
+    .ac-warn svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Toast ── */
+    #ac-toast {
+        display: none;
+        position: fixed;
+        left: 50%; bottom: 20px;
+        transform: translateX(-50%);
+        z-index: 9100;
+        background: rgba(30,30,32,0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-radius: 12px;
+        padding: 10px 18px;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+        max-width: min(340px, calc(100vw - 24px));
+        text-align: center;
+        pointer-events: none;
+    }
+    #ac-toast.err { background: rgba(255,59,48,0.92); }
+    #ac-toast-msg { font-size: 13px; font-weight: 500; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div id="ac-toast"><div id="ac-toast-msg"></div></div>
+
+<div id="ac-root">
+
+    <!-- ── Page header ── -->
+    <div class="ac-page-hd">
+        <div class="ac-page-hd-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="13" rx="2" stroke="rgba(255,255,255,0.9)" stroke-width="1.6"/>
+                <path d="M8 20h8M12 17v3" stroke="rgba(255,255,255,0.6)" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <div class="ac-page-hd-text">
+            <h1>Screen Share Relay</h1>
+            <p>Built-in TURN relay for Arozcast screen share over the Internet</p>
+        </div>
+    </div>
+
+    <!-- ── Settings card ── -->
+    <div class="ac-card">
+        <div class="ac-card-hd">
+            <svg class="ac-card-hd-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.37 11.37l1.41 1.41M3.22 12.78l1.41-1.41M11.37 4.63l1.41-1.41"
+                      stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="ac-card-title">Relay</span>
+        </div>
+        <div class="ac-card-body">
+            <div class="ac-row">
+                <div class="ac-row-text">
+                    <div class="ac-row-label">Enable relay</div>
+                    <div class="ac-row-desc">Lets screen share connect across NAT / the Internet. When off, screen share works on the local network only.</div>
+                </div>
+                <label class="ac-toggle">
+                    <input type="checkbox" id="ac-enable" onchange="setEnabled(this.checked);" disabled>
+                    <span class="ac-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Status card ── -->
+    <div class="ac-card">
+        <div class="ac-card-hd">
+            <svg class="ac-card-hd-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="ac-card-title">Status</span>
+        </div>
+        <div class="ac-card-body">
+            <div class="ac-row">
+                <div class="ac-row-text"><div class="ac-row-label">State</div></div>
+                <span id="ac-state" class="ac-badge off"><span class="dot"></span><span id="ac-state-text">—</span></span>
+            </div>
+            <div class="ac-row">
+                <div class="ac-row-text"><div class="ac-row-label">Relay port</div><div class="ac-row-desc">UDP &amp; TCP</div></div>
+                <div class="ac-row-value" id="ac-port">—</div>
+            </div>
+            <div class="ac-row">
+                <div class="ac-row-text"><div class="ac-row-label">TURN over TLS</div><div class="ac-row-desc">Traverses TLS-only firewalls</div></div>
+                <div class="ac-row-value" id="ac-tls">—</div>
+            </div>
+            <div class="ac-row">
+                <div class="ac-row-text"><div class="ac-row-label">Advertised address</div><div class="ac-row-desc">Host peers dial for the relay</div></div>
+                <div class="ac-row-value" id="ac-host">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Info card ── -->
+    <div class="ac-card">
+        <div class="ac-card-hd">
+            <svg class="ac-card-hd-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M2 12.5V11c0-1.5 1-2.5 3-2.5h2M11 6.5a2.5 2.5 0 10-5 0 2.5 2.5 0 005 0z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                <path d="M10 9l1.5 1.5L14 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="ac-card-title">How it works</span>
+        </div>
+        <div class="ac-card-body">
+            <ul class="ac-info-list">
+                <li>Screen share is a direct WebRTC connection between two browsers. Across the Internet the peers are usually behind NAT, so a TURN relay is needed to forward the video.</li>
+                <li>ArozOS runs that relay itself. Credentials handed to the browser are short-lived and signed per session &mdash; the relay is not an open proxy.</li>
+                <li>For Internet use, forward the relay port to this host (and set a public IP/hostname with <code>-arozcast_turn_publicip</code> when behind NAT).</li>
+                <li>To use an external TURN service instead, drop an <code>iceServers</code> list at <code>system/arozcast/iceservers.json</code> &mdash; it overrides this relay.</li>
+            </ul>
+            <div class="ac-warn">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1.5L14.5 13H1.5L8 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                    <path d="M8 6v3.5M8 11v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                <span>Turning the relay off does not break local-network screen share, but remote (Internet) sessions will fail to connect.</span>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /#ac-root -->
+
+<script>
+    /* ── Theme ── */
+    function applyTheme(dark) {
+        document.getElementById('ac-root').classList.toggle('dark', dark);
+    }
+    try {
+        var _t = (typeof preferredTheme !== 'undefined' && preferredTheme)
+               || (typeof parent !== 'undefined' && parent.preferredTheme);
+        if (_t) {
+            applyTheme(_t === 'dark' || _t === 'darkTheme');
+        } else {
+            ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); });
+        }
+    } catch(e) {
+        try { ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); }); } catch(_){}
+    }
+    window.desktopThemeChanged = function(theme) { applyTheme(theme === 'dark' || theme === 'darkTheme'); };
+    window.detailPageThemeCallback = function(isDark) { applyTheme(isDark); };
+
+    /* ── Toast ── */
+    function showToast(msg, isErr) {
+        var $t = $('#ac-toast');
+        $t.toggleClass('err', !!isErr);
+        $('#ac-toast-msg').text(isErr ? '✕  ' + msg : msg);
+        $t.stop(true, true).fadeIn(160).delay(3200).fadeOut(380);
+    }
+
+    var ignoreChange = true; // suppress onchange while we set the toggle programmatically
+
+    $(document).ready(loadStatus);
+
+    /* ── Load current status ── */
+    function loadStatus() {
+        $.get("../../../system/arozcast/turn/status", function(data) {
+            if (!data || data.error !== undefined) {
+                showToast(data && data.error ? data.error : "Could not load relay status", true);
+                return;
+            }
+            renderStatus(data);
+            ignoreChange = false;
+            $("#ac-enable").prop('disabled', false);
+        }).fail(function() { showToast("Server communication error", true); });
+    }
+
+    /* ── Paint the UI from a status object ── */
+    function renderStatus(s) {
+        $("#ac-enable").prop('checked', !!s.enabled);
+
+        var $state = $("#ac-state");
+        if (s.running) {
+            $state.removeClass('off').addClass('on');
+            $("#ac-state-text").text("Running");
+        } else {
+            $state.removeClass('on').addClass('off');
+            $("#ac-state-text").text(s.enabled ? "Stopped (failed to start)" : "Stopped");
+        }
+
+        $("#ac-port").text(s.port ? String(s.port) : "—");
+
+        if (!s.running) {
+            $("#ac-tls").text("—");
+        } else if (s.tls && s.tlsPort) {
+            $("#ac-tls").text("On · port " + s.tlsPort);
+        } else if (s.tlsPort) {
+            $("#ac-tls").text("Off · no usable certificate");
+        } else {
+            $("#ac-tls").text("Disabled");
+        }
+
+        var host = (s.advertiseHost && s.advertiseHost.length) ? s.advertiseHost
+                 : (s.publicIP && s.publicIP.length) ? s.publicIP
+                 : "Auto (host used to reach ArozOS)";
+        $("#ac-host").text(host);
+    }
+
+    /* ── Toggle enable / disable ── */
+    function setEnabled(enabled) {
+        if (ignoreChange) return;
+        $("#ac-enable").prop('disabled', true);
+        $.ajax({
+            url: "../../../system/arozcast/turn/setEnabled",
+            data: { enable: enabled },
+            success: function(data) {
+                if (!data || data.error !== undefined) {
+                    showToast(data && data.error ? data.error : "Update failed", true);
+                    // Re-sync UI with the real server state.
+                    loadStatus();
+                    return;
+                }
+                renderStatus(data);
+                $("#ac-enable").prop('disabled', false);
+                showToast(enabled ? "Screen share relay enabled" : "Screen share relay disabled");
+            },
+            error: function() {
+                showToast("Server communication error", true);
+                loadStatus();
+            }
+        });
+    }
+</script>
+</body>
+</html>

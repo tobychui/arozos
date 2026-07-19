@@ -1,0 +1,31 @@
+/*
+    Reminders - Delete a reminder by id (also removes any of its sub-tasks).
+    POST: reminderId (string)
+*/
+requirelib("filelib");
+
+var dataPath = "user:/Document/Reminders/data.json";
+
+if (!reminderId || reminderId === "") {
+    sendJSONResp({ error: "Missing reminderId" });
+} else {
+    var data = { lists: [], reminders: [] };
+    if (filelib.fileExists(dataPath)) {
+        try {
+            var parsed = JSON.parse(filelib.readFile(dataPath));
+            if (parsed && Array.isArray(parsed.lists) && Array.isArray(parsed.reminders)) data = parsed;
+        } catch (e) {}
+    }
+
+    var remaining = [];
+    for (var i = 0; i < data.reminders.length; i++) {
+        var r = data.reminders[i];
+        // Drop the reminder itself and any sub-task that points to it
+        if (r.id === reminderId || r.parentId === reminderId) continue;
+        remaining.push(r);
+    }
+    data.reminders = remaining;
+
+    filelib.writeFile(dataPath, JSON.stringify(data));
+    sendJSONResp({ ok: true });
+}

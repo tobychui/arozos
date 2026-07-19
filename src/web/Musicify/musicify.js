@@ -17,6 +17,7 @@ function musicifyApp() {
         // ── Navigation ──────────────────────────────────────────────────────
         view: 'home',           // 'home' | 'folders' | 'artists' | 'recent' | 'playlist'
         sidebarOpen: false,
+        isMobileLandscape: false, // true when a mobile browser is rotated into landscape
         loading: false,
         loadingMsg: '',
 
@@ -75,6 +76,7 @@ function musicifyApp() {
         isSeeking: false,
         volume: 80,
         isMuted: false,
+        forceShowVolumeControl: false, // user override: force-show the in-app volume slider on mobile devices
         shuffle: false,
         repeat: 'none',         // 'none' | 'all' | 'one'
         showQueue: false,
@@ -106,7 +108,10 @@ function musicifyApp() {
         _suppressEnded: false,  // true while a new track is loading (prevents double-skip)
 
         // ── Helpers (accessible from Alpine template expressions) ─────────────
-        isSidebarDesktop() { return window.innerWidth > 768; },
+        // A "desktop" sidebar is a static, always-visible column. Mobile browsers
+        // rotated to landscape are wide enough to pass the 768px check but should
+        // still get the collapsible/overlay sidebar, so they're excluded here.
+        isSidebarDesktop() { return window.innerWidth > 768 && !this._isMobile(); },
 
         // ── Transcode ────────────────────────────────────────────────────────
         transcodeMode: '48',           // 'disabled' | '16' | '24' | '48' (kHz)
@@ -117,6 +122,15 @@ function musicifyApp() {
         // ── Full Buffer Mode ─────────────────────────────────────────────────
         fullBufferMode: false,         // true = buffer entire track before playback (iOS default)
         _fullBufferLoading: false,     // true while waiting for server-side buffer to finish
+
+        // ── Privacy / Audio Visualizer Mode ──────────────────────────────────
+        privacyVisualizerMode: false,  // true = replace album art with an audio-reactive visualizer
+        _vizColor: '168,85,247',       // 'r,g,b' infill color sampled from the current cover art
+        _audioCtx: null,
+        _analyser: null,
+        _vizData: null,
+        _vizAnimId: null,
+        _syntheticViz: false,          // iOS: animate the bars without Web Audio so screen-lock doesn't stop playback
 
         // ── Arozcast ─────────────────────────────────────────────────────────
         castMode: false,
@@ -192,7 +206,10 @@ function musicifyApp() {
             this._audio.addEventListener('waiting', () => {
                 if (MUSICIFY_DEBUG) console.log('[Musicify] audio waiting – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
             });
-            this._audio.addEventListener('play',  () => { self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._updateMediaSession(); });
+            this._audio.addEventListener('play',  () => {
+                self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._updateMediaSession();
+                if (self._audioCtx && self._audioCtx.state === 'suspended') self._audioCtx.resume().catch(() => {});
+            });
             this._audio.addEventListener('pause', () => { self.isPlaying = false; self._updateMediaSession(); });
 
             // Restore volume
@@ -202,6 +219,19 @@ function musicifyApp() {
                 this._audio.volume = this.volume / 100;
             } else {
                 this._audio.volume = this.volume / 100;
+            }
+
+            // Mobile Volume Control: Safari/iOS and most Android browsers expect the
+            // device's hardware buttons to control volume, so default to full volume
+            // and hide the in-app slider on mobile unless the user overrides it.
+            var _savedForceVol = localStorage.getItem('musicify_forceShowVolumeControl');
+            if (_savedForceVol !== null) {
+                this.forceShowVolumeControl = (_savedForceVol === 'true');
+            }
+            if (this._isMobile() && !this.forceShowVolumeControl) {
+                this.volume = 100;
+                this.isMuted = false;
+                this._audio.volume = 1;
             }
 
             // Restore shuffle / repeat / recently-played from server-side prefs
@@ -229,6 +259,17 @@ function musicifyApp() {
             } else {
                 // Auto-detect iOS and enable by default
                 this.fullBufferMode = this._isIOS();
+            }
+
+            // Privacy / Audio Visualizer Mode: restore from localStorage
+            var _savedPrivacyViz = localStorage.getItem('musicify_privacyVisualizer');
+            if (_savedPrivacyViz !== null) {
+                this.privacyVisualizerMode = (_savedPrivacyViz === 'true');
+            }
+            if (this.privacyVisualizerMode) {
+                this._ensureAnalyser();
+                this._updateVizColor(this.currentTrack);
+                this._startVizLoop();
             }
 
             // MediaSession
@@ -282,14 +323,17 @@ function musicifyApp() {
             }
 
             // Responsive sidebar
-            this.sidebarOpen = window.innerWidth > 768;
+            this._updateLandscapeState();
+            this.sidebarOpen = window.innerWidth > 768 && !this.isMobileLandscape;
             var resizeT;
             window.addEventListener('resize', () => {
                 clearTimeout(resizeT);
                 resizeT = setTimeout(() => {
-                    if (window.innerWidth <= 768) this.sidebarOpen = false;
+                    this._updateLandscapeState();
+                    if (window.innerWidth <= 768 || this.isMobileLandscape) this.sidebarOpen = false;
                 }, 150);
             });
+            window.addEventListener('orientationchange', () => this._updateLandscapeState());
         },
 
         // ════════════════════════════════════════════════════════════════════
@@ -953,6 +997,7 @@ function musicifyApp() {
                 this._transcodeEndFallbackTimer = null;
             }
             this.currentTrack = song;
+            this._updateVizColor(song);
             this.coverError = false;
             this.currentTime = 0;
             this.duration = 0;
@@ -998,7 +1043,10 @@ function musicifyApp() {
                 }
                 return;
             }
-            if (this._audio.paused) { this._audio.play().catch(() => {}); }
+            if (this._audio.paused) {
+                if (this._audioCtx && this._audioCtx.state === 'suspended') this._audioCtx.resume().catch(() => {});
+                this._audio.play().catch(() => {});
+            }
             else { this._audio.pause(); }
         },
 
@@ -1083,6 +1131,25 @@ function musicifyApp() {
             this._audio.muted = this.isMuted;
         },
 
+        // True when the in-app volume slider should be shown: always on desktop,
+        // and on mobile only if the user has explicitly turned the override on.
+        shouldShowVolumeSlider() {
+            return !this._isMobile() || this.forceShowVolumeControl;
+        },
+
+        saveForceShowVolumeControl() {
+            localStorage.setItem('musicify_forceShowVolumeControl', String(this.forceShowVolumeControl));
+            if (this.forceShowVolumeControl) {
+                this._showToast('Volume slider shown on this device');
+            } else if (this._isMobile()) {
+                this.volume = 100;
+                this.isMuted = false;
+                this._audio.volume = 1;
+                localStorage.setItem('musicify_volume', this.volume);
+                this._showToast('Using native volume control – volume set to max');
+            }
+        },
+
         toggleQueue(){
             this.showQueue = !this.showQueue;
             this.updateQueuePanelPosition();
@@ -1129,6 +1196,14 @@ function musicifyApp() {
 
         _isAndroid() {
             return /Android/.test(navigator.userAgent);
+        },
+
+        _isMobile() {
+            return this._isIOS() || this._isAndroid();
+        },
+
+        _updateLandscapeState() {
+            this.isMobileLandscape = this._isMobile() && window.innerWidth > window.innerHeight;
         },
 
         // Returns the playback URL for a song, using the transcode endpoint when needed.
@@ -1444,6 +1519,205 @@ function musicifyApp() {
         handleCoverError(event) {
             event.target.src = 'img/placeholder.png';
             event.target.onerror = null;
+        },
+
+        // ── Privacy / Audio Visualizer Mode ──────────────────────────────────
+        savePrivacyVisualizerMode() {
+            localStorage.setItem('musicify_privacyVisualizer', String(this.privacyVisualizerMode));
+            if (this.privacyVisualizerMode) {
+                this._ensureAnalyser();
+                if (this._audioCtx && this._audioCtx.state === 'suspended') this._audioCtx.resume().catch(() => {});
+                this._updateVizColor(this.currentTrack);
+                this._startVizLoop();
+                this._showToast('Privacy Mode: album art hidden');
+            } else {
+                this._stopVizLoop();
+                this._showToast('Privacy Mode: album art shown');
+            }
+        },
+
+        // Lazily wires the <audio> element into a Web Audio graph. This can only be
+        // done once per element (createMediaElementSource throws on a second call),
+        // so the analyser is created once and simply left connected afterwards.
+        _ensureAnalyser() {
+            if (this._analyser || this._syntheticViz || !this._audio) return;
+            // iOS: routing the <audio> element through a Web Audio AudioContext
+            // (createMediaElementSource) hands playback to that context, which iOS
+            // suspends when the screen locks — stopping background audio. Skip Web
+            // Audio there and drive the bars with a synthetic animation instead, so
+            // playback behaves exactly like non-privacy mode.
+            if (this._isIOS()) {
+                this._syntheticViz = true;
+                return;
+            }
+            try {
+                var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this._audioCtx = new AudioCtx();
+                var source = this._audioCtx.createMediaElementSource(this._audio);
+                this._analyser = this._audioCtx.createAnalyser();
+                this._analyser.fftSize = 64;
+                this._analyser.smoothingTimeConstant = 0.8;
+                source.connect(this._analyser);
+                this._analyser.connect(this._audioCtx.destination);
+                this._vizData = new Uint8Array(this._analyser.frequencyBinCount);
+            } catch (e) {
+                if (MUSICIFY_DEBUG) console.warn('[Musicify] visualizer unavailable', e);
+                this._analyser = null;
+            }
+        },
+
+        _startVizLoop() {
+            if (this._vizAnimId) return;
+            var self = this;
+            (function frame() {
+                self._vizAnimId = requestAnimationFrame(frame);
+                self._renderViz();
+            })();
+        },
+
+        _stopVizLoop() {
+            if (this._vizAnimId) { cancelAnimationFrame(this._vizAnimId); this._vizAnimId = null; }
+        },
+
+        _renderViz() {
+            var bars = 27;
+            var mid = Math.floor(bars / 2);
+            var heights = new Array(bars);
+            if (this._analyser && this._vizData) {
+                this._analyser.getByteFrequencyData(this._vizData);
+                var binCount = this._vizData.length;
+                var step = Math.max(1, Math.floor(binCount / (mid + 2)));
+                for (var i = 0; i < bars; i++) {
+                    var dist = Math.abs(i - mid);
+                    var idx = Math.min(binCount - 1, dist * step);
+                    heights[i] = Math.max(0.06, this._vizData[idx] / 255);
+                }
+            } else if (this._syntheticViz) {
+                // iOS fallback: procedurally animated, center-weighted bars that
+                // pulse while playing and settle when paused (no real FFT).
+                var t = performance.now() / 1000;
+                var active = this.isPlaying ? 1 : 0;
+                for (var k = 0; k < bars; k++) {
+                    var envelope = 1 - (Math.abs(k - mid) / mid) * 0.7; // taller in the middle
+                    var wave = 0.5 + 0.30 * Math.sin(t * 3.1 + k * 0.5) + 0.15 * Math.sin(t * 5.7 + k * 0.9);
+                    heights[k] = Math.max(0.06, Math.min(1, 0.08 + active * Math.max(0, wave) * envelope * 0.9));
+                }
+            } else {
+                for (var j = 0; j < bars; j++) heights[j] = 0.06;
+            }
+            this._paintVizCanvas(document.getElementById('np-viz-canvas'), heights);
+            this._paintVizCanvas(document.getElementById('mini-viz-canvas'), heights);
+        },
+
+        _paintVizCanvas(canvas, heights) {
+            if (!canvas || !canvas.offsetParent) return;
+            var dpr = window.devicePixelRatio || 1;
+            var w = canvas.clientWidth, h = canvas.clientHeight;
+            if (!w || !h) return;
+            if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+                canvas.width = Math.round(w * dpr);
+                canvas.height = Math.round(h * dpr);
+            }
+            var ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            var n = heights.length;
+            var gap = w * 0.02;
+            var barW = (w - gap * (n - 1)) / n;
+            ctx.fillStyle = 'rgb(' + this._vizColor + ')';
+            for (var i = 0; i < n; i++) {
+                var bh = Math.max(2, heights[i] * h);
+                var x = i * (barW + gap);
+                var y = (h - bh) / 2;
+                this._roundRectPath(ctx, x, y, barW, bh, barW / 2);
+                ctx.fill();
+            }
+        },
+
+        _roundRectPath(ctx, x, y, w, h, r) {
+            r = Math.max(0, Math.min(r, w / 2, h / 2));
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+        },
+
+        // Samples the current cover art's average color (boosted for contrast against
+        // the blurred backdrop) and uses it as the visualizer bar color.
+        _updateVizColor(song) {
+            var self = this;
+            if (!song) { self._vizColor = '168,85,247'; return; }
+            var img = new Image();
+            img.onload = function() {
+                try {
+                    var c = document.createElement('canvas');
+                    c.width = 24; c.height = 24;
+                    var cctx = c.getContext('2d');
+                    cctx.drawImage(img, 0, 0, 24, 24);
+                    var data = cctx.getImageData(0, 0, 24, 24).data;
+                    var r = 0, g = 0, b = 0, n = 0;
+                    for (var i = 0; i < data.length; i += 4) {
+                        if (data[i + 3] < 10) continue;
+                        r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+                    }
+                    if (n === 0) { self._vizColor = '168,85,247'; return; }
+                    r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+                    self._vizColor = self._boostColorRGB(r, g, b);
+                } catch (e) {
+                    self._vizColor = '168,85,247';
+                }
+            };
+            img.onerror = function() { self._vizColor = '168,85,247'; };
+            img.src = this.getCoverUrl(song);
+        },
+
+        _boostColorRGB(r, g, b) {
+            var hsl = this._rgbToHsl(r, g, b);
+            var s = Math.max(hsl[1], 0.65);
+            var l = Math.min(Math.max(hsl[2], 0.62), 0.82);
+            var rgb = this._hslToRgb(hsl[0], s, l);
+            return rgb[0] + ',' + rgb[1] + ',' + rgb[2];
+        },
+
+        _rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            var max = Math.max(r, g, b), min = Math.min(r, g, b);
+            var h = 0, s = 0, l = (max + min) / 2;
+            if (max !== min) {
+                var d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h, s, l];
+        },
+
+        _hslToRgb(h, s, l) {
+            var r, g, b;
+            if (s === 0) { r = g = b = l; }
+            else {
+                var hue2rgb = function(p, q, t) {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                    if (t < 1 / 2) return q;
+                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                    return p;
+                };
+                var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                var p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1 / 3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1 / 3);
+            }
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
         },
 
         _getArtistName(song) {

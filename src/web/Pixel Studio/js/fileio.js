@@ -696,17 +696,26 @@ PS.pasteClipboard = function () {
 };
 
 // Drop an Image (from the system clipboard) onto a new, centered layer.
-// Content larger than the document is clipped to the canvas.
+// Images larger than the document are scaled down (keeping aspect ratio)
+// so the whole picture fits inside the canvas instead of being clipped.
 PS.pasteImageAsLayer = function (img) {
     if (!PS.doc) { return; }
     var d = PS.doc;
+    var scale = Math.min(1, d.width / img.naturalWidth, d.height / img.naturalHeight);
+    var w = Math.max(1, Math.round(img.naturalWidth * scale));
+    var h = Math.max(1, Math.round(img.naturalHeight * scale));
     var canvas = PS.createCanvas(d.width, d.height);
-    var x = Math.round((d.width - img.naturalWidth) / 2);
-    var y = Math.round((d.height - img.naturalHeight) / 2);
-    canvas.getContext("2d").drawImage(img, x, y);
+    var ctx = canvas.getContext("2d");
+    var x = Math.round((d.width - w) / 2);
+    var y = Math.round((d.height - h) / 2);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, x, y, w, h);
     PS.addLayer("Pasted Image", { canvas: canvas });
     PS.requestRender();
-    PS.toast("Pasted image as new layer");
+    PS.toast(scale < 1
+        ? "Pasted image (scaled to fit canvas)"
+        : "Pasted image as new layer");
 };
 
 // Menu "Paste": try the async system clipboard for an image first, then fall

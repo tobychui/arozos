@@ -166,6 +166,17 @@
             .sidebar-overlay { display: block; }
         }
 
+        /* Mobile browsers rotated to landscape are wide enough to miss the
+           768px breakpoint above, but still need the same collapsible,
+           toggle-button-driven sidebar rather than a static desktop column. */
+        #app.mobile-landscape .mobile-bar { display: flex; }
+        #app.mobile-landscape .sidebar {
+            position: fixed; top: 0; left: 0; height: 100%;
+            transform: translateX(-100%); z-index: 200;
+        }
+        #app.mobile-landscape .sidebar.open { transform: translateX(0); }
+        #app.mobile-landscape .sidebar-overlay { display: block; }
+
         /* ── Main Content ────────────────────────────────────────────────── */
         .main-content {
             flex: 1; overflow-y: auto; background: var(--bg);
@@ -370,15 +381,28 @@
         @media (max-width: 900px) {
             .queue-panel {
                 position: fixed;
-                right: 0; bottom: var(--player-h);
+                top: 0; right: 0; bottom: var(--player-h);
                 width: min(320px, 100vw);
-                height: 60vh;
                 z-index: 150;
                 border-left: none;
                 border-top: 1px solid var(--border);
                 border-radius: 12px 12px 0 0;
                 box-shadow: 0 -4px 32px rgba(0,0,0,.6);
             }
+        }
+
+        /* Same fix for mobile landscape, which is often wider than the 900px
+           breakpoint above (e.g. large phones) but still needs the full-height
+           overlay treatment rather than the desktop inline column. */
+        #app.mobile-landscape .queue-panel {
+            position: fixed;
+            top: 0; right: 0; bottom: var(--player-h);
+            width: min(320px, 100vw);
+            z-index: 150;
+            border-left: none;
+            border-top: 1px solid var(--border);
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 -4px 32px rgba(0,0,0,.6);
         }
 
         /* ── Player Bar ─────────────────────────────────────────────────── */
@@ -399,6 +423,7 @@
             flex-shrink: 0; background: var(--bg3); position: relative;
         }
         .player-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .player-cover-viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
         .player-track-info { min-width: 0; }
         .player-track-name   { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .player-track-artist { font-size: 11.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -654,7 +679,7 @@
         }
         .np-content {
             position: relative; z-index: 2;
-            height: 100%; display: flex; flex-direction: column; align-items: center;
+            height: calc(100% ); display: flex; flex-direction: column; align-items: center;
             padding: 14px 22px 42px; gap: 14px; overflow-y: auto;
         }
         .np-slide-left  { animation: npSlideL .28s ease; }
@@ -668,12 +693,13 @@
         .np-header-title { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text2); }
         .np-art-wrap {
             position: relative; margin-top: auto;
-            width: min(74vw, 360px, 40vh); aspect-ratio: 1 / 1;
+            width: min(74vw, 360px, 40vh); max-width: 100%; aspect-ratio: 1 / 1;
             border-radius: 14px; overflow: hidden;
             background: var(--bg3); box-shadow: 0 14px 50px rgba(0,0,0,.55);
             flex-shrink: 0;
         }
         .np-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .np-art-viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
         .np-art-loading {
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
             background: rgba(0,0,0,.5); backdrop-filter: blur(2px); color: #fff;
@@ -702,6 +728,28 @@
         .np-open .player-controls,
         .np-open .mobile-seek-row,
         .np-open .mobile-player-controls { display: none !important; }
+        /* Mobile landscape: the Now Playing overlay is too short to fit its own
+           transport controls, so keep them in the player-bar instead and drop
+           the overlay's now-redundant (and now-hidden-anyway) copies. */
+        #app.mobile-landscape.np-open .player-controls { display: flex !important; }
+        #app.mobile-landscape .np-seek,
+        #app.mobile-landscape .np-controls,
+        #app.mobile-landscape .np-hint { display: none; }
+        /* Give the now-visible controls room on narrower landscape phones by
+           letting the fixed-width track/extras columns shrink to content. */
+        #app.mobile-landscape .player-track { width: auto; max-width: 42vw; }
+        #app.mobile-landscape .player-extras { width: auto; }
+        /* Now that the overlay no longer needs room for its own controls, tighten
+           it up so art + title + artist comfortably fit a short landscape viewport. */
+        #app.mobile-landscape .np-content { padding: 8px 16px 10px; gap: 6px; }
+        #app.mobile-landscape .np-art-wrap { width: min(50vw, 220px, 30vh); margin-top: 0; }
+        #app.mobile-landscape .np-title { font-size: 16px; }
+        /* In mobile landscape the queue panel floats as a side column over the
+           Now Playing overlay, so re-center the header/art/title within the
+           remaining width to keep the album art and info button clear of it.
+           Portrait is intentionally excluded: there the queue is a near-full-width
+           overlay that should sit on top of np-content rather than shrink it. */
+        #app.mobile-landscape.queue-open .np-content { padding-right: min(320px, 100vw); }
         .track-info-meta {
             width: 100%; background: var(--bg2); border: 1px solid var(--border);
             border-radius: 10px; overflow: hidden; margin-bottom: 20px;
@@ -825,7 +873,7 @@
     </script>
 </head>
 <body>
-<div id="app" x-data="musicifyApp()" x-init="init()" :class="{ 'np-open': showNowPlaying }">
+<div id="app" x-data="musicifyApp()" x-init="init()" :class="{ 'np-open': showNowPlaying, 'mobile-landscape': isMobileLandscape, 'queue-open': showQueue }">
 
     <!-- Hidden audio element -->
     <audio id="musicPlayer" preload="metadata"></audio>
@@ -1346,10 +1394,11 @@
 
                     <!-- Large cover art -->
                     <div class="np-art-wrap">
-                        <img class="np-art"
+                        <img class="np-art" x-show="!privacyVisualizerMode"
                              :src="currentTrack ? getCoverUrl(currentTrack) : 'img/placeholder.png'"
                              x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"
                              alt="Cover">
+                        <canvas id="np-viz-canvas" class="np-art-viz" x-show="privacyVisualizerMode" title="Album art hidden — Privacy Mode"></canvas>
                         <div class="np-art-loading" x-show="_fullBufferLoading">
                             <i class="ui spinner loading icon"></i>
                         </div>
@@ -1520,6 +1569,48 @@
                         </div>
                     </div>
 
+                    <!-- Privacy subsection -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Privacy</div>
+                        <div class="settings-section-desc">
+                            Hide album art from onlookers by replacing the cover thumbnail with a live audio visualizer that reacts to the music instead.
+                        </div>
+                        <div class="settings-toggle-row">
+                            <div>
+                                <div class="settings-toggle-label">Audio Visualizer Mode</div>
+                                <div class="settings-toggle-desc" x-text="privacyVisualizerMode ? 'Active – album art is replaced with a visualizer' : 'Inactive – album art is shown as usual'"></div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" x-model="privacyVisualizerMode" x-on:change="savePrivacyVisualizerMode()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div x-show="_isIOS()" style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
+                            <span style="font-size:12px;color:var(--text3);">
+                                <i class="ui info circle icon" style="color:var(--accent);"></i>
+                                On iPhone &amp; iPad the bars use a simulated animation rather than true audio analysis. This is intentional: analysing the live audio signal would route playback through Web Audio, which iOS stops when the screen locks. The simulated animation keeps background playback working while still hiding the album art.
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Volume subsection -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Mobile Volume</div>
+                        <div class="settings-section-desc">
+                            Safari/iOS and most Android browsers expect volume to be controlled with the device's physical buttons rather than an in-app slider. By default, Musicify hides the in-app volume bar and sets playback to full volume on mobile devices so the hardware buttons have full range.
+                        </div>
+                        <div class="settings-toggle-row">
+                            <div>
+                                <div class="settings-toggle-label">Show In-App Volume Slider on Mobile</div>
+                                <div class="settings-toggle-desc" x-text="!_isMobile() ? 'This device is not detected as mobile – this setting has no effect here' : (forceShowVolumeControl ? 'Active – volume slider is shown on this device' : 'Inactive – use your device volume buttons; volume is fixed at max')"></div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" x-model="forceShowVolumeControl" x-on:change="saveForceShowVolumeControl()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1564,8 +1655,10 @@
             <div class="player-cover"
                  x-on:click="currentTrack && toggleNowPlaying()"
                  :style="currentTrack ? 'cursor:pointer;' : ''" title="Now Playing">
-                <img :src="currentTrack ? getCoverUrl(currentTrack) : 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='"
+                <img x-show="!privacyVisualizerMode"
+                     :src="currentTrack ? getCoverUrl(currentTrack) : 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='"
                      x-on:error="handleCoverError($event)" alt="Cover">
+                <canvas id="mini-viz-canvas" class="player-cover-viz" x-show="privacyVisualizerMode" title="Album art hidden — Privacy Mode"></canvas>
                 <div class="player-cover-loading" x-show="_fullBufferLoading" title="Buffering…">
                     <i class="ui spinner loading icon"></i>
                 </div>
@@ -1642,6 +1735,7 @@
                 <i :class="volumeIcon()" class="ui icon" style="margin:0;"></i>
             </button>
             <input type="range" class="volume-bar" min="0" max="100"
+                x-show="shouldShowVolumeSlider()"
                 :value="isMuted ? 0 : volume"
                 :style="'--vol-pct:' + (isMuted ? 0 : volume) + '%'"
                 x-on:input="setVolume($event.target.value)">

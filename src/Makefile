@@ -60,7 +60,7 @@ web.tar.gz:
 
 	@echo "Creating tarball for all required files"
 	-rm ./dist/web.tar.gz
-	-cd ./dist/ && tar -czf ./web.tar.gz system/ web/
+	-cd ./dist/ && tar --exclude='*.psd' -czf ./web.tar.gz system/ web/
 
 	@echo "Clearing up unzipped folder structures"
 	-rm -rf "./dist/web"

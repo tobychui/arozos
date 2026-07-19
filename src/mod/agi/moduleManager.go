@@ -55,8 +55,19 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.SysinfoLibRegister()
 	//g.AudioLibRegister() //work in progress
 	g.ZipLibRegister()
-	g.AIModelLibRegister()
+	g.LLMLibRegister()
+	g.CNNLibRegister()
 	g.SQLiteLibRegister()
+	g.OfficeLibRegister()
+
+	//Shared collaboration spaces + MeetRoom control, only when the host
+	//system wired the managers in (see src/agi.go)
+	if g.Option.SharedSpaceManager != nil {
+		g.SharedSpaceLibRegister()
+	}
+	if g.Option.MeetRoomManager != nil {
+		g.MeetRoomLibRegister()
+	}
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")

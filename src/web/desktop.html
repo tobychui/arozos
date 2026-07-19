@@ -7321,6 +7321,10 @@
                     }
                 } catch(e) {}
             });
+            // Notify standalone browser tabs that have called ao_module_onThemeChanged
+            try {
+                localStorage.setItem('ao_system_theme', JSON.stringify({theme: theme, ts: Date.now()}));
+            } catch(e) {}
         }
 
         function toggleDesktopTheme(){

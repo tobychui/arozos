@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Slides</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../common/office.css">
+    <link rel="stylesheet" href="slides.css">
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../common/hotkeys.js"></script>
+    <script src="../common/office.js"></script>
+    <script src="../common/colorpicker.js"></script>
+    <script src="../common/textedit.js"></script>
+    <script src="../common/charts.js"></script>
+    <script src="../common/lib/html2canvas.min.js"></script>
+    <script src="../common/lib/pdf-lib.min.js"></script>
+</head>
+<body data-officeapp="slides">
+    <div class="of-toolbar of-noprint" id="toolbar"></div>
+    <div class="of-workspace" id="workspace">
+        <div id="slRail" class="of-noprint">
+            <div id="slThumbs"></div>
+            <button id="slRailAdd" type="button" title="New slide">
+                <i class="plus icon"></i> New slide
+            </button>
+        </div>
+        <div id="slMain">
+            <div id="slCanvasArea">
+                <div id="slCanvasWrap">
+                    <div id="slCanvas">
+                        <div id="slSlideLayer"></div>
+                        <div id="slOverlay"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="slNotes" class="of-noprint">
+                <div id="slNotesHead">
+                    <i class="chevron down icon" id="slNotesChevron"></i>
+                    <span>Speaker notes</span>
+                </div>
+                <textarea id="slNotesText" placeholder="Click to add speaker notes"></textarea>
+            </div>
+        </div>
+    </div>
+    <div id="slPrintArea"></div>
+    <input type="file" id="slDeviceImage" accept="image/*" multiple style="display:none;">
+    <script src="slides.js"></script>
+    <script src="present.js"></script>
+</body>
+</html>

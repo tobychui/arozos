@@ -17,7 +17,7 @@
         { ok:false, error:"..." }
 */
 
-requirelib("aimodel");
+requirelib("llm");
 requirelib("appdata");
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -156,7 +156,7 @@ if (opts.model && trim(opts.model) != "") callOpts.model = opts.model;
 /* ── call the model ──────────────────────────────────────────────────────── */
 
 try {
-	var res = aimodel.request(messages, callOpts);
+	var res = llm.request(messages, callOpts);
 	var text = "";
 	if (res && res.choices && res.choices.length > 0 && res.choices[0].message) {
 		text = res.choices[0].message.content || "";

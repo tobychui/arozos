@@ -34,8 +34,14 @@ ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
   registered in `LoadAllFunctionalModules`
   ([`src/mod/agi/moduleManager.go`](src/mod/agi/moduleManager.go)): `filelib`,
   `imagelib`, `http`, `share`, `iot`, `appdata`, `sysinfo`, `ziplib` (incl. 7z),
-  `sqlite`, `aimodel`, and `ffmpeg` (only when ffmpeg is on the host), plus
-  `websocket` and `scheduler` which are injected only in an HTTP request context.
+  `sqlite`, `aimodel`, `sharedspace` (multi-user collaboration spaces with
+  texts/images/files, revision-synced documents, open/public/private ACLs and
+  optional persistence, [`src/mod/sharedspace/`](src/mod/sharedspace/); web
+  clients reach the same spaces via `/system/sharedspace/*` + WebSocket),
+  `meetroom` (MeetRoom room creation/control, gated by MeetRoom module
+  permission), and `ffmpeg` (only when ffmpeg is on the host), plus
+  `websocket` and `scheduler` which are injected only in an HTTP request
+  context.
 - **Execution entry points:**
   - **`init.agi`** — a web app's startup/registration script, scanned at boot
     from `./web/*/init.agi` (`InitiateAllWebAppModules`) and run with **system
@@ -250,7 +256,7 @@ make binary           # cross-compile every supported OS/arch (see Makefile)
 
 ## Mandatory contribution rules
 
-These five rules are enforced on **new and changed code** by a Claude Code
+These six rules are enforced on **new and changed code** by a Claude Code
 `PostToolUse` hook (during editing) and by CI (on every pull request). Both call
 [`scripts/check-conventions.sh`](scripts/check-conventions.sh). Existing legacy
 code is grandfathered — CI only inspects the lines a change adds — but do not add
@@ -359,12 +365,58 @@ riscv64, macOS, Windows). Therefore:
 *Enforced as an ERROR* on added hardcoded OS path literals, and as a *warning*
 when `exec.Command`/`syscall` appears in a non-build-tagged file.
 
+### 6. No emoji — use an icon library or draw an SVG
+
+**Literal Unicode emoji (😀 🎉 📁 ✅ …) must never appear in the program** — not
+in front-end source (HTML/JS/CSS), not in Go source, not in log/UI strings.
+Emoji render inconsistently across platforms, fonts and themes, break the visual
+language of the desktop, and are not searchable/styleable. Instead, either
+**draw the glyph yourself as an inline/local SVG**, or **reuse one of the icon
+libraries the existing web apps already ship** (below). This rule is about
+*emoji glyphs*; ordinary typographic characters (✓ check marks, → arrows, curly
+quotes, em-dashes) are fine.
+
+**Icon resolution order — pick the first that fits:**
+
+1. **Semantic UI icons** — the project's primary, font-based icon set, used by
+   virtually every web app. Loaded from
+   [`src/web/script/semantic/semantic.min.css`](src/web/script/semantic/);
+   write `<i class="download icon"></i>`, `<i class="folder open icon"></i>`,
+   `<i class="trash icon"></i>`, etc. Reach for this first for standard UI
+   glyphs (the [full set](https://fomantic-ui.com/elements/icon.html) covers
+   most needs). See [`src/web/Photo/`](src/web/Photo/) and the SystemAO pages
+   for examples.
+2. **A local SVG you draw/add** — for app-specific glyphs Semantic UI lacks, or
+   custom branding. The web apps ship ~340 of these; keep new ones in the app's
+   own `img/` folder (e.g. [`src/web/SystemAO/desktop/img/icons/`](src/web/SystemAO/desktop/img/icons/),
+   [`src/web/Musicify/img/`](src/web/Musicify/img/)) and reference them with
+   `<img src="img/youricon.svg" ...>` or inline `<svg>…</svg>`.
+3. **A font already bundled by that app** — e.g. Material Icons in
+   [`src/web/OnScreenKeyboard/`](src/web/OnScreenKeyboard/) or Codicon in
+   `Code Studio` (Monaco). Use these **only inside the app that already ships
+   them**; don't add a new icon-font dependency (especially a remote CDN one)
+   for a new app — prefer option 1 or 2.
+
+Never substitute a raw emoji character for any of the above.
+
+```html
+<!-- Good — Semantic UI icon -->
+<button class="ui button"><i class="save icon"></i> Save</button>
+<!-- Good — local SVG you drew -->
+<img src="img/artist.svg" style="width:22px;height:22px;">
+<!-- Bad — literal emoji -->
+<button class="ui button">💾 Save</button>
+```
+
+*Enforced as an ERROR* on added lines (Go and front-end HTML/JS/CSS) that
+contain a Unicode emoji.
+
 ## How enforcement works
 
 | Mechanism | When it runs | What it does |
 |-----------|--------------|--------------|
-| `PostToolUse` hook ([`.claude/settings.json`](.claude/settings.json)) | After Claude edits a Go file | Runs the checker on that file and feeds any finding back so Claude self-corrects |
-| GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) | On every push / PR | `gofmt`, `go build`, `go test ./...`, and the diff-scoped convention checker (blocking); plus module-wide `go vet` (advisory — never fails CI on grandfathered legacy code) |
+| `PostToolUse` hook ([`.claude/settings.json`](.claude/settings.json)) | After Claude edits a Go or front-end (HTML/JS/CSS) file | Runs the checker on that file and feeds any finding back so Claude self-corrects |
+| GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) | On every push / PR | `gofmt`, `go build`, `go test ./...`, and the diff-scoped convention checker (blocking; scans Go for rules 1–5 and Go + front-end for the emoji rule 6); plus module-wide `go vet` (advisory — never fails CI on grandfathered legacy code) |
 | [`scripts/check-conventions.sh`](scripts/check-conventions.sh) | Manually or from the above | Single source of truth for the rules above |
 
 Run it yourself before pushing:

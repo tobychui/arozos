@@ -3982,10 +3982,13 @@
                     setPreference("file_explorer/theme","whiteTheme");
                     $("#mobileNaviBar").removeClass("inverted");
                     $("#darkthemebtn").css("color", "#dadada");
-                    
+
                     //If in vdi mode, update desktop's listMenu as well
                     if (ao_module_virtualDesktop){
                         parent.initTheme("whiteTheme");
+                    } else {
+                        // Standalone: notify other open tabs via localStorage
+                        try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: 'light', ts: Date.now()})); } catch(e) {}
                     }
                 }else{
                     //Set to DarkTheme
@@ -3997,13 +4000,16 @@
                     $(".dropdown").addClass("inverted");
                     setPreference("file_explorer/theme","darkTheme");
                     $("#mobileNaviBar").addClass("inverted");
-                    
+
                      //If in vdi mode, update desktop's listMenu as well
                      if (ao_module_virtualDesktop){
                         parent.initTheme("darkTheme");
+                    } else {
+                        // Standalone: notify other open tabs via localStorage
+                        try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: 'dark', ts: Date.now()})); } catch(e) {}
                     }
                 }
-               
+
             }
 
             function msgbox(icon, text, delay=3000){

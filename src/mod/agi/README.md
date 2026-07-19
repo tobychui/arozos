@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.0` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.4` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -271,7 +271,11 @@ Registered library IDs:
 - `sysinfo`
 - `ziplib` (includes 7z support via `ziplib.extract7zFile`, `ziplib.list7zFileContents`, etc.)
 - `sqlite` (SQLite database access — not available on linux/mipsle or windows/arm/386)
-- `aimodel` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
+- `llm` (OpenAI / Anthropic LLM chat: text & file based, with pricing & quota)
+- `cnn` (CXNNAIO vision inference: classification, detection, segmentation, pose, oriented detection, face analysis)
+- `sharedspace` (multi-user collaboration spaces: texts / images / files / documents, ACLs, persistence)
+- `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
+- `office` (ArozOS Office suite: .pptx / .xlsx / .docx converters + native zip container pack/unpack)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -880,60 +884,64 @@ sendJSONResp(pending);
 db.close();
 ```
 
-## aimodel API
+## llm API
 
 Load:
 
 ```javascript
-requirelib("aimodel");
+requirelib("llm");
 ```
 
-The `aimodel` library connects to any OpenAI-compatible or Anthropic endpoint
-configured by an admin in **System Settings > AI Integration > AI Model**.
-Per-model pricing and an optional token/cost quota are also defined there.
+The `llm` library connects to any OpenAI-compatible or Anthropic endpoint
+configured by an admin in **System Settings > AI Integration > AI Model**
+(the settings tab and its `/system/aimodel/...` routes kept their original
+"AI Model" name; only the requirelib identifier changed from `aimodel` to
+`llm`). Per-model pricing and an optional token/cost quota are also defined
+there. The wire-protocol logic (OpenAI / Anthropic request building and
+response parsing) lives in the standalone `mod/aiservers/llm` Go package.
 
-### `aimodel.chat(prompt, options)` → string
+### `llm.chat(prompt, options)` → string
 Sends a single-turn text prompt and returns the assistant's reply.
 `options` is an optional object (see Options below).
 
 ```javascript
-requirelib("aimodel");
-var reply = aimodel.chat("What is the capital of France?");
+requirelib("llm");
+var reply = llm.chat("What is the capital of France?");
 sendResp(reply);
 ```
 
 With a system prompt and model override:
 
 ```javascript
-requirelib("aimodel");
-var reply = aimodel.chat("Summarise this in one sentence.", {
+requirelib("llm");
+var reply = llm.chat("Summarise this in one sentence.", {
     system: "You are a concise summariser.",
     model:  "gpt-4o-mini"
 });
 sendResp(reply);
 ```
 
-### `aimodel.chatWithFile(prompt, files, options)` → string
-Like `aimodel.chat()` but attaches one or more virtual-path files to the message.
+### `llm.chatWithFile(prompt, files, options)` → string
+Like `llm.chat()` but attaches one or more virtual-path files to the message.
 Images are sent as base64 vision parts; text files are inlined as labelled text.
 `files` may be a single vpath string or an array.
 
 ```javascript
-requirelib("aimodel");
-var reply = aimodel.chatWithFile(
+requirelib("llm");
+var reply = llm.chatWithFile(
     "Describe what you see in this image.",
     "user:/Photos/holiday.jpg"
 );
 sendResp(reply);
 ```
 
-### `aimodel.request(messages, options)` → object
+### `llm.request(messages, options)` → object
 Low-level call. Accepts the full OpenAI-style messages array and returns the
 raw response object (including `usage` and `choices`).
 
 ```javascript
-requirelib("aimodel");
-var resp = aimodel.request([
+requirelib("llm");
+var resp = llm.request([
     { role: "system",    content: "You are helpful." },
     { role: "user",      content: "Hi!" },
     { role: "assistant", content: "Hello! How can I help?" },
@@ -942,45 +950,45 @@ var resp = aimodel.request([
 sendResp(resp.choices[0].message.content);
 ```
 
-### `aimodel.usage()` → object
+### `llm.usage()` → object
 Returns accumulated token / cost metrics across all models.
 
 ```javascript
-requirelib("aimodel");
-var u = aimodel.usage();
+requirelib("llm");
+var u = llm.usage();
 sendJSONResp(u);
 // { totalTokens, totalCost, totalRequests, perModel: { ... }, currency, ... }
 ```
 
-### `aimodel.models()` → object
+### `llm.models()` → object
 Returns the configured default model name and a list of models that have
 pricing entries defined in System Settings.
 
 ```javascript
-requirelib("aimodel");
-var m = aimodel.models();
+requirelib("llm");
+var m = llm.models();
 sendJSONResp(m);
 // { default: "gpt-4o", models: ["gpt-4o", "gpt-4o-mini", ...] }
 ```
 
-### `aimodel.listModels()` → object
+### `llm.listModels()` → object
 Queries the live endpoint for available models (does not consume tokens).
 
 ```javascript
-requirelib("aimodel");
-var m = aimodel.listModels();
+requirelib("llm");
+var m = llm.listModels();
 sendJSONResp(m.models);
 ```
 
-### `aimodel.fileParts(files)` → object[]
+### `llm.fileParts(files)` → object[]
 Converts virtual-path file(s) into OpenAI-style content parts that can be
-embedded in a `messages` array for `aimodel.request()`.
+embedded in a `messages` array for `llm.request()`.
 Images become `image_url` data-URI parts; text files become `text` parts.
 
 ```javascript
-requirelib("aimodel");
-var parts = aimodel.fileParts(["user:/report.txt"]);
-var resp  = aimodel.request([
+requirelib("llm");
+var parts = llm.fileParts(["user:/report.txt"]);
+var resp  = llm.request([
     { role: "user", content: parts }
 ]);
 sendResp(resp.choices[0].message.content);
@@ -999,6 +1007,260 @@ All functions that accept `options` support the following fields (all optional):
 | `apiFormat` | string | Wire format: `"openai"` (default) or `"anthropic"` |
 | `temperature` | number | Sampling temperature |
 | `max_tokens` | number | Maximum tokens to generate |
+
+## cnn API
+
+Load:
+
+```javascript
+requirelib("cnn");
+```
+
+The `cnn` library connects to an external **CXNNAIO** vision-inference server
+configured by an admin in **System Settings > AI Integration > CNN
+Inference** (endpoint, optional bearer token, request timeout). Every
+function reads its input image from a virtual file path (the calling user
+must have read access); the returned object is the server's own response
+envelope (`object`, `model`, `created`, `image`, `timing_ms`, `data`, ...),
+so it matches the CXNNAIO API documentation field-for-field.
+
+### `cnn.classify(file, options)` → object
+Image classification (default model `mobilenet-v2`).
+
+```javascript
+requirelib("cnn");
+var r = cnn.classify("user:/Photos/cat.jpg", { top_k: 3 });
+sendJSONResp(r.data); // [{ label, index, score }, ...]
+```
+
+### `cnn.detect(file, options)` → object
+Object detection (default model `yolo11n`).
+
+```javascript
+requirelib("cnn");
+var r = cnn.detect("user:/Photos/street.jpg", { score_threshold: 0.3, render: true });
+sendJSONResp(r.data);              // [{ label, class_id, score, box:{x1,y1,x2,y2} }, ...]
+// r.rendered_image is a data URI PNG when render:true was set
+```
+
+### `cnn.segment(file, options)` → object
+Instance segmentation (`yolo11n-seg`). Each item carries a per-instance,
+box-cropped mask (`mask.data` is a base64 PNG).
+
+### `cnn.pose(file, options)` → object
+Pose estimation (`yolo11n-pose`), 17 COCO keypoints per detected person.
+
+### `cnn.oriented(file, options)` → object
+Oriented/rotated-box detection (`yolo11n-obb`), intended for aerial/top-down imagery.
+
+### `cnn.faceDetect(file, options)` → object
+Face detection (default model `ultraface-rfb-320`).
+
+### `cnn.faceLandmarks(file, options)` → object
+98-point facial landmarks (`pfld`). Set `options.cropped = true` to treat the
+whole input image as one face crop instead of detecting faces first.
+
+### `cnn.faceEmbedding(file, options)` → object
+L2-normalized 128-d face embedding vector(s) (`mbv2facenet`).
+
+### `cnn.faceAttributes(file, options)` → object
+Gender attributes per face (`gender-mbv2-0.35`). Calls the server's
+`/v1/faces/gender` route (the upstream API doc names this endpoint
+`/v1/faces/attributes`, but the deployed server registers it as `gender`;
+the response `object` field reads `"face.gender"`).
+
+### `cnn.faceCompare(fileA, fileB, options)` → object
+Compares two face photos/crops and returns their cosine similarity. Does not
+support `options.async` (the server has no async variant for this endpoint).
+
+```javascript
+requirelib("cnn");
+var r = cnn.faceCompare("user:/a.jpg", "user:/b.jpg", { threshold: 0.5 });
+sendResp(r.similarity + " - " + (r.same ? "same person" : "different"));
+```
+
+### `cnn.analyze(file, tasks, options)` → object
+Runs several tasks over one image in a single round trip. `tasks` is an
+array (`"classify"`, `"detect"`, `"segment"`, `"pose"`, `"oriented"`,
+`"faces"`, `"landmarks"`, `"attributes"`); `options` carries an optional
+top-level `render`/`async` plus per-task parameter blocks keyed by task name.
+
+```javascript
+requirelib("cnn");
+var r = cnn.analyze("user:/group.jpg", ["detect", "faces"], {
+    render: true,
+    detect: { score_threshold: 0.3 }
+});
+sendJSONResp(r.results.detect.data);
+document_rendered = r.rendered_image; // data URI PNG
+```
+
+### `cnn.job(id)` → object
+Polls an async job (see Async below). Returns
+`{ id, object, status, created, result, error }` where `status` is one of
+`"queued"`, `"running"`, `"succeeded"` or `"failed"`.
+
+### `cnn.models()` → object
+Live model registry from the configured server: `{ object, data: [{ id, object, task, classes, input }, ...] }`.
+
+### `cnn.health()` → object
+Live server health: `{ status, version, models_loaded, sessions, uptime_s }`.
+
+### Async jobs
+
+Every single-image function (`classify`, `detect`, `segment`, `pose`,
+`oriented`, `faceDetect`, `faceLandmarks`, `faceEmbedding`,
+`faceAttributes`, `analyze`) accepts `options.async = true`. When set, the
+function returns immediately with a job object instead of blocking:
+
+```javascript
+requirelib("cnn");
+var job = cnn.detect("user:/big.jpg", { async: true });
+while (job.status === "queued" || job.status === "running") {
+    delay(500);
+    job = cnn.job(job.id);
+}
+sendJSONResp(job.status === "succeeded" ? job.result : job.error);
+```
+
+### Options object
+
+All single-image functions accept the same `options` fields, using the
+server's own field names so they match the CXNNAIO API documentation
+directly (all optional):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Override the server's default model for this task |
+| `score_threshold` | number | Minimum confidence to keep (detect/seg/pose/oriented/faces) |
+| `nms_threshold` | number | IoU suppression threshold (detect/seg/pose/oriented/faces) |
+| `top_k` | number | Number of ranked results (classification) |
+| `max_results` | number | Cap on returned items |
+| `render` | bool | Also return an annotated PNG in `rendered_image` |
+| `cropped` | bool | Treat the whole input image as one face crop (face endpoints) |
+| `async` | bool | Submit as an async job instead of blocking (see Async jobs) |
+
+`cnn.faceCompare` uses its own options shape instead: `model`, `threshold`,
+`a_cropped`, `b_cropped`.
+
+## office API
+
+Converters between the ArozOS Office suite webapps (`src/web/Office/`) and
+common office file formats. Backed by `mod/office` (pure Go, no external
+dependencies). Word (.docx) and Excel (.xlsx) helpers will join this library
+as the Docs and Sheets webapps mature.
+
+Load:
+
+```javascript
+requirelib("office");
+```
+
+### `office.pptxToPresentation(srcVpath)`
+Parse a PowerPoint `.pptx` file into the Slides document body schema (see
+`src/web/Office/common/CONTRACT.md`). Returns the body as a **JSON string**,
+or throws on failure. Embedded pictures are inlined as `data:` URLs; text
+boxes, preset shapes, connector lines and tables map to their Slides object
+types. Unsupported content (video, native charts, SmartArt) is skipped.
+
+```javascript
+requirelib("office");
+var bodyJson = office.pptxToPresentation("user:/Desktop/deck.pptx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.presentationToPptx(bodyJson, destVpath)`
+Build a `.pptx` from a serialized Slides body JSON string and write it to
+`destVpath`. Returns `true` on success. Image objects must be inlined as
+`data:` URLs and chart objects should carry a client-rendered PNG in
+`props.png` (the Slides webapp does both automatically before calling).
+
+```javascript
+requirelib("office");
+if (office.presentationToPptx(data, "user:/Desktop/out.pptx")){
+    sendResp("OK");
+}
+```
+
+### `office.xlsxToWorkbook(srcVpath)`
+Parse an Excel `.xlsx` file into the Sheets document body schema. Returns
+the body as a **JSON string**, or throws on failure. Handles values,
+formulas (recalculated by the webapp), shared/inline strings, cell styles,
+number formats, column widths / row heights, merged cells and frozen panes.
+Charts, pivot tables and conditional formatting are skipped. Legacy binary
+`.xls` is rejected with a message asking for `.xlsx`.
+
+```javascript
+requirelib("office");
+var bodyJson = office.xlsxToWorkbook("user:/Desktop/report.xlsx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.workbookToXlsx(bodyJson, destVpath)`
+Build a `.xlsx` from a serialized Sheets body JSON string and write it to
+`destVpath`. Returns `true` on success. Formulas are written natively so
+Excel recalculates them; webapp charts and filters are not exported.
+
+```javascript
+requirelib("office");
+if (office.workbookToXlsx(data, "user:/Desktop/out.xlsx")){
+    sendResp("OK");
+}
+```
+
+### `office.docxToDocument(srcVpath)`
+Parse a Word `.docx` file into the Docs document body schema. Returns the
+body as a **JSON string**, or throws on failure. Handles paragraphs,
+heading/title styles, alignment, inline formatting (bold/italic/underline/
+strikethrough, color, size), hyperlinks, lists, tables, embedded images
+(inlined as `data:` URLs), header/footer text and page geometry. Tracked
+changes, footnotes and text boxes are ignored. Legacy binary `.doc` is
+rejected with a message asking for `.docx`.
+
+```javascript
+requirelib("office");
+var bodyJson = office.docxToDocument("user:/Desktop/report.docx");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.documentToDocx(bodyJson, destVpath)`
+Build a `.docx` from a serialized Docs body JSON string and write it to
+`destVpath`. Returns `true` on success. Images must be inlined as `data:`
+URLs (the Docs webapp does this automatically before calling).
+
+```javascript
+requirelib("office");
+if (office.documentToDocx(data, "user:/Desktop/out.docx")){
+    sendResp("OK");
+}
+```
+
+### `office.packToFile(envelopeJson, destVpath)`
+Write an Office suite native file (`.doca` / `.xlsa` / `.ppta`) as a **zip
+container**: `document.json` plus deduplicated binary `assets/`. Media data
+URLs and legacy `media?file=` links inside the envelope become embedded
+assets, so the file stays portable when copied to another machine. Returns
+`true` on success.
+
+### `office.unpackFromFile(srcVpath)`
+Read a native Office suite file and return its envelope **JSON string**
+with embedded assets re-inlined as `data:` URLs. Legacy plain-JSON
+documents pass through unchanged, so old files keep opening (and are
+upgraded to the container format on their next save).
+
+### `office.unpackToWorkdir(srcVpath, workdirBase)`
+Read a native Office suite container and return its envelope **JSON string**
+with binary assets extracted into `<workdirBase>/<doc-hash>/` and referenced
+by `media?file=` links instead of inline base64 - so the JSON stays small
+even for video-heavy documents (the Office webapps use
+`user:/.appdata/Office/cache` as the working directory). Legacy plain-JSON
+documents pass through unchanged.
+
+```javascript
+requirelib("office");
+var envelope = office.unpackToWorkdir("user:/Documents/deck.ppta", "user:/.appdata/Office/cache");
+sendJSONResp('{"envelope":' + envelope + '}');
+```
 
 ## ffmpeg API
 
@@ -1368,6 +1630,262 @@ The cron script must reside inside the webapp's own web folder, **not** in user 
 ```
 
 The scheduler calls `cron.agi` with the permissions of the user who approved it, so all file-system and database operations are scoped to that user.
+
+---
+
+## sharedspace API
+
+Load:
+
+```javascript
+requirelib("sharedspace");
+```
+
+A **shared space** is an area where multiple different users can share
+texts, images, files and collaboratively edited documents together - the
+collaboration backbone behind chat-style apps, document collaboration and
+MeetRoom meetings. Every space carries:
+
+- an **access mode**: `"open"` (default - the random space ID acts as the
+  capability, anyone who knows it can read and post), `"public"`
+  (discoverable via `listPublicSpaces`, any logged-in user can self-join)
+  or `"private"` (members only, invited by the owner or a space admin);
+- a **member list** with roles `owner` / `admin` / `member`;
+- a **metadata** key-value store (managers only, capped);
+- a **persistent** flag: persistent spaces (and their items, files and
+  documents) survive server restarts; ephemeral spaces (the default, and
+  what MeetRoom uses) are gone after a restart.
+
+Web clients get the same feature set over `/system/sharedspace/*` and a
+realtime WebSocket channel (`/system/sharedspace/ws`), so items and
+document patches posted from AGI appear live in connected clients.
+MeetRoom binds one space to every meeting room (see the meetroom API), so
+this library is also how scripts read a live meeting's chat and post
+messages or files into it.
+
+### `sharedspace.createSpace(name)` → object
+
+Create a new space owned by the calling user. Returns
+`{ spaceid, name, owner, items, createdat }`.
+
+```javascript
+requirelib("sharedspace");
+var space = sharedspace.createSpace("Design sync");
+sendJSONResp(space);
+```
+
+### `sharedspace.listMySpaces()` → array
+
+List the spaces owned by the calling user (same fields as `createSpace`).
+
+### `sharedspace.getSpaceInfo(spaceid)` → object
+
+Describe a space by ID. Returns `{ exists: false }` for unknown IDs.
+
+### `sharedspace.addText(spaceid, text)` → string | null
+
+Post a text snippet (clipped to 4000 characters) into the space. Returns the
+new item ID, or `null` on failure.
+
+### `sharedspace.addFile(spaceid, vpath)` → string | null
+
+Copy a file from the calling user's storage into the space. Files with a
+raster-image extension (png / jpg / jpeg / gif / webp / bmp) are stored as
+`image` items, everything else as `file`. Returns the new item ID.
+
+```javascript
+requirelib("sharedspace");
+var itemid = sharedspace.addFile(spaceid, "user:/Photo/cat.png");
+```
+
+### `sharedspace.listItems(spaceid)` → array | null
+
+Chronological list of items:
+`{ itemid, type, name, text, size, uploader, origin, time }`. `type` is
+`"text"`, `"image"` or `"file"`; `text` is only filled for text items.
+
+### `sharedspace.getText(spaceid, itemid)` → string | null
+
+Read the content of a text item.
+
+### `sharedspace.saveFileTo(spaceid, itemid, destVpath)` → bool
+
+Copy an image / file item into the calling user's storage.
+
+### `sharedspace.removeItem(spaceid, itemid)` → bool
+
+Remove an item. Only the item's uploader, a space admin or the space owner
+may remove it.
+
+### `sharedspace.deleteSpace(spaceid)` → bool
+
+Delete a space and all its items. Space owner or a space admin only.
+
+### `sharedspace.createSpaceAdvanced(name, options)` → object | null
+
+Create a space with options: `{ access, persistent, metadata }`. Returns the
+space descriptor (`{ spaceid, name, owner, access, persistent, items, docs,
+members, metadata, createdat }` - the same shape every listing below uses),
+or `null` when e.g. persistence is disabled by the administrator.
+
+```javascript
+requirelib("sharedspace");
+var space = sharedspace.createSpaceAdvanced("Team chat", {
+    access: "private",
+    persistent: true,
+    metadata: { purpose: "chat" }
+});
+```
+
+### `sharedspace.listPublicSpaces()` → array
+
+The public space directory (descriptors of every `"public"` space).
+
+### `sharedspace.listJoinedSpaces()` → array
+
+Descriptors of every space the calling user belongs to (owner, admin or
+member). `listMySpaces()` remains the owned-only subset.
+
+### `sharedspace.joinSpace(spaceid)` / `sharedspace.leaveSpace(spaceid)` → bool
+
+Self-join a public (or open) space as a member / leave a space. Private
+spaces are invite-only, so `joinSpace` fails on them.
+
+### `sharedspace.setAccess(spaceid, access)` → bool
+
+Change the access mode (`"open"`, `"public"` or `"private"`). Managers only.
+
+### `sharedspace.setMeta(spaceid, key, value)` / `sharedspace.getMeta(spaceid)` → bool / object
+
+Set (empty value deletes) or read the space metadata. Writing requires
+manager rights; reading requires read access.
+
+### `sharedspace.addMember(spaceid, username, role)` → bool
+
+Invite a user with role `"admin"` or `"member"` (default). Managers only.
+
+### `sharedspace.removeMember(spaceid, username)` → bool
+
+Remove a member (managers) or leave (self). The owner cannot be removed.
+
+### `sharedspace.listMembers(spaceid)` → object | null
+
+Member map `{ username: role, ... }`. Members and managers only.
+
+### `sharedspace.createDoc(spaceid, name)` → object | null
+
+Create a collaborative document. Returns the document snapshot
+`{ docid, name, creator, revision, content, createdat, updatedat, updatedby }`.
+
+### `sharedspace.listDocs(spaceid)` → array | null
+
+Document snapshots without their `content`.
+
+### `sharedspace.getDoc(spaceid, docid)` → object | null
+
+One document with its full content - also the recovery path after an update
+conflict.
+
+### `sharedspace.updateDoc(spaceid, docid, baserev, content)` → object | null
+
+Compare-and-swap update: the new `content` replaces the document body only
+when `baserev` matches the document's current revision. Returns
+`{ ok: true, revision }` on success or
+`{ ok: false, conflict: true, revision }` when someone else updated the
+document first - re-fetch with `getDoc`, merge your change and retry.
+Debounce saves (~500ms): every accepted revision is one database write, and
+live WebSocket clients receive each revision as a patch frame.
+
+```javascript
+requirelib("sharedspace");
+var doc = sharedspace.getDoc(spaceid, docid);
+var result = sharedspace.updateDoc(spaceid, docid, doc.revision, doc.content + "\nAppended by AGI");
+if (result !== null && result.conflict) {
+    // someone got there first: re-fetch, rebase, retry
+}
+```
+
+### `sharedspace.deleteDoc(spaceid, docid)` → bool
+
+Delete a document. Creator or space managers only.
+
+---
+
+## meetroom API
+
+Load:
+
+```javascript
+requirelib("meetroom");
+```
+
+Control interface for the MeetRoom video conferencing WebApp. The library is
+only injected for users who have access permission to the **MeetRoom**
+module (the same gate as the `/system/meetroom/*` endpoints). Every meeting
+room owns a shared space where the room's chat and file attachments are
+mirrored; posting into that space with the sharedspace API delivers the item
+into the live meeting chat.
+
+### `meetroom.createRoom(title, password)` → object
+
+Create a meeting room hosted by the calling user. Both arguments are
+optional (`""` for an untitled / open room). Returns
+`{ roomid, displayid, title, host, protected, participants, createdat, spaceid }`
+where `spaceid` is the room's shared space.
+
+```javascript
+requirelib("meetroom");
+var room = meetroom.createRoom("Weekly standup", "");
+sendJSONResp({ invite: room.displayid, space: room.spaceid });
+```
+
+### `meetroom.getRoomInfo(roomid)` → object | null
+
+Describe a room. Returns `{ exists: false }` for unknown IDs. `spaceid` is
+included only when the calling user is the room's host.
+
+### `meetroom.getRoomSpace(roomid, password)` → string | null
+
+Return the room's shared space ID after passing the same password check the
+join endpoint applies. Use this to chat with a meeting you were invited to:
+
+```javascript
+requirelib("meetroom");
+requirelib("sharedspace");
+var spaceid = meetroom.getRoomSpace("123456789", "roomPassword");
+if (spaceid !== null) {
+    sharedspace.addText(spaceid, "Reminder: meeting notes are due today");
+}
+```
+
+### `meetroom.listMyRooms()` → array
+
+List the live rooms hosted by the calling user (same fields as `createRoom`).
+
+### `meetroom.endRoom(roomid)` → bool
+
+End the meeting for everyone. Host only.
+
+### `meetroom.getAttendance(roomid)` → array | null
+
+Export the room's attendance log:
+`{ username, joinedat, leftat, present }` per join (`leftat` is `0` while the
+participant is still connected). Only the host or a currently connected
+participant may read it.
+
+```javascript
+requirelib("meetroom");
+var log = meetroom.getAttendance("123456789");
+if (log !== null) {
+    var report = "";
+    for (var i = 0; i < log.length; i++) {
+        report += log[i].username + "," + log[i].joinedat + "," + log[i].leftat + "\n";
+    }
+    if (requirelib("filelib")) {
+        filelib.writeFile("user:/Desktop/attendance.csv", report);
+    }
+}
+```
 
 ---
 

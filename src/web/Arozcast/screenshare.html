@@ -186,12 +186,27 @@
 </div>
 <script>
 // ── WebRTC configuration ───────────────────────────────────────────────────
+// Default STUN-only config (works on a LAN). The TURN relay needed to traverse
+// NAT over the Internet is fetched from the server in loadIceServers().
 const RTC_CONFIG = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
     ]
 };
+
+// Fetch the server-provided ICE servers (STUN + built-in/configured TURN) so
+// screen share can connect over the Internet. Falls back to the STUN defaults
+// above if the request fails.
+async function loadIceServers(root) {
+    try {
+        const res  = await fetch(root + 'api/arozcast/iceservers');
+        const data = await res.json();
+        if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+            RTC_CONFIG.iceServers = data.iceServers;
+        }
+    } catch (e) { /* keep STUN defaults */ }
+}
 
 // ── State ─────────────────────────────────────────────────────────────────
 let ws               = null;
@@ -269,6 +284,11 @@ async function connectRoom() {
     }
 
     setConnStatus('', 'Connecting…');
+
+    // Load ICE servers now (while we have a network round-trip to spare) so the
+    // peer connection in startShare() — which must run inside the user gesture
+    // — has the TURN relay ready without an extra await before getDisplayMedia.
+    await loadIceServers(root);
 
     const wsUrl = new URL(root + 'api/arozcast/ws?code=' + code, window.location.href);
     wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';

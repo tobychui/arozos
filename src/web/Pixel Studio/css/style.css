@@ -377,6 +377,14 @@ input, select, button, textarea {
     min-height: 1em;
 }
 
+/* the textarea's own glyphs and native selection stay fully invisible; the
+   real text (and its selection highlight) are drawn on the canvas layers
+   underneath so they can never visually drift from the textarea's caret */
+#text-edit-host .text-editor::selection {
+    background: transparent;
+    color: transparent;
+}
+
 /* ============ Rulers & guides ============ */
 #ruler-top, #ruler-left, #ruler-corner {
     position: absolute;
@@ -774,6 +782,13 @@ input, select, button, textarea {
     font-size: 13px;
 }
 
+.layer-eye svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+}
+
 .layer-thumb {
     width: 42px;
     height: 32px;
@@ -832,6 +847,16 @@ input, select, button, textarea {
     color: var(--text);
     font-size: 13px;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.layers-footer button svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .layers-footer button:hover { background: var(--bg-input); }

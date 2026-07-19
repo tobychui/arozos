@@ -411,6 +411,24 @@ func TestLocalFS_WriteStream(t *testing.T) {
 	}
 }
 
+func TestLocalFS_WriteStream_TruncatesExisting(t *testing.T) {
+	lfs, tmpDir := newTestLocalFS(t)
+	filename := filepath.Join(tmpDir, "truncate_test.bin")
+
+	// a shorter rewrite must fully replace the file - a leftover tail
+	// corrupts zip-based formats whose directory sits at the file end
+	if err := lfs.WriteStream(filename, strings.NewReader("a much longer original content"), 0644); err != nil {
+		t.Fatalf("WriteStream() unexpected error: %v", err)
+	}
+	if err := lfs.WriteStream(filename, strings.NewReader("short"), 0644); err != nil {
+		t.Fatalf("WriteStream() rewrite unexpected error: %v", err)
+	}
+	got, _ := os.ReadFile(filename)
+	if string(got) != "short" {
+		t.Errorf("expected file to be replaced with %q, got %q", "short", got)
+	}
+}
+
 func TestLocalFS_WriteStream_BadPath(t *testing.T) {
 	lfs, tmpDir := newTestLocalFS(t)
 	// Try to write into a non-existent subdirectory

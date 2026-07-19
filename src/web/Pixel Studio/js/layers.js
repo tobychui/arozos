@@ -59,6 +59,14 @@ PS.addLayer = function (name, opts) {
     return layer;
 };
 
+// doc-space {x,y,w,h} of a layer's actual content (trimmed to opaque pixels
+// for raster layers, font metrics for text layers), or null if empty
+PS.layerContentBounds = function (layer) {
+    if (!layer) { return null; }
+    if (layer.type === "text") { return PS.textLayerBounds(layer); }
+    return PS.maskBounds(layer.canvas);
+};
+
 PS.deleteLayer = function () {
     var d = PS.doc;
     if (d.layers.length <= 1) { PS.toast("Cannot delete the last layer", true); return; }
@@ -286,10 +294,11 @@ PS.renderLayersPanel = function () {
         ["▲", "Move layer up", function () { PS.moveLayer(1); }],
         ["▼", "Move layer down", function () { PS.moveLayer(-1); }],
         ["⇊", "Merge down (Ctrl+E)", function () { PS.mergeDown(); }],
-        ["🗑", "Delete layer", function () { PS.deleteLayer(); }]
+        ['<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>',
+            "Delete layer", function () { PS.deleteLayer(); }]
     ].forEach(function (def) {
         var btn = document.createElement("button");
-        btn.textContent = def[0];
+        btn.innerHTML = def[0];
         btn.title = def[1];
         btn.addEventListener("click", def[2]);
         footer.appendChild(btn);
@@ -308,7 +317,9 @@ PS._buildLayerRow = function (layer, index) {
 
     var eye = document.createElement("div");
     eye.className = "layer-eye";
-    eye.textContent = layer.visible ? "👁" : "—";
+    eye.innerHTML = layer.visible
+        ? '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
+        : "—";
     eye.title = "Toggle visibility";
     eye.addEventListener("click", function (e) {
         e.stopPropagation();

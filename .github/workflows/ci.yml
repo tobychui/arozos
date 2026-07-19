@@ -51,7 +51,7 @@ jobs:
           echo "sha=$base" >> "$GITHUB_OUTPUT"
           echo "Diff base: ${base:-<none; diff-scoped checks skipped>}"
 
-      - name: Convention checker (rules 1-5, diff only)
+      - name: Convention checker (rules 1-6, diff only)
         if: steps.base.outputs.sha != ''
         working-directory: ${{ github.workspace }}
         run: sh scripts/check-conventions.sh --diff "${{ steps.base.outputs.sha }}"
@@ -81,12 +81,35 @@ jobs:
         run: go build ./...
 
       - name: Cross-compile smoke test (portability, rule 5)
-        # Mirrors the release targets in the Makefile: the shipped binary must
-        # build for other OSes from a single, dependency-free codebase.
+        # Mirrors every release target built by the Jenkins pipeline / Makefile:
+        # the shipped binary must build for all supported OS/arch pairs from a
+        # single, dependency-free codebase. Kept in lock-step with those targets
+        # so a platform-specific break (e.g. a missing build-tagged file for
+        # freebsd) fails here in CI instead of only in the release build.
         run: |
-          GOOS=windows GOARCH=amd64 go build -o /dev/null .
-          GOOS=darwin  GOARCH=arm64 go build -o /dev/null .
-          GOOS=linux   GOARCH=arm   GOARM=6 go build -o /dev/null .
+          set -e
+          # GOOS GOARCH [extra env...]
+          targets="
+          darwin/amd64
+          darwin/arm64
+          freebsd/amd64
+          freebsd/386
+          linux/amd64
+          linux/386
+          linux/arm/GOARM=6
+          linux/arm/GOARM=7
+          linux/arm64
+          linux/riscv64
+          linux/mipsle/GOMIPS=softfloat
+          windows/amd64
+          windows/386
+          "
+          for t in $targets; do
+            os="${t%%/*}"; rest="${t#*/}"; arch="${rest%%/*}"; extra=""
+            case "$rest" in */*) extra="${rest#*/}";; esac
+            echo "==> building $os/$arch $extra"
+            env GOOS="$os" GOARCH="$arch" $extra go build -o /dev/null .
+          done
 
       - name: go test
         run: go test -count=1 ./...

@@ -1,0 +1,23 @@
+/*
+	MeetRoom Module Register Script
+	Video conferencing WebApp: WebRTC mesh calls with chat, screen
+	sharing and file attachments, joinable by room ID + password.
+	Backend endpoints live in src/meetroom.go (mod/meetroom).
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+	Name: "MeetRoom",
+	Desc: "Video conferencing with chat, screen sharing and file sharing",
+	Group: "Internet",
+	IconPath: "MeetRoom/img/module_icon.svg",
+	Version: "1.0.0",
+	StartDir: "MeetRoom/index.html",
+	SupportFW: true,
+	LaunchFWDir: "MeetRoom/index.html",
+	SupportEmb: false,
+	InitFWSize: [1080, 700]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

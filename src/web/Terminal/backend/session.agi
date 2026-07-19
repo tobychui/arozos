@@ -12,9 +12,12 @@
       { type: "ping" }                 keep-alive
 
     Server → Client
-      { type: "ready",  user, build }                  session started
-      { type: "result", output, error, logs }           exec result
-      { type: "pong" }                                  ping response
+      { type: "ready",     user, build }                   session started
+      { type: "result",    output, error, logs,
+                           shellPrompt? }                  exec result
+      { type: "shellmode", active, cwd?, prompt? }         shell mode changed
+      { type: "clear" }                                    clear terminal
+      { type: "pong" }                                     ping response
 */
 
 requirelib("websocket");
@@ -81,6 +84,388 @@ function _formatResult(v) {
     }
 }
 
+// ── Shell mode ─────────────────────────────────────────────────────────────
+//
+//  Type "bash" in the REPL to enter shell mode.  All subsequent input is
+//  interpreted as shell commands operating on the virtual filesystem.
+//  Type "exit" (or "quit") inside shell mode to return to the AGI REPL.
+//
+//  Virtual path conventions
+//  ─────────────────────────
+//    user:/Desktop/file.txt   absolute virtual path
+//    ~/Documents              ~ expands to user:/
+//    Desktop/file.txt         relative to current shell CWD
+//    ..                       parent directory
+//  All file operations go through filelib and respect the user's VFS
+//  permissions — no host filesystem access is possible.
+
+var _shellMode = false;
+var _shellCwd  = "user:/";
+
+function _shellStrEndsWith(str, suffix) {
+    return str.length >= suffix.length &&
+           str.lastIndexOf(suffix) === str.length - suffix.length;
+}
+
+function _shellPadLeft(val, len, ch) {
+    var s = String(val);
+    ch = ch || " ";
+    while (s.length < len) { s = ch + s; }
+    return s;
+}
+
+function _shellBuildPrompt() {
+    var display = _shellCwd;
+    if (display === "user:/") {
+        display = "~";
+    } else if (display.indexOf("user:/") === 0) {
+        display = "~/" + display.substring(6);
+    }
+    // strip trailing slash for display
+    if (display.length > 1 && _shellStrEndsWith(display, "/")) {
+        display = display.substring(0, display.length - 1);
+    }
+    return USERNAME + "@arozos:" + display + "$ ";
+}
+
+// Tokenise a command line — splits on whitespace, honours single/double quotes.
+function _shellTokenize(cmdline) {
+    var tokens = [];
+    var cur = "";
+    var inQuote = false;
+    var qch = "";
+    for (var i = 0; i < cmdline.length; i++) {
+        var c = cmdline.charAt(i);
+        if (inQuote) {
+            if (c === qch) { inQuote = false; }
+            else           { cur += c; }
+        } else if (c === '"' || c === "'") {
+            inQuote = true; qch = c;
+        } else if (c === " " || c === "\t") {
+            if (cur !== "") { tokens.push(cur); cur = ""; }
+        } else {
+            cur += c;
+        }
+    }
+    if (cur !== "") tokens.push(cur);
+    return tokens;
+}
+
+// Resolve a path relative to the current shell CWD.
+function _shellResolvePath(input) {
+    if (!input || input === "" || input === ".") return _shellCwd;
+    if (input === "~") return "user:/";
+    if (input.indexOf("~/") === 0) return "user:/" + input.substring(2);
+    // Absolute virtual path already contains :/
+    if (input.indexOf(":/") !== -1) return input;
+    // Build from CWD components
+    var base = _shellCwd;
+    if (!_shellStrEndsWith(base, "/")) base = base + "/";
+    var baseParts = base.replace(/\/$/, "").split("/");
+    var segs = input.split("/");
+    for (var i = 0; i < segs.length; i++) {
+        var s = segs[i];
+        if (s === "" || s === ".") { continue; }
+        if (s === "..") { if (baseParts.length > 2) baseParts.pop(); }
+        else            { baseParts.push(s); }
+    }
+    return baseParts.join("/");
+}
+
+// Safe wrapper: filelib.isDir() throws when path does not exist instead of
+// returning false.  This wrapper catches that exception and returns false.
+function _shellSafeIsDir(p) {
+    try { return filelib.isDir(p); } catch(e) { return false; }
+}
+
+// ── Shell commands ──────────────────────────────────────────────────────────
+
+function _shellCd(args) {
+    var target = (args.length > 0) ? args[0] : "~";
+    var resolved = _shellResolvePath(target);
+    if (!_shellStrEndsWith(resolved, "/")) resolved = resolved + "/";
+    if (!_shellSafeIsDir(resolved)) {
+        return {output: "cd: " + target + ": No such directory", error: true};
+    }
+    _shellCwd = resolved;
+    return {output: "", error: false};
+}
+
+function _shellLs(args, longMode) {
+    var showHidden = false;
+    var path = _shellCwd;
+    for (var i = 0; i < args.length; i++) {
+        var arg = args[i];
+        if (arg.charAt(0) === "-") {
+            if (arg.indexOf("a") !== -1) showHidden = true;
+            if (arg.indexOf("l") !== -1) longMode = true;
+        } else {
+            path = _shellResolvePath(arg);
+        }
+    }
+    if (!_shellStrEndsWith(path, "/")) path = path + "/";
+    if (!_shellSafeIsDir(path)) {
+        return {output: "ls: " + path + ": No such directory", error: true};
+    }
+    try {
+        var entries = filelib.readdir(path);
+        if (!entries || entries.length === 0) return {output: "", error: false};
+        var lines = [];
+        for (var j = 0; j < entries.length; j++) {
+            var e = entries[j];
+            if (!showHidden && e.Filename.charAt(0) === ".") continue;
+            if (longMode) {
+                var dtype = e.IsDir ? "d" : "-";
+                var size  = e.IsDir ? "       -" : _shellPadLeft(e.Filesize, 8);
+                var d     = new Date(e.Modtime * 1000);
+                var ds    = _shellPadLeft(d.getMonth()+1, 2, "0") + "-" +
+                            _shellPadLeft(d.getDate(), 2, "0") + " " +
+                            _shellPadLeft(d.getHours(), 2, "0") + ":" +
+                            _shellPadLeft(d.getMinutes(), 2, "0");
+                lines.push(dtype + "rwxr-xr-x  " + size + "  " + ds + "  " +
+                           e.Filename + (e.IsDir ? "/" : ""));
+            } else {
+                lines.push(e.Filename + (e.IsDir ? "/" : ""));
+            }
+        }
+        if (lines.length === 0) return {output: "", error: false};
+        return {output: lines.join(longMode ? "\n" : "  "), error: false};
+    } catch(e) {
+        return {output: "ls: " + String(e), error: true};
+    }
+}
+
+function _shellCat(args) {
+    if (args.length === 0) return {output: "cat: missing operand", error: true};
+    var out = [];
+    for (var i = 0; i < args.length; i++) {
+        var p = _shellResolvePath(args[i]);
+        if (_shellSafeIsDir(p)) {
+            out.push("cat: " + args[i] + ": Is a directory");
+        } else if (!filelib.fileExists(p)) {
+            out.push("cat: " + args[i] + ": No such file or directory");
+        } else {
+            try { out.push(filelib.readFile(p)); }
+            catch(e) { out.push("cat: " + args[i] + ": " + String(e)); }
+        }
+    }
+    return {output: out.join("\n"), error: false};
+}
+
+function _shellMkdir(args) {
+    if (args.length === 0) return {output: "mkdir: missing operand", error: true};
+    for (var i = 0; i < args.length; i++) {
+        if (args[i].charAt(0) === "-") continue;
+        var p = _shellResolvePath(args[i]);
+        try { filelib.mkdir(p); }
+        catch(e) { return {output: "mkdir: " + args[i] + ": " + String(e), error: true}; }
+    }
+    return {output: "", error: false};
+}
+
+function _shellTouch(args) {
+    if (args.length === 0) return {output: "touch: missing operand", error: true};
+    for (var i = 0; i < args.length; i++) {
+        var p = _shellResolvePath(args[i]);
+        if (!filelib.fileExists(p)) {
+            try { filelib.writeFile(p, ""); }
+            catch(e) { return {output: "touch: " + args[i] + ": " + String(e), error: true}; }
+        }
+    }
+    return {output: "", error: false};
+}
+
+function _shellRm(args) {
+    if (args.length === 0) return {output: "rm: missing operand", error: true};
+    var recursive = false;
+    var targets = [];
+    for (var i = 0; i < args.length; i++) {
+        if (args[i].charAt(0) === "-") {
+            if (args[i].indexOf("r") !== -1 || args[i].indexOf("R") !== -1) recursive = true;
+        } else {
+            targets.push(args[i]);
+        }
+    }
+    if (targets.length === 0) return {output: "rm: missing operand", error: true};
+    for (var j = 0; j < targets.length; j++) {
+        var p = _shellResolvePath(targets[j]);
+        if (!filelib.fileExists(p) && !_shellSafeIsDir(p)) {
+            return {output: "rm: " + targets[j] + ": No such file or directory", error: true};
+        }
+        if (_shellSafeIsDir(p) && !recursive) {
+            return {output: "rm: " + targets[j] + ": Is a directory (use rm -r)", error: true};
+        }
+        try { filelib.deleteFile(p); }
+        catch(e) { return {output: "rm: " + targets[j] + ": " + String(e), error: true}; }
+    }
+    return {output: "", error: false};
+}
+
+function _shellCp(args) {
+    if (args.length < 2) return {output: "cp: missing destination operand", error: true};
+    var src = _shellResolvePath(args[0]);
+    var dst = _shellResolvePath(args[1]);
+    if (!filelib.fileExists(src)) {
+        return {output: "cp: " + args[0] + ": No such file", error: true};
+    }
+    if (_shellSafeIsDir(src)) {
+        return {output: "cp: " + args[0] + ": Is a directory (recursive copy not supported)", error: true};
+    }
+    if (_shellSafeIsDir(dst)) {
+        var fname = src.split("/").pop();
+        dst = (_shellStrEndsWith(dst, "/") ? dst : dst + "/") + fname;
+    }
+    try {
+        filelib.writeBinaryFile(dst, filelib.readBinaryFile(src));
+    } catch(e) {
+        return {output: "cp: " + String(e), error: true};
+    }
+    return {output: "", error: false};
+}
+
+function _shellMv(args) {
+    if (args.length < 2) return {output: "mv: missing destination operand", error: true};
+    var src = _shellResolvePath(args[0]);
+    var dst = _shellResolvePath(args[1]);
+    if (!filelib.fileExists(src) && !_shellSafeIsDir(src)) {
+        return {output: "mv: " + args[0] + ": No such file or directory", error: true};
+    }
+    if (_shellSafeIsDir(src)) {
+        return {output: "mv: " + args[0] + ": Is a directory (directory move not supported)", error: true};
+    }
+    if (_shellSafeIsDir(dst)) {
+        var fname = src.split("/").pop();
+        dst = (_shellStrEndsWith(dst, "/") ? dst : dst + "/") + fname;
+    }
+    try {
+        filelib.writeBinaryFile(dst, filelib.readBinaryFile(src));
+        filelib.deleteFile(src);
+    } catch(e) {
+        return {output: "mv: " + String(e), error: true};
+    }
+    return {output: "", error: false};
+}
+
+function _shellHelp() {
+    return {output: [
+        "ArozOS Shell — virtual filesystem commands",
+        "",
+        "  pwd                        print working directory",
+        "  ls [-l] [-a] [path]        list directory contents",
+        "  ll [path]                  list with details (alias: ls -l)",
+        "  cd [path]                  change directory  (~ = user home)",
+        "  cat <file> [...]           print file contents",
+        "  mkdir <dir> [...]          create directory",
+        "  touch <file> [...]         create empty file",
+        "  rm [-r] <path> [...]       remove file or directory",
+        "  cp <src> <dst>             copy file",
+        "  mv <src> <dst>             move / rename file",
+        "  echo <text>                print text",
+        "  whoami                     print current user",
+        "  clear                      clear terminal",
+        "  exit                       return to AGI REPL",
+        "  bash()                     enter shell mode (from AGI REPL)",
+        "",
+        "Paths: use user:/path for absolute, or relative to current dir.",
+        "       ~ expands to user:/",
+        "       filenames with spaces can be quoted: cat \"Hello World.txt\""
+    ].join("\n"), error: false};
+}
+
+// Dispatch a shell command line.
+function _shellDispatch(cmdline) {
+    cmdline = cmdline.replace(/^\s+|\s+$/g, "");
+    if (cmdline === "") return {output: "", error: false};
+    var tokens = _shellTokenize(cmdline);
+    if (tokens.length === 0) return {output: "", error: false};
+    var cmd  = tokens[0];
+    var args = tokens.slice(1);
+
+    if (cmd === "exit" || cmd === "quit") {
+        _shellMode = false;
+        return {output: "Returned to AGI runtime.", error: false, shellExit: true};
+    }
+    if (cmd === "pwd")    return {output: _shellCwd.replace(/\/$/, ""), error: false};
+    if (cmd === "whoami") return {output: USERNAME, error: false};
+    if (cmd === "clear")  return {output: "", error: false, shellClear: true};
+    if (cmd === "echo")   return {output: args.join(" "), error: false};
+    if (cmd === "cd")     return _shellCd(args);
+    if (cmd === "ls")     return _shellLs(args, false);
+    if (cmd === "ll" || cmd === "dir") return _shellLs(args, true);
+    if (cmd === "cat")    return _shellCat(args);
+    if (cmd === "mkdir")  return _shellMkdir(args);
+    if (cmd === "touch")  return _shellTouch(args);
+    if (cmd === "rm")     return _shellRm(args);
+    if (cmd === "cp")     return _shellCp(args);
+    if (cmd === "mv")     return _shellMv(args);
+    if (cmd === "help" || cmd === "?") return _shellHelp();
+    return {output: cmd + ": command not found  (type 'help' for available commands)", error: true};
+}
+
+// "bash" — callable from the AGI REPL to enter shell mode.
+function bash() {
+    requirelib("filelib");
+    _shellMode = true;
+    websocket.send(JSON.stringify({
+        type:   "shellmode",
+        active: true,
+        cwd:    _shellCwd,
+        prompt: _shellBuildPrompt()
+    }));
+}
+
+// ── Tab completion ──────────────────────────────────────────────────────────
+//
+//  Called by the frontend when Tab is pressed in shell mode.
+//  Returns {candidates: [...], partial: "..."} where:
+//    candidates — list of matching filenames/paths (dirs suffixed with /)
+//    partial    — the token that was being completed (for replacement)
+
+var _SHELL_CMDS = [
+    "bash","cat","cd","clear","cp","dir","echo","exit",
+    "help","ll","ls","mkdir","mv","pwd","quit","rm","touch","whoami"
+];
+
+function _shellComplete(line) {
+    var endsSpace = line.length > 0 &&
+                    (line.charAt(line.length - 1) === " " ||
+                     line.charAt(line.length - 1) === "\t");
+    var tokens  = _shellTokenize(line);
+    var partial = endsSpace ? "" : (tokens.length > 0 ? tokens[tokens.length - 1] : "");
+    var isCmd   = tokens.length === 0 || (tokens.length === 1 && !endsSpace);
+
+    // Command name completion for the first token
+    if (isCmd) {
+        var cmdCandidates = [];
+        for (var c = 0; c < _SHELL_CMDS.length; c++) {
+            if (_SHELL_CMDS[c].indexOf(partial) === 0) cmdCandidates.push(_SHELL_CMDS[c]);
+        }
+        return {candidates: cmdCandidates, partial: partial};
+    }
+
+    // Path completion for arguments
+    var lastSlash = partial.lastIndexOf("/");
+    var dirPart  = lastSlash !== -1 ? partial.substring(0, lastSlash + 1) : "";
+    var filePart = lastSlash !== -1 ? partial.substring(lastSlash + 1)    : partial;
+    var listDir  = dirPart === "" ? _shellCwd : _shellResolvePath(dirPart);
+    if (!_shellStrEndsWith(listDir, "/")) listDir = listDir + "/";
+
+    try {
+        if (!filelib.isDir(listDir)) return {candidates: [], partial: partial};
+        var entries = filelib.readdir(listDir);
+        var pathCandidates = [];
+        for (var p = 0; p < entries.length; p++) {
+            var e = entries[p];
+            if (e.Filename.indexOf(filePart) === 0) {
+                pathCandidates.push(dirPart + e.Filename + (e.IsDir ? "/" : ""));
+            }
+        }
+        return {candidates: pathCandidates, partial: partial};
+    } catch(err) {
+        return {candidates: [], partial: partial};
+    }
+}
+
 // ── Session ready ──────────────────────────────────────────────────────────
 
 websocket.send(JSON.stringify({
@@ -111,7 +496,52 @@ while (_sessionRunning && !websocket.isClosed()) {
         continue;
     }
 
+    // Tab-completion request (shell mode only)
+    if (req.type === "complete" && _shellMode) {
+        var _cr = _shellComplete(req.line || "");
+        websocket.send(JSON.stringify({
+            type:       "complete",
+            candidates: _cr.candidates,
+            partial:    _cr.partial
+        }));
+        continue;
+    }
+
     if (req.type !== "exec" || typeof req.code !== "string") continue;
+
+    // ── Shell mode ─────────────────────────────────────────────────────────
+    if (_shellMode) {
+        var _sr;
+        try {
+            _sr = _shellDispatch(req.code);
+        } catch(e) {
+            _sr = {output: "shell: " + String(e), error: true};
+        }
+
+        if (_sr.shellClear) {
+            websocket.send(JSON.stringify({type: "clear"}));
+            websocket.send(JSON.stringify({
+                type: "result", output: "", error: false,
+                logs: [], shellPrompt: _shellBuildPrompt()
+            }));
+            continue;
+        }
+
+        if (_sr.shellExit) {
+            websocket.send(JSON.stringify({type: "shellmode", active: false}));
+        }
+
+        websocket.send(JSON.stringify({
+            type:        "result",
+            output:      _sr.output,
+            error:       _sr.error,
+            logs:        [],
+            shellPrompt: _shellBuildPrompt()
+        }));
+        continue;
+    }
+
+    // ── Normal REPL mode ───────────────────────────────────────────────────
 
     // Reset per-invocation state
     _logs         = [];

@@ -17,19 +17,19 @@ import (
 /*
 	Backend script tests for the AI Chat demo app (web/AIChat/backend/*.agi).
 
-	These execute the real .agi scripts inside an otto VM with the real aimodel
+	These execute the real .agi scripts inside an otto VM with the real llm
 	library injected (pointed at a mock OpenAI-compatible server), so the demo
 	app's backend logic is verified without a running arozos server or a real
 	model endpoint.
 */
 
-// runAIChatBackend loads a backend script, injects the aimodel lib + stubs for
+// runAIChatBackend loads a backend script, injects the llm lib + stubs for
 // requirelib/sendJSONResp, sets the given POST params and returns whatever the
 // script passed to sendJSONResp.
 func runAIChatBackend(t *testing.T, g *Gateway, scriptRelPath string, params map[string]string) string {
 	t.Helper()
 	vm := otto.New()
-	g.injectAIModelFunctions(&static.AgiLibInjectionPayload{VM: vm, User: &user.User{Username: "tester"}})
+	g.injectLLMFunctions(&static.AgiLibInjectionPayload{VM: vm, User: &user.User{Username: "tester"}})
 
 	//requirelib is a no-op here: the lib is already injected above.
 	vm.Set("requirelib", func(call otto.FunctionCall) otto.Value {
@@ -74,7 +74,7 @@ func TestAIChatBackend_Chat(t *testing.T) {
 
 	g := dbGateway(t)
 	sysdb := g.Option.UserHandler.GetDatabase()
-	sysdb.Write(aiModelDBTable, "config", AIModelConfig{Endpoint: srv.URL, DefaultModel: "test-model", Currency: "USD"})
+	sysdb.Write(llmDBTable, "config", LLMConfig{Endpoint: srv.URL, DefaultModel: "test-model", Currency: "USD"})
 
 	out := runAIChatBackend(t, g, "AIChat/backend/chat.agi", map[string]string{
 		"messages": `[{"role":"user","content":"hi"}]`,
@@ -109,8 +109,8 @@ func TestAIChatBackend_ChatNoEndpointReturnsError(t *testing.T) {
 func TestAIChatBackend_Models(t *testing.T) {
 	g := dbGateway(t)
 	sysdb := g.Option.UserHandler.GetDatabase()
-	sysdb.Write(aiModelDBTable, "config", AIModelConfig{DefaultModel: "test-model", Currency: "USD"})
-	sysdb.Write(aiModelDBTable, "pricing", map[string]AIModelPricing{
+	sysdb.Write(llmDBTable, "config", LLMConfig{DefaultModel: "test-model", Currency: "USD"})
+	sysdb.Write(llmDBTable, "pricing", map[string]LLMPricing{
 		"test-model": {InputPrice: 1, OutputPrice: 2},
 		"other":      {InputPrice: 3, OutputPrice: 4},
 	})

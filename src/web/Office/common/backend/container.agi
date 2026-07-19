@@ -1,0 +1,185 @@
+/*
+    ArozOS Office Suite - native container backend
+
+    Saves and loads the suite's native files (.doca / .xlsa / .ppta) as zip
+    containers with embedded binary assets (see mod/office packed.go).
+
+    Media handling: documents reference media through media?file= links
+    (either the user's own files or uploads under the Office working
+    directory). office.packToFile embeds those files into the container at
+    save time, and office.unpackToWorkdir extracts them back into a
+    per-document cache dir on load - so the JSON payloads that travel
+    through this endpoint stay small even for video-heavy documents.
+
+    Working directory: user:/.appdata/Office/
+        uploads/   media dropped in from the device (via the system
+                   upload endpoint, streamed as multipart)
+        cache/     assets extracted from opened containers
+        session/   rolling per-app snapshots for "Restore from previous
+                   session"
+
+    POST parameters:
+        action = "save" | "load" | "prepare" | "session-save" |
+                 "session-load"
+
+        save:          filepath, content(envelope JSON)      -> "OK"
+        load:          filepath                              -> {"envelope": {...}}
+        prepare:       (none)                                -> "OK" (workdir exists)
+        session-save:  app, content(envelope JSON)           -> "OK"
+        session-load:  app                                   -> {"envelope": {...}} or {"none": true}
+
+    Legacy plain-JSON documents load transparently and are upgraded to the
+    container format on their next save. When the office lib is unavailable
+    (older host), save falls back to a plain JSON write so no data is lost.
+*/
+
+var WORKDIR = "user:/.appdata/Office";
+
+function ensureWorkdir(){
+    if (!requirelib("filelib")){
+        return false;
+    }
+    var dirs = [
+        "user:/.appdata",
+        WORKDIR,
+        WORKDIR + "/uploads",
+        WORKDIR + "/cache",
+        WORKDIR + "/session"
+    ];
+    for (var i = 0; i < dirs.length; i++){
+        if (!filelib.fileExists(dirs[i])){
+            filelib.mkdir(dirs[i]);
+        }
+    }
+    return true;
+}
+
+function safeAppName(name){
+    return String(name || "app").replace(/[^a-zA-Z0-9_-]/g, "").substring(0, 32);
+}
+
+function main(){
+    if (typeof action === "undefined"){
+        sendJSONResp(JSON.stringify({ error: "action is required" }));
+        return;
+    }
+
+    var hasOffice = requirelib("office");
+
+    if (action == "prepare"){
+        if (!ensureWorkdir()){
+            sendJSONResp(JSON.stringify({ error: "filelib unavailable" }));
+            return;
+        }
+        sendResp("OK");
+        return;
+    }
+
+    if (action == "save"){
+        if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "filepath is required" }));
+            return;
+        }
+        if (typeof content === "undefined" || content === ""){
+            sendJSONResp(JSON.stringify({ error: "content is required" }));
+            return;
+        }
+        try {
+            if (hasOffice){
+                if (!office.packToFile(content, filepath)){
+                    sendJSONResp(JSON.stringify({ error: "unable to write the document container" }));
+                    return;
+                }
+            } else {
+                //fallback: plain JSON (not packed, but nothing is lost)
+                if (!requirelib("filelib") || !filelib.writeFile(filepath, content)){
+                    sendJSONResp(JSON.stringify({ error: "unable to write file" }));
+                    return;
+                }
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "save failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "load"){
+        if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "filepath is required" }));
+            return;
+        }
+        if (!hasOffice){
+            sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+            return;
+        }
+        try {
+            ensureWorkdir();
+            var envelope = office.unpackToWorkdir(filepath, WORKDIR + "/cache");
+            if (!envelope){
+                sendJSONResp(JSON.stringify({ error: "unable to read the document" }));
+                return;
+            }
+            //envelope is already a JSON string - concat instead of re-encoding
+            sendJSONResp('{"envelope":' + envelope + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "load failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "session-save"){
+        if (typeof app === "undefined" || typeof content === "undefined" || !content){
+            sendJSONResp(JSON.stringify({ error: "app and content are required" }));
+            return;
+        }
+        if (!hasOffice){
+            sendJSONResp(JSON.stringify({ error: "office lib unavailable" }));
+            return;
+        }
+        try {
+            ensureWorkdir();
+            var dest = WORKDIR + "/session/" + safeAppName(app) + ".osession";
+            if (!office.packToFile(content, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the session snapshot" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "session save failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "session-load"){
+        if (typeof app === "undefined"){
+            sendJSONResp(JSON.stringify({ error: "app is required" }));
+            return;
+        }
+        if (!hasOffice || !requirelib("filelib")){
+            sendJSONResp(JSON.stringify({ none: true }));
+            return;
+        }
+        try {
+            var src = WORKDIR + "/session/" + safeAppName(app) + ".osession";
+            if (!filelib.fileExists(src)){
+                sendJSONResp(JSON.stringify({ none: true }));
+                return;
+            }
+            ensureWorkdir();
+            var sess = office.unpackToWorkdir(src, WORKDIR + "/cache");
+            if (!sess){
+                sendJSONResp(JSON.stringify({ none: true }));
+                return;
+            }
+            sendJSONResp('{"envelope":' + sess + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ none: true, error: e.message }));
+        }
+        return;
+    }
+
+    sendJSONResp(JSON.stringify({ error: "unknown action: " + action }));
+}
+
+main();

@@ -5,12 +5,12 @@
 	Shape: { "default": "gpt-4o-mini", "models": ["gpt-4o-mini", ...] }
 */
 
-requirelib("aimodel");
+requirelib("llm");
 
 var out = { "default": "", "models": [] };
 
 try {
-	var cfg = aimodel.models(); // { default, models:[pricing keys] }
+	var cfg = llm.models(); // { default, models:[pricing keys] }
 	out["default"] = cfg["default"] || "";
 
 	var set = {};
@@ -19,7 +19,7 @@ try {
 
 	//Merge in the live models advertised by the endpoint (best effort)
 	try {
-		var live = aimodel.listModels(); // { models:[...] } or { error }
+		var live = llm.listModels(); // { models:[...] } or { error }
 		var lm = live.models || [];
 		for (var j = 0; j < lm.length; j++) { set[lm[j]] = true; }
 	} catch (e) { /* endpoint unreachable - keep configured list */ }
