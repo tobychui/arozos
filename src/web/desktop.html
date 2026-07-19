@@ -7026,16 +7026,18 @@
             //Always add it to the persistent notification list.
             sendNotification(title, message, arozNotificationIcon(item.priority), null);
 
-            //Decide how to surface it: toast when focused, browser push when not.
-            var channel = (typeof NotificationUI !== "undefined")
-                ? NotificationUI.deliveryChannelForFocus(pageIsFocused())
-                : (pageIsFocused() ? "toast" : "push");
+            //Surface it: the in-page toast is shown whether or not the desktop
+            //is focused, so the notification is never silently swallowed; a
+            //browser (OS) push is additionally raised only when the desktop is
+            //not focused, to reach the user when they are looking elsewhere.
+            var channels = (typeof NotificationUI !== "undefined")
+                ? NotificationUI.deliveryChannelsForFocus(pageIsFocused())
+                : (pageIsFocused() ? ["toast"] : ["toast", "push"]);
 
-            if (channel === "toast"){
-                //Foreground: show an in-page toast.
+            if (channels.indexOf("toast") >= 0){
                 showNotificationToast(title, message, item.priority);
-            } else {
-                //Backgrounded / unfocused: raise a browser (Chrome) push instead.
+            }
+            if (channels.indexOf("push") >= 0){
                 showBrowserPush(title, message, item.priority);
             }
         }
