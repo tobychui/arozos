@@ -43,3 +43,4 @@ src/ffmpeg
 /src/dist
 /apps
 /src/framework
+src/system/telegram_conf.json

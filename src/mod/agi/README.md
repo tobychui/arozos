@@ -1831,6 +1831,31 @@ requirelib("sharedspace");
 var itemid = sharedspace.addFile(spaceid, "user:/Photo/cat.png");
 ```
 
+### `sharedspace.notifyMembers(spaceid, title, message, priority, usernames)` → number
+
+Raise a notification to fellow members of a space through the ArozOS
+notification system. Membership-scoped: only a member (or space manager) may
+notify, and only current members can be reached, so this cannot be used to
+spam arbitrary users (no admin permission required, unlike
+`notification.sendToUser`). Members currently connected to the space's
+realtime channel are skipped, since they already receive the live message.
+Delivery per recipient follows that user's own notification preferences
+(desktop, Telegram, email, webhook).
+
+`message`, `priority` (`"low"` / `"medium"` / `"high"`, default `"medium"`)
+and `usernames` are optional. When `usernames` (an array) is omitted every
+other member is notified; when given, the recipients are narrowed to that set
+intersected with the current members. Returns the number of members actually
+notified, or `-1` on error.
+
+```javascript
+requirelib("sharedspace");
+//Notify everyone else in the space
+sharedspace.notifyMembers(spaceid, "New message", "Alice: are we still on?");
+//Notify just two members, at high priority
+sharedspace.notifyMembers(spaceid, "Alice in #plan", "@bob @carol ping", "high", ["bob", "carol"]);
+```
+
 ### `sharedspace.listItems(spaceid)` → array | null
 
 Chronological list of items:

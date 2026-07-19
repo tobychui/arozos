@@ -132,11 +132,13 @@
         return priorityToInt(notificationPriority) >= priorityToInt(minPriority);
     }
 
-    // deliveryChannelForFocus picks how an incoming desktop notification is
-    // surfaced: an in-page "toast" when the desktop tab is focused, or a
-    // browser (Chrome) "push" when it is not (hidden tab / unfocused window).
-    function deliveryChannelForFocus(isFocused) {
-        return isFocused ? "toast" : "push";
+    // deliveryChannelsForFocus lists how an incoming desktop notification should
+    // be surfaced. The in-page "toast" is always included so the notification is
+    // shown whether or not the desktop is focused; a browser (Chrome) "push" is
+    // added only when the desktop is not focused (hidden tab / unfocused
+    // window), to reach the user when they are looking elsewhere.
+    function deliveryChannelsForFocus(isFocused) {
+        return isFocused ? ["toast"] : ["toast", "push"];
     }
 
     // toastPriorityClass returns the CSS modifier class for a toast of the
@@ -166,7 +168,7 @@
         browserPermissionState: browserPermissionState,
         dedupeNotifications: dedupeNotifications,
         shouldShowBrowserPush: shouldShowBrowserPush,
-        deliveryChannelForFocus: deliveryChannelForFocus,
+        deliveryChannelsForFocus: deliveryChannelsForFocus,
         toastPriorityClass: toastPriorityClass,
         toastDurationMs: toastDurationMs
     };

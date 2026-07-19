@@ -44,6 +44,7 @@
         createChannel: "../system/ajgi/interface?script=Chatspace/backend/createChannel.js",
         openDm: "../system/ajgi/interface?script=Chatspace/backend/openDm.js",
         aibot: "../system/ajgi/interface?script=Chatspace/backend/aibot.js",
+        notify: "../system/ajgi/interface?script=Chatspace/backend/notify.js",
         saveToArozOS: "../system/ajgi/interface?script=Chatspace/backend/saveToArozOS.js",
         info: "../system/sharedspace/info",
         join: "../system/sharedspace/join",
@@ -148,7 +149,9 @@
         booted: false,
         prefs: {
             lastRead: {}, starred: [], saved: [], drafts: {},
-            collapsed: {}, lastActive: "", activitySeen: 0
+            collapsed: {}, lastActive: "", activitySeen: 0,
+            //Play an audible chime for incoming messages while the app is open.
+            sound: true
         }
     };
 
@@ -297,40 +300,139 @@
             ';font-size:' + (fontPx || 14) + 'px;">' + escapeHtml(initial) + '</div>';
     }
 
-    /* ================= Sound (WebAudio chime, no bundled assets) ================= */
+    /* ================= Sound (WebAudio chime, no bundled assets) =================
+
+       Two chimes, both synthesised on the fly (no bundled audio asset): a
+       prominent rising two-note chime for DMs / @mentions and a soft single
+       note for ordinary new messages, so the app gives an audible cue for
+       every incoming message while it is open. Both honour the per-user
+       "sound" preference and share a short throttle so a burst of messages
+       cannot machine-gun the speaker. */
 
     var audioCtx = null;
     var lastChime = 0;
 
-    function playNotifySound() {
+    //Create (once) and resume the shared AudioContext. Resume only takes
+    //effect during / after a user gesture, so unlockMedia() warms it up on the
+    //first interaction; until then the browser keeps it suspended and silent.
+    function ensureAudioCtx() {
+        if (!audioCtx) {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            audioCtx = new Ctx();
+        }
+        if (audioCtx.state === "suspended") {
+            var p = audioCtx.resume();
+            if (p && p.catch) p.catch(function () { });
+        }
+        return audioCtx;
+    }
+
+    //Play a chime built from a list of {freq, at, len, vol} sine-wave notes.
+    function playChime(notes) {
+        if (!state.prefs.sound) return;
         var now = Date.now();
-        if (now - lastChime < 3000) return;
+        if (now - lastChime < 1500) return;
         lastChime = now;
         try {
-            if (!audioCtx) {
-                var Ctx = window.AudioContext || window.webkitAudioContext;
-                if (!Ctx) return;
-                audioCtx = new Ctx();
-            }
-            if (audioCtx.state === "suspended") {
-                var p = audioCtx.resume();
-                if (p && p.catch) p.catch(function () { });
-            }
-            var t = audioCtx.currentTime;
-            [{ freq: 830, at: 0, len: 0.09 }, { freq: 1245, at: 0.09, len: 0.16 }].forEach(function (note) {
-                var osc = audioCtx.createOscillator();
-                var gain = audioCtx.createGain();
+            var ctx = ensureAudioCtx();
+            if (!ctx) return;
+            var t = ctx.currentTime;
+            notes.forEach(function (note) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
                 osc.type = "sine";
                 osc.frequency.value = note.freq;
                 gain.gain.setValueAtTime(0.0001, t + note.at);
-                gain.gain.linearRampToValueAtTime(0.08, t + note.at + 0.02);
+                gain.gain.linearRampToValueAtTime(note.vol || 0.08, t + note.at + 0.02);
                 gain.gain.exponentialRampToValueAtTime(0.0001, t + note.at + note.len);
                 osc.connect(gain);
-                gain.connect(audioCtx.destination);
+                gain.connect(ctx.destination);
                 osc.start(t + note.at);
                 osc.stop(t + note.at + note.len + 0.05);
             });
         } catch (e) { }
+    }
+
+    //Prominent rising chime for DMs and @mentions.
+    function playNotifySound() {
+        playChime([{ freq: 830, at: 0, len: 0.09 }, { freq: 1245, at: 0.09, len: 0.16 }]);
+    }
+
+    //Soft single note for ordinary new channel messages.
+    function playMessageChime() {
+        playChime([{ freq: 660, at: 0, len: 0.12, vol: 0.05 }]);
+    }
+
+    //Unlock audio on the first user gesture (browsers keep the AudioContext
+    //suspended until then). Runs once, then detaches itself.
+    var mediaUnlocked = false;
+    function unlockMedia() {
+        if (mediaUnlocked) return;
+        mediaUnlocked = true;
+        ensureAudioCtx();
+        document.removeEventListener("click", unlockMedia);
+        document.removeEventListener("keydown", unlockMedia);
+        document.removeEventListener("touchstart", unlockMedia);
+    }
+
+    /* ================= Native notifications (ArozOS notification agent) =======
+
+       Push notifications are routed through the ArozOS notification system
+       rather than a browser-only alert: when a message needs to reach people
+       (a DM, or an @mention / @channel / @everyone in a channel), the sender
+       asks the backend to raise a notification for the target members. The
+       core delivers it to each recipient through *their own* configured
+       notification agents - the ArozOS desktop (which itself raises the OS
+       push when unfocused), Telegram, email or a webhook - so users are
+       reached even when Chatspace is closed.
+
+       The backend skips members currently connected to the conversation, so
+       anyone with it open just gets the live message (and the chime) instead
+       of a duplicate notification. See backend/notify.js and the sharedspace
+       AGI library's notifyMembers(). */
+
+    //Resolve who a message should notify: for a DM, the other participants;
+    //for a channel, the members it @mentions (everyone on @channel/@everyone).
+    function notifyRecipients(convo, text) {
+        if (convo.kind === "dm") return dmOthers(convo);
+        return channelMentionTargets(convo, text);
+    }
+
+    function channelMentionTargets(convo, text) {
+        var members = Object.keys(convo.members || {});
+        //Broadcast mentions ping every other member of the channel.
+        if (/(^|[\s(>])@(everyone|channel)(?![A-Za-z0-9_.\-])/.test(text)) {
+            return members.filter(function (u) { return u !== state.username; });
+        }
+        //Otherwise collect the individually @mentioned members.
+        var targets = [];
+        var re = /(^|[\s(>])@([A-Za-z0-9_.\-]+)/g;
+        var match;
+        while ((match = re.exec(text)) !== null) {
+            var name = match[2];
+            if (name === state.username || name.toLowerCase() === AI_HANDLE) continue;
+            if (members.indexOf(name) >= 0 && targets.indexOf(name) < 0) targets.push(name);
+        }
+        return targets;
+    }
+
+    //Ask the backend to raise an ArozOS notification for the members a message
+    //addresses. Best effort: failures are swallowed (the message is already
+    //delivered over the realtime channel regardless).
+    function pushMemberNotification(convo, text) {
+        if (!text) return;
+        var targets = notifyRecipients(convo, text);
+        if (!targets || targets.length === 0) return;
+        var heading = convo.kind === "dm"
+            ? state.username
+            : state.username + " in #" + convoLabel(convo);
+        $.post(API.notify, {
+            spaceid: convo.id,
+            title: heading,
+            message: text,
+            targets: JSON.stringify(targets)
+        }, function () { }, "json");
     }
 
     /* ================= Toasts ================= */
@@ -696,6 +798,10 @@
         }
         sendEnvelope(convo, env);
         markRead(convo);
+        //Route a push notification to the members this message addresses
+        //(DM recipients, or @mentioned members) via the ArozOS notification
+        //agent, so they are reached even without Chatspace open.
+        pushMemberNotification(convo, text);
         if (mentionsAi(text)) triggerAiBot(convo, text, threadId || "");
     }
 
@@ -917,16 +1023,24 @@
         if (isMessage && !mine) {
             var text = env ? String(env.t || "") : (item.type === "text" ? item.text : "Shared " + item.name);
             var sender = isBot ? AI_DISPLAY : item.uploader;
-            var notify = false;
-            if (convo.kind === "dm") notify = true;
-            if (mentionsMe(text)) notify = true;
-            if (notify && (!state.focused || state.active !== convo.id)) {
-                playNotifySound();
-                showToast(
-                    convo.kind === "dm" ? sender : sender + " in #" + convoLabel(convo),
-                    text || item.name || "",
-                    function () { setActive(convo.id); }
-                );
+            var notify = (convo.kind === "dm") || mentionsMe(text);
+            //Away = the user is not reading this conversation right now
+            //(another convo open, or the window is in the background).
+            var away = !state.focused || state.active !== convo.id;
+
+            //Audible cue for every incoming message while the app is open: a
+            //prominent chime for DMs / @mentions, a soft one otherwise.
+            if (notify) playNotifySound();
+            else playMessageChime();
+
+            //Surface DMs / @mentions we are not currently reading with an
+            //in-app toast. (Reaching users who do not have Chatspace open is
+            //handled server-side by the sender via the ArozOS notification
+            //agent - see pushMemberNotification / backend/notify.js.)
+            if (notify && away) {
+                var heading = convo.kind === "dm" ? sender : sender + " in #" + convoLabel(convo);
+                var preview = text || item.name || "";
+                showToast(heading, preview, function () { setActive(convo.id); });
             }
         }
         delete convo.typing[item.uploader];
@@ -2515,9 +2629,29 @@
             html += '<div class="rp-section"><h4>Groups</h4><div class="rp-value">' +
                 escapeHtml(groups.join(", ")) + '</div></div>';
         }
+        //Your own profile doubles as the notification preferences panel.
+        if (username === state.username) {
+            html += '<div class="rp-section"><h4>Notifications</h4>' +
+                '<div class="cs-toggle-row"><span>Play a sound for new messages</span>' +
+                '<label class="cs-switch"><input type="checkbox" id="prefSound"' +
+                (state.prefs.sound ? ' checked' : '') + '><span class="cs-slider"></span></label></div>' +
+                '<div class="cs-field-hint">DMs and mentions are delivered through your ArozOS ' +
+                'notifications (desktop, Telegram, email...) when you are away. ' +
+                'Choose how you receive them in System Settings &rsaquo; Notifications.</div>' +
+                '</div>';
+        }
         $id("rpBody").innerHTML = html;
         var dmBtn = $id("rpDmBtn");
         if (dmBtn) dmBtn.addEventListener("click", function () { openDmWith([username]); });
+
+        var soundToggle = $id("prefSound");
+        if (soundToggle) {
+            soundToggle.addEventListener("change", function () {
+                state.prefs.sound = this.checked;
+                savePrefs();
+                if (this.checked) playNotifySound(); //audible confirmation
+            });
+        }
     }
 
     /* ================= Channel management actions ================= */
@@ -3844,6 +3978,12 @@
             if (convo) { markRead(convo); renderSidebar(); }
         });
         window.addEventListener("blur", function () { state.focused = false; });
+
+        //Browsers gate audio playback and the notification-permission prompt
+        //behind a user gesture, so unlock both on the first interaction.
+        document.addEventListener("click", unlockMedia);
+        document.addEventListener("keydown", unlockMedia);
+        document.addEventListener("touchstart", unlockMedia);
 
         //Drag & drop / paste uploads
         var content = $id("content");
