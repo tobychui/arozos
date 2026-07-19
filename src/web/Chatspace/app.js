@@ -44,6 +44,7 @@
         createChannel: "../system/ajgi/interface?script=Chatspace/backend/createChannel.js",
         openDm: "../system/ajgi/interface?script=Chatspace/backend/openDm.js",
         aibot: "../system/ajgi/interface?script=Chatspace/backend/aibot.js",
+        notify: "../system/ajgi/interface?script=Chatspace/backend/notify.js",
         saveToArozOS: "../system/ajgi/interface?script=Chatspace/backend/saveToArozOS.js",
         info: "../system/sharedspace/info",
         join: "../system/sharedspace/join",
@@ -150,9 +151,7 @@
             lastRead: {}, starred: [], saved: [], drafts: {},
             collapsed: {}, lastActive: "", activitySeen: 0,
             //Play an audible chime for incoming messages while the app is open.
-            sound: true,
-            //Raise native OS / ArozOS desktop notifications for DMs & mentions.
-            desktopNotify: true
+            sound: true
         }
     };
 
@@ -365,95 +364,75 @@
         playChime([{ freq: 660, at: 0, len: 0.12, vol: 0.05 }]);
     }
 
-    /* ================= Native notifications =================
-
-       "Native" here means the OS-level browser Notification API - the same
-       mechanism the ArozOS desktop uses for its own push notifications - so
-       users are alerted to DMs and @mentions even when the Chatspace window is
-       backgrounded or behind another app. When Chatspace is embedded in the
-       ArozOS virtual desktop we additionally mirror the alert into the desktop
-       notification centre so it is logged alongside system notifications.
-       Permission is requested lazily on the first user gesture (unlockMedia)
-       and whenever the user turns the preference on. */
-
-    //Icon shown on the OS notification; absolute so it resolves regardless of
-    //the embedding (float window / embedded / standalone PWA) context.
-    var NOTIFY_ICON = (function () {
-        try { return new URL("img/logo192.png", location.href).href; }
-        catch (e) { return "img/logo192.png"; }
-    })();
-
-    function nativeNotifySupported() {
-        return typeof window.Notification !== "undefined";
-    }
-
-    //Ask the browser for notification permission (a no-op unless still the
-    //"default", unasked state). Browsers gate this behind a user gesture.
-    function requestNotifyPermission() {
-        if (!nativeNotifySupported()) return;
-        try {
-            if (Notification.permission === "default") {
-                var p = Notification.requestPermission();
-                if (p && p.then) p.then(function () { }, function () { });
-            }
-        } catch (e) { }
-    }
-
-    //Raise an OS notification for a message and, inside the ArozOS desktop,
-    //mirror it into the desktop notification centre. Clicking focuses us and
-    //opens the conversation. Returns true when an OS notification was shown.
-    function nativeNotify(title, body, convoId) {
-        if (!state.prefs.desktopNotify) return false;
-        var shown = false;
-        if (nativeNotifySupported() && Notification.permission === "granted") {
-            try {
-                var n = new Notification(title, {
-                    body: body,
-                    icon: NOTIFY_ICON,
-                    tag: "chatspace-" + convoId,
-                    renotify: true
-                });
-                n.onclick = function () {
-                    try { window.focus(); } catch (e) { }
-                    if (typeof ao_module_focus === "function") {
-                        try { ao_module_focus(); } catch (e) { }
-                    }
-                    setActive(convoId);
-                    n.close();
-                };
-                //Auto-close so alerts do not pile up at the OS level.
-                setTimeout(function () { try { n.close(); } catch (e) { } }, 8000);
-                shown = true;
-            } catch (e) { }
-        }
-        mirrorToDesktopCentre(title, body);
-        return shown;
-    }
-
-    //Best-effort hand-off to the ArozOS desktop notification centre when we
-    //run inside the virtual desktop iframe. Guarded so a standalone / PWA
-    //launch (no parent desktop) simply skips it. The desktop helper
-    //interpolates its arguments as HTML, so escape the chat text first.
-    function mirrorToDesktopCentre(title, body) {
-        if (typeof ao_module_virtualDesktop === "undefined" || !ao_module_virtualDesktop) return;
-        try {
-            if (window.parent && typeof window.parent.sendNotification === "function") {
-                window.parent.sendNotification(escapeHtml(title), escapeHtml(body), "comment", null);
-            }
-        } catch (e) { /* cross-frame access or helper unavailable */ }
-    }
-
-    //Unlock audio + request notification permission on the first user gesture
-    //(browsers gate both behind one). Runs once, then detaches itself.
+    //Unlock audio on the first user gesture (browsers keep the AudioContext
+    //suspended until then). Runs once, then detaches itself.
     var mediaUnlocked = false;
     function unlockMedia() {
         if (mediaUnlocked) return;
         mediaUnlocked = true;
         ensureAudioCtx();
-        if (state.prefs.desktopNotify) requestNotifyPermission();
         document.removeEventListener("click", unlockMedia);
         document.removeEventListener("keydown", unlockMedia);
         document.removeEventListener("touchstart", unlockMedia);
+    }
+
+    /* ================= Native notifications (ArozOS notification agent) =======
+
+       Push notifications are routed through the ArozOS notification system
+       rather than a browser-only alert: when a message needs to reach people
+       (a DM, or an @mention / @channel / @everyone in a channel), the sender
+       asks the backend to raise a notification for the target members. The
+       core delivers it to each recipient through *their own* configured
+       notification agents - the ArozOS desktop (which itself raises the OS
+       push when unfocused), Telegram, email or a webhook - so users are
+       reached even when Chatspace is closed.
+
+       The backend skips members currently connected to the conversation, so
+       anyone with it open just gets the live message (and the chime) instead
+       of a duplicate notification. See backend/notify.js and the sharedspace
+       AGI library's notifyMembers(). */
+
+    //Resolve who a message should notify: for a DM, the other participants;
+    //for a channel, the members it @mentions (everyone on @channel/@everyone).
+    function notifyRecipients(convo, text) {
+        if (convo.kind === "dm") return dmOthers(convo);
+        return channelMentionTargets(convo, text);
+    }
+
+    function channelMentionTargets(convo, text) {
+        var members = Object.keys(convo.members || {});
+        //Broadcast mentions ping every other member of the channel.
+        if (/(^|[\s(>])@(everyone|channel)(?![A-Za-z0-9_.\-])/.test(text)) {
+            return members.filter(function (u) { return u !== state.username; });
+        }
+        //Otherwise collect the individually @mentioned members.
+        var targets = [];
+        var re = /(^|[\s(>])@([A-Za-z0-9_.\-]+)/g;
+        var match;
+        while ((match = re.exec(text)) !== null) {
+            var name = match[2];
+            if (name === state.username || name.toLowerCase() === AI_HANDLE) continue;
+            if (members.indexOf(name) >= 0 && targets.indexOf(name) < 0) targets.push(name);
+        }
+        return targets;
+    }
+
+    //Ask the backend to raise an ArozOS notification for the members a message
+    //addresses. Best effort: failures are swallowed (the message is already
+    //delivered over the realtime channel regardless).
+    function pushMemberNotification(convo, text) {
+        if (!text) return;
+        var targets = notifyRecipients(convo, text);
+        if (!targets || targets.length === 0) return;
+        var heading = convo.kind === "dm"
+            ? state.username
+            : state.username + " in #" + convoLabel(convo);
+        $.post(API.notify, {
+            spaceid: convo.id,
+            title: heading,
+            message: text,
+            targets: JSON.stringify(targets)
+        }, function () { }, "json");
     }
 
     /* ================= Toasts ================= */
@@ -819,6 +798,10 @@
         }
         sendEnvelope(convo, env);
         markRead(convo);
+        //Route a push notification to the members this message addresses
+        //(DM recipients, or @mentioned members) via the ArozOS notification
+        //agent, so they are reached even without Chatspace open.
+        pushMemberNotification(convo, text);
         if (mentionsAi(text)) triggerAiBot(convo, text, threadId || "");
     }
 
@@ -1050,14 +1033,13 @@
             if (notify) playNotifySound();
             else playMessageChime();
 
-            //Surface DMs / @mentions the user is not currently reading. When
-            //the window is backgrounded, push it through the native
-            //notification system (OS notification + ArozOS desktop centre);
-            //the in-app toast is shown regardless so it is waiting on return.
+            //Surface DMs / @mentions we are not currently reading with an
+            //in-app toast. (Reaching users who do not have Chatspace open is
+            //handled server-side by the sender via the ArozOS notification
+            //agent - see pushMemberNotification / backend/notify.js.)
             if (notify && away) {
                 var heading = convo.kind === "dm" ? sender : sender + " in #" + convoLabel(convo);
                 var preview = text || item.name || "";
-                if (!state.focused) nativeNotify(heading, preview, convo.id);
                 showToast(heading, preview, function () { setActive(convo.id); });
             }
         }
@@ -2653,10 +2635,9 @@
                 '<div class="cs-toggle-row"><span>Play a sound for new messages</span>' +
                 '<label class="cs-switch"><input type="checkbox" id="prefSound"' +
                 (state.prefs.sound ? ' checked' : '') + '><span class="cs-slider"></span></label></div>' +
-                '<div class="cs-toggle-row"><span>Desktop notifications for DMs &amp; mentions</span>' +
-                '<label class="cs-switch"><input type="checkbox" id="prefDesktopNotify"' +
-                (state.prefs.desktopNotify ? ' checked' : '') + '><span class="cs-slider"></span></label></div>' +
-                '<div class="cs-field-hint" id="rpNotifHint" style="display:none;"></div>' +
+                '<div class="cs-field-hint">DMs and mentions are delivered through your ArozOS ' +
+                'notifications (desktop, Telegram, email...) when you are away. ' +
+                'Choose how you receive them in System Settings &rsaquo; Notifications.</div>' +
                 '</div>';
         }
         $id("rpBody").innerHTML = html;
@@ -2671,36 +2652,6 @@
                 if (this.checked) playNotifySound(); //audible confirmation
             });
         }
-        var notifyToggle = $id("prefDesktopNotify");
-        if (notifyToggle) {
-            notifyToggle.addEventListener("change", function () {
-                state.prefs.desktopNotify = this.checked;
-                savePrefs();
-                if (this.checked) requestNotifyPermission();
-                renderNotifyHint();
-            });
-            renderNotifyHint();
-        }
-    }
-
-    //Show the current browser permission state under the desktop-notification
-    //toggle so the user understands why alerts may not appear.
-    function renderNotifyHint() {
-        var hint = $id("rpNotifHint");
-        if (!hint) return;
-        var msg = "";
-        if (state.prefs.desktopNotify) {
-            if (!nativeNotifySupported()) {
-                msg = "This browser does not support desktop notifications; " +
-                    "in-app alerts and sounds will still work.";
-            } else if (Notification.permission === "denied") {
-                msg = "Desktop notifications are blocked in your browser settings.";
-            } else if (Notification.permission === "default") {
-                msg = "Allow notifications when your browser prompts, to receive them.";
-            }
-        }
-        hint.textContent = msg;
-        hint.style.display = msg ? "" : "none";
     }
 
     /* ================= Channel management actions ================= */
