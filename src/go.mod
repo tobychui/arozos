@@ -100,7 +100,7 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
-	github.com/pion/dtls/v3 v3.0.7 // indirect
+	github.com/pion/dtls/v3 v3.0.11 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/stun/v3 v3.0.1 // indirect
 	github.com/pion/transport/v3 v3.0.8 // indirect
