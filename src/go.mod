@@ -16,7 +16,7 @@ require (
 	github.com/fclairamb/ftpserverlib v0.27.0
 	github.com/fogleman/fauxgl v0.0.0-20250110135958-abf826acbbbd
 	github.com/gabriel-vasile/mimetype v1.4.10
-	github.com/glebarez/go-sqlite v1.22.0
+	github.com/glebarez/go-sqlite v1.22.1-0.20260317144347-ca37fea19666
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-ldap/ldap v3.0.3+incompatible
@@ -97,6 +97,7 @@ require (
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/miekg/dns v1.1.68 // indirect
+	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pion/dtls/v3 v3.0.7 // indirect
@@ -122,10 +123,10 @@ require (
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	modernc.org/libc v1.37.6 // indirect
+	modernc.org/libc v1.55.3 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
-	modernc.org/memory v1.7.2 // indirect
-	modernc.org/sqlite v1.28.0 // indirect
+	modernc.org/memory v1.8.0 // indirect
+	modernc.org/sqlite v1.31.0 // indirect
 )
 
 replace github.com/stangelandcl/ppmd v0.1.0 => github.com/bodgit/ppmd v0.0.0-20260522230604-9b76e8bd7ee8

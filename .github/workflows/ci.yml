@@ -101,6 +101,7 @@ jobs:
           linux/arm64
           linux/riscv64
           linux/mipsle/GOMIPS=softfloat
+          linux/loong64
           windows/amd64
           windows/386
           "
