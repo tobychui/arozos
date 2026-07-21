@@ -253,7 +253,12 @@ body {
 
 .video-tile .hand-badge .icon {
     margin: 0;
+    width: auto;
     font-size: 1em;
+    line-height: 1;
+    /* The Semantic hand glyph sits low-right inside its em box; nudge it to
+       optically centre it within the round badge. */
+    transform: translate(-0.5px, -2.5px);
 }
 
 .video-tile.hand-raised .hand-badge {
@@ -357,9 +362,8 @@ body {
     border-top: 1px solid #2b2f38;
 }
 
-/* Participants / attendance and connection-stats side panels */
-#peoplePanel,
-#statsPanel {
+/* Participants / attendance side panel */
+#peoplePanel {
     flex: 0 0 320px;
     display: flex;
     flex-direction: column;
@@ -433,6 +437,45 @@ body {
     margin: 0;
 }
 
+/* Raise-hand queue entries (ordered, at the top of the participant list) */
+.hand-queue-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    background: #2c2a1e;
+    border: 1px solid #4a4020;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+}
+
+.hand-queue-entry .hand-queue-pos {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    background: #f2b134;
+    color: #3a2a05;
+    font-size: 0.78em;
+    font-weight: bold;
+}
+
+.hand-queue-entry .hand-indicator.icon {
+    flex: 0 0 auto;
+    color: #f2b134;
+    margin: 0;
+}
+
+.hand-queue-entry .attendee-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Host-only kick button */
 .attendance-entry .kick-btn {
     flex: 0 0 auto;
@@ -498,7 +541,61 @@ body {
     color: #7db4ff;
 }
 
-/* Connection stats panel */
+/* Connection stats: a compact floating window that overlays the meeting.
+   Defaults to the top-left so it stays clear of the right-docked chat /
+   participants panels; the user can drag it anywhere by its header. */
+#statsPanel {
+    position: absolute;
+    top: 60px;
+    left: 14px;
+    width: 264px;
+    max-width: calc(100% - 28px);
+    max-height: calc(100% - 150px);
+    background: #1e2128;
+    border: 1px solid #3a3f4a;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 35;
+}
+
+#statsHeader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.6em 0.9em;
+    font-weight: bold;
+    font-size: 0.9em;
+    border-bottom: 1px solid #2b2f38;
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+#statsHeader .chart.line.icon {
+    margin: 0;
+    color: #7db4ff;
+}
+
+#statsHeader .stats-title {
+    flex: 1 1 auto;
+}
+
+.stats-close {
+    flex: 0 0 auto;
+    cursor: pointer;
+    color: #9aa4b2;
+    margin: 0;
+}
+
+.stats-close:hover {
+    color: #e6e8ec;
+}
+
 #statsBody {
     flex: 1 1 auto;
     overflow-y: auto;
@@ -870,8 +967,7 @@ body {
 /* Narrow layouts (embedded / mobile) */
 @media (max-width: 720px) {
     #chatPanel,
-    #peoplePanel,
-    #statsPanel {
+    #peoplePanel {
         position: absolute;
         right: 0;
         top: 0;

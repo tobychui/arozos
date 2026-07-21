@@ -136,14 +136,16 @@
                 </div>
                 <div id="attendanceList"></div>
             </div>
-            <div id="statsPanel" style="display:none;">
-                <div class="chat-header">
-                    <i class="chart line icon"></i> Connection Stats
-                    <i id="statsCloseBtn" class="close icon chat-close"></i>
-                </div>
-                <div id="statsBody">
-                    <div class="stats-empty">Gathering connection statistics...</div>
-                </div>
+        </div>
+
+        <!-- Floating, draggable connection-stats window -->
+        <div id="statsPanel" style="display:none;">
+            <div id="statsHeader">
+                <i class="chart line icon"></i><span class="stats-title">Connection stats</span>
+                <i id="statsCloseBtn" class="close icon stats-close" title="Close"></i>
+            </div>
+            <div id="statsBody">
+                <div class="stats-empty">Gathering connection statistics...</div>
             </div>
         </div>
 

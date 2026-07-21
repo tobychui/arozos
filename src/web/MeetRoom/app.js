@@ -68,6 +68,7 @@
         camOn: true,
         sharing: false,
         handRaised: false,
+        handAt: {}, // peerid -> time (ms) the hand went up, for the raise queue order
         chatOpen: false,
         peopleOpen: false,
         statsOpen: false,
@@ -639,6 +640,7 @@
             try { peer.pc.close(); } catch (e) { }
         }
         delete state.peers[peerId];
+        delete state.handAt[peerId];
         var tile = $id("tile-" + peerId);
         if (tile) tile.remove();
     }
@@ -693,6 +695,13 @@
         peer.stateSynced = true;
         peer.state = { audio: msg.audio, video: msg.video, screen: msg.screen, hand: !!msg.hand };
         setTileState(msg.from, msg.audio, msg.video, msg.screen, msg.hand);
+        //Maintain the raise-hand queue order: stamp the first time we see a
+        //hand up, clear it when lowered.
+        if (msg.hand && !wasHandUp) {
+            state.handAt[msg.from] = Date.now();
+        } else if (!msg.hand) {
+            delete state.handAt[msg.from];
+        }
         if (msg.hand && !wasHandUp && !firstSync) {
             addSystemChat(peer.info.username + " raised their hand");
             playHandSound();
@@ -834,6 +843,11 @@
 
     $id("handBtn").addEventListener("click", function () {
         state.handRaised = !state.handRaised;
+        if (state.handRaised) {
+            state.handAt[state.myPeerId] = Date.now();
+        } else {
+            delete state.handAt[state.myPeerId];
+        }
         refreshControlButtons();
         refreshLocalTile();
         broadcastState();
@@ -993,7 +1007,6 @@
         $id("chatPanel").style.display = open ? "flex" : "none";
         if (open) {
             if (state.peopleOpen) togglePeople(false);
-            if (state.statsOpen) toggleStats(false);
             hideMessageToast();
             state.unreadChat = 0;
             $id("chatBadge").style.display = "none";
@@ -1012,7 +1025,6 @@
         $id("peoplePanel").style.display = open ? "flex" : "none";
         if (open) {
             if (state.chatOpen) toggleChat(false);
-            if (state.statsOpen) toggleStats(false);
             refreshAttendance();
         }
     }
@@ -1073,11 +1085,40 @@
         return entry;
     }
 
+    //Build the raise-hand queue: everyone currently present with a hand up,
+    //ordered by when they raised it (earliest first).
+    function raisedHandQueue(present) {
+        return present.filter(recordHandRaised).sort(function (a, b) {
+            return (state.handAt[a.peerid] || 0) - (state.handAt[b.peerid] || 0);
+        });
+    }
+
+    function handQueueEntry(record, position) {
+        var entry = document.createElement("div");
+        entry.className = "hand-queue-entry";
+        var isSelf = record.peerid === state.myPeerId;
+        entry.innerHTML =
+            '<span class="hand-queue-pos">' + position + '</span>' +
+            '<i class="hand paper icon hand-indicator"></i>' +
+            '<span class="attendee-name">' + escapeHtml(record.username) + (isSelf ? " (You)" : "") + '</span>';
+        return entry;
+    }
+
     function renderAttendance(records) {
         var box = $id("attendanceList");
         box.innerHTML = "";
         var present = records.filter(function (r) { return r.present; });
         var past = records.filter(function (r) { return !r.present; });
+
+        //Raised-hand queue first, so the speaking order is front and centre
+        var raised = raisedHandQueue(present);
+        if (raised.length > 0) {
+            var groupHands = document.createElement("div");
+            groupHands.className = "attendance-group";
+            groupHands.textContent = "Raised hands (" + raised.length + ")";
+            box.appendChild(groupHands);
+            raised.forEach(function (record, i) { box.appendChild(handQueueEntry(record, i + 1)); });
+        }
 
         var groupPresent = document.createElement("div");
         groupPresent.className = "attendance-group";
@@ -1098,10 +1139,9 @@
 
     function toggleStats(open) {
         state.statsOpen = open;
+        $id("statsBtn").classList.toggle("ctrl-active", open);
         $id("statsPanel").style.display = open ? "flex" : "none";
         if (open) {
-            if (state.chatOpen) toggleChat(false);
-            if (state.peopleOpen) togglePeople(false);
             startStatsPolling();
         } else {
             stopStatsPolling();
@@ -1110,6 +1150,48 @@
 
     $id("statsBtn").addEventListener("click", function () { toggleStats(!state.statsOpen); });
     $id("statsCloseBtn").addEventListener("click", function () { toggleStats(false); });
+
+    //Let the user drag the floating stats window around the meeting. Uses
+    //pointer events so it works with both mouse and touch; the header keeps
+    //the pointer capture so dragging continues even if it briefly leaves it.
+    (function makeStatsDraggable() {
+        var panel = $id("statsPanel");
+        var handle = $id("statsHeader");
+        var dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+        handle.addEventListener("pointerdown", function (e) {
+            if (e.target.closest && e.target.closest(".stats-close")) return;
+            var parent = panel.offsetParent || panel.parentElement;
+            var rect = panel.getBoundingClientRect();
+            var pr = parent.getBoundingClientRect();
+            startLeft = rect.left - pr.left;
+            startTop = rect.top - pr.top;
+            startX = e.clientX;
+            startY = e.clientY;
+            //Switch from the CSS right-anchor to explicit left/top so drags move it
+            panel.style.left = startLeft + "px";
+            panel.style.top = startTop + "px";
+            panel.style.right = "auto";
+            dragging = true;
+            try { handle.setPointerCapture(e.pointerId); } catch (err) { }
+            e.preventDefault();
+        });
+        handle.addEventListener("pointermove", function (e) {
+            if (!dragging) return;
+            var parent = panel.offsetParent || panel.parentElement;
+            var maxL = Math.max(0, parent.clientWidth - panel.offsetWidth);
+            var maxT = Math.max(0, parent.clientHeight - panel.offsetHeight);
+            panel.style.left = Math.max(0, Math.min(startLeft + (e.clientX - startX), maxL)) + "px";
+            panel.style.top = Math.max(0, Math.min(startTop + (e.clientY - startY), maxT)) + "px";
+        });
+        var endDrag = function (e) {
+            if (!dragging) return;
+            dragging = false;
+            try { handle.releasePointerCapture(e.pointerId); } catch (err) { }
+        };
+        handle.addEventListener("pointerup", endDrag);
+        handle.addEventListener("pointercancel", endDrag);
+    })();
 
     function startStatsPolling() {
         stopStatsPolling();
@@ -1519,6 +1601,7 @@
         state.screenTrack = null;
         state.sharing = false;
         state.handRaised = false;
+        state.handAt = {};
         state.connected = false;
         state.myPeerId = -1;
         state.room = null;
@@ -1535,6 +1618,11 @@
         toggleChat(false);
         togglePeople(false);
         toggleStats(false);
+        //Return the floating stats window to its default corner for next time
+        var sp = $id("statsPanel");
+        sp.style.left = "";
+        sp.style.top = "";
+        sp.style.right = "";
         closeInviteModal();
         toggleAttachMenu(false);
         $id("room").style.display = "none";
