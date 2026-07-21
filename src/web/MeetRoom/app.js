@@ -40,6 +40,7 @@
         end: "/system/meetroom/end",
         ice: "/system/meetroom/iceservers",
         upload: "/system/meetroom/upload",
+        attachfile: "/system/meetroom/attachfile",
         download: "/system/meetroom/download",
         ws: "/system/meetroom/ws"
     };
@@ -66,9 +67,13 @@
         micOn: true,
         camOn: true,
         sharing: false,
+        handRaised: false,
         chatOpen: false,
         peopleOpen: false,
+        statsOpen: false,
         unreadChat: 0,
+        clockTimer: null,
+        statsTimer: null,
         leaving: false,
         currentRoomId: "",
         reconnecting: false,
@@ -187,6 +192,13 @@
         playChime([
             { freq: 659.25, at: 0, len: 0.18 },
             { freq: 392.00, at: 0.13, len: 0.25 }
+        ]);
+    }
+
+    function playHandSound() {
+        //Gentle single note (A5) to flag a raised hand
+        playChime([
+            { freq: 880.00, at: 0, len: 0.22 }
         ]);
     }
 
@@ -456,10 +468,17 @@
                 break;
             case "peer-leave":
                 removePeer(msg.peerid);
-                addSystemChat(msg.username + " left the meeting");
+                addSystemChat(msg.username + (msg.kicked ? " was removed from the meeting" : " left the meeting"));
                 playLeaveSound();
                 updateParticipantCount();
                 refreshAttendance();
+                break;
+            case "kicked":
+                //The host removed us from the meeting. Stop reconnecting and
+                //fall back to the lobby with a notice.
+                state.leaving = true;
+                cleanupRoom();
+                showLobbyError("You have been removed from the meeting by the host.");
                 break;
             case "signal":
                 handleSignal(msg.from, msg.data);
@@ -494,7 +513,7 @@
             stream: new MediaStream(),
             senders: { audio: null, video: null },
             pendingCandidates: [],
-            state: { audio: false, video: false, screen: false }
+            state: { audio: false, video: false, screen: false, hand: false }
         };
         state.peers[info.peerid] = peer;
         addVideoTile(info.peerid, info.username, false);
@@ -635,6 +654,7 @@
             '<video autoplay playsinline ' + (isLocal ? "muted" : "") + '></video>' +
             '<div class="tile-avatar">' + escapeHtml(username.substring(0, 1)) + '</div>' +
             '<div class="sharing-badge"><i class="desktop icon"></i> Sharing screen</div>' +
+            '<div class="hand-badge" title="Hand raised"><i class="hand paper icon"></i></div>' +
             '<div class="tile-label">' +
             '<i class="microphone slash icon muted-icon" style="display:none;"></i>' +
             '<span class="label-name">' + escapeHtml(username) + (isLocal ? " (You)" : "") + '</span>' +
@@ -653,23 +673,70 @@
         if (p && p.catch) p.catch(function () { });
     }
 
-    function setTileState(peerId, audioOn, videoOn, screenOn) {
+    function setTileState(peerId, audioOn, videoOn, screenOn, handUp) {
         var tile = $id("tile-" + peerId);
         if (!tile) return;
         tile.classList.toggle("no-video", !videoOn);
         tile.classList.toggle("is-sharing", !!screenOn);
+        tile.classList.toggle("hand-raised", !!handUp);
         tile.querySelector(".muted-icon").style.display = audioOn ? "none" : "";
     }
 
     function updatePeerState(msg) {
         var peer = state.peers[msg.from];
         if (!peer) return;
-        peer.state = { audio: msg.audio, video: msg.video, screen: msg.screen };
-        setTileState(msg.from, msg.audio, msg.video, msg.screen);
+        var wasHandUp = peer.state.hand;
+        //The first state frame from a peer is an initial sync (peers re-send
+        //their state when anyone joins), so don't treat a hand already up as a
+        //fresh raise - just reflect it on the tile.
+        var firstSync = !peer.stateSynced;
+        peer.stateSynced = true;
+        peer.state = { audio: msg.audio, video: msg.video, screen: msg.screen, hand: !!msg.hand };
+        setTileState(msg.from, msg.audio, msg.video, msg.screen, msg.hand);
+        if (msg.hand && !wasHandUp && !firstSync) {
+            addSystemChat(peer.info.username + " raised their hand");
+            playHandSound();
+        }
+        if (state.peopleOpen) refreshAttendance();
     }
 
     function updateParticipantCount() {
         $id("participantCount").textContent = String(Object.keys(state.peers).length + 1);
+    }
+
+    /* ================= Clock & meeting timer ================= */
+
+    function pad2(n) { return n < 10 ? "0" + n : String(n); }
+
+    //Render a second count as H:MM:SS, dropping the hours until they matter.
+    function formatDuration(totalSeconds) {
+        if (totalSeconds < 0) totalSeconds = 0;
+        var h = Math.floor(totalSeconds / 3600);
+        var m = Math.floor((totalSeconds % 3600) / 60);
+        var s = totalSeconds % 60;
+        return (h > 0 ? h + ":" + pad2(m) : pad2(m)) + ":" + pad2(s);
+    }
+
+    function tickClock() {
+        var now = new Date();
+        $id("systemClock").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        if (state.room && state.room.createdat) {
+            var elapsed = Math.floor(Date.now() / 1000) - state.room.createdat;
+            $id("meetingElapsed").textContent = formatDuration(elapsed);
+        }
+    }
+
+    function startClock() {
+        stopClock();
+        tickClock();
+        state.clockTimer = setInterval(tickClock, 1000);
+    }
+
+    function stopClock() {
+        if (state.clockTimer) {
+            clearInterval(state.clockTimer);
+            state.clockTimer = null;
+        }
     }
 
     /* ================= Room UI ================= */
@@ -696,6 +763,7 @@
         if (!state.camTrack) $id("camBtn").disabled = true;
         refreshControlButtons();
         refreshLocalTile();
+        startClock();
         if (!isReconnect) {
             addSystemChat("You joined the meeting as " + state.username);
         }
@@ -703,7 +771,7 @@
 
     function refreshLocalTile() {
         var videoOn = (state.camOn && !!state.camTrack) || state.sharing;
-        setTileState("local", state.micOn && !!state.micTrack, videoOn, state.sharing);
+        setTileState("local", state.micOn && !!state.micTrack, videoOn, state.sharing, state.handRaised);
     }
 
     function refreshControlButtons() {
@@ -719,6 +787,11 @@
         var shareBtn = $id("shareBtn");
         shareBtn.classList.toggle("ctrl-active", state.sharing);
         shareBtn.querySelector("span").textContent = state.sharing ? "Stop" : "Share";
+
+        var handBtn = $id("handBtn");
+        handBtn.classList.toggle("ctrl-active", state.handRaised);
+        handBtn.querySelector("i").className = state.handRaised ? "hand paper icon" : "hand paper outline icon";
+        handBtn.querySelector("span").textContent = state.handRaised ? "Lower" : "Raise";
     }
 
     function broadcastState() {
@@ -726,7 +799,8 @@
             type: "state",
             audio: state.micOn && !!state.micTrack,
             video: (state.camOn && !!state.camTrack) || state.sharing,
-            screen: state.sharing
+            screen: state.sharing,
+            hand: state.handRaised
         });
     }
 
@@ -756,6 +830,16 @@
         } else {
             startScreenShare();
         }
+    });
+
+    $id("handBtn").addEventListener("click", function () {
+        state.handRaised = !state.handRaised;
+        refreshControlButtons();
+        refreshLocalTile();
+        broadcastState();
+        if (state.peopleOpen) refreshAttendance();
+        addSystemChat(state.handRaised ? "You raised your hand" : "You lowered your hand");
+        if (state.handRaised) playHandSound();
     });
 
     function replaceOutgoingVideoTrack(track) {
@@ -806,12 +890,74 @@
         broadcastState();
     }
 
-    $id("inviteBtn").addEventListener("click", function () {
-        var text = "Join my ArozOS meeting" +
-            "\nMeeting ID: " + state.room.displayid +
-            (state.room.protected ? "\n(Password required)" : "");
-        copyText(text);
-        addSystemChat("Invite info copied to clipboard");
+    /* ================= Invite dialog ================= */
+
+    //Build a shareable link to this meeting. The lobby reads the room ID from
+    //the URL hash on load (NormalizeRoomID strips the dashes), so the display
+    //ID is fine to embed.
+    function inviteLink() {
+        return location.origin + location.pathname + "#" + state.room.displayid;
+    }
+
+    //Assemble the full invitation text, folding in the host's optional message.
+    function buildInviteText() {
+        var message = $id("inviteMessage").value.trim();
+        var lines = [];
+        if (message !== "") {
+            lines.push(message, "");
+        }
+        lines.push("You're invited to a MeetRoom meeting" + (state.room.title ? ": " + state.room.title : ""));
+        lines.push("Meeting ID: " + state.room.displayid);
+        lines.push("Link: " + inviteLink());
+        if (state.room.protected) {
+            lines.push("(This meeting is password protected - the password will be shared separately.)");
+        }
+        return lines.join("\n");
+    }
+
+    function openInviteModal() {
+        $id("inviteTitle").textContent = state.room.title || "Untitled meeting";
+        $id("inviteId").textContent = state.room.displayid;
+        $id("inviteLink").value = inviteLink();
+        $id("invitePasswordNote").style.display = state.room.protected ? "" : "none";
+        $id("inviteModal").style.display = "flex";
+    }
+
+    function closeInviteModal() {
+        $id("inviteModal").style.display = "none";
+    }
+
+    //Flash a check mark on a copy button so the user sees the copy took
+    function flashCopied(btn) {
+        var icon = btn.querySelector("i");
+        if (!icon || btn.dataset.flashing === "1") return;
+        var original = icon.className;
+        btn.dataset.flashing = "1";
+        icon.className = "check icon";
+        setTimeout(function () {
+            icon.className = original;
+            btn.dataset.flashing = "0";
+        }, 1200);
+    }
+
+    $id("inviteBtn").addEventListener("click", openInviteModal);
+    $id("inviteCloseBtn").addEventListener("click", closeInviteModal);
+    $id("inviteModal").addEventListener("click", function (e) {
+        //Click on the dimmed backdrop (not the card) closes the dialog
+        if (e.target === this) closeInviteModal();
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".invite-copy-btn"), function (btn) {
+        btn.addEventListener("click", function () {
+            copyText(btn.dataset.copy === "link" ? inviteLink() : state.room.displayid);
+            flashCopied(btn);
+        });
+    });
+
+    $id("inviteCopyAllBtn").addEventListener("click", function () {
+        copyText(buildInviteText());
+        flashCopied(this);
+        addSystemChat("Invitation copied to clipboard");
     });
 
     $id("roomIdTag").addEventListener("click", function () {
@@ -847,6 +993,7 @@
         $id("chatPanel").style.display = open ? "flex" : "none";
         if (open) {
             if (state.peopleOpen) togglePeople(false);
+            if (state.statsOpen) toggleStats(false);
             hideMessageToast();
             state.unreadChat = 0;
             $id("chatBadge").style.display = "none";
@@ -865,12 +1012,25 @@
         $id("peoplePanel").style.display = open ? "flex" : "none";
         if (open) {
             if (state.chatOpen) toggleChat(false);
+            if (state.statsOpen) toggleStats(false);
             refreshAttendance();
         }
     }
 
     $id("peopleBtn").addEventListener("click", function () { togglePeople(!state.peopleOpen); });
     $id("peopleCloseBtn").addEventListener("click", function () { togglePeople(false); });
+
+    //Host action: kick a participant. The list is re-rendered often, so the
+    //click is handled by delegation on the stable container.
+    $id("attendanceList").addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest(".kick-btn") : null;
+        if (!btn) return;
+        var peerId = parseInt(btn.dataset.peerid, 10);
+        var name = btn.dataset.name || "this participant";
+        if (isNaN(peerId)) return;
+        if (!confirm("Remove " + name + " from the meeting?")) return;
+        sendFrame({ type: "kick", to: peerId });
+    });
 
     //Ask the server for the join/leave log; the reply arrives as an
     //"attendance" frame and lands in renderAttendance()
@@ -883,17 +1043,33 @@
         return new Date(unixTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     }
 
+    //Is the participant behind this present attendance record raising a hand?
+    function recordHandRaised(record) {
+        if (!record.present) return false;
+        if (record.peerid === state.myPeerId) return state.handRaised;
+        var peer = state.peers[record.peerid];
+        return !!(peer && peer.state && peer.state.hand);
+    }
+
     function attendanceEntry(record) {
         var entry = document.createElement("div");
         entry.className = "attendance-entry" + (record.present ? " present" : "");
         var times = record.present
             ? "joined " + attendanceTime(record.joinedat)
             : attendanceTime(record.joinedat) + " - " + attendanceTime(record.leftat);
+        var isHostRecord = state.room && record.username === state.room.host;
+        var handUp = recordHandRaised(record);
+        //The host can remove any present participant other than themselves
+        var canKick = state.isHost && record.present && !isHostRecord && record.peerid !== state.myPeerId;
         entry.innerHTML =
             '<i class="' + (record.present ? "user icon" : "sign-out icon") + '"></i>' +
             '<span class="attendee-name">' + escapeHtml(record.username) + '</span>' +
-            (state.room && record.username === state.room.host ? '<span class="host-tag">Host</span>' : "") +
-            '<span class="attendee-times">' + escapeHtml(times) + '</span>';
+            (isHostRecord ? '<span class="host-tag">Host</span>' : "") +
+            (handUp ? '<i class="hand paper icon hand-indicator" title="Hand raised"></i>' : "") +
+            '<span class="attendee-times">' + escapeHtml(times) + '</span>' +
+            (canKick
+                ? '<button class="kick-btn" data-peerid="' + record.peerid + '" data-name="' + escapeAttr(record.username) + '" title="Remove from meeting"><i class="user times icon"></i></button>'
+                : "");
         return entry;
     }
 
@@ -916,6 +1092,137 @@
             box.appendChild(groupPast);
             past.forEach(function (record) { box.appendChild(attendanceEntry(record)); });
         }
+    }
+
+    /* ================= Connection performance ================= */
+
+    function toggleStats(open) {
+        state.statsOpen = open;
+        $id("statsPanel").style.display = open ? "flex" : "none";
+        if (open) {
+            if (state.chatOpen) toggleChat(false);
+            if (state.peopleOpen) togglePeople(false);
+            startStatsPolling();
+        } else {
+            stopStatsPolling();
+        }
+    }
+
+    $id("statsBtn").addEventListener("click", function () { toggleStats(!state.statsOpen); });
+    $id("statsCloseBtn").addEventListener("click", function () { toggleStats(false); });
+
+    function startStatsPolling() {
+        stopStatsPolling();
+        collectAndRenderStats();
+        state.statsTimer = setInterval(collectAndRenderStats, 2000);
+    }
+
+    function stopStatsPolling() {
+        if (state.statsTimer) {
+            clearInterval(state.statsTimer);
+            state.statsTimer = null;
+        }
+    }
+
+    function formatBitrate(kbps) {
+        if (kbps >= 1000) return (kbps / 1000).toFixed(1) + " Mbps";
+        return kbps + " kbps";
+    }
+
+    //Reduce a peer connection's raw getStats() report to the handful of
+    //numbers worth showing, turning cumulative byte counters into a live
+    //bitrate by diffing against the previous sample.
+    function summarizePeerStats(peer, report) {
+        var now = (window.performance && performance.now) ? performance.now() : Date.now();
+        var bytesRecv = 0, bytesSent = 0, packetsRecv = 0, packetsLost = 0, rttMs = null;
+        report.forEach(function (r) {
+            if (r.type === "inbound-rtp" && !r.isRemote) {
+                bytesRecv += r.bytesReceived || 0;
+                packetsRecv += r.packetsReceived || 0;
+                packetsLost += r.packetsLost || 0;
+            } else if (r.type === "outbound-rtp" && !r.isRemote) {
+                bytesSent += r.bytesSent || 0;
+            } else if (r.type === "candidate-pair" && (r.nominated || r.state === "succeeded") &&
+                typeof r.currentRoundTripTime === "number") {
+                rttMs = Math.round(r.currentRoundTripTime * 1000);
+            }
+        });
+
+        var last = peer._lastStats;
+        var recvKbps = 0, sentKbps = 0;
+        if (last && now > last.t) {
+            var dt = (now - last.t) / 1000;
+            recvKbps = Math.max(0, Math.round((bytesRecv - last.bytesRecv) * 8 / 1000 / dt));
+            sentKbps = Math.max(0, Math.round((bytesSent - last.bytesSent) * 8 / 1000 / dt));
+        }
+        peer._lastStats = { t: now, bytesRecv: bytesRecv, bytesSent: bytesSent };
+
+        var totalPackets = packetsRecv + packetsLost;
+        return {
+            username: peer.info.username,
+            recvKbps: recvKbps,
+            sentKbps: sentKbps,
+            rttMs: rttMs,
+            lossPct: totalPackets > 0 ? (packetsLost / totalPackets) * 100 : 0
+        };
+    }
+
+    function collectAndRenderStats() {
+        if (!state.statsOpen) return;
+        var peerIds = Object.keys(state.peers);
+        var promises = peerIds.map(function (peerId) {
+            var peer = state.peers[peerId];
+            if (!peer.pc || !peer.pc.getStats) return Promise.resolve(null);
+            return peer.pc.getStats().then(function (report) {
+                return summarizePeerStats(peer, report);
+            }).catch(function () { return null; });
+        });
+        Promise.all(promises).then(function (results) {
+            renderStats(results.filter(function (r) { return r; }));
+        });
+    }
+
+    //Classify a link by round-trip time and loss so a colour can flag it
+    function linkQuality(s) {
+        if (s.rttMs === null) return "";
+        if (s.rttMs < 150 && s.lossPct < 2) return "good";
+        if (s.rttMs < 300 && s.lossPct < 5) return "fair";
+        return "poor";
+    }
+
+    function renderStats(list) {
+        var box = $id("statsBody");
+        if (!state.connected) {
+            box.innerHTML = '<div class="stats-empty">Not connected.</div>';
+            return;
+        }
+        if (list.length === 0) {
+            box.innerHTML = '<div class="stats-empty">No peer connections yet - stats appear once someone else joins.</div>';
+            return;
+        }
+        var totalRecv = 0, totalSent = 0;
+        list.forEach(function (s) { totalRecv += s.recvKbps; totalSent += s.sentKbps; });
+
+        var html = '<div class="stats-summary">' +
+            '<div class="stats-summary-item"><i class="download icon"></i><strong>' + formatBitrate(totalRecv) + '</strong><span>received</span></div>' +
+            '<div class="stats-summary-item"><i class="upload icon"></i><strong>' + formatBitrate(totalSent) + '</strong><span>sent</span></div>' +
+            '</div>';
+
+        list.forEach(function (s) {
+            var quality = linkQuality(s);
+            html += '<div class="stats-peer">' +
+                '<div class="stats-peer-name">' + escapeHtml(s.username) +
+                (quality ? '<span class="stats-quality ' + quality + '">' + quality + '</span>' : "") +
+                '</div>' +
+                '<div class="stats-peer-metrics">' +
+                '<span title="Receiving from this peer"><i class="download icon"></i>' + formatBitrate(s.recvKbps) + '</span>' +
+                '<span title="Sending to this peer"><i class="upload icon"></i>' + formatBitrate(s.sentKbps) + '</span>' +
+                '<span title="Round-trip time"><i class="stopwatch icon"></i>' + (s.rttMs === null ? "-" : s.rttMs + " ms") + '</span>' +
+                '<span title="Packet loss"><i class="exclamation triangle icon"></i>' + s.lossPct.toFixed(1) + '%</span>' +
+                '</div>' +
+                '</div>';
+        });
+        box.innerHTML = html;
     }
 
     /* ================= New message popup ================= */
@@ -1052,9 +1359,76 @@
 
     /* ================= Attachments ================= */
 
-    $id("attachBtn").addEventListener("click", function () {
+    function toggleAttachMenu(open) {
+        $id("attachMenu").style.display = open ? "block" : "none";
+    }
+
+    //The attach button opens a small menu: upload a local file, or pick a
+    //file the user already has in their ArozOS storage.
+    $id("attachBtn").addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleAttachMenu($id("attachMenu").style.display === "none");
+    });
+
+    //Any click elsewhere dismisses the menu
+    document.addEventListener("click", function () { toggleAttachMenu(false); });
+    $id("attachMenu").addEventListener("click", function (e) { e.stopPropagation(); });
+
+    $id("attachDeviceBtn").addEventListener("click", function () {
+        toggleAttachMenu(false);
         $id("attachInput").click();
     });
+
+    $id("attachArozosBtn").addEventListener("click", function () {
+        toggleAttachMenu(false);
+        if (typeof ao_module_openFileSelector !== "function") {
+            addSystemChat("ArozOS file picker is only available inside the ArozOS desktop");
+            return;
+        }
+        //ao_module_openFileSelector needs a window-scoped callback name; the
+        //selector hands back an array of {filepath, filename}.
+        ao_module_openFileSelector("meetroomArozFilesSelected", "user:/", "file", true);
+    });
+
+    //Called back by the ArozOS file selector (must live on window)
+    window.meetroomArozFilesSelected = function (files) {
+        if (!files || files.length === 0) return;
+        Array.prototype.forEach.call(files, function (f) {
+            attachArozosPath(f.filepath, f.filename);
+        });
+    };
+
+    //Stream a file that already lives in the user's ArozOS storage into the
+    //room without downloading it to the browser first: the server reads it
+    //straight from the user's file system (see /system/meetroom/attachfile).
+    function attachArozosPath(vpath, displayName) {
+        if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+            addSystemChat("Reconnecting - please try sharing the file again in a moment");
+            return;
+        }
+        var name = displayName || vpath.split("/").pop();
+        var form = new FormData();
+        form.append("roomid", state.room.id);
+        form.append("password", state.password);
+        form.append("path", vpath);
+
+        $id("uploadStatus").style.display = "";
+        $id("uploadStatusText").textContent = "Sharing " + name + "...";
+
+        fetch(API.attachfile, { method: "POST", body: form }).then(function (r) {
+            return r.json();
+        }).then(function (data) {
+            $id("uploadStatus").style.display = "none";
+            if (data.error !== undefined) {
+                addSystemChat("Could not share " + name + ": " + data.error);
+                return;
+            }
+            sendFrame({ type: "file", fileid: data.fileid });
+        }).catch(function () {
+            $id("uploadStatus").style.display = "none";
+            addSystemChat("Could not share " + name);
+        });
+    }
 
     //Upload a file (or pasted image blob) and announce it to the room
     function uploadAndAnnounce(file, displayName) {
@@ -1115,6 +1489,8 @@
 
     function cleanupRoom() {
         stopHeartbeat();
+        stopClock();
+        stopStatsPolling();
         if (state.reconnectTimer) {
             clearTimeout(state.reconnectTimer);
             state.reconnectTimer = null;
@@ -1142,6 +1518,7 @@
         state.screenStream = null;
         state.screenTrack = null;
         state.sharing = false;
+        state.handRaised = false;
         state.connected = false;
         state.myPeerId = -1;
         state.room = null;
@@ -1157,6 +1534,9 @@
         hideMessageToast();
         toggleChat(false);
         togglePeople(false);
+        toggleStats(false);
+        closeInviteModal();
+        toggleAttachMenu(false);
         $id("room").style.display = "none";
         $id("lobby").style.display = "flex";
         setWindowTitle("MeetRoom");
