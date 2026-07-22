@@ -47,6 +47,7 @@ import (
 var (
 	thumbRenderHandler *metadata.RenderHandler
 	shareEntryTable    *shareEntry.ShareEntryTable
+	uploadLinkTable    *shareEntry.UploadLinkTable
 	shareManager       *share.Manager
 	wsConnectionStore  sync.Map
 )
@@ -189,12 +190,15 @@ func FileSystemInit() {
 	*/
 	//Create a share manager to handle user file sharae
 	shareEntryTable = shareEntry.NewShareEntryTable(sysdb)
+	uploadLinkTable = shareEntry.NewUploadLinkTable(sysdb)
 	shareManager = share.NewShareManager(share.Options{
 		AuthAgent:       authAgent,
 		ShareEntryTable: shareEntryTable,
+		UploadLinkTable: uploadLinkTable,
 		UserHandler:     userHandler,
 		HostName:        *host_name,
 		TmpFolder:       *tmp_directory,
+		MaxUploadSize:   max_upload_size,
 	})
 
 	//Share related functions
@@ -203,6 +207,10 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/share/edit", shareManager.HandleEditShare)
 	router.HandleFunc("/system/file_system/share/checkShared", shareManager.HandleShareCheck)
 	router.HandleFunc("/system/file_system/share/list", shareManager.HandleListAllShares)
+	router.HandleFunc("/system/file_system/share/upload/new", shareManager.HandleCreateUploadLink)
+	router.HandleFunc("/system/file_system/share/upload/edit", shareManager.HandleEditUploadLink)
+	router.HandleFunc("/system/file_system/share/upload/delete", shareManager.HandleDeleteUploadLink)
+	router.HandleFunc("/system/file_system/share/upload/list", shareManager.HandleListUploadLinks)
 
 	//Handle the main share function
 	//Share function is now routed by the main router
