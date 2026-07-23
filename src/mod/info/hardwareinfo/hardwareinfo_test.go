@@ -204,14 +204,56 @@ func TestGetRamInfoHandler(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestWmicGetinfoNonWindows verifies that wmicGetinfo returns a default
-// "Undefined" slice when wmic is not available (i.e., non-Windows).
+// "Undefined" slice when wmic/CIM are not available (i.e., non-Windows).
 func TestWmicGetinfoNonWindows(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skipping non-Windows wmic test on Windows")
 	}
 	result := wmicGetinfo("os", "Caption")
-	// On non-Windows, wmic doesn't exist; the function should return ["Undefined"]
+	// On non-Windows, wmic/CIM don't apply; the function should return ["Undefined"]
 	if len(result) == 0 {
 		t.Error("wmicGetinfo() returned empty slice, expected at least one element")
+	}
+	if result[0] != "Undefined" {
+		t.Errorf("wmicGetinfo() = %v, want [Undefined] on non-Windows", result)
+	}
+}
+
+// TestWmicGetinfoWindowsOsCaption verifies hardware info works on modern
+// Windows 11 where wmic.exe is removed: CIM must still return OS Caption.
+func TestWmicGetinfoWindowsOsCaption(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	result := wmicGetinfo("os", "Caption")
+	if len(result) == 0 || result[0] == "Undefined" || result[0] == "" {
+		t.Fatalf("wmicGetinfo(os, Caption) = %v, want a real OS caption (CIM fallback)", result)
+	}
+	if !strings.Contains(strings.ToLower(result[0]), "windows") {
+		t.Errorf("unexpected Caption %q, expected it to mention Windows", result[0])
+	}
+}
+
+// TestWmicGetinfoWindowsCpuAndDisk covers the other aliases used by
+// PrintSystemHardwareDebugMessage / sysinfo_window.go.
+func TestWmicGetinfoWindowsCpuAndDisk(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	cpu := wmicGetinfo("cpu", "Name")
+	if len(cpu) == 0 || cpu[0] == "Undefined" || cpu[0] == "" {
+		t.Fatalf("wmicGetinfo(cpu, Name) = %v", cpu)
+	}
+	mem := wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")
+	if len(mem) == 0 || mem[0] == "Undefined" || mem[0] == "" {
+		t.Fatalf("wmicGetinfo(ComputerSystem, TotalPhysicalMemory) = %v", mem)
+	}
+	disk := wmicGetinfo("diskdrive", "Model")
+	if len(disk) == 0 || disk[0] == "Undefined" || disk[0] == "" {
+		t.Fatalf("wmicGetinfo(diskdrive, Model) = %v", disk)
+	}
+	win32 := wmicGetinfo("Win32_USBHub", "Description")
+	if len(win32) == 0 {
+		t.Fatalf("wmicGetinfo(Win32_USBHub, Description) returned empty")
 	}
 }
