@@ -20,6 +20,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/git"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/meetroom"
@@ -40,7 +41,7 @@ import (
 */
 
 var (
-	AgiVersion string = "3.6" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "3.7" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
@@ -75,6 +76,7 @@ type AgiSysInfo struct {
 	NightlyManager        *nightly.TaskManager
 	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)
 	SharedSpaceManager    *sharedspace.Manager //Shared collaboration spaces for the sharedspace lib (nil disables the lib)
+	GitManager            *git.Manager         //Version control backend for the git lib (nil disables the lib)
 
 	//NotificationSender routes a notification raised by an AGI script into the
 	//ArozOS core notification system (nil disables the notification lib).

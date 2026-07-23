@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GitApp</title>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="script/gitapp.css">
+</head>
+
+<body>
+    <div class="gitapp">
+        <!-- Toolbar: repository picker, branch picker and the remote action button -->
+        <div class="toolbar">
+            <div class="tbcell" id="repoPicker">
+                <i class="book icon"></i>
+                <div class="tbtext">
+                    <div class="tblabel">Current repository</div>
+                    <div class="tbvalue" id="repoName">No repository</div>
+                </div>
+                <i class="dropdown icon caret"></i>
+            </div>
+
+            <div class="tbcell" id="branchPicker">
+                <i class="code branch icon"></i>
+                <div class="tbtext">
+                    <div class="tblabel">Current branch</div>
+                    <div class="tbvalue" id="branchName">—</div>
+                </div>
+                <i class="dropdown icon caret"></i>
+            </div>
+
+            <div class="tbcell" id="remoteAction">
+                <i class="cloud upload icon" id="remoteActionIcon"></i>
+                <div class="tbtext">
+                    <div class="tbvalue" id="remoteActionTitle">Publish branch</div>
+                    <div class="tblabel" id="remoteActionSub">No remote configured</div>
+                </div>
+                <div class="tbbadge" id="remoteActionBadge"></div>
+            </div>
+
+            <div class="tbspacer"></div>
+
+            <div class="tbcell narrow" id="refreshButton" title="Refresh">
+                <i class="sync icon"></i>
+            </div>
+        </div>
+
+        <!-- Workspace: changes / history sidebar on the left, diff viewer on the right -->
+        <div class="workspace">
+            <div class="sidebar">
+                <div class="tabs">
+                    <div class="tab active" data-tab="changes">Changes <span class="tabcount" id="changesCount">0</span></div>
+                    <div class="tab" data-tab="history">History</div>
+                </div>
+
+                <!-- Changes tab -->
+                <div class="tabpane" id="changesPane">
+                    <div class="listhead">
+                        <label class="chk">
+                            <input type="checkbox" id="selectAll">
+                            <span id="changedFilesLabel">0 changed files</span>
+                        </label>
+                    </div>
+                    <div class="filelist" id="fileList"></div>
+
+                    <div class="commitbox">
+                        <div class="commitrow">
+                            <div class="avatar" id="commitAvatar"></div>
+                            <input type="text" id="commitSummary" placeholder="Summary (required)" autocomplete="off">
+                        </div>
+                        <textarea id="commitBody" placeholder="Description"></textarea>
+                        <button class="primary block" id="commitButton" disabled>Commit to <b id="commitBranch">—</b></button>
+                    </div>
+                </div>
+
+                <!-- History tab -->
+                <div class="tabpane hidden" id="historyPane">
+                    <div class="commitlist" id="commitList"></div>
+                </div>
+            </div>
+
+            <!-- Drag handle: resizes the sidebar, double click restores the default -->
+            <div class="splitter" id="splitter" title="Drag to resize"></div>
+
+            <div class="content">
+                <div class="contenthead">
+                    <div class="path" id="diffPath">No file selected</div>
+                    <div class="headactions" id="diffActions"></div>
+                </div>
+                <div class="diffarea" id="diffArea">
+                    <div class="empty">
+                        <i class="folder open outline icon"></i>
+                        <div class="title">No local repositories</div>
+                        <div class="sub">Clone a repository from the internet, or add one that already exists on this system.</div>
+                        <div class="actions">
+                            <button class="primary" id="emptyCloneButton">Clone a repository</button>
+                            <button id="emptyAddButton">Add existing repository</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="statusbar">
+            <span id="statusMessage">Ready</span>
+        </div>
+    </div>
+
+    <!-- Repository dropdown -->
+    <div class="popover" id="repoPopover">
+        <div class="popoverhead">Repositories</div>
+        <div class="popoverlist" id="repoList"></div>
+        <div class="popoverfoot">
+            <button id="cloneButton"><i class="cloud download icon"></i>Clone repository</button>
+            <button id="addRepoButton"><i class="folder open icon"></i>Add existing</button>
+            <button id="initRepoButton"><i class="plus icon"></i>Create new</button>
+        </div>
+    </div>
+
+    <!-- Branch dropdown -->
+    <div class="popover" id="branchPopover">
+        <div class="popoverhead">Branches</div>
+        <div class="popoverlist" id="branchList"></div>
+        <div class="popoverfoot">
+            <button id="newBranchButton"><i class="plus icon"></i>New branch</button>
+        </div>
+    </div>
+
+    <!-- Right click menu for the changed file rows -->
+    <div class="contextmenu" id="fileContextMenu"></div>
+    <div class="contextmenu submenu" id="fileContextSubmenu"></div>
+
+    <!-- Modal host -->
+    <div class="modalmask hidden" id="modalMask">
+        <div class="modal" id="modalBox"></div>
+    </div>
+
+    <script src="script/gitapp.js"></script>
+</body>
+
+</html>

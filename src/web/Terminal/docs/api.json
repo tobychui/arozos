@@ -1143,6 +1143,217 @@
      "example": "requirelib(\"notification\");\nnotification.send(\"Urgent\", \"Something needs attention\", notification.PRIORITY_HIGH);"
     }
    ]
+  },
+  {
+   "id": "git",
+   "name": "git",
+   "desc": "Version control for folders in the user's virtual file system, backed by go-git (no git binary needed on the host). Query calls return their payload directly or an object with an error field; mutating calls return {success, error, message}, plus authRequired:true when a remote rejects the credentials. HTTPS credentials are stored per user, encrypted, and keyed by remote host. Repositories must live on a local storage pool. Available when the host wired the git manager in.",
+   "load": "requirelib(\"git\");",
+   "functions": [
+    {
+     "name": "git.isRepo",
+     "sig": "git.isRepo(vpath)",
+     "desc": "Check whether vpath is inside a git working tree.",
+     "ret": "bool",
+     "example": "requirelib(\"git\");\nif (git.isRepo(\"user:/Desktop/myproject\")) {\n    console.log(\"tracked by git\");\n}"
+    },
+    {
+     "name": "git.repoRoot",
+     "sig": "git.repoRoot(vpath)",
+     "desc": "Virtual path of the working tree root containing vpath. Returns false when vpath is not in a repository.",
+     "ret": "string | false",
+     "example": "var root = git.repoRoot(\"user:/Desktop/myproject/src\");"
+    },
+    {
+     "name": "git.init",
+     "sig": "git.init(vpath)",
+     "desc": "Create an empty repository at vpath, creating the folder when it does not exist.",
+     "ret": "object",
+     "example": "var result = git.init(\"user:/Desktop/newproject\");"
+    },
+    {
+     "name": "git.clone",
+     "sig": "git.clone(url, vpath, options)",
+     "desc": "Clone a remote into vpath, which must be empty or absent. Options: username, token, remember, branch, depth.",
+     "ret": "object",
+     "example": "var result = git.clone(\"https://github.com/tobychui/arozos.git\", \"user:/Desktop/arozos\", {\n    username: \"tobychui\",\n    token: \"ghp_...\",\n    remember: true,\n    depth: 1\n});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
+    },
+    {
+     "name": "git.status",
+     "sig": "git.status(vpath)",
+     "desc": "Full repository snapshot: branch, detached, head, upstream, ahead, behind, clean, changes[], remotes[], conflicted. Each change carries path, status, staging, worktree, staged, binary, size and preview (image/pdf/video/audio, absent when the browser cannot render it).",
+     "ret": "object",
+     "example": "var status = git.status(\"user:/Desktop/myproject\");\nconsole.log(status.branch + \": \" + status.changes.length + \" changed files\");"
+    },
+    {
+     "name": "git.log",
+     "sig": "git.log(vpath, limit)",
+     "desc": "Commits reachable from HEAD, newest first (default limit 50). Each has hash, shortHash, subject, message, authorName, authorEmail, timestamp and parents.",
+     "ret": "array",
+     "example": "var commits = git.log(\"user:/Desktop/myproject\", 10);\ncommits.forEach(function(c) {\n    console.log(c.shortHash + \" \" + c.subject);\n});"
+    },
+    {
+     "name": "git.branches",
+     "sig": "git.branches(vpath)",
+     "desc": "Local and remote-tracking branches: name, fullRef, hash, isRemote, isCurrent.",
+     "ret": "array",
+     "example": "var branches = git.branches(\"user:/Desktop/myproject\");"
+    },
+    {
+     "name": "git.checkout",
+     "sig": "git.checkout(vpath, branch, create)",
+     "desc": "Switch to a branch, creating it from HEAD when create is true. Checking out a remote name such as \"origin/feature\" creates the matching local branch.",
+     "ret": "object",
+     "example": "git.checkout(\"user:/Desktop/myproject\", \"feature/login\", true);"
+    },
+    {
+     "name": "git.remotes",
+     "sig": "git.remotes(vpath)",
+     "desc": "Configured remotes, each with name and urls.",
+     "ret": "array",
+     "example": "var remotes = git.remotes(\"user:/Desktop/myproject\");"
+    },
+    {
+     "name": "git.addRemote",
+     "sig": "git.addRemote(vpath, name, url)",
+     "desc": "Add a remote. Passing an existing name replaces its URL.",
+     "ret": "object",
+     "example": "git.addRemote(\"user:/Desktop/myproject\", \"origin\", \"https://github.com/owner/repo.git\");"
+    },
+    {
+     "name": "git.removeRemote",
+     "sig": "git.removeRemote(vpath, name)",
+     "desc": "Delete a remote by name.",
+     "ret": "object",
+     "example": "git.removeRemote(\"user:/Desktop/myproject\", \"upstream\");"
+    },
+    {
+     "name": "git.add",
+     "sig": "git.add(vpath, files)",
+     "desc": "Stage the given repository-relative paths. A deleted path is removed from the index.",
+     "ret": "object",
+     "example": "git.add(\"user:/Desktop/myproject\", [\"src/main.go\", \"README.md\"]);"
+    },
+    {
+     "name": "git.addAll",
+     "sig": "git.addAll(vpath)",
+     "desc": "Stage every change in the working tree, like git add -A.",
+     "ret": "object",
+     "example": "git.addAll(\"user:/Desktop/myproject\");"
+    },
+    {
+     "name": "git.unstage",
+     "sig": "git.unstage(vpath, files)",
+     "desc": "Remove paths from the index while leaving the working tree untouched.",
+     "ret": "object",
+     "example": "git.unstage(\"user:/Desktop/myproject\", [\"src/main.go\"]);"
+    },
+    {
+     "name": "git.discard",
+     "sig": "git.discard(vpath, files)",
+     "desc": "Throw away working tree changes. Untracked files are deleted, since there is nothing to restore them from.",
+     "ret": "object",
+     "example": "git.discard(\"user:/Desktop/myproject\", [\"src/broken.go\"]);"
+    },
+    {
+     "name": "git.commit",
+     "sig": "git.commit(vpath, message, files, options)",
+     "desc": "Stage files and commit them in one step. Options: name, email, all. The author defaults to the calling user, then to the repository git config. Returns {success, hash, message}.",
+     "ret": "object",
+     "example": "var result = git.commit(\"user:/Desktop/myproject\", \"Fix the parser\", [\"src/parser.go\"], {\n    name: \"Toby Chui\",\n    email: \"toby@example.com\"\n});\nconsole.log(result.hash);"
+    },
+    {
+     "name": "git.ignore",
+     "sig": "git.ignore(vpath, patterns)",
+     "desc": "Append rules to the repository's .gitignore, creating the file when absent. Rules that are already present are skipped and the existing content is never rewritten, so repeating the call is harmless. The returned message names the rules actually added.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.ignore(\"user:/Desktop/myproject\", [\"/build\", \"*.log\"]);"
+    },
+    {
+     "name": "git.diff",
+     "sig": "git.diff(vpath, file)",
+     "desc": "Diff of one path between HEAD and the working tree: additions, deletions, binary, tooLarge, isNew, isDeleted and hunks[]. Each hunk has header, oldStart/oldLines, newStart/newLines and lines[], where each line is {type, oldLine, newLine, content} and type is \"context\", \"add\" or \"del\".",
+     "ret": "object",
+     "example": "var diff = git.diff(\"user:/Desktop/myproject\", \"src/main.go\");\nconsole.log(\"+\" + diff.additions + \" -\" + diff.deletions);"
+    },
+    {
+     "name": "git.diffCommit",
+     "sig": "git.diffCommit(vpath, hash, file)",
+     "desc": "Same shape as git.diff, comparing a commit against its first parent.",
+     "ret": "object",
+     "example": "var diff = git.diffCommit(\"user:/Desktop/myproject\", commitHash, \"src/main.go\");"
+    },
+    {
+     "name": "git.commitFiles",
+     "sig": "git.commitFiles(vpath, hash)",
+     "desc": "The paths a commit touched, each with a status of added, modified or deleted, and a preview kind.",
+     "ret": "array",
+     "example": "var files = git.commitFiles(\"user:/Desktop/myproject\", commitHash);"
+    },
+    {
+     "name": "git.fileBlob",
+     "sig": "git.fileBlob(vpath, file, revision)",
+     "desc": "Read a file's content at a revision, returning {success, exists, base64, mime, kind, size}. revision is \"HEAD\" (the default) or a full 40 character commit hash; branch names and short hashes are rejected. This is the only way to obtain a committed binary file, which lives in the object database rather than on disk. exists is false without an error when the path was not part of that revision. Files above 8 MB are refused.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar blob = git.fileBlob(\"user:/Desktop/myproject\", \"img/logo.png\", \"HEAD\");\nif (blob.exists) {\n    //blob.base64 holds the committed image, blob.mime is \"image/png\"\n}"
+    },
+    {
+     "name": "git.fetch",
+     "sig": "git.fetch(vpath, options)",
+     "desc": "Update remote-tracking refs without touching the working tree. Options: remote, username, token, remember.",
+     "ret": "object",
+     "example": "git.fetch(\"user:/Desktop/myproject\", { remote: \"origin\" });"
+    },
+    {
+     "name": "git.pull",
+     "sig": "git.pull(vpath, options)",
+     "desc": "Fetch and fast-forward the current branch. A diverged branch is reported as an error rather than merged. Options: remote, branch, username, token, remember.",
+     "ret": "object",
+     "example": "var result = git.pull(\"user:/Desktop/myproject\", {});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
+    },
+    {
+     "name": "git.push",
+     "sig": "git.push(vpath, options)",
+     "desc": "Push a branch to a remote. Options: remote, branch, username, token, remember, force, setUpstream.",
+     "ret": "object",
+     "example": "var result = git.push(\"user:/Desktop/myproject\", { setUpstream: true });\nconsole.log(result.message);"
+    },
+    {
+     "name": "git.saveCredential",
+     "sig": "git.saveCredential(host, username, token)",
+     "desc": "Store an HTTPS credential for a host, encrypted, for the calling user only. host may be a bare host name or a full remote URL.",
+     "ret": "object",
+     "example": "git.saveCredential(\"github.com\", \"tobychui\", \"ghp_...\");"
+    },
+    {
+     "name": "git.listCredentials",
+     "sig": "git.listCredentials()",
+     "desc": "Stored credentials as {host, username}. Tokens are never returned.",
+     "ret": "array",
+     "example": "var saved = git.listCredentials();"
+    },
+    {
+     "name": "git.hasCredential",
+     "sig": "git.hasCredential(host)",
+     "desc": "Check whether a credential is stored for a host.",
+     "ret": "bool",
+     "example": "if (!git.hasCredential(\"github.com\")) {\n    //prompt the user\n}"
+    },
+    {
+     "name": "git.removeCredential",
+     "sig": "git.removeCredential(host)",
+     "desc": "Delete the stored credential for a host.",
+     "ret": "object",
+     "example": "git.removeCredential(\"github.com\");"
+    },
+    {
+     "name": "git.remoteHost",
+     "sig": "git.remoteHost(url)",
+     "desc": "The host a remote URL maps to, i.e. the key credentials are stored under. Both https://github.com/a/b.git and git@github.com:a/b.git yield github.com.",
+     "ret": "string",
+     "example": "var host = git.remoteHost(\"https://github.com/owner/repo.git\");"
+    }
+   ]
   }
  ]
 }

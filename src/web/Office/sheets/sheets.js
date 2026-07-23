@@ -1363,9 +1363,11 @@ var SheetsApp = (function () {
         });
     }
     function setNumFmt(fmt) {
+        var cur = styleAt(anchor.c, anchor.r).fmt || "general";
+        var next = (cur === fmt) ? "general" : fmt;
         applyStyle(function (st) {
-            if (fmt === "general") { delete st.fmt; delete st.dec; }
-            else st.fmt = fmt;
+            if (next === "general") { delete st.fmt; delete st.dec; }
+            else st.fmt = next;
         });
     }
     function bumpDecimals(delta) {
@@ -1986,8 +1988,8 @@ var SheetsApp = (function () {
         $tb.append(tbtn("undo", "Undo (Ctrl+Z)", doUndo));
         $tb.append(tbtn("redo", "Redo (Ctrl+Y)", doRedo));
         $tb.append('<div class="of-tsep"></div>');
-        $tb.append(tbtn("dollar sign", "Format as currency", function () { setNumFmt("currency"); }));
-        $tb.append(tbtn("percent", "Format as percent", function () { setNumFmt("percent"); }));
+        $tb.append(tbtn("dollar sign", "Format as currency", function () { setNumFmt("currency"); }, "shBtnCurrency"));
+        $tb.append(tbtn("percent", "Format as percent", function () { setNumFmt("percent"); }, "shBtnPercent"));
         var $dm = $('<button type="button" class="of-tbtn" title="Decrease decimal places">.0</button>');
         $dm.on("mousedown", function (e) { e.preventDefault(); });
         $dm.on("click", function () { bumpDecimals(-1); });
@@ -2049,6 +2051,8 @@ var SheetsApp = (function () {
         $("#shBtnItalic").toggleClass("active", !!s.i);
         $("#shBtnUnderline").toggleClass("active", !!s.u);
         $("#shBtnFilter").toggleClass("active", !!sheet().filter);
+        $("#shBtnCurrency").toggleClass("active", s.fmt === "currency");
+        $("#shBtnPercent").toggleClass("active", s.fmt === "percent");
     }
 
     /* ================= menus ================= */

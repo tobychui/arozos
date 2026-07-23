@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.4` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.7` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -277,6 +277,7 @@ Registered library IDs:
 - `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
 - `office` (ArozOS Office suite: .pptx / .xlsx / .docx converters + native zip container pack/unpack)
 - `notification` (raise notifications to users via the core notification system, with priority - requires the host to wire in a notification sender)
+- `git` (version control for folders in the user's file system: clone / status / stage / commit / branch / diff / fetch / pull / push, with encrypted per-user HTTPS credentials — requires the host to wire in a git manager)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -2084,6 +2085,219 @@ Send a notification to another user. **Requires admin permission.** Returns
 requirelib("notification");
 notification.sendToUser("bob", "Hi Bob", "A message for you", "low");
 ```
+
+---
+
+## git API
+
+Load:
+
+```javascript
+requirelib("git");
+```
+
+Version control for folders inside the user's virtual file system, backed by
+[go-git](https://github.com/go-git/go-git) — no `git` binary is required on the
+host. Available only when the host wired a git manager into the AGI gateway.
+
+**Path rules**
+
+- Every path is a virtual path and is permission checked: read-only calls need
+  read permission, mutating calls need write permission.
+- Any path *inside* a working tree resolves to the repository containing it.
+- The storage pool must be local. Network-backed pools (WebDAV, SMB, S3, …)
+  cannot host a working tree, and every call against one fails with a readable
+  error.
+
+**Return convention**
+
+Query calls (`status`, `log`, `branches`, `remotes`, `diff`, …) return their
+payload directly, or an object carrying an `error` string when they fail.
+Mutating calls (`init`, `clone`, `commit`, `push`, …) return
+`{success, error, message}`. When a remote rejects the credentials the reply
+also carries `authRequired: true`, which is the signal to ask the user to sign
+in and retry.
+
+**Credentials**
+
+HTTPS username + token pairs are stored per ArozOS user, encrypted with
+AES-256-GCM, keyed by remote host. A transport call with no explicit credentials
+automatically uses the stored one for that host. Passing `remember: true` in the
+options saves the credential once the operation has actually succeeded. Tokens
+are never readable back from a script.
+
+### `git.isRepo(vpath)` → bool
+
+```javascript
+if (git.isRepo("user:/Desktop/myproject")) { /* … */ }
+```
+
+### `git.repoRoot(vpath)` → string | false
+
+Virtual path of the working tree root containing `vpath`.
+
+### `git.init(vpath)` → object
+
+Create an empty repository, creating the folder if needed.
+
+### `git.clone(url, vpath, options)` → object
+
+Clone into `vpath`, which must be empty or absent. Options: `username`, `token`,
+`remember`, `branch`, `depth`.
+
+```javascript
+var result = git.clone("https://github.com/tobychui/arozos.git", "user:/Desktop/arozos", {
+    username: "tobychui",
+    token: "ghp_…",
+    remember: true,
+    depth: 1
+});
+if (!result.success && result.authRequired) { /* ask the user to sign in */ }
+```
+
+### `git.status(vpath)` → object
+
+The full snapshot used by GitApp: `branch`, `detached`, `head`, `upstream`,
+`ahead`, `behind`, `clean`, `changes[]`, `remotes[]`, `conflicted`.
+
+Each entry of `changes` carries `path`, `status`
+(`added` / `modified` / `deleted` / `renamed` / `copied` / `untracked` /
+`conflicted`), `staging`, `worktree`, `staged`, `binary`, `size` and `preview`
+(`image` / `pdf` / `video` / `audio`, or absent when the browser cannot render
+the file).
+
+```javascript
+var status = git.status("user:/Desktop/myproject");
+console.log(status.branch + ": " + status.changes.length + " changed files");
+```
+
+### `git.log(vpath, limit)` → array
+
+Commits reachable from HEAD, newest first (default limit 50). Each commit has
+`hash`, `shortHash`, `subject`, `message`, `authorName`, `authorEmail`,
+`timestamp` and `parents`.
+
+### `git.branches(vpath)` → array
+
+Local and remote-tracking branches: `name`, `fullRef`, `hash`, `isRemote`,
+`isCurrent`.
+
+### `git.checkout(vpath, branch, create)` → object
+
+Switch branches, or create the branch first when `create` is `true`. Checking
+out a remote name such as `"origin/feature"` creates the matching local branch.
+
+### `git.remotes(vpath)` → array
+
+Configured remotes: `name` and `urls`.
+
+### `git.addRemote(vpath, name, url)` / `git.removeRemote(vpath, name)` → object
+
+Adding an existing remote name replaces its URL.
+
+### `git.add(vpath, files)` / `git.addAll(vpath)` → object
+
+Stage the given repo-relative paths, or every change. Deleted paths are removed
+from the index.
+
+### `git.unstage(vpath, files)` → object
+
+Remove paths from the index, leaving the working tree untouched.
+
+### `git.discard(vpath, files)` → object
+
+Throw away working tree changes. Untracked files are deleted, since there is
+nothing to restore them from.
+
+### `git.commit(vpath, message, files, options)` → object
+
+Stage `files` and commit them in one step. Options: `name`, `email`, `all`.
+The author defaults to the calling ArozOS user, then to the repository's own
+git config. Returns `{success, hash, message}`.
+
+```javascript
+var result = git.commit("user:/Desktop/myproject", "Fix the parser", ["src/parser.go"], {
+    name: "Toby Chui",
+    email: "toby@example.com"
+});
+```
+
+### `git.ignore(vpath, patterns)` → object
+
+Append rules to the repository's `.gitignore`, which is created when absent.
+Rules already present are skipped, so repeating the call is harmless, and the
+existing content is never rewritten. Returns `{success, message}` where the
+message names the rules actually added.
+
+```javascript
+git.ignore("user:/Desktop/myproject", ["/build", "*.log"]);
+```
+
+### `git.diff(vpath, file)` → object
+
+Diff of one path between HEAD and the working tree: `additions`, `deletions`,
+`binary`, `tooLarge`, `isNew`, `isDeleted` and `hunks[]`. Each hunk has
+`header`, `oldStart` / `oldLines`, `newStart` / `newLines` and `lines[]`, where
+every line is `{type: "context" | "add" | "del", oldLine, newLine, content}`.
+
+### `git.diffCommit(vpath, hash, file)` → object
+
+Same shape, comparing a commit against its first parent.
+
+### `git.commitFiles(vpath, hash)` → array
+
+The paths a commit touched, each with a `status` and a `preview` kind.
+
+### `git.fileBlob(vpath, file, revision)` → object
+
+Read a file's content at a revision, returning
+`{success, exists, base64, mime, kind, size}`. `revision` is `"HEAD"` (the
+default) or a full 40 character commit hash — branch names and short hashes are
+rejected.
+
+This is how a committed version of a binary file is obtained: it exists only
+inside the object database, so unlike the working tree copy it cannot be fetched
+through the normal media endpoint. `exists` is `false` — without an error — when
+the path was simply not part of that revision, which distinguishes "added in
+this change" from a read failure. Files above 8 MB are refused.
+
+```javascript
+var blob = git.fileBlob("user:/Desktop/myproject", "img/logo.png", "HEAD");
+if (blob.exists) {
+    // blob.base64 holds the committed image, blob.mime is "image/png"
+}
+```
+
+### `git.fetch(vpath, options)` / `git.pull(vpath, options)` / `git.push(vpath, options)` → object
+
+Options: `remote` (default `origin`), `branch` (default the current branch),
+`username`, `token`, `remember`, `force`, `setUpstream`.
+
+Only fast-forward merges are supported by the underlying library, so a diverged
+branch is reported as an error rather than being merged.
+
+```javascript
+var result = git.push("user:/Desktop/myproject", { setUpstream: true });
+if (!result.success && result.authRequired) { /* prompt, then retry with token */ }
+```
+
+### `git.saveCredential(host, username, token)` → object
+
+Store a credential for a host. `host` may be a bare host name or a full remote
+URL.
+
+### `git.listCredentials()` → array
+
+Stored credentials as `{host, username}`. **Tokens are never returned.**
+
+### `git.hasCredential(host)` → bool
+
+### `git.removeCredential(host)` → object
+
+### `git.remoteHost(url)` → string
+
+The host a remote URL maps to, i.e. the key credentials are stored under. Both
+`https://github.com/a/b.git` and `git@github.com:a/b.git` yield `github.com`.
 
 ---
 

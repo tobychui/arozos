@@ -2,8 +2,10 @@ package main
 
 import (
 	"net/http"
+	"path/filepath"
 
 	agi "imuslab.com/arozos/mod/agi"
+	"imuslab.com/arozos/mod/git"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -13,6 +15,19 @@ var (
 )
 
 func AGIInit() {
+	//Create the version control backend used by the AGI git library and the
+	//GitApp WebApp. A failure here only disables git support, so the rest of
+	//the gateway still starts.
+	gitManager, err := git.NewManager(git.Options{
+		Database:     sysdb,
+		KeyStorePath: filepath.Join("./system", "git"),
+		Logger:       systemWideLogger,
+	})
+	if err != nil {
+		systemWideLogger.PrintAndLog("AGI", "Git support disabled", err)
+		gitManager = nil
+	}
+
 	//Create new AGI Gateway object
 	gw, err := agi.NewGateway(agi.AgiSysInfo{
 		BuildVersion:          build_version,
@@ -32,6 +47,7 @@ func AGIInit() {
 		NightlyManager:        nightlyManager,
 		MeetRoomManager:       meetRoomManager,
 		SharedSpaceManager:    sharedSpaceManager,
+		GitManager:            gitManager,
 		TempFolderPath:        *tmp_directory,
 		NotificationSender:    sendUserNotification,
 	})

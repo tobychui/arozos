@@ -1,0 +1,1079 @@
+/*
+    GitApp stylesheet
+
+    Recreates the GitHub Desktop three-region layout: a dark toolbar across the
+    top, a changes / history sidebar on the left and a diff viewer filling the
+    rest. Colours are driven by custom properties so the whole app follows the
+    ArozOS system theme (see applyTheme() in gitapp.js).
+*/
+
+:root {
+    --toolbar-bg: #24292f;
+    --toolbar-fg: #ffffff;
+    --toolbar-muted: #a2aab4;
+    --toolbar-divider: rgba(255, 255, 255, 0.14);
+    --toolbar-hover: rgba(255, 255, 255, 0.08);
+
+    --app-bg: #ffffff;
+    --sidebar-bg: #f6f8fa;
+    --panel-bg: #ffffff;
+    --border: #d8dee4;
+    --border-soft: #eaeef2;
+    --text: #1f2328;
+    --muted: #636c76;
+
+    --accent: #0969da;
+    --accent-hover: #0860ca;
+    --accent-fg: #ffffff;
+    --selection: #dbeafe;
+
+    --add-bg: #e6ffec;
+    --add-gutter: #ccffd8;
+    --del-bg: #ffebe9;
+    --del-gutter: #ffd7d5;
+    --hunk-bg: #f0f6ff;
+    --hunk-fg: #4a5568;
+
+    --status-modified: #dbab0a;
+    --status-added: #1a7f37;
+    --status-deleted: #cf222e;
+    --status-renamed: #0969da;
+    --status-conflict: #bc4c00;
+}
+
+html[data-theme="dark"] {
+    --toolbar-bg: #1c2128;
+    --toolbar-fg: #f0f6fc;
+    --toolbar-muted: #768390;
+    --toolbar-divider: rgba(255, 255, 255, 0.1);
+    --toolbar-hover: rgba(255, 255, 255, 0.06);
+
+    --app-bg: #22272e;
+    --sidebar-bg: #22272e;
+    --panel-bg: #1c2128;
+    --border: #373e47;
+    --border-soft: #2d333b;
+    --text: #adbac7;
+    --muted: #768390;
+
+    --accent: #316dca;
+    --accent-hover: #4184e4;
+    --selection: #263b53;
+
+    --add-bg: #12261e;
+    --add-gutter: #1b4721;
+    --del-bg: #25171c;
+    --del-gutter: #542426;
+    --hunk-bg: #1e2b3c;
+    --hunk-fg: #768390;
+
+    --status-modified: #d4a72c;
+    --status-added: #3fb950;
+    --status-deleted: #f85149;
+    --status-renamed: #58a6ff;
+    --status-conflict: #db6d28;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--app-bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+}
+
+.gitapp {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────── */
+
+.toolbar {
+    display: flex;
+    align-items: stretch;
+    height: 50px;
+    flex: 0 0 50px;
+    background: var(--toolbar-bg);
+    color: var(--toolbar-fg);
+    user-select: none;
+}
+
+.toolbar .tbcell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    min-width: 0;
+    border-right: 1px solid var(--toolbar-divider);
+    cursor: pointer;
+}
+
+.toolbar .tbcell:hover {
+    background: var(--toolbar-hover);
+}
+
+.toolbar .tbcell.narrow {
+    flex: 0 0 auto;
+    border-right: none;
+    border-left: 1px solid var(--toolbar-divider);
+}
+
+.toolbar .tbcell > i.icon {
+    font-size: 15px;
+    opacity: 0.85;
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.toolbar .tbcell > i.caret {
+    opacity: 0.6;
+    font-size: 12px;
+}
+
+.toolbar #repoPicker {
+    flex: 0 1 300px;
+}
+
+.toolbar #branchPicker {
+    flex: 0 1 300px;
+}
+
+.toolbar #remoteAction {
+    flex: 0 1 320px;
+}
+
+.toolbar .tbspacer {
+    flex: 1 1 auto;
+}
+
+.tbtext {
+    min-width: 0;
+    flex: 1 1 auto;
+    line-height: 1.35;
+}
+
+.tblabel {
+    font-size: 11px;
+    color: var(--toolbar-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tbvalue {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tbbadge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--toolbar-fg);
+}
+
+.tbbadge:empty {
+    display: none;
+}
+
+/* ── Workspace ───────────────────────────────────────────────────────── */
+
+.workspace {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The width is the splitter's to control; JS overrides flex-basis while dragging */
+.sidebar {
+    flex: 0 0 300px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--sidebar-bg);
+}
+
+/*
+    Splitter: a thin drag handle whose hit area is widened with a pseudo element
+    so it is comfortable to grab without taking up visible space.
+*/
+.splitter {
+    flex: 0 0 1px;
+    position: relative;
+    background: var(--border);
+    cursor: col-resize;
+    user-select: none;
+}
+
+.splitter::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -3px;
+    right: -3px;
+}
+
+.splitter:hover,
+.splitter.dragging {
+    background: var(--accent);
+}
+
+/* While dragging, keep the cursor consistent and stop text selecting anywhere */
+body.resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+body.resizing iframe {
+    pointer-events: none;
+}
+
+.tabs {
+    display: flex;
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--border);
+}
+
+.tabs .tab {
+    flex: 1 1 50%;
+    text-align: center;
+    padding: 9px 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+}
+
+.tabs .tab.active {
+    color: var(--text);
+    font-weight: 600;
+    border-bottom-color: var(--accent);
+    background: var(--panel-bg);
+}
+
+.tabcount {
+    display: inline-block;
+    min-width: 17px;
+    padding: 0 5px;
+    margin-left: 3px;
+    border-radius: 9px;
+    background: var(--border);
+    color: var(--text);
+    font-size: 11px;
+}
+
+.tabpane {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.listhead {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.chk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.chk input[type="checkbox"] {
+    margin: 0;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.filelist {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 60px;
+}
+
+.filerow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+}
+
+.filerow:hover {
+    background: var(--border-soft);
+}
+
+.filerow.active {
+    background: var(--selection);
+}
+
+.filerow .fname {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+}
+
+.filerow .fname .dir {
+    color: var(--muted);
+}
+
+/* Status marker: a small rounded square carrying a drawn glyph, never an emoji */
+.statusmark {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.statusmark svg {
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+}
+
+.statusmark.modified {
+    background: var(--status-modified);
+}
+
+.statusmark.added,
+.statusmark.untracked {
+    background: var(--status-added);
+}
+
+.statusmark.deleted {
+    background: var(--status-deleted);
+}
+
+.statusmark.renamed,
+.statusmark.copied {
+    background: var(--status-renamed);
+}
+
+.statusmark.conflicted {
+    background: var(--status-conflict);
+}
+
+/* ── Commit box ──────────────────────────────────────────────────────── */
+
+.commitbox {
+    flex: 0 0 auto;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    background: var(--sidebar-bg);
+}
+
+.commitrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.avatar {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.commitbox input[type="text"],
+.commitbox textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--panel-bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    resize: none;
+}
+
+.commitbox textarea {
+    height: 62px;
+    margin-bottom: 8px;
+}
+
+.commitbox input[type="text"]:focus,
+.commitbox textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+
+button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--panel-bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    background: var(--border-soft);
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+button.danger {
+    color: var(--status-deleted);
+}
+
+button.block {
+    display: block;
+    width: 100%;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+button i.icon {
+    margin-right: 6px;
+}
+
+/* ── History list ────────────────────────────────────────────────────── */
+
+.commitlist {
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+
+.commitentry {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+}
+
+.commitentry:hover {
+    background: var(--border-soft);
+}
+
+.commitentry.active {
+    background: var(--selection);
+}
+
+.commitentry .subject {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.commitentry .meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Content pane ────────────────────────────────────────────────────── */
+
+.content {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--panel-bg);
+}
+
+.contenthead {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--sidebar-bg);
+}
+
+.contenthead .path {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.headactions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+}
+
+.diffarea {
+    flex: 1 1 auto;
+    overflow: auto;
+    min-height: 0;
+}
+
+/* ── Diff table ──────────────────────────────────────────────────────── */
+
+.difftable {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.difftable td {
+    padding: 0;
+    vertical-align: top;
+}
+
+.difftable td.num {
+    width: 1%;
+    min-width: 44px;
+    padding: 0 8px;
+    text-align: right;
+    color: var(--muted);
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-soft);
+    user-select: none;
+    white-space: nowrap;
+}
+
+.difftable td.code {
+    padding: 0 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.difftable tr.add td.code {
+    background: var(--add-bg);
+}
+
+.difftable tr.add td.num {
+    background: var(--add-gutter);
+    color: var(--text);
+}
+
+.difftable tr.del td.code {
+    background: var(--del-bg);
+}
+
+.difftable tr.del td.num {
+    background: var(--del-gutter);
+    color: var(--text);
+}
+
+.difftable tr.hunk td {
+    background: var(--hunk-bg);
+    color: var(--hunk-fg);
+    padding: 3px 10px;
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.diffstat {
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.diffstat .plus {
+    color: var(--status-added);
+    font-weight: 600;
+}
+
+.diffstat .minus {
+    color: var(--status-deleted);
+    font-weight: 600;
+}
+
+/* ── Rich preview (images, PDFs, media) ──────────────────────────────── */
+
+.preview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    min-height: 100%;
+    background: var(--border);
+}
+
+.preview.single {
+    grid-template-columns: 1fr;
+}
+
+/* Side by side needs the room; stack the panes once it gets tight */
+@media (max-width: 720px) {
+    .preview {
+        grid-template-columns: 1fr;
+    }
+}
+
+.previewpane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--panel-bg);
+}
+
+.previewcaption {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.previewbody {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    padding: 14px;
+    overflow: auto;
+}
+
+.previewbody.empty {
+    background:
+        repeating-linear-gradient(45deg,
+            transparent, transparent 7px,
+            var(--border-soft) 7px, var(--border-soft) 14px);
+}
+
+.previewnote {
+    padding: 8px 12px;
+    border-radius: 5px;
+    background: var(--panel-bg);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+/*
+    A checkerboard behind images so a transparent PNG reads correctly instead of
+    blending into the pane background.
+*/
+.previewmedia {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+img.previewmedia,
+video.previewmedia {
+    background-color: #ffffff;
+    background-image:
+        linear-gradient(45deg, #e9edf1 25%, transparent 25%, transparent 75%, #e9edf1 75%),
+        linear-gradient(45deg, #e9edf1 25%, transparent 25%, transparent 75%, #e9edf1 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+    border: 1px solid var(--border-soft);
+}
+
+.previewframe {
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    border: 1px solid var(--border-soft);
+    background: #ffffff;
+}
+
+.previewaudio {
+    width: 100%;
+    max-width: 360px;
+}
+
+/* ── Empty / message states ──────────────────────────────────────────── */
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 30px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.empty i.icon {
+    font-size: 42px;
+    opacity: 0.35;
+    margin-bottom: 12px;
+}
+
+.empty .title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+.empty .sub {
+    max-width: 380px;
+    margin-bottom: 16px;
+}
+
+.empty .actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────── */
+
+.statusbar {
+    flex: 0 0 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-top: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.statusbar.busy {
+    color: var(--accent);
+}
+
+.statusbar.error {
+    color: var(--status-deleted);
+}
+
+/* ── Popovers ────────────────────────────────────────────────────────── */
+
+.popover {
+    position: absolute;
+    top: 50px;
+    z-index: 40;
+    width: 300px;
+    max-height: 70%;
+    display: none;
+    flex-direction: column;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.popover.open {
+    display: flex;
+}
+
+.popoverhead {
+    padding: 8px 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.popoverlist {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    max-height: 320px;
+}
+
+.popoverfoot {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+    border-top: 1px solid var(--border-soft);
+    flex-wrap: wrap;
+}
+
+.popoverfoot button {
+    flex: 1 1 auto;
+    white-space: nowrap;
+}
+
+.popoveritem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+}
+
+.popoveritem:hover {
+    background: var(--border-soft);
+}
+
+.popoveritem.active {
+    background: var(--selection);
+}
+
+.popoveritem .maintext {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.popoveritem .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.popoveritem .sub {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.popoveritem .remove {
+    flex: 0 0 auto;
+    opacity: 0;
+    color: var(--muted);
+}
+
+.popoveritem:hover .remove {
+    opacity: 1;
+}
+
+.popoveritem.invalid .name {
+    color: var(--status-deleted);
+}
+
+/* ── Context menu ────────────────────────────────────────────────────── */
+
+.contextmenu {
+    position: fixed;
+    z-index: 70;
+    min-width: 210px;
+    max-width: 340px;
+    padding: 4px 0;
+    display: none;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+    user-select: none;
+}
+
+.contextmenu.open {
+    display: block;
+}
+
+.contextmenu .item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contextmenu .item:hover,
+.contextmenu .item.hot {
+    background: var(--selection);
+}
+
+.contextmenu .item.disabled {
+    color: var(--muted);
+    cursor: default;
+}
+
+.contextmenu .item.disabled:hover {
+    background: transparent;
+}
+
+.contextmenu .item .label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Right pointing chevron marking a submenu, drawn rather than an emoji */
+.contextmenu .item .chevron {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-right: 1.6px solid var(--muted);
+    border-top: 1.6px solid var(--muted);
+    transform: rotate(45deg);
+}
+
+.contextmenu .divider {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--border-soft);
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+
+.modalmask {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.modal {
+    width: 440px;
+    max-width: 92%;
+    max-height: 90%;
+    overflow-y: auto;
+    padding: 18px;
+    border-radius: 8px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+.modal h3 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+}
+
+.modal .desc {
+    color: var(--muted);
+    margin-bottom: 14px;
+}
+
+.field {
+    margin-bottom: 10px;
+}
+
+.field label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.field input[type="text"],
+.field input[type="password"] {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--panel-bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.field input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.field .hint {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.field.inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.field.inline label {
+    margin: 0;
+    font-weight: normal;
+}
+
+.pathfield {
+    display: flex;
+    gap: 6px;
+}
+
+.pathfield input {
+    flex: 1 1 auto;
+}
+
+.modalactions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.modalerror {
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border-radius: 5px;
+    background: var(--del-bg);
+    color: var(--status-deleted);
+    font-size: 12px;
+}

@@ -1,0 +1,35 @@
+/*
+	GitApp — .gitignore backend
+
+	Appends rules to the repository's .gitignore. Rules that are already present
+	are skipped, so repeating the same context menu action is harmless.
+
+	POST repo     = virtual path of the repository
+	     patterns = JSON array of gitignore rules, e.g. ["/src/build", "*.log"]
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else if (typeof patterns == "undefined" || patterns == "") {
+    sendJSONResp({ success: false, error: "at least one ignore rule is required" });
+} else {
+    var rules = [];
+    try {
+        var parsed = JSON.parse(patterns);
+        if (Object.prototype.toString.call(parsed) === "[object Array]") {
+            rules = parsed;
+        }
+    } catch (e) {
+        rules = [];
+    }
+
+    if (rules.length == 0) {
+        sendJSONResp({ success: false, error: "at least one ignore rule is required" });
+    } else {
+        sendJSONResp(git.ignore(repo, rules));
+    }
+}
