@@ -273,7 +273,7 @@ html, body {
 }
 
 #detail-meta { flex: 1; min-width: 0; }
-#detail-title { font-size: 26px; font-weight: 700; line-height: 1.15; }
+#detail-title { font-size: 26px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
 #detail-subtitle { font-size: 14px; color: var(--text-sub); margin-top: 4px; }
 #detail-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 
@@ -312,6 +312,12 @@ html, body {
     padding: 6px 16px;
     transition: background var(--transition), color var(--transition);
     outline: none;
+    /* Season names can be as long as the whole release title — keep the pill
+       inside the panel and ellipsise instead of running off the edge. */
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .season-tab.active, .season-tab.focused {
     background: var(--text);
@@ -485,6 +491,37 @@ html, body {
     background: #fff; border-radius: 50%;
 }
 
+/* Portrait phones/tablets drive playback volume with the hardware keys, so the
+   in-page slider only eats toolbar width. Users who want it back can force it
+   on from the player settings popup ("Volume bar → Always show"). */
+@media (max-width: 899px) and (orientation: portrait) {
+    #volume-slider { display: none; }
+}
+body.always-show-volume #volume-slider { display: block; }
+
+/* ─── Centre play/pause flash indicator ──────────────────────────────────────── */
+#play-flash {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 88px; height: 88px;
+    margin: -44px 0 0 -44px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 18;
+}
+#play-flash img { width: 40px; height: 40px; display: block; }
+#play-flash.flash { animation: playFlash 0.62s ease-out; }
+@keyframes playFlash {
+    0%   { opacity: 0;    transform: scale(0.68); }
+    18%  { opacity: 0.95; transform: scale(0.92); }
+    100% { opacity: 0;    transform: scale(1.32); }
+}
+
 #time-display { font-size: 13px; color: rgba(255,255,255,0.8); margin-left: 6px; }
 #now-playing-title {
     font-size: 15px; font-weight: 600;
@@ -583,8 +620,8 @@ html, body {
     #topbar-title { display: block; }
     /* Hide these from the bottom controls bar */
     #now-playing-title, #ctrl-list, #ctrl-cast { display: none !important; }
-    /* Push fullscreen to the far right now that the title spacer is gone */
-    #ctrl-fs { margin-left: auto; }
+    /* Push the settings + fullscreen pair right now that the title spacer is gone */
+    #ctrl-settings { margin-left: auto; }
     /* Shrink volume slider to save space */
     #volume-slider { width: 56px; }
     #time-display { font-size: 11px; }
@@ -716,6 +753,105 @@ html, body {
     font-size: 32px; user-select: none;
 }
 
+/* ─── Settings view ──────────────────────────────────────────────────────────── */
+#settings-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 14px 20px 48px; scroll-behavior: smooth;
+}
+#settings-scroll::-webkit-scrollbar { width: 4px; }
+#settings-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+.settings-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 4px 18px 6px;
+    margin-bottom: 14px;
+}
+.settings-card-title {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--text-sub);
+    padding: 14px 0 10px;
+}
+.settings-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.settings-row-text  { flex: 1; min-width: 0; }
+.settings-row-label { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.settings-row-desc  { font-size: 12px; color: var(--text-sub); line-height: 1.45; }
+.settings-row-desc code {
+    background: var(--surface2); border-radius: 4px;
+    padding: 1px 6px; font-size: 11px;
+    overflow-wrap: anywhere;
+}
+.settings-btn { flex-shrink: 0; padding: 8px 18px; font-size: 13px; }
+.settings-btn-danger:hover { background: rgba(255,69,58,0.22); color: #ff453a; }
+.settings-btn[disabled] { opacity: 0.4; cursor: default; transform: none; }
+
+/* Toggle switch */
+.settings-switch { flex-shrink: 0; cursor: pointer; display: block; }
+.settings-switch input { display: none; }
+.settings-switch-track {
+    display: block; width: 42px; height: 24px;
+    background: var(--surface2); border-radius: 12px;
+    position: relative; transition: background 0.2s;
+}
+.settings-switch input:checked + .settings-switch-track { background: var(--accent2); }
+.settings-switch-track::after {
+    content: '';
+    position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+}
+.settings-switch input:checked + .settings-switch-track::after { transform: translateX(18px); }
+
+/* Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    padding: 4px 0 12px;
+}
+.stat-box {
+    background: var(--surface2);
+    border-radius: calc(var(--radius) - 4px);
+    padding: 12px 14px;
+}
+.stat-value { font-size: 20px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.stat-label { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+
+.settings-breakdown {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding-bottom: 10px;
+}
+.breakdown-chip {
+    background: var(--surface2); border-radius: 20px;
+    font-size: 11px; color: var(--text-sub);
+    padding: 4px 11px;
+}
+.breakdown-chip b { color: var(--text); font-weight: 600; }
+.settings-meta {
+    font-size: 11px; color: var(--text-sub);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 10px 0 12px;
+}
+.settings-progress {
+    display: none; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-sub);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 12px 0;
+}
+.settings-progress.active { display: flex; }
+
+@media (max-width: 600px) {
+    #settings-scroll { padding: 12px 12px 48px; }
+    .settings-card   { padding: 4px 14px 6px; }
+    .settings-row    { flex-wrap: wrap; gap: 10px; }
+    .settings-btn    { width: 100%; }
+}
+
 /* ─── Movie info panel ───────────────────────────────────────────────────────── */
 #view-movie-info { position: relative; }
 #movie-info-backdrop {
@@ -749,7 +885,7 @@ html, body {
 }
 #movie-info-poster-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #movie-info-meta { flex: 1; min-width: 0; }
-#movie-info-title    { font-size: 26px; font-weight: 700; line-height: 1.15; margin-bottom: 2px; }
+#movie-info-title    { font-size: 26px; font-weight: 700; line-height: 1.15; margin-bottom: 2px; overflow-wrap: anywhere; }
 #movie-info-filename {
     font-size: 11px; color: var(--text-sub); opacity: 0.6;
     font-style: italic; margin-bottom: 6px;
@@ -895,6 +1031,63 @@ html, body {
 }
 #next-countdown-cancel:hover { background: rgba(255,59,48,0.28); }
 
+/* ─── Playback settings popup (gear button) ──────────────────────────────────── */
+#settings-popup {
+    display: none;
+    position: absolute;
+    right: 20px; bottom: 62px;
+    z-index: 35;
+    background: rgba(28,28,30,0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 10px;
+    padding: 6px 0;
+    width: 236px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    color: var(--text);
+    user-select: none;
+}
+#settings-popup.active { display: block; }
+.set-section { padding: 6px 14px 8px; }
+.set-section + .set-section { border-top: 1px solid rgba(255,255,255,0.08); }
+.set-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    text-transform: uppercase; color: var(--text-sub);
+    margin-bottom: 7px;
+}
+.set-head img { width: 14px; height: 14px; opacity: 0.7; display: block; }
+.set-seg {
+    display: flex; background: var(--surface2);
+    border-radius: 7px; padding: 2px; gap: 2px;
+}
+.set-seg-btn {
+    flex: 1; padding: 5px 0; font-size: 12px; font-family: inherit;
+    border: none; border-radius: 5px; cursor: pointer;
+    background: transparent; color: var(--text-sub);
+    transition: background 0.15s, color 0.15s; outline: none;
+}
+.set-seg-btn:hover  { color: var(--text); }
+.set-seg-btn.active { background: var(--surface); color: var(--text); }
+
+.speed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.speed-btn {
+    padding: 5px 0; font-size: 12px; font-family: inherit;
+    border: none; border-radius: 5px; cursor: pointer;
+    background: var(--surface2); color: var(--text-sub);
+    transition: background 0.15s, color 0.15s; outline: none;
+}
+.speed-btn:hover  { color: var(--text); }
+.speed-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+.set-link {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer;
+    color: var(--text); transition: background var(--transition);
+}
+.set-link:hover { background: rgba(255,255,255,0.08); }
+.set-link img   { width: 15px; height: 15px; opacity: 0.8; display: block; }
+
 /* ─── Player context menu ────────────────────────────────────────────────────── */
 #player-ctx {
     display: none;
@@ -923,6 +1116,7 @@ html, body {
 .ctx-item.ctx-active { color: var(--accent); }
 .ctx-item.ctx-disabled { opacity: 0.3; pointer-events: none; }
 .ctx-icon { width: 16px; text-align: center; flex-shrink: 0; font-style: normal; }
+img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
 .ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; }
 .ctx-has-sub  { justify-content: space-between; position: relative; }
 .ctx-sub-arrow { font-style: normal; opacity: 0.55; font-size: 15px; }
@@ -990,7 +1184,8 @@ html, body {
     background: none; border: none; cursor: pointer;
     color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
 }
-#sset-close:hover { color: var(--text); }
+#sset-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+#sset-close:hover img { opacity: 1; }
 .sset-row {
     display: flex; align-items: center; gap: 10px;
     padding: 8px 0;
@@ -1066,7 +1261,8 @@ html, body {
     background: none; border: none; cursor: pointer;
     color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
 }
-#video-info-close:hover { color: var(--text); }
+#video-info-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+#video-info-close:hover img { opacity: 1; }
 #video-info-tabs {
     display: flex; gap: 3px;
     background: var(--surface2);
@@ -1150,6 +1346,7 @@ html, body {
         <div id="mode-tabs">
             <button class="mode-tab active" id="tab-library" onclick="switchTab('library')">Library</button>
             <button class="mode-tab" id="tab-folder" onclick="switchTab('folder')">Browse</button>
+            <button class="mode-tab" id="tab-settings" onclick="switchTab('settings')">Settings</button>
         </div>
         <div id="search-wrap">
             <input id="search-input" type="text" placeholder="Search…" autocomplete="off">
@@ -1238,13 +1435,13 @@ html, body {
                     <div id="movie-info-actions">
                         <button class="btn btn-primary" id="movie-info-play-btn"><img src="img/icons/play_black.svg" width="15" height="15" alt="" style="vertical-align:middle;margin-right:5px;">Play</button>
                         <button class="btn btn-secondary" id="movie-info-fm-btn">Open in Files</button>
-                        <button class="yt-badge" id="movie-info-yt-btn">▶ YouTube</button>
+                        <button class="yt-badge" id="movie-info-yt-btn"><svg viewBox="0 0 12 12" width="10" height="10" fill="currentColor" style="margin-right:5px;"><path d="M2.5 1.2 10 6l-7.5 4.8V1.2Z"/></svg>YouTube</button>
                         <button class="imdb-badge" id="movie-info-imdb-btn" style="display:none">IMDb</button>
                     </div>
                 </div>
             </div>
             <div id="movie-info-wrong-wrap">
-                <button class="reset-info-btn" id="movie-info-reset-btn">✕ Wrong movie? Disable IMDB info</button>
+                <button class="reset-info-btn" id="movie-info-reset-btn"><svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="margin-right:5px;"><path d="M2.5 2.5 9.5 9.5M9.5 2.5 2.5 9.5"/></svg>Wrong movie? Disable IMDB info</button>
             </div>
             <div id="movie-info-loading"><div class="spinner"></div><span>Loading info…</span></div>
             <div id="movie-info-files" style="display:none">
@@ -1273,6 +1470,73 @@ html, body {
         </div>
     </div>
 
+    <!-- ═══════════════ SETTINGS VIEW ══════════════════════════════════════ -->
+    <div id="view-settings" class="view">
+        <div id="settings-scroll">
+
+            <div class="settings-card">
+                <div class="settings-card-title">Indexing</div>
+                <div class="settings-row">
+                    <div class="settings-row-text">
+                        <div class="settings-row-label">Auto indexing</div>
+                        <div class="settings-row-desc">
+                            Scan your storage for new videos automatically when the app opens.
+                            Turn this off if scanning is slow on large libraries — you can still
+                            scan on demand below.
+                        </div>
+                    </div>
+                    <label class="settings-switch" title="Toggle auto indexing">
+                        <input type="checkbox" id="setting-auto-index">
+                        <span class="settings-switch-track"></span>
+                    </label>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-row-text">
+                        <div class="settings-row-label">Index location</div>
+                        <div class="settings-row-desc"><code>user:/.appdata/Movie/library_cache.json</code></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-title">Index status</div>
+                <div id="settings-stats-grid" class="stats-grid">
+                    <div class="stat-box"><div class="stat-value" id="stat-size">–</div><div class="stat-label">Index file size</div></div>
+                    <div class="stat-box"><div class="stat-value" id="stat-albums">–</div><div class="stat-label">Titles indexed</div></div>
+                    <div class="stat-box"><div class="stat-value" id="stat-videos">–</div><div class="stat-label">Video files indexed</div></div>
+                    <div class="stat-box"><div class="stat-value" id="stat-roots">–</div><div class="stat-label">Storage roots scanned</div></div>
+                </div>
+                <div id="settings-breakdown" class="settings-breakdown"></div>
+                <div class="settings-meta" id="settings-last-scan">Last scan: never</div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-title">Maintenance</div>
+                <div class="settings-row">
+                    <div class="settings-row-text">
+                        <div class="settings-row-label">Rescan library</div>
+                        <div class="settings-row-desc">Walk every storage root again and rebuild the index from scratch.</div>
+                    </div>
+                    <button class="btn btn-primary settings-btn" id="settings-scan-btn">Scan now</button>
+                </div>
+                <div class="settings-row">
+                    <div class="settings-row-text">
+                        <div class="settings-row-label">Clear index</div>
+                        <div class="settings-row-desc">
+                            Delete the cached scan result. Your video files are never touched —
+                            only the index is removed.
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary settings-btn settings-btn-danger" id="settings-clear-btn">Clear index</button>
+                </div>
+                <div id="settings-progress" class="settings-progress">
+                    <div class="spinner-sm"></div><span id="settings-progress-text">Scanning…</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- ═══════════════ PLAYER VIEW ════════════════════════════════════════ -->
     <div id="view-player" class="view">
         <div id="video-container">
@@ -1284,6 +1548,9 @@ html, body {
             </div>
             <video id="main-video" preload="metadata"></video>
             <div id="subtitle-display"></div>
+
+            <!-- Centre play/pause flash indicator -->
+            <div id="play-flash"><img id="play-flash-icon" src="img/icons/play_white.svg" alt=""></div>
 
             <!-- Resume-from-last-position popup -->
             <div id="resume-popup">
@@ -1304,13 +1571,13 @@ html, body {
 
             <!-- Player context menu -->
             <div id="player-ctx">
-                <div class="ctx-item" id="ctx-play"><i class="ctx-icon">▶</i>Play</div>
-                <div class="ctx-item" id="ctx-pause"><i class="ctx-icon">⏸</i>Pause</div>
+                <div class="ctx-item" id="ctx-play"><img class="ctx-icon" src="img/icons/play_white.svg" alt="">Play</div>
+                <div class="ctx-item" id="ctx-pause"><img class="ctx-icon" src="img/icons/pause_white.svg" alt="">Pause</div>
                 <div class="ctx-divider"></div>
-                <div class="ctx-item" id="ctx-prev"><i class="ctx-icon">⏮</i>Previous</div>
-                <div class="ctx-item" id="ctx-next"><i class="ctx-icon">⏭</i>Next</div>
+                <div class="ctx-item" id="ctx-prev"><img class="ctx-icon" src="img/icons/skip_previous_white.svg" alt="">Previous</div>
+                <div class="ctx-item" id="ctx-next"><img class="ctx-icon" src="img/icons/skip_next_white.svg" alt="">Next</div>
                 <div class="ctx-divider"></div>
-                <div class="ctx-item" id="ctx-repeat"><i class="ctx-icon">↺</i>Repeat: Off</div>
+                <div class="ctx-item" id="ctx-repeat"><img class="ctx-icon" src="img/icons/repeat_white.svg" alt="">Repeat: Off</div>
                 <div class="ctx-divider"></div>
                 <div class="ctx-item ctx-has-sub" id="ctx-subtitle-parent">
                     <span><i class="ctx-icon" style="display:inline-block">CC</i>Subtitles</span>
@@ -1323,14 +1590,13 @@ html, body {
                     </div>
                 </div>
                 <div class="ctx-divider"></div>
-                <div class="ctx-item" id="ctx-subtitle-settings"><i class="ctx-icon">⚙</i>Subtitle Settings</div>
+                <div class="ctx-item" id="ctx-subtitle-settings"><img class="ctx-icon" src="img/icons/settings_white.svg" alt="">Subtitle Settings</div>
                 <div class="ctx-item" id="ctx-props">Video Properties</div>
-                <!-- <div class="ctx-item" id="ctx-stats"><i class="ctx-icon">⧉</i>Streaming Stats</div> -->
             </div>
 
             <!-- Playback / subtitle settings modal -->
             <div id="subtitle-settings-modal">
-                <h3>Subtitle Settings<button id="sset-close">✕</button></h3>
+                <h3>Subtitle Settings<button id="sset-close" title="Close"><img src="img/icons/close_white.svg" alt=""></button></h3>
                 <div class="sset-row">
                     <span class="sset-label">Position</span>
                     <div class="sset-seg">
@@ -1373,12 +1639,54 @@ html, body {
 
             <!-- Video info / stats modal -->
             <div id="video-info-modal">
-                <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" onclick="closeVideoInfo()">✕</button></h3>
+                <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" title="Close" onclick="closeVideoInfo()"><img src="img/icons/close_white.svg" alt=""></button></h3>
                 <div id="video-info-tabs">
                     <div class="info-tab active" onclick="showInfoTab('props')">Properties</div>
                     <div class="info-tab" onclick="showInfoTab('stats')">Stats</div>
                 </div>
                 <div id="video-info-body"></div>
+            </div>
+
+            <!-- Playback settings popup -->
+            <div id="settings-popup">
+                <div class="set-section">
+                    <div class="set-head"><img src="img/icons/repeat_white.svg" alt="">Repeat</div>
+                    <div class="set-seg" id="set-repeat-seg">
+                        <button class="set-seg-btn active" data-repeat="off">Off</button>
+                        <button class="set-seg-btn"        data-repeat="one">Repeat one</button>
+                    </div>
+                </div>
+                <div class="set-section">
+                    <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
+                    <div class="speed-grid" id="set-speed-grid">
+                        <button class="speed-btn" data-speed="0.25">0.25×</button>
+                        <button class="speed-btn" data-speed="0.5">0.5×</button>
+                        <button class="speed-btn" data-speed="0.75">0.75×</button>
+                        <button class="speed-btn active" data-speed="1">Normal</button>
+                        <button class="speed-btn" data-speed="1.25">1.25×</button>
+                        <button class="speed-btn" data-speed="1.5">1.5×</button>
+                        <button class="speed-btn" data-speed="1.75">1.75×</button>
+                        <button class="speed-btn" data-speed="2">2×</button>
+                    </div>
+                </div>
+                <div class="set-section">
+                    <div class="set-head"><img src="img/icons/volume_white.svg" alt="">Volume bar</div>
+                    <div class="set-seg" id="set-volbar-seg">
+                        <button class="set-seg-btn active" data-volbar="auto">Auto</button>
+                        <button class="set-seg-btn"        data-volbar="always">Always show</button>
+                    </div>
+                </div>
+                <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
+                    <div class="set-link" id="set-load-subtitle">
+                        <img src="img/icons/movie_white.svg" alt="">Load SRT subtitle…
+                    </div>
+                    <div class="set-link" id="set-subtitle-settings">
+                        <img src="img/icons/settings_white.svg" alt="">Subtitle settings
+                    </div>
+                    <div class="set-link" id="set-video-props">
+                        <img src="img/icons/menu_white.svg" alt="">Video properties
+                    </div>
+                </div>
             </div>
 
             <!-- Custom controls -->
@@ -1399,6 +1707,7 @@ html, body {
                     <span id="now-playing-title"></span>
                     <button class="ctrl-btn" id="ctrl-list"   title="Episode list (L)"><img src="img/icons/menu_white.svg" alt=""></button>
                     <button class="ctrl-btn" id="ctrl-cast"   title="Cast to Arozcast" onclick="openCastDialog()"><img src="img/icons/cast_white.svg" alt="" width="18" height="18"></button>
+                    <button class="ctrl-btn" id="ctrl-settings" title="Playback settings (S)"><img src="img/icons/settings_white.svg" alt=""></button>
                     <button class="ctrl-btn" id="ctrl-fs"     title="Fullscreen (F)"><img src="img/icons/fullscreen_white.svg" alt=""></button>
                 </div>
             </div>
@@ -1483,7 +1792,22 @@ var autoplayEnabled = localStorage.getItem('movie_autoplay') !== '0'; // on by d
 var countdownTimer  = null;
 
 // Single-repeat
-var repeatSingle = false;
+var repeatSingle = (localStorage.getItem('movie_repeat_one') === '1');
+
+// Playback speed (persisted, reapplied whenever a new source loads)
+var playbackSpeed = parseFloat(localStorage.getItem('movie_playback_speed') || '1') || 1;
+
+// Force the volume slider visible even on portrait phones (see the media query)
+var alwaysShowVolumeBar = (localStorage.getItem('movie_always_volume_bar') === '1');
+
+// Indexing (Settings tab). Auto indexing governs the automatic scan on app open;
+// manual scans from the Settings tab always work regardless.
+var autoIndexEnabled = (localStorage.getItem('movie_auto_index') !== '0'); // on by default
+var libraryCacheTs   = 0;   // timestamp of the index currently in memory
+
+// Set once the user manually opens/closes the playlist, so orientation changes
+// stop auto-managing it until the next playback starts.
+var playlistUserToggled = false;
 
 // ─── Arozcast cast state ──────────────────────────────────────────────────────
 var castWs          = null;
@@ -2018,6 +2342,9 @@ function switchTab(tab) {
         var wasAlreadyFolder = $('#view-folder').hasClass('active');
         showView('folder');
         if (!wasAlreadyFolder) { navigateFolder(folderViewPath); }
+    } else if (tab === 'settings') {
+        showView('settings');
+        refreshIndexStats();
     } else {
         showView('library');
     }
@@ -2174,13 +2501,25 @@ function playFolderVideos(videos, startIndex) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 $(document).ready(function () {
+    initSettings();     // must run before loadLibrary — it reads autoIndexEnabled
     loadLibrary();
     initVideoControls();
     initKeyboard();
     initSearch();
     initContextMenu();
+    initSettingsPopup();
     initSubtitleMenu();
     initSubtitleSettings();
+
+    // Rotating a phone/tablet into landscape should reveal the playlist again
+    // (and back into portrait should tuck it away) — unless the user has taken
+    // manual control of it for this playback.
+    $(window).on('resize orientationchange', function () {
+        if (!playlistUserToggled && $('#view-player').hasClass('active')) {
+            applyPlaylistVisibility();
+        }
+    });
+
     // Autoplay toggle
     $('#autoplay-check').prop('checked', autoplayEnabled);
     $('#autoplay-check').on('change', function () {
@@ -2245,7 +2584,8 @@ function backgroundScanLibrary() {
             setLibraryStatus('Refresh failed · showing cached data', false);
             return;
         }
-        library = data;
+        library        = data;
+        libraryCacheTs = Date.now();
         if ($('#view-library').hasClass('active')) {
             renderCurrentLibrary();
             libraryNeedsRedraw = false;
@@ -2269,51 +2609,59 @@ function loadLibrary() {
         if (cached && !cached.error && Array.isArray(cached.data)) {
             // Fast path: paint the UI from cache right away
             $('#loading-overlay').hide();
-            library = cached.data;
+            library       = cached.data;
+            libraryCacheTs = cached.ts || 0;
             renderLibrary(library);
-            setLibraryStatus('Cached · ' + timeAgo(cached.ts) + ' · refreshing…', true);
-            backgroundScanLibrary();
+
+            if (autoIndexEnabled) {
+                setLibraryStatus('Cached · ' + timeAgo(cached.ts) + ' · refreshing…', true);
+                backgroundScanLibrary();
+            } else {
+                // Auto indexing is off — serve the cache as-is and say so, so an
+                // out-of-date library never looks like a bug.
+                var n = library.length;
+                setLibraryStatus(n + ' item' + (n !== 1 ? 's' : '')
+                    + ' · indexed ' + timeAgo(cached.ts) + ' · auto indexing off', false);
+            }
 
         } else {
-            // Cold start: no cache yet — full scan with loading overlay
-            setLibraryStatus('Loading…', true);
-            ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
-                $('#loading-overlay').fadeOut(300);
-                if (!data || data.error) {
-                    showToast('Failed to load library');
-                    setLibraryStatus('Failed to load library', false);
-                    return;
-                }
-                library = data;
-                renderLibrary(library);
-                var n = library.length;
-                setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
-            }, function () {
-                $('#loading-overlay').fadeOut(300);
-                showToast('Error loading library');
-                setLibraryStatus('Error loading library', false);
-            });
+            coldStartLibrary();
         }
 
     }, function () {
         // getLibraryCache.js itself failed — treat as cold start
-        setLibraryStatus('Loading…', true);
-        ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
-            $('#loading-overlay').fadeOut(300);
-            if (!data || data.error) {
-                showToast('Failed to load library');
-                setLibraryStatus('Failed to load library', false);
-                return;
-            }
-            library = data;
-            renderLibrary(library);
-            var n = library.length;
-            setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
-        }, function () {
-            $('#loading-overlay').fadeOut(300);
-            showToast('Error loading library');
-            setLibraryStatus('Error loading library', false);
-        });
+        coldStartLibrary();
+    });
+}
+
+// No usable index yet. Scan if auto indexing is on; otherwise leave the library
+// empty and point the user at the manual scan rather than walking every root.
+function coldStartLibrary() {
+    if (!autoIndexEnabled) {
+        $('#loading-overlay').fadeOut(300);
+        library = [];
+        renderLibrary(library);
+        setLibraryStatus('No index yet · auto indexing off', false);
+        return;
+    }
+
+    setLibraryStatus('Loading…', true);
+    ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+        $('#loading-overlay').fadeOut(300);
+        if (!data || data.error) {
+            showToast('Failed to load library');
+            setLibraryStatus('Failed to load library', false);
+            return;
+        }
+        library        = data;
+        libraryCacheTs = Date.now();
+        renderLibrary(library);
+        var n = library.length;
+        setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
+    }, function () {
+        $('#loading-overlay').fadeOut(300);
+        showToast('Error loading library');
+        setLibraryStatus('Error loading library', false);
     });
 }
 
@@ -2329,7 +2677,8 @@ function refreshLibrary() {
             setLibraryStatus('Refresh failed', false);
             return;
         }
-        library = data;
+        library        = data;
+        libraryCacheTs = Date.now();
         renderCurrentLibrary();
         libraryNeedsRedraw = false;
         var n = library.length;
@@ -2339,6 +2688,136 @@ function refreshLibrary() {
         showToast('Error refreshing library');
         setLibraryStatus('Refresh failed', false);
     });
+}
+
+// ═══════════════ SETTINGS TAB ═══════════════════════════════════════════════
+// Indexing controls: toggle the automatic scan, rescan on demand, drop the
+// index, and report what the index currently costs on disk.
+
+function formatBytes(n) {
+    if (!n || n < 0) { return '0 B'; }
+    var units = ['B', 'KB', 'MB', 'GB'];
+    var i = 0;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? n : n.toFixed(n < 10 ? 1 : 0)) + ' ' + units[i];
+}
+
+function setAutoIndexEnabled(on) {
+    autoIndexEnabled = !!on;
+    localStorage.setItem('movie_auto_index', autoIndexEnabled ? '1' : '0');
+    $('#setting-auto-index').prop('checked', autoIndexEnabled);
+}
+
+function setSettingsBusy(busy, text) {
+    $('#settings-progress').toggleClass('active', !!busy);
+    if (text) { $('#settings-progress-text').text(text); }
+    $('#settings-scan-btn, #settings-clear-btn').prop('disabled', !!busy);
+}
+
+// Album/video totals come from the in-memory library (already loaded from the
+// same cache file), so this never re-parses the multi-MB index server-side.
+function renderIndexStats(stats) {
+    var albums = library ? library.length : 0;
+    var videos = 0;
+    var byType = {};
+    if (library) {
+        for (var i = 0; i < library.length; i++) {
+            var a = library[i];
+            videos += (a.episodeCount || 0);
+            byType[a.type] = (byType[a.type] || 0) + 1;
+        }
+    }
+
+    $('#stat-size').text(stats && stats.exists ? formatBytes(stats.sizeBytes) : '—');
+    $('#stat-albums').text(albums.toLocaleString());
+    $('#stat-videos').text(videos.toLocaleString());
+    $('#stat-roots').text(stats ? String(stats.roots) : '—');
+
+    var labels = {
+        movie:      ['Movie',      'Movies'],
+        collection: ['Collection', 'Collections'],
+        series:     ['TV show',    'TV shows'],
+        anime:      ['Anime',      'Anime'],
+        short:      ['Short',      'Shorts']
+    };
+    var $bd = $('#settings-breakdown').empty();
+    ['movie', 'collection', 'series', 'anime', 'short'].forEach(function (t) {
+        var n = byType[t];
+        if (!n) { return; }
+        var label = labels[t] ? labels[t][n === 1 ? 0 : 1] : t;
+        $bd.append('<span class="breakdown-chip"><b>' + n + '</b> ' + escapeHtml(label) + '</span>');
+    });
+    if (stats && stats.skippedRoots > 0) {
+        $bd.append('<span class="breakdown-chip"><b>' + stats.skippedRoots
+            + '</b> root' + (stats.skippedRoots !== 1 ? 's' : '') + ' skipped</span>');
+    }
+
+    var when = (stats && stats.exists && libraryCacheTs)
+        ? 'Last scan: ' + timeAgo(libraryCacheTs) + ' (' + new Date(libraryCacheTs).toLocaleString() + ')'
+        : (stats && stats.exists ? 'Last scan: unknown' : 'No index on disk — run a scan to build one.');
+    $('#settings-last-scan').text(when);
+}
+
+function refreshIndexStats() {
+    renderIndexStats(null);   // paint client-side counts immediately
+    ao_module_agirun(SCRIPT_GET_INDEX_STATS, {}, function (stats) {
+        if (stats && !stats.error) { renderIndexStats(stats); }
+    }, function () {});
+}
+
+function settingsScanNow() {
+    setSettingsBusy(true, 'Scanning every storage root — this can take a while…');
+    setLibraryStatus('Rescanning…', true);
+    ao_module_agirun(SCRIPT_GET_LIBRARY, { forceRefresh: '1' }, function (data) {
+        setSettingsBusy(false);
+        if (!data || data.error) {
+            showToast('Scan failed');
+            setLibraryStatus('Scan failed', false);
+            return;
+        }
+        library        = data;
+        libraryCacheTs = Date.now();
+        renderCurrentLibrary();
+        libraryNeedsRedraw = false;
+        var n = library.length;
+        setLibraryStatus(n + ' item' + (n !== 1 ? 's' : '') + ' · just refreshed', false);
+        refreshIndexStats();
+        showToast('Scan complete — ' + n + ' title' + (n !== 1 ? 's' : '') + ' indexed');
+    }, function () {
+        setSettingsBusy(false);
+        showToast('Error while scanning');
+        setLibraryStatus('Scan failed', false);
+    });
+}
+
+function settingsClearIndex() {
+    if (!confirm('Clear the library index?\n\nOnly the cached scan result is deleted — your video files are not touched.')) {
+        return;
+    }
+    setSettingsBusy(true, 'Clearing index…');
+    ao_module_agirun(SCRIPT_CLEAR_INDEX, {}, function (res) {
+        setSettingsBusy(false);
+        if (!res || res.error) { showToast('Could not clear the index'); return; }
+        library        = [];
+        libraryCacheTs = 0;
+        renderLibrary(library);
+        libraryNeedsRedraw = false;
+        setLibraryStatus('No index yet' + (autoIndexEnabled ? '' : ' · auto indexing off'), false);
+        refreshIndexStats();
+        showToast(res.removed ? 'Index cleared' : 'No index to clear');
+    }, function () {
+        setSettingsBusy(false);
+        showToast('Could not clear the index');
+    });
+}
+
+function initSettings() {
+    $('#setting-auto-index').prop('checked', autoIndexEnabled).on('change', function () {
+        setAutoIndexEnabled($(this).is(':checked'));
+        showToast('Auto indexing ' + (autoIndexEnabled ? 'enabled' : 'disabled'));
+    });
+    $('#settings-scan-btn').on('click', settingsScanNow);
+    $('#settings-clear-btn').on('click', settingsClearIndex);
 }
 
 // ─── Render library grid ──────────────────────────────────────────────────────
@@ -2529,7 +3008,8 @@ function openDetail(album) {
     var $tabs = $('#season-tabs').empty();
     if ((album.type === 'series' || album.type === 'anime') && album.seasons.length > 0) {
         album.seasons.forEach(function (s, i) {
-            var tab = $('<button class="season-tab" tabindex="0">' + escapeHtml(s.name) + '</button>');
+            var tab = $('<button class="season-tab" tabindex="0" title="' + escapeAttr(s.name) + '">'
+                + escapeHtml(s.name) + '</button>');
             tab.data('season', s);
             tab.on('click', function () { selectSeason($(this).data('season')); activateTab(this); });
             $tabs.append(tab);
@@ -2656,11 +3136,9 @@ function startPlayback(index) {
 
     renderSidebar(currentEpisodes, index);
 
-    if (currentEpisodes.length <= 1) {
-        $('#playlist-sidebar').addClass('collapsed');
-    } else {
-        $('#playlist-sidebar').removeClass('collapsed');
-    }
+    // New playback — drop any manual show/hide the user applied to the last one
+    playlistUserToggled = false;
+    applyPlaylistVisibility();
 
     highlightPlayingEpisode(index);
 
@@ -2787,6 +3265,10 @@ function showView(name) {
     } else if (name === 'movie-info') {
         $('.mode-tab').removeClass('active');
         $('#tab-library').addClass('active');
+        $('#search-wrap').hide();
+    } else if (name === 'settings') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-settings').addClass('active');
         $('#search-wrap').hide();
     }
     // player view leaves tab state unchanged
@@ -2954,10 +3436,13 @@ function togglePlay() {
             castIsPlaying = true;
             $('#play-icon').attr('src', 'img/icons/pause_white.svg');
         }
+        flashPlayState(castIsPlaying);
         return;
     }
     var vid = document.getElementById('main-video');
-    if (vid.paused) { vid.play(); } else { vid.pause(); }
+    var willPlay = vid.paused;
+    if (willPlay) { vid.play(); } else { vid.pause(); }
+    flashPlayState(willPlay);
 }
 
 function playOffset(offset) {
@@ -2972,7 +3457,10 @@ function showControls() {
     clearTimeout(controlsTimer);
     controlsTimer = setTimeout(function () {
         var isPlaying = castMode ? castIsPlaying : !document.getElementById('main-video').paused;
-        if (isPlaying) { $('#video-controls').addClass('hidden'); }
+        // Keep the bar up while the settings popup is open — it is anchored to it
+        if (isPlaying && !$('#settings-popup').hasClass('active')) {
+            $('#video-controls').addClass('hidden');
+        }
     }, 3000);
 }
 
@@ -2986,7 +3474,22 @@ function toggleFullscreen() {
 }
 
 function toggleSidebar() {
+    playlistUserToggled = true;   // stop auto-management until the next playback
     $('#playlist-sidebar').toggleClass('collapsed');
+}
+
+// The playlist sidebar eats a lot of width, so it is only opened automatically
+// where there is room for it: a wide (desktop/laptop) viewport, or any device
+// held in landscape. A phone/tablet in portrait starts with it collapsed — the
+// list button in the player top bar still opens it on demand.
+function shouldAutoShowPlaylist() {
+    if (!window.matchMedia) { return true; }
+    return window.matchMedia('(min-width: 900px), (orientation: landscape)').matches;
+}
+
+function applyPlaylistVisibility() {
+    var hasPlaylist = currentEpisodes && currentEpisodes.length > 1;
+    $('#playlist-sidebar').toggleClass('collapsed', !(hasPlaylist && shouldAutoShowPlaylist()));
 }
 
 function startNextCountdown() {
@@ -3030,10 +3533,13 @@ function initContextMenu() {
         $('#ctx-prev').toggleClass('ctx-disabled', playingIndex <= 0);
         $('#ctx-next').toggleClass('ctx-disabled', playingIndex >= currentEpisodes.length - 1);
         $('#ctx-repeat').toggleClass('ctx-active', repeatSingle)
-            .html('<i class="ctx-icon">' + (repeatSingle ? '✓' : '↺') + '</i>Repeat: ' + (repeatSingle ? 'On' : 'Off'));
+            .html('<img class="ctx-icon" src="img/icons/'
+                + (repeatSingle ? 'repeat_one_white.svg' : 'repeat_white.svg')
+                + '" alt="">Repeat: ' + (repeatSingle ? 'On' : 'Off'));
 
         // Always collapse subtitle submenu on fresh open
         $('#ctx-subtitle-sub').hide();
+        closeSettingsPopup();
 
         // Position menu, clamp inside container
         var rect = this.getBoundingClientRect();
@@ -3060,6 +3566,7 @@ function initContextMenu() {
             _castSend('media.play', {}); castIsPlaying = true;
             $('#play-icon').attr('src', 'img/icons/pause_white.svg');
         } else { vid.play(); }
+        flashPlayState(true);
         $ctx.hide();
     });
     $('#ctx-pause').on('click', function () {
@@ -3067,14 +3574,106 @@ function initContextMenu() {
             _castSend('media.pause', {}); castIsPlaying = false;
             $('#play-icon').attr('src', 'img/icons/play_white.svg');
         } else { vid.pause(); }
+        flashPlayState(false);
         $ctx.hide();
     });
     $('#ctx-prev').on('click',   function () { cancelCountdown(); playOffset(-1); $ctx.hide(); });
     $('#ctx-next').on('click',   function () { cancelCountdown(); playOffset(1);  $ctx.hide(); });
-    $('#ctx-repeat').on('click', function () { repeatSingle = !repeatSingle;      $ctx.hide(); });
+    $('#ctx-repeat').on('click', function () { setRepeatSingle(!repeatSingle);    $ctx.hide(); });
     $('#ctx-subtitle-settings').on('click', function () { $ctx.hide(); openSubtitleSettings(); });
     $('#ctx-props').on('click',  function () { $ctx.hide(); openVideoInfo('props'); });
     $('#ctx-stats').on('click',  function () { $ctx.hide(); openVideoInfo('stats'); });
+}
+
+// Flash a large play/pause glyph in the centre of the video so the user gets
+// immediate feedback that their click / key press registered.
+function flashPlayState(isPlaying) {
+    var $f = $('#play-flash');
+    if (!$f.length) { return; }
+    $('#play-flash-icon').attr('src',
+        isPlaying ? 'img/icons/play_white.svg' : 'img/icons/pause_white.svg');
+    $f.removeClass('flash');
+    void $f[0].offsetWidth;   // force reflow so the animation restarts
+    $f.addClass('flash');
+}
+
+// ─── Playback settings popup (gear button) ────────────────────────────────────
+function setAlwaysShowVolumeBar(on) {
+    alwaysShowVolumeBar = !!on;
+    localStorage.setItem('movie_always_volume_bar', alwaysShowVolumeBar ? '1' : '0');
+    $('body').toggleClass('always-show-volume', alwaysShowVolumeBar);
+    $('#set-volbar-seg .set-seg-btn').removeClass('active')
+        .filter('[data-volbar="' + (alwaysShowVolumeBar ? 'always' : 'auto') + '"]').addClass('active');
+}
+
+function setRepeatSingle(on) {
+    repeatSingle = !!on;
+    localStorage.setItem('movie_repeat_one', repeatSingle ? '1' : '0');
+    $('#set-repeat-seg .set-seg-btn').removeClass('active')
+        .filter('[data-repeat="' + (repeatSingle ? 'one' : 'off') + '"]').addClass('active');
+}
+
+function setPlaybackSpeed(rate) {
+    playbackSpeed = parseFloat(rate) || 1;
+    document.getElementById('main-video').playbackRate = playbackSpeed;
+    localStorage.setItem('movie_playback_speed', String(playbackSpeed));
+    $('#set-speed-grid .speed-btn').removeClass('active')
+        .filter('[data-speed="' + playbackSpeed + '"]').addClass('active');
+}
+
+function openSettingsPopup() {
+    setRepeatSingle(repeatSingle);
+    setPlaybackSpeed(playbackSpeed);
+    setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    $('#player-ctx').hide();
+    $('#settings-popup').addClass('active');
+    showControls();
+}
+
+function closeSettingsPopup() { $('#settings-popup').removeClass('active'); }
+
+function toggleSettingsPopup() {
+    if ($('#settings-popup').hasClass('active')) { closeSettingsPopup(); }
+    else { openSettingsPopup(); }
+}
+
+function initSettingsPopup() {
+    $('#ctrl-settings').on('click', function (e) {
+        e.stopPropagation();
+        toggleSettingsPopup();
+    });
+
+    // Dismiss when clicking anywhere outside the popup or its button
+    $(document).on('mousedown.setpop', function (e) {
+        if (!$(e.target).closest('#settings-popup, #ctrl-settings').length) {
+            closeSettingsPopup();
+        }
+    });
+
+    $('#set-repeat-seg').on('click', '.set-seg-btn', function () {
+        setRepeatSingle($(this).data('repeat') === 'one');
+    });
+    $('#set-speed-grid').on('click', '.speed-btn', function () {
+        setPlaybackSpeed($(this).data('speed'));
+    });
+    $('#set-volbar-seg').on('click', '.set-seg-btn', function () {
+        setAlwaysShowVolumeBar($(this).data('volbar') === 'always');
+    });
+
+    $('#set-load-subtitle').on('click',     function () { closeSettingsPopup(); pickSubtitleFile(); });
+    $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
+    $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
+
+    // Apply persisted values to the video element
+    setRepeatSingle(repeatSingle);
+    setPlaybackSpeed(playbackSpeed);
+    setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+
+    // Changing episode — or a transcode seek — replaces the media source, which
+    // resets playbackRate. Reapply the chosen speed every time media loads.
+    $('#main-video').on('loadedmetadata.speed', function () {
+        this.playbackRate = playbackSpeed;
+    });
 }
 
 function openVideoInfo(tab) {
@@ -3225,12 +3824,34 @@ function initKeyboard() {
                 case 'l':
                 case 'L':
                     e.preventDefault(); toggleSidebar(); break;
+                case 's':
+                case 'S':
+                    e.preventDefault(); toggleSettingsPopup(); break;
+                case 'r':
+                case 'R':
+                    e.preventDefault();
+                    setRepeatSingle(!repeatSingle);
+                    showToast('Repeat: ' + (repeatSingle ? 'On' : 'Off')); break;
                 case 'n':
                     e.preventDefault(); playOffset(1); break;
                 case 'p':
                     e.preventDefault(); playOffset(-1); break;
                 case 'Escape':
-                    e.preventDefault(); closePlayer(); break;
+                    e.preventDefault();
+                    // Escape dismisses an open overlay first; only closes the
+                    // player once nothing is layered on top of it.
+                    if ($('#settings-popup').hasClass('active') ||
+                        $('#player-ctx').is(':visible') ||
+                        $('#video-info-modal').is(':visible') ||
+                        $('#subtitle-settings-modal').is(':visible')) {
+                        closeSettingsPopup();
+                        $('#player-ctx').hide();
+                        closeVideoInfo();
+                        closeSubtitleSettings();
+                    } else {
+                        closePlayer();
+                    }
+                    break;
                 case 'MediaPlayPause':
                     e.preventDefault(); togglePlay(); break;
                 case 'MediaTrackNext':
@@ -3602,22 +4223,26 @@ function initSubtitleMenu() {
 
     $('#ctx-sub-load').on('click', function () {
         $ctx.hide();
-        // Default to the folder of the currently playing file
-        var startDir = 'user:/';
-        if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
-            var fp = currentEpisodes[playingIndex].filepath.replace(/\\/g, '/');
-            var slash = fp.lastIndexOf('/');
-            if (slash > 0) { startDir = fp.substring(0, slash); }
-        }
-        ao_module_openFileSelector(
-            window.movieOnSubtitleFile,
-            startDir, 'file', false,
-            { fnameOverride: 'movieOnSubtitleFile', extAllowed: '.srt' }
-        );
+        pickSubtitleFile();
     });
 
     document.getElementById('main-video')
         .addEventListener('timeupdate', updateSubtitleDisplay);
+}
+
+// Open the ArozOS file selector, defaulted to the folder of the playing file
+function pickSubtitleFile() {
+    var startDir = 'user:/';
+    if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
+        var fp = currentEpisodes[playingIndex].filepath.replace(/\\/g, '/');
+        var slash = fp.lastIndexOf('/');
+        if (slash > 0) { startDir = fp.substring(0, slash); }
+    }
+    ao_module_openFileSelector(
+        window.movieOnSubtitleFile,
+        startDir, 'file', false,
+        { fnameOverride: 'movieOnSubtitleFile', extAllowed: '.srt' }
+    );
 }
 
 var toastTimer;

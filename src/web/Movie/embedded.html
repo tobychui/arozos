@@ -87,6 +87,14 @@
             width: 12px; height: 12px; background: #fff; border-radius: 50%;
         }
 
+        /* Portrait phones/tablets drive playback volume with the hardware keys,
+           so the in-page slider only eats toolbar width. Users who want it back
+           can force it on from the settings popup ("Volume bar → Always show"). */
+        @media (max-width: 899px) and (orientation: portrait) {
+            #volume-slider { display: none; }
+        }
+        body.always-show-volume #volume-slider { display: block; }
+
         #time-display {
             font-size: 13px; color: rgba(255,255,255,0.8);
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -106,6 +114,27 @@
                 -1px -1px 0 #000,  1px -1px 0 #000,
                 -1px  1px 0 #000,  1px  1px 0 #000,
                 0    2px 6px rgba(0,0,0,0.85);
+        }
+
+        /* ── Centre play/pause flash indicator ─────────────────────────────── */
+        #play-flash {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 88px; height: 88px;
+            margin: -44px 0 0 -44px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            opacity: 0; z-index: 18;
+        }
+        #play-flash img { width: 40px; height: 40px; display: block; }
+        #play-flash.flash { animation: playFlash 0.62s ease-out; }
+        @keyframes playFlash {
+            0%   { opacity: 0;    transform: scale(0.68); }
+            18%  { opacity: 0.95; transform: scale(0.92); }
+            100% { opacity: 0;    transform: scale(1.32); }
         }
 
         /* ── Resume popup ──────────────────────────────────────────────────── */
@@ -156,6 +185,7 @@
         .ctx-item.ctx-active   { color: var(--accent); }
         .ctx-item.ctx-disabled { opacity: 0.3; pointer-events: none; }
         .ctx-icon { width: 16px; text-align: center; flex-shrink: 0; font-style: normal; }
+        img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
         .ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; }
         .ctx-has-sub { justify-content: space-between; position: relative; }
         .ctx-sub-arrow { font-style: normal; opacity: 0.55; font-size: 15px; }
@@ -191,7 +221,8 @@
             background: none; border: none; cursor: pointer;
             color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
         }
-        #sset-close:hover { color: var(--text); }
+        #sset-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+        #sset-close:hover img { opacity: 1; }
         .sset-row {
             display: flex; align-items: center; gap: 10px;
             padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -258,7 +289,8 @@
             background: none; border: none; cursor: pointer;
             color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
         }
-        #video-info-close:hover { color: var(--text); }
+        #video-info-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+        #video-info-close:hover img { opacity: 1; }
         #video-info-tabs {
             display: flex; gap: 3px;
             background: var(--surface2); border-radius: calc(var(--radius) / 1.25); padding: 3px; margin-bottom: 12px;
@@ -278,6 +310,62 @@
         .info-row:last-child { border-bottom: none; }
         .info-label { color: var(--text-sub); flex-shrink: 0; width: 110px; }
         .info-value { color: var(--text); word-break: break-all; }
+
+        /* ── Playback settings popup (gear button) ─────────────────────────── */
+        #settings-popup {
+            display: none;
+            position: absolute;
+            right: 14px; bottom: 62px;
+            z-index: 35;
+            background: rgba(28,28,30,0.97);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-radius: calc(var(--radius) * 1.5);
+            padding: 6px 0; width: 236px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            user-select: none;
+        }
+        #settings-popup.active { display: block; }
+        .set-section { padding: 6px 14px 8px; }
+        .set-section + .set-section { border-top: 1px solid rgba(255,255,255,0.08); }
+        .set-head {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+            text-transform: uppercase; color: var(--text-sub);
+            margin-bottom: 7px;
+        }
+        .set-head img { width: 14px; height: 14px; opacity: 0.7; display: block; }
+        .set-seg {
+            display: flex; background: var(--surface2);
+            border-radius: calc(var(--radius) * 1.2); padding: 2px; gap: 2px;
+        }
+        .set-seg-btn {
+            flex: 1; padding: 5px 0; font-size: 12px; font-family: inherit;
+            border: none; border-radius: var(--radius); cursor: pointer;
+            background: transparent; color: var(--text-sub);
+            transition: background 0.15s, color 0.15s; outline: none;
+        }
+        .set-seg-btn:hover  { color: var(--text); }
+        .set-seg-btn.active { background: var(--surface); color: var(--text); }
+
+        .speed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .speed-btn {
+            padding: 5px 0; font-size: 12px; font-family: inherit;
+            border: none; border-radius: var(--radius); cursor: pointer;
+            background: var(--surface2); color: var(--text-sub);
+            transition: background 0.15s, color 0.15s; outline: none;
+        }
+        .speed-btn:hover  { color: var(--text); }
+        .speed-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+        .set-link {
+            display: flex; align-items: center; gap: 9px;
+            padding: 8px 14px; font-size: 13px; cursor: pointer;
+            color: var(--text); transition: background var(--transition);
+        }
+        .set-link:hover { background: rgba(255,255,255,0.08); }
+        .set-link img   { width: 15px; height: 15px; opacity: 0.8; display: block; }
 
         /* ── Toast ─────────────────────────────────────────────────────────── */
         #toast {
@@ -300,6 +388,9 @@
     <!-- Subtitle overlay -->
     <div id="subtitle-display"></div>
 
+    <!-- Centre play/pause flash indicator -->
+    <div id="play-flash"><img id="play-flash-icon" src="img/icons/play_white.svg" alt=""></div>
+
     <!-- Resume popup -->
     <div id="resume-popup">
         <div id="resume-popup-title">Resume playback?</div>
@@ -312,10 +403,10 @@
 
     <!-- Context menu -->
     <div id="player-ctx">
-        <div class="ctx-item" id="ctx-play"><i class="ctx-icon">▶</i>Play</div>
-        <div class="ctx-item" id="ctx-pause"><i class="ctx-icon">⏸</i>Pause</div>
+        <div class="ctx-item" id="ctx-play"><img class="ctx-icon" src="img/icons/play_white.svg" alt="">Play</div>
+        <div class="ctx-item" id="ctx-pause"><img class="ctx-icon" src="img/icons/pause_white.svg" alt="">Pause</div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="ctx-repeat"><i class="ctx-icon">↺</i>Repeat: Off</div>
+        <div class="ctx-item" id="ctx-repeat"><img class="ctx-icon" src="img/icons/repeat_white.svg" alt="">Repeat: Off</div>
         <div class="ctx-divider"></div>
         <div class="ctx-item ctx-has-sub" id="ctx-subtitle-parent">
             <span>Subtitles</span>
@@ -327,13 +418,13 @@
             </div>
         </div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="ctx-subtitle-settings"><i class="ctx-icon">⚙</i>Subtitle Settings</div>
+        <div class="ctx-item" id="ctx-subtitle-settings"><img class="ctx-icon" src="img/icons/settings_white.svg" alt="">Subtitle Settings</div>
         <div class="ctx-item" id="ctx-props">Video Properties</div>
     </div>
 
     <!-- Subtitle settings modal -->
     <div id="subtitle-settings-modal">
-        <h3>Subtitle Settings<button id="sset-close">✕</button></h3>
+        <h3>Subtitle Settings<button id="sset-close" title="Close"><img src="img/icons/close_white.svg" alt=""></button></h3>
         <div class="sset-row">
             <span class="sset-label">Position</span>
             <div class="sset-seg">
@@ -376,12 +467,54 @@
 
     <!-- Video info / stats modal -->
     <div id="video-info-modal">
-        <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" onclick="closeVideoInfo()">✕</button></h3>
+        <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" title="Close" onclick="closeVideoInfo()"><img src="img/icons/close_white.svg" alt=""></button></h3>
         <div id="video-info-tabs">
             <div class="info-tab active" onclick="showInfoTab('props')">Properties</div>
             <div class="info-tab"        onclick="showInfoTab('stats')">Stats</div>
         </div>
         <div id="video-info-body"></div>
+    </div>
+
+    <!-- Playback settings popup -->
+    <div id="settings-popup">
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/repeat_white.svg" alt="">Repeat</div>
+            <div class="set-seg" id="set-repeat-seg">
+                <button class="set-seg-btn active" data-repeat="off">Off</button>
+                <button class="set-seg-btn"        data-repeat="one">Repeat one</button>
+            </div>
+        </div>
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
+            <div class="speed-grid" id="set-speed-grid">
+                <button class="speed-btn" data-speed="0.25">0.25×</button>
+                <button class="speed-btn" data-speed="0.5">0.5×</button>
+                <button class="speed-btn" data-speed="0.75">0.75×</button>
+                <button class="speed-btn active" data-speed="1">Normal</button>
+                <button class="speed-btn" data-speed="1.25">1.25×</button>
+                <button class="speed-btn" data-speed="1.5">1.5×</button>
+                <button class="speed-btn" data-speed="1.75">1.75×</button>
+                <button class="speed-btn" data-speed="2">2×</button>
+            </div>
+        </div>
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/volume_white.svg" alt="">Volume bar</div>
+            <div class="set-seg" id="set-volbar-seg">
+                <button class="set-seg-btn active" data-volbar="auto">Auto</button>
+                <button class="set-seg-btn"        data-volbar="always">Always show</button>
+            </div>
+        </div>
+        <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
+            <div class="set-link" id="set-load-subtitle">
+                <img src="img/icons/movie_white.svg" alt="">Load SRT subtitle…
+            </div>
+            <div class="set-link" id="set-subtitle-settings">
+                <img src="img/icons/settings_white.svg" alt="">Subtitle settings
+            </div>
+            <div class="set-link" id="set-video-props">
+                <img src="img/icons/menu_white.svg" alt="">Video properties
+            </div>
+        </div>
     </div>
 
     <!-- Player controls -->
@@ -402,6 +535,9 @@
             </div>
             <span id="time-display">0:00 / 0:00</span>
             <span id="spacer"></span>
+            <button class="ctrl-btn" id="ctrl-settings" title="Playback settings">
+                <img src="img/icons/settings_white.svg" alt="">
+            </button>
             <button class="ctrl-btn" id="ctrl-fs" title="Fullscreen (F)">
                 <img src="img/icons/fullscreen_white.svg" alt="">
             </button>
@@ -423,7 +559,9 @@ var transcodeDuration   = 0;      // total duration for transcoded video (from /
 var pendingResumePos    = 0;
 var watchSaveInterval   = null;
 var controlsTimer       = null;
-var repeatSingle        = false;
+var repeatSingle        = (localStorage.getItem('movie_repeat_one') === '1');
+var playbackSpeed       = parseFloat(localStorage.getItem('movie_playback_speed') || '1') || 1;
+var alwaysShowVolumeBar = (localStorage.getItem('movie_always_volume_bar') === '1');
 var infoRefreshTimer    = null;
 var currentInfoTab      = 'props';
 
@@ -456,6 +594,17 @@ function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Flash a large play/pause glyph in the centre of the video so the user gets
+// immediate feedback that their click / key press registered.
+function flashPlayState(isPlaying) {
+    var $f = $('#play-flash');
+    $('#play-flash-icon').attr('src',
+        isPlaying ? 'img/icons/play_white.svg' : 'img/icons/pause_white.svg');
+    $f.removeClass('flash');
+    void $f[0].offsetWidth;   // force reflow so the animation restarts
+    $f.addClass('flash');
 }
 
 var toastTimer;
@@ -598,7 +747,16 @@ function initVideoControls() {
     $(vid).on('ended', function () {
         clearWatchPosition();
         if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
-        if (repeatSingle) { vid.currentTime = 0; vid.play(); }
+        if (!repeatSingle) { return; }
+        if (isTranscodedVideo && transcodeSeekOffset > 0 && currentFile) {
+            // The stream started part-way in — restart it from the beginning
+            transcodeSeekOffset = 0;
+            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath);
+            vid.load();
+        } else {
+            vid.currentTime = 0;
+        }
+        vid.play();
     });
 
     $(vid).on('volumechange', function () {
@@ -623,14 +781,19 @@ function updateMuteIcon() {
 
 function togglePlay() {
     $('#resume-popup').removeClass('active');
-    if (vid.paused) { vid.play(); } else { vid.pause(); }
+    var willPlay = vid.paused;
+    if (willPlay) { vid.play(); } else { vid.pause(); }
+    flashPlayState(willPlay);
 }
 
 function showControls() {
     $('#video-controls').removeClass('hidden');
     clearTimeout(controlsTimer);
     controlsTimer = setTimeout(function () {
-        if (!vid.paused) { $('#video-controls').addClass('hidden'); }
+        // Keep the bar up while the settings popup is open — it is anchored to it
+        if (!vid.paused && !$('#settings-popup').hasClass('active')) {
+            $('#video-controls').addClass('hidden');
+        }
     }, 3000);
 }
 
@@ -703,8 +866,11 @@ function initContextMenu() {
         $('#ctx-pause').toggleClass('ctx-disabled', vid.paused);
         $('#ctx-repeat')
             .toggleClass('ctx-active', repeatSingle)
-            .html('<i class="ctx-icon">' + (repeatSingle ? '✓' : '↺') + '</i>Repeat: ' + (repeatSingle ? 'On' : 'Off'));
+            .html('<img class="ctx-icon" src="img/icons/'
+                + (repeatSingle ? 'repeat_one_white.svg' : 'repeat_white.svg')
+                + '" alt="">Repeat: ' + (repeatSingle ? 'On' : 'Off'));
         $('#ctx-subtitle-sub').hide();
+        closeSettingsPopup();
 
         var rect = this.getBoundingClientRect();
         var x = e.clientX - rect.left;
@@ -720,11 +886,90 @@ function initContextMenu() {
         if (!$(e.target).closest('#player-ctx').length) { $ctx.hide(); }
     });
 
-    $('#ctx-play').on('click',   function () { vid.play();          $ctx.hide(); });
-    $('#ctx-pause').on('click',  function () { vid.pause();         $ctx.hide(); });
-    $('#ctx-repeat').on('click', function () { repeatSingle = !repeatSingle; $ctx.hide(); });
+    $('#ctx-play').on('click',   function () { vid.play();  flashPlayState(true);  $ctx.hide(); });
+    $('#ctx-pause').on('click',  function () { vid.pause(); flashPlayState(false); $ctx.hide(); });
+    $('#ctx-repeat').on('click', function () { setRepeatSingle(!repeatSingle); $ctx.hide(); });
     $('#ctx-subtitle-settings').on('click', function () { $ctx.hide(); openSubtitleSettings(); });
     $('#ctx-props').on('click',  function () { $ctx.hide(); openVideoInfo('props'); });
+}
+
+// ── Playback settings popup (gear button) ─────────────────────────────────────
+function setAlwaysShowVolumeBar(on) {
+    alwaysShowVolumeBar = !!on;
+    localStorage.setItem('movie_always_volume_bar', alwaysShowVolumeBar ? '1' : '0');
+    $('body').toggleClass('always-show-volume', alwaysShowVolumeBar);
+    $('#set-volbar-seg .set-seg-btn').removeClass('active')
+        .filter('[data-volbar="' + (alwaysShowVolumeBar ? 'always' : 'auto') + '"]').addClass('active');
+}
+
+function setRepeatSingle(on) {
+    repeatSingle = !!on;
+    vid.loop = false;   // handled manually in the 'ended' handler
+    localStorage.setItem('movie_repeat_one', repeatSingle ? '1' : '0');
+    $('#set-repeat-seg .set-seg-btn').removeClass('active')
+        .filter('[data-repeat="' + (repeatSingle ? 'one' : 'off') + '"]').addClass('active');
+}
+
+function setPlaybackSpeed(rate) {
+    playbackSpeed = parseFloat(rate) || 1;
+    vid.playbackRate = playbackSpeed;
+    localStorage.setItem('movie_playback_speed', String(playbackSpeed));
+    $('#set-speed-grid .speed-btn').removeClass('active')
+        .filter('[data-speed="' + playbackSpeed + '"]').addClass('active');
+}
+
+function openSettingsPopup() {
+    setRepeatSingle(repeatSingle);
+    setPlaybackSpeed(playbackSpeed);
+    setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    $('#player-ctx').hide();
+    $('#settings-popup').addClass('active');
+    showControls();
+}
+
+function closeSettingsPopup() { $('#settings-popup').removeClass('active'); }
+
+function toggleSettingsPopup() {
+    if ($('#settings-popup').hasClass('active')) { closeSettingsPopup(); }
+    else { openSettingsPopup(); }
+}
+
+function initSettingsPopup() {
+    $('#ctrl-settings').on('click', function (e) {
+        e.stopPropagation();
+        toggleSettingsPopup();
+    });
+
+    // Dismiss when clicking anywhere outside the popup or its button
+    $(document).on('mousedown.setpop', function (e) {
+        if (!$(e.target).closest('#settings-popup, #ctrl-settings').length) {
+            closeSettingsPopup();
+        }
+    });
+
+    $('#set-repeat-seg').on('click', '.set-seg-btn', function () {
+        setRepeatSingle($(this).data('repeat') === 'one');
+    });
+
+    $('#set-speed-grid').on('click', '.speed-btn', function () {
+        setPlaybackSpeed($(this).data('speed'));
+    });
+    $('#set-volbar-seg').on('click', '.set-seg-btn', function () {
+        setAlwaysShowVolumeBar($(this).data('volbar') === 'always');
+    });
+
+    $('#set-load-subtitle').on('click',    function () { closeSettingsPopup(); pickSubtitleFile(); });
+    $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
+    $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
+
+    // Apply persisted values to the video element
+    setRepeatSingle(repeatSingle);
+    setPlaybackSpeed(playbackSpeed);
+    setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+
+    // A transcode seek replaces the media source, which resets playbackRate —
+    // reapply the chosen speed every time new media is loaded.
+    $(vid).on('loadedmetadata', function () { vid.playbackRate = playbackSpeed; });
 }
 
 // ── Video info / stats modal ──────────────────────────────────────────────────
@@ -1032,18 +1277,23 @@ function initSubtitleMenu() {
 
     $('#ctx-sub-load').on('click', function () {
         $ctx.hide();
-        var startDir = 'user:/';
-        if (currentFile) {
-            var fp    = currentFile.filepath.replace(/\\/g, '/');
-            var slash = fp.lastIndexOf('/');
-            if (slash > 0) { startDir = fp.substring(0, slash); }
-        }
-        ao_module_openFileSelector(
-            window.movieEmbOnSubtitleFile,
-            startDir, 'file', false,
-            { fnameOverride: 'movieEmbOnSubtitleFile', extAllowed: '.srt' }
-        );
+        pickSubtitleFile();
     });
+}
+
+// Open the ArozOS file selector defaulted to the folder of the playing file
+function pickSubtitleFile() {
+    var startDir = 'user:/';
+    if (currentFile) {
+        var fp    = currentFile.filepath.replace(/\\/g, '/');
+        var slash = fp.lastIndexOf('/');
+        if (slash > 0) { startDir = fp.substring(0, slash); }
+    }
+    ao_module_openFileSelector(
+        window.movieEmbOnSubtitleFile,
+        startDir, 'file', false,
+        { fnameOverride: 'movieEmbOnSubtitleFile', extAllowed: '.srt' }
+    );
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
@@ -1103,12 +1353,17 @@ function initKeyboard() {
             case 'r':
             case 'R':
                 e.preventDefault();
-                repeatSingle = !repeatSingle;
+                setRepeatSingle(!repeatSingle);
                 showToast('Repeat: ' + (repeatSingle ? 'On' : 'Off')); break;
+
+            case 's':
+            case 'S':
+                e.preventDefault(); toggleSettingsPopup(); break;
 
             case 'Escape':
                 e.preventDefault();
                 $('#player-ctx').hide();
+                closeSettingsPopup();
                 closeVideoInfo();
                 closeSubtitleSettings(); break;
 
@@ -1122,6 +1377,7 @@ function initKeyboard() {
 function initMain(){
     initVideoControls();
     initContextMenu();
+    initSettingsPopup();
     initSubtitleMenu();
     initSubtitleSettings();
     initKeyboard();

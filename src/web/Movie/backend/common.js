@@ -23,6 +23,8 @@ var SCRIPT_GET_MOVIE_INFO     = BACKEND_PATH + "getMovieInfo.js";
 var SCRIPT_DISABLE_MOVIE_INFO = BACKEND_PATH + "disableMovieInfo.js";
 var SCRIPT_GET_WATCHTIME      = BACKEND_PATH + "getWatchTime.js";
 var SCRIPT_SET_WATCHTIME      = BACKEND_PATH + "setWatchTime.js";
+var SCRIPT_GET_INDEX_STATS    = BACKEND_PATH + "getIndexStats.js";
+var SCRIPT_CLEAR_INDEX        = BACKEND_PATH + "clearIndex.js";
 
 // ── Scanner settings ─────────────────────────────────────────────────────────
 var VALID_VIDEO_FORMATS = ["mp4", "webm", "ogg", "mkv", "avi", "mov", "m4v", "wmv", "flv", "rmvb", "ts"];
