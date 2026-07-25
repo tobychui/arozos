@@ -101,16 +101,24 @@ func TestAppendIgnoreRules(t *testing.T) {
 			want:     "*.tmp\n\n" + ignoreHeader + "\n*.log\n",
 		},
 		{
-			name:     "header is not repeated",
+			//A second call joins the existing block with no blank line between
+			//the rules — this is the case that used to grow a gap per call.
+			name:     "second call appends without a blank line",
 			existing: ignoreHeader + "\n*.tmp\n",
 			added:    []string{"*.log"},
-			want:     ignoreHeader + "\n*.tmp\n\n*.log\n",
+			want:     ignoreHeader + "\n*.tmp\n*.log\n",
 		},
 		{
 			name:     "several rules",
 			existing: "",
 			added:    []string{"a", "b"},
 			want:     ignoreHeader + "\na\nb\n",
+		},
+		{
+			name:     "adds a missing trailing newline before joining",
+			existing: ignoreHeader + "\n*.tmp",
+			added:    []string{"*.log"},
+			want:     ignoreHeader + "\n*.tmp\n*.log\n",
 		},
 	}
 
@@ -166,6 +174,43 @@ func TestAddIgnoreRulesPreservesExistingContent(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "*.log") {
 		t.Errorf(".gitignore is missing the new rule: %q", string(content))
+	}
+}
+
+// TestAddIgnoreRulesRepeatedCallsHaveNoBlankLines reproduces the reported bug:
+// ignoring several folders one at a time must not leave a blank line between
+// every rule.
+func TestAddIgnoreRulesRepeatedCallsHaveNoBlankLines(t *testing.T) {
+	manager := newTestManager(t)
+	repoPath := newTestRepo(t, manager)
+
+	//Seed the file with the user's own content, as in the report
+	writeFile(t, repoPath, gitignoreName, "# Runtime state\ndata/\n")
+
+	for _, rule := range []string{"/.metadata", "/img/.metadata", "/previews/.metadata"} {
+		if _, err := manager.AddIgnoreRules(repoPath, []string{rule}); err != nil {
+			t.Fatalf("AddIgnoreRules(%q) returned error: %v", rule, err)
+		}
+	}
+
+	raw, err := os.ReadFile(filepath.Join(repoPath, gitignoreName))
+	if err != nil {
+		t.Fatalf("cannot read .gitignore: %v", err)
+	}
+
+	want := "# Runtime state\ndata/\n\n" + ignoreHeader + "\n/.metadata\n/img/.metadata\n/previews/.metadata\n"
+	if string(raw) != want {
+		t.Errorf("after three separate calls .gitignore =\n%q\nwant\n%q", string(raw), want)
+	}
+
+	//There must be exactly one blank line in the whole file: the one before the
+	//GitApp block. None between the appended rules.
+	if strings.Contains(string(raw), "\n\n"+ignoreHeader+"\n\n") {
+		t.Errorf("a blank line crept in right after the header: %q", string(raw))
+	}
+	blocks := strings.Split(strings.TrimRight(string(raw), "\n"), "\n\n")
+	if len(blocks) != 2 {
+		t.Errorf("expected 2 blocks separated by a single blank line, got %d: %q", len(blocks), string(raw))
 	}
 }
 

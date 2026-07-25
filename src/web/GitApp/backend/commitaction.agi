@@ -1,0 +1,68 @@
+/*
+	GitApp — commit action backend
+
+	Drives the History tab's right-click menu. Every action is scoped to a
+	single commit identified by its hash.
+
+	POST opr     = checkout | reset | branch | tag | revert | cherrypick | amend
+	     repo    = virtual path of the repository
+	     hash    = target commit hash
+	     mode    = reset mode: soft | mixed | hard        (reset only)
+	     branch  = new branch name                        (branch only)
+	     tag     = new tag name                           (tag only)
+	     message = tag annotation / new commit message    (tag, amend)
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else if (opr == "amend") {
+    //Amend targets HEAD, so it is the one action that needs a message but not a
+    //hash.
+    if (typeof message == "undefined" || message.trim() == "") {
+        sendJSONResp({ success: false, error: "a commit message is required" });
+    } else {
+        sendJSONResp(git.amendMessage(repo, message.trim()));
+    }
+} else if (typeof hash == "undefined" || hash == "") {
+    sendJSONResp({ success: false, error: "a commit hash is required" });
+} else if (opr == "checkout") {
+    sendJSONResp(git.checkoutCommit(repo, hash));
+
+} else if (opr == "reset") {
+    var resetMode = "mixed";
+    if (typeof mode != "undefined" && mode != "") {
+        resetMode = mode;
+    }
+    sendJSONResp(git.resetToCommit(repo, hash, resetMode));
+
+} else if (opr == "branch") {
+    if (typeof branch == "undefined" || branch.trim() == "") {
+        sendJSONResp({ success: false, error: "a branch name is required" });
+    } else {
+        sendJSONResp(git.createBranchAt(repo, branch.trim(), hash));
+    }
+
+} else if (opr == "tag") {
+    if (typeof tag == "undefined" || tag.trim() == "") {
+        sendJSONResp({ success: false, error: "a tag name is required" });
+    } else {
+        var annotation = "";
+        if (typeof message != "undefined") {
+            annotation = message.trim();
+        }
+        sendJSONResp(git.createTag(repo, tag.trim(), hash, annotation));
+    }
+
+} else if (opr == "revert") {
+    sendJSONResp(git.revertCommit(repo, hash, {}));
+
+} else if (opr == "cherrypick") {
+    sendJSONResp(git.cherryPickCommit(repo, hash, {}));
+
+} else {
+    sendJSONResp({ success: false, error: "unknown operation: " + opr });
+}

@@ -1188,14 +1188,63 @@
     {
      "name": "git.log",
      "sig": "git.log(vpath, limit)",
-     "desc": "Commits reachable from HEAD, newest first (default limit 50). Each has hash, shortHash, subject, message, authorName, authorEmail, timestamp and parents.",
+     "desc": "Commits reachable from HEAD, newest first (default limit 50). Each has hash, shortHash, subject, message, authorName, authorEmail, timestamp and parents. Each commit also carries a tags array of tag names pointing at it.",
      "ret": "array",
      "example": "var commits = git.log(\"user:/Desktop/myproject\", 10);\ncommits.forEach(function(c) {\n    console.log(c.shortHash + \" \" + c.subject);\n});"
     },
     {
+     "name": "git.checkoutCommit",
+     "sig": "git.checkoutCommit(vpath, hash)",
+     "desc": "Check a commit out in detached HEAD state. Refuses when the working tree has uncommitted changes.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.checkoutCommit(\"user:/Desktop/myproject\", commitHash);"
+    },
+    {
+     "name": "git.resetToCommit",
+     "sig": "git.resetToCommit(vpath, hash, mode)",
+     "desc": "Move the current branch to a commit. mode is \"soft\" (HEAD only), \"mixed\" (also the index, the default) or \"hard\" (also the working tree). A hard reset refuses when there are uncommitted changes.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.resetToCommit(\"user:/Desktop/myproject\", commitHash, \"soft\");"
+    },
+    {
+     "name": "git.createBranchAt",
+     "sig": "git.createBranchAt(vpath, branch, hash)",
+     "desc": "Create a branch pointing at a commit and check it out.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.createBranchAt(\"user:/Desktop/myproject\", \"hotfix\", commitHash);"
+    },
+    {
+     "name": "git.createTag",
+     "sig": "git.createTag(vpath, tag, hash, message)",
+     "desc": "Tag a commit. A non-empty message produces an annotated tag, otherwise a lightweight one.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.createTag(\"user:/Desktop/myproject\", \"v1.0\", commitHash, \"First release\");"
+    },
+    {
+     "name": "git.revertCommit",
+     "sig": "git.revertCommit(vpath, hash, options)",
+     "desc": "Create a new commit undoing a commit's changes. Uses a clean-or-refuse strategy: since go-git has no merge engine, the revert is applied only when the affected files still match the reverted commit, otherwise it is refused rather than producing a wrong result. options may carry name and email.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar result = git.revertCommit(\"user:/Desktop/myproject\", commitHash, {});\nif (!result.success) { console.log(result.error); }"
+    },
+    {
+     "name": "git.cherryPickCommit",
+     "sig": "git.cherryPickCommit(vpath, hash, options)",
+     "desc": "Apply a commit's changes onto the current HEAD, preserving the original author. Uses the same clean-or-refuse strategy as revert. options may carry name and email for the committer.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.cherryPickCommit(\"user:/Desktop/myproject\", commitHash, {});"
+    },
+    {
+     "name": "git.amendMessage",
+     "sig": "git.amendMessage(vpath, message, options)",
+     "desc": "Rewrite the message of the HEAD commit, keeping its tree, parents and author. Only a branch tip can be amended.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.amendMessage(\"user:/Desktop/myproject\", \"Corrected commit message\", {});"
+    },
+    {
      "name": "git.branches",
      "sig": "git.branches(vpath)",
-     "desc": "Local and remote-tracking branches: name, fullRef, hash, isRemote, isCurrent.",
+     "desc": "Local and remote-tracking branches: name, fullRef, hash, isRemote, isCurrent, plus remote and short — for origin/feature/login those are \"origin\" and \"feature/login\", which is what the branch management calls expect. For a local branch short equals name and remote is empty.",
      "ret": "array",
      "example": "var branches = git.branches(\"user:/Desktop/myproject\");"
     },
@@ -1205,6 +1254,34 @@
      "desc": "Switch to a branch, creating it from HEAD when create is true. Checking out a remote name such as \"origin/feature\" creates the matching local branch.",
      "ret": "object",
      "example": "git.checkout(\"user:/Desktop/myproject\", \"feature/login\", true);"
+    },
+    {
+     "name": "git.deleteBranch",
+     "sig": "git.deleteBranch(vpath, branch, force)",
+     "desc": "Delete a local branch. The checked-out branch is never deleted. A branch holding commits unreachable from HEAD is refused with unmerged:true unless force is set, mirroring git branch -d versus -D.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar result = git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", false);\nif (result.unmerged) {\n    //confirm with the user, then force\n    git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", true);\n}"
+    },
+    {
+     "name": "git.renameBranch",
+     "sig": "git.renameBranch(vpath, oldName, newName)",
+     "desc": "Rename a local branch. Its upstream configuration moves with it, and HEAD follows when the renamed branch is the checked-out one.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.renameBranch(\"user:/Desktop/myproject\", \"feature\", \"feature-v2\");"
+    },
+    {
+     "name": "git.deleteRemoteBranch",
+     "sig": "git.deleteRemoteBranch(vpath, remote, branch, options)",
+     "desc": "Delete a branch on the remote — a network push with an empty source refspec. The local remote-tracking ref is pruned too, so the branch stops appearing in git.branches(); any local branch of the same name is left alone. Options: username, token, remember.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar result = git.deleteRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"stale\", {});\nif (!result.success && result.authRequired) { /* prompt and retry */ }"
+    },
+    {
+     "name": "git.renameRemoteBranch",
+     "sig": "git.renameRemoteBranch(vpath, remote, oldName, newName, options)",
+     "desc": "Rename a branch on the remote. Git cannot rename a remote ref, so this pushes the new name then deletes the old one — in that order, so an interrupted rename leaves the branch under both names rather than losing it. Options: username, token, remember.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.renameRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"feature\", \"feature-v2\", {});"
     },
     {
      "name": "git.remotes",

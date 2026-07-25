@@ -2175,12 +2175,47 @@ console.log(status.branch + ": " + status.changes.length + " changed files");
 
 Commits reachable from HEAD, newest first (default limit 50). Each commit has
 `hash`, `shortHash`, `subject`, `message`, `authorName`, `authorEmail`,
-`timestamp` and `parents`.
+`timestamp`, `parents` and `tags` (names of any tags pointing at it).
 
 ### `git.branches(vpath)` → array
 
 Local and remote-tracking branches: `name`, `fullRef`, `hash`, `isRemote`,
-`isCurrent`.
+`isCurrent`, plus `remote` and `short` — for `origin/feature/login` those are
+`origin` and `feature/login`, which is what the branch-management calls below
+expect. For a local branch `short` equals `name` and `remote` is empty.
+
+### `git.deleteBranch(vpath, branch, force)` → object
+
+Delete a local branch. The checked-out branch is never deleted. A branch holding
+commits unreachable from HEAD is refused with `unmerged: true` unless `force` is
+set, mirroring `git branch -d` versus `-D`.
+
+```javascript
+var result = git.deleteBranch("user:/Desktop/myproject", "old-feature", false);
+if (result.unmerged) {
+    // confirm with the user, then retry with force
+    git.deleteBranch("user:/Desktop/myproject", "old-feature", true);
+}
+```
+
+### `git.renameBranch(vpath, oldName, newName)` → object
+
+Rename a local branch. Its upstream configuration moves with it, and HEAD
+follows when the renamed branch is the checked-out one.
+
+### `git.deleteRemoteBranch(vpath, remote, branch, options)` → object
+
+Delete a branch **on the remote** — a network push with an empty source refspec.
+The local remote-tracking ref is pruned too, so the branch stops appearing in
+`git.branches()`. The matching local branch, if any, is left alone. Options:
+`username`, `token`, `remember`.
+
+### `git.renameRemoteBranch(vpath, remote, oldName, newName, options)` → object
+
+Rename a branch on the remote. Git cannot rename a remote ref, so this pushes
+the new name and then deletes the old one — in that order, so an interrupted
+rename leaves the branch under both names rather than losing it. Options:
+`username`, `token`, `remember`.
 
 ### `git.checkout(vpath, branch, create)` → object
 
@@ -2265,6 +2300,42 @@ this change" from a read failure. Files above 8 MB are refused.
 var blob = git.fileBlob("user:/Desktop/myproject", "img/logo.png", "HEAD");
 if (blob.exists) {
     // blob.base64 holds the committed image, blob.mime is "image/png"
+}
+```
+
+### History actions
+
+Operations on a single commit, used by the GitApp History tab. Each returns
+`{success, error, message}`, and the ones that create a commit also return its
+`hash`.
+
+- `git.checkoutCommit(vpath, hash)` — check the commit out in detached HEAD
+  state. Refuses when the working tree is dirty.
+- `git.resetToCommit(vpath, hash, mode)` — move the current branch to the
+  commit. `mode` is `"soft"`, `"mixed"` (default) or `"hard"`; a hard reset
+  refuses when there are uncommitted changes.
+- `git.createBranchAt(vpath, branch, hash)` — create a branch at the commit and
+  check it out.
+- `git.createTag(vpath, tag, hash, message)` — tag the commit. A non-empty
+  `message` makes an annotated tag, otherwise a lightweight one.
+- `git.revertCommit(vpath, hash, options)` — create a new commit undoing the
+  commit's changes.
+- `git.cherryPickCommit(vpath, hash, options)` — apply the commit's changes onto
+  the current HEAD, preserving the original author.
+- `git.amendMessage(vpath, message, options)` — rewrite the message of the HEAD
+  commit, keeping its tree, parents and author.
+
+Revert and cherry-pick use a **clean-or-refuse** strategy: because go-git has no
+merge engine, a change is applied only when the files it touches still hold the
+exact content it expects. If any file has diverged the whole operation is
+refused with a readable message rather than producing an incorrect result. This
+covers the common cases (reverting the latest commit, or an older commit whose
+files were untouched since) and safely declines the rest.
+
+```javascript
+var result = git.revertCommit("user:/Desktop/myproject", commitHash, {});
+if (!result.success) {
+    console.log(result.error); // e.g. "cannot apply cleanly — …"
 }
 ```
 

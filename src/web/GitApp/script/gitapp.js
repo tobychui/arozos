@@ -262,8 +262,12 @@ function renderFileList() {
         });
 
         //The path is rendered right-to-left so a long folder chain truncates on
-        //the left and the file name always stays visible.
-        var label = $("<div class='fname'></div>").attr("title", change.path).text(change.path);
+        //the left and the file name always stays visible. A leading Left-to-Right
+        //Mark keeps names that start with a neutral character (".gitignore") from
+        //having that character reordered to the visual end by the RTL bidi rules.
+        var label = $("<div class='fname'></div>")
+            .attr("title", change.path)
+            .text("‎" + change.path);
 
         row.append(box).append(label).append(statusMark(change));
         row.on("click", function() {
@@ -435,6 +439,22 @@ function remoteHostLabel() {
         return state.status.remotes[0].urls[0];
     }
     return "";
+}
+
+//remoteUrlByName finds a named remote's URL, so a sign-in prompt raised by a
+//branch operation names the remote it is actually talking to rather than
+//whichever one happens to be first.
+function remoteUrlByName(name) {
+    if (!state.status || !state.status.remotes) {
+        return "";
+    }
+    for (var i = 0; i < state.status.remotes.length; i++) {
+        var remote = state.status.remotes[i];
+        if (remote.name === name && remote.urls.length > 0) {
+            return remote.urls[0];
+        }
+    }
+    return remoteHostLabel();
 }
 
 /* ── Diff pane ────────────────────────────────────────────────────────── */
@@ -801,18 +821,32 @@ function renderCommitList() {
         return;
     }
 
+    var headHash = (state.status && state.status.head) ? state.status.head.hash : null;
+
     state.commits.forEach(function(commit) {
         var entry = $("<div class='commitentry'></div>");
         if (commit.hash === state.activeCommit) {
             entry.addClass("active");
         }
 
-        entry.append($("<div class='subject'></div>").text(commit.subject));
+        var subject = $("<div class='subject'></div>").text(commit.subject);
+        //Tags on this commit are shown as small labels, like GitHub Desktop
+        if (commit.tags && commit.tags.length > 0) {
+            commit.tags.forEach(function(tag) {
+                subject.prepend($("<span class='taglabel'></span>").text(tag));
+            });
+        }
+        entry.append(subject);
         entry.append($("<div class='meta'></div>").text(
             commit.authorName + " · " + formatTime(commit.timestamp) + " · " + commit.shortHash));
 
         entry.on("click", function() {
             selectCommit(commit.hash);
+        });
+        entry.on("contextmenu", function(event) {
+            event.preventDefault();
+            selectCommit(commit.hash);
+            openCommitContextMenu(commit, commit.hash === headHash, event.clientX, event.clientY);
         });
         list.append(entry);
     });
@@ -851,6 +885,317 @@ function selectCommit(hash) {
 function formatTime(unixSeconds) {
     var date = new Date(unixSeconds * 1000);
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/* ── Commit context menu (History tab) ────────────────────────────────── */
+
+/*
+    openCommitContextMenu builds the right-click menu for one commit, mirroring
+    GitHub Desktop. isHead marks the tip of the current branch, which gates the
+    actions that only make sense there (amend) and the ones that would be a
+    no-op on it (reset/checkout to where you already are).
+
+    "Reorder commit" needs an interactive rebase, which go-git cannot do, so it
+    is shown disabled — exactly as it appears greyed in GitHub Desktop when it
+    is unavailable.
+*/
+function openCommitContextMenu(commit, isHead, clientX, clientY) {
+    var menu = $("#fileContextMenu").empty();
+    var branchAttached = state.status && state.status.branch && !state.status.detached;
+
+    menu.append(menuItem("Amend commit message…", function() {
+        openAmendDialog(commit);
+    }, {
+        disabled: !(isHead && branchAttached),
+        title: isHead ? "" : "Only the latest commit on a branch can be amended"
+    }));
+
+    menu.append(menuItem("Reset to commit…", function() {
+        openResetDialog(commit);
+    }, { disabled: !branchAttached, title: branchAttached ? "" : "Check out a branch first" }));
+
+    menu.append(menuItem("Checkout commit", function() {
+        commitAction("checkout", { hash: commit.hash }, "Checking out…");
+    }, { disabled: isHead }));
+
+    //Interactive rebase is not available through go-git
+    menu.append(menuItem("Reorder commit", null, {
+        disabled: true,
+        title: "Reordering commits is not supported"
+    }));
+
+    menu.append(menuItem("Revert changes in commit", function() {
+        confirmDialog("Revert this commit?",
+            "A new commit will be created that undoes the changes in \"" + commit.subject + "\".",
+            function() {
+                commitAction("revert", { hash: commit.hash }, "Reverting…");
+            });
+    }));
+
+    menu.append(menuDivider());
+
+    menu.append(menuItem("Create branch from commit", function() {
+        openBranchFromCommitDialog(commit);
+    }));
+
+    menu.append(menuItem("Create Tag…", function() {
+        openCreateTagDialog(commit);
+    }));
+
+    menu.append(menuItem("Cherry-pick commit…", function() {
+        confirmDialog("Cherry-pick this commit?",
+            "The changes in \"" + commit.subject + "\" will be applied on top of your current branch.",
+            function() {
+                commitAction("cherrypick", { hash: commit.hash }, "Cherry-picking…");
+            });
+    }, { disabled: isHead, title: isHead ? "This commit is already the branch tip" : "" }));
+
+    menu.append(menuDivider());
+
+    menu.append(menuItem("Copy SHA", function() {
+        copyToClipboard(commit.hash, "commit SHA");
+    }, { title: commit.hash }));
+
+    var tag = (commit.tags && commit.tags.length > 0) ? commit.tags[0] : "";
+    menu.append(menuItem(tag ? "Copy tag (" + tag + ")" : "Copy tag", function() {
+        copyToClipboard(tag, "tag name");
+    }, { disabled: tag === "" }));
+
+    var webUrl = commitWebUrl(commit.hash);
+    menu.append(menuItem(webUrl ? "View on " + webUrl.host : "View on remote", function() {
+        window.open(webUrl.url, "_blank", "noopener");
+    }, { disabled: !webUrl, title: webUrl ? webUrl.url : "No web-viewable remote is configured" }));
+
+    placeMenu(menu, clientX, clientY);
+}
+
+/* ── Commit action plumbing ───────────────────────────────────────────── */
+
+//commitAction posts one commitaction.agi operation and refreshes on success.
+function commitAction(operation, params, busyMessage, afterwards) {
+    var payload = { opr: operation, repo: state.repo };
+    for (var key in params) {
+        if (params.hasOwnProperty(key)) {
+            payload[key] = params[key];
+        }
+    }
+
+    setBusy(busyMessage);
+    call("commitaction.agi", payload, function(reply) {
+        clearBusy();
+        if (!reply.success) {
+            setStatus(reply.error, true);
+            return;
+        }
+
+        var outcome = reply.message || "Done";
+        //A history action can move HEAD, change branch or rewrite commits, so
+        //refresh both the working-tree status and the commit list.
+        state.activeFile = null;
+        refreshStatus(function() {
+            loadHistory();
+            setStatus(outcome);
+        });
+
+        if (typeof afterwards === "function") {
+            afterwards(reply);
+        }
+    });
+}
+
+/*
+    commitWebUrl turns the repository's first remote into a web URL for a commit,
+    or null when there is no http/ssh remote to build one from. Host families
+    that use a different commit path (GitLab) are handled explicitly; everything
+    else falls back to the widespread "/commit/<sha>" convention.
+*/
+function commitWebUrl(hash) {
+    if (!state.status || !state.status.remotes || state.status.remotes.length === 0) {
+        return null;
+    }
+    var urls = state.status.remotes[0].urls;
+    if (!urls || urls.length === 0) {
+        return null;
+    }
+
+    var base = remoteToWebBase(urls[0]);
+    if (!base) {
+        return null;
+    }
+
+    var commitPath = base.host.indexOf("gitlab") !== -1 ? "/-/commit/" : "/commit/";
+    return { host: base.host, url: base.url + commitPath + hash };
+}
+
+//remoteToWebBase normalises an https or scp-style git remote into a browsable
+//https base URL and its host.
+function remoteToWebBase(remoteUrl) {
+    remoteUrl = (remoteUrl || "").trim();
+    if (remoteUrl === "") {
+        return null;
+    }
+
+    var host = "";
+    var path = "";
+
+    //Three remote forms: http(s) URL, ssh:// URL (may carry a :port before the
+    //path), and scp-style git@host:path (the colon is the path separator, so it
+    //has no port to strip).
+    var httpsMatch = remoteUrl.match(/^https?:\/\/([^/]+)\/(.+)$/i);
+    var sshUrlMatch = remoteUrl.match(/^ssh:\/\/(?:[^@]+@)?([^:/]+)(?::\d+)?\/(.+)$/i);
+    var scpMatch = remoteUrl.match(/^(?:[^@]+@)?([^:/]+):(.+)$/i);
+
+    if (httpsMatch) {
+        host = httpsMatch[1].split("@").pop(); // drop any user:pass@ prefix
+        path = httpsMatch[2];
+    } else if (sshUrlMatch) {
+        host = sshUrlMatch[1];
+        path = sshUrlMatch[2];
+    } else if (scpMatch) {
+        host = scpMatch[1];
+        path = scpMatch[2];
+    } else {
+        return null;
+    }
+
+    host = host.replace(/:\d+$/, "");                 // drop a port on http(s) hosts
+    path = path.replace(/\.git$/i, "").replace(/\/+$/, "");
+    return { host: host, url: "https://" + host + "/" + path };
+}
+
+/* ── Commit action dialogs ────────────────────────────────────────────── */
+
+function openAmendDialog(commit) {
+    var box = $("<div></div>");
+    box.append($("<h3></h3>").text("Amend commit message"));
+    box.append($("<div class='desc'></div>").text(
+        "This rewrites the latest commit's message. Its changes and author are kept."));
+
+    var summary = $("<input type='text'>").val(commit.subject);
+    box.append($("<div class='field'></div>")
+        .append($("<label></label>").text("Message"))
+        .append(summary));
+
+    var actions = $("<div class='modalactions'></div>");
+    actions.append($("<button>Cancel</button>").on("click", closeModal));
+    actions.append($("<button class='primary'>Amend</button>").on("click", function() {
+        if (summary.val().trim() === "") {
+            return;
+        }
+        closeModal();
+        commitAction("amend", { message: summary.val().trim() }, "Amending…");
+    }));
+    box.append(actions);
+
+    openModal(box);
+    summary.trigger("focus");
+}
+
+function openResetDialog(commit) {
+    var box = $("<div></div>");
+    box.append($("<h3></h3>").text("Reset to commit"));
+    box.append($("<div class='desc'></div>").text(
+        "Move the current branch back to \"" + commit.subject + "\" (" + commit.shortHash + ")."));
+
+    //One radio group for the three reset modes, mixed selected by default
+    var modes = [
+        { value: "soft", label: "Soft — keep all changes staged" },
+        { value: "mixed", label: "Mixed — keep changes, unstaged (default)" },
+        { value: "hard", label: "Hard — discard all changes since this commit" }
+    ];
+    var group = $("<div class='field'></div>");
+    modes.forEach(function(mode) {
+        var id = "resetmode_" + mode.value;
+        var row = $("<div class='field inline'></div>");
+        var radio = $("<input type='radio' name='resetmode'>").attr("id", id).val(mode.value);
+        if (mode.value === "mixed") {
+            radio.prop("checked", true);
+        }
+        row.append(radio).append($("<label></label>").attr("for", id).text(mode.label));
+        group.append(row);
+    });
+    box.append(group);
+
+    var warning = $("<div class='modalerror hidden'></div>").text(
+        "A hard reset permanently discards every change since the selected commit.");
+    box.append(warning);
+    group.find("input[type=radio]").on("change", function() {
+        warning.toggleClass("hidden", $("input[name=resetmode]:checked").val() !== "hard");
+    });
+
+    var actions = $("<div class='modalactions'></div>");
+    actions.append($("<button>Cancel</button>").on("click", closeModal));
+    actions.append($("<button class='primary'>Reset</button>").on("click", function() {
+        var mode = $("input[name=resetmode]:checked").val();
+        closeModal();
+        commitAction("reset", { hash: commit.hash, mode: mode }, "Resetting…");
+    }));
+    box.append(actions);
+
+    openModal(box);
+}
+
+function openBranchFromCommitDialog(commit) {
+    var box = $("<div></div>");
+    box.append($("<h3></h3>").text("Create a branch"));
+    box.append($("<div class='desc'></div>").text(
+        "The new branch will start at \"" + commit.subject + "\" (" + commit.shortHash + ")."));
+
+    var name = $("<input type='text' placeholder='feature/my-change'>");
+    box.append($("<div class='field'></div>")
+        .append($("<label></label>").text("Branch name"))
+        .append(name));
+
+    var actions = $("<div class='modalactions'></div>");
+    actions.append($("<button>Cancel</button>").on("click", closeModal));
+    actions.append($("<button class='primary'>Create branch</button>").on("click", function() {
+        if (name.val().trim() === "") {
+            return;
+        }
+        closeModal();
+        commitAction("branch", { branch: name.val().trim(), hash: commit.hash }, "Creating branch…");
+    }));
+    box.append(actions);
+
+    openModal(box);
+    name.trigger("focus");
+}
+
+function openCreateTagDialog(commit) {
+    var box = $("<div></div>");
+    box.append($("<h3></h3>").text("Create a tag"));
+    box.append($("<div class='desc'></div>").text(
+        "Tag \"" + commit.subject + "\" (" + commit.shortHash + ")."));
+
+    var name = $("<input type='text' placeholder='v1.0.0'>");
+    var message = $("<input type='text' placeholder='Optional annotation'>");
+
+    box.append($("<div class='field'></div>")
+        .append($("<label></label>").text("Tag name"))
+        .append(name));
+    box.append($("<div class='field'></div>")
+        .append($("<label></label>").text("Message"))
+        .append(message)
+        .append($("<div class='hint'></div>").text(
+            "Leave empty for a lightweight tag; add a message for an annotated one.")));
+
+    var actions = $("<div class='modalactions'></div>");
+    actions.append($("<button>Cancel</button>").on("click", closeModal));
+    actions.append($("<button class='primary'>Create tag</button>").on("click", function() {
+        if (name.val().trim() === "") {
+            return;
+        }
+        closeModal();
+        commitAction("tag", {
+            tag: name.val().trim(),
+            hash: commit.hash,
+            message: message.val().trim()
+        }, "Creating tag…");
+    }));
+    box.append(actions);
+
+    openModal(box);
+    name.trigger("focus");
 }
 
 /* ── Commit ───────────────────────────────────────────────────────────── */
@@ -921,9 +1266,240 @@ function loadBranches() {
                 closePopovers();
                 checkoutBranch(branch.name, false);
             });
+            item.on("contextmenu", function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                openBranchContextMenu(branch, event.clientX, event.clientY);
+            });
             list.append(item);
         });
     });
+}
+
+/* ── Branch context menu ──────────────────────────────────────────────── */
+
+/*
+    openBranchContextMenu builds the right-click menu for one row of the branch
+    dropdown. A local branch can be renamed or deleted locally; a remote-tracking
+    row acts on the branch as it exists on the server, which means a network push
+    and therefore the same credential retry flow as push and pull.
+*/
+function openBranchContextMenu(branch, clientX, clientY) {
+    var menu = $("#fileContextMenu").empty();
+    //The branch name without any remote prefix; the backend never wants the prefix
+    var shortName = branch.short || branch.name;
+
+    if (branch.isRemote) {
+        var remote = branch.remote || "origin";
+
+        menu.append(menuItem("Rename branch on " + remote + "…", function() {
+            openBranchRenameDialog(branch, shortName, true);
+        }));
+
+        menu.append(menuItem("Delete branch on " + remote + "…", function() {
+            confirmDialog("Delete " + branch.name + " on the remote?",
+                "The branch will be removed from " + remote +
+                " for everyone. Your local branches are not affected.",
+                function() {
+                    deleteRemoteBranch(remote, shortName);
+                });
+        }));
+    } else {
+        menu.append(menuItem("Rename branch…", function() {
+            openBranchRenameDialog(branch, shortName, false);
+        }));
+
+        menu.append(menuItem("Delete branch…", function() {
+            confirmDialog("Delete branch " + shortName + "?",
+                "The local branch will be removed. Any branch of the same name on a remote is not affected.",
+                function() {
+                    deleteLocalBranch(shortName, false);
+                });
+        }, {
+            disabled: branch.isCurrent,
+            title: branch.isCurrent ? "Switch to another branch before deleting this one" : ""
+        }));
+    }
+
+    menu.append(menuDivider());
+
+    menu.append(menuItem("Copy branch name", function() {
+        copyToClipboard(branch.name, "branch name");
+    }, { title: branch.name }));
+
+    placeMenu(menu, clientX, clientY);
+}
+
+/*
+    deleteLocalBranch removes a local branch, and when the branch still holds
+    unmerged commits asks for confirmation before repeating the call with force —
+    the same protection `git branch -d` gives over `-D`.
+*/
+function deleteLocalBranch(branch, force) {
+    setBusy("Deleting branch…");
+    call("branchaction.agi", {
+        opr: "delete",
+        repo: state.repo,
+        branch: branch,
+        force: force ? "true" : "false"
+    }, function(reply) {
+        clearBusy();
+
+        if (reply.success) {
+            afterBranchChange(reply.message || "Deleted branch " + branch);
+            return;
+        }
+
+        if (reply.unmerged) {
+            confirmDialog("Delete " + branch + " anyway?",
+                "This branch has commits that are not merged into your current branch. " +
+                "Deleting it will lose them.",
+                function() {
+                    deleteLocalBranch(branch, true);
+                });
+            return;
+        }
+        setStatus(reply.error, true);
+    });
+}
+
+//deleteRemoteBranch removes a branch on the server, retrying with credentials
+//when the remote asks for them.
+function deleteRemoteBranch(remote, branch, credentials) {
+    var payload = {
+        opr: "deleteremote",
+        repo: state.repo,
+        remote: remote,
+        branch: branch
+    };
+    applyCredentials(payload, credentials);
+
+    setBusy("Deleting " + remote + "/" + branch + "…");
+    call("branchaction.agi", payload, function(reply) {
+        clearBusy();
+
+        if (reply.success) {
+            afterBranchChange(reply.message || "Deleted " + remote + "/" + branch);
+            return;
+        }
+        if (reply.authRequired) {
+            openCredentialDialog(remoteUrlByName(remote), function(entered) {
+                deleteRemoteBranch(remote, branch, entered);
+            });
+            return;
+        }
+        setStatus(reply.error, true);
+    });
+}
+
+function renameLocalBranch(oldName, newName) {
+    setBusy("Renaming branch…");
+    call("branchaction.agi", {
+        opr: "rename",
+        repo: state.repo,
+        branch: oldName,
+        newName: newName
+    }, function(reply) {
+        clearBusy();
+        if (!reply.success) {
+            setStatus(reply.error, true);
+            return;
+        }
+        afterBranchChange(reply.message || "Renamed to " + newName);
+    });
+}
+
+function renameRemoteBranch(remote, oldName, newName, credentials) {
+    var payload = {
+        opr: "renameremote",
+        repo: state.repo,
+        remote: remote,
+        branch: oldName,
+        newName: newName
+    };
+    applyCredentials(payload, credentials);
+
+    setBusy("Renaming " + remote + "/" + oldName + "…");
+    call("branchaction.agi", payload, function(reply) {
+        clearBusy();
+
+        if (reply.success) {
+            afterBranchChange(reply.message || "Renamed to " + remote + "/" + newName);
+            return;
+        }
+        if (reply.authRequired) {
+            openCredentialDialog(remoteUrlByName(remote), function(entered) {
+                renameRemoteBranch(remote, oldName, newName, entered);
+            });
+            return;
+        }
+        setStatus(reply.error, true);
+    });
+}
+
+//applyCredentials copies the sign-in dialog's answer onto a request payload.
+function applyCredentials(payload, credentials) {
+    if (!credentials) {
+        return;
+    }
+    payload.username = credentials.username;
+    payload.token = credentials.token;
+    payload.remember = credentials.remember ? "true" : "false";
+}
+
+/*
+    afterBranchChange refreshes everything a branch change can affect. Renaming or
+    deleting the checked-out branch moves HEAD, so the toolbar, the changes list
+    and the history all need rereading, and the branch dropdown is rebuilt if it
+    is still open.
+*/
+function afterBranchChange(message) {
+    state.activeFile = null;
+    refreshStatus(function() {
+        if (state.tab === "history") {
+            loadHistory();
+        }
+        if ($("#branchPopover").hasClass("open")) {
+            loadBranches();
+        }
+        setStatus(message);
+    });
+}
+
+function openBranchRenameDialog(branch, shortName, isRemote) {
+    var remote = branch.remote || "origin";
+
+    var box = $("<div></div>");
+    box.append($("<h3></h3>").text(isRemote ? "Rename branch on " + remote : "Rename branch"));
+    box.append($("<div class='desc'></div>").text(isRemote
+        ? "The branch is pushed under the new name and the old name is then removed from " + remote + "."
+        : "Renaming keeps the branch's commits and its upstream configuration."));
+
+    var name = $("<input type='text'>").val(shortName);
+    box.append($("<div class='field'></div>")
+        .append($("<label></label>").text("New name"))
+        .append(name));
+
+    var actions = $("<div class='modalactions'></div>");
+    actions.append($("<button>Cancel</button>").on("click", closeModal));
+    actions.append($("<button class='primary'>Rename</button>").on("click", function() {
+        var newName = name.val().trim();
+        if (newName === "" || newName === shortName) {
+            closeModal();
+            return;
+        }
+        closeModal();
+
+        if (isRemote) {
+            renameRemoteBranch(remote, shortName, newName);
+        } else {
+            renameLocalBranch(shortName, newName);
+        }
+    }));
+    box.append(actions);
+
+    openModal(box);
+    name.trigger("focus");
 }
 
 function checkoutBranch(branch, create) {
@@ -1984,12 +2560,14 @@ $(document).ready(function() {
             event.preventDefault();
             return;
         }
-        if ($(event.target).closest(".filerow").length === 0) {
+        //The file rows and the commit entries open their own menus; a right
+        //click anywhere else dismisses whatever is open.
+        if ($(event.target).closest(".filerow, .commitentry").length === 0) {
             closeContextMenu();
         }
     });
 
-    $("#fileList").on("scroll", closeContextMenu);
+    $("#fileList, #commitList, #branchList, #repoList").on("scroll", closeContextMenu);
     $(window).on("blur", closeContextMenu);
     $("#modalMask").on("click", function(event) {
         if (event.target === this) {

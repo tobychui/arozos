@@ -31,6 +31,11 @@ var (
 	//ErrAuthRequired is returned when the remote rejected or demanded
 	//credentials. The AGI layer turns this into authRequired = true.
 	ErrAuthRequired = errors.New("authentication required")
+
+	//ErrUnmergedBranch is returned when deleting a local branch that still holds
+	//commits unreachable from HEAD. The AGI layer turns this into
+	//unmerged = true so the caller can confirm and retry with force.
+	ErrUnmergedBranch = errors.New("branch has commits that are not merged into the current branch")
 )
 
 // authErrorFragments are lower-cased substrings that identify an authentication

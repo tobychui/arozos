@@ -163,6 +163,9 @@ func TestValidateBranchName(t *testing.T) {
 		{name: "with slash", branch: "feature/login"},
 		{name: "with dash", branch: "fix-123"},
 		{name: "with dot", branch: "v3.0.2"},
+		//An empty name would build the malformed ref "refs/heads/"
+		{name: "empty", branch: "", wantError: true},
+		{name: "whitespace only", branch: "   ", wantError: true},
 		{name: "leading dash", branch: "-x", wantError: true},
 		{name: "leading slash", branch: "/x", wantError: true},
 		{name: "trailing slash", branch: "x/", wantError: true},

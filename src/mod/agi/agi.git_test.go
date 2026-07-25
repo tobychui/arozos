@@ -500,7 +500,10 @@ func TestGitLibJavaScriptWrapper(t *testing.T) {
 		"_git_add", "_git_addall", "_git_unstage", "_git_discard", "_git_commit",
 		"_git_diff", "_git_diffcommit", "_git_commitfiles", "_git_fetch",
 		"_git_pull", "_git_push", "_git_savecredential", "_git_listcredentials",
-		"_git_removecredential", "_git_ignore",
+		"_git_removecredential", "_git_ignore", "_git_fileblob",
+		"_git_checkoutcommit", "_git_resettocommit", "_git_createbranchat",
+		"_git_createtag", "_git_revertcommit", "_git_cherrypickcommit", "_git_amendmessage",
+		"_git_deletebranch", "_git_renamebranch", "_git_deleteremotebranch", "_git_renameremotebranch",
 	}
 	for _, native := range natives {
 		name := native
@@ -539,6 +542,17 @@ func TestGitLibJavaScriptWrapper(t *testing.T) {
 		{name: "diff", expression: `git.diff("user:/repo", "a.txt").message`},
 		{name: "diffCommit", expression: `git.diffCommit("user:/repo", "abc", "a.txt").message`},
 		{name: "commitFiles", expression: `git.commitFiles("user:/repo", "abc").message`},
+		{name: "deleteBranch", expression: `git.deleteBranch("user:/repo", "old", true).message`},
+		{name: "renameBranch", expression: `git.renameBranch("user:/repo", "old", "new").message`},
+		{name: "deleteRemoteBranch", expression: `git.deleteRemoteBranch("user:/repo", "origin", "old").message`},
+		{name: "renameRemoteBranch", expression: `git.renameRemoteBranch("user:/repo", "origin", "old", "new").message`},
+		{name: "checkoutCommit", expression: `git.checkoutCommit("user:/repo", "abc").message`},
+		{name: "resetToCommit", expression: `git.resetToCommit("user:/repo", "abc", "hard").message`},
+		{name: "createBranchAt", expression: `git.createBranchAt("user:/repo", "legacy", "abc").message`},
+		{name: "createTag", expression: `git.createTag("user:/repo", "v1", "abc", "msg").message`},
+		{name: "revertCommit", expression: `git.revertCommit("user:/repo", "abc").message`},
+		{name: "cherryPickCommit", expression: `git.cherryPickCommit("user:/repo", "abc").message`},
+		{name: "amendMessage", expression: `git.amendMessage("user:/repo", "new msg").message`},
 		{name: "fetch", expression: `git.fetch("user:/repo").message`},
 		{name: "pull", expression: `git.pull("user:/repo").message`},
 		{name: "push", expression: `git.push("user:/repo").message`},
@@ -583,7 +597,8 @@ func TestGitLibJavaScriptHandlesMalformedNativeResponse(t *testing.T) {
 		"_git_addremote", "_git_removeremote", "_git_add", "_git_addall", "_git_unstage",
 		"_git_discard", "_git_commit", "_git_ignore", "_git_diff", "_git_diffcommit", "_git_commitfiles",
 		"_git_fetch", "_git_pull", "_git_push", "_git_savecredential", "_git_listcredentials",
-		"_git_removecredential"} {
+		"_git_removecredential", "_git_deletebranch", "_git_renamebranch",
+		"_git_deleteremotebranch", "_git_renameremotebranch"} {
 		vm.Set(name, func(call otto.FunctionCall) otto.Value { return otto.FalseValue() })
 	}
 

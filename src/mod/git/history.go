@@ -46,9 +46,16 @@ func (m *Manager) Log(realpath string, limit int) ([]CommitInfo, error) {
 	}
 	defer iter.Close()
 
+	//Index tags once so each commit can be labelled without a per-commit lookup
+	tagMap, _ := buildTagMap(repo)
+
 	commits := []CommitInfo{}
 	err = iter.ForEach(func(commit *object.Commit) error {
-		commits = append(commits, *commitToInfo(commit))
+		info := commitToInfo(commit)
+		if tags, ok := tagMap[commit.Hash]; ok {
+			info.Tags = tags
+		}
+		commits = append(commits, *info)
 		if len(commits) >= limit {
 			return storerStop
 		}
@@ -87,6 +94,8 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 			Hash:      ref.Hash().String(),
 			IsRemote:  false,
 			IsCurrent: ref.Name().Short() == currentBranch,
+			//Short mirrors Name for a local branch so callers can always use it
+			Short: ref.Name().Short(),
 		})
 		return nil
 	})
@@ -107,11 +116,15 @@ func (m *Manager) Branches(realpath string) ([]BranchInfo, error) {
 		if strings.HasSuffix(ref.Name().Short(), "/HEAD") {
 			return nil
 		}
+
+		remote, short := splitRemoteRef(ref.Name().String())
 		branches = append(branches, BranchInfo{
 			Name:     ref.Name().Short(),
 			FullRef:  ref.Name().String(),
 			Hash:     ref.Hash().String(),
 			IsRemote: true,
+			Remote:   remote,
+			Short:    short,
 		})
 		return nil
 	})
@@ -189,6 +202,11 @@ func shortLocalName(name string) string {
 // validateBranchName rejects the ref name characters git itself forbids, since
 // the value arrives from a browser text field.
 func validateBranchName(branch string) error {
+	//An empty name must never reach a ref operation: it would build a malformed
+	//ref such as "refs/heads/", which as a push refspec is silently accepted.
+	if strings.TrimSpace(branch) == "" {
+		return errors.New("branch name cannot be empty")
+	}
 	if strings.HasPrefix(branch, "-") || strings.HasPrefix(branch, "/") || strings.HasSuffix(branch, "/") {
 		return errors.New("invalid branch name: " + branch)
 	}

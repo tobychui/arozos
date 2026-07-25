@@ -520,6 +520,20 @@ button i.icon {
     text-overflow: ellipsis;
 }
 
+/* Tag chip shown before a commit subject */
+.commitentry .taglabel {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: var(--status-renamed);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+}
+
 .commitentry .meta {
     font-size: 11px;
     color: var(--muted);

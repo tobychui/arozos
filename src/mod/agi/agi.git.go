@@ -504,6 +504,205 @@ func (g *Gateway) injectGitLibFunctions(payload *static.AgiLibInjectionPayload) 
 		return gitJSONValue(vm, files)
 	})
 
+	// git.deleteBranch(vpath, branch, force) -> {success, error, unmerged}
+	vm.Set("_git_deletebranch", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		branch, _ := call.Argument(1).ToString()
+		force, _ := call.Argument(2).ToBoolean()
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		if err := manager.DeleteBranch(rpath, branch, force); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitOperationSuccess(vm, "deleted branch "+branch)
+	})
+
+	// git.renameBranch(vpath, oldName, newName) -> {success, error}
+	vm.Set("_git_renamebranch", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		oldName, _ := call.Argument(1).ToString()
+		newName, _ := call.Argument(2).ToString()
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		if err := manager.RenameBranch(rpath, oldName, newName); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitOperationSuccess(vm, "renamed to "+newName)
+	})
+
+	// git.deleteRemoteBranch(vpath, remote, branch, options) -> {success, error, authRequired}
+	vm.Set("_git_deleteremotebranch", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		remote, _ := call.Argument(1).ToString()
+		branch, _ := call.Argument(2).ToString()
+		options := exportOptions(call.Argument(3))
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		request, err := g.remoteBranchRequest(u, rpath, remote, options)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		if err := manager.DeleteRemoteBranch(rpath, remote, branch, request); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		g.rememberGitCredentialForRemote(u, rpath, remote, options)
+		return gitOperationSuccess(vm, "deleted "+remoteOrOrigin(remote)+"/"+branch)
+	})
+
+	// git.renameRemoteBranch(vpath, remote, oldName, newName, options) -> {success, error, authRequired}
+	vm.Set("_git_renameremotebranch", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		remote, _ := call.Argument(1).ToString()
+		oldName, _ := call.Argument(2).ToString()
+		newName, _ := call.Argument(3).ToString()
+		options := exportOptions(call.Argument(4))
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		request, err := g.remoteBranchRequest(u, rpath, remote, options)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		if err := manager.RenameRemoteBranch(rpath, remote, oldName, newName, request); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		g.rememberGitCredentialForRemote(u, rpath, remote, options)
+		return gitOperationSuccess(vm, "renamed to "+remoteOrOrigin(remote)+"/"+newName)
+	})
+
+	// git.checkoutCommit(vpath, hash) -> {success, error}
+	vm.Set("_git_checkoutcommit", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		hash, _ := call.Argument(1).ToString()
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		if err := manager.CheckoutCommit(rpath, hash); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitOperationSuccess(vm, "checked out "+shortHash(hash))
+	})
+
+	// git.resetToCommit(vpath, hash, mode) -> {success, error}
+	vm.Set("_git_resettocommit", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		hash, _ := call.Argument(1).ToString()
+		mode, _ := call.Argument(2).ToString()
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		if err := manager.ResetToCommit(rpath, hash, mode); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitOperationSuccess(vm, "reset to "+shortHash(hash))
+	})
+
+	// git.createBranchAt(vpath, branch, hash) -> {success, error}
+	vm.Set("_git_createbranchat", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		branch, _ := call.Argument(1).ToString()
+		hash, _ := call.Argument(2).ToString()
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		if err := manager.CreateBranchAt(rpath, branch, hash); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitOperationSuccess(vm, "created branch "+branch)
+	})
+
+	// git.createTag(vpath, tag, hash, message) -> {success, error}
+	vm.Set("_git_createtag", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		tag, _ := call.Argument(1).ToString()
+		hash, _ := call.Argument(2).ToString()
+		message, _ := call.Argument(3).ToString()
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		if err := manager.CreateTag(rpath, tag, hash, message, u.Username, ""); err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitOperationSuccess(vm, "created tag "+tag)
+	})
+
+	// git.revertCommit(vpath, hash, options) -> {success, error, hash}
+	vm.Set("_git_revertcommit", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		hash, _ := call.Argument(1).ToString()
+		options := exportOptions(call.Argument(2))
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		newHash, err := manager.RevertCommit(rpath, hash, commitRequestFromOptions(u, options))
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitJSONValue(vm, git.OperationResult{Success: true, Hash: newHash, Message: "reverted " + shortHash(hash)})
+	})
+
+	// git.cherryPickCommit(vpath, hash, options) -> {success, error, hash}
+	vm.Set("_git_cherrypickcommit", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		hash, _ := call.Argument(1).ToString()
+		options := exportOptions(call.Argument(2))
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		newHash, err := manager.CherryPickCommit(rpath, hash, commitRequestFromOptions(u, options))
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitJSONValue(vm, git.OperationResult{Success: true, Hash: newHash, Message: "cherry-picked " + shortHash(hash)})
+	})
+
+	// git.amendMessage(vpath, message, options) -> {success, error, hash}
+	vm.Set("_git_amendmessage", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		message, _ := call.Argument(1).ToString()
+		options := exportOptions(call.Argument(2))
+
+		rpath, err := resolveRepo(vpath, true)
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+
+		newHash, err := manager.AmendCommitMessage(rpath, message, commitRequestFromOptions(u, options))
+		if err != nil {
+			return gitOperationFailure(vm, err)
+		}
+		return gitJSONValue(vm, git.OperationResult{Success: true, Hash: newHash, Message: "amended commit message"})
+	})
+
 	// git.fetch(vpath, options) -> {success, error, authRequired}
 	vm.Set("_git_fetch", func(call otto.FunctionCall) otto.Value {
 		return g.runGitTransport(vm, u, call, resolveRepo, func(rpath string, request *git.TransportRequest) (string, error) {
@@ -628,6 +827,17 @@ const gitLibJavaScript = `
 		git.diffCommit = function(vpath, hash, file) { return _git_parse(_git_diffcommit(vpath, hash, file)); };
 		git.commitFiles = function(vpath, hash) { return _git_parse(_git_commitfiles(vpath, hash)); };
 		git.fileBlob = function(vpath, file, revision) { return _git_parse(_git_fileblob(vpath, file, revision || "HEAD")); };
+		git.deleteBranch = function(vpath, branch, force) { return _git_parse(_git_deletebranch(vpath, branch, force === true)); };
+		git.renameBranch = function(vpath, oldName, newName) { return _git_parse(_git_renamebranch(vpath, oldName, newName)); };
+		git.deleteRemoteBranch = function(vpath, remote, branch, options) { return _git_parse(_git_deleteremotebranch(vpath, remote || "origin", branch, options || {})); };
+		git.renameRemoteBranch = function(vpath, remote, oldName, newName, options) { return _git_parse(_git_renameremotebranch(vpath, remote || "origin", oldName, newName, options || {})); };
+		git.checkoutCommit = function(vpath, hash) { return _git_parse(_git_checkoutcommit(vpath, hash)); };
+		git.resetToCommit = function(vpath, hash, mode) { return _git_parse(_git_resettocommit(vpath, hash, mode || "mixed")); };
+		git.createBranchAt = function(vpath, branch, hash) { return _git_parse(_git_createbranchat(vpath, branch, hash)); };
+		git.createTag = function(vpath, tag, hash, message) { return _git_parse(_git_createtag(vpath, tag, hash, message || "")); };
+		git.revertCommit = function(vpath, hash, options) { return _git_parse(_git_revertcommit(vpath, hash, options || {})); };
+		git.cherryPickCommit = function(vpath, hash, options) { return _git_parse(_git_cherrypickcommit(vpath, hash, options || {})); };
+		git.amendMessage = function(vpath, message, options) { return _git_parse(_git_amendmessage(vpath, message, options || {})); };
 		git.fetch = function(vpath, options) { return _git_parse(_git_fetch(vpath, options || {})); };
 		git.pull = function(vpath, options) { return _git_parse(_git_pull(vpath, options || {})); };
 		git.push = function(vpath, options) { return _git_parse(_git_push(vpath, options || {})); };
@@ -676,6 +886,75 @@ func (g *Gateway) runGitTransport(vm *otto.Otto, u *user.User, call otto.Functio
 
 	g.rememberGitCredential(u, remoteURL, options)
 	return gitOperationSuccess(vm, message)
+}
+
+/*
+remoteBranchRequest builds the TransportRequest for a remote branch operation,
+resolving which credential applies from the remote's own URL.
+
+The remote-branch calls take the remote by name rather than by URL, so the URL
+has to be looked up before the stored credential can be found.
+*/
+func (g *Gateway) remoteBranchRequest(u *user.User, rpath string, remote string, options map[string]interface{}) (*git.TransportRequest, error) {
+	remoteURL, err := g.Option.GitManager.RemoteURLForName(rpath, remote)
+	if err != nil {
+		return nil, err
+	}
+
+	username, token := g.resolveGitCredential(u, remoteURL, options)
+	return &git.TransportRequest{
+		Remote:   remote,
+		Username: username,
+		Token:    token,
+	}, nil
+}
+
+// rememberGitCredentialForRemote stores a credential that has just proven itself
+// against a remote addressed by name.
+func (g *Gateway) rememberGitCredentialForRemote(u *user.User, rpath string, remote string, options map[string]interface{}) {
+	if !optionBool(options, "remember") {
+		return
+	}
+	remoteURL, err := g.Option.GitManager.RemoteURLForName(rpath, remote)
+	if err != nil {
+		return
+	}
+	g.rememberGitCredential(u, remoteURL, options)
+}
+
+// remoteOrOrigin mirrors the manager's default so status messages name the same
+// remote the operation actually used.
+func remoteOrOrigin(remote string) string {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return "origin"
+	}
+	return remote
+}
+
+// commitRequestFromOptions builds a CommitRequest for the history actions,
+// defaulting the author name to the calling user so a commit always has an
+// identity even when the front-end sends none.
+func commitRequestFromOptions(u *user.User, options map[string]interface{}) *git.CommitRequest {
+	name := optionString(options, "name")
+	if name == "" && u != nil {
+		name = u.Username
+	}
+	return &git.CommitRequest{
+		Message: optionString(options, "message"),
+		Name:    name,
+		Email:   optionString(options, "email"),
+	}
+}
+
+// shortHash abbreviates a commit hash for status messages, tolerating a hash
+// that is already short.
+func shortHash(hash string) string {
+	hash = strings.TrimSpace(hash)
+	if len(hash) > 7 {
+		return hash[:7]
+	}
+	return hash
 }
 
 // gitCredentialStore returns the credential store or a readable error when git
@@ -861,13 +1140,15 @@ func gitOperationSuccess(vm *otto.Otto, message string) otto.Value {
 	})
 }
 
-// gitOperationFailure builds the standard failure envelope, flagging
-// credential problems so the front-end knows to open its sign-in dialog.
+// gitOperationFailure builds the standard failure envelope, flagging credential
+// problems so the front-end knows to open its sign-in dialog, and an unmerged
+// branch so it can offer to delete anyway.
 func gitOperationFailure(vm *otto.Otto, err error) otto.Value {
 	return gitJSONValue(vm, git.OperationResult{
 		Success:      false,
 		Error:        err.Error(),
 		AuthRequired: errors.Is(err, git.ErrAuthRequired),
+		Unmerged:     errors.Is(err, git.ErrUnmergedBranch),
 	})
 }
 

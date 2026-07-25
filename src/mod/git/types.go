@@ -49,15 +49,18 @@ type CommitInfo struct {
 	AuthorEmail string   `json:"authorEmail"`
 	Timestamp   int64    `json:"timestamp"` //Author time, unix seconds
 	Parents     []string `json:"parents"`
+	Tags        []string `json:"tags,omitempty"` //Tag names pointing at this commit
 }
 
 // BranchInfo is one entry of the branch switcher dropdown.
 type BranchInfo struct {
-	Name      string `json:"name"`
-	FullRef   string `json:"fullRef"`
+	Name      string `json:"name"`    //Display name, e.g. "master" or "origin/master"
+	FullRef   string `json:"fullRef"` //Fully qualified ref name
 	Hash      string `json:"hash"`
 	IsRemote  bool   `json:"isRemote"`
 	IsCurrent bool   `json:"isCurrent"`
+	Remote    string `json:"remote,omitempty"` //Owning remote, remote-tracking branches only
+	Short     string `json:"short,omitempty"`  //Branch name without the remote prefix
 }
 
 // RemoteInfo is a configured git remote.
@@ -139,6 +142,7 @@ type OperationResult struct {
 	Success      bool   `json:"success"`
 	Error        string `json:"error,omitempty"`
 	AuthRequired bool   `json:"authRequired,omitempty"` //Remote rejected the credentials (or wanted some)
+	Unmerged     bool   `json:"unmerged,omitempty"`     //Branch delete refused: it holds unmerged commits, retry with force
 	Hash         string `json:"hash,omitempty"`         //New commit hash, set by Commit
 	Message      string `json:"message,omitempty"`      //Human readable note, e.g. "already up to date"
 }
