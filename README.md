@@ -136,7 +136,7 @@ Go to "System Properties" > "Environment Variables" > "System Variables" > "Edit
 
 ### OpenWRT (mipsle) / Linux (riscv64, loong64)
 
-OpenWRT build and Linux RSICV64/LoongArch64 is experimental and might contains weird bugs. If you are interested to test or maintain these builds, please contact me directly.
+OpenWRT build and Linux riscv64/loong64 is experimental and might contains weird bugs. If you are interested to test or maintain these builds, please contact me directly.
 
 ```
 wget -O arozos {binary_path_from_release}
