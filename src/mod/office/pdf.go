@@ -104,26 +104,6 @@ func pdfOutput(pdf *fpdf.Fpdf) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// pdfSplitTr wraps text that has already been passed through the cp1252
-// translator. fpdf.SplitText indexes a 256-glyph width table by rune and
-// panics on runes outside it, so the translated bytes are promoted to
-// runes for splitting and demoted back to bytes afterwards.
-func pdfSplitTr(pdf *fpdf.Fpdf, trText string, w float64) []string {
-	rs := make([]rune, len(trText))
-	for i := 0; i < len(trText); i++ {
-		rs[i] = rune(trText[i])
-	}
-	var out []string
-	for _, ln := range pdf.SplitText(string(rs), w) {
-		b := make([]byte, 0, len(ln))
-		for _, r := range ln {
-			b = append(b, byte(r))
-		}
-		out = append(out, string(b))
-	}
-	return out
-}
-
 // pdfNbsp normalizes non-breaking / typographic spaces to plain spaces:
 // contenteditable HTML is full of &nbsp;, and fpdf only wraps lines at
 // real spaces, so leaving them in causes early / mid-word line breaks
@@ -139,10 +119,4 @@ func pdfTr(pdf *fpdf.Fpdf) func(string) string {
 	return func(s string) string {
 		return tr(pdfNbsp.Replace(s))
 	}
-}
-
-// htmlPlainText flattens an HTML fragment into plain text lines (used for
-// table cells and similar single-block content)
-func htmlPlainText(h string) string {
-	return strings.Join(htmlToLines(h), "\n")
 }

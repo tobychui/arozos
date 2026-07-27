@@ -36,9 +36,16 @@ body.dark #page {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 6px 22px rgba(0, 0, 0, 0.6);
 }
 
-/* ============ Header / footer areas ============ */
+/* ============ Header / footer areas ============
+   One editable copy per simulated page, parked in that sheet's top / bottom
+   margin band - docs.js (layoutHeaderFooters) creates, positions and keeps
+   them in sync; which pages get one is the hfMode setting. They are taken
+   out of the flow on purpose: the header must not eat page-one content the
+   way an in-flow header did, or the preview and the exported PDF disagree
+   about where the first page ends. */
 .doc-hf {
-    flex: 0 0 auto;
+    position: absolute;
+    box-sizing: border-box;
     min-height: 1.3em;
     outline: none;
     font-family: Arial, Helvetica, sans-serif;
@@ -47,21 +54,23 @@ body.dark #page {
     padding: 2px 0;
     border-bottom: 1px dashed transparent;
     cursor: text;
+    z-index: 6;
 }
-#docFooter {
+.doc-hf.doc-hf-footer {
     border-bottom: none;
     border-top: 1px dashed transparent;
 }
 .doc-hf:hover, .doc-hf:focus {
     border-color: #c9cdd3;
 }
-.doc-hf:empty::before {
+/* only the first visible copy nags: one placeholder per document, not one
+   per page */
+.doc-hf.doc-hf-lead:empty::before {
     content: attr(data-placeholder);
     color: #c2c6cc;
     pointer-events: none;
 }
-#docHeader { margin-bottom: 14px; }
-#docFooter { margin-top: 14px; }
+.doc-hf[hidden] { display: none; }
 
 /* ============ Editor content ============ */
 #editor {

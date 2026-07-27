@@ -107,6 +107,11 @@ func ParseDocx(data []byte) (*Document, error) {
 			}
 			pc.Margins = m
 		}
+		if sect.first("titlePg") != nil {
+			// "different first page" with no first-page part: the editor
+			// calls that "every page except the first"
+			doc.HFMode = HFModeExceptFirst
+		}
 		if cols := sect.first("cols"); cols != nil {
 			if n, err := strconv.Atoi(cols.attr("num")); err == nil && n > 1 {
 				pc.Columns = n

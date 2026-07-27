@@ -460,11 +460,21 @@ func odtStylesXML(doc *Document) string {
 				doc.Page.Margins.Bottom, doc.Page.Margins.Left
 		}
 	}
-	hf := ""
-	if strings.TrimSpace(doc.Header) != "" {
-		hf += `<style:header><text:p>` + xmlEscape(doc.Header) + `</text:p></style:header>`
+	// header/footer repeat on every page; hfMode "except-first" adds the
+	// empty *-first variants ODF uses for "different first page" (readers
+	// that ignore them simply show the text on page one as well)
+	header, footer := strings.TrimSpace(doc.Header), strings.TrimSpace(doc.Footer)
+	if doc.HFMode == HFModeNone {
+		header, footer = "", ""
 	}
-	footer := strings.TrimSpace(doc.Footer)
+	firstBlank := doc.HFMode == HFModeExceptFirst
+	hf := ""
+	if header != "" {
+		hf += `<style:header><text:p>` + xmlEscape(header) + `</text:p></style:header>`
+		if firstBlank {
+			hf += `<style:header-first><text:p/></style:header-first>`
+		}
+	}
 	if footer != "" || doc.PageNumbers {
 		inner := xmlEscape(footer)
 		if doc.PageNumbers {
@@ -474,6 +484,9 @@ func odtStylesXML(doc *Document) string {
 			inner += `<text:page-number text:select-page="current"/>`
 		}
 		hf += `<style:footer><text:p>` + inner + `</text:p></style:footer>`
+		if firstBlank {
+			hf += `<style:footer-first><text:p/></style:footer-first>`
+		}
 	}
 	return `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 		`<office:document-styles ` + odfNs + `>` +
