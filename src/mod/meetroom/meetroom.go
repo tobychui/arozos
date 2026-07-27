@@ -383,6 +383,24 @@ func (r *Room) RemoveParticipant(peerID int) {
 	}
 }
 
+// KickParticipant removes a participant on the host's behalf, atomically
+// looking it up and unregistering it. It returns the removed participant so
+// the transport layer can announce the removal, and reports whether a
+// participant with that peer ID was present. Kicking marks the attendance
+// record as left, exactly like an ordinary leave. The host cannot kick
+// themselves: a request targeting the room host is refused.
+func (r *Room) KickParticipant(peerID int) (*Participant, bool) {
+	r.mu.Lock()
+	p, ok := r.participants[peerID]
+	if !ok || p.IsHost {
+		r.mu.Unlock()
+		return nil, false
+	}
+	r.mu.Unlock()
+	r.RemoveParticipant(peerID)
+	return p, true
+}
+
 // Attendance returns a snapshot of the room's join / leave log in
 // chronological join order.
 func (r *Room) Attendance() []AttendanceRecord {

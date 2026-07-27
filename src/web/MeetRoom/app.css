@@ -95,6 +95,35 @@ body {
 .room-meta {
     flex: 0 0 auto;
     color: #9aa4b2;
+    display: flex;
+    align-items: center;
+    gap: 1em;
+}
+
+.room-meta .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.room-meta .meta-item .icon {
+    margin: 0;
+    opacity: 0.75;
+}
+
+/* Meeting duration is the primary at-a-glance value */
+#meetingElapsed {
+    color: #e6e8ec;
+    font-weight: bold;
+}
+
+/* On narrow layouts the wall clock is the first thing to drop */
+@media (max-width: 520px) {
+    .room-meta .meta-item.meta-item:nth-child(2) {
+        display: none;
+    }
 }
 
 #reconnectBanner {
@@ -205,6 +234,42 @@ body {
     display: flex;
 }
 
+/* Raised-hand badge (top-right of a tile) */
+.video-tile .hand-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #f2b134;
+    color: #3a2a05;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    animation: handWave 1.6s ease-in-out infinite;
+}
+
+.video-tile .hand-badge .icon {
+    margin: 0;
+    width: auto;
+    font-size: 1em;
+    line-height: 1;
+    /* The Semantic hand glyph sits low-right inside its em box; nudge it to
+       optically centre it within the round badge. */
+    transform: translate(-0.5px, -2.5px);
+}
+
+.video-tile.hand-raised .hand-badge {
+    display: flex;
+}
+
+@keyframes handWave {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+}
+
 /* Chat panel */
 #chatPanel {
     flex: 0 0 320px;
@@ -297,7 +362,7 @@ body {
     border-top: 1px solid #2b2f38;
 }
 
-/* Participants / attendance panel */
+/* Participants / attendance side panel */
 #peoplePanel {
     flex: 0 0 320px;
     display: flex;
@@ -363,6 +428,417 @@ body {
     color: #9aa4b2;
     text-align: right;
     white-space: nowrap;
+}
+
+/* Raised-hand marker in the participant list */
+.attendance-entry .hand-indicator.icon {
+    flex: 0 0 auto;
+    color: #f2b134;
+    margin: 0;
+}
+
+/* Raise-hand queue entries (ordered, at the top of the participant list) */
+.hand-queue-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    background: #2c2a1e;
+    border: 1px solid #4a4020;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+}
+
+.hand-queue-entry .hand-queue-pos {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    background: #f2b134;
+    color: #3a2a05;
+    font-size: 0.78em;
+    font-weight: bold;
+}
+
+.hand-queue-entry .hand-indicator.icon {
+    flex: 0 0 auto;
+    color: #f2b134;
+    margin: 0;
+}
+
+.hand-queue-entry .attendee-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Host-only kick button */
+.attendance-entry .kick-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: #9aa4b2;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 6px;
+    line-height: 1;
+}
+
+.attendance-entry .kick-btn:hover {
+    background: #5c2b2b;
+    color: #ffb3ab;
+}
+
+.attendance-entry .kick-btn .icon {
+    margin: 0;
+    color: inherit;
+}
+
+/* Attachment source menu (pops above the chat input) */
+#attachMenu {
+    position: absolute;
+    left: 0.7em;
+    right: 0.7em;
+    bottom: 100%;
+    margin-bottom: 6px;
+    background: #262a33;
+    border: 1px solid #3a3f4a;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    z-index: 25;
+}
+
+.chat-input {
+    position: relative;
+}
+
+.attach-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #e6e8ec;
+    text-align: left;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9em;
+}
+
+.attach-menu-item:hover {
+    background: #313641;
+}
+
+.attach-menu-item .icon {
+    margin: 0;
+    color: #7db4ff;
+}
+
+/* Connection stats: a compact floating window that overlays the meeting.
+   Defaults to the top-left so it stays clear of the right-docked chat /
+   participants panels; the user can drag it anywhere by its header. */
+#statsPanel {
+    position: absolute;
+    top: 60px;
+    left: 14px;
+    width: 264px;
+    max-width: calc(100% - 28px);
+    max-height: calc(100% - 150px);
+    background: #1e2128;
+    border: 1px solid #3a3f4a;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 35;
+}
+
+#statsHeader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.6em 0.9em;
+    font-weight: bold;
+    font-size: 0.9em;
+    border-bottom: 1px solid #2b2f38;
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+#statsHeader .chart.line.icon {
+    margin: 0;
+    color: #7db4ff;
+}
+
+#statsHeader .stats-title {
+    flex: 1 1 auto;
+}
+
+.stats-close {
+    flex: 0 0 auto;
+    cursor: pointer;
+    color: #9aa4b2;
+    margin: 0;
+}
+
+.stats-close:hover {
+    color: #e6e8ec;
+}
+
+#statsBody {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 0.8em;
+}
+
+.stats-empty {
+    color: #9aa4b2;
+    font-size: 0.88em;
+    padding: 0.6em 0.2em;
+}
+
+.stats-summary {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0.8em;
+}
+
+.stats-summary-item {
+    flex: 1 1 0;
+    background: #262a33;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.stats-summary-item .icon {
+    margin: 0;
+    color: #7db4ff;
+}
+
+.stats-summary-item strong {
+    font-size: 1.05em;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-summary-item span {
+    font-size: 0.72em;
+    color: #9aa4b2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stats-peer {
+    background: #262a33;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+}
+
+.stats-peer-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-quality {
+    flex: 0 0 auto;
+    font-size: 0.68em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 8px;
+    padding: 1px 8px;
+}
+
+.stats-quality.good {
+    background: #1f4d33;
+    color: #7bed9f;
+}
+
+.stats-quality.fair {
+    background: #5a4a1e;
+    color: #ffe09a;
+}
+
+.stats-quality.poor {
+    background: #5c2b2b;
+    color: #ffb3ab;
+}
+
+.stats-peer-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 10px;
+    font-size: 0.82em;
+    color: #c3c9d4;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-peer-metrics span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+.stats-peer-metrics .icon {
+    margin: 0;
+    color: #9aa4b2;
+}
+
+/* Invite dialog */
+#inviteModal {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+    padding: 1em;
+}
+
+.invite-card {
+    width: 100%;
+    max-width: 420px;
+    background: #1e2128;
+    border: 1px solid #2b2f38;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    max-height: calc(100vh - 2em);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.invite-card-header {
+    flex: 0 0 auto;
+    padding: 0.9em 1.1em;
+    font-weight: bold;
+    border-bottom: 1px solid #2b2f38;
+}
+
+.invite-card-header .icon {
+    color: #7db4ff;
+}
+
+.invite-card-close {
+    float: right;
+    cursor: pointer;
+    color: #9aa4b2;
+}
+
+.invite-card-close:hover {
+    color: #e6e8ec;
+}
+
+.invite-card-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1.1em;
+}
+
+.invite-field {
+    margin-bottom: 1em;
+}
+
+.invite-field label {
+    display: block;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9aa4b2;
+    margin-bottom: 0.35em;
+}
+
+.invite-value {
+    color: #e6e8ec;
+    word-break: break-word;
+}
+
+.invite-copy-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.invite-id {
+    flex: 1 1 auto;
+    font-size: 1.25em;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: #e6e8ec;
+    font-variant-numeric: tabular-nums;
+}
+
+.invite-copy-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: #262a33;
+    border: 1px solid #3a3f4a;
+    border-radius: 6px;
+    color: #e6e8ec;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.85em;
+}
+
+.invite-copy-btn {
+    flex: 0 0 auto;
+}
+
+.invite-note {
+    background: #3a3320;
+    color: #ffe09a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82em;
+    margin-bottom: 1em;
+}
+
+.invite-note .icon {
+    margin: 0 0.3em 0 0;
+}
+
+#inviteMessage {
+    width: 100%;
+    background: #262a33;
+    border: 1px solid #3a3f4a;
+    border-radius: 6px;
+    color: #e6e8ec;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.9em;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.invite-card-footer {
+    flex: 0 0 auto;
+    padding: 0.9em 1.1em;
+    border-top: 1px solid #2b2f38;
+    text-align: right;
 }
 
 /* New chat message popup */
