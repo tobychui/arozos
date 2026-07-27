@@ -1,33 +1,59 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	_ "image/gif"
-	_ "image/jpeg"
-	"image/png"
-	"math"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/disintegration/imaging"
-	"github.com/srwiley/oksvg"
-	"github.com/srwiley/rasterx"
-	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/desktop/icons"
+	"imuslab.com/arozos/mod/desktop/layout"
+	"imuslab.com/arozos/mod/desktop/prefs"
+	"imuslab.com/arozos/mod/desktop/wallpaper"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
+)
+
+/*
+	desktop.go
+
+	HTTP handlers backing the ArozOS web desktop. The reusable logic behind them
+	lives in mod/desktop/*: icon generation (icons), desktop icon positions
+	(layout), per-user preferences and theme (prefs) and wallpaper discovery
+	(wallpaper).
+*/
+
+const (
+	//desktopDatabaseTable is the system database table holding all desktop
+	//related per-user state
+	desktopDatabaseTable = "desktop"
+
+	//desktopWebRoot is the folder the web apps and their icons are served from
+	desktopWebRoot = "./web"
+
+	//desktopWallpaperRoot is the folder holding the bundled wallpaper themes
+	desktopWallpaperRoot = "./web/img/desktop/bg"
+
+	//desktopTemplateFolder holds the shortcuts copied onto a new user's desktop
+	desktopTemplateFolder = "./system/desktop/template/"
+)
+
+var (
+	//desktopIconGenerator renders desktop icons for web apps missing one
+	desktopIconGenerator *icons.Generator
+
+	//desktopLayoutManager stores where each icon sits on a user's desktop
+	desktopLayoutManager *layout.Manager
+
+	//desktopPrefsManager stores per-user desktop preferences and theme
+	desktopPrefsManager *prefs.Manager
 )
 
 // Desktop script initiation
@@ -56,10 +82,25 @@ func DesktopInit() {
 	router.HandleFunc("/system/desktop/opr/renameShortcut", desktop_handleShortcutRename)
 
 	//Initialize desktop database
-	err := sysdb.NewTable("desktop")
+	err := sysdb.NewTable(desktopDatabaseTable)
 	if err != nil {
 		systemWideLogger.PrintAndLog("System", "Unable to create database table for Desktop. Please validation your installation.", nil)
 		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+		os.Exit(1)
+	}
+
+	//Start the desktop sub-modules
+	desktopIconGenerator = icons.NewGenerator(desktopWebRoot)
+
+	desktopLayoutManager, err = layout.NewManager(sysdb, desktopDatabaseTable)
+	if err != nil {
+		systemWideLogger.PrintAndLog("System", "Unable to start Desktop layout manager. Please validation your installation.", err)
+		os.Exit(1)
+	}
+
+	desktopPrefsManager, err = prefs.NewManager(sysdb, desktopDatabaseTable)
+	if err != nil {
+		systemWideLogger.PrintAndLog("System", "Unable to start Desktop preference manager. Please validation your installation.", err)
 		os.Exit(1)
 	}
 
@@ -128,9 +169,8 @@ func desktop_initUserFolderStructure(username string) {
 		userFsa.MkdirAll(userDesktopPath, 0755)
 
 		//Copy template file from system folder if exists
-		templateFolder := "./system/desktop/template/"
-		if fs.FileExists(templateFolder) {
-			templateFiles, _ := filepath.Glob(templateFolder + "*")
+		if utils.FileExists(desktopTemplateFolder) {
+			templateFiles, _ := filepath.Glob(desktopTemplateFolder + "*")
 			for _, tfile := range templateFiles {
 				input, _ := os.ReadFile(tfile)
 				userFsa.WriteFile(arozfs.ToSlash(filepath.Join(userDesktopPath, filepath.Base(tfile))), input, 0755)
@@ -346,24 +386,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 
 // functions to handle desktop icon locations. Location is directly written into the center db.
 func getDesktopLocatioFromPath(filename string, username string) (int, int, error) {
-	//As path include username, there is no different if there are username in the key
-	locationdata := ""
-	err := sysdb.Read("desktop", username+"/filelocation/"+filename, &locationdata)
-	if err != nil {
-		//The file location is not set. Return error
-		return -1, -1, errors.New("This file do not have a location registry")
-	}
-	type iconLocation struct {
-		X int
-		Y int
-	}
-	thisFileLocation := iconLocation{
-		X: -1,
-		Y: -1,
-	}
-	//Start parsing the from the json data
-	json.Unmarshal([]byte(locationdata), &thisFileLocation)
-	return thisFileLocation.X, thisFileLocation.Y, nil
+	return desktopLayoutManager.GetIconLocation(username, filename)
 }
 
 // Set the icon location of a given filepath
@@ -373,37 +396,24 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 	fsh, subpath, _ := GetFSHandlerSubpathFromVpath("user:/Desktop/")
 	fshAbs := fsh.FileSystemAbstraction
 	desktoppath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
-	path := filepath.Join(desktoppath, filename)
-	type iconLocation struct {
-		X int
-		Y int
-	}
-
-	newLocation := new(iconLocation)
-	newLocation.X = x
-	newLocation.Y = y
+	targetFilepath := filepath.Join(desktoppath, filename)
 
 	//Check if the file exits
-	if !fshAbs.FileExists(path) {
+	if !fshAbs.FileExists(targetFilepath) {
 		return errors.New("Given filename not exists.")
 	}
 
-	//Parse the location to json
-	jsonstring, err := json.Marshal(newLocation)
+	err := desktopLayoutManager.SetIconLocation(username, filename, x, y)
 	if err != nil {
-		systemWideLogger.PrintAndLog("Desktop", "Unable to parse new file location on desktop for file: "+path, err)
+		systemWideLogger.PrintAndLog("Desktop", "Unable to store new file location on desktop for file: "+targetFilepath, err)
 		return err
 	}
-
-	//systemWideLogger.PrintAndLog(key,string(jsonstring),nil)
-	//Write result to database
-	sysdb.Write("desktop", username+"/filelocation/"+filename, string(jsonstring))
 	return nil
 }
 
 func delDesktopLocationFromPath(filename string, username string) {
 	//Delete a file icon location from db
-	sysdb.Delete("desktop", username+"/filelocation/"+filename)
+	desktopLayoutManager.RemoveIconLocation(username, filename)
 }
 
 // Return the user information to the client
@@ -541,42 +551,10 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 	loadUserTheme, _ := utils.GetPara(r, "load")
 	if targetTheme == "" && getUserTheme == "" && loadUserTheme == "" {
 		//List all the currnet themes in the list
-		themes, err := filepath.Glob("web/img/desktop/bg/*")
+		desktopThemeList, err := wallpaper.ListThemes(desktopWallpaperRoot)
 		if err != nil {
 			systemWideLogger.PrintAndLog("Desktop", "Unable to search bg from destkop image root. Are you sure the web data folder exists?", err)
 			return
-		}
-		//Prase the results to json array
-		//Tips: You must use captial letter for varable in struct that is accessable as public :)
-		type desktopTheme struct {
-			Theme  string
-			Bglist []string
-		}
-
-		var desktopThemeList []desktopTheme
-		acceptBGFormats := []string{
-			".jpg",
-			".png",
-			".gif",
-		}
-		for _, file := range themes {
-			if fs.IsDir(file) {
-				thisTheme := new(desktopTheme)
-				thisTheme.Theme = filepath.Base(file)
-				bglist, _ := filepath.Glob(file + "/*")
-				var thisbglist []string
-				for _, bg := range bglist {
-					ext := filepath.Ext(bg)
-					//if (sliceutil.Contains(acceptBGFormats, ext) ){
-					if utils.StringInArray(acceptBGFormats, ext) {
-						//This file extension is supported
-						thisbglist = append(thisbglist, filepath.Base(bg))
-					}
-
-				}
-				thisTheme.Bglist = thisbglist
-				desktopThemeList = append(desktopThemeList, *thisTheme)
-			}
 		}
 
 		//Return the results as JSON string
@@ -589,18 +567,9 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		utils.SendJSONResponse(w, string(jsonString))
 		return
 	} else if getUserTheme == "true" {
-		//Get the user's theme from database
-		result := ""
-		sysdb.Read("desktop", username+"/theme", &result)
-		if result == "" {
-			//This user has not set a theme yet. Use default
-			utils.SendJSONResponse(w, string("\"default\""))
-			return
-		} else {
-			//This user already set a theme. Use its set theme
-			utils.SendJSONResponse(w, string("\""+result+"\""))
-			return
-		}
+		//Get the user's theme from database, falling back to the default theme
+		utils.SendJSONResponse(w, string("\""+desktopPrefsManager.GetTheme(username)+"\""))
+		return
 	} else if loadUserTheme != "" {
 		//Load user theme base on folder path
 		targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(loadUserTheme)
@@ -648,8 +617,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, file := range files {
-			ext := filepath.Ext(file.Name())
-			if utils.StringInArray([]string{".png", ".jpg", ".gif"}, ext) {
+			if wallpaper.IsSupportedWallpaper(file.Name()) {
 				imageList = append(imageList, arozfs.ToSlash(filepath.Join(rpath, file.Name())))
 			}
 		}
@@ -670,7 +638,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 
 	} else if targetTheme != "" {
 		//Set the current user theme
-		sysdb.Write("desktop", username+"/theme", targetTheme)
+		desktopPrefsManager.SetTheme(username, targetTheme)
 		utils.SendJSONResponse(w, "\"OK\"")
 		return
 	}
@@ -693,19 +661,17 @@ func desktop_preference_handler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if preferenceType != "" && value == "" && remove == "" {
 		//Getting config from the key.
-		result := ""
-		sysdb.Read("desktop", username+"/preference/"+preferenceType, &result)
-		jsonString, _ := json.Marshal(result)
+		jsonString, _ := json.Marshal(desktopPrefsManager.GetPreference(username, preferenceType))
 		utils.SendJSONResponse(w, string(jsonString))
 		return
 	} else if preferenceType != "" && value == "" && remove == "true" {
 		//Remove mode
-		sysdb.Delete("desktop", username+"/preference/"+preferenceType)
+		desktopPrefsManager.RemovePreference(username, preferenceType)
 		utils.SendOK(w)
 		return
 	} else if preferenceType != "" && value != "" {
 		//Setting config from the key
-		sysdb.Write("desktop", username+"/preference/"+preferenceType, value)
+		desktopPrefsManager.SetPreference(username, preferenceType, value)
 		utils.SendOK(w)
 		return
 	} else {
@@ -792,9 +758,11 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 	//icon for the web app if it does not ship one of its own, so the shortcut
 	//does not end up with a fully filled icon on the desktop.
 	if shortcutType == "module" {
-		_, err := desktop_ensureDesktopIcon(shortcutIcon)
+		desktopIconPath, generated, err := desktopIconGenerator.EnsureDesktopIcon(shortcutIcon)
 		if err != nil {
 			systemWideLogger.PrintAndLog("Desktop", "Unable to generate desktop icon for "+shortcutIcon, err)
+		} else if generated {
+			systemWideLogger.PrintAndLog("Desktop", "Generated desktop icon for "+desktopIconPath, nil)
 		}
 	}
 
@@ -806,312 +774,4 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.SendOK(w)
-}
-
-/*
-	Desktop Icon Generator
-
-	A web app's module icon (the one declared in its init.agi) is designed to be
-	edge to edge, which looks wrong when placed on the desktop where icons are
-	expected to have padding around them. When a web app does not ship its own
-	desktop_icon.png, the functions below render one on the fly: the module icon
-	is scaled down and centered on top of an opaque squircle backplate, which is
-	then written back into the web app folder next to the module icon.
-*/
-
-const (
-	/*
-		desktopIconSquircleFactor is the "squareness" factor f of the generated
-		squircle backplate. The backplate is the superellipse (Lame curve)
-
-			|x/r|^n + |y/r|^n = 1,  where n = 2 / (1 - f)
-
-		so f = 0 renders a perfect circle, f = 0.5 the classic squircle and
-		f approaching 1 approaches a plain square. Tune this value to change the
-		roundness of every generated desktop icon.
-	*/
-	desktopIconSquircleFactor = 0.75
-
-	//desktopIconSize is the output resolution in px of the generated
-	//desktop_icon.png, matching the hand made desktop icons of the built-in apps
-	desktopIconSize = 128
-
-	//desktopIconBackplateRatio is the width of the squircle backplate relative
-	//to the canvas size. The hand drawn desktop icons of the built-in web apps
-	//all sit at around 0.70 of their canvas, so match that to keep the generated
-	//icons the same visual size as the rest of the desktop.
-	desktopIconBackplateRatio = 0.70
-
-	//desktopIconContentRatio is the width of the module icon relative to the
-	//*backplate* (not the canvas), so the backplate size can be tuned above
-	//without having to re-balance the padding. The remainder is the padding
-	//drawn around the icon.
-	desktopIconContentRatio = 0.66
-
-	//desktopIconSampleSteps is the supersampling grid size (n x n samples per
-	//pixel) used to antialias the edge of the squircle backplate
-	desktopIconSampleSteps = 4
-
-	//desktopIconLumaThreshold is the perceived luminance (0 - 1) above which a
-	//module icon counts as "bright" and gets a black backplate instead of white
-	desktopIconLumaThreshold = 0.5
-
-	//desktopIconSVGRenderSize is the resolution the SVG module icons are
-	//rasterized at before being scaled down onto the backplate
-	desktopIconSVGRenderSize = 512
-)
-
-// desktop_ensureDesktopIcon makes sure a desktop_icon.png exists next to the
-// given module icon. moduleIconPath is a path relative to the web root, e.g.
-// "Photo/img/module_icon.png". If the desktop icon is already there nothing is
-// done; otherwise one is generated from the module icon and written into the
-// web app folder. The web root relative path of the desktop icon is returned.
-func desktop_ensureDesktopIcon(moduleIconPath string) (string, error) {
-	moduleIconRel, err := desktop_resolveWebAssetPath(moduleIconPath)
-	if err != nil {
-		return "", err
-	}
-
-	desktopIconRel := path.Join(path.Dir(moduleIconRel), "desktop_icon.png")
-	desktopIconAbs := filepath.Join("./web", filepath.FromSlash(desktopIconRel))
-	if utils.FileExists(desktopIconAbs) {
-		//This web app already ships a desktop icon. Nothing to do.
-		return desktopIconRel, nil
-	}
-
-	if strings.EqualFold(path.Base(moduleIconRel), "desktop_icon.png") {
-		//The module icon is the desktop icon we are trying to create. Bail out
-		//instead of recursing on a file that does not exist.
-		return "", errors.New("desktop icon not found and cannot be generated from itself")
-	}
-
-	moduleIcon, err := desktop_loadWebImage(moduleIconRel)
-	if err != nil {
-		return "", err
-	}
-
-	var generatedIcon bytes.Buffer
-	err = png.Encode(&generatedIcon, desktop_renderDesktopIcon(moduleIcon))
-	if err != nil {
-		return "", err
-	}
-
-	err = os.WriteFile(desktopIconAbs, generatedIcon.Bytes(), 0775)
-	if err != nil {
-		return "", err
-	}
-
-	systemWideLogger.PrintAndLog("Desktop", "Generated desktop icon for "+desktopIconRel, nil)
-	return desktopIconRel, nil
-}
-
-// desktop_resolveWebAssetPath cleans a user supplied web root relative asset
-// path and rejects anything that tries to escape the web root.
-func desktop_resolveWebAssetPath(relPath string) (string, error) {
-	relPath = strings.TrimSpace(strings.ReplaceAll(relPath, "\\", "/"))
-	if relPath == "" {
-		return "", errors.New("empty asset path")
-	}
-
-	//Cleaning against the root collapses any ".." segments trying to climb out
-	//of the web root. Use path (not filepath) so this behaves the same on the
-	//platforms where the OS separator is not a slash.
-	cleanedPath := strings.TrimPrefix(path.Clean("/"+strings.TrimLeft(relPath, "/")), "/")
-	if cleanedPath == "" || cleanedPath == "." {
-		return "", errors.New("invalid asset path: " + relPath)
-	}
-
-	return cleanedPath, nil
-}
-
-// desktop_loadWebImage decodes an image stored under the web root. Both the
-// raster formats used by the web apps and SVG module icons are supported.
-func desktop_loadWebImage(webRelPath string) (image.Image, error) {
-	imageContent, err := os.ReadFile(filepath.Join("./web", filepath.FromSlash(webRelPath)))
-	if err != nil {
-		return nil, err
-	}
-
-	if strings.EqualFold(path.Ext(webRelPath), ".svg") {
-		return desktop_rasterizeSVG(imageContent, desktopIconSVGRenderSize)
-	}
-
-	loadedImage, _, err := image.Decode(bytes.NewReader(imageContent))
-	return loadedImage, err
-}
-
-// desktop_rasterizeSVG renders an SVG into a square RGBA image of the given
-// size, preserving the aspect ratio of the source viewBox.
-func desktop_rasterizeSVG(svgContent []byte, renderSize int) (image.Image, error) {
-	parsedIcon, err := oksvg.ReadIconStream(bytes.NewReader(svgContent))
-	if err != nil {
-		return nil, err
-	}
-
-	viewWidth := parsedIcon.ViewBox.W
-	viewHeight := parsedIcon.ViewBox.H
-	if viewWidth <= 0 || viewHeight <= 0 {
-		viewWidth, viewHeight = float64(renderSize), float64(renderSize)
-	}
-
-	scale := math.Min(float64(renderSize)/viewWidth, float64(renderSize)/viewHeight)
-	targetWidth := viewWidth * scale
-	targetHeight := viewHeight * scale
-	parsedIcon.SetTarget((float64(renderSize)-targetWidth)/2, (float64(renderSize)-targetHeight)/2, targetWidth, targetHeight)
-	desktop_scaleSVGStrokes(parsedIcon, scale)
-
-	renderedIcon := image.NewRGBA(image.Rect(0, 0, renderSize, renderSize))
-	scanner := rasterx.NewScannerGV(renderSize, renderSize, renderedIcon, renderedIcon.Bounds())
-	parsedIcon.Draw(rasterx.NewDasher(renderSize, renderSize, scanner), 1.0)
-	return renderedIcon, nil
-}
-
-// desktop_scaleSVGStrokes multiplies the stroke widths of an SVG icon by the
-// given scale factor.
-//
-// oksvg only applies the SetTarget transform to the path geometry: the stroke
-// width handed to the rasterizer is the raw value in viewBox units. Rendering a
-// 64x64 viewBox at 512px therefore leaves every stroke 8 times too thin, which
-// makes line art module icons come out as hairlines. Pre-scaling the stroke
-// styling to match the transform restores the intended thickness.
-func desktop_scaleSVGStrokes(parsedIcon *oksvg.SvgIcon, scale float64) {
-	if scale <= 0 || scale == 1 {
-		return
-	}
-
-	for i := range parsedIcon.SVGPaths {
-		svgPath := &parsedIcon.SVGPaths[i]
-		svgPath.LineWidth *= scale
-		svgPath.DashOffset *= scale
-		for j := range svgPath.Dash {
-			svgPath.Dash[j] *= scale
-		}
-	}
-}
-
-// desktop_renderDesktopIcon composites a module icon onto a padded squircle
-// backplate and returns the resulting desktop icon image.
-func desktop_renderDesktopIcon(moduleIcon image.Image) image.Image {
-	canvas := image.NewNRGBA(image.Rect(0, 0, desktopIconSize, desktopIconSize))
-
-	//Paint the antialiased squircle backplate
-	backplateColor := desktop_pickBackplateColor(moduleIcon)
-	exponent := desktop_squircleExponent(desktopIconSquircleFactor)
-	center := float64(desktopIconSize) / 2
-	radius := float64(desktopIconSize) * desktopIconBackplateRatio / 2
-	for y := 0; y < desktopIconSize; y++ {
-		for x := 0; x < desktopIconSize; x++ {
-			coverage := desktop_squircleCoverage(float64(x), float64(y), center, radius, exponent)
-			if coverage <= 0 {
-				continue
-			}
-			pixelColor := backplateColor
-			pixelColor.A = uint8(math.Round(float64(backplateColor.A) * coverage))
-			canvas.SetNRGBA(x, y, pixelColor)
-		}
-	}
-
-	//Scale the module icon into the padded content box and center it
-	contentBox := int(math.Round(float64(desktopIconSize) * desktopIconBackplateRatio * desktopIconContentRatio))
-	scaledIcon := desktop_scaleIconToBox(moduleIcon, contentBox)
-	if scaledIcon != nil {
-		offset := image.Pt((desktopIconSize-scaledIcon.Bounds().Dx())/2, (desktopIconSize-scaledIcon.Bounds().Dy())/2)
-		draw.Draw(canvas, scaledIcon.Bounds().Add(offset), scaledIcon, scaledIcon.Bounds().Min, draw.Over)
-	}
-
-	return canvas
-}
-
-// desktop_scaleIconToBox resizes an icon so its longest side matches boxSize
-// while keeping its aspect ratio. Returns nil for degenerate source images.
-func desktop_scaleIconToBox(moduleIcon image.Image, boxSize int) image.Image {
-	sourceWidth := moduleIcon.Bounds().Dx()
-	sourceHeight := moduleIcon.Bounds().Dy()
-	if sourceWidth <= 0 || sourceHeight <= 0 || boxSize <= 0 {
-		return nil
-	}
-
-	scale := math.Min(float64(boxSize)/float64(sourceWidth), float64(boxSize)/float64(sourceHeight))
-	scaledWidth := int(math.Round(float64(sourceWidth) * scale))
-	scaledHeight := int(math.Round(float64(sourceHeight) * scale))
-	if scaledWidth < 1 {
-		scaledWidth = 1
-	}
-	if scaledHeight < 1 {
-		scaledHeight = 1
-	}
-
-	return imaging.Resize(moduleIcon, scaledWidth, scaledHeight, imaging.Lanczos)
-}
-
-// desktop_squircleExponent converts the squircle "squareness" factor f into the
-// superellipse exponent n = 2 / (1 - f).
-func desktop_squircleExponent(squircleFactor float64) float64 {
-	if squircleFactor < 0 {
-		squircleFactor = 0
-	} else if squircleFactor > 0.99 {
-		//Keep the exponent finite so the math below stays well behaved
-		squircleFactor = 0.99
-	}
-	return 2 / (1 - squircleFactor)
-}
-
-// desktop_squircleCoverage returns how much (0 - 1) of the pixel at the given
-// top-left coordinates falls inside the squircle, supersampled for antialiasing.
-func desktop_squircleCoverage(pixelX float64, pixelY float64, center float64, radius float64, exponent float64) float64 {
-	if radius <= 0 {
-		return 0
-	}
-
-	sampleStep := 1.0 / float64(desktopIconSampleSteps)
-	samplesInside := 0
-	for sampleY := 0; sampleY < desktopIconSampleSteps; sampleY++ {
-		for sampleX := 0; sampleX < desktopIconSampleSteps; sampleX++ {
-			offsetX := math.Abs(pixelX+(float64(sampleX)+0.5)*sampleStep-center) / radius
-			offsetY := math.Abs(pixelY+(float64(sampleY)+0.5)*sampleStep-center) / radius
-			if math.Pow(offsetX, exponent)+math.Pow(offsetY, exponent) <= 1 {
-				samplesInside++
-			}
-		}
-	}
-
-	return float64(samplesInside) / float64(desktopIconSampleSteps*desktopIconSampleSteps)
-}
-
-// desktop_pickBackplateColor samples the theme color of a module icon and picks
-// the backplate that keeps the icon readable: black behind a bright icon, white
-// behind a dark one.
-func desktop_pickBackplateColor(moduleIcon image.Image) color.NRGBA {
-	white := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
-	black := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
-
-	bounds := moduleIcon.Bounds()
-	lumaSum := 0.0
-	weightSum := 0.0
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			r, g, b, a := moduleIcon.At(x, y).RGBA()
-			if a == 0 {
-				//Fully transparent pixels carry no theme color
-				continue
-			}
-
-			//RGBA() is alpha-premultiplied, so divide by alpha to get the real
-			//channel values and weight the sample by how opaque the pixel is
-			luma := (0.2126*float64(r) + 0.7152*float64(g) + 0.0722*float64(b)) / float64(a)
-			alpha := float64(a) / 65535
-			lumaSum += luma * alpha
-			weightSum += alpha
-		}
-	}
-
-	if weightSum == 0 {
-		//Blank icon, fall back to the light backplate
-		return white
-	}
-
-	if lumaSum/weightSum > desktopIconLumaThreshold {
-		return black
-	}
-	return white
 }
