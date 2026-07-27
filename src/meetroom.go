@@ -12,6 +12,7 @@ package main
 	  GET  /system/meetroom/info?roomid=XXXXXXXXX             --> {"exists":..,"protected":..}
 	  GET  /system/meetroom/ws?roomid=&password=              --> WebSocket signaling upgrade
 	  POST /system/meetroom/upload      multipart (file)      --> {"fileid":...}
+	  POST /system/meetroom/attachfile  roomid=&password=&path=  --> {"fileid":...}
 	  GET  /system/meetroom/download?roomid=&password=&fileid=[&inline=1]
 	  GET  /system/meetroom/end?roomid=                       --> host ends the meeting
 	  GET  /system/meetroom/iceservers                        --> WebRTC ICE config
@@ -20,15 +21,16 @@ package main
 	  client -> server: {"type":"signal","to":peerid,"data":{...}}   SDP/ICE relay
 	                    {"type":"chat","text":"..."}
 	                    {"type":"file","fileid":"..."}               announce uploaded file
-	                    {"type":"state","audio":b,"video":b,"screen":b}
+	                    {"type":"state","audio":b,"video":b,"screen":b,"hand":b}
 	                    {"type":"attendance"}                        request the join/leave log
+	                    {"type":"kick","to":peerid}                  host only
 	                    {"type":"ping"}                              app-level heartbeat
 	                    {"type":"end"}                               host only
 	  server -> client: {"type":"welcome",...}, {"type":"peer-join",...},
-	                    {"type":"peer-leave",...}, {"type":"signal","from":..},
+	                    {"type":"peer-leave",...,"kicked":b}, {"type":"signal","from":..},
 	                    {"type":"chat",...}, {"type":"file",...},
 	                    {"type":"state",...}, {"type":"attendance",...},
-	                    {"type":"pong"}, {"type":"room-closed"}
+	                    {"type":"kicked"}, {"type":"pong"}, {"type":"room-closed"}
 
 	Shared space integration: every room owns a mod/sharedspace space (its ID
 	travels with the room). Chat and uploads mirror into the space with
@@ -54,6 +56,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -96,6 +99,7 @@ type mrRoomInfo struct {
 	Title     string `json:"title"`
 	Host      string `json:"host"`
 	Protected bool   `json:"protected"`
+	CreatedAt int64  `json:"createdat"` // unix seconds; lets the client show the meeting duration
 }
 
 func mrDescribeRoom(room *meetroom.Room) mrRoomInfo {
@@ -105,6 +109,7 @@ func mrDescribeRoom(room *meetroom.Room) mrRoomInfo {
 		Title:     room.Title,
 		Host:      room.Host,
 		Protected: room.HasPassword(),
+		CreatedAt: room.CreatedAt.Unix(),
 	}
 }
 
@@ -136,6 +141,7 @@ func mrAttendanceList(room *meetroom.Room) []map[string]interface{} {
 	for _, record := range records {
 		entry := map[string]interface{}{
 			"username": record.Username,
+			"peerid":   record.PeerID, // lets the host target this attendee for a kick
 			"joinedat": record.JoinedAt.Unix(),
 			"present":  record.Present(),
 			"leftat":   int64(0),
@@ -344,6 +350,72 @@ func MeetRoomInit() {
 		utils.SendJSONResponse(w, string(js))
 	})
 
+	//Attach a file the user already owns in their ArozOS storage, addressed by
+	//virtual path (e.g. user:/Desktop/report.pdf), without a round-trip
+	//download+reupload. The file is streamed straight from the user's file
+	//system into the room's attachment store. Access is inherently scoped:
+	//GetFileSystemHandlerFromVirtualPath only resolves storages the user can
+	//reach, and the real path is translated for that user.
+	router.HandleFunc("/system/meetroom/attachfile", func(w http.ResponseWriter, r *http.Request) {
+		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+		if err != nil {
+			utils.SendErrorResponse(w, "Not logged in")
+			return
+		}
+		roomID := meetroom.NormalizeRoomID(r.FormValue("roomid"))
+		password := r.FormValue("password")
+		if _, err := meetRoomManager.ValidateJoin(roomID, password); err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		vpath, err := utils.PostPara(r, "path")
+		if err != nil {
+			utils.SendErrorResponse(w, "Missing file path")
+			return
+		}
+
+		//Resolve the virtual path within the requesting user's file system
+		fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+		if err != nil {
+			utils.SendErrorResponse(w, "File not accessible")
+			return
+		}
+		fshAbs := fsh.FileSystemAbstraction
+		rpath, err := fshAbs.VirtualPathToRealPath(vpath, userinfo.Username)
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid file path")
+			return
+		}
+		fileStat, err := fshAbs.Stat(rpath)
+		if err != nil {
+			utils.SendErrorResponse(w, "File not found")
+			return
+		}
+		if fileStat.IsDir() {
+			utils.SendErrorResponse(w, "Cannot attach a folder")
+			return
+		}
+
+		stream, err := fshAbs.ReadStream(rpath)
+		if err != nil {
+			utils.SendErrorResponse(w, "Could not open the file")
+			return
+		}
+		defer stream.Close()
+
+		attachment, err := meetRoomManager.SaveAttachment(roomID, path.Base(vpath), userinfo.Username, stream, meetroom.DefaultMaxUpload)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		js := mrMarshalOrDrop(map[string]interface{}{
+			"fileid": attachment.ID,
+			"name":   attachment.Name,
+			"size":   attachment.Size,
+		})
+		utils.SendJSONResponse(w, string(js))
+	})
+
 	//Attachment download for room members.
 	router.HandleFunc("/system/meetroom/download", func(w http.ResponseWriter, r *http.Request) {
 		roomID := meetroom.NormalizeRoomID(r.URL.Query().Get("roomid"))
@@ -508,6 +580,7 @@ func MeetRoomInit() {
 				Audio  bool            `json:"audio"`
 				Video  bool            `json:"video"`
 				Screen bool            `json:"screen"`
+				Hand   bool            `json:"hand"`
 			}
 			if json.Unmarshal(raw, &frame) != nil {
 				continue
@@ -555,13 +628,14 @@ func MeetRoomInit() {
 					"time":     time.Now().Unix(),
 				}), -1)
 			case "state":
-				//Mic / camera / screen share indicator update
+				//Mic / camera / screen share / raised-hand indicator update
 				room.Broadcast(mrMarshalOrDrop(map[string]interface{}{
 					"type":   "state",
 					"from":   participant.PeerID,
 					"audio":  frame.Audio,
 					"video":  frame.Video,
 					"screen": frame.Screen,
+					"hand":   frame.Hand,
 				}), participant.PeerID)
 			case "attendance":
 				//Send the requester the room's join/leave log (the
@@ -575,6 +649,30 @@ func MeetRoomInit() {
 				//App-level heartbeat: lets the client detect a half-dead
 				//connection and trigger its auto-reconnect logic.
 				room.SendTo(participant.PeerID, []byte(`{"type":"pong"}`))
+			case "kick":
+				//Host removes another participant. Order matters: the target
+				//is told it was kicked (so its client stops auto-reconnecting)
+				//while it is still subscribed, so the frame is queued and
+				//drained before its socket drops; everyone is then told it
+				//left; finally KickParticipant unregisters it and closes its
+				//send channel, which ends its writer goroutine and hangs up.
+				if !participant.IsHost || frame.To == participant.PeerID {
+					continue
+				}
+				target, ok := room.GetParticipant(frame.To)
+				if !ok || target.IsHost {
+					continue
+				}
+				room.SendTo(target.PeerID, []byte(`{"type":"kicked"}`))
+				//Everyone but the target hears the removal; the target gets the
+				//dedicated "kicked" frame above instead of its own leave.
+				room.Broadcast(mrMarshalOrDrop(map[string]interface{}{
+					"type":     "peer-leave",
+					"peerid":   target.PeerID,
+					"username": target.Username,
+					"kicked":   true,
+				}), target.PeerID)
+				room.KickParticipant(target.PeerID)
 			case "end":
 				if participant.IsHost {
 					mrEndMeeting(room.ID)

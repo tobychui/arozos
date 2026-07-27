@@ -154,6 +154,48 @@ func TestParticipantLifecycle(t *testing.T) {
 	room.RemoveParticipant(guest.PeerID)
 }
 
+func TestKickParticipant(t *testing.T) {
+	m := newTestManager(t)
+	room := m.CreateRoom("alice", "", "")
+	host, _ := room.AddParticipant("alice")
+	guest, _ := room.AddParticipant("bob")
+
+	//The host cannot be kicked, even by peer ID
+	if _, ok := room.KickParticipant(host.PeerID); ok {
+		t.Errorf("KickParticipant(host) = true, want false")
+	}
+	if room.ParticipantCount() != 2 {
+		t.Errorf("ParticipantCount() after failed host kick = %d, want 2", room.ParticipantCount())
+	}
+
+	//A regular guest is removed and returned
+	kicked, ok := room.KickParticipant(guest.PeerID)
+	if !ok || kicked != guest {
+		t.Fatalf("KickParticipant(guest) = (%v, %v), want the guest / true", kicked, ok)
+	}
+	if room.ParticipantCount() != 1 {
+		t.Errorf("ParticipantCount() after kick = %d, want 1", room.ParticipantCount())
+	}
+	if _, open := <-guest.Send; open {
+		t.Errorf("kicked participant's send channel still open")
+	}
+
+	//The kick is recorded in the attendance log as a leave
+	for _, record := range room.Attendance() {
+		if record.PeerID == guest.PeerID && record.Present() {
+			t.Errorf("kicked participant still marked present in attendance")
+		}
+	}
+
+	//Kicking an unknown peer, or the same peer twice, is a safe no-op
+	if _, ok := room.KickParticipant(guest.PeerID); ok {
+		t.Errorf("KickParticipant(already kicked) = true, want false")
+	}
+	if _, ok := room.KickParticipant(9999); ok {
+		t.Errorf("KickParticipant(unknown) = true, want false")
+	}
+}
+
 func TestBroadcastAndSendTo(t *testing.T) {
 	m := newTestManager(t)
 	room := m.CreateRoom("alice", "", "")
