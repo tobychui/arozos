@@ -11,6 +11,15 @@
 
 PS.IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "bmp"];
 
+// Camera RAW formats. The <img> tag cannot decode these, so Pixel Studio hands
+// them over to the Raw Editor sub-app (Pixel Studio/raw/) which demosaics them
+// in the browser and can pass the developed result back here.
+PS.RAW_EXTS = ["arw", "dng", "nef", "cr2", "cr3", "orf", "raf", "rw2", "pef", "srw", "tiff", "tif"];
+
+PS.isRawExt = function (ext) {
+    return PS.RAW_EXTS.indexOf(String(ext).toLowerCase()) >= 0;
+};
+
 PS.extOf = function (name) {
     var i = name.lastIndexOf(".");
     return i < 0 ? "" : name.slice(i + 1).toLowerCase();
@@ -102,6 +111,8 @@ PS.fileOpenDialog = function () {
             // standalone fallback
             var inp = document.createElement("input");
             inp.type = "file";
+            // RAW files are not listed here: outside ArozOS there is no storage
+            // path to hand to the Raw Editor sub-app.
             inp.accept = ".png,.jpg,.jpeg,.gif,.webp,.bmp,.pxs";
             inp.addEventListener("change", function () {
                 if (inp.files.length) { PS.openFromBlob(inp.files[0], inp.files[0].name); }
@@ -129,6 +140,12 @@ PS.openFromPath = function (filepath, filename) {
     }
 
     if (PS.IMAGE_EXTS.indexOf(ext) < 0) {
+        // Not something the browser can decode. If it is a camera RAW file,
+        // forward the open request to the Raw Editor sub-app instead of failing.
+        if (PS.isRawExt(ext)) {
+            PS.openInRawEditor(filepath, filename);
+            return;
+        }
         PS.toast("Unsupported file type: ." + ext, true);
         return;
     }
@@ -141,6 +158,41 @@ PS.openFromPath = function (filepath, filename) {
         PS.toast("Cannot load image: " + filename, true);
     };
     img.src = url;
+};
+
+// Hand a camera RAW file over to the Raw Editor sub-app. Inside the ArozOS
+// desktop it opens as its own float window (from there "Open in Pixel Studio"
+// sends the developed image back); standalone we navigate to it in place.
+// Both entry points into openFromPath either have no document yet (launch
+// "open with") or have already run confirmDiscard, so nothing is lost.
+// Called without a file it just launches an empty Raw Editor (File > Raw Editor).
+PS.openInRawEditor = function (filepath, filename) {
+    var hash = filepath
+        ? "#" + encodeURIComponent(JSON.stringify([{ filename: filename, filepath: filepath }]))
+        : "";
+
+    if (PS.inArozOS() && typeof ao_module_newfw !== "undefined") {
+        ao_module_newfw({
+            url: "Pixel Studio/raw/index.html" + hash,
+            width: 1200,
+            height: 760,
+            appicon: "Pixel Studio/raw/img/module_icon.svg",
+            title: filename ? "Raw Editor - " + filename : "Raw Editor"
+        });
+        if (filepath) { PS.toast("RAW file opened in Raw Editor"); }
+        // Pixel Studio was launched only to open this RAW file - there is no
+        // document to come back to, so close the empty float window.
+        var inDesktop = (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop);
+        if (filepath && !PS.doc && inDesktop) {
+            try { ao_module_close(); } catch (e) { /* not running in a float window */ }
+        }
+        return;
+    }
+
+    // Standalone (no ArozOS desktop): navigate in place when we are here to
+    // open a file, otherwise pop the editor into its own tab.
+    if (filepath) { window.location.href = "raw/index.html" + hash; }
+    else { window.open("raw/index.html"); }
 };
 
 PS.openFromBlob = function (blob, filename) {
@@ -285,16 +337,38 @@ PS.loadProject = function (data, filepath, filename) {
 
 /* ---------- save ---------- */
 
+// True when writing the document into the given filename would silently throw
+// layers away, i.e. a multi-layer document going into a flat image format.
+// Only .pxs can carry the layer stack.
+PS.wouldFlatten = function (filename) {
+    return !!(PS.doc && PS.doc.layers.length > 1 && PS.extOf(filename) !== "pxs");
+};
+
+// Swap whatever extension a name carries for .pxs
+PS.asProjectName = function (filename) {
+    return filename.replace(/\.[^.]+$/, "") + ".pxs";
+};
+
 PS.fileSave = function () {
+    if (!PS.doc) { PS.toast("No document to save", true); return; }
     if (PS.commitTextEdit) { PS.commitTextEdit(); }
-    if (!PS.doc.filePath) { PS.fileSaveAs(); return; }
+    // Never overwrite in place when that would flatten the document: fall
+    // through to Save As, which offers a .pxs project keeping the layers.
+    if (!PS.doc.filePath || PS.wouldFlatten(PS.doc.fileName)) { PS.fileSaveAs(); return; }
     PS.writeDocumentTo(PS.doc.filePath, PS.doc.fileName);
 };
 
 PS.fileSaveAs = function () {
+    if (!PS.doc) { PS.toast("No document to save", true); return; }
     if (PS.commitTextEdit) { PS.commitTextEdit(); }
     var defaultName = PS.doc.fileName;
     if (PS.extOf(defaultName) === "") { defaultName += ".pxs"; }
+
+    if (PS.wouldFlatten(defaultName)) {
+        defaultName = PS.asProjectName(defaultName);
+        PS.toast(PS.doc.layers.length + " layers - saving as " + defaultName
+            + " to keep them (File > Export for a flat image)");
+    }
 
     if (PS.inArozOS() && typeof ao_module_openFileSelector !== "undefined") {
         window.psSaveAsCallback = function psSaveAsCallback(filedata) {
@@ -302,7 +376,9 @@ PS.fileSaveAs = function () {
             var f = filedata[0];
             PS.writeDocumentTo(f.filepath, f.filename, true);
         };
-        ao_module_openFileSelector(window.psSaveAsCallback, "user:/Desktop", "new", false, { defaultName: defaultName });
+        // start the picker where the document came from, falling back to Desktop
+        var startDir = PS.doc.filePath ? PS.dirOf(PS.doc.filePath) : "user:/Desktop";
+        ao_module_openFileSelector(window.psSaveAsCallback, startDir, "new", false, { defaultName: defaultName });
     } else {
         PS.makeSaveBlob(PS.extOf(defaultName) || "pxs", function (blob) {
             PS.downloadBlob(blob, defaultName);

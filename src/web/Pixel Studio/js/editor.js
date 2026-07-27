@@ -642,36 +642,80 @@ PS.ui = {
         s.className = "opt-sep";
         host.appendChild(s);
     },
-    slider: function (host, labelText, value, min, max, step, onchange, format) {
-        var g = PS.ui.group(host);
-        PS.ui.label(g, labelText);
-        var inp = document.createElement("input");
-        inp.type = "range";
-        inp.min = min; inp.max = max; inp.step = step || 1;
-        inp.value = value;
-        var val = document.createElement("span");
-        val.className = "opt-label";
-        var fmt = format || function (v) { return v; };
-        val.textContent = fmt(value);
-        inp.addEventListener("input", function () {
-            var v = parseFloat(inp.value);
-            val.textContent = fmt(v);
-            onchange(v);
-        });
-        g.appendChild(inp);
-        g.appendChild(val);
-        return inp;
+    // Mouse-wheel stepping for a value field: scrolling up raises the value and
+    // down lowers it, holding Shift steps by ten. The wheel is consumed so the
+    // bar underneath never scrolls while the pointer is over the field.
+    wheelStep: function (inp, min, max, step, apply) {
+        inp.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            var cur = parseFloat(inp.value);
+            if (isNaN(cur)) { cur = min; }
+            var next = cur + step * (e.shiftKey ? 10 : 1) * (e.deltaY < 0 ? 1 : -1);
+            next = min + Math.round((next - min) / step) * step;   // stay on the step grid
+            next = PS.clamp(parseFloat(next.toFixed(4)), min, max);
+            if (next === cur) { return; }
+            inp.value = next;
+            apply(next);
+        }, { passive: false });
     },
-    number: function (host, labelText, value, min, max, onchange) {
-        var g = PS.ui.group(host);
-        PS.ui.label(g, labelText);
+    // The numeric field shared by PS.ui.numeric and PS.ui.slider
+    numberField: function (value, min, max, step, apply) {
         var inp = PS.numberInput(value, min, max);
+        inp.step = step;
+        inp.title = "Type a value or scroll the mouse wheel over it";
+        inp.addEventListener("input", function () {
+            // live while typing, but ignore half typed values ("1" on its way to "12")
+            var v = parseFloat(inp.value);
+            if (isNaN(v) || v < min || v > max) { return; }
+            apply(v);
+        });
         inp.addEventListener("change", function () {
             var v = parseFloat(inp.value);
-            if (!isNaN(v)) { onchange(PS.clamp(v, min, max)); }
+            v = isNaN(v) ? min : PS.clamp(v, min, max);
+            inp.value = v;
+            apply(v);
         });
-        g.appendChild(inp);
+        PS.ui.wheelStep(inp, min, max, step, apply);
         return inp;
+    },
+    // Value field for the options bar. Takes the same arguments as PS.ui.slider
+    // (the two are interchangeable) except that the trailing argument is a unit
+    // suffix - "px", "%" - instead of a formatter.
+    numeric: function (host, labelText, value, min, max, step, onchange, unit) {
+        var g = PS.ui.group(host);
+        if (labelText) { PS.ui.label(g, labelText); }
+        var inp = PS.ui.numberField(value, min, max, step || 1, onchange);
+        g.appendChild(inp);
+        if (unit) { PS.ui.label(g, unit); }
+        return inp;
+    },
+    // Slider *and* numeric field, kept in sync. Used for opacity, where dragging
+    // a rough value and setting an exact one are both wanted.
+    slider: function (host, labelText, value, min, max, step, onchange, unit) {
+        var g = PS.ui.group(host);
+        if (labelText) { PS.ui.label(g, labelText); }
+        step = step || 1;
+        var range = document.createElement("input");
+        range.type = "range";
+        range.min = min; range.max = max; range.step = step;
+        range.value = value;
+        var num = PS.ui.numberField(value, min, max, step, function (v) {
+            range.value = v;
+            onchange(v);
+        });
+        function fromRange(v) {
+            num.value = v;
+            onchange(v);
+        }
+        range.addEventListener("input", function () { fromRange(parseFloat(range.value)); });
+        PS.ui.wheelStep(range, min, max, step, fromRange);
+        g.appendChild(range);
+        g.appendChild(num);
+        if (unit) { PS.ui.label(g, unit); }
+        return range;
+    },
+    number: function (host, labelText, value, min, max, onchange) {
+        return PS.ui.numeric(host, labelText, value, min, max, 1, onchange);
     },
     select: function (host, labelText, options, value, onchange) {
         var g = PS.ui.group(host);

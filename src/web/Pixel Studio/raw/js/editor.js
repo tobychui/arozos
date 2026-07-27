@@ -247,7 +247,7 @@
         sourceFile = { filepath: filepath, filename: filename };
         showLoader("Reading file...");
         document.getElementById("dropHint").style.display = "none";
-        var url = "../media?file=" + encodeURIComponent(filepath);
+        var url = "../../media?file=" + encodeURIComponent(filepath);
         fetch(url).then(function (resp) {
             if (!resp.ok) throw new Error("Could not read file (HTTP " + resp.status + ")");
             return resp.arrayBuffer();
@@ -448,14 +448,14 @@
         });
     }
     function fsListDir(dir) {
-        return fsPost("../system/file_system/listDir", "dir=" + encodeURIComponent(dir)).then(function (r) { return r.json(); });
+        return fsPost("../../system/file_system/listDir", "dir=" + encodeURIComponent(dir)).then(function (r) { return r.json(); });
     }
     function fsCSRF() {
-        return fetch("../system/csrf/new").then(function (r) { return r.text(); });
+        return fetch("../../system/csrf/new").then(function (r) { return r.text(); });
     }
     function fsNewFolder(src, name) {
         return fsCSRF().then(function (token) {
-            return fsPost("../system/file_system/newItem",
+            return fsPost("../../system/file_system/newItem",
                 "type=folder&src=" + encodeURIComponent(src) + "&filename=" + encodeURIComponent(name) + "&csrft=" + encodeURIComponent(token));
         });
     }
@@ -481,7 +481,7 @@
 
     // Load a LUT stored in the user's storage by virtual path.
     function loadLutFromPath(filepath, name) {
-        fetch("../media?file=" + encodeURIComponent(filepath)).then(function (r) {
+        fetch("../../media?file=" + encodeURIComponent(filepath)).then(function (r) {
             if (!r.ok) throw new Error("Could not read file (HTTP " + r.status + ")");
             return r.text();
         }).then(function (text) {

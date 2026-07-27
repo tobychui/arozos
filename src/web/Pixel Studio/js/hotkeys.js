@@ -97,7 +97,7 @@ PS.handleKeyDown = function (e) {
         else if (key === "i" && e.shiftKey) { PS.invertSelection(); }
         else if (key === "j") { PS.duplicateLayer(); }
         else if (key === "e" && e.shiftKey) { PS.flattenImage(); }
-        else if (key === "e") { PS.mergeDown(); }
+        else if (key === "e") { PS.mergeSelectedOrDown(); }
         else if (key === "c" && e.shiftKey) { PS.copySelection(false, true); }
         else if (key === "c") { PS.copySelection(false, false); }
         else if (key === "x") { PS.copySelection(true, false); }

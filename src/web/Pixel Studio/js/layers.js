@@ -76,6 +76,20 @@ PS.deleteLayer = function () {
     });
 };
 
+// Delete every layer selected in the panel (or just the active one when there
+// is no multi-selection).
+PS.deleteSelectedLayers = function () {
+    var d = PS.doc;
+    var sel = PS.selectedLayerIndices();
+    if (sel.length < 2) { PS.deleteLayer(); return; }
+    if (sel.length >= d.layers.length) { PS.toast("Cannot delete every layer", true); return; }
+    PS.layerStructure("Delete Layers", function () {
+        // top down, so the indices below stay valid while splicing
+        for (var k = sel.length - 1; k >= 0; k--) { d.layers.splice(sel[k], 1); }
+        d.activeLayer = PS.clamp(sel[0], 0, d.layers.length - 1);
+    });
+};
+
 PS.duplicateLayer = function () {
     var d = PS.doc;
     var src = PS.activeLayer();
@@ -119,6 +133,45 @@ PS.mergeDown = function () {
     });
 };
 
+// Merge every layer selected in the panel into one, in stacking order, landing
+// at the position of the lowest of them. Like Merge Down, the result keeps the
+// bottom layer's name / blend settings and is a plain raster layer.
+PS.mergeSelectedLayers = function () {
+    var d = PS.doc;
+    var sel = PS.selectedLayerIndices();
+    if (sel.length < 2) { PS.toast("Select two or more layers to merge", true); return; }
+
+    var target = sel[0];
+    var bottom = d.layers[target];
+    var merged = PS.makeLayer(bottom.name, d.width, d.height);
+    merged.visible = bottom.visible;
+    merged.opacity = 1;
+    merged.blend = bottom.blend;
+
+    var ctx = merged.canvas.getContext("2d");
+    sel.forEach(function (i, n) {
+        var layer = d.layers[i];
+        ctx.globalAlpha = layer.opacity;
+        ctx.globalCompositeOperation = (n === 0) ? "source-over" : layer.blend;
+        ctx.drawImage(layer.canvas, 0, 0);
+    });
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+
+    PS.layerStructure("Merge Layers", function () {
+        for (var k = sel.length - 1; k >= 0; k--) { d.layers.splice(sel[k], 1); }
+        d.layers.splice(target, 0, merged);
+        d.activeLayer = target;
+    });
+};
+
+// Ctrl+E and the panel's merge button: merge the selection when there is one,
+// otherwise fall back to the classic merge-down.
+PS.mergeSelectedOrDown = function () {
+    if (PS.selectedLayerIndices().length > 1) { PS.mergeSelectedLayers(); }
+    else { PS.mergeDown(); }
+};
+
 PS.flattenImage = function () {
     var d = PS.doc;
     var flat = PS.makeLayer("Background", d.width, d.height);
@@ -158,6 +211,72 @@ PS.setActiveLayer = function (i) {
     if (PS.commitTextEdit) { PS.commitTextEdit(); }
     PS.doc.activeLayer = PS.clamp(i, 0, PS.doc.layers.length - 1);
     PS.renderLayersPanel();
+};
+
+/* ---------- panel multi-selection (Ctrl / Shift click) ---------- */
+
+// Layers picked in the panel on top of the active one, held as layer ids so a
+// reorder cannot scramble them. The active layer always counts as selected, so
+// an empty list simply means "just the active layer".
+PS.layerSel = [];
+
+// Selected layer indices, ascending, always including the active layer and
+// never anything that has since left the stack.
+PS.selectedLayerIndices = function () {
+    var d = PS.doc;
+    if (!d) { return []; }
+    var out = [];
+    d.layers.forEach(function (layer, i) {
+        if (i === d.activeLayer || PS.layerSel.indexOf(layer.id) >= 0) { out.push(i); }
+    });
+    return out;
+};
+
+PS.setLayerSelection = function (indices) {
+    var d = PS.doc;
+    PS.layerSel = [];
+    (indices || []).forEach(function (i) {
+        if (d.layers[i]) { PS.layerSel.push(d.layers[i].id); }
+    });
+};
+
+PS.clearLayerSelection = function () { PS.layerSel = []; };
+
+// Panel row click: plain click selects one layer, Ctrl/Cmd toggles a layer in
+// and out of the selection, Shift extends from the active layer.
+PS.selectLayerFromClick = function (index, e) {
+    var d = PS.doc;
+    var sel = PS.selectedLayerIndices();
+
+    if (e && (e.ctrlKey || e.metaKey)) {
+        var at = sel.indexOf(index);
+        if (at >= 0) {
+            if (sel.length === 1) { return; }        // never deselect the last one
+            sel.splice(at, 1);
+            PS.setLayerSelection(sel);
+            // gave up the active layer: anchor on the topmost one still selected
+            if (index === d.activeLayer) { PS.setActiveLayer(sel[sel.length - 1]); }
+            else { PS.renderLayersPanel(); }
+            return;
+        }
+        sel.push(index);
+        PS.setLayerSelection(sel);
+        PS.setActiveLayer(index);
+        return;
+    }
+
+    if (e && e.shiftKey) {
+        var lo = Math.min(d.activeLayer, index);
+        var hi = Math.max(d.activeLayer, index);
+        var range = [];
+        for (var i = lo; i <= hi; i++) { range.push(i); }
+        PS.setLayerSelection(range);
+        PS.setActiveLayer(index);
+        return;
+    }
+
+    PS.clearLayerSelection();
+    PS.setActiveLayer(index);
 };
 
 PS.toggleLayerVisible = function (layer) {
@@ -246,32 +365,65 @@ PS.renderLayersPanel = function () {
     });
     controls.appendChild(blendSel);
 
+    // Opacity keeps its slider and pairs it with a value field that can also be
+    // typed into or scrolled with the mouse wheel.
     var opSlider = document.createElement("input");
     opSlider.type = "range";
     opSlider.min = 0; opSlider.max = 100;
     opSlider.value = Math.round(active.opacity * 100);
     opSlider.title = "Layer opacity";
-    var opNum = document.createElement("span");
-    opNum.className = "layers-opacity-num";
-    opNum.textContent = Math.round(active.opacity * 100) + "%";
-    var opBefore = null;
-    opSlider.addEventListener("input", function () {
+    var opBefore = null;     // opacity this run of changes started from
+    var opLayer = null;      // and the layer it applies to
+
+    function setOpacity(percent) {
         var layer = PS.activeLayer();
-        if (opBefore === null) { opBefore = layer.opacity; }
-        layer.opacity = parseInt(opSlider.value, 10) / 100;
-        opNum.textContent = opSlider.value + "%";
-        PS.requestRender();
-    });
-    opSlider.addEventListener("change", function () {
-        var layer = PS.activeLayer();
-        var oldV = opBefore === null ? layer.opacity : opBefore;
-        var newV = layer.opacity;
-        opBefore = null;
-        if (oldV !== newV) {
-            PS.pushHistory("Layer Opacity",
-                function () { layer.opacity = oldV; },
-                function () { layer.opacity = newV; });
+        if (opBefore === null || opLayer !== layer) {
+            opBefore = layer.opacity;
+            opLayer = layer;
         }
+        layer.opacity = percent / 100;
+        PS.requestRender();
+    }
+    // fold the whole run - a drag, a burst of wheel steps, a typed value - into
+    // one undo entry against the layer it started on
+    function commitOpacity() {
+        if (commitTimer) { clearTimeout(commitTimer); commitTimer = null; }
+        var layer = opLayer;
+        var oldV = opBefore;
+        opBefore = null;
+        opLayer = null;
+        if (!layer || oldV === null || oldV === layer.opacity) { return; }
+        var newV = layer.opacity;
+        PS.pushHistory("Layer Opacity",
+            function () { layer.opacity = oldV; },
+            function () { layer.opacity = newV; });
+    }
+    // typing and wheel steps have no "release" to commit on, so they settle on
+    // a short idle timer instead
+    var commitTimer = null;
+    function commitSoon() {
+        if (commitTimer) { clearTimeout(commitTimer); }
+        commitTimer = setTimeout(commitOpacity, 500);
+    }
+
+    var opNum = PS.ui.numberField(Math.round(active.opacity * 100), 0, 100, 1, function (v) {
+        opSlider.value = v;
+        setOpacity(v);
+        commitSoon();
+    });
+    opNum.className = "layers-opacity-num";
+    opNum.title = "Layer opacity - type a value or scroll the mouse wheel over it";
+
+    opSlider.addEventListener("input", function () {
+        var v = parseInt(opSlider.value, 10);
+        opNum.value = v;
+        setOpacity(v);
+    });
+    opSlider.addEventListener("change", commitOpacity);
+    PS.ui.wheelStep(opSlider, 0, 100, 1, function (v) {
+        opNum.value = v;
+        setOpacity(v);
+        commitSoon();
     });
     controls.appendChild(opSlider);
     controls.appendChild(opNum);
@@ -293,9 +445,9 @@ PS.renderLayersPanel = function () {
         ["⧉", "Duplicate layer (Ctrl+J)", function () { PS.duplicateLayer(); }],
         ["▲", "Move layer up", function () { PS.moveLayer(1); }],
         ["▼", "Move layer down", function () { PS.moveLayer(-1); }],
-        ["⇊", "Merge down (Ctrl+E)", function () { PS.mergeDown(); }],
+        ["⇊", "Merge selected layers / merge down (Ctrl+E)", function () { PS.mergeSelectedOrDown(); }],
         ['<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>',
-            "Delete layer", function () { PS.deleteLayer(); }]
+            "Delete selected layer(s)", function () { PS.deleteSelectedLayers(); }]
     ].forEach(function (def) {
         var btn = document.createElement("button");
         btn.innerHTML = def[0];
@@ -308,10 +460,51 @@ PS.renderLayersPanel = function () {
     PS.updateLayerThumbs();
 };
 
+// Right-click menu for the layers list. Merge only shows up once more than one
+// layer is selected; everything else acts on the row that was clicked.
+PS.showLayerContextMenu = function (x, y) {
+    var d = PS.doc;
+    var sel = PS.selectedLayerIndices();
+    var multi = sel.length > 1;
+
+    var items = [
+        { label: "Duplicate Layer", shortcut: "Ctrl+J", action: PS.duplicateLayer },
+        { sep: true },
+        {
+            label: "Move Up", action: function () { PS.moveLayer(1); },
+            enabled: function () { return d.activeLayer < d.layers.length - 1; }
+        },
+        {
+            label: "Move Down", action: function () { PS.moveLayer(-1); },
+            enabled: function () { return d.activeLayer > 0; }
+        }
+    ];
+
+    if (multi) {
+        items.push({ sep: true });
+        items.push({
+            label: "Merge " + sel.length + " Layers", shortcut: "Ctrl+E",
+            action: PS.mergeSelectedLayers
+        });
+    }
+
+    items.push({ sep: true });
+    items.push({
+        label: multi ? "Delete " + sel.length + " Layers" : "Delete Layer",
+        action: PS.deleteSelectedLayers,
+        enabled: function () { return d.layers.length > sel.length; }
+    });
+
+    PS.contextMenu(x, y, items);
+};
+
 PS._buildLayerRow = function (layer, index) {
     var d = PS.doc;
+    var multiSel = PS.selectedLayerIndices();
     var row = document.createElement("div");
-    row.className = "layer-row" + (index === d.activeLayer ? " active" : "");
+    row.className = "layer-row"
+        + (index === d.activeLayer ? " active" : "")
+        + (multiSel.length > 1 && multiSel.indexOf(index) >= 0 ? " selected" : "");
     row.dataset.index = index;
     row.draggable = true;
 
@@ -340,7 +533,16 @@ PS._buildLayerRow = function (layer, index) {
     name.title = "Double-click to rename";
     row.appendChild(name);
 
-    row.addEventListener("click", function () { PS.setActiveLayer(index); });
+    row.addEventListener("click", function (e) { PS.selectLayerFromClick(index, e); });
+
+    row.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        // right-clicking outside the selection replaces it; inside it, the row
+        // just becomes the anchor and the rest of the selection is kept
+        if (PS.selectedLayerIndices().indexOf(index) < 0) { PS.clearLayerSelection(); }
+        PS.setActiveLayer(index);
+        PS.showLayerContextMenu(e.clientX, e.clientY);
+    });
 
     row.addEventListener("dblclick", function () {
         if (layer.type === "text" && PS.startTextEditOnLayer) {

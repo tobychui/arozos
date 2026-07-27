@@ -196,7 +196,7 @@ PS.renderGradientBar = function (canvas, stops) {
 
             PS.ui.slider(host, "Opacity", Math.round(o.opacity * 100), 1, 100, 1, function (v) {
                 o.opacity = v / 100; PS.savePrefsDebounced();
-            }, function (v) { return v + "%"; });
+            }, "%");
 
             PS.ui.checkbox(host, "Reverse", o.reverse, function (v) {
                 o.reverse = v; PS.savePrefsDebounced();
