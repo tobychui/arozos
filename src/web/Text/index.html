@@ -569,6 +569,10 @@
                 <span class="tb-text">Export</span>
             </button>
             <div class="menu" id="export-menu">
+                <button class="menu-item" onclick="hideMenus();savePDFToArozOS()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                    Save as PDF…
+                </button>
                 <button class="menu-item" id="mi-download" onclick="hideMenus();exportDocument()">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     <span id="mi-download-lbl">Download document</span>
@@ -2470,6 +2474,29 @@ function exportPDF(){
     pdfBuild().then(function(bytes){
         downloadBlob(new Blob([bytes], { type:"application/pdf" }), docName() + ".pdf");
         hideBusy(); setStatus("Exported PDF");
+    }).catch(function(err){ hideBusy(); setStatus("PDF export failed", "error"); console.error(err); });
+}
+
+// Save the rendered PDF straight into ArozOS instead of the browser's download
+// folder. Uses the "new file" mode of the shared file selector so the user
+// picks a destination folder + filename; the callback is a named, window-scoped
+// function (not an inline closure) since ao_module_openFileSelector calls it
+// back by name once the virtual-desktop file-selector window closes.
+function savePDFToArozOS(){
+    ao_module_openFileSelector(handlePDFSaveTarget, "user:/Desktop", "new", false, { defaultName: docName() + ".pdf" });
+}
+function handlePDFSaveTarget(fd){
+    if (!fd || !fd.length) return;
+    var targetName = fd[0].filename;
+    var targetDir = fd[0].filepath.substring(0, fd[0].filepath.length - targetName.length - 1);
+    showBusy("Rendering PDF…");
+    pdfBuild().then(function(bytes){
+        var file = new File([bytes], targetName, { type: "application/pdf" });
+        ao_module_uploadFile(file, targetDir, function(){
+            hideBusy(); setStatus("Saved " + targetName + " to " + targetDir);
+        }, undefined, function(){
+            hideBusy(); setStatus("Save to ArozOS failed", "error");
+        });
     }).catch(function(err){ hideBusy(); setStatus("PDF export failed", "error"); console.error(err); });
 }
 
