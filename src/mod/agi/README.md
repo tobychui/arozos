@@ -1002,6 +1002,37 @@ var resp = llm.request([
 sendResp(resp.choices[0].message.content);
 ```
 
+When the model exposes its chain-of-thought, `choices[0].message.reasoning_content`
+carries that "thinking" text separately from the answer (`content`). It is
+populated from DeepSeek's `reasoning_content`, OpenRouter's `reasoning` or
+Anthropic `thinking` content blocks, and is an empty string for models that do
+not return reasoning.
+
+### `llm.streamRequest(messages, options, onDelta)` → object
+Like `llm.request()` but streams the completion: `onDelta` is called for every
+incremental chunk as the model produces it, and the fully assembled response
+(same shape as `llm.request`, including `usage`) is returned when the stream
+ends. Each delta is `{ content, reasoning }` — `content` is new answer text and
+`reasoning` is new chain-of-thought text; either may be empty for a given chunk.
+
+The callback runs on the script's own goroutine, so it is safe to relay chunks
+straight to a browser over `websocket.send()`:
+
+```javascript
+requirelib("llm");
+requirelib("websocket");
+websocket.upgrade(300);
+
+var resp = llm.streamRequest([{ role: "user", content: "Explain gravity" }], {}, function(d){
+    if (d.reasoning != "") websocket.send(JSON.stringify({ type: "reasoning", content: d.reasoning }));
+    if (d.content   != "") websocket.send(JSON.stringify({ type: "delta",     content: d.content }));
+});
+websocket.send(JSON.stringify({ type: "done", usage: resp.usage }));
+```
+
+Token usage is recorded against the metrics/quota board exactly as for a
+non-streaming call.
+
 ### `llm.usage()` → object
 Returns accumulated token / cost metrics across all models.
 

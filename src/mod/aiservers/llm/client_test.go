@@ -71,6 +71,46 @@ func TestClientChatOpenAI(t *testing.T) {
 	}
 }
 
+func TestClientChatOpenAIReasoning(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "reasoning_content (DeepSeek)",
+			body: `{"model":"r","choices":[{"message":{"role":"assistant","content":"42","reasoning_content":"Let me think step by step."}}]}`,
+		},
+		{
+			name: "reasoning (OpenRouter)",
+			body: `{"model":"r","choices":[{"message":{"role":"assistant","content":"42","reasoning":"Let me think step by step."}}]}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				io.WriteString(w, tc.body)
+			}))
+			defer srv.Close()
+
+			c := NewClient(srv.URL, "", "openai", 0)
+			resp, err := c.Chat([]Message{{Role: "user", Content: "hi"}}, ChatOptions{Model: "r"})
+			if err != nil {
+				t.Fatalf("Chat returned error: %v", err)
+			}
+			if len(resp.Choices) == 0 {
+				t.Fatalf("no choices returned")
+			}
+			if resp.Choices[0].Message.Content != "42" {
+				t.Errorf("answer content wrong: %q", resp.Choices[0].Message.Content)
+			}
+			if resp.Choices[0].Message.ReasoningContent != "Let me think step by step." {
+				t.Errorf("reasoning not captured: %q", resp.Choices[0].Message.ReasoningContent)
+			}
+		})
+	}
+}
+
 func TestClientChatOpenAINoAuthHeaderWhenNoKey(t *testing.T) {
 	var gotAuth string
 	called := false

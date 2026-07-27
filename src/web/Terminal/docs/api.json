@@ -712,9 +712,16 @@
     {
      "name": "llm.request",
      "sig": "llm.request(messages, options)",
-     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage.",
+     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage. When the model exposes chain-of-thought, choices[0].message.reasoning_content holds its thinking text (DeepSeek reasoning_content, OpenRouter reasoning, or Anthropic thinking blocks).",
      "ret": "object",
      "example": "requirelib(\"llm\");\nvar resp = llm.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
+    },
+    {
+     "name": "llm.streamRequest",
+     "sig": "llm.streamRequest(messages, options, onDelta)",
+     "desc": "Streaming version of llm.request(). onDelta({content, reasoning}) fires for each incremental chunk as the model generates it (content = new answer text, reasoning = new thinking text); the assembled response with usage is returned when the stream ends. Safe to relay chunks straight to a browser via websocket.send().",
+     "ret": "object",
+     "example": "requirelib(\"llm\");\nrequirelib(\"websocket\");\nwebsocket.upgrade(300);\nvar resp = llm.streamRequest([{ role: \"user\", content: \"Explain gravity\" }], {}, function(d){\n    if (d.reasoning != \"\") websocket.send(JSON.stringify({ type: \"reasoning\", content: d.reasoning }));\n    if (d.content != \"\") websocket.send(JSON.stringify({ type: \"delta\", content: d.content }));\n});\nwebsocket.send(JSON.stringify({ type: \"done\", usage: resp.usage }));"
     },
     {
      "name": "llm.usage",
