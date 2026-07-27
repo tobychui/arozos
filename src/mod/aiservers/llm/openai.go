@@ -25,6 +25,11 @@ type openaiChatResponse struct {
 		Message struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
+			//Reasoning / "thinking" text, exposed under different keys by
+			//different OpenAI-compatible providers (reasoning_content by
+			//DeepSeek, reasoning by OpenRouter and some local runtimes).
+			ReasoningContent string `json:"reasoning_content"`
+			Reasoning        string `json:"reasoning"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
@@ -94,6 +99,12 @@ func (c *Client) chatOpenAI(messages []Message, opt ChatOptions) (*ChatResponse,
 		choice := Choice{Index: ch.Index, FinishReason: ch.FinishReason}
 		choice.Message.Role = ch.Message.Role
 		choice.Message.Content = ch.Message.Content
+		//Prefer reasoning_content (DeepSeek) and fall back to reasoning
+		//(OpenRouter) so either provider's thinking output is surfaced.
+		choice.Message.ReasoningContent = ch.Message.ReasoningContent
+		if choice.Message.ReasoningContent == "" {
+			choice.Message.ReasoningContent = ch.Message.Reasoning
+		}
 		out.Choices = append(out.Choices, choice)
 	}
 	out.Usage = Usage{

@@ -47,6 +47,9 @@ type anthropicResponse struct {
 	Content []struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
+		//Extended-thinking blocks carry their chain-of-thought in a
+		//dedicated "thinking" field rather than "text".
+		Thinking string `json:"thinking"`
 	} `json:"content"`
 	Usage struct {
 		InputTokens  int64 `json:"input_tokens"`
@@ -129,17 +132,23 @@ func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (*ChatRespon
 		return nil, fmt.Errorf("AI endpoint returned HTTP %d: %s", resp.StatusCode, truncate(string(respBody), 300))
 	}
 
-	//Map the Anthropic response onto the unified ChatResponse.
-	var text strings.Builder
+	//Map the Anthropic response onto the unified ChatResponse. Text blocks
+	//form the answer; thinking blocks are collected separately so callers can
+	//show the model's reasoning in a dedicated (collapsible) section.
+	var text, thinking strings.Builder
 	for _, block := range parsed.Content {
-		if block.Type == "text" {
+		switch block.Type {
+		case "text":
 			text.WriteString(block.Text)
+		case "thinking":
+			thinking.WriteString(block.Thinking)
 		}
 	}
 	unified := &ChatResponse{Model: parsed.Model}
 	choice := Choice{FinishReason: parsed.StopReason}
 	choice.Message.Role = "assistant"
 	choice.Message.Content = text.String()
+	choice.Message.ReasoningContent = thinking.String()
 	unified.Choices = append(unified.Choices, choice)
 	unified.Usage = Usage{
 		PromptTokens:     parsed.Usage.InputTokens,

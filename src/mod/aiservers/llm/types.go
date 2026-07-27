@@ -46,6 +46,11 @@ type Choice struct {
 	Message struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
+		//ReasoningContent holds the model's chain-of-thought / "thinking"
+		//output when the endpoint returns it as a separate field (DeepSeek's
+		//reasoning_content, OpenRouter's reasoning) or as Anthropic thinking
+		//content blocks. Empty when the model does not expose reasoning.
+		ReasoningContent string `json:"reasoning_content,omitempty"`
 	} `json:"message"`
 	FinishReason string `json:"finish_reason"`
 }

@@ -1002,6 +1002,12 @@ var resp = llm.request([
 sendResp(resp.choices[0].message.content);
 ```
 
+When the model exposes its chain-of-thought, `choices[0].message.reasoning_content`
+carries that "thinking" text separately from the answer (`content`). It is
+populated from DeepSeek's `reasoning_content`, OpenRouter's `reasoning` or
+Anthropic `thinking` content blocks, and is an empty string for models that do
+not return reasoning.
+
 ### `llm.usage()` → object
 Returns accumulated token / cost metrics across all models.
 

@@ -92,6 +92,35 @@ func TestAIChatBackend_Chat(t *testing.T) {
 	}
 }
 
+func TestAIChatBackend_ChatSurfacesReasoning(t *testing.T) {
+	//A reasoning model returns its chain-of-thought in reasoning_content; the
+	//backend must forward it to the frontend as the "reasoning" field so the
+	//UI can show it in a collapsible thinking section.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"model":"reasoner",
+			"choices":[{"message":{"role":"assistant","content":"4","reasoning_content":"2 plus 2 is 4."}}],
+			"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}`)
+	}))
+	defer srv.Close()
+
+	g := dbGateway(t)
+	sysdb := g.Option.UserHandler.GetDatabase()
+	sysdb.Write(llmDBTable, "config", LLMConfig{Endpoint: srv.URL, DefaultModel: "reasoner", Currency: "USD"})
+
+	out := runAIChatBackend(t, g, "AIChat/backend/chat.agi", map[string]string{
+		"messages": `[{"role":"user","content":"2+2?"}]`,
+		"options":  `{"model":"reasoner"}`,
+	})
+
+	if !strings.Contains(out, `"ok":true`) {
+		t.Fatalf("expected ok:true, got: %s", out)
+	}
+	if !strings.Contains(out, `"reasoning":"2 plus 2 is 4."`) {
+		t.Errorf("reasoning was not surfaced in the response: %s", out)
+	}
+}
+
 func TestAIChatBackend_ChatNoEndpointReturnsError(t *testing.T) {
 	g := dbGateway(t) //no config written -> endpoint unset
 	out := runAIChatBackend(t, g, "AIChat/backend/chat.agi", map[string]string{

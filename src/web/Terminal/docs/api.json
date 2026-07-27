@@ -712,7 +712,7 @@
     {
      "name": "llm.request",
      "sig": "llm.request(messages, options)",
-     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage.",
+     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage. When the model exposes chain-of-thought, choices[0].message.reasoning_content holds its thinking text (DeepSeek reasoning_content, OpenRouter reasoning, or Anthropic thinking blocks).",
      "ret": "object",
      "example": "requirelib(\"llm\");\nvar resp = llm.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
     },
