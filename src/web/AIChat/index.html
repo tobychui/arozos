@@ -214,6 +214,15 @@
     .attach-menu button svg{width:18px;height:18px;flex:none;color:var(--accent);}
     .attach-menu button small{display:block;color:var(--text-faint);font-size:11px;font-weight:400;margin-top:1px;}
 
+    /* Live streaming affordances */
+    .thinking.live .thinking-toggle .tk-label{color:var(--accent);}
+    .thinking.live .tk-spark{animation:tk-pulse 1.4s ease-in-out infinite;}
+    @keyframes tk-pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+    .bubble .caret{display:inline-block;width:7px;height:14px;margin-left:2px;background:var(--accent);
+        vertical-align:-2px;animation:caret-blink .9s step-end infinite;}
+    @keyframes caret-blink{0%,100%{opacity:1;}50%{opacity:0;}}
+    .thinking-body.streaming{white-space:pre-wrap;}
+
     /* Attachment chip upload state */
     .attach-chip.uploading{opacity:.85;}
     .attach-chip.failed{border-color:var(--danger);color:var(--danger);}
@@ -371,7 +380,7 @@
                     </button>
                 </div>
             </div>
-            <div class="hint">Enter to send · Shift+Enter for a new line · Attach images or text documents from your ArozOS drive or your computer · Configure the endpoint in System Settings → AI Integration → AI Model</div>
+            <div class="hint">Enter to send · Shift+Enter for a new line · Attach images, PDFs or text documents from your ArozOS drive or your computer · Configure the endpoint in System Settings → AI Integration → AI Model</div>
         </div>
 
         <!-- Settings drawer -->
@@ -430,11 +439,17 @@ var state = { conversations: [], currentId: null,
 var generating = false, revealTimer = null, cancelReveal = false;
 var availableModels = [];          // models known from the backend
 // Files staged for the next message. Each entry is
-// {filepath, filename, uploading?, failed?} — uploading/failed flag the
-// transient state of a from-computer upload; ArozOS-picked files are ready
-// immediately (filepath set, no flags).
+// {filename, filepath, paths[], uploading?, failed?, note?} — `paths` holds the
+// virtual path(s) actually sent to the model (a PDF expands to one path per
+// rendered page); uploading/failed flag transient conversion/upload state.
 var pendingFiles = [];
-var LOCAL_UPLOAD_DIR = "tmp:/AIChat/uploads";   // scratch dir for from-computer uploads (tmp:/ is auto-cleared)
+var LOCAL_UPLOAD_DIR = "tmp:/AIChat/uploads";   // scratch dir for uploads + rendered PDF pages (tmp:/ is auto-cleared)
+var PDF_MAX_PAGES = 10;        // cap pages per PDF — vision tokens add up fast
+var PDF_RENDER_SCALE = 2.0;    // render scale; 2x keeps small print legible
+var PDF_JPEG_QUALITY = 0.85;
+
+var activeSocket = null;       // live streaming WebSocket, if any
+var streamState = null;        // handles for the in-flight streaming reply
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function persist(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
@@ -587,7 +602,10 @@ function buildMessage(m, index){
     if(isUser && m.files && m.files.length){
         var fb = $('<div class="msg-files"></div>').appendTo(main);
         m.files.forEach(function(f){
-            $('<span class="mf"></span>').html(fileIconSvg()).append($('<span></span>').text(f.filename)).attr("title", f.filepath).appendTo(fb);
+            // A PDF was sent as several rendered page images — say so.
+            var n = (f.paths && f.paths.length) ? f.paths.length : 1;
+            var label = f.filename + (n > 1 ? (" · " + n + " pages") : "");
+            $('<span class="mf"></span>').html(fileIconSvg()).append($('<span></span>').text(label)).attr("title", f.filepath).appendTo(fb);
         });
     }
     // For assistant messages, separate the model's "thinking" from the answer.
@@ -728,11 +746,104 @@ function aichatFileSelected(files){
     files.forEach(function(f){
         var fp = f.filepath || f.path || "";
         var fn = f.filename || (fp ? fp.split("/").pop() : "file");
-        if(fp && !pendingFiles.some(function(p){ return p.filepath === fp; })){
-            pendingFiles.push({ filepath: fp, filename: fn });
+        if(!fp || pendingFiles.some(function(p){ return p.srcPath === fp || p.filepath === fp; })) return;
+        if(isPdfName(fn)){
+            // Rasterise the PDF (read through /media) into attachable JPEG pages.
+            var entry = { filename: fn, filepath: "", srcPath: fp, paths: [], uploading: true, failed: false, note: "reading…" };
+            pendingFiles.push(entry); renderAttachments();
+            stagePdf("/media?file=" + encodeURIComponent(fp), fn, entry);
+        } else {
+            pendingFiles.push({ filepath: fp, filename: fn, srcPath: fp, paths: [fp] });
         }
     });
     renderAttachments();
+}
+
+/* ── PDF support ───────────────────────────────────────────────────────────
+   Vision models take images, not PDFs, so a PDF is rasterised to JPEG pages in
+   the browser with the pdf.js already bundled with the PDF Viewer app, and the
+   pages are uploaded and attached in its place. No server-side or system
+   dependency (no poppler/ghostscript) is involved. */
+var pdfJsReady = false;
+function isPdfName(name){ return /\.pdf$/i.test(name || ""); }
+
+function loadPdfJs(onReady, onError){
+    if(pdfJsReady){ onReady(); return; }
+    if(typeof pdfjsLib !== "undefined"){
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "../PDF Viewer/js/pdf.worker.js";
+        pdfJsReady = true; onReady(); return;
+    }
+    var s = document.createElement("script");
+    s.src = "../PDF Viewer/js/pdf.js";
+    s.onload = function(){
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "../PDF Viewer/js/pdf.worker.js";
+        pdfJsReady = true; onReady();
+    };
+    s.onerror = function(){ onError(new Error("Could not load the PDF library")); };
+    document.head.appendChild(s);
+}
+
+// renderPdfToImages loads a PDF (from an ArrayBuffer or a /media URL), renders
+// up to PDF_MAX_PAGES pages to JPEG, uploads them and reports the vpaths.
+function renderPdfToImages(source, baseName, entry, onDone, onError){
+    loadPdfJs(function(){
+        var task;
+        try { task = pdfjsLib.getDocument(source); }
+        catch(e){ onError(e); return; }
+        task.promise.then(function(pdf){
+            var total = pdf.numPages;
+            var pages = Math.min(total, PDF_MAX_PAGES);
+            var paths = [];
+            var stamp = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+
+            function next(i){
+                if(i > pages){ onDone(paths, total, pages); return; }
+                entry.note = "page " + i + "/" + pages;
+                renderAttachments();
+                pdf.getPage(i).then(function(page){
+                    var vp = page.getViewport({ scale: PDF_RENDER_SCALE });
+                    var canvas = document.createElement("canvas");
+                    canvas.width = vp.width; canvas.height = vp.height;
+                    var ctx = canvas.getContext("2d");
+                    // JPEG has no alpha — paint white so text stays readable.
+                    ctx.fillStyle = "#FFF"; ctx.fillRect(0, 0, vp.width, vp.height);
+                    page.render({ canvasContext: ctx, viewport: vp }).promise.then(function(){
+                        canvas.toBlob(function(blob){
+                            if(!blob){ onError(new Error("Could not encode page " + i)); return; }
+                            var fname = stamp + "_" + baseName + "_p" + i + ".jpg";
+                            ao_module_uploadFile(new File([blob], fname, { type:"image/jpeg" }), LOCAL_UPLOAD_DIR, function(){
+                                paths.push(LOCAL_UPLOAD_DIR + "/" + fname);
+                                next(i + 1);
+                            }, undefined, function(status){
+                                onError(new Error("Upload failed for page " + i + (status ? " (HTTP " + status + ")" : "")));
+                            });
+                        }, "image/jpeg", PDF_JPEG_QUALITY);
+                    }, onError);
+                }, onError);
+            }
+            next(1);
+        }, onError);
+    }, onError);
+}
+
+// stagePdf converts a PDF into image pages and finishes the pending entry.
+// `source` is an ArrayBuffer (local file) or a /media URL (ArozOS file).
+function stagePdf(source, displayName, entry){
+    var base = displayName.replace(/\.pdf$/i, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 40) || "document";
+    renderPdfToImages(source, base, entry, function(paths, total, rendered){
+        entry.uploading = false;
+        entry.paths = paths;
+        entry.filepath = paths[0] || "";
+        entry.note = rendered + (rendered === 1 ? " page" : " pages");
+        renderAttachments();
+        if(total > rendered){
+            notify('"' + displayName + '" has ' + total + " pages — only the first " + rendered + " were attached.", false);
+        }
+    }, function(err){
+        entry.uploading = false; entry.failed = true; entry.note = "";
+        renderAttachments();
+        notify('Could not read "' + displayName + '": ' + ((err && err.message) ? err.message : err), true);
+    });
 }
 
 // Attach files from the user's own computer: open the OS file dialog, upload
@@ -756,9 +867,24 @@ function uploadLocalFile(file){
         return;
     }
     // Stage a chip in the uploading state right away for immediate feedback.
-    var entry = { filepath: "", filename: file.name, uploading: true, failed: false };
+    var entry = { filepath: "", filename: file.name, paths: [], uploading: true, failed: false, note: "" };
     pendingFiles.push(entry);
     renderAttachments();
+
+    // A PDF is converted to JPEG pages in the browser instead of being sent
+    // as-is (models only accept images / text documents).
+    if(isPdfName(file.name)){
+        entry.note = "reading…"; renderAttachments();
+        var reader = new FileReader();
+        reader.onload = function(){ stagePdf({ data: new Uint8Array(reader.result) }, file.name, entry); };
+        reader.onerror = function(){
+            entry.uploading = false; entry.failed = true; entry.note = "";
+            renderAttachments();
+            notify('Could not read "' + file.name + '".', true);
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+    }
 
     // Store under a unique name so same-named uploads don't clobber each other.
     var safe = (file.name || "file").replace(/[\/\\]/g, "_");
@@ -768,6 +894,7 @@ function uploadLocalFile(file){
     ao_module_uploadFile(toUpload, LOCAL_UPLOAD_DIR, function(){
         entry.uploading = false;
         entry.filepath = LOCAL_UPLOAD_DIR + "/" + storeName;
+        entry.paths = [entry.filepath];
         renderAttachments();
     }, undefined, function(status){
         entry.uploading = false; entry.failed = true;
@@ -786,8 +913,11 @@ function renderAttachments(){
         if(f.uploading){ chip.addClass("uploading"); }
         if(f.failed){ chip.addClass("failed"); }
         chip.append(f.uploading ? '<span class="spin"></span>' : fileIconSvg());
-        var label = f.filename + (f.uploading ? " · uploading…" : (f.failed ? " · failed" : ""));
-        chip.append($('<span class="fn"></span>').text(label).attr("title", f.filepath || f.filename));
+        var suffix = "";
+        if(f.uploading){ suffix = " · " + (f.note || "uploading…"); }
+        else if(f.failed){ suffix = " · failed"; }
+        else if(f.note){ suffix = " · " + f.note; }
+        chip.append($('<span class="fn"></span>').text(f.filename + suffix).attr("title", f.filepath || f.filename));
         $('<span class="rm">✕</span>').on("click", function(){ removeAttachment(i); }).appendTo(chip);
         box.append(chip);
     });
@@ -829,11 +959,15 @@ function sendMessage(){
         return;
     }
     var text = $("#composer").val().replace(/\s+$/,"");
-    // Only attach files that finished uploading (skip failed ones).
-    var ready = pendingFiles.filter(function(f){ return f.filepath && !f.failed; });
+    // Only attach files that finished uploading / converting (skip failed ones).
+    var ready = pendingFiles.filter(function(f){ return !f.failed && !f.uploading && (f.paths && f.paths.length); });
     if(!text.trim() && ready.length === 0) return;
     var msg = { role:"user", content:text };
-    if(ready.length > 0){ msg.files = ready.map(function(f){ return { filepath:f.filepath, filename:f.filename }; }); }
+    if(ready.length > 0){
+        msg.files = ready.map(function(f){
+            return { filepath:f.filepath, filename:f.filename, paths:f.paths.slice() };
+        });
+    }
     conv.messages.push(msg);
     if(!conv.titleSet && text.trim()){ conv.title = text.slice(0,42); conv.titleSet = true; renderSidebar(); }
     pendingFiles = []; renderAttachments();
@@ -852,25 +986,224 @@ function generate(conv){
         return { role:m.role, content:content };
     });
     var opts = buildOptions();
-    // Attachments belong to the latest user message (chat.agi merges them in).
+    // Attachments belong to the latest user message. A single attachment may
+    // expand to several paths (one per rendered PDF page).
     var files = [];
     for(var i = conv.messages.length - 1; i >= 0; i--){
-        if(conv.messages[i].role === "user"){ files = (conv.messages[i].files || []).map(function(f){ return f.filepath; }); break; }
+        if(conv.messages[i].role === "user"){ files = flattenFilePaths(conv.messages[i].files); break; }
     }
+    // Prefer the streaming WebSocket backend; fall back to the one-shot HTTP
+    // backend when the socket cannot be established.
+    if(window.WebSocket){ streamGenerate(conv, payload, opts, files, typing); }
+    else { blockingGenerate(conv, payload, opts, files, typing); }
+}
+
+// flattenFilePaths turns stored attachment entries into the flat vpath list the
+// backend expects (each entry contributes its `paths`, or its single filepath).
+function flattenFilePaths(entries){
+    var out = [];
+    (entries || []).forEach(function(f){
+        if(f.paths && f.paths.length){ f.paths.forEach(function(p){ out.push(p); }); }
+        else if(f.filepath){ out.push(f.filepath); }
+    });
+    return out;
+}
+
+/* ── Streaming generation (WebSocket) ─────────────────────────────────────
+   Connects to backend/chat_stream.agi, which relays llm.streamRequest()
+   deltas frame by frame, so the answer and the model's thinking render as
+   they are produced rather than in one go. */
+function wsEndpoint(){
+    if(typeof ao_module_utils !== "undefined" && ao_module_utils.getWebSocketEndpoint){
+        return ao_module_utils.getWebSocketEndpoint();
+    }
+    var proto = (location.protocol === "https:") ? "wss://" : "ws://";
+    return proto + location.hostname + (location.port ? (":" + location.port) : "");
+}
+
+function streamGenerate(conv, payload, opts, files, typing){
+    var url = wsEndpoint() + "/system/ajgi/interface?script=AIChat/backend/chat_stream.agi";
+    var ws;
+    try { ws = new WebSocket(url); }
+    catch(e){ blockingGenerate(conv, payload, opts, files, typing); return; }
+
+    activeSocket = ws;
+    var st = streamState = {
+        conv: conv, opts: opts, ws: ws, row: null, bubble: null,
+        thinking: null, thinkBody: null, userToggled: false,
+        content: "", reasoning: "", started: false, gotAny: false,
+        finished: false, fellBack: false, typing: typing
+    };
+
+    ws.onopen = function(){
+        ws.send(JSON.stringify({ messages: payload, options: opts, files: files || [] }));
+    };
+
+    ws.onmessage = function(ev){
+        var msg; try { msg = JSON.parse(ev.data); } catch(e){ return; }
+        if(msg.type === "start"){ ensureStreamRow(st); return; }
+        if(msg.type === "reasoning"){ st.gotAny = true; appendReasoning(st, msg.content || ""); return; }
+        if(msg.type === "delta"){ st.gotAny = true; appendDelta(st, msg.content || ""); return; }
+        if(msg.type === "done"){
+            st.finished = true;
+            // Prefer the server's assembled text (authoritative) over our accumulation.
+            finishStream(st, {
+                content: (typeof msg.content === "string" && msg.content !== "") ? msg.content : st.content,
+                reasoning: (typeof msg.reasoning === "string" && msg.reasoning !== "") ? msg.reasoning : st.reasoning,
+                usage: msg.usage || null,
+                model: msg.model || opts.model
+            });
+            try { ws.close(); } catch(e){}
+            return;
+        }
+        if(msg.type === "error"){
+            st.finished = true;
+            clearStreamRow(st);
+            pushAssistant(conv, { role:"assistant", content: msg.error || "Request failed.", error:true });
+            endGenerating();
+            try { ws.close(); } catch(e){}
+        }
+    };
+
+    ws.onerror = function(){
+        // Nothing streamed yet — quietly fall back to the HTTP backend.
+        if(!st.gotAny && !st.finished && !st.fellBack){
+            st.fellBack = true;
+            blockingGenerate(conv, payload, opts, files, typing);
+        }
+    };
+
+    ws.onclose = function(){
+        if(st.finished || st.fellBack) return;
+        if(!st.gotAny){
+            st.fellBack = true;
+            blockingGenerate(conv, payload, opts, files, typing);
+            return;
+        }
+        // Socket dropped mid-reply — keep whatever was received.
+        st.finished = true;
+        finishStream(st, { content: st.content, reasoning: st.reasoning, usage: null, model: opts.model });
+    };
+}
+
+// ensureStreamRow swaps the typing indicator for a live assistant row.
+function ensureStreamRow(st){
+    if(st.row) return;
+    if(st.typing){ st.typing.remove(); st.typing = null; }
+    var wrap = ensureWrap();
+    var row = $('<div class="msg assistant"></div>');
+    $('<div class="avatar"></div>').text("AI").appendTo(row);
+    var main = $('<div class="msg-main"></div>').appendTo(row);
+    $('<div class="msg-role"></div>').text(st.opts.model ? ("Assistant · " + st.opts.model) : "Assistant").appendTo(main);
+    st.bubble = $('<div class="bubble"></div>').appendTo(main);
+    st.bubble.append('<span class="caret"></span>');
+    st.main = main;
+    st.row = row;
+    wrap.append(row);
+    scrollBottom();
+}
+
+// appendReasoning grows the live thinking section. It auto-opens while the
+// model is thinking so the process is visible in real time, then collapses
+// once the answer starts (unless the user toggled it themselves).
+function appendReasoning(st, chunk){
+    if(chunk === "") return;
+    ensureStreamRow(st);
+    st.reasoning += chunk;
+    if(!st.thinking){
+        st.thinking = buildThinking("");
+        st.thinking.addClass("open live");
+        st.thinking.find(".tk-label").text("Thinking…");
+        st.thinkBody = st.thinking.find(".thinking-body").addClass("streaming");
+        // Remember a manual toggle so auto-collapse does not fight the user.
+        st.thinking.find(".thinking-toggle").on("click", function(){ st.userToggled = true; });
+        st.main.prepend(st.thinking);
+        // Keep the role label above the thinking block.
+        st.main.find(".msg-role").prependTo(st.main);
+    }
+    st.thinkBody.text(st.reasoning);
+    maybeScroll();
+}
+
+// appendDelta grows the live answer text.
+function appendDelta(st, chunk){
+    if(chunk === "") return;
+    ensureStreamRow(st);
+    // First answer token: thinking is done — collapse it back to the default.
+    if(st.content === "" && st.thinking){
+        st.thinking.removeClass("live");
+        if(!st.userToggled){
+            st.thinking.removeClass("open");
+            st.thinking.find(".tk-label").text("Show thinking");
+        } else {
+            st.thinking.find(".tk-label").text("Hide thinking");
+        }
+    }
+    st.content += chunk;
+    // Plain text while streaming (cheap, no reflow churn); markdown on finish.
+    st.bubble.text(st.content);
+    st.bubble.append('<span class="caret"></span>');
+    maybeScroll();
+}
+
+// finishStream commits the streamed reply to the conversation and re-renders
+// it through the normal path (markdown, footer, collapsed thinking).
+function finishStream(st, result){
+    var conv = st.conv;
+    var text = result.content || "";
+    var reasoning = result.reasoning || "";
+    if(text.trim() === "" && reasoning.trim() === ""){
+        clearStreamRow(st);
+        pushAssistant(conv, { role:"assistant", content:"The model returned an empty reply.", error:true });
+        endGenerating();
+        return;
+    }
+    conv.messages.push({
+        role:"assistant", content:text, reasoning:reasoning,
+        usage:result.usage || null, model:result.model || ""
+    });
+    persist();
+    clearStreamRow(st);
+    renderMessages();
+    endGenerating();
+}
+
+function clearStreamRow(st){
+    if(st.typing){ st.typing.remove(); st.typing = null; }
+    if(st.row){ st.row.remove(); st.row = null; }
+}
+
+function endGenerating(){
+    generating = false;
+    activeSocket = null; streamState = null;
+    $("#stopBtn").hide();
+    updateComposerState(); updateTokenBadge();
+}
+
+// Only auto-scroll when the user is already near the bottom, so scrolling back
+// through a long reply is not yanked away mid-stream.
+function isNearBottom(){
+    var m = document.getElementById("messages");
+    return (m.scrollHeight - m.scrollTop - m.clientHeight) < 120;
+}
+function maybeScroll(){ if(isNearBottom()) scrollBottom(); }
+
+/* ── Non-streaming fallback (one-shot HTTP) ───────────────────────────── */
+function blockingGenerate(conv, payload, opts, files, typing){
     callBackend(payload, opts, files, function(resp){
-        typing.remove();
+        if(typing) typing.remove();
         if(!resp || !resp.ok){
             pushAssistant(conv, { role:"assistant", content:(resp && resp.error) ? resp.error : "Request failed.", error:true });
-            generating = false; updateComposerState(); return;
+            endGenerating(); return;
         }
         var msg = { role:"assistant", content:resp.content || "", reasoning:resp.reasoning || "", usage:resp.usage || null, model:resp.model || opts.model };
         conv.messages.push(msg); persist();
         var row = appendLiveAssistant(msg);
-        typewriter(row, computeThinking(msg).answer, function(){ generating = false; updateComposerState(); updateTokenBadge(); });
+        typewriter(row, computeThinking(msg).answer, function(){ endGenerating(); });
     }, function(){
-        typing.remove();
+        if(typing) typing.remove();
         pushAssistant(conv, { role:"assistant", content:"Network error — could not reach the server.", error:true });
-        generating = false; updateComposerState();
+        endGenerating();
     });
 }
 
@@ -932,6 +1265,19 @@ function typewriter(row, fullText, done){
 }
 
 function stopGenerating(){
+    // Streaming: close the socket and keep whatever has arrived so far.
+    if(activeSocket){
+        var st = streamState;
+        try { activeSocket.close(); } catch(e){}
+        activeSocket = null;
+        if(st && !st.finished){
+            st.finished = true;
+            if(st.gotAny){ finishStream(st, { content: st.content, reasoning: st.reasoning, usage: null, model: st.opts.model }); }
+            else { clearStreamRow(st); endGenerating(); }
+        }
+        return;
+    }
+    // Fallback path: stop the typewriter reveal.
     cancelReveal = true;
     if(revealTimer){ clearTimeout(revealTimer); revealTimer = null; }
     $("#stopBtn").hide();
@@ -975,6 +1321,8 @@ function autoGrow(){
 }
 function updateComposerState(){
     $("#sendBtn").prop("disabled", generating);
+    // Stop is offered for the whole generation, streaming included.
+    $("#stopBtn").css("display", generating ? "inline-flex" : "none");
     document.getElementById("composer").disabled = false;
 }
 

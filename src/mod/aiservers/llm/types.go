@@ -31,6 +31,20 @@ type ChatOptions struct {
 	MaxTokens   *int     //Maximum tokens to generate
 }
 
+// StreamDelta is one incremental chunk emitted during a streaming completion.
+// Content carries newly generated answer text; Reasoning carries newly
+// generated chain-of-thought text. Either (or, rarely, both) may be non-empty
+// for a given delta.
+type StreamDelta struct {
+	Content   string
+	Reasoning string
+}
+
+// StreamCallback receives each StreamDelta as it arrives. It runs on the same
+// goroutine that called Client.ChatStream, so implementations must not block
+// for long and need no locking of their own.
+type StreamCallback func(StreamDelta)
+
 // Usage is the token usage / timing for one completion.
 type Usage struct {
 	PromptTokens     int64   `json:"prompt_tokens"`
