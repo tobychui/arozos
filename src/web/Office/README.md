@@ -67,8 +67,11 @@ Go structs are the source of truth — they mirror the JS exactly:
 
 - **Docs** (`document`): [`docx.go`](../../mod/office/docx.go) —
   `{html, page{size, orientation, margins(mm), columns, colGap}, header,
-  footer, pageNumbers, comments, trackChanges}`. `html` is a sanitized
-  contenteditable subset (see `sanitizeHtml` in `docs.js`).
+  footer, hfMode, pageNumbers, comments, trackChanges}`. `html` is a
+  sanitized contenteditable subset (see `sanitizeHtml` in `docs.js`).
+  `hfMode` (`all` | `except-first` | `none`, Format > Header & footer)
+  says which pages repeat the header/footer text; empty means `all`, so
+  documents written before the setting existed keep their behaviour.
 - **Sheets** (`spreadsheet`): [`xlsx.go`](../../mod/office/xlsx.go) —
   `{sheets[{name, cells{"A1":{v,s,n}}, colW, rowH, merges, freeze,
   charts, filter}], active}`. Cell `v` is the raw input (`=`-prefix =
@@ -110,6 +113,39 @@ body before posting:
   (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
   Latin-1 and have no emoji glyphs.
 
+### Header / footer
+
+The header and footer are one editable pair per **simulated** page: the
+editor keeps a copy in every sheet's margin band (`layoutHeaderFooters`
+in `docs.js`), all of them editable and mirroring each other, so the text
+can be changed from any page. They are absolutely positioned on purpose —
+an in-flow header ate page-one content and made the preview disagree with
+the export about where the first page ends.
+
+Pagination is measured from the live DOM, so it can only be right once the
+DOM has its final size: a document opened from disk paginates while its
+pictures are still decoding (a fresh `<img>` measures **zero** tall until
+its `load` fires), which used to leave the bands and the automatic page
+breaks positioned for a much shorter document. `watchContentSize()` in
+`docs.js` re-runs `updatePageGuides()` whenever the flow changes height on
+its own — image `load` (captured on `#editor`, since `load` does not
+bubble), `document.fonts.ready`, and a `ResizeObserver`. Keep that hook
+alive when touching the boot path.
+
+`hfMode` maps onto each format's own mechanism:
+
+| mode | preview | PDF | DOCX | ODT |
+|---|---|---|---|---|
+| `all` | band on every sheet | header/footer func on every page | `header1.xml` / `footer1.xml` | `style:header` / `style:footer` |
+| `except-first` | page one's band hidden | `hfOnPage()` skips page 1 | `<w:titlePg/>` and no first-page part | empty `style:header-first` / `style:footer-first` |
+| `none` | no bands | no header/footer text | no parts written | no header/footer elements |
+
+The page counter (`pageNumbers`) stays its own page-setup option, except
+that a suppressed first page suppresses its number too — the same thing
+Word's `titlePg` does. Browser **printing** repeats one `position: fixed`
+pair on every sheet (print engines cannot skip page one); PDF export is
+the path that honours every mode exactly.
+
 ### Format notes (hard-won lessons — don't re-learn these)
 
 - **DOCX pagination** ([`docx_writer.go`](../../mod/office/docx_writer.go)):
@@ -134,18 +170,34 @@ body before posting:
   [`pdf_sheet.go`](../../mod/office/pdf_sheet.go) /
   [`pdf_slides.go`](../../mod/office/pdf_slides.go)): built on
   `github.com/go-pdf/fpdf` (MIT). Real selectable text, not screenshots.
-  Gotchas encoded in `pdf.go`:
+  Gotchas encoded in `pdf.go` / `pdf_doc.go`:
   - Core fonts are **cp1252** — all text goes through `pdfTr()`, which
     also normalizes `&nbsp;`/thin spaces to plain spaces (fpdf only wraps
     lines at real spaces; contenteditable HTML is full of nbsp and the
     lines wrapped comically early before this).
-  - **Never call `fpdf.SplitText` on translated text directly** — it
-    indexes a 256-glyph table by rune and panics on multi-byte UTF-8.
-    Use `pdfSplitTr()`.
-  - Text highlight is drawn word-by-word as filled cells
-    (`writeHighlighted`) because fpdf has no text background.
-  - Small images (≤ 8mm tall, i.e. rasterized emoji) flow inline with
-    text; larger ones are block images (`inlineImage`).
+  - **Docs does its own line breaking and pagination** — `pdf_doc.go` is
+    a small CSS-shaped layout engine (`boxes` → `pdfBox` → `pdfItem`),
+    not a stream of `fpdf.Write` calls. It exists so the export
+    paginates *exactly* like the editor's page preview:
+    - HTML whitespace is collapsed like a browser collapses it
+      (`collapseWS`). Pasted markup is hard-wrapped with real newlines;
+      fpdf's `Write` treats those as forced breaks, which used to leave
+      a wide blank gutter down the right of every page and inflate the
+      page count.
+    - `SetCellMargin(0)` + `SetAutoPageBreak(false)`: the browser wraps
+      at the content edge, and a block that would cross the bottom
+      margin moves to the next page **whole** (`place`), the same rule
+      `updatePageGuides()` uses in `docs.js`.
+    - Block margins collapse (`flow`), empty blocks follow the browser's
+      rules (`<p></p>` = 0 tall, `<p><br></p>` = one line, a trailing
+      `<br>` adds nothing), and `#editor img { height: auto }` means the
+      aspect ratio wins over a `height` attribute.
+    - Any metric change in `docs.css` (font size, line-height, block
+      margins, cell padding, list indent) must be mirrored by the
+      constants at the top of `pdf_doc.go`, or the two page counts drift
+      apart.
+    - Multi-column page layout (`page.columns`) is **not** implemented in
+      the PDF exporter — those documents export as a single column.
   - Embedding a Unicode font was deliberately rejected (megabytes on the
     binary); CJK text transliterates/degrades. That's the top candidate
     if someone asks for CJK PDF export.

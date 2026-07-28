@@ -417,6 +417,10 @@ func odtReadPageStyles(root *onode, doc *Document) {
 			}
 			doc.Footer = strings.TrimSpace(txt)
 		}
+		// blank *-first parts are ODF's "different first page"
+		if mp.first("header-first") != nil || mp.first("footer-first") != nil {
+			doc.HFMode = HFModeExceptFirst
+		}
 	}
 }
 

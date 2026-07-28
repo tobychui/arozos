@@ -13,8 +13,9 @@
             orientation: "portrait" | "landscape",
             margins: { top: 20, right: 20, bottom: 20, left: 20 }   // millimetres
         },
-        header: "plain text shown at the top of the paper",
-        footer: "plain text shown at the bottom of the paper",
+        header: "plain text repeated in every page's top margin",
+        footer: "plain text repeated in every page's bottom margin",
+        hfMode: "all" | "except-first" | "none",   // which pages show them
         pageNumbers: false,     // print page numbers (best-effort @page margin box)
         comments: [ { id, text, at, resolved } ],   // review comments; anchored
                                 // in html as <span class="doc-cmt" data-cid>
@@ -49,6 +50,8 @@
     ];
     var FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
     var LINE_SPACINGS = ["1", "1.15", "1.5", "2"];
+    // which pages carry the header / footer text
+    var HF_MODES = ["all", "except-first", "none"];
     var PARA_STYLES = [
         { v: "p",     label: "Normal text" },
         { v: "title", label: "Title" },
@@ -105,6 +108,7 @@
     var stateTimer = null;
     var $fontSel, $sizeSel, $styleSel;
     var findState = { hits: [], cur: -1 };
+    var hfClones = [];             // header/footer copies for pages 2..n
     var comments = [];             // review comments [{id,text,at,resolved}]
     var suggesting = false;        // track-changes ("suggest edits") mode
 
@@ -114,6 +118,7 @@
             orientation: "portrait",
             margins: { top: 20, right: 20, bottom: 20, left: 20 },
             pageNumbers: false,
+            hfMode: "all",     // header/footer on: all | except-first | none
             columns: 1,        // 1-3 text columns (2 = IEEE-style)
             colGap: 8          // gap between columns, mm
         };
@@ -158,7 +163,7 @@
     }
     function inHeaderFooter() {
         var ae = document.activeElement;
-        return ae === headerEl || ae === footerEl;
+        return !!(ae && ae.classList && ae.classList.contains("doc-hf"));
     }
     function getSelectedBlocks() {
         var out = [];
@@ -263,6 +268,7 @@
             },
             header: hfText(headerEl),
             footer: hfText(footerEl),
+            hfMode: pageConf.hfMode,
             pageNumbers: !!pageConf.pageNumbers,
             comments: JSON.parse(JSON.stringify(comments)),
             trackChanges: suggesting
@@ -287,6 +293,7 @@
         pageConf.columns = Math.min(3, Math.max(1, Math.round(num(p.columns, 1))));
         pageConf.colGap = Math.min(30, Math.max(2, num(p.colGap, 8)));
         pageConf.pageNumbers = !!b.pageNumbers;
+        pageConf.hfMode = (HF_MODES.indexOf(b.hfMode) >= 0) ? b.hfMode : "all";
         comments = Array.isArray(b.comments) ?
             JSON.parse(JSON.stringify(b.comments)) : [];
         suggesting = !!b.trackChanges;
@@ -1439,6 +1446,19 @@
         css += "}\n";
         css += "@media print {\n";
         css += "    #page { width: auto !important; min-height: 0 !important; padding: 0 !important; }\n";
+        /* the screen bands are absolutely placed per simulated page; when the
+           printer paginates for real, one fixed pair repeats on every sheet
+           (first-page suppression is a PDF-export feature - print engines
+           cannot skip it) */
+        if (pageConf.hfMode === "none") {
+            css += "    .doc-hf { display: none !important; }\n";
+        } else {
+            css += "    .doc-hf { position: fixed !important; left: 0 !important; right: 0 !important; }\n";
+            css += "    #docHeader { top: 0 !important; }\n";
+            css += "    #docFooter { top: auto !important; bottom: 0 !important; }\n";
+            css += "    .doc-hf:not(#docHeader):not(#docFooter) { display: none !important; }\n";
+            css += "    .doc-hf[hidden] { display: block !important; }\n";
+        }
         css += "}\n";
         var tag = document.getElementById("pagePrintStyle");
         if (tag) tag.textContent = css;
@@ -1485,8 +1505,10 @@
         el.style.height = "0px";
         var top = offsetTopInPage(el);
         // a break can sit several auto-pages further down (guarded above,
-        // but keep the math safe)
-        while (top >= pageStart + innerHpx) pageStart += innerHpx;
+        // but keep the math safe). Strictly greater: a break that lands
+        // exactly ON the boundary belongs to this page - counting it as the
+        // next one used to insert a whole blank sheet.
+        while (top > pageStart + innerHpx + 0.5) pageStart += innerHpx;
         var rest = Math.max(0, pageStart + innerHpx - top);
         el.style.height = (rest + mBotPx + PAGE_GAP_PX + topPx) + "px";
         var gap = el.querySelector(".doc-pb-gap");
@@ -1513,6 +1535,157 @@
         }
         return null;
     }
+    /* ---------- header / footer bands ----------
+       The editable header/footer is repeated once per simulated page, parked
+       in that sheet's margin band. Every copy is editable and they mirror
+       each other, so the text can be changed from any page. pageConf.hfMode
+       decides which pages get one, and the exporters read the same setting. */
+    var HF_GAP_PX = 14;      // space between a band and the text area
+
+    function hfPairs() {
+        return [{ header: headerEl, footer: footerEl }].concat(hfClones);
+    }
+    function hfShownOn(pageIndex) {   // pageIndex is 0-based
+        if (pageConf.hfMode === "none") return false;
+        if (pageConf.hfMode === "except-first" && pageIndex === 0) return false;
+        return true;
+    }
+    // mirror one band's text into every other copy (never into the one being
+    // typed in, so the caret survives)
+    function syncHfText(kind, text, except) {
+        hfPairs().forEach(function (pair) {
+            var el = pair[kind];
+            if (el !== except && el.textContent !== text) el.textContent = text;
+        });
+    }
+    function bindHfEvents(el) {
+        el.addEventListener("input", function () {
+            syncHfText(el.getAttribute("data-hf"), el.textContent, el);
+            OfficeApp.markDirty();
+            undo.pushDebounced(snapshot, 600);
+        });
+        el.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") e.preventDefault();   // single line only
+        });
+        el.addEventListener("paste", function (e) {
+            e.preventDefault();
+            var t = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
+            if (t) {
+                try { document.execCommand("insertText", false, t.replace(/\s*\n+\s*/g, " ")); }
+                catch (err) { }
+            }
+        });
+    }
+    function makeHfCopy(kind) {
+        var src = (kind === "header") ? headerEl : footerEl;
+        var el = document.createElement("div");
+        el.className = "doc-hf doc-hf-" + kind;
+        el.setAttribute("contenteditable", "true");
+        el.setAttribute("spellcheck", "false");
+        el.setAttribute("data-hf", kind);
+        el.setAttribute("data-placeholder", src.getAttribute("data-placeholder") || "");
+        el.textContent = src.textContent;
+        bindHfEvents(el);
+        pageEl.appendChild(el);
+        return el;
+    }
+    function parkHeaderFooters() {
+        hfPairs().forEach(function (pair) {
+            ["header", "footer"].forEach(function (kind) {
+                pair[kind].style.top = "0px";
+                pair[kind].hidden = true;
+            });
+        });
+    }
+    function layoutHeaderFooters(pageTops, innerHpx, topPx, mL, mR, mB) {
+        // one copy per page after the first (page one uses the originals)
+        while (hfClones.length < pageTops.length - 1) {
+            hfClones.push({ header: makeHfCopy("header"), footer: makeHfCopy("footer") });
+        }
+        while (hfClones.length > pageTops.length - 1) {
+            var drop = hfClones.pop();
+            if (drop.header.parentNode) drop.header.parentNode.removeChild(drop.header);
+            if (drop.footer.parentNode) drop.footer.parentNode.removeChild(drop.footer);
+        }
+        var text = { header: headerEl.textContent, footer: footerEl.textContent };
+        var pageHpx = topPx + innerHpx + mB;
+        var lead = true;
+        hfPairs().forEach(function (pair, i) {
+            var show = hfShownOn(i);
+            var sheetTop = pageTops[i] - topPx;
+            ["header", "footer"].forEach(function (kind) {
+                var el = pair[kind];
+                el.hidden = !show;
+                el.classList.toggle("doc-hf-lead", show && lead);
+                if (!show) return;
+                if (el !== document.activeElement && el.textContent !== text[kind]) {
+                    el.textContent = text[kind];
+                }
+                el.style.left = mL + "px";
+                el.style.right = mR + "px";
+                var h = el.offsetHeight;
+                var top;
+                if (kind === "header") {
+                    top = Math.max(sheetTop + 2, pageTops[i] - HF_GAP_PX - h);
+                } else {
+                    top = Math.min(sheetTop + pageHpx - 2 - h,
+                        pageTops[i] + innerHpx + HF_GAP_PX);
+                }
+                el.style.top = Math.round(top) + "px";
+            });
+            if (show) lead = false;
+        });
+    }
+    /* ---------- deferred relayout ----------
+       Pictures in a document that was just opened are still decoding while
+       loadBody() paginates: they measure zero tall, so the page tops - and
+       with them the header/footer bands and the automatic breaks - come out
+       for a much shorter document than the one that ends up on screen.
+       Anything that changes the flow height without an edit (an image
+       finishing, a web font, a window resize) re-runs the pagination. */
+    var relayoutTimer = null;
+    var relayoutH = -1;        // editor height the current layout was made for
+    var relayouting = false;
+    function scheduleRelayout() {
+        clearTimeout(relayoutTimer);
+        relayoutTimer = setTimeout(function () {
+            relayouting = true;
+            updatePageGuides();
+            relayouting = false;
+        }, 80);
+    }
+    function watchContentSize() {
+        // load does not bubble, but it is seen in the capture phase
+        var onLoad = function (e) {
+            if (e.target && e.target.tagName === "IMG") scheduleRelayout();
+        };
+        editor.addEventListener("load", onLoad, true);
+        editor.addEventListener("error", onLoad, true);
+        if (window.ResizeObserver) {
+            new ResizeObserver(function () {
+                if (relayouting) return;
+                if (Math.abs(editor.offsetHeight - relayoutH) <= 1) return;
+                scheduleRelayout();
+            }).observe(editor);
+        }
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(scheduleRelayout).catch(function () { });
+        }
+    }
+
+    function setHfMode(mode) {
+        if (HF_MODES.indexOf(mode) < 0) return;
+        pageConf.hfMode = mode;
+        updatePrintStyle();
+        updatePageGuides();
+        afterEdit(true);
+        OfficeApp.setStatus({
+            "all": "Header and footer shown on every page",
+            "except-first": "Header and footer shown on every page except the first",
+            "none": "Header and footer turned off"
+        }[mode]);
+    }
+
     function updatePageGuides() {
         var holder = document.getElementById("pageGuides");
         if (!holder) {
@@ -1530,6 +1703,10 @@
         var mL = m.left * MM_PX, mR = m.right * MM_PX, mB = m.bottom * MM_PX;
         var multiCol = pageConf.columns > 1;
 
+        // park the header/footer bands first: a copy still sitting at the
+        // bottom of a longer previous layout would inflate scrollHeight and
+        // conjure a phantom page below
+        parkHeaderFooters();
         // relayout from the natural flow (self-heal breaks that arrived
         // without their gap markup, e.g. via raw HTML)
         removeAutoBreaks(editor);
@@ -1540,6 +1717,7 @@
 
         var pages = 1;
         var pageStart = topPx;
+        var pageTops = [topPx];   // content-top of every sheet, for the bands
         var bi = 0;
         var guard = 0;
         while (guard++ < 400) {
@@ -1547,6 +1725,7 @@
             // (a) an explicit break on this page ends it early
             if (bi < breaks.length && offsetTopInPage(breaks[bi]) <= boundary + 0.5) {
                 pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
+                pageTops.push(pageStart);
                 pages++;
                 continue;
             }
@@ -1561,6 +1740,7 @@
                     // the boundary lands just before an explicit break - the
                     // break itself owns this cut
                     pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
+                    pageTops.push(pageStart);
                     pages++;
                     continue;
                 }
@@ -1571,6 +1751,7 @@
                     sp.innerHTML = gapMarkup();
                     block.parentNode.insertBefore(sp, block);
                     pageStart = stretchBreak(sp, pageStart, innerHpx, topPx, mL, mR, mB);
+                    pageTops.push(pageStart);
                     pages++;
                     continue;
                 }
@@ -1584,10 +1765,13 @@
                 holder.appendChild(g);
             }
             pageStart = boundary;
+            pageTops.push(pageStart);
             pages++;
         }
         // the last sheet always shows at full page height
         pageEl.style.minHeight = (pageStart + innerHpx + mB) + "px";
+        layoutHeaderFooters(pageTops, innerHpx, topPx, mL, mR, mB);
+        relayoutH = editor.offsetHeight;   // what this layout was made for
         return pages;
     }
     /* ---------- explicit page breaks ---------- */
@@ -2285,9 +2469,12 @@
         var title = exportBaseName();
         var out = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n" +
             "<title>" + esc(title) + "</title>\n<style>" + EXPORT_CSS + "</style>\n</head>\n<body>\n";
-        if (body.header) out += '<div class="hf">' + esc(body.header) + "</div>\n";
+        // a web page has no pages to repeat them on: one copy top and bottom,
+        // and nothing at all when the header/footer are turned off
+        var hf = body.hfMode !== "none";
+        if (hf && body.header) out += '<div class="hf">' + esc(body.header) + "</div>\n";
         out += resolvedHtml() + "\n";
-        if (body.footer) out += '<div class="hf">' + esc(body.footer) + "</div>\n";
+        if (hf && body.footer) out += '<div class="hf">' + esc(body.footer) + "</div>\n";
         out += "</body>\n</html>\n";
         downloadFile(title + ".html", "text/html", out);
     }
@@ -2999,24 +3186,14 @@
         workspaceEl.addEventListener("scroll", positionImgHandle);
         window.addEventListener("resize", positionImgHandle);
 
-        // header / footer: plain single-line text only
-        [headerEl, footerEl].forEach(function (el) {
-            el.addEventListener("input", function () {
-                OfficeApp.markDirty();
-                undo.pushDebounced(snapshot, 600);
-            });
-            el.addEventListener("keydown", function (e) {
-                if (e.key === "Enter") e.preventDefault();
-            });
-            el.addEventListener("paste", function (e) {
-                e.preventDefault();
-                var t = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
-                if (t) {
-                    try { document.execCommand("insertText", false, t.replace(/\s*\n+\s*/g, " ")); }
-                    catch (err) { }
-                }
-            });
-        });
+        // header / footer: plain single-line text only, kept in sync across
+        // every page's copy (bindHfEvents also runs for the copies)
+        bindHfEvents(headerEl);
+        bindHfEvents(footerEl);
+
+        // re-paginate when the flow grows on its own (pictures decoding after
+        // a document is opened, web fonts, a resize)
+        watchContentSize();
     }
 
     /* ================= shortcuts ================= */
@@ -3153,6 +3330,28 @@
                                             action: function () { setLineSpacing(v); }
                                         };
                                     });
+                                }
+                            },
+                            {
+                                label: "Header & footer", icon: "window minimize outline",
+                                sub: function () {
+                                    return [
+                                        {
+                                            label: "Same on all pages",
+                                            checked: pageConf.hfMode === "all",
+                                            action: function () { setHfMode("all"); }
+                                        },
+                                        {
+                                            label: "All pages except the first",
+                                            checked: pageConf.hfMode === "except-first",
+                                            action: function () { setHfMode("except-first"); }
+                                        },
+                                        {
+                                            label: "None",
+                                            checked: pageConf.hfMode === "none",
+                                            action: function () { setHfMode("none"); }
+                                        }
+                                    ];
                                 }
                             },
                             { sep: true },

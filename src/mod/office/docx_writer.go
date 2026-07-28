@@ -93,8 +93,11 @@ func BuildDocx(doc *Document) ([]byte, error) {
 		return err
 	}
 
-	hasHeader := strings.TrimSpace(doc.Header) != ""
-	hasFooter := strings.TrimSpace(doc.Footer) != "" || doc.PageNumbers
+	// hfMode "none" drops the text; "except-first" keeps the parts and lets
+	// Word blank page 1 through <w:titlePg/> (no "first" reference = empty)
+	hfText := doc.HFMode != HFModeNone
+	hasHeader := hfText && strings.TrimSpace(doc.Header) != ""
+	hasFooter := (hfText && strings.TrimSpace(doc.Footer) != "") || doc.PageNumbers
 
 	// [Content_Types].xml
 	var ct strings.Builder
@@ -151,7 +154,8 @@ func BuildDocx(doc *Document) ([]byte, error) {
 	}
 
 	// section properties (page setup)
-	sect := buildSectPr(doc.Page, headerRef, footerRef, b.usedDivider)
+	sect := buildSectPr(doc.Page, headerRef, footerRef, b.usedDivider,
+		doc.HFMode == HFModeExceptFirst)
 
 	docXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<w:document ` + docxNs + `><w:body>` + b.body.String() + sect + `</w:body></w:document>`
@@ -170,7 +174,11 @@ func BuildDocx(doc *Document) ([]byte, error) {
 		}
 	}
 	if hasFooter {
-		if err := addFile("word/footer1.xml", buildHfPart("ftr", doc.Footer, doc.PageNumbers)); err != nil {
+		footerText := doc.Footer
+		if !hfText {
+			footerText = ""
+		}
+		if err := addFile("word/footer1.xml", buildHfPart("ftr", footerText, doc.PageNumbers)); err != nil {
 			return nil, err
 		}
 	}
@@ -877,7 +885,7 @@ func pgGeometry(pc *PageConf) string {
 		mmToTwips(mT), mmToTwips(mR), mmToTwips(mB), mmToTwips(mL))
 }
 
-func buildSectPr(pc *PageConf, headerRef, footerRef string, continuous bool) string {
+func buildSectPr(pc *PageConf, headerRef, footerRef string, continuous, titlePg bool) string {
 	typ := ""
 	if continuous {
 		// the columned body continues on the same page as the spanning
@@ -892,7 +900,14 @@ func buildSectPr(pc *PageConf, headerRef, footerRef string, continuous bool) str
 		}
 		cols = fmt.Sprintf(`<w:cols w:num="%d" w:space="%d"/>`, pc.Columns, mmToTwips(gap))
 	}
-	return `<w:sectPr>` + headerRef + footerRef + typ + pgGeometry(pc) + cols + `</w:sectPr>`
+	first := ""
+	if titlePg {
+		// "different first page" with no first-page reference: Word leaves
+		// page 1's header and footer empty
+		first = `<w:titlePg/>`
+	}
+	return `<w:sectPr>` + headerRef + footerRef + typ + pgGeometry(pc) + cols +
+		first + `</w:sectPr>`
 }
 
 // buildHfPart renders a header (root "hdr") or footer ("ftr") part

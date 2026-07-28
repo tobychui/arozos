@@ -10,12 +10,50 @@ import (
 	"strconv"
 	"strings"
 
-	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/desktop/icons"
+	"imuslab.com/arozos/mod/desktop/layout"
+	"imuslab.com/arozos/mod/desktop/prefs"
+	"imuslab.com/arozos/mod/desktop/wallpaper"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
+)
+
+/*
+	desktop.go
+
+	HTTP handlers backing the ArozOS web desktop. The reusable logic behind them
+	lives in mod/desktop/*: icon generation (icons), desktop icon positions
+	(layout), per-user preferences and theme (prefs) and wallpaper discovery
+	(wallpaper).
+*/
+
+const (
+	//desktopDatabaseTable is the system database table holding all desktop
+	//related per-user state
+	desktopDatabaseTable = "desktop"
+
+	//desktopWebRoot is the folder the web apps and their icons are served from
+	desktopWebRoot = "./web"
+
+	//desktopWallpaperRoot is the folder holding the bundled wallpaper themes
+	desktopWallpaperRoot = "./web/img/desktop/bg"
+
+	//desktopTemplateFolder holds the shortcuts copied onto a new user's desktop
+	desktopTemplateFolder = "./system/desktop/template/"
+)
+
+var (
+	//desktopIconGenerator renders desktop icons for web apps missing one
+	desktopIconGenerator *icons.Generator
+
+	//desktopLayoutManager stores where each icon sits on a user's desktop
+	desktopLayoutManager *layout.Manager
+
+	//desktopPrefsManager stores per-user desktop preferences and theme
+	desktopPrefsManager *prefs.Manager
 )
 
 // Desktop script initiation
@@ -44,10 +82,25 @@ func DesktopInit() {
 	router.HandleFunc("/system/desktop/opr/renameShortcut", desktop_handleShortcutRename)
 
 	//Initialize desktop database
-	err := sysdb.NewTable("desktop")
+	err := sysdb.NewTable(desktopDatabaseTable)
 	if err != nil {
 		systemWideLogger.PrintAndLog("System", "Unable to create database table for Desktop. Please validation your installation.", nil)
 		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
+		os.Exit(1)
+	}
+
+	//Start the desktop sub-modules
+	desktopIconGenerator = icons.NewGenerator(desktopWebRoot)
+
+	desktopLayoutManager, err = layout.NewManager(sysdb, desktopDatabaseTable)
+	if err != nil {
+		systemWideLogger.PrintAndLog("System", "Unable to start Desktop layout manager. Please validation your installation.", err)
+		os.Exit(1)
+	}
+
+	desktopPrefsManager, err = prefs.NewManager(sysdb, desktopDatabaseTable)
+	if err != nil {
+		systemWideLogger.PrintAndLog("System", "Unable to start Desktop preference manager. Please validation your installation.", err)
 		os.Exit(1)
 	}
 
@@ -116,9 +169,8 @@ func desktop_initUserFolderStructure(username string) {
 		userFsa.MkdirAll(userDesktopPath, 0755)
 
 		//Copy template file from system folder if exists
-		templateFolder := "./system/desktop/template/"
-		if fs.FileExists(templateFolder) {
-			templateFiles, _ := filepath.Glob(templateFolder + "*")
+		if utils.FileExists(desktopTemplateFolder) {
+			templateFiles, _ := filepath.Glob(desktopTemplateFolder + "*")
 			for _, tfile := range templateFiles {
 				input, _ := os.ReadFile(tfile)
 				userFsa.WriteFile(arozfs.ToSlash(filepath.Join(userDesktopPath, filepath.Base(tfile))), input, 0755)
@@ -334,24 +386,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 
 // functions to handle desktop icon locations. Location is directly written into the center db.
 func getDesktopLocatioFromPath(filename string, username string) (int, int, error) {
-	//As path include username, there is no different if there are username in the key
-	locationdata := ""
-	err := sysdb.Read("desktop", username+"/filelocation/"+filename, &locationdata)
-	if err != nil {
-		//The file location is not set. Return error
-		return -1, -1, errors.New("This file do not have a location registry")
-	}
-	type iconLocation struct {
-		X int
-		Y int
-	}
-	thisFileLocation := iconLocation{
-		X: -1,
-		Y: -1,
-	}
-	//Start parsing the from the json data
-	json.Unmarshal([]byte(locationdata), &thisFileLocation)
-	return thisFileLocation.X, thisFileLocation.Y, nil
+	return desktopLayoutManager.GetIconLocation(username, filename)
 }
 
 // Set the icon location of a given filepath
@@ -361,37 +396,24 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 	fsh, subpath, _ := GetFSHandlerSubpathFromVpath("user:/Desktop/")
 	fshAbs := fsh.FileSystemAbstraction
 	desktoppath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
-	path := filepath.Join(desktoppath, filename)
-	type iconLocation struct {
-		X int
-		Y int
-	}
-
-	newLocation := new(iconLocation)
-	newLocation.X = x
-	newLocation.Y = y
+	targetFilepath := filepath.Join(desktoppath, filename)
 
 	//Check if the file exits
-	if !fshAbs.FileExists(path) {
+	if !fshAbs.FileExists(targetFilepath) {
 		return errors.New("Given filename not exists.")
 	}
 
-	//Parse the location to json
-	jsonstring, err := json.Marshal(newLocation)
+	err := desktopLayoutManager.SetIconLocation(username, filename, x, y)
 	if err != nil {
-		systemWideLogger.PrintAndLog("Desktop", "Unable to parse new file location on desktop for file: "+path, err)
+		systemWideLogger.PrintAndLog("Desktop", "Unable to store new file location on desktop for file: "+targetFilepath, err)
 		return err
 	}
-
-	//systemWideLogger.PrintAndLog(key,string(jsonstring),nil)
-	//Write result to database
-	sysdb.Write("desktop", username+"/filelocation/"+filename, string(jsonstring))
 	return nil
 }
 
 func delDesktopLocationFromPath(filename string, username string) {
 	//Delete a file icon location from db
-	sysdb.Delete("desktop", username+"/filelocation/"+filename)
+	desktopLayoutManager.RemoveIconLocation(username, filename)
 }
 
 // Return the user information to the client
@@ -529,42 +551,10 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 	loadUserTheme, _ := utils.GetPara(r, "load")
 	if targetTheme == "" && getUserTheme == "" && loadUserTheme == "" {
 		//List all the currnet themes in the list
-		themes, err := filepath.Glob("web/img/desktop/bg/*")
+		desktopThemeList, err := wallpaper.ListThemes(desktopWallpaperRoot)
 		if err != nil {
 			systemWideLogger.PrintAndLog("Desktop", "Unable to search bg from destkop image root. Are you sure the web data folder exists?", err)
 			return
-		}
-		//Prase the results to json array
-		//Tips: You must use captial letter for varable in struct that is accessable as public :)
-		type desktopTheme struct {
-			Theme  string
-			Bglist []string
-		}
-
-		var desktopThemeList []desktopTheme
-		acceptBGFormats := []string{
-			".jpg",
-			".png",
-			".gif",
-		}
-		for _, file := range themes {
-			if fs.IsDir(file) {
-				thisTheme := new(desktopTheme)
-				thisTheme.Theme = filepath.Base(file)
-				bglist, _ := filepath.Glob(file + "/*")
-				var thisbglist []string
-				for _, bg := range bglist {
-					ext := filepath.Ext(bg)
-					//if (sliceutil.Contains(acceptBGFormats, ext) ){
-					if utils.StringInArray(acceptBGFormats, ext) {
-						//This file extension is supported
-						thisbglist = append(thisbglist, filepath.Base(bg))
-					}
-
-				}
-				thisTheme.Bglist = thisbglist
-				desktopThemeList = append(desktopThemeList, *thisTheme)
-			}
 		}
 
 		//Return the results as JSON string
@@ -577,18 +567,9 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		utils.SendJSONResponse(w, string(jsonString))
 		return
 	} else if getUserTheme == "true" {
-		//Get the user's theme from database
-		result := ""
-		sysdb.Read("desktop", username+"/theme", &result)
-		if result == "" {
-			//This user has not set a theme yet. Use default
-			utils.SendJSONResponse(w, string("\"default\""))
-			return
-		} else {
-			//This user already set a theme. Use its set theme
-			utils.SendJSONResponse(w, string("\""+result+"\""))
-			return
-		}
+		//Get the user's theme from database, falling back to the default theme
+		utils.SendJSONResponse(w, string("\""+desktopPrefsManager.GetTheme(username)+"\""))
+		return
 	} else if loadUserTheme != "" {
 		//Load user theme base on folder path
 		targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(loadUserTheme)
@@ -636,8 +617,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, file := range files {
-			ext := filepath.Ext(file.Name())
-			if utils.StringInArray([]string{".png", ".jpg", ".gif"}, ext) {
+			if wallpaper.IsSupportedWallpaper(file.Name()) {
 				imageList = append(imageList, arozfs.ToSlash(filepath.Join(rpath, file.Name())))
 			}
 		}
@@ -658,7 +638,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 
 	} else if targetTheme != "" {
 		//Set the current user theme
-		sysdb.Write("desktop", username+"/theme", targetTheme)
+		desktopPrefsManager.SetTheme(username, targetTheme)
 		utils.SendJSONResponse(w, "\"OK\"")
 		return
 	}
@@ -681,19 +661,17 @@ func desktop_preference_handler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if preferenceType != "" && value == "" && remove == "" {
 		//Getting config from the key.
-		result := ""
-		sysdb.Read("desktop", username+"/preference/"+preferenceType, &result)
-		jsonString, _ := json.Marshal(result)
+		jsonString, _ := json.Marshal(desktopPrefsManager.GetPreference(username, preferenceType))
 		utils.SendJSONResponse(w, string(jsonString))
 		return
 	} else if preferenceType != "" && value == "" && remove == "true" {
 		//Remove mode
-		sysdb.Delete("desktop", username+"/preference/"+preferenceType)
+		desktopPrefsManager.RemovePreference(username, preferenceType)
 		utils.SendOK(w)
 		return
 	} else if preferenceType != "" && value != "" {
 		//Setting config from the key
-		sysdb.Write("desktop", username+"/preference/"+preferenceType, value)
+		desktopPrefsManager.SetPreference(username, preferenceType, value)
 		utils.SendOK(w)
 		return
 	} else {
@@ -774,6 +752,18 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 	for fshAbs.FileExists(shortcutFilename) {
 		shortcutFilename = shorcutRealDest + "/" + shortcutText + "(" + strconv.Itoa(counter) + ")" + ".shortcut"
 		counter++
+	}
+
+	//Module icons are edge to edge by design. Render a padded squircle desktop
+	//icon for the web app if it does not ship one of its own, so the shortcut
+	//does not end up with a fully filled icon on the desktop.
+	if shortcutType == "module" {
+		desktopIconPath, generated, err := desktopIconGenerator.EnsureDesktopIcon(shortcutIcon)
+		if err != nil {
+			systemWideLogger.PrintAndLog("Desktop", "Unable to generate desktop icon for "+shortcutIcon, err)
+		} else if generated {
+			systemWideLogger.PrintAndLog("Desktop", "Generated desktop icon for "+desktopIconPath, nil)
+		}
 	}
 
 	//Write the shortcut to file
