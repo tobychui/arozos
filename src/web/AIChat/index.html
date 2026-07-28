@@ -130,6 +130,13 @@
     .bubble h5,.thinking-body h5{font-size:1em;}
     .bubble h6,.thinking-body h6{font-size:.94em;color:var(--text-dim);}
     .bubble hr,.thinking-body hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
+    /* Tables scroll inside their own wrapper so a wide one never widens the chat. */
+    .bubble .tablewrap,.thinking-body .tablewrap{overflow-x:auto;margin:12px 0;}
+    .bubble table,.thinking-body table{border-collapse:collapse;font-size:.94em;min-width:100%;}
+    .bubble th,.bubble td,.thinking-body th,.thinking-body td{
+        border:1px solid var(--border);padding:7px 11px;text-align:left;vertical-align:top;}
+    .bubble th,.thinking-body th{background:var(--panel-2);font-weight:700;white-space:nowrap;}
+    .bubble tbody tr:nth-child(even) td,.thinking-body tbody tr:nth-child(even) td{background:rgba(127,127,140,.07);}
     .bubble ul{margin:6px 0 10px; padding-left:22px;} .bubble li{margin:3px 0;}
     .bubble a{color:var(--accent);}
     .bubble code.inline{background:var(--panel-3);padding:1.5px 6px;border-radius:5px;font-size:.88em;
@@ -232,7 +239,6 @@
     .bubble .caret{display:inline-block;width:7px;height:14px;margin-left:2px;background:var(--accent);
         vertical-align:-2px;animation:caret-blink .9s step-end infinite;}
     @keyframes caret-blink{0%,100%{opacity:1;}50%{opacity:0;}}
-    .thinking-body.streaming{white-space:pre-wrap;}
 
     /* Attachment chip upload state */
     .attach-chip.uploading{opacity:.85;}
@@ -1097,6 +1103,42 @@ function streamGenerate(conv, payload, opts, files, typing){
     };
 }
 
+/* Live markdown while streaming.
+   Half-written markup is normal mid-stream — most visibly an unclosed ```
+   fence, which would otherwise flash as raw backticks until the model closes
+   it. Close such constructs on a copy of the text just for rendering; the
+   stored text is untouched. */
+function closeOpenMarkdown(src){
+    var fences = src.match(/```/g);
+    if(fences && fences.length % 2 === 1){ src += "\n```"; }   // fence still open
+    return src;
+}
+
+// Re-rendering on every token would thrash layout, so paints are coalesced.
+var STREAM_RENDER_MS = 60;
+function scheduleStreamRender(st){
+    if(st.renderTimer) return;
+    st.renderTimer = setTimeout(function(){
+        st.renderTimer = null;
+        paintStream(st);
+    }, STREAM_RENDER_MS);
+}
+function cancelStreamRender(st){
+    if(st && st.renderTimer){ clearTimeout(st.renderTimer); st.renderTimer = null; }
+}
+function paintStream(st){
+    if(!st.row) return;                       // reply already finalised
+    if(st.thinkBody && st.reasoning !== ""){
+        st.thinkBody.html(renderMarkdown(closeOpenMarkdown(st.reasoning)));
+    }
+    if(st.bubble){
+        st.bubble.html(renderMarkdown(closeOpenMarkdown(st.content)));
+        enhanceCodeBlocks(st.bubble[0]);
+        st.bubble.append('<span class="caret"></span>');
+    }
+    maybeScroll();
+}
+
 // ensureStreamRow swaps the typing indicator for a live assistant row.
 function ensureStreamRow(st){
     if(st.row) return;
@@ -1125,15 +1167,14 @@ function appendReasoning(st, chunk){
         st.thinking = buildThinking("");
         st.thinking.addClass("open live");
         st.thinking.find(".tk-label").text("Thinking…");
-        st.thinkBody = st.thinking.find(".thinking-body").addClass("streaming");
+        st.thinkBody = st.thinking.find(".thinking-body");
         // Remember a manual toggle so auto-collapse does not fight the user.
         st.thinking.find(".thinking-toggle").on("click", function(){ st.userToggled = true; });
         st.main.prepend(st.thinking);
         // Keep the role label above the thinking block.
         st.main.find(".msg-role").prependTo(st.main);
     }
-    st.thinkBody.text(st.reasoning);
-    maybeScroll();
+    scheduleStreamRender(st);
 }
 
 // appendDelta grows the live answer text.
@@ -1151,10 +1192,7 @@ function appendDelta(st, chunk){
         }
     }
     st.content += chunk;
-    // Plain text while streaming (cheap, no reflow churn); markdown on finish.
-    st.bubble.text(st.content);
-    st.bubble.append('<span class="caret"></span>');
-    maybeScroll();
+    scheduleStreamRender(st);
 }
 
 // finishStream commits the streamed reply to the conversation and re-renders
@@ -1180,6 +1218,7 @@ function finishStream(st, result){
 }
 
 function clearStreamRow(st){
+    cancelStreamRender(st);                   // no stray paint after finalising
     if(st.typing){ st.typing.remove(); st.typing = null; }
     if(st.row){ st.row.remove(); st.row = null; }
 }
@@ -1381,6 +1420,62 @@ function closeSidebar(){ $("#sidebar,#sidebarScrim").removeClass("open"); }
    ───────────────────────────────────────────────────────────── */
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
+/* GFM tables.
+   Line-based rather than one big regex: a table is a row, a delimiter row
+   (---, :---, ---:, :---:) directly beneath it, then rows until a line that is
+   no longer one. A leading "|" is required to start a row, which is what
+   models emit and keeps prose containing a stray pipe from being swallowed.
+   Runs after the inline rules, so cells arrive with bold/code/links applied. */
+function mdSplitRow(line){
+    var s = line.trim();
+    if(s.charAt(0) === "|"){ s = s.slice(1); }
+    if(s.charAt(s.length-1) === "|"){ s = s.slice(0, -1); }
+    return s.split("|").map(function(c){ return c.trim(); });
+}
+function mdIsTableRow(line){ return /^[ \t]*\|/.test(line); }
+function mdIsTableDelimiter(line){
+    if(!mdIsTableRow(line) || line.indexOf("-") === -1) return false;
+    var cells = mdSplitRow(line);
+    if(cells.length === 0) return false;
+    for(var i = 0; i < cells.length; i++){
+        if(!/^:?-+:?$/.test(cells[i])) return false;
+    }
+    return true;
+}
+function mdAlignAttr(cell){
+    var left = cell.charAt(0) === ":", right = cell.charAt(cell.length-1) === ":";
+    if(left && right) return ' style="text-align:center"';
+    if(right) return ' style="text-align:right"';
+    return "";
+}
+function renderTables(html){
+    if(html.indexOf("|") === -1) return html;      // fast path: no table possible
+    var lines = html.split("\n"), out = [];
+    for(var i = 0; i < lines.length; i++){
+        if(mdIsTableRow(lines[i]) && i + 1 < lines.length && mdIsTableDelimiter(lines[i + 1])){
+            var head = mdSplitRow(lines[i]);
+            var aligns = mdSplitRow(lines[i + 1]).map(mdAlignAttr);
+            var rows = [], j = i + 2;
+            while(j < lines.length && mdIsTableRow(lines[j]) && !mdIsTableDelimiter(lines[j])){
+                rows.push(mdSplitRow(lines[j])); j++;
+            }
+            var th = head.map(function(c, k){ return "<th" + (aligns[k] || "") + ">" + c + "</th>"; }).join("");
+            var tb = rows.map(function(r){
+                var tds = "";
+                for(var k = 0; k < head.length; k++){
+                    tds += "<td" + (aligns[k] || "") + ">" + (r[k] === undefined ? "" : r[k]) + "</td>";
+                }
+                return "<tr>" + tds + "</tr>";
+            }).join("");
+            out.push('<div class="tablewrap"><table><thead><tr>' + th + "</tr></thead><tbody>" + tb + "</tbody></table></div>");
+            i = j - 1;
+        } else {
+            out.push(lines[i]);
+        }
+    }
+    return out.join("\n");
+}
+
 function renderMarkdown(src){
     src = String(src==null?"":src).replace(/\r\n?/g, "\n");   // CRLF would trail into headings
     var blocks = [];
@@ -1405,6 +1500,7 @@ function renderMarkdown(src){
         var level = Math.min(hashes.length + 1, 6);
         return "<h" + level + ">" + text + "</h" + level + ">";
     });
+    html = renderTables(html);
     html = html.replace(/(?:^|\n)((?:\s*[-*]\s+.*(?:\n|$))+)/g, function(_, list){
         var items = list.trim().split(/\n/).map(function(li){ return "<li>"+li.replace(/^\s*[-*]\s+/,"")+"</li>"; }).join("");
         return "\n<ul>"+items+"</ul>\n";
@@ -1416,7 +1512,7 @@ function renderMarkdown(src){
         return '<div class="codeblock">'+head+'<button class="copy-code" title="Copy">⧉</button><pre><code>'+esc(b.code)+'</code></pre></div>';
     });
     // Block elements bring their own spacing — drop the <br> runs around them.
-    html = html.replace(/(?:<br>\s*)+(<ul>|<h[2-6]>|<hr>|<div class="codeblock">)/g, "$1");
+    html = html.replace(/(?:<br>\s*)+(<ul>|<h[2-6]>|<hr>|<div class="(?:codeblock|tablewrap)">)/g, "$1");
     html = html.replace(/(<\/ul>|<\/h[2-6]>|<hr>|<\/div>)(?:\s*<br>)+/g, "$1");
     return html;
 }
