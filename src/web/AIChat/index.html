@@ -118,7 +118,18 @@
     .msg-main{flex:1; min-width:0;}
     .msg-role{font-size:12px;font-weight:700;color:var(--text-dim);margin:3px 0 6px;}
     .bubble{font-size:14.5px; line-height:1.62; color:var(--text); word-wrap:break-word; overflow-wrap:anywhere;}
-    .bubble p{margin:0 0 10px;} .bubble h2,.bubble h3,.bubble h4{margin:14px 0 8px;line-height:1.3;}
+    .bubble p{margin:0 0 10px;}
+    /* Headings and rules are shared with the thinking panel, which renders the
+       same markdown. Explicit sizes keep h5/h6 from collapsing to tiny text. */
+    .bubble h2,.bubble h3,.bubble h4,.bubble h5,.bubble h6,
+    .thinking-body h2,.thinking-body h3,.thinking-body h4,.thinking-body h5,.thinking-body h6{
+        margin:14px 0 8px;line-height:1.3;font-weight:700;}
+    .bubble h2,.thinking-body h2{font-size:1.34em;}
+    .bubble h3,.thinking-body h3{font-size:1.2em;}
+    .bubble h4,.thinking-body h4{font-size:1.08em;}
+    .bubble h5,.thinking-body h5{font-size:1em;}
+    .bubble h6,.thinking-body h6{font-size:.94em;color:var(--text-dim);}
+    .bubble hr,.thinking-body hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
     .bubble ul{margin:6px 0 10px; padding-left:22px;} .bubble li{margin:3px 0;}
     .bubble a{color:var(--accent);}
     .bubble code.inline{background:var(--panel-3);padding:1.5px 6px;border-radius:5px;font-size:.88em;
@@ -1371,7 +1382,7 @@ function closeSidebar(){ $("#sidebar,#sidebarScrim").removeClass("open"); }
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 function renderMarkdown(src){
-    src = String(src==null?"":src);
+    src = String(src==null?"":src).replace(/\r\n?/g, "\n");   // CRLF would trail into headings
     var blocks = [];
     src = src.replace(/```(\w+)?\n?([\s\S]*?)```/g, function(_, lang, code){
         var idx = blocks.length; blocks.push({ lang:lang||"", code:code.replace(/\n$/,"") });
@@ -1379,12 +1390,21 @@ function renderMarkdown(src){
     });
     var html = esc(src);
     html = html.replace(/`([^`\n]+)`/g, function(_, c){ return '<code class="inline">'+c+'</code>'; });
+    // Thematic breaks (---, ***, ___ and spaced variants) run before the
+    // emphasis rules so a rule made of asterisks is not eaten as bold/italic.
+    // Needs 3+ of the same marker alone on a line, so "- item" is unaffected.
+    html = html.replace(/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, "<hr>");
     html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
     html = html.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    html = html.replace(/^###\s+(.*)$/gm, "<h4>$1</h4>");
-    html = html.replace(/^##\s+(.*)$/gm, "<h3>$1</h3>");
-    html = html.replace(/^#\s+(.*)$/gm, "<h2>$1</h2>");
+    // ATX headings, one rule for every depth: # -> h2 … ###### -> h6. Matching
+    // each depth with its own regex used to leave #### and deeper unrendered,
+    // because "###" is not followed by whitespace in "#### Title". A trailing
+    // run of #'s (closed ATX form) is stripped.
+    html = html.replace(/^[ \t]{0,3}(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$/gm, function(_, hashes, text){
+        var level = Math.min(hashes.length + 1, 6);
+        return "<h" + level + ">" + text + "</h" + level + ">";
+    });
     html = html.replace(/(?:^|\n)((?:\s*[-*]\s+.*(?:\n|$))+)/g, function(_, list){
         var items = list.trim().split(/\n/).map(function(li){ return "<li>"+li.replace(/^\s*[-*]\s+/,"")+"</li>"; }).join("");
         return "\n<ul>"+items+"</ul>\n";
@@ -1395,8 +1415,9 @@ function renderMarkdown(src){
         var head = b.lang ? '<div class="code-lang">'+esc(b.lang)+'</div>' : "";
         return '<div class="codeblock">'+head+'<button class="copy-code" title="Copy">⧉</button><pre><code>'+esc(b.code)+'</code></pre></div>';
     });
-    html = html.replace(/<br>\s*(<ul>|<h[234]>|<div class="codeblock">)/g, "$1");
-    html = html.replace(/(<\/ul>|<\/h[234]>|<\/div>)\s*<br>/g, "$1");
+    // Block elements bring their own spacing — drop the <br> runs around them.
+    html = html.replace(/(?:<br>\s*)+(<ul>|<h[2-6]>|<hr>|<div class="codeblock">)/g, "$1");
+    html = html.replace(/(<\/ul>|<\/h[2-6]>|<hr>|<\/div>)(?:\s*<br>)+/g, "$1");
     return html;
 }
 
