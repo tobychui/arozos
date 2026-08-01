@@ -102,6 +102,38 @@
         }
         #spacer { flex: 1; }
 
+        /* ── Scrub-bar hover preview ───────────────────────────────────────── */
+        #scrub-preview {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            margin-bottom: 12px;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 8;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        #scrub-preview.active { display: flex; }
+        #scrub-preview-thumb {
+            display: none;
+            border-radius: 8px;
+            background-color: #000;
+            background-repeat: no-repeat;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.8), 0 0 0 2px rgba(255,255,255,0.14);
+        }
+        #scrub-preview-thumb.ready { display: block; }
+        #scrub-preview-time {
+            background: rgba(0,0,0,0.82);
+            border-radius: 6px;
+            padding: 3px 9px;
+            font-size: 12px; font-weight: 600;
+            color: #fff; white-space: nowrap;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+
         /* ── Transcode-seek freeze frame ───────────────────────────────────── */
         /* Deliberately no z-index: both sit immediately after <video> in the DOM,
            so they paint above the (unpositioned) video but below every later
@@ -571,6 +603,10 @@
         <div id="progress-wrap">
             <div id="progress-bar" style="width:0%"></div>
             <div id="progress-thumb" style="left:0%"></div>
+            <div id="scrub-preview">
+                <div id="scrub-preview-thumb"></div>
+                <div id="scrub-preview-time">0:00</div>
+            </div>
         </div>
         <div id="controls-row">
             <button class="ctrl-btn" id="ctrl-play" title="Play / Pause (Space)">
@@ -710,6 +746,100 @@ if (files && files.length > 0) {
             }).catch(function () {});
     }
 }
+
+// ── Scrub-bar hover preview (storyboard) ──────────────────────────────────────
+// The server renders one sprite sheet per file holding a downscaled frame every
+// few seconds; we fetch it once and keep it in memory, so hovering the timeline
+// costs nothing. Asking ffmpeg for a frame per hover would be hopeless on a
+// software-decoded H.265 source, which is exactly where previews matter most.
+var storyboard      = null;   // layout from the server + the loaded sheet URL
+var storyboardToken = 0;      // invalidates in-flight loads when the file changes
+var storyboardTimer = null;
+
+function resetStoryboard() {
+    storyboardToken++;
+    storyboard = null;
+    clearTimeout(storyboardTimer);
+    storyboardTimer = null;
+    $('#scrub-preview-thumb').removeClass('ready');
+    hideScrubPreview();
+}
+
+// Building the sheet runs ffmpeg, so hold off briefly and let playback (and any
+// transcode) get established before adding more load.
+function scheduleStoryboardLoad(filepath) {
+    resetStoryboard();
+    if (!filepath) { return; }
+    var token = storyboardToken;
+    storyboardTimer = setTimeout(function () { loadStoryboard(filepath, token); }, 3000);
+}
+
+function loadStoryboard(filepath, token) {
+    var base = STORYBOARD_API + '?file=' + encodeURIComponent(filepath);
+    fetch(base)
+        .then(function (r) { return r.json(); })
+        .then(function (meta) {
+            if (token !== storyboardToken) { return; }   // switched file while loading
+            if (!meta || meta.error || !meta.interval || !meta.tileWidth) { return; }
+            var img = new Image();
+            img.onload = function () {
+                if (token !== storyboardToken) { return; }
+                meta.url   = img.src;
+                storyboard = meta;
+            };
+            img.src = base + '&image=1';
+        })
+        .catch(function () {});   // previews are optional — stay silent on failure
+}
+
+// Whole-file duration, whichever playback mode is active
+function scrubTotalDuration() {
+    if (isTranscodedVideo) { return transcodeDuration; }
+    return vid.duration || 0;
+}
+
+function initScrubPreview() {
+    var $wrap = $('#progress-wrap');
+    $wrap.on('mousemove', function (e) {
+        var total = scrubTotalDuration();
+        var rect  = this.getBoundingClientRect();
+        if (!total || !isFinite(total) || rect.width <= 0) { hideScrubPreview(); return; }
+        var ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        showScrubPreview(ratio * total, ratio, rect.width);
+    });
+    $wrap.on('mouseleave', hideScrubPreview);
+}
+
+function showScrubPreview(time, ratio, barWidth) {
+    $('#scrub-preview-time').text(formatTime(time));
+
+    var $thumb = $('#scrub-preview-thumb');
+    var halfWidth;
+    if (storyboard && storyboard.url) {
+        var idx = Math.max(0, Math.min(storyboard.count - 1,
+                                       Math.floor(time / storyboard.interval)));
+        var col = idx % storyboard.cols;
+        var row = Math.floor(idx / storyboard.cols);
+        $thumb.addClass('ready').css({
+            'width':               storyboard.tileWidth + 'px',
+            'height':              storyboard.tileHeight + 'px',
+            'background-image':    'url("' + storyboard.url + '")',
+            'background-position': (-col * storyboard.tileWidth) + 'px '
+                                 + (-row * storyboard.tileHeight) + 'px'
+        });
+        halfWidth = storyboard.tileWidth / 2;
+    } else {
+        // Sheet not ready (or unavailable) — the timestamp alone is still useful
+        $thumb.removeClass('ready');
+        halfWidth = 28;
+    }
+
+    // Keep the popup within the bar rather than letting it hang off an edge
+    var x = Math.max(halfWidth, Math.min(barWidth - halfWidth, ratio * barWidth));
+    $('#scrub-preview').css('left', x + 'px').addClass('active');
+}
+
+function hideScrubPreview() { $('#scrub-preview').removeClass('active'); }
 
 // ── Transcode seek (seek-by-reload) ───────────────────────────────────────────
 // Formats the browser can't decode are streamed through ffmpeg, so "seeking"
@@ -1469,6 +1599,8 @@ function initMain(){
     initVideoControls();
     initContextMenu();
     initSettingsPopup();
+    initScrubPreview();
+    if (currentFile) { scheduleStoryboardLoad(currentFile.filepath); }
     initSubtitleMenu();
     initSubtitleSettings();
     initKeyboard();

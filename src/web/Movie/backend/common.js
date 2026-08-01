@@ -11,6 +11,7 @@ var BACKEND_PATH  = APP_NAME + "/backend/";
 // ── Server API endpoints (relative from any page in this app) ────────────────
 var MEDIA_API     = "../media";               // ?file=<vpath>  streams a file
 var TRANSCODE_API  = "../media/transcode";            // ?file
+var STORYBOARD_API = "../media/storyboard/";          // ?file[&image=1]  scrub previews
 var AGI_INTERFACE = "../system/ajgi/interface?script=";
 
 // ── Script paths (used when calling ao_module_agirun from the frontend) ──────

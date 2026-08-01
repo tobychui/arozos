@@ -12,12 +12,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"imuslab.com/arozos/mod/auth"
 	"imuslab.com/arozos/mod/compatibility"
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
+	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/media/transcoder"
@@ -585,4 +587,153 @@ func (s *Instance) GetAudioDuration(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(map[string]float64{"duration": duration})
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
+}
+
+// storyboardLocks serialises generation per source file so that several viewers
+// opening the same video cannot each start their own ffmpeg pass.
+var storyboardLocks sync.Map
+
+// ServeStoryboard serves the scrub-preview storyboard for a video.
+//
+//	?file=<vpath>            -> JSON layout describing the sheet
+//	?file=<vpath>&image=1    -> the tiled JPEG itself
+//
+// The sheet is cached beside the video inside the same file system abstraction,
+// under <video folder>/.metadata/.storyboard/, so it travels with the media and
+// is discarded along with the folder it belongs to. The ffmpeg cost is therefore
+// paid once per video, not once per session.
+func (s *Instance) ServeStoryboard(w http.ResponseWriter, r *http.Request) {
+	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	// Deliberately a native existence check, not an abstraction one: this asks
+	// whether ffmpeg can *read* the source directly. A remote-backed video would
+	// have to be buffered to local disk in full first, which is far too
+	// expensive to do just for hover previews. The generated sheet is a separate
+	// matter and is always stored back through the abstraction below.
+	if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
+		utils.SendErrorResponse(w, "storyboard not supported for this file system")
+		return
+	}
+	if targetFsh.ReadOnly {
+		utils.SendErrorResponse(w, "storyboard cache not writable on a read only file system")
+		return
+	}
+
+	fshAbs := targetFsh.FileSystemAbstraction
+	cacheFolder := transcoder.StoryboardCacheFolder(realFilepath)
+	basename := filepath.Base(realFilepath)
+	imagePath := cacheFolder + basename + ".jpg"
+	metaPath := cacheFolder + basename + ".json"
+
+	layout, err := s.ensureStoryboard(targetFsh, realFilepath, cacheFolder, imagePath, metaPath)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	if r.FormValue("image") != "" {
+		stream, err := fshAbs.ReadStream(imagePath)
+		if err != nil {
+			utils.SendErrorResponse(w, "storyboard image unavailable")
+			return
+		}
+		defer stream.Close()
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		io.Copy(w, stream)
+		return
+	}
+
+	js, _ := json.Marshal(layout)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
+// ensureStoryboard returns the cached layout for a video, rendering the sheet
+// first if it is missing or out of date.
+func (s *Instance) ensureStoryboard(fsh *filesystem.FileSystemHandler, realFilepath string, cacheFolder string, imagePath string, metaPath string) (*transcoder.StoryboardLayout, error) {
+	fshAbs := fsh.FileSystemAbstraction
+
+	if layout := readStoryboardMeta(fshAbs, realFilepath, imagePath, metaPath); layout != nil {
+		return layout, nil
+	}
+
+	lockAny, _ := storyboardLocks.LoadOrStore(imagePath, &sync.Mutex{})
+	lock := lockAny.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	defer storyboardLocks.Delete(imagePath)
+
+	// Another request may have finished generating while we waited for the lock.
+	if layout := readStoryboardMeta(fshAbs, realFilepath, imagePath, metaPath); layout != nil {
+		return layout, nil
+	}
+
+	if err := fshAbs.MkdirAll(cacheFolder, 0755); err != nil {
+		return nil, errors.New("could not create storyboard cache folder")
+	}
+	// Keep the metadata folders out of the way in file listings, as the
+	// thumbnail cache does.
+	hidden.HideFile(filepath.Dir(filepath.Clean(cacheFolder)))
+	hidden.HideFile(cacheFolder)
+
+	duration, err := transcoder.GetAudioDuration(realFilepath)
+	if err != nil || duration <= 0 {
+		return nil, errors.New("could not determine media duration")
+	}
+
+	// ffmpeg renders into local scratch space and hands the bytes back, so the
+	// sheet can be stored through the abstraction that owns the video rather
+	// than written to whatever native path happens to match. Without this a
+	// remote-backed video would leave its cache stranded in the local tmp dir.
+	sheet, layout, err := transcoder.GenerateStoryboard(realFilepath, s.options.TmpDirectory, duration)
+	if err != nil {
+		s.options.Logger.PrintAndLog("Storyboard", "generation failed for "+filepath.Base(realFilepath), err)
+		return nil, errors.New("storyboard generation failed")
+	}
+
+	if err := fshAbs.WriteFile(imagePath, sheet, 0644); err != nil {
+		s.options.Logger.PrintAndLog("Storyboard", "could not store sheet for "+filepath.Base(realFilepath), err)
+		return nil, errors.New("could not store storyboard")
+	}
+
+	// Written after the sheet so a reader never finds metadata without an image.
+	if js, err := json.Marshal(layout); err == nil {
+		if err := fshAbs.WriteFile(metaPath, js, 0644); err != nil {
+			s.options.Logger.PrintAndLog("Storyboard", "could not store layout for "+filepath.Base(realFilepath), err)
+		}
+	}
+	return &layout, nil
+}
+
+// readStoryboardMeta loads a cached layout, treating a missing, unreadable or
+// stale cache as a miss. A sheet is stale once the video has been modified more
+// recently than the sheet itself, so a re-encode re-renders the previews.
+func readStoryboardMeta(fshAbs filesystem.FileSystemAbstraction, realFilepath string, imagePath string, metaPath string) *transcoder.StoryboardLayout {
+	if !fshAbs.FileExists(imagePath) || !fshAbs.FileExists(metaPath) {
+		return nil
+	}
+
+	videoModTime, videoErr := fshAbs.GetModTime(realFilepath)
+	sheetModTime, sheetErr := fshAbs.GetModTime(imagePath)
+	if videoErr == nil && sheetErr == nil && videoModTime > sheetModTime {
+		return nil
+	}
+
+	raw, err := fshAbs.ReadFile(metaPath)
+	if err != nil {
+		return nil
+	}
+	var layout transcoder.StoryboardLayout
+	if err := json.Unmarshal(raw, &layout); err != nil {
+		return nil
+	}
+	if layout.Interval <= 0 || layout.Count <= 0 || layout.TileWidth <= 0 || layout.TileHeight <= 0 {
+		return nil
+	}
+	return &layout
 }
