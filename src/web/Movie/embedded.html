@@ -102,6 +102,45 @@
         }
         #spacer { flex: 1; }
 
+        /* ── Transcode-seek freeze frame ───────────────────────────────────── */
+        /* Deliberately no z-index: both sit immediately after <video> in the DOM,
+           so they paint above the (unpositioned) video but below every later
+           positioned sibling — controls and menus stay on top and clickable. */
+        #seek-freeze {
+            display: none;
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            background: #000;
+            pointer-events: none;
+        }
+        #seek-spinner {
+            display: none;
+            position: absolute; inset: 0;
+            align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        #seek-spinner.active { display: flex; }
+        .seek-spinner-box {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 10px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border-radius: 14px;
+            padding: 18px 24px;
+            font-size: 12px; color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .seek-spinner-box .spinner {
+            width: 38px; height: 38px;
+            border: 3px solid rgba(255,255,255,0.18);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: seekSpin 0.8s linear infinite;
+        }
+        @keyframes seekSpin { to { transform: rotate(360deg); } }
+
         /* ── Subtitle display ──────────────────────────────────────────────── */
         #subtitle-display {
             display: none;
@@ -385,6 +424,16 @@
 
     <video id="main-video" preload="metadata"></video>
 
+    <!-- Frozen last frame + spinner, shown while a transcode seek re-buffers.
+         Must stay directly after <video> — stacking relies on DOM order. -->
+    <canvas id="seek-freeze"></canvas>
+    <div id="seek-spinner">
+        <div class="seek-spinner-box">
+            <div class="spinner"></div>
+            <span>Buffering…</span>
+        </div>
+    </div>
+
     <!-- Subtitle overlay -->
     <div id="subtitle-display"></div>
 
@@ -662,6 +711,60 @@ if (files && files.length > 0) {
     }
 }
 
+// ── Transcode seek (seek-by-reload) ───────────────────────────────────────────
+// Formats the browser can't decode are streamed through ffmpeg, so "seeking"
+// means restarting the transcode at a new offset. Replacing .src blanks the
+// <video> to black until the first frame of the new segment arrives, which can
+// take seconds. Freeze the last painted frame under a spinner instead, and only
+// reveal the live element once it is genuinely playing again.
+var seekFreezeTimer = null;
+
+function showSeekFreeze() {
+    var canvas = document.getElementById('seek-freeze');
+    if (canvas && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        canvas.width  = vid.videoWidth;
+        canvas.height = vid.videoHeight;
+        try {
+            canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+            $(canvas).show();
+        } catch (e) {
+            // No decodable frame right now (e.g. seeking again mid-buffer) —
+            // leave whatever is already frozen on screen rather than flashing black.
+        }
+    }
+    $('#seek-spinner').addClass('active');
+    clearTimeout(seekFreezeTimer);
+    // Safety net: a stalled transcode must never leave the overlay stuck on
+    seekFreezeTimer = setTimeout(hideSeekFreeze, 30000);
+}
+
+function hideSeekFreeze() {
+    clearTimeout(seekFreezeTimer);
+    seekFreezeTimer = null;
+    $('#seek-freeze').hide();
+    $('#seek-spinner').removeClass('active');
+}
+
+// Restart the transcode stream at `seconds`, holding the last frame until the
+// new segment plays. Clamped to the known duration.
+function transcodeSeekTo(seconds) {
+    if (!currentFile) { return; }
+    var pos = Math.max(0, seconds);
+    if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
+
+    showSeekFreeze();
+    transcodeSeekOffset = pos;
+    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
+            + '&start=' + pos.toFixed(3);
+    vid.load();
+    vid.play();
+}
+
+// Current playback position in whole-file terms (transcode streams restart at 0)
+function effectivePlaybackTime() {
+    return isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+}
+
 // ── Video controls ────────────────────────────────────────────────────────────
 function initVideoControls() {
     var $prog  = $('#progress-bar');
@@ -691,12 +794,7 @@ function initVideoControls() {
     // Progress bar — seek-by-reload for transcoded streams
     $('#progress-wrap').on('click', function (e) {
         if (isTranscodedVideo && transcodeDuration > 0 && currentFile) {
-            var seekTo = (e.offsetX / $(this).width()) * transcodeDuration;
-            transcodeSeekOffset = seekTo;
-            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                    + '&start=' + seekTo.toFixed(3);
-            vid.load();
-            vid.play();
+            transcodeSeekTo((e.offsetX / $(this).width()) * transcodeDuration);
             return;
         }
         if (vid.duration) {
@@ -750,13 +848,11 @@ function initVideoControls() {
         if (!repeatSingle) { return; }
         if (isTranscodedVideo && transcodeSeekOffset > 0 && currentFile) {
             // The stream started part-way in — restart it from the beginning
-            transcodeSeekOffset = 0;
-            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath);
-            vid.load();
+            transcodeSeekTo(0);
         } else {
             vid.currentTime = 0;
+            vid.play();
         }
-        vid.play();
     });
 
     $(vid).on('volumechange', function () {
@@ -764,6 +860,13 @@ function initVideoControls() {
         localStorage.setItem('movie_volume', vid.volume);
         localStorage.setItem('movie_muted', vid.muted ? '1' : '0');
     });
+
+    // Drop the transcode-seek freeze frame the moment the new segment is live.
+    // 'playing' is the accurate signal; 'loadeddata' covers a seek made while
+    // paused (where 'playing' never fires), and 'error' avoids a stuck overlay.
+    $(vid).on('playing', hideSeekFreeze);
+    $(vid).on('loadeddata', function () { if (vid.paused) { hideSeekFreeze(); } });
+    $(vid).on('error', hideSeekFreeze);
 
     // Auto-hide controls on mouse movement
     $('#player-wrap').on('mousemove touchstart', showControls);
@@ -837,11 +940,7 @@ function showResumePopup(savedPos, duration) {
 
     $('#resume-btn-continue').off('click').on('click', function () {
         if (isTranscodedVideo && currentFile) {
-            transcodeSeekOffset = pendingResumePos;
-            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                    + '&start=' + pendingResumePos.toFixed(3);
-            vid.load();
-            vid.play();
+            transcodeSeekTo(pendingResumePos);
         } else {
             vid.currentTime = pendingResumePos;
             vid.play();
@@ -1309,11 +1408,7 @@ function initKeyboard() {
             case 'ArrowRight':
                 e.preventDefault();
                 if (isTranscodedVideo && transcodeDuration > 0 && currentFile) {
-                    var newPos = Math.min(transcodeDuration, vid.currentTime + transcodeSeekOffset + 10);
-                    transcodeSeekOffset = newPos;
-                    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                            + '&start=' + newPos.toFixed(3);
-                    vid.load(); vid.play();
+                    transcodeSeekTo(effectivePlaybackTime() + 10);
                 } else {
                     vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10);
                 }
@@ -1322,11 +1417,7 @@ function initKeyboard() {
             case 'ArrowLeft':
                 e.preventDefault();
                 if (isTranscodedVideo && transcodeDuration > 0 && currentFile) {
-                    var newPos = Math.max(0, vid.currentTime + transcodeSeekOffset - 10);
-                    transcodeSeekOffset = newPos;
-                    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                            + '&start=' + newPos.toFixed(3);
-                    vid.load(); vid.play();
+                    transcodeSeekTo(effectivePlaybackTime() - 10);
                 } else {
                     vid.currentTime = Math.max(0, vid.currentTime - 10);
                 }
