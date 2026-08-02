@@ -1,0 +1,23 @@
+/*
+    PDF Tool
+    Edit PDF documents: insert text, images and company chops,
+    export pages as images and build PDFs from images.
+*/
+
+var moduleLaunchInfo = {
+    Name: "PDF Tool",
+    Desc: "Edit PDFs with text, images and company chops",
+    Group: "Office",
+    IconPath: "PDF Tool/img/module_icon.svg",
+    Version: "1.0",
+    StartDir: "PDF Tool/index.html",
+    SupportFW: true,
+    LaunchFWDir: "PDF Tool/index.html",
+    InitFWSize: [1100, 720],
+    SupportEmb: true,
+    LaunchEmb: "PDF Tool/index.html",
+    InitEmbSize: [1100, 720],
+    SupportedExt: [".pdf"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
