@@ -934,6 +934,14 @@ function musicifyApp() {
 
         playSong(song, sourceList, event) {
             if (event) event.stopPropagation();
+            // Re-selecting the track that is already loaded shouldn't restart it from
+            // the beginning — surface the Now Playing panel (album art / visualizer)
+            // instead. Keyed on isCurrentTrack so the row highlighted as .active is
+            // exactly the row that opens the panel, paused or playing.
+            if (this.isCurrentTrack(song)) {
+                this.openNowPlaying();
+                return;
+            }
             if (!sourceList || sourceList.length === 0) sourceList = [song];
             var idx = 0;
             for (var i = 0; i < sourceList.length; i++) {
