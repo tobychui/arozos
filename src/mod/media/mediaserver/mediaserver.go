@@ -589,6 +589,99 @@ func (s *Instance) GetAudioDuration(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
+// ServeEmbeddedSubtitles exposes the subtitle tracks and font attachments muxed
+// inside a container (typically MKV).
+//
+//	?file=<vpath>            -> JSON listing of tracks and fonts
+//	?file=<vpath>&track=<n>  -> that subtitle track, converted to SubRip
+//	?file=<vpath>&font=<n>   -> that font attachment, as binary
+//
+// Nothing is cached: subtitle and font streams are small and extraction is
+// quick relative to the container scan, so a cache would mostly add staleness.
+func (s *Instance) ServeEmbeddedSubtitles(w http.ResponseWriter, r *http.Request) {
+	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	// Native check on purpose: ffmpeg has to read the container directly, and
+	// buffering a remote file in full just to read its subtitles is not worth it.
+	if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
+		utils.SendErrorResponse(w, "embedded subtitles not supported for this file system")
+		return
+	}
+
+	if fontParam := r.FormValue("font"); fontParam != "" {
+		s.serveEmbeddedFont(w, realFilepath, fontParam)
+		return
+	}
+	if trackParam := r.FormValue("track"); trackParam != "" {
+		s.serveEmbeddedSubtitleTrack(w, r, realFilepath, trackParam)
+		return
+	}
+
+	info, err := transcoder.ProbeEmbeddedTracksWithFontNames(realFilepath, s.options.TmpDirectory)
+	if err != nil {
+		utils.SendErrorResponse(w, "could not read embedded tracks")
+		return
+	}
+
+	js, _ := json.Marshal(info)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
+// serveEmbeddedSubtitleTrack returns one track, either converted to SubRip or —
+// with &format=ass — copied out in its native form so the player can render the
+// original styling, positioning and layering.
+func (s *Instance) serveEmbeddedSubtitleTrack(w http.ResponseWriter, r *http.Request, realFilepath string, trackParam string) {
+	streamIndex, err := strconv.Atoi(trackParam)
+	if err != nil || streamIndex < 0 {
+		utils.SendErrorResponse(w, "invalid subtitle track index")
+		return
+	}
+
+	var payload []byte
+	if r.FormValue("format") == "ass" {
+		payload, err = transcoder.ExtractRawSubtitleTrack(realFilepath, streamIndex, "ass")
+	} else {
+		payload, err = transcoder.ExtractSubtitleTrack(realFilepath, streamIndex)
+	}
+	if err != nil {
+		s.options.Logger.PrintAndLog("Subtitle",
+			"extraction failed for "+filepath.Base(realFilepath), err)
+		utils.SendErrorResponse(w, "could not extract subtitle track")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Write(payload)
+}
+
+// serveEmbeddedFont returns one font attachment so the player can register it
+// with @font-face and render subtitles in the typeface the release shipped.
+func (s *Instance) serveEmbeddedFont(w http.ResponseWriter, realFilepath string, fontParam string) {
+	fontIndex, err := strconv.Atoi(fontParam)
+	if err != nil || fontIndex < 0 {
+		utils.SendErrorResponse(w, "invalid font attachment index")
+		return
+	}
+
+	data, err := transcoder.ExtractFontAttachment(realFilepath, fontIndex, s.options.TmpDirectory)
+	if err != nil {
+		s.options.Logger.PrintAndLog("Subtitle",
+			"font extraction failed for "+filepath.Base(realFilepath), err)
+		utils.SendErrorResponse(w, "could not extract font attachment")
+		return
+	}
+
+	w.Header().Set("Content-Type", "font/ttf")
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	w.Write(data)
+}
+
 // storyboardLocks serialises generation per source file so that several viewers
 // opening the same video cannot each start their own ffmpeg pass.
 var storyboardLocks sync.Map

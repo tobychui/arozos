@@ -8,6 +8,9 @@
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <script src="backend/common.js"></script>
+
+    <!-- ASS/SSA subtitle parser + renderer (see script/ass.js) -->
+    <script src="script/ass.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -101,6 +104,23 @@
             margin-left: 4px; white-space: nowrap;
         }
         #spacer { flex: 1; }
+
+        /* ─── ASS subtitle overlay ───────────────────────────────────────────────────── */
+        /* Sized in JS to the video's displayed rect so script coordinates land correctly
+           regardless of letterboxing. Children are absolutely positioned by the renderer. */
+        #ass-overlay {
+            display: none;
+            position: absolute;
+            left: 0; top: 0; width: 0; height: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 14;
+            /* libass spaces lines by the font's own ascent+descent with no extra
+               leading; 1.2 would push stacked dual-language lines apart and break
+               the MarginV offsets releases use to sit them one above the other. */
+            line-height: 1.05;
+        }
+        #ass-overlay.active { display: block; }
 
         /* ── Scrub-bar hover preview ───────────────────────────────────────── */
         #scrub-preview {
@@ -318,6 +338,7 @@
             flex: 1; background: var(--surface2); color: var(--text);
             border: 1px solid rgba(255,255,255,0.08); border-radius: calc(var(--radius) / 1.6);
             padding: 5px 8px; font-size: 12px; cursor: pointer; outline: none; appearance: auto;
+            width: 100%;
         }
         .sset-colors { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; flex: 1; }
         .sset-color {
@@ -465,6 +486,11 @@
             <span>Buffering…</span>
         </div>
     </div>
+
+    <!-- Styled ASS/SSA subtitles are drawn here, sized to the video's
+         displayed rectangle. The plain #subtitle-display below is used
+         for SubRip tracks. -->
+    <div id="ass-overlay"></div>
 
     <!-- Subtitle overlay -->
     <div id="subtitle-display"></div>
@@ -1345,6 +1371,7 @@ function initSubtitleSettings() {
     });
     $('#sset-font').on('change', function () {
         subtitleSettings.font = $(this).val();
+        ensureEmbeddedFontLoaded(subtitleSettings.font);   // no-op for built-in fonts
         applySubtitleSettings();
         syncSettingsPreview();
         saveSubtitleSettings();
@@ -1393,6 +1420,7 @@ window.movieEmbOnSubtitleFile = function (raw) {
                 activeSubtitleIndex = loadedSubtitleFiles.length - 1;
             }
             showToast('Subtitle loaded: ' + name);
+            applyActiveSubtitle();   // a sidecar file replaces any styled track
             updateSubtitleSubmenu();
         },
         error: function () { showToast('Failed to load subtitle file'); }
@@ -1419,13 +1447,22 @@ function parseSrt(content) {
         if (parts.length < 2) { return; }
         var start = parseSrtTime(parts[0].trim());
         var end   = parseSrtTime(parts[1].trim().split(' ')[0]);
-        var text  = lines.slice(tcIdx + 1).join('\n').trim().replace(/<[^>]+>/g, '');
+        // Strip inline SRT tags like <b>, <i>, <font>, plus any ASS override
+        // blocks such as {\an8} or {\pos(x,y)}. ffmpeg's ASS-to-SubRip
+        // conversion leaves positioning tags like those behind, so without this
+        // they would be shown to the viewer as literal text.
+        var text  = lines.slice(tcIdx + 1).join('\n').trim()
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/\{\\[^}]*\}/g, '')
+                        .trim();
         if (text) { cues.push({ start: start, end: end, text: text }); }
     });
     return cues;
 }
 
 function updateSubtitleDisplay() {
+    // Styled tracks are drawn by the ASS renderer on its own frame loop
+    if (assActive) { $('#subtitle-display').hide(); return; }
     if (activeSubtitleIndex < 0 || !loadedSubtitleFiles[activeSubtitleIndex]) {
         $('#subtitle-display').hide();
         return;
@@ -1445,6 +1482,284 @@ function updateSubtitleDisplay() {
     }
 }
 
+// ── Embedded subtitle tracks and fonts ────────────────────────────────────────
+// MKV releases usually mux their subtitles (and the fonts they were typeset in)
+// into the container rather than shipping sidecar files. The server lists them
+// and extracts on demand; tracks are converted to SubRip, which keeps the text
+// and timing but drops ASS styling, positioning and karaoke.
+var embeddedSubtitles   = [];     // [{index, codec, language, title, forced, textual}]
+var embeddedFonts       = [];     // [{index, filename, mimetype}]
+var embeddedMediaPath   = null;   // file the two lists above describe
+var embeddedProbeToken  = 0;      // invalidates in-flight probes on file change
+var embeddedFontFaces   = [];     // FontFace objects registered for this video
+var embeddedFontsLoaded = {};     // family name -> already fetched
+
+function resetEmbeddedTracks() {
+    embeddedProbeToken++;
+    stopAssTrack();
+    embeddedSubtitles = [];
+    embeddedFonts     = [];
+    embeddedMediaPath = null;
+    // Font families are keyed by attachment ordinal, which means the same name
+    // refers to a different font in the next video — drop the old faces.
+    embeddedFontFaces.forEach(function (face) {
+        try { document.fonts.delete(face); } catch (e) {}
+    });
+    embeddedFontFaces   = [];
+    embeddedFontsLoaded = {};
+}
+
+function loadEmbeddedTrackList(filepath) {
+    resetEmbeddedTracks();
+    if (!filepath) { return; }
+
+    embeddedMediaPath = filepath;
+    var token = embeddedProbeToken;
+
+    fetch(SUBTITLE_API + '?file=' + encodeURIComponent(filepath))
+        .then(function (r) { return r.json(); })
+        .then(function (info) {
+            if (token !== embeddedProbeToken) { return; }
+            if (!info || info.error) { return; }
+            embeddedSubtitles = info.subtitles || [];
+            embeddedFonts     = info.fonts || [];
+            updateSubtitleSubmenu();
+            refreshEmbeddedFontOptions();
+        })
+        .catch(function () {});   // embedded tracks are a bonus — fail quietly
+}
+
+function embeddedTrackLabel(track, position) {
+    var label = track.title || '';
+    if (!label) { label = 'Track ' + (position + 1); }
+    if (track.language) { label += ' [' + track.language + ']'; }
+    if (track.forced)   { label += ' (forced)'; }
+    if (!track.textual) { label += ' — image based'; }
+    return label;
+}
+
+// Extraction has to scan the whole container, so it takes a few seconds on a
+// large file. Results are kept in loadedSubtitleFiles, making reselection free.
+function selectEmbeddedSubtitle(track, position) {
+    if (!track.textual) {
+        showToast('That track is image based and cannot be displayed');
+        return;
+    }
+
+    var cacheKey = 'embedded#' + track.index + '@' + embeddedMediaPath;
+    for (var i = 0; i < loadedSubtitleFiles.length; i++) {
+        if (loadedSubtitleFiles[i].path === cacheKey) {
+            activeSubtitleIndex = i;
+            applyActiveSubtitle();
+            updateSubtitleSubmenu();
+            return;
+        }
+    }
+
+    // ASS/SSA is fetched in its native form so the styling survives; everything
+    // else comes through as SubRip for the plain renderer.
+    var styled    = /^(ass|ssa)$/i.test(track.codec) && typeof ASS !== 'undefined';
+    var mediaPath = embeddedMediaPath;
+    var url = SUBTITLE_API + '?file=' + encodeURIComponent(mediaPath) + '&track=' + track.index
+            + (styled ? '&format=ass' : '');
+
+    showToast('Extracting subtitle track…');
+    $.ajax({
+        url: url,
+        dataType: 'text',
+        success: function (content) {
+            if (mediaPath !== embeddedMediaPath) { return; }   // episode changed
+
+            if (styled) {
+                var parsed = ASS.parse(content);
+                if (!parsed.events.length) {
+                    showToast('That track contained no readable text');
+                    return;
+                }
+                loadedSubtitleFiles.push({
+                    path: cacheKey,
+                    name: embeddedTrackLabel(track, position),
+                    cues: [],
+                    assTrack: parsed
+                });
+                activeSubtitleIndex = loadedSubtitleFiles.length - 1;
+                applyActiveSubtitle();
+                updateSubtitleSubmenu();
+                showToast('Subtitle loaded · ' + parsed.events.length + ' styled lines');
+                return;
+            }
+
+            var cues = parseSrt(content);
+            if (cues.length === 0) {
+                showToast('That track contained no readable text');
+                return;
+            }
+            loadedSubtitleFiles.push({
+                path: cacheKey,
+                name: embeddedTrackLabel(track, position),
+                cues: cues
+            });
+            activeSubtitleIndex = loadedSubtitleFiles.length - 1;
+            applyActiveSubtitle();
+            updateSubtitleSubmenu();
+            showToast('Subtitle loaded · ' + cues.length + ' lines');
+        },
+        error: function () { showToast('Could not extract that subtitle track'); }
+    });
+}
+
+// Switch the display between the styled ASS renderer and the plain SubRip
+// overlay depending on what the newly selected track carries.
+function applyActiveSubtitle() {
+    var entry = activeSubtitleIndex >= 0 ? loadedSubtitleFiles[activeSubtitleIndex] : null;
+    if (entry && entry.assTrack) {
+        startAssTrack(entry.assTrack);
+    } else {
+        stopAssTrack();
+        updateSubtitleDisplay();
+    }
+}
+
+// ── Styled ASS rendering ─────────────────────────────────────────────────────
+// ASS tracks are fetched in their native form and drawn by script/ass.js, which
+// preserves per-line styling and position. That is what makes dual-language
+// releases work: the Japanese and Chinese lines are separate events shown at the
+// same time, and a single-cue renderer can only ever display one of them.
+var assRenderer  = null;
+var assActive    = false;
+var assFrameReq  = null;
+
+function initAssRenderer() {
+    var overlay = document.getElementById('ass-overlay');
+    if (overlay && typeof ASS !== 'undefined') { assRenderer = new ASS.Renderer(overlay); }
+}
+
+// Match the overlay to the letterboxed picture inside the video element, so
+// script coordinates map onto what the viewer actually sees.
+function syncAssOverlayGeometry() {
+    if (!assRenderer) { return; }
+    var vid = document.getElementById('main-video');
+    var overlay = document.getElementById('ass-overlay');
+    var cw = vid.clientWidth, ch = vid.clientHeight;
+    var vw = vid.videoWidth, vh = vid.videoHeight;
+
+    var left = 0, top = 0, width = cw, height = ch;
+    if (vw > 0 && vh > 0 && cw > 0 && ch > 0) {
+        var scale = Math.min(cw / vw, ch / vh);
+        width  = vw * scale;
+        height = vh * scale;
+        left   = (cw - width) / 2;
+        top    = (ch - height) / 2;
+    }
+    if (overlay._w !== width || overlay._h !== height || overlay._l !== left || overlay._t !== top) {
+        overlay._w = width; overlay._h = height; overlay._l = left; overlay._t = top;
+        overlay.style.left   = left + 'px';
+        overlay.style.top    = top + 'px';
+        overlay.style.width  = width + 'px';
+        overlay.style.height = height + 'px';
+        assRenderer.resize(width, height);
+    }
+}
+
+function startAssTrack(track) {
+    if (!assRenderer) { return; }
+    stopAssTrack();
+    assRenderer.setTrack(track);
+    assActive = true;
+    $('#ass-overlay').addClass('active');
+    $('#subtitle-display').hide();     // the plain renderer must not double up
+    loadAssFonts(track);
+
+    var step = function () {
+        if (!assActive) { return; }
+        syncAssOverlayGeometry();
+        assRenderer.setTime(effectivePlaybackTime());
+        assFrameReq = requestAnimationFrame(step);
+    };
+    step();
+}
+
+function stopAssTrack() {
+    assActive = false;
+    if (assFrameReq) { cancelAnimationFrame(assFrameReq); assFrameReq = null; }
+    if (assRenderer) { assRenderer.clear(); }
+    $('#ass-overlay').removeClass('active');
+}
+
+// Only pull the fonts the track actually references — a release can attach a
+// dozen and use half of them.
+function loadAssFonts(track) {
+    if (typeof ASS === 'undefined') { return; }
+    ASS.referencedFonts(track).forEach(function (family) {
+        ensureEmbeddedFontLoaded(family);
+    });
+}
+
+// ── Embedded fonts ───────────────────────────────────────────────────────────
+// Registered under the font's own internal family name, which is what ASS styles
+// reference, and offered in Subtitle Settings for SubRip tracks. Fetched lazily:
+// a release can carry a dozen fonts and only a few are ever used.
+function embeddedFontFamily(font) {
+    return font.family || ('aroz-embedded-' + font.index);
+}
+
+function findEmbeddedFontByFamily(family) {
+    var wanted = String(family || '').replace(/^@/, '').toLowerCase();
+    var found = null;
+    embeddedFonts.forEach(function (f) {
+        if (embeddedFontFamily(f).toLowerCase() === wanted) { found = f; }
+    });
+    return found;
+}
+
+function refreshEmbeddedFontOptions() {
+    var $select = $('#sset-font');
+    $select.find('optgroup.embedded-fonts').remove();
+
+    if (embeddedFonts.length > 0) {
+        var $group = $('<optgroup label="Embedded in this video" class="embedded-fonts"></optgroup>');
+        embeddedFonts.forEach(function (font) {
+            $group.append($('<option></option>')
+                .attr('value', embeddedFontFamily(font))
+                .text(font.filename || ('Font ' + (font.index + 1))));
+        });
+        $select.append($group);
+    }
+
+    // A font picked for a previous video may not exist in this one
+    var stillOffered = $select.find('option').filter(function () {
+        return this.value === subtitleSettings.font;
+    }).length > 0;
+    if (!stillOffered) {
+        subtitleSettings.font = 'system-ui, sans-serif';
+        applySubtitleSettings();
+        saveSubtitleSettings();
+    }
+    $select.val(subtitleSettings.font);
+    ensureEmbeddedFontLoaded(subtitleSettings.font);
+}
+
+function ensureEmbeddedFontLoaded(family) {
+    if (!family || embeddedFontsLoaded[family] || !embeddedMediaPath) { return; }
+    if (typeof FontFace === 'undefined' || !document.fonts) { return; }
+
+    var meta = findEmbeddedFontByFamily(family);
+    if (!meta) { return; }   // a built-in font, or one this video does not carry
+
+    embeddedFontsLoaded[family] = true;   // claim it so we do not refetch in a loop
+    var url  = SUBTITLE_API + '?file=' + encodeURIComponent(embeddedMediaPath) + '&font=' + meta.index;
+    var face = new FontFace(embeddedFontFamily(meta), 'url("' + url + '")');
+    face.load().then(function (loaded) {
+        document.fonts.add(loaded);
+        embeddedFontFaces.push(loaded);
+        applySubtitleSettings();
+        syncSettingsPreview();
+        if (assRenderer) { assRenderer.clear(); }   // redraw with the real face
+    }).catch(function () {
+        embeddedFontsLoaded[family] = false;
+    });
+}
+
 function updateSubtitleSubmenu() {
     $('#ctx-subtitle-sub .ctx-sub-dynamic').remove();
     var disabled = (activeSubtitleIndex < 0);
@@ -1452,17 +1767,46 @@ function updateSubtitleSubmenu() {
         .toggleClass('ctx-active', disabled)
         .find('.ctx-icon').text(disabled ? '✓' : '');
 
-    if (loadedSubtitleFiles.length > 0) {
-        var $load = $('#ctx-sub-load');
+    var $load = $('#ctx-sub-load');
+
+    // Tracks muxed into the video, listed whether or not they are loaded yet
+    if (embeddedSubtitles.length > 0) {
         $('<div class="ctx-divider ctx-sub-dynamic"></div>').insertBefore($load);
-        loadedSubtitleFiles.forEach(function (sf, idx) {
-            var isActive = (idx === activeSubtitleIndex);
-            $('<div class="ctx-item ctx-sub-dynamic' + (isActive ? ' ctx-active' : '') + '" data-sub-idx="' + idx + '">'
+        embeddedSubtitles.forEach(function (track, position) {
+            var cacheKey = 'embedded#' + track.index + '@' + embeddedMediaPath;
+            var isActive = activeSubtitleIndex >= 0 &&
+                           loadedSubtitleFiles[activeSubtitleIndex] &&
+                           loadedSubtitleFiles[activeSubtitleIndex].path === cacheKey;
+            $('<div class="ctx-item ctx-sub-dynamic'
+                + (isActive ? ' ctx-active' : '')
+                + (track.textual ? '' : ' ctx-disabled') + '">'
                 + '<i class="ctx-icon">' + (isActive ? '✓' : '') + '</i>'
-                + escapeHtml(sf.name)
+                + escapeHtml(embeddedTrackLabel(track, position))
+                + '</div>')
+            .on('click', function () {
+                selectEmbeddedSubtitle(track, position);
+                $('#player-ctx').hide();
+            })
+            .insertBefore($load);
+        });
+    }
+
+    // Sidecar files the user loaded by hand
+    var external = [];
+    loadedSubtitleFiles.forEach(function (sf, idx) {
+        if (String(sf.path).indexOf('embedded#') !== 0) { external.push({ sf: sf, idx: idx }); }
+    });
+    if (external.length > 0) {
+        $('<div class="ctx-divider ctx-sub-dynamic"></div>').insertBefore($load);
+        external.forEach(function (entry) {
+            var isActive = (entry.idx === activeSubtitleIndex);
+            $('<div class="ctx-item ctx-sub-dynamic' + (isActive ? ' ctx-active' : '') + '" data-sub-idx="' + entry.idx + '">'
+                + '<i class="ctx-icon">' + (isActive ? '✓' : '') + '</i>'
+                + escapeHtml(entry.sf.name)
                 + '</div>')
             .on('click', function () {
                 activeSubtitleIndex = parseInt($(this).data('sub-idx'), 10);
+                applyActiveSubtitle();
                 updateSubtitleSubmenu();
                 $('#player-ctx').hide();
             })
@@ -1499,6 +1843,7 @@ function initSubtitleMenu() {
 
     $('#ctx-sub-disable').on('click', function () {
         activeSubtitleIndex = -1;
+        stopAssTrack();
         $('#subtitle-display').hide();
         updateSubtitleSubmenu();
         $ctx.hide();
@@ -1600,7 +1945,11 @@ function initMain(){
     initContextMenu();
     initSettingsPopup();
     initScrubPreview();
-    if (currentFile) { scheduleStoryboardLoad(currentFile.filepath); }
+    initAssRenderer();
+    if (currentFile) {
+        scheduleStoryboardLoad(currentFile.filepath);
+        loadEmbeddedTrackList(currentFile.filepath);
+    }
     initSubtitleMenu();
     initSubtitleSettings();
     initKeyboard();

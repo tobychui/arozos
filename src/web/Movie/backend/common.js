@@ -12,6 +12,7 @@ var BACKEND_PATH  = APP_NAME + "/backend/";
 var MEDIA_API     = "../media";               // ?file=<vpath>  streams a file
 var TRANSCODE_API  = "../media/transcode";            // ?file
 var STORYBOARD_API = "../media/storyboard/";          // ?file[&image=1]  scrub previews
+var SUBTITLE_API   = "../media/subtitles/";           // ?file[&track=n|&font=n]  embedded tracks
 var AGI_INTERFACE = "../system/ajgi/interface?script=";
 
 // ── Script paths (used when calling ao_module_agirun from the frontend) ──────
