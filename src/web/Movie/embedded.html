@@ -114,7 +114,11 @@
             left: 0; top: 0; width: 0; height: 0;
             pointer-events: none;
             overflow: hidden;
-            z-index: 14;
+            /* No z-index on purpose: subtitles sit directly after <video> in the DOM,
+               so they paint above the (unpositioned) video but below every later
+               positioned sibling — scrub preview, controls, menus and modals all stay
+               on top of the text instead of being covered by it. */
+
             /* libass spaces lines by the font's own ascent+descent with no extra
                leading; 1.2 would push stacked dual-language lines apart and break
                the MarginV offsets releases use to sit them one above the other. */
@@ -199,7 +203,7 @@
             position: absolute;
             bottom: 72px; left: 50%; transform: translateX(-50%);
             width: 90%; text-align: center;
-            pointer-events: none; z-index: 15;
+            pointer-events: none;   /* z-index deliberately unset, see #ass-overlay */
             color: #fff; font-size: 22px; font-weight: 500; line-height: 1.45;
             text-shadow:
                 -1px -1px 0 #000,  1px -1px 0 #000,

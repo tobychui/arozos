@@ -452,33 +452,99 @@ Renderer.prototype.setTime = function (time) {
 
     var active = this.activeEvents(time);
 
-    // Redrawing every frame would thrash the DOM; only rebuild when the set of
-    // visible events changes. Fades still need per-frame opacity, so events
-    // carrying one are excluded from the reuse check.
-    var hasFade = false;
+    // Rebuilding the DOM every frame would thrash layout — and most events in a
+    // typical release carry a fade, so keying off "has a fade" would rebuild
+    // almost constantly. Instead the DOM is rebuilt only when the visible set
+    // changes, and fades are applied by touching opacity on the existing nodes.
     var key = active.map(function (e) {
         return e.start + '/' + e.end + '/' + e.style + '/' + e.text.length;
     }).join('|');
-    for (var i = 0; i < active.length; i++) {
-        if (active[i].text.indexOf('\\fad') !== -1) { hasFade = true; break; }
-    }
-    if (!hasFade && key === this._lastKey) { return; }
-    this._lastKey = hasFade ? null : key;
 
-    var html = '';
-    for (var j = 0; j < active.length; j++) {
-        html += this.renderEvent(active[j], time, j);
+    if (key !== this._lastKey) {
+        this._lastKey = key;
+        var html = '';
+        var meta = [];
+        for (var j = 0; j < active.length; j++) {
+            var piece = this.renderEvent(active[j], meta.length);
+            if (!piece) { continue; }
+            html += piece.html;
+            meta.push({ ev: active[j], fade: piece.fade });
+        }
+        this.overlay.innerHTML = html;
+        this._meta = meta;
+        this._children = Array.prototype.slice.call(this.overlay.children);
+        this.resolveCollisions();
     }
-    this.overlay.innerHTML = html;
+
+    this.applyFades(time);
 };
 
-Renderer.prototype.renderEvent = function (ev, time, order) {
+// Nudge margin-positioned lines apart when they would overlap.
+//
+// Releases stack dual-language subtitles by giving each style a different
+// MarginV, which assumes every line is exactly as tall as the author expected.
+// One line wrapping — or a font whose metrics differ slightly from the one the
+// script was typeset against — makes a block taller and it collides with its
+// neighbour. libass resolves this the same way, by pushing the later event
+// further from the anchored edge.
+Renderer.prototype.resolveCollisions = function () {
+    if (!this._children || this._children.length < 2) { return; }
+
+    var placed = { top: [], bottom: [] };
+    var limit = this.height || 0;
+
+    for (var i = 0; i < this._children.length; i++) {
+        var el = this._children[i];
+        var anchor = el.getAttribute('data-anchor');
+        if (anchor !== 'top' && anchor !== 'bottom') { continue; }   // \pos and middle are left alone
+
+        var offset = parseFloat(el.getAttribute('data-offset')) || 0;
+        var height = el.offsetHeight;
+        var bands = placed[anchor];
+
+        // Repeatedly push past whatever it overlaps until the slot is clear
+        var moved = true;
+        var guard = 0;
+        while (moved && guard++ < 32) {
+            moved = false;
+            for (var b = 0; b < bands.length; b++) {
+                if (offset < bands[b].end && bands[b].start < offset + height) {
+                    offset = bands[b].end;
+                    moved = true;
+                }
+            }
+        }
+        // Never push a line off the picture; overlapping is better than invisible
+        if (limit > 0 && offset + height > limit) {
+            offset = Math.max(0, limit - height);
+        }
+
+        bands.push({ start: offset, end: offset + height });
+        el.style[anchor] = offset.toFixed(1) + 'px';
+    }
+};
+
+Renderer.prototype.applyFades = function (time) {
+    if (!this._meta || !this._children) { return; }
+    for (var i = 0; i < this._meta.length; i++) {
+        var el = this._children[i];
+        if (!el) { continue; }
+        var value = this._meta[i].fade
+            ? this.fadeOpacity(this._meta[i].fade, this._meta[i].ev, time)
+            : 1;
+        var next = value >= 1 ? '' : value.toFixed(3);
+        if (el.style.opacity !== next) { el.style.opacity = next; }
+    }
+};
+
+// Returns {html, fade} or null when the event produces nothing to draw.
+Renderer.prototype.renderEvent = function (ev, order) {
     var track = this.track;
     var style = track.styles[ev.style] || track.styles.Default;
     var built = buildRuns(ev.text, style, track.styles);
 
     // Vector drawings would render as a stream of coordinates; skip them.
-    if (built.block.drawing) { return ''; }
+    if (built.block.drawing) { return null; }
 
     var body = '';
     for (var i = 0; i < built.runs.length; i++) {
@@ -487,13 +553,15 @@ Renderer.prototype.renderEvent = function (ev, time, order) {
         if (!run.text) { continue; }
         body += '<span style="' + this.runCss(run.state) + '">' + escapeHtml(run.text) + '</span>';
     }
-    if (!body) { return ''; }
+    if (!body) { return null; }
 
     var align = built.block.align !== null ? built.block.align : style.alignment;
-    var opacity = this.fadeOpacity(built.block.fade, ev, time);
-    var box = this.boxCss(ev, style, align, built.block, opacity, order);
+    var box = this.boxCss(ev, style, align, built.block, order);
 
-    return '<div style="' + box + '">' + body + '</div>';
+    return {
+        html: '<div ' + box.attrs + ' style="' + box.css + '">' + body + '</div>',
+        fade: built.block.fade
+    };
 };
 
 Renderer.prototype.fadeOpacity = function (fade, ev, time) {
@@ -511,11 +579,14 @@ Renderer.prototype.fadeOpacity = function (fade, ev, time) {
 
 // Position the text block. Alignment uses the numpad layout, so 1-3 is the
 // bottom row, 4-6 the middle and 7-9 the top.
-Renderer.prototype.boxCss = function (ev, style, align, block, opacity, order) {
+//
+// Returns the inline CSS plus the data attributes the collision pass needs.
+Renderer.prototype.boxCss = function (ev, style, align, block, order) {
     var s = this.scale;
     var horizontal = ((align - 1) % 3);   // 0 left, 1 centre, 2 right
     var vertical = Math.floor((align - 1) / 3);   // 0 bottom, 1 middle, 2 top
 
+    // A zero event margin means "inherit the style's", per the format
     var marginL = (ev.marginL || style.marginL) * s;
     var marginR = (ev.marginR || style.marginR) * s;
     var marginV = (ev.marginV || style.marginV) * s;
@@ -523,7 +594,9 @@ Renderer.prototype.boxCss = function (ev, style, align, block, opacity, order) {
     var css = 'position:absolute;';
     css += 'text-align:' + ['left', 'center', 'right'][horizontal] + ';';
     css += 'z-index:' + (10 + order) + ';';
-    if (opacity < 1) { css += 'opacity:' + opacity.toFixed(3) + ';'; }
+    css += 'white-space:' + (this.wrapsAutomatically() ? 'pre-wrap' : 'pre') + ';';
+
+    var attrs = '';
 
     if (block.pos) {
         var x = block.pos.x * s;
@@ -533,15 +606,28 @@ Renderer.prototype.boxCss = function (ev, style, align, block, opacity, order) {
         css += 'left:' + x.toFixed(1) + 'px;top:' + y.toFixed(1) + 'px;';
         css += 'transform:translate(' + tx + ',' + ty + ')';
         css += block.rotate ? ' rotate(' + (-block.rotate) + 'deg);' : ';';
-        css += 'white-space:pre;';
     } else {
         css += 'left:' + marginL.toFixed(1) + 'px;right:' + marginR.toFixed(1) + 'px;';
-        if (vertical === 0)      { css += 'bottom:' + marginV.toFixed(1) + 'px;'; }
-        else if (vertical === 2) { css += 'top:' + marginV.toFixed(1) + 'px;'; }
-        else                     { css += 'top:50%;transform:translateY(-50%);'; }
+        if (vertical === 0) {
+            css += 'bottom:' + marginV.toFixed(1) + 'px;';
+            attrs = 'data-anchor="bottom" data-offset="' + marginV.toFixed(1) + '"';
+        } else if (vertical === 2) {
+            css += 'top:' + marginV.toFixed(1) + 'px;';
+            attrs = 'data-anchor="top" data-offset="' + marginV.toFixed(1) + '"';
+        } else {
+            css += 'top:50%;transform:translateY(-50%);';
+        }
         if (block.rotate) { css += 'rotate:' + (-block.rotate) + 'deg;'; }
     }
-    return css;
+    return { css: css, attrs: attrs };
+};
+
+// WrapStyle 2 means the script is typeset to exact line lengths and must never
+// be auto-wrapped — only \N breaks. Letting the browser wrap those lines makes
+// a block taller than the author allowed for, which is what pushes stacked
+// dual-language subtitles into each other.
+Renderer.prototype.wrapsAutomatically = function () {
+    return !this.track || this.track.wrapStyle !== 2;
 };
 
 Renderer.prototype.runCss = function (st) {
