@@ -413,6 +413,7 @@ function Renderer(overlay) {
     this.height = 0;
     this.scale = 1;
     this._lastKey = null;
+    this._suppressBefore = 0;
 }
 
 Renderer.prototype.setTrack = function (track) {
@@ -437,12 +438,28 @@ Renderer.prototype.clear = function () {
     this._lastKey = null;
 };
 
+/**
+ * Ignore any line that had already begun before `time`.
+ *
+ * Seeking into the middle of a line would otherwise drop the viewer into a
+ * half-shown caption. Everything already in flight at the landing point is
+ * skipped; the next line to *begin* after it plays normally.
+ */
+Renderer.prototype.setSuppressBefore = function (time) {
+    this._suppressBefore = Math.max(0, time || 0);
+    this._lastKey = null;   // rebuild now so a suppressed line disappears at once
+};
+
 Renderer.prototype.activeEvents = function (time) {
     var out = [];
     if (!this.track) { return out; }
+    var floor = this._suppressBefore || 0;
     var events = this.track.events;
     for (var i = 0; i < events.length; i++) {
-        if (time >= events[i].start && time <= events[i].end) { out.push(events[i]); }
+        var ev = events[i];
+        if (time < ev.start || time > ev.end) { continue; }
+        if (ev.start < floor) { continue; }   // was already on screen when we landed
+        out.push(ev);
     }
     return out;
 };

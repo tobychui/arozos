@@ -913,6 +913,7 @@ function transcodeSeekTo(seconds) {
     if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
 
     showSeekFreeze();
+    setSubtitleSeekFloor(pos);
     transcodeSeekOffset = pos;
     vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
             + '&start=' + pos.toFixed(3);
@@ -1024,6 +1025,9 @@ function initVideoControls() {
     // Drop the transcode-seek freeze frame the moment the new segment is live.
     // 'playing' is the accurate signal; 'loadeddata' covers a seek made while
     // paused (where 'playing' never fires), and 'error' avoids a stuck overlay.
+    // Any seek — native or transcode reload — re-bases the subtitle floor
+    $(vid).on('seeking', function () { setSubtitleSeekFloor(effectivePlaybackTime()); });
+
     $(vid).on('playing', hideSeekFreeze);
     $(vid).on('loadeddata', function () { if (vid.paused) { hideSeekFreeze(); } });
     $(vid).on('error', hideSeekFreeze);
@@ -1477,6 +1481,7 @@ function updateSubtitleDisplay() {
     var cues  = loadedSubtitleFiles[activeSubtitleIndex].cues;
     var found = null;
     for (var i = 0; i < cues.length; i++) {
+        if (cues[i].start < subtitleSeekFloor) { continue; }   // in flight when we landed
         if (currentTime >= cues[i].start && currentTime <= cues[i].end) { found = cues[i]; break; }
     }
     if (found) {
@@ -1624,6 +1629,20 @@ function applyActiveSubtitle() {
     }
 }
 
+// ── Subtitle seek floor ──────────────────────────────────────────────────────
+// After a seek, any line that had already begun before the landing point is
+// skipped entirely; only lines that start at or after it are shown. Seeking to
+// 1:02 with lines at 1:00-1:03 and 1:05-1:10 therefore shows nothing until 1:05.
+var subtitleSeekFloor = 0;
+
+function setSubtitleSeekFloor(time) {
+    subtitleSeekFloor = Math.max(0, time || 0);
+    if (assRenderer) { assRenderer.setSuppressBefore(subtitleSeekFloor); }
+    updateSubtitleDisplay();
+}
+
+function resetSubtitleSeekFloor() { setSubtitleSeekFloor(0); }
+
 // ── Styled ASS rendering ─────────────────────────────────────────────────────
 // ASS tracks are fetched in their native form and drawn by script/ass.js, which
 // preserves per-line styling and position. That is what makes dual-language
@@ -1647,14 +1666,17 @@ function syncAssOverlayGeometry() {
     var cw = vid.clientWidth, ch = vid.clientHeight;
     var vw = vid.videoWidth, vh = vid.videoHeight;
 
-    var left = 0, top = 0, width = cw, height = ch;
-    if (vw > 0 && vh > 0 && cw > 0 && ch > 0) {
-        var scale = Math.min(cw / vw, ch / vh);
-        width  = vw * scale;
-        height = vh * scale;
-        left   = (cw - width) / 2;
-        top    = (ch - height) / 2;
-    }
+    // Until the decoder reports the picture size there is no way to know where
+    // the letterbox bars are. Falling back to the raw element box would scale
+    // the script against the black bars too and push bottom-anchored lines down
+    // over the controls, so keep the last known good geometry instead.
+    if (!(vw > 0 && vh > 0 && cw > 0 && ch > 0)) { return; }
+
+    var scale  = Math.min(cw / vw, ch / vh);
+    var width  = vw * scale;
+    var height = vh * scale;
+    var left   = (cw - width) / 2;
+    var top    = (ch - height) / 2;
     if (overlay._w !== width || overlay._h !== height || overlay._l !== left || overlay._t !== top) {
         overlay._w = width; overlay._h = height; overlay._l = left; overlay._t = top;
         overlay.style.left   = left + 'px';
@@ -1950,6 +1972,7 @@ function initMain(){
     initSettingsPopup();
     initScrubPreview();
     initAssRenderer();
+    resetSubtitleSeekFloor();   // a freshly opened file starts unsuppressed
     if (currentFile) {
         scheduleStoryboardLoad(currentFile.filepath);
         loadEmbeddedTrackList(currentFile.filepath);
