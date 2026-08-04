@@ -856,8 +856,15 @@ requirelib("sqlite");
 > `windows/arm`, or `windows/386` builds (excluded at compile time).
 
 `sqlite.open()` returns a connection object. All SQL operations go through that
-object. Connections are automatically closed when the script exits; you may also
-call `db.close()` explicitly to release the handle early.
+object. Connections are automatically closed when the script exits — including
+when it throws or calls `exit()` — so a handle can never be leaked; you may also
+call `db.close()` explicitly to release it early.
+
+**Concurrency.** Databases are opened in WAL mode with a 5 second busy timeout, so
+readers never block the writer and simultaneous requests queue for the write lock
+instead of failing. If you are writing many rows in a loop, wrap them in
+[`db.transaction()`](#dbtransactionfn--any) — a batch of N separate `db.exec()`
+calls costs N lock cycles and N fsyncs, while one transaction costs one of each.
 
 ### `sqlite.open(vpath)` → db
 Opens (or creates) a SQLite database file at the given virtual path.
@@ -910,6 +917,27 @@ var cols = db.schema("notes");
 sendJSONResp(cols);
 ```
 
+### `db.transaction(fn)` → any
+Runs `fn` inside a single write transaction, committing when it returns and
+rolling back if it throws. `fn` receives the connection object, and whatever it
+returns becomes the return value of `db.transaction()`.
+
+Use this whenever you write more than a couple of rows at once: it collapses N
+lock/fsync cycles into one, and keeps the database available to other requests
+for far longer.
+
+```javascript
+db.transaction(function(tx) {
+    for (var i = 0; i < items.length; i++) {
+        tx.exec("INSERT INTO notes (body) VALUES (?)", [items[i]]);
+    }
+});
+```
+
+The transaction opens with `BEGIN IMMEDIATE`, so the busy timeout applies to
+acquiring the write lock rather than deadlocking partway through. Transactions
+cannot be nested — calling `transaction()` inside `fn` throws.
+
 ### `db.close()` → bool
 Closes the database connection and releases the handle.
 
@@ -928,6 +956,14 @@ db.exec("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT, d
 // Insert
 var res = db.exec("INSERT INTO tasks (title) VALUES (?)", ["Buy milk"]);
 console.log("new id:", res.lastInsertId);
+
+// Bulk insert — one transaction instead of one per row
+db.transaction(function(tx) {
+    var titles = ["Walk dog", "Pay rent", "Call mum"];
+    for (var i = 0; i < titles.length; i++) {
+        tx.exec("INSERT INTO tasks (title) VALUES (?)", [titles[i]]);
+    }
+});
 
 // Query
 var pending = db.query("SELECT * FROM tasks WHERE done = 0");

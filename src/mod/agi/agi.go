@@ -311,7 +311,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	vm.Interrupt = make(chan func(), 1) // required for force-stop support
 	//Inject standard libs into the vm; capture execID for registry correlation
 	execID := g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
+	releaseLibResources := g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
 
 	username := ""
 	if thisuser != nil {
@@ -328,6 +328,8 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	})
 	defer func() {
 		g.vmReg.unregister(execID)
+		//Release library resources (open SQLite handles, etc.) on every exit path
+		releaseLibResources()
 		if caught := recover(); caught != nil {
 			switch caught {
 			case errForceStop:
@@ -437,7 +439,7 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	vm := otto.New()
 	//Inject standard libs into the vm; capture the execution ID for log correlation.
 	execID := g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
+	releaseLibResources := g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
 
 	if r != nil {
 		//Inject serverless script to enable access to GET / POST paramters
@@ -458,6 +460,8 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	//Create a panic recovery logic
 	defer func() {
 		g.vmReg.unregister(execID)
+		//Release library resources (open SQLite handles, etc.) on every exit path
+		releaseLibResources()
 		if caught := recover(); caught != nil {
 			if caught == errTimeout {
 				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] Execution timeout: %s (user: %s)", scriptFile, targetUser.Username), nil)

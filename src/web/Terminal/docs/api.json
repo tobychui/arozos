@@ -641,7 +641,7 @@
     {
      "name": "sqlite.open",
      "sig": "sqlite.open(vpath)",
-     "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, and close methods. Throws SQLiteError on failure.",
+     "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, transaction, and close methods. Throws SQLiteError on failure. Databases open in WAL mode with a 5s busy timeout, so concurrent requests queue for the write lock instead of failing. Any handle still open when the script ends (including on error or exit) is closed automatically.",
      "ret": "object (db)",
      "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
     },
@@ -681,9 +681,16 @@
      "example": "var cols = db.schema(\"t\");\nsendJSONResp(cols);"
     },
     {
+     "name": "db.transaction",
+     "sig": "db.transaction(fn)",
+     "desc": "Run fn inside a single write transaction, committing when it returns and rolling back if it throws. fn receives the connection object and its return value is passed through. Use this for bulk writes: it collapses N lock cycles and N fsyncs into one. Opens with BEGIN IMMEDIATE so the busy timeout applies to acquiring the lock. Cannot be nested.",
+     "ret": "any",
+     "example": "db.transaction(function(tx) {\n    for (var i = 0; i < items.length; i++) {\n        tx.exec(\"INSERT INTO t (name) VALUES (?)\", [items[i]]);\n    }\n});"
+    },
+    {
      "name": "db.close",
      "sig": "db.close()",
-     "desc": "Close the database connection and release the handle.",
+     "desc": "Close the database connection and release the handle. Optional - handles are also closed automatically when the script ends.",
      "ret": "bool",
      "example": "db.close();"
     }
