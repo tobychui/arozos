@@ -29,15 +29,12 @@
         background:var(--bg); color:var(--text); overflow:hidden;
         -webkit-font-smoothing:antialiased;
     }
-    /* grid-template-rows: clamp the single row to the viewport (minmax(0,1fr))
-       so the columns' inner scroll areas shrink instead of the whole app
-       growing past 100dvh and showing a page scrollbar. */
-    .app{display:grid; grid-template-columns:268px 1fr; grid-template-rows:minmax(0,1fr); height:100vh; height:100dvh;}
+    .app{display:grid; grid-template-columns:268px 1fr; height:100vh; height:100dvh;}
 
     /* ── Sidebar ───────────────────────────── */
     .sidebar{
         background:var(--panel); border-right:1px solid var(--border);
-        display:flex; flex-direction:column; min-width:0; min-height:0;
+        display:flex; flex-direction:column; min-width:0;
     }
     .sb-head{display:flex; align-items:center; gap:10px; padding:16px 16px 12px;}
     .sb-head img{width:30px;height:30px;border-radius:8px;}
@@ -51,7 +48,7 @@
     }
     .new-chat:hover{background:var(--panel-3); border-color:var(--accent);}
     .new-chat svg{width:16px;height:16px;}
-    .chat-list{flex:1; min-height:0; overflow-y:auto; padding:4px 8px 8px;}
+    .chat-list{flex:1; overflow-y:auto; padding:4px 8px 8px;}
     .chat-item{
         position:relative; padding:9px 30px 9px 11px; border-radius:9px; cursor:pointer;
         color:var(--text-dim); font-size:13px; margin-bottom:2px; white-space:nowrap;
@@ -118,25 +115,7 @@
     .msg-main{flex:1; min-width:0;}
     .msg-role{font-size:12px;font-weight:700;color:var(--text-dim);margin:3px 0 6px;}
     .bubble{font-size:14.5px; line-height:1.62; color:var(--text); word-wrap:break-word; overflow-wrap:anywhere;}
-    .bubble p{margin:0 0 10px;}
-    /* Headings and rules are shared with the thinking panel, which renders the
-       same markdown. Explicit sizes keep h5/h6 from collapsing to tiny text. */
-    .bubble h2,.bubble h3,.bubble h4,.bubble h5,.bubble h6,
-    .thinking-body h2,.thinking-body h3,.thinking-body h4,.thinking-body h5,.thinking-body h6{
-        margin:14px 0 8px;line-height:1.3;font-weight:700;}
-    .bubble h2,.thinking-body h2{font-size:1.34em;}
-    .bubble h3,.thinking-body h3{font-size:1.2em;}
-    .bubble h4,.thinking-body h4{font-size:1.08em;}
-    .bubble h5,.thinking-body h5{font-size:1em;}
-    .bubble h6,.thinking-body h6{font-size:.94em;color:var(--text-dim);}
-    .bubble hr,.thinking-body hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
-    /* Tables scroll inside their own wrapper so a wide one never widens the chat. */
-    .bubble .tablewrap,.thinking-body .tablewrap{overflow-x:auto;margin:12px 0;}
-    .bubble table,.thinking-body table{border-collapse:collapse;font-size:.94em;min-width:100%;}
-    .bubble th,.bubble td,.thinking-body th,.thinking-body td{
-        border:1px solid var(--border);padding:7px 11px;text-align:left;vertical-align:top;}
-    .bubble th,.thinking-body th{background:var(--panel-2);font-weight:700;white-space:nowrap;}
-    .bubble tbody tr:nth-child(even) td,.thinking-body tbody tr:nth-child(even) td{background:rgba(127,127,140,.07);}
+    .bubble p{margin:0 0 10px;} .bubble h2,.bubble h3,.bubble h4{margin:14px 0 8px;line-height:1.3;}
     .bubble ul{margin:6px 0 10px; padding-left:22px;} .bubble li{margin:3px 0;}
     .bubble a{color:var(--accent);}
     .bubble code.inline{background:var(--panel-3);padding:1.5px 6px;border-radius:5px;font-size:.88em;
@@ -206,54 +185,6 @@
     .msg-files .mf{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);
         border-radius:8px;padding:4px 9px;font-size:11.5px;color:var(--text-dim);}
     .msg-files .mf svg{width:13px;height:13px;color:var(--accent);}
-
-    /* Thinking / reasoning disclosure (collapsed by default) */
-    .thinking{margin:0 0 10px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2);overflow:hidden;}
-    .thinking-toggle{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;cursor:pointer;
-        color:var(--text-dim);font-size:12.5px;font-weight:600;font-family:inherit;padding:9px 12px;text-align:left;transition:.12s;}
-    .thinking-toggle:hover{color:var(--text);background:var(--panel-3);}
-    .thinking-toggle .tk-spark{width:15px;height:15px;flex:none;color:var(--accent);}
-    .thinking-toggle .chev{width:14px;height:14px;flex:none;margin-left:auto;transition:transform .18s;}
-    .thinking.open .thinking-toggle .chev{transform:rotate(90deg);}
-    .thinking-body{display:none;padding:4px 13px 12px;font-size:13px;line-height:1.62;color:var(--text-dim);
-        border-top:1px solid var(--border);}
-    .thinking.open .thinking-body{display:block;}
-    .thinking-body p{margin:8px 0;} .thinking-body code.inline{background:var(--panel-3);}
-    .thinking-body pre{white-space:pre-wrap;}
-
-    /* Attach menu — pick from ArozOS files or upload from this computer */
-    .attach-wrap{position:relative;flex:none;display:flex;}
-    .attach-menu{position:absolute;bottom:46px;left:0;z-index:15;min-width:224px;background:var(--panel);
-        border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px;display:none;}
-    .attach-menu.open{display:block;}
-    .attach-menu button{display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:none;cursor:pointer;
-        color:var(--text);font-size:13px;font-weight:600;font-family:inherit;padding:9px 10px;border-radius:8px;text-align:left;transition:.12s;}
-    .attach-menu button:hover{background:var(--panel-2);}
-    .attach-menu button svg{width:18px;height:18px;flex:none;color:var(--accent);}
-    .attach-menu button small{display:block;color:var(--text-faint);font-size:11px;font-weight:400;margin-top:1px;}
-
-    /* Live streaming affordances */
-    .thinking.live .thinking-toggle .tk-label{color:var(--accent);}
-    .thinking.live .tk-spark{animation:tk-pulse 1.4s ease-in-out infinite;}
-    @keyframes tk-pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
-    .bubble .caret{display:inline-block;width:7px;height:14px;margin-left:2px;background:var(--accent);
-        vertical-align:-2px;animation:caret-blink .9s step-end infinite;}
-    @keyframes caret-blink{0%,100%{opacity:1;}50%{opacity:0;}}
-
-    /* Attachment chip upload state */
-    .attach-chip.uploading{opacity:.85;}
-    .attach-chip.failed{border-color:var(--danger);color:var(--danger);}
-    .attach-chip .spin{width:13px;height:13px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);
-        border-radius:50%;animation:aichat-spin .7s linear infinite;}
-    @keyframes aichat-spin{to{transform:rotate(360deg);}}
-
-    /* Self-contained toast (does not depend on the desktop shell) */
-    .toast-wrap{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;
-        gap:8px;align-items:center;pointer-events:none;}
-    .toast{background:var(--panel-3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 15px;
-        font-size:13px;box-shadow:var(--shadow);max-width:80vw;opacity:0;transform:translateY(8px);transition:.2s;}
-    .toast.show{opacity:1;transform:translateY(0);}
-    .toast.err{border-color:var(--danger);color:var(--danger);}
 
     /* Settings drawer */
     .scrim{position:absolute;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.2s;z-index:20;}
@@ -372,22 +303,9 @@
             <div class="attachments" id="attachments" style="display:none;"></div>
             <div class="composer">
                 <div class="composer-box">
-                    <div class="attach-wrap">
-                        <button class="attach-btn" id="attachBtn" onclick="toggleAttachMenu(event)" title="Attach an image or text document">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                        </button>
-                        <div class="attach-menu" id="attachMenu">
-                            <button type="button" onclick="pickFiles()">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h5l2 3h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
-                                <span>ArozOS files<small>Pick from your cloud drive</small></span>
-                            </button>
-                            <button type="button" onclick="pickLocalFiles()">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
-                                <span>Upload from computer<small>Send a local image or document</small></span>
-                            </button>
-                        </div>
-                        <input type="file" id="localFileInput" multiple style="display:none" onchange="onLocalFilesChosen(this)">
-                    </div>
+                    <button class="attach-btn" id="attachBtn" onclick="pickFiles()" title="Attach file (image or text document)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
                     <textarea id="composer" rows="1" placeholder="Send a message…"></textarea>
                     <button class="stop-btn" id="stopBtn" onclick="stopGenerating()">
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> Stop
@@ -397,7 +315,7 @@
                     </button>
                 </div>
             </div>
-            <div class="hint">Enter to send · Shift+Enter for a new line · Attach images, PDFs or text documents from your ArozOS drive or your computer · Configure the endpoint in System Settings → AI Integration → AI Model</div>
+            <div class="hint">Enter to send · Shift+Enter for a new line · Attach images for vision models or text documents · Configure the endpoint in System Settings → AI Integration → AI Model</div>
         </div>
 
         <!-- Settings drawer -->
@@ -436,9 +354,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Transient notifications (self-contained, no desktop dependency) -->
-        <div class="toast-wrap" id="toastWrap"></div>
     </section>
 
     <!-- Backdrop for the mobile off-canvas sidebar -->
@@ -455,18 +370,7 @@ var state = { conversations: [], currentId: null,
 
 var generating = false, revealTimer = null, cancelReveal = false;
 var availableModels = [];          // models known from the backend
-// Files staged for the next message. Each entry is
-// {filename, filepath, paths[], uploading?, failed?, note?} — `paths` holds the
-// virtual path(s) actually sent to the model (a PDF expands to one path per
-// rendered page); uploading/failed flag transient conversion/upload state.
-var pendingFiles = [];
-var LOCAL_UPLOAD_DIR = "tmp:/AIChat/uploads";   // scratch dir for uploads + rendered PDF pages (tmp:/ is auto-cleared)
-var PDF_MAX_PAGES = 10;        // cap pages per PDF — vision tokens add up fast
-var PDF_RENDER_SCALE = 2.0;    // render scale; 2x keeps small print legible
-var PDF_JPEG_QUALITY = 0.85;
-
-var activeSocket = null;       // live streaming WebSocket, if any
-var streamState = null;        // handles for the in-flight streaming reply
+var pendingFiles = [];             // [{filepath, filename}] attached to the next message
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function persist(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
@@ -534,7 +438,7 @@ function renderModelOptions(){
     if(list.length === 0){
         html = '<option value="" disabled'+(cur?'':' selected')+'>No models — pick Custom…</option>';
     }
-    html += '<option value="__custom__">+ Custom model…</option>';
+    html += '<option value="__custom__">✏️ Custom model…</option>';
     sel.innerHTML = html;
     sel.value = cur || (list[0] || "__custom__");
 }
@@ -619,25 +523,13 @@ function buildMessage(m, index){
     if(isUser && m.files && m.files.length){
         var fb = $('<div class="msg-files"></div>').appendTo(main);
         m.files.forEach(function(f){
-            // A PDF was sent as several rendered page images — say so.
-            var n = (f.paths && f.paths.length) ? f.paths.length : 1;
-            var label = f.filename + (n > 1 ? (" · " + n + " pages") : "");
-            $('<span class="mf"></span>').html(fileIconSvg()).append($('<span></span>').text(label)).attr("title", f.filepath).appendTo(fb);
+            $('<span class="mf"></span>').html(fileIconSvg()).append($('<span></span>').text(f.filename)).attr("title", f.filepath).appendTo(fb);
         });
     }
-    // For assistant messages, separate the model's "thinking" from the answer.
-    // The thinking goes in a collapsed disclosure above the reply.
-    var answer = isUser ? m.content : "";
-    if(!isUser && !m.error){
-        var parts = computeThinking(m);
-        answer = parts.answer;
-        if(parts.thinkingText.trim() !== ""){ main.append(buildThinking(parts.thinkingText)); }
-    }
-
     var bubble = $('<div class="bubble"></div>').appendTo(main);
     if(m.error){ bubble.html('<div class="err">'+esc(m.content)+'</div>'); }
     else if(isUser){ bubble.text(m.content); }
-    else { bubble.html(renderMarkdown(answer)); }
+    else { bubble.html(renderMarkdown(m.content)); }
 
     if(!isUser && !m.error){
         var foot = $('<div class="msg-footer" style="display:flex;"></div>').appendTo(main);
@@ -647,7 +539,7 @@ function buildMessage(m, index){
             if(m.usage.tokens_per_second > 0){ u += "  · " + m.usage.tokens_per_second.toFixed(1) + " tok/s"; }
             $('<span class="usage"></span>').text(u).appendTo(foot);
         }
-        $('<button class="mini-btn">⧉ Copy</button>').on("click", function(){ copyText(answer, this); }).appendTo(foot);
+        $('<button class="mini-btn">⧉ Copy</button>').on("click", function(){ copyText(m.content, this); }).appendTo(foot);
         $('<button class="mini-btn">↻ Regenerate</button>').on("click", function(){ regenerateFrom(index); }).appendTo(foot);
     }
     row.data("index", index);
@@ -675,82 +567,14 @@ function emptyState(){
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Thinking / reasoning
-   Reasoning models expose their chain-of-thought either inline as
-   <think>…</think> tags (many local models) or via a separate field the
-   backend forwards as `reasoning` (DeepSeek reasoning_content, OpenRouter
-   reasoning, Anthropic thinking blocks). Both are pulled out of the reply and
-   shown in a disclosure that stays collapsed until the user opens it.
-   ───────────────────────────────────────────────────────────── */
-// splitThinking pulls inline <think>/<thinking> blocks out of the content,
-// returning { thinking, answer }.
-function splitThinking(content){
-    content = String(content == null ? "" : content);
-    var thinking = [];
-    var answer = content.replace(/<(think|thinking)>([\s\S]*?)<\/\1>/gi, function(_, tag, inner){
-        thinking.push(inner.trim());
-        return "";
-    });
-    // A dangling opening tag (reply cut off mid-thought): treat the rest as thinking.
-    var open = answer.match(/<(think|thinking)>([\s\S]*)$/i);
-    if(open){
-        thinking.push(open[2].trim());
-        answer = answer.slice(0, open.index);
-    }
-    return { thinking: thinking.join("\n\n").trim(), answer: answer.trim() };
-}
-
-// computeThinking combines the backend `reasoning` field with any inline
-// think-tag reasoning and returns { thinkingText, answer } for a message.
-function computeThinking(m){
-    var parts = splitThinking(m.content || "");
-    var pieces = [];
-    if(m.reasoning && String(m.reasoning).trim() !== ""){ pieces.push(String(m.reasoning).trim()); }
-    if(parts.thinking !== ""){ pieces.push(parts.thinking); }
-    return { thinkingText: pieces.join("\n\n"), answer: parts.answer };
-}
-
-// buildThinking renders the collapsible "thinking" disclosure (collapsed by
-// default; the header button toggles it open).
-function buildThinking(text){
-    var wrap = $('<div class="thinking"></div>');
-    var head = $('<button class="thinking-toggle" type="button"></button>');
-    head.html(
-        '<svg class="tk-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-            '<path d="M9 18h6"/><path d="M10 22h4"/>' +
-            '<path d="M12 2a7 7 0 0 0-4 12.7c.6.5.9 1.1 1 1.8l.1.5h5.8l.1-.5c.1-.7.4-1.3 1-1.8A7 7 0 0 0 12 2z"/>' +
-        '</svg>' +
-        '<span class="tk-label">Show thinking</span>' +
-        '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
-    );
-    var body = $('<div class="thinking-body"></div>').html(renderMarkdown(text));
-    head.on("click", function(){
-        var open = wrap.toggleClass("open").hasClass("open");
-        head.find(".tk-label").text(open ? "Hide thinking" : "Show thinking");
-    });
-    wrap.append(head).append(body);
-    return wrap;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   File attachments (via the ArozOS file selector or a local upload)
+   File attachments (via the ArozOS file selector)
    ───────────────────────────────────────────────────────────── */
 function fileIconSvg(){
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
 }
-// Toggle / close the attach menu (ArozOS files vs. upload from computer).
-function toggleAttachMenu(ev){ if(ev){ ev.stopPropagation(); } $("#attachMenu").toggleClass("open"); }
-function closeAttachMenu(){ $("#attachMenu").removeClass("open"); }
-// Dismiss the menu on any outside click.
-$(document).on("click", function(ev){
-    if($(ev.target).closest(".attach-wrap").length === 0){ closeAttachMenu(); }
-});
-
-// Attach files already living in the user's ArozOS file system.
 function pickFiles(){
-    closeAttachMenu();
     if(typeof ao_module_openFileSelector !== "function"){
-        notify('The ArozOS file picker is only available on the ArozOS desktop. Use "Upload from computer" instead.', true);
+        showToast("File selector is only available inside the ArozOS desktop.", "red");
         return;
     }
     // The callback is referenced by name in virtual-desktop mode, so it must be
@@ -763,163 +587,12 @@ function aichatFileSelected(files){
     files.forEach(function(f){
         var fp = f.filepath || f.path || "";
         var fn = f.filename || (fp ? fp.split("/").pop() : "file");
-        if(!fp || pendingFiles.some(function(p){ return p.srcPath === fp || p.filepath === fp; })) return;
-        if(isPdfName(fn)){
-            // Rasterise the PDF (read through /media) into attachable JPEG pages.
-            var entry = { filename: fn, filepath: "", srcPath: fp, paths: [], uploading: true, failed: false, note: "reading…" };
-            pendingFiles.push(entry); renderAttachments();
-            stagePdf("/media?file=" + encodeURIComponent(fp), fn, entry);
-        } else {
-            pendingFiles.push({ filepath: fp, filename: fn, srcPath: fp, paths: [fp] });
+        if(fp && !pendingFiles.some(function(p){ return p.filepath === fp; })){
+            pendingFiles.push({ filepath: fp, filename: fn });
         }
     });
     renderAttachments();
 }
-
-/* ── PDF support ───────────────────────────────────────────────────────────
-   Vision models take images, not PDFs, so a PDF is rasterised to JPEG pages in
-   the browser with the pdf.js already bundled with the PDF Viewer app, and the
-   pages are uploaded and attached in its place. No server-side or system
-   dependency (no poppler/ghostscript) is involved. */
-var pdfJsReady = false;
-function isPdfName(name){ return /\.pdf$/i.test(name || ""); }
-
-function loadPdfJs(onReady, onError){
-    if(pdfJsReady){ onReady(); return; }
-    if(typeof pdfjsLib !== "undefined"){
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "../PDF Viewer/js/pdf.worker.js";
-        pdfJsReady = true; onReady(); return;
-    }
-    var s = document.createElement("script");
-    s.src = "../PDF Viewer/js/pdf.js";
-    s.onload = function(){
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "../PDF Viewer/js/pdf.worker.js";
-        pdfJsReady = true; onReady();
-    };
-    s.onerror = function(){ onError(new Error("Could not load the PDF library")); };
-    document.head.appendChild(s);
-}
-
-// renderPdfToImages loads a PDF (from an ArrayBuffer or a /media URL), renders
-// up to PDF_MAX_PAGES pages to JPEG, uploads them and reports the vpaths.
-function renderPdfToImages(source, baseName, entry, onDone, onError){
-    loadPdfJs(function(){
-        var task;
-        try { task = pdfjsLib.getDocument(source); }
-        catch(e){ onError(e); return; }
-        task.promise.then(function(pdf){
-            var total = pdf.numPages;
-            var pages = Math.min(total, PDF_MAX_PAGES);
-            var paths = [];
-            var stamp = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-
-            function next(i){
-                if(i > pages){ onDone(paths, total, pages); return; }
-                entry.note = "page " + i + "/" + pages;
-                renderAttachments();
-                pdf.getPage(i).then(function(page){
-                    var vp = page.getViewport({ scale: PDF_RENDER_SCALE });
-                    var canvas = document.createElement("canvas");
-                    canvas.width = vp.width; canvas.height = vp.height;
-                    var ctx = canvas.getContext("2d");
-                    // JPEG has no alpha — paint white so text stays readable.
-                    ctx.fillStyle = "#FFF"; ctx.fillRect(0, 0, vp.width, vp.height);
-                    page.render({ canvasContext: ctx, viewport: vp }).promise.then(function(){
-                        canvas.toBlob(function(blob){
-                            if(!blob){ onError(new Error("Could not encode page " + i)); return; }
-                            var fname = stamp + "_" + baseName + "_p" + i + ".jpg";
-                            ao_module_uploadFile(new File([blob], fname, { type:"image/jpeg" }), LOCAL_UPLOAD_DIR, function(){
-                                paths.push(LOCAL_UPLOAD_DIR + "/" + fname);
-                                next(i + 1);
-                            }, undefined, function(status){
-                                onError(new Error("Upload failed for page " + i + (status ? " (HTTP " + status + ")" : "")));
-                            });
-                        }, "image/jpeg", PDF_JPEG_QUALITY);
-                    }, onError);
-                }, onError);
-            }
-            next(1);
-        }, onError);
-    }, onError);
-}
-
-// stagePdf converts a PDF into image pages and finishes the pending entry.
-// `source` is an ArrayBuffer (local file) or a /media URL (ArozOS file).
-function stagePdf(source, displayName, entry){
-    var base = displayName.replace(/\.pdf$/i, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 40) || "document";
-    renderPdfToImages(source, base, entry, function(paths, total, rendered){
-        entry.uploading = false;
-        entry.paths = paths;
-        entry.filepath = paths[0] || "";
-        entry.note = rendered + (rendered === 1 ? " page" : " pages");
-        renderAttachments();
-        if(total > rendered){
-            notify('"' + displayName + '" has ' + total + " pages — only the first " + rendered + " were attached.", false);
-        }
-    }, function(err){
-        entry.uploading = false; entry.failed = true; entry.note = "";
-        renderAttachments();
-        notify('Could not read "' + displayName + '": ' + ((err && err.message) ? err.message : err), true);
-    });
-}
-
-// Attach files from the user's own computer: open the OS file dialog, upload
-// each pick into a scratch folder in the user's ArozOS storage, then stage the
-// resulting virtual path just like an ArozOS-picked file.
-function pickLocalFiles(){
-    closeAttachMenu();
-    var input = document.getElementById("localFileInput");
-    input.value = "";          // allow re-picking the same file
-    input.click();
-}
-function onLocalFilesChosen(input){
-    var files = input.files;
-    if(!files || !files.length) return;
-    for(var i = 0; i < files.length; i++){ uploadLocalFile(files[i]); }
-    input.value = "";
-}
-function uploadLocalFile(file){
-    if(typeof ao_module_uploadFile !== "function"){
-        notify("File upload is not available in this context.", true);
-        return;
-    }
-    // Stage a chip in the uploading state right away for immediate feedback.
-    var entry = { filepath: "", filename: file.name, paths: [], uploading: true, failed: false, note: "" };
-    pendingFiles.push(entry);
-    renderAttachments();
-
-    // A PDF is converted to JPEG pages in the browser instead of being sent
-    // as-is (models only accept images / text documents).
-    if(isPdfName(file.name)){
-        entry.note = "reading…"; renderAttachments();
-        var reader = new FileReader();
-        reader.onload = function(){ stagePdf({ data: new Uint8Array(reader.result) }, file.name, entry); };
-        reader.onerror = function(){
-            entry.uploading = false; entry.failed = true; entry.note = "";
-            renderAttachments();
-            notify('Could not read "' + file.name + '".', true);
-        };
-        reader.readAsArrayBuffer(file);
-        return;
-    }
-
-    // Store under a unique name so same-named uploads don't clobber each other.
-    var safe = (file.name || "file").replace(/[\/\\]/g, "_");
-    var storeName = Date.now().toString(36) + Math.random().toString(36).slice(2,5) + "_" + safe;
-    var toUpload = new File([file], storeName, { type: file.type });
-
-    ao_module_uploadFile(toUpload, LOCAL_UPLOAD_DIR, function(){
-        entry.uploading = false;
-        entry.filepath = LOCAL_UPLOAD_DIR + "/" + storeName;
-        entry.paths = [entry.filepath];
-        renderAttachments();
-    }, undefined, function(status){
-        entry.uploading = false; entry.failed = true;
-        renderAttachments();
-        notify('Upload failed for "' + file.name + '"' + (status ? " (HTTP " + status + ")" : "") + ".", true);
-    });
-}
-
 function removeAttachment(i){ pendingFiles.splice(i,1); renderAttachments(); }
 function renderAttachments(){
     var box = $("#attachments");
@@ -927,33 +600,11 @@ function renderAttachments(){
     box.empty().show();
     pendingFiles.forEach(function(f, i){
         var chip = $('<div class="attach-chip"></div>');
-        if(f.uploading){ chip.addClass("uploading"); }
-        if(f.failed){ chip.addClass("failed"); }
-        chip.append(f.uploading ? '<span class="spin"></span>' : fileIconSvg());
-        var suffix = "";
-        if(f.uploading){ suffix = " · " + (f.note || "uploading…"); }
-        else if(f.failed){ suffix = " · failed"; }
-        else if(f.note){ suffix = " · " + f.note; }
-        chip.append($('<span class="fn"></span>').text(f.filename + suffix).attr("title", f.filepath || f.filename));
+        chip.append(fileIconSvg());
+        chip.append($('<span class="fn"></span>').text(f.filename).attr("title", f.filepath));
         $('<span class="rm">✕</span>').on("click", function(){ removeAttachment(i); }).appendTo(chip);
         box.append(chip);
     });
-}
-
-// Lightweight, self-contained toast (the desktop shell's showToast is not
-// reachable from inside this iframe).
-function notify(msg, isError){
-    var wrap = document.getElementById("toastWrap");
-    if(!wrap){ return; }
-    var el = document.createElement("div");
-    el.className = "toast" + (isError ? " err" : "");
-    el.textContent = msg;
-    wrap.appendChild(el);
-    requestAnimationFrame(function(){ el.classList.add("show"); });
-    setTimeout(function(){
-        el.classList.remove("show");
-        setTimeout(function(){ if(el.parentNode){ el.parentNode.removeChild(el); } }, 250);
-    }, 3400);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -969,22 +620,11 @@ function buildOptions(){
 
 function sendMessage(){
     if(generating) return;
-    closeAttachMenu();
     var conv = currentConv(); if(!conv) return;
-    if(pendingFiles.some(function(f){ return f.uploading; })){
-        notify("Please wait for the file upload to finish.", true);
-        return;
-    }
     var text = $("#composer").val().replace(/\s+$/,"");
-    // Only attach files that finished uploading / converting (skip failed ones).
-    var ready = pendingFiles.filter(function(f){ return !f.failed && !f.uploading && (f.paths && f.paths.length); });
-    if(!text.trim() && ready.length === 0) return;
+    if(!text.trim() && pendingFiles.length === 0) return;
     var msg = { role:"user", content:text };
-    if(ready.length > 0){
-        msg.files = ready.map(function(f){
-            return { filepath:f.filepath, filename:f.filename, paths:f.paths.slice() };
-        });
-    }
+    if(pendingFiles.length > 0){ msg.files = pendingFiles.slice(); }
     conv.messages.push(msg);
     if(!conv.titleSet && text.trim()){ conv.title = text.slice(0,42); conv.titleSet = true; renderSidebar(); }
     pendingFiles = []; renderAttachments();
@@ -996,264 +636,27 @@ function sendMessage(){
 function generate(conv){
     generating = true; updateComposerState();
     var typing = showTyping();
-    // Send only the visible answer for prior assistant turns — don't feed the
-    // model's earlier thinking back to it.
-    var payload = conv.messages.map(function(m){
-        var content = (m.role === "assistant" && !m.error) ? computeThinking(m).answer : m.content;
-        return { role:m.role, content:content };
-    });
+    var payload = conv.messages.map(function(m){ return { role:m.role, content:m.content }; });
     var opts = buildOptions();
-    // Attachments belong to the latest user message. A single attachment may
-    // expand to several paths (one per rendered PDF page).
+    // Attachments belong to the latest user message (chat.agi merges them in).
     var files = [];
     for(var i = conv.messages.length - 1; i >= 0; i--){
-        if(conv.messages[i].role === "user"){ files = flattenFilePaths(conv.messages[i].files); break; }
+        if(conv.messages[i].role === "user"){ files = (conv.messages[i].files || []).map(function(f){ return f.filepath; }); break; }
     }
-    // Prefer the streaming WebSocket backend; fall back to the one-shot HTTP
-    // backend when the socket cannot be established.
-    if(window.WebSocket){ streamGenerate(conv, payload, opts, files, typing); }
-    else { blockingGenerate(conv, payload, opts, files, typing); }
-}
-
-// flattenFilePaths turns stored attachment entries into the flat vpath list the
-// backend expects (each entry contributes its `paths`, or its single filepath).
-function flattenFilePaths(entries){
-    var out = [];
-    (entries || []).forEach(function(f){
-        if(f.paths && f.paths.length){ f.paths.forEach(function(p){ out.push(p); }); }
-        else if(f.filepath){ out.push(f.filepath); }
-    });
-    return out;
-}
-
-/* ── Streaming generation (WebSocket) ─────────────────────────────────────
-   Connects to backend/chat_stream.agi, which relays llm.streamRequest()
-   deltas frame by frame, so the answer and the model's thinking render as
-   they are produced rather than in one go. */
-function wsEndpoint(){
-    if(typeof ao_module_utils !== "undefined" && ao_module_utils.getWebSocketEndpoint){
-        return ao_module_utils.getWebSocketEndpoint();
-    }
-    var proto = (location.protocol === "https:") ? "wss://" : "ws://";
-    return proto + location.hostname + (location.port ? (":" + location.port) : "");
-}
-
-function streamGenerate(conv, payload, opts, files, typing){
-    var url = wsEndpoint() + "/system/ajgi/interface?script=AIChat/backend/chat_stream.agi";
-    var ws;
-    try { ws = new WebSocket(url); }
-    catch(e){ blockingGenerate(conv, payload, opts, files, typing); return; }
-
-    activeSocket = ws;
-    var st = streamState = {
-        conv: conv, opts: opts, ws: ws, row: null, bubble: null,
-        thinking: null, thinkBody: null, userToggled: false,
-        content: "", reasoning: "", started: false, gotAny: false,
-        finished: false, fellBack: false, typing: typing
-    };
-
-    ws.onopen = function(){
-        ws.send(JSON.stringify({ messages: payload, options: opts, files: files || [] }));
-    };
-
-    ws.onmessage = function(ev){
-        var msg; try { msg = JSON.parse(ev.data); } catch(e){ return; }
-        if(msg.type === "start"){ ensureStreamRow(st); return; }
-        if(msg.type === "reasoning"){ st.gotAny = true; appendReasoning(st, msg.content || ""); return; }
-        if(msg.type === "delta"){ st.gotAny = true; appendDelta(st, msg.content || ""); return; }
-        if(msg.type === "done"){
-            st.finished = true;
-            // Prefer the server's assembled text (authoritative) over our accumulation.
-            finishStream(st, {
-                content: (typeof msg.content === "string" && msg.content !== "") ? msg.content : st.content,
-                reasoning: (typeof msg.reasoning === "string" && msg.reasoning !== "") ? msg.reasoning : st.reasoning,
-                usage: msg.usage || null,
-                model: msg.model || opts.model
-            });
-            try { ws.close(); } catch(e){}
-            return;
-        }
-        if(msg.type === "error"){
-            st.finished = true;
-            clearStreamRow(st);
-            pushAssistant(conv, { role:"assistant", content: msg.error || "Request failed.", error:true });
-            endGenerating();
-            try { ws.close(); } catch(e){}
-        }
-    };
-
-    ws.onerror = function(){
-        // Nothing streamed yet — quietly fall back to the HTTP backend.
-        if(!st.gotAny && !st.finished && !st.fellBack){
-            st.fellBack = true;
-            blockingGenerate(conv, payload, opts, files, typing);
-        }
-    };
-
-    ws.onclose = function(){
-        if(st.finished || st.fellBack) return;
-        if(!st.gotAny){
-            st.fellBack = true;
-            blockingGenerate(conv, payload, opts, files, typing);
-            return;
-        }
-        // Socket dropped mid-reply — keep whatever was received.
-        st.finished = true;
-        finishStream(st, { content: st.content, reasoning: st.reasoning, usage: null, model: opts.model });
-    };
-}
-
-/* Live markdown while streaming.
-   Half-written markup is normal mid-stream — most visibly an unclosed ```
-   fence, which would otherwise flash as raw backticks until the model closes
-   it. Close such constructs on a copy of the text just for rendering; the
-   stored text is untouched. */
-function closeOpenMarkdown(src){
-    var fences = src.match(/```/g);
-    if(fences && fences.length % 2 === 1){ src += "\n```"; }   // fence still open
-    return src;
-}
-
-// Re-rendering on every token would thrash layout, so paints are coalesced.
-var STREAM_RENDER_MS = 60;
-function scheduleStreamRender(st){
-    if(st.renderTimer) return;
-    st.renderTimer = setTimeout(function(){
-        st.renderTimer = null;
-        paintStream(st);
-    }, STREAM_RENDER_MS);
-}
-function cancelStreamRender(st){
-    if(st && st.renderTimer){ clearTimeout(st.renderTimer); st.renderTimer = null; }
-}
-function paintStream(st){
-    if(!st.row) return;                       // reply already finalised
-    if(st.thinkBody && st.reasoning !== ""){
-        st.thinkBody.html(renderMarkdown(closeOpenMarkdown(st.reasoning)));
-    }
-    if(st.bubble){
-        st.bubble.html(renderMarkdown(closeOpenMarkdown(st.content)));
-        enhanceCodeBlocks(st.bubble[0]);
-        st.bubble.append('<span class="caret"></span>');
-    }
-    maybeScroll();
-}
-
-// ensureStreamRow swaps the typing indicator for a live assistant row.
-function ensureStreamRow(st){
-    if(st.row) return;
-    if(st.typing){ st.typing.remove(); st.typing = null; }
-    var wrap = ensureWrap();
-    var row = $('<div class="msg assistant"></div>');
-    $('<div class="avatar"></div>').text("AI").appendTo(row);
-    var main = $('<div class="msg-main"></div>').appendTo(row);
-    $('<div class="msg-role"></div>').text(st.opts.model ? ("Assistant · " + st.opts.model) : "Assistant").appendTo(main);
-    st.bubble = $('<div class="bubble"></div>').appendTo(main);
-    st.bubble.append('<span class="caret"></span>');
-    st.main = main;
-    st.row = row;
-    wrap.append(row);
-    scrollBottom();
-}
-
-// appendReasoning grows the live thinking section. It auto-opens while the
-// model is thinking so the process is visible in real time, then collapses
-// once the answer starts (unless the user toggled it themselves).
-function appendReasoning(st, chunk){
-    if(chunk === "") return;
-    ensureStreamRow(st);
-    st.reasoning += chunk;
-    if(!st.thinking){
-        st.thinking = buildThinking("");
-        st.thinking.addClass("open live");
-        st.thinking.find(".tk-label").text("Thinking…");
-        st.thinkBody = st.thinking.find(".thinking-body");
-        // Remember a manual toggle so auto-collapse does not fight the user.
-        st.thinking.find(".thinking-toggle").on("click", function(){ st.userToggled = true; });
-        st.main.prepend(st.thinking);
-        // Keep the role label above the thinking block.
-        st.main.find(".msg-role").prependTo(st.main);
-    }
-    scheduleStreamRender(st);
-}
-
-// appendDelta grows the live answer text.
-function appendDelta(st, chunk){
-    if(chunk === "") return;
-    ensureStreamRow(st);
-    // First answer token: thinking is done — collapse it back to the default.
-    if(st.content === "" && st.thinking){
-        st.thinking.removeClass("live");
-        if(!st.userToggled){
-            st.thinking.removeClass("open");
-            st.thinking.find(".tk-label").text("Show thinking");
-        } else {
-            st.thinking.find(".tk-label").text("Hide thinking");
-        }
-    }
-    st.content += chunk;
-    scheduleStreamRender(st);
-}
-
-// finishStream commits the streamed reply to the conversation and re-renders
-// it through the normal path (markdown, footer, collapsed thinking).
-function finishStream(st, result){
-    var conv = st.conv;
-    var text = result.content || "";
-    var reasoning = result.reasoning || "";
-    if(text.trim() === "" && reasoning.trim() === ""){
-        clearStreamRow(st);
-        pushAssistant(conv, { role:"assistant", content:"The model returned an empty reply.", error:true });
-        endGenerating();
-        return;
-    }
-    conv.messages.push({
-        role:"assistant", content:text, reasoning:reasoning,
-        usage:result.usage || null, model:result.model || ""
-    });
-    persist();
-    clearStreamRow(st);
-    renderMessages();
-    endGenerating();
-}
-
-function clearStreamRow(st){
-    cancelStreamRender(st);                   // no stray paint after finalising
-    if(st.typing){ st.typing.remove(); st.typing = null; }
-    if(st.row){ st.row.remove(); st.row = null; }
-}
-
-function endGenerating(){
-    generating = false;
-    activeSocket = null; streamState = null;
-    $("#stopBtn").hide();
-    updateComposerState(); updateTokenBadge();
-}
-
-// Only auto-scroll when the user is already near the bottom, so scrolling back
-// through a long reply is not yanked away mid-stream.
-function isNearBottom(){
-    var m = document.getElementById("messages");
-    return (m.scrollHeight - m.scrollTop - m.clientHeight) < 120;
-}
-function maybeScroll(){ if(isNearBottom()) scrollBottom(); }
-
-/* ── Non-streaming fallback (one-shot HTTP) ───────────────────────────── */
-function blockingGenerate(conv, payload, opts, files, typing){
     callBackend(payload, opts, files, function(resp){
-        if(typing) typing.remove();
+        typing.remove();
         if(!resp || !resp.ok){
             pushAssistant(conv, { role:"assistant", content:(resp && resp.error) ? resp.error : "Request failed.", error:true });
-            endGenerating(); return;
+            generating = false; updateComposerState(); return;
         }
-        var msg = { role:"assistant", content:resp.content || "", reasoning:resp.reasoning || "", usage:resp.usage || null, model:resp.model || opts.model };
+        var msg = { role:"assistant", content:resp.content || "", usage:resp.usage || null, model:resp.model || opts.model };
         conv.messages.push(msg); persist();
         var row = appendLiveAssistant(msg);
-        typewriter(row, computeThinking(msg).answer, function(){ endGenerating(); });
+        typewriter(row, msg.content, function(){ generating = false; updateComposerState(); updateTokenBadge(); });
     }, function(){
-        if(typing) typing.remove();
+        typing.remove();
         pushAssistant(conv, { role:"assistant", content:"Network error — could not reach the server.", error:true });
-        endGenerating();
+        generating = false; updateComposerState();
     });
 }
 
@@ -1315,19 +718,6 @@ function typewriter(row, fullText, done){
 }
 
 function stopGenerating(){
-    // Streaming: close the socket and keep whatever has arrived so far.
-    if(activeSocket){
-        var st = streamState;
-        try { activeSocket.close(); } catch(e){}
-        activeSocket = null;
-        if(st && !st.finished){
-            st.finished = true;
-            if(st.gotAny){ finishStream(st, { content: st.content, reasoning: st.reasoning, usage: null, model: st.opts.model }); }
-            else { clearStreamRow(st); endGenerating(); }
-        }
-        return;
-    }
-    // Fallback path: stop the typewriter reveal.
     cancelReveal = true;
     if(revealTimer){ clearTimeout(revealTimer); revealTimer = null; }
     $("#stopBtn").hide();
@@ -1371,8 +761,6 @@ function autoGrow(){
 }
 function updateComposerState(){
     $("#sendBtn").prop("disabled", generating);
-    // Stop is offered for the whole generation, streaming included.
-    $("#stopBtn").css("display", generating ? "inline-flex" : "none");
     document.getElementById("composer").disabled = false;
 }
 
@@ -1420,65 +808,53 @@ function closeSidebar(){ $("#sidebar,#sidebarScrim").removeClass("open"); }
    ───────────────────────────────────────────────────────────── */
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
-/* GFM tables.
-   Line-based rather than one big regex: a table is a row, a delimiter row
-   (---, :---, ---:, :---:) directly beneath it, then rows until a line that is
-   no longer one. A leading "|" is required to start a row, which is what
-   models emit and keeps prose containing a stray pipe from being swallowed.
-   Runs after the inline rules, so cells arrive with bold/code/links applied. */
-function mdSplitRow(line){
-    var s = line.trim();
-    if(s.charAt(0) === "|"){ s = s.slice(1); }
-    if(s.charAt(s.length-1) === "|"){ s = s.slice(0, -1); }
-    return s.split("|").map(function(c){ return c.trim(); });
-}
-function mdIsTableRow(line){ return /^[ \t]*\|/.test(line); }
-function mdIsTableDelimiter(line){
-    if(!mdIsTableRow(line) || line.indexOf("-") === -1) return false;
-    var cells = mdSplitRow(line);
-    if(cells.length === 0) return false;
-    for(var i = 0; i < cells.length; i++){
-        if(!/^:?-+:?$/.test(cells[i])) return false;
-    }
-    return true;
-}
-function mdAlignAttr(cell){
-    var left = cell.charAt(0) === ":", right = cell.charAt(cell.length-1) === ":";
-    if(left && right) return ' style="text-align:center"';
-    if(right) return ' style="text-align:right"';
-    return "";
-}
-function renderTables(html){
-    if(html.indexOf("|") === -1) return html;      // fast path: no table possible
-    var lines = html.split("\n"), out = [];
-    for(var i = 0; i < lines.length; i++){
-        if(mdIsTableRow(lines[i]) && i + 1 < lines.length && mdIsTableDelimiter(lines[i + 1])){
-            var head = mdSplitRow(lines[i]);
-            var aligns = mdSplitRow(lines[i + 1]).map(mdAlignAttr);
-            var rows = [], j = i + 2;
-            while(j < lines.length && mdIsTableRow(lines[j]) && !mdIsTableDelimiter(lines[j])){
-                rows.push(mdSplitRow(lines[j])); j++;
-            }
-            var th = head.map(function(c, k){ return "<th" + (aligns[k] || "") + ">" + c + "</th>"; }).join("");
-            var tb = rows.map(function(r){
-                var tds = "";
-                for(var k = 0; k < head.length; k++){
-                    tds += "<td" + (aligns[k] || "") + ">" + (r[k] === undefined ? "" : r[k]) + "</td>";
-                }
-                return "<tr>" + tds + "</tr>";
-            }).join("");
-            out.push('<div class="tablewrap"><table><thead><tr>' + th + "</tr></thead><tbody>" + tb + "</tbody></table></div>");
-            i = j - 1;
-        } else {
-            out.push(lines[i]);
-        }
-    }
-    return out.join("\n");
-}
-
 function renderMarkdown(src){
-    src = String(src==null?"":src).replace(/\r\n?/g, "\n");   // CRLF would trail into headings
+    src = String(src==null?"":src);
     var blocks = [];
     src = src.replace(/```(\w+)?\n?([\s\S]*?)```/g, function(_, lang, code){
         var idx = blocks.length; blocks.push({ lang:lang||"", code:code.replace(/\n$/,"") });
-        return "
+        return " CB" + idx + " ";
+    });
+    var html = esc(src);
+    html = html.replace(/`([^`\n]+)`/g, function(_, c){ return '<code class="inline">'+c+'</code>'; });
+    html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    html = html.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    html = html.replace(/^###\s+(.*)$/gm, "<h4>$1</h4>");
+    html = html.replace(/^##\s+(.*)$/gm, "<h3>$1</h3>");
+    html = html.replace(/^#\s+(.*)$/gm, "<h2>$1</h2>");
+    html = html.replace(/(?:^|\n)((?:\s*[-*]\s+.*(?:\n|$))+)/g, function(_, list){
+        var items = list.trim().split(/\n/).map(function(li){ return "<li>"+li.replace(/^\s*[-*]\s+/,"")+"</li>"; }).join("");
+        return "\n<ul>"+items+"</ul>\n";
+    });
+    html = html.replace(/\n/g, "<br>");
+    html = html.replace(/ CB(\d+) /g, function(_, i){
+        var b = blocks[+i];
+        var head = b.lang ? '<div class="code-lang">'+esc(b.lang)+'</div>' : "";
+        return '<div class="codeblock">'+head+'<button class="copy-code" title="Copy">⧉</button><pre><code>'+esc(b.code)+'</code></pre></div>';
+    });
+    html = html.replace(/<br>\s*(<ul>|<h[234]>|<div class="codeblock">)/g, "$1");
+    html = html.replace(/(<\/ul>|<\/h[234]>|<\/div>)\s*<br>/g, "$1");
+    return html;
+}
+
+function enhanceCodeBlocks(scope){
+    $(scope).find(".copy-code").off("click").on("click", function(){
+        var code = $(this).siblings("pre").find("code").text();
+        copyText(code, this, "✓");
+    });
+}
+function copyText(text, btn, okGlyph){
+    var done = function(){ var $b=$(btn); var old=$b.text(); $b.text(okGlyph||"✓ Copied"); setTimeout(function(){ $b.text(old); }, 1200); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, function(){ legacyCopy(text); done(); }); }
+    else { legacyCopy(text); done(); }
+}
+function legacyCopy(text){
+    var ta = document.createElement("textarea"); ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta);
+}
+
+function scrollBottom(){ var m = document.getElementById("messages"); m.scrollTop = m.scrollHeight; }
+</script>
+</body>
+</html>
