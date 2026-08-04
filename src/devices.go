@@ -33,7 +33,7 @@ func DeviceServiceInit() {
 	registerSetting(settingModule{
 		Name:         "Language",
 		Desc:         "Set the display language of the system",
-		IconPath:     "SystemAO/info/img/small_icon.png",
+		IconPath:     "SystemAO/info/img/language.png",
 		Group:        "Device",
 		StartDir:     "SystemAO/info/locale.html",
 		RequireAdmin: false,
