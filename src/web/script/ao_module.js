@@ -524,8 +524,10 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
         }
         parent.newFloatWindow({
             url: "SystemAO/file_system/file_selector.html#" + initInfoEncoded,
-            width: 700,
-            height: 440,
+            //Sized so the sidebar, file list and details pane all fit without the
+            //footer controls wrapping onto a second row
+            width: 960,
+            height: 620,
             appicon: "SystemAO/file_system/img/selector.png",
             title: "Open",
             parent: ao_module_windowID,

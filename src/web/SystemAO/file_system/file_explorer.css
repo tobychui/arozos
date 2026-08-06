@@ -659,10 +659,6 @@ body.darkTheme .ui.icon.button{
     scrollbar-width: thin;
 }
 
-#folderview.fixscroll{
-    overflow: hidden;
-    padding-right: calc(2em + 12px);
-}
 
 #folderList{
     margin-bottom:1em;
@@ -716,17 +712,33 @@ body.darkTheme .ui.icon.button{
     border-top: 0;
 }
 
-/* Filelist in grid mode */
+/* Filelist in grid mode.
+   Width is set by the status bar zoom slider (--fm-tile / inline style), so the
+   old fixed 148px !important is gone - it silently defeated the slider. */
 .fileviewList .fileObject.card{
     border-radius: 0.4em;
     position: relative;
-    margin-bottom:1em;
-    width: 148px !important;
+    margin-bottom: 1em;
 }
 
+/*
+    Grid tiles are square at every width. aspect-ratio keeps the box square so
+    the responsive breakpoint no longer has to fight fixed pixel sizes.
+    Icons use contain so they are never distorted; a real thumbnail (marked by
+    .hasThumbnail from thumbnail.js) uses cover so it fills the square instead
+    of letterboxing.
+*/
 .fileviewList .fileObject.card img{
-    width: 148px;
-    height: 148px;
+    width: 100%;
+    max-width: 148px;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    object-fit: contain;
+}
+
+.fileviewList .fileObject.card.hasThumbnail img{
+    object-fit: cover;
+    object-position: center top;
 }
 
 .fileviewList .fileObject.card .content{
@@ -1353,9 +1365,9 @@ i.blue{
         max-width: 148px;
     }
     
+    /* aspect-ratio above already keeps this square; only the cap needs lifting */
     .fileviewList .fileObject.card img{
-        width: 100% !important;
-        height: auto !important;
+        max-width: none;
     }
 
     /* Properties view, disable function in small display size*/
@@ -1386,4 +1398,567 @@ i.blue{
     .viewportBtns{
         float: right;
     }
+}
+/* ======================================================================
+   Redesigned navigation row and sidebar (Phase 2.3 / 2.4)
+   Colours come from shared/fs-theme.css, components from
+   shared/fs-components.css. Only layout lives here.
+   ====================================================================== */
+
+.navibar {
+    padding: 0 !important;
+    height: auto !important;
+}
+
+.fmNav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    position: relative;
+    background: var(--fs-bg);
+    border-bottom: 1px solid var(--fs-line);
+}
+
+.fmNavBtns {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.fmNav .fsIconBtn.disabled,
+.fmNav .fsIconBtn:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* ---------- Breadcrumb pill ---------- */
+.fmPathbar {
+    flex-grow: 1;
+    min-width: 0;
+    cursor: text;
+    padding-left: 4px;
+}
+
+.fmPathHome {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 4px;
+    color: var(--fs-icon);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.fmPathHome:hover { background: var(--fs-fill); color: var(--fs-text); }
+
+.fmPathbar .pathDisplay {
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 14px;
+    margin: 0 !important;
+    color: var(--fs-text);
+}
+
+.fmPathbar .pathDisplay .section {
+    padding: 3px 7px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.fmPathbar .pathDisplay .section:hover { background: var(--fs-fill); }
+.fmPathbar .pathDisplay .divider { color: var(--fs-text-faint); }
+
+.fmPathInput {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-grow: 1;
+    min-width: 0;
+}
+.fmPathInput input {
+    flex-grow: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--fs-text);
+    padding: 4px 2px;
+}
+
+/* ---------- Search pill ---------- */
+.fmSearch {
+    width: 240px;
+    flex-shrink: 0;
+    padding-right: 8px;
+}
+.fmSearch input {
+    flex-grow: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--fs-text);
+}
+.fmSearchIcon {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    color: var(--fs-text-dim);
+}
+.fmSearchIcon svg { display: block; width: 100%; height: 100%; }
+
+.fmCaseBtn {
+    border: none;
+    background: transparent;
+    color: var(--fs-text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 5px;
+    padding: 3px 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.fmCaseBtn:hover { background: var(--fs-fill); color: var(--fs-text); }
+.fmCaseBtn.active { background: var(--fs-accent-soft); color: var(--fs-accent-strong); }
+
+/* ---------- View toggle ---------- */
+.fsViewToggle {
+    display: flex;
+    background: var(--fs-fill);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.fsViewToggle button {
+    width: 30px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 5px;
+    color: var(--fs-icon);
+    cursor: pointer;
+}
+.fsViewToggle button:hover { background: var(--fs-fill-hover); }
+.fsViewToggle button.disabled,
+.fsViewToggle button:disabled {
+    background: var(--fs-surface);
+    color: var(--fs-accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    pointer-events: none;
+    opacity: 1;
+}
+.fsViewToggle button svg { display: block; width: 100%; height: 100%; }
+
+/* ---------- Overflow menu button ---------- */
+.fsMoreBtn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border: 1px solid var(--fs-line);
+    background: var(--fs-surface);
+    border-radius: 8px;
+    padding: 7px;
+    color: var(--fs-text);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.fsMoreBtn:hover { background: var(--fs-fill); }
+.fsMoreBtn.active {
+    background: var(--fs-accent-soft);
+    color: var(--fs-accent);
+    border-color: transparent;
+}
+.fsMoreBtn svg { display: block; width: 100%; height: 100%; }
+
+.fmMoreMenu {
+    right: 12px;
+    top: 46px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.fmSortRow select {
+    flex-grow: 1;
+    border: 1px solid var(--fs-line);
+    border-radius: 6px;
+    background: var(--fs-surface);
+    color: var(--fs-text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 3px 6px;
+    outline: none;
+}
+.fmSortRow:hover { background: transparent; }
+
+/* ---------- Sidebar ---------- */
+#directorySidebar {
+    padding: 10px 8px 10px 10px !important;
+    background: var(--fs-bg);
+    border-right: 1px solid var(--fs-line);
+}
+
+.fsSideTitle {
+    font-size: 12px;
+    color: var(--fs-text-faint);
+    padding: 4px 8px;
+    margin-top: 4px;
+}
+.fsSideTitle:first-child { margin-top: 0; }
+
+.fmSideGroup { margin-bottom: 6px; }
+
+#directorySidebar .fsSideItem {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 8px !important;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    color: var(--fs-text);
+    margin: 0 !important;
+}
+#directorySidebar .fsSideItem:hover { background: var(--fs-fill); }
+#directorySidebar .fsSideItem.active {
+    background: var(--fs-accent-soft);
+    color: var(--fs-accent-strong);
+}
+#directorySidebar .fsSideItem .fsSideIcon {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+}
+#directorySidebar .fsSideItem .fsSideIcon svg { display: block; width: 100%; height: 100%; }
+#directorySidebar .fsSideItem .fsSideLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#selectInfo {
+    font-size: 12px;
+    color: var(--fs-text-faint);
+    padding: 8px;
+    margin: 0;
+}
+
+/* ---------- Narrow windows ---------- */
+@media only screen and (max-width: 900px) {
+    .fmSearch { width: 170px; }
+}
+@media only screen and (max-width: 720px) {
+    .fmSearch { display: none; }
+}
+
+/* ======================================================================
+   Redesigned file list, grid and status bar (Phase 2.5 - 2.8)
+   ====================================================================== */
+
+/* ---------- Shared row icon ---------- */
+.fmRowIcon {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.fmRowIcon .fsSmallIcon { width: 100%; height: 100%; }
+
+/* ---------- List view (single column) ---------- */
+.fileviewList .fileObject.item {
+    display: flex !important;
+    align-items: center;
+    gap: 9px;
+    height: 38px;
+    padding: 0 14px 0 16px !important;
+    cursor: pointer;
+    border-bottom: 1px solid var(--fs-line-soft);
+}
+.fileviewList .fileObject.item .filename {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- Details view: the mockup's columned list ---------- */
+#fmListHeader {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: var(--fs-bg);
+    border-bottom: 1px solid var(--fs-line);
+}
+
+.detailstable {
+    table-layout: fixed !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-collapse: collapse !important;
+}
+
+#fmListHeader th {
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: var(--fs-text-dim) !important;
+    padding: 6px 8px !important;
+    text-align: left;
+    background: transparent !important;
+    border: none !important;
+    white-space: nowrap;
+}
+#fmListHeader th.fmSortable { cursor: pointer; }
+#fmListHeader th.fmSortable:hover { background: var(--fs-fill) !important; }
+#fmListHeader th.sorted { color: var(--fs-text) !important; }
+.fmSortMark {
+    margin-left: 5px;
+    font-size: 11px;
+    color: var(--fs-text-dim);
+}
+
+.detailstable tr.fileObject.details { cursor: pointer; }
+.detailstable tr.fileObject.details td {
+    padding: 6px 8px !important;
+    border: none !important;
+    border-bottom: 1px solid var(--fs-line-soft) !important;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+/*
+    The name cell must stay a real table-cell: display:flex on a <td> drops it
+    out of the table formatting context and collapses the column to zero width.
+    The flex row goes on an inner wrapper instead.
+*/
+.detailstable td.fmColName { color: var(--fs-text); }
+.detailstable td.fmColName .fmNameCell {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.detailstable td.fmColName .filename {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.detailstable td.fmColDate,
+.detailstable td.fmColType,
+.detailstable td.fmColSize { color: var(--fs-text-dim); }
+
+/* Checkbox column, shown on hover or when the row is selected */
+.fmCheck {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--fs-line);
+    border-radius: 4px;
+    background: var(--fs-surface);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    vertical-align: middle;
+}
+.detailstable tr.fileObject:hover .fmCheck { opacity: 1; }
+.detailstable tr.fileObject.selected .fmCheck {
+    opacity: 1;
+    background: var(--fs-accent);
+    border-color: var(--fs-accent);
+    position: relative;
+}
+.detailstable tr.fileObject.selected .fmCheck::after {
+    content: "";
+    position: absolute;
+    left: 4.5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--fs-primary-fg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* ---------- Selection highlight, all three modes ---------- */
+.fileviewList .fileObject.item:hover,
+.detailstable tr.fileObject.details:hover { background: var(--fs-row-hover); }
+
+.fileviewList .fileObject.item.selected,
+.detailstable tr.fileObject.details.selected {
+    background: var(--fs-selected) !important;
+    box-shadow: inset 2px 0 0 var(--fs-accent);
+}
+.fileviewList .fileObject.item.selected .filename,
+.detailstable tr.fileObject.details.selected td { color: var(--fs-text) !important; }
+
+/* ---------- Grid view ---------- */
+#folderView { --fm-tile: 150px; }
+
+#folderList.fileviewList,
+#fileList.fileviewList { padding: 0 !important; }
+
+.fileviewList .fileObject.card {
+    width: var(--fm-tile);
+    display: inline-block !important;
+    vertical-align: top;
+    margin: 0 !important;
+    padding: 8px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none !important;
+    overflow: hidden;
+    cursor: pointer;
+}
+.fileviewList .fileObject.card:hover { background: var(--fs-row-hover); }
+.fileviewList .fileObject.card.selected {
+    background: var(--fs-selected) !important;
+    border-color: var(--fs-selected-line);
+}
+
+.fileviewList .fileObject.card .image {
+    position: relative;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--fs-thumb-bg);
+}
+.fileviewList .fileObject.card .content {
+    padding: 7px 2px 2px 2px !important;
+    border: none !important;
+}
+.fileviewList .fileObject.card .content .header {
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: var(--fs-text) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fileviewList .fileObject.card .content .description {
+    font-size: 11px;
+    color: var(--fs-text-faint);
+    margin-top: 2px;
+}
+
+/* Selected tick badge on a tile, like the mockup */
+.fmTileCheck {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--fs-accent);
+    display: none;
+}
+.fmTileCheck::after {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 3.5px;
+    width: 5px;
+    height: 10px;
+    border: solid var(--fs-primary-fg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.fileObject.card.selected .fmTileCheck { display: block; }
+
+/* Date group headers */
+.fmGroupHeader {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fs-text);
+    padding: 14px 6px 6px 6px;
+}
+.fmGroup { display: block; }
+
+/* ---------- Status bar ---------- */
+#fmStatusBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-top: 1px solid var(--fs-line);
+    background: var(--fs-bg);
+    font-size: 12px;
+    color: var(--fs-text-dim);
+    flex-shrink: 0;
+}
+.fmStatusSpacer { flex-grow: 1; }
+#fmSelectionSize { color: var(--fs-text); }
+
+#fmZoom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.fmZoomIcon {
+    width: 14px;
+    height: 14px;
+    color: var(--fs-text-faint);
+}
+.fmZoomIcon svg { display: block; width: 100%; height: 100%; }
+#fmZoomSlider {
+    width: 96px;
+    accent-color: var(--fs-accent);
+    cursor: pointer;
+}
+
+.fmStatusToggle button { width: 26px; height: 22px; padding: 4px; }
+
+.fmStatusBtn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    padding: 5px;
+    color: var(--fs-icon);
+    cursor: pointer;
+}
+.fmStatusBtn:hover { background: var(--fs-fill); }
+.fmStatusBtn svg { display: block; width: 100%; height: 100%; }
+
+@media only screen and (max-width: 720px) {
+    #fmZoom { display: none; }
+    .fmStatusToggle { display: none; }
+}
+
+/* ---------- Details column widths + responsive column dropping ----------
+   With table-layout:fixed the first row defines the columns, so these widths
+   apply to the header table and both row tables identically. Hiding a cell
+   collapses its column, which a <colgroup> could not do.                    */
+.detailstable .fmColCheck { width: 38px; }
+.detailstable .fmColDate  { width: 170px; }
+.detailstable .fmColType  { width: 120px; }
+.detailstable .fmColSize  { width: 90px; }
+.detailstable .fmColName  { width: auto; }
+
+/* Force identical box geometry between the header and the row tables */
+#fmListHeader table.detailstable,
+.fileviewList table.detailstable {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+#folderView.fmNarrow .fmColType { display: none !important; }
+#folderView.fmVeryNarrow .fmColDate { display: none !important; }
+
+/* The legacy .fileObject.details rule put a 1px border on the <tr>, which inset
+   every row cell by 1px and left the columns misaligned with the header table. */
+.detailstable tr.fileObject.details {
+    border: none !important;
 }

@@ -1,0 +1,85 @@
+/*
+    fs-theme.css
+
+    Shared design tokens for the ArozOS file system web apps (File Manager and
+    File Selector). Only colours live here - no layout, no component rules.
+
+    The tokens are declared on :root rather than on an app specific wrapper so
+    both apps can read them from any element, and the dark palette is switched by
+    the body.darkTheme class that both apps already toggle from the ArozOS system
+    theme preference (file_explorer/theme) via ao_module_onThemeChanged.
+
+    Naming: --fs-<role>. Prefer adding a role over hardcoding a hex value in an
+    app stylesheet, otherwise dark mode silently misses it.
+*/
+
+:root {
+    /* Accent / primary action */
+    --fs-accent: #1a73e8;
+    --fs-accent-soft: #e8f0fe;
+    --fs-accent-strong: #174ea6;
+    --fs-primary-fg: #ffffff;
+    --fs-primary-hover: #1765cc;
+
+    /* Selection highlight. Deliberately light: several selected rows at once
+       must stay readable instead of becoming one solid block of colour. */
+    --fs-selected: #e9f1fe;
+    --fs-selected-hover: #dde9fd;
+    --fs-selected-line: #a8c7fa;
+
+    /* Text */
+    --fs-text: #1f2328;
+    --fs-text-dim: #6b7280;
+    --fs-text-faint: #9aa0a6;
+    --fs-icon: #5f6368;
+
+    /* Lines and fills */
+    --fs-line: #e5e7eb;
+    --fs-line-soft: #f0f1f3;
+    --fs-fill: #f4f5f7;
+    --fs-fill-hover: #eceef1;
+    --fs-fill-active: #e2e5e9;
+
+    /* Surfaces */
+    --fs-bg: #ffffff;
+    --fs-surface: #ffffff;
+    --fs-pill-bg: #fbfbfc;
+    --fs-thumb-bg: #fafbfc;
+    --fs-row-hover: #f7f8fa;
+
+    /* Effects */
+    --fs-shadow: rgba(15, 20, 30, 0.16);
+    --fs-overlay: rgba(255, 255, 255, 0.86);
+}
+
+body.darkTheme {
+    --fs-accent: #8ab4f8;
+    --fs-accent-soft: #1f3448;
+    --fs-accent-strong: #aecbfa;
+    --fs-primary-fg: #12161c;
+    --fs-primary-hover: #a7c8fa;
+
+    --fs-selected: #1e3450;
+    --fs-selected-hover: #26405c;
+    --fs-selected-line: #4a7fc4;
+
+    --fs-text: #e8eaed;
+    --fs-text-dim: #9aa0a6;
+    --fs-text-faint: #80868b;
+    --fs-icon: #b8bcc2;
+
+    --fs-line: #3c4043;
+    --fs-line-soft: #2d2f33;
+    --fs-fill: #2a2d31;
+    --fs-fill-hover: #35383c;
+    --fs-fill-active: #3f4347;
+
+    --fs-bg: #202124;
+    --fs-surface: #26282c;
+    --fs-pill-bg: #26282c;
+    --fs-thumb-bg: #2a2d31;
+    --fs-row-hover: #2a2d31;
+
+    --fs-shadow: rgba(0, 0, 0, 0.55);
+    --fs-overlay: rgba(32, 33, 36, 0.88);
+}
