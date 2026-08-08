@@ -729,6 +729,30 @@ function showToast(msg) {
     toastTimer = setTimeout(function () { $('#toast').removeClass('show'); }, 2800);
 }
 
+// play() returns a promise that rejects when the browser will not start the
+// media — most commonly NotSupportedError on Safari, which refuses a transcoded
+// stream because the endpoint cannot answer byte-range requests. Left
+// unhandled it only shows up as an unhandled rejection in the console, so the
+// player just sits there with no explanation. Surface it instead.
+function playVideo(v) {
+    var p = v.play();
+    if (p && typeof p.catch === 'function') {
+        p.catch(function (err) {
+            if (err && err.name === 'AbortError') {
+                // Fired whenever a load or a new src interrupts a pending
+                // play() — routine during seek-by-reload, not a failure.
+                return;
+            }
+            if (err && err.name === 'NotSupportedError') {
+                showToast('This browser cannot play this transcoded format. Try Chrome or Firefox.');
+            } else {
+                showToast('Playback failed: ' + ((err && err.message) || 'unknown error'));
+            }
+        });
+    }
+    return p;
+}
+
 // ── File loading ──────────────────────────────────────────────────────────────
 var files = ao_module_loadInputFiles();
 if (files && files.length > 0) {
@@ -918,7 +942,7 @@ function transcodeSeekTo(seconds) {
     vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
             + '&start=' + pos.toFixed(3);
     vid.load();
-    vid.play();
+    playVideo(vid);
 }
 
 // Current playback position in whole-file terms (transcode streams restart at 0)
@@ -1012,7 +1036,7 @@ function initVideoControls() {
             transcodeSeekTo(0);
         } else {
             vid.currentTime = 0;
-            vid.play();
+            playVideo(vid);
         }
     });
 
@@ -1049,7 +1073,7 @@ function updateMuteIcon() {
 function togglePlay() {
     $('#resume-popup').removeClass('active');
     var willPlay = vid.paused;
-    if (willPlay) { vid.play(); } else { vid.pause(); }
+    if (willPlay) { playVideo(vid); } else { vid.pause(); }
     flashPlayState(willPlay);
 }
 
@@ -1107,12 +1131,12 @@ function showResumePopup(savedPos, duration) {
             transcodeSeekTo(pendingResumePos);
         } else {
             vid.currentTime = pendingResumePos;
-            vid.play();
+            playVideo(vid);
         }
         $('#resume-popup').removeClass('active');
     });
     $('#resume-btn-restart').off('click').on('click', function () {
-        vid.play();
+        playVideo(vid);
         $('#resume-popup').removeClass('active');
     });
 }
@@ -1149,7 +1173,7 @@ function initContextMenu() {
         if (!$(e.target).closest('#player-ctx').length) { $ctx.hide(); }
     });
 
-    $('#ctx-play').on('click',   function () { vid.play();  flashPlayState(true);  $ctx.hide(); });
+    $('#ctx-play').on('click',   function () { playVideo(vid);  flashPlayState(true);  $ctx.hide(); });
     $('#ctx-pause').on('click',  function () { vid.pause(); flashPlayState(false); $ctx.hide(); });
     $('#ctx-repeat').on('click', function () { setRepeatSingle(!repeatSingle); $ctx.hide(); });
     $('#ctx-subtitle-settings').on('click', function () { $ctx.hide(); openSubtitleSettings(); });

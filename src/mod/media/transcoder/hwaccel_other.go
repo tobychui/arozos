@@ -1,14 +1,14 @@
-//go:build !linux && !windows
-// +build !linux,!windows
+//go:build !linux && !windows && !darwin
+// +build !linux,!windows,!darwin
 
 package transcoder
 
 /*
 	hwaccel_other.go
 
-	No Intel/AMD hardware encode path is implemented yet for platforms other
-	than Linux and Windows (e.g. macOS, BSD). These hosts always fall back to
-	software (libx264) transcoding.
+	No hardware encode path is implemented yet for platforms other than Linux,
+	Windows and macOS (e.g. BSD). These hosts always fall back to software
+	(libx264) transcoding.
 */
 
 func candidateHWProfiles() []*hwEncoderProfile {

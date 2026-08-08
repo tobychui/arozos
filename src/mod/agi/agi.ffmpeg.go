@@ -208,6 +208,8 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		os.Remove(bufferedFilepath)
 		if err != nil {
 			g.RaiseError(err)
+			//Remove the partial output left behind by a failed or cancelled conversion
+			os.Remove(outputBufferPath)
 			return otto.FalseValue()
 		}
 		if !utils.FileExists(outputBufferPath) {
@@ -255,6 +257,10 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		if err != nil || call.Argument(3).IsUndefined() {
 			compressionRate = 0
 		}
+		vprogressFile := ""
+		if !call.Argument(4).IsUndefined() {
+			vprogressFile, _ = call.Argument(4).ToString()
+		}
 
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
@@ -270,6 +276,14 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 			return otto.FalseValue()
 		}
 
+		rprogressFile := ""
+		if vprogressFile != "" && vprogressFile != "undefined" {
+			vprogressFile = static.RelativeVpathRewrite(scriptFsh, vprogressFile, vm, u)
+			if _, rp, e := static.VirtualPathToRealPath(vprogressFile, u); e == nil {
+				rprogressFile = rp
+			}
+		}
+
 		bufferedFilepath, err := fsh.BufferRemoteToLocal(rinput)
 		if err != nil {
 			g.RaiseError(err)
@@ -279,10 +293,12 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		outputTmpFilename := uuid.NewV4().String() + filepath.Ext(routput)
 		outputBufferPath := filepath.Join(filepath.Dir(bufferedFilepath), outputTmpFilename)
 
-		err = ffmpegutil.FFmpeg_image_conv(bufferedFilepath, outputBufferPath, scaleFactor, int(compressionRate))
+		err = ffmpegutil.FFmpeg_image_conv(bufferedFilepath, outputBufferPath, scaleFactor, int(compressionRate), rprogressFile)
 		os.Remove(bufferedFilepath)
 		if err != nil {
 			g.RaiseError(err)
+			//Remove the partial output left behind by a failed or cancelled conversion
+			os.Remove(outputBufferPath)
 			return otto.FalseValue()
 		}
 		if !utils.FileExists(outputBufferPath) {
@@ -374,6 +390,8 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		os.Remove(bufferedFilepath)
 		if err != nil {
 			g.RaiseError(err)
+			//Remove the partial output left behind by a failed or cancelled conversion
+			os.Remove(outputBufferPath)
 			return otto.FalseValue()
 		}
 		if !utils.FileExists(outputBufferPath) {
@@ -453,6 +471,8 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		os.Remove(bufferedFilepath)
 		if err != nil {
 			g.RaiseError(err)
+			//Remove the partial output left behind by a failed or cancelled conversion
+			os.Remove(outputBufferPath)
 			return otto.FalseValue()
 		}
 		if !utils.FileExists(outputBufferPath) {
@@ -477,6 +497,31 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		return otto.TrueValue()
 	})
 
+	// _ffmpeg_cancel(progressFile)
+	// Stops the conversion that was started with the given progress file, no matter
+	// which request or user script started it. Returns true if a running conversion
+	// was found and terminated, false if it already finished or never had a progress
+	// file. The cancelled conversion reports itself as a failed conversion.
+	vm.Set("_ffmpeg_cancel", func(call otto.FunctionCall) otto.Value {
+		vprogressFile, err := call.Argument(0).ToString()
+		if err != nil || vprogressFile == "" || vprogressFile == "undefined" {
+			g.RaiseError(errors.New("progress file not provided"))
+			return otto.FalseValue()
+		}
+
+		vprogressFile = static.RelativeVpathRewrite(scriptFsh, vprogressFile, vm, u)
+		_, rprogressFile, err := static.VirtualPathToRealPath(vprogressFile, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		if !ffmpegutil.CancelConversion(rprogressFile) {
+			return otto.FalseValue()
+		}
+		return otto.TrueValue()
+	})
+
 	vm.Run(`
 		var ffmpeg = {};
 		ffmpeg.convert = _ffmpeg_conv;
@@ -484,5 +529,6 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		ffmpeg.imageConvert = _ffmpeg_image_conv;
 		ffmpeg.videoConvert = _ffmpeg_video_conv;
 		ffmpeg.convertWithProgress = _ffmpeg_conv_with_progress;
+		ffmpeg.cancel = _ffmpeg_cancel;
 	`)
 }

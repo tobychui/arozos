@@ -3,600 +3,808 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../script/semantic/semantic.min.css">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/semantic/semantic.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <title>FFmpeg Factory</title>
     <style>
-        /* ── Design tokens (Notes-inspired minimal gray) ── */
-        :root {
-            --bg:       #f7f7f2;
-            --surface:  #ffffff;
-            --surface2: #f2f2f7;
-            --border:   #d1d1d6;
-            --border-s: #e5e5ea;
-            --text:     #1c1c1e;
-            --text2:    #636366;
-            --text3:    #aeaeb2;
-            --accent:   #02b602;
-            --accent-h: #03a003;
-            --btn-text: #1c1c1e;
-            --hover:    rgba(0,0,0,0.05);
-            --success:  #30b950;
-            --danger:   #ff3b30;
-            --warning:  #ff9500;
-            --shadow-s: 0 1px 3px rgba(0,0,0,0.08);
-            --r:        11px;
-            --r-sm:     9px;
-            --r-xs:     7px;
-        }
+        /* ══════════════ Design tokens ══════════════ */
         body.dark {
-            --bg:       #1c1c1e;
-            --surface:  #2c2c2e;
-            --surface2: #3a3a3c;
-            --border:   #38383a;
-            --border-s: #2c2c2e;
-            --text:     #f2f2f7;
-            --text2:    #aeaeb2;
-            --text3:    #48484a;
-            --accent:   #02cc02;
-            --accent-h: #00b100;
-            --btn-text: #1c1c1e;
-            --hover:    rgba(255,255,255,0.06);
-            --success:  #32d74b;
-            --danger:   #ff453a;
-            --warning:  #ffd60a;
-            --shadow-s: 0 1px 4px rgba(0,0,0,0.4);
+            --bg:          #0d2416;
+            --bg-2:        #0a1d11;
+            --panel:       #10301c;
+            --panel-2:     #143a22;
+            --panel-3:     #17422a;
+            --border:      #1e4a2e;
+            --border-soft: #193d26;
+            --dash:        #2f6b45;
+            --text:        #e9f4ec;
+            --text-2:      #a7c8b3;
+            --text-3:      #7ba98c;
+            --accent:      #3d8f55;
+            --accent-h:    #48a463;
+            --accent-br:   #5fd07a;
+            --accent-soft: rgba(95, 208, 122, 0.13);
+            --seg-on:      #2c6b40;
+            --seg-on-bd:   #46955d;
+            --danger:      #e5675c;
+            --danger-soft: rgba(229, 103, 92, 0.14);
+            --warn:        #e0b356;
+            --warn-soft:   rgba(224, 179, 86, 0.13);
+            --shadow:      0 1px 2px rgba(0, 0, 0, 0.35);
+        }
+        body.light {
+            --bg:          #f1f7f2;
+            --bg-2:        #e8f1ea;
+            --panel:       #ffffff;
+            --panel-2:     #f0f6f1;
+            --panel-3:     #e7f0e9;
+            --border:      #d5e5da;
+            --border-soft: #e2ede5;
+            --dash:        #9dc7ac;
+            --text:        #12291a;
+            --text-2:      #4c6b57;
+            --text-3:      #6d8f79;
+            --accent:      #2f8b4d;
+            --accent-h:    #35a059;
+            --accent-br:   #34a95a;
+            --accent-soft: rgba(47, 139, 77, 0.11);
+            --seg-on:      #e2f2e7;
+            --seg-on-bd:   #6cb586;
+            --danger:      #d4453a;
+            --danger-soft: rgba(212, 69, 58, 0.1);
+            --warn:        #9a6f10;
+            --warn-soft:   rgba(212, 158, 34, 0.16);
+            --shadow:      0 1px 2px rgba(20, 50, 30, 0.06);
         }
 
         * { box-sizing: border-box; }
         html, body {
-            margin: 0; padding: 0; height: 100%;
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+        }
+        body {
             background: var(--bg);
             color: var(--text);
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-            font-size: 13px;
-            overflow: hidden;
-            transition: background-color 0.3s ease, color 0.3s ease;
+            font-size: 15px;
+            line-height: 1.45;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.25s ease, color 0.25s ease;
         }
-        /* thin scrollbars – like Notes */
-        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar { width: 9px; height: 9px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
-        body.dark  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
-        #appWrapper {
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--dash); }
+
+        .page {
+            position: relative;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 26px 32px 44px;
+        }
+        /* Standalone (non virtual-desktop) mode shows its own theme switch */
+        body.standalone .page { padding-top: 62px; }
+
+        #themeToggleBtn {
+            display: none;
+            position: absolute;
+            top: 16px; right: 32px;
+            width: 40px; height: 40px;
+            border-radius: 11px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            color: var(--text-2);
+            cursor: pointer;
+            align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        body.standalone #themeToggleBtn { display: flex; }
+        #themeToggleBtn:hover { background: var(--panel-2); color: var(--text); border-color: var(--dash); }
+        #themeToggleBtn i.icon { margin: 0; font-size: 1em; }
+
+        /* ── Panels ── */
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+        .panel h2 {
+            margin: 0 0 16px;
+            font-size: 1.18em;
+            font-weight: 700;
+            color: var(--text);
         }
 
-        /* ── Left panel ── */
-        #leftPanel {
-            width: 300px;
-            min-width: 260px;
-            max-width: 340px;
-            background: var(--surface2);
-            border-right: 1px solid var(--border);
+        /* ── Top grid ── */
+        .top-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+            gap: 22px;
+            margin-bottom: 24px;
+            align-items: stretch;
+        }
+
+        /* ── Drop zone ── */
+        #dropZone {
+            border: 2px dashed var(--dash);
+            border-radius: 16px;
+            background: var(--panel);
+            padding: 34px 24px;
+            min-height: 340px;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        #leftHeader {
-            padding: 13px 14px 11px;
-            border-bottom: 1px solid var(--border);
-            font-weight: 700;
-            font-size: 15px;
-            color: var(--text);
-            display: flex;
             align-items: center;
-            gap: 7px;
-            flex-shrink: 0;
-        }
-        #leftHeader .hdr-icon { color: var(--accent); font-size: 0.9em; }
-        #leftHeader .hdr-spacer { flex: 1; }
-        #themeToggleBtn {
-            width: 28px; height: 28px;
-            border-radius: 7px;
-            border: none;
-            background: transparent;
-            color: var(--text3);
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 15px;
-            transition: background 0.12s, color 0.12s;
-            flex-shrink: 0;
-        }
-        #themeToggleBtn:hover { background: var(--hover); color: var(--text2); }
-
-        #leftBody {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding: 12px 14px;
-        }
-
-        /* Drop zone */
-        #dropZone {
-            border: 1.5px dashed var(--border);
-            border-radius: var(--r);
-            padding: 22px 12px 18px;
+            justify-content: center;
             text-align: center;
-            color: var(--text3);
             cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
-            margin-bottom: 8px;
             user-select: none;
-            background: var(--surface);
+            transition: border-color 0.15s, background 0.15s;
         }
         #dropZone:hover, #dropZone.dragging {
-            border-color: var(--text2);
-            background: var(--surface);
+            border-color: var(--accent-br);
+            background: var(--panel-2);
         }
-        #dropZone .dz-icon { font-size: 1.5em; margin-bottom: 7px; color: var(--accent); opacity: 0.85; }
-        #dropZone .dz-label { font-size: 0.86em; font-weight: 600; color: var(--text2); }
-        #dropZone .dz-sub { font-size: 0.75em; margin-top: 3px; color: var(--text3); }
-
-        /* Upload from computer button */
-        #uploadBtn {
-            width: 100%;
-            padding: 7px 12px;
-            background: transparent;
-            color: var(--text2);
-            border: 1px solid var(--border);
-            border-radius: var(--r-sm);
-            font-size: 0.84em;
-            font-weight: 500;
-            cursor: pointer;
-            margin-bottom: 10px;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            transition: background 0.12s, color 0.12s;
-            font-family: inherit;
-        }
-        #uploadBtn:hover { background: var(--hover); color: var(--text); }
-
-        /* Selected file card */
-        #selectedFileInfo {
-            display: none;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--r-sm);
-            padding: 9px 10px 9px 11px;
-            margin-bottom: 10px;
-            position: relative;
-        }
-        #selectedFileIcon {
-            font-size: 1.4em; float: left; margin-right: 9px;
-            color: var(--accent); line-height: 1;
-        }
-        #selectedFileName {
-            font-weight: 600; font-size: 0.87em; word-break: break-all;
-            padding-right: 20px; color: var(--text);
-        }
-        #selectedFileMeta { font-size: 0.74em; color: var(--text2); word-break: break-all; margin-top: 2px; }
-        #clearFileBtn {
-            position: absolute; top: 8px; right: 8px;
-            cursor: pointer; color: var(--text3); font-size: 0.9em;
-            line-height: 1; width: 16px; height: 16px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 50%;
-            transition: background 0.12s, color 0.12s;
-        }
-        #clearFileBtn:hover { color: var(--danger); background: var(--hover); }
-
-        /* Upload progress */
-        #uploadProgressWrap {
-            display: none;
-            margin-bottom: 8px;
-        }
-        #uploadProgressWrap .up-label {
-            font-size: 0.76em; color: var(--text2); margin-bottom: 4px;
-        }
-        .prog-track {
-            height: 3px; background: var(--border-s);
-            border-radius: 2px; overflow: hidden;
-        }
-        .prog-fill {
-            height: 100%; background: var(--accent); border-radius: 2px;
-            transition: width 0.2s ease;
-        }
-
-        /* Divider */
-        .ff-divider {
-            height: 1px; background: var(--border); margin: 10px 0;
-        }
-
-        /* Form */
-        .ff-label {
-            font-size: 0.72em;
-            font-weight: 600;
-            color: var(--accent);
-            display: block;
-            margin-bottom: 4px;
-            margin-top: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-        }
-        .ff-select, .ff-input {
-            width: 100%;
-            padding: 7px 9px;
-            border: 1px solid var(--border);
-            border-radius: var(--r-xs);
-            font-size: 0.86em;
-            background: var(--surface);
+        #dropZone .dz-glyph { width: 74px; height: 74px; color: var(--accent-br); margin-bottom: 18px; }
+        #dropZone .dz-title {
+            font-size: 1.3em;
+            font-weight: 700;
             color: var(--text);
-            outline: none;
-            transition: border-color 0.15s;
-            appearance: auto;
+        }
+        #dropZone .dz-sub {
+            margin-top: 6px;
+            font-size: 0.98em;
+            color: var(--text-2);
+        }
+        .dz-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            padding: 11px 20px;
+            border-radius: 11px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
             font-family: inherit;
+            font-size: 0.97em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
         }
-        .ff-select:focus, .ff-input:focus { border-color: var(--accent); }
-        .ff-range {
-            width: 100%; cursor: pointer;
-            accent-color: var(--accent);
+        .btn i.icon { margin: 0; font-size: 1.05em; opacity: 0.95; }
+        .btn:hover { background: var(--panel-2); border-color: var(--dash); }
+        .btn.solid {
+            background: var(--seg-on);
+            border-color: var(--seg-on-bd);
+            color: var(--text);
         }
-        .ff-range-val { font-size: 0.75em; color: var(--text2); float: right; }
-        .options-section { margin-top: 2px; }
+        .btn.solid:hover { background: var(--accent); border-color: var(--accent-h); }
+        .btn.sm { padding: 8px 15px; font-size: 0.9em; border-radius: 10px; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn:disabled:hover { background: transparent; border-color: var(--border); }
 
         #convertBtn {
             width: 100%;
-            padding: 9px;
+            margin-top: 20px;
+            padding: 15px;
+            font-size: 1.05em;
             background: var(--accent);
-            color: var(--btn-text);
-            border: none;
-            border-radius: var(--r-sm);
-            font-size: 0.9em;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 14px;
-            transition: background 0.15s, opacity 0.15s;
-            letter-spacing: 0.01em;
+            border-color: var(--accent);
+            color: #ffffff;
         }
-        #convertBtn:hover:not(:disabled) { background: var(--accent-h); }
-        #convertBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        #convertBtn:hover:not(:disabled) { background: var(--accent-h); border-color: var(--accent-h); }
+        #convertBtn:disabled { background: var(--accent); border-color: var(--accent); }
 
-        /* ── Right panel ── */
-        #rightPanel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: var(--bg);
+        /* ── Selected files / upload progress (inside drop zone) ── */
+        .dz-extra {
+            width: 100%;
+            max-width: 460px;
+            margin-top: 22px;
+            text-align: left;
         }
-        #rightHeader {
-            padding: 13px 18px 11px;
-            border-bottom: 1px solid var(--border);
-            font-weight: 700;
-            font-size: 15px;
-            color: var(--text);
+        #selectedFileInfo, #uploadProgressWrap, #mixedWarning { display: none; }
+
+        #mixedWarning {
+            align-items: flex-start;
+            gap: 9px;
+            background: var(--warn-soft);
+            border: 1px solid var(--warn);
+            color: var(--warn);
+            border-radius: 11px;
+            padding: 9px 12px;
+            font-size: 0.86em;
+            margin-bottom: 10px;
+        }
+        #mixedWarning i.icon { margin: 0; flex-shrink: 0; margin-top: 2px; }
+
+        .file-head {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.85em; color: var(--text-2);
+            margin-bottom: 7px;
+        }
+        .file-head .fh-count { flex: 1; }
+        .file-head button {
+            border: none; background: transparent; color: var(--text-3);
+            font-family: inherit; font-size: 1em; cursor: pointer; padding: 2px 4px;
+            border-radius: 6px;
+        }
+        .file-head button:hover { color: var(--danger); background: var(--danger-soft); }
+
+        .file-list { max-height: 190px; overflow-y: auto; }
+        .sel-file {
             display: flex;
             align-items: center;
-            gap: 7px;
-            flex-shrink: 0;
-            background: var(--surface2);
+            gap: 11px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 9px 11px;
+            margin-bottom: 7px;
         }
-        #rightHeader .hdr-icon { color: var(--accent); }
-        #taskCountBadge {
-            display: none;
-            background: var(--accent);
-            color: var(--btn-text);
-            font-size: 0.69em;
-            font-weight: 700;
-            padding: 1px 7px;
+        .sel-file .sf-icon {
+            width: 32px; height: 32px; flex-shrink: 0;
+            border-radius: 9px;
+            background: var(--accent-soft);
+            color: var(--accent-br);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sel-file .sf-icon i.icon { margin: 0; font-size: 1em; }
+        .sel-file.odd-type .sf-icon { background: var(--warn-soft); color: var(--warn); }
+        .sel-file .sf-text { flex: 1; min-width: 0; }
+        .sel-file .sf-name {
+            font-size: 0.92em; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sel-file .sf-meta {
+            font-size: 0.79em; color: var(--text-3);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sel-file .sf-clear {
+            width: 28px; height: 28px; flex-shrink: 0;
+            border: none; background: transparent; color: var(--text-3);
+            border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-family: inherit;
+        }
+        .sel-file .sf-clear:hover { background: var(--danger-soft); color: var(--danger); }
+        .sel-file .sf-clear i.icon { margin: 0; }
+
+        .up-label {
+            font-size: 0.85em; color: var(--text-2);
+            display: flex; justify-content: space-between; gap: 10px; margin-bottom: 7px;
+        }
+        .up-label .up-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ── Progress track (shared) ── */
+        .track {
+            height: 7px;
+            background: var(--panel-3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .track .fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent-br);
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+        .track .fill.error { background: var(--danger); }
+        .track .fill.muted { background: var(--text-3); }
+
+        /* ── Convert panel ── */
+        .convert-panel { padding: 22px 24px 24px; display: flex; flex-direction: column; }
+        .seg {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .seg button {
+            display: flex; align-items: center; justify-content: center; gap: 9px;
+            padding: 13px 8px;
+            border-radius: 11px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-2);
+            font-family: inherit;
+            font-size: 0.97em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .seg button i.icon { margin: 0; }
+        .seg button:hover:not(.active):not(:disabled) { background: var(--panel-2); color: var(--text); }
+        .seg button.active {
+            background: var(--seg-on);
+            border-color: var(--seg-on-bd);
+            color: var(--text);
+        }
+        .seg button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .field-label {
+            display: block;
+            font-size: 0.92em;
+            color: var(--text-2);
+            margin-bottom: 7px;
+        }
+        .field { margin-bottom: 16px; }
+        .select-wrap { position: relative; }
+        .select-wrap > i.icon {
+            position: absolute;
+            right: 14px; top: 50%;
+            transform: translateY(-50%);
+            margin: 0;
+            color: var(--text-3);
+            pointer-events: none;
+        }
+        select.ff-select, input.ff-input {
+            width: 100%;
+            padding: 13px 40px 13px 15px;
+            border-radius: 11px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.97em;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        input.ff-input { padding-right: 15px; cursor: text; }
+        select.ff-select:focus, input.ff-input:focus { border-color: var(--seg-on-bd); }
+        select.ff-select:disabled { opacity: 0.5; cursor: not-allowed; }
+        select.ff-select option { background: var(--panel-2); color: var(--text); }
+
+        /* Additional options */
+        #advToggle {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            width: 100%;
+            padding: 13px 2px;
+            background: transparent;
+            border: none;
+            border-top: 1px solid var(--border-soft);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.97em;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: left;
+        }
+        #advToggle:hover { color: var(--accent-br); }
+        #advToggle .adv-title { flex: 1; }
+        #advToggle i.icon { margin: 0; color: var(--text-2); }
+        #advToggle .adv-chevron { transition: transform 0.2s ease; }
+        #advToggle.open .adv-chevron { transform: rotate(90deg); }
+        #advBody { display: none; padding: 4px 0 6px; }
+        .range-row {
+            display: flex; justify-content: space-between; align-items: baseline;
+            font-size: 0.92em; color: var(--text-2); margin-bottom: 7px; gap: 10px;
+        }
+        .range-row .range-val { color: var(--accent-br); font-weight: 600; }
+        input[type=range].ff-range {
+            width: 100%;
+            accent-color: var(--accent-br);
+            cursor: pointer;
+        }
+        .hint { font-size: 0.82em; color: var(--text-3); margin-top: 6px; }
+
+        /* ── Jobs panel ── */
+        .jobs-panel { padding: 22px 24px 8px; }
+        .jobs-head {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 14px;
+        }
+        .jobs-head h2 { margin: 0; flex: 1; }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding-bottom: 14px;
+        }
+        .tabs button {
+            padding: 8px 16px;
             border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-2);
+            font-family: inherit;
+            font-size: 0.93em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
         }
-        #taskListWrap {
-            flex: 1;
-            overflow-y: auto;
-            padding: 14px 16px;
+        .tabs button:hover:not(.active) { background: var(--panel-2); color: var(--text); }
+        .tabs button.active { background: var(--seg-on); color: var(--text); }
+
+        /* Job row */
+        .job {
+            display: grid;
+            grid-template-columns: 76px minmax(0, 1.15fr) minmax(190px, 1.5fr) auto;
+            grid-template-areas: "thumb main prog actions";
+            align-items: center;
+            gap: 18px;
+            padding: 14px 0;
+            border-top: 1px solid var(--border-soft);
         }
+        .job.hidden { display: none; }
+        .job-thumb {
+            grid-area: thumb;
+            position: relative;
+            width: 76px; height: 56px;
+            border-radius: 9px;
+            overflow: hidden;
+            background: var(--panel-3);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .job-thumb .thumb-icon { color: var(--text-3); font-size: 1.35em; }
+        .job-thumb .thumb-icon i.icon { margin: 0; }
+        .job-thumb img {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .job-thumb.noimg .play-badge { display: none; }
+        .job-thumb .play-badge {
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.82);
+            color: #16351f;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .job-thumb .play-badge i.icon { margin: 0 -2px 0 2px; font-size: 0.7em; }
+
+        .job-main { grid-area: main; min-width: 0; }
+        .job-name {
+            font-size: 1.0em; font-weight: 600; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .job-meta {
+            display: flex; align-items: center; gap: 12px;
+            margin-top: 5px;
+            font-size: 0.88em; color: var(--text-2);
+            flex-wrap: wrap;
+        }
+        .job-meta .conv { display: inline-flex; align-items: center; gap: 7px; }
+        .job-meta .conv i.icon { margin: 0; font-size: 0.9em; color: var(--text-3); }
+        .pill {
+            padding: 3px 11px;
+            border-radius: 8px;
+            font-size: 0.88em;
+            font-weight: 600;
+            background: var(--accent-soft);
+            color: var(--accent-br);
+            white-space: nowrap;
+        }
+        .pill.failed    { background: var(--danger-soft); color: var(--danger); }
+        .pill.cancelled { background: var(--panel-3); color: var(--text-2); }
+        .pill.queued    { background: var(--panel-3); color: var(--text-2); }
+        .pill.unknown   { background: var(--panel-3); color: var(--text-2); }
+
+        .job-prog {
+            grid-area: prog;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .job-pct {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: var(--text);
+            min-width: 46px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .job-prog .prog-col { flex: 1; min-width: 0; }
+        .job-time {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: var(--text-2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .job-actions {
+            grid-area: actions;
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .ibtn {
+            width: 42px; height: 42px;
+            border-radius: 11px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-2);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .ibtn i.icon { margin: 0; }
+        .ibtn:hover { background: var(--panel-2); color: var(--text); border-color: var(--dash); }
+        .ibtn.danger:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+        .ibtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .ibtn:disabled:hover { background: transparent; color: var(--text-2); border-color: var(--border); }
 
         /* Empty state */
         #emptyState {
+            padding: 46px 20px 54px;
             text-align: center;
-            padding: 70px 20px;
-            pointer-events: none;
+            border-top: 1px solid var(--border-soft);
         }
-        #emptyState .es-icon {
-            font-size: 3em; 
-            margin-bottom: 12px;
-            color: var(--accent);
-        }
-        #emptyState .es-title { font-size: 0.95em; font-weight: 600; color: var(--text3); }
-        #emptyState .es-sub { font-size: 0.81em; margin-top: 5px; color: var(--text3); }
+        #emptyState .es-icon { font-size: 2.6em; color: var(--text-3); opacity: 0.6; }
+        #emptyState .es-icon i.icon { margin: 0; }
+        #emptyState .es-title { margin-top: 12px; font-weight: 600; color: var(--text-2); }
+        #emptyState .es-sub { margin-top: 4px; font-size: 0.9em; color: var(--text-3); }
 
-        /* Task card */
-        .task-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--r);
-            padding: 12px 13px;
-            margin-bottom: 9px;
-            box-shadow: var(--shadow-s);
-            animation: slideIn 0.18s ease;
+        /* ══════════════ Responsive ══════════════ */
+        @media (max-width: 1080px) {
+            .job { grid-template-columns: 68px minmax(0, 1fr) minmax(160px, 1.2fr) auto; gap: 14px; }
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-5px); }
-            to   { opacity: 1; transform: translateY(0); }
+        @media (max-width: 960px) {
+            .top-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+            #dropZone { min-height: 260px; padding: 30px 20px; }
+            #dropZone .dz-glyph { width: 60px; height: 60px; margin-bottom: 14px; }
         }
-        .tc-row1 {
-            display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px;
-        }
-        .tc-icon { font-size: 1.2em; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
-        .tc-names { flex: 1; min-width: 0; }
-        .tc-input {
-            font-weight: 600; font-size: 0.87em;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            color: var(--text);
-        }
-        .tc-output {
-            font-size: 0.79em; color: var(--text2);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            margin-top: 1px;
-        }
-        .tc-badge {
-            flex-shrink: 0; font-size: 0.68em; font-weight: 600;
-            padding: 2px 7px; border-radius: 5px; margin-top: 2px;
-            letter-spacing: 0.03em;
-        }
-        .badge-running { background: var(--surface2); color: var(--accent); }
-        .badge-done    { background: var(--surface2); color: var(--success); }
-        .badge-failed  { background: var(--surface2); color: var(--danger);  }
-        .badge-unknown { background: var(--surface2); color: var(--text2); }
-
-        /* Progress bar */
-        .tc-prog-wrap { margin-bottom: 7px; }
-        .tc-prog-track {
-            height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden;
-        }
-        .tc-prog-fill {
-            height: 100%; background: var(--accent); border-radius: 2px;
-            transition: width 0.5s ease; min-width: 0;
-        }
-        .tc-prog-fill.done  { background: var(--success); }
-        .tc-prog-fill.error { background: var(--danger);  }
-        .tc-prog-label {
-            font-size: 0.72em; color: var(--text3); margin-top: 3px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-
-        /* Stats row */
-        .tc-stats {
-            display: flex; gap: 12px; font-size: 0.74em; color: var(--text2); margin-bottom: 9px;
-        }
-        .tc-stats span { display: flex; align-items: center; gap: 3px; }
-
-        /* Action buttons */
-        .tc-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-        .tc-btn {
-            padding: 4px 10px; font-size: 0.76em; font-weight: 500;
-            border-radius: var(--r-xs);
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text2);
-            cursor: pointer;
-            transition: background 0.12s, color 0.12s;
-            display: flex; align-items: center; gap: 4px;
-            font-family: inherit;
-        }
-        .tc-btn:hover { background: var(--hover); color: var(--text); }
-        .tc-btn.primary {
-            background: var(--accent); color: var(--btn-text); border-color: var(--accent);
-        }
-        .tc-btn.primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
-        .tc-btn.danger  { color: var(--danger); }
-        .tc-btn.danger:hover { background: var(--hover); }
-
-        /* Mobile-only nav buttons (hidden on desktop) */
-        .mobile-nav-btn {
-            display: none;
-            width: 30px; height: 30px;
-            border-radius: 7px;
-            border: none;
-            background: transparent;
-            color: var(--text2);
-            cursor: pointer;
-            align-items: center; justify-content: center;
-            font-size: 15px;
-            transition: background 0.12s, color 0.12s;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .mobile-nav-btn:hover { background: var(--hover); color: var(--text); }
-
-        /* Small task-count badge shown on the queue button in left header */
-        .mobile-badge {
-            position: absolute; top: -3px; right: -3px;
-            background: var(--accent); color: var(--btn-text);
-            font-size: 0.62em; font-weight: 700;
-            min-width: 15px; height: 15px;
-            border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            padding: 0 3px; pointer-events: none;
-        }
-
-        /* RWD: phone portrait */
-        @media (max-width: 600px) {
-            #appWrapper { flex-direction: column; }
-
-            #leftPanel {
-                width: 100%;
-                min-width: 0;
-                max-width: none;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-                flex: 1;
+        @media (max-width: 860px) {
+            .job {
+                grid-template-columns: 62px minmax(0, 1fr) auto;
+                grid-template-areas:
+                    "thumb main actions"
+                    "prog  prog prog";
+                row-gap: 12px;
             }
-
-            /* Right panel hidden by default; shown when in queue view */
-            #rightPanel { display: none; }
-
-            body.mobile-queue-view #leftPanel  { display: none; }
-            body.mobile-queue-view #rightPanel {
-                display: flex;
-                flex: 1;
-            }
-
-            .mobile-nav-btn { display: flex; }
-
-            /* Larger touch targets for form controls */
-            .ff-select, .ff-input { padding: 9px 10px; font-size: 0.9em; }
-            #convertBtn { padding: 11px; font-size: 0.95em; }
-            .tc-btn { padding: 6px 12px; font-size: 0.8em; }
+            .job-thumb { width: 62px; height: 46px; }
+        }
+        @media (max-width: 700px) {
+            .page { padding: 20px 16px 36px; }
+            body.standalone .page { padding-top: 58px; }
+            #themeToggleBtn { right: 16px; }
+            body { font-size: 14px; }
+            .convert-panel, .jobs-panel { padding-left: 16px; padding-right: 16px; }
+            .seg { gap: 8px; }
+            .seg button { padding: 12px 4px; font-size: 0.9em; gap: 6px; }
+            .jobs-head { flex-wrap: wrap; }
+            .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+            .tabs::-webkit-scrollbar { display: none; }
+            .tabs button { white-space: nowrap; }
+        }
+        @media (max-width: 480px) {
+            .dz-actions { flex-direction: column; width: 100%; }
+            .dz-actions .btn { width: 100%; }
+            #dropZone .dz-title { font-size: 1.12em; }
+            .seg { grid-template-columns: minmax(0, 1fr); }
+            .seg button { justify-content: flex-start; padding: 12px 14px; }
+            .job { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; row-gap: 10px; }
+            .job-thumb { width: 52px; height: 40px; align-self: start; margin-top: 2px; }
+            .job-pct { min-width: 40px; font-size: 0.9em; }
+            .job-size { display: none; }
+            .ibtn { width: 38px; height: 38px; border-radius: 10px; }
+            .job-actions { gap: 8px; }
+            .jobs-head h2 { flex: 1 0 100%; }
         }
     </style>
 </head>
-<body class="light">
-<div id="appWrapper">
+<body class="dark">
+<div class="page">
 
-    <!-- ════════════════ LEFT PANEL ════════════════ -->
-    <div id="leftPanel">
-        <div id="leftHeader">
-            <i class="film icon hdr-icon"></i>
-            <span>New Conversion</span>
-            <span class="hdr-spacer"></span>
-            <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark / light mode">
-                <i class="moon icon" id="themeIcon"></i>
-            </button>
-            <button class="mobile-nav-btn" id="mobileQueueBtn" onclick="switchToQueue()" title="View task queue">
-                <i class="list ul icon"></i>
-                <span class="mobile-badge" id="mobileQueueBadge" style="display:none">0</span>
-            </button>
+    <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark / light mode">
+        <i class="sun icon" id="themeIcon"></i>
+    </button>
+
+    <!-- ════════════════ TOP GRID ════════════════ -->
+    <div class="top-grid">
+
+        <!-- Drop zone -->
+        <div id="dropZone">
+            <svg class="dz-glyph" viewBox="0 0 48 48" fill="none" stroke="currentColor"
+                 stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M27 5H13a4 4 0 0 0-4 4v30a4 4 0 0 0 4 4h22a4 4 0 0 0 4-4V17z"></path>
+                <path d="M27 5v12h12"></path>
+                <path d="M24 24v10M19 29h10"></path>
+            </svg>
+            <div class="dz-title">Drag &amp; drop files here</div>
+            <div class="dz-sub">or click to browse your device</div>
+            <div class="dz-actions">
+                <button class="btn solid" onclick="event.stopPropagation(); openLocalUploader()">
+                    <i class="folder open outline icon"></i> Browse Files
+                </button>
+                <button class="btn" onclick="event.stopPropagation(); openSystemFileSelector()">
+                    <i class="cloud icon"></i> From Cloud
+                </button>
+            </div>
+
+            <div class="dz-extra">
+                <!-- Upload progress -->
+                <div id="uploadProgressWrap" onclick="event.stopPropagation()">
+                    <div class="up-label">
+                        <span class="up-name" id="uploadName">Uploading</span>
+                        <span><span id="uploadPct">0</span>%</span>
+                    </div>
+                    <div class="track"><div class="fill" id="uploadProgFill"></div></div>
+                </div>
+
+                <!-- Mixed file type warning -->
+                <div id="mixedWarning" onclick="event.stopPropagation()">
+                    <i class="exclamation triangle icon"></i>
+                    <span id="mixedWarningText"></span>
+                </div>
+
+                <!-- Selected files -->
+                <div id="selectedFileInfo" onclick="event.stopPropagation()">
+                    <div class="file-head">
+                        <span class="fh-count" id="fileCountLabel">1 file selected</span>
+                        <button type="button" onclick="clearSelectedFiles()" title="Remove all files">Clear all</button>
+                    </div>
+                    <div class="file-list" id="fileList"></div>
+                </div>
+            </div>
         </div>
-        <div id="leftBody">
 
-            <!-- Drop zone / system file browser -->
-            <div id="dropZone" onclick="openSystemFileSelector()">
-                <i class="cloud upload alternate icon dz-icon"></i>
-                <div class="dz-label">Click to browse system files</div>
-                <div class="dz-sub">or drag &amp; drop a file here</div>
+        <!-- Convert to -->
+        <div class="panel convert-panel">
+            <h2>Convert To</h2>
+
+            <div class="seg" id="catTabs">
+                <button type="button" data-cat="video" onclick="setCategory('video')"><i class="film icon"></i> Video</button>
+                <button type="button" data-cat="audio" onclick="setCategory('audio')"><i class="music icon"></i> Audio</button>
+                <button type="button" data-cat="image" onclick="setCategory('image')"><i class="image outline icon"></i> Image</button>
             </div>
 
-            <!-- Upload from local computer -->
-            <button id="uploadBtn" onclick="openLocalUploader()">
-                <i class="laptop icon"></i> Upload from Computer
+            <div class="field">
+                <label class="field-label" for="outputFormat">Format</label>
+                <div class="select-wrap">
+                    <select id="outputFormat" class="ff-select" onchange="onFormatChange()"></select>
+                    <i class="chevron down icon"></i>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="qualityPreset">Quality</label>
+                <div class="select-wrap">
+                    <select id="qualityPreset" class="ff-select" onchange="onQualityChange()"></select>
+                    <i class="chevron down icon"></i>
+                </div>
+            </div>
+
+            <button type="button" id="advToggle" onclick="toggleAdvanced()">
+                <i class="cog icon"></i>
+                <span class="adv-title">Additional Options</span>
+                <i class="chevron right icon adv-chevron"></i>
             </button>
 
-            <!-- Upload progress -->
-            <div id="uploadProgressWrap">
-                <div class="up-label">Uploading… <span id="uploadPct">0</span>%</div>
-                <div class="prog-track">
-                    <div class="prog-fill" id="uploadProgFill" style="width:0%"></div>
+            <div id="advBody">
+                <!-- Audio -->
+                <div id="audioOptions" style="display:none">
+                    <div class="field">
+                        <label class="field-label" for="sampleRate">Sample Rate</label>
+                        <div class="select-wrap">
+                            <select id="sampleRate" class="ff-select" onchange="markCustomQuality()">
+                                <option value="0">Original (unchanged)</option>
+                                <option value="8000">8,000 Hz</option>
+                                <option value="16000">16,000 Hz</option>
+                                <option value="22050">22,050 Hz</option>
+                                <option value="44100">44,100 Hz &mdash; CD quality</option>
+                                <option value="48000">48,000 Hz &mdash; HD audio</option>
+                                <option value="96000">96,000 Hz &mdash; High-res</option>
+                            </select>
+                            <i class="chevron down icon"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video -->
+                <div id="videoOptions" style="display:none">
+                    <div class="field">
+                        <label class="field-label" for="videoResolution">Resolution</label>
+                        <div class="select-wrap">
+                            <select id="videoResolution" class="ff-select">
+                                <option value="">Original (unchanged)</option>
+                                <option value="144p">144p &mdash; Low bandwidth</option>
+                                <option value="240p">240p &mdash; SD</option>
+                                <option value="360p">360p</option>
+                                <option value="480p">480p &mdash; SD</option>
+                                <option value="576p">576p &mdash; PAL</option>
+                                <option value="720p">720p &mdash; HD</option>
+                                <option value="1080p">1080p &mdash; Full HD</option>
+                                <option value="1440p">1440p &mdash; 2K</option>
+                                <option value="2160p">2160p &mdash; 4K Ultra HD</option>
+                            </select>
+                            <i class="chevron down icon"></i>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="range-row">
+                            <span>Compression (CRF)</span>
+                            <span class="range-val"><span id="videoCompressionVal">0</span>%</span>
+                        </div>
+                        <input type="range" class="ff-range" id="videoCompression" min="0" max="100" value="0"
+                               oninput="document.getElementById('videoCompressionVal').textContent=this.value; markCustomQuality();">
+                        <div class="hint">0 keeps the encoder default; higher values mean a smaller, lower quality file.</div>
+                    </div>
+                </div>
+
+                <!-- Image -->
+                <div id="imageOptions" style="display:none">
+                    <div class="field">
+                        <label class="field-label" for="imageScale">Scale Factor</label>
+                        <input type="number" id="imageScale" class="ff-input" step="0.05" min="0.05" max="10" value="1.0">
+                        <div class="hint">1.0 keeps the original size, 0.5 halves both dimensions.</div>
+                    </div>
+                    <div class="field" id="imageCompressionSection">
+                        <div class="range-row">
+                            <span>Quality Loss</span>
+                            <span class="range-val"><span id="imageQualityVal">0</span>%</span>
+                        </div>
+                        <input type="range" class="ff-range" id="imageQuality" min="0" max="100" value="0"
+                               oninput="document.getElementById('imageQualityVal').textContent=this.value; markCustomQuality();">
+                        <div class="hint">0 is the best quality, 100 is the most compressed.</div>
+                    </div>
+                </div>
+
+                <div id="noOptionsHint" class="hint" style="display:none">
+                    This conversion has no adjustable options.
                 </div>
             </div>
 
-            <!-- Selected file info -->
-            <div id="selectedFileInfo">
-                <span id="clearFileBtn" onclick="clearSelectedFile()" title="Clear selection">&#10005;</span>
-                <div id="selectedFileIcon"><i class="file outline icon"></i></div>
-                <div>
-                    <div id="selectedFileName">file.mp4</div>
-                    <div id="selectedFileMeta">user:/path/to/file.mp4</div>
-                </div>
-                <div style="clear:both"></div>
-            </div>
-
-            <!-- Output format -->
-            <label class="ff-label">Output Format</label>
-            <select id="outputFormat" class="ff-select" onchange="onFormatChange()">
-                <option value="">— select a file first —</option>
-            </select>
-
-            <!-- Audio options -->
-            <div id="audioOptions" class="options-section" style="display:none">
-                <label class="ff-label">Sample Rate</label>
-                <select id="sampleRate" class="ff-select">
-                    <option value="0">Original (unchanged)</option>
-                    <option value="8000">8,000 Hz</option>
-                    <option value="16000">16,000 Hz</option>
-                    <option value="22050">22,050 Hz</option>
-                    <option value="44100">44,100 Hz — CD quality</option>
-                    <option value="48000">48,000 Hz — HD audio</option>
-                    <option value="96000">96,000 Hz — High-res</option>
-                </select>
-            </div>
-
-            <!-- Video options -->
-            <div id="videoOptions" class="options-section" style="display:none">
-                <label class="ff-label">Resolution</label>
-                <select id="videoResolution" class="ff-select">
-                    <option value="">Original (unchanged)</option>
-                    <option value="144p">144p — Low bandwidth</option>
-                    <option value="240p">240p — SD</option>
-                    <option value="360p">360p</option>
-                    <option value="480p">480p — SD</option>
-                    <option value="576p">576p — PAL</option>
-                    <option value="720p">720p — HD</option>
-                    <option value="1080p">1080p — Full HD</option>
-                    <option value="1440p">1440p — 2K</option>
-                    <option value="2160p">2160p — 4K Ultra HD</option>
-                </select>
-                <label class="ff-label">
-                    Compression (CRF)
-                    <span class="ff-range-val"><span id="videoCompressionVal">0</span>% &nbsp;<small style="color:#bbb">(0 = encoder default)</small></span>
-                </label>
-                <input type="range" class="ff-range" id="videoCompression" min="0" max="100" value="0"
-                       oninput="document.getElementById('videoCompressionVal').textContent=this.value">
-            </div>
-
-            <!-- Image options -->
-            <div id="imageOptions" class="options-section" style="display:none">
-                <label class="ff-label">Scale Factor <small style="color:#bbb; font-weight:400">(1.0 = original, 0.5 = half size)</small></label>
-                <input type="number" id="imageScale" class="ff-input" step="0.05" min="0.05" max="10" value="1.0">
-
-                <div id="imageCompressionSection">
-                    <label class="ff-label">
-                        Quality Loss
-                        <span class="ff-range-val"><span id="imageQualityVal">0</span>% &nbsp;<small style="color:#bbb">(0 = best, 100 = most compressed)</small></span>
-                    </label>
-                    <input type="range" class="ff-range" id="imageQuality" min="0" max="100" value="0"
-                           oninput="document.getElementById('imageQualityVal').textContent=this.value">
-                </div>
-            </div>
-
-            <button id="convertBtn" onclick="startConversion()" disabled>
-                <i class="play icon"></i> Convert
+            <button class="btn" id="convertBtn" onclick="startConversion()" disabled>
+                <i class="play icon"></i> Start Conversion
             </button>
-        </div><!-- /leftBody -->
-    </div><!-- /leftPanel -->
-
-    <!-- ════════════════ RIGHT PANEL ════════════════ -->
-    <div id="rightPanel">
-        <div id="rightHeader">
-            <button class="mobile-nav-btn" id="mobileBackBtn" onclick="switchToConvert()" title="Back to conversion settings">&#8592;</button>
-            <i class="list ul icon hdr-icon"></i>
-            Task Queue
-            <span id="taskCountBadge">0</span>
-        </div>
-        <div id="taskListWrap">
-            <div id="emptyState">
-                <i class="film icon es-icon"></i>
-                <div class="es-title">No conversions yet</div>
-                <div class="es-sub">Select or upload a file on the left to get started.</div>
-            </div>
-            <div id="taskList"></div>
         </div>
     </div>
 
-</div><!-- /appWrapper -->
+    <!-- ════════════════ JOBS ════════════════ -->
+    <div class="panel jobs-panel">
+        <div class="jobs-head">
+            <h2>Jobs</h2>
+            <button class="btn sm" id="clearCompletedBtn" onclick="clearCompleted()" disabled>
+                <i class="trash alternate outline icon"></i> Clear Completed
+            </button>
+        </div>
+
+        <div class="tabs" id="jobTabs">
+            <button type="button" class="active" data-filter="all" onclick="setJobFilter('all')">All (0)</button>
+            <button type="button" data-filter="running" onclick="setJobFilter('running')">Running (0)</button>
+            <button type="button" data-filter="completed" onclick="setJobFilter('completed')">Completed (0)</button>
+        </div>
+
+        <div id="jobList"></div>
+
+        <div id="emptyState">
+            <div class="es-icon"><i class="film icon"></i></div>
+            <div class="es-title">No conversions yet</div>
+            <div class="es-sub">Add a file above and start your first conversion.</div>
+        </div>
+    </div>
+
+</div>
 
 <script>
 // ══════════════════════════════════════════════════════════════════
 //  FFmpeg Factory  –  frontend logic
 // ══════════════════════════════════════════════════════════════════
-
-// ── Mobile panel navigation ───────────────────────────────────────────────
-function isMobileFF() {
-    return window.matchMedia('(max-width: 600px)').matches;
-}
-function switchToQueue() {
-    document.body.classList.add('mobile-queue-view');
-}
-function switchToConvert() {
-    document.body.classList.remove('mobile-queue-view');
-}
 
 // --- Extension groups ---
 var VIDEO_EXTS       = ["mp4","mkv","avi","mov","flv","webm"];
@@ -604,23 +812,72 @@ var AUDIO_EXTS       = ["mp3","wav","aac","ogg","flac","m4a","opus"];
 var IMAGE_EXTS       = ["jpg","jpeg","png","gif","bmp","tiff","webp"];
 var LOSSY_IMAGE_EXTS = ["jpg","jpeg","webp"];
 
+// --- Format lists per target category, keyed by the source media kind ---
+var FORMATS = {
+    video: {
+        video:   [["mp4","MP4 (.mp4)"],["mkv","MKV (.mkv)"],["avi","AVI (.avi)"],["webm","WebM (.webm)"],["mov","MOV (.mov)"]],
+        audio:   [["mp3","MP3 (.mp3)"],["aac","AAC (.aac)"],["wav","WAV (.wav)"],["flac","FLAC (.flac)"],["ogg","OGG Vorbis (.ogg)"]],
+        image:   [["gif","GIF Animation (.gif)"]]
+    },
+    audio: {
+        audio:   [["mp3","MP3 (.mp3)"],["aac","AAC (.aac)"],["wav","WAV (.wav)"],["flac","FLAC (.flac)"],["ogg","OGG Vorbis (.ogg)"],["opus","Opus (.opus)"]]
+    },
+    image: {
+        image:   [["jpg","JPEG (.jpg)"],["png","PNG (.png)"],["webp","WebP (.webp)"],["bmp","BMP (.bmp)"],["tiff","TIFF (.tiff)"],["gif","GIF (.gif)"]]
+    },
+    other: {
+        video:   [["mp4","MP4 (.mp4)"],["mkv","MKV (.mkv)"],["avi","AVI (.avi)"]],
+        audio:   [["mp3","MP3 (.mp3)"],["aac","AAC (.aac)"],["wav","WAV (.wav)"]],
+        image:   [["jpg","JPEG (.jpg)"],["png","PNG (.png)"]]
+    }
+};
+
+// --- Quality presets, per resolved conversion type ---
+// Values map onto the same advanced controls the user can fine-tune below.
+var QUALITY_PRESETS = {
+    video: [
+        { id: "high",     label: "High (Recommended)",    compression: 38 },
+        { id: "medium",   label: "Medium — balanced",     compression: 50 },
+        { id: "low",      label: "Low — smallest file",   compression: 62 },
+        { id: "original", label: "Original — encoder default", compression: 0 }
+    ],
+    audio: [
+        { id: "original", label: "Original (Recommended)", sampleRate: 0 },
+        { id: "high",     label: "High — 48,000 Hz",       sampleRate: 48000 },
+        { id: "medium",   label: "Standard — 44,100 Hz",   sampleRate: 44100 },
+        { id: "low",      label: "Low — 22,050 Hz",        sampleRate: 22050 }
+    ],
+    image: [
+        { id: "high",     label: "High (Recommended)",     compression: 10 },
+        { id: "medium",   label: "Medium — balanced",      compression: 40 },
+        { id: "low",      label: "Low — smallest file",    compression: 70 },
+        { id: "original", label: "Original — lossless",    compression: 0 }
+    ],
+    generic: [
+        { id: "default",  label: "Default" }
+    ]
+};
+
+// How many conversions this browser tab keeps in flight at once. Every running
+// conversion holds an open HTTP request, so a queue keeps the remaining jobs
+// (and the progress polling) from being starved of browser connections.
+var MAX_CONCURRENT_JOBS = 2;
+
 // --- Global state ---
-var selectedFilePath   = null;
-var selectedFileUpload = false;
-var activeTasks        = {};   // taskId → { timer, data }
+var selectedFiles   = [];   // [{ vpath, isUpload, name, ext, kind }]
+var currentCategory = "video";
+var activeTasks     = {};   // taskId -> { timer, data, outputVpath, isUpload, status }
+var pendingJobs     = [];   // task data waiting for a free conversion slot
+var countedJobs     = {};   // taskId -> true while the job holds a conversion slot
+var runningJobCount = 0;
+var jobFilter       = "all";
 
 // ──────────────────────────────────────────────
-// Theme  (preference key: ffmpeg_factory/theme)
+// Theme
+// The theme follows the system-wide ArozOS theme set by the desktop / file
+// manager. Only in standalone mode (opened outside the web desktop) does this
+// app show its own switch, which flips the same system-wide preference.
 // ──────────────────────────────────────────────
-var PREF_KEY = "ffmpeg_factory/theme";
-
-function loadPref(key, cb) {
-    $.get("../../system/file_system/preference?key=" + encodeURIComponent(key), cb);
-}
-function savePref(key, value) {
-    $.get("../../system/file_system/preference?key=" + encodeURIComponent(key) + "&value=" + encodeURIComponent(value));
-}
-
 function applyTheme(isDark) {
     if (isDark) {
         $("body").removeClass("light").addClass("dark");
@@ -632,22 +889,22 @@ function applyTheme(isDark) {
 }
 
 function toggleTheme() {
-    var isDark = $("body").hasClass("dark");
-    applyTheme(!isDark);
-    savePref(PREF_KEY, isDark ? "light" : "dark");
+    ao_module_toggleSystemTheme();
 }
 
 function initTheme() {
-    // Step 1: apply system-wide theme immediately (same pattern as Notes app)
+    if (!ao_module_virtualDesktop) {
+        $("body").addClass("standalone");
+    }
+
+    // Current system theme
     ao_module_getSystemThemeColor(function (sysTheme) {
         applyTheme(sysTheme !== "whiteTheme");
+    });
 
-        // Step 2: check for a per-app manual override and apply it on top
-        loadPref(PREF_KEY, function (data) {
-            if (data && data !== "undefined" && data !== "" && !data.error) {
-                applyTheme(data === "dark");
-            }
-        });
+    // Follow later changes made by the desktop, the file manager or another tab
+    ao_module_onThemeChanged(function (theme) {
+        applyTheme(theme !== "light" && theme !== "whiteTheme");
     });
 }
 
@@ -671,41 +928,48 @@ function safeJSON(data) {
 $(document).ready(function () {
     initTheme();
 
-    // Drag-and-drop onto drop zone (local OS files + arozos file manager)
+    // Clicking anywhere on the drop zone browses the local device
     var dz = document.getElementById("dropZone");
-    dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.classList.add("dragging"); });
+    dz.addEventListener("click", openLocalUploader);
+
+    // Drag-and-drop (local OS files + arozos file manager items)
+    dz.addEventListener("dragover",  function (e) { e.preventDefault(); dz.classList.add("dragging"); });
     dz.addEventListener("dragleave", function ()  { dz.classList.remove("dragging"); });
     dz.addEventListener("drop", function (e) {
         e.preventDefault();
         dz.classList.remove("dragging");
 
-        // Check for arozos file manager drag (sets "filedata" on the dataTransfer)
+        // arozos file manager drag (sets "filedata" on the dataTransfer)
         var filedata = e.dataTransfer.getData("filedata");
         if (filedata) {
             try {
                 var fmFiles = JSON.parse(filedata);
                 if (fmFiles && fmFiles.length > 0) {
-                    var vpath = fmFiles[0].filepath || fmFiles[0].Filepath || "";
-                    if (vpath) { selectSourceFile(vpath, false); return; }
+                    handleFSSelection(fmFiles);
+                    return;
                 }
             } catch (ex) {}
         }
 
         // Fallback: local OS file drop
-        var files = e.dataTransfer.files;
-        if (files.length > 0) handleLocalFile(files[0]);
+        if (e.dataTransfer.files.length > 0) uploadLocalFiles(e.dataTransfer.files);
     });
+
+    // Remove one selected file
+    $("#fileList").on("click", ".sf-clear", function () {
+        removeSelectedFile(parseInt($(this).attr("data-idx"), 10));
+    });
+
+    // Start with an empty, disabled form until a file is picked
+    refreshCategoryAvailability();
+    populateFormats();
 
     // Load persisted tasks (session resume)
     loadExistingTasks();
 
-    // File opened from the desktop file manager
+    // Files opened from the desktop file manager
     var inputFiles = ao_module_loadInputFiles();
-    if (inputFiles && inputFiles.length > 0) {
-        var f = inputFiles[0];
-        var vpath = (typeof f === "string") ? f : (f.filepath || f.Filepath || "");
-        if (vpath) selectSourceFile(vpath, false);
-    }
+    if (inputFiles && inputFiles.length > 0) handleFSSelection(inputFiles);
 });
 
 // ──────────────────────────────────────────────
@@ -714,172 +978,317 @@ $(document).ready(function () {
 function openSystemFileSelector() {
     ao_module_openFileSelector(
         handleFSSelection,
-        "user:/", "file", false,
+        "user:/", "file", true,
         { fnameOverride: "handleFSSelection" }
     );
 }
 
-// Global callback for virtual-desktop mode (function name is looked up by the parent frame)
+// Global callback for virtual-desktop mode (looked up by name from the parent frame)
 function handleFSSelection(files) {
     if (!files || files.length === 0) return;
-    var f = files[0];
-    var vpath = (typeof f === "string") ? f : (f.filepath || f.Filepath || "");
-    if (vpath) selectSourceFile(vpath, false);
+    var picked = [];
+    for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        var vpath = (typeof f === "string") ? f : (f.filepath || f.Filepath || "");
+        if (vpath) picked.push({ vpath: vpath, isUpload: false });
+    }
+    addSelectedFiles(picked);
 }
 
 function openLocalUploader() {
     var input = document.createElement("input");
     input.type = "file";
+    input.multiple = true;
     input.onchange = function (e) {
-        if (e.target.files.length > 0) handleLocalFile(e.target.files[0]);
+        if (e.target.files.length > 0) uploadLocalFiles(e.target.files);
     };
     input.click();
 }
 
-function handleLocalFile(file) {
-    // Ensure server-side upload directory exists, then upload
+// Upload local files one after another into the factory's upload folder
+function uploadLocalFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList);
     ao_module_agirun("FFmpeg Factory/agi/ensuredirs.agi", {}, function () {
-        $("#uploadProgressWrap").show();
-        $("#uploadProgFill").css("width", "0%");
-        $("#uploadPct").text("0");
-
-        ao_module_uploadFile(
-            file,
-            "tmp:/ffmpeg_factory/uploads/",
-            function () {
-                // Upload complete
-                $("#uploadProgressWrap").hide();
-                selectSourceFile("tmp:/ffmpeg_factory/uploads/" + file.name, true);
-            },
-            function (pct) {
-                var p = Math.round(pct);
-                $("#uploadProgFill").css("width", p + "%");
-                $("#uploadPct").text(p);
-            },
-            function (status) {
-                $("#uploadProgressWrap").hide();
-                alert("Upload failed (HTTP " + status + ").\nCheck that the file is not too large.");
-            }
-        );
+        uploadNextFile(files, 0, []);
     });
 }
 
-function selectSourceFile(vpath, isUpload) {
-    selectedFilePath   = vpath;
-    selectedFileUpload = isUpload || false;
-
-    var parts    = vpath.split("/");
-    var filename = parts[parts.length - 1];
-    var ext      = filename.includes(".") ? filename.split(".").pop().toLowerCase() : "";
-
-    var icon = "file outline";
-    if (VIDEO_EXTS.includes(ext))  icon = "film";
-    else if (AUDIO_EXTS.includes(ext)) icon = "music";
-    else if (IMAGE_EXTS.includes(ext)) icon = "image";
-
-    $("#selectedFileIcon").html('<i class="' + icon + ' icon"></i>');
-    $("#selectedFileName").text(filename);
-    $("#selectedFileMeta").text(isUpload ? "Uploaded from this computer" : vpath);
-    $("#selectedFileInfo").show();
-
-    updateOutputFormats(ext);
-}
-
-function clearSelectedFile() {
-    selectedFilePath   = null;
-    selectedFileUpload = false;
-    $("#selectedFileInfo").hide();
-    $("#outputFormat").html('<option value="">— select a file first —</option>');
-    $("#audioOptions, #videoOptions, #imageOptions").hide();
-    $("#convertBtn").prop("disabled", true);
-}
-
-// ──────────────────────────────────────────────
-// Output format & options
-// ──────────────────────────────────────────────
-function updateOutputFormats(ext) {
-    var $fmt = $("#outputFormat").empty();
-
-    if (VIDEO_EXTS.includes(ext)) {
-        addOptGroup($fmt, "Video", [
-            ["mp4","MP4 (H.264)"], ["mkv","MKV (Matroska)"], ["avi","AVI"],
-            ["webm","WebM (VP9)"], ["mov","MOV (QuickTime)"]
-        ]);
-        addOptGroup($fmt, "Audio — extract from video", [
-            ["mp3","MP3"], ["aac","AAC"], ["wav","WAV (lossless)"],
-            ["flac","FLAC (lossless)"], ["ogg","OGG Vorbis"]
-        ]);
-        addOptGroup($fmt, "Animation", [["gif","GIF Animation"]]);
-
-    } else if (AUDIO_EXTS.includes(ext)) {
-        addOptGroup($fmt, "Audio", [
-            ["mp3","MP3"], ["aac","AAC"], ["wav","WAV (lossless)"],
-            ["flac","FLAC (lossless)"], ["ogg","OGG Vorbis"], ["opus","Opus"]
-        ]);
-
-    } else if (IMAGE_EXTS.includes(ext)) {
-        addOptGroup($fmt, "Image", [
-            ["jpg","JPEG (lossy)"], ["png","PNG (lossless)"],
-            ["webp","WebP"], ["bmp","BMP (lossless)"],
-            ["tiff","TIFF (lossless)"], ["gif","GIF"]
-        ]);
-
-    } else {
-        // Unknown type – offer common formats
-        addOptGroup($fmt, "Video",  [["mp4","MP4"], ["mkv","MKV"], ["avi","AVI"]]);
-        addOptGroup($fmt, "Audio",  [["mp3","MP3"], ["aac","AAC"], ["wav","WAV"]]);
-        addOptGroup($fmt, "Image",  [["jpg","JPEG"], ["png","PNG"]]);
+function uploadNextFile(files, index, uploaded) {
+    if (index >= files.length) {
+        $("#uploadProgressWrap").hide();
+        addSelectedFiles(uploaded);
+        return;
     }
 
+    var file  = files[index];
+    var label = (files.length > 1)
+        ? "Uploading " + (index + 1) + " of " + files.length + ": " + file.name
+        : "Uploading " + file.name;
+
+    $("#uploadProgressWrap").show();
+    $("#uploadName").text(label).attr("title", file.name);
+    $("#uploadProgFill").css("width", "0%");
+    $("#uploadPct").text("0");
+
+    ao_module_uploadFile(
+        file,
+        "tmp:/ffmpeg_factory/uploads/",
+        function () {
+            uploaded.push({ vpath: "tmp:/ffmpeg_factory/uploads/" + file.name, isUpload: true });
+            uploadNextFile(files, index + 1, uploaded);
+        },
+        function (pct) {
+            var p = Math.round(pct);
+            $("#uploadProgFill").css("width", p + "%");
+            $("#uploadPct").text(p);
+        },
+        function (status) {
+            alert("Upload of \"" + file.name + "\" failed (HTTP " + status + ").\n" +
+                  "Check that the file is not too large.");
+            uploadNextFile(files, index + 1, uploaded);
+        }
+    );
+}
+
+// Add files to the selection, skipping ones that are already there
+function addSelectedFiles(files) {
+    if (!files || files.length === 0) return;
+
+    files.forEach(function (f) {
+        for (var i = 0; i < selectedFiles.length; i++) {
+            if (selectedFiles[i].vpath === f.vpath) return;   // already selected
+        }
+        var name = baseName(f.vpath);
+        var ext  = extOf(name);
+        selectedFiles.push({
+            vpath:    f.vpath,
+            isUpload: f.isUpload || false,
+            name:     name,
+            ext:      ext,
+            kind:     mediaKind(ext)
+        });
+    });
+
+    // The first file decides which conversion options are offered
+    var cats = availableCategories();
+    if (cats.indexOf(primaryKind()) >= 0) {
+        currentCategory = primaryKind();
+    } else if (cats.indexOf(currentCategory) < 0) {
+        currentCategory = cats[0];
+    }
+
+    renderSelectedFiles();
+    refreshCategoryAvailability();
+    populateFormats();
+}
+
+function removeSelectedFile(index) {
+    if (isNaN(index) || index < 0 || index >= selectedFiles.length) return;
+    selectedFiles.splice(index, 1);
+    if (selectedFiles.length === 0) {
+        clearSelectedFiles();
+        return;
+    }
+    renderSelectedFiles();
+    refreshCategoryAvailability();
+    populateFormats();
+}
+
+function clearSelectedFiles() {
+    selectedFiles = [];
+    renderSelectedFiles();
+    refreshCategoryAvailability();
+    populateFormats();
+}
+
+function renderSelectedFiles() {
+    var $list = $("#fileList").empty();
+
+    if (selectedFiles.length === 0) {
+        $("#selectedFileInfo").hide();
+        $("#mixedWarning").hide();
+        return;
+    }
+
+    var mainExt = selectedFiles[0].ext;
+    selectedFiles.forEach(function (f, idx) {
+        var oddType = (f.ext !== mainExt);
+        var row =
+            '<div class="sel-file' + (oddType ? ' odd-type' : '') + '">' +
+              '<div class="sf-icon"><i class="' + kindIcon(f.kind) + ' icon"></i></div>' +
+              '<div class="sf-text">' +
+                '<div class="sf-name" title="' + esc(f.vpath) + '">' + esc(f.name) + '</div>' +
+                '<div class="sf-meta">' + (f.isUpload ? "Uploaded from this device" : esc(f.vpath)) + '</div>' +
+              '</div>' +
+              '<button class="sf-clear" data-idx="' + idx + '" title="Remove this file">' +
+                '<i class="times icon"></i></button>' +
+            '</div>';
+        $list.append($(row));
+    });
+
+    $("#fileCountLabel").text(selectedFiles.length === 1
+        ? "1 file selected"
+        : selectedFiles.length + " files selected");
+    $("#selectedFileInfo").show();
+
+    renderMixedWarning();
+}
+
+// Warn when the selection holds more than one source file type. The options
+// follow the first file; the other types are still queued but may not convert.
+function renderMixedWarning() {
+    var mainExt  = selectedFiles[0].ext;
+    var oddExts  = [];
+    selectedFiles.forEach(function (f) {
+        if (f.ext !== mainExt && oddExts.indexOf(f.ext) < 0) oddExts.push(f.ext);
+    });
+
+    if (oddExts.length === 0) {
+        $("#mixedWarning").hide();
+        return;
+    }
+
+    // Files of a different media kind (e.g. an audio file among videos) cannot
+    // use the format list built for the first file, so warn harder about those.
+    var mainKind    = primaryKind();
+    var otherKinds  = selectedFiles.some(function (f) { return f.kind !== mainKind; });
+
+    $("#mixedWarningText").html(
+        "Mixed file types selected (<b>." + esc(oddExts.join(", .")) + "</b>). " +
+        "Every file is converted with the options of the first one (<b>." +
+        esc(mainExt || "unknown") + "</b>)" +
+        (otherKinds ? ", so files of a different media type may fail to convert." : ".")
+    );
+    $("#mixedWarning").css("display", "flex");
+}
+
+function primaryKind() {
+    return selectedFiles.length ? selectedFiles[0].kind : "other";
+}
+
+// ──────────────────────────────────────────────
+// Target category / format / quality
+// ──────────────────────────────────────────────
+function availableCategories() {
+    var map = FORMATS[primaryKind()] || FORMATS.other;
+    var cats = [];
+    ["video","audio","image"].forEach(function (c) { if (map[c]) cats.push(c); });
+    return cats;
+}
+
+function refreshCategoryAvailability() {
+    var cats = availableCategories();
+    if (cats.indexOf(currentCategory) < 0) currentCategory = cats[0];
+
+    $("#catTabs button").each(function () {
+        var cat = $(this).data("cat");
+        var ok  = cats.indexOf(cat) >= 0;
+        $(this).prop("disabled", !ok)
+               .attr("title", ok ? "" : "Not available for this source file")
+               .toggleClass("active", ok && cat === currentCategory);
+    });
+}
+
+function setCategory(cat) {
+    if (availableCategories().indexOf(cat) < 0) return;
+    currentCategory = cat;
+    refreshCategoryAvailability();
+    populateFormats();
+}
+
+function populateFormats() {
+    var map  = FORMATS[primaryKind()] || FORMATS.other;
+    var list = map[currentCategory] || [];
+    var $fmt = $("#outputFormat").empty();
+
+    if (selectedFiles.length === 0) {
+        $fmt.append($("<option>").val("").text("Select a file first")).prop("disabled", true);
+    } else {
+        $fmt.prop("disabled", false);
+        list.forEach(function (o) {
+            $fmt.append($("<option>").val(o[0]).text(o[1]));
+        });
+    }
     onFormatChange();
 }
 
-function addOptGroup($sel, label, opts) {
-    var $g = $('<optgroup>').attr("label", label);
-    opts.forEach(function (o) { $g.append($('<option>').val(o[0]).text(o[1])); });
-    $sel.append($g);
-}
-
-function onFormatChange() {
-    var outputExt = $("#outputFormat").val() || "";
-    var inputExt  = selectedFilePath
-        ? selectedFilePath.split(".").pop().toLowerCase()
-        : "";
-    var convType  = getConvType(inputExt, outputExt);
-
-    $("#audioOptions").toggle(convType === "audio");
-    $("#videoOptions").toggle(convType === "video");
-
-    if (convType === "image") {
-        $("#imageOptions").show();
-        // Quality slider only useful for lossy formats
-        $("#imageCompressionSection").toggle(LOSSY_IMAGE_EXTS.includes(outputExt));
-    } else {
-        $("#imageOptions").hide();
-    }
-
-    $("#convertBtn").prop("disabled", !(selectedFilePath && outputExt));
-}
-
-function getConvType(inExt, outExt) {
-    if (IMAGE_EXTS.includes(inExt) && IMAGE_EXTS.includes(outExt)) return "image";
-    if ((VIDEO_EXTS.includes(inExt) || AUDIO_EXTS.includes(inExt)) && AUDIO_EXTS.includes(outExt)) return "audio";
-    if (VIDEO_EXTS.includes(inExt)  && VIDEO_EXTS.includes(outExt)) return "video";
+// Conversion type of one source extension into the selected output format
+function convTypeFor(inExt, outExt) {
+    if (IMAGE_EXTS.indexOf(inExt) >= 0 && IMAGE_EXTS.indexOf(outExt) >= 0) return "image";
+    if ((VIDEO_EXTS.indexOf(inExt) >= 0 || AUDIO_EXTS.indexOf(inExt) >= 0) && AUDIO_EXTS.indexOf(outExt) >= 0) return "audio";
+    if (VIDEO_EXTS.indexOf(inExt) >= 0 && VIDEO_EXTS.indexOf(outExt) >= 0) return "video";
     return "generic";
 }
 
-// ──────────────────────────────────────────────
-// Start conversion
-// ──────────────────────────────────────────────
-function startConversion() {
-    if (!selectedFilePath) return;
-    var outputExt = $("#outputFormat").val();
-    if (!outputExt) return;
+// Conversion type the option panel is showing (driven by the first file)
+function currentConvType() {
+    if (selectedFiles.length === 0) return "generic";
+    return convTypeFor(selectedFiles[0].ext, $("#outputFormat").val() || "");
+}
 
-    var inputExt = selectedFilePath.split(".").pop().toLowerCase();
-    var convType = getConvType(inputExt, outputExt);
+function onFormatChange() {
+    var convType = currentConvType();
 
-    // Collect format-specific options
+    $("#audioOptions").toggle(convType === "audio");
+    $("#videoOptions").toggle(convType === "video");
+    $("#imageOptions").toggle(convType === "image");
+    $("#imageCompressionSection").toggle(
+        convType === "image" && LOSSY_IMAGE_EXTS.indexOf($("#outputFormat").val() || "") >= 0
+    );
+    $("#noOptionsHint").toggle(convType === "generic");
+
+    populateQuality(convType);
+    $("#convertBtn").prop("disabled", !(selectedFiles.length && $("#outputFormat").val()));
+}
+
+function populateQuality(convType) {
+    var presets = QUALITY_PRESETS[convType] || QUALITY_PRESETS.generic;
+    var $q = $("#qualityPreset").empty();
+    presets.forEach(function (p) { $q.append($("<option>").val(p.id).text(p.label)); });
+    $q.prop("disabled", selectedFiles.length === 0 || convType === "generic");
+    $q.val(presets[0].id);
+    applyQualityPreset();
+}
+
+function onQualityChange() { applyQualityPreset(); }
+
+// Push the chosen preset onto the advanced controls (the single source of truth)
+function applyQualityPreset() {
+    var convType = currentConvType();
+    var presets  = QUALITY_PRESETS[convType] || QUALITY_PRESETS.generic;
+    var id       = $("#qualityPreset").val();
+    var preset   = null;
+    presets.forEach(function (p) { if (p.id === id) preset = p; });
+    if (!preset) return;   // "Custom" – leave the advanced controls untouched
+
+    if (convType === "video") {
+        $("#videoCompression").val(preset.compression);
+        $("#videoCompressionVal").text(preset.compression);
+    } else if (convType === "audio") {
+        $("#sampleRate").val(String(preset.sampleRate));
+    } else if (convType === "image") {
+        $("#imageQuality").val(preset.compression);
+        $("#imageQualityVal").text(preset.compression);
+    }
+}
+
+// Fine-tuning an advanced control switches the quality selector to "Custom"
+function markCustomQuality() {
+    var $q = $("#qualityPreset");
+    if ($q.prop("disabled")) return;
+    if ($q.find('option[value="custom"]').length === 0) {
+        $q.append($("<option>").val("custom").text("Custom"));
+    }
+    $q.val("custom");
+}
+
+function toggleAdvanced() {
+    var $t = $("#advToggle").toggleClass("open");
+    $("#advBody").toggle($t.hasClass("open"));
+}
+
+// Options for one conversion type, read from the advanced controls
+function collectOptions(convType, outputExt) {
     var opts = {};
     if (convType === "audio") {
         opts.sample_rate = parseInt($("#sampleRate").val()) || 0;
@@ -887,66 +1296,161 @@ function startConversion() {
         opts.resolution  = $("#videoResolution").val() || "";
         opts.compression = parseInt($("#videoCompression").val()) || 0;
     } else if (convType === "image") {
-        opts.scale       = parseFloat($("#imageScale").val()) || 1.0;
-        if (LOSSY_IMAGE_EXTS.includes(outputExt)) {
+        opts.scale = parseFloat($("#imageScale").val()) || 1.0;
+        if (LOSSY_IMAGE_EXTS.indexOf(outputExt) >= 0) {
             opts.compression = parseInt($("#imageQuality").val()) || 0;
         }
     }
+    return opts;
+}
 
-    // Generate a unique task ID on the frontend so we can start polling immediately
+// ──────────────────────────────────────────────
+// Start conversion(s)
+// ──────────────────────────────────────────────
+function startConversion() {
+    if (selectedFiles.length === 0) return;
+    var outputExt = $("#outputFormat").val();
+    if (!outputExt) return;
+
+    selectedFiles.forEach(function (file) {
+        queueJob(file, outputExt);
+    });
+    clearSelectedFiles();
+    pumpJobQueue();
+}
+
+function queueJob(file, outputExt) {
+    var convType = convTypeFor(file.ext, outputExt);
+
+    // Task ID is generated here so polling can start as soon as the job runs
     var taskId = Date.now().toString(36) +
                  Math.floor(Math.random() * 0x100000).toString(36);
 
-    // Compute the expected output path (same dir as source, new extension)
-    var lastSlash = selectedFilePath.lastIndexOf("/");
-    var inputDir  = selectedFilePath.substring(0, lastSlash);
-    var fname     = selectedFilePath.substring(lastSlash + 1);
-    var base      = fname.includes(".") ? fname.substring(0, fname.lastIndexOf(".")) : fname;
+    // Expected output path (same directory as the source, new extension)
+    var lastSlash   = file.vpath.lastIndexOf("/");
+    var inputDir    = file.vpath.substring(0, lastSlash);
+    var fname       = file.vpath.substring(lastSlash + 1);
+    var base        = (fname.indexOf(".") >= 0) ? fname.substring(0, fname.lastIndexOf(".")) : fname;
     var outputVpath = inputDir + "/" + base + "." + outputExt;
 
-    // Build task data for the UI
     var taskData = {
         id:           taskId,
-        input_vpath:  selectedFilePath,
+        input_vpath:  file.vpath,
         output_vpath: outputVpath,
         conv_type:    convType,
-        options:      opts,
-        status:       "running",
+        options:      collectOptions(convType, outputExt),
+        outputExt:    outputExt,
+        status:       "queued",
         created_at:   Date.now(),
-        isUpload:     selectedFileUpload
+        isUpload:     file.isUpload
     };
 
-    addTaskCard(taskData);
-    startPolling(taskId);
-    clearSelectedFile();
-    if (isMobileFF()) switchToQueue();
+    addJobRow(taskData, "queued");
+    pendingJobs.push(taskData);
+}
 
-    // Fire the long-running AGI request (no timeout → waits until ffmpeg finishes)
+// Start queued jobs while there is a free conversion slot
+function pumpJobQueue() {
+    while (runningJobCount < MAX_CONCURRENT_JOBS && pendingJobs.length > 0) {
+        startJob(pendingJobs.shift());
+    }
+}
+
+function startJob(taskData) {
+    var taskId = taskData.id;
+    if (!activeTasks[taskId]) return;      // job was removed while queued
+
+    runningJobCount++;
+    countedJobs[taskId] = true;
+    setJobRunning(taskId);
+    startPolling(taskId);
+
+    // Fire the long-running AGI request (no timeout, waits until ffmpeg finishes)
     ao_module_agirun("FFmpeg Factory/agi/convert.agi", {
         src:       taskData.input_vpath,
-        outputExt: outputExt,
-        convType:  convType,
+        outputExt: taskData.outputExt,
+        convType:  taskData.conv_type,
         taskId:    taskId,
-        options:   JSON.stringify(opts)
+        options:   JSON.stringify(taskData.options)
     }, function (resp) {
         stopPolling(taskId);
         var result = safeJSON(resp);
         if (result) {
-            if (result.success) {
+            if (result.cancelled) {
+                finaliseTask(taskId, "cancelled", "", "Cancelled by user");
+            } else if (result.success) {
                 finaliseTask(taskId, "completed", result.output, "");
             } else {
                 finaliseTask(taskId, "failed", "", result.error || "Conversion failed");
             }
         } else {
-            // Response could not be parsed (e.g. server error page).
-            // Fallback: check the task file status – fast conversions may have
-            // already written "completed" before the first progress poll fires.
-            checkTaskFallback(taskId, outputVpath);
+            // Response could not be parsed (e.g. a server error page).
+            // Fast conversions may already have written their status – check it.
+            checkTaskFallback(taskId, taskData.output_vpath);
         }
+        jobSettled(taskId);
     }, function () {
         stopPolling(taskId);
         finaliseTask(taskId, "failed", "", "Connection error or request timed out");
+        jobSettled(taskId);
     }, 0 /* no HTTP timeout */);
+}
+
+// Free the conversion slot held by a job and start the next queued one.
+// Tracked outside activeTasks so a job dismissed while its request is still in
+// flight still releases its slot when that request finally returns.
+function jobSettled(taskId) {
+    if (countedJobs[taskId]) {
+        delete countedJobs[taskId];
+        runningJobCount = Math.max(0, runningJobCount - 1);
+    }
+    pumpJobQueue();
+}
+
+// ──────────────────────────────────────────────
+// Cancelling
+// ──────────────────────────────────────────────
+// Stops a job through the convert endpoint (action=cancel), which kills the
+// ffmpeg process of that task ID. Queued jobs never reached the server, so they
+// are simply dropped from the queue.
+function cancelTask(taskId, alsoRemoveRow) {
+    var task = activeTasks[taskId];
+    if (!task) return;
+
+    if (task.status === "queued") {
+        pendingJobs = pendingJobs.filter(function (t) { return t.id !== taskId; });
+        finaliseTask(taskId, "cancelled", "", "Cancelled before it started");
+        if (alsoRemoveRow) dismissTask(taskId);
+        return;
+    }
+
+    if (task.status !== "running") {
+        if (alsoRemoveRow) dismissTask(taskId);
+        return;
+    }
+
+    // Mark the row as cancelling and disable its buttons until the server replies
+    var $j = $("#job-" + taskId);
+    $j.find(".pill").attr("class", "pill cancelled").text("Cancelling");
+    $j.find(".job-actions .ibtn").prop("disabled", true);
+
+    ao_module_agirun("FFmpeg Factory/agi/convert.agi", {
+        action: "cancel",
+        taskId: taskId
+    }, function (resp) {
+        var result = safeJSON(resp);
+        $j.find(".job-actions .ibtn").prop("disabled", false);
+        if (result && result.error) {
+            finaliseTask(taskId, "failed", "", result.error);
+        } else {
+            finaliseTask(taskId, "cancelled", "", "Cancelled by user");
+        }
+        if (alsoRemoveRow) dismissTask(taskId);
+    }, function () {
+        $j.find(".job-actions .ibtn").prop("disabled", false);
+        alert("Could not reach the server to cancel this conversion.");
+        setJobRunning(taskId);
+    });
 }
 
 // ──────────────────────────────────────────────
@@ -958,17 +1462,15 @@ function startPolling(taskId) {
 
     activeTasks[taskId].timer = setInterval(function () {
         ao_module_agirun("FFmpeg Factory/agi/progress.agi", { id: taskId }, function (resp) {
-            try {
-                var prog = JSON.parse(resp);
-                if (prog.error) return;          // file not yet created
-                renderProgress(taskId, prog);
-                if (prog.completed) {
-                    stopPolling(taskId);
-                    // progress shows done but the convert.agi AJAX may still be in-flight;
-                    // finaliseTask will be called again when it returns (idempotent)
-                    finaliseTask(taskId, "completed", activeTasks[taskId] && activeTasks[taskId].outputVpath || "", "");
-                }
-            } catch (e) {}
+            var prog = safeJSON(resp);
+            if (!prog || prog.error) return;      // progress file not created yet
+            renderProgress(taskId, prog);
+            if (prog.completed) {
+                stopPolling(taskId);
+                // convert.agi may still be in flight; finaliseTask is idempotent
+                finaliseTask(taskId, "completed",
+                    (activeTasks[taskId] && activeTasks[taskId].outputVpath) || "", "");
+            }
         });
     }, 1000);
 }
@@ -981,154 +1483,244 @@ function stopPolling(taskId) {
 }
 
 // ──────────────────────────────────────────────
-// Task card rendering
+// Job rows
 // ──────────────────────────────────────────────
-function addTaskCard(task) {
-    $("#emptyState").hide();
+function addJobRow(task, status) {
+    status = status || "running";
 
-    var inFile  = task.input_vpath.split("/").pop();
-    var outFile = task.output_vpath.split("/").pop();
-    var icon    = convTypeIcon(task.conv_type);
+    var inFile  = baseName(task.input_vpath);
+    var outFile = baseName(task.output_vpath);
+    var kind    = mediaKind(extOf(inFile));
+    var thumbSrc = ao_root + "system/file_system/loadThumbnail?bytes=true&vpath=" +
+                   encodeURIComponent(task.input_vpath);
 
     var html =
-        '<div class="task-card" id="tc-' + task.id + '">' +
+        '<div class="job" id="job-' + task.id + '" data-status="' + status + '">' +
+          '<div class="job-thumb">' +
+            '<span class="thumb-icon"><i class="' + kindIcon(kind) + ' icon"></i></span>' +
+            '<img src="' + esc(thumbSrc) + '" alt="" ' +
+                'onerror="this.parentNode.classList.add(\'noimg\'); this.remove();">' +
+            (kind === "video" ? '<span class="play-badge"><i class="play icon"></i></span>' : '') +
+          '</div>' +
 
-          '<div class="tc-row1">' +
-            '<i class="' + icon + ' icon tc-icon"></i>' +
-            '<div class="tc-names">' +
-              '<div class="tc-input" title="' + esc(task.input_vpath) + '">' + esc(inFile) + '</div>' +
-              '<div class="tc-output">\u2192 ' + esc(outFile) + '</div>' +
+          '<div class="job-main">' +
+            '<div class="job-name" title="' + esc(task.input_vpath) + '">' + esc(inFile) + '</div>' +
+            '<div class="job-meta">' +
+              '<span class="conv">' + esc(extOf(inFile).toUpperCase()) +
+                ' <i class="long arrow alternate right icon"></i> ' +
+                esc(extOf(outFile).toUpperCase()) +
+              '</span>' +
+              '<span class="job-size"></span>' +
+              '<span class="pill ' + (status === "queued" ? "queued" : "running") + '">' +
+                (status === "queued" ? "Queued" : "Running") + '</span>' +
             '</div>' +
-            '<span class="tc-badge badge-running">Running</span>' +
           '</div>' +
 
-          '<div class="tc-prog-wrap">' +
-            '<div class="tc-prog-track"><div class="tc-prog-fill" style="width:0%"></div></div>' +
-            '<div class="tc-prog-label">Waiting for ffmpeg\u2026</div>' +
+          '<div class="job-prog">' +
+            '<div class="job-pct">0%</div>' +
+            '<div class="prog-col">' +
+              '<div class="track"><div class="fill' + (status === "queued" ? " muted" : "") + '"></div></div>' +
+              '<div class="job-time">' +
+                (status === "queued" ? "Waiting for a free slot&hellip;" : "Waiting for ffmpeg&hellip;") +
+              '</div>' +
+            '</div>' +
           '</div>' +
 
-          '<div class="tc-stats">' +
-            '<span title="Input size"><i class="arrow down icon"></i> <b class="stat-in">—</b></span>' +
-            '<span title="Output size"><i class="arrow up icon"></i> <b class="stat-out">—</b></span>' +
-            '<span title="Elapsed time"><i class="clock outline icon"></i> <b class="stat-time">0s</b></span>' +
+          '<div class="job-actions">' +
+            '<button class="ibtn job-act-stop" title="Stop this conversion" ' +
+                    'onclick="cancelTask(\'' + task.id + '\', false)"><i class="stop icon"></i></button>' +
+            '<button class="ibtn danger job-act-cancel" title="Stop and remove this job" ' +
+                    'onclick="cancelTask(\'' + task.id + '\', true)"><i class="times icon"></i></button>' +
+            '<button class="ibtn job-act-open" style="display:none" title="Open file location" ' +
+                    'onclick="openTaskOutput(\'' + task.id + '\')"><i class="folder open outline icon"></i></button>' +
+            '<button class="ibtn job-act-download" style="display:none" title="Download result" ' +
+                    'onclick="downloadTaskOutput(\'' + task.id + '\')"><i class="download icon"></i></button>' +
+            '<button class="ibtn danger job-act-remove" style="display:none" title="Remove from list" ' +
+                    'onclick="dismissTask(\'' + task.id + '\')"><i class="trash alternate outline icon"></i></button>' +
           '</div>' +
-
-          '<div class="tc-actions">' +
-            '<button class="tc-btn primary tc-action-open" style="display:none" ' +
-                    'onclick="openTaskOutput(\'' + task.id + '\')"><i class="folder open icon"></i> Open Location</button>' +
-            '<button class="tc-btn primary tc-action-download" style="display:none" ' +
-                    'onclick="downloadTaskOutput(\'' + task.id + '\')"><i class="download icon"></i> Download</button>' +
-            '<button class="tc-btn danger" ' +
-                    'onclick="dismissTask(\'' + task.id + '\')"><i class="times icon"></i> Dismiss</button>' +
-          '</div>' +
-
         '</div>';
 
-    $("#taskList").prepend($(html));
+    $("#jobList").prepend($(html));
 
     if (!activeTasks[task.id]) activeTasks[task.id] = {};
     activeTasks[task.id].data        = task;
     activeTasks[task.id].outputVpath = task.output_vpath;
     activeTasks[task.id].isUpload    = task.isUpload || false;
+    activeTasks[task.id].status      = status;
 
-    refreshTaskCount();
+    refreshJobView();
+}
+
+// Move a queued (or cancelling) row back into the running state
+function setJobRunning(taskId) {
+    var $j = $("#job-" + taskId);
+    if (!$j.length) return;
+    $j.attr("data-status", "running");
+    if (activeTasks[taskId]) activeTasks[taskId].status = "running";
+    $j.find(".pill").attr("class", "pill running").text("Running");
+    $j.find(".fill").removeClass("muted");
+    $j.find(".job-time").text("Waiting for ffmpeg…");
+    refreshJobView();
 }
 
 function renderProgress(taskId, prog) {
-    var $c = $("#tc-" + taskId);
-    if (!$c.length) return;
+    var $j = $("#job-" + taskId);
+    if (!$j.length) return;
+    if ($j.attr("data-status") !== "running") return;
 
     var pct = Math.max(0, Math.min(100, Math.round(prog.percentage || 0)));
-    $c.find(".tc-prog-fill").css("width", pct + "%");
-    $c.find(".tc-prog-label").text("Converting\u2026 " + pct + "%");
+    $j.find(".fill").css("width", pct + "%");
+    $j.find(".job-pct").text(pct + "%");
 
-    if (prog.input_size  > 0) $c.find(".stat-in").text(fmtBytes(prog.input_size));
-    if (prog.output_size > 0) $c.find(".stat-out").text(fmtBytes(prog.output_size));
-    $c.find(".stat-time").text(fmtTime(prog.conversion_time));
+    var elapsed = prog.conversion_time || 0;
+    if (pct >= 2 && elapsed > 0) {
+        var est = elapsed * 100 / pct;
+        $j.find(".job-time").text(fmtClock(elapsed) + " / ~" + fmtClock(est));
+    } else if (elapsed > 0) {
+        $j.find(".job-time").text(fmtClock(elapsed) + " elapsed");
+    }
+
+    updateJobSizes($j, prog.input_size, prog.output_size);
+}
+
+function updateJobSizes($j, inSize, outSize) {
+    var parts = [];
+    if (inSize  > 0) parts.push(fmtBytes(inSize));
+    if (outSize > 0) parts.push(fmtBytes(outSize));
+    $j.find(".job-size").text(parts.length ? parts.join(" → ") : "");
 }
 
 function finaliseTask(taskId, status, outputVpath, errMsg) {
-    var $c = $("#tc-" + taskId);
-    if (!$c.length) return;
+    var $j = $("#job-" + taskId);
+    if (!$j.length) return;
 
-    // Idempotent guard – do not overwrite a "completed" card
-    if ($c.find(".tc-badge").hasClass("badge-done")) return;
+    // Idempotent guard – a settled job is never re-stamped by a late callback
+    var current = $j.attr("data-status");
+    if (current === "completed" || current === "cancelled") return;
 
     stopPolling(taskId);
+    $j.attr("data-status", status);
+    if (activeTasks[taskId]) activeTasks[taskId].status = status;
 
-    var $fill  = $c.find(".tc-prog-fill");
-    var $badge = $c.find(".tc-badge");
-    var $label = $c.find(".tc-prog-label");
+    var $fill = $j.find(".fill");
+    var $pill = $j.find(".pill");
+    var $time = $j.find(".job-time");
+
+    $j.find(".job-act-stop, .job-act-cancel").hide();
+    $j.find(".job-actions .ibtn").prop("disabled", false);
 
     if (status === "completed") {
-        $fill.css("width", "100%").addClass("done");
-        $badge.removeClass("badge-running badge-failed badge-unknown").addClass("badge-done").text("Done");
-        $label.text("Conversion complete.");
+        $fill.removeClass("error muted").css("width", "100%");
+        $j.find(".job-pct").text("100%");
+        $pill.attr("class", "pill").text("Completed");
+        $time.text("Completed");
 
-        // Store output path for action buttons
-        if (activeTasks[taskId]) activeTasks[taskId].outputVpath = outputVpath || activeTasks[taskId].outputVpath;
+        if (activeTasks[taskId]) {
+            activeTasks[taskId].outputVpath = outputVpath || activeTasks[taskId].outputVpath;
+        }
         var vpath = (activeTasks[taskId] && activeTasks[taskId].outputVpath) || outputVpath;
 
         if (vpath) {
-            var isUp = activeTasks[taskId] && activeTasks[taskId].isUpload;
-            if (isUp) {
-                $c.find(".tc-action-download").attr("data-vpath", vpath).show();
+            if (activeTasks[taskId] && activeTasks[taskId].isUpload) {
+                $j.find(".job-act-download").attr("data-vpath", vpath).css("display", "");
             } else {
-                $c.find(".tc-action-open").attr("data-vpath", vpath).show();
+                $j.find(".job-act-open").attr("data-vpath", vpath).css("display", "");
             }
         }
+
     } else if (status === "failed") {
-        $fill.css("width", "100%").addClass("error");
-        $badge.removeClass("badge-running badge-done badge-unknown").addClass("badge-failed").text("Failed");
-        $label.text("Error: " + (errMsg || "unknown error"));
+        $fill.removeClass("muted").addClass("error").css("width", "100%");
+        $j.find(".job-pct").text("—");
+        $pill.attr("class", "pill failed").text("Failed");
+        $time.text(errMsg || "Conversion failed").attr("title", errMsg || "");
+
+    } else if (status === "cancelled") {
+        $fill.removeClass("error").addClass("muted");
+        $j.find(".job-pct").text("—");
+        $pill.attr("class", "pill cancelled").text("Cancelled");
+        $time.text(errMsg || "Cancelled");
+
     } else {
-        $fill.css("width", "0%");
-        $badge.removeClass("badge-running badge-done badge-failed").addClass("badge-unknown").text("Unknown");
-        $label.text(errMsg || "State unknown — may have finished while offline.");
+        $fill.removeClass("error").addClass("muted").css("width", "0%");
+        $j.find(".job-pct").text("—");
+        $pill.attr("class", "pill unknown").text("Unknown");
+        $time.text(errMsg || "State unknown — the conversion may have ended while offline.");
     }
+
+    $j.find(".job-act-remove").css("display", "");
+    refreshJobView();
 }
 
 function openTaskOutput(taskId) {
-    var vpath = $("#tc-" + taskId + " .tc-action-open").attr("data-vpath");
+    var vpath = $("#job-" + taskId + " .job-act-open").attr("data-vpath");
     if (!vpath) return;
-    var dir   = vpath.substring(0, vpath.lastIndexOf("/"));
-    var fname = vpath.split("/").pop();
-    ao_module_openPath(dir, fname);
+    ao_module_openPath(vpath.substring(0, vpath.lastIndexOf("/")), baseName(vpath));
 }
 
 function downloadTaskOutput(taskId) {
-    var vpath = $("#tc-" + taskId + " .tc-action-download").attr("data-vpath");
+    var vpath = $("#job-" + taskId + " .job-act-download").attr("data-vpath");
     if (!vpath) return;
     window.open(ao_root + "media/download/?file=" + encodeURIComponent(vpath));
 }
 
 function dismissTask(taskId) {
     stopPolling(taskId);
-    $("#tc-" + taskId).remove();
+    pendingJobs = pendingJobs.filter(function (t) { return t.id !== taskId; });
+    $("#job-" + taskId).remove();
     delete activeTasks[taskId];
     ao_module_agirun("FFmpeg Factory/agi/dismiss.agi", { id: taskId }, function () {});
-    refreshTaskCount();
-    if ($("#taskList .task-card").length === 0) $("#emptyState").show();
+    refreshJobView();
 }
 
-function refreshTaskCount() {
-    var n = $("#taskList .task-card").length;
-    if (n > 0) {
-        $("#taskCountBadge").text(n).show();
-        $("#mobileQueueBadge").text(n).show();
-    } else {
-        $("#taskCountBadge").hide();
-        $("#mobileQueueBadge").hide();
-    }
+function clearCompleted() {
+    $("#jobList .job").each(function () {
+        var status = $(this).attr("data-status");
+        if (status !== "running" && status !== "queued") {
+            dismissTask($(this).attr("id").replace(/^job-/, ""));
+        }
+    });
+}
+
+// ──────────────────────────────────────────────
+// Job filters & counters
+// ──────────────────────────────────────────────
+function setJobFilter(filter) {
+    jobFilter = filter;
+    refreshJobView();
+}
+
+function refreshJobView() {
+    var counts = { all: 0, running: 0, completed: 0 };
+
+    $("#jobList .job").each(function () {
+        var status = $(this).attr("data-status");
+        var active = (status === "running" || status === "queued");
+        counts.all++;
+        if (active) counts.running++;
+        if (status === "completed") counts.completed++;
+
+        var visible = (jobFilter === "all") ||
+                      (jobFilter === "running"   && active) ||
+                      (jobFilter === "completed" && status === "completed");
+        $(this).toggleClass("hidden", !visible);
+    });
+
+    $('#jobTabs button[data-filter="all"]').text("All (" + counts.all + ")");
+    $('#jobTabs button[data-filter="running"]').text("Running (" + counts.running + ")");
+    $('#jobTabs button[data-filter="completed"]').text("Completed (" + counts.completed + ")");
+    $("#jobTabs button").each(function () {
+        $(this).toggleClass("active", $(this).data("filter") === jobFilter);
+    });
+
+    $("#clearCompletedBtn").prop("disabled", counts.all - counts.running === 0);
+    $("#emptyState").toggle($("#jobList .job:not(.hidden)").length === 0);
 }
 
 // ──────────────────────────────────────────────
 // Session resume
 // ──────────────────────────────────────────────
-// ──────────────────────────────────────────────
-// Fallback: if convert.agi response can't be parsed (small/fast files finish
-// before the first progress poll) — query tasks.agi for the recorded status.
-// ──────────────────────────────────────────────
+// Fallback when the convert.agi response cannot be parsed (small files may
+// finish before the first progress poll) – query tasks.agi for the status.
 function checkTaskFallback(taskId, outputVpath) {
     ao_module_agirun("FFmpeg Factory/agi/tasks.agi", {}, function (resp) {
         var tasks = safeJSON(resp);
@@ -1138,6 +1730,8 @@ function checkTaskFallback(taskId, outputVpath) {
                 if (t.id === taskId || t.task_id === taskId) {
                     if (t.status === "completed") {
                         finaliseTask(taskId, "completed", t.output_vpath || outputVpath || "", "");
+                    } else if (t.status === "cancelled") {
+                        finaliseTask(taskId, "cancelled", "", t.error || "Cancelled by user");
                     } else {
                         finaliseTask(taskId, "failed", "", t.error || "Conversion failed");
                     }
@@ -1145,7 +1739,7 @@ function checkTaskFallback(taskId, outputVpath) {
                 }
             }
         }
-        // Task not found — the task object may have already been cleaned up
+        // Task not found – the task object may already have been cleaned up
         if (activeTasks[taskId]) {
             finaliseTask(taskId, "failed", "", "Server response could not be parsed");
         }
@@ -1160,26 +1754,32 @@ function loadExistingTasks() {
         tasks.forEach(function (task) {
             task.isUpload = task.input_vpath &&
                             task.input_vpath.indexOf("tmp:/ffmpeg_factory/uploads/") === 0;
-            addTaskCard(task);
+            addJobRow(task, "running");
 
-            // Check current progress file to determine real status
+            // Check the progress file to determine the real status
             ao_module_agirun("FFmpeg Factory/agi/progress.agi", { id: task.id }, function (progResp) {
                 var prog = safeJSON(progResp);
 
-                if (task.status === "completed" || (prog && prog.completed)) {
+                if (task.status === "completed" || (prog && prog.completed && task.status !== "cancelled")) {
+                    if (prog && !prog.error) updateJobSizes($("#job-" + task.id), prog.input_size, prog.output_size);
                     finaliseTask(task.id, "completed", task.output_vpath, "");
+
+                } else if (task.status === "cancelled") {
+                    finaliseTask(task.id, "cancelled", "", task.error || "Cancelled by user");
 
                 } else if (task.status === "failed") {
                     finaliseTask(task.id, "failed", "", task.error || "");
 
                 } else if (task.status === "running" && prog && !prog.error) {
-                    // Still running on the server — resume live polling
+                    // Still running on the server – resume live polling. The job is
+                    // not counted against this tab's queue: its request belongs to
+                    // the session that started it.
                     renderProgress(task.id, prog);
                     startPolling(task.id);
 
                 } else {
-                    // No progress file or unknown state; the conversion may have ended
-                    // while the browser was closed. Mark as indeterminate.
+                    // No progress file and no final state: the conversion may have
+                    // ended while the browser was closed.
                     finaliseTask(task.id, "unknown", task.output_vpath,
                         "Conversion state unknown — check if the output file exists.");
                 }
@@ -1191,28 +1791,45 @@ function loadExistingTasks() {
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
-function convTypeIcon(t) {
-    switch (t) {
-        case "audio":   return "music";
-        case "video":   return "film";
-        case "image":   return "image outline";
-        default:        return "exchange alternate";
+function baseName(vpath) { return String(vpath).split("/").pop(); }
+
+function extOf(name) {
+    name = String(name);
+    return (name.indexOf(".") >= 0) ? name.split(".").pop().toLowerCase() : "";
+}
+
+function mediaKind(ext) {
+    if (VIDEO_EXTS.indexOf(ext) >= 0) return "video";
+    if (AUDIO_EXTS.indexOf(ext) >= 0) return "audio";
+    if (IMAGE_EXTS.indexOf(ext) >= 0) return "image";
+    return "other";
+}
+
+function kindIcon(kind) {
+    switch (kind) {
+        case "video": return "film";
+        case "audio": return "music";
+        case "image": return "image outline";
+        default:      return "file outline";
     }
 }
 
 function fmtBytes(b) {
     if (!b || b <= 0) return "0 B";
     var u = ["B","KB","MB","GB"];
-    var i = Math.floor(Math.log(b) / Math.log(1024));
-    i = Math.min(i, u.length - 1);
-    return (b / Math.pow(1024, i)).toFixed(1) + "\u202f" + u[i];
+    var i = Math.min(Math.floor(Math.log(b) / Math.log(1024)), u.length - 1);
+    return (b / Math.pow(1024, i)).toFixed(1) + " " + u[i];
 }
 
-function fmtTime(s) {
-    if (!s || s < 0) return "0s";
-    if (s < 60) return Math.round(s) + "s";
-    return Math.floor(s / 60) + "m\u202f" + (Math.round(s % 60)) + "s";
+function fmtClock(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    return pad2(h) + ":" + pad2(m) + ":" + pad2(s);
 }
+
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
 
 function esc(str) {
     return String(str)

@@ -3,11 +3,11 @@ package transcoder
 /*
 	hwaccel.go
 
-	Detects and caches a working Intel/AMD hardware H.264 encoder so
-	TranscodeAndStream can offload encoding from the CPU when the host
-	supports it, falling back to the existing libx264 software path
-	otherwise. Platform-specific profiles (which encoder, which ffmpeg
-	args) live in hwaccel_linux.go / hwaccel_windows.go / hwaccel_other.go.
+	Detects and caches a working hardware H.264 encoder so TranscodeAndStream
+	can offload encoding from the CPU when the host supports it, falling back
+	to the existing libx264 software path otherwise. Platform-specific profiles
+	(which encoder, which ffmpeg args) live in hwaccel_linux.go /
+	hwaccel_windows.go / hwaccel_darwin.go / hwaccel_other.go.
 */
 
 import (
@@ -27,7 +27,14 @@ type hwEncoderProfile struct {
 	PreInput    []string                   // extra global args inserted before -i (device init, etc.)
 	ScaleFilter func(height string) string // -vf value for the given target height ("" height = no scaling)
 	EncodeArgs  []string                   // encoder-specific args replacing "-preset superfast"
+	ProbeSize   string                     // WxH test frame size for the probe encode; "" uses defaultProbeSize
 }
+
+// defaultProbeSize is the test frame size used by testHWEncoder when a profile
+// does not ask for a larger one. 320x240 rather than something tiny because
+// some encoders (observed with h264_nvenc) reject smaller frames as below their
+// minimum encode dimensions.
+const defaultProbeSize = "320x240"
 
 var (
 	hwProfileOnce sync.Once
@@ -73,25 +80,32 @@ func probeHWEncoders() *hwEncoderProfile {
 	return nil
 }
 
-// testHWEncoder runs a tiny, throwaway encode against the given profile to
-// confirm ffmpeg has a working hardware path on this host.
-func testHWEncoder(profile *hwEncoderProfile) bool {
+// probeArgs builds the ffmpeg argument list for a profile's throwaway probe
+// encode: a single synthetic frame pushed through the real encoder settings
+// and discarded.
+func probeArgs(profile *hwEncoderProfile) []string {
+	size := profile.ProbeSize
+	if size == "" {
+		size = defaultProbeSize
+	}
 	args := append([]string{}, profile.PreInput...)
 	args = append(args,
 		"-hide_banner", "-loglevel", "error",
-		// 320x240: some encoders (observed with h264_nvenc) reject much
-		// smaller test frames as below their minimum encode dimensions.
-		"-f", "lavfi", "-i", "color=c=black:s=320x240:d=0.1",
+		"-f", "lavfi", "-i", "color=c=black:s="+size+":d=0.1",
 	)
 	if vf := profile.ScaleFilter(""); vf != "" {
 		args = append(args, "-vf", vf)
 	}
 	args = append(args, "-frames:v", "1", "-vcodec", profile.Codec)
 	args = append(args, profile.EncodeArgs...)
-	args = append(args, "-f", "null", "-")
+	return append(args, "-f", "null", "-")
+}
 
+// testHWEncoder runs a tiny, throwaway encode against the given profile to
+// confirm ffmpeg has a working hardware path on this host.
+func testHWEncoder(profile *hwEncoderProfile) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	cmd := exec.CommandContext(ctx, "ffmpeg", probeArgs(profile)...)
 	return cmd.Run() == nil
 }

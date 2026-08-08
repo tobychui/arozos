@@ -32,6 +32,12 @@ type ConversionProgress struct {
 	Completed      bool    `json:"completed"`
 }
 
+// runningConversions maps a conversion job key to the ffmpeg process currently
+// handling that job. The key is the progress file path supplied by the caller,
+// which is unique per conversion task, so another request can look up and stop
+// a running conversion without needing any extra bookkeeping.
+var runningConversions sync.Map // string -> *exec.Cmd
+
 // resolutionHeightMap maps common resolution names to their vertical pixel count.
 var resolutionHeightMap = map[string]int{
 	"144p":  144,
@@ -132,6 +138,86 @@ func isImage(filename string) bool {
 func isLossyImage(filename string) bool {
 	lossyFormats := []string{".jpg", ".jpeg", ".webp"}
 	return utils.StringInArray(lossyFormats, strings.ToLower(filepath.Ext(filename)))
+}
+
+// --- Conversion job registry (used for cancelling a running conversion) ---
+
+// conversionJobKey normalises a progress file path so that the path used when a
+// conversion starts and the one used when it is cancelled always match.
+func conversionJobKey(progressFile string) string {
+	if progressFile == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Clean(progressFile))
+}
+
+// registerConversion records the ffmpeg process running the job identified by
+// progressFile. A empty progressFile means the job is not cancellable.
+func registerConversion(progressFile string, cmd *exec.Cmd) {
+	key := conversionJobKey(progressFile)
+	if key == "" || cmd == nil {
+		return
+	}
+	runningConversions.Store(key, cmd)
+}
+
+// unregisterConversion removes a finished job from the registry.
+func unregisterConversion(progressFile string) {
+	key := conversionJobKey(progressFile)
+	if key == "" {
+		return
+	}
+	runningConversions.Delete(key)
+}
+
+// ConversionIsRunning reports whether a cancellable conversion is currently
+// registered under the given progress file path.
+func ConversionIsRunning(progressFile string) bool {
+	key := conversionJobKey(progressFile)
+	if key == "" {
+		return false
+	}
+	_, ok := runningConversions.Load(key)
+	return ok
+}
+
+// CancelConversion terminates the ffmpeg process of the conversion registered
+// under the given progress file path. It returns false when no such conversion
+// is running (already finished, never started, or started without a progress
+// file). The conversion function itself reports the killed process as a normal
+// conversion failure, so the caller decides how a cancelled job is presented.
+func CancelConversion(progressFile string) bool {
+	key := conversionJobKey(progressFile)
+	if key == "" {
+		return false
+	}
+	value, ok := runningConversions.Load(key)
+	if !ok {
+		return false
+	}
+	cmd, ok := value.(*exec.Cmd)
+	if !ok || cmd == nil || cmd.Process == nil {
+		return false
+	}
+	if err := cmd.Process.Kill(); err != nil {
+		return false
+	}
+	return true
+}
+
+// runFFmpeg runs ffmpeg with the given arguments, registering the process under
+// cancelKey (when not empty) so that CancelConversion can terminate it while it
+// is still running.
+func runFFmpeg(args []string, cancelKey string) error {
+	cmd := exec.Command("ffmpeg", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	registerConversion(cancelKey, cmd)
+	defer unregisterConversion(cancelKey)
+	return cmd.Wait()
 }
 
 // --- Progress helpers ---
@@ -277,10 +363,7 @@ func FFmpeg_audio_conv(input, output string, sampleRate int, progressFile string
 	}
 
 	args = append(args, output)
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	err := runFFmpeg(args, progressFile)
 
 	if progressFile != "" {
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)
@@ -297,7 +380,13 @@ func FFmpeg_audio_conv(input, output string, sampleRate int, progressFile string
 //     0 or 1.0 leaves the size unchanged.
 //   - compressionRate – 0-100 quality-loss percentage; only applied to lossy formats
 //     (JPEG, WebP); silently ignored for lossless formats (PNG, BMP, GIF, TIFF).
-func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRate int) error {
+//   - progressFile   – real filesystem path used as the cancellation key and to write
+//     the start/finish JSON progress entries; "" disables both. Image conversions have
+//     no timeline, so the progress file only reports 0 % and, on success, 100 %.
+func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRate int, progressFile string) error {
+	startTime := time.Now()
+	inputSize := fileSize(input)
+
 	args := []string{"-i", input, "-y"}
 
 	if scaleFactor > 0 && scaleFactor != 1.0 {
@@ -322,11 +411,15 @@ func FFmpeg_image_conv(input, output string, scaleFactor float64, compressionRat
 	}
 
 	args = append(args, output)
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if progressFile != "" {
+		writeProgressJSON(progressFile, inputSize, output, startTime, 0.0, false)
+	}
+	err := runFFmpeg(args, progressFile)
+	if err != nil {
 		return fmt.Errorf("ffmpeg image conversion failed: %v", err)
+	}
+	if progressFile != "" {
+		writeProgressJSON(progressFile, inputSize, output, startTime, 100.0, true)
 	}
 	return nil
 }
@@ -373,10 +466,7 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 	}
 
 	args = append(args, output)
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	err := runFFmpeg(args, progressFile)
 
 	if progressFile != "" {
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)
@@ -412,10 +502,7 @@ func FFmpeg_conv_with_progress(input, output, progressFile string) error {
 	}
 
 	args = append(args, output)
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	err := runFFmpeg(args, progressFile)
 
 	if progressFile != "" {
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)

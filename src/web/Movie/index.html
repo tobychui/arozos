@@ -2535,7 +2535,7 @@ function transcodeSeekTo(seconds) {
             + encodeURIComponent(currentEpisodes[playingIndex].filepath)
             + '&start=' + pos.toFixed(3);
     vid.load();
-    vid.play();
+    playVideo(vid);
 }
 
 // Current playback position in whole-file terms (transcode streams restart at 0)
@@ -2582,12 +2582,12 @@ function showResumePopup(savedPos, duration) {
             transcodeSeekTo(pendingResumePos);
         } else {
             vid.currentTime = pendingResumePos;
-            vid.play();
+            playVideo(vid);
         }
         $('#resume-popup').removeClass('active');
     });
     $('#resume-btn-restart').off('click').on('click', function () {
-        vid.play();
+        playVideo(vid);
         $('#resume-popup').removeClass('active');
     });
 }
@@ -3388,7 +3388,7 @@ function startPlayback(index) {
         _castSend('media.play', {});
     } else {
         vid.src = src;
-        vid.play();
+        playVideo(vid);
     }
 
     $('#now-playing-title, #topbar-title').text(ep.name);
@@ -3642,7 +3642,7 @@ function initVideoControls() {
         cancelCountdown();
         if (repeatSingle) {
             vid.currentTime = 0;
-            vid.play();
+            playVideo(vid);
         } else if (playingIndex < currentEpisodes.length - 1 && autoplayEnabled) {
             startNextCountdown();
         }
@@ -3711,7 +3711,7 @@ function togglePlay() {
     }
     var vid = document.getElementById('main-video');
     var willPlay = vid.paused;
-    if (willPlay) { vid.play(); } else { vid.pause(); }
+    if (willPlay) { playVideo(vid); } else { vid.pause(); }
     flashPlayState(willPlay);
 }
 
@@ -3835,7 +3835,7 @@ function initContextMenu() {
         if (castMode && _castConnected()) {
             _castSend('media.play', {}); castIsPlaying = true;
             $('#play-icon').attr('src', 'img/icons/pause_white.svg');
-        } else { vid.play(); }
+        } else { playVideo(vid); }
         flashPlayState(true);
         $ctx.hide();
     });
@@ -4847,6 +4847,30 @@ function showToast(msg) {
     clearTimeout(toastTimer);
     $('#toast').text(msg).addClass('show');
     toastTimer = setTimeout(function () { $('#toast').removeClass('show'); }, 2800);
+}
+
+// play() returns a promise that rejects when the browser will not start the
+// media — most commonly NotSupportedError on Safari, which refuses a transcoded
+// stream because the endpoint cannot answer byte-range requests. Left
+// unhandled it only shows up as an unhandled rejection in the console, so the
+// player just sits there with no explanation. Surface it instead.
+function playVideo(v) {
+    var p = v.play();
+    if (p && typeof p.catch === 'function') {
+        p.catch(function (err) {
+            if (err && err.name === 'AbortError') {
+                // Fired whenever a load or a new src interrupts a pending
+                // play() — routine during seek-by-reload, not a failure.
+                return;
+            }
+            if (err && err.name === 'NotSupportedError') {
+                showToast('This browser cannot play this transcoded format. Try Chrome or Firefox.');
+            } else {
+                showToast('Playback failed: ' + ((err && err.message) || 'unknown error'));
+            }
+        });
+    }
+    return p;
 }
 </script>
 </body>

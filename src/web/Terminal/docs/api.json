@@ -1122,10 +1122,24 @@
     },
     {
      "name": "ffmpeg.imageConvert",
-     "sig": "ffmpeg.imageConvert(input, output, scaleFactor, compressionRate)",
-     "desc": "Convert/resize an image. scaleFactor 0.5 = 50% size.",
+     "sig": "ffmpeg.imageConvert(input, output, scaleFactor, compressionRate, progressFile)",
+     "desc": "Convert/resize an image. scaleFactor 0.5 = 50% size. progressFile is optional; it only reports 0% and 100% but makes the job cancellable.",
      "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80);"
+     "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80, \"tmp:/image_progress.json\");"
+    },
+    {
+     "name": "ffmpeg.convertWithProgress",
+     "sig": "ffmpeg.convertWithProgress(input, output, progressFile)",
+     "desc": "Convert between media types without format detection (e.g. mp4 to gif), writing JSON progress updates to progressFile.",
+     "ret": "bool",
+     "example": "requirelib(\"ffmpeg\");\nffmpeg.convertWithProgress(\"user:/in.mp4\", \"user:/out.gif\", \"tmp:/conv_progress.json\");"
+    },
+    {
+     "name": "ffmpeg.cancel",
+     "sig": "ffmpeg.cancel(progressFile)",
+     "desc": "Stop a running conversion, identified by the progress file it was started with. Returns true if a running conversion was terminated, false if it already finished. Call it from a separate request while the conversion request is still open.",
+     "ret": "bool",
+     "example": "requirelib(\"ffmpeg\");\nvar stopped = ffmpeg.cancel(\"tmp:/job42.progress.json\");"
     }
    ]
   },
