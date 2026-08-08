@@ -1,0 +1,371 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Upload to {{target}} - {{hostname}}</title>
+  <script src="/script/jquery.min.js"></script>
+  <script src="/script/applocale.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --surface2: #f8fafc;
+      --border: #d8dee8;
+      --text: #172033;
+      --muted: #5d6677;
+      --accent: #0f766e;
+      --accent2: #b45309;
+      --danger: #b91c1c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111318;
+        --surface: #1b1f27;
+        --surface2: #252a35;
+        --border: #323847;
+        --text: #edf1f7;
+        --muted: #aab2c0;
+        --accent: #2dd4bf;
+        --accent2: #f59e0b;
+        --danger: #f87171;
+      }
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { font-weight: 700; color: var(--accent); }
+    .target { color: var(--muted); word-break: break-word; text-align: right; }
+    main {
+      width: min(900px, calc(100vw - 32px));
+      margin: 28px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel { padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 1.45rem; line-height: 1.25; }
+    p { color: var(--muted); line-height: 1.5; margin: 0; }
+    .limits {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .limit {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface2);
+    }
+    .limit label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .limit strong { font-size: 0.95rem; }
+    .dropzone {
+      margin-top: 20px;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      background: var(--surface2);
+      padding: 34px 20px;
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .dropzone.dragging {
+      border-color: var(--accent);
+      background: rgba(45, 212, 191, 0.08);
+    }
+    input[type="file"] { display: none; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 10px 14px;
+      margin-top: 16px;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+    .queue {
+      border-top: 1px solid var(--border);
+      padding: 0 24px 24px;
+    }
+    .item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+    }
+    .filename { font-weight: 650; word-break: break-word; }
+    .status { color: var(--muted); font-size: 0.86rem; margin-top: 3px; }
+    .status.error { color: var(--danger); }
+    .status.done { color: var(--accent); }
+    progress { width: 150px; height: 10px; accent-color: var(--accent); }
+    .message {
+      margin-top: 16px;
+      color: var(--danger);
+      min-height: 1.4em;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">{{hostname}}</div>
+    <div class="target">{{target}}</div>
+  </div>
+  <main>
+    <section class="panel">
+      <h1 locale="title/title">Upload files</h1>
+      <p locale="title/desc">This link can only add files to the shared folder. Existing files will not be overwritten.</p>
+      <div class="limits">
+        <div class="limit"><label locale="limit/filesLeft">Files left</label><strong id="filesLeft"></strong></div>
+        <div class="limit"><label locale="limit/bytesLeft">Bytes left</label><strong id="bytesLeft"></strong></div>
+        <div class="limit"><label locale="limit/maxFile">Max file size</label><strong id="fileSizeLimit"></strong></div>
+        <div class="limit"><label locale="limit/expires">Expires</label><strong id="expiresAt"></strong></div>
+      </div>
+      <div id="dropzone" class="dropzone">
+        <p locale="upload/drop">Drop files here or select files from this device.</p>
+        <button id="selectButton" type="button" locale="button/select">Select Files</button>
+        <input id="fileInput" type="file" multiple>
+      </div>
+      <div id="message" class="message"></div>
+    </section>
+    <section id="queue" class="queue"></section>
+  </main>
+
+  <script>
+    const UPLOAD_URL = "{{uploadurl}}";
+    const WS_URL = "{{wsurl}}";
+    const MAX_FILE_SIZE = Number("{{maxfilesize}}");
+    const REMAINING_FILES = Number("{{remainingfiles}}");
+    const REMAINING_BYTES = Number("{{remainingbytes}}");
+    const POST_CUTOFF = Number("{{postcutoff}}");
+    const EXPIRES = Number("{{expires}}");
+    const CHUNK_SIZE = 512 * 1024;
+
+    function t(key, fallback) {
+      if (typeof applocale !== "undefined" && applocale.localData && applocale.localData.keys) {
+        return applocale.getString(key, fallback);
+      }
+      return fallback;
+    }
+
+    function initLocale() {
+      if (typeof applocale === "undefined") return;
+      applocale.init("/SystemAO/locale/upload_link_public.json", () => {
+        applocale.translate();
+        renderLimits();
+        document.title = `${t("title/browser", "Upload to")} {{target}} - {{hostname}}`;
+      });
+    }
+
+    const crc32Table = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[i] = c;
+      }
+      return table;
+    })();
+
+    function crc32UpdateState(state, bytes) {
+      for (let i = 0; i < bytes.length; i++) {
+        state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
+      }
+      return state;
+    }
+
+    function crc32Hex(bytes) {
+      return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, "0");
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 0) return t("value/unlimited", "Unlimited");
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let value = bytes;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+      }
+      return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+    }
+
+    function setStatus(row, text, type) {
+      const status = row.querySelector(".status");
+      status.textContent = text;
+      status.className = "status" + (type ? " " + type : "");
+    }
+
+    function createRow(file) {
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `<div><div class="filename"></div><div class="status">${t("status/waiting", "Waiting")}</div></div><progress max="100" value="0"></progress>`;
+      row.querySelector(".filename").textContent = `${file.name} (${formatBytes(file.size)})`;
+      document.getElementById("queue").appendChild(row);
+      return row;
+    }
+
+    function showMessage(message) {
+      document.getElementById("message").textContent = message || "";
+    }
+
+    async function uploadPost(file, row) {
+      const data = new FormData();
+      data.append("file", file);
+      setStatus(row, t("status/uploading", "Uploading"), "");
+      const response = await fetch(UPLOAD_URL, { method: "POST", body: data });
+      const text = await response.text();
+      let parsed = {};
+      try { parsed = JSON.parse(text); } catch (e) {}
+      if (!response.ok || parsed.error) throw new Error(parsed.error || text || t("error/uploadFailed", "Upload failed"));
+      row.querySelector("progress").value = 100;
+      setStatus(row, `${t("status/uploadedAs", "Uploaded as")} ${parsed.filename || file.name}`, "done");
+    }
+
+    function uploadWebSocket(file, row) {
+      return new Promise((resolve, reject) => {
+        const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+        const socket = new WebSocket(`${protocol}${location.host}${WS_URL}?filename=${encodeURIComponent(file.name)}&size=${file.size}`);
+        const chunks = Math.ceil(file.size / CHUNK_SIZE);
+        const committed = {};
+        let currentIndex = 0;
+        let runningCRC32State = 0xFFFFFFFF;
+        let doneSent = false;
+
+        function sendChunk(index) {
+          const start = index * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          file.slice(start, end).arrayBuffer().then((buffer) => {
+            const bytes = new Uint8Array(buffer);
+            const checksum = crc32Hex(bytes);
+            if (!committed[index]) {
+              runningCRC32State = crc32UpdateState(runningCRC32State, bytes);
+              committed[index] = true;
+            }
+            socket.send(JSON.stringify({ index, checksum }));
+            socket.send(bytes);
+            currentIndex = Math.max(currentIndex, index + 1);
+            row.querySelector("progress").value = Math.min(99, Math.round((currentIndex / chunks) * 100));
+            setStatus(row, `${t("status/uploading", "Uploading")} ${currentIndex}/${chunks}`, "");
+          }).catch(reject);
+        }
+
+        socket.onopen = () => sendChunk(0);
+        socket.onerror = () => reject(new Error(t("error/websocketFailed", "WebSocket upload failed")));
+        socket.onmessage = (event) => {
+          if (event.data === "next") {
+            if (currentIndex < chunks) {
+              sendChunk(currentIndex);
+            } else if (!doneSent) {
+              doneSent = true;
+              const fileChecksum = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, "0");
+              socket.send(JSON.stringify({ done: true, totalChunks: chunks, fileChecksum }));
+              setStatus(row, t("status/processing", "Processing"), "");
+            }
+            return;
+          }
+
+          let message = {};
+          try { message = JSON.parse(event.data); } catch (e) {}
+          if (message.retryChunk !== undefined) {
+            sendChunk(message.retryChunk);
+          } else if (message.error) {
+            reject(new Error(message.error));
+            socket.close();
+          } else if (message.status === "OK") {
+            row.querySelector("progress").value = 100;
+            setStatus(row, `${t("status/uploadedAs", "Uploaded as")} ${message.filename || file.name}`, "done");
+            resolve();
+            socket.close();
+          }
+        };
+      });
+    }
+
+    async function uploadFiles(files) {
+      showMessage("");
+      const selected = Array.from(files);
+      if (REMAINING_FILES >= 0 && selected.length > REMAINING_FILES) {
+        showMessage(`${t("error/fileCountPrefix", "This link only allows")} ${REMAINING_FILES} ${t("error/fileCountSuffix", "more file(s).")}`);
+        return;
+      }
+      const total = selected.reduce((sum, file) => sum + file.size, 0);
+      if (REMAINING_BYTES >= 0 && total > REMAINING_BYTES) {
+        showMessage(t("error/totalSize", "Selected files exceed the remaining upload size."));
+        return;
+      }
+      for (const file of selected) {
+        const row = createRow(file);
+        if (MAX_FILE_SIZE > 0 && file.size > MAX_FILE_SIZE) {
+          setStatus(row, t("error/fileSize", "File exceeds this link's per-file limit"), "error");
+          continue;
+        }
+        try {
+          if (file.size > POST_CUTOFF) {
+            await uploadWebSocket(file, row);
+          } else {
+            await uploadPost(file, row);
+          }
+        } catch (err) {
+          setStatus(row, err.message || t("error/uploadFailed", "Upload failed"), "error");
+        }
+      }
+    }
+
+    function renderLimits() {
+      document.getElementById("filesLeft").textContent = REMAINING_FILES < 0 ? t("value/unlimited", "Unlimited") : REMAINING_FILES;
+      document.getElementById("bytesLeft").textContent = formatBytes(REMAINING_BYTES);
+      document.getElementById("fileSizeLimit").textContent = formatBytes(MAX_FILE_SIZE);
+      document.getElementById("expiresAt").textContent = new Date(EXPIRES * 1000).toLocaleString();
+    }
+
+    renderLimits();
+    initLocale();
+
+    const input = document.getElementById("fileInput");
+    const dropzone = document.getElementById("dropzone");
+    document.getElementById("selectButton").addEventListener("click", () => input.click());
+    input.addEventListener("change", () => uploadFiles(input.files));
+    dropzone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropzone.classList.add("dragging");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragging"));
+    dropzone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropzone.classList.remove("dragging");
+      uploadFiles(event.dataTransfer.files);
+    });
+  </script>
+</body>
+</html>

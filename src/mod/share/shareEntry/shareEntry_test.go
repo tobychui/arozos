@@ -18,6 +18,7 @@ func openTempDB(t *testing.T) *db.Database {
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
+	t.Cleanup(database.Close)
 	return database
 }
 
@@ -324,6 +325,7 @@ func TestNewShareEntryTable_LoadsExistingEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
+	t.Cleanup(database.Close)
 
 	// Write a share entry into the DB before creating the table
 	database.NewTable("share")
