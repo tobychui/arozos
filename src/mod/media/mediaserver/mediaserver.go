@@ -50,15 +50,35 @@ type Options struct {
 type Instance struct {
 	options             *Options
 	VirtualPathResolver func(string) (*fs.FileSystemHandler, string, error) //Virtual path to File system handler resolver, must be provided externally
+	hlsManager          *transcoder.HLSManager                              //Manages live HLS transcode sessions; nil if it could not be started
 }
 
 // Initialize a new media server instance
 func NewMediaServer(options *Options) *Instance {
-	return &Instance{
+	instance := &Instance{
 		options: options,
 		VirtualPathResolver: func(s string) (*fs.FileSystemHandler, string, error) {
 			return nil, "", errors.New("no virtual path resolver assigned")
 		},
+	}
+
+	//Prepare the HLS session store. A failure here only disables HLS output;
+	//the MP4 transcode path keeps working.
+	hlsManager, err := transcoder.NewHLSManager(options.TmpDirectory, HLSSegmentEndpoint)
+	if err != nil {
+		options.Logger.PrintAndLog("Media Server", "Unable to initiate HLS session store, HLS output disabled", err)
+	} else {
+		instance.hlsManager = hlsManager
+	}
+
+	return instance
+}
+
+// Close releases the resources held by this media server, stopping any running
+// HLS transcode and removing its working directory.
+func (s *Instance) Close() {
+	if s.hlsManager != nil {
+		s.hlsManager.Close()
 	}
 }
 
@@ -303,86 +323,14 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 
 // Serve video file with real-time transcoder
 func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Request) {
-	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
-	//Serve normal media files
-	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
-	if err != nil {
-		utils.SendErrorResponse(w, err.Error())
+	//Resolve to a local file first; ffmpeg cannot read a remote file system
+	sourceFile, ok := s.resolveLocalTranscodeSource(w, r)
+	if !ok {
 		return
 	}
 
-	resolution, err := utils.GetPara(r, "res")
-	if err != nil {
-		resolution = ""
-	}
-
-	transcodeOutputResolution := transcoder.TranscodeResolution_original
-	if resolution == "1080p" {
-		transcodeOutputResolution = transcoder.TranscodeResolution_1080p
-	} else if resolution == "720p" {
-		transcodeOutputResolution = transcoder.TranscodeResolution_720p
-	} else if resolution == "360p" {
-		transcodeOutputResolution = transcoder.TranscodeResolution_360p
-	}
-
-	var startTime float64
-	if startTimeStr, _ := utils.GetPara(r, "start"); startTimeStr != "" {
-		startTime, _ = strconv.ParseFloat(startTimeStr, 64)
-	}
-
-	//TODO: Cleanup unused code
-	//targetFshAbs := targetFsh.FileSystemAbstraction
-	transcodeSourceFile := realFilepath
-	if filesystem.FileExists(transcodeSourceFile) {
-		//This is a file from the local file system.
-		//Stream it out with transcoder
-		transcodeSrcFileAbsPath, err := filepath.Abs(realFilepath)
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
-		}
-		transcoder.TranscodeAndStream(w, r, transcodeSrcFileAbsPath, transcodeOutputResolution, startTime)
-		return
-	} else {
-		//This file is from a remote file system. Check if it already has a local buffer
-		ps, _ := targetFsh.GetUniquePathHash(vpath, userinfo.Username)
-		buffpool := filepath.Join(s.options.TmpDirectory, "fsbuffpool")
-		buffFile := filepath.Join(buffpool, ps)
-		if fs.FileExists(buffFile) {
-			//Stream the buff file if hash matches
-			remoteFileHash, err := s.GetHashFromRemoteFile(targetFsh.FileSystemAbstraction, realFilepath)
-			if err == nil {
-				localFileHash, err := os.ReadFile(buffFile + ".hash")
-				if err == nil {
-					if string(localFileHash) == remoteFileHash {
-						//Hash matches. Serve local buffered file
-						buffFileAbs, _ := filepath.Abs(buffFile)
-						transcoder.TranscodeAndStream(w, r, buffFileAbs, transcodeOutputResolution, startTime)
-						return
-					}
-				}
-			}
-		}
-
-		//Buffer file not exists. Buffer it to local now
-		if s.options.EnableFileBuffering {
-			os.MkdirAll(buffpool, 0775)
-			s.options.Logger.PrintAndLog("Media Server", "Buffering video from remote file system handler (might take a while)", nil)
-			err = s.BufferRemoteFileToTmp(buffFile, targetFsh, realFilepath)
-			if err != nil {
-				utils.SendErrorResponse(w, err.Error())
-				return
-			}
-
-			//Buffer completed. Start transcode
-			buffFileAbs, _ := filepath.Abs(buffFile)
-			transcoder.TranscodeAndStream(w, r, buffFileAbs, transcodeOutputResolution, startTime)
-			return
-		} else {
-			utils.SendErrorResponse(w, "unable to transcode remote file with file buffer disabled")
-			return
-		}
-	}
+	transcoder.TranscodeAndStream(w, r, sourceFile,
+		transcodeResolutionFromRequest(r), startTimeFromRequest(r))
 
 	//Check if it is a remote file system. FFmpeg can only works with local files
 	//if the file is from a remote source, buffer it to local before transcoding.

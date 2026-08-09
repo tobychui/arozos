@@ -38,17 +38,8 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	// Build the FFmpeg command based on the resolution parameter
 	var cmd *exec.Cmd
 
-	var height string
-	switch resolution {
-	case "360p":
-		height = "360"
-	case "720p":
-		height = "720"
-	case "1080p":
-		height = "1080"
-	case "":
-		height = ""
-	default:
+	height, err := resolutionHeight(resolution)
+	if err != nil {
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}

@@ -445,7 +445,7 @@
         .set-seg-btn:hover  { color: var(--text); }
         .set-seg-btn.active { background: var(--surface); color: var(--text); }
 
-        .speed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .speed-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
         .speed-btn {
             padding: 5px 0; font-size: 12px; font-family: inherit;
             border: none; border-radius: var(--radius); cursor: pointer;
@@ -471,7 +471,8 @@
             color: var(--text); padding: 10px 20px; border-radius: 20px;
             font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             opacity: 0; transition: opacity 0.3s, transform 0.3s;
-            pointer-events: none; z-index: 1000; white-space: nowrap;
+            pointer-events: none; z-index: 1000; max-width: min(90vw, 30em);
+            text-align: center; line-height: 1.45;
         }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
@@ -598,14 +599,11 @@
         <div class="set-section">
             <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
             <div class="speed-grid" id="set-speed-grid">
-                <button class="speed-btn" data-speed="0.25">0.25×</button>
-                <button class="speed-btn" data-speed="0.5">0.5×</button>
-                <button class="speed-btn" data-speed="0.75">0.75×</button>
-                <button class="speed-btn active" data-speed="1">Normal</button>
-                <button class="speed-btn" data-speed="1.25">1.25×</button>
-                <button class="speed-btn" data-speed="1.5">1.5×</button>
-                <button class="speed-btn" data-speed="1.75">1.75×</button>
-                <button class="speed-btn" data-speed="2">2×</button>
+                <button class="speed-btn" data-speed="0.5">0.5&times;</button>
+                <button class="speed-btn active" data-speed="1">1&times;</button>
+                <button class="speed-btn" data-speed="1.2">1.2&times;</button>
+                <button class="speed-btn" data-speed="1.5">1.5&times;</button>
+                <button class="speed-btn" data-speed="2">2&times;</button>
             </div>
         </div>
         <div class="set-section">
@@ -613,6 +611,14 @@
             <div class="set-seg" id="set-volbar-seg">
                 <button class="set-seg-btn active" data-volbar="auto">Auto</button>
                 <button class="set-seg-btn"        data-volbar="always">Always show</button>
+            </div>
+        </div>
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/movie_white.svg" alt="">Streaming mode</div>
+            <div class="set-seg" id="set-stream-seg">
+                <button class="set-seg-btn active" data-stream="auto">Auto</button>
+                <button class="set-seg-btn"        data-stream="mp4">MP4</button>
+                <button class="set-seg-btn"        data-stream="hls">HLS</button>
             </div>
         </div>
         <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
@@ -675,7 +681,13 @@ var pendingResumePos    = 0;
 var watchSaveInterval   = null;
 var controlsTimer       = null;
 var repeatSingle        = (localStorage.getItem('movie_repeat_one') === '1');
-var playbackSpeed       = parseFloat(localStorage.getItem('movie_playback_speed') || '1') || 1;
+// Snapped to the nearest preset on load: an earlier build let this be dragged
+// to any value, and the popup highlights presets only.
+// The preset rates offered in the settings popup. Declared here rather than
+// beside setPlaybackSpeed because the initialiser below runs on load, and a
+// `var` further down the file would still be undefined at that point.
+var PLAYBACK_SPEEDS = [0.5, 1, 1.2, 1.5, 2];
+var playbackSpeed       = nearestPlaybackSpeed(localStorage.getItem('movie_playback_speed') || '1');
 var alwaysShowVolumeBar = (localStorage.getItem('movie_always_volume_bar') === '1');
 var infoRefreshTimer    = null;
 var currentInfoTab      = 'props';
@@ -765,11 +777,15 @@ if (files && files.length > 0) {
 
     isTranscodedVideo = !isWebPlayable(currentFile.ext);
 
-    vid.src = isTranscodedVideo
-        ? TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-        : MEDIA_API     + '?file=' + encodeURIComponent(currentFile.filepath);
     vid.autoplay = true;
-    vid.load();
+    if (isTranscodedVideo) {
+        if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0))) {
+            showToast('HLS playback needs hls.js, which is not installed. Switch streaming mode to MP4 in settings.');
+        }
+    } else {
+        vid.src = MEDIA_API + '?file=' + encodeURIComponent(currentFile.filepath);
+        vid.load();
+    }
 
     // Resume position check (only for videos longer than 1 hour)
     if (!isTranscodedVideo) {
@@ -929,20 +945,46 @@ function hideSeekFreeze() {
     $('#seek-spinner').removeClass('active');
 }
 
-// Restart the transcode stream at `seconds`, holding the last frame until the
-// new segment plays. Clamped to the known duration.
+// Seek to `seconds` (absolute, whole-file time), clamped to the known duration.
+//
+// An HLS stream keeps every segment produced so far in its playlist, so a seek
+// landing inside the transcoded window is an ordinary <video> seek — no reload,
+// no re-transcode, no black frame. Only a seek past that window (or an MP4
+// stream, which has no seekable history at all) has to restart the transcode at
+// the new offset.
 function transcodeSeekTo(seconds) {
     if (!currentFile) { return; }
     var pos = Math.max(0, seconds);
     if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
 
+    if (usingHLS() && seekWithinTranscodedWindow(vid, pos)) {
+        setSubtitleSeekFloor(pos);
+        vid.currentTime = pos - transcodeSeekOffset;
+        playVideo(vid);
+        return;
+    }
+
     showSeekFreeze();
     setSubtitleSeekFloor(pos);
     transcodeSeekOffset = pos;
-    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-            + '&start=' + pos.toFixed(3);
-    vid.load();
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, pos))) {
+        hideSeekFreeze();
+        showToast('HLS playback needs hls.js, which is not installed. Switch streaming mode to MP4 in settings.');
+        return;
+    }
     playVideo(vid);
+}
+
+// Whether `pos` (absolute time) falls inside what the current stream has
+// already produced and can therefore be reached without reloading.
+function seekWithinTranscodedWindow(videoEl, pos) {
+    var relative = pos - transcodeSeekOffset;
+    if (relative < 0) { return false; }
+    if (!videoEl.seekable || videoEl.seekable.length === 0) { return false; }
+    var available = videoEl.seekable.end(videoEl.seekable.length - 1);
+    // Stay a segment clear of the live edge; seeking right onto it stalls until
+    // the next segment lands.
+    return relative <= available - 4;
 }
 
 // Current playback position in whole-file terms (transcode streams restart at 0)
@@ -1205,10 +1247,58 @@ function setPlaybackSpeed(rate) {
         .filter('[data-speed="' + playbackSpeed + '"]').addClass('active');
 }
 
+// Snap an arbitrary stored rate onto the nearest preset, so the popup always
+// has exactly one button highlighted. Needed because an earlier build persisted
+// free-form rates from a drag slider.
+function nearestPlaybackSpeed(rate) {
+    var value = parseFloat(rate);
+    if (!value || value <= 0) { return 1; }
+    return PLAYBACK_SPEEDS.reduce(function (best, preset) {
+        return Math.abs(preset - value) < Math.abs(best - value) ? preset : best;
+    }, PLAYBACK_SPEEDS[0]);
+}
+
+// Apply a streaming mode. Changing it mid-playback re-opens the current file on
+// the other transport, resuming where the viewer was.
+function applyStreamMode(mode, reloadCurrent) {
+    var previous = getStreamMode();
+    setStreamMode(mode);
+    $('#set-stream-seg .set-seg-btn').removeClass('active')
+        .filter('[data-stream="' + getStreamMode() + '"]').addClass('active');
+
+    if (!reloadCurrent || previous === getStreamMode()) { return; }
+    // Warn only when the viewer actively picks a mode this browser cannot play
+    warnIfStreamModeUnplayable();
+    if (!isTranscodedVideo || !currentFile) { return; }
+
+    var resumeAt = effectivePlaybackTime();
+    transcodeSeekOffset = 0;
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0))) {
+        showToast('HLS playback needs hls.js, which is not installed.');
+        return;
+    }
+    playVideo(vid);
+    if (resumeAt > 1) { transcodeSeekTo(resumeAt); }
+}
+
+function playerVideoElement() { return vid; }
+
+// Surface the two streaming modes that cannot work on a given browser. Anything
+// that is simply working says nothing at all.
+function warnIfStreamModeUnplayable() {
+    var mode = getStreamMode();
+    if (mode === 'mp4' && isWebKitClient()) {
+        showToast('This browser cannot play the MP4 stream. Use Auto or HLS.');
+    } else if (mode === 'hls' && !hlsPlaybackSupported(playerVideoElement())) {
+        showToast('HLS needs hls.js, which is not installed on this server.');
+    }
+}
+
 function openSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    applyStreamMode(getStreamMode(), false);
     $('#player-ctx').hide();
     $('#settings-popup').addClass('active');
     showControls();
@@ -1245,6 +1335,10 @@ function initSettingsPopup() {
         setAlwaysShowVolumeBar($(this).data('volbar') === 'always');
     });
 
+    $('#set-stream-seg').on('click', '.set-seg-btn', function () {
+        applyStreamMode(String($(this).data('stream')), true);
+    });
+
     $('#set-load-subtitle').on('click',    function () { closeSettingsPopup(); pickSubtitleFile(); });
     $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
     $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
@@ -1253,6 +1347,7 @@ function initSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    applyStreamMode(getStreamMode(), false);
 
     // A transcode seek replaces the media source, which resets playbackRate —
     // reapply the chosen speed every time new media is loaded.

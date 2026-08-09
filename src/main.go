@@ -68,6 +68,12 @@ func executeShutdownSequence() {
 		FTPManager.StopFtpServer()
 	}
 
+	//Shutdown media server, stopping any running HLS transcode
+	if mediaServer != nil {
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down media server", nil)
+		mediaServer.Close()
+	}
+
 	//Cleaning up tmp files
 	systemWideLogger.PrintAndLog("System", "<!> Cleaning up tmp folder", nil)
 	os.RemoveAll(*tmp_directory)

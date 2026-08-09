@@ -47,6 +47,9 @@ func mediaServer_init() {
 		//ffmpeg installed. allow transcode
 		http.HandleFunc("/media/transcode/", mediaServer.ServeVideoWithTranscode)
 		http.HandleFunc("/media/transcode/audio/", mediaServer.ServeAudioWithTranscode)
+		//HLS output, for clients that require byte-range-able media (Safari / iOS)
+		http.HandleFunc("/media/hls/", mediaServer.ServeHLSPlaylist)
+		http.HandleFunc(mediaserver.HLSSegmentEndpoint, mediaServer.ServeHLSSegment)
 		http.HandleFunc("/media/duration/", mediaServer.GetAudioDuration)
 		http.HandleFunc("/media/storyboard/", mediaServer.ServeStoryboard)
 		http.HandleFunc("/media/subtitles/", mediaServer.ServeEmbeddedSubtitles)
