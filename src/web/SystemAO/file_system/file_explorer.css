@@ -91,80 +91,97 @@ body.whiteTheme {
 }
 
 body.darkTheme{
-    --fileopr_btnTxt: rgb(255, 255, 255);
-    --fileopr_oprtxt: rgb(241, 241, 241);
-    --fileopr_btnhover: #353535;
-   
-    --navi_bgcolor: var(--body_background_secondary, #27292d);
-    --navi_theme: var(--theme_color, #6682c4);
-    --navi_theme_multiselect: #6c06ba;
-    --navi_txt: rgb(241, 241, 241);
+    /*
+        Legacy variable set, re-sampled to match the palette in
+        shared/fs-theme.css so the parts of the UI that still read these
+        (popups, upload tab, context menu, file object rows) sit in the same
+        colour family as everything already ported to the --fs-* tokens.
+    */
+    /* ao.css's own dark values are a neutral grey; pull them onto the sampled
+       palette so semantic-ui widgets inside this app match the rest of it. */
+    --body_background: var(--fs-bg);
+    --body_text: var(--fs-text);
+    --text_color: var(--fs-text);
+    --text_color_secondary: var(--fs-text-dim);
 
-    --dropdown_bg: #373a42;
-    --dropdown_txt: rgb(231, 231, 231);
-    
-    --vroot_active_bg: #95b5de;
-    --dir_item_color: rgb(228, 228, 228);
-    
-    --text_active: #23cc28;
+    --fileopr_btnTxt: #e6e9ee;
+    --fileopr_oprtxt: #c7ced7;
+    --fileopr_btnhover: #2a3039;
+    --divider: #272c34;
 
-    --dir_bg: #373a42;
-    --dir_txt: rgb(230, 230, 230);
-    --dir_border: #3b4751;
-    --dir_hover_text: #a3a3a3;
-    --dir_hover_background: #f3f3f3;
-    --dir_hover_active: #7c9cc7;
+    /* Surfaces come from the sampled tokens, not ao.css's --body_background_*.
+       Those resolve to a neutral grey that is lighter than the file area, which
+       inverts the mockup's depth order (content darkest, chrome above it). */
+    --navi_bgcolor: var(--fs-bg);
+    --navi_theme: var(--theme_color, #272c34);
+    --navi_theme_multiselect: #4a9eff;
+    --navi_txt: #c7ced7;
 
-    --normal_object_txt: rgb(236, 236, 236);;
-    --hex_folder_txt: #44d36a;
-    --um_file_txt: #69aaff;
+    --dropdown_bg: #1c2129;
+    --dropdown_txt: #e6e9ee;
 
-    --folder_view_background: var(--body_background_active, #3d3f47);
-    --folder_view_share: #24cc29;
-    --fileobject_background_hover: #5a5e6b;
-    --fileobject_background_selected: #95b5de;
-    --fileobject_text_selected: black;
+    --vroot_active_bg: #262b33;
+    --dir_item_color: #c7ced7;
 
-    --address_text_border:#27292d;
-    --address_text_background: rgb(0, 0, 0);
+    --text_active: #4a9eff;
 
-    --popup_bg: black;
-    --popup_border: rgb(226, 226, 226);
-    --popup_header_bg: #171719;
-    --popup_header_txt: white;
-    --popup_header_bottom: #6682c4;
-    --popup_btn_border: #dedede;
-    --popup_btn_hover: rgb(53, 53, 53);
-    --popup_btn_primary_bg: #51aded;
-    --popup_btn_primary_txt: white;
-    --popup_btn_primary_bg_hover: #4391c9;
-    --popup_btn_negative_bg: #ed5151;
-    --popup_btn_negative_txt: white;
-    --popup_btn_negative_bg_hover: #f57676;
+    --dir_bg: #14181d;
+    --dir_txt: #e6e9ee;
+    --dir_border: #272c34;
+    --dir_hover_text: #9aa3ae;
+    --dir_hover_background: #1f242c;
+    --dir_hover_active: #1e2d40;
+
+    --normal_object_txt: #e6e9ee;
+    --hex_folder_txt: #5fd48b;
+    --um_file_txt: #7db8ff;
+
+    --folder_view_background: var(--fs-content-bg);
+    --folder_view_share: #3ecf6d;
+    --fileobject_background_hover: #1f242c;
+    --fileobject_background_selected: #17293f;
+    --fileobject_text_selected: #e6e9ee;
+
+    --address_text_border: #272c34;
+    --address_text_background: #1c2129;
+
+    --popup_bg: #1c2129;
+    --popup_border: #272c34;
+    --popup_header_bg: #12161b;
+    --popup_header_txt: #e6e9ee;
+    --popup_header_bottom: #4a9eff;
+    --popup_btn_border: #323945;
+    --popup_btn_hover: #2a3039;
+    --popup_btn_primary_bg: #4a9eff;
+    --popup_btn_primary_txt: #0d1014;
+    --popup_btn_primary_bg_hover: #6bb0ff;
+    --popup_btn_negative_bg: #e5484d;
+    --popup_btn_negative_txt: #ffffff;
+    --popup_btn_negative_bg_hover: #f06a6e;
 
     --modulelist_bg: transparent;
-    --modulelist_hover: rgba(240,240,240,0.3);
+    --modulelist_hover: rgba(122, 138, 160, 0.18);
 
-    --contextmenu_background: #0e0e0e;
-    --contextmenu_hover: #292929;
-    --contextmenu_textcolor: rgb(233, 233, 233);
+    --contextmenu_background: #1c2129;
+    --contextmenu_hover: #2a3039;
+    --contextmenu_textcolor: #e6e9ee;
 
-    --upload_progressbar: #92cfe7;
-    --upload_progresstext: rgb(255, 255, 255);
-    --upload_progress_succ: #8cd68f;
-    --upload_progress_failed: #d68c8c;
+    --upload_progressbar: #4a9eff;
+    --upload_progresstext: #0d1014;
+    --upload_progress_succ: #3ecf6d;
+    --upload_progress_failed: #e5484d;
 
-    --open_with_selected: #95b5de;
-    --open_with_selected_text: white;
-    --open_with_item_hover_background:rgba(35,35,35,0.14); 
+    --open_with_selected: #1e3450;
+    --open_with_selected_text: #e6e9ee;
+    --open_with_item_hover_background: rgba(122, 138, 160, 0.16);
 
-    --popup_wrapper_background: rgba(27,27,27,0.5);
-    --code_bg: rgb(20, 20, 20);
-    --code_txt: #d68c8c;
+    --popup_wrapper_background: rgba(8, 10, 13, 0.62);
+    --code_bg: #12161b;
+    --code_txt: #ff8f93;
 
-    --uploadtab_bg: #27292d;
-    --uploadtab_txt: rgb(233, 233, 233);
-    --upload_bg: #373a42;
+    --uploadtab_bg: #16191f;
+    --uploadtab_txt: #e6e9ee;
+    --upload_bg: #1c2129;
 }
 
 body{
@@ -873,16 +890,23 @@ body.darkTheme .ui.icon.button{
 
 */
 
+/*
+    Styled to match the .fsMenu component in shared/fs-components.css so the
+    right click menu, the "..." menu and the sort menu all read as the same
+    control: rounded card, inset rows that round on hover, and icons a step
+    dimmer than the label text.
+*/
 .contextmenu{
     position: fixed;
     display: none;
     width: 200px;
+    padding: 6px;
     background-color: var(--contextmenu_background);
     border: 1px solid var(--divider);
-    -webkit-box-shadow: 3px 3px 5px 0px rgba(0,0,0,0.12);
-    -moz-box-shadow: 3px 3px 5px 0px rgba(0,0,0,0.12);
-    box-shadow: 3px 3px 5px 0px rgba(0,0,0,0.12);
-    /*border-radius: 0.4em;*/
+    border-radius: 10px;
+    -webkit-box-shadow: 0px 8px 28px var(--fs-shadow);
+    -moz-box-shadow: 0px 8px 28px var(--fs-shadow);
+    box-shadow: 0px 8px 28px var(--fs-shadow);
     z-index: 999;
 }
 
@@ -891,10 +915,14 @@ body.darkTheme .ui.icon.button{
 }
 
 .contextmenu .item{
-    padding: 0.6em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
     cursor: pointer;
-    padding-left: 1.5em;
-    padding-right: 1.5em;
+    font-size: 13.5px;
+    white-space: nowrap;
     color: var(--contextmenu_textcolor);
 }
 
@@ -902,15 +930,40 @@ body.darkTheme .ui.icon.button{
     background-color: var(--contextmenu_hover);
 }
 
+/*
+    The rows carry semantic-ui font icons. Their default em based width and
+    right margin fight the flex gap, so pin them to a fixed box instead.
+
+    The colour needs !important: ao.css styles every <i> and <span> under a
+    themed body with a blanket rule whose :not() chain scores higher than any
+    reasonable selector here, so it would otherwise repaint the icons to the
+    same colour as the label and flatten the two-tone look.
+*/
+.contextmenu .item > i.icon{
+    width: 16px;
+    min-width: 16px;
+    height: auto;
+    margin: 0px;
+    font-size: 14px;
+    text-align: center;
+    color: var(--fs-icon) !important;
+    opacity: 1;
+}
+
+/* Keyboard hint, pushed to the trailing edge */
 .contextmenu .description{
-    color: var(--text_color_secondary);
-    float: right;
-    font-size: 0.9em;
+    margin-left: auto;
+    padding-left: 18px;
+    color: var(--fs-text-faint) !important;
+    font-size: 12px;
 }
 
 .contextmenu .divider{
-    width: 100%;
-    border-bottom: 1px solid var(--divider);
+    width: auto;
+    height: 1px;
+    margin: 5px 4px;
+    background-color: var(--fs-line-soft);
+    border-bottom: 0px;
 }
 
 /*
@@ -1090,10 +1143,6 @@ body.darkTheme .ui.icon.button{
 
 #openWithModuleList .item.selectable:hover{
     background-color:var(--open_with_item_hover_background);
-}
-
-.contextmenu .item{
-    font-size:90% !important;
 }
 
 /*

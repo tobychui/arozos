@@ -46,6 +46,7 @@
     --fs-pill-bg: #fbfbfc;
     --fs-thumb-bg: #fafbfc;
     --fs-row-hover: #f7f8fa;
+    --fs-content-bg: #ffffff;
 
     /* Effects */
     --fs-shadow: rgba(15, 20, 30, 0.16);
@@ -53,33 +54,48 @@
 }
 
 body.darkTheme {
-    --fs-accent: #8ab4f8;
-    --fs-accent-soft: #1f3448;
-    --fs-accent-strong: #aecbfa;
-    --fs-primary-fg: #12161c;
-    --fs-primary-hover: #a7c8fa;
+    /*
+        Dark palette sampled from the design mockup: a cool, slightly blue
+        charcoal rather than neutral grey, with surfaces stepping up from the
+        content area (darkest) through the chrome to cards and menus (lightest).
+        The accent is a brighter sky blue than the light theme's, so it still
+        reads against the dark background.
+    */
 
-    --fs-selected: #1e3450;
-    --fs-selected-hover: #26405c;
-    --fs-selected-line: #4a7fc4;
+    /* Accent / primary action */
+    --fs-accent: #4a9eff;
+    --fs-accent-soft: #1e2d40;
+    --fs-accent-strong: #7db8ff;
+    --fs-primary-fg: #0d1014;
+    --fs-primary-hover: #6bb0ff;
 
-    --fs-text: #e8eaed;
-    --fs-text-dim: #9aa0a6;
-    --fs-text-faint: #80868b;
-    --fs-icon: #b8bcc2;
+    /* Selection: blue tinted fill with a visible edge */
+    --fs-selected: #17293f;
+    --fs-selected-hover: #1e3450;
+    --fs-selected-line: #4a9eff;
 
-    --fs-line: #3c4043;
-    --fs-line-soft: #2d2f33;
-    --fs-fill: #2a2d31;
-    --fs-fill-hover: #35383c;
-    --fs-fill-active: #3f4347;
+    /* Text */
+    --fs-text: #e6e9ee;
+    --fs-text-dim: #9aa3ae;
+    --fs-text-faint: #6f7883;
+    --fs-icon: #aab3be;
 
-    --fs-bg: #202124;
-    --fs-surface: #26282c;
-    --fs-pill-bg: #26282c;
-    --fs-thumb-bg: #2a2d31;
-    --fs-row-hover: #2a2d31;
+    /* Lines and fills */
+    --fs-line: #272c34;
+    --fs-line-soft: #1e2229;
+    --fs-fill: #21262e;
+    --fs-fill-hover: #2a3039;
+    --fs-fill-active: #333a44;
 
-    --fs-shadow: rgba(0, 0, 0, 0.55);
-    --fs-overlay: rgba(32, 33, 36, 0.88);
+    /* Surfaces, darkest to lightest */
+    --fs-content-bg: #101317;
+    --fs-bg: #16191f;
+    --fs-surface: #1c2129;
+    --fs-pill-bg: #1c2129;
+    --fs-thumb-bg: #1a1e25;
+    --fs-row-hover: #1f242c;
+
+    /* Effects */
+    --fs-shadow: rgba(0, 0, 0, 0.6);
+    --fs-overlay: rgba(16, 19, 23, 0.9);
 }
