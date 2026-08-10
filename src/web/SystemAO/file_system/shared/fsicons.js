@@ -26,6 +26,8 @@
         up:         S + '<path d="M12 19V5M5 12l7-7 7 7"/></svg>',
         refresh:    S + '<path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 4v5h-5"/></svg>',
         menu:       S + '<path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+        //Descending bars with a direction arrow - the sort control
+        sort:       S + '<path d="M4 6h11M4 12h7M4 18h4"/><path d="M18 8v12M14.5 16.5L18 20l3.5-3.5"/></svg>',
         search:     S + '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>',
         close:      S + '<path d="M18 6L6 18M6 6l12 12"/></svg>',
         more:       S + '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>',

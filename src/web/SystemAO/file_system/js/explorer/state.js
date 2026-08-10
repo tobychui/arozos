@@ -13,7 +13,8 @@ let currentTheme = "whiteTheme"; //Default theme
 let viewMode = "list"; //Viewmode, support {list, grid, detail}
 let sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall, mostRecent, leastRecent}
 let currentPath = "user:/"
-let gridZoom = 150;                  //Grid tile width in px, driven by the status bar slider
+let showOprBar = true;               //Classic file operation toolbar, persisted server side
+let gridZoom = 170;                  //Grid tile width in px (100-170), driven by the status bar slider
 let viewHistory = [];
 let forwardHistory = [];             //Paths popped by Back, replayed by Forward. Cleared on any other navigation. //View history
 let currentFilelist = []; //The current file list in the currentPath
@@ -40,6 +41,7 @@ let hotSearchOffsetIndex = 0;
 let propertiesView = false; //Enable viewing properties on the right sidebar
 
 //Keypress listeners
+let stickyMultiSelect = false;      //Mobile multi-select stays on until the user turns it off
 let ctrlHold = false;
 let shiftHold = false;
 let lastClickedElement = undefined;

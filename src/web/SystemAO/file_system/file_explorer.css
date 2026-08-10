@@ -1586,6 +1586,7 @@ i.blue{
     top: 46px;
     max-height: 70vh;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 .fmSortRow select {
     flex-grow: 1;
@@ -1770,14 +1771,21 @@ i.blue{
     transition: opacity 0.12s ease;
     vertical-align: middle;
 }
-.detailstable tr.fileObject:hover .fmCheck { opacity: 1; }
-.detailstable tr.fileObject.selected .fmCheck {
+/*
+    Check marks belong to multi-select, not to selection: a single click only
+    highlights. #folderView gains .fmMultiSelect once ctrl/shift is held, mobile
+    multi-select is on, or more than one item is already picked.
+*/
+.fmCheck { display: none; }
+#folderView.fmMultiSelect .fmCheck { display: inline-block; }
+#folderView.fmMultiSelect .detailstable tr.fileObject:hover .fmCheck { opacity: 1; }
+#folderView.fmMultiSelect .detailstable tr.fileObject.selected .fmCheck {
     opacity: 1;
     background: var(--fs-accent);
     border-color: var(--fs-accent);
     position: relative;
 }
-.detailstable tr.fileObject.selected .fmCheck::after {
+#folderView.fmMultiSelect .detailstable tr.fileObject.selected .fmCheck::after {
     content: "";
     position: absolute;
     left: 4.5px;
@@ -1796,13 +1804,12 @@ i.blue{
 .fileviewList .fileObject.item.selected,
 .detailstable tr.fileObject.details.selected {
     background: var(--fs-selected) !important;
-    box-shadow: inset 2px 0 0 var(--fs-accent);
 }
 .fileviewList .fileObject.item.selected .filename,
 .detailstable tr.fileObject.details.selected td { color: var(--fs-text) !important; }
 
 /* ---------- Grid view ---------- */
-#folderView { --fm-tile: 150px; }
+#folderView { --fm-tile: 170px; }
 
 #folderList.fileviewList,
 #fileList.fileviewList { padding: 0 !important; }
@@ -1873,7 +1880,7 @@ i.blue{
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }
-.fileObject.card.selected .fmTileCheck { display: block; }
+#folderView.fmMultiSelect .fileObject.card.selected .fmTileCheck { display: block; }
 
 /* Date group headers */
 .fmGroupHeader {
@@ -1932,8 +1939,18 @@ i.blue{
 .fmStatusBtn svg { display: block; width: 100%; height: 100%; }
 
 @media only screen and (max-width: 720px) {
-    #fmZoom { display: none; }
-    .fmStatusToggle { display: none; }
+    /*
+        updateZoomControlVisibility() shows this with an inline style, which
+        outranks a plain media query - hence !important. Without it the zoom
+        control rendered at full size on phones and pushed the status bar over.
+    */
+    /*
+        Only the zoom slider is too wide for a phone. The view toggle and the
+        properties button are small enough to keep, and hiding them left the
+        footer with no controls at all.
+    */
+    #fmZoom { display: none !important; }
+    .fmStatusToggle button { width: 30px; height: 26px; }
 }
 
 /* ---------- Details column widths + responsive column dropping ----------
@@ -1962,3 +1979,184 @@ i.blue{
 .detailstable tr.fileObject.details {
     border: none !important;
 }
+
+
+/* ---------- Classic file operation toolbar ---------- */
+/*
+    Sits above the nav row; toggled from the overflow menu and remembered server
+    side under file_explorer/oprbar.
+
+    It must never wrap to a second row - that was the old behaviour and it ate
+    vertical space the file list needs. Instead the bar collapses in stages as
+    the window narrows: first the stacked text-button groups drop out (rightmost
+    first, since those actions are the least used), then the big buttons lose
+    their labels and become icons. Anything dropped reappears in the overflow
+    menu automatically, because syncOprMenuDuplicates() checks what is actually
+    visible rather than assuming.
+*/
+.fileOprBar {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 6px 12px 4px 12px;
+    border-bottom: 1px solid var(--fs-line);
+    background: var(--fs-bg);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.fileOprBar .fileOprBtn {
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+/*
+    One line per split. The legacy .navibar .fileoprGroupDivider rule already
+    draws a border-right; adding a border-left here rendered two lines side by
+    side wherever two groups met.
+*/
+.fileOprBar .fileoprGroupDivider {
+    display: inline-block;
+    vertical-align: top;
+    border-left: none;
+    border-right: 1px solid var(--fs-line-soft);
+    margin: 0 6px 0 2px;
+    padding-right: 8px;
+    flex-shrink: 0;
+}
+
+.fileOprBar .fileOprBtn .oprtxt {
+    font-size: 12px;
+    margin: 2px 0 0 0;
+    white-space: nowrap;
+}
+
+/* Stage 1: drop the stacked groups, rightmost (least used) first */
+@media only screen and (max-width: 960px) {
+    .fileOprBar .fileoprGroupDivider:nth-of-type(4) { display: none; }
+}
+@media only screen and (max-width: 840px) {
+    .fileOprBar .fileoprGroupDivider:nth-of-type(3) { display: none; }
+}
+@media only screen and (max-width: 600px) {
+    .fileOprBar .fileoprGroupDivider { display: none; }
+}
+
+/* Stage 2: big buttons become icon-only */
+@media only screen and (max-width: 720px) {
+    .fileOprBar .fileOprBtn .oprtxt { display: none; }
+    .fileOprBar .fileOprBtn .opricon { width: 32px; }
+    .fileOprBar { padding-bottom: 6px; }
+}
+
+/* Stage 3: below this the nav row alone is the interface */
+@media only screen and (max-width: 720px) {
+    .fileOprBar { display: none !important; }
+}
+
+
+/* ---------- Grid tile corrections ---------- */
+/*
+    The legacy .card .content .description rule positions the size absolutely
+    against the card, which only worked while cards had a fixed 20em height.
+    Cards are content-sized now, so it has to sit in the normal flow or it
+    lands on top of the filename.
+*/
+.fileviewList .fileObject.card .content .description {
+    position: static !important;
+    bottom: auto !important;
+    left: auto !important;
+    font-size: 11px;
+    color: var(--fs-text-faint);
+    margin-top: 2px;
+}
+
+/* Folders are drawn glyphs, not photos - the thumbnail plate behind them just
+   boxes in the icon. Files keep it so real thumbnails have something to sit on. */
+.fileviewList .fileObject.card[type="folder"] .image {
+    background: transparent !important;
+}
+
+/* ---------- Sort menu ---------- */
+/* Anchored to the sort button on the right of the nav row, like the "..." menu */
+.fmSortMenu {
+    right: 52px;
+    top: 46px;
+    min-width: 210px;
+}
+
+/* Greyed section label above the options */
+.fsMenuHeader {
+    padding: 4px 9px 6px 9px;
+    font-size: 12px;
+    color: var(--fs-text-faint);
+    cursor: default;
+    user-select: none;
+}
+
+/* The tick sits in the icon column, so the labels stay aligned whether or not
+   a mode is active */
+.fmSortOption .fmSortCheck { visibility: hidden; color: var(--fs-accent); }
+.fmSortOption.active .fmSortCheck { visibility: visible; }
+.fmSortOption.active { color: var(--fs-text); }
+
+
+/* ======================================================================
+   Mobile layout
+   ====================================================================== */
+@media only screen and (max-width: 720px) {
+    /*
+        The nav row becomes two rows: controls on top, the path on its own row
+        underneath. A single row cannot hold the breadcrumb and the buttons at
+        phone widths without the path collapsing to nothing.
+    */
+    .fmNav {
+        flex-wrap: wrap;
+        row-gap: 6px;
+        padding: 6px 8px;
+    }
+
+    .fmNavBtns { flex-shrink: 0; }
+
+    .fmPathbar {
+        order: 10;
+        flex-basis: 100%;
+        min-width: 0;
+    }
+
+    /*
+        Push the sort and overflow buttons to the right edge. margin-left:auto on
+        the first of them absorbs the free space, so both end up flush right
+        regardless of how many nav buttons precede them.
+    */
+    .fmNav #fmSortBtn { margin-left: auto; }
+
+    /* Menus anchor to the row above the path */
+    .fmMoreMenu, .fmSortMenu {
+        top: 44px;
+        max-width: calc(100vw - 24px);
+    }
+
+    /* Status bar: text only, no controls to overflow */
+    #fmStatusBar {
+        padding: 5px 10px;
+        gap: 8px;
+        min-height: 0;
+    }
+    #fmStatusBar .fmStatusBtn { flex-shrink: 0; }
+    #selectInfo, #fmSelectionSize { white-space: nowrap; }
+
+    /* Guard: every icon in the bar stays at its intended box even if some
+       future rule forgets to size the button around it */
+    #fmStatusBar svg { width: 100%; height: 100%; }
+    #fmStatusBar .fmStatusBtn { width: 26px; height: 26px; }
+}
+
+/* Menu entries that cannot act on the current selection are hidden outright
+   rather than greyed - the menu is long enough already. */
+.fsMenuItem.fmOprUnusable { display: none !important; }
+
+
+/* Menu entries that only make sense on a touch device */
+.fmMobileOnly { display: none; }

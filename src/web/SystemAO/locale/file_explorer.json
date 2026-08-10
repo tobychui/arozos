@@ -6,6 +6,8 @@
             "name": "繁體中文（台灣）",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
+                "menu/sort/title": "排序方式",
+                "fileopr/Toolbar": "操作工具列",
                 "list/name": "名稱",
                 "list/date": "修改日期",
                 "list/type": "類型",
@@ -284,6 +286,8 @@
             "name": "繁體中文（香港）",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
+                "menu/sort/title": "排序方式",
+                "fileopr/Toolbar": "操作工具列",
                 "list/name": "名稱",
                 "list/date": "修改日期",
                 "list/type": "類型",
@@ -562,6 +566,8 @@
             "name": "简体中文",
             "fontFamily": "\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings": {
+                "menu/sort/title": "排序方式",
+                "fileopr/Toolbar": "操作工具栏",
                 "list/name": "名称",
                 "list/date": "修改日期",
                 "list/type": "类型",
@@ -841,6 +847,8 @@
             "name": "English (US)",
             "fontFamily": "Arial, Helvetica, sans-serif",
             "strings": {
+                "menu/sort/title": "Sort items by",
+                "fileopr/Toolbar": "Operation Toolbar",
                 "list/name": "Name",
                 "list/date": "Date Modified",
                 "list/type": "Type",
@@ -1121,6 +1129,8 @@
             "name": "日本語",
             "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
             "strings": {
+                "menu/sort/title": "並べ替え",
+                "fileopr/Toolbar": "操作ツールバー",
                 "list/name": "名前",
                 "list/date": "更新日時",
                 "list/type": "種類",
@@ -1402,6 +1412,8 @@
             "name": "한국어",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
+                "menu/sort/title": "정렬 기준",
+                "fileopr/Toolbar": "작업 도구 모음",
                 "list/name": "이름",
                 "list/date": "수정한 날짜",
                 "list/type": "유형",

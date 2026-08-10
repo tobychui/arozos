@@ -26,9 +26,10 @@ function bindFileObjectEvents(){
             if ($(this).hasClass("selected")){
                 $(this).removeClass("selected");
 
-                //if there are no more selected files on the page
-                //exit multi-select mode
-                if ($(".fileObject.selected").length == 0){
+                //Deselecting the last item normally ends multi-select, but when
+                //the user switched it on deliberately it stays on until they
+                //switch it off again
+                if ($(".fileObject.selected").length == 0 && !stickyMultiSelect){
                     exitMultiSelectMode();
                 }
             }else{
@@ -270,8 +271,16 @@ function bindFileObjectEvents(){
 
     //Handle right click on storage roots
     $("#storageroot").off("contextmenu").on("contextmenu", function(e){
-        if ($(e.target).is("i")){
-            e.target = e.target.parentElement;
+        /*
+            Resolve the row from whatever was actually right clicked. The sidebar
+            rows now wrap their icon and label in spans (and the icon is an inline
+            SVG), so e.target is usually a descendant rather than the .dir.item
+            itself - the old "if it is an <i>, step up one level" check no longer
+            reached it and the menu never opened.
+        */
+        let row = $(e.target).closest(".dir.item")[0];
+        if (row != undefined){
+            e.target = row;
         }
 
         $("#storageroot").find(".dir.item").each(function(){
@@ -326,6 +335,18 @@ function updateSelectedObjectsCount(){
         }
     });
     $("#fmSelectionSize").text(bytes > 0 ? FileThumb.formatBytes(bytes) : "");
+    updateMultiSelectDisplay();
+}
+
+/*
+    Check marks are a multi-select affordance, not a selection indicator: a plain
+    click just highlights the row. They appear once the user is actually picking
+    several things - ctrl/shift held on desktop, multi-select toggled on mobile,
+    or more than one item already selected.
+*/
+function updateMultiSelectDisplay(){
+    let multi = ctrlHold || shiftHold || $(".fileObject.selected").length > 1;
+    $("#folderView").toggleClass("fmMultiSelect", multi);
 }
 
 $("#folderView").on("click", function(){
@@ -350,6 +371,10 @@ function getFileObjectFromFID(fid){
 }
 
 function exitMultiSelectMode(){
+    if (stickyMultiSelect){
+        //Held open by the Multi-select menu toggle
+        return;
+    }
     if (ctrlHold){
         ctrlHold = false;
         updateCtrlDisplay();
@@ -378,6 +403,7 @@ function clearSelection(){
 }
 
 function updateCtrlDisplay(){
+    updateMultiSelectDisplay();
     if (isMobile){
         //Change color of the navibar based on selection mode
         if (ctrlHold){
@@ -446,4 +472,28 @@ function setGridZoom(value){
         $(".fileObject.card").css("width", gridZoom + "px");
     }
     setPreference("file_explorer/gridZoom", gridZoom);
+}
+
+
+/*
+    Mobile multi-select.
+
+    A plain tap on a phone opens the item, so there is otherwise no way to select
+    anything - which also left every selection-based action in the overflow menu
+    permanently unavailable. Turning this on makes taps select instead: tapping an
+    unselected item selects it, tapping a selected one deselects it, and folders
+    are selected rather than opened. It stays on until switched off.
+*/
+function toggleMobileMultiSelect(){
+    stickyMultiSelect = !stickyMultiSelect;
+    ctrlHold = stickyMultiSelect;
+
+    if (!stickyMultiSelect){
+        $(".fileObject.selected").removeClass("selected");
+    }
+
+    updateCtrlDisplay();
+    updateSelectedObjectsCount();
+    $("#fmMultiSelectItem").toggleClass("checked", stickyMultiSelect);
+    closeFileOprMenu();
 }

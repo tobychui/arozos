@@ -17,13 +17,25 @@ $(document).ready(function(){
         //Runs before the first listing so the toolbar never flashes empty.
         FSIcons.inject(document);
 
+        //Menu rows must stay single line even when the label carries a <br>
+        flattenMenuLabels();
+
+        //Multi-select only exists on touch devices, where a tap opens by default
+        $("#fmMultiSelectItem").css("display", isMobile ? "flex" : "none");
+
         //Delegated drag/drop/dblclick for the file list. Bound once, not per render.
         bindFileListDelegates();
+
+        //Restore the operation toolbar preference (shown unless turned off)
+        loadPreference("file_explorer/oprbar", function(value){
+            showOprBar = (value !== "false");
+            applyOprBarVisibility();
+        });
 
         //Restore the saved grid tile size
         loadPreference("file_explorer/gridZoom", function(value){
             let z = parseInt(value);
-            if (!isNaN(z) && z >= 100 && z <= 260){
+            if (!isNaN(z) && z >= 100 && z <= 170){
                 gridZoom = z;
                 $("#fmZoomSlider").val(z);
                 $("#folderView").css("--fm-tile", z + "px");
@@ -40,7 +52,7 @@ $(document).ready(function(){
         initSystemInfo();
         initUploadMode();
         $(".dropdown").dropdown();
-        $("#sortingMethodSelector").dropdown("set selected", sortMode);
+        updateSortMenuState();
         updateSelectedObjectsCount();
         initWindowSizes(false);
         
@@ -153,9 +165,6 @@ $(document).ready(function(){
         //Move the sort menu into the desktop address bar gap
         $(".viewportBtns").addClass("mobile");
         $(".addressBar").append($(".viewportBtns"));
-
-        //Move the sorting dropdown to sidebar
-        $("#mobileSortDropdown").append($("#sortingMethodSelector"));
 
         $(".desktopOnly").hide();
         $(".mobileOnly").show();

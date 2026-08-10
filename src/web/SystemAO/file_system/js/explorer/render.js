@@ -263,7 +263,7 @@ function sortByColumn(key){
         return;
     }
     sortMode = (sortMode == col.asc) ? col.desc : col.asc;
-    $("#sortingMethodSelector").val(sortMode);
+    updateSortMenuState();
     $.ajax({
         url: "../../system/file_system/sortMode",
         method: "POST",
@@ -379,6 +379,9 @@ function computeGridSize(){
 
 function finaliseRender(folderCount, fileCount, callback){
     updateListDensity();
+    //The nav row can wrap to a second line (mobile), so its height is only
+    //settled once content has been laid out. Re-measure before sizing the panes.
+    initWindowSizes(false);
     bindFileObjectEvents();
     currentFilelist.sort();
 

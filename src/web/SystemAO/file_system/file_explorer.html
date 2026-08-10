@@ -27,6 +27,38 @@
     </head>
     <body class="whiteTheme">
         <div id="navibar" class="navibar">
+            <!--
+                Classic file operation toolbar. Kept for users who prefer it and
+                shown by default; the preference lives server side under
+                file_explorer/oprbar so it follows the user between browsers.
+                Ignored on mobile, where the layout is different anyway.
+            -->
+            <div id="fileOprBar" class="fileOprBar">
+                <button class="fileOprBtn" title="Open" onclick="openViaButton();" data-opr="open"><img class="opricon" src="img/opr/open.svg"><p class="oprtxt" locale="fileopr/Open">Open</p></button>
+                <button class="fileOprBtn" title="Copy" onclick="copy();" data-opr="copy"><img class="opricon" src="img/opr/copy.svg"><p class="oprtxt" locale="fileopr/Copy">Copy</p></button>
+                <button class="fileOprBtn" title="Paste" onclick="paste();" data-opr="paste"><img class="opricon" src="img/opr/paste.svg"><p class="oprtxt" locale="fileopr/Paste">Paste</p></button>
+                <div class="fileoprGroupDivider">
+                    <button class="fileoprSmallBtn" title="Open with" onclick="openWith();" data-opr="openwith"><i class="external icon"></i> <span locale="fileopr/Open with">Open With</span></button><br>
+                    <button class="fileoprSmallBtn" title="Cut" onclick="cut();" data-opr="cut"><i class="blue cut icon"></i> <span locale="fileopr/Cut">Cut</span></button><br>
+                    <button class="fileoprSmallBtn" title="Rename" onclick="rename();" data-opr="rename"><i class="teal i cursor icon"></i> <span locale="fileopr/Rename">Rename</span></button>
+                </div>
+                <button class="fileOprBtn" title="Upload" onclick="upload(); exitMultiSelectMode();" data-opr="upload"><img class="opricon" src="img/opr/upload.svg"><p class="oprtxt" locale="fileopr/Upload">Upload</p></button>
+                <button class="fileOprBtn" title="Download" onclick="downloadFile(); exitMultiSelectMode();" data-opr="download"><img class="opricon" src="img/opr/download.svg"><p class="oprtxt" locale="fileopr/Download">Download</p></button>
+                <div class="fileoprGroupDivider"></div>
+                <button class="twolines fileOprBtn" title="New Folder" onclick="newFolder(); exitMultiSelectMode();" data-opr="newfolder"><img class="opricon" src="img/opr/new_folder.svg"><p class="oprtxt" locale="fileopr/New Folder">New<br>Folder</p></button>
+                <div class="fileoprGroupDivider">
+                    <button class="fileoprSmallBtn" title="New File" onclick="newfile();" data-opr="newfile"><i class="file outline icon"></i> <span locale="fileopr/New File">New File</span></button><br>
+                    <button class="fileoprSmallBtn" title="Create Zip" onclick="zipFile();" data-opr="zip"><i class="brown zip file icon"></i> <span locale="fileopr/Create Zip">Create Zip</span></button><br>
+                    <button class="fileoprSmallBtn" title="Unzip Here" onclick="unzipHere();" data-opr="unzip"><i class="inbox icon"></i> <span locale="fileopr/Unzip Here">Unzip Here</span></button><br>
+                </div>
+                <div class="fileoprGroupDivider">
+                    <button class="fileoprSmallBtn" title="Refresh" onclick="refreshList();" data-opr="refresh"><i class="green refresh icon"></i> <span locale="fileopr/Refresh">Refresh</span></button><br>
+                    <button class="fileoprSmallBtn" title="Home" onclick="openHomeDir();" data-opr="home"><i class="home icon"></i> <span locale="fileopr/Home">Home</span></button><br>
+                    <button class="fileoprSmallBtn" title="File Info" onclick="showFileProperties();" data-opr="fileinfo"><i class="blue info circle icon"></i> <span locale="fileopr/File Info">File Info</span></button><br>
+                </div>
+                <button class="fileOprBtn" title="Delete" onclick="deleteFile();" data-opr="delete"><img class="opricon" src="img/opr/delete.svg"><p class="oprtxt" locale="fileopr/Delete">Delete</p></button>
+                <button class="fileOprBtn" title="Share File" onclick="shareFile();" data-opr="share"><img class="opricon" src="img/opr/share.svg"><p class="oprtxt" locale="fileopr/Share">Share</p></button>
+            </div>
             <div class="fmNav">
                 <div class="fmNavBtns">
                     <button id="sidebarToggleBtn" class="fsIconBtn" title="Toggle Folder List" onclick="toggleSidebar();"><span data-fsicon="menu"></span></button>
@@ -37,6 +69,20 @@
                 </div>
 
                 <!-- Breadcrumb. Clicking the empty area switches it to a text field. -->
+                <!-- Sort menu. Same shell as the overflow menu; the active mode
+                     carries the tick in the icon column on the left. -->
+                <div class="fsMenu fmSortMenu" id="fmSortMenu">
+                    <div class="fsMenuHeader" locale="menu/sort/title">Sort items by</div>
+                    <div class="fsMenuItem fmSortOption" data-sort="default" onclick="setSortMode('default');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/asc">Name (A to Z)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="reverse" onclick="setSortMode('reverse');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/desc">Name (Z to A)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="smallToLarge" onclick="setSortMode('smallToLarge');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/small">Size (Smallest)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="largeToSmall" onclick="setSortMode('largeToSmall');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/large">Size (Largest)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="mostRecent" onclick="setSortMode('mostRecent');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/mostrecent">Date (Newest)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="leastRecent" onclick="setSortMode('leastRecent');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/leastrecent">Date (Oldest)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="fileTypeAsce" onclick="setSortMode('fileTypeAsce');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/typeAsc">Type (A to Z)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="fileTypeDesc" onclick="setSortMode('fileTypeDesc');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/typeDes">Type (Z to A)</span></div>
+                    <div class="fsMenuItem fmSortOption" data-sort="smart" onclick="setSortMode('smart');"><span class="fsMenuIcon fmSortCheck" data-fsicon="check"></span><span locale="menu/sort/smart">Smart</span></div>
+                </div>
                 <div class="fsPill fmPathbar" id="fmPathbar" onclick="showEditCurrentPathInput(event);">
                     <button class="fmPathHome" title="Home" onclick="event.stopPropagation(); openHomeDir();"><span data-fsicon="home"></span></button>
                     <div id="pathDisplayField" class="ui breadcrumb addressText pathDisplay">
@@ -55,14 +101,14 @@
                     <button class="fmCaseBtn" title="Case Sensitive" onclick="toggleCaseSensitive(this);">Aa</button>
                     <span class="fmSearchIcon" data-fsicon="search"></span>
                 </div>
-
-                <div class="fsViewToggle fmViewToggle">
+                
+                <!-- <div class="fsViewToggle fmViewToggle">
                     <button class="videmode" mode="grid" title="Block View" onclick="changeViewMode(this);"><span data-fsicon="viewGrid"></span></button>
                     <button class="videmode" mode="list" title="List View" onclick="changeViewMode(this);"><span data-fsicon="viewList"></span></button>
                     <button class="videmode" mode="details" title="Detail View" onclick="changeViewMode(this);"><span data-fsicon="viewDetails"></span></button>
-                </div>
+                </div>-->
 
-                <button id="togglePropertiesViewBtn" class="fsMoreBtn" title="Show Properties" onclick="togglePropertiesView(this);"><span data-fsicon="sidePanel"></span></button>
+                <button id="fmSortBtn" class="fsMoreBtn" title="Sort" onclick="toggleSortMenu(event);"><span data-fsicon="sort"></span></button>
                 <button id="fmMoreBtn" class="fsMoreBtn" title="More Options" onclick="toggleFileOprMenu(event);"><span data-fsicon="more"></span></button>
 
                 <!--
@@ -70,43 +116,32 @@
                     covers per-item actions; this covers the rest.
                 -->
                 <div class="fsMenu fmMoreMenu" id="fmMoreMenu">
-                    <div class="fsMenuItem" onclick="runFileOpr(openViaButton);"><span class="fsMenuIcon" data-fsicon="open"></span><span locale="fileopr/Open">Open</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(openWith);"><span class="fsMenuIcon" data-fsicon="openWith"></span><span locale="fileopr/Open with">Open With</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(openViaButton);" data-opr="open"><span class="fsMenuIcon" data-fsicon="open"></span><span locale="fileopr/Open">Open</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(openWith);" data-opr="openwith"><span class="fsMenuIcon" data-fsicon="openWith"></span><span locale="fileopr/Open with">Open With</span></div>
                     <div class="fsMenuSep"></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(copy);"><span class="fsMenuIcon" data-fsicon="copy"></span><span locale="fileopr/Copy">Copy</span><span class="fsMenuShortcut">Ctrl + C</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(cut);"><span class="fsMenuIcon" data-fsicon="cut"></span><span locale="fileopr/Cut">Cut</span><span class="fsMenuShortcut">Ctrl + X</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(paste);"><span class="fsMenuIcon" data-fsicon="paste"></span><span locale="fileopr/Paste">Paste</span><span class="fsMenuShortcut">Ctrl + V</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(rename);"><span class="fsMenuIcon" data-fsicon="rename"></span><span locale="fileopr/Rename">Rename</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(deleteFile);"><span class="fsMenuIcon" data-fsicon="trash"></span><span locale="fileopr/Delete">Delete</span><span class="fsMenuShortcut">Del</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(copy);" data-opr="copy"><span class="fsMenuIcon" data-fsicon="copy"></span><span locale="fileopr/Copy">Copy</span><span class="fsMenuShortcut">Ctrl + C</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(cut);" data-opr="cut"><span class="fsMenuIcon" data-fsicon="cut"></span><span locale="fileopr/Cut">Cut</span><span class="fsMenuShortcut">Ctrl + X</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(paste);" data-opr="paste"><span class="fsMenuIcon" data-fsicon="paste"></span><span locale="fileopr/Paste">Paste</span><span class="fsMenuShortcut">Ctrl + V</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(rename);" data-opr="rename"><span class="fsMenuIcon" data-fsicon="rename"></span><span locale="fileopr/Rename">Rename</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(deleteFile);" data-opr="delete"><span class="fsMenuIcon" data-fsicon="trash"></span><span locale="fileopr/Delete">Delete</span><span class="fsMenuShortcut">Del</span></div>
                     <div class="fsMenuSep"></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(upload);"><span class="fsMenuIcon" data-fsicon="upload"></span><span locale="fileopr/Upload">Upload</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(downloadFile);"><span class="fsMenuIcon" data-fsicon="download"></span><span locale="fileopr/Download">Download</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(shareFile);"><span class="fsMenuIcon" data-fsicon="share"></span><span locale="fileopr/Share">Share</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(upload);" data-opr="upload"><span class="fsMenuIcon" data-fsicon="upload"></span><span locale="fileopr/Upload">Upload</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(downloadFile);" data-opr="download"><span class="fsMenuIcon" data-fsicon="download"></span><span locale="fileopr/Download">Download</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(shareFile);" data-opr="share"><span class="fsMenuIcon" data-fsicon="share"></span><span locale="fileopr/Share">Share</span></div>
                     <div class="fsMenuSep"></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(newFolder);"><span class="fsMenuIcon" data-fsicon="newFolder"></span><span locale="fileopr/New Folder">New Folder</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(newfile);"><span class="fsMenuIcon" data-fsicon="newFile"></span><span locale="fileopr/New File">New File</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(zipFile);"><span class="fsMenuIcon" data-fsicon="zip"></span><span locale="fileopr/Create Zip">Create Zip</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(unzipHere);"><span class="fsMenuIcon" data-fsicon="unzip"></span><span locale="fileopr/Unzip Here">Unzip Here</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(newFolder);" data-opr="newfolder"><span class="fsMenuIcon" data-fsicon="newFolder"></span><span locale="fileopr/New Folder">New Folder</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(newfile);" data-opr="newfile"><span class="fsMenuIcon" data-fsicon="newFile"></span><span locale="fileopr/New File">New File</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(zipFile);" data-opr="zip"><span class="fsMenuIcon" data-fsicon="zip"></span><span locale="fileopr/Create Zip">Create Zip</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(unzipHere);" data-opr="unzip"><span class="fsMenuIcon" data-fsicon="unzip"></span><span locale="fileopr/Unzip Here">Unzip Here</span></div>
                     <div class="fsMenuSep"></div>
+                    <div class="fsMenuItem fmMobileOnly" id="fmMultiSelectItem" onclick="toggleMobileMultiSelect();"><span class="fsMenuIcon" data-fsicon="selectAll"></span><span locale="fileopr/Multi Select">Multi-select</span><span class="fsMenuCheck" data-fsicon="check"></span></div>
                     <div class="fsMenuItem" onclick="runFileOpr(selectAll);"><span class="fsMenuIcon" data-fsicon="selectAll"></span><span locale="fileopr/Select All">Select All</span><span class="fsMenuShortcut">Ctrl + A</span></div>
                     <div class="fsMenuItem" onclick="runFileOpr(clearSelection);"><span class="fsMenuIcon" data-fsicon="clearSel"></span><span locale="fileopr/Clear Select">Clear Selection</span></div>
-                    <div class="fsMenuItem" onclick="runFileOpr(showFileProperties);"><span class="fsMenuIcon" data-fsicon="info"></span><span locale="fileopr/File Info">File Info</span></div>
+                    <div class="fsMenuItem fmDupOfToolbar" onclick="runFileOpr(showFileProperties);" data-opr="fileinfo"><span class="fsMenuIcon" data-fsicon="info"></span><span locale="fileopr/File Info">File Info</span></div>
                     <div class="fsMenuSep"></div>
                     <div class="fsMenuItem" onclick="runFileOpr(toggleDarkTheme);"><span class="fsMenuIcon" data-fsicon="moon"></span><span locale="fileopr/Dark Theme">Dark Theme</span></div>
-                    <div class="fsMenuItem fmSortRow">
-                        <span class="fsMenuIcon" data-fsicon="viewDetails"></span>
-                        <select id="sortingMethodSelector" title="Sorting Method" onchange="updateSortingMethods();" autocomplete="off">
-                            <option value="default" locale="menu/sort/asc">Ascending</option>
-                            <option value="reverse" locale="menu/sort/desc">Descending</option>
-                            <option value="smallToLarge" locale="menu/sort/small">Smallest</option>
-                            <option value="largeToSmall" locale="menu/sort/large"> Largest</option>
-                            <option value="mostRecent" locale="menu/sort/mostrecent">Most Recent</option>
-                            <option value="leastRecent" locale="menu/sort/leastrecent">Least Recent</option>
-                            <option value="fileTypeAsce" locale="menu/sort/typeAsc">File Type (Asce)</option>
-                            <option value="fileTypeDesc" locale="menu/sort/typeDes">File Type (Desc)</option>
-                            <option value="smart" locale="menu/sort/smart">Smart</option>
-                        </select>
-                    </div>
+                    <div class="fsMenuSep fmDupSep"></div>
+                    <div class="fsMenuItem" id="fmToolbarToggle" onclick="toggleFileOprBar();"><span locale="fileopr/Toolbar">Operation Toolbar</span><span class="fsMenuCheck" data-fsicon="check"></span></div>
                 </div>
             </div>
 
@@ -167,14 +202,14 @@
             <div class="fmStatusSpacer"></div>
             <div id="fmZoom" title="Thumbnail Size">
                 <span class="fmZoomIcon" data-fsicon="viewGrid"></span>
-                <input type="range" id="fmZoomSlider" min="100" max="260" step="10" value="150" oninput="setGridZoom(this.value);">
+                <input type="range" id="fmZoomSlider" min="100" max="170" step="10" value="170" oninput="setGridZoom(this.value);">
             </div>
             <div class="fsViewToggle fmStatusToggle">
                 <button class="videmode" mode="grid" title="Block View" onclick="changeViewMode(this);"><span data-fsicon="viewGrid"></span></button>
                 <button class="videmode" mode="list" title="List View" onclick="changeViewMode(this);"><span data-fsicon="viewList"></span></button>
                 <button class="videmode" mode="details" title="Detail View" onclick="changeViewMode(this);"><span data-fsicon="viewDetails"></span></button>
             </div>
-            <button class="fmStatusBtn" title="Show Properties" onclick="togglePropertiesView(this);"><span data-fsicon="info"></span></button>
+            <button id="togglePropertiesViewBtn" class="fmStatusBtn" title="Show Properties" onclick="togglePropertiesView(this);"><span data-fsicon="sidePanel"></span></button>
         </div>
 
         <!-- Other popup windows -->

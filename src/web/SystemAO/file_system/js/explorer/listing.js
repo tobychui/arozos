@@ -121,7 +121,7 @@ function listDirectory(path, callback=undefined, recordUndo=true){
             if (data.error == undefined){
                 sortMode = data;
             }
-            $("#sortingMethodSelector").dropdown("set selected", sortMode);
+            updateSortMenuState();
             //Start listdir event
             $.ajax({
                 url: "../../system/file_system/listDir",

@@ -84,8 +84,15 @@ function toggleSidebar(useAnimation=true){
 
 function initWindowSizes(animate=true){
     var h = $("#navibar").css("height");
-    var hint = $("#navibar").height();
-    var windowHeight = window.innerHeight - hint - 12;
+    /*
+        outerHeight, not height: .height() returns the content box and leaves out
+        the nav bar's 2px bottom border, which pushed everything below it 2px
+        past the window edge. The status bar sits below #mainWindow in normal
+        flow, so its height has to come out of the panes above it too.
+    */
+    var hint = $("#navibar").outerHeight();
+    var statusHeight = $("#fmStatusBar").is(":visible") ? $("#fmStatusBar").outerHeight() : 0;
+    var windowHeight = window.innerHeight - hint - statusHeight;
     if (sideBarShown){
         //Resize the sidebar 
         $("#directorySidebar").css("top",h);
@@ -208,6 +215,11 @@ function toggleFileOprMenu(event){
     if ($("#fmMoreMenu").hasClass("open")){
         closeFileOprMenu();
     }else{
+        //Only one nav menu open at a time
+        if (typeof closeSortMenu == "function"){
+            closeSortMenu();
+        }
+        updateOprMenuRelevance();
         $("#fmMoreMenu").addClass("open");
         $("#fmMoreBtn").addClass("active");
     }
@@ -231,3 +243,161 @@ $(document).on("click", function(event){
         closeFileOprMenu();
     }
 });
+
+
+/* ---------------------------------------------------------------------- */
+/*  Classic file operation toolbar                                         */
+/* ---------------------------------------------------------------------- */
+/*
+    The toolbar and the overflow menu expose the same actions, so only one of
+    them should carry them at a time: with the toolbar visible the duplicated
+    entries are hidden from the menu, leaving just the things the toolbar has no
+    room for (select all, theme, sorting, and this toggle).
+
+    The preference is stored server side under file_explorer/oprbar so it follows
+    the user between browsers. Mobile always hides the bar - that layout has its
+    own arrangement and the bar does not fit it.
+*/
+function applyOprBarVisibility(){
+    let visible = showOprBar && !isMobile;
+    $("#fileOprBar").toggle(visible);
+    $("#fmToolbarToggle").toggleClass("checked", showOprBar);
+    syncOprMenuDuplicates();
+    initWindowSizes(false);
+}
+
+/*
+    Hide an overflow menu entry only while the toolbar is actually offering that
+    same action on screen.
+
+    This is measured rather than assumed, because the toolbar collapses as the
+    window narrows: whole button groups drop out to avoid wrapping to a second
+    row. A static "the toolbar covers these" list would then leave those actions
+    unreachable from either place.
+*/
+function syncOprMenuDuplicates(){
+    let offered = {};
+    if ($("#fileOprBar").is(":visible")){
+        $("#fileOprBar [data-opr]").each(function(){
+            if ($(this).is(":visible")){
+                offered[$(this).attr("data-opr")] = true;
+            }
+        });
+    }
+
+    $("#fmMoreMenu [data-opr]").each(function(){
+        let dup = offered[$(this).attr("data-opr")] === true;
+        //An entry shows only if the toolbar is not already offering it AND it
+        //can actually do something with the current selection / clipboard
+        let unusable = $(this).hasClass("fmOprUnusable");
+        $(this).toggle(!dup && !unusable);
+    });
+
+    tidyMenuSeparators();
+}
+
+/*
+    Hide separators that no longer divide anything. As toolbar entries are hidden
+    from the menu, whole blocks between two separators can disappear and leave
+    stacked or dangling rules behind.
+
+    A separator earns its place only if a visible item sits both above and below
+    it, and only the first of a consecutive run is kept.
+*/
+function tidyMenuSeparators(){
+    let children = $("#fmMoreMenu").children().toArray();
+
+    //Reset so a previously hidden separator can come back
+    $("#fmMoreMenu .fsMenuSep").show();
+
+    /*
+        Do not use :visible here. This runs while the menu itself is closed, and
+        jQuery reports every descendant of a hidden element as invisible - which
+        made each separator look like a leading one and hid them all. The
+        element's own computed display is what matters.
+    */
+    let shown = function(el){
+        return window.getComputedStyle(el).display != "none";
+    };
+
+    let seenItemAbove = false;
+    let lastShownSep = null;
+    for (let i = 0; i < children.length; i++){
+        let el = children[i];
+        if ($(el).hasClass("fsMenuSep")){
+            if (!seenItemAbove || lastShownSep != null){
+                //Leading, or directly after another separator
+                $(el).hide();
+            }else{
+                lastShownSep = el;
+            }
+            continue;
+        }
+        if (shown(el)){
+            seenItemAbove = true;
+            lastShownSep = null;
+        }
+    }
+
+    //Anything still marked as the last separator has no visible item under it
+    if (lastShownSep != null){
+        $(lastShownSep).hide();
+    }
+}
+
+function toggleFileOprBar(){
+    showOprBar = !showOprBar;
+    applyOprBarVisibility();
+    setPreference("file_explorer/oprbar", showOprBar ? "true" : "false");
+    closeFileOprMenu();
+}
+
+
+//The toolbar collapses at breakpoints, so what it offers changes with the window
+$(window).on("resize", function(){
+    syncOprMenuDuplicates();
+});
+
+
+/*
+    Hide menu entries that cannot act right now: most operations need a
+    selection, and Paste needs something on the clipboard.
+
+    This applies to the overflow menu only. The large toolbar buttons keep their
+    old behaviour of staying put and doing nothing, because a toolbar that
+    reflows every time the selection changes is worse than one with a few
+    inert buttons.
+*/
+var OPR_NEEDS_SELECTION = ["open", "openwith", "copy", "cut", "rename", "delete",
+                           "download", "share", "fileinfo"];
+
+function updateOprMenuRelevance(){
+    let hasSelection = $(".fileObject.selected").length > 0;
+    let hasClipboard = (typeof clipboard != "undefined") && clipboard.length > 0;
+
+    $("#fmMoreMenu [data-opr]").each(function(){
+        let opr = $(this).attr("data-opr");
+        let usable = true;
+        if (OPR_NEEDS_SELECTION.indexOf(opr) >= 0){
+            usable = hasSelection;
+        }else if (opr == "paste"){
+            usable = hasClipboard;
+        }
+        $(this).toggleClass("fmOprUnusable", !usable);
+    });
+
+    //Re-run the toolbar de-duplication so hidden-by-relevance entries are
+    //accounted for, then tidy the separators around whatever is left
+    syncOprMenuDuplicates();
+}
+
+
+/*
+    Some operation labels carry a <br> so the wide toolbar button can render on
+    two lines ("New<br>Folder"). applocale injects the string as HTML, so the
+    same label wraps inside the overflow menu where a menu row must stay on one
+    line. Swap those breaks for a space once, after localisation has run.
+*/
+function flattenMenuLabels(){
+    $("#fmMoreMenu .fsMenuItem br, #fmSortMenu .fsMenuItem br").replaceWith(" ");
+}
