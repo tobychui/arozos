@@ -26,6 +26,9 @@ $(document).ready(function(){
         //Delegated drag/drop/dblclick for the file list. Bound once, not per render.
         bindFileListDelegates();
 
+        //Lets the transfer panel tell a manual scroll from its own
+        bindUploadListScroll();
+
         //Restore the operation toolbar preference (shown unless turned off)
         loadPreference("file_explorer/oprbar", function(value){
             showOprBar = (value !== "false");

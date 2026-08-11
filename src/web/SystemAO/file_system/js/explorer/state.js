@@ -58,6 +58,43 @@ let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will up
 const CHUNK_TIMEOUT_MS = 30000; //30s timeout waiting for server "next" ack before retrying a chunk
 const MAX_CHUNK_RETRIES = 3;    //Maximum retries per individual chunk before failing the upload
 
+/*
+    Transfer panel state (see js/explorer/uploadui.js)
+
+    uploadTaskInfo holds everything the panel needs to draw a row that the DOM
+    cannot cheaply answer for us - byte counts, the running speed estimate the
+    "time left" label is derived from, and the task state. Keyed by task UUID.
+
+    uploadTransferMap holds the live transfer handles so the per-row button and
+    "Cancel all" can actually stop a transfer: {abort, pause, resume, pausable}.
+    Only tasks currently in flight have an entry.
+*/
+let uploadTaskInfo = new Map();
+let uploadTransferMap = new Map();
+//Panel collapsed to the #fmUploadListBtn in the status bar; a new task expands it
+let uploadPanelCollapsed = false;
+const MAX_FINISHED_UPLOAD_ROWS = 60; //Trim completed rows past this to keep mass uploads responsive
+
+/*
+    The task list follows the transfer that is currently in flight, so a long
+    queue does not leave the user staring at finished rows. Scrolling by hand
+    wins for a while - yanking the list back under someone who is reading it is
+    worse than letting the active row drift off screen.
+*/
+let uploadListUserScrolledAt = 0;
+/*
+    The scroll offset this code last set itself, so the scroll handler can tell
+    its own scrolling from the user's. Deliberately a position rather than a
+    "the next event is mine" flag: scrollTop can be assigned without producing
+    any movement (it is already clamped at the end of the list), which fires no
+    event and would leave such a flag stuck - swallowing the user's next scroll.
+*/
+let uploadListAutoScrollTop = -1;
+const UPLOAD_FOLLOW_PAUSE_MS = 5000; //How long a manual scroll suspends following
+
+//Pending auto-dismiss for the toast, so a new message replaces the old timer
+let msgboxTimer = null;
+
 //Module-registered extension icons (ext without dot → web-root-relative path)
 var extIconRegistry = {};
 

@@ -52,7 +52,6 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             Low Memory Upload Mode
         */
         var filename = encodeURIComponent(file.name);
-        var filesize = file.size;
 
         //Generate a new file item
         let taskUUID = uuid;    //For queueing objects
@@ -78,21 +77,6 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 TargetDir: JSON.parse(JSON.stringify(uploadDir)),
             });
             return
-        }
-
-        function updateProgressForWebSocketUpload(uuid, progress){
-            $(".uploadTask").each(function(){
-                if ($(this).attr("taskID") == uuid){
-                    //Update this progress bar
-                    $(this).find(".bar").css("width",progress + "%");
-                    $(this).find(".progress.percentage").html(`<i class="ui upload icon"></i> ${progress.toFixed(1)}%`);
-                    if (progress == 100){
-                        //When progress = 100 and the server is not response with 200,
-                        //That means the upload has finish and server is processing the upload
-                        $(this).find(".progress").addClass("indicating");
-                    }
-                }
-            });
         }
 
         //Open the websocket
@@ -150,19 +134,26 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
         // Store file reference in retry map so the user can retry on failure
         uploadRetryMap.set(taskUUID, {file: file, targetDir: JSON.parse(JSON.stringify(uploadDir))});
 
+        /*
+            Pause / resume state.
+
+            Chunks are pulled by the server: every "next" acknowledgement asks
+            for one more. Pausing therefore just means not answering that ask
+            and remembering that one is outstanding, so nothing has to be
+            unwound and the transfer resumes exactly where it stopped.
+        */
+        let paused = false;
+        let resumeWaiting = false;
+        let aborted = false;
+
         // Mark an upload task as failed and reveal the retry button
         function markUploadFailed(tUUID) {
             clearTimeout(chunkTimeoutTimer);
-            $(".uploadTask").each(function(){
-                if ($(this).attr("taskID") == tUUID){
-                    $(this).find(".bar").css("width","100%");
-                    $(this).find(".progress:not(.percentage)").attr("class","ui tiny error progress");
-                    $(this).find(".uploadTaskRemoveIcon").show();
-                    $(this).find(".uploadTaskRetryBtn").show();
-                    $(this).addClass("ended");
-                    $(this).find(".progress.percentage").hide();
-                }
-            });
+            if (aborted) {
+                return;
+            }
+            unregisterUploadTransfer(tUUID);
+            setUploadTaskState(tUUID, "failed");
         }
 
         // Send a specific chunk by index.
@@ -198,10 +189,8 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             socket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
             socket.send(arrayBuffer);
 
-            // Update progress (cap at 95% to leave room for the merge phase)
-            var progress = chunks <= 1 ? 50 : (id / (chunks - 1) * 95.0);
-            if (progress > 95) progress = 95;
-            updateProgressForWebSocketUpload(taskUUID, progress);
+            // Report the bytes actually handed to the socket
+            setUploadTaskProgress(taskUUID, Math.min(file.size, offsetEnd), file.size);
 
             // (Re)start the per-chunk acknowledgement timeout
             clearTimeout(chunkTimeoutTimer);
@@ -218,26 +207,53 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             }, CHUNK_TIMEOUT_MS);
         }
 
-        //Update all UI elements
-        updateUploadFileCount();
-        uploadingFileCount++;
-        $(".uploadTask").each(function(){
-            if ($(this).attr("taskID") == taskUUID){
-                //This is the target upload task object. Hide its close button
-                $(this).find(".uploadTaskRemoveIcon").hide();
-                $(this).find(".uploadTaskRetryBtn").hide();
+        // Send whatever the server asked for next, or park the request if the
+        // user has paused. Every send path goes through here so pause only has
+        // to be handled once.
+        async function sendNext() {
+            if (paused || aborted) {
+                resumeWaiting = true;
+                return;
+            }
+            if (currentSendingIndex >= chunks){
+                // All chunks sent and acknowledged - send done + full-file checksum
+                let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+                socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
+                setUploadTaskState(taskUUID, "processing");
+            }else{
+                await sendChunk(currentSendingIndex);
+                currentSendingIndex++;
+            }
+        }
+
+        registerUploadTransfer(taskUUID, {
+            pausable: true,
+            pause: function(){
+                paused = true;
+                clearTimeout(chunkTimeoutTimer);
+            },
+            resume: function(){
+                paused = false;
+                if (resumeWaiting){
+                    resumeWaiting = false;
+                    sendNext();
+                }
+            },
+            abort: function(){
+                aborted = true;
+                clearTimeout(chunkTimeoutTimer);
+                try { socket.close(); } catch(e) {}
             }
         });
 
+        //Update all UI elements
+        updateUploadFileCount();
+        uploadingFileCount++;
+
         //Start sending
         socket.onopen = async function(e) {
-            if (filesize < uploadFileChunkSize){
-                //This file is smaller than chunk size, set it to somewhere within 10% - 20% so it doesn't look like it is stuck
-                updateProgressForWebSocketUpload(taskUUID, 10 + Math.floor(Math.random() * 10));
-            }
-            //Send the first chunk
-            await sendChunk(0);
-            currentSendingIndex = 1;
+            currentSendingIndex = 0;
+            await sendNext();
         };
 
         socket.onmessage = async function(event) {
@@ -247,35 +263,13 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 // Server acknowledged the last chunk; clear timeout and reset retry counter
                 clearTimeout(chunkTimeoutTimer);
                 chunkRetryCount = 0;
-
-                if (currentSendingIndex >= chunks){
-                    // All chunks sent and acknowledged – send done + full-file checksum
-                    let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
-                    socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
-                }else{
-                    //Send next chunk
-                    await sendChunk(currentSendingIndex);
-                    currentSendingIndex++;
-                }
+                await sendNext();
 
             }else if (incomingValue == "OK"){
                 //Merge completed successfully
                 uploadRetryMap.delete(taskUUID);
-                $(".uploadTask").each(function(){
-                    if ($(this).attr("taskID") == taskUUID){
-                        //Update this progress bar to completed
-                        $(this).find(".bar").css("width","100%");
-                        $(this).find(".progress:not(.percentage)").attr("class", "ui tiny success progress");
-                        $(this).find(".progress.percentage").hide();
-                        $(this).find(".uploadTaskRemoveIcon").show();
-                        $(this).find(".uploadTaskRetryBtn").hide();
-                        $(this).addClass("ended");
-                        $.when($(this).delay(1000).fadeOut("fast")).then(function(){
-                            $(this).remove();
-                            updateUploadFileCount();
-                        });
-                    }
-                });
+                unregisterUploadTransfer(taskUUID);
+                setUploadTaskState(taskUUID, "done");
             }else{
                 //Try to parse it as JSON
                 try{
@@ -298,13 +292,8 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                         }
                     }else if (resp.move !== undefined){
                         //File move from tmp to archive – show progress
-                        $(".uploadTask").each(function(){
-                            if ($(this).attr("taskID") == taskUUID){
-                                $(this).find(".bar").css("width","100%");
-                                $(this).find(".progress:not(.percentage)").attr("class","ui small indicating themed saving progress");
-                                $(this).find(".progress.percentage").html(`<i class="ui save icon"></i> ${resp.move}`);
-                            }
-                        });
+                        setUploadTaskState(taskUUID, "processing");
+                        setUploadTaskStatusText(taskUUID, resp.move);
                     }
                 }catch(ex){
                     //Something else
@@ -316,6 +305,7 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
 
         socket.onclose = function(event) {
             clearTimeout(chunkTimeoutTimer);
+            unregisterUploadTransfer(taskUUID);
             uploadingFileCount--;
             updateUploadFileCount();
             //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
@@ -380,67 +370,46 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
         formData.append('file', file);
         formData.append('path', uploadCurrentPath);
 
-        //Hide the cancel upload task button
-        $(".uploadTask").each(function(){
-            if ($(this).attr("taskID") == taskUUID){
-                //This is the target upload task object. Hide its close button
-                $(this).find(".uploadTaskRemoveIcon").hide();
+        //Let the user retry this task if it fails
+        uploadRetryMap.set(taskUUID, {file: file, targetDir: JSON.parse(JSON.stringify(uploadCurrentPath))});
+
+        /*
+            A POST body cannot be suspended once it is in flight, so this mode
+            offers cancel rather than pause. pausable:false is what makes the
+            row draw a cancel button instead of a pause button.
+        */
+        let xhrAborted = false;
+        registerUploadTransfer(taskUUID, {
+            pausable: false,
+            abort: function(){
+                xhrAborted = true;
+                xhr.abort();
             }
         });
 
         xhr.open('POST', url, true)
         xhr.upload.addEventListener("progress", function(e) {
-            var progress = (e.loaded * 100.0 / e.total) || 100;
-            $(".uploadTask").each(function(){
-                if ($(this).attr("taskID") == taskUUID){
-                    //Update this progress bar
-                    $(this).find(".bar").css("width",progress + "%");
-                    $(this).find(".progress.percentage").text(progress.toFixed(1) + "%");
-                    if (progress == 100){
-                        //When progress = 100 and the server is not response with 200,
-                        //That means the upload has finish and server is processing the upload
-                        $(this).find(".progress").addClass("active");
-                        $(this).find(".progress.percentage").hide();
-
-                    }
-                }
-            });
+            setUploadTaskProgress(taskUUID, e.loaded, e.total);
+            if (e.total > 0 && e.loaded >= e.total){
+                //Bytes are all sent but the server has not answered yet - it is
+                //still writing the file out
+                setUploadTaskState(taskUUID, "processing");
+            }
         })
 
         xhr.addEventListener('readystatechange', function(e) {
             if (xhr.readyState == 4 && xhr.status == 200) {
                 //Upload process ended
-                //Update task status
-                $(".uploadTask").each(function(){
-                    if ($(this).attr("taskID") == taskUUID){
-                        //Update this progress bar to completed
-                        $(this).find(".bar").css("width","100%");
-                        $(this).find(".progress").attr("class", "ui tiny success progress");
-                        $(this).find(".uploadTaskRemoveIcon").show();
-                        $(this).addClass("ended");
-                        //Update 15-11-2020
-                        //Remove this taskbar after 1 second to prevent lags during > 2000 uploads
-                        $.when($(this).delay(1000).fadeOut("fast")).then(function(){
-                            $(this).remove();
-                            updateUploadFileCount();
-                        });
-                        
-                    }
-                });
+                unregisterUploadTransfer(taskUUID);
+                setUploadTaskState(taskUUID, "done");
 
                 var resp = JSON.parse(e.target.response);
                 if (resp.error !== undefined){
                     msgbox("caution",resp.error);
                     //Something went wrong. Set the color to red
-                    $(".uploadTask").each(function(){
-                        if ($(this).attr("taskID") == taskUUID){
-                            //Update this progress bar to completed
-                            $(this).find(".bar").css("width","100%");
-                            $(this).find(".progress").attr("class", "ui tiny error progress");
-                            $(this).find(".uploadTaskRemoveIcon").show();
-                            $(this).addClass("ended");
-                        }
-                    });
+                    setUploadTaskState(taskUUID, "failed");
+                }else{
+                    uploadRetryMap.delete(taskUUID);
                 }
                 uploadingFileCount--;
 
@@ -453,16 +422,13 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 }, 100)
                 
             }else if (xhr.readyState == 4 && xhr.status != 200) {
-                msgbox("red remove",applocale.getString( "message/uploadFailed", "File too big or the target disk is fulled"));
-                console.log(xhr);
-                $(".uploadTask").each(function(){
-                    if ($(this).attr("taskID") == taskUUID){
-                        //Upload screwed up. Show error
-                        $(this).find(".progress").attr("class","ui tiny error progress");
-                        $(this).find(".uploadTaskRemoveIcon").show();
-                        $(this).addClass("ended");
-                    }
-                });
+                unregisterUploadTransfer(taskUUID);
+                if (!xhrAborted){
+                    //An abort is the user's own doing - the row is already gone
+                    msgbox("red remove",applocale.getString( "message/uploadFailed", "File too big or the target disk is fulled"));
+                    console.log(xhr);
+                    setUploadTaskState(taskUUID, "failed");
+                }
                 uploadingFileCount--;
 
                 //After the previous file has uploaded / errored, check if there are another file needed to be uploaded

@@ -72,10 +72,12 @@ body.whiteTheme {
     --contextmenu_hover: #f9f9f9;
     --contextmenu_textcolor: rgb(78, 78, 78);
 
-    --upload_progressbar: #92cfe7;
+    /* Transfer panel bars. The pale legacy greens/reds washed out against the
+       new card surface, so these are the saturated status colours. */
+    --upload_progressbar: var(--fs-accent);
     --upload_progresstext: rgb(255, 255, 255);
-    --upload_progress_succ: #8cd68f;
-    --upload_progress_failed: #d68c8c;
+    --upload_progress_succ: #1e8e3e;
+    --upload_progress_failed: #d93025;
 
     --open_with_selected: #51aded;
     --open_with_selected_text: white;
@@ -166,7 +168,7 @@ body.darkTheme{
     --contextmenu_hover: #2a3039;
     --contextmenu_textcolor: #e6e9ee;
 
-    --upload_progressbar: #4a9eff;
+    --upload_progressbar: var(--fs-accent);
     --upload_progresstext: #0d1014;
     --upload_progress_succ: #3ecf6d;
     --upload_progress_failed: #e5484d;
@@ -744,10 +746,14 @@ body.darkTheme .ui.icon.button{
     Icons use contain so they are never distorted; a real thumbnail (marked by
     .hasThumbnail from thumbnail.js) uses cover so it fills the square instead
     of letterboxing.
+
+    display:block matters as much as the sizing here: an inline <img> sits on
+    the text baseline, which leaves a few pixels of the container's background
+    showing as a grey strip under every thumbnail.
 */
 .fileviewList .fileObject.card img{
+    display: block;
     width: 100%;
-    max-width: 148px;
     aspect-ratio: 1 / 1;
     height: auto;
     object-fit: contain;
@@ -755,7 +761,16 @@ body.darkTheme .ui.icon.button{
 
 .fileviewList .fileObject.card.hasThumbnail img{
     object-fit: cover;
-    object-position: center top;
+    object-position: center;
+}
+
+/*
+    The tinted plate behind an icon is there to give a bare glyph a surface. A
+    real thumbnail covers the whole square, so keeping the plate only risks it
+    peeking out along an edge.
+*/
+.fileviewList .fileObject.card.hasThumbnail .image{
+    background: transparent;
 }
 
 .fileviewList .fileObject.card .content{
@@ -970,26 +985,99 @@ body.darkTheme .ui.icon.button{
     Message box and popups
 */
 
-.msgbox{
-    position: absolute;
-    bottom: 0;
-    left: 3em;
-    width: 20em;
-    padding: 1.2em;
-    padding-right: 2em;
-    background-color: var(--navi_bgcolor);
-    border-top-right-radius: 0.4em;
-    border-top-left-radius: 0.4em;
-    border: 1px solid var(--divider) !important;
-    color: var(--text_color);
+/*
+    Toast
+
+    A dark pill centred along the bottom edge. It auto dismisses, and the
+    trailing button closes it early.
+
+    Colours are hardcoded to the toast tokens rather than the theme surfaces:
+    the pill floats above the content instead of belonging to it, so it stays
+    dark in the light theme too. That also means #msgbox has to win over the
+    blanket ao.css rule that paints every span and <i> under a themed body,
+    which the id in the selector does without needing !important.
+*/
+#msgbox.msgbox{
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    max-width: min(560px, calc(100% - 32px));
+    padding: 11px 10px 11px 18px;
+    border-radius: 999px;
+    background-color: var(--fs-toast-bg);
+    color: var(--fs-toast-fg);
+    box-shadow: 0px 6px 22px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    /*
+        Belt and braces with the display:none that hideMsgBox sets after the
+        fade: while faded out the pill must never swallow clicks aimed at the
+        content beneath it, and that must not depend on a timer firing.
+    */
+    pointer-events: none;
 }
-.closeMsgButton{
-    position:absolute;
-    top:8px;
-    right:12px;
+
+#msgbox.msgbox.visible{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0px);
+    pointer-events: auto;
 }
-.closeMsgButton{
-    cursor:pointer;
+
+#msgbox.msgbox.error{
+    background-color: var(--fs-toast-error-bg);
+    color: var(--fs-toast-error-fg);
+}
+
+#msgbox .msgboxText{
+    flex: 1 1 auto;
+    min-width: 0px;
+    color: inherit;
+    font-size: 13.5px;
+    line-height: 1.45;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#msgbox > i.icon{
+    flex: 0 0 auto;
+    width: 16px;
+    height: auto;
+    margin: 0px;
+    font-size: 15px;
+    text-align: center;
+    color: inherit;
+    opacity: 0.9;
+}
+
+#msgbox .closeMsgButton{
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--fs-toast-dim);
+}
+#msgbox.msgbox.error .closeMsgButton{
+    color: var(--fs-toast-error-fg);
+    opacity: 0.85;
+}
+#msgbox .closeMsgButton:hover{
+    background-color: rgba(255, 255, 255, 0.14);
+    color: var(--fs-toast-fg);
+}
+#msgbox .closeMsgButton svg{
+    width: 15px;
+    height: 15px;
+    display: block;
 }
 .popup{
     position:fixed;
@@ -1168,113 +1256,318 @@ body.darkTheme .ui.icon.button{
 
 
 /*
-    Upload Related
+    Transfer panel
+
+    The floating upload / zip task card at the bottom right. Markup shell lives
+    in file_explorer.html, rows are drawn by js/explorer/uploadui.js.
 */
 #uploadTab{
-    position:fixed;
-    right:0px;
-    bottom: 0px;
-    width:300px;
-    margin-bottom:0px !important;
-    padding:0px !important;
-    background-color: var(--upload_bg) !important;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    width: 360px;
+    max-width: calc(100% - 32px);
+    background-color: var(--upload_bg);
+    border: 1px solid var(--divider);
+    border-radius: 12px;
+    box-shadow: 0px 8px 28px var(--fs-shadow);
+    overflow: hidden;
+    z-index: 500;
+}
+
+/* ---------- Header ---------- */
+#uploadTab .uploadHeader{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 10px 12px 16px;
+    background-color: var(--uploadtab_bg);
+}
+
+#uploadTab .uploadHeaderTitle{
+    flex: 1 1 auto;
+    min-width: 0px;
+    font-size: 15px;
+    color: var(--uploadtab_txt);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#uploadTab .uploadHeaderBtn{
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+#uploadTab .uploadHeaderBtn:hover{
+    background-color: var(--fs-fill-hover);
+}
+#uploadTab .uploadHeaderBtn svg{
+    width: 17px;
+    height: 17px;
+    display: block;
+}
+
+/* ---------- Task list ---------- */
+#uploadTab .uploadList{
+    padding: 0px 16px;
+    max-height: 300px;
+    overflow-y: auto;
     overflow-x: hidden;
+    scrollbar-width: thin;
 }
 
-.statusBar{
-    height:32px;
-    background-color:var(--uploadtab_bg);
-    padding:8px;
+/*
+    Three rows: name, byte counter + status, progress bar. The action button
+    spans the first two so it centres against the text block while the bar
+    still runs the full width of the card.
+*/
+#uploadTab .uploadTask{
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 10px;
+    padding: 14px 0px 2px 0px;
 }
 
-.statusBar{
-    color:var(--uploadtab_txt);
+#uploadTab .uploadTaskName{
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--normal_object_txt);
+    word-break: break-word;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
-
-.hideUploadButton{
-    float: right;
-    cursor:pointer;
+#uploadTab .uploadTaskMeta{
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 7px;
+    font-size: 12px;
+    color: var(--fs-text-dim);
 }
 
-.uploadList{
-    margin:8px;
-    padding-bottom:3px;
-    margin-bottom:0px;
-    max-height: 250px;
-    overflow-y:auto;
+#uploadTab .uploadTaskSize,
+#uploadTab .uploadTaskStatus{
+    color: var(--fs-text-dim);
 }
 
-.uploadTask{
-    margin-top:6px;
-    position: relative;
+/*
+    Byte counters update several times a second, so every glyph has to keep its
+    x position or the text is unreadable. Two things are needed: tabular figures
+    so "1" occupies the same advance as "8", and a fixed cell per part so a
+    changing digit count cannot push the neighbouring parts around.
+
+    Widths are in ch (the width of a digit at the current size), so they track
+    the font rather than assuming one.
+*/
+#uploadTab .uploadTaskSize,
+#uploadTab .uploadSummaryText{
+    font-variant-numeric: tabular-nums;
+    -moz-font-feature-settings: "tnum";
+    -webkit-font-feature-settings: "tnum";
+    font-feature-settings: "tnum";
 }
 
-.uploadTaskRemoveIcon{
-    position:absolute;
-    top:0px;
-    right:0px;
-    cursor:pointer;
+/* Right aligned: the ones column stays put as the value grows into 4 digits */
+#uploadTab .uploadNum{
+    display: inline-block;
+    text-align: right;
 }
 
-.saving {
-    -moz-animation: saving 3s ease-out;
-    -moz-animation-iteration-count: infinite;
+/*
+    Left aligned and padded off the number, so the unit starts at a fixed x.
 
-    -webkit-animation: saving 3s ease-out;
-    -webkit-animation-iteration-count: infinite;
-
-    -ms-animation: saving 3s ease-out;
-    -ms-animation-iteration-count: infinite;
+    This one is a hard width, not a min-width: unit letters are not digit width
+    and differ from each other ("MB" is wider than "KB", which is wider than
+    "B"), so a min-width still lets the cell grow and shove everything after it
+    when a transfer crosses a unit boundary. The value is sized for the widest
+    unit rather than measured per string.
+*/
+#uploadTab .uploadUnit{
+    display: inline-block;
+    width: 4.4ch;
+    text-align: left;
+    padding-left: 4px;
 }
 
-@keyframes saving {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
+#uploadTab .uploadSep{
+    display: inline-block;
+    width: 16px;
+    text-align: center;
 }
 
-@-webkit-keyframes saving {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
+#uploadTab .uploadTaskStatus{
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
-@-moz-keyframes saving {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
+#uploadTab .uploadTaskAction{
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--upload_progressbar);
+}
+#uploadTab .uploadTaskAction svg{
+    width: 26px;
+    height: 26px;
+    display: block;
+}
+#uploadTab .uploadTask.done .uploadTaskAction{
+    color: var(--upload_progress_succ);
+    cursor: default;
+}
+#uploadTab .uploadTask.failed .uploadTaskAction{
+    color: var(--upload_progress_failed);
+}
+#uploadTab .uploadTaskAction:hover{
+    background-color: var(--fs-fill-hover);
+}
+#uploadTab .uploadTask.done .uploadTaskAction:hover{
+    background-color: transparent;
 }
 
-@-ms-keyframes saving {
-    0% { opacity: 0.3; }
-    50% { opacity: 1; }
-    100% { opacity: 0.3; }
+/* ---------- Progress bar ---------- */
+#uploadTab .uploadTaskBar{
+    grid-column: 1 / -1;
+    grid-row: 3;
+    height: 4px;
+    margin-top: 10px;
+    border-radius: 999px;
+    background-color: var(--fs-line);
+    overflow: hidden;
 }
 
-.clearallButton{
-    padding:8px;
-    cursor:pointer;
-}
-
-.themed.progress .bar{
+#uploadTab .uploadTaskBarFill{
+    width: 0%;
+    height: 100%;
+    border-radius: 999px;
     background-color: var(--upload_progressbar);
+    transition: width 0.2s linear;
 }
-
-.themed.progress .percentage{
-    color: var(--upload_progresstext) !important;
-}
-
-.success.progress .bar{
+#uploadTab .uploadTask.done .uploadTaskBarFill{
     background-color: var(--upload_progress_succ);
 }
-
-.error.progress .bar{
+#uploadTab .uploadTask.failed .uploadTaskBarFill{
     background-color: var(--upload_progress_failed);
 }
+#uploadTab .uploadTask.paused .uploadTaskBarFill{
+    background-color: var(--fs-text-faint);
+}
 
-.ui.progress{
-    margin-bottom: 1em !important;
+/* A task with no announced total sweeps instead of filling */
+#uploadTab .uploadTask.indeterminate .uploadTaskBarFill{
+    width: 40%;
+    transition: none;
+    animation: uploadSweep 1.4s ease-in-out infinite;
+}
+
+@keyframes uploadSweep {
+    0%   { transform: translateX(-105%); }
+    100% { transform: translateX(255%); }
+}
+
+/* ---------- Summary row ---------- */
+#uploadTab .uploadSummary{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-top: 6px;
+    border-top: 1px solid var(--divider);
+}
+
+#uploadTab .uploadSummaryIcon{
+    flex: 0 0 auto;
+    color: var(--fs-icon);
+}
+#uploadTab .uploadSummaryIcon svg{
+    width: 19px;
+    height: 19px;
+    display: block;
+}
+
+#uploadTab .uploadSummaryText{
+    flex: 1 1 auto;
+    min-width: 0px;
+    font-size: 12.5px;
+    color: var(--fs-text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Footer buttons ---------- */
+#uploadTab .uploadActions{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 16px 16px 16px;
+}
+
+#uploadTab .uploadActionBtn{
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: 1px solid var(--popup_btn_border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12.5px;
+    white-space: nowrap;
+    color: var(--normal_object_txt);
+}
+#uploadTab .uploadActionBtn:hover{
+    background-color: var(--fs-fill-hover);
+}
+#uploadTab .uploadActionBtn svg{
+    width: 15px;
+    height: 15px;
+    display: block;
+    color: var(--fs-icon);
+}
+
+#uploadTab .uploadActionBtn.primary{
+    margin-left: auto;
+    border-color: var(--upload_progressbar);
+    color: var(--upload_progressbar);
+}
+#uploadTab .uploadActionBtn.primary:hover{
+    background-color: var(--fs-accent-soft);
+}
+
+
+@media screen and (max-width: 500px) {
+    #uploadTab{
+        right: 12px;
+        left: 12px;
+        bottom: 12px;
+        width: auto;
+        max-width: none;
+    }
+    .uploadList{
+        max-height: 40vh;
+    }
 }
 
 /*
@@ -1414,11 +1707,6 @@ i.blue{
         max-width: 148px;
     }
     
-    /* aspect-ratio above already keeps this square; only the cap needs lifting */
-    .fileviewList .fileObject.card img{
-        max-width: none;
-    }
-
     /* Properties view, disable function in small display size*/
     #propertiesView{
         display:none !important;
@@ -1436,11 +1724,6 @@ i.blue{
         height: auto;
     }
 
-    /* msgbox */
-    .msgbox{
-        left: 0.4em;
-        border: 0px solid transparent;
-    }
 }
 
 @media (max-width:450px) {
@@ -1808,45 +2091,13 @@ i.blue{
 .detailstable td.fmColType,
 .detailstable td.fmColSize { color: var(--fs-text-dim); }
 
-/* Checkbox column, shown on hover or when the row is selected */
-.fmCheck {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 1.5px solid var(--fs-line);
-    border-radius: 4px;
-    background: var(--fs-surface);
-    opacity: 0;
-    transition: opacity 0.12s ease;
-    vertical-align: middle;
-}
 /*
-    Check marks belong to multi-select, not to selection: a single click only
-    highlights. #folderView gains .fmMultiSelect once ctrl/shift is held, mobile
-    multi-select is on, or more than one item is already picked.
-*/
-.fmCheck { display: none; }
-#folderView.fmMultiSelect .fmCheck { display: inline-block; }
-#folderView.fmMultiSelect .detailstable tr.fileObject:hover .fmCheck { opacity: 1; }
-#folderView.fmMultiSelect .detailstable tr.fileObject.selected .fmCheck {
-    opacity: 1;
-    background: var(--fs-accent);
-    border-color: var(--fs-accent);
-    position: relative;
-}
-#folderView.fmMultiSelect .detailstable tr.fileObject.selected .fmCheck::after {
-    content: "";
-    position: absolute;
-    left: 4.5px;
-    top: 1px;
-    width: 4px;
-    height: 8px;
-    border: solid var(--fs-primary-fg);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-}
+    ---------- Selection highlight, all three modes ----------
 
-/* ---------- Selection highlight, all three modes ---------- */
+    Selection is shown by the row/tile fill alone - there is no check badge in
+    any view mode. #folderView still gains .fmMultiSelect while ctrl/shift is
+    held or mobile multi-select is on, but nothing keys off it visually.
+*/
 .fileviewList .fileObject.item:hover,
 .detailstable tr.fileObject.details:hover { background: var(--fs-row-hover); }
 
@@ -1907,30 +2158,6 @@ i.blue{
     margin-top: 2px;
 }
 
-/* Selected tick badge on a tile, like the mockup */
-.fmTileCheck {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--fs-accent);
-    display: none;
-}
-.fmTileCheck::after {
-    content: "";
-    position: absolute;
-    left: 7px;
-    top: 3.5px;
-    width: 5px;
-    height: 10px;
-    border: solid var(--fs-primary-fg);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-}
-#folderView.fmMultiSelect .fileObject.card.selected .fmTileCheck { display: block; }
-
 /* Date group headers */
 .fmGroupHeader {
     font-size: 13px;
@@ -1987,6 +2214,40 @@ i.blue{
 .fmStatusBtn:hover { background: var(--fs-fill); }
 .fmStatusBtn svg { display: block; width: 100%; height: 100%; }
 
+/*
+    Collapsed transfer panel
+
+    Scoped to the id rather than .fmStatusBtn.active so the properties toggle,
+    which also carries an .active class, keeps its current look.
+*/
+#fmUploadListBtn.active{
+    background: var(--fs-fill-active);
+    color: var(--fs-accent);
+}
+
+/*
+    Slow pulse while something is still transferring, so background progress is
+    noticeable without being a distraction. Animating the colour rather than the
+    whole button keeps the hit area and the hover fill steady.
+*/
+#fmUploadListBtn.transferring{
+    animation: uploadBtnPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes uploadBtnPulse {
+    0%   { color: var(--fs-icon); }
+    50%  { color: var(--fs-accent); }
+    100% { color: var(--fs-icon); }
+}
+
+/* A blinking control is exactly what this setting asks to be spared */
+@media (prefers-reduced-motion: reduce) {
+    #fmUploadListBtn.transferring{
+        animation: none;
+        color: var(--fs-accent);
+    }
+}
+
 @media only screen and (max-width: 720px) {
     /*
         updateZoomControlVisibility() shows this with an inline style, which
@@ -2006,7 +2267,6 @@ i.blue{
    With table-layout:fixed the first row defines the columns, so these widths
    apply to the header table and both row tables identically. Hiding a cell
    collapses its column, which a <colgroup> could not do.                    */
-.detailstable .fmColCheck { width: 38px; }
 .detailstable .fmColDate  { width: 170px; }
 .detailstable .fmColType  { width: 120px; }
 .detailstable .fmColSize  { width: 90px; }

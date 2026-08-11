@@ -145,10 +145,6 @@
                 </div>
             </div>
 
-            <div class="msgbox" style="z-index:999; display:none;">
-                <i class="checkmark icon"></i> <span>No Message</span>
-                <div class="closeMsgButton" onclick="$(this).parent().stop().slideUp('fast');"><i class="caret down icon"></i></div>
-            </div>
         </div>
        
         <div id="mainWindow">
@@ -209,6 +205,9 @@
                 <button class="videmode" mode="list" title="List View" onclick="changeViewMode(this);"><span data-fsicon="viewList"></span></button>
                 <button class="videmode" mode="details" title="Detail View" onclick="changeViewMode(this);"><span data-fsicon="viewDetails"></span></button>
             </div>
+            <!-- Collapsed form of the transfer panel. Shown only while the list
+                 has tasks; uploadui.js drives its state. -->
+            <button id="fmUploadListBtn" class="fmStatusBtn" title="Upload List" onclick="toggleUploadPanel();" style="display:none;"><span data-fsicon="cloudUpload"></span></button>
             <button id="togglePropertiesViewBtn" class="fmStatusBtn" title="Show Properties" onclick="togglePropertiesView(this);"><span data-fsicon="sidePanel"></span></button>
         </div>
 
@@ -507,16 +506,46 @@
             </div>
         </div>
 
-        <!-- Upload Progress Bars-->
-        <div id="uploadTab" class="ui segment" style="display:none;">
-            <div class="statusBar">
-                <i class="upload icon"></i><span id="uploadCount">0</span> <span locale="upload/count/uploading">Files</span> / <i class="wait icon"></i> <span id="waitingCount">0</span> <span locale="upload/count/pending">Files</span>
-                <div class="hideUploadButton" onclick="toggleUploadList();">
-                    <i class="caret down icon"></i>
+        <!--
+            Toast. Lives at body level so its position:fixed is resolved against
+            the viewport and cannot be captured by a transformed ancestor.
+        -->
+        <div id="msgbox" class="msgbox" style="display:none;">
+            <i class="checkmark icon"></i>
+            <span class="msgboxText">No Message</span>
+            <div class="closeMsgButton" onclick="hideMsgBox();" data-fsicon="close"></div>
+        </div>
+
+        <!--
+            Transfer panel. Shows one row per upload (and per zip-preparation
+            task started from download.js). Rendering lives in
+            js/explorer/uploadui.js - the markup below is only the shell.
+        -->
+        <div id="uploadTab" style="display:none;">
+            <div class="uploadHeader">
+                <span class="uploadHeaderTitle" id="uploadHeaderTitle">Uploading</span>
+                <div class="uploadHeaderBtn" onclick="toggleUploadMinimize();" title="Minimize">
+                    <span data-fsicon="minus"></span>
+                </div>
+                <div class="uploadHeaderBtn" onclick="closeUploadTab();" title="Close">
+                    <span data-fsicon="close"></span>
                 </div>
             </div>
             <div class="uploadList" id="uploadProgressList">
-              
+
+            </div>
+            <div class="uploadSummary">
+                <span class="uploadSummaryIcon" data-fsicon="cloudUpload"></span>
+                <span class="uploadSummaryText" id="uploadSummaryText"></span>
+            </div>
+            <div class="uploadActions">
+                <div class="uploadActionBtn" onclick="clearCompletedUploads();">
+                    <span data-fsicon="trash"></span>
+                    <span locale="upload/clearCompleted">Clear completed</span>
+                </div>
+                <div class="uploadActionBtn primary" onclick="cancelAllUploads();">
+                    <span locale="upload/cancelAll">Cancel all</span>
+                </div>
             </div>
         </div>
 

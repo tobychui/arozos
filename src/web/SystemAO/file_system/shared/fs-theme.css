@@ -51,6 +51,14 @@
     /* Effects */
     --fs-shadow: rgba(15, 20, 30, 0.16);
     --fs-overlay: rgba(255, 255, 255, 0.86);
+
+    /* Toast. Dark in both themes - it sits over the content rather than in it,
+       so it reads as an overlay instead of another panel. */
+    --fs-toast-bg: #32363c;
+    --fs-toast-fg: #f2f3f5;
+    --fs-toast-dim: #b9bec6;
+    --fs-toast-error-bg: #c5221f;
+    --fs-toast-error-fg: #ffffff;
 }
 
 body.darkTheme {
@@ -98,4 +106,11 @@ body.darkTheme {
     /* Effects */
     --fs-shadow: rgba(0, 0, 0, 0.6);
     --fs-overlay: rgba(16, 19, 23, 0.9);
+
+    /* A step lighter than the surfaces, so the toast still lifts off a dark UI */
+    --fs-toast-bg: #333b47;
+    --fs-toast-fg: #eef1f5;
+    --fs-toast-dim: #a8b1bd;
+    --fs-toast-error-bg: #b3252a;
+    --fs-toast-error-fg: #ffffff;
 }

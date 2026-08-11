@@ -74,7 +74,19 @@
         image:   '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="4" width="19" height="16" rx="3"/><circle cx="8.6" cy="9.4" r="1.8" fill="#ffffff"/><path d="M4.2 18.6l4.6-5.1 3.1 3.3 3-3.4 4.9 5.2z" fill="#ffffff"/></svg>',
         video:   '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M6.4 4v16M17.6 4v16" stroke="#ffffff" stroke-width="1.4"/><path d="M2.5 12h19" stroke="#ffffff" stroke-width="1.4"/></svg>',
         music:   '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 3.4v11.2a3.4 3.4 0 1 1-2-3.1V7.3l-7 1.5v8.8a3.4 3.4 0 1 1-2-3.1V6.4z"/></svg>',
-        download_filled: S + '<path d="M12 3v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>'
+        download_filled: S + '<path d="M12 3v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>',
+
+        /* Transfer panel */
+        minus:       S + '<path d="M5 12h14"/></svg>',
+        chevronDown: S + '<path d="M6 9.5l6 6 6-6"/></svg>',
+        chevronUp:   S + '<path d="M6 14.5l6-6 6 6"/></svg>',
+        cloudUpload: S + '<path d="M6.5 19a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.7 9.2 3.9 3.9 0 0 1 17.5 19z"/><path d="M12 18v-7M9.2 13.3L12 10.5l2.8 2.8"/></svg>',
+        pause:       S + '<path d="M9.5 5.5v13M14.5 5.5v13"/></svg>',
+        play:        S + '<path d="M8 5.4l10 6.6-10 6.6z"/></svg>',
+        pauseCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M10.1 9.2v5.6M13.9 9.2v5.6"/></svg>',
+        playCircle:  S + '<circle cx="12" cy="12" r="9"/><path d="M10.2 8.6l5.2 3.4-5.2 3.4z"/></svg>',
+        checkCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.7"/></svg>',
+        closeCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>'
     };
 
     //Fill every element carrying data-fsicon="<name>" with its glyph

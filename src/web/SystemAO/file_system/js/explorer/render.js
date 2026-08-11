@@ -198,7 +198,6 @@ function renderGridItem(d){
                 <div class="image">
                     <img draggable="false" src="${d.imagePath}">
                     <div class="shareOverlay ${d.isShared ? "visible" : ""}">${d.shareIcon}</div>
-                    <span class="fmTileCheck"></span>
                 </div>
                 <div class="content">
                     <div class="header normal object" title="${d.filename}"><span class="filename">${shown}</span></div>
@@ -215,7 +214,6 @@ function renderDetailsRow(d){
     let size = d.isDir ? "--" : d.displaysize;
 
     return `<tr class="fileObject details" ${fileObjectAttributes(d)}>
-                <td class="fmColCheck"><span class="fmCheck"></span></td>
                 <td class="fmColName"><span class="fmNameCell"><span class="fmRowIcon">${FileThumb.smallGlyph(d.filename, d.isDir)}</span><span class="filename">${d.displayName}</span>${sharedMark}</span></td>
                 <td class="fmColDate light-text">${d.modTimeText}</td>
                 <td class="fmColType light-text">${typeName}</td>
@@ -252,7 +250,7 @@ function renderDetailsHeader(){
     }).join("");
 
     return `<table class="ui very basic unstackable table detailstable fmHeaderTable">
-                <thead><tr><th class="fmColCheck"></th>${cells}</tr></thead>
+                <thead><tr>${cells}</tr></thead>
             </table>`;
 }
 

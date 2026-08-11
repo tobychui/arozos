@@ -161,12 +161,45 @@ function toggleDarkTheme(){
 
 }
 
+/*
+    Toast
+
+    Call sites pass a semantic-ui icon class as the first argument, and that
+    string is the only signal available for whether something went wrong - the
+    failure paths all use a red or warning glyph. Rather than touch 43 call
+    sites, the class is matched here.
+*/
+function msgboxIsError(icon){
+    return /(^|\s)(red|remove|caution|exclamation|warning|ban)(\s|$)/.test(icon);
+}
+
 function msgbox(icon, text, delay=3000){
-    $($(".msgbox").find("span")[0]).text(text);
-    $($(".msgbox").find("i")[0]).attr("class", icon + " icon");
-    $(".msgbox").stop().finish().slideDown('fast').delay(delay).slideUp('fast', function(){
-        initWindowSizes(false);
-    });
+    let box = $("#msgbox");
+    box.find(".msgboxText").text(text);
+    box.find("i").attr("class", icon + " icon");
+    box.toggleClass("error", msgboxIsError(icon));
+
+    clearTimeout(msgboxTimer);
+    box.css("display", "flex");
+    //Force a reflow between display and the class, otherwise the browser
+    //collapses both into one style resolution and the transition never runs
+    void box[0].offsetWidth;
+    box.addClass("visible");
+
+    msgboxTimer = setTimeout(hideMsgBox, delay);
+}
+
+function hideMsgBox(){
+    clearTimeout(msgboxTimer);
+    let box = $("#msgbox");
+    box.removeClass("visible");
+    //Take it out of the layer once faded. Driven by a timer rather than
+    //transitionend, which never fires if the element is hidden mid-fade.
+    msgboxTimer = setTimeout(function(){
+        if (!box.hasClass("visible")){
+            box.css("display", "none");
+        }
+    }, 200);
 }
 
     
@@ -196,6 +229,7 @@ function showPopupWrapper(){
     of these means updating those call sites too.
 */
 window.hideAllPopupWindows = hideAllPopupWindows;
+window.hideMsgBox = hideMsgBox;     // the toast's close button
 window.toggleDarkTheme = toggleDarkTheme;
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.toggleSidebar = toggleSidebar;
