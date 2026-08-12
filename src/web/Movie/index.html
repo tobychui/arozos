@@ -14,6 +14,9 @@
     <script src="../script/ao_module.js"></script>
 
     <!-- App path config (single source of truth for all API paths) -->
+    <!-- HLS via Media Source, so browsers without native HLS (Firefox,
+         Chrome) can play the transcoded playlist without hls.js -->
+    <script src="../script/hlsmse.js"></script>
     <script src="backend/common.js"></script>
 
     <!-- ASS/SSA subtitle parser + renderer (see script/ass.js) -->
@@ -2564,7 +2567,7 @@ function transcodeSeekTo(seconds) {
     transcodeSeekOffset = pos;
     if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, pos))) {
         hideSeekFreeze();
-        showToast('HLS playback needs hls.js, which is not installed. Switch streaming mode to MP4 in settings.');
+        showToast('This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.');
         return;
     }
     playVideo(vid);
@@ -3408,38 +3411,41 @@ function startPlayback(index) {
     var ep = currentEpisodes[index];
 
     var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
-    var webPlayable = isWebPlayable(ext);
-    var directSrc = MEDIA_API + '?file=' + encodeURIComponent(ep.filepath);
 
     // Reset transcode seek state for the new episode
     transcodeSeekOffset = 0;
-    isTranscodedVideo = !webPlayable;
     transcodeDuration = 0;
 
     var vid = document.getElementById('main-video');
 
-    if (castMode && _castConnected()) {
-        // Don't load locally — avoids transcoding the same file twice.
-        // The receiver is a separate client, so it always gets the MP4 stream
-        // rather than this browser's streaming-mode preference.
-        vid.pause();
-        _castSend('media.load', {
-            filepath: ep.filepath, name: ep.name, type: 'video',
-            src: webPlayable ? directSrc : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath),
-            startTime: 0
-        });
-        // Volume after load, before play — guarantees device volume overrides
-        // whatever Arozcast was previously playing at.
-        _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
-        _castSend('media.play', {});
-    } else if (webPlayable) {
-        vid.src = directSrc;
-        playVideo(vid);
-    } else if (!attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, 0))) {
-        showToast('HLS playback needs hls.js, which is not installed. Switch streaming mode to MP4 in settings.');
-    } else {
-        playVideo(vid);
-    }
+    // The extension only says the container might be playable; the codec inside
+    // decides. The cast receiver is a separate client but faces the same codecs,
+    // so it is routed through the same verdict.
+    resolveDirectPlay(ep.filepath, ext, function (directPlay) {
+        if (playingIndex !== index) { return; }   // episode changed while probing
+
+        if (castMode && _castConnected()) {
+            // Don't load locally — avoids transcoding the same file twice.
+            // The receiver always gets the MP4 stream rather than this browser's
+            // streaming-mode preference.
+            isTranscodedVideo = !directPlay;
+            vid.pause();
+            _castSend('media.load', {
+                filepath: ep.filepath, name: ep.name, type: 'video',
+                src: directPlay ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
+                                : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath),
+                startTime: 0
+            });
+            // Volume after load, before play — guarantees device volume overrides
+            // whatever Arozcast was previously playing at.
+            _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+            _castSend('media.play', {});
+            armResumePrompt(ep, index);
+            return;
+        }
+
+        beginEpisodeStream(ep, index, directPlay);
+    });
 
     $('#now-playing-title, #topbar-title').text(ep.name);
     ao_module_setWindowTitle('Movie – ' + ep.name);
@@ -3463,9 +3469,46 @@ function startPlayback(index) {
 
     showView('player');
     showControls();
+}
 
-    // For non-transcoded video: offer to resume via the native loadedmetadata event.
-    // For transcoded video: wait for the duration fetch, then check for a saved position.
+// Bind the video element to the right stream and arm the resume prompt.
+//
+// Split out of startPlayback because the direct-play decision depends on a
+// codec probe and so arrives asynchronously; it is also the retry target when
+// direct playback turns out to fail anyway.
+function beginEpisodeStream(ep, index, directPlay) {
+    var vid = document.getElementById('main-video');
+    clearDirectPlaybackWatch(vid);
+    detachTranscodeStream(vid);
+
+    isTranscodedVideo   = !directPlay;
+    transcodeSeekOffset = 0;
+    transcodeDuration   = 0;
+
+    if (directPlay) {
+        vid.src = MEDIA_API + '?file=' + encodeURIComponent(ep.filepath);
+        // Last resort: a browser without the platform decoder the probe assumed
+        onDirectPlaybackFailure(vid, function () {
+            if (playingIndex !== index) { return; }
+            showToast('This browser cannot decode that file — switching to a transcode');
+            beginEpisodeStream(ep, index, false);
+        });
+        playVideo(vid);
+    } else if (!attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, 0),
+                                      function (reason) { showToast(reason); })) {
+        showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+        return;
+    } else {
+        playVideo(vid);
+    }
+
+    armResumePrompt(ep, index);
+}
+
+// Offer to resume where the viewer left off. Direct playback learns its length
+// from the element; a transcode has to ask the server for it.
+function armResumePrompt(ep, index) {
+    var vid = document.getElementById('main-video');
     if (!isTranscodedVideo) {
         (function (epFilepath) {
             $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
@@ -3548,6 +3591,10 @@ function closePlayer() {
     if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
     var vid = document.getElementById('main-video');
     vid.pause();
+    // Release the HLS attachment before clearing the source, or it keeps
+    // fetching segments into an element nobody is watching.
+    clearDirectPlaybackWatch(vid);
+    detachTranscodeStream(vid);
     vid.removeAttribute('src');
     $('#resume-popup').removeClass('active');
     var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime' || currentAlbum.type === 'collection'))
@@ -3951,7 +3998,7 @@ function applyStreamMode(mode, reloadCurrent) {
     transcodeSeekOffset = 0;
     var vid = document.getElementById('main-video');
     if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, 0))) {
-        showToast('HLS playback needs hls.js, which is not installed.');
+        showToast('This browser cannot play the HLS stream.');
         return;
     }
     playVideo(vid);
@@ -3967,7 +4014,7 @@ function warnIfStreamModeUnplayable() {
     if (mode === 'mp4' && isWebKitClient()) {
         showToast('This browser cannot play the MP4 stream. Use Auto or HLS.');
     } else if (mode === 'hls' && !hlsPlaybackSupported(playerVideoElement())) {
-        showToast('HLS needs hls.js, which is not installed on this server.');
+        showToast('This browser has no HLS support (needs Media Source Extensions).');
     }
 }
 

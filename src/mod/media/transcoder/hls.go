@@ -46,10 +46,16 @@ const (
 	// count (and request rate) stays sane on a feature-length file.
 	hlsSegmentSeconds = 4
 
-	hlsPlaylistName    = "index.m3u8"
-	hlsSegmentPattern  = "seg%05d.ts"
-	hlsSegmentPrefix   = "seg"
-	hlsSegmentSuffix   = ".ts"
+	hlsPlaylistName   = "index.m3u8"
+	hlsSegmentPattern = "seg%05d.m4s"
+	hlsSegmentPrefix  = "seg"
+	hlsSegmentSuffix  = ".m4s"
+
+	// HLSInitSegmentName is the fragmented-MP4 initialisation segment every
+	// fMP4 playlist points at with #EXT-X-MAP. Exported because the handler
+	// serving playlists has to rewrite that URI onto the segment endpoint.
+	HLSInitSegmentName = "init.mp4"
+
 	hlsWorkingDirName  = "hls"
 	hlsIdleTimeout     = 5 * time.Minute
 	hlsMaxSessions     = 8
@@ -139,6 +145,12 @@ func (s *HLSSession) stop() {
 // package generates ("seg00000.ts"), rejecting anything containing a path
 // separator, "..", or unexpected characters.
 func validHLSSegmentName(name string) bool {
+	// The fMP4 initialisation segment is fetched through the same endpoint as
+	// the media segments, so it has to be accepted here too. Matching the exact
+	// constant keeps the guarantee that only generated names resolve.
+	if name == HLSInitSegmentName {
+		return true
+	}
 	if !strings.HasPrefix(name, hlsSegmentPrefix) || !strings.HasSuffix(name, hlsSegmentSuffix) {
 		return false
 	}
@@ -191,7 +203,9 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 		if height != "" {
 			vf = "scale=-1:" + height
 		}
-		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast"}
+		// See TranscodeAndStream: without this a 10-bit source yields a High 10
+		// stream that most browsers cannot decode.
+		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast", "-pix_fmt", "yuv420p"}
 	}
 
 	if startTime > 0.001 {
@@ -225,7 +239,12 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 		"-hls_list_size", "0", // keep every segment in the playlist so seeking back works
 		"-hls_playlist_type", "event",
 		"-hls_flags", "independent_segments",
-		"-hls_segment_type", "mpegts",
+		// Fragmented MP4 rather than MPEG-TS. Safari plays either, but fMP4
+		// segments can be appended straight into a MediaSource buffer, which is
+		// what lets Firefox and Chrome play this stream without a third-party
+		// library to demux transport-stream packets first.
+		"-hls_segment_type", "fmp4",
+		"-hls_fmp4_init_filename", HLSInitSegmentName,
 		"-hls_base_url", segmentBaseURL,
 		"-hls_segment_filename", filepath.Join(dir, hlsSegmentPattern),
 		filepath.Join(dir, hlsPlaylistName),
@@ -442,6 +461,43 @@ func (m *HLSManager) evictToCapacity() {
 
 func (m *HLSManager) segmentBaseURL(sessionID string) string {
 	return m.segmentEndpoint + "?sid=" + sessionID + "&name="
+}
+
+// ReadPlaylist returns the session's playlist with the #EXT-X-MAP init segment
+// URI rewritten onto the segment endpoint.
+//
+// -hls_base_url only rewrites media segment URIs; ffmpeg always writes the
+// init segment as a bare filename. Left alone it would resolve relative to the
+// playlist URL (/media/hls?file=…) and 404, so the rewrite happens here rather
+// than leaving every client to work it out.
+func (m *HLSManager) ReadPlaylist(session *HLSSession) ([]byte, error) {
+	content, err := os.ReadFile(session.PlaylistPath())
+	if err != nil {
+		return nil, err
+	}
+	return rewritePlaylistInitURI(content, m.segmentBaseURL(session.ID)+HLSInitSegmentName), nil
+}
+
+// rewritePlaylistInitURI replaces the URI inside an #EXT-X-MAP tag. Split out
+// from the file read so the substitution can be unit-tested directly.
+func rewritePlaylistInitURI(playlist []byte, initURL string) []byte {
+	lines := strings.Split(string(playlist), "\n")
+	for i, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "#EXT-X-MAP:") {
+			continue
+		}
+		start := strings.Index(line, `URI="`)
+		if start < 0 {
+			continue
+		}
+		start += len(`URI="`)
+		end := strings.Index(line[start:], `"`)
+		if end < 0 {
+			continue
+		}
+		lines[i] = line[:start] + initURL + line[start+end:]
+	}
+	return []byte(strings.Join(lines, "\n"))
 }
 
 // WaitForPlaylist blocks until the session's playlist lists at least one

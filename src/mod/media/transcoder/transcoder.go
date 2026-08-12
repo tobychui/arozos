@@ -59,7 +59,12 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 		if height != "" {
 			vf = "scale=-1:" + height
 		}
-		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast"}
+		// -pix_fmt yuv420p is not optional. libx264 otherwise matches the source
+		// bit depth, so a 10-bit input (routine in anime releases) produces a
+		// High 10 stream that Chrome and Firefox cannot decode — the transcode
+		// would appear to succeed and then fail to play, which is the whole
+		// problem transcoding exists to avoid.
+		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast", "-pix_fmt", "yuv420p"}
 	}
 
 	middleArgs := []string{"-i", inputFile}

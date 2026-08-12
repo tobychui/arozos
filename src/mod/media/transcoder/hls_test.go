@@ -22,18 +22,22 @@ func TestValidHLSSegmentName(t *testing.T) {
 		name string
 		want bool
 	}{
-		{"seg00000.ts", true},
-		{"seg00123.ts", true},
-		{"seg1.ts", true},
+		{"seg00000.m4s", true},
+		{"seg00123.m4s", true},
+		{"seg1.m4s", true},
+		{"init.mp4", true}, // the fMP4 init segment goes through the same endpoint
 		{"", false},
-		{"seg.ts", false},
+		{"seg.m4s", false},
 		{"index.m3u8", false},
-		{"seg00000.ts.bak", false},
-		{"other00000.ts", false},
-		{"seg0000a.ts", false},
-		{"../seg00000.ts", false},
-		{"seg/00000.ts", false},
-		{"seg00000.ts/../../passwd", false},
+		{"seg00000.ts", false}, // the old MPEG-TS naming is no longer generated
+		{"seg00000.m4s.bak", false},
+		{"other00000.m4s", false},
+		{"seg0000a.m4s", false},
+		{"init.mp4.bak", false},
+		{"../init.mp4", false},
+		{"../seg00000.m4s", false},
+		{"seg/00000.m4s", false},
+		{"seg00000.m4s/../../passwd", false},
 		{"..", false},
 		{"../passwd", false},
 	}
@@ -56,12 +60,74 @@ func TestSegmentPathRejectsTraversal(t *testing.T) {
 		t.Error("SegmentPath accepted a traversal name, want error")
 	}
 
-	got, err := session.SegmentPath("seg00007.ts")
+	got, err := session.SegmentPath("seg00007.m4s")
 	if err != nil {
 		t.Fatalf("SegmentPath(valid) returned error: %v", err)
 	}
-	if want := filepath.Join(session.Dir, "seg00007.ts"); got != want {
+	if want := filepath.Join(session.Dir, "seg00007.m4s"); got != want {
 		t.Errorf("SegmentPath = %q, want %q", got, want)
+	}
+
+	// The init segment must resolve inside the session directory too
+	got, err = session.SegmentPath(HLSInitSegmentName)
+	if err != nil {
+		t.Fatalf("SegmentPath(init) returned error: %v", err)
+	}
+	if want := filepath.Join(session.Dir, HLSInitSegmentName); got != want {
+		t.Errorf("SegmentPath(init) = %q, want %q", got, want)
+	}
+}
+
+// TestRewritePlaylistInitURI verifies the #EXT-X-MAP URI is redirected onto the
+// segment endpoint. ffmpeg writes it as a bare filename, which would otherwise
+// resolve against the playlist URL and 404.
+func TestRewritePlaylistInitURI(t *testing.T) {
+	const initURL = "/media/hls/segment?sid=abc&name=init.mp4"
+
+	playlist := "#EXTM3U\n" +
+		"#EXT-X-VERSION:7\n" +
+		"#EXT-X-MAP:URI=\"init.mp4\"\n" +
+		"#EXTINF:4.000000,\n" +
+		"/media/hls/segment?sid=abc&name=seg00000.m4s\n"
+
+	got := string(rewritePlaylistInitURI([]byte(playlist), initURL))
+
+	if !strings.Contains(got, "#EXT-X-MAP:URI=\""+initURL+"\"") {
+		t.Errorf("init URI was not rewritten, got:\n%s", got)
+	}
+	if strings.Contains(got, "URI=\"init.mp4\"") {
+		t.Error("the bare init filename survived the rewrite")
+	}
+	// Media segment lines must be left exactly as ffmpeg wrote them
+	if !strings.Contains(got, "/media/hls/segment?sid=abc&name=seg00000.m4s") {
+		t.Error("a media segment URI was altered by the rewrite")
+	}
+}
+
+// TestRewritePlaylistInitURI_NoMapTag verifies a playlist without an init tag
+// (an MPEG-TS playlist, or a header written before the first segment) passes
+// through untouched.
+func TestRewritePlaylistInitURI_NoMapTag(t *testing.T) {
+	playlist := "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:4\n"
+	if got := string(rewritePlaylistInitURI([]byte(playlist), "/x")); got != playlist {
+		t.Errorf("playlist without EXT-X-MAP was modified:\n%s", got)
+	}
+}
+
+// TestRewritePlaylistInitURI_Malformed verifies a truncated tag cannot panic or
+// corrupt the playlist.
+func TestRewritePlaylistInitURI_Malformed(t *testing.T) {
+	cases := []string{
+		"#EXT-X-MAP:\n",
+		"#EXT-X-MAP:URI=\n",
+		"#EXT-X-MAP:URI=\"unterminated\n",
+		"#EXT-X-MAP:URI=''\n",
+	}
+	for _, tc := range cases {
+		out := string(rewritePlaylistInitURI([]byte(tc), "/x"))
+		if out == "" {
+			t.Errorf("rewrite emptied the playlist for %q", tc)
+		}
 	}
 }
 
@@ -238,7 +304,7 @@ func TestPlaylistHasSegment(t *testing.T) {
 	}
 
 	withSegment := filepath.Join(dir, "ready.m3u8")
-	body := "#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:4.000,\n/media/hls/segment?sid=x&name=seg00000.ts\n"
+	body := "#EXTM3U\n#EXT-X-VERSION:7\n#EXTINF:4.000,\n/media/hls/segment?sid=x&name=seg00000.m4s\n"
 	if err := os.WriteFile(withSegment, []byte(body), 0644); err != nil {
 		t.Fatalf("writing ready playlist: %v", err)
 	}
@@ -281,7 +347,7 @@ func TestHLSManagerDiscardsStaleSessions(t *testing.T) {
 	if err := os.MkdirAll(stale, 0755); err != nil {
 		t.Fatalf("seeding a stale session directory: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(stale, "seg00000.ts"), []byte("x"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(stale, "seg00000.m4s"), []byte("x"), 0644); err != nil {
 		t.Fatalf("seeding a stale segment: %v", err)
 	}
 

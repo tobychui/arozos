@@ -7,6 +7,9 @@
     <meta name="theme-color" content="#000000">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <!-- HLS via Media Source, so browsers without native HLS (Firefox,
+         Chrome) can play the transcoded playlist without hls.js -->
+    <script src="../script/hlsmse.js"></script>
     <script src="backend/common.js"></script>
 
     <!-- ASS/SSA subtitle parser + renderer (see script/ass.js) -->
@@ -775,21 +778,49 @@ if (files && files.length > 0) {
     };
     ao_module_setWindowTitle('Movie – ' + currentFile.name);
 
-    isTranscodedVideo = !isWebPlayable(currentFile.ext);
-
     vid.autoplay = true;
-    if (isTranscodedVideo) {
-        if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0))) {
-            showToast('HLS playback needs hls.js, which is not installed. Switch streaming mode to MP4 in settings.');
-        }
-    } else {
+
+    // The extension only says the container might be playable; the codec inside
+    // decides. An .mp4 holding HEVC or 10-bit H.264 has to be transcoded.
+    resolveDirectPlay(currentFile.filepath, currentFile.ext, function (directPlay) {
+        beginFileStream(directPlay);
+    });
+}
+
+// Bind the video element to the right stream and arm the resume prompt. Also
+// the retry target when direct playback turns out to fail anyway.
+function beginFileStream(directPlay) {
+    if (!currentFile) { return; }
+    clearDirectPlaybackWatch(vid);
+    detachTranscodeStream(vid);
+
+    isTranscodedVideo   = !directPlay;
+    transcodeSeekOffset = 0;
+    transcodeDuration   = 0;
+
+    if (directPlay) {
         vid.src = MEDIA_API + '?file=' + encodeURIComponent(currentFile.filepath);
         vid.load();
+        // Last resort: a browser without the platform decoder the probe assumed
+        onDirectPlaybackFailure(vid, function () {
+            showToast('This browser cannot decode that file — switching to a transcode');
+            beginFileStream(false);
+        });
+    } else if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0),
+                                      function (reason) { showToast(reason); })) {
+        showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+        return;
     }
 
-    // Resume position check (only for videos longer than 1 hour)
+    armResumePrompt();
+}
+
+// Offer to resume where the viewer left off. Direct playback learns its length
+// from the element; a transcode has to ask the server for it.
+function armResumePrompt() {
+    if (!currentFile) { return; }
     if (!isTranscodedVideo) {
-        $(vid).one('loadedmetadata.resume', function () {
+        $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
             if (vid.duration > 3600 && currentFile) {
                 ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: currentFile.filepath }, function (data) {
                     if (data && !data.error && data.position > 30 && data.position < vid.duration * 0.95) {
@@ -798,23 +829,25 @@ if (files && files.length > 0) {
                 });
             }
         });
-    } else {
-        // Fetch total duration separately (transcode stream doesn't expose it)
-        fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(currentFile.filepath))
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.duration > 0) {
-                    transcodeDuration = data.duration;
-                    if (transcodeDuration > 3600 && currentFile) {
-                        ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: currentFile.filepath }, function (wdata) {
-                            if (wdata && !wdata.error && wdata.position > 30 && wdata.position < transcodeDuration * 0.95) {
-                                showResumePopup(wdata.position, transcodeDuration);
-                            }
-                        });
-                    }
-                }
-            }).catch(function () {});
+        return;
     }
+
+    // Fetch total duration separately (transcode stream doesn't expose it)
+    $(vid).off('loadedmetadata.resume');
+    fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(currentFile.filepath))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.duration > 0) {
+                transcodeDuration = data.duration;
+                if (transcodeDuration > 3600 && currentFile) {
+                    ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: currentFile.filepath }, function (wdata) {
+                        if (wdata && !wdata.error && wdata.position > 30 && wdata.position < transcodeDuration * 0.95) {
+                            showResumePopup(wdata.position, transcodeDuration);
+                        }
+                    });
+                }
+            }
+        }).catch(function () {});
 }
 
 // ── Scrub-bar hover preview (storyboard) ──────────────────────────────────────
@@ -969,7 +1002,7 @@ function transcodeSeekTo(seconds) {
     transcodeSeekOffset = pos;
     if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, pos))) {
         hideSeekFreeze();
-        showToast('HLS playback needs hls.js, which is not installed. Switch streaming mode to MP4 in settings.');
+        showToast('This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.');
         return;
     }
     playVideo(vid);
@@ -1274,7 +1307,7 @@ function applyStreamMode(mode, reloadCurrent) {
     var resumeAt = effectivePlaybackTime();
     transcodeSeekOffset = 0;
     if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0))) {
-        showToast('HLS playback needs hls.js, which is not installed.');
+        showToast('This browser cannot play the HLS stream.');
         return;
     }
     playVideo(vid);
@@ -1290,7 +1323,7 @@ function warnIfStreamModeUnplayable() {
     if (mode === 'mp4' && isWebKitClient()) {
         showToast('This browser cannot play the MP4 stream. Use Auto or HLS.');
     } else if (mode === 'hls' && !hlsPlaybackSupported(playerVideoElement())) {
-        showToast('HLS needs hls.js, which is not installed on this server.');
+        showToast('This browser has no HLS support (needs Media Source Extensions).');
     }
 }
 

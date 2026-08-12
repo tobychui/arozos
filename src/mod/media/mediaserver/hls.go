@@ -16,6 +16,7 @@ package mediaserver
 */
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,6 +65,40 @@ func startTimeFromRequest(r *http.Request) float64 {
 	return startTime
 }
 
+// ServeMediaProbe reports the codecs a file contains and whether a mainstream
+// browser can play it without transcoding.
+//
+// The player needs this because a container extension says nothing about
+// decodability: an .mp4 holding HEVC or 10-bit H.264 looks directly playable
+// and then fails with a bare decode error.
+func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
+	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Native check on purpose: ffprobe has to read the file directly, and
+	//buffering a remote file in full just to read its header is not worth it.
+	if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
+		utils.SendErrorResponse(w, "codec probe not supported for this file system")
+		return
+	}
+
+	info, err := transcoder.ProbeMediaCodecs(realFilepath)
+	if err != nil {
+		s.options.Logger.PrintAndLog("Media Server",
+			"Codec probe failed for "+filepath.Base(realFilepath), err)
+		utils.SendErrorResponse(w, "could not probe media codecs")
+		return
+	}
+
+	js, _ := json.Marshal(info)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Write(js)
+}
+
 // ServeHLSPlaylist starts (or joins) an HLS transcode of the requested file and
 // returns its playlist once the first segment is ready.
 func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
@@ -98,10 +133,19 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Served from memory rather than with ServeFile because the init segment URI
+	//has to be rewritten onto the segment endpoint before the client sees it.
+	playlist, err := s.hlsManager.ReadPlaylist(session)
+	if err != nil {
+		s.options.Logger.PrintAndLog("Media Server", "Unable to read HLS playlist", err)
+		utils.SendErrorResponse(w, "Unable to read the transcode playlist")
+		return
+	}
+
 	//The playlist grows as the transcode advances, so it must never be cached.
 	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	http.ServeFile(w, r, session.PlaylistPath())
+	w.Write(playlist)
 }
 
 // ServeHLSSegment serves one segment of a running HLS session. Segments are
@@ -147,8 +191,9 @@ func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//A segment never changes once the playlist lists it, so it is safe to cache
-	//for the lifetime of the session.
-	w.Header().Set("Content-Type", "video/mp2t")
+	//for the lifetime of the session. Segments are fragmented MP4 (including the
+	//init segment), which is what MediaSource can append without demuxing.
+	w.Header().Set("Content-Type", "video/mp4")
 	w.Header().Set("Cache-Control", "private, max-age=3600")
 	http.ServeFile(w, r, segmentPath)
 }
