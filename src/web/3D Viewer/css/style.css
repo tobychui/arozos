@@ -577,6 +577,87 @@ body.dark .stage-overlay {
     padding: 7px 13px;
 }
 
+/* ---- layer height cut (G-code only) ---- */
+
+.layerbar {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    max-height: calc(100% - 130px);
+}
+
+.layerbar[hidden] {
+    display: none;
+}
+
+.layer-readout {
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.layer-caption {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted2);
+}
+
+/* A vertical range input: writing-mode is the modern way to turn a range
+   around, and rtl puts the maximum (the top of the print) at the top. */
+#layerRange {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 20px;
+    /* the shared input[type=range] rule sets flex:1, and its zero basis would
+       beat the height below and collapse the track to its intrinsic minimum */
+    flex: 0 0 auto;
+    height: clamp(150px, 42vh, 340px);
+    margin: 0;
+}
+
+#layerRange::-webkit-slider-runnable-track {
+    width: 4px;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--track);
+}
+
+#layerRange::-moz-range-track {
+    width: 4px;
+    border-radius: 2px;
+    background: var(--track);
+}
+
+#layerRange::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    margin-left: -5.5px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 4px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+}
+
+#layerRange::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 4px solid var(--accent);
+}
+
 /* ============================== right panel widgets ============================== */
 
 .select-wrap {
@@ -917,6 +998,12 @@ body.zen #workspace {
 
     .viewbar .tool {
         padding: 6px 10px;
+    }
+
+    .layerbar {
+        right: 8px;
+        padding: 9px 6px;
+        max-height: calc(100% - 100px);
     }
 }
 

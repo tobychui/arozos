@@ -244,7 +244,7 @@
                     <div class="stage-overlay" id="emptyState">
                         <svg class="ic big"><use href="#ic-view-iso" /></svg>
                         <p>Open a 3D model to begin.</p>
-                        <p class="hint">STL &middot; OBJ &middot; GLB &middot; glTF &middot; PLY &middot; 3MF &middot; FBX &middot; DAE &middot; STEP &middot; IGES &middot; BREP</p>
+                        <p class="hint">STL &middot; OBJ &middot; GLB &middot; glTF &middot; PLY &middot; 3MF &middot; FBX &middot; DAE &middot; STEP &middot; IGES &middot; BREP &middot; G-code</p>
                         <button class="ghost-btn" id="btnOpen">
                             <svg class="ic"><use href="#ic-folder" /></svg><span>Open file</span>
                         </button>
@@ -262,6 +262,14 @@
                         <button class="ghost-btn" id="btnErrorOpen">
                             <svg class="ic"><use href="#ic-folder" /></svg><span>Open another file</span>
                         </button>
+                    </div>
+
+                    <!-- layer height cut, G-code only -->
+                    <div class="layerbar" id="layerBar" hidden>
+                        <div class="layer-readout" id="layerReadout">&mdash;</div>
+                        <input type="range" id="layerRange" min="0" max="1" step="0.01" value="1"
+                            aria-label="Fade layers above this height">
+                        <div class="layer-caption">Z</div>
                     </div>
 
                     <!-- view presets -->

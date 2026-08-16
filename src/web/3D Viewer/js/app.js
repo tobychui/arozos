@@ -19,6 +19,16 @@ import { loadModel, extOf, FORMATS, isSupported } from './formats.js';
 
 const DEFAULT_COLOR = 0xd9d332;
 
+// Travel moves in a sliced toolpath: visible enough to read, quiet enough not
+// to bury the printed material under a hairball of lines.
+const TRAVEL_MOVE_COLOR = 0x9aa0a6;
+
+// Fixed studio light the toolpath shading is baked against. Weighted towards
+// one horizontal axis so that two walls meeting at a corner land far apart in
+// brightness instead of both sitting near the middle of the range.
+const TOOLPATH_LIGHT = new THREE.Vector3(-0.82, -0.26, 0.51).normalize();
+const TOOLPATH_AMBIENT = 0.3;
+
 const PALETTE = [
     0xd9d332, 0xe8a33d, 0xd9534f, 0xc45bb0, 0x7a5cd1, 0x3f7fd6,
     0x35a7b5, 0x4caf72, 0x8bc34a, 0xb5651d, 0xe6e6e6, 0x8e9299,
@@ -65,6 +75,9 @@ const dom = {
     leftPanel: $id('leftPanel'),
     scrim: $id('scrim'),
     viewPresets: $id('viewPresets'),
+    layerBar: $id('layerBar'),
+    layerRange: $id('layerRange'),
+    layerReadout: $id('layerReadout'),
     emptyState: $id('emptyState'),
     loadingState: $id('loadingState'),
     loadingText: $id('loadingText'),
@@ -90,6 +103,9 @@ const state = {
     model: null,          // THREE.Object3D currently in the scene
     modelInfo: null,      // { format, ext, bytes }
     geometryOnly: false,  // model carries no materials of its own
+    toolpath: false,      // model is a sliced G-code toolpath, not a surface
+    toolpathZ: { min: 0, max: 1 },  // printed height range, drives the layer cut
+    layerCut: Infinity,   // fade everything printed above this height
     viewMode: 'solid',
     modelColor: DEFAULT_COLOR,
     navMode: 'rotate',
@@ -313,6 +329,207 @@ function clearModel() {
     Place a freshly parsed object into the Z-up world: convert its up axis,
     drop its origin onto the world origin and remember its real world size.
 */
+/*
+    Give a sliced toolpath some form.
+
+    G-code is unlit line geometry, so a dense print renders as one flat
+    silhouette with no way to tell a face from an edge. There is nothing to cast
+    a real shadow with - a line has no surface - so the shading is baked into a
+    vertex color attribute instead, which LineBasicMaterial multiplies against
+    the model color at no extra draw cost. Two cues are combined:
+
+      facet shading   an extrusion runs along the surface it is printing, so the
+                      wall it belongs to faces perpendicular to the path.
+                      cross(tangent, up) recovers that facing, and lighting it
+                      from a fixed direction makes the two walls that meet at a
+                      corner land at clearly different brightness.
+      height gradient a gentle top-brighter ramp, the "lit from above" cue that
+                      separates the top of the print from its base.
+
+    The light is fixed in model space rather than following the camera, so the
+    print keeps a consistent solid appearance while it is orbited.
+*/
+function bakeToolpathShading(root) {
+    const targets = [];
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+
+    root.traverse(function (child) {
+        if (!child.isLineSegments || !child.material || child.material.name !== 'extruded') return;
+        const position = child.geometry.getAttribute('position');
+        if (!position) return;
+        targets.push(child);
+        for (let i = 0; i < position.count; i++) {
+            const z = position.getZ(i);
+            if (z < minZ) minZ = z;
+            if (z > maxZ) maxZ = z;
+        }
+    });
+    if (targets.length === 0) return;
+
+    //the layer cut slider spans the same range as the printed material
+    state.toolpathZ = { min: minZ, max: maxZ };
+
+    const span = Math.max(maxZ - minZ, 1e-6);
+    const tangent = new THREE.Vector3();
+    const normal = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 0, 1);
+
+    for (let t = 0; t < targets.length; t++) {
+        const geometry = targets[t].geometry;
+        const position = geometry.getAttribute('position');
+        const shade = new Float32Array(position.count * 3);
+
+        for (let i = 0; i + 1 < position.count; i += 2) {
+            tangent.set(
+                position.getX(i + 1) - position.getX(i),
+                position.getY(i + 1) - position.getY(i),
+                position.getZ(i + 1) - position.getZ(i)
+            );
+
+            normal.crossVectors(tangent, up);
+            if (normal.lengthSq() < 1e-10) {
+                //a purely vertical move has no wall to face; treat it as facing
+                //up so seams and z hops stay bright instead of flickering black
+                normal.copy(up);
+            } else {
+                normal.normalize();
+            }
+
+            //two sided: a wall should read the same whichever way the head ran
+            const facet = Math.abs(normal.dot(TOOLPATH_LIGHT));
+            const height = ((position.getZ(i) + position.getZ(i + 1)) * 0.5 - minZ) / span;
+            const value = Math.min(
+                (TOOLPATH_AMBIENT + (1 - TOOLPATH_AMBIENT) * facet) * (0.8 + 0.3 * height),
+                1
+            );
+
+            shade[i * 3] = shade[i * 3 + 1] = shade[i * 3 + 2] = value;
+            shade[i * 3 + 3] = shade[i * 3 + 4] = shade[i * 3 + 5] = value;
+        }
+
+        geometry.setAttribute('color', new THREE.BufferAttribute(shade, 3));
+        targets[t].material.vertexColors = true;
+        targets[t].material.needsUpdate = true;
+    }
+}
+
+/*
+    Layer height cut.
+
+    Everything at or below the cut height draws normally; everything above it
+    draws as a translucent ghost, so the inside of a print can be inspected
+    without losing the context of what sits on top of it.
+
+    This needs two passes rather than one blended material: a single pass would
+    have to write depth for the faded layers as well, and those are the layers
+    nearest the camera when looking down into a print - they would hide exactly
+    the interior the cut is meant to reveal. So the geometry is drawn twice,
+    sharing one buffer, with each pass discarding the half it does not own. The
+    solid pass keeps normal depth behaviour, and the ghost pass blends without
+    writing depth.
+*/
+function installToolpathCutoff(material, isGhost) {
+    material.userData.cutoff = { value: Infinity };
+    material.onBeforeCompile = function (shader) {
+        shader.uniforms.uCutoff = material.userData.cutoff;
+        shader.vertexShader = 'varying float vLayerZ;\n' + shader.vertexShader.replace(
+            '#include <begin_vertex>',
+            '#include <begin_vertex>\n\tvLayerZ = position.z;'
+        );
+        shader.fragmentShader = 'uniform float uCutoff;\nvarying float vLayerZ;\n' + shader.fragmentShader.replace(
+            '#include <color_fragment>',
+            '#include <color_fragment>\n\tif (' + (isGhost ? 'vLayerZ <= uCutoff' : 'vLayerZ > uCutoff') + ') discard;'
+        );
+    };
+    // the two variants compile to different programs from otherwise identical
+    // material settings, so they need distinct cache keys
+    material.customProgramCacheKey = function () {
+        return isGhost ? 'toolpath-ghost' : 'toolpath-solid';
+    };
+    material.needsUpdate = true;
+}
+
+function buildToolpathCutPasses(root) {
+    const ghosts = [];
+
+    root.traverse(function (child) {
+        if (!child.isLineSegments || !child.material || child.userData.toolpathGhost) return;
+
+        installToolpathCutoff(child.material, false);
+
+        const ghostMaterial = child.material.clone();
+        ghostMaterial.name = child.material.name;
+        ghostMaterial.transparent = true;
+        ghostMaterial.depthWrite = false;
+        installToolpathCutoff(ghostMaterial, true);
+
+        const ghost = new THREE.LineSegments(child.geometry, ghostMaterial);
+        ghost.userData.toolpathGhost = true;
+        ghost.renderOrder = 1;
+        ghost.visible = false;
+        ghosts.push({ parent: child.parent, ghost: ghost });
+    });
+
+    for (let i = 0; i < ghosts.length; i++) ghosts[i].parent.add(ghosts[i].ghost);
+}
+
+function setLayerCut(height) {
+    if (!state.model) return;
+    state.layerCut = height;
+    const cutting = height < state.toolpathZ.max;
+
+    state.model.traverse(function (child) {
+        if (!child.isLineSegments || !child.material) return;
+        if (child.material.userData.cutoff) child.material.userData.cutoff.value = height;
+        if (child.userData.toolpathGhost) {
+            //nothing to ghost while the cut sits at the top of the print
+            child.visible = cutting && child.material.name !== 'path';
+        }
+    });
+
+    dom.layerReadout.textContent = height.toFixed(1) + ' mm';
+    needsRender = true;
+}
+
+function setupLayerBar() {
+    if (!state.toolpath) {
+        dom.layerBar.hidden = true;
+        return;
+    }
+    const min = state.toolpathZ.min;
+    const max = state.toolpathZ.max;
+    dom.layerRange.min = min;
+    dom.layerRange.max = max;
+    dom.layerRange.step = Math.max((max - min) / 500, 0.001);
+    dom.layerRange.value = max;
+    dom.layerBar.hidden = false;
+    setLayerCut(max);
+}
+
+/*
+    Bounding box of what the model actually is. For a sliced toolpath the
+    travel moves sweep the whole bed, so measuring and framing against them
+    would report the printer's bed size instead of the part and leave the print
+    tiny on screen; only the extruded material counts.
+*/
+function modelBounds(root) {
+    if (!state.toolpath) return new THREE.Box3().setFromObject(root);
+
+    const box = new THREE.Box3();
+    root.traverse(function (child) {
+        if (!child.isLineSegments || !child.material || child.material.name !== 'extruded') return;
+        const position = child.geometry.getAttribute('position');
+        if (!position) return;
+        child.updateWorldMatrix(true, false);
+        const segment = new THREE.Box3().setFromBufferAttribute(position);
+        segment.applyMatrix4(child.matrixWorld);
+        box.union(segment);
+    });
+
+    return box.isEmpty() ? new THREE.Box3().setFromObject(root) : box;
+}
+
 function placeModel(object, format) {
     clearModel();
 
@@ -328,7 +545,7 @@ function placeModel(object, format) {
     root.add(pivot);
     root.updateMatrixWorld(true);
 
-    const box = new THREE.Box3().setFromObject(root);
+    const box = modelBounds(root);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
 
@@ -341,11 +558,21 @@ function placeModel(object, format) {
             child.castShadow = true;
             child.receiveShadow = true;
         }
+        // Tone down the loader's stock bright red travel moves; they are
+        // context, not the print itself.
+        if (state.toolpath && child.material && child.material.name === 'path') {
+            child.material.color.setHex(TRAVEL_MOVE_COLOR);
+        }
     });
+
+    if (state.toolpath) {
+        bakeToolpathShading(root);
+        buildToolpathCutPasses(root);
+    }
 
     scene.add(root);
     state.model = root;
-    state.radius = Math.max(new THREE.Box3().setFromObject(root).getBoundingSphere(new THREE.Sphere()).radius, 0.0001);
+    state.radius = Math.max(modelBounds(root).getBoundingSphere(new THREE.Sphere()).radius, 0.0001);
 
     // clip planes and control limits scale with the model
     camera.near = state.radius / 400;
@@ -360,6 +587,15 @@ function placeModel(object, format) {
     setView('iso');
 
     return size;
+}
+
+/*
+    The ground shadow only makes sense under an opaque surface model: a
+    wireframe or see-through body casting a solid shadow reads as a bug, and a
+    G-code toolpath has no surfaces to cast one at all.
+*/
+function shadowPlaneShouldShow() {
+    return state.shadows && state.model !== null && state.viewMode === 'solid' && !state.toolpath;
 }
 
 function layoutLights() {
@@ -385,24 +621,74 @@ function layoutLights() {
 
     shadowPlane.scale.set(r * 14, r * 14, 1);
     shadowPlane.position.set(0, 0, -r * 0.002);
-    shadowPlane.visible = state.shadows && state.model !== null && state.viewMode === 'solid';
+    shadowPlane.visible = shadowPlaneShouldShow();
 
     applyLighting();
 }
 
 /* ---- materials ---- */
 
+/*
+    Walk every material the loaded model owns. Line geometry counts too - a
+    G-code toolpath is nothing but lines - while the viewer's own x-ray edge
+    overlay is skipped so it keeps its highlight color.
+*/
 function eachMaterial(callback) {
     if (!state.model) return;
     state.model.traverse(function (child) {
-        if (!child.isMesh || !child.material) return;
+        if (!child.material || child.userData.xrayEdges) return;
         const list = Array.isArray(child.material) ? child.material : [child.material];
         for (let i = 0; i < list.length; i++) callback(list[i], child);
     });
 }
 
+/*
+    A sliced toolpath is line geometry, so the three view modes are mapped onto
+    what is meaningful for it rather than onto surface shading:
+
+        Solid     - printed material only, which is what the part will look like
+        Wireframe - also draws the travel moves the head makes between them
+        X-Ray     - the same, drawn translucent so inner perimeters show through
+*/
+/*
+    A sliced toolpath is line geometry, so the three view modes are mapped onto
+    what is meaningful for it rather than onto surface shading:
+
+        Solid     - printed material only, which is what the part will look like
+        Wireframe - also draws the travel moves the head makes between them
+        X-Ray     - the same, drawn translucent so inner perimeters show through
+*/
+function applyToolpathViewMode(mode) {
+    state.model.traverse(function (child) {
+        if (!child.isLineSegments || !child.material) return;
+        const isTravel = (child.material.name === 'path');
+        child.visible = isTravel ? (mode !== 'solid') : true;
+
+        if (child.userData.toolpathGhost) {
+            //the ghost pass owns its own blending; only its strength follows
+            //the view mode, and setLayerCut decides whether it draws at all
+            child.material.opacity = (mode === 'xray') ? 0.05 : 0.13;
+            child.material.needsUpdate = true;
+            return;
+        }
+        child.material.transparent = (mode === 'xray');
+        //thousands of overlapping extrusions accumulate back to opaque, so the
+        //x-ray opacity has to go a lot lower here than it does for a surface
+        child.material.opacity = (mode === 'xray') ? (isTravel ? 0.12 : 0.1) : 1;
+        child.material.depthWrite = (mode !== 'xray');
+        child.material.needsUpdate = true;
+    });
+    shadowPlane.visible = false;
+    needsRender = true;
+}
+
 function applyViewMode() {
     if (!state.model) return;
+
+    if (state.toolpath) {
+        applyToolpathViewMode(state.viewMode);
+        return;
+    }
 
     // remove any x-ray edge overlay from a previous mode
     const stale = [];
@@ -420,7 +706,7 @@ function applyViewMode() {
     state.model.traverse(function (child) {
         if (child.isMesh) child.castShadow = (mode === 'solid');
     });
-    shadowPlane.visible = state.shadows && mode === 'solid';
+    shadowPlane.visible = shadowPlaneShouldShow();
 
     eachMaterial(function (material) {
         material.wireframe = (mode === 'wireframe');
@@ -449,17 +735,20 @@ function applyViewMode() {
 }
 
 /*
-    Apply the model color. Geometry-only formats (STL, PLY) always take it;
-    formats that ship their own materials only take it once the user has picked
-    a color explicitly, so a textured GLB opens looking the way it was authored.
+    Apply the model color. Geometry-only formats (STL, PLY, G-code) always take
+    it; formats that ship their own materials only take it once the user has
+    picked a color explicitly, so a textured GLB opens looking the way it was
+    authored.
 */
 function applyModelColor(userPicked) {
     if (!state.model) return;
     if (!state.geometryOnly && !userPicked) return;
 
     eachMaterial(function (material) {
+        // travel moves are not printed material, so they keep their own color
+        if (state.toolpath && material.name === 'path') return;
         if (material.color) material.color.setHex(state.modelColor);
-        if (state.geometryOnly) {
+        if (state.geometryOnly && material.roughness !== undefined) {
             material.roughness = 0.42;
             material.metalness = 0.05;
         }
@@ -491,7 +780,7 @@ function applyBackground() {
 function applyShadows() {
     renderer.shadowMap.enabled = state.shadows;
     keyLight.castShadow = state.shadows;
-    shadowPlane.visible = state.shadows && state.model !== null && state.viewMode === 'solid';
+    shadowPlane.visible = shadowPlaneShouldShow();
     eachMaterial(function (material) { material.needsUpdate = true; });
     needsRender = true;
 }
@@ -502,7 +791,7 @@ function applyShadows() {
 
 function frameModel(direction) {
     if (!state.model) return;
-    const box = new THREE.Box3().setFromObject(state.model);
+    const box = modelBounds(state.model);
     const sphere = box.getBoundingSphere(new THREE.Sphere());
 
     // Fit against whichever field of view is tighter, so a wide model still
@@ -527,7 +816,7 @@ function frameModel(direction) {
 
 function centerModel() {
     if (!state.model) return;
-    const box = new THREE.Box3().setFromObject(state.model);
+    const box = modelBounds(state.model);
     const center = box.getCenter(new THREE.Vector3());
     const offset = camera.position.clone().sub(controls.target);
     controls.target.copy(center);
@@ -663,9 +952,11 @@ async function openSource(source) {
         });
 
         state.geometryOnly = !result.ownMaterials;
+        state.toolpath = result.format.toolpath === true;
         state.modelInfo = result;
 
         const size = placeModel(result.object, result.format).multiplyScalar(result.format.unitToMM || 1);
+        setupLayerBar();
         dom.fileDim.textContent = formatDimension(size);
         dom.fileSize.textContent = formatBytes(result.bytes);
         if (source.filepath) fetchStoredFileSize(source.filepath);
@@ -674,6 +965,7 @@ async function openSource(source) {
     } catch (err) {
         console.error('[3D Viewer] load failed', err);
         clearModel();
+        dom.layerBar.hidden = true;
         showOverlay('error', (err && err.message) || 'Could not load this model.');
     }
 }
@@ -813,6 +1105,10 @@ function initUI() {
         modeButtons[i].addEventListener('click', function () { setNavMode(this.dataset.nav); });
     }
 
+    dom.layerRange.addEventListener('input', function () {
+        setLayerCut(Number(this.value));
+    });
+
     dom.viewPresets.addEventListener('click', function (e) {
         const button = e.target.closest('.tool');
         if (!button) return;
@@ -820,6 +1116,10 @@ function initUI() {
     });
 
     dom.btnReset.addEventListener('click', function () {
+        if (state.toolpath) {
+            dom.layerRange.value = state.toolpathZ.max;
+            setLayerCut(state.toolpathZ.max);
+        }
         setNavMode('rotate');
         setView('iso');
         closeDrawers();

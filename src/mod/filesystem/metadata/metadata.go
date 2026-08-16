@@ -192,6 +192,14 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 		return img, err
 	}
 
+	//Sliced G-code, which carries a slicer generated preview in its header
+	gcodeFormats := []string{".gcode", ".gco"}
+	if utils.StringInArray(gcodeFormats, strings.ToLower(filepath.Ext(rpath))) {
+		img, err := generateThumbnailForGcode(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
+		return img, err
+	}
+
 	//Photoshop file
 	if strings.ToLower(filepath.Ext(rpath)) == ".psd" {
 		img, err := generateThumbnailForPSD(fsh, cacheFolder, rpath, generateOnly)
@@ -397,7 +405,6 @@ func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, e
 func RemoveCache(fsh *filesystem.FileSystemHandler, file string) error {
 	if CacheExists(fsh, file) {
 		cachePath, err := GetCacheFilePath(fsh, file)
-		//log.Println("Removing ", cachePath, err)
 		if err != nil {
 			return err
 		}
@@ -406,7 +413,6 @@ func RemoveCache(fsh *filesystem.FileSystemHandler, file string) error {
 		os.Remove(cachePath)
 		return nil
 	} else {
-		//log.Println("Cache not exists: ", file)
 		return errors.New("Thumbnail cache not exists for this file")
 	}
 }

@@ -53,31 +53,15 @@ func util_init() {
 	})
 
 	/*
-		3D Model Viewer
+		3D Model Viewer and Gcode Viewer
 
-		Superseded by the "3D Viewer" WebApp in ./web/3D Viewer/, which
+		Both superseded by the "3D Viewer" WebApp in ./web/3D Viewer/, which
 		registers itself from its own init.agi and additionally supports
-		GLB/glTF, PLY, 3MF, FBX, DAE and STEP/IGES/BREP.
+		GLB/glTF, PLY, 3MF, FBX, DAE, STEP/IGES/BREP and sliced G-code.
 	*/
 
 	/*
-		Gcode File Viewer - Plotted from ArOZ Online Beta
-	*/
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "Gcode Viewer",
-		Desc:         "Gcode Toolpath Viewer",
-		Group:        "Utilities",
-		IconPath:     "SystemAO/utilities/img/gcodeViewer.png",
-		Version:      "1.0",
-		SupportFW:    false,
-		SupportEmb:   true,
-		LaunchEmb:    "SystemAO/utilities/gcodeViewer.html",
-		InitEmbSize:  []int{720, 500},
-		SupportedExt: []string{".gcode", ".gco"},
-	})
-
-	/*
-		Gcode File Viewer - Plotted from ArOZ Online Beta
+		Image Paste
 	*/
 	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name:         "Image Paste",

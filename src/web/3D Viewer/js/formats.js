@@ -19,6 +19,7 @@ import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+import { GCodeLoader } from 'three/addons/loaders/GCodeLoader.js';
 
 /*
     Supported extensions.
@@ -48,7 +49,12 @@ export const FORMATS = {
     stp: { label: 'STEP', up: 'Z', ownMaterials: true, unitToMM: 1 },
     iges: { label: 'IGES', up: 'Z', ownMaterials: true, unitToMM: 1 },
     igs: { label: 'IGES', up: 'Z', ownMaterials: true, unitToMM: 1 },
-    brep: { label: 'BREP', up: 'Z', ownMaterials: true, unitToMM: 1 }
+    brep: { label: 'BREP', up: 'Z', ownMaterials: true, unitToMM: 1 },
+    // Sliced toolpaths. GCodeLoader rotates its own root a quarter turn to hand
+    // back a Y-up object, so declaring "Y" here makes the viewer's pivot cancel
+    // that back out and the print stands up the way it was sliced.
+    gcode: { label: 'G-code', up: 'Y', ownMaterials: false, unitToMM: 1, toolpath: true },
+    gco: { label: 'G-code', up: 'Y', ownMaterials: false, unitToMM: 1, toolpath: true }
 };
 
 export function extOf(filename) {
@@ -302,6 +308,11 @@ export async function loadModel(source, options) {
         ? 'Tessellating CAD geometry...'
         : 'Parsing model...');
 
+    // Parsing runs on the main thread and a big model (or a long toolpath) can
+    // hold it for a while, so yield once and let the progress overlay paint
+    // before the browser goes quiet.
+    await new Promise(function (resolve) { setTimeout(resolve, 0); });
+
     const manager = makeManager(source.resolveSibling);
     let object;
     // Most formats always carry their own materials; the CAD path decides per
@@ -345,6 +356,11 @@ export async function loadModel(source, options) {
 
         case 'dae':
             object = new ColladaLoader(manager).parse(decodeText(buffer), '').scene;
+            break;
+
+        case 'gcode':
+        case 'gco':
+            object = new GCodeLoader(manager).parse(decodeText(buffer));
             break;
 
         case 'step':
