@@ -14,6 +14,9 @@
     <script src="../script/ao_module.js"></script>
 
     <!-- App path config (single source of truth for all API paths) -->
+    <!-- HLS via Media Source, so browsers without native HLS (Firefox,
+         Chrome) can play the transcoded playlist without hls.js -->
+    <script src="../script/hlsmse.js"></script>
     <script src="backend/common.js"></script>
 
     <!-- ASS/SSA subtitle parser + renderer (see script/ass.js) -->
@@ -734,7 +737,8 @@ body.always-show-volume #volume-slider { display: block; }
     transition: opacity 0.3s, transform 0.3s;
     pointer-events: none;
     z-index: 1000;
-    white-space: nowrap;
+    max-width: min(90vw, 30em);
+    text-align: center; line-height: 1.45;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -1157,7 +1161,7 @@ body.always-show-volume #volume-slider { display: block; }
 .set-seg-btn:hover  { color: var(--text); }
 .set-seg-btn.active { background: var(--surface); color: var(--text); }
 
-.speed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.speed-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .speed-btn {
     padding: 5px 0; font-size: 12px; font-family: inherit;
     border: none; border-radius: 5px; cursor: pointer;
@@ -1761,14 +1765,11 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                 <div class="set-section">
                     <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
                     <div class="speed-grid" id="set-speed-grid">
-                        <button class="speed-btn" data-speed="0.25">0.25×</button>
-                        <button class="speed-btn" data-speed="0.5">0.5×</button>
-                        <button class="speed-btn" data-speed="0.75">0.75×</button>
-                        <button class="speed-btn active" data-speed="1">Normal</button>
-                        <button class="speed-btn" data-speed="1.25">1.25×</button>
-                        <button class="speed-btn" data-speed="1.5">1.5×</button>
-                        <button class="speed-btn" data-speed="1.75">1.75×</button>
-                        <button class="speed-btn" data-speed="2">2×</button>
+                        <button class="speed-btn" data-speed="0.5">0.5&times;</button>
+                        <button class="speed-btn active" data-speed="1">1&times;</button>
+                        <button class="speed-btn" data-speed="1.2">1.2&times;</button>
+                        <button class="speed-btn" data-speed="1.5">1.5&times;</button>
+                        <button class="speed-btn" data-speed="2">2&times;</button>
                     </div>
                 </div>
                 <div class="set-section">
@@ -1776,6 +1777,14 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                     <div class="set-seg" id="set-volbar-seg">
                         <button class="set-seg-btn active" data-volbar="auto">Auto</button>
                         <button class="set-seg-btn"        data-volbar="always">Always show</button>
+                    </div>
+                </div>
+                <div class="set-section">
+                    <div class="set-head"><img src="img/icons/movie_white.svg" alt="">Streaming mode</div>
+                    <div class="set-seg" id="set-stream-seg">
+                        <button class="set-seg-btn active" data-stream="auto">Auto</button>
+                        <button class="set-seg-btn"        data-stream="mp4">MP4</button>
+                        <button class="set-seg-btn"        data-stream="hls">HLS</button>
                     </div>
                 </div>
                 <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
@@ -1901,7 +1910,13 @@ var countdownTimer  = null;
 var repeatSingle = (localStorage.getItem('movie_repeat_one') === '1');
 
 // Playback speed (persisted, reapplied whenever a new source loads)
-var playbackSpeed = parseFloat(localStorage.getItem('movie_playback_speed') || '1') || 1;
+// Snapped to the nearest preset on load: an earlier build let this be dragged
+// to any value, and the popup highlights presets only.
+// The preset rates offered in the settings popup. Declared here rather than
+// beside setPlaybackSpeed because the initialiser below runs on load, and a
+// `var` further down the file would still be undefined at that point.
+var PLAYBACK_SPEEDS = [0.5, 1, 1.2, 1.5, 2];
+var playbackSpeed = nearestPlaybackSpeed(localStorage.getItem('movie_playback_speed') || '1');
 
 // Force the volume slider visible even on portrait phones (see the media query)
 var alwaysShowVolumeBar = (localStorage.getItem('movie_always_volume_bar') === '1');
@@ -1995,6 +2010,10 @@ function connectCast() {
                 if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
                     var ep  = currentEpisodes[playingIndex];
                     var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+                    // Always hand the receiver the MP4 stream: it is a separate
+                    // client whose HLS support we cannot probe from here, and
+                    // this browser's streaming-mode preference says nothing
+                    // about it.
                     var src = isWebPlayable(ext)
                         ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
                         : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
@@ -2064,14 +2083,17 @@ function _castResumeLocally() {
     var pos = castCurrentTime;
     var vid = document.getElementById('main-video');
     if (isTranscodedVideo && pos > 0) {
-        // Seek-by-reload: restart the transcode stream at the cast position
+        // Restart the transcode at the cast position, on whichever transport
+        // this browser is using
         transcodeSeekOffset = pos;
-        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + pos.toFixed(3);
+        attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, pos));
     } else {
         var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
-        vid.src = isWebPlayable(ext)
-            ? MEDIA_API     + '?file=' + encodeURIComponent(ep.filepath)
-            : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+        if (isWebPlayable(ext)) {
+            vid.src = MEDIA_API + '?file=' + encodeURIComponent(ep.filepath);
+        } else {
+            attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, 0));
+        }
         if (pos > 0) {
             $(vid).one('loadedmetadata.castresume', function() { vid.currentTime = pos; });
         }
@@ -2520,22 +2542,47 @@ function hideSeekFreeze() {
     $('#seek-spinner').removeClass('active');
 }
 
-// Restart the transcode stream at `seconds`, holding the last frame until the
-// new segment plays. Clamped to the known duration.
+// Seek to `seconds` (absolute, whole-file time), clamped to the known duration.
+//
+// An HLS stream keeps every segment produced so far in its playlist, so a seek
+// landing inside the transcoded window is an ordinary <video> seek — no reload,
+// no re-transcode, no black frame. Only a seek past that window (or an MP4
+// stream, which has no seekable history at all) has to restart the transcode at
+// the new offset.
 function transcodeSeekTo(seconds) {
     if (playingIndex < 0 || !currentEpisodes[playingIndex]) { return; }
     var vid = document.getElementById('main-video');
     var pos = Math.max(0, seconds);
     if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
 
+    if (usingHLS() && seekWithinTranscodedWindow(vid, pos)) {
+        setSubtitleSeekFloor(pos);
+        vid.currentTime = pos - transcodeSeekOffset;
+        playVideo(vid);
+        return;
+    }
+
     showSeekFreeze();
     setSubtitleSeekFloor(pos);
     transcodeSeekOffset = pos;
-    vid.src = TRANSCODE_API + '?file='
-            + encodeURIComponent(currentEpisodes[playingIndex].filepath)
-            + '&start=' + pos.toFixed(3);
-    vid.load();
-    vid.play();
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, pos))) {
+        hideSeekFreeze();
+        showToast('This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.');
+        return;
+    }
+    playVideo(vid);
+}
+
+// Whether `pos` (absolute time) falls inside what the current stream has
+// already produced and can therefore be reached without reloading.
+function seekWithinTranscodedWindow(vid, pos) {
+    var relative = pos - transcodeSeekOffset;
+    if (relative < 0) { return false; }
+    if (!vid.seekable || vid.seekable.length === 0) { return false; }
+    var available = vid.seekable.end(vid.seekable.length - 1);
+    // Stay a segment clear of the live edge; seeking right onto it stalls until
+    // the next segment lands.
+    return relative <= available - 4;
 }
 
 // Current playback position in whole-file terms (transcode streams restart at 0)
@@ -2582,12 +2629,12 @@ function showResumePopup(savedPos, duration) {
             transcodeSeekTo(pendingResumePos);
         } else {
             vid.currentTime = pendingResumePos;
-            vid.play();
+            playVideo(vid);
         }
         $('#resume-popup').removeClass('active');
     });
     $('#resume-btn-restart').off('click').on('click', function () {
-        vid.play();
+        playVideo(vid);
         $('#resume-popup').removeClass('active');
     });
 }
@@ -3364,32 +3411,41 @@ function startPlayback(index) {
     var ep = currentEpisodes[index];
 
     var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
-    var src = isWebPlayable(ext)
-        ? MEDIA_API   + '?file=' + encodeURIComponent(ep.filepath)
-        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
 
     // Reset transcode seek state for the new episode
     transcodeSeekOffset = 0;
-    isTranscodedVideo = !isWebPlayable(ext);
     transcodeDuration = 0;
 
     var vid = document.getElementById('main-video');
 
-    if (castMode && _castConnected()) {
-        // Don't load locally — avoids transcoding the same file twice
-        vid.pause();
-        _castSend('media.load', {
-            filepath: ep.filepath, name: ep.name, type: 'video',
-            src: src, startTime: 0
-        });
-        // Volume after load, before play — guarantees device volume overrides
-        // whatever Arozcast was previously playing at.
-        _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
-        _castSend('media.play', {});
-    } else {
-        vid.src = src;
-        vid.play();
-    }
+    // The extension only says the container might be playable; the codec inside
+    // decides. The cast receiver is a separate client but faces the same codecs,
+    // so it is routed through the same verdict.
+    resolveDirectPlay(ep.filepath, ext, function (directPlay) {
+        if (playingIndex !== index) { return; }   // episode changed while probing
+
+        if (castMode && _castConnected()) {
+            // Don't load locally — avoids transcoding the same file twice.
+            // The receiver always gets the MP4 stream rather than this browser's
+            // streaming-mode preference.
+            isTranscodedVideo = !directPlay;
+            vid.pause();
+            _castSend('media.load', {
+                filepath: ep.filepath, name: ep.name, type: 'video',
+                src: directPlay ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
+                                : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath),
+                startTime: 0
+            });
+            // Volume after load, before play — guarantees device volume overrides
+            // whatever Arozcast was previously playing at.
+            _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+            _castSend('media.play', {});
+            armResumePrompt(ep, index);
+            return;
+        }
+
+        beginEpisodeStream(ep, index, directPlay);
+    });
 
     $('#now-playing-title, #topbar-title').text(ep.name);
     ao_module_setWindowTitle('Movie – ' + ep.name);
@@ -3413,9 +3469,46 @@ function startPlayback(index) {
 
     showView('player');
     showControls();
+}
 
-    // For non-transcoded video: offer to resume via the native loadedmetadata event.
-    // For transcoded video: wait for the duration fetch, then check for a saved position.
+// Bind the video element to the right stream and arm the resume prompt.
+//
+// Split out of startPlayback because the direct-play decision depends on a
+// codec probe and so arrives asynchronously; it is also the retry target when
+// direct playback turns out to fail anyway.
+function beginEpisodeStream(ep, index, directPlay) {
+    var vid = document.getElementById('main-video');
+    clearDirectPlaybackWatch(vid);
+    detachTranscodeStream(vid);
+
+    isTranscodedVideo   = !directPlay;
+    transcodeSeekOffset = 0;
+    transcodeDuration   = 0;
+
+    if (directPlay) {
+        vid.src = MEDIA_API + '?file=' + encodeURIComponent(ep.filepath);
+        // Last resort: a browser without the platform decoder the probe assumed
+        onDirectPlaybackFailure(vid, function () {
+            if (playingIndex !== index) { return; }
+            showToast('This browser cannot decode that file — switching to a transcode');
+            beginEpisodeStream(ep, index, false);
+        });
+        playVideo(vid);
+    } else if (!attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, 0),
+                                      function (reason) { showToast(reason); })) {
+        showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+        return;
+    } else {
+        playVideo(vid);
+    }
+
+    armResumePrompt(ep, index);
+}
+
+// Offer to resume where the viewer left off. Direct playback learns its length
+// from the element; a transcode has to ask the server for it.
+function armResumePrompt(ep, index) {
+    var vid = document.getElementById('main-video');
     if (!isTranscodedVideo) {
         (function (epFilepath) {
             $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
@@ -3498,6 +3591,10 @@ function closePlayer() {
     if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
     var vid = document.getElementById('main-video');
     vid.pause();
+    // Release the HLS attachment before clearing the source, or it keeps
+    // fetching segments into an element nobody is watching.
+    clearDirectPlaybackWatch(vid);
+    detachTranscodeStream(vid);
     vid.removeAttribute('src');
     $('#resume-popup').removeClass('active');
     var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime' || currentAlbum.type === 'collection'))
@@ -3642,7 +3739,7 @@ function initVideoControls() {
         cancelCountdown();
         if (repeatSingle) {
             vid.currentTime = 0;
-            vid.play();
+            playVideo(vid);
         } else if (playingIndex < currentEpisodes.length - 1 && autoplayEnabled) {
             startNextCountdown();
         }
@@ -3711,7 +3808,7 @@ function togglePlay() {
     }
     var vid = document.getElementById('main-video');
     var willPlay = vid.paused;
-    if (willPlay) { vid.play(); } else { vid.pause(); }
+    if (willPlay) { playVideo(vid); } else { vid.pause(); }
     flashPlayState(willPlay);
 }
 
@@ -3835,7 +3932,7 @@ function initContextMenu() {
         if (castMode && _castConnected()) {
             _castSend('media.play', {}); castIsPlaying = true;
             $('#play-icon').attr('src', 'img/icons/pause_white.svg');
-        } else { vid.play(); }
+        } else { playVideo(vid); }
         flashPlayState(true);
         $ctx.hide();
     });
@@ -3883,6 +3980,44 @@ function setRepeatSingle(on) {
         .filter('[data-repeat="' + (repeatSingle ? 'one' : 'off') + '"]').addClass('active');
 }
 
+// Apply a streaming mode. Changing it mid-playback re-opens the current file on
+// the other transport, resuming where the viewer was.
+function applyStreamMode(mode, reloadCurrent) {
+    var previous = getStreamMode();
+    setStreamMode(mode);
+    $('#set-stream-seg .set-seg-btn').removeClass('active')
+        .filter('[data-stream="' + getStreamMode() + '"]').addClass('active');
+
+    if (!reloadCurrent || previous === getStreamMode()) { return; }
+    // Warn only when the viewer actively picks a mode this browser cannot play
+    warnIfStreamModeUnplayable();
+    if (!isTranscodedVideo || playingIndex < 0 || !currentEpisodes[playingIndex]) { return; }
+
+    // Restart the current file on the newly chosen transport, at the same spot
+    var resumeAt = effectivePlaybackTime();
+    transcodeSeekOffset = 0;
+    var vid = document.getElementById('main-video');
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, 0))) {
+        showToast('This browser cannot play the HLS stream.');
+        return;
+    }
+    playVideo(vid);
+    if (resumeAt > 1) { transcodeSeekTo(resumeAt); }
+}
+
+function playerVideoElement() { return document.getElementById('main-video'); }
+
+// Surface the two streaming modes that cannot work on a given browser. Anything
+// that is simply working says nothing at all.
+function warnIfStreamModeUnplayable() {
+    var mode = getStreamMode();
+    if (mode === 'mp4' && isWebKitClient()) {
+        showToast('This browser cannot play the MP4 stream. Use Auto or HLS.');
+    } else if (mode === 'hls' && !hlsPlaybackSupported(playerVideoElement())) {
+        showToast('This browser has no HLS support (needs Media Source Extensions).');
+    }
+}
+
 function setPlaybackSpeed(rate) {
     playbackSpeed = parseFloat(rate) || 1;
     document.getElementById('main-video').playbackRate = playbackSpeed;
@@ -3891,10 +4026,22 @@ function setPlaybackSpeed(rate) {
         .filter('[data-speed="' + playbackSpeed + '"]').addClass('active');
 }
 
+// Snap an arbitrary stored rate onto the nearest preset, so the popup always
+// has exactly one button highlighted. Needed because an earlier build persisted
+// free-form rates from a drag slider.
+function nearestPlaybackSpeed(rate) {
+    var value = parseFloat(rate);
+    if (!value || value <= 0) { return 1; }
+    return PLAYBACK_SPEEDS.reduce(function (best, preset) {
+        return Math.abs(preset - value) < Math.abs(best - value) ? preset : best;
+    }, PLAYBACK_SPEEDS[0]);
+}
+
 function openSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    applyStreamMode(getStreamMode(), false);
     $('#player-ctx').hide();
     $('#settings-popup').addClass('active');
     showControls();
@@ -3930,6 +4077,10 @@ function initSettingsPopup() {
         setAlwaysShowVolumeBar($(this).data('volbar') === 'always');
     });
 
+    $('#set-stream-seg').on('click', '.set-seg-btn', function () {
+        applyStreamMode(String($(this).data('stream')), true);
+    });
+
     $('#set-load-subtitle').on('click',     function () { closeSettingsPopup(); pickSubtitleFile(); });
     $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
     $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
@@ -3938,6 +4089,7 @@ function initSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    applyStreamMode(getStreamMode(), false);
 
     // Changing episode — or a transcode seek — replaces the media source, which
     // resets playbackRate. Reapply the chosen speed every time media loads.
@@ -4847,6 +4999,30 @@ function showToast(msg) {
     clearTimeout(toastTimer);
     $('#toast').text(msg).addClass('show');
     toastTimer = setTimeout(function () { $('#toast').removeClass('show'); }, 2800);
+}
+
+// play() returns a promise that rejects when the browser will not start the
+// media — most commonly NotSupportedError on Safari, which refuses a transcoded
+// stream because the endpoint cannot answer byte-range requests. Left
+// unhandled it only shows up as an unhandled rejection in the console, so the
+// player just sits there with no explanation. Surface it instead.
+function playVideo(v) {
+    var p = v.play();
+    if (p && typeof p.catch === 'function') {
+        p.catch(function (err) {
+            if (err && err.name === 'AbortError') {
+                // Fired whenever a load or a new src interrupts a pending
+                // play() — routine during seek-by-reload, not a failure.
+                return;
+            }
+            if (err && err.name === 'NotSupportedError') {
+                showToast('This browser cannot play this transcoded format. Try Chrome or Firefox.');
+            } else {
+                showToast('Playback failed: ' + ((err && err.message) || 'unknown error'));
+            }
+        });
+    }
+    return p;
 }
 </script>
 </body>

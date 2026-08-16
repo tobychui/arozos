@@ -1,0 +1,116 @@
+/*
+    fs-theme.css
+
+    Shared design tokens for the ArozOS file system web apps (File Manager and
+    File Selector). Only colours live here - no layout, no component rules.
+
+    The tokens are declared on :root rather than on an app specific wrapper so
+    both apps can read them from any element, and the dark palette is switched by
+    the body.darkTheme class that both apps already toggle from the ArozOS system
+    theme preference (file_explorer/theme) via ao_module_onThemeChanged.
+
+    Naming: --fs-<role>. Prefer adding a role over hardcoding a hex value in an
+    app stylesheet, otherwise dark mode silently misses it.
+*/
+
+:root {
+    /* Accent / primary action */
+    --fs-accent: #1a73e8;
+    --fs-accent-soft: #e8f0fe;
+    --fs-accent-strong: #174ea6;
+    --fs-primary-fg: #ffffff;
+    --fs-primary-hover: #1765cc;
+
+    /* Selection highlight. Deliberately light: several selected rows at once
+       must stay readable instead of becoming one solid block of colour. */
+    --fs-selected: #e9f1fe;
+    --fs-selected-hover: #dde9fd;
+    --fs-selected-line: #a8c7fa;
+
+    /* Text */
+    --fs-text: #1f2328;
+    --fs-text-dim: #6b7280;
+    --fs-text-faint: #9aa0a6;
+    --fs-icon: #5f6368;
+
+    /* Lines and fills */
+    --fs-line: #e5e7eb;
+    --fs-line-soft: #f0f1f3;
+    --fs-fill: #f4f5f7;
+    --fs-fill-hover: #eceef1;
+    --fs-fill-active: #e2e5e9;
+
+    /* Surfaces */
+    --fs-bg: #ffffff;
+    --fs-surface: #ffffff;
+    --fs-pill-bg: #fbfbfc;
+    --fs-thumb-bg: #fafbfc;
+    --fs-row-hover: #f7f8fa;
+    --fs-content-bg: #ffffff;
+
+    /* Effects */
+    --fs-shadow: rgba(15, 20, 30, 0.16);
+    --fs-overlay: rgba(255, 255, 255, 0.86);
+
+    /* Toast. Dark in both themes - it sits over the content rather than in it,
+       so it reads as an overlay instead of another panel. */
+    --fs-toast-bg: #32363c;
+    --fs-toast-fg: #f2f3f5;
+    --fs-toast-dim: #b9bec6;
+    --fs-toast-error-bg: #c5221f;
+    --fs-toast-error-fg: #ffffff;
+}
+
+body.darkTheme {
+    /*
+        Dark palette sampled from the design mockup: a cool, slightly blue
+        charcoal rather than neutral grey, with surfaces stepping up from the
+        content area (darkest) through the chrome to cards and menus (lightest).
+        The accent is a brighter sky blue than the light theme's, so it still
+        reads against the dark background.
+    */
+
+    /* Accent / primary action */
+    --fs-accent: #4a9eff;
+    --fs-accent-soft: #1e2d40;
+    --fs-accent-strong: #7db8ff;
+    --fs-primary-fg: #0d1014;
+    --fs-primary-hover: #6bb0ff;
+
+    /* Selection: blue tinted fill with a visible edge */
+    --fs-selected: #17293f;
+    --fs-selected-hover: #1e3450;
+    --fs-selected-line: #4a9eff;
+
+    /* Text */
+    --fs-text: #e6e9ee;
+    --fs-text-dim: #9aa3ae;
+    --fs-text-faint: #6f7883;
+    --fs-icon: #aab3be;
+
+    /* Lines and fills */
+    --fs-line: #272c34;
+    --fs-line-soft: #1e2229;
+    --fs-fill: #21262e;
+    --fs-fill-hover: #2a3039;
+    --fs-fill-active: #333a44;
+
+    /* Surfaces, darkest to lightest */
+    --fs-content-bg: #101317;
+    --fs-bg: #16191f;
+    --fs-surface: #1c2129;
+    --fs-pill-bg: #1c2129;
+    --fs-thumb-bg: #1a1e25;
+    --fs-row-hover: #1f242c;
+
+    /* Effects */
+    --fs-shadow: rgba(0, 0, 0, 0.6);
+    --fs-overlay: rgba(16, 19, 23, 0.9);
+
+    /* A step lighter than the surfaces, so the toast still lifts off a dark UI */
+    --fs-toast-bg: #333b47;
+    --fs-toast-fg: #eef1f5;
+    --fs-toast-dim: #a8b1bd;
+    --fs-toast-error-bg: #b3252a;
+    --fs-toast-error-fg: #ffffff;
+}

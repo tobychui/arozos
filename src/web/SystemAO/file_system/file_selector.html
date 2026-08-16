@@ -10,233 +10,1027 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <!-- File icon / thumbnail logic shared with the File Manager -->
+        <!-- Design tokens and components shared with the File Manager -->
+        <link rel="stylesheet" href="shared/fs-theme.css">
+        <link rel="stylesheet" href="shared/fs-components.css">
+        <script type="text/javascript" src="shared/filethumb.js"></script>
         <style>
-            body{
-                background-color:#f5f5f5 !important;
-            }
-            .navi{
-                padding:8px;
-                background-color:#fcfcfc;
-                border-bottom:2px solid #34b7eb;
-                left:0px;
-                top:0px;
-                margin-top: -0.6em;
-                width:100%;
-                z-index:99;
-                position: fixed;
-            }
-
-            .fileSelectorContainer{
-                width: 100%;
-                vertical-align:top;
-            }
-
-            #sidebar{
-                padding-top: 1em;
-                background-color:#f5f5f5 !important;
-                display: inline-block; 
-                z-index:90 !important; 
-                width:200px;
-                top: 0;
-            }
-
-           #fileListWrapper{
-                display: inline-block; 
-                width: calc(100% - 220px);
-                min-height:300px;
-                vertical-align:top;
-                padding: 1em;
-                background-color: white;
-                border-radius: 12px;
-                margin-bottom: 20px;
-                margin-top: 1em;
-            }
-            .navi .button{
-                box-shadow: 0 1px 1px 0px rgb(190, 190, 190) !important;
-            }
-            .list .item{
-                cursor:pointer;
-            }
-            .list .item:hover{
-                color:#c7c7c7 !important;
-            }
-            .extrapadding{
-                padding-left:6px !important;
-                padding-right:6px !important;
-                color:#676768 !important;
-            }
-            .fileObject{
-                overflow-wrap: break-word !important;
-                display: block !important;
-                padding:12px !important;
-                font-size:98%;
-            }
-            .fileObject .fileInfo{
-                display:inline-block !important;
-                word-break: break-all;
-                text-overflow: ellipsis !important;
+            /*
+                ArozOS File Selector
+                Redesigned dialog shell. Everything in here is scoped under #fsRoot
+                so the Semantic UI base sheet (kept for ao_module compatibility)
+                cannot bleed into the new layout.
+            */
+            html, body{
+                height: 100%;
+                margin: 0;
+                padding: 0;
                 overflow: hidden;
-                color:black;
+                background: #ffffff;
+            }
+            body.darkTheme{ background: #202124; }
+
+            #fsRoot{
+                /* Palette comes from shared/fs-theme.css */
+
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                display: flex;
+                flex-direction: column;
+                background: var(--fs-bg);
+                color: var(--fs-text);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+                font-size: 14px;
+                -webkit-font-smoothing: antialiased;
                 user-select: none;
             }
-            .fileObject.selected{
-                background-color:#d2f2f7 !important;
 
+            #fsRoot *{
+                box-sizing: border-box;
             }
 
-            .fileObject.item:hover{
-                background-color:#f2f2f2;
+            #fsRoot svg{
+                display: block;
+                width: 100%;
+                height: 100%;
             }
 
-            .bordered{
-                border: 1px solid #dedede;
-            }
 
-            #fileListWrapper{
-                width: calc(100% - 220px);
-                min-height: 90vh;
-            }
-
-            @media only screen and (max-width: 560px) {
-                #sidebar{
-                    padding-top: 2em;
-                    background-color:#f5f5f5 !important;
-                    position: fixed;
-                    width:200px; 
-                    height: 100%;
-                    top: 0;
-                    left: 0;
-                    -webkit-box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
-                    -moz-box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
-                    box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
-                }
-
-                .navi{
-                    margin-top: -1em;
-                }
-
-                #fileListWrapper{
-                    width: 100%;
-                }
-
-            }
-
-            .flexContainer{
+            /* ---------- Title bar ---------- */
+            .fsTitlebar{
                 display: flex;
-                flex-wrap:wrap;
-                align-items:flex-start;
-                margin-top:5px;
+                align-items: center;
+                gap: 9px;
+                padding: 10px 12px 6px 14px;
+                flex-shrink: 0;
             }
-            .flexleft {
-                padding-right: 1em;
-                min-width: 200px;
+            .fsTitlebar .fsTitleIcon{
+                width: 20px;
+                height: 20px;
+                color: var(--fs-accent);
+                flex-shrink: 0;
             }
-            .flexright{
-                flex-grow:1;
-                margin-bottom: 0.4em;
-                min-width: 300px;
+            .fsTitlebar .fsTitleText{
+                font-size: 15px;
+                font-weight: 600;
+                flex-grow: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
+            /* ---------- Navigation row ---------- */
+            .fsNav{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 14px 6px 14px;
+                flex-shrink: 0;
+            }
+            .fsNavBtns{
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            .fsNavDivider{
+                width: 1px;
+                height: 18px;
+                background: var(--fs-line);
+                margin: 0 4px;
+            }
+
+
+            .fsPathbar{ flex-grow: 1; }
+            .fsPathbar .fsPathIcon{
+                width: 18px;
+                height: 18px;
+                color: var(--fs-icon);
+                flex-shrink: 0;
+            }
+            .fsCrumbs{
+                display: flex;
+                align-items: center;
+                gap: 2px;
+                flex-grow: 1;
+                min-width: 0;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+            .fsCrumb{
+                padding: 3px 7px;
+                border-radius: 6px;
+                cursor: pointer;
+                color: var(--fs-text);
+                font-size: 14px;
+                max-width: 220px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .fsCrumb:hover{ background: var(--fs-fill); }
+            .fsCrumb.last{ font-weight: 600; }
+            .fsCrumbSep{
+                color: var(--fs-text-faint);
+                font-size: 13px;
+                flex-shrink: 0;
+                pointer-events: none;
+            }
+            .fsCrumbPad{
+                flex-grow: 1;
+                min-width: 14px;
+                align-self: stretch;
+                cursor: text;
+            }
+            #addressbar{
+                display: none;
+                flex-grow: 1;
+                min-width: 0;
+                border: none;
+                outline: none;
+                background: transparent;
+                font-size: 14px;
+                font-family: inherit;
+                color: var(--fs-text);
+                padding: 4px 2px;
+                user-select: text;
+            }
+            .fsPathbar.editing .fsCrumbs{ display: none; }
+            .fsPathbar.editing #addressbar{ display: block; }
+
+            .fsSearch{
+                width: 260px;
+                flex-shrink: 0;
+                padding-right: 10px;
+            }
+            .fsSearch input{
+                flex-grow: 1;
+                min-width: 0;
+                border: none;
+                outline: none;
+                background: transparent;
+                font-size: 14px;
+                font-family: inherit;
+                color: var(--fs-text);
+                user-select: text;
+            }
+            .fsSearch .fsSearchIcon{
+                width: 17px;
+                height: 17px;
+                color: var(--fs-text-dim);
+                flex-shrink: 0;
+            }
+
+            /* ---------- Body ---------- */
+            .fsBody{
+                flex-grow: 1;
+                display: flex;
+                min-height: 0;
+                border-top: 1px solid var(--fs-line);
+            }
+
+            /* ---------- Sidebar ---------- */
+            .fsSidebar{
+                width: 200px;
+                min-width: 200px;
+                padding: 10px 8px 10px 10px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                background: var(--fs-bg);
+                border-right: 1px solid var(--fs-line);
+            }
+            .fsSideTitle{
+                font-size: 12px;
+                color: var(--fs-text-faint);
+                padding: 4px 8px;
+                margin-top: 4px;
+            }
+            .fsSideTitle:first-child{ margin-top: 0; }
+            .fsSideItem{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 5px 8px;
+                border-radius: 7px;
+                cursor: pointer;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+            .fsSideItem:hover{ background: var(--fs-fill); }
+            .fsSideItem.active{ background: var(--fs-accent-soft); color: var(--fs-accent-strong); }
+            .fsSideItem .fsSideIcon{
+                width: 20px;
+                height: 20px;
+                min-width: 20px;
+            }
+            .fsSideItem .fsSideLabel{
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* ---------- Main column ---------- */
+            .fsMain{
+                flex-grow: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+            }
+
+            .fsToolbar{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 7px 12px;
+                flex-shrink: 0;
+                position: relative;
+            }
+            .fsViewToggle{
+                display: flex;
+                background: var(--fs-fill);
+                border-radius: 8px;
+                padding: 2px;
+                gap: 2px;
+            }
+            .fsViewToggle button{
+                width: 30px;
+                height: 26px;
+                border: none;
+                background: transparent;
+                border-radius: 6px;
+                padding: 5px;
+                color: var(--fs-icon);
+                cursor: pointer;
+            }
+            .fsViewToggle button:hover{ background: var(--fs-fill-hover); }
+            .fsViewToggle button.active{
+                background: var(--fs-surface);
+                color: var(--fs-accent);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+            }
+
+            .fsSortPill{
+                height: 32px;
+                border: 1px solid var(--fs-line);
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                padding: 0 3px 0 10px;
+                gap: 3px;
+                background: var(--fs-surface);
+            }
+            .fsSortPill .fsSortLabel{
+                color: var(--fs-text-dim);
+                font-size: 12px;
+                white-space: nowrap;
+            }
+            .fsSortPill select{
+                border: none;
+                outline: none;
+                background: transparent;
+                font-size: 14px;
+                font-family: inherit;
+                color: var(--fs-text);
+                cursor: pointer;
+                padding: 2px 2px;
+                max-width: 130px;
+            }
+            .fsSortDir{
+                width: 28px;
+                height: 28px;
+                min-width: 28px;
+                border: none;
+                background: transparent;
+                border-radius: 6px;
+                padding: 6px;
+                color: var(--fs-icon);
+                cursor: pointer;
+            }
+            .fsSortDir:hover{ background: var(--fs-fill); }
+
+            .fsToolbarSpacer{ flex-grow: 1; }
+
+            .fsMoreBtn{
+                width: 32px;
+                height: 32px;
+                min-width: 32px;
+                border: 1px solid var(--fs-line);
+                background: var(--fs-surface);
+                border-radius: 8px;
+                padding: 7px;
+                color: var(--fs-text);
+                cursor: pointer;
+            }
+            .fsMoreBtn:hover{ background: var(--fs-fill); }
+            .fsMoreBtn.active{ background: var(--fs-accent-soft); color: var(--fs-accent); border-color: transparent; }
+
+
+            /* ---------- Inline rename ---------- */
+            /* Both name labels clip to one line, the editor needs the room back */
+            .fsTileName.editing{
+                overflow: visible;
+                text-overflow: clip;
+            }
+            .fsRowName.editing{
+                flex-grow: 1;
+                min-width: 0;
+                overflow: visible;
+                text-overflow: clip;
+            }
+
+            /* ---------- Content area ---------- */
+            .fsContent{
+                flex-grow: 1;
+                display: flex;
+                min-height: 0;
+            }
+            .fsFiles{
+                flex-grow: 1;
+                overflow: auto;
+                min-width: 0;
+                position: relative;
+            }
+
+            /* List view */
+            .fsListHead{
+                display: flex;
+                align-items: center;
+                padding: 0 14px 0 16px;
+                height: 30px;
+                border-bottom: 1px solid var(--fs-line);
+                position: sticky;
+                top: 0;
+                background: var(--fs-bg);
+                z-index: 5;
+            }
+
+            /*
+                Column geometry is declared on the bare class names so the header
+                cells (.fsCol) and the row cells (.fsCell) get identical boxes and
+                stay vertically aligned with each other.
+            */
+            .colName,
+            .colDate,
+            .colType,
+            .colSize{ padding-right: 10px; }
+            .colName{ flex: 1 1 0%; min-width: 60px; }
+            /*
+                Fixed columns never shrink - fractional shrinking rounds differently
+                in the header and in the rows and drifts them a pixel apart. When the
+                file area gets too narrow a whole column is dropped instead, which
+                keeps every width an exact integer in both containers.
+            */
+            .colDate{ flex: 0 0 210px; }
+            .colType{ flex: 0 0 150px; }
+            .colSize{ flex: 0 0 110px; }
+
+            /* Width driven by the file area itself, not the viewport, because the
+               details pane takes its space away without changing the window size */
+            #fileArea.narrow .colType{ display: none; }
+            #fileArea.verynarrow .colDate{ display: none; }
+
+            .fsListHead .fsCol{
+                font-size: 13px;
+                color: var(--fs-text-dim);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                padding: 0;
+            }
+            /* The hover pill lives on an inner span so it cannot alter the column box */
+            .fsListHead .fsCol .fsColInner{
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 4px 6px;
+                margin-left: -6px;
+                border-radius: 6px;
+                max-width: 100%;
+            }
+            .fsListHead .fsCol .fsColInner:hover{ background: var(--fs-fill); }
+            .fsListHead .fsCol .fsSortMark{
+                width: 11px;
+                height: 11px;
+                min-width: 11px;
+                color: var(--fs-text-dim);
+                visibility: hidden;
+            }
+            .fsListHead .fsCol.sorted .fsSortMark{ visibility: visible; }
+
+            .fsRow{
+                display: flex;
+                align-items: center;
+                padding: 0 14px 0 16px;
+                height: 38px;
+                cursor: pointer;
+                border-bottom: 1px solid var(--fs-line-soft);
+            }
+            .fsRow:hover{ background: var(--fs-row-hover); }
+            /* Light fill plus a thin leading bar, so a run of selected rows stays
+               readable instead of becoming one solid block of colour */
+            .fsRow.selected{
+                background: var(--fs-selected);
+            }
+            .fsRow.selected:hover{ background: var(--fs-selected-hover); }
+            .fsRow.disabledObject{ opacity: 0.45; }
+            .fsRow .fsCell{
+                font-size: 14px;
+                color: var(--fs-text-dim);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .fsRow .fsCell.colName{
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                color: var(--fs-text);
+            }
+            .fsRow .fsCell.colName .fsRowName{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* Grid view */
+            .fsGrid{
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+                gap: 10px;
+                padding: 12px 14px;
+                align-content: start;
+            }
+            .fsTile{
+                border: 1px solid var(--fs-line);
+                border-radius: 10px;
+                padding: 8px;
+                cursor: pointer;
+                background: var(--fs-surface);
+                transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+                min-width: 0;
+            }
+            .fsTile:hover{ box-shadow: 0 2px 10px rgba(15,20,30,0.08); }
+            /* A single soft border rather than the previous double ring */
+            .fsTile.selected{
+                border-color: var(--fs-selected-line);
+                background: var(--fs-selected);
+            }
+            .fsTile.selected:hover{ background: var(--fs-selected-hover); }
+            .fsTile.disabledObject{ opacity: 0.45; }
+            .fsThumb{
+                position: relative;
+                height: 96px;
+                border-radius: 7px;
+                background: var(--fs-thumb-bg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                margin-bottom: 7px;
+            }
+            /*
+                Thumbnails are square while the preview box is landscape, so cover
+                the whole box instead of letterboxing it. Anchoring to the top keeps
+                the head of a document page in frame rather than its middle.
+            */
+            .fsThumb img.fsThumbImg{
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                object-position: center top;
+                display: none;
+                border-radius: 7px;
+            }
+            .fsThumb img.fsThumbImg.loaded{ display: block; }
+            .fsThumb .fsBigIcon{
+                width: 56px;
+                height: 56px;
+            }
+            .fsThumb.hasThumb .fsBigIcon{ display: none; }
+            .fsAppBadge{
+                position: absolute;
+                right: 6px;
+                bottom: 6px;
+                width: 22px;
+                height: 22px;
+                border-radius: 5px;
+                background: var(--fs-surface);
+                box-shadow: 0 1px 4px rgba(15,20,30,0.25);
+                padding: 1px;
+                display: none;
+            }
+            .fsAppBadge img{ width: 100%; height: 100%; object-fit: contain; }
+            .fsTileName{
+                font-size: 13px;
+                color: var(--fs-text);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                margin-bottom: 2px;
+            }
+            .fsTileMeta{
+                font-size: 11px;
+                color: var(--fs-text-faint);
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                min-height: 16px;
+            }
+            .fsTileMeta .fsTileMetaText{
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                flex-grow: 1;
+                line-height: 1.5;
+            }
+            .fsTileMore{
+                width: 20px;
+                height: 20px;
+                min-width: 20px;
+                border: none;
+                background: transparent;
+                border-radius: 5px;
+                padding: 3px;
+                color: var(--fs-text-faint);
+                cursor: pointer;
+            }
+            .fsTileMore:hover{ background: var(--fs-fill); color: var(--fs-text); }
+
+            /* Empty / loading state */
+            .fsPlaceholder{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                color: var(--fs-text-faint);
+                pointer-events: none;
+            }
+            .fsPlaceholder.show{ display: flex; }
+            .fsPlaceholder .fsPlaceholderIcon{
+                width: 42px;
+                height: 42px;
+                opacity: 0.5;
+            }
+
+            /* ---------- Details panel ---------- */
+            .fsDetails{
+                width: 264px;
+                min-width: 264px;
+                border-left: 1px solid var(--fs-line);
+                display: none;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            .fsDetails.open{ display: flex; }
+            .fsDetailsHead{
+                display: flex;
+                align-items: center;
+                padding: 9px 9px 9px 14px;
+                flex-shrink: 0;
+            }
+            .fsDetailsHead .fsDetailsTitle{
+                font-size: 14px;
+                font-weight: 600;
+                flex-grow: 1;
+            }
+            .fsDetailsBody{
+                flex-grow: 1;
+                overflow-y: auto;
+                padding: 2px 14px 14px 14px;
+            }
+            .fsDetailsPreview{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 124px;
+                margin-bottom: 10px;
+                position: relative;
+            }
+            /* The details preview shows the whole image, so it keeps letterboxing */
+            .fsDetailsPreview img.fsThumbImg{
+                max-width: 100%;
+                max-height: 100%;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                display: none;
+                border-radius: 5px;
+                box-shadow: 0 2px 10px rgba(15,20,30,0.2);
+            }
+            .fsDetailsPreview img.fsThumbImg.loaded{ display: block; }
+            .fsDetailsPreview .fsBigIcon{ width: 74px; height: 74px; }
+            .fsDetailsPreview.hasThumb .fsBigIcon{ display: none; }
+            .fsDetailsName{
+                text-align: center;
+                font-size: 14px;
+                font-weight: 600;
+                margin-bottom: 12px;
+                word-break: break-all;
+                user-select: text;
+            }
+            .fsDetailRow{
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 6px 0;
+                border-top: 1px solid var(--fs-line-soft);
+                font-size: 12.5px;
+            }
+            .fsDetailRow .fsDetailKey{
+                color: var(--fs-text-dim);
+                width: 78px;
+                min-width: 78px;
+            }
+            .fsDetailRow .fsDetailVal{
+                flex-grow: 1;
+                color: var(--fs-text);
+                word-break: break-all;
+                user-select: text;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+            }
+            .fsDetailRow .fsDetailVal img.fsOpenerIcon{
+                width: 18px;
+                height: 18px;
+                object-fit: contain;
+                flex-shrink: 0;
+            }
+            .fsDetailsEmpty{
+                text-align: center;
+                color: var(--fs-text-faint);
+                padding-top: 60px;
+                font-size: 13px;
+            }
+
+            /* ---------- Footer ---------- */
+            .fsFooter{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 14px;
+                border-top: 1px solid var(--fs-line);
+                flex-shrink: 0;
+                flex-wrap: wrap;
+            }
+            .fsFooterLabel{
+                font-size: 14px;
+                color: var(--fs-text);
+                white-space: nowrap;
+            }
+            .fsFooter #filename{
+                flex-grow: 1;
+                min-width: 120px;
+                height: 34px;
+                border: 1px solid var(--fs-line);
+                border-radius: 8px;
+                padding: 0 10px;
+                font-size: 14px;
+                font-family: inherit;
+                color: var(--fs-text);
+                outline: none;
+                background: var(--fs-surface);
+                user-select: text;
+            }
+            .fsFooter #filename:focus{ border-color: var(--fs-accent); }
+            .fsFooter #filterSelect{
+                height: 34px;
+                min-width: 132px;
+                max-width: 190px;
+                border: 1px solid var(--fs-line);
+                border-radius: 8px;
+                padding: 0 6px 0 10px;
+                font-size: 14px;
+                font-family: inherit;
+                color: var(--fs-text);
+                background: var(--fs-surface);
+                outline: none;
+                cursor: pointer;
+            }
+
+            /* ---------- Sidebar overlay (narrow windows) ---------- */
+            .fsScrim{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(15,20,30,0.25);
+                z-index: 190;
+                display: none;
+            }
+            .fsScrim.show{ display: block; }
+
+            #sidebarToggleBtn{ display: none; }
+
+            /* Hide the details pane and search box when there is no room for them */
+            @media only screen and (max-width: 900px){
+                .fsSearch{ width: 180px; }
+                .fsDetails{ display: none !important; }
+            }
+            @media only screen and (max-width: 820px){
+                /* Drop the label before the footer controls are forced to wrap */
+                .fsFooterLabel{ display: none; }
+            }
+            @media only screen and (max-width: 720px){
+                .fsSearch{ display: none; }
+            }
+            @media only screen and (max-width: 560px){
+                #sidebarToggleBtn{ display: block; }
+                .fsSidebar{
+                    position: absolute;
+                    z-index: 200;
+                    top: 0;
+                    bottom: 0;
+                    left: 0;
+                    box-shadow: 6px 0 24px rgba(15,20,30,0.18);
+                    display: none;
+                }
+                .fsSidebar.open{ display: block; }
+                .fsFooter{ padding: 10px 12px; gap: 8px; }
+                .fsBtn{ min-width: 78px; padding: 0 12px; }
+                .fsListHead{ padding-left: 14px; padding-right: 12px; }
+                .fsRow{ padding-left: 14px; padding-right: 12px; }
+            }
+
+            /* ---------- Dark theme ---------- */
+            /* Palette lives in shared/fs-theme.css, keyed on body.darkTheme. */
+            body.darkTheme #fsRoot .fsViewToggle button.active{ box-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+            body.darkTheme #fsRoot .fsTile:hover{ box-shadow: 0 2px 10px rgba(0,0,0,0.45); }
+
+            /* ---------- Blocking loader (selection hand-off) ---------- */
+            #waitloader{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: var(--fs-overlay);
+                z-index: 900;
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 14px;
+                color: var(--fs-text-dim);
+                text-align: center;
+                padding: 20px;
+            }
+            #waitloader.show{ display: flex; }
         </style>
     </head>
     <body>
-        <div class="navi">
-            <div class="flexContainer">
-                <div class="flexleft">
-                    <button id="sidebarToggleBtn" class="ui icon small button" onclick="$('#sidebar').toggle();"><i class="content icon"></i></button>
-                    <button title="Back" class="ui icon small button" onclick="backDir();"><i class="arrow left icon"></i></button>
-                    <button title="Parent" class="ui icon small button" onclick="parentDir();"><i class="arrow up icon"></i></button>
-                    <button title="Refresh" class="ui icon small button" onclick="refresh();"><i class="refresh icon"></i></button>
-                    <button title="New Folder" class="ui icon small button" onclick="newFolder();"><i class="folder icon"></i></button>
+        <div id="fsRoot">
+            <!-- Title bar (shown only outside the ArozOS float window, which draws its own) -->
+            <div class="fsTitlebar" id="fsTitlebar">
+                <div class="fsTitleIcon" id="fsTitleIcon"></div>
+                <div class="fsTitleText" locale="title">File Selector</div>
+                <button class="fsCloseBtn" id="fsCloseBtn" title="Close" onclick="closeSelector();"></button>
+            </div>
+
+            <!-- Navigation -->
+            <div class="fsNav">
+                <div class="fsNavBtns">
+                    <button id="sidebarToggleBtn" class="fsIconBtn" title="Menu" onclick="toggleSidebar();"></button>
+                    <button id="backBtn" class="fsIconBtn" title="Back" onclick="backDir();"></button>
+                    <button id="forwardBtn" class="fsIconBtn" title="Forward" onclick="forwardDir();"></button>
+                    <div class="fsNavDivider"></div>
+                    <button id="upBtn" class="fsIconBtn" title="Parent" onclick="parentDir();"></button>
                 </div>
-                <div class="flexright">
-                    <div class="ui action fluid tiny input" style="height: 34px; margin-top: 0.4em;">
-                        <input id="addressbar" type="text" placeholder="" onchange="updatePath();">
-                        <button class="ui positive icon button" onclick="confirmSelection();"><i class="checkmark icon"></i></button>
-                    </div>
-                    
-                    <div id="newfilenameInput" style="height: 34px; margin-top: 0.4em;">
-                        <div class="ui fluid tiny input">
-                            <input id="filename" type="text" placeholder="New Filename">
-                        </div>
-                    </div>
-        
-                    <div id="newFolderInput" style="height: 34px; margin-top: 0.6em; display:none;">
-                        <div class="ui fluid action tiny input">
-                            <input id="foldername" type="text" placeholder="New Folder" value="">
-                            <button class="ui icon button" onclick="createFolder()" title="Create Folder"><i class="add icon"></i></button>
-                        </div>
-                    </div>
+                <div class="fsPill fsPathbar" id="pathbar" onclick="onPathbarClick(event);">
+                    <div class="fsPathIcon" id="pathIcon"></div>
+                    <div class="fsCrumbs" id="breadcrumb"></div>
+                    <input id="addressbar" type="text" spellcheck="false" autocomplete="off">
+                    <button class="fsIconBtn" id="refreshBtn" title="Refresh" style="width:30px;height:30px;min-width:30px;padding:7px;background:transparent;" onclick="event.stopPropagation();refresh();"></button>
+                </div>
+                <div class="fsPill fsSearch">
+                    <input id="searchInput" type="text" spellcheck="false" autocomplete="off" placeholder="Search">
+                    <div class="fsSearchIcon" id="searchIcon"></div>
                 </div>
             </div>
-            
-          
-          
-        </div>
-        <div class="fileSelectorContainer">
-            <!-- Sidebar -->
-            <div id="sidebar" style="padding-left: 0.6em;">
-                <div class="contents">
-                    <div class="ui accordion">
-                        <div class="title active">
-                            <i class="dropdown icon"></i> 
-                            <span locale="roots/user">User</span>
+
+            <!-- Body -->
+            <div class="fsBody">
+                <div class="fsScrim" id="sidebarScrim" onclick="toggleSidebar();"></div>
+                <div class="fsSidebar" id="sidebar">
+                    <div class="fsSideTitle" locale="sidebar/quickaccess">Quick Access</div>
+                    <div id="userlist"></div>
+                    <div class="fsSideTitle" locale="sidebar/devices">Devices</div>
+                    <div id="storagelist"></div>
+                </div>
+
+                <div class="fsMain">
+                    <div class="fsToolbar">
+                        <div class="fsViewToggle">
+                            <button id="viewListBtn" title="List View" onclick="setViewMode('list');"></button>
+                            <button id="viewGridBtn" title="Grid View" onclick="setViewMode('grid');"></button>
                         </div>
-                        <div class="active content" style="padding-left: 1em; padding-bottom: 0.5em;">
-                            <div class="ui list" id="userlist"></div>
+                        <div class="fsSortPill">
+                            <span class="fsSortLabel" locale="toolbar/sort">Sort:</span>
+                            <select id="sortSelect" onchange="setSortField(this.value);">
+                                <option value="name" locale="sort/name">Name</option>
+                                <option value="date" locale="sort/date">Date Modified</option>
+                                <option value="type" locale="sort/type">Type</option>
+                                <option value="size" locale="sort/size">Size</option>
+                            </select>
+                            <button class="fsSortDir" id="sortDirBtn" title="Sort Direction" onclick="toggleSortDirection();"></button>
                         </div>
-                    </div >
-                    <div class="ui accordion">
-                        <div class="title active">
-                            <i class="dropdown icon"></i>
-                            <span locale="roots/storage">Storage</span>
+                        <div class="fsToolbarSpacer"></div>
+                        <button class="fsMoreBtn" id="moreBtn" title="More Options" onclick="toggleMoreMenu(event);"></button>
+                        <div class="fsMenu" id="moreMenu" style="right: 14px; top: 50px;">
+                            <div class="fsMenuItem" onclick="menuNewFolder();">
+                                <span class="fsMenuIcon" data-icon="folderPlus"></span>
+                                <span locale="menu/newfolder">New Folder</span>
+                            </div>
+                            <div class="fsMenuSep"></div>
+                            <div class="fsMenuItem" id="menuDetails" onclick="toggleDetailsPanel();">
+                                <span class="fsMenuIcon" data-icon="info"></span>
+                                <span locale="menu/details">Details Pane</span>
+                                <span class="fsMenuCheck" data-icon="check"></span>
+                            </div>
+                            <div class="fsMenuItem" id="menuHidden" onclick="toggleHiddenFiles();">
+                                <span class="fsMenuIcon" data-icon="eye"></span>
+                                <span locale="menu/hidden">Show Hidden Files</span>
+                                <span class="fsMenuCheck" data-icon="check"></span>
+                            </div>
                         </div>
-                        <div class="active content">
-                            <div id="storagelist" class="ui list" style="padding-left: 1em; padding-bottom: 0.5em;" >
+                    </div>
+
+                    <div class="fsContent">
+                        <div class="fsFiles" id="fileArea">
+                            <div class="fsPlaceholder" id="loadingPlaceholder">
+                                <div class="fsSpinner"></div>
+                                <div locale="message/loading">Loading</div>
+                            </div>
+                            <div class="fsPlaceholder" id="emptyPlaceholder">
+                                <div class="fsPlaceholderIcon" data-icon="folderOpen"></div>
+                                <div locale="message/nofile">No file</div>
+                            </div>
+                        </div>
+
+                        <div class="fsDetails" id="detailsPanel">
+                            <div class="fsDetailsHead">
+                                <div class="fsDetailsTitle" locale="details/title">Details</div>
+                                <button class="fsCloseBtn" onclick="toggleDetailsPanel();" title="Close"></button>
+                            </div>
+                            <div class="fsDetailsBody" id="detailsBody">
+                                <div class="fsDetailsEmpty" locale="details/empty">Select an item to see its details</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Folder List -->
-            <div id="fileListWrapper" class="fileListWrapper">
-                <div id="folderList" class="ui relaxed divided fluid list bordered whiteTheme">
-                    <div class="fileObject">
-                        <span class="fileInfo"><i class="loading spinner icon" style="margin-right:12px;"></i>  <span locale="message/loading">Loading</span></span>
-                    </div>
-                </div>
-                <div id="fileList" class="ui relaxed divided list bordered whiteTheme">
-                  
-                </div>
-                <div id="nofilesCheckmark" style="width: 100%; margin-top: calc(150px - 2em); text-align:center; opacity: 0.6; display:none; pointer-events: none; user-select: none;">
-                     <p><i class="grey folder open icon"></i> <span locale="message/nofile">No file</span></p>
-                </div>
+            <!-- Footer -->
+            <div class="fsFooter">
+                <span class="fsFooterLabel" id="filenameLabel" locale="footer/filename">File name(N):</span>
+                <input id="filename" type="text" spellcheck="false" autocomplete="off" placeholder="New Filename">
+                <select id="filterSelect" onchange="renderFileList();"></select>
+                <button class="fsBtn" onclick="closeSelector();" locale="footer/cancel">Cancel</button>
+                <button class="fsBtn primary" id="confirmBtn" onclick="confirmSelection();" locale="footer/open">Open</button>
+            </div>
+
+            <!-- Right click menu, contents are rebuilt per target -->
+            <div class="fsMenu fsContextMenu" id="contextMenu"></div>
+
+            <div id="waitloader">
+                <div class="fsSpinner"></div>
+                <div id="waitloadertext" locale="message/waitingResp">Waiting Response</div>
             </div>
         </div>
-    
-        <div id="waitloader" class="ui active dimmer" style="display:none; z-index:999;">
-            <div id="waitloadertext" class="ui indeterminate text loader" locale="message/waitingResp">Waiting Response</div>
-        </div>
+
         <script>
+            /*
+                file_selector.html
+
+                Launch parameters are passed in the URL hash as a JSON object, see
+                ao_module_openFileSelector() in /script/ao_module.js:
+
+                {
+                    root: "user:/",             //Initial directory
+                    type: "file" | "folder" | "new",
+                    allowMultiple: false,
+                    listenerUUID: "",           //localStorage key used outside the virtual desktop
+                    options: {
+                        defaultName: "newfile.txt",
+                        filter: ["mp3","flac"]  //Extension whitelist, no leading dot
+                    }
+                }
+
+                The result is handed back either through the float window parent callback
+                (inside the ArozOS desktop) or through localStorage[listenerUUID].
+            */
+
+            /* ------------------------------------------------------------------ */
+            /*  State                                                              */
+            /* ------------------------------------------------------------------ */
             var multiSelect = false;
             var type = "file";
             var currentDir = "user:/";
-            var currentFileList = [];
-            var pathHistory = [];
+            var currentFileList = [];       //Raw listDir response for the current directory
+            var renderedFileList = [];      //Filtered + sorted list currently on screen
+            var pathHistory = [];           //Visited directories, index based for back/forward
+            var historyIndex = -1;
             var ctrlDown = false;
             var shiftDown = false;
             var lastClickedItemID = 0;
             var listenerUUID = "";
             var fileOptions = {};
 
-            //$('.ui.accordion').accordion();
+            var viewMode = "list";          //"list" or "grid"
+            var sortField = "name";         //name | date | type | size
+            var sortAscending = true;
+            var showHidden = false;
+            var detailsOpen = false;
+            var searchKeyword = "";
+            var selectionConfirmed = false;
+
+            var rootNameMap = {};           //"user:/" -> "User"
+            var thumbLoader = null;         //Handle from FileThumb.loadThumbnails, cancel on navigation
+
+            /* ------------------------------------------------------------------ */
+            /*  Icons                                                              */
+            /* ------------------------------------------------------------------ */
+            /*
+                Inline SVG only. See CLAUDE.md rule 6 - no emoji anywhere in the
+                program; app specific glyphs are drawn locally.
+            */
+            var STROKE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+            var ICONS = {
+                back:       STROKE + '<path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+                forward:    STROKE + '<path d="M5 12h14M12 5l7 7-7 7"/></svg>',
+                up:         STROKE + '<path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+                menu:       STROKE + '<path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+                refresh:    STROKE + '<path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 4v5h-5"/></svg>',
+                search:     STROKE + '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>',
+                close:      STROKE + '<path d="M18 6L6 18M6 6l12 12"/></svg>',
+                viewList:   STROKE + '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+                viewGrid:   STROKE + '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+                more:       STROKE + '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>',
+                arrowUp:    STROKE + '<path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+                arrowDown:  STROKE + '<path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+                check:      STROKE + '<path d="M20 6L9 17l-5-5"/></svg>',
+                info:       STROKE + '<circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>',
+                eye:        STROKE + '<path d="M1.8 12S5.4 5 12 5s10.2 7 10.2 7-3.6 7-10.2 7S1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+                folderPlus: STROKE + '<path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 12v5M9.5 14.5h5"/></svg>',
+                open:       STROKE + '<path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+                externalLink: STROKE + '<path d="M15 3h6v6"/><path d="M10.5 13.5L21 3"/><path d="M18 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.5"/></svg>',
+                pencil:     STROKE + '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+                folderOpen: STROKE + '<path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+                clock:      STROKE + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>',
+                download:   STROKE + '<path d="M12 3v12M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>',
+                document:   STROKE + '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+                globe:      STROKE + '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>',
+                cube:       STROKE + '<path d="M12 2.8l8 4.4v9.6l-8 4.4-8-4.4V7.2z"/><path d="M4 7.2l8 4.4 8-4.4M12 21.2v-9.6"/></svg>',
+                code:       STROKE + '<path d="M9 18l-6-6 6-6M15 6l6 6-6 6"/></svg>',
+                trash:      STROKE + '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13"/></svg>',
+                drive:      STROKE + '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M6.5 15h6"/><circle cx="17.5" cy="15" r="1"/></svg>',
+                folderSide: STROKE + '<path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+
+                /* Filled sidebar glyphs, matching the coloured tiles in the design */
+                desktop:    '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="4" width="19" height="13" rx="2.5"/><path d="M8 20.5h8a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2z"/></svg>',
+                image:      '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="4" width="19" height="16" rx="3"/><circle cx="8.6" cy="9.4" r="1.8" fill="#ffffff"/><path d="M4.2 18.6l4.6-5.1 3.1 3.3 3-3.4 4.9 5.2z" fill="#ffffff"/></svg>',
+                video:      '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M6.4 4v16M17.6 4v16" stroke="#ffffff" stroke-width="1.4"/><path d="M2.5 12h19" stroke="#ffffff" stroke-width="1.4"/></svg>',
+                music:      '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 3.4v11.2a3.4 3.4 0 1 1-2-3.1V7.3l-7 1.5v8.8a3.4 3.4 0 1 1-2-3.1V6.4z"/></svg>'
+            };
+
+            /* ------------------------------------------------------------------ */
+            /*  File type helpers                                                  */
+            /* ------------------------------------------------------------------ */
+            /*
+                Icon drawing, thumbnail streaming and the default-opener lookup are
+                shared with the File Manager and live in shared/filethumb.js, so both
+                apps render a file the same way. These thin aliases keep the call
+                sites below short.
+            */
+            var folderGlyph = FileThumb.folderGlyph;
+            var getExt       = FileThumb.getExt;
+            var escapeHTML   = FileThumb.escapeHTML;
+            var formatBytes  = FileThumb.formatBytes;
+            var formatTimestamp = FileThumb.formatTimestamp;
+            var smallGlyph   = FileThumb.smallGlyph;
+            var largeGlyph   = FileThumb.largeGlyph;
+
+            function getCategoryColor(ext){
+                return FileThumb.getCategoryColor(ext);
+            }
+
+            function getTypeName(filename, isDir){
+                return FileThumb.getTypeName(filename, isDir, function(key, fallback){
+                    return applocale.getString(key, fallback);
+                });
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Boot                                                               */
+            /* ------------------------------------------------------------------ */
+            injectStaticIcons();
+            initTheme();
 
             if (applocale){
                 //Applocale found. Do localization
                 applocale.init("../locale/file_selector.json", function(){
                     applocale.translate();
+                    captureLocalizedTemplates();
                     initRoots();
+                    initSelectorObject();
                 });
             }else{
                 //Applocale not found. Is this a trim down version of ArozOS?
@@ -245,67 +1039,969 @@
                         return original;
                     }
                 }
+                captureLocalizedTemplates();
                 initRoots();
+                initSelectorObject();
             }
 
-            initSelectorObject();
-            updateWindowResize();
+            //Put the inline SVG markup into every static icon slot
+            function injectStaticIcons(){
+                $("#fsTitleIcon").html(ICONS.folderSide);
+                $("#fsCloseBtn").html(ICONS.close);
+                $("#sidebarToggleBtn").html(ICONS.menu);
+                $("#backBtn").html(ICONS.back);
+                $("#forwardBtn").html(ICONS.forward);
+                $("#upBtn").html(ICONS.up);
+                $("#refreshBtn").html(ICONS.refresh);
+                $("#pathIcon").html(ICONS.folderSide);
+                $("#searchIcon").html(ICONS.search);
+                $("#viewListBtn").html(ICONS.viewList);
+                $("#viewGridBtn").html(ICONS.viewGrid);
+                $("#moreBtn").html(ICONS.more);
+                $("#sortDirBtn").html(ICONS.arrowUp);
+                $(".fsDetailsHead .fsCloseBtn").html(ICONS.close);
+                $("[data-icon]").each(function(){
+                    var iconName = $(this).attr("data-icon");
+                    if (ICONS[iconName] != undefined){
+                        $(this).html(ICONS[iconName]);
+                    }
+                });
+            }
+
+            /*
+                applocale.getString() ignores its "type" argument and always reads
+                from the "strings" table, so placeholder and title values can only be
+                localized through applocale.translate() rewriting the attribute.
+                Snapshot the translated search placeholder here and reuse it as the
+                template for "Search <foldername>".
+            */
+            var searchPlaceholderTemplate = "Search";
+            function captureLocalizedTemplates(){
+                searchPlaceholderTemplate = $("#searchInput").attr("placeholder") || "Search";
+            }
 
             function initSelectorObject(){
                 var initInfo = loadSelectorInfoFromHash();
-                //Load the initiation directory
-                listDir(initInfo.root);
+
                 //init global var
                 type = initInfo.type;
                 multiSelect = initInfo.allowMultiple;
                 listenerUUID = initInfo.listenerUUID;
-                if (initInfo.options != undefined){
+                if (initInfo.options != undefined && initInfo.options != null){
                     fileOptions = JSON.parse(JSON.stringify(initInfo.options));
                 }
-                
-                
+
+                //The ArozOS float window already renders a title bar and a close
+                //button, so the built-in one is only needed in standalone windows
+                if (ao_module_virtualDesktop){
+                    $("#fsTitlebar").hide();
+                }
+
                 //Load options and parse the UI
                 if (type == "new"){
-                    //Resize the top bar
-                    updateUIElements();
                     if (typeof(fileOptions.defaultName) != "undefined"){
                         $("#filename").val(fileOptions.defaultName);
                     }else{
                         $("#filename").val("newfile.txt");
                     }
-
-                }else{
-                    $("#newfilenameInput").hide();
+                }else if (type == "folder"){
+                    //A filename has no meaning when picking a folder
+                    $("#filename").hide();
+                    $("#filenameLabel").hide();
                 }
 
-               
-            
+                buildFilterOptions();
+                restoreViewPreferences(function(){
+                    //Load the initiation directory
+                    listDir(initInfo.root, true);
+                });
             }
 
-            function cancelSelection(){
-                localStorage.setItem(listenerUUID, JSON.stringify("&&selection_canceled&&"));
+            function loadSelectorInfoFromHash(){
+                var fallback = {
+                    root: "user:/",
+                    type: "file",
+                    allowMultiple: false
+                };
+                if (window.location.hash.length == 0){
+                    return fallback;
+                }
+                try{
+                    var selectInfo = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
+                    if (selectInfo.root == undefined){
+                        selectInfo.root = fallback.root;
+                    }
+                    if (selectInfo.type == undefined){
+                        selectInfo.type = fallback.type;
+                    }
+                    return selectInfo;
+                }catch(ex){
+                    //Error parsing the input. Use default settings
+                    return fallback;
+                }
+            }
+
+            //The caller supplied extension whitelist is a hard constraint, so when one
+            //is given it is the only entry in the dropdown
+            function buildFilterOptions(){
+                var select = $("#filterSelect");
+                select.html("");
+                if (fileOptions.filter != undefined && fileOptions.filter.length > 0){
+                    var patterns = [];
+                    for (var i = 0; i < fileOptions.filter.length; i++){
+                        patterns.push("*." + fileOptions.filter[i]);
+                    }
+                    select.append('<option value="filtered">' +
+                        escapeHTML(applocale.getString("footer/supportedfiles", "Supported Files") + " (" + patterns.join(", ") + ")") +
+                        '</option>');
+                }else{
+                    select.append('<option value="all">' +
+                        escapeHTML(applocale.getString("footer/allfiles", "All Files") + " (*.*)") +
+                        '</option>');
+                }
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Theme                                                              */
+            /* ------------------------------------------------------------------ */
+            /*
+                The ArozOS system theme preference (file_explorer/theme) wins when it
+                is set. With no stored preference the dialog follows the operating
+                system setting instead. Live switches - the desktop start menu toggle,
+                or another tab flipping the theme - arrive via ao_module_onThemeChanged.
+            */
+            var hasStoredThemePreference = false;
+
+            function applyTheme(theme){
+                var isDark = (theme == "dark" || theme == "darkTheme");
+                $("body").toggleClass("darkTheme", isDark);
+                $("body").toggleClass("whiteTheme", !isDark);
+                //Keep the float window frame in step with the dialog contents
+                // ao_module_setWindowTheme(isDark ? "dark" : "white");
+            }
+
+            function osPrefersDark(){
+                return window.matchMedia != undefined && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            }
+
+            function initTheme(){
+                //Paint from the OS setting first so there is no light flash while
+                //the stored preference is still being fetched
+                applyTheme(osPrefersDark() ? "dark" : "light");
+
+                if (typeof ao_module_getSystemThemeColor == "function"){
+                    ao_module_getSystemThemeColor(function(pref){
+                        if (pref == "darkTheme" || pref == "whiteTheme"){
+                            hasStoredThemePreference = true;
+                            applyTheme(pref == "darkTheme" ? "dark" : "light");
+                        }else{
+                            //Key not found, stay on the operating system setting
+                            hasStoredThemePreference = false;
+                        }
+                    });
+                }
+
+                //Desktop start menu toggle and cross-tab switches
+                if (typeof ao_module_onThemeChanged == "function"){
+                    ao_module_onThemeChanged(function(theme){
+                        hasStoredThemePreference = true;
+                        applyTheme(theme);
+                    });
+                }
+
+                //Only follow the OS while the user has not pinned a theme in ArozOS
+                if (window.matchMedia != undefined){
+                    var query = window.matchMedia("(prefers-color-scheme: dark)");
+                    var onOSThemeChange = function(event){
+                        if (!hasStoredThemePreference){
+                            applyTheme(event.matches ? "dark" : "light");
+                        }
+                    };
+                    if (query.addEventListener != undefined){
+                        query.addEventListener("change", onOSThemeChange);
+                    }else if (query.addListener != undefined){
+                        //Safari below 14 and older WebKit builds
+                        query.addListener(onOSThemeChange);
+                    }
+                }
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  View preferences                                                   */
+            /* ------------------------------------------------------------------ */
+            function restoreViewPreferences(callback){
+                $.ajax({
+                    url: "../../system/file_system/preference",
+                    data: {key: "file_selector/view"},
+                    success: function(data){
+                        try{
+                            if (typeof data == "string" && data != ""){
+                                var pref = JSON.parse(data);
+                                if (pref.viewMode == "grid" || pref.viewMode == "list"){
+                                    viewMode = pref.viewMode;
+                                }
+                                if (pref.sortField != undefined){
+                                    sortField = pref.sortField;
+                                }
+                                if (pref.sortAscending != undefined){
+                                    sortAscending = pref.sortAscending;
+                                }
+                                if (pref.detailsOpen != undefined){
+                                    detailsOpen = pref.detailsOpen;
+                                }
+                                if (pref.showHidden != undefined){
+                                    showHidden = pref.showHidden;
+                                }
+                            }
+                        }catch(ex){
+                            //Corrupted preference. Ignore and use the defaults
+                        }
+                        applyViewPreferences();
+                        callback();
+                    },
+                    error: function(){
+                        applyViewPreferences();
+                        callback();
+                    }
+                });
+            }
+
+            function saveViewPreferences(){
+                var pref = {
+                    viewMode: viewMode,
+                    sortField: sortField,
+                    sortAscending: sortAscending,
+                    detailsOpen: detailsOpen,
+                    showHidden: showHidden
+                };
+                $.ajax({
+                    url: "../../system/file_system/preference",
+                    data: {key: "file_selector/view", value: JSON.stringify(pref)}
+                });
+            }
+
+            //Reflect the current preference values onto the toolbar controls
+            function applyViewPreferences(){
+                $("#viewListBtn").toggleClass("active", viewMode == "list");
+                $("#viewGridBtn").toggleClass("active", viewMode == "grid");
+                $("#sortSelect").val(sortField);
+                $("#sortDirBtn").html(sortAscending ? ICONS.arrowUp : ICONS.arrowDown);
+                $("#detailsPanel").toggleClass("open", detailsOpen);
+                $("#menuDetails").toggleClass("checked", detailsOpen);
+                $("#menuHidden").toggleClass("checked", showHidden);
+            }
+
+            function setViewMode(mode){
+                if (viewMode == mode){
+                    return;
+                }
+                viewMode = mode;
+                applyViewPreferences();
+                saveViewPreferences();
+                renderFileList();
+            }
+
+            function setSortField(field){
+                sortField = field;
+                saveViewPreferences();
+                renderFileList();
+            }
+
+            function toggleSortDirection(){
+                sortAscending = !sortAscending;
+                applyViewPreferences();
+                saveViewPreferences();
+                renderFileList();
+            }
+
+            function toggleDetailsPanel(){
+                detailsOpen = !detailsOpen;
+                applyViewPreferences();
+                saveViewPreferences();
+                closeMoreMenu();
+                updateFileAreaDensity();
+                if (detailsOpen){
+                    updateDetailsPanel();
+                }
+            }
+
+            function toggleHiddenFiles(){
+                showHidden = !showHidden;
+                applyViewPreferences();
+                saveViewPreferences();
+                closeMoreMenu();
+                refresh();
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Directory listing                                                  */
+            /* ------------------------------------------------------------------ */
+            function listDir(dir, pushHistory){
+                if (pushHistory === undefined){
+                    pushHistory = true;
+                }
+                currentDir = dir;
+                if (pushHistory){
+                    //Drop anything ahead of the cursor before appending, so that
+                    //navigating after going back rewrites the forward stack
+                    pathHistory = pathHistory.slice(0, historyIndex + 1);
+                    pathHistory.push(dir);
+                    historyIndex = pathHistory.length - 1;
+                }
+                updateNavButtons();
+                $("#addressbar").val(currentDir);
+                renderBreadcrumb();
+                updateSidebarActiveItem();
+                $("#searchInput").val("");
+                searchKeyword = "";
+                updateSearchPlaceholder();
+                setWindowTitleForSelection(0);
+
+                //Stop any in-flight thumbnail stream from the previous directory
+                if (thumbLoader != null){
+                    thumbLoader.cancel();
+                    thumbLoader = null;
+                }
+
+                //Any editor still on screen belongs to the outgoing listing
+                inlineEditActive = false;
+                closeActiveInlineEdit = null;
+                closeContextMenu();
+
+                $("#fileArea").find(".fsListHead, .fsRow, .fsGrid").remove();
+                $("#emptyPlaceholder").removeClass("show");
+                $("#loadingPlaceholder").addClass("show");
+                clearDetails();
+
+                $.ajax({
+                    url: "../../system/file_system/listDir",
+                    data: {dir: dir, sort: "default", showHidden: showHidden ? "true" : "false"},
+                    success: function(data){
+                        $("#loadingPlaceholder").removeClass("show");
+                        if (data == null){
+                            currentFileList = [];
+                            renderFileList();
+                            return;
+                        }
+                        if (data.error !== undefined){
+                            //Load the index instead
+                            if (dir != "user:/"){
+                                listDir("user:/", false);
+                            }else{
+                                currentFileList = [];
+                                renderFileList();
+                            }
+                            return;
+                        }
+                        currentFileList = data;
+                        renderFileList();
+                    },
+                    error: function(){
+                        $("#loadingPlaceholder").removeClass("show");
+                        currentFileList = [];
+                        renderFileList();
+                    }
+                });
+            }
+
+            function refresh(){
+                listDir(currentDir, false);
+            }
+
+            function updatePath(){
+                var newDir = $("#addressbar").val();
+                $("#pathbar").removeClass("editing");
+                if (newDir != "" && newDir != currentDir){
+                    listDir(newDir);
+                }else{
+                    renderBreadcrumb();
+                }
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Filtering, sorting and rendering                                   */
+            /* ------------------------------------------------------------------ */
+            function passesExtensionFilter(fileObject){
+                if (fileObject.IsDir){
+                    return true;
+                }
+                if (fileOptions.filter == undefined || fileOptions.filter.length == 0){
+                    return true;
+                }
+                var ext = getExt(fileObject.Filename);
+                for (var i = 0; i < fileOptions.filter.length; i++){
+                    if (String(fileOptions.filter[i]).toLowerCase().replace(/^\./, "") == ext){
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function sortFileObjects(list){
+                var direction = sortAscending ? 1 : -1;
+                list.sort(function(a, b){
+                    //Folders always lead, regardless of the sort direction
+                    if (a.IsDir != b.IsDir){
+                        return a.IsDir ? -1 : 1;
+                    }
+                    var result = 0;
+                    if (sortField == "date"){
+                        result = (a.ModTime || 0) - (b.ModTime || 0);
+                    }else if (sortField == "size"){
+                        result = (a.Filesize || 0) - (b.Filesize || 0);
+                    }else if (sortField == "type"){
+                        result = getExt(a.Filename).localeCompare(getExt(b.Filename));
+                    }
+                    if (result == 0){
+                        result = a.Filename.toLowerCase().localeCompare(b.Filename.toLowerCase());
+                        //A name tie-break stays ascending so equal keys read naturally
+                        return sortField == "name" ? result * direction : result;
+                    }
+                    return result * direction;
+                });
+                return list;
+            }
+
+            function renderFileList(){
+                var list = [];
+                for (var i = 0; i < currentFileList.length; i++){
+                    var fileObject = currentFileList[i];
+                    if (!passesExtensionFilter(fileObject)){
+                        continue;
+                    }
+                    if (searchKeyword != "" && fileObject.Filename.toLowerCase().indexOf(searchKeyword) < 0){
+                        continue;
+                    }
+                    list.push(fileObject);
+                }
+                renderedFileList = sortFileObjects(list);
+
+                $("#fileArea").find(".fsListHead, .fsRow, .fsGrid").remove();
+                if (renderedFileList.length == 0){
+                    $("#emptyPlaceholder").addClass("show");
+                    setWindowTitleForSelection(0);
+                    clearDetails();
+                    return;
+                }
+                $("#emptyPlaceholder").removeClass("show");
+
+                if (viewMode == "list"){
+                    renderListView();
+                }else{
+                    renderGridView();
+                }
+
+                if (viewMode == "grid"){
+                    startThumbnailLoader();
+                }
+                updateFileAreaDensity();
+                setWindowTitleForSelection(0);
+                runPostRenderActions();
+            }
+
+            /*
+                A create or rename finishes with a directory reload, so the follow up
+                work has to wait until the new listing has been painted.
+            */
+            var pendingSelectAfterRender = null;
+
+            function runPostRenderActions(){
+                if (pendingSelectAfterRender != null){
+                    var toSelect = pendingSelectAfterRender;
+                    pendingSelectAfterRender = null;
+                    var dom = findFileObjectByName(toSelect);
+                    var fileObject = getFileObjectByName(toSelect);
+                    if (dom != null && fileObject != null && objectIsSelectable(fileObject)){
+                        selectThis(dom, {ctrlKey: false, shiftKey: false});
+                    }
+                }
+                if (pendingInlineRename != null){
+                    var toEdit = pendingInlineRename;
+                    pendingInlineRename = null;
+                    var editDom = findFileObjectByName(toEdit);
+                    if (editDom != null){
+                        //Bring it into view before handing over the keyboard
+                        if (editDom.scrollIntoView != undefined){
+                            editDom.scrollIntoView({block: "nearest"});
+                        }
+                        startInlineRename(editDom);
+                    }
+                }
+            }
+
+            function getFileObjectByName(filename){
+                for (var i = 0; i < currentFileList.length; i++){
+                    if (currentFileList[i].Filename == filename){
+                        return currentFileList[i];
+                    }
+                }
+                return null;
+            }
+
+            /*
+                Drop list columns based on how much room the file area actually has.
+                A media query cannot do this because opening the details pane steals
+                horizontal space without changing the window width.
+            */
+            function updateFileAreaDensity(){
+                var width = $("#fileArea").width();
+                $("#fileArea").toggleClass("narrow", width < 580)
+                              .toggleClass("verynarrow", width < 440);
+            }
+
+            function renderListView(){
+                var head = '<div class="fsListHead">' +
+                    sortableHeader("colName", "name", applocale.getString("list/name", "Name")) +
+                    sortableHeader("colDate", "date", applocale.getString("list/date", "Date Modified")) +
+                    sortableHeader("colType", "type", applocale.getString("list/type", "Type")) +
+                    sortableHeader("colSize", "size", applocale.getString("list/size", "Size")) +
+                    '</div>';
+
+                var rows = "";
+                for (var i = 0; i < renderedFileList.length; i++){
+                    var fileObject = renderedFileList[i];
+                    var selectable = objectIsSelectable(fileObject);
+                    rows += '<div class="fsRow fileObject' + (selectable ? "" : " disabledObject") + '"' +
+                            ' fid="' + i + '"' +
+                            ' filepath="' + encodeURIComponent(fileObject.Filepath) + '"' +
+                            ' filename="' + encodeURIComponent(fileObject.Filename) + '"' +
+                            ' isDir="' + fileObject.IsDir + '"' +
+                            ' onclick="selectThis(this, event);" ondblclick="openThis(this, event);"' +
+                            ' oncontextmenu="showContextMenu(event, this);">' +
+                        '<div class="fsCell colName">' + smallGlyph(fileObject.Filename, fileObject.IsDir) +
+                            '<span class="fsRowName">' + escapeHTML(fileObject.Filename) + '</span></div>' +
+                        '<div class="fsCell colDate">' + formatTimestamp(fileObject.ModTime) + '</div>' +
+                        '<div class="fsCell colType">' + escapeHTML(getTypeName(fileObject.Filename, fileObject.IsDir)) + '</div>' +
+                        '<div class="fsCell colSize">' + (fileObject.IsDir ? "--" : escapeHTML(fileObject.Displaysize || formatBytes(fileObject.Filesize))) + '</div>' +
+                        '</div>';
+                }
+                $("#fileArea").append(head + rows);
+            }
+
+            function sortableHeader(columnClass, field, label){
+                var isSorted = (sortField == field);
+                return '<div class="fsCol ' + columnClass + (isSorted ? " sorted" : "") + '" onclick="onHeaderClick(\'' + field + '\');">' +
+                    '<span class="fsColInner">' +
+                        '<span>' + escapeHTML(label) + '</span>' +
+                        '<span class="fsSortMark">' + (sortAscending ? ICONS.arrowUp : ICONS.arrowDown) + '</span>' +
+                    '</span>' +
+                    '</div>';
+            }
+
+            function onHeaderClick(field){
+                if (sortField == field){
+                    sortAscending = !sortAscending;
+                }else{
+                    sortField = field;
+                    sortAscending = true;
+                }
+                applyViewPreferences();
+                saveViewPreferences();
+                renderFileList();
+            }
+
+            function renderGridView(){
+                var tiles = "";
+                for (var i = 0; i < renderedFileList.length; i++){
+                    var fileObject = renderedFileList[i];
+                    var selectable = objectIsSelectable(fileObject);
+                    var meta = fileObject.IsDir ?
+                        formatTimestamp(fileObject.ModTime) :
+                        formatTimestamp(fileObject.ModTime) + "<br>" + escapeHTML(fileObject.Displaysize || formatBytes(fileObject.Filesize));
+
+                    tiles += '<div class="fsTile fileObject' + (selectable ? "" : " disabledObject") + '"' +
+                            ' fid="' + i + '"' +
+                            ' filepath="' + encodeURIComponent(fileObject.Filepath) + '"' +
+                            ' filename="' + encodeURIComponent(fileObject.Filename) + '"' +
+                            ' isDir="' + fileObject.IsDir + '"' +
+                            ' onclick="selectThis(this, event);" ondblclick="openThis(this, event);"' +
+                            ' oncontextmenu="showContextMenu(event, this);">' +
+                        //Folders always keep the drawn folder glyph - no thumbnail
+                        //and no opener badge is rendered for them at all
+                        '<div class="fsThumb">' + largeGlyph(fileObject.Filename, fileObject.IsDir) +
+                            (fileObject.IsDir ? "" : '<img class="fsThumbImg"><span class="fsAppBadge"><img></span>') +
+                        '</div>' +
+                        '<div class="fsTileName" title="' + escapeHTML(fileObject.Filename) + '">' + escapeHTML(fileObject.Filename) + '</div>' +
+                        '<div class="fsTileMeta"><span class="fsTileMetaText">' + meta + '</span>' +
+                            '<button class="fsTileMore" title="More" onclick="onTileMore(this, event);">' + ICONS.more + '</button>' +
+                        '</div>' +
+                        '</div>';
+                }
+                $("#fileArea").append('<div class="fsGrid">' + tiles + '</div>');
+            }
+
+            //A file object is only clickable if it matches the requested selection type
+            function objectIsSelectable(fileObject){
+                if (fileObject.IsDir){
+                    //Folders are always navigable, and selectable in folder mode
+                    return true;
+                }
+                return type != "folder";
+            }
+
+            function onTileMore(button, event){
+                event.stopPropagation();
+                var tile = $(button).closest(".fileObject");
+                selectThis(tile[0], {ctrlKey: false, shiftKey: false});
+                if (!detailsOpen){
+                    toggleDetailsPanel();
+                }else{
+                    updateDetailsPanel();
+                }
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Thumbnails and application icons                                   */
+            /* ------------------------------------------------------------------ */
+            function startThumbnailLoader(){
+                //Drop anything still streaming for the previous directory
+                if (thumbLoader != null){
+                    thumbLoader.cancel();
+                }
+                var targets = [];
+                $("#fileArea").find(".fileObject").each(function(){
+                    targets.push({
+                        filename: decodeURIComponent($(this).attr("filename")),
+                        filepath: decodeURIComponent($(this).attr("filepath")),
+                        isDir: $(this).attr("isDir") == "true",
+                        dom: this
+                    });
+                });
+
+                thumbLoader = FileThumb.loadThumbnails({
+                    root: "../../",
+                    folder: currentDir,
+                    targets: targets,
+                    //The picker keeps the drawn folder glyph instead of the
+                    //server rendered folder preview
+                    includeFolders: false,
+                    onLoad: function(target, src){
+                        applyThumbnail(target, src);
+                    }
+                });
+            }
+
+            function applyThumbnail(target, src){
+                $(target.dom).find(".fsThumbImg").attr("src", src).addClass("loaded");
+                $(target.dom).find(".fsThumb").addClass("hasThumb");
+                loadAppIconBadge(target.dom, target.filename);
+
+                //Keep the details preview in sync when the selected file resolves
+                var selected = $("#fileArea").find(".fileObject.selected");
+                if (selected.length == 1 && selected[0] == target.dom){
+                    $("#detailsBody").find(".fsThumbImg").attr("src", src).addClass("loaded");
+                    $("#detailsBody").find(".fsDetailsPreview").addClass("hasThumb");
+                }
+            }
+
+            //Look up the WebApp registered to open this extension and stamp its icon
+            //onto the thumbnail, the same way the desktop marks its file shortcuts
+            function loadAppIconBadge(fileObjectDOM, filename){
+                getDefaultOpener("." + getExt(filename), function(moduleInfo){
+                    if (moduleInfo == null || moduleInfo.IconPath == undefined || moduleInfo.IconPath == ""){
+                        return;
+                    }
+                    var badge = $(fileObjectDOM).find(".fsAppBadge");
+                    //A module may declare an icon that is not shipped. Only reveal
+                    //the badge once the image has actually decoded
+                    badge.find("img").off("load error").on("load", function(){
+                        badge.css("display", "block");
+                    }).on("error", function(){
+                        badge.css("display", "none");
+                    }).attr("src", "../../" + moduleInfo.IconPath);
+                });
+            }
+
+            function getDefaultOpener(ext, callback){
+                FileThumb.getDefaultOpener(ext, callback, "../../");
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Breadcrumb and navigation                                          */
+            /* ------------------------------------------------------------------ */
+            function renderBreadcrumb(){
+                var path = currentDir;
+                //Split the virtual path into its root ("user:/") and the sub path
+                var rootEnd = path.indexOf(":/");
+                var root = "";
+                var subpath = "";
+                if (rootEnd > 0){
+                    root = path.substring(0, rootEnd + 2);
+                    subpath = path.substring(rootEnd + 2);
+                }else{
+                    root = path;
+                }
+
+                var crumbs = [];
+                crumbs.push({label: rootNameMap[root] || root, path: root});
+
+                var segments = subpath.split("/");
+                var accumulated = root;
+                for (var i = 0; i < segments.length; i++){
+                    if (segments[i] == ""){
+                        continue;
+                    }
+                    accumulated = accumulated + segments[i] + "/";
+                    crumbs.push({label: segments[i], path: accumulated});
+                }
+
+                var html = "";
+                for (var i = 0; i < crumbs.length; i++){
+                    if (i > 0){
+                        html += '<span class="fsCrumbSep">&rsaquo;</span>';
+                    }
+                    html += '<span class="fsCrumb' + (i == crumbs.length - 1 ? " last" : "") + '"' +
+                        ' onclick="onCrumbClick(event, \'' + encodeURIComponent(crumbs[i].path) + '\');"' +
+                        ' title="' + escapeHTML(crumbs[i].path) + '">' + escapeHTML(crumbs[i].label) + '</span>';
+                }
+                html += '<span class="fsCrumbPad"></span>';
+                $("#breadcrumb").html(html);
+            }
+
+            //"Search tmp" - the placeholder names the folder being searched
+            function updateSearchPlaceholder(){
+                var name = getCurrentFolderName();
+                $("#searchInput").attr("placeholder", name == "" ? searchPlaceholderTemplate : searchPlaceholderTemplate + " " + name);
+            }
+
+            function getCurrentFolderName(){
+                var path = currentDir;
+                if (path.substring(path.length - 1) == "/"){
+                    path = path.substring(0, path.length - 1);
+                }
+                if (rootNameMap[path + "/"] != undefined){
+                    return rootNameMap[path + "/"];
+                }
+                var name = path.split("/").pop();
+                return name.replace(/:$/, "");
+            }
+
+            function onCrumbClick(event, encodedPath){
+                event.stopPropagation();
+                var target = decodeURIComponent(encodedPath);
+                if (target != currentDir){
+                    listDir(target);
+                }
+            }
+
+            //Clicking the empty part of the path bar turns it into a text field,
+            //keeping the old manual path entry behaviour available
+            function onPathbarClick(event){
+                if ($(event.target).closest(".fsCrumb").length > 0){
+                    return;
+                }
+                $("#pathbar").addClass("editing");
+                $("#addressbar").val(currentDir).focus().select();
+            }
+
+            $("#addressbar").on("change", function(){
+                updatePath();
+            });
+
+            $("#addressbar").on("keydown", function(event){
+                if (event.which == 27){
+                    //Escape leaves the address bar without navigating
+                    event.stopPropagation();
+                    $("#pathbar").removeClass("editing");
+                    $("#addressbar").blur();
+                }
+            });
+
+            $("#addressbar").on("blur", function(){
+                $("#pathbar").removeClass("editing");
+                renderBreadcrumb();
+            });
+
+            function updateNavButtons(){
+                $("#backBtn").prop("disabled", historyIndex <= 0);
+                $("#forwardBtn").prop("disabled", historyIndex >= pathHistory.length - 1);
+                $("#upBtn").prop("disabled", getParentPath(currentDir) == "");
+            }
+
+            function getParentPath(path){
+                var trimmed = path;
+                if (trimmed.substring(trimmed.length - 1) == "/"){
+                    trimmed = trimmed.substring(0, trimmed.length - 1);
+                }
+                //Already at a virtual root such as "user:/", there is nowhere to go up to
+                if (trimmed.indexOf("/") < 0 || trimmed.substring(trimmed.length - 1) == ":"){
+                    return "";
+                }
+                var segments = trimmed.split("/");
+                segments.pop();
+                var parent = segments.join("/");
+                if (parent.length == 0){
+                    return "";
+                }
+                //One level below the root collapses back onto the root itself,
+                //e.g. "user:/tmp" -> "user:/"
+                return parent + "/";
+            }
+
+            function parentDir(){
+                var parent = getParentPath(currentDir);
+                if (parent != ""){
+                    listDir(parent);
+                }
+            }
+
+            function backDir(){
+                if (historyIndex > 0){
+                    historyIndex--;
+                    listDir(pathHistory[historyIndex], false);
+                }
+            }
+
+            function forwardDir(){
+                if (historyIndex < pathHistory.length - 1){
+                    historyIndex++;
+                    listDir(pathHistory[historyIndex], false);
+                }
+            }
+
+            function openThis(object, event){
+                if (event != undefined && event.preventDefault != undefined){
+                    event.preventDefault();
+                }
+                var filepath = decodeURIComponent($(object).attr("filepath"));
+                if ($(object).attr("isDir") == "true"){
+                    listDir(filepath);
+                }else{
+                    chooseThisFile(object);
+                }
+            }
+
+            function chooseThisFile(object){
+                if (type == "folder"){
+                    return;
+                }
+                $(".fileObject.selected").removeClass("selected");
+                $(object).addClass("selected");
+                $("#filename").val(decodeURIComponent($(object).attr("filename")));
+                confirmSelection();
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Selection                                                          */
+            /* ------------------------------------------------------------------ */
+            function selectThis(object, event){
+                var isDir = $(object).attr("isDir") == "true";
+                var filename = decodeURIComponent($(object).attr("filename"));
+                var useCtrl = (event != undefined && event.ctrlKey) || ctrlDown;
+                var useShift = (event != undefined && event.shiftKey) || shiftDown;
+
+                if (isDir && type == "file"){
+                    //Folders cannot be picked in file mode, but they can still be
+                    //shown in the details pane
+                    updateDetailsFor([object]);
+                    return;
+                }else if (!isDir && type == "folder"){
+                    updateDetailsFor([object]);
+                    return;
+                }else if (type == "new" && !isDir){
+                    //Use this filename as the newfile name (aka overwrite mode)
+                    $("#filename").val(filename);
+                    $(".fileObject.selected").removeClass("selected");
+                    updateDetailsFor([object]);
+                    return;
+                }else if (type == "new" && isDir){
+                    //Selected a folder in new mode. Only preview it
+                    updateDetailsFor([object]);
+                    return;
+                }
+
+                if (multiSelect && useCtrl){
+                    //Add this into selection list
+                    $(object).toggleClass("selected");
+                }else if (multiSelect && useShift){
+                    var start = parseInt(lastClickedItemID);
+                    var end = parseInt($(object).attr("fid"));
+                    if (isNaN(start)){
+                        start = end;
+                    }
+                    if (start > end){
+                        var swap = start;
+                        start = end;
+                        end = swap;
+                    }
+                    var fileObjects = $("#fileArea").find(".fileObject");
+                    for (var k = start; k <= end; k++){
+                        $(fileObjects[k]).addClass("selected");
+                    }
+                }else{
+                    //Reset and add this into selection list
+                    $(".fileObject.selected").removeClass("selected");
+                    $(object).addClass("selected");
+                }
+
+                //Update last selected id
+                lastClickedItemID = $(object).attr("fid");
+
+                var selected = $("#fileArea").find(".fileObject.selected");
+                if (selected.length == 1){
+                    $("#filename").val(decodeURIComponent(selected.attr("filename")));
+                }else if (selected.length > 1){
+                    $("#filename").val("");
+                }
+                setWindowTitleForSelection(selected.length);
+                updateDetailsFor(selected.toArray());
+            }
+
+            function setWindowTitleForSelection(objectCount){
+                if (objectCount == 0){
+                    ao_module_setWindowTitle("Open");
+                    return;
+                }
+                var typeName = "object";
+                if (type == "file"){
+                    typeName = "file";
+                }else if (type == "folder"){
+                    typeName = "folder";
+                }
+                var desc = typeName + " selected";
+                if (objectCount > 1){
+                    desc = typeName + "s selected";
+                }
+                ao_module_setWindowTitle("Open (" + objectCount + " " + desc + ")");
             }
 
             function confirmSelection(){
                 var files = [];
-                $(".selected.fileObject").each(function(){
-                    var filename = decodeURIComponent($(this).attr('filename'));
-                    var filepath = decodeURIComponent($(this).attr('filepath'));
+                $("#fileArea").find(".fileObject.selected").each(function(){
                     files.push({
-                        filename: filename,
-                        filepath: filepath
+                        filename: decodeURIComponent($(this).attr("filename")),
+                        filepath: decodeURIComponent($(this).attr("filepath"))
                     });
                 });
 
                 //Check if currentdir end with "/". If not, append it
-                if(currentDir.substr(currentDir.length - 1, 1) != "/"){
+                if (currentDir.substr(currentDir.length - 1, 1) != "/"){
                     currentDir = currentDir + "/";
+                }
+
+                //Nothing highlighted but a name was typed: resolve it against the
+                //current listing, the way a native open dialog does
+                if (files.length == 0 && (type == "file" || type == "folder")){
+                    var typedName = $("#filename").val().trim();
+                    if (typedName != ""){
+                        for (var i = 0; i < currentFileList.length; i++){
+                            var candidate = currentFileList[i];
+                            if (candidate.Filename == typedName &&
+                                ((type == "folder" && candidate.IsDir) || (type == "file" && !candidate.IsDir))){
+                                files.push({
+                                    filename: candidate.Filename,
+                                    filepath: candidate.Filepath
+                                });
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 //Check for special cases
                 if (files.length == 0 && type == "folder"){
                     //Select the current path as target instead
-                   var currentPathname = currentDir.split("/");
+                    var currentPathname = currentDir.split("/");
                     currentPathname.pop();
                     currentPathname = currentPathname.pop();
                     if (currentPathname == ""){
@@ -325,94 +2021,381 @@
                     });
                 }
 
+                selectionConfirmed = true;
                 if (ao_module_virtualDesktop){
                     if (!ao_module_parentCallback(files)){
                         //Parent callback not exists
-                        alert("Selection Failed. Is parent window alive?")
+                        selectionConfirmed = false;
+                        alert("Selection Failed. Is parent window alive?");
                     }else{
                         parent.closeFwProcess(ao_module_windowID);
                     }
                 }else{
                     if (listenerUUID == ""){
-                        alert("Invalid listener UUID. Please re-open your file selector.")
+                        selectionConfirmed = false;
+                        alert("Invalid listener UUID. Please re-open your file selector.");
                         return;
                     }
-                    var selectedFilesInJSON = JSON.stringify(files);
-                    localStorage.setItem(listenerUUID, selectedFilesInJSON);
-                    $("#waitloader").show();
+                    localStorage.setItem(listenerUUID, JSON.stringify(files));
+                    $("#waitloader").addClass("show");
                     setTimeout(function(){
-                        $("#waitloadertext").html("<i class='remove icon'></i> System is not responding. <br>Please close this window and retry.");
-                    },10000)
+                        $("#waitloadertext").text("System is not responding. Please close this window and retry.");
+                    }, 10000);
                 }
-            }   
+            }
+
+            function cancelSelection(){
+                if (selectionConfirmed || listenerUUID == ""){
+                    return;
+                }
+                localStorage.setItem(listenerUUID, JSON.stringify("&&selection_canceled&&"));
+            }
+
+            function closeSelector(){
+                cancelSelection();
+                if (ao_module_virtualDesktop){
+                    parent.closeFwProcess(ao_module_windowID);
+                }else{
+                    window.close();
+                }
+            }
 
             //Handle on window close function, cancel current selection
             window.onbeforeunload = function(){
                 cancelSelection();
             }
 
-            //Overwrite the ao_module close function
+            //Overwrite the ao_module close function so closing the float window
+            //cancels the selection instead of silently returning nothing
             function ao_module_close(){
-                if (!ao_module_virtualDesktop){
+                closeSelector();
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Details panel                                                      */
+            /* ------------------------------------------------------------------ */
+            function clearDetails(){
+                $("#detailsBody").html('<div class="fsDetailsEmpty">' +
+                    escapeHTML(applocale.getString("details/empty", "Select an item to see its details")) + '</div>');
+            }
+
+            function updateDetailsPanel(){
+                updateDetailsFor($("#fileArea").find(".fileObject.selected").toArray());
+            }
+
+            function updateDetailsFor(objects){
+                if (!detailsOpen){
                     return;
                 }
-                if (!ao_module_parentCallback(files)){
-                        alert("Selection Failed. Is parent window alive?")
+                if (objects == undefined || objects.length == 0){
+                    clearDetails();
+                    return;
+                }
+                if (objects.length > 1){
+                    renderMultiDetails(objects);
+                    return;
+                }
+
+                var target = $(objects[0]);
+                var filename = decodeURIComponent(target.attr("filename"));
+                var filepath = decodeURIComponent(target.attr("filepath"));
+                var isDir = target.attr("isDir") == "true";
+
+                var html = '<div class="fsDetailsPreview">' + largeGlyph(filename, isDir) + '<img class="fsThumbImg"></div>' +
+                    '<div class="fsDetailsName">' + escapeHTML(filename) + '</div>' +
+                    '<div id="detailRows">' +
+                    detailRow(applocale.getString("details/type", "Type"), escapeHTML(getTypeName(filename, isDir))) +
+                    detailRow(applocale.getString("details/size", "Size"), '<span id="detailSize">' +
+                        escapeHTML(applocale.getString("message/loading", "Loading")) + '</span>') +
+                    detailRow(applocale.getString("details/modified", "Date Modified"), '<span id="detailModified">--</span>') +
+                    detailRow(applocale.getString("details/path", "Path"), escapeHTML(filepath)) +
+                    '</div>';
+                $("#detailsBody").html(html);
+
+                //Reuse the thumbnail already rendered in the listing, if there is one
+                var existingThumb = target.find(".fsThumbImg");
+                if (existingThumb.length > 0 && existingThumb.hasClass("loaded")){
+                    $("#detailsBody").find(".fsThumbImg").attr("src", existingThumb.attr("src")).addClass("loaded");
+                    $("#detailsBody").find(".fsDetailsPreview").addClass("hasThumb");
+                }else if (!isDir){
+                    loadDetailsThumbnail(filepath);
+                }
+
+                loadDetailProperties(filepath, filename, isDir);
+            }
+
+            function detailRow(key, valueHTML){
+                return '<div class="fsDetailRow"><div class="fsDetailKey">' + escapeHTML(key) + '</div>' +
+                    '<div class="fsDetailVal">' + valueHTML + '</div></div>';
+            }
+
+            function loadDetailsThumbnail(filepath){
+                $.ajax({
+                    url: "../../system/file_system/loadThumbnail",
+                    data: {vpath: filepath},
+                    success: function(data){
+                        if (data == undefined || data == "" || data.error != undefined){
+                            return;
+                        }
+                        var selected = $("#fileArea").find(".fileObject.selected");
+                        //Only paint it if the user has not moved the selection on
+                        if (selected.length == 1 && decodeURIComponent(selected.attr("filepath")) != filepath){
+                            return;
+                        }
+                        $("#detailsBody").find(".fsThumbImg")
+                            .attr("src", FileThumb.base64ToDataURL(data))
+                            .addClass("loaded");
+                        $("#detailsBody").find(".fsDetailsPreview").addClass("hasThumb");
+                    }
+                });
+            }
+
+            function loadDetailProperties(filepath, filename, isDir){
+                $.ajax({
+                    url: "../../system/file_system/getProperties",
+                    method: "POST",
+                    data: {path: filepath},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            $("#detailSize").text("--");
+                            return;
+                        }
+                        $("#detailSize").text(data.Filesize < 0 ? "--" :
+                            formatBytes(data.Filesize) + " (" + data.Filesize.toLocaleString() + " " +
+                            applocale.getString("details/bytes", "bytes") + ")");
+                        $("#detailModified").text(data.LastModTime || formatTimestamp(data.LastModUnix));
+
+                        if (data.Owner != undefined && data.Owner != ""){
+                            $("#detailRows").append(detailRow(applocale.getString("details/owner", "Owner"), escapeHTML(data.Owner)));
+                        }
+                        if (data.Permission != undefined && data.Permission != ""){
+                            $("#detailRows").append(detailRow(applocale.getString("details/permission", "Permission"), escapeHTML(data.Permission)));
+                        }
+                    },
+                    error: function(){
+                        $("#detailSize").text("--");
+                    }
+                });
+
+                //Show which WebApp would open this file, using the registered
+                //default opener of its extension
+                if (!isDir){
+                    getDefaultOpener("." + getExt(filename), function(moduleInfo){
+                        if (moduleInfo == null){
+                            return;
+                        }
+                        var iconHTML = "";
+                        if (moduleInfo.IconPath != undefined && moduleInfo.IconPath != ""){
+                            iconHTML = '<img class="fsOpenerIcon" src="../../' + escapeHTML(moduleInfo.IconPath) +
+                                '" onerror="this.style.display=\'none\';">';
+                        }
+                        $("#detailRows").append(detailRow(applocale.getString("details/opensWith", "Opens With"),
+                            iconHTML + '<span>' + escapeHTML(moduleInfo.Name || "") + '</span>'));
+                    });
+                }
+            }
+
+            function renderMultiDetails(objects){
+                var folderCount = 0;
+                var fileCount = 0;
+                for (var i = 0; i < objects.length; i++){
+                    if ($(objects[i]).attr("isDir") == "true"){
+                        folderCount++;
+                    }else{
+                        fileCount++;
+                    }
+                }
+                var html = '<div class="fsDetailsPreview">' + largeGlyph("", true) + '</div>' +
+                    '<div class="fsDetailsName">' + objects.length + " " +
+                        escapeHTML(applocale.getString("details/itemsSelected", "items selected")) + '</div>' +
+                    '<div id="detailRows">' +
+                    detailRow(applocale.getString("details/folders", "Folders"), folderCount) +
+                    detailRow(applocale.getString("details/files", "Files"), fileCount) +
+                    '</div>';
+                $("#detailsBody").html(html);
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Sidebar                                                            */
+            /* ------------------------------------------------------------------ */
+            function initRoots(){
+                $.get("../../system/file_system/listRoots?user=true", function(data){
+                    $("#userlist").html("");
+                    if (data == null || data.error != undefined){
+                        return;
+                    }
+                    for (var i = 0; i < data.length; i++){
+                        if (data[i].IsDir != true){
+                            continue;
+                        }
+                        if (data[i]["Filename"].substring(0, 1) == "."){
+                            //Do not show hidden files
+                            continue;
+                        }
+                        var iconAndFolderName = getUserRootIcons(data[i]["Filename"]);
+                        $("#userlist").append(sidebarItem(data[i]["Filepath"], iconAndFolderName[0], iconAndFolderName[1], iconAndFolderName[2]));
+                    }
+                    updateSidebarActiveItem();
+                });
+
+                $.get("../../system/file_system/listRoots", function(data){
+                    $("#storagelist").html("");
+                    if (data == null || data.error != undefined){
+                        return;
+                    }
+                    for (var i = 0; i < data.length; i++){
+                        rootNameMap[data[i]["RootPath"]] = data[i]["RootName"];
+                        $("#storagelist").append(sidebarItem(data[i]["RootPath"], ICONS.drive, "#5f6368",
+                            data[i]["RootName"] + " (" + data[i]["RootPath"] + ")"));
+                    }
+                    renderBreadcrumb();
+                    updateSidebarActiveItem();
+                });
+            }
+
+            function sidebarItem(filepath, iconSVG, iconColor, label){
+                return '<div class="fsSideItem" filepath="' + encodeURIComponent(filepath) + '" onclick="openShortcut(this);" title="' + escapeHTML(label) + '">' +
+                    '<span class="fsSideIcon" style="color:' + iconColor + ';">' + iconSVG + '</span>' +
+                    '<span class="fsSideLabel">' + escapeHTML(label) + '</span></div>';
+            }
+
+            //Returns [svg, colour, localized name] for a user virtual root folder
+            function getUserRootIcons(foldername){
+                var icon = ICONS.folderSide;
+                var color = "#f0b429";
+                var name = foldername;
+                var key = foldername.toLowerCase();
+                if (key == "desktop"){
+                    icon = ICONS.desktop;
+                    color = "#1a73e8";
+                    name = applocale.getString("sidebar/vroot/desktop", name);
+                }else if (key == "document"){
+                    icon = ICONS.document;
+                    color = "#1a73e8";
+                    name = applocale.getString("sidebar/vroot/document", name);
+                }else if (key == "music" || key == "audio"){
+                    icon = ICONS.music;
+                    color = "#e8467c";
+                    name = applocale.getString("sidebar/vroot/music", name);
+                }else if (key == "photo" || key == "picture"){
+                    icon = ICONS.image;
+                    color = "#2aa3d4";
+                    name = applocale.getString("sidebar/vroot/photo", name);
+                }else if (key == "video" || key == "film"){
+                    icon = ICONS.video;
+                    color = "#8b5cf6";
+                    name = applocale.getString("sidebar/vroot/video", name);
+                }else if (key == "trash" || key == "bin" || key == "rubbish"){
+                    icon = ICONS.trash;
+                    color = "#5f6368";
+                    name = applocale.getString("sidebar/vroot/trash", name);
+                }else if (key == "download"){
+                    icon = ICONS.download;
+                    color = "#1a73e8";
+                    name = applocale.getString("sidebar/vroot/download", name);
+                }else if (key == "www" || key == "web" || key == "mysite"){
+                    icon = ICONS.globe;
+                    color = "#0f9d94";
+                    name = applocale.getString("sidebar/vroot/web", name);
+                }else if (key == "model"){
+                    icon = ICONS.cube;
+                    color = "#7c4dff";
+                    name = applocale.getString("sidebar/vroot/model", name);
+                }else if (key == "appdata"){
+                    icon = ICONS.code;
+                    color = "#5f6368";
+                    name = applocale.getString("sidebar/vroot/appdata", name);
+                }
+                return [icon, color, name];
+            }
+
+            function openShortcut(object){
+                var targetdir = decodeURIComponent($(object).attr("filepath"));
+                listDir(targetdir);
+                if (window.innerWidth < 560){
+                    closeSidebar();
+                }
+            }
+
+            function updateSidebarActiveItem(){
+                $(".fsSideItem").each(function(){
+                    var itemPath = decodeURIComponent($(this).attr("filepath"));
+                    if (itemPath.substring(itemPath.length - 1) != "/"){
+                        itemPath = itemPath + "/";
+                    }
+                    var here = currentDir;
+                    if (here.substring(here.length - 1) != "/"){
+                        here = here + "/";
+                    }
+                    $(this).toggleClass("active", itemPath == here);
+                });
+            }
+
+            function toggleSidebar(){
+                if ($("#sidebar").hasClass("open")){
+                    closeSidebar();
                 }else{
-                    parent.closeFwProcess(ao_module_windowID);
+                    $("#sidebar").addClass("open");
+                    $("#sidebarScrim").addClass("show");
                 }
             }
 
-            function updatePath(){
-                var newDir = $("#addressbar").val();
-                listDir(newDir);
+            function closeSidebar(){
+                $("#sidebar").removeClass("open");
+                $("#sidebarScrim").removeClass("show");
             }
 
-            function refresh(){
-                $("#fileList").html("");
-                $("#folderList").html("");
-                listDir(currentDir);
+            /* ------------------------------------------------------------------ */
+            /*  New folder                                                         */
+            /* ------------------------------------------------------------------ */
+            function menuNewFolder(){
+                closeMoreMenu();
+                newFolder();
             }
 
+            /*
+                Creates the folder straight away under a localized default name, then
+                drops the freshly created item into inline edit so the user can type
+                over it - the same flow as the desktop file managers.
+            */
             function newFolder(){
-                var newFileOffset = 0;
-                if ($("#newfilenameInput").is(":visible")){
-                    newFileOffset += 40;
+                createFolder(getUniqueNewFolderName(), true);
+            }
+
+            //"New Folder", "New Folder (2)", ... so the create never collides
+            function getUniqueNewFolderName(){
+                var base = applocale.getString("newfolder/defaultname", "New Folder");
+                var taken = {};
+                currentFileList.forEach(function(fileObject){
+                    taken[fileObject.Filename] = true;
+                });
+                if (taken[base] == undefined){
+                    return base;
                 }
-
-                $("#newFolderInput").toggle();
-                updateUIElements();
-            }
-
-            function updateUIElements(){
-                $("#sidebar").css("padding-top", $(".navi").height() + 8);
-                $("#fileListWrapper").css("padding-top", $(".navi").height() + 8)
-            }
-
-            function hideFolderNameInput(){
-                $("#newFolderInput").hide();
-                updateUIElements();
-            }
-
-            function createFolder(){
-                var folderName = $("#foldername").val();
-                if (folderName == ""){
-                    folderName = "New Folder"
-                    $("#foldername").val("New Folder");
+                var counter = 2;
+                while (taken[base + " (" + counter + ")"] != undefined){
+                    counter++;
                 }
-                folderName = folderName.replace(/[<>:"/\\|?*]/g, "_");
-                
+                return base + " (" + counter + ")";
+            }
+
+            function createFolder(folderName, editAfterCreate){
+                if (folderName == undefined || folderName.trim() == ""){
+                    folderName = applocale.getString("newfolder/defaultname", "New Folder");
+                }
+                folderName = folderName.trim().replace(/[<>:"/\\|?*]/g, "_");
+
                 //Check if folder exists
                 var nameAlreadyExists = false;
-                currentFileList.forEach(fileObject => {
+                currentFileList.forEach(function(fileObject){
                     if (fileObject.IsDir && fileObject.Filename == folderName){
-                        nameAlreadyExists = true;   
+                        nameAlreadyExists = true;
                     }
                 });
 
                 if (nameAlreadyExists){
-                    alert("Folder already exists")
-                    return
+                    alert(applocale.getString("message/folderexists", "Folder already exists"));
+                    return;
                 }
 
                 //Create the new folder request
@@ -423,132 +2406,153 @@
                         success: function(data){
                             if (data.error !== undefined){
                                 alert(data.error);
-                            }else{
-                                refresh()
+                                return;
                             }
-                            hideFolderNameInput();
+                            if (editAfterCreate){
+                                //Picked up by renderFileList once the listing comes back
+                                pendingInlineRename = folderName;
+                            }
+                            refresh();
                         }
                     });
                 });
             }
 
-            function loadSelectorInfoFromHash(){
-                if (window.location.hash.length == 0){
-                    return {
-                        root: "user:/",
-                        type: "file",
-                        allowMultiple: false
+            /* ------------------------------------------------------------------ */
+            /*  Inline rename                                                      */
+            /* ------------------------------------------------------------------ */
+            var pendingInlineRename = null;     //Filename to edit after the next render
+            var inlineEditActive = false;
+            var closeActiveInlineEdit = null;   //Set while an editor is on screen
+
+            function findFileObjectByName(filename){
+                var match = null;
+                $("#fileArea").find(".fileObject").each(function(){
+                    if (decodeURIComponent($(this).attr("filename")) == filename){
+                        match = this;
                     }
+                });
+                return match;
+            }
+
+            function startInlineRename(fileObjectDOM){
+                if (fileObjectDOM == null){
+                    return;
+                }
+                if (inlineEditActive && closeActiveInlineEdit != null){
+                    //Commit whatever is already being edited rather than refusing.
+                    //If focus never landed on that editor its blur would never fire
+                    //and the flag would stay stuck, blocking every later rename.
+                    closeActiveInlineEdit(true);
+                }
+                var target = $(fileObjectDOM);
+                //List view labels the name in .fsRowName, grid view in .fsTileName
+                var label = target.find(".fsRowName");
+                if (label.length == 0){
+                    label = target.find(".fsTileName");
+                }
+                if (label.length == 0){
+                    return;
+                }
+
+                var originalName = decodeURIComponent(target.attr("filename"));
+                var isDir = target.attr("isDir") == "true";
+                inlineEditActive = true;
+
+                label.addClass("editing");
+                label.html('<input class="fsInlineEdit" type="text" spellcheck="false" autocomplete="off">');
+                var input = label.find("input");
+                input.val(originalName);
+
+                //Swallow the row click handlers while the editor has focus
+                input.on("click dblclick mousedown", function(event){
+                    event.stopPropagation();
+                });
+
+                var settled = false;
+                var finish = function(save){
+                    if (settled){
+                        //Enter commits and then blurs, guard the second pass
+                        return;
+                    }
+                    settled = true;
+                    inlineEditActive = false;
+                    closeActiveInlineEdit = null;
+                    var newName = input.val();
+                    label.removeClass("editing");
+                    label.text(originalName);
+                    if (save && newName != undefined && newName.trim() != "" && newName.trim() != originalName){
+                        commitInlineRename(target, originalName, newName.trim());
+                    }
+                };
+
+                closeActiveInlineEdit = finish;
+
+                input.on("keydown", function(event){
+                    event.stopPropagation();
+                    if (event.which == 13){
+                        finish(true);
+                    }else if (event.which == 27){
+                        finish(false);
+                    }
+                });
+                input.on("blur", function(){
+                    //Clicking away saves, matching the desktop file managers
+                    finish(true);
+                });
+
+                input.focus();
+                //Preselect the basename so typing replaces the name but keeps the
+                //extension, except on folders where the whole name is the target
+                var dotIndex = originalName.lastIndexOf(".");
+                if (!isDir && dotIndex > 0){
+                    input[0].setSelectionRange(0, dotIndex);
                 }else{
-                    try{
-                        var selectInfo = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
-                        return selectInfo;
-                    }catch{
-                        //Error parsing the input. Use default settings
-                        return {
-                            root: "user:/",
-                            type: "file",
-                            allowMultiple: false
-                        }
-                    }
-                    
+                    input[0].select();
                 }
             }
 
-            function listDir(dir){
-                currentDir = dir;
-                pathHistory.push(currentDir);
-                $("#addressbar").val(currentDir);
-                $("#nofilesCheckmark").hide();
-                $("#folderList").html(`<div class="ui fluid" style="text-align: center; padding: 1.2em;"><i class="ui loading spinner icon"></i></div>`);
-                $("#folderList").show();
-                $("#fileList").hide();
-                ao_module_setWindowTitle(`Open`);
-                $.get("../../system/file_system/listDir?dir=" + encodeURIComponent(dir),function(data){
-                    $("#folderList").html("");
-                    $("#fileList").html("");
-                    if (data === null){
-                        $("#folderList").hide();
-                        $("#fileList").hide();
-                        $("#nofilesCheckmark").show();
-                        return;
-                    }else{
-                        $("#folderList").show();
-                        $("#fileList").show();
+            function commitInlineRename(target, originalName, newName){
+                var safeName = newName.replace(/[<>:"/\\|?*]/g, "_");
+                var filepath = decodeURIComponent(target.attr("filepath"));
+
+                //Reject a name that is already used in this directory
+                var clash = false;
+                currentFileList.forEach(function(fileObject){
+                    if (fileObject.Filename == safeName && fileObject.Filename != originalName){
+                        clash = true;
                     }
-                    if (data.error !== undefined){
-                        //Load the index instead
-                        listDir("user:/");
-                    }else{
-                        currentFileList = data;
-                        var folders = [];
-                        var files = [];
-                        for (var i =0; i < data.length; i++){
-                            if (data[i].IsDir == true){
-                                folders.push(data[i]);
-                            }else{
-                                if (fileOptions.filter != undefined){
-                                    var fileExt = data[i].Filename.split(".").pop();
-                                    for (var j = 0; j < fileOptions.filter.length; j++){
-                                        if (fileOptions.filter[j] == fileExt){
-                                            files.push(data[i]);
-                                            break;
-                                        }
-                                    }
-                                }else{
-                                    files.push(data[i]);
-                                }
-                                
-                            }
-                        }  
+                });
+                if (clash){
+                    alert(applocale.getString("message/nameexists", "An item with that name already exists"));
+                    return;
+                }
 
-                        //Append folder first then files
-                        var count = 0;
-                        for (var i =0; i < folders.length; i++){
-                            var filename = folders[i].Filename;
-                            var filepath = folders[i].Filepath;
-                            var ext = filename.split(".").pop();
-                            var icon = ao_module_utils.getIconFromExt(ext);
-                            var isDir = folders[i].IsDir;
-                            if (isDir == true){
-                                icon = "yellow folder";
+                requestCSRFToken(function(token){
+                    $.ajax({
+                        url: "../../system/file_system/fileOpr",
+                        method: "POST",
+                        data: {
+                            opr: "rename",
+                            src: JSON.stringify([filepath]),
+                            new: JSON.stringify([safeName]),
+                            csrft: token
+                        },
+                        success: function(data){
+                            if (data.error !== undefined){
+                                alert(data.error);
+                                refresh();
+                                return;
                             }
-                            var fileSize = folders[i].Displaysize;
-                            $("#folderList").append(`<div class="fileObject item" fid="${count}" ondblclick="openFolder(event,this);" onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
-                                <span class="fileInfo"><i class="${icon} icon" style="margin-right:4px;"></i> ${filename}</span>
-                            </div>`);
-                            count++;
+                            //Keep the renamed item highlighted after the reload
+                            pendingSelectAfterRender = safeName;
+                            refresh();
+                        },
+                        error: function(){
+                            alert(applocale.getString("message/renamefailed", "Rename failed"));
+                            refresh();
                         }
-                        if (folders.length == 0){
-                            $("#folderList").hide();
-                        }
-
-                        for (var i =0; i < files.length; i++){
-                            var filename = files[i].Filename;
-                            var filepath = files[i].Filepath;
-                            var ext = filename.split(".").pop();
-                            var icon = ao_module_utils.getIconFromExt(ext);
-                            var isDir = files[i].IsDir;
-                            if (isDir == true){
-                                icon = "folder";
-                            }
-                            var fileSize = files[i].Displaysize;
-                            $("#fileList").append(`<div class="fileObject item" fid="${count}"  ondblclick="chooseThisFile(this);"  onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
-                                <span class="fileInfo"><i class="${icon} icon" style="margin-right:4px;margin-top: 2px;"></i> ${filename}</span>
-                            </div>`);
-                            count++;
-                        }
-                        if (files.length == 0){
-                            $("#fileList").hide();
-                        }
-
-                        if (folders.length == 0 && files.length == 0){
-                            //There is nothing in this dir
-                            $("#nofilesCheckmark").show();
-                        }else{
-                            $("#nofilesCheckmark").hide();
-                        }
-                    }
+                    });
                 });
             }
 
@@ -558,87 +2562,286 @@
                     success: function(token){
                         callback(token);
                     }
-                })
+                });
             }
 
-            //Open folder
-            function openFolder(event, object){
+            /* ------------------------------------------------------------------ */
+            /*  Context menu                                                       */
+            /* ------------------------------------------------------------------ */
+            /*
+                Acts on the single item that was right clicked rather than on the
+                current selection. The selector restricts what may be selected by
+                launch type (a file cannot be highlighted in folder mode, and so on),
+                so binding the menu to one explicit target keeps destructive actions
+                such as Delete unambiguous.
+            */
+            var contextTarget = null;
+
+            function showContextMenu(event, fileObjectDOM){
                 event.preventDefault();
-                var filepath = $(object).attr("filepath");
-                filepath = decodeURIComponent(filepath);
-                listDir(filepath);
+                event.stopPropagation();
+                if (inlineEditActive){
+                    return;
+                }
+                contextTarget = fileObjectDOM;
+                closeMoreMenu();
+
+                var isDir = $(fileObjectDOM).attr("isDir") == "true";
+                var menu = $("#contextMenu");
+                menu.html(buildContextMenuItems(isDir));
+                menu.addClass("open");
+
+                //Clamp to the viewport so the menu never opens off screen
+                var width = menu.outerWidth();
+                var height = menu.outerHeight();
+                var left = event.clientX;
+                var top = event.clientY;
+                if (left + width > window.innerWidth - 6){
+                    left = Math.max(6, window.innerWidth - width - 6);
+                }
+                if (top + height > window.innerHeight - 6){
+                    top = Math.max(6, window.innerHeight - height - 6);
+                }
+                menu.css({left: left + "px", top: top + "px"});
             }
 
-            function selectThis(object,event){
-                //event.preventDefault();
-                //event.stopImmediatePropagation();
-                //Check if this object is in suitable selection type
-                if ($(object).attr("IsDir") == "true" && type == "file"){
-                    return;
-                }else if ($(object).attr("IsDir") == "false" && type == "folder"){
-                    return;
-                }else if (type == "new" && $(object).attr("IsDir") == "false"){
-                    //Use this filename as the newfile name (aka overwrite mode)
-                    var newNewFilename = $(object).attr("filename");
-                    newNewFilename = decodeURIComponent(newNewFilename);
-                    $("#filename").val(newNewFilename);
-                    return;
-                }else if (type == "new" && $(object).attr("IsDir") == "true"){
-                    //Selected a folder in new mode. Ignore it
-                    return
-                }
-                if (multiSelect){
-                    if (ctrlDown){
-                        //Add this into selection list
-                        $(object).addClass("selected");
-                    }else if (shiftDown){
-                        var start = lastClickedItemID;
-                        var end = $(object).attr("fid");
-                        if (start > end){
-                            start = end;
-                            end = lastClickedItemID;
-                        }
-                        var fileObjects = $(".fileObject");
-                        for (var k = start; k <= end; k++){
-                            $(fileObjects[k]).addClass("selected");
-                        }
-                    }else{
-                        //Reset and add this into selection list
-                        $(".selected").removeClass("selected");
-                        $(object).addClass("selected");
-                    }
+            function buildContextMenuItems(isDir){
+                var items = [];
+                items.push(contextMenuItem("open", ICONS.open, applocale.getString("ctx/open", "Open")));
+                if (!isDir){
+                    items.push(contextMenuItem("openwith", ICONS.viewGrid, applocale.getString("ctx/openwith", "Open With")));
                 }else{
-                    $(".selected").removeClass("selected");
-                    $(object).addClass("selected");
+                    items.push(contextMenuItem("opennewwindow", ICONS.externalLink,
+                        applocale.getString("ctx/opennewwindow", "Open in New Window")));
                 }
-
-                //Update last selected id
-                lastClickedItemID = $(object).attr('fid');
-
-                //Update title
-                var objectCount = $(".selected").length;
-                var typeName = "object"
-                if (type == "file"){
-                    typeName = "file";
-                }else if (type == "folder"){
-                    typeName = "folder";
-                }
-                var desc = `${typeName} selected`;
-                if (objectCount > 1){
-                    desc = `${typeName + "s"} selected`;
-                }
-                ao_module_setWindowTitle(`Open (${objectCount} ${desc})`);
+                items.push('<div class="fsMenuSep"></div>');
+                items.push(contextMenuItem("rename", ICONS.pencil, applocale.getString("ctx/rename", "Rename")));
+                items.push(contextMenuItem("delete", ICONS.trash, applocale.getString("ctx/delete", "Delete")));
+                items.push(contextMenuItem("download", ICONS.download, applocale.getString("ctx/download", "Download")));
+                items.push('<div class="fsMenuSep"></div>');
+                items.push(contextMenuItem("properties", ICONS.info, applocale.getString("ctx/properties", "Properties")));
+                return items.join("");
             }
 
-            $(window).on("keydown",function(event){
+            function contextMenuItem(action, iconSVG, label){
+                return '<div class="fsMenuItem" onclick="onContextAction(\'' + action + '\');">' +
+                    '<span class="fsMenuIcon">' + iconSVG + '</span>' +
+                    '<span>' + escapeHTML(label) + '</span></div>';
+            }
+
+            function closeContextMenu(){
+                $("#contextMenu").removeClass("open");
+            }
+
+            function onContextAction(action){
+                var target = contextTarget;
+                closeContextMenu();
+                if (target == null){
+                    return;
+                }
+                var filepath = decodeURIComponent($(target).attr("filepath"));
+                var filename = decodeURIComponent($(target).attr("filename"));
+                var isDir = $(target).attr("isDir") == "true";
+
+                if (action == "open"){
+                    //Same as a double click: enter the folder, or pick the file
+                    openThis(target, {preventDefault: function(){}});
+                }else if (action == "openwith"){
+                    ctxOpenWith(filepath, filename);
+                }else if (action == "opennewwindow"){
+                    ctxOpenInNewWindow(filepath, filename);
+                }else if (action == "rename"){
+                    startInlineRename(target);
+                }else if (action == "delete"){
+                    ctxDelete(filepath, filename);
+                }else if (action == "download"){
+                    ctxDownload(filepath, filename, isDir);
+                }else if (action == "properties"){
+                    ctxProperties(filepath);
+                }
+            }
+
+            //Launch the opener picker so the user chooses which WebApp handles it
+            function ctxOpenWith(filepath, filename){
+                var openParameter = encodeURIComponent(JSON.stringify({
+                    filepath: filepath,
+                    filename: filename
+                }));
+                ao_module_newfw({
+                    url: "SystemAO/file_system/defaultOpener.html#" + openParameter,
+                    width: 320,
+                    height: 510,
+                    appicon: "SystemAO/file_system/img/opener.png",
+                    title: "Select an opener WebApp"
+                });
+            }
+
+            //Open this folder in its own File Manager window, leaving the picker alone
+            function ctxOpenInNewWindow(filepath, filename){
+                ao_module_newfw({
+                    url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(filepath),
+                    width: 1080,
+                    height: 580,
+                    appicon: "SystemAO/file_system/img/small_icon.png",
+                    title: filename
+                });
+            }
+
+            function ctxDelete(filepath, filename){
+                var question = applocale.getString("message/deleteconfirm", "Move this item to the trash bin?");
+                if (!confirm(question + "\n\n" + filename)){
+                    return;
+                }
+                requestCSRFToken(function(token){
+                    $.ajax({
+                        url: "../../system/file_system/fileOpr",
+                        method: "POST",
+                        data: {opr: "recycle", src: JSON.stringify([filepath]), csrft: token},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                alert(data.error);
+                            }
+                            refresh();
+                        },
+                        error: function(){
+                            alert(applocale.getString("message/deletefailed", "Delete failed"));
+                            refresh();
+                        }
+                    });
+                });
+            }
+
+            function ctxDownload(filepath, filename, isDir){
+                if (!isDir){
+                    //Single file, stream it straight down
+                    generateDownloadFromURL("../../media/download?file=" + encodeURIComponent(filepath), filename);
+                    return;
+                }
+                //Folders have to be archived first, same as the File Manager does
+                $.ajax({
+                    url: "../../system/file_system/zipHandler",
+                    method: "POST",
+                    data: {opr: "tmpzip", src: JSON.stringify([filepath]), dest: ""},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                            return;
+                        }
+                        generateDownloadFromURL("../../media/download?file=" + encodeURIComponent(data), filename + ".zip");
+                    },
+                    error: function(){
+                        alert(applocale.getString("message/zipfailed", "Unable to compress this folder"));
+                    }
+                });
+            }
+
+            function generateDownloadFromURL(url, filename){
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+
+            function ctxProperties(filepath){
+                ao_module_newfw({
+                    url: "SystemAO/file_system/file_properties.html#" + encodeURIComponent(JSON.stringify([filepath])),
+                    width: 340,
+                    height: 480,
+                    appicon: "SystemAO/file_system/img/properties.png",
+                    title: "File Properties"
+                });
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*  Toolbar menu                                                       */
+            /* ------------------------------------------------------------------ */
+            function toggleMoreMenu(event){
+                event.stopPropagation();
+                var isOpen = $("#moreMenu").hasClass("open");
+                if (isOpen){
+                    closeMoreMenu();
+                }else{
+                    $("#moreMenu").addClass("open");
+                    $("#moreBtn").addClass("active");
+                }
+            }
+
+            function closeMoreMenu(){
+                $("#moreMenu").removeClass("open");
+                $("#moreBtn").removeClass("active");
+            }
+
+            $(document).on("click", function(event){
+                if ($(event.target).closest("#moreMenu, #moreBtn").length == 0){
+                    closeMoreMenu();
+                }
+                if ($(event.target).closest("#contextMenu").length == 0){
+                    closeContextMenu();
+                }
+            });
+
+            //A right click anywhere else dismisses an open context menu
+            $(document).on("contextmenu", function(event){
+                if ($(event.target).closest(".fileObject").length == 0){
+                    closeContextMenu();
+                }
+            });
+
+            $("#fileArea").on("scroll", function(){
+                closeContextMenu();
+            });
+
+            /* ------------------------------------------------------------------ */
+            /*  Search                                                             */
+            /* ------------------------------------------------------------------ */
+            var searchDebounce = null;
+            $("#searchInput").on("input", function(){
+                var value = $(this).val().toLowerCase().trim();
+                clearTimeout(searchDebounce);
+                searchDebounce = setTimeout(function(){
+                    searchKeyword = value;
+                    renderFileList();
+                }, 150);
+            });
+
+            /* ------------------------------------------------------------------ */
+            /*  Keyboard                                                           */
+            /* ------------------------------------------------------------------ */
+            $(window).on("keydown", function(event){
                 if (event.which == 17){
                     ctrlDown = true;
                 }else if (event.which == 16){
                     shiftDown = true;
+                }else if (event.which == 27){
+                    //Escape backs out of the transient UI first, and only closes the
+                    //whole dialog when there is nothing left to dismiss
+                    if ($("#contextMenu").hasClass("open")){
+                        closeContextMenu();
+                        return;
+                    }
+                    if (inlineEditActive || $("#moreMenu").hasClass("open")){
+                        closeMoreMenu();
+                        return;
+                    }
+                    closeSelector();
+                }else if (event.which == 13){
+                    if ($(event.target).is("#addressbar") || inlineEditActive){
+                        return;
+                    }
+                    closeContextMenu();
+                    //Enter opens the highlighted folder, or confirms the selection
+                    var selected = $("#fileArea").find(".fileObject.selected");
+                    if (selected.length == 1 && selected.attr("isDir") == "true" && type != "folder"){
+                        listDir(decodeURIComponent(selected.attr("filepath")));
+                    }else{
+                        confirmSelection();
+                    }
                 }
             });
 
-            $(window).on("keyup",function(event){
+            $(window).on("keyup", function(event){
                 if (event.which == 17){
                     ctrlDown = false;
                 }else if (event.which == 16){
@@ -646,143 +2849,21 @@
                 }
             });
 
-            $(window).on("resize",function(){
-                updateWindowResize();
+            //Clicking the empty area of the file list clears the selection
+            $("#fileArea").on("click", function(event){
+                if ($(event.target).closest(".fileObject, .fsListHead").length == 0){
+                    $(".fileObject.selected").removeClass("selected");
+                    setWindowTitleForSelection(0);
+                    clearDetails();
+                }
             });
 
-            function updateWindowResize(){
-                if (window.innerWidth < 560){
-                    //Mobile mode
-                    $("#sidebarToggleBtn").show();
-                    $("#sidebar").hide();
-                    $("#addressbar").parent().css({
-                        "width": "100%",
-                        "margin-top": "4px"
-                    });
-
-                    $("#newfilenameInput").find(".input").css({
-                        "width": "100%",
-                        "margin-top": "4px"
-                    });
-
-                    $("#newFolderInput").find(".input").css({
-                        "width": "100%",
-                        "margin-top": "4px"
-                    });
-                }else{
-                    $("#sidebarToggleBtn").hide();
-                    $("#sidebar").show();
-                    $("#sidebar").css("margin-top", "0px");
+            $(window).on("resize", function(){
+                if (window.innerWidth >= 560){
+                    closeSidebar();
                 }
-                updateUIElements();
-            }
-
-            function initAddressBarWidth(){
-                $("#addressbar").css("width",window.innerWidth - 220 + "px"); 
-            }
-
-            function chooseThisFile(object){
-                $(".selected").removeClass('selected');
-                $(object).addClass('selected');
-                confirmSelection();
-            }
-
-            function parentDir(){
-                if (currentDir.substring(currentDir.length - 1) == "/"){
-                    currentDir = currentDir.substring(0, currentDir.length - 1);
-                }
-                var tmp = currentDir.split("/");
-                tmp.pop();
-                var parentPath = tmp.join("/");
-                if (parentPath.length == 0){
-                    //Do nothing. Already at root dir
-                }else{
-                    listDir(parentPath);
-                }
-            }
-
-            function backDir(){
-                if (pathHistory.length > 1){
-                    pathHistory.pop();
-                    var targetPath = pathHistory.pop();
-                    listDir(targetPath);
-                }
-            }
-
-            //Initialize user shortcuts
-            function initRoots(){
-                $.get("../../system/file_system/listRoots",function(data){
-                    $("#storagelist").html("");
-                    for (var i =0; i < data.length; i++){
-                        $('#storagelist').append(`<div class="item extrapadding" filepath="${data[i]["RootPath"]}" onclick="openShortcut(this);"><i class="disk outline icon" style="margin-right:8px;"></i> ${data[i]["RootName"]} (${data[i]["RootPath"]})</div>`);
-                    }
-                });
-                $.get("../../system/file_system/listRoots?user=true",function(data){
-                    $("#userlist").html("");
-                    for (var i =0; i < data.length; i++){
-                        if (data[i].IsDir == true){
-                            if (data[i]["Filename"].substring(0,1) == "."){
-                                //Do not show hidden files
-                                continue;
-                            }
-
-                            //Get the icon and the localization of this user root
-                            var iconAndFolderName = getUserRootIcons(data[i]["Filename"]);
-                            console.log(iconAndFolderName);
-                            $('#userlist').append(`<div class="item extrapadding" filepath="${data[i]["Filepath"]}" onclick="openShortcut(this);"><i class="${iconAndFolderName[0]} icon" style="margin-right:8px;"></i> ${iconAndFolderName[1]}</div>`);
-                        }
-                        
-                    }
-                });
-            }
-
-            function getUserRootIcons(foldername){
-                var icon = "folder open";
-                var name = foldername;
-                foldername = foldername.toLowerCase();
-                if (foldername == "desktop"){
-                    icon = "computer";
-                    name = applocale.getString("sidebar/vroot/desktop", name);
-                }else if (foldername == "document"){
-                    icon = "file text outline";
-                    name = applocale.getString("sidebar/vroot/document", name);
-                }else if (foldername == "music" || foldername == "audio"){
-                    icon = "music";
-                    name = applocale.getString("sidebar/vroot/music", name);
-                }else if (foldername == "photo" || foldername == "picture"){
-                    icon = "image";
-                    name = applocale.getString("sidebar/vroot/photo", name);
-                }else if (foldername == "video" || foldername == "film"){
-                    icon = "video";
-                    name = applocale.getString("sidebar/vroot/video", name);
-                }else if (foldername == "trash" || foldername == "bin" || foldername == "rubbish"){
-                    icon = "trash"
-                    name = applocale.getString("sidebar/vroot/trash", name);
-                }else if (foldername == "download"){
-                    icon = "download"
-                    name = applocale.getString("sidebar/vroot/download", name);
-                }else if (foldername == "www" || foldername == "web" || foldername == "mysite"){
-                    icon = "globe"
-                    name = applocale.getString("sidebar/vroot/web", name);
-                }else if (foldername == "model"){
-                    icon = "cube"
-                    name = applocale.getString("sidebar/vroot/model", name);
-                }else if (foldername == "appdata"){
-                    icon = "code"
-                    name = applocale.getString("sidebar/vroot/appdata", name);
-                }
-                return [icon, name];
-            }
-
-            function openShortcut(object){
-                var targetdir = $(object).attr("filepath");
-                targetdir = decodeURIComponent(targetdir);
-                listDir(targetdir);
-                if (window.innerWidth < 560){
-                    $("#sidebar").hide();
-                }
-            }
-
+                updateFileAreaDensity();
+            });
         </script>
     </body>
 </html>

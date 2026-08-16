@@ -30,24 +30,16 @@ const (
 
 // Transcode and stream the given file. Make sure ffmpeg is installed before calling to transcoder.
 // startTime is a seek offset in seconds; pass 0 to start from the beginning.
-// When the host has a usable Intel or AMD hardware encoder (probed once and
-// cached by getHWEncoderProfile), it is used in place of libx264 to keep CPU
-// load down; otherwise this falls back to the original software path.
+// When the host has a usable hardware H.264 encoder - NVENC / VAAPI / Quick
+// Sync / AMF on Linux and Windows, VideoToolbox on macOS - it is used in place
+// of libx264 to keep CPU load down (probed once and cached by
+// getHWEncoderProfile); otherwise this falls back to the original software path.
 func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
 	// Build the FFmpeg command based on the resolution parameter
 	var cmd *exec.Cmd
 
-	var height string
-	switch resolution {
-	case "360p":
-		height = "360"
-	case "720p":
-		height = "720"
-	case "1080p":
-		height = "1080"
-	case "":
-		height = ""
-	default:
+	height, err := resolutionHeight(resolution)
+	if err != nil {
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}
@@ -67,7 +59,12 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 		if height != "" {
 			vf = "scale=-1:" + height
 		}
-		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast"}
+		// -pix_fmt yuv420p is not optional. libx264 otherwise matches the source
+		// bit depth, so a 10-bit input (routine in anime releases) produces a
+		// High 10 stream that Chrome and Firefox cannot decode — the transcode
+		// would appear to succeed and then fail to play, which is the whole
+		// problem transcoding exists to avoid.
+		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast", "-pix_fmt", "yuv420p"}
 	}
 
 	middleArgs := []string{"-i", inputFile}

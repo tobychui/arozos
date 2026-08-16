@@ -1485,9 +1485,12 @@ ffmpeg.convert("user:/in.mov", "user:/out.mp4", 0);
 ffmpeg.audioConvert("user:/in.wav", "user:/out.mp3", 44100, "tmp:/audio_progress.json");
 ```
 
-### `ffmpeg.imageConvert(input, output, scaleFactor, compressionRate)`
+### `ffmpeg.imageConvert(input, output, scaleFactor, compressionRate, progressFile)`
+`progressFile` is optional. Image conversions have no timeline, so the file only
+reports 0 % and, on success, 100 % — but passing it makes the job cancellable.
+
 ```javascript
-ffmpeg.imageConvert("user:/in.png", "user:/out.jpg", 0.5, 80);
+ffmpeg.imageConvert("user:/in.png", "user:/out.jpg", 0.5, 80, "tmp:/image_progress.json");
 ```
 
 ### `ffmpeg.videoConvert(input, output, resolution, compressionRate, progressFile)`
@@ -1498,6 +1501,24 @@ ffmpeg.videoConvert("user:/in.mp4", "user:/out.mp4", "720p", 55, "tmp:/video_pro
 ### `ffmpeg.convertWithProgress(input, output, progressFile)`
 ```javascript
 ffmpeg.convertWithProgress("user:/in.mp4", "user:/out.gif", "tmp:/conv_progress.json");
+```
+
+### `ffmpeg.cancel(progressFile)`
+Stops a conversion that is still running, identified by the progress file it was
+started with. Returns `true` when a running conversion was found and terminated,
+`false` when it already finished or was started without a progress file. The
+conversion call itself then returns `false` like any other failed conversion, so
+the caller decides how a cancelled job is recorded.
+
+Because the conversion runs in its own request, the cancel call is made from a
+*separate* script execution while the conversion request is still open.
+
+```javascript
+// in the request that starts the job
+ffmpeg.videoConvert("user:/in.mp4", "user:/out.mkv", "", 38, "tmp:/job42.progress.json");
+
+// in a later request, to stop it
+var stopped = ffmpeg.cancel("tmp:/job42.progress.json");
 ```
 
 ## websocket API

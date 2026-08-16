@@ -7,6 +7,9 @@
     <meta name="theme-color" content="#000000">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <!-- HLS via Media Source, so browsers without native HLS (Firefox,
+         Chrome) can play the transcoded playlist without hls.js -->
+    <script src="../script/hlsmse.js"></script>
     <script src="backend/common.js"></script>
 
     <!-- ASS/SSA subtitle parser + renderer (see script/ass.js) -->
@@ -445,7 +448,7 @@
         .set-seg-btn:hover  { color: var(--text); }
         .set-seg-btn.active { background: var(--surface); color: var(--text); }
 
-        .speed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .speed-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
         .speed-btn {
             padding: 5px 0; font-size: 12px; font-family: inherit;
             border: none; border-radius: var(--radius); cursor: pointer;
@@ -471,7 +474,8 @@
             color: var(--text); padding: 10px 20px; border-radius: 20px;
             font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             opacity: 0; transition: opacity 0.3s, transform 0.3s;
-            pointer-events: none; z-index: 1000; white-space: nowrap;
+            pointer-events: none; z-index: 1000; max-width: min(90vw, 30em);
+            text-align: center; line-height: 1.45;
         }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
@@ -598,14 +602,11 @@
         <div class="set-section">
             <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
             <div class="speed-grid" id="set-speed-grid">
-                <button class="speed-btn" data-speed="0.25">0.25×</button>
-                <button class="speed-btn" data-speed="0.5">0.5×</button>
-                <button class="speed-btn" data-speed="0.75">0.75×</button>
-                <button class="speed-btn active" data-speed="1">Normal</button>
-                <button class="speed-btn" data-speed="1.25">1.25×</button>
-                <button class="speed-btn" data-speed="1.5">1.5×</button>
-                <button class="speed-btn" data-speed="1.75">1.75×</button>
-                <button class="speed-btn" data-speed="2">2×</button>
+                <button class="speed-btn" data-speed="0.5">0.5&times;</button>
+                <button class="speed-btn active" data-speed="1">1&times;</button>
+                <button class="speed-btn" data-speed="1.2">1.2&times;</button>
+                <button class="speed-btn" data-speed="1.5">1.5&times;</button>
+                <button class="speed-btn" data-speed="2">2&times;</button>
             </div>
         </div>
         <div class="set-section">
@@ -613,6 +614,14 @@
             <div class="set-seg" id="set-volbar-seg">
                 <button class="set-seg-btn active" data-volbar="auto">Auto</button>
                 <button class="set-seg-btn"        data-volbar="always">Always show</button>
+            </div>
+        </div>
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/movie_white.svg" alt="">Streaming mode</div>
+            <div class="set-seg" id="set-stream-seg">
+                <button class="set-seg-btn active" data-stream="auto">Auto</button>
+                <button class="set-seg-btn"        data-stream="mp4">MP4</button>
+                <button class="set-seg-btn"        data-stream="hls">HLS</button>
             </div>
         </div>
         <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
@@ -675,7 +684,13 @@ var pendingResumePos    = 0;
 var watchSaveInterval   = null;
 var controlsTimer       = null;
 var repeatSingle        = (localStorage.getItem('movie_repeat_one') === '1');
-var playbackSpeed       = parseFloat(localStorage.getItem('movie_playback_speed') || '1') || 1;
+// Snapped to the nearest preset on load: an earlier build let this be dragged
+// to any value, and the popup highlights presets only.
+// The preset rates offered in the settings popup. Declared here rather than
+// beside setPlaybackSpeed because the initialiser below runs on load, and a
+// `var` further down the file would still be undefined at that point.
+var PLAYBACK_SPEEDS = [0.5, 1, 1.2, 1.5, 2];
+var playbackSpeed       = nearestPlaybackSpeed(localStorage.getItem('movie_playback_speed') || '1');
 var alwaysShowVolumeBar = (localStorage.getItem('movie_always_volume_bar') === '1');
 var infoRefreshTimer    = null;
 var currentInfoTab      = 'props';
@@ -729,6 +744,30 @@ function showToast(msg) {
     toastTimer = setTimeout(function () { $('#toast').removeClass('show'); }, 2800);
 }
 
+// play() returns a promise that rejects when the browser will not start the
+// media — most commonly NotSupportedError on Safari, which refuses a transcoded
+// stream because the endpoint cannot answer byte-range requests. Left
+// unhandled it only shows up as an unhandled rejection in the console, so the
+// player just sits there with no explanation. Surface it instead.
+function playVideo(v) {
+    var p = v.play();
+    if (p && typeof p.catch === 'function') {
+        p.catch(function (err) {
+            if (err && err.name === 'AbortError') {
+                // Fired whenever a load or a new src interrupts a pending
+                // play() — routine during seek-by-reload, not a failure.
+                return;
+            }
+            if (err && err.name === 'NotSupportedError') {
+                showToast('This browser cannot play this transcoded format. Try Chrome or Firefox.');
+            } else {
+                showToast('Playback failed: ' + ((err && err.message) || 'unknown error'));
+            }
+        });
+    }
+    return p;
+}
+
 // ── File loading ──────────────────────────────────────────────────────────────
 var files = ao_module_loadInputFiles();
 if (files && files.length > 0) {
@@ -739,17 +778,49 @@ if (files && files.length > 0) {
     };
     ao_module_setWindowTitle('Movie – ' + currentFile.name);
 
-    isTranscodedVideo = !isWebPlayable(currentFile.ext);
-
-    vid.src = isTranscodedVideo
-        ? TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-        : MEDIA_API     + '?file=' + encodeURIComponent(currentFile.filepath);
     vid.autoplay = true;
-    vid.load();
 
-    // Resume position check (only for videos longer than 1 hour)
+    // The extension only says the container might be playable; the codec inside
+    // decides. An .mp4 holding HEVC or 10-bit H.264 has to be transcoded.
+    resolveDirectPlay(currentFile.filepath, currentFile.ext, function (directPlay) {
+        beginFileStream(directPlay);
+    });
+}
+
+// Bind the video element to the right stream and arm the resume prompt. Also
+// the retry target when direct playback turns out to fail anyway.
+function beginFileStream(directPlay) {
+    if (!currentFile) { return; }
+    clearDirectPlaybackWatch(vid);
+    detachTranscodeStream(vid);
+
+    isTranscodedVideo   = !directPlay;
+    transcodeSeekOffset = 0;
+    transcodeDuration   = 0;
+
+    if (directPlay) {
+        vid.src = MEDIA_API + '?file=' + encodeURIComponent(currentFile.filepath);
+        vid.load();
+        // Last resort: a browser without the platform decoder the probe assumed
+        onDirectPlaybackFailure(vid, function () {
+            showToast('This browser cannot decode that file — switching to a transcode');
+            beginFileStream(false);
+        });
+    } else if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0),
+                                      function (reason) { showToast(reason); })) {
+        showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
+        return;
+    }
+
+    armResumePrompt();
+}
+
+// Offer to resume where the viewer left off. Direct playback learns its length
+// from the element; a transcode has to ask the server for it.
+function armResumePrompt() {
+    if (!currentFile) { return; }
     if (!isTranscodedVideo) {
-        $(vid).one('loadedmetadata.resume', function () {
+        $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
             if (vid.duration > 3600 && currentFile) {
                 ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: currentFile.filepath }, function (data) {
                     if (data && !data.error && data.position > 30 && data.position < vid.duration * 0.95) {
@@ -758,23 +829,200 @@ if (files && files.length > 0) {
                 });
             }
         });
-    } else {
-        // Fetch total duration separately (transcode stream doesn't expose it)
-        fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(currentFile.filepath))
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.duration > 0) {
-                    transcodeDuration = data.duration;
-                    if (transcodeDuration > 3600 && currentFile) {
-                        ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: currentFile.filepath }, function (wdata) {
-                            if (wdata && !wdata.error && wdata.position > 30 && wdata.position < transcodeDuration * 0.95) {
-                                showResumePopup(wdata.position, transcodeDuration);
-                            }
-                        });
-                    }
-                }
-            }).catch(function () {});
+        return;
     }
+
+    // Fetch total duration separately (transcode stream doesn't expose it)
+    $(vid).off('loadedmetadata.resume');
+    fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(currentFile.filepath))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.duration > 0) {
+                transcodeDuration = data.duration;
+                if (transcodeDuration > 3600 && currentFile) {
+                    ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: currentFile.filepath }, function (wdata) {
+                        if (wdata && !wdata.error && wdata.position > 30 && wdata.position < transcodeDuration * 0.95) {
+                            showResumePopup(wdata.position, transcodeDuration);
+                        }
+                    });
+                }
+            }
+        }).catch(function () {});
+}
+
+// ── Scrub-bar hover preview (storyboard) ──────────────────────────────────────
+// The server renders one sprite sheet per file holding a downscaled frame every
+// few seconds; we fetch it once and keep it in memory, so hovering the timeline
+// costs nothing. Asking ffmpeg for a frame per hover would be hopeless on a
+// software-decoded H.265 source, which is exactly where previews matter most.
+var storyboard      = null;   // layout from the server + the loaded sheet URL
+var storyboardToken = 0;      // invalidates in-flight loads when the file changes
+var storyboardTimer = null;
+
+function resetStoryboard() {
+    storyboardToken++;
+    storyboard = null;
+    clearTimeout(storyboardTimer);
+    storyboardTimer = null;
+    $('#scrub-preview-thumb').removeClass('ready');
+    hideScrubPreview();
+}
+
+// Building the sheet runs ffmpeg, so hold off briefly and let playback (and any
+// transcode) get established before adding more load.
+function scheduleStoryboardLoad(filepath) {
+    resetStoryboard();
+    if (!filepath) { return; }
+    var token = storyboardToken;
+    storyboardTimer = setTimeout(function () { loadStoryboard(filepath, token); }, 3000);
+}
+
+function loadStoryboard(filepath, token) {
+    var base = STORYBOARD_API + '?file=' + encodeURIComponent(filepath);
+    fetch(base)
+        .then(function (r) { return r.json(); })
+        .then(function (meta) {
+            if (token !== storyboardToken) { return; }   // switched file while loading
+            if (!meta || meta.error || !meta.interval || !meta.tileWidth) { return; }
+            var img = new Image();
+            img.onload = function () {
+                if (token !== storyboardToken) { return; }
+                meta.url   = img.src;
+                storyboard = meta;
+            };
+            img.src = base + '&image=1';
+        })
+        .catch(function () {});   // previews are optional — stay silent on failure
+}
+
+// Whole-file duration, whichever playback mode is active
+function scrubTotalDuration() {
+    if (isTranscodedVideo) { return transcodeDuration; }
+    return vid.duration || 0;
+}
+
+function initScrubPreview() {
+    var $wrap = $('#progress-wrap');
+    $wrap.on('mousemove', function (e) {
+        var total = scrubTotalDuration();
+        var rect  = this.getBoundingClientRect();
+        if (!total || !isFinite(total) || rect.width <= 0) { hideScrubPreview(); return; }
+        var ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        showScrubPreview(ratio * total, ratio, rect.width);
+    });
+    $wrap.on('mouseleave', hideScrubPreview);
+}
+
+function showScrubPreview(time, ratio, barWidth) {
+    $('#scrub-preview-time').text(formatTime(time));
+
+    var $thumb = $('#scrub-preview-thumb');
+    var halfWidth;
+    if (storyboard && storyboard.url) {
+        var idx = Math.max(0, Math.min(storyboard.count - 1,
+                                       Math.floor(time / storyboard.interval)));
+        var col = idx % storyboard.cols;
+        var row = Math.floor(idx / storyboard.cols);
+        $thumb.addClass('ready').css({
+            'width':               storyboard.tileWidth + 'px',
+            'height':              storyboard.tileHeight + 'px',
+            'background-image':    'url("' + storyboard.url + '")',
+            'background-position': (-col * storyboard.tileWidth) + 'px '
+                                 + (-row * storyboard.tileHeight) + 'px'
+        });
+        halfWidth = storyboard.tileWidth / 2;
+    } else {
+        // Sheet not ready (or unavailable) — the timestamp alone is still useful
+        $thumb.removeClass('ready');
+        halfWidth = 28;
+    }
+
+    // Keep the popup within the bar rather than letting it hang off an edge
+    var x = Math.max(halfWidth, Math.min(barWidth - halfWidth, ratio * barWidth));
+    $('#scrub-preview').css('left', x + 'px').addClass('active');
+}
+
+function hideScrubPreview() { $('#scrub-preview').removeClass('active'); }
+
+// ── Transcode seek (seek-by-reload) ───────────────────────────────────────────
+// Formats the browser can't decode are streamed through ffmpeg, so "seeking"
+// means restarting the transcode at a new offset. Replacing .src blanks the
+// <video> to black until the first frame of the new segment arrives, which can
+// take seconds. Freeze the last painted frame under a spinner instead, and only
+// reveal the live element once it is genuinely playing again.
+var seekFreezeTimer = null;
+
+function showSeekFreeze() {
+    var canvas = document.getElementById('seek-freeze');
+    if (canvas && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        canvas.width  = vid.videoWidth;
+        canvas.height = vid.videoHeight;
+        try {
+            canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+            $(canvas).show();
+        } catch (e) {
+            // No decodable frame right now (e.g. seeking again mid-buffer) —
+            // leave whatever is already frozen on screen rather than flashing black.
+        }
+    }
+    $('#seek-spinner').addClass('active');
+    clearTimeout(seekFreezeTimer);
+    // Safety net: a stalled transcode must never leave the overlay stuck on
+    seekFreezeTimer = setTimeout(hideSeekFreeze, 30000);
+}
+
+function hideSeekFreeze() {
+    clearTimeout(seekFreezeTimer);
+    seekFreezeTimer = null;
+    $('#seek-freeze').hide();
+    $('#seek-spinner').removeClass('active');
+}
+
+// Seek to `seconds` (absolute, whole-file time), clamped to the known duration.
+//
+// An HLS stream keeps every segment produced so far in its playlist, so a seek
+// landing inside the transcoded window is an ordinary <video> seek — no reload,
+// no re-transcode, no black frame. Only a seek past that window (or an MP4
+// stream, which has no seekable history at all) has to restart the transcode at
+// the new offset.
+function transcodeSeekTo(seconds) {
+    if (!currentFile) { return; }
+    var pos = Math.max(0, seconds);
+    if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
+
+    if (usingHLS() && seekWithinTranscodedWindow(vid, pos)) {
+        setSubtitleSeekFloor(pos);
+        vid.currentTime = pos - transcodeSeekOffset;
+        playVideo(vid);
+        return;
+    }
+
+    showSeekFreeze();
+    setSubtitleSeekFloor(pos);
+    transcodeSeekOffset = pos;
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, pos))) {
+        hideSeekFreeze();
+        showToast('This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.');
+        return;
+    }
+    playVideo(vid);
+}
+
+// Whether `pos` (absolute time) falls inside what the current stream has
+// already produced and can therefore be reached without reloading.
+function seekWithinTranscodedWindow(videoEl, pos) {
+    var relative = pos - transcodeSeekOffset;
+    if (relative < 0) { return false; }
+    if (!videoEl.seekable || videoEl.seekable.length === 0) { return false; }
+    var available = videoEl.seekable.end(videoEl.seekable.length - 1);
+    // Stay a segment clear of the live edge; seeking right onto it stalls until
+    // the next segment lands.
+    return relative <= available - 4;
+}
+
+// Current playback position in whole-file terms (transcode streams restart at 0)
+function effectivePlaybackTime() {
+    return isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
 }
 
 // ── Scrub-bar hover preview (storyboard) ──────────────────────────────────────
@@ -1012,7 +1260,7 @@ function initVideoControls() {
             transcodeSeekTo(0);
         } else {
             vid.currentTime = 0;
-            vid.play();
+            playVideo(vid);
         }
     });
 
@@ -1049,7 +1297,7 @@ function updateMuteIcon() {
 function togglePlay() {
     $('#resume-popup').removeClass('active');
     var willPlay = vid.paused;
-    if (willPlay) { vid.play(); } else { vid.pause(); }
+    if (willPlay) { playVideo(vid); } else { vid.pause(); }
     flashPlayState(willPlay);
 }
 
@@ -1107,12 +1355,12 @@ function showResumePopup(savedPos, duration) {
             transcodeSeekTo(pendingResumePos);
         } else {
             vid.currentTime = pendingResumePos;
-            vid.play();
+            playVideo(vid);
         }
         $('#resume-popup').removeClass('active');
     });
     $('#resume-btn-restart').off('click').on('click', function () {
-        vid.play();
+        playVideo(vid);
         $('#resume-popup').removeClass('active');
     });
 }
@@ -1149,7 +1397,7 @@ function initContextMenu() {
         if (!$(e.target).closest('#player-ctx').length) { $ctx.hide(); }
     });
 
-    $('#ctx-play').on('click',   function () { vid.play();  flashPlayState(true);  $ctx.hide(); });
+    $('#ctx-play').on('click',   function () { playVideo(vid);  flashPlayState(true);  $ctx.hide(); });
     $('#ctx-pause').on('click',  function () { vid.pause(); flashPlayState(false); $ctx.hide(); });
     $('#ctx-repeat').on('click', function () { setRepeatSingle(!repeatSingle); $ctx.hide(); });
     $('#ctx-subtitle-settings').on('click', function () { $ctx.hide(); openSubtitleSettings(); });
@@ -1181,10 +1429,58 @@ function setPlaybackSpeed(rate) {
         .filter('[data-speed="' + playbackSpeed + '"]').addClass('active');
 }
 
+// Snap an arbitrary stored rate onto the nearest preset, so the popup always
+// has exactly one button highlighted. Needed because an earlier build persisted
+// free-form rates from a drag slider.
+function nearestPlaybackSpeed(rate) {
+    var value = parseFloat(rate);
+    if (!value || value <= 0) { return 1; }
+    return PLAYBACK_SPEEDS.reduce(function (best, preset) {
+        return Math.abs(preset - value) < Math.abs(best - value) ? preset : best;
+    }, PLAYBACK_SPEEDS[0]);
+}
+
+// Apply a streaming mode. Changing it mid-playback re-opens the current file on
+// the other transport, resuming where the viewer was.
+function applyStreamMode(mode, reloadCurrent) {
+    var previous = getStreamMode();
+    setStreamMode(mode);
+    $('#set-stream-seg .set-seg-btn').removeClass('active')
+        .filter('[data-stream="' + getStreamMode() + '"]').addClass('active');
+
+    if (!reloadCurrent || previous === getStreamMode()) { return; }
+    // Warn only when the viewer actively picks a mode this browser cannot play
+    warnIfStreamModeUnplayable();
+    if (!isTranscodedVideo || !currentFile) { return; }
+
+    var resumeAt = effectivePlaybackTime();
+    transcodeSeekOffset = 0;
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentFile.filepath, 0))) {
+        showToast('This browser cannot play the HLS stream.');
+        return;
+    }
+    playVideo(vid);
+    if (resumeAt > 1) { transcodeSeekTo(resumeAt); }
+}
+
+function playerVideoElement() { return vid; }
+
+// Surface the two streaming modes that cannot work on a given browser. Anything
+// that is simply working says nothing at all.
+function warnIfStreamModeUnplayable() {
+    var mode = getStreamMode();
+    if (mode === 'mp4' && isWebKitClient()) {
+        showToast('This browser cannot play the MP4 stream. Use Auto or HLS.');
+    } else if (mode === 'hls' && !hlsPlaybackSupported(playerVideoElement())) {
+        showToast('This browser has no HLS support (needs Media Source Extensions).');
+    }
+}
+
 function openSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    applyStreamMode(getStreamMode(), false);
     $('#player-ctx').hide();
     $('#settings-popup').addClass('active');
     showControls();
@@ -1221,6 +1517,10 @@ function initSettingsPopup() {
         setAlwaysShowVolumeBar($(this).data('volbar') === 'always');
     });
 
+    $('#set-stream-seg').on('click', '.set-seg-btn', function () {
+        applyStreamMode(String($(this).data('stream')), true);
+    });
+
     $('#set-load-subtitle').on('click',    function () { closeSettingsPopup(); pickSubtitleFile(); });
     $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
     $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
@@ -1229,6 +1529,7 @@ function initSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    applyStreamMode(getStreamMode(), false);
 
     // A transcode seek replaces the media source, which resets playbackRate —
     // reapply the chosen speed every time new media is loaded.

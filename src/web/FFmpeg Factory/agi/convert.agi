@@ -1,8 +1,12 @@
 /*
     FFmpeg Factory - Convert
     Runs an ffmpeg conversion and writes progress to a JSON file.
+    The same endpoint also cancels a running conversion (action=cancel), so the
+    frontend only needs the task ID it already knows to stop a job.
 
     Expected POST parameters:
+      action     - optional; "cancel" stops the running conversion of taskId.
+                   Any other value (or omitted) starts a new conversion.
       src        - virtual path of the input file
       outputExt  - desired output file extension (e.g. "mp3", "mp4")
       convType   - "audio" | "video" | "image" | "generic"
@@ -16,84 +20,154 @@
 requirelib("filelib");
 requirelib("ffmpeg");
 
-// Validate required parameters
-if (typeof src === "undefined" || typeof outputExt === "undefined" ||
-    typeof convType === "undefined" || typeof taskId === "undefined") {
-    sendJSONResp(JSON.stringify({ error: "Missing required parameters" }));
-}
-
-// Parse options
-var opts = {};
-if (typeof options !== "undefined" && options !== "" && options !== "undefined") {
-    try { opts = JSON.parse(options); } catch (e) {}
-}
-
 // Ensure task folder exists
 var taskDir = "tmp:/ffmpeg_factory";
 if (!filelib.fileExists(taskDir)) {
     filelib.mkdir(taskDir);
 }
 
-// Determine output virtual path (same directory as the source, new extension)
-var lastSlash = src.lastIndexOf("/");
-var inputDir   = src.substring(0, lastSlash);
-var inputFile  = src.substring(lastSlash + 1);
-var lastDot    = inputFile.lastIndexOf(".");
-var baseName   = (lastDot > 0) ? inputFile.substring(0, lastDot) : inputFile;
-var outputVpath = inputDir + "/" + baseName + "." + outputExt;
+function taskFileOf(id)     { return taskDir + "/" + id + ".task.json"; }
+function progressFileOf(id) { return taskDir + "/" + id + ".progress.json"; }
 
-// Progress file virtual path (written by the Go ffmpeg functions every ~500 ms)
-var progressVpath = taskDir + "/" + taskId + ".progress.json";
-
-// Write initial task file so the frontend can resume the session if the tab is closed
-var taskObj = {
-    id:           taskId,
-    input_vpath:  src,
-    output_vpath: outputVpath,
-    conv_type:    convType,
-    options:      opts,
-    status:       "running",
-    error:        "",
-    created_at:   Date.now()
-};
-filelib.writeFile(taskDir + "/" + taskId + ".task.json", JSON.stringify(taskObj));
-
-// --- Run the conversion ---
-var success = false;
-var errMsg  = "";
-
-try {
-    if (convType === "audio") {
-        var sr = (opts.sample_rate && parseInt(opts.sample_rate) > 0) ? parseInt(opts.sample_rate) : 0;
-        success = ffmpeg.audioConvert(src, outputVpath, sr, progressVpath);
-
-    } else if (convType === "video") {
-        var res  = (opts.resolution && opts.resolution !== "undefined") ? opts.resolution : "";
-        var crf  = (opts.compression) ? parseInt(opts.compression) : 0;
-        success = ffmpeg.videoConvert(src, outputVpath, res, crf, progressVpath);
-
-    } else if (convType === "image") {
-        var scale = (opts.scale) ? parseFloat(opts.scale) : 1.0;
-        var qual  = (opts.compression) ? parseInt(opts.compression) : 0;
-        success = ffmpeg.imageConvert(src, outputVpath, scale, qual);
-
-    } else {
-        // generic / cross-media (e.g. mp4 → gif)
-        success = ffmpeg.convertWithProgress(src, outputVpath, progressVpath);
+// Read a task file back into an object, or null when it is missing / unreadable
+function readTaskObject(id) {
+    var taskFile = taskFileOf(id);
+    if (!filelib.fileExists(taskFile)) {
+        return null;
     }
-} catch (e) {
-    errMsg  = e.toString();
-    success = false;
+    var content = filelib.readFile(taskFile);
+    if (content === false || content === "") {
+        return null;
+    }
+    try {
+        return JSON.parse(content);
+    } catch (e) {
+        return null;
+    }
 }
 
-// Update task file with final status
-taskObj.status = success ? "completed" : "failed";
-taskObj.error  = errMsg;
-filelib.writeFile(taskDir + "/" + taskId + ".task.json", JSON.stringify(taskObj));
+var isCancelRequest = (typeof action !== "undefined" && action === "cancel");
+var haveTaskId      = (typeof taskId !== "undefined" && taskId !== "" && taskId !== "undefined");
 
-sendJSONResp(JSON.stringify({
-    success: success,
-    taskId:  taskId,
-    output:  outputVpath,
-    error:   errMsg
-}));
+if (isCancelRequest) {
+    // ── Cancel an already running conversion ──
+    if (!haveTaskId) {
+        sendJSONResp(JSON.stringify({ error: "Missing taskId" }));
+    } else {
+        // Stop the ffmpeg process; false means it already finished on its own
+        var stopped = ffmpeg.cancel(progressFileOf(taskId));
+
+        // Mark the task as cancelled. The still-running convert request re-reads
+        // this file before writing its own result, so the cancelled state wins.
+        var pendingTask = readTaskObject(taskId);
+        if (pendingTask !== null) {
+            pendingTask.status = "cancelled";
+            pendingTask.error  = "Cancelled by user";
+            filelib.writeFile(taskFileOf(taskId), JSON.stringify(pendingTask));
+        }
+
+        sendJSONResp(JSON.stringify({
+            success: true,
+            taskId:  taskId,
+            stopped: stopped
+        }));
+    }
+
+} else if (typeof src === "undefined" || typeof outputExt === "undefined" ||
+           typeof convType === "undefined" || !haveTaskId) {
+    // ── Validate required parameters ──
+    sendJSONResp(JSON.stringify({ error: "Missing required parameters" }));
+
+} else {
+    // ── Start a new conversion ──
+
+    // Parse options
+    var opts = {};
+    if (typeof options !== "undefined" && options !== "" && options !== "undefined") {
+        try { opts = JSON.parse(options); } catch (e) {}
+    }
+
+    // Determine output virtual path (same directory as the source, new extension)
+    var lastSlash = src.lastIndexOf("/");
+    var inputDir   = src.substring(0, lastSlash);
+    var inputFile  = src.substring(lastSlash + 1);
+    var lastDot    = inputFile.lastIndexOf(".");
+    var baseName   = (lastDot > 0) ? inputFile.substring(0, lastDot) : inputFile;
+    var outputVpath = inputDir + "/" + baseName + "." + outputExt;
+
+    // Progress file virtual path (written by the Go ffmpeg functions every ~500 ms).
+    // It doubles as the cancellation key of this conversion.
+    var progressVpath = progressFileOf(taskId);
+
+    // Write initial task file so the frontend can resume the session if the tab is closed
+    var taskObj = {
+        id:           taskId,
+        input_vpath:  src,
+        output_vpath: outputVpath,
+        conv_type:    convType,
+        options:      opts,
+        status:       "running",
+        error:        "",
+        created_at:   Date.now()
+    };
+    filelib.writeFile(taskFileOf(taskId), JSON.stringify(taskObj));
+
+    // --- Run the conversion ---
+    var success = false;
+    var errMsg  = "";
+
+    try {
+        if (convType === "audio") {
+            var sr = (opts.sample_rate && parseInt(opts.sample_rate) > 0) ? parseInt(opts.sample_rate) : 0;
+            success = ffmpeg.audioConvert(src, outputVpath, sr, progressVpath);
+
+        } else if (convType === "video") {
+            var res  = (opts.resolution && opts.resolution !== "undefined") ? opts.resolution : "";
+            var crf  = (opts.compression) ? parseInt(opts.compression) : 0;
+            success = ffmpeg.videoConvert(src, outputVpath, res, crf, progressVpath);
+
+        } else if (convType === "image") {
+            var scale = (opts.scale) ? parseFloat(opts.scale) : 1.0;
+            var qual  = (opts.compression) ? parseInt(opts.compression) : 0;
+            success = ffmpeg.imageConvert(src, outputVpath, scale, qual, progressVpath);
+
+        } else {
+            // generic / cross-media (e.g. mp4 → gif)
+            success = ffmpeg.convertWithProgress(src, outputVpath, progressVpath);
+        }
+    } catch (e) {
+        errMsg  = e.toString();
+        success = false;
+    }
+
+    // A cancel request may have come in while ffmpeg was running. The killed
+    // process looks like a normal failure here, so check the task file first.
+    var finalStatus  = success ? "completed" : "failed";
+    var latestTask   = readTaskObject(taskId);
+    var wasCancelled = (latestTask !== null && latestTask.status === "cancelled");
+    if (wasCancelled) {
+        finalStatus = "cancelled";
+        errMsg      = "Cancelled by user";
+    }
+
+    if (filelib.fileExists(taskFileOf(taskId))) {
+        // Update task file with final status
+        taskObj.status = finalStatus;
+        taskObj.error  = errMsg;
+        filelib.writeFile(taskFileOf(taskId), JSON.stringify(taskObj));
+    } else {
+        // The task was dismissed while ffmpeg was still running: do not recreate
+        // its files, and drop the progress file the conversion just rewrote.
+        if (filelib.fileExists(progressVpath)) {
+            filelib.deleteFile(progressVpath);
+        }
+    }
+
+    sendJSONResp(JSON.stringify({
+        success:   success && !wasCancelled,
+        cancelled: wasCancelled,
+        taskId:    taskId,
+        output:    outputVpath,
+        error:     errMsg
+    }));
+}
