@@ -1,0 +1,43 @@
+/*
+    3D Viewer
+
+    A multi-format 3D model viewer for the ArozOS desktop.
+    Replaces the old SystemAO/utilities/stlViewer.html utility.
+
+    Mesh formats are loaded with three.js loaders. CAD formats (STEP / IGES /
+    BREP) are tessellated in the browser with the OpenCascade based
+    occt-import-js WASM kernel, which is only fetched when such a file is
+    opened.
+*/
+
+var moduleLaunchInfo = {
+    Name: "3D Viewer",
+    Desc: "View STL, OBJ, GLB, STEP and other 3D model files",
+    Group: "Utilities",
+    IconPath: "3D Viewer/img/module_icon.svg",
+    Version: "1.0",
+    StartDir: "3D Viewer/index.html",
+    SupportFW: true,
+    LaunchFWDir: "3D Viewer/index.html",
+    InitFWSize: [1180, 760],
+    SupportEmb: true,
+    LaunchEmb: "3D Viewer/index.html",
+    InitEmbSize: [1180, 760],
+    SupportedExt: [
+        ".stl",
+        ".obj",
+        ".glb",
+        ".gltf",
+        ".ply",
+        ".3mf",
+        ".fbx",
+        ".dae",
+        ".step",
+        ".stp",
+        ".iges",
+        ".igs",
+        ".brep"
+    ]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

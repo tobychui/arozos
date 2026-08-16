@@ -53,20 +53,12 @@ func util_init() {
 	})
 
 	/*
-		3D Model Viewer - Supports STL and OBJ files
+		3D Model Viewer
+
+		Superseded by the "3D Viewer" WebApp in ./web/3D Viewer/, which
+		registers itself from its own init.agi and additionally supports
+		GLB/glTF, PLY, 3MF, FBX, DAE and STEP/IGES/BREP.
 	*/
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "3D Model Viewer",
-		Desc:         "3D Model Viewer for STL and OBJ Files",
-		Group:        "Utilities",
-		IconPath:     "SystemAO/utilities/img/stlViewer.png",
-		Version:      "2.0",
-		SupportFW:    false,
-		SupportEmb:   true,
-		LaunchEmb:    "SystemAO/utilities/stlViewer.html",
-		InitEmbSize:  []int{720, 500},
-		SupportedExt: []string{".stl", ".obj"},
-	})
 
 	/*
 		Gcode File Viewer - Plotted from ArOZ Online Beta

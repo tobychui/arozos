@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#f3f3f3">
+    <title>3D Viewer</title>
+    <link rel="icon" href="img/module_icon.svg">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./lib/three/three.module.min.js",
+            "three/addons/": "./lib/three/addons/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- ================= Icon sprite (rule 6: hand drawn inline SVG, no emoji) ================= -->
+    <svg id="iconsprite" aria-hidden="true" focusable="false">
+        <defs>
+            <symbol id="ic-file" viewBox="0 0 24 24">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" />
+                <path d="M14 3v5h5" />
+            </symbol>
+            <symbol id="ic-fit" viewBox="0 0 24 24">
+                <path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" />
+            </symbol>
+            <symbol id="ic-center" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5" />
+                <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </symbol>
+            <symbol id="ic-rotate" viewBox="0 0 24 24">
+                <path d="M20 12a8 8 0 1 1-2.6-5.9" />
+                <path d="M20 4v4h-4" />
+            </symbol>
+            <symbol id="ic-pan" viewBox="0 0 24 24">
+                <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11" />
+                <path d="M12 11V4.5a1.5 1.5 0 0 1 3 0V11" />
+                <path d="M15 11V6.5a1.5 1.5 0 0 1 3 0V13" />
+                <path d="M9 11V9.5a1.5 1.5 0 0 0-3 0V15c0 3.3 2.2 6 5.5 6h1.5c3 0 5-2.4 5-5.5V13" />
+            </symbol>
+            <symbol id="ic-zoom" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M16 16l4.5 4.5" />
+            </symbol>
+            <symbol id="ic-expand" viewBox="0 0 24 24">
+                <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+            </symbol>
+            <symbol id="ic-cube-solid" viewBox="0 0 24 24">
+                <path d="M12 2.6l8 4.2v9.4l-8 4.2-8-4.2V6.8z" />
+                <path d="M4 6.8l8 4.2 8-4.2M12 11v9.4" />
+            </symbol>
+            <symbol id="ic-cube-wire" viewBox="0 0 24 24">
+                <path d="M12 2.6l8 4.2v9.4l-8 4.2-8-4.2V6.8z" />
+                <path d="M4 6.8l8 4.2 8-4.2M12 11v9.4M4 16.2l8-5.2 8 5.2M12 2.6v8.4" opacity=".55" />
+            </symbol>
+            <symbol id="ic-cube-xray" viewBox="0 0 24 24">
+                <path d="M12 2.6l8 4.2v9.4l-8 4.2-8-4.2V6.8z" stroke-dasharray="3 2.4" />
+                <path d="M4 6.8l8 4.2 8-4.2M12 11v9.4" stroke-dasharray="2.4 2.4" opacity=".7" />
+            </symbol>
+            <symbol id="ic-undo" viewBox="0 0 24 24">
+                <path d="M4 12a8 8 0 1 0 2.6-5.9" />
+                <path d="M4 4v4h4" />
+            </symbol>
+            <symbol id="ic-sun" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7" />
+            </symbol>
+            <symbol id="ic-image" viewBox="0 0 24 24">
+                <rect x="3" y="4.5" width="18" height="15" rx="2.2" />
+                <circle cx="8.5" cy="10" r="1.6" />
+                <path d="M4 17l5-4.6 4.2 3.8 3-2.6L20 17.6" />
+            </symbol>
+            <symbol id="ic-chevron" viewBox="0 0 24 24">
+                <path d="M6 9.5l6 6 6-6" />
+            </symbol>
+            <symbol id="ic-view-top" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="1.4" />
+            </symbol>
+            <symbol id="ic-view-front" viewBox="0 0 24 24">
+                <path d="M6 8.6l6-3.2 6 3.2v7l-6 3.2-6-3.2z" opacity=".45" />
+                <path d="M6 8.6l6 3.2 6-3.2M12 11.8v6.9" />
+            </symbol>
+            <symbol id="ic-view-right" viewBox="0 0 24 24">
+                <path d="M6 8.6l6-3.2 6 3.2v7l-6 3.2-6-3.2z" opacity=".45" />
+                <path d="M12 11.8l6-3.2v7l-6 3.2z" fill="currentColor" fill-opacity=".18" />
+                <path d="M6 8.6l6 3.2 6-3.2M12 11.8v6.9" />
+            </symbol>
+            <symbol id="ic-view-iso" viewBox="0 0 24 24">
+                <path d="M12 3.4l8.2 4.3v8.6L12 20.6l-8.2-4.3V7.7z" />
+                <path d="M3.8 7.7l8.2 4.3 8.2-4.3M12 12v8.6" />
+            </symbol>
+            <symbol id="ic-folder" viewBox="0 0 24 24">
+                <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.4h9A1.5 1.5 0 0 1 21 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
+            </symbol>
+            <symbol id="ic-warning" viewBox="0 0 24 24">
+                <path d="M12 3.6l9 15.6H3z" />
+                <path d="M12 9.4v4.4M12 16.4v.1" />
+            </symbol>
+        </defs>
+    </svg>
+
+    <div id="app">
+        <div id="workspace">
+
+            <!-- ============================ LEFT PANEL ============================ -->
+            <aside class="side" id="leftPanel">
+                <div class="side-scroll">
+                    <!-- File info -->
+                    <section class="card file-card" id="fileCard" title="Reveal in File Manager">
+                        <div class="file-ic"><svg class="ic"><use href="#ic-file" /></svg></div>
+                        <div class="file-meta">
+                            <div class="file-name" id="fileName">No model loaded</div>
+                            <div class="file-sub" id="fileType">&mdash;</div>
+                            <div class="file-sub" id="fileDim">&mdash;</div>
+                            <div class="file-sub" id="fileSize">&mdash;</div>
+                        </div>
+                    </section>
+
+                    <!-- View -->
+                    <section class="card">
+                        <h3 class="card-title">View</h3>
+                        <div class="segmented" id="viewModes">
+                            <button class="seg active" data-mode="solid">
+                                <svg class="ic"><use href="#ic-cube-solid" /></svg><span>Solid</span>
+                            </button>
+                            <button class="seg" data-mode="wireframe">
+                                <svg class="ic"><use href="#ic-cube-wire" /></svg><span>Wireframe</span>
+                            </button>
+                            <button class="seg" data-mode="xray">
+                                <svg class="ic"><use href="#ic-cube-xray" /></svg><span>X-Ray</span>
+                            </button>
+                        </div>
+
+                        <div class="field-label">Model Color</div>
+                        <div class="color-field">
+                            <button class="color-btn" id="colorBtn">
+                                <span class="swatch" id="colorSwatch"></span>
+                                <svg class="ic chev"><use href="#ic-chevron" /></svg>
+                            </button>
+                            <div class="palette" id="palette" hidden></div>
+                        </div>
+                    </section>
+
+                    <!-- Lighting -->
+                    <section class="card">
+                        <h3 class="card-title">
+                            <svg class="ic title-ic"><use href="#ic-sun" /></svg>Lighting
+                        </h3>
+                        <div class="select-wrap">
+                            <select id="lightingPreset">
+                                <option value="studio">Studio</option>
+                                <option value="soft">Soft</option>
+                                <option value="dramatic">Dramatic</option>
+                                <option value="flat">Flat</option>
+                            </select>
+                            <svg class="ic chev"><use href="#ic-chevron" /></svg>
+                        </div>
+
+                        <div class="field-label">Brightness</div>
+                        <div class="slider-row">
+                            <input type="range" id="brightness" min="10" max="200" step="5" value="100">
+                            <span class="slider-val" id="brightnessVal">100%</span>
+                        </div>
+                    </section>
+
+                    <!-- Background -->
+                    <section class="card">
+                        <h3 class="card-title">
+                            <svg class="ic title-ic"><use href="#ic-image" /></svg>Background
+                        </h3>
+                        <div class="radio-list" id="bgOptions">
+                            <label class="radio checked"><input type="radio" name="bg" value="light" checked><span class="dot"></span>Light</label>
+                            <label class="radio"><input type="radio" name="bg" value="dark"><span class="dot dark"></span>Dark</label>
+                            <label class="radio"><input type="radio" name="bg" value="gradient"><span class="dot grad"></span>Gradient</label>
+                        </div>
+                    </section>
+
+                    <!-- More -->
+                    <section class="card collapsible" id="moreCard">
+                        <h3 class="card-title toggle" id="moreToggle">
+                            More
+                            <svg class="ic chev"><use href="#ic-chevron" /></svg>
+                        </h3>
+                        <div class="card-body">
+                            <div class="switch-row">
+                                <span>Show Shadows</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="showShadows" checked><span class="track"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="side-foot">
+                    <button class="ghost-btn" id="btnReset">
+                        <svg class="ic"><use href="#ic-undo" /></svg><span>Reset View</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- ============================== CENTER ============================== -->
+            <main id="center">
+                <div class="card toolbar">
+                    <button class="drawer-toggle" id="btnLeftDrawer" aria-label="Model info">
+                        <svg class="ic"><use href="#ic-file" /></svg>
+                    </button>
+                    <div class="tool-group">
+                        <button class="tool" id="btnFit" data-tip="Fit model to view">
+                            <svg class="ic"><use href="#ic-fit" /></svg><span>Fit</span>
+                        </button>
+                        <button class="tool" id="btnCenter" data-tip="Recenter on model">
+                            <svg class="ic"><use href="#ic-center" /></svg><span>Center</span>
+                        </button>
+                        <button class="tool mode active" data-nav="rotate" data-tip="Drag to orbit">
+                            <svg class="ic"><use href="#ic-rotate" /></svg><span>Rotate</span>
+                        </button>
+                        <button class="tool mode" data-nav="pan" data-tip="Drag to pan">
+                            <svg class="ic"><use href="#ic-pan" /></svg><span>Pan</span>
+                        </button>
+                        <button class="tool mode" data-nav="zoom" data-tip="Drag to zoom">
+                            <svg class="ic"><use href="#ic-zoom" /></svg><span>Zoom</span>
+                        </button>
+                    </div>
+                    <div class="tool-boxed">
+                        <button class="tool" id="btnFullscreen" data-tip="Toggle fullscreen">
+                            <svg class="ic"><use href="#ic-expand" /></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="stage" class="bg-light">
+                    <canvas id="gl"></canvas>
+
+                    <!-- empty / loading / error overlays -->
+                    <div class="stage-overlay" id="emptyState">
+                        <svg class="ic big"><use href="#ic-view-iso" /></svg>
+                        <p>Open a 3D model to begin.</p>
+                        <p class="hint">STL &middot; OBJ &middot; GLB &middot; glTF &middot; PLY &middot; 3MF &middot; FBX &middot; DAE &middot; STEP &middot; IGES &middot; BREP</p>
+                        <button class="ghost-btn" id="btnOpen">
+                            <svg class="ic"><use href="#ic-folder" /></svg><span>Open file</span>
+                        </button>
+                        <p class="hint">or drop a file anywhere on this window</p>
+                    </div>
+
+                    <div class="stage-overlay" id="loadingState" hidden>
+                        <div class="spinner"></div>
+                        <p id="loadingText">Loading model...</p>
+                    </div>
+
+                    <div class="stage-overlay" id="errorState" hidden>
+                        <svg class="ic big"><use href="#ic-warning" /></svg>
+                        <p id="errorText">Could not load this model.</p>
+                        <button class="ghost-btn" id="btnErrorOpen">
+                            <svg class="ic"><use href="#ic-folder" /></svg><span>Open another file</span>
+                        </button>
+                    </div>
+
+                    <!-- view presets -->
+                    <div class="viewbar" id="viewPresets">
+                        <button class="tool" data-view="top">
+                            <svg class="ic"><use href="#ic-view-top" /></svg><span>Top</span>
+                        </button>
+                        <button class="tool" data-view="front">
+                            <svg class="ic"><use href="#ic-view-front" /></svg><span>Front</span>
+                        </button>
+                        <button class="tool" data-view="right">
+                            <svg class="ic"><use href="#ic-view-right" /></svg><span>Right</span>
+                        </button>
+                        <button class="tool active" data-view="iso">
+                            <svg class="ic"><use href="#ic-view-iso" /></svg><span>Iso</span>
+                        </button>
+                    </div>
+                </div>
+            </main>
+
+            <div id="scrim"></div>
+        </div>
+    </div>
+
+    <div id="dropzone"><div class="dz-inner">Drop a 3D model to open</div></div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>

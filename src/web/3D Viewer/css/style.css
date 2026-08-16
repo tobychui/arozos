@@ -1,0 +1,967 @@
+/*
+    3D Viewer - stylesheet
+
+    Light (default) and dark palettes; the dark one is applied by adding the
+    "dark" class on <body>, which is kept in sync with the ArozOS system theme.
+*/
+
+:root {
+    --page: #f3f3f3;
+    --card: #ffffff;
+    --card-line: #e6e6e6;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 3px 10px rgba(0, 0, 0, .045);
+    --text: #1b1b1b;
+    --muted: #5f6368;
+    --muted2: #8b8f94;
+    --accent: #0f6cbd;
+    --accent-soft: #eaf3fc;
+    --accent-line: #a9cdf0;
+    --hover: rgba(0, 0, 0, .045);
+    --pressed: rgba(0, 0, 0, .08);
+    --track: #cfd3d7;
+    --stage-1: #fbfbfb;
+    --stage-2: #e9eaec;
+    --radius: 10px;
+    --radius-sm: 7px;
+    --pad: 20px;
+    --gap: 14px;
+    --left-w: 300px;
+}
+
+body.dark {
+    --page: #1f1f1f;
+    --card: #2b2b2b;
+    --card-line: #3a3a3a;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 3px 12px rgba(0, 0, 0, .3);
+    --text: #e8e8e8;
+    --muted: #a6a6a6;
+    --muted2: #838383;
+    --accent: #5aa9f0;
+    --accent-soft: #1e3550;
+    --accent-line: #37678f;
+    --hover: rgba(255, 255, 255, .07);
+    --pressed: rgba(255, 255, 255, .12);
+    --track: #575757;
+    --stage-1: #2f3033;
+    --stage-2: #1a1b1d;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--page);
+    color: var(--text);
+    font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13.5px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#iconsprite {
+    display: none;
+}
+
+.ic {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ic.big {
+    width: 54px;
+    height: 54px;
+    stroke-width: 1.2;
+}
+
+#app {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#workspace {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: var(--gap);
+    padding: var(--gap);
+}
+
+/* ============================== cards ============================== */
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 14px;
+}
+
+.card-title {
+    margin: 0 0 11px 0;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.title-ic {
+    width: 19px;
+    height: 19px;
+    color: var(--muted);
+}
+
+/* ============================== side panels ============================== */
+
+.side {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#leftPanel {
+    flex: 0 0 var(--left-w);
+    width: var(--left-w);
+}
+
+.side-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    padding-bottom: 2px;
+}
+
+.side-foot {
+    padding-top: var(--gap);
+}
+
+.side-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.side-scroll::-webkit-scrollbar-thumb {
+    background: var(--track);
+    border-radius: 4px;
+}
+
+.side-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* ---- file card ---- */
+
+.file-card {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.file-card:hover {
+    border-color: var(--accent-line);
+}
+
+.file-ic {
+    color: var(--muted);
+    padding-top: 2px;
+}
+
+.file-ic .ic {
+    width: 26px;
+    height: 26px;
+    stroke-width: 1.4;
+}
+
+.file-meta {
+    min-width: 0;
+    flex: 1;
+}
+
+.file-name {
+    font-size: 15.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 5px;
+    word-break: break-all;
+}
+
+.file-sub {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* ---- segmented view mode control ---- */
+
+.segmented {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--card);
+}
+
+.seg {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--card-line);
+    color: var(--muted);
+    font: inherit;
+    font-size: 12.5px;
+    padding: 10px 4px 9px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+}
+
+.seg:last-child {
+    border-right: none;
+}
+
+.seg:hover {
+    background: var(--hover);
+}
+
+.seg.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* ---- model color ---- */
+
+.field-label {
+    margin: 14px 0 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.color-field {
+    position: relative;
+}
+
+.color-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    cursor: pointer;
+    color: var(--muted);
+}
+
+.color-btn:hover {
+    background: var(--hover);
+}
+
+.swatch {
+    width: 46px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, .18);
+    background: #d9d332;
+    display: block;
+}
+
+.chev {
+    width: 16px;
+    height: 16px;
+}
+
+.palette {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--card-shadow);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(6, 26px);
+    gap: 7px;
+}
+
+/* the popover sets display:grid, which would otherwise beat the [hidden] attribute */
+.palette[hidden] {
+    display: none;
+}
+
+.palette button {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, .18);
+    cursor: pointer;
+    padding: 0;
+}
+
+.palette button.sel {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* ---- reset button ---- */
+
+.ghost-btn {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    padding: 11px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.ghost-btn:hover {
+    background: var(--hover);
+}
+
+.ghost-btn:active {
+    background: var(--pressed);
+}
+
+.ghost-btn .ic {
+    width: 19px;
+    height: 19px;
+    color: var(--muted);
+}
+
+/* ============================== center ============================== */
+
+#center {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+}
+
+/*
+    The toolbar is deliberately low: icon and label sit side by side rather than
+    stacked, so the stage keeps as much height as possible.
+*/
+.toolbar {
+    display: flex;
+    align-items: center;
+    padding: 5px 8px;
+    gap: 6px;
+}
+
+.tool-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.tool-group::-webkit-scrollbar {
+    display: none;
+}
+
+.tool {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font: inherit;
+    font-size: 12.5px;
+    padding: 6px 11px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tool .ic {
+    width: 18px;
+    height: 18px;
+}
+
+.tool:hover {
+    background: var(--hover);
+    color: var(--text);
+}
+
+.tool:active {
+    background: var(--pressed);
+}
+
+.tool.active {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+    color: var(--accent);
+}
+
+.tool-boxed {
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    margin-left: 6px;
+    flex: 0 0 auto;
+}
+
+.tool-boxed .tool {
+    padding: 6px 9px;
+}
+
+.drawer-toggle {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    padding: 8px;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.drawer-toggle:hover {
+    background: var(--hover);
+}
+
+/* ---- stage ---- */
+
+#stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    background: var(--card);
+}
+
+#gl {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+/* the WebGL canvas is drawn with a transparent clear colour, so the backdrop
+   below is what the "Background" option switches between */
+#stage.bg-light {
+    background: linear-gradient(180deg, var(--stage-1) 0%, var(--stage-2) 100%);
+}
+
+#stage.bg-dark {
+    background: linear-gradient(180deg, #37393d 0%, #1b1c1e 100%);
+}
+
+#stage.bg-gradient {
+    background: linear-gradient(160deg, #dbe7f4 0%, #b9c9dc 45%, #8ea3bb 100%);
+}
+
+body.dark #stage.bg-gradient {
+    background: linear-gradient(160deg, #3d4a5c 0%, #2b3441 50%, #191d24 100%);
+}
+
+.stage-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    padding: 24px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, .72);
+    backdrop-filter: blur(2px);
+}
+
+body.dark .stage-overlay {
+    background: rgba(28, 28, 28, .72);
+}
+
+.stage-overlay[hidden] {
+    display: none;
+}
+
+.stage-overlay p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.stage-overlay .hint {
+    font-size: 12px;
+    color: var(--muted2);
+    max-width: 420px;
+    line-height: 1.6;
+}
+
+.stage-overlay .ghost-btn {
+    width: auto;
+    margin-top: 4px;
+}
+
+.spinner {
+    width: 34px;
+    height: 34px;
+    border: 3px solid var(--track);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---- bottom view preset pill ---- */
+
+.viewbar {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    padding: 5px;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    max-width: calc(100% - 24px);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.viewbar::-webkit-scrollbar {
+    display: none;
+}
+
+.viewbar .tool {
+    padding: 7px 13px;
+}
+
+/* ============================== right panel widgets ============================== */
+
+.select-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.select-wrap select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    padding: 11px 34px 11px 12px;
+    cursor: pointer;
+}
+
+.select-wrap select:hover {
+    background: var(--hover);
+}
+
+.select-wrap .chev {
+    position: absolute;
+    right: 11px;
+    pointer-events: none;
+    color: var(--muted);
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slider-val {
+    color: var(--muted);
+    font-size: 13px;
+    min-width: 42px;
+    text-align: right;
+}
+
+input[type=range] {
+    flex: 1;
+    min-width: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    height: 20px;
+    cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--accent) 0 var(--fill, 50%), var(--track) var(--fill, 50%) 100%);
+}
+
+input[type=range]::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--track);
+}
+
+input[type=range]::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    margin-top: -5.5px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 4px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+}
+
+input[type=range]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 4px solid var(--accent);
+}
+
+/* ---- radio list ---- */
+
+.radio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.radio {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.radio:hover {
+    background: var(--hover);
+}
+
+.radio input {
+    display: none;
+}
+
+.radio .dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.6px solid var(--muted2);
+    background: #ffffff;
+    flex: 0 0 auto;
+    position: relative;
+}
+
+.radio .dot.dark {
+    background: #4a4a4a;
+}
+
+.radio .dot.grad {
+    background: linear-gradient(160deg, #cfe0f2, #8fa8c4);
+}
+
+.radio.checked .dot {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: inset 0 0 0 3.4px var(--card);
+}
+
+/* ---- collapsible ---- */
+
+.collapsible .card-title.toggle {
+    margin: 0;
+    cursor: pointer;
+    justify-content: space-between;
+}
+
+.collapsible .card-title .chev {
+    color: var(--muted);
+    transition: transform .16s ease;
+}
+
+.collapsible .card-body {
+    padding-top: 13px;
+}
+
+.collapsible.collapsed .card-body {
+    display: none;
+}
+
+.collapsible.collapsed .card-title .chev {
+    transform: rotate(-90deg);
+}
+
+/* ---- switch ---- */
+
+.switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.switch input {
+    display: none;
+}
+
+.switch .track {
+    display: block;
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--track);
+    position: relative;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+
+.switch .track::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform .15s ease;
+}
+
+.switch input:checked+.track {
+    background: var(--accent);
+}
+
+.switch input:checked+.track::after {
+    transform: translateX(18px);
+}
+
+/* ============================== drop zone ============================== */
+
+#dropzone {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 108, 189, .12);
+    backdrop-filter: blur(2px);
+}
+
+#dropzone.on {
+    display: flex;
+}
+
+.dz-inner {
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--accent);
+    padding: 24px 36px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* ============================== zen / fullscreen fallback ============================== */
+
+/*
+    Used when the app cannot enter real fullscreen (the desktop hosts webapps in
+    an iframe that is not always allowed to). The side panels fold away so the
+    stage takes the whole window.
+*/
+body.zen #leftPanel {
+    display: none;
+}
+
+body.zen #workspace {
+    padding: 8px;
+}
+
+/* ============================== responsive ============================== */
+
+#scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, .35);
+}
+
+#scrim.on {
+    display: block;
+}
+
+@media (max-width: 1100px) {
+    :root {
+        --left-w: 268px;
+        --gap: 14px;
+    }
+
+    .tool {
+        padding: 6px 9px;
+    }
+}
+
+@media (max-width: 900px) {
+    :root {
+        --gap: 10px;
+    }
+
+    #workspace {
+        padding: var(--gap);
+    }
+
+    /* side panels become slide-over drawers */
+    .side {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        z-index: 60;
+        width: min(86vw, 340px);
+        max-width: 340px;
+        flex: 0 0 auto;
+        background: var(--page);
+        padding: 12px;
+        box-shadow: 0 0 30px rgba(0, 0, 0, .3);
+        transition: transform .22s ease;
+    }
+
+    /* the width also has to be restated here to beat the ID rules above */
+    #leftPanel {
+        left: 0;
+        width: min(86vw, 340px);
+        transform: translateX(-104%);
+    }
+
+    #leftPanel.open {
+        transform: translateX(0);
+    }
+
+    .drawer-toggle {
+        display: flex;
+    }
+
+    .toolbar {
+        padding: 5px 7px;
+    }
+
+    .tool {
+        padding: 6px 8px;
+        font-size: 11.5px;
+        gap: 5px;
+    }
+
+    .tool-boxed {
+        margin-left: 4px;
+    }
+
+    .viewbar {
+        bottom: 10px;
+    }
+
+    .viewbar .tool {
+        padding: 6px 10px;
+    }
+}
+
+@media (max-width: 560px) {
+
+    /* labels drop away, icons only, so the toolbar always fits */
+    .toolbar .tool span,
+    .viewbar .tool span {
+        display: none;
+    }
+
+    .toolbar .tool,
+    .viewbar .tool {
+        padding: 7px 10px;
+    }
+
+    .tool-group {
+        justify-content: space-around;
+    }
+
+    .seg {
+        font-size: 11.5px;
+        padding: 10px 2px 9px;
+    }
+
+    #app {
+        font-size: 13px;
+    }
+}
+
+/* very short windows (embedded mode): keep the stage usable */
+@media (max-height: 460px) {
+    :root {
+        --gap: 8px;
+    }
+
+    .toolbar {
+        padding: 3px 6px;
+    }
+
+    .tool {
+        padding: 5px 9px;
+    }
+
+    .viewbar {
+        bottom: 8px;
+    }
+}
