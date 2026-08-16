@@ -1,0 +1,177 @@
+<div class="field">
+    <span class="field-label">Input PDF</span>
+    <div class="row">
+        <button class="btn btn-primary" id="p2iPickBtn">Select PDF...</button>
+        <span class="selected-file" id="p2iFile">No file selected</span>
+    </div>
+</div>
+<div class="field">
+    <span class="field-label">Output Format</span>
+    <div class="radio-group">
+        <label class="radio-item"><input type="radio" name="p2iFmt" value="jpg" checked> JPEG</label>
+        <label class="radio-item"><input type="radio" name="p2iFmt" value="png"> PNG</label>
+    </div>
+</div>
+<div class="field" id="p2iQfield">
+    <span class="field-label">JPEG Quality: <span id="p2iQval">90</span>%</span>
+    <div class="range-row">
+        <span style="font-size:11px;color:var(--sub)">50</span>
+        <input type="range" id="p2iQrange" min="50" max="100" value="90">
+        <span style="font-size:11px;color:var(--sub)">100</span>
+    </div>
+</div>
+<button class="btn-action" id="p2iBtn" disabled>Convert</button>
+<div id="p2iProg" style="display:none" class="progress-wrap">
+    <div class="progress-label" id="p2iProgLbl">Preparing...</div>
+    <div class="progress-track"><div class="progress-fill" id="p2iFill"></div></div>
+</div>
+<div id="p2iResult"></div>
+
+<script>
+(function() {
+    var registry = window.ProductivityToolModules = window.ProductivityToolModules || {};
+    var state = { filepath: null, root: null };
+    var pdfJsReady = false;
+
+    function getRoot() {
+        return state.root && document.body.contains(state.root) ? state.root : null;
+    }
+
+    function loadPdfJs(onReady, onError) {
+        if (pdfJsReady || typeof pdfjsLib !== 'undefined') {
+            if (!pdfJsReady) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = '../PDF Viewer/js/pdf.worker.js';
+                pdfJsReady = true;
+            }
+            onReady();
+            return;
+        }
+
+        var s = document.createElement('script');
+        s.src = '../PDF Viewer/js/pdf.js';
+        s.onload = function() {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '../PDF Viewer/js/pdf.worker.js';
+            pdfJsReady = true;
+            onReady();
+        };
+        s.onerror = function() { onError(new Error('Failed to load PDF library')); };
+        document.head.appendChild(s);
+    }
+
+    function runConversion(filepath, fmt, quality, onProgress, onDone, onError) {
+        loadPdfJs(function() {
+            pdfjsLib.getDocument(mediaUrl(filepath)).promise.then(function(pdf) {
+                var numPages = pdf.numPages;
+                var basename = basenameNoExt(filepath);
+                var outDir = dirOf(filepath);
+                var mime = fmt === 'png' ? 'image/png' : 'image/jpeg';
+                var ext = fmt === 'png' ? '.png' : '.jpg';
+                var i = 1;
+
+                function nextPage() {
+                    if (i > numPages) {
+                        onDone(numPages, outDir);
+                        return;
+                    }
+
+                    onProgress(i, numPages);
+                    pdf.getPage(i).then(function(page) {
+                        var vp = page.getViewport({ scale: 2.0 });
+                        var canvas = document.createElement('canvas');
+                        canvas.width = vp.width;
+                        canvas.height = vp.height;
+
+                        var ctx = canvas.getContext('2d');
+                        if (fmt !== 'png') {
+                            ctx.fillStyle = '#FFF';
+                            ctx.fillRect(0, 0, vp.width, vp.height);
+                        }
+
+                        page.render({ canvasContext: ctx, viewport: vp }).promise.then(function() {
+                            canvas.toBlob(function(blob) {
+                                uploadBlob(blob, basename + '_page' + i + ext, outDir).then(function() {
+                                    i += 1;
+                                    nextPage();
+                                }, onError);
+                            }, mime, quality / 100);
+                        }, onError);
+                    }, onError);
+                }
+
+                nextPage();
+            }, onError);
+        }, onError);
+    }
+
+    registry.pdf2img = {
+        init: function(root) {
+            state = { filepath: null, root: root };
+
+            var qRange = root.querySelector('#p2iQrange');
+            var qValue = root.querySelector('#p2iQval');
+            var qField = root.querySelector('#p2iQfield');
+            var pickBtn = root.querySelector('#p2iPickBtn');
+            var convertBtn = root.querySelector('#p2iBtn');
+
+            qRange.addEventListener('input', function() {
+                qValue.textContent = this.value;
+            });
+
+            Array.prototype.forEach.call(root.querySelectorAll('input[name=p2iFmt]'), function(input) {
+                input.addEventListener('change', function() {
+                    qField.style.display = this.value === 'jpg' ? '' : 'none';
+                });
+            });
+
+            pickBtn.addEventListener('click', function() {
+                ao_module_openFileSelector('_p2iPickCb', 'user:/', 'file', false);
+            });
+
+            convertBtn.addEventListener('click', function() {
+                if (!state.filepath) { return; }
+
+                var btn = root.querySelector('#p2iBtn');
+                var prog = root.querySelector('#p2iProg');
+                var lbl = root.querySelector('#p2iProgLbl');
+                var fill = root.querySelector('#p2iFill');
+                var result = root.querySelector('#p2iResult');
+                var fmt = root.querySelector('input[name=p2iFmt]:checked').value;
+                var qual = parseInt(root.querySelector('#p2iQrange').value, 10);
+
+                btn.disabled = true;
+                prog.style.display = 'block';
+                result.innerHTML = '';
+
+                runConversion(state.filepath, fmt, qual, function(cur, total) {
+                    lbl.textContent = 'Page ' + cur + ' of ' + total + '...';
+                    fill.style.width = ((cur / total) * 100) + '%';
+                }, function(numPages, outDir) {
+                    lbl.textContent = 'Done!';
+                    fill.style.width = '100%';
+                    result.innerHTML =
+                        '<div class="result-box result-ok"><strong>' + numPages +
+                        ' image' + (numPages !== 1 ? 's' : '') + ' saved</strong> to<br>' +
+                        escHtml(outDir) + '</div>';
+                    btn.disabled = false;
+                }, function(err) {
+                    result.innerHTML =
+                        '<div class="result-box result-err"><strong>Error:</strong> ' +
+                        escHtml(err && err.message ? err.message : String(err)) + '</div>';
+                    btn.disabled = false;
+                });
+            });
+        }
+    };
+
+    window._p2iPickCb = function(files) {
+        var root = getRoot();
+        if (!root || !files || !files.length) { return; }
+
+        state.filepath = files[0].filepath;
+        var label = root.querySelector('#p2iFile');
+        label.textContent = files[0].filename;
+        label.className = 'selected-file has-value';
+        root.querySelector('#p2iBtn').disabled = false;
+    };
+})();
+</script>

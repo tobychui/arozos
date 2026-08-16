@@ -1,0 +1,125 @@
+<div class="field">
+    <p style="font-size:13px;color:var(--sub);margin-bottom:10px;">Copy an image and press <strong style="color:var(--text);">Ctrl + V</strong> anywhere on this page to paste it here.</p>
+    <div id="ip-dropzone" style="min-height:200px;border:1.5px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--inp-bg);position:relative;">
+        <span id="ip-hint" style="font-size:26px;font-weight:200;color:var(--border);pointer-events:none;letter-spacing:3px;">Ctrl + V</span>
+        <img id="ip-preview" src="" alt="" style="max-width:100%;max-height:300px;display:none;border-radius:6px;object-fit:contain;">
+    </div>
+</div>
+<div class="field">
+    <span class="field-label">Save Location</span>
+    <div class="row">
+        <input type="text" id="ip-savepath" placeholder="user:/Desktop" readonly style="flex:1;cursor:default;">
+        <button class="btn btn-outline" id="ip-pickFolder">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 3h3.5l1.5 2H12v6.5H1z"/>
+            </svg>
+            Browse
+        </button>
+    </div>
+</div>
+<div class="field">
+    <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="ip-autoUpload" style="accent-color:var(--accent);width:15px;height:15px;">
+        Upload automatically when an image is pasted
+    </label>
+</div>
+<div class="row">
+    <button class="btn-action" id="ip-uploadBtn" disabled>Upload Image</button>
+</div>
+<div id="ip-result"></div>
+
+<script>
+(function(){
+    var registry = window.ProductivityToolModules = window.ProductivityToolModules || {};
+
+    registry.imgpaste = {
+        init: function(root) {
+            var blob = null;
+            var savePath = 'user:/Desktop';
+            var autoUpload = false;
+
+            var preview   = root.querySelector('#ip-preview');
+            var hint      = root.querySelector('#ip-hint');
+            var saveInp   = root.querySelector('#ip-savepath');
+            var autoCb    = root.querySelector('#ip-autoUpload');
+            var uploadBtn = root.querySelector('#ip-uploadBtn');
+            var resultEl  = root.querySelector('#ip-result');
+            var pickBtn   = root.querySelector('#ip-pickFolder');
+
+            ao_module_storage.loadStorage('imgPaste', 'savepath', function(val){
+                if (val){ savePath = val; saveInp.value = val; }
+                else { saveInp.value = savePath; }
+            });
+            ao_module_storage.loadStorage('imgPaste', 'uploadOnPaste', function(val){
+                if (val === 'true'){ autoCb.checked = true; autoUpload = true; }
+            });
+
+            autoCb.addEventListener('change', function(){
+                autoUpload = this.checked;
+                ao_module_storage.setStorage('imgPaste', 'uploadOnPaste', autoUpload ? 'true' : 'false');
+            });
+
+            pickBtn.addEventListener('click', function(){
+                ao_module_openFileSelector('_ipFolderCb', savePath, 'folder', false);
+            });
+
+            uploadBtn.addEventListener('click', function(){ doUpload(); });
+
+            function doUpload(){
+                if (!blob) return;
+                var now = new Date();
+                var ts = Date.now() + '';
+                var filename = 'ImagePaste ' + now.getUTCFullYear() + '-' + (now.getUTCMonth()+1) + '-' + now.getUTCDate() + ts.substr(ts.length - 6) + '.png';
+                uploadBtn.disabled = true;
+                ao_module_uploadFile(new File([blob], filename), savePath, function(data){
+                    uploadBtn.disabled = false;
+                    if (data && data.error){
+                        resultEl.innerHTML = '<div class="result-box result-err"><strong>Error:</strong> ' + escHtml(String(data.error)) + '</div>';
+                    } else {
+                        resultEl.innerHTML = '<div class="result-box result-ok"><strong>' + escHtml(filename) + '</strong> saved to ' + escHtml(savePath) + '</div>';
+                    }
+                });
+            }
+
+            if (window._imgPasteDocHandler){
+                document.removeEventListener('paste', window._imgPasteDocHandler);
+            }
+            window._imgPasteDocHandler = function(e){
+                if (!document.body.contains(root)){
+                    document.removeEventListener('paste', window._imgPasteDocHandler);
+                    window._imgPasteDocHandler = null;
+                    return;
+                }
+                var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (var i = 0; i < items.length; i++){
+                    if (items[i].kind === 'file'){
+                        var file = items[i].getAsFile();
+                        var reader = new FileReader();
+                        reader.onload = (function(b){
+                            return function(ev){
+                                blob = b;
+                                preview.src = ev.target.result;
+                                preview.style.display = 'block';
+                                hint.style.display = 'none';
+                                uploadBtn.disabled = false;
+                                resultEl.innerHTML = '';
+                                if (autoUpload){ doUpload(); }
+                            };
+                        })(file);
+                        reader.readAsDataURL(file);
+                        break;
+                    }
+                }
+            };
+            document.addEventListener('paste', window._imgPasteDocHandler);
+
+            window._ipFolderCb = function(files){
+                if (!files || !files.length) return;
+                savePath = files[0].filepath;
+                saveInp.value = savePath;
+                ao_module_storage.setStorage('imgPaste', 'savepath', savePath);
+            };
+        }
+    };
+})();
+</script>

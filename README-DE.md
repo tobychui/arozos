@@ -324,7 +324,7 @@ Wenn Sie nach Tutorials suchen oder Hilfe bei der Fehlerbehebung von kleineren P
 
 ### Chinesisch
 
-- [ArozOS + Raspberry Pi zum Bau eines tragbaren NAS (zur Vermeidung von Gruben)](https://blog.csdn.net/m0_37728676/article/details/113876815)
+- [ArozOS + Raspberry Pi zum Bau eines tragbaren NAS (zur Vermeidung von Gruben)](http://web.archive.org/web/20250104032024/https://blog.csdn.net/m0_37728676/article/details/113876815)
 - [ArozOS + Raspberry Pi Mini NAS](http://www.huajia.online/2021/10/23/ArozOS-%E6%A0%91%E8%8E%93%E6%B4%BE%E5%B0%8F%E5%9E%8BNAS/)
 - [Raspberry Pi Arozos Nord](https://blog.pi-dal.com/%E9%80%82%E7%94%A8%E4%BA%8E%E6%A0%91%E8%8E%93%E6%B4%BE%E7%9A%84%E9%80%9A%E7%94%A8Web%E6%A1%8C%E9%9D%A2%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F)
 - [Linux:ArozOS-Installation und Erstellung des Boot-Selbststartdienstes](https://pvecli.xuan2host.com/linux-arozos-install-service/)
