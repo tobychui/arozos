@@ -35,17 +35,7 @@ type NetworkHost struct {
 // Create a new MDNS discoverer, set MacOverride to empty string for using the first NIC discovered
 func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 	//Get host MAC Address
-	macAddress, err := getMacAddr()
-	if err != nil {
-		return nil, err
-	}
-
-	macAddressBoardcast := ""
-	if err == nil {
-		macAddressBoardcast = strings.Join(macAddress, ",")
-	} else {
-		logger.PrintAndLog("Mdns", fmt.Sprint("[mDNS] Unable to get MAC Address: ", err.Error()), nil)
-	}
+	macAddressBoardcast, _ := getMaxMacAddrString(128)
 
 	//Register the mds services
 	server, err := zeroconf.Register(config.HostName, "_http._tcp", "local.", config.Port, []string{"version_build=" + config.BuildVersion, "version_minor=" + config.MinorVersion, "vendor=" + config.Vendor, "model=" + config.Model, "uuid=" + config.UUID, "domain=" + config.Domain, "mac_addr=" + macAddressBoardcast}, nil)
