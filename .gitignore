@@ -43,3 +43,8 @@ src/ffmpeg
 /src/dist
 /apps
 /src/framework
+src/system/telegram_conf.json
+
+# AES key that encrypts the stored git credentials — generated per install,
+# must never be committed
+src/system/git/

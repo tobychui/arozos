@@ -13,8 +13,9 @@
             orientation: "portrait" | "landscape",
             margins: { top: 20, right: 20, bottom: 20, left: 20 }   // millimetres
         },
-        header: "plain text shown at the top of the paper",
-        footer: "plain text shown at the bottom of the paper",
+        header: "plain text repeated in every page's top margin",
+        footer: "plain text repeated in every page's bottom margin",
+        hfMode: "all" | "except-first" | "none",   // which pages show them
         pageNumbers: false,     // print page numbers (best-effort @page margin box)
         comments: [ { id, text, at, resolved } ],   // review comments; anchored
                                 // in html as <span class="doc-cmt" data-cid>
@@ -27,7 +28,9 @@
         image-selection classes are stripped before serialisation.
       - Known allowed classes inside html: doc-title (title paragraph),
         of-checklist (on UL), checked (on LI), of-table (on TABLE),
-        doc-cmt (comment anchor), doc-ins / doc-del (tracked changes).
+        doc-cmt (comment anchor), doc-ins / doc-del (tracked changes),
+        doc-pagebreak (explicit page break block; exports as a real
+        <w:br w:type="page"/> and is sized on screen by layoutPageBreaks).
       - Foreign exports (docx/html/md/txt) use resolvedHtml(): suggestions
         applied as if accepted, comment anchors unwrapped.
 */
@@ -47,6 +50,8 @@
     ];
     var FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
     var LINE_SPACINGS = ["1", "1.15", "1.5", "2"];
+    // which pages carry the header / footer text
+    var HF_MODES = ["all", "except-first", "none"];
     var PARA_STYLES = [
         { v: "p",     label: "Normal text" },
         { v: "title", label: "Title" },
@@ -103,6 +108,7 @@
     var stateTimer = null;
     var $fontSel, $sizeSel, $styleSel;
     var findState = { hits: [], cur: -1 };
+    var hfClones = [];             // header/footer copies for pages 2..n
     var comments = [];             // review comments [{id,text,at,resolved}]
     var suggesting = false;        // track-changes ("suggest edits") mode
 
@@ -112,6 +118,7 @@
             orientation: "portrait",
             margins: { top: 20, right: 20, bottom: 20, left: 20 },
             pageNumbers: false,
+            hfMode: "all",     // header/footer on: all | except-first | none
             columns: 1,        // 1-3 text columns (2 = IEEE-style)
             colGap: 8          // gap between columns, mm
         };
@@ -156,7 +163,7 @@
     }
     function inHeaderFooter() {
         var ae = document.activeElement;
-        return ae === headerEl || ae === footerEl;
+        return !!(ae && ae.classList && ae.classList.contains("doc-hf"));
     }
     function getSelectedBlocks() {
         var out = [];
@@ -225,6 +232,8 @@
     /* ================= serialize / deserialize ================= */
     function cleanedHtml() {
         var clone = editor.cloneNode(true);
+        // strip layout-only automatic page spacers (visual pagination)
+        removeAutoBreaks(clone);
         // strip find highlight spans
         var hits = clone.querySelectorAll("span.of-find-hit");
         for (var i = 0; i < hits.length; i++) {
@@ -259,6 +268,7 @@
             },
             header: hfText(headerEl),
             footer: hfText(footerEl),
+            hfMode: pageConf.hfMode,
             pageNumbers: !!pageConf.pageNumbers,
             comments: JSON.parse(JSON.stringify(comments)),
             trackChanges: suggesting
@@ -269,6 +279,7 @@
         closeFind();
         deselectImage();
         editor.innerHTML = sanitizeHtml(b.html || "<p><br></p>", { keepClasses: true }) || "<p><br></p>";
+        normalizePageBreaks();
         headerEl.textContent = b.header || "";
         footerEl.textContent = b.footer || "";
         var p = b.page || {};
@@ -282,6 +293,7 @@
         pageConf.columns = Math.min(3, Math.max(1, Math.round(num(p.columns, 1))));
         pageConf.colGap = Math.min(30, Math.max(2, num(p.colGap, 8)));
         pageConf.pageNumbers = !!b.pageNumbers;
+        pageConf.hfMode = (HF_MODES.indexOf(b.hfMode) >= 0) ? b.hfMode : "all";
         comments = Array.isArray(b.comments) ?
             JSON.parse(JSON.stringify(b.comments)) : [];
         suggesting = !!b.trackChanges;
@@ -798,39 +810,150 @@
     }
 
     /* ================= tables ================= */
+    /* Word-style drag-over grid table creator (Insert > Table) */
+    var TGRID_COLS = 10, TGRID_ROWS = 8;
+    function insertTable(rows, cols) {
+        var html = '<table class="of-table"><tbody>';
+        for (var r = 0; r < rows; r++) {
+            html += "<tr>";
+            for (var c = 0; c < cols; c++) html += "<td><br></td>";
+            html += "</tr>";
+        }
+        html += "</tbody></table><p><br></p>";
+        restoreSel();
+        try { document.execCommand("insertHTML", false, html); } catch (e) { }
+        afterEdit(true);
+    }
     function insertTableDialog() {
         if (inHeaderFooter()) return;
-        var $b = $('<div class="dlg-two-col"></div>');
-        $b.append("<div><label>Rows</label><input type='number' min='1' max='50' class='tbl-rows' value='3'></div>");
-        $b.append("<div><label>Columns</label><input type='number' min='1' max='20' class='tbl-cols' value='3'></div>");
-        OfficeApp.dialog({
+        var $b = $("<div></div>");
+        var $label = $('<div class="doc-tgrid-label">1 × 1</div>');
+        var $grid = $('<div class="doc-tgrid"></div>');
+        var dlg;
+        var hotR = 1, hotC = 1;
+        function paint() {
+            $grid.children().each(function () {
+                var r = parseInt($(this).attr("data-r"), 10);
+                var c = parseInt($(this).attr("data-c"), 10);
+                $(this).toggleClass("hot", r <= hotR && c <= hotC);
+            });
+            $label.text(hotC + " × " + hotR);
+        }
+        for (var r = 1; r <= TGRID_ROWS; r++) {
+            for (var c = 1; c <= TGRID_COLS; c++) {
+                var $cell = $('<button type="button" class="doc-tgrid-cell"></button>')
+                    .attr("data-r", r).attr("data-c", c);
+                $grid.append($cell);
+            }
+        }
+        // hover / drag over the grid selects the size, click (or release)
+        // inserts - matching the Word ribbon gesture
+        $grid.on("pointerover pointermove", ".doc-tgrid-cell", function () {
+            hotR = parseInt($(this).attr("data-r"), 10);
+            hotC = parseInt($(this).attr("data-c"), 10);
+            paint();
+        });
+        $grid.on("click pointerup", ".doc-tgrid-cell", function () {
+            var rr = parseInt($(this).attr("data-r"), 10);
+            var cc = parseInt($(this).attr("data-c"), 10);
+            dlg.close();
+            insertTable(rr, cc);
+        });
+        var $custom = $('<div class="dlg-two-col" style="margin-top:10px;"></div>');
+        $custom.append("<div><label>Rows</label><input type='number' min='1' max='50' class='tbl-rows' value='3'></div>");
+        $custom.append("<div><label>Columns</label><input type='number' min='1' max='20' class='tbl-cols' value='3'></div>");
+        $b.append($label).append($grid)
+            .append('<label style="margin-top:12px;">Custom size</label>')
+            .append($custom);
+        dlg = OfficeApp.dialog({
             title: "Insert table",
             body: $b,
             buttons: [
                 { label: "Cancel" },
-                { label: "Insert", primary: true, action: function (close, $body) {
-                    var rows = Math.min(50, Math.max(1, parseInt($body.find(".tbl-rows").val(), 10) || 3));
-                    var cols = Math.min(20, Math.max(1, parseInt($body.find(".tbl-cols").val(), 10) || 3));
-                    close();
-                    var html = '<table class="of-table"><tbody>';
-                    for (var r = 0; r < rows; r++) {
-                        html += "<tr>";
-                        for (var c = 0; c < cols; c++) html += "<td><br></td>";
-                        html += "</tr>";
+                {
+                    label: "Insert custom size", action: function (close, $body) {
+                        var rows = Math.min(50, Math.max(1, parseInt($body.find(".tbl-rows").val(), 10) || 3));
+                        var cols = Math.min(20, Math.max(1, parseInt($body.find(".tbl-cols").val(), 10) || 3));
+                        close();
+                        insertTable(rows, cols);
                     }
-                    html += "</tbody></table><p><br></p>";
-                    restoreSel();
-                    try { document.execCommand("insertHTML", false, html); } catch (e) { }
-                    afterEdit(true);
-                } }
+                }
             ]
         });
+        paint();
+    }
+
+    /* ---------- table styling (themes / borders / banding) ----------
+       The style state lives in data attributes on the <table> so toggles
+       know it and re-application after row/column edits keeps banding
+       consistent; the rendered look is plain inline CSS (survives the
+       native format, HTML export and - for shading - docx). Cells with
+       data-cellbg carry a user-picked background that themes/banding
+       never overwrite. */
+    var TABLE_THEMES = [
+        { name: "Plain",       bc: "#b9bec7", headbg: "#eef1f5", bandbg: "#f4f6f9", headfc: "" },
+        { name: "Blue",        bc: "#a9c6e8", headbg: "#d9e7f8", bandbg: "#eef4fc", headfc: "" },
+        { name: "Green",       bc: "#b2d8b4", headbg: "#d9efdb", bandbg: "#effaf0", headfc: "" },
+        { name: "Orange",      bc: "#f0c9a4", headbg: "#fbe3c9", bandbg: "#fdf3e7", headfc: "" },
+        { name: "Dark header", bc: "#9aa0a6", headbg: "#3c4043", bandbg: "#f1f3f4", headfc: "#ffffff" }
+    ];
+    function applyTableStyle(table) {
+        var bw = parseFloat(table.getAttribute("data-th-bw")) || 1;
+        var bc = table.getAttribute("data-th-bc") || "#b9bec7";
+        var headOn = table.getAttribute("data-th-head") === "1";
+        var bandOn = table.getAttribute("data-th-band") === "1";
+        var headBg = table.getAttribute("data-th-headbg") || "#e8eaed";
+        var headFc = table.getAttribute("data-th-headfc") || "";
+        var bandBg = table.getAttribute("data-th-bandbg") || "#f4f5f7";
+        for (var r = 0; r < table.rows.length; r++) {
+            var row = table.rows[r];
+            for (var c = 0; c < row.cells.length; c++) {
+                var cell = row.cells[c];
+                cell.style.border = bw + "px solid " + bc;
+                var custom = cell.getAttribute("data-cellbg");
+                var isHead = headOn && r === 0;
+                var isBand = bandOn && ((r - (headOn ? 1 : 0)) % 2 === 1);
+                if (custom) cell.style.backgroundColor = custom;
+                else if (isHead) cell.style.backgroundColor = headBg;
+                else if (isBand) cell.style.backgroundColor = bandBg;
+                else cell.style.backgroundColor = "";
+                cell.style.fontWeight = isHead ? "700" : "";
+                cell.style.color = (isHead && headFc) ? headFc : "";
+            }
+        }
+        afterEdit(true);
+    }
+    function currentCell() {
+        if (!savedRange) return null;
+        var n = savedRange.startContainer;
+        if (n && n.nodeType === 3) n = n.parentNode;
+        if (!n || !n.closest || !editor.contains(n)) return null;
+        var cell = n.closest("td,th");
+        if (!cell) {
+            // multi-cell selections anchor at the row/tbody/table level -
+            // descend through the range start to the first selected cell
+            var host = n.closest("table, tbody, tr");
+            if (host) {
+                var child = savedRange.startContainer.childNodes ?
+                    savedRange.startContainer.childNodes[savedRange.startOffset] : null;
+                if (child && child.nodeType === 1) {
+                    if (child.matches && child.matches("td,th")) cell = child;
+                    else if (child.querySelector) cell = child.querySelector("td,th");
+                }
+                if (!cell) cell = host.querySelector("td,th");
+            }
+        }
+        return cell && editor.contains(cell) ? cell : null;
+    }
+    function currentTable() {
+        var cell = currentCell();
+        return cell ? cell.closest("table") : null;
     }
     function tableAddRow(table, index) {
         var cols = (table.rows[0] ? table.rows[0].cells.length : 1);
         var tr = table.insertRow(index);
         for (var i = 0; i < cols; i++) tr.insertCell(-1).innerHTML = "<br>";
-        afterEdit(true);
+        applyTableStyle(table);
     }
     function tableAddCol(table, index) {
         for (var i = 0; i < table.rows.length; i++) {
@@ -838,12 +961,16 @@
             var at = Math.min(index, row.cells.length);
             row.insertCell(at).innerHTML = "<br>";
         }
-        afterEdit(true);
+        applyTableStyle(table);
     }
     function tableDelRow(table, ri) {
         table.deleteRow(ri);
-        if (table.rows.length === 0 && table.parentNode) table.parentNode.removeChild(table);
-        afterEdit(true);
+        if (table.rows.length === 0 && table.parentNode) {
+            table.parentNode.removeChild(table);
+            afterEdit(true);
+            return;
+        }
+        applyTableStyle(table);
     }
     function tableDelCol(table, ci) {
         var empty = true;
@@ -852,8 +979,247 @@
             if (row.cells.length > ci) row.deleteCell(ci);
             if (row.cells.length > 0) empty = false;
         }
-        if (empty && table.parentNode) table.parentNode.removeChild(table);
-        afterEdit(true);
+        if (empty && table.parentNode) {
+            table.parentNode.removeChild(table);
+            afterEdit(true);
+            return;
+        }
+        applyTableStyle(table);
+    }
+    /* ---------- table ops for the floating text-edit bar ----------
+       Rendered by OfficeTextEditBar as an extra divider-separated section
+       while the selection is inside a table (incl. multi-cell selections).
+       Empty array = section hidden. */
+    function withTable(fn) {
+        var cell = currentCell();
+        var table = cell ? cell.closest("table") : null;
+        if (table) fn(table, cell);
+    }
+    function docsTableOps() {
+        if (!currentCell()) return null;
+        return [
+            {
+                icon: "angle up", title: "Insert row above",
+                fn: function () { withTable(function (t, cell) { tableAddRow(t, cell.parentNode.rowIndex); }); }
+            },
+            {
+                icon: "angle down", title: "Insert row below",
+                fn: function () { withTable(function (t, cell) { tableAddRow(t, cell.parentNode.rowIndex + 1); }); }
+            },
+            {
+                icon: "angle left", title: "Insert column left",
+                fn: function () { withTable(function (t, cell) { tableAddCol(t, cell.cellIndex); }); }
+            },
+            {
+                icon: "angle right", title: "Insert column right",
+                fn: function () { withTable(function (t, cell) { tableAddCol(t, cell.cellIndex + 1); }); }
+            },
+            {
+                icon: "minus", title: "Delete row",
+                fn: function () { withTable(function (t, cell) { tableDelRow(t, cell.parentNode.rowIndex); }); }
+            },
+            {
+                icon: "eraser", title: "Delete column",
+                fn: function () { withTable(function (t, cell) { tableDelCol(t, cell.cellIndex); }); }
+            },
+            {
+                icon: "trash alternate outline", title: "Delete table",
+                fn: function () {
+                    withTable(function (t) {
+                        if (t.parentNode) t.parentNode.removeChild(t);
+                        afterEdit(true);
+                        OfficeTextEditBar.setTableOps(null);
+                    });
+                }
+            },
+            {
+                icon: "heading", title: "Header row",
+                active: function () {
+                    var c = currentCell();
+                    var t = c ? c.closest("table") : null;
+                    return !!(t && t.getAttribute("data-th-head") === "1");
+                },
+                fn: function () {
+                    withTable(function (t) {
+                        t.setAttribute("data-th-head", t.getAttribute("data-th-head") === "1" ? "" : "1");
+                        applyTableStyle(t);
+                    });
+                }
+            },
+            {
+                icon: "bars", title: "Banded rows",
+                active: function () {
+                    var c = currentCell();
+                    var t = c ? c.closest("table") : null;
+                    return !!(t && t.getAttribute("data-th-band") === "1");
+                },
+                fn: function () {
+                    withTable(function (t) {
+                        t.setAttribute("data-th-band", t.getAttribute("data-th-band") === "1" ? "" : "1");
+                        applyTableStyle(t);
+                    });
+                }
+            },
+            {
+                icon: "paint brush", title: "Table theme...",
+                fn: function (btnEl) {
+                    withTable(function (t) {
+                        var r = btnEl.getBoundingClientRect();
+                        OfficeApp.showContextMenu(r.left, r.bottom + 2, TABLE_THEMES.map(function (th) {
+                            return {
+                                label: th.name,
+                                action: function () {
+                                    t.setAttribute("data-th-bc", th.bc);
+                                    t.setAttribute("data-th-headbg", th.headbg);
+                                    t.setAttribute("data-th-headfc", th.headfc);
+                                    t.setAttribute("data-th-bandbg", th.bandbg);
+                                    t.setAttribute("data-th-head", "1");
+                                    t.setAttribute("data-th-band", "1");
+                                    applyTableStyle(t);
+                                }
+                            };
+                        }));
+                    });
+                }
+            },
+            {
+                icon: "window minimize outline", title: "Border weight...",
+                fn: function (btnEl) {
+                    withTable(function (t) {
+                        var r = btnEl.getBoundingClientRect();
+                        OfficeApp.showContextMenu(r.left, r.bottom + 2, [0.5, 1, 2, 3].map(function (w) {
+                            return {
+                                label: w + " px",
+                                checked: (parseFloat(t.getAttribute("data-th-bw")) || 1) === w,
+                                action: function () {
+                                    t.setAttribute("data-th-bw", String(w));
+                                    applyTableStyle(t);
+                                }
+                            };
+                        }));
+                    });
+                }
+            },
+            {
+                icon: "pencil alternate", title: "Border color...",
+                fn: function (btnEl) {
+                    withTable(function (t) {
+                        OfficeColorPicker.open({
+                            anchor: btnEl,
+                            value: t.getAttribute("data-th-bc") || "#b9bec7",
+                            onPick: function (hex) {
+                                if (!hex) return;
+                                t.setAttribute("data-th-bc", hex);
+                                applyTableStyle(t);
+                            }
+                        });
+                    });
+                }
+            },
+            {
+                icon: "square full", title: "Cell background...",
+                fn: function (btnEl) {
+                    withTable(function (t, cell) {
+                        OfficeColorPicker.open({
+                            anchor: btnEl,
+                            value: cell.getAttribute("data-cellbg") || "#ffffff",
+                            allowNone: true, noneLabel: "Clear (use theme)",
+                            onPick: function (hex) {
+                                if (hex) cell.setAttribute("data-cellbg", hex);
+                                else cell.removeAttribute("data-cellbg");
+                                applyTableStyle(t);
+                            }
+                        });
+                    });
+                }
+            }
+        ];
+    }
+
+    /* table items reused as a submenu of the right-click context menu */
+    function tableMenuItems() { return tableMenuItemsFor(currentCell()); }
+    function tableMenuItemsFor(cell) {
+        var table = cell ? cell.closest("table") : null;
+        if (!table) {
+            return [{ label: "Click inside a table first", enabled: function () { return false; }, action: function () { } }];
+        }
+        function toggleAttr(attr) {
+            table.setAttribute(attr, table.getAttribute(attr) === "1" ? "" : "1");
+            applyTableStyle(table);
+        }
+        var items = [
+            {
+                label: "Header row", icon: "heading",
+                checked: function () { return table.getAttribute("data-th-head") === "1"; },
+                action: function () { toggleAttr("data-th-head"); }
+            },
+            {
+                label: "Banded rows", icon: "bars",
+                checked: function () { return table.getAttribute("data-th-band") === "1"; },
+                action: function () { toggleAttr("data-th-band"); }
+            },
+            {
+                label: "Table theme", icon: "paint brush",
+                sub: TABLE_THEMES.map(function (t) {
+                    return {
+                        label: t.name,
+                        action: function () {
+                            table.setAttribute("data-th-bc", t.bc);
+                            table.setAttribute("data-th-headbg", t.headbg);
+                            table.setAttribute("data-th-headfc", t.headfc);
+                            table.setAttribute("data-th-bandbg", t.bandbg);
+                            table.setAttribute("data-th-head", "1");
+                            table.setAttribute("data-th-band", "1");
+                            applyTableStyle(table);
+                        }
+                    };
+                })
+            },
+            {
+                label: "Border weight", icon: "window minimize outline",
+                sub: [0.5, 1, 2, 3].map(function (w) {
+                    return {
+                        label: w + " px",
+                        checked: function () { return (parseFloat(table.getAttribute("data-th-bw")) || 1) === w; },
+                        action: function () {
+                            table.setAttribute("data-th-bw", String(w));
+                            applyTableStyle(table);
+                        }
+                    };
+                })
+            },
+            {
+                label: "Border color...", icon: "pencil alternate",
+                action: function () {
+                    OfficeColorPicker.open({
+                        anchor: cell,
+                        value: table.getAttribute("data-th-bc") || "#b9bec7",
+                        onPick: function (hex) {
+                            if (!hex) return;
+                            table.setAttribute("data-th-bc", hex);
+                            applyTableStyle(table);
+                        }
+                    });
+                }
+            },
+            {
+                label: "Cell background...", icon: "square full",
+                action: function () {
+                    OfficeColorPicker.open({
+                        anchor: cell,
+                        value: cell.getAttribute("data-cellbg") || "#ffffff",
+                        allowNone: true, noneLabel: "Clear (use theme)",
+                        onPick: function (hex) {
+                            if (hex) cell.setAttribute("data-cellbg", hex);
+                            else cell.removeAttribute("data-cellbg");
+                            applyTableStyle(table);
+                        }
+                    });
+                }
+            },
+            { sep: true }
+        ];
+        return items.concat(tableContextItems(cell));
     }
     function tableContextItems(cell) {
         var table = cell.closest("table");
@@ -1080,13 +1446,246 @@
         css += "}\n";
         css += "@media print {\n";
         css += "    #page { width: auto !important; min-height: 0 !important; padding: 0 !important; }\n";
+        /* the screen bands are absolutely placed per simulated page; when the
+           printer paginates for real, one fixed pair repeats on every sheet
+           (first-page suppression is a PDF-export feature - print engines
+           cannot skip it) */
+        if (pageConf.hfMode === "none") {
+            css += "    .doc-hf { display: none !important; }\n";
+        } else {
+            css += "    .doc-hf { position: fixed !important; left: 0 !important; right: 0 !important; }\n";
+            css += "    #docHeader { top: 0 !important; }\n";
+            css += "    #docFooter { top: auto !important; bottom: 0 !important; }\n";
+            css += "    .doc-hf:not(#docHeader):not(#docFooter) { display: none !important; }\n";
+            css += "    .doc-hf[hidden] { display: block !important; }\n";
+        }
         css += "}\n";
         var tag = document.getElementById("pagePrintStyle");
         if (tag) tag.textContent = css;
     }
     /* ---------- page guides (visual pagination) ---------- */
     var MM_PX = 96 / 25.4;
+    var PAGE_GAP_PX = 24;    // visual gap between two sheets at a page break
     function pageGuidesOn() { return OfficeApp.getSetting("pageGuides", true); }
+    // element top in layout px relative to #page (CSS zoom safe - unlike
+    // getBoundingClientRect, offsetTop is not scaled)
+    function offsetTopInPage(el) {
+        var y = 0;
+        while (el && el !== pageEl) {
+            y += el.offsetTop;
+            el = el.offsetParent;
+        }
+        return y;
+    }
+    /* True multi-page rendering.
+       Every page boundary - explicit (Insert > Page break) or automatic
+       (content overflow) - is a real block in the flow that eats the rest
+       of its sheet and paints the gap between two separate sheets:
+         - explicit breaks are .doc-pagebreak (persisted, exported to docx)
+         - automatic ones are .doc-pagebreak.doc-autobreak, layout-only
+           spacers inserted before the block that crosses the boundary and
+           STRIPPED from serialization (cleanedHtml)
+       Blocks taller than a page cannot be split, and CSS multi-column
+       layouts reflow around inserted blocks, so those cases fall back to
+       the dotted guide line. */
+    var GAP_OVERHANG_PX = 26;   // gap band reaches past the sheet edge so it
+                                // also cuts the sheet's side shadow
+    function gapMarkup() {
+        return '<div class="doc-pb-gap"><div class="doc-pb-gap-in"></div></div>';
+    }
+    function removeAutoBreaks(root) {
+        var list = root.querySelectorAll(".doc-autobreak");
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].parentNode) list[i].parentNode.removeChild(list[i]);
+        }
+    }
+    /* stretch a break element so the next content starts at the top of the
+       following sheet; returns that sheet's content-top offset */
+    function stretchBreak(el, pageStart, innerHpx, topPx, mLeftPx, mRightPx, mBotPx) {
+        el.style.height = "0px";
+        var top = offsetTopInPage(el);
+        // a break can sit several auto-pages further down (guarded above,
+        // but keep the math safe). Strictly greater: a break that lands
+        // exactly ON the boundary belongs to this page - counting it as the
+        // next one used to insert a whole blank sheet.
+        while (top > pageStart + innerHpx + 0.5) pageStart += innerHpx;
+        var rest = Math.max(0, pageStart + innerHpx - top);
+        el.style.height = (rest + mBotPx + PAGE_GAP_PX + topPx) + "px";
+        var gap = el.querySelector(".doc-pb-gap");
+        if (gap) {
+            gap.style.top = (rest + mBotPx) + "px";
+            gap.style.height = PAGE_GAP_PX + "px";
+            gap.style.left = -(mLeftPx + GAP_OVERHANG_PX) + "px";
+            gap.style.right = -(mRightPx + GAP_OVERHANG_PX) + "px";
+            var inner = gap.firstChild;
+            if (inner) {
+                // the sheet-edge shadows only span the actual sheet width
+                inner.style.left = GAP_OVERHANG_PX + "px";
+                inner.style.right = GAP_OVERHANG_PX + "px";
+            }
+        }
+        return top + parseFloat(el.style.height);
+    }
+    // first top-level editor block extending past the boundary (the one that
+    // must move to the next sheet)
+    function blockAtBoundary(boundary) {
+        for (var c = editor.firstElementChild; c; c = c.nextElementSibling) {
+            var top = offsetTopInPage(c);
+            if (top + c.offsetHeight > boundary + 1) return c;
+        }
+        return null;
+    }
+    /* ---------- header / footer bands ----------
+       The editable header/footer is repeated once per simulated page, parked
+       in that sheet's margin band. Every copy is editable and they mirror
+       each other, so the text can be changed from any page. pageConf.hfMode
+       decides which pages get one, and the exporters read the same setting. */
+    var HF_GAP_PX = 14;      // space between a band and the text area
+
+    function hfPairs() {
+        return [{ header: headerEl, footer: footerEl }].concat(hfClones);
+    }
+    function hfShownOn(pageIndex) {   // pageIndex is 0-based
+        if (pageConf.hfMode === "none") return false;
+        if (pageConf.hfMode === "except-first" && pageIndex === 0) return false;
+        return true;
+    }
+    // mirror one band's text into every other copy (never into the one being
+    // typed in, so the caret survives)
+    function syncHfText(kind, text, except) {
+        hfPairs().forEach(function (pair) {
+            var el = pair[kind];
+            if (el !== except && el.textContent !== text) el.textContent = text;
+        });
+    }
+    function bindHfEvents(el) {
+        el.addEventListener("input", function () {
+            syncHfText(el.getAttribute("data-hf"), el.textContent, el);
+            OfficeApp.markDirty();
+            undo.pushDebounced(snapshot, 600);
+        });
+        el.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") e.preventDefault();   // single line only
+        });
+        el.addEventListener("paste", function (e) {
+            e.preventDefault();
+            var t = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
+            if (t) {
+                try { document.execCommand("insertText", false, t.replace(/\s*\n+\s*/g, " ")); }
+                catch (err) { }
+            }
+        });
+    }
+    function makeHfCopy(kind) {
+        var src = (kind === "header") ? headerEl : footerEl;
+        var el = document.createElement("div");
+        el.className = "doc-hf doc-hf-" + kind;
+        el.setAttribute("contenteditable", "true");
+        el.setAttribute("spellcheck", "false");
+        el.setAttribute("data-hf", kind);
+        el.setAttribute("data-placeholder", src.getAttribute("data-placeholder") || "");
+        el.textContent = src.textContent;
+        bindHfEvents(el);
+        pageEl.appendChild(el);
+        return el;
+    }
+    function parkHeaderFooters() {
+        hfPairs().forEach(function (pair) {
+            ["header", "footer"].forEach(function (kind) {
+                pair[kind].style.top = "0px";
+                pair[kind].hidden = true;
+            });
+        });
+    }
+    function layoutHeaderFooters(pageTops, innerHpx, topPx, mL, mR, mB) {
+        // one copy per page after the first (page one uses the originals)
+        while (hfClones.length < pageTops.length - 1) {
+            hfClones.push({ header: makeHfCopy("header"), footer: makeHfCopy("footer") });
+        }
+        while (hfClones.length > pageTops.length - 1) {
+            var drop = hfClones.pop();
+            if (drop.header.parentNode) drop.header.parentNode.removeChild(drop.header);
+            if (drop.footer.parentNode) drop.footer.parentNode.removeChild(drop.footer);
+        }
+        var text = { header: headerEl.textContent, footer: footerEl.textContent };
+        var pageHpx = topPx + innerHpx + mB;
+        var lead = true;
+        hfPairs().forEach(function (pair, i) {
+            var show = hfShownOn(i);
+            var sheetTop = pageTops[i] - topPx;
+            ["header", "footer"].forEach(function (kind) {
+                var el = pair[kind];
+                el.hidden = !show;
+                el.classList.toggle("doc-hf-lead", show && lead);
+                if (!show) return;
+                if (el !== document.activeElement && el.textContent !== text[kind]) {
+                    el.textContent = text[kind];
+                }
+                el.style.left = mL + "px";
+                el.style.right = mR + "px";
+                var h = el.offsetHeight;
+                var top;
+                if (kind === "header") {
+                    top = Math.max(sheetTop + 2, pageTops[i] - HF_GAP_PX - h);
+                } else {
+                    top = Math.min(sheetTop + pageHpx - 2 - h,
+                        pageTops[i] + innerHpx + HF_GAP_PX);
+                }
+                el.style.top = Math.round(top) + "px";
+            });
+            if (show) lead = false;
+        });
+    }
+    /* ---------- deferred relayout ----------
+       Pictures in a document that was just opened are still decoding while
+       loadBody() paginates: they measure zero tall, so the page tops - and
+       with them the header/footer bands and the automatic breaks - come out
+       for a much shorter document than the one that ends up on screen.
+       Anything that changes the flow height without an edit (an image
+       finishing, a web font, a window resize) re-runs the pagination. */
+    var relayoutTimer = null;
+    var relayoutH = -1;        // editor height the current layout was made for
+    var relayouting = false;
+    function scheduleRelayout() {
+        clearTimeout(relayoutTimer);
+        relayoutTimer = setTimeout(function () {
+            relayouting = true;
+            updatePageGuides();
+            relayouting = false;
+        }, 80);
+    }
+    function watchContentSize() {
+        // load does not bubble, but it is seen in the capture phase
+        var onLoad = function (e) {
+            if (e.target && e.target.tagName === "IMG") scheduleRelayout();
+        };
+        editor.addEventListener("load", onLoad, true);
+        editor.addEventListener("error", onLoad, true);
+        if (window.ResizeObserver) {
+            new ResizeObserver(function () {
+                if (relayouting) return;
+                if (Math.abs(editor.offsetHeight - relayoutH) <= 1) return;
+                scheduleRelayout();
+            }).observe(editor);
+        }
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(scheduleRelayout).catch(function () { });
+        }
+    }
+
+    function setHfMode(mode) {
+        if (HF_MODES.indexOf(mode) < 0) return;
+        pageConf.hfMode = mode;
+        updatePrintStyle();
+        updatePageGuides();
+        afterEdit(true);
+        OfficeApp.setStatus({
+            "all": "Header and footer shown on every page",
+            "except-first": "Header and footer shown on every page except the first",
+            "none": "Header and footer turned off"
+        }[mode]);
+    }
+
     function updatePageGuides() {
         var holder = document.getElementById("pageGuides");
         if (!holder) {
@@ -1099,22 +1698,108 @@
         var d = PAGE_SIZES[pageConf.size] || PAGE_SIZES.A4;
         var pageHmm = (pageConf.orientation === "landscape") ? d.w : d.h;
         var m = pageConf.margins;
-        var innerHpx = (pageHmm - m.top - m.bottom) * MM_PX;
+        var innerHpx = Math.max(60, (pageHmm - m.top - m.bottom) * MM_PX);
         var topPx = m.top * MM_PX;
-        // small epsilon guards against 1px scrollHeight rounding creating
-        // a phantom extra page
-        var contentH = pageEl.scrollHeight - topPx - m.bottom * MM_PX - 6;
-        var pages = Math.max(1, Math.ceil(contentH / Math.max(60, innerHpx)));
-        if (pageGuidesOn()) {
-            for (var n = 1; n < pages; n++) {
+        var mL = m.left * MM_PX, mR = m.right * MM_PX, mB = m.bottom * MM_PX;
+        var multiCol = pageConf.columns > 1;
+
+        // park the header/footer bands first: a copy still sitting at the
+        // bottom of a longer previous layout would inflate scrollHeight and
+        // conjure a phantom page below
+        parkHeaderFooters();
+        // relayout from the natural flow (self-heal breaks that arrived
+        // without their gap markup, e.g. via raw HTML)
+        removeAutoBreaks(editor);
+        normalizePageBreaks();
+        var breaks = Array.prototype.slice.call(editor.querySelectorAll(".doc-pagebreak"));
+        var i;
+        for (i = 0; i < breaks.length; i++) breaks[i].style.height = "0px";
+
+        var pages = 1;
+        var pageStart = topPx;
+        var pageTops = [topPx];   // content-top of every sheet, for the bands
+        var bi = 0;
+        var guard = 0;
+        while (guard++ < 400) {
+            var boundary = pageStart + innerHpx;
+            // (a) an explicit break on this page ends it early
+            if (bi < breaks.length && offsetTopInPage(breaks[bi]) <= boundary + 0.5) {
+                pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
+                pageTops.push(pageStart);
+                pages++;
+                continue;
+            }
+            // small epsilon guards against 1px scrollHeight rounding creating
+            // a phantom extra page
+            if (boundary >= pageEl.scrollHeight - mB - 6 - 0.5) break;
+            // (b) automatic overflow: separate the sheets for real by pushing
+            // the crossing block onto the next sheet with a layout-only spacer
+            if (!multiCol) {
+                var block = blockAtBoundary(boundary);
+                if (block && block === breaks[bi]) {
+                    // the boundary lands just before an explicit break - the
+                    // break itself owns this cut
+                    pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
+                    pageTops.push(pageStart);
+                    pages++;
+                    continue;
+                }
+                if (block && offsetTopInPage(block) > pageStart + 1) {
+                    var sp = document.createElement("div");
+                    sp.className = "doc-pagebreak doc-autobreak";
+                    sp.setAttribute("contenteditable", "false");
+                    sp.innerHTML = gapMarkup();
+                    block.parentNode.insertBefore(sp, block);
+                    pageStart = stretchBreak(sp, pageStart, innerHpx, topPx, mL, mR, mB);
+                    pageTops.push(pageStart);
+                    pages++;
+                    continue;
+                }
+            }
+            // (c) unsplittable block / multi-column layout: dotted fallback
+            if (pageGuidesOn()) {
                 var g = document.createElement("div");
                 g.className = "doc-pageguide";
-                g.style.top = (topPx + n * innerHpx) + "px";
-                g.setAttribute("data-label", "Page " + (n + 1));
+                g.style.top = boundary + "px";
+                g.setAttribute("data-label", "Page " + (pages + 1));
                 holder.appendChild(g);
             }
+            pageStart = boundary;
+            pageTops.push(pageStart);
+            pages++;
         }
+        // the last sheet always shows at full page height
+        pageEl.style.minHeight = (pageStart + innerHpx + mB) + "px";
+        layoutHeaderFooters(pageTops, innerHpx, topPx, mL, mR, mB);
+        relayoutH = editor.offsetHeight;   // what this layout was made for
         return pages;
+    }
+    /* ---------- explicit page breaks ---------- */
+    function pageBreakHtml() {
+        return '<div class="doc-pagebreak" contenteditable="false">' +
+            gapMarkup() + "</div>";
+    }
+    // imported / restored breaks may lack the gap child or the guard attribute
+    function normalizePageBreaks() {
+        var list = editor.querySelectorAll(".doc-pagebreak");
+        for (var i = 0; i < list.length; i++) {
+            list[i].setAttribute("contenteditable", "false");
+            if (!list[i].querySelector(".doc-pb-gap-in")) {
+                list[i].innerHTML = gapMarkup();
+            }
+        }
+    }
+    function insertPageBreak() {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        // trailing paragraph so there is always somewhere to type on the new page
+        try {
+            document.execCommand("insertHTML", false, pageBreakHtml() + "<p><br></p>");
+        } catch (e) { return; }
+        normalizePageBreaks();
+        afterEdit(true);
+        updatePageGuides();
+        OfficeApp.setStatus("Page break inserted");
     }
     function toggleLayoutBoxes() {
         var on = !document.body.classList.contains("doc-show-boxes");
@@ -1615,6 +2300,88 @@
         }
     }
 
+    /* ================= menu-driven clipboard =================
+       Ctrl+X/C/V go through the native events; menu clicks have no event,
+       so use the async clipboard API (image > html > plain text, mirroring
+       handleEditorPaste, including suggest-mode wrapping). */
+    function menuCutCopy(isCut) {
+        if (selectedImg) {
+            // image selection is app-level - write it as HTML ourselves
+            var clone = selectedImg.cloneNode(false);
+            clone.classList.remove("of-selimg");
+            if (!clone.getAttribute("class")) clone.removeAttribute("class");
+            try { clone.src = selectedImg.src; } catch (e) { }
+            OfficeClipboard.writeAsync({ html: clone.outerHTML, text: "" }).catch(function () { });
+            if (isCut) {
+                var img = selectedImg;
+                deselectImage();
+                if (img.parentNode) img.parentNode.removeChild(img);
+                afterEdit(true);
+            } else {
+                OfficeApp.setStatus("Image copied");
+            }
+            return;
+        }
+        restoreSel();
+        try { document.execCommand(isCut ? "cut" : "copy"); } catch (e) { }
+        if (isCut) afterEdit(true);
+    }
+    function pasteFromMenu(plainOnly) {
+        var fallbackText = function () {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(function (t) {
+                    if (!t) return;
+                    restoreSel();
+                    if (suggesting && !inHeaderFooter()) suggestInsert(t);
+                    else { try { document.execCommand("insertText", false, t); } catch (e) { } }
+                    afterEdit(true);
+                }).catch(function () {
+                    OfficeApp.setStatus("Paste blocked by the browser - use Ctrl+V instead", "error");
+                });
+            } else {
+                OfficeApp.setStatus("Use Ctrl+V to paste here", "error");
+            }
+        };
+        if (plainOnly || !(navigator.clipboard && navigator.clipboard.read)) {
+            fallbackText();
+            return;
+        }
+        navigator.clipboard.read().then(function (cbItems) {
+            var img = null, htmlIt = null;
+            cbItems.forEach(function (it) {
+                it.types.forEach(function (ty) {
+                    if (!img && ty.indexOf("image/") === 0) img = { it: it, ty: ty };
+                    if (!htmlIt && ty === "text/html") htmlIt = it;
+                });
+            });
+            if (img) {
+                img.it.getType(img.ty).then(function (blob) {
+                    OfficeApp.blobToSrc(blob, "pasted.png", function (src) {
+                        restoreSel();
+                        insertImage(src);
+                    }, function (msg) { OfficeApp.toast(msg, "error"); });
+                }).catch(fallbackText);
+                return;
+            }
+            if (htmlIt) {
+                htmlIt.getType("text/html").then(function (blob) {
+                    return blob.text();
+                }).then(function (html) {
+                    var clean = sanitizeHtml(html, { keepClasses: false });
+                    if (!clean) { fallbackText(); return; }
+                    if (suggesting && !inHeaderFooter()) {
+                        clean = '<ins class="doc-ins">' + clean + "</ins>";
+                    }
+                    restoreSel();
+                    try { document.execCommand("insertHTML", false, clean); } catch (e) { }
+                    afterEdit(true);
+                }).catch(fallbackText);
+                return;
+            }
+            fallbackText();
+        }).catch(fallbackText);
+    }
+
     /* ================= paste ================= */
     function handleEditorPaste(e) {
         var cd = e.clipboardData;
@@ -1650,9 +2417,10 @@
                 return;
             }
         }
-        // 3. plain text
+        // 3. plain text (ignore another app's raw marker JSON - its rich
+        //    text/html form was handled above)
         var t = cd.getData("text/plain");
-        if (t) {
+        if (t && !(window.OfficeClipboard && OfficeClipboard.isMarker(t))) {
             if (suggesting && !inHeaderFooter()) {
                 suggestInsert(t);
                 afterEdit(true);
@@ -1678,10 +2446,7 @@
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
     }
-    function exportPDF() {
-        OfficeApp.toast('In the print dialog, choose "Save as PDF" as the destination');
-        setTimeout(function () { OfficeApp.print(); }, 900);
-    }
+    function exportPdf() { exportDocFile(".pdf", "export-pdf", "Exporting PDF..."); }
     var EXPORT_CSS =
         "body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;" +
         "color:#1f2328;max-width:820px;margin:24px auto;padding:0 18px;}" +
@@ -1704,9 +2469,12 @@
         var title = exportBaseName();
         var out = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n" +
             "<title>" + esc(title) + "</title>\n<style>" + EXPORT_CSS + "</style>\n</head>\n<body>\n";
-        if (body.header) out += '<div class="hf">' + esc(body.header) + "</div>\n";
+        // a web page has no pages to repeat them on: one copy top and bottom,
+        // and nothing at all when the header/footer are turned off
+        var hf = body.hfMode !== "none";
+        if (hf && body.header) out += '<div class="hf">' + esc(body.header) + "</div>\n";
         out += resolvedHtml() + "\n";
-        if (body.footer) out += '<div class="hf">' + esc(body.footer) + "</div>\n";
+        if (hf && body.footer) out += '<div class="hf">' + esc(body.footer) + "</div>\n";
         out += "</body>\n</html>\n";
         downloadFile(title + ".html", "text/html", out);
     }
@@ -1879,9 +2647,10 @@
     /* ================= DOCX import / export (office AGI lib) ================= */
     var DOCX_BACKEND = "Office/docs/backend/docx.agi";
 
-    function importDocx(fp, fn) {
+    // shared by .docx ("import") and .odt ("import-odf")
+    function importDocFile(fp, fn, action) {
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(DOCX_BACKEND, { action: "import", src: fp }, function (data) {
+        ao_module_agirun(DOCX_BACKEND, { action: action, src: fp }, function (data) {
             OfficeApp.hideBusy();
             if (!data || data.error) {
                 OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
@@ -1904,11 +2673,17 @@
             OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
         }, 120000);
     }
+    function importDocx(fp, fn) { importDocFile(fp, fn, "import"); }
+    function importOdt(fp, fn) { importDocFile(fp, fn, "import-odf"); }
     function importDocxDialog() {
         try {
             ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) importDocx(files[0].filepath, files[0].filename);
-            }, "user:/Desktop", "file", false, { filter: ["docx"] });
+                if (files && files.length > 0) {
+                    var fp = files[0].filepath, fn = files[0].filename;
+                    if (/\.odt$/i.test(fn)) importOdt(fp, fn);
+                    else importDocx(fp, fn);
+                }
+            }, "user:/Desktop", "file", false, { filter: ["docx", "odt"] });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -1916,6 +2691,87 @@
 
     /* inline storage-served images (media?file=...) as data URLs so the
        server-side exporter can embed them */
+    /* Rasterize an <img> whose src Word cannot embed (SVG charts pasted from
+       Sheets/Slides, webp, ...) into a PNG data URL at 2x its display size.
+       Keeps/sets the width attribute so the docx writer sizes it like the
+       editor does. */
+    function rasterizeImgToPng(im) {
+        return new Promise(function (resolve) {
+            var probe = new Image();
+            probe.onload = function () {
+                try {
+                    var w = parseInt(im.getAttribute("width"), 10) ||
+                        parseFloat((im.getAttribute("style") || "").replace(/^.*width:\s*([\d.]+)px.*$/, "$1")) ||
+                        probe.naturalWidth || 400;
+                    var h = w * (probe.naturalHeight || 300) / (probe.naturalWidth || 400);
+                    var cv = document.createElement("canvas");
+                    cv.width = Math.max(1, Math.round(w * 2));
+                    cv.height = Math.max(1, Math.round(h * 2));
+                    var ctx = cv.getContext("2d");
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, cv.width, cv.height);
+                    ctx.drawImage(probe, 0, 0, cv.width, cv.height);
+                    im.setAttribute("src", cv.toDataURL("image/png"));
+                    im.setAttribute("width", String(Math.round(w)));
+                    im.setAttribute("height", String(Math.round(h)));
+                } catch (e) { /* leave as-is; exporter will skip it */ }
+                resolve();
+            };
+            probe.onerror = function () { resolve(); };
+            probe.src = im.getAttribute("src");
+        });
+    }
+    /* Emoji characters have no glyphs in the PDF core fonts, so before a
+       PDF export they are rasterized (canvas + the platform emoji font)
+       into small inline images the server-side renderer can draw. */
+    var emojiPngCache = {};
+    function emojiToPng(ch) {
+        if (emojiPngCache[ch]) return emojiPngCache[ch];
+        var c = document.createElement("canvas");
+        c.width = 36; c.height = 36;
+        var ctx = c.getContext("2d");
+        ctx.font = '30px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText(ch, 18, 20);
+        var durl = c.toDataURL("image/png");
+        emojiPngCache[ch] = durl;
+        return durl;
+    }
+    function rasterizeEmojiForPdf(html) {
+        var re;
+        try {
+            re = new RegExp("\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic}\\uFE0F?)*", "gu");
+        } catch (e) {
+            return html; // very old engine without unicode property escapes
+        }
+        var root = document.createElement("div");
+        root.innerHTML = html;
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        var nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach(function (tn) {
+            var t = tn.nodeValue || "";
+            re.lastIndex = 0;
+            if (!re.test(t)) return;
+            re.lastIndex = 0;
+            var frag = document.createDocumentFragment();
+            var last = 0, m;
+            while ((m = re.exec(t)) !== null) {
+                if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+                var img = document.createElement("img");
+                img.src = emojiToPng(m[0]);
+                img.setAttribute("width", "14");
+                img.setAttribute("height", "14");
+                frag.appendChild(img);
+                last = m.index + m[0].length;
+            }
+            if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
+            tn.parentNode.replaceChild(frag, tn);
+        });
+        return root.innerHTML;
+    }
+
     function inlineImagesForExport(html) {
         var div = document.createElement("div");
         div.innerHTML = html;
@@ -1938,23 +2794,38 @@
                 });
             }).catch(function () { /* leave the URL; exporter skips it */ });
         });
-        return Promise.all(jobs).then(function () { return div.innerHTML; });
+        return Promise.all(jobs).then(function () {
+            // second pass: convert anything Word cannot embed (svg charts,
+            // webp/bmp) to PNG so it survives as a real, sized picture
+            var conv = Array.prototype.slice.call(div.querySelectorAll("img"))
+                .filter(function (im) {
+                    return /^data:image\/(svg|webp|bmp)/i.test(im.getAttribute("src") || "");
+                })
+                .map(rasterizeImgToPng);
+            return Promise.all(conv);
+        }).then(function () { return div.innerHTML; });
     }
-    function exportDocx() {
-        var defName = exportBaseName() + ".docx";
+    // shared by .docx ("export") and .odt ("export-odf")
+    function exportDocFile(ext, action, busyLabel) {
+        var defName = exportBaseName() + ext;
+        var extRe = new RegExp("\\" + ext + "$", "i");
         try {
             ao_module_openFileSelector(function (files) {
                 if (!files || !files.length) return;
                 var fp = files[0].filepath;
-                if (!/\.docx$/i.test(fp)) fp += ".docx";
-                OfficeApp.showBusy("Exporting Word file...");
+                if (!extRe.test(fp)) fp += ext;
+                OfficeApp.showBusy(busyLabel);
                 var body = currentBody();
                 // suggestions applied, comment anchors unwrapped
                 body.html = resolvedHtml();
+                if (action === "export-pdf") {
+                    // PDF core fonts have no emoji glyphs - rasterize them
+                    body.html = rasterizeEmojiForPdf(body.html);
+                }
                 inlineImagesForExport(body.html).then(function (inlined) {
                     body.html = inlined;
                     ao_module_agirun(DOCX_BACKEND, {
-                        action: "export",
+                        action: action,
                         dest: fp,
                         data: JSON.stringify(body)
                     }, function (data) {
@@ -1975,6 +2846,8 @@
             OfficeApp.toast("File selector is not available here", "error");
         }
     }
+    function exportDocx() { exportDocFile(".docx", "export", "Exporting Word file..."); }
+    function exportOdt() { exportDocFile(".odt", "export-odf", "Exporting OpenDocument file..."); }
 
     /* ================= floating selection format bar ================= */
     /* PowerPoint-style mini toolbar (shared OfficeTextEditBar) floating
@@ -2009,10 +2882,13 @@
                             anchor: editor,
                             getRect: selRect,
                             fontSize: currentSelFontPx(),
-                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); }
+                            onFontSize: function (px) { applyFontSize(Math.round(px * 0.75)); },
+                            tableOps: docsTableOps()
                         });
                     } else {
-                        OfficeTextEditBar.reposition();
+                        // the bar is reused across selection moves - keep the
+                        // table section in step with where the caret sits
+                        OfficeTextEditBar.setTableOps(docsTableOps());
                     }
                 } else if (OfficeTextEditBar.isVisible() &&
                     !OfficeTextEditBar.contains(document.activeElement)) {
@@ -2255,13 +3131,13 @@
             }
             var cell = e.target.closest ? e.target.closest("td,th") : null;
             if (cell && cell.closest("table.of-table") && editor.contains(cell)) {
-                items = items.concat(tableContextItems(cell));
+                items.push({ label: "Table", icon: "table", sub: tableMenuItemsFor(cell) });
+                items.push({ sep: true });
             }
             if (pageConf.columns > 1) {
                 // let the user pick which region spans the full page width
                 var block = e.target.closest ? e.target.closest(BLOCK_SEL) : null;
                 if (block && editor.contains(block)) {
-                    if (items.length) items.push({ sep: true });
                     items.push({
                         label: "Full width (span all columns)", icon: "columns",
                         checked: function () { return block.classList.contains("col-span-all"); },
@@ -2275,12 +3151,31 @@
                         checked: function () { return document.body.classList.contains("doc-show-boxes"); },
                         action: toggleLayoutBoxes
                     });
+                    items.push({ sep: true });
                 }
             }
-            if (items.length) {
-                e.preventDefault();
-                OfficeApp.showContextMenu(e.clientX, e.clientY, items);
-            }
+            // standard edit block (like Google Docs / Word)
+            var selNow2 = window.getSelection();
+            var canCopy = !!selectedImg || !!(selNow2 && selNow2.rangeCount &&
+                !selNow2.getRangeAt(0).collapsed &&
+                editor.contains(selNow2.getRangeAt(0).commonAncestorContainer));
+            var copyOk = function () { return canCopy; };
+            items.push({ label: "Cut", icon: "cut", key: "Ctrl+X", enabled: copyOk, action: function () { menuCutCopy(true); } });
+            items.push({ label: "Copy", icon: "copy", key: "Ctrl+C", enabled: copyOk, action: function () { menuCutCopy(false); } });
+            items.push({ label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { pasteFromMenu(false); } });
+            items.push({ label: "Paste without formatting", icon: "clipboard outline", action: function () { pasteFromMenu(true); } });
+            items.push({ sep: true });
+            items.push({ label: "Bold", icon: "bold", key: "Ctrl+B", action: function () { exec("bold"); } });
+            items.push({ label: "Italic", icon: "italic", key: "Ctrl+I", action: function () { exec("italic"); } });
+            items.push({ label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { exec("underline"); } });
+            items.push({ label: "Clear formatting", icon: "eraser", action: clearFormatting });
+            items.push({ sep: true });
+            items.push({ label: "Insert link...", icon: "linkify", key: "Ctrl+K", action: linkDialog });
+            items.push({ label: "Insert page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak });
+            items.push({ sep: true });
+            items.push({ label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll });
+            e.preventDefault();
+            OfficeApp.showContextMenu(e.clientX, e.clientY, items);
         });
         // deselect image when clicking anywhere else / typing starts elsewhere
         document.addEventListener("mousedown", function (e) {
@@ -2291,24 +3186,14 @@
         workspaceEl.addEventListener("scroll", positionImgHandle);
         window.addEventListener("resize", positionImgHandle);
 
-        // header / footer: plain single-line text only
-        [headerEl, footerEl].forEach(function (el) {
-            el.addEventListener("input", function () {
-                OfficeApp.markDirty();
-                undo.pushDebounced(snapshot, 600);
-            });
-            el.addEventListener("keydown", function (e) {
-                if (e.key === "Enter") e.preventDefault();
-            });
-            el.addEventListener("paste", function (e) {
-                e.preventDefault();
-                var t = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
-                if (t) {
-                    try { document.execCommand("insertText", false, t.replace(/\s*\n+\s*/g, " ")); }
-                    catch (err) { }
-                }
-            });
-        });
+        // header / footer: plain single-line text only, kept in sync across
+        // every page's copy (bindHfEvents also runs for the copies)
+        bindHfEvents(headerEl);
+        bindHfEvents(footerEl);
+
+        // re-paginate when the flow grows on its own (pictures decoding after
+        // a document is opened, web fonts, a resize)
+        watchContentSize();
     }
 
     /* ================= shortcuts ================= */
@@ -2320,6 +3205,8 @@
         OfficeApp.registerShortcut("Ctrl+K", linkDialog, { description: "Insert link", group: "Text" });
         OfficeApp.registerShortcut("Ctrl+Alt+M", function () { commentDialog(null); },
             { description: "Add comment", group: "Review" });
+        OfficeApp.registerShortcut("Ctrl+Enter", insertPageBreak,
+            { description: "Insert page break", group: "Text" });
         OfficeApp.registerShortcut("Ctrl+F", function () { openFind(false); }, { description: "Find" });
         OfficeApp.registerShortcut("Ctrl+H", function () { openFind(true); }, { description: "Find and replace" });
         // lists - register both the digit and the shifted symbol (layout dependent)
@@ -2377,13 +3264,20 @@
                 ".htm": function (text) { importHtml(text); }
             },
             binaryImporters: {
-                ".docx": importDocx
+                ".docx": importDocx,
+                ".odt": importOdt
             },
 
             onUndo: doUndo,
             onRedo: doRedo,
             canUndo: function () { return undo.canUndo(); },
             canRedo: function () { return undo.canRedo(); },
+
+            // Edit menubar clipboard shares the context-menu implementations
+            // (image-aware copy, async rich paste)
+            onCut: function () { menuCutCopy(true); },
+            onCopy: function () { menuCutCopy(false); },
+            onPaste: function () { pasteFromMenu(false); },
 
             menus: [
                 {
@@ -2395,6 +3289,7 @@
                             { label: "Link...", icon: "linkify", key: "Ctrl+K", action: linkDialog },
                             { label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M", action: function () { commentDialog(null); } },
                             { sep: true },
+                            { label: "Page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak },
                             { label: "Horizontal rule", icon: "minus", action: function () { exec("insertHorizontalRule"); } },
                             { label: "Code block", icon: "code", action: function () { applyParagraphStyle("pre"); } },
                             { label: "Block quote", icon: "quote left", action: function () { applyParagraphStyle("blockquote"); } },
@@ -2437,6 +3332,28 @@
                                     });
                                 }
                             },
+                            {
+                                label: "Header & footer", icon: "window minimize outline",
+                                sub: function () {
+                                    return [
+                                        {
+                                            label: "Same on all pages",
+                                            checked: pageConf.hfMode === "all",
+                                            action: function () { setHfMode("all"); }
+                                        },
+                                        {
+                                            label: "All pages except the first",
+                                            checked: pageConf.hfMode === "except-first",
+                                            action: function () { setHfMode("except-first"); }
+                                        },
+                                        {
+                                            label: "None",
+                                            checked: pageConf.hfMode === "none",
+                                            action: function () { setHfMode("none"); }
+                                        }
+                                    ];
+                                }
+                            },
                             { sep: true },
                             { label: "Bulleted list", icon: "list ul", key: "Ctrl+Shift+8", action: function () { exec("insertUnorderedList"); } },
                             { label: "Numbered list", icon: "list ol", key: "Ctrl+Shift+7", action: function () { exec("insertOrderedList"); } },
@@ -2449,12 +3366,13 @@
             ],
             fileMenuExtras: [
                 { label: "Page setup...", icon: "file alternate outline", action: pageSetupDialog },
-                { label: "Import Word (.docx)...", icon: "file word outline", action: importDocxDialog },
+                { label: "Import Word / OpenDocument...", icon: "file word outline", action: importDocxDialog },
                 {
                     label: "Export", icon: "external alternate",
                     sub: [
                         { label: "Word (.docx)", icon: "file word outline", action: exportDocx },
-                        { label: "PDF (via print dialog)", icon: "file pdf outline", action: exportPDF },
+                        { label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt },
+                        { label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf },
                         { label: "Web page (.html)", icon: "file code outline", action: exportHTML },
                         { label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown },
                         { label: "Plain text (.txt)", icon: "file outline", action: exportText }
@@ -2494,7 +3412,7 @@
                     }
                 },
                 {
-                    label: "Layout boxes (regions)",
+                    label: "Layout boxes",
                     checked: function () { return document.body.classList.contains("doc-show-boxes"); },
                     action: toggleLayoutBoxes
                 },

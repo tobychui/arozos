@@ -1,0 +1,165 @@
+/*
+	GitApp — repository list and identity backend
+
+	Keeps the per-user list of repositories shown in the "Current repository"
+	dropdown. The list only stores virtual paths; every path is re-validated
+	against the git library on read, so a repository that was deleted or moved
+	by another app is reported as missing rather than silently breaking the UI.
+
+	The commit author identity lives here too, since it is per-user application
+	state rather than anything git itself owns.
+
+	POST opr = list | add | remove | setidentity
+*/
+
+requirelib("git");
+requirelib("filelib");
+
+var TABLE = "gitapp";
+var LIST_KEY = "repos/" + USERNAME;
+var IDENTITY_KEY = "identity/" + USERNAME;
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+newDBTableIfNotExists(TABLE);
+
+//readRepoList returns the saved virtual paths as an array.
+function readRepoList() {
+    var raw = readDBItem(TABLE, LIST_KEY);
+    if (!raw) {
+        return [];
+    }
+    try {
+        var parsed = JSON.parse(raw);
+        return Object.prototype.toString.call(parsed) === "[object Array]" ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function writeRepoList(list) {
+    writeDBItem(TABLE, LIST_KEY, JSON.stringify(list));
+}
+
+//readIdentity returns the commit author details, defaulting to the ArozOS
+//account name so a first-time user can commit without configuring anything.
+function readIdentity() {
+    var identity = { name: USERNAME, email: "" };
+
+    var raw = readDBItem(TABLE, IDENTITY_KEY);
+    if (raw) {
+        try {
+            var parsed = JSON.parse(raw);
+            if (parsed.name) {
+                identity.name = parsed.name;
+            }
+            if (parsed.email) {
+                identity.email = parsed.email;
+            }
+        } catch (e) {
+            //Fall through to the default identity
+        }
+    }
+    return identity;
+}
+
+//describe turns a stored path into the entry the front-end renders.
+function describe(vpath) {
+    var entry = {
+        path: vpath,
+        name: vpath.split("/").pop() || vpath,
+        valid: false,
+        branch: "",
+        remote: ""
+    };
+
+    if (!filelib.fileExists(vpath)) {
+        entry.error = "folder no longer exists";
+        return entry;
+    }
+    if (!git.isRepo(vpath)) {
+        entry.error = "not a git repository";
+        return entry;
+    }
+
+    entry.valid = true;
+
+    var status = git.status(vpath);
+    if (!status.error) {
+        entry.branch = status.branch;
+        entry.changeCount = status.changes.length;
+        entry.ahead = status.ahead;
+        entry.behind = status.behind;
+        if (status.remotes.length > 0 && status.remotes[0].urls.length > 0) {
+            entry.remote = status.remotes[0].urls[0];
+        }
+    }
+    return entry;
+}
+
+var operation = opr;
+
+if (operation == "list") {
+    var described = [];
+    var saved = readRepoList();
+    for (var i = 0; i < saved.length; i++) {
+        described.push(describe(saved[i]));
+    }
+    sendJSONResp({
+        success: true,
+        repos: described,
+        username: USERNAME,
+        identity: readIdentity()
+    });
+
+} else if (operation == "add") {
+    if (typeof path == "undefined" || path == "") {
+        sendJSONResp({ success: false, error: "repository path is required" });
+    } else if (!filelib.fileExists(path)) {
+        sendJSONResp({ success: false, error: "folder does not exist: " + path });
+    } else if (!git.isRepo(path)) {
+        sendJSONResp({ success: false, error: "this folder is not a git repository" });
+    } else {
+        //Always store the working tree root so two entries can never point at
+        //the same repository through different subfolders.
+        var root = git.repoRoot(path);
+        if (root === false) {
+            root = path;
+        }
+
+        var list = readRepoList();
+        if (list.indexOf(root) < 0) {
+            list.push(root);
+            writeRepoList(list);
+        }
+        sendJSONResp({ success: true, path: root });
+    }
+
+} else if (operation == "remove") {
+    if (typeof path == "undefined" || path == "") {
+        sendJSONResp({ success: false, error: "repository path is required" });
+    } else {
+        var kept = [];
+        var current = readRepoList();
+        for (var j = 0; j < current.length; j++) {
+            if (current[j] != path) {
+                kept.push(current[j]);
+            }
+        }
+        writeRepoList(kept);
+        sendJSONResp({ success: true });
+    }
+
+} else if (operation == "setidentity") {
+    var authorName = (typeof name == "undefined") ? "" : name.trim();
+    if (authorName == "") {
+        sendJSONResp({ success: false, error: "an author name is required" });
+    } else {
+        var authorEmail = (typeof email == "undefined") ? "" : email.trim();
+        writeDBItem(TABLE, IDENTITY_KEY, JSON.stringify({ name: authorName, email: authorEmail }));
+        sendJSONResp({ success: true, identity: { name: authorName, email: authorEmail } });
+    }
+
+} else {
+    sendJSONResp({ success: false, error: "unknown operation: " + operation });
+}

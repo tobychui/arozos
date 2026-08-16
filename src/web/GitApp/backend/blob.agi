@@ -1,0 +1,34 @@
+/*
+	GitApp — file content backend
+
+	Returns a file's content at a revision, base64 encoded, so the diff pane can
+	render the "before" side of an image, PDF or media change. That version only
+	exists inside the object database, so unlike the working tree copy it cannot
+	be fetched through the normal media endpoint.
+
+	POST repo     = virtual path of the repository
+	     file     = repository relative path
+	     revision = "HEAD" (default) or a full commit hash
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else if (typeof file == "undefined" || file == "") {
+    sendJSONResp({ success: false, error: "file path is required" });
+} else {
+    var wanted = "HEAD";
+    if (typeof revision != "undefined" && revision != "") {
+        wanted = revision;
+    }
+
+    var blob = git.fileBlob(repo, file, wanted);
+    if (blob.error) {
+        sendJSONResp({ success: false, error: blob.error });
+    } else {
+        sendJSONResp(blob);
+    }
+}

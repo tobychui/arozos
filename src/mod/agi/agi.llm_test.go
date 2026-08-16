@@ -197,6 +197,52 @@ func TestLLMDoRequestFlow(t *testing.T) {
 	}
 }
 
+func TestLLMDoStreamRequestFlow(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, "data: {\"model\":\"m\",\"choices\":[{\"delta\":{\"reasoning_content\":\"hmm\"}}]}\n\n")
+		io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n")
+		io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"!\"},\"finish_reason\":\"stop\"}]}\n\n")
+		io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":4,\"completion_tokens\":2,\"total_tokens\":6}}\n\n")
+		io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	g := dbGateway(t)
+	g.Option.UserHandler.GetDatabase().Write(llmDBTable, "config", LLMConfig{Endpoint: srv.URL, DefaultModel: "m", APIFormat: "openai", Currency: "USD"})
+
+	var content, reasoning strings.Builder
+	resp, err := g.llmDoStreamRequest("", []llm.Message{{Role: "user", Content: "hi"}}, llmCallOptions{}, func(d llm.StreamDelta) {
+		content.WriteString(d.Content)
+		reasoning.WriteString(d.Reasoning)
+	})
+	if err != nil {
+		t.Fatalf("llmDoStreamRequest error: %v", err)
+	}
+	if content.String() != "Hi!" {
+		t.Errorf("streamed content = %q, want Hi!", content.String())
+	}
+	if reasoning.String() != "hmm" {
+		t.Errorf("streamed reasoning = %q, want hmm", reasoning.String())
+	}
+	if llmExtractContent(resp) != "Hi!" {
+		t.Errorf("assembled content wrong: %q", llmExtractContent(resp))
+	}
+	//Usage from the streamed final chunk must be recorded like a blocking call.
+	m := g.getLLMMetrics()
+	if m.TotalRequests != 1 || m.TotalTokens != 6 {
+		t.Errorf("metrics not recorded after stream: %+v", m)
+	}
+}
+
+func TestLLMDoStreamRequestNoEndpoint(t *testing.T) {
+	g := dbGateway(t)
+	_, err := g.llmDoStreamRequest("m", []llm.Message{{Role: "user", Content: "hi"}}, llmCallOptions{}, nil)
+	if err == nil {
+		t.Error("expected error when endpoint is not configured")
+	}
+}
+
 func TestLLMDoRequestNoEndpoint(t *testing.T) {
 	g := dbGateway(t)
 	_, err := g.llmDoRequest("m", []llm.Message{{Role: "user", Content: "hi"}}, llmCallOptions{})
@@ -408,7 +454,7 @@ func TestInjectLLMLib_JSObjectExposed(t *testing.T) {
 	payload := &static.AgiLibInjectionPayload{VM: vm, User: &user.User{Username: "alice"}}
 	g.injectLLMFunctions(payload)
 
-	for _, method := range []string{"chat", "chatWithFile", "request", "usage", "models"} {
+	for _, method := range []string{"chat", "chatWithFile", "request", "streamRequest", "usage", "models"} {
 		val, err := vm.Run(`typeof llm.` + method)
 		if err != nil {
 			t.Fatalf("evaluating llm.%s: %v", method, err)

@@ -1,0 +1,87 @@
+/*
+	GitApp — remote backend
+
+	Clone, fetch, pull and push. Credentials are optional: when they are left
+	out the git library falls back to the credential the user saved for that
+	host, and when the remote still refuses, the reply carries authRequired so
+	the front-end can open its sign-in dialog and retry.
+
+	POST opr      = clone | fetch | pull | push | addremote
+	     repo     = virtual path of the repository (destination folder for clone)
+	     url      = remote URL, required for clone and addremote
+	     remote   = remote name, defaults to origin
+	     branch   = branch name, defaults to the current branch
+	     username = HTTPS user name
+	     token    = HTTPS personal access token or password
+	     remember = "true" to store the credential once it works
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+//buildOptions collects the optional credential fields into the options object
+//the git library expects. Absent fields are left out entirely so the library
+//falls back to the stored credential rather than trying an empty one.
+function buildOptions() {
+    var options = {};
+
+    if (typeof username != "undefined" && username != "") {
+        options.username = username;
+    }
+    if (typeof token != "undefined" && token != "") {
+        options.token = token;
+    }
+    if (typeof remember != "undefined" && remember == "true") {
+        options.remember = true;
+    }
+    if (typeof remote != "undefined" && remote != "") {
+        options.remote = remote;
+    }
+    if (typeof branch != "undefined" && branch != "") {
+        options.branch = branch;
+    }
+    return options;
+}
+
+var operation = opr;
+
+if (operation == "clone") {
+    if (typeof url == "undefined" || url == "") {
+        sendJSONResp({ success: false, error: "remote URL is required" });
+    } else if (typeof repo == "undefined" || repo == "") {
+        sendJSONResp({ success: false, error: "destination folder is required" });
+    } else {
+        sendJSONResp(git.clone(url, repo, buildOptions()));
+    }
+
+} else if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+
+} else if (operation == "fetch") {
+    sendJSONResp(git.fetch(repo, buildOptions()));
+
+} else if (operation == "pull") {
+    sendJSONResp(git.pull(repo, buildOptions()));
+
+} else if (operation == "push") {
+    var pushOptions = buildOptions();
+    //Publishing a branch for the first time should also make it track the
+    //remote, so the next status call can report ahead / behind counts.
+    pushOptions.setUpstream = true;
+    sendJSONResp(git.push(repo, pushOptions));
+
+} else if (operation == "addremote") {
+    if (typeof url == "undefined" || url == "") {
+        sendJSONResp({ success: false, error: "remote URL is required" });
+    } else {
+        var remoteName = "origin";
+        if (typeof remote != "undefined" && remote != "") {
+            remoteName = remote;
+        }
+        sendJSONResp(git.addRemote(repo, remoteName, url));
+    }
+
+} else {
+    sendJSONResp({ success: false, error: "unknown operation: " + operation });
+}

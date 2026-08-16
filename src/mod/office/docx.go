@@ -24,6 +24,34 @@ type Document struct {
 	Header      string    `json:"header,omitempty"`
 	Footer      string    `json:"footer,omitempty"`
 	PageNumbers bool      `json:"pageNumbers,omitempty"`
+	HFMode      string    `json:"hfMode,omitempty"` // header/footer repetition
+}
+
+// Header/footer repetition modes (body.hfMode); the empty string means
+// HFModeAll, which is what documents written before the setting existed get
+const (
+	HFModeAll         = "all"          // every page carries the same text
+	HFModeExceptFirst = "except-first" // every page but the first
+	HFModeNone        = "none"         // no header/footer text at all
+)
+
+// hfOnPage reports whether the header/footer text shows on the given
+// 1-based page number under mode
+func hfOnPage(mode string, page int) bool {
+	switch mode {
+	case HFModeNone:
+		return false
+	case HFModeExceptFirst:
+		return page > 1
+	}
+	return true
+}
+
+// hfPageNumberOn reports whether the page counter shows on the given page:
+// it is its own page-setup option, but a suppressed first page suppresses
+// its number too (the same thing Word's titlePg does)
+func hfPageNumberOn(doc *Document, page int) bool {
+	return doc.PageNumbers && (doc.HFMode != HFModeExceptFirst || page > 1)
 }
 
 // PageConf holds page geometry (margins in millimetres)

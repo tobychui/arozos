@@ -58,8 +58,10 @@ const (
 	//key field was left untouched. When received, the stored key is kept.
 	llmKeyMask = "********"
 
-	//llmRequestTimeout is the maximum time to wait for a completion.
-	llmRequestTimeout = 120 * time.Second
+	//llmRequestTimeout is the maximum time to wait for a completion. Large
+	//reasoning / agentic models can legitimately take many minutes to reply,
+	//so this is set generously to 60 minutes to avoid cutting long calls short.
+	llmRequestTimeout = 60 * time.Minute
 )
 
 // llmMetricsMux guards read-modify-write cycles on the metrics record so
@@ -248,6 +250,42 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 		return reply
 	})
 
+	//llm.streamRequest(messages, options, onDelta) => full response object.
+	//Streams the completion, invoking onDelta({content, reasoning}) for each
+	//incremental chunk (so a script can relay tokens to the browser over a
+	//WebSocket in real time), then returns the assembled response with usage.
+	vm.Set("_llm_streamRequest", func(call otto.FunctionCall) otto.Value {
+		messagesJSON := getOttoStringArg(call, 0)
+		opt := parseLLMCallOptions(getOttoStringArg(call, 1))
+		onDelta := call.Argument(2)
+
+		var messages []llm.Message
+		if err := json.Unmarshal([]byte(messagesJSON), &messages); err != nil {
+			panic(vm.MakeCustomError("LLMError", "invalid messages array: "+err.Error()))
+		}
+
+		//The callback runs on this same (script) goroutine inside ChatStream,
+		//so touching the Otto VM from here is safe. Errors thrown by the JS
+		//callback are ignored so one bad frame cannot abort the stream.
+		cb := func(d llm.StreamDelta) {
+			if !onDelta.IsFunction() {
+				return
+			}
+			onDelta.Call(otto.UndefinedValue(), map[string]interface{}{
+				"content":   d.Content,
+				"reasoning": d.Reasoning,
+			})
+		}
+
+		resp, err := g.llmDoStreamRequest(opt.Model, messages, opt, cb)
+		if err != nil {
+			panic(vm.MakeCustomError("LLMError", err.Error()))
+		}
+		out, _ := json.Marshal(resp)
+		reply, _ := vm.ToValue(string(out))
+		return reply
+	})
+
 	//llm.usage() => aggregated metrics object (JSON string)
 	vm.Set("_llm_usage", func(call otto.FunctionCall) otto.Value {
 		out, _ := json.Marshal(g.getLLMMetrics())
@@ -322,6 +360,9 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 		llm.request = function(messages, options){
 			return JSON.parse(_llm_request(JSON.stringify(messages || []), JSON.stringify(options || {})));
 		};
+		llm.streamRequest = function(messages, options, onDelta){
+			return JSON.parse(_llm_streamRequest(JSON.stringify(messages || []), JSON.stringify(options || {}), onDelta || null));
+		};
 		llm.usage = function(){
 			return JSON.parse(_llm_usage());
 		};
@@ -340,10 +381,10 @@ func (g *Gateway) injectLLMFunctions(payload *static.AgiLibInjectionPayload) {
 
 // ── Core request logic ───────────────────────────────────────────────────────
 
-// llmDoRequest resolves the connection settings, enforces any usage quota,
-// dispatches the call via mod/aiservers/llm, records the resulting token
-// usage / cost and returns the unified response.
-func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCallOptions) (*llm.ChatResponse, error) {
+// llmResolveConnection folds the admin config together with any per-call
+// overrides, validates it and returns a ready client plus the resolved model.
+// Shared by the blocking and streaming request paths.
+func (g *Gateway) llmResolveConnection(model string, opt llmCallOptions) (*llm.Client, string, error) {
 	cfg := g.getLLMConfig()
 
 	endpoint := strings.TrimSpace(cfg.Endpoint)
@@ -366,10 +407,22 @@ func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCall
 	}
 
 	if endpoint == "" {
-		return nil, errors.New("AI model endpoint is not configured (System Settings > AI Integration > AI Model)")
+		return nil, "", errors.New("AI model endpoint is not configured (System Settings > AI Integration > AI Model)")
 	}
 	if strings.TrimSpace(model) == "" {
-		return nil, errors.New("no model specified and no default model configured")
+		return nil, "", errors.New("no model specified and no default model configured")
+	}
+
+	return llm.NewClient(endpoint, apikey, format, llmRequestTimeout), model, nil
+}
+
+// llmDoRequest resolves the connection settings, enforces any usage quota,
+// dispatches the call via mod/aiservers/llm, records the resulting token
+// usage / cost and returns the unified response.
+func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCallOptions) (*llm.ChatResponse, error) {
+	client, model, err := g.llmResolveConnection(model, opt)
+	if err != nil {
+		return nil, err
 	}
 
 	//Enforce the usage quota before spending any tokens.
@@ -377,20 +430,46 @@ func (g *Gateway) llmDoRequest(model string, messages []llm.Message, opt llmCall
 		return nil, err
 	}
 
-	client := llm.NewClient(endpoint, apikey, format, llmRequestTimeout)
 	resp, err := client.Chat(messages, llm.ChatOptions{Model: model, Temperature: opt.Temperature, MaxTokens: opt.MaxTokens})
 	if err != nil {
 		return nil, err
 	}
 
-	//Record usage. Prefer the model echoed back by the server.
+	g.recordLLMUsageFromResponse(model, resp)
+	return resp, nil
+}
+
+// llmDoStreamRequest is the streaming counterpart of llmDoRequest: it streams
+// the completion, forwarding each delta to cb, and records usage once done.
+func (g *Gateway) llmDoStreamRequest(model string, messages []llm.Message, opt llmCallOptions, cb llm.StreamCallback) (*llm.ChatResponse, error) {
+	client, model, err := g.llmResolveConnection(model, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := g.llmCheckQuota(); err != nil {
+		return nil, err
+	}
+
+	resp, err := client.ChatStream(messages, llm.ChatOptions{Model: model, Temperature: opt.Temperature, MaxTokens: opt.MaxTokens}, cb)
+	if err != nil {
+		return nil, err
+	}
+
+	g.recordLLMUsageFromResponse(model, resp)
+	return resp, nil
+}
+
+// recordLLMUsageFromResponse records the token usage of a completed response,
+// preferring the model name echoed back by the server.
+func (g *Gateway) recordLLMUsageFromResponse(model string, resp *llm.ChatResponse) {
 	usedModel := model
-	if strings.TrimSpace(resp.Model) != "" {
+	if resp != nil && strings.TrimSpace(resp.Model) != "" {
 		usedModel = resp.Model
 	}
-	g.recordLLMUsage(usedModel, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.GenerationMs)
-
-	return resp, nil
+	if resp != nil {
+		g.recordLLMUsage(usedModel, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.GenerationMs)
+	}
 }
 
 // llmBuildFileParts reads a file from the user's virtual file system and

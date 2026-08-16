@@ -9,8 +9,12 @@
 	               latest user message (images for vision, text documents inlined)
 
 	Response (JSON):
-	    { ok:true,  content:"...", usage:{...}, model:"..." }
+	    { ok:true,  content:"...", reasoning:"...", usage:{...}, model:"..." }
 	    { ok:false, error:"..." }
+
+	"reasoning" carries the model's chain-of-thought / "thinking" output when
+	the endpoint exposes it separately (DeepSeek reasoning_content, OpenRouter
+	reasoning, Anthropic thinking blocks); it is an empty string otherwise.
 */
 
 requirelib("llm");
@@ -71,12 +75,15 @@ if (!handled) {
 		try {
 			var res = llm.request(finalMessages, opts);
 			var replyText = "";
+			var reasoning = "";
 			if (res && res.choices && res.choices.length > 0 && res.choices[0].message) {
 				replyText = res.choices[0].message.content;
+				reasoning = res.choices[0].message.reasoning_content || "";
 			}
 			sendJSONResp(JSON.stringify({
 				ok: true,
 				content: replyText,
+				reasoning: reasoning,
 				usage: (res && res.usage) ? res.usage : null,
 				model: (res && res.model) ? res.model : (opts.model || "")
 			}));

@@ -107,6 +107,11 @@ func ParseDocx(data []byte) (*Document, error) {
 			}
 			pc.Margins = m
 		}
+		if sect.first("titlePg") != nil {
+			// "different first page" with no first-page part: the editor
+			// calls that "every page except the first"
+			doc.HFMode = HFModeExceptFirst
+		}
 		if cols := sect.first("cols"); cols != nil {
 			if n, err := strconv.Atoi(cols.attr("num")); err == nil && n > 1 {
 				pc.Columns = n
@@ -456,7 +461,12 @@ func (cv *docxConv) runToHTML(r *xnode) string {
 		case "t":
 			body.WriteString(xmlEscape(n.Text))
 		case "br", "cr":
-			body.WriteString("<br>")
+			if n.attr("type") == "page" {
+				// explicit page break -> the editor's page break block
+				body.WriteString(`<div class="doc-pagebreak" contenteditable="false"></div>`)
+			} else {
+				body.WriteString("<br>")
+			}
 		case "tab":
 			body.WriteString("&nbsp;&nbsp;&nbsp;&nbsp;")
 		case "drawing", "pict", "object":
@@ -519,7 +529,48 @@ func (cv *docxConv) imageToHTML(n *xnode) string {
 
 func (cv *docxConv) tableToHTML(tbl *xnode) string {
 	var sb strings.Builder
-	sb.WriteString("<table>")
+	// table width: tblW pct (fiftieths of a percent) or dxa (twips of the
+	// ~9026-twip text column); auto/absent = the editor's default 100%
+	widthStyle := ""
+	if tblPr := tbl.first("tblPr"); tblPr != nil {
+		if tw := tblPr.first("tblW"); tw != nil {
+			if v, err := strconv.ParseFloat(tw.attr("w"), 64); err == nil && v > 0 {
+				pct := 0.0
+				switch tw.attr("type") {
+				case "pct":
+					pct = v / 50.0
+				case "dxa":
+					pct = v * 100 / 9026.0
+				}
+				if pct > 100 {
+					pct = 100
+				}
+				// full-width tables need no inline style
+				if pct > 1 && pct < 99.5 {
+					widthStyle = ` style="width:` + trimFloat(pct) + `%;"`
+				}
+			}
+		}
+	}
+	sb.WriteString(`<table class="of-table"` + widthStyle + `>`)
+	// column proportions -> the editor's colgroup
+	if grid := tbl.first("tblGrid"); grid != nil {
+		var ws []float64
+		sum := 0.0
+		for _, gc := range grid.all("gridCol") {
+			if v, err := strconv.ParseFloat(gc.attr("w"), 64); err == nil && v > 0 {
+				ws = append(ws, v)
+				sum += v
+			}
+		}
+		if len(ws) > 1 && sum > 0 {
+			sb.WriteString("<colgroup>")
+			for _, w := range ws {
+				sb.WriteString(`<col style="width:` + trimFloat(w*100/sum) + `%">`)
+			}
+			sb.WriteString("</colgroup>")
+		}
+	}
 	for i := range tbl.Nodes {
 		tr := &tbl.Nodes[i]
 		if tr.XMLName.Local != "tr" {
@@ -531,13 +582,22 @@ func (cv *docxConv) tableToHTML(tbl *xnode) string {
 			if tc.XMLName.Local != "tc" {
 				continue
 			}
+			// cell shading survives as an inline background
+			tdStyle := ""
+			if tcPr := tc.first("tcPr"); tcPr != nil {
+				if shd := tcPr.first("shd"); shd != nil {
+					if fill := shd.attr("fill"); len(fill) == 6 && fill != "auto" {
+						tdStyle = ` style="background-color:#` + strings.ToLower(fill) + `;"`
+					}
+				}
+			}
 			inner := cv.blocksToHTML(tc)
 			// unwrap a single plain paragraph for cleaner cells
 			if strings.HasPrefix(inner, "<p>") && strings.HasSuffix(inner, "</p>") &&
 				strings.Count(inner, "<p>") == 1 {
 				inner = strings.TrimSuffix(strings.TrimPrefix(inner, "<p>"), "</p>")
 			}
-			sb.WriteString("<td>" + inner + "</td>")
+			sb.WriteString("<td" + tdStyle + ">" + inner + "</td>")
 		}
 		sb.WriteString("</tr>")
 	}

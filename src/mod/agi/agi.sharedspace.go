@@ -2,9 +2,11 @@ package agi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
@@ -89,6 +91,38 @@ func agiDescribeDoc(doc *sharedspace.DocSnapshot, includeContent bool) map[strin
 	return desc
 }
 
+// resolveNotifyRecipients computes who should receive a space notification.
+// It starts from the space members, optionally narrows to an explicit target
+// set (nil = every member), and always drops the sender and anyone currently
+// connected to the space (they are already receiving the live message). The
+// result is sorted for deterministic delivery and testing.
+func resolveNotifyRecipients(members map[string]string, present map[string]bool, sender string, requested []string) []string {
+	var requestedSet map[string]bool
+	if requested != nil {
+		requestedSet = make(map[string]bool, len(requested))
+		for _, name := range requested {
+			if name != "" {
+				requestedSet[name] = true
+			}
+		}
+	}
+	recipients := []string{}
+	for username := range members {
+		if username == "" || username == sender {
+			continue
+		}
+		if present != nil && present[username] {
+			continue
+		}
+		if requestedSet != nil && !requestedSet[username] {
+			continue
+		}
+		recipients = append(recipients, username)
+	}
+	sort.Strings(recipients)
+	return recipients
+}
+
 func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayload) {
 	vm := payload.VM
 	u := payload.User
@@ -96,6 +130,13 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 	manager := g.Option.SharedSpaceManager
 	if manager == nil || u == nil {
 		return
+	}
+
+	//The sender label shown to the user is the script's module root (e.g.
+	//"Chatspace"), matching the AGI notification library's convention.
+	senderLabel := "Shared Space"
+	if payload.ScriptPath != "" {
+		senderLabel = static.GetScriptRoot(payload.ScriptPath, "./web/")
 	}
 
 	jsonReply := func(v interface{}) otto.Value {
@@ -359,6 +400,67 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		return val
 	})
 
+	//Raise a notification to fellow members of a space through the ArozOS
+	//notification system. Membership-scoped: only a member (or manager) may
+	//notify, and only current members can be reached, so this cannot spam
+	//arbitrary users. Members currently connected to the space's realtime
+	//channel are skipped (they already receive the live message). Delivery
+	//per recipient follows that user's own notification preferences (desktop,
+	//Telegram, email, webhook). Returns the number of members notified, or -1
+	//on error.
+	//  args: (spaceid, title, [message], [priority], [targetsJSON])
+	vm.Set("_sharedspace_notifyMembers", func(call otto.FunctionCall) otto.Value {
+		intReply := func(n int) otto.Value { v, _ := vm.ToValue(n); return v }
+
+		space, ok := getSpace(call)
+		if !ok {
+			g.RaiseError(errors.New("space not found"))
+			return intReply(-1)
+		}
+		if _, isMember := space.Role(u.Username); !isMember && !space.CanManage(u.Username) {
+			g.RaiseError(errors.New("permission denied: not a member of this space"))
+			return intReply(-1)
+		}
+
+		title, err := call.Argument(1).ToString()
+		if err != nil || title == "undefined" || title == "" {
+			g.RaiseError(errors.New("notification title cannot be empty"))
+			return intReply(-1)
+		}
+		message := optionalString(call, 2)
+		priority := optionalString(call, 3)
+		if priority == "" {
+			priority = "medium"
+		}
+
+		//An explicit target list (JSON array) narrows the recipients to those
+		//members; omitting it notifies every other member. A malformed list
+		//fails safe to "notify nobody".
+		var requested []string
+		if targetsJSON := optionalString(call, 4); targetsJSON != "" {
+			if jerr := json.Unmarshal([]byte(targetsJSON), &requested); jerr != nil {
+				requested = []string{}
+			}
+		}
+
+		present := map[string]bool{}
+		for _, sub := range space.Channel().Subscribers() {
+			present[sub.Username] = true
+		}
+
+		recipients := resolveNotifyRecipients(space.Members(), present, u.Username, requested)
+		if len(recipients) == 0 {
+			//Nobody to notify (everyone is present, or none matched).
+			return intReply(0)
+		}
+
+		if err := g.buildAndSendNotification(senderLabel, recipients, title, message, priority); err != nil {
+			g.RaiseError(err)
+			return intReply(-1)
+		}
+		return intReply(len(recipients))
+	})
+
 	//Share a file from the calling user's storage into a space
 	vm.Set("_sharedspace_addFile", func(call otto.FunctionCall) otto.Value {
 		space, ok := getSpace(call)
@@ -606,6 +708,12 @@ func (g *Gateway) injectSharedSpaceFunctions(payload *static.AgiLibInjectionPayl
 		sharedspace.removeMember = _sharedspace_removeMember;
 		sharedspace.listMembers = function(spaceid){ var r = _sharedspace_listMembers(spaceid); return r === null ? null : JSON.parse(r); };
 		sharedspace.addText = _sharedspace_addText;
+		sharedspace.notifyMembers = function(spaceid, title, message, priority, usernames){
+			return _sharedspace_notifyMembers(spaceid, title,
+				message === undefined ? "" : message,
+				priority === undefined ? "" : priority,
+				(usernames === undefined || usernames === null) ? "" : JSON.stringify(usernames));
+		};
 		sharedspace.addFile = _sharedspace_addFile;
 		sharedspace.listItems = function(spaceid){ var r = _sharedspace_listItems(spaceid); return r === null ? null : JSON.parse(r); };
 		sharedspace.getText = _sharedspace_getText;

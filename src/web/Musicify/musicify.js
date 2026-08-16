@@ -934,6 +934,14 @@ function musicifyApp() {
 
         playSong(song, sourceList, event) {
             if (event) event.stopPropagation();
+            // Re-selecting the track that is already loaded shouldn't restart it from
+            // the beginning — surface the Now Playing panel (album art / visualizer)
+            // instead. Keyed on isCurrentTrack so the row highlighted as .active is
+            // exactly the row that opens the panel, paused or playing.
+            if (this.isCurrentTrack(song)) {
+                this.openNowPlaying();
+                return;
+            }
             if (!sourceList || sourceList.length === 0) sourceList = [song];
             var idx = 0;
             for (var i = 0; i < sourceList.length; i++) {
@@ -1056,7 +1064,7 @@ function musicifyApp() {
             if (eq.length === 0) return;
             var next = ei + 1;
             if (next >= eq.length) {
-                if (this.repeat === 'all') next = 0;
+                if (this.repeat === 'all' || this.repeat === 'one') next = 0;
                 else { this._audio.pause(); this.isPlaying = false; return; }
             }
             // Map back to queue index for shuffle mode
@@ -1072,11 +1080,16 @@ function musicifyApp() {
         },
 
         prevTrack() {
-            if (this.currentTime > 3) { this._audio.currentTime = 0; return; }
             var eq = this._effectiveQueue();
             var ei = this._effectiveIndex(this.queueIndex);
             var prev = ei - 1;
-            if (prev < 0) { prev = this.repeat === 'all' ? eq.length - 1 : 0; }
+            if (prev < 0) { 
+                 if (this.repeat === 'all' || this.repeat === 'one'){
+                    prev = eq.length - 1; 
+                 }else{
+                    this._audio.pause(); this.isPlaying = false; return;
+                 }
+            }
             if (this.shuffle) {
                 var prevSong = this.shuffledQueue[prev];
                 for (var i = 0; i < this.queue.length; i++) {

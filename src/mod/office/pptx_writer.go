@@ -20,8 +20,12 @@ package office
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"sort"
 	"strings"
 )
@@ -39,10 +43,23 @@ var shapeKindToPrst = map[string]string{
 	"chevron":  "chevron",
 }
 
-// BuildPptx serializes a Presentation into a complete .pptx file
+// BuildPptx serializes a Presentation without a media resolver (video /
+// audio objects render as poster pictures; media?file= sources cannot be
+// collected into a sidecar without a resolver)
 func BuildPptx(p *Presentation) ([]byte, error) {
+	data, _, err := BuildPptxMedia(p, nil)
+	return data, err
+}
+
+// BuildPptxMedia serializes a Presentation. Video/audio objects are drawn
+// as poster pictures (the client-captured frame in props.png, or a
+// generated placeholder) - embedded pptx media proved unreliable across
+// players, so instead the media files themselves are returned as a zip
+// (second return value, nil when the deck has none) for the caller to
+// save next to the .pptx. readVpath (optional) resolves media?file= links.
+func BuildPptxMedia(p *Presentation, readVpath func(string) ([]byte, error)) ([]byte, []byte, error) {
 	if p == nil || len(p.Slides) == 0 {
-		return nil, errors.New("presentation has no slides")
+		return nil, nil, errors.New("presentation has no slides")
 	}
 
 	buf := new(bytes.Buffer)
@@ -66,28 +83,28 @@ func BuildPptx(p *Presentation) ([]byte, error) {
 
 	// ---- static package parts ----
 	if err := addFile("_rels/.rels", pptxRootRels); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("docProps/core.xml", pptxCoreProps); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("docProps/app.xml", pptxAppProps); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("ppt/theme/theme1.xml", pptxTheme); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("ppt/slideMasters/slideMaster1.xml", pptxSlideMaster); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("ppt/slideMasters/_rels/slideMaster1.xml.rels", pptxSlideMasterRels); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("ppt/slideLayouts/slideLayout1.xml", pptxSlideLayout); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("ppt/slideLayouts/_rels/slideLayout1.xml.rels", pptxSlideLayoutRels); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// ---- presentation.xml + its rels ----
@@ -106,32 +123,34 @@ func BuildPptx(p *Presentation) ([]byte, error) {
 		`<p:notesSz cx="6858000" cy="9144000"/>` +
 		`</p:presentation>`
 	if err := addFile("ppt/presentation.xml", presentation); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := addFile("ppt/_rels/presentation.xml.rels",
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`+"\n"+
 			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
 			presRels.String()+`</Relationships>`); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// ---- slides + media ----
 	mediaCount := 0
 	var mediaExts []string
+	var sidecar []sidecarFile
 	for i, slide := range p.Slides {
-		slideXML, slideRels, media, err := buildSlideXML(p, slide, &mediaCount)
+		slideXML, slideRels, media, slideSidecar, err := buildSlideXML(p, slide, &mediaCount, readVpath)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		sidecar = append(sidecar, slideSidecar...)
 		if err := addFile(fmt.Sprintf("ppt/slides/slide%d.xml", i+1), slideXML); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := addFile(fmt.Sprintf("ppt/slides/_rels/slide%d.xml.rels", i+1), slideRels); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, m := range media {
 			if err := addBinFile(fmt.Sprintf("ppt/media/image%d.%s", m.index, m.ext), m.data); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			mediaExts = append(mediaExts, m.ext)
 		}
@@ -139,13 +158,17 @@ func BuildPptx(p *Presentation) ([]byte, error) {
 
 	// ---- content types (needs the media extension list) ----
 	if err := addFile("[Content_Types].xml", buildContentTypes(len(p.Slides), mediaExts)); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := zw.Close(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return buf.Bytes(), nil
+	sidecarZip, err := buildSidecarZip(sidecar)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buf.Bytes(), sidecarZip, nil
 }
 
 type mediaEntry struct {
@@ -154,11 +177,20 @@ type mediaEntry struct {
 	data  []byte
 }
 
-// buildSlideXML renders one slide part plus its .rels and media payloads
-func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int) (string, string, []mediaEntry, error) {
+// sidecarFile is one video/audio file collected for the sidecar zip
+// written next to the exported .pptx
+type sidecarFile struct {
+	name string
+	data []byte
+}
+
+// buildSlideXML renders one slide part plus its .rels, media payloads and
+// the video/audio files destined for the sidecar zip
+func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath func(string) ([]byte, error)) (string, string, []mediaEntry, []sidecarFile, error) {
 	var sb strings.Builder
 	var rels strings.Builder
 	var media []mediaEntry
+	var sidecar []sidecarFile
 
 	rels.WriteString(`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`)
 	relIdx := 2
@@ -212,6 +244,26 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int) (string, stri
 			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, *mediaCount, ext))
 			media = append(media, mediaEntry{index: *mediaCount, ext: ext, data: data})
 			sb.WriteString(buildPicSp(shapeID, o, rid))
+		case "video", "audio":
+			// media is NOT embedded in the pptx (playback support across
+			// PowerPoint / Google Slides proved unreliable): the slide
+			// shows a poster picture - the client-captured video frame
+			// (props.png) or a generated placeholder - and the media file
+			// itself goes into the sidecar zip saved next to the .pptx
+			posterData, posterExt := mediaPosterPNG(), "png"
+			if pd, pe, pok := decodeDataURL(o.Props.Png); pok && (pe == "png" || pe == "jpeg") {
+				posterData, posterExt = pd, pe
+			}
+			*mediaCount++
+			rid := fmt.Sprintf("rId%d", relIdx)
+			relIdx++
+			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, *mediaCount, posterExt))
+			media = append(media, mediaEntry{index: *mediaCount, ext: posterExt, data: posterData})
+			sb.WriteString(buildPicSp(shapeID, o, rid))
+			if data, ext, ok := mediaSrcBytes(o.Props.Src, o.Type, readVpath); ok {
+				sidecar = append(sidecar,
+					sidecarFile{name: sidecarName(o.Props.Src, len(sidecar)+1, ext), data: data})
+			}
 		default:
 			continue
 		}
@@ -223,7 +275,146 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int) (string, stri
 	relXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
 		rels.String() + `</Relationships>`
-	return sb.String(), relXML, media, nil
+	return sb.String(), relXML, media, sidecar, nil
+}
+
+/* ---------- video / audio (sidecar) ---------- */
+
+// pathBaseOf returns the last element of a virtual path
+func pathBaseOf(p string) string {
+	p = strings.TrimRight(p, "/")
+	if i := strings.LastIndexAny(p, "/\\"); i >= 0 {
+		return p[i+1:]
+	}
+	return p
+}
+
+// sidecarName picks the filename a media file gets inside the sidecar
+// zip: the original basename for media?file= links, media<N>.<ext> for
+// data-URL sources
+func sidecarName(src string, n int, ext string) string {
+	if vp := mediaLinkVpath(src); vp != "" {
+		if base := pathBaseOf(vp); base != "" {
+			return base
+		}
+	}
+	return fmt.Sprintf("media%d.%s", n, ext)
+}
+
+// buildSidecarZip packs the collected media files into a zip; returns
+// nil when there is nothing to pack
+func buildSidecarZip(files []sidecarFile) ([]byte, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	seen := map[string]bool{}
+	for i, f := range files {
+		name := f.name
+		if seen[name] {
+			name = fmt.Sprintf("%d_%s", i+1, name)
+		}
+		seen[name] = true
+		w, err := zw.Create(name)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := w.Write(f.data); err != nil {
+			return nil, err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// subtype -> file extension for media data URLs
+var mediaExtBySubtype = map[string]string{
+	"mp4": "mp4", "webm": "webm", "ogg": "ogg", "quicktime": "mov",
+	"mpeg": "mp3", "mp3": "mp3", "wav": "wav", "x-wav": "wav",
+	"x-m4a": "m4a", "mp4a-latm": "m4a", "aac": "aac",
+}
+
+// mediaSrcBytes resolves a video/audio object's src: either a
+// data:video|audio;base64 URL or an in-app media?file= link (through the
+// caller-supplied vpath reader)
+func mediaSrcBytes(src, kind string, readVpath func(string) ([]byte, error)) ([]byte, string, bool) {
+	if strings.HasPrefix(src, "data:video/") || strings.HasPrefix(src, "data:audio/") {
+		comma := strings.Index(src, ",")
+		if comma < 0 || !strings.Contains(src[:comma], ";base64") {
+			return nil, "", false
+		}
+		sub := src[len("data:"):comma]
+		sub = sub[strings.Index(sub, "/")+1:]
+		if i := strings.IndexAny(sub, ";+"); i >= 0 {
+			sub = sub[:i]
+		}
+		ext, ok := mediaExtBySubtype[strings.ToLower(sub)]
+		if !ok {
+			if kind == "audio" {
+				ext = "mp3"
+			} else {
+				ext = "mp4"
+			}
+		}
+		raw, err := base64.StdEncoding.DecodeString(src[comma+1:])
+		if err != nil {
+			return nil, "", false
+		}
+		return raw, ext, true
+	}
+	if vp := mediaLinkVpath(src); vp != "" && readVpath != nil {
+		data, err := readVpath(vp)
+		if err != nil || len(data) == 0 {
+			return nil, "", false
+		}
+		ext := strings.TrimPrefix(strings.ToLower(pathExtOf(vp)), ".")
+		if _, ok := mediaExtBySubtype[ext]; !ok && ext != "mp4" && ext != "webm" &&
+			ext != "m4a" && ext != "mov" {
+			if kind == "audio" {
+				ext = "mp3"
+			} else {
+				ext = "mp4"
+			}
+		}
+		return data, ext, true
+	}
+	return nil, "", false
+}
+
+var mediaPosterCache []byte
+
+// mediaPosterPNG draws the dark poster frame (with a play triangle) shown
+// where an embedded video/audio sits before playback
+func mediaPosterPNG() []byte {
+	if mediaPosterCache != nil {
+		return mediaPosterCache
+	}
+	const w, h = 480, 270
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	bg := color.RGBA{32, 33, 36, 255}
+	tri := color.RGBA{232, 234, 237, 255}
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, bg)
+		}
+	}
+	// centered play triangle
+	cx, cy, size := w/2, h/2, 40
+	for dx := -size / 2; dx <= size/2; dx++ {
+		half := (size/2 - dx) * size / (size + 2) / 2
+		for dy := -half; dy <= half; dy++ {
+			img.Set(cx+dx, cy+dy, tri)
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return []byte{}
+	}
+	mediaPosterCache = buf.Bytes()
+	return mediaPosterCache
 }
 
 func themeBgColor(theme string) string {
@@ -500,6 +691,22 @@ func buildContentTypes(slideCount int, mediaExts []string) string {
 			mime = "image/jpeg"
 		case "gif":
 			mime = "image/gif"
+		case "mp4":
+			mime = "video/mp4"
+		case "webm":
+			mime = "video/webm"
+		case "mov":
+			mime = "video/quicktime"
+		case "ogg":
+			mime = "video/ogg"
+		case "mp3":
+			mime = "audio/mpeg"
+		case "m4a":
+			mime = "audio/mp4"
+		case "wav":
+			mime = "audio/wav"
+		case "aac":
+			mime = "audio/aac"
 		}
 		sb.WriteString(`<Default Extension="` + ext + `" ContentType="` + mime + `"/>`)
 	}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
@@ -19,7 +20,41 @@ import (
 // Inject user based functions into the virtual machine
 // Note that the fsh might be nil and scriptPath must be real path of script being executed
 // **Use local file system check if fsh == nil**
-func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemHandler, scriptPath string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) {
+//
+// Returns a teardown closure that releases every resource libraries registered
+// during this VM's lifetime (see static.AgiLibInjectionPayload.RegisterCleanup).
+// Callers MUST defer it - it is safe to call more than once.
+func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemHandler, scriptPath string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) func() {
+	//Teardown closures registered by loadable libraries for this VM.
+	//Guarded by a mutex as a library may spawn goroutines that register late.
+	var cleanupMutex sync.Mutex
+	cleanups := []func(){}
+	registerCleanup := func(cleanup func()) {
+		cleanupMutex.Lock()
+		defer cleanupMutex.Unlock()
+		cleanups = append(cleanups, cleanup)
+	}
+
+	//Run every registered teardown once, in reverse registration order.
+	runCleanups := func() {
+		cleanupMutex.Lock()
+		pending := cleanups
+		cleanups = nil
+		cleanupMutex.Unlock()
+
+		for i := len(pending) - 1; i >= 0; i-- {
+			func(cleanup func()) {
+				//A panicking teardown must not prevent the remaining ones from running
+				defer func() {
+					if caught := recover(); caught != nil {
+						logger.PrintAndLog("Agi", fmt.Sprint("Library cleanup panicked: ", caught), nil)
+					}
+				}()
+				cleanup()
+			}(pending[i])
+		}
+	}
+
 	username := u.Username
 	vm.Set("USERNAME", username)
 	vm.Set("USERICON", u.GetUserIcon())
@@ -220,12 +255,13 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Check if the library name exists. If yes, run the initiation script on the vm
 			if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
 				entryPoint(&static.AgiLibInjectionPayload{
-					VM:         vm,
-					User:       u,
-					ScriptFsh:  fsh,
-					ScriptPath: scriptPath,
-					Writer:     w,
-					Request:    r,
+					VM:              vm,
+					User:            u,
+					ScriptFsh:       fsh,
+					ScriptPath:      scriptPath,
+					Writer:          w,
+					Request:         r,
+					RegisterCleanup: registerCleanup,
 				})
 				return otto.TrueValue()
 			} else {
@@ -269,7 +305,8 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			vm := otto.New()
 			//Inject standard libs into the vm
 			g.injectStandardLibs(vm, scriptPath, scriptScope)
-			g.injectUserFunctions(vm, fsh, scriptPath, scriptScope, u, w, r)
+			//Release any library resources this detached VM opens when it finishes
+			defer g.injectUserFunctions(vm, fsh, scriptPath, scriptScope, u, w, r)()
 
 			vm.Set("PARENT_DETACHED", true)
 			vm.Set("PARENT_PAYLOAD", payload)
@@ -284,4 +321,5 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		return otto.TrueValue()
 	})
 
+	return runCleanups
 }

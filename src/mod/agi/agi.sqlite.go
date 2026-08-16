@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -30,10 +31,17 @@ import (
 	  var row     = db.queryRow("SELECT * FROM t WHERE id = ?", [1]);
 	  var tables  = db.tables();
 	  var schema  = db.schema("t");
+	  db.transaction(function(tx) { tx.exec("INSERT INTO t (name) VALUES (?)", ["Bob"]); });
 	  db.close();
 
 	Each call to sqlite.open() returns an object bound to a single connection.
-	Connections are cleaned up when the script ends or db.close() is called.
+	Connections are closed when db.close() is called, and any still open when the
+	script ends are released by a cleanup hook registered through the injection
+	payload - so a script that throws cannot leak a connection (and its file lock).
+
+	Databases are opened in WAL mode with a busy timeout so that concurrent ArozOS
+	requests touching the same file queue for the lock instead of failing with
+	SQLITE_BUSY; see sqliteBuildDSN.
 */
 
 func (g *Gateway) SQLiteLibRegister() {
@@ -59,6 +67,23 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 		return openDBs[h]
 	}
 
+	// Close every handle this VM left open. A script that throws (or calls exit)
+	// before its db.close() would otherwise leak the connection - and with it the
+	// SQLite file lock - for the lifetime of the process, eventually making the
+	// database permanently busy for everyone else.
+	payload.RunCleanup(func() {
+		mu.Lock()
+		leaked := openDBs
+		openDBs = make(map[int64]*sql.DB)
+		mu.Unlock()
+
+		for _, db := range leaked {
+			if db != nil {
+				db.Close()
+			}
+		}
+	})
+
 	// _sqlite_open(vpath) => handle integer, or throws on error
 	vm.Set("_sqlite_open", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
@@ -82,10 +107,20 @@ func (g *Gateway) injectSQLiteLibFunctions(payload *static.AgiLibInjectionPayloa
 			panic(vm.MakeCustomError("IOError", err.Error()))
 		}
 
-		db, err := sql.Open("sqlite", rpath)
+		db, err := sql.Open("sqlite", sqliteBuildDSN(rpath))
 		if err != nil {
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
 		}
+
+		// A fresh VM (and therefore a fresh *sql.DB) is created per request, so
+		// several ArozOS requests can hold connections to the same file at once.
+		// Pin each *sql.DB to a single connection: the Otto VM is single
+		// threaded so it never needs more, and it keeps BEGIN/COMMIT issued from
+		// JS on one connection instead of being scattered across the pool.
+		db.SetMaxOpenConns(1)
+		db.SetMaxIdleConns(1)
+		db.SetConnMaxLifetime(0)
+
 		if err := db.Ping(); err != nil {
 			db.Close()
 			panic(vm.MakeCustomError("SQLiteError", err.Error()))
@@ -284,8 +319,9 @@ var sqlite = {};
 sqlite.open = function(path) {
     var handle = _sqlite_open(path);
     if (handle === null || handle === undefined) { return null; }
-    return {
+    var conn = {
         _handle: handle,
+        _inTx: false,
         exec: function(sql, params) {
             var r = _sqlite_exec(handle, sql, JSON.stringify(params || []));
             return JSON.parse(r);
@@ -304,12 +340,89 @@ sqlite.open = function(path) {
         schema: function(tableName) {
             return JSON.parse(_sqlite_schema(handle, tableName));
         },
+        /*
+            transaction(fn) runs fn inside a single write transaction, committing
+            when it returns and rolling back if it throws. Batching many writes
+            this way turns N implicit transactions (N lock cycles + N fsyncs)
+            into one, which is dramatically faster and holds the write lock for
+            a far shorter total time.
+
+                db.transaction(function(tx) {
+                    for (var i = 0; i < rows.length; i++) {
+                        tx.exec("INSERT INTO t (v) VALUES (?)", [rows[i]]);
+                    }
+                });
+
+            fn receives the same connection object. The return value of fn is
+            returned. Transactions cannot be nested.
+        */
+        transaction: function(fn) {
+            if (typeof fn !== "function") {
+                throw new Error("sqlite: transaction() requires a function");
+            }
+            if (conn._inTx) {
+                throw new Error("sqlite: nested transactions are not supported");
+            }
+            _sqlite_exec(handle, "BEGIN IMMEDIATE", "[]");
+            conn._inTx = true;
+            var result;
+            try {
+                result = fn(conn);
+            } catch (e) {
+                conn._inTx = false;
+                try {
+                    _sqlite_exec(handle, "ROLLBACK", "[]");
+                } catch (rollbackErr) {
+                    /* the original error is the useful one - keep throwing it */
+                }
+                throw e;
+            }
+            conn._inTx = false;
+            _sqlite_exec(handle, "COMMIT", "[]");
+            return result;
+        },
         close: function() {
             return _sqlite_close(handle);
         }
     };
+    return conn;
 };
 `)
+}
+
+// sqliteBusyTimeoutMs is how long SQLite waits for a held lock before giving up
+// with SQLITE_BUSY. Without it the default is 0 - any contention fails instantly,
+// which is fatal here because unrelated ArozOS requests routinely touch the same
+// per-user database at the same time (e.g. a background indexer writing while the
+// UI reads).
+const sqliteBusyTimeoutMs = 5000
+
+// sqliteBuildDSN turns a real file path into a driver DSN carrying the pragmas
+// every ArozOS database needs. The glebarez/go-sqlite driver treats everything
+// after the first '?' as a query string, so a path already containing '?' cannot
+// carry pragmas - in that case the bare path is returned and SQLite falls back to
+// its defaults rather than failing to open.
+func sqliteBuildDSN(rpath string) string {
+	if strings.Contains(rpath, "?") {
+		return rpath
+	}
+
+	pragmas := []string{
+		// Wait for locks instead of failing instantly.
+		"_pragma=busy_timeout(" + strconv.Itoa(sqliteBusyTimeoutMs) + ")",
+		// WAL lets readers run concurrently with a writer, instead of the default
+		// rollback journal where a writer locks the whole file. Silently ignored on
+		// network filesystems that cannot support it, which degrades to the old
+		// behaviour rather than erroring.
+		"_pragma=journal_mode(WAL)",
+		// Safe to relax with WAL and avoids an fsync per commit.
+		"_pragma=synchronous(NORMAL)",
+		// Take the write lock up front on BEGIN so busy_timeout can actually wait.
+		// Deferred transactions that upgrade mid-flight deadlock instead, and
+		// SQLite reports that as an immediate SQLITE_BUSY no timeout can absorb.
+		"_txlock=immediate",
+	}
+	return rpath + "?" + strings.Join(pragmas, "&")
 }
 
 // sqliteParseParams unmarshals a JSON array of query parameter values.

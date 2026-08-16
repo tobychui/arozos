@@ -8,7 +8,7 @@
     be served stale from a cache.
 */
 
-var CACHE_NAME = "chatspace-shell-v1";
+var CACHE_NAME = "chatspace-shell-v2";
 var SHELL_ASSETS = [
     "index.html",
     "app.css",

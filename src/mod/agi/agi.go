@@ -20,9 +20,11 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/git"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/meetroom"
+	notification "imuslab.com/arozos/mod/notification"
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/sharedspace"
 	"imuslab.com/arozos/mod/time/nightly"
@@ -39,7 +41,7 @@ import (
 */
 
 var (
-	AgiVersion string = "3.4" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "3.7" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
@@ -74,6 +76,11 @@ type AgiSysInfo struct {
 	NightlyManager        *nightly.TaskManager
 	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)
 	SharedSpaceManager    *sharedspace.Manager //Shared collaboration spaces for the sharedspace lib (nil disables the lib)
+	GitManager            *git.Manager         //Version control backend for the git lib (nil disables the lib)
+
+	//NotificationSender routes a notification raised by an AGI script into the
+	//ArozOS core notification system (nil disables the notification lib).
+	NotificationSender func(*notification.NotificationPayload) error
 
 	//Scanning Roots
 	StartupRoot    string
@@ -304,7 +311,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	vm.Interrupt = make(chan func(), 1) // required for force-stop support
 	//Inject standard libs into the vm; capture execID for registry correlation
 	execID := g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
+	releaseLibResources := g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
 
 	username := ""
 	if thisuser != nil {
@@ -321,6 +328,8 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	})
 	defer func() {
 		g.vmReg.unregister(execID)
+		//Release library resources (open SQLite handles, etc.) on every exit path
+		releaseLibResources()
 		if caught := recover(); caught != nil {
 			switch caught {
 			case errForceStop:
@@ -430,7 +439,7 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	vm := otto.New()
 	//Inject standard libs into the vm; capture the execution ID for log correlation.
 	execID := g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
+	releaseLibResources := g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
 
 	if r != nil {
 		//Inject serverless script to enable access to GET / POST paramters
@@ -451,6 +460,8 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	//Create a panic recovery logic
 	defer func() {
 		g.vmReg.unregister(execID)
+		//Release library resources (open SQLite handles, etc.) on every exit path
+		releaseLibResources()
 		if caught := recover(); caught != nil {
 			if caught == errTimeout {
 				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] Execution timeout: %s (user: %s)", scriptFile, targetUser.Username), nil)

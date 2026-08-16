@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.4` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.7` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -276,6 +276,8 @@ Registered library IDs:
 - `sharedspace` (multi-user collaboration spaces: texts / images / files / documents, ACLs, persistence)
 - `meetroom` (MeetRoom control: create / end meetings, attendance - requires MeetRoom module access)
 - `office` (ArozOS Office suite: .pptx / .xlsx / .docx converters + native zip container pack/unpack)
+- `notification` (raise notifications to users via the core notification system, with priority - requires the host to wire in a notification sender)
+- `git` (version control for folders in the user's file system: clone / status / stage / commit / branch / diff / fetch / pull / push, with encrypted per-user HTTPS credentials — requires the host to wire in a git manager)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -431,12 +433,62 @@ Load:
 requirelib("http");
 ```
 
-### `http.get(url)`
+### `http.request(options)`
+Curl-like request giving full control over the method, headers and body. Returns
+a response object `{ok, status, statusText, headers, body, error}` (`error` is a
+non-empty string when the request could not be completed; `body` is base64 when
+`responseType` is `"base64"`).
+
+Supported `options`:
+
+| Field | Description |
+|-------|-------------|
+| `url` | Target URL (required) |
+| `method` | HTTP method, default `GET` (case-insensitive) |
+| `headers` | Object of request headers to set, e.g. `{"Authorization":"Bearer x"}` |
+| `body` | Raw text request body |
+| `json` | Object sent as a JSON body (sets `Content-Type: application/json`) |
+| `form` | Object sent as `application/x-www-form-urlencoded` |
+| `bodyBase64` | Binary request body, base64 encoded (sets `application/octet-stream`) |
+| `contentType` | Override the `Content-Type` header |
+| `username` / `password` | HTTP basic auth credentials |
+| `timeout` | Timeout in seconds (`0` / omitted = no timeout) |
+| `followRedirect` | Follow 3xx redirects (default `true`) |
+| `responseType` | `"text"` (default) or `"base64"` for binary responses |
+
+Body precedence when several are supplied: `bodyBase64` > `form` > `json` > `body`.
+
 ```javascript
-var body = http.get("https://example.com");
+var resp = http.request({
+    url: "https://example.com/api",
+    method: "POST",
+    headers: {"Authorization": "Bearer TOKEN"},
+    json: {a: 1, b: 2}
+});
+if (resp.ok){
+    console.log(resp.status, resp.body);
+}
 ```
 
-### `http.post(url, jsonString)`
+Convenience helpers built on `http.request` (all return the response object):
+`http.put(url, body, headers, contentType)`,
+`http.patch(url, body, headers, contentType)`,
+`http.delete(url, headers)`,
+`http.postForm(url, formObject, headers)` and
+`http.postJSON(url, object, headers)`.
+
+### `http.get(url, headers)`
+`headers` is optional. Without it, returns the body string (or `null` on error)
+for backward compatibility; with it, returns the response body string.
+```javascript
+var body = http.get("https://example.com");
+var body2 = http.get("https://example.com", {"Authorization": "Bearer x"});
+```
+
+### `http.post(url, body, headers, contentType)`
+`headers` and `contentType` are optional. Without them the body is sent as JSON
+(backward compatible); with them the given headers / content type are used.
+Returns the response body string.
 ```javascript
 var body = http.post("https://example.com/api", JSON.stringify({a:1}));
 ```
@@ -804,8 +856,15 @@ requirelib("sqlite");
 > `windows/arm`, or `windows/386` builds (excluded at compile time).
 
 `sqlite.open()` returns a connection object. All SQL operations go through that
-object. Connections are automatically closed when the script exits; you may also
-call `db.close()` explicitly to release the handle early.
+object. Connections are automatically closed when the script exits — including
+when it throws or calls `exit()` — so a handle can never be leaked; you may also
+call `db.close()` explicitly to release it early.
+
+**Concurrency.** Databases are opened in WAL mode with a 5 second busy timeout, so
+readers never block the writer and simultaneous requests queue for the write lock
+instead of failing. If you are writing many rows in a loop, wrap them in
+[`db.transaction()`](#dbtransactionfn--any) — a batch of N separate `db.exec()`
+calls costs N lock cycles and N fsyncs, while one transaction costs one of each.
 
 ### `sqlite.open(vpath)` → db
 Opens (or creates) a SQLite database file at the given virtual path.
@@ -858,6 +917,27 @@ var cols = db.schema("notes");
 sendJSONResp(cols);
 ```
 
+### `db.transaction(fn)` → any
+Runs `fn` inside a single write transaction, committing when it returns and
+rolling back if it throws. `fn` receives the connection object, and whatever it
+returns becomes the return value of `db.transaction()`.
+
+Use this whenever you write more than a couple of rows at once: it collapses N
+lock/fsync cycles into one, and keeps the database available to other requests
+for far longer.
+
+```javascript
+db.transaction(function(tx) {
+    for (var i = 0; i < items.length; i++) {
+        tx.exec("INSERT INTO notes (body) VALUES (?)", [items[i]]);
+    }
+});
+```
+
+The transaction opens with `BEGIN IMMEDIATE`, so the busy timeout applies to
+acquiring the write lock rather than deadlocking partway through. Transactions
+cannot be nested — calling `transaction()` inside `fn` throws.
+
 ### `db.close()` → bool
 Closes the database connection and releases the handle.
 
@@ -876,6 +956,14 @@ db.exec("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT, d
 // Insert
 var res = db.exec("INSERT INTO tasks (title) VALUES (?)", ["Buy milk"]);
 console.log("new id:", res.lastInsertId);
+
+// Bulk insert — one transaction instead of one per row
+db.transaction(function(tx) {
+    var titles = ["Walk dog", "Pay rent", "Call mum"];
+    for (var i = 0; i < titles.length; i++) {
+        tx.exec("INSERT INTO tasks (title) VALUES (?)", [titles[i]]);
+    }
+});
 
 // Query
 var pending = db.query("SELECT * FROM tasks WHERE done = 0");
@@ -949,6 +1037,37 @@ var resp = llm.request([
 ]);
 sendResp(resp.choices[0].message.content);
 ```
+
+When the model exposes its chain-of-thought, `choices[0].message.reasoning_content`
+carries that "thinking" text separately from the answer (`content`). It is
+populated from DeepSeek's `reasoning_content`, OpenRouter's `reasoning` or
+Anthropic `thinking` content blocks, and is an empty string for models that do
+not return reasoning.
+
+### `llm.streamRequest(messages, options, onDelta)` → object
+Like `llm.request()` but streams the completion: `onDelta` is called for every
+incremental chunk as the model produces it, and the fully assembled response
+(same shape as `llm.request`, including `usage`) is returned when the stream
+ends. Each delta is `{ content, reasoning }` — `content` is new answer text and
+`reasoning` is new chain-of-thought text; either may be empty for a given chunk.
+
+The callback runs on the script's own goroutine, so it is safe to relay chunks
+straight to a browser over `websocket.send()`:
+
+```javascript
+requirelib("llm");
+requirelib("websocket");
+websocket.upgrade(300);
+
+var resp = llm.streamRequest([{ role: "user", content: "Explain gravity" }], {}, function(d){
+    if (d.reasoning != "") websocket.send(JSON.stringify({ type: "reasoning", content: d.reasoning }));
+    if (d.content   != "") websocket.send(JSON.stringify({ type: "delta",     content: d.content }));
+});
+websocket.send(JSON.stringify({ type: "done", usage: resp.usage }));
+```
+
+Token usage is recorded against the metrics/quota board exactly as for a
+non-streaming call.
 
 ### `llm.usage()` → object
 Returns accumulated token / cost metrics across all models.
@@ -1171,13 +1290,20 @@ sendJSONResp('{"body":' + bodyJson + '}');
 
 ### `office.presentationToPptx(bodyJson, destVpath)`
 Build a `.pptx` from a serialized Slides body JSON string and write it to
-`destVpath`. Returns `true` on success. Image objects must be inlined as
-`data:` URLs and chart objects should carry a client-rendered PNG in
-`props.png` (the Slides webapp does both automatically before calling).
+`destVpath`. Image objects must be inlined as `data:` URLs and chart
+objects should carry a client-rendered PNG in `props.png` (the Slides
+webapp does both automatically before calling). Video/audio objects are
+**not embedded**: each renders as a poster picture (the captured frame in
+`props.png`, or a generated placeholder) and the media files themselves
+are packed into a sidecar zip written next to the pptx as
+`<dest basename>.zip`. Returns `true` on success, or the sidecar zip's
+vpath (a string, also truthy) when one was written.
 
 ```javascript
 requirelib("office");
-if (office.presentationToPptx(data, "user:/Desktop/out.pptx")){
+var r = office.presentationToPptx(data, "user:/Desktop/out.pptx");
+if (r){
+    // r === "user:/Desktop/out.zip" when the deck had video/audio
     sendResp("OK");
 }
 ```
@@ -1260,6 +1386,81 @@ documents pass through unchanged.
 requirelib("office");
 var envelope = office.unpackToWorkdir("user:/Documents/deck.ppta", "user:/.appdata/Office/cache");
 sendJSONResp('{"envelope":' + envelope + '}');
+```
+
+### `office.odtToDocument(srcVpath)`
+Read an OpenDocument Text file (`.odt`) and return the Docs body schema as
+a **JSON string** (headings, inline formatting, links, lists, tables with
+column widths and cell shading, embedded pictures as `data:` URLs, page
+geometry, header/footer and page breaks).
+
+### `office.documentToOdt(jsonStr, destVpath)`
+Build an `.odt` from a serialized Docs body JSON and write it to
+`destVpath`. Covers the same subset as the docx exporter. Returns `true`
+on success.
+
+### `office.odsToWorkbook(srcVpath)`
+Read an OpenDocument Spreadsheet (`.ods`) and return the Sheets body
+schema as a **JSON string**. Formulas are translated from the ODF
+`of:=SUM([.A1:.B2])` syntax back to plain `=SUM(A1:B2)` references; cell
+styles, column widths, row heights, merges and cell notes
+(`office:annotation`) are kept.
+
+### `office.workbookToOds(jsonStr, destVpath)`
+Build an `.ods` from a serialized Sheets body JSON and write it to
+`destVpath` (formulas rewritten to the ODF syntax so LibreOffice
+recalculates them). Returns `true` on success.
+
+### `office.odpToPresentation(srcVpath)`
+Read an OpenDocument Presentation (`.odp`) and return the Slides body
+schema as a **JSON string**, scaled into the 960x540 editor space (text
+boxes, images, basic shapes, lines, tables, slide backgrounds and speaker
+notes).
+
+### `office.presentationToOdp(jsonStr, destVpath)`
+Build an `.odp` from a serialized Slides body JSON and write it to
+`destVpath`. Charts export through their client-side PNG raster
+(`props.png`), like the pptx exporter; video/audio objects are skipped.
+Returns `true` on success.
+
+```javascript
+requirelib("office");
+var bodyJson = office.odsToWorkbook("user:/Documents/report.ods");
+sendJSONResp('{"body":' + bodyJson + '}');
+```
+
+### `office.documentToPdf(jsonStr, destVpath)`
+Build a **PDF with real, selectable text** (not a page raster) from a
+serialized Docs body JSON and write it to `destVpath`. Renders the same
+HTML subset as the docx exporter: headings/paragraph styles, inline
+bold/italic/underline/color/size/highlight, clickable links, lists, tables with
+column widths, cell shading and cell content (block text, lists and
+images inside cells), inline data-URL images, explicit page
+breaks, page size/orientation/margins, and header/footer text with
+optional page numbers. Core PDF fonts are Latin-1; characters outside
+that range are transliterated. Returns `true` on success.
+
+### `office.workbookPrintToPdf(printJson, destVpath)`
+Build a real-text PDF from a Sheets **print model** (not the raw
+workbook JSON): `{"sheets":[{"name","colW":[px],"rowH":[px],"rows":
+[[{"t","b","i","u","fc","bg","al"}]]}]}` — formatted display strings
+plus print-relevant styles, computed by the web client (which owns
+formula evaluation). One A4-landscape section per sheet, columns scaled
+down to fit when the sheet is wider than the page. Returns `true` on
+success.
+
+### `office.presentationToPdf(jsonStr, destVpath)`
+Build a real-text PDF from a serialized Slides body JSON: one page per
+slide at the deck's canvas size (960x540 default). Text boxes, shape
+captions and tables are selectable text; images and charts embed from
+their client-inlined data URLs; video/audio objects render their
+captured poster frame (`props.png`) or a generic placeholder. Returns
+`true` on success.
+
+```javascript
+requirelib("office");
+var ok = office.documentToPdf(bodyJsonString, "user:/Desktop/report.pdf");
+if (ok) { sendResp("OK"); }
 ```
 
 ## ffmpeg API
@@ -1698,6 +1899,31 @@ requirelib("sharedspace");
 var itemid = sharedspace.addFile(spaceid, "user:/Photo/cat.png");
 ```
 
+### `sharedspace.notifyMembers(spaceid, title, message, priority, usernames)` → number
+
+Raise a notification to fellow members of a space through the ArozOS
+notification system. Membership-scoped: only a member (or space manager) may
+notify, and only current members can be reached, so this cannot be used to
+spam arbitrary users (no admin permission required, unlike
+`notification.sendToUser`). Members currently connected to the space's
+realtime channel are skipped, since they already receive the live message.
+Delivery per recipient follows that user's own notification preferences
+(desktop, Telegram, email, webhook).
+
+`message`, `priority` (`"low"` / `"medium"` / `"high"`, default `"medium"`)
+and `usernames` are optional. When `usernames` (an array) is omitted every
+other member is notified; when given, the recipients are narrowed to that set
+intersected with the current members. Returns the number of members actually
+notified, or `-1` on error.
+
+```javascript
+requirelib("sharedspace");
+//Notify everyone else in the space
+sharedspace.notifyMembers(spaceid, "New message", "Alice: are we still on?");
+//Notify just two members, at high priority
+sharedspace.notifyMembers(spaceid, "Alice in #plan", "@bob @carol ping", "high", ["bob", "carol"]);
+```
+
 ### `sharedspace.listItems(spaceid)` → array | null
 
 Chronological list of items:
@@ -1886,6 +2112,330 @@ if (log !== null) {
     }
 }
 ```
+
+---
+
+## notification API
+
+Load:
+
+```javascript
+requirelib("notification");
+```
+
+Raise notifications to ArozOS users through the core notification system. The
+delivery channel (Telegram, desktop, email, custom webhook) is decided by each
+receiving user's own notification preferences; the script only chooses the
+priority so users receive it according to their settings. Available only when
+the host wired a notification sender into the AGI gateway.
+
+Priority is `"low"`, `"medium"` (default) or `"high"`. Convenience constants
+`notification.PRIORITY_LOW`, `notification.PRIORITY_MEDIUM` and
+`notification.PRIORITY_HIGH` are provided.
+
+### `notification.send(title, message, priority)`
+
+Send a notification to the current user. Returns `true` on success.
+
+```javascript
+requirelib("notification");
+notification.send("Backup done", "Your nightly backup finished");
+notification.send("Disk failing", "SMART error on /dev/sda", notification.PRIORITY_HIGH);
+```
+
+### `notification.sendToUser(username, title, message, priority)`
+
+Send a notification to another user. **Requires admin permission.** Returns
+`true` on success.
+
+```javascript
+requirelib("notification");
+notification.sendToUser("bob", "Hi Bob", "A message for you", "low");
+```
+
+---
+
+## git API
+
+Load:
+
+```javascript
+requirelib("git");
+```
+
+Version control for folders inside the user's virtual file system, backed by
+[go-git](https://github.com/go-git/go-git) — no `git` binary is required on the
+host. Available only when the host wired a git manager into the AGI gateway.
+
+**Path rules**
+
+- Every path is a virtual path and is permission checked: read-only calls need
+  read permission, mutating calls need write permission.
+- Any path *inside* a working tree resolves to the repository containing it.
+- The storage pool must be local. Network-backed pools (WebDAV, SMB, S3, …)
+  cannot host a working tree, and every call against one fails with a readable
+  error.
+
+**Return convention**
+
+Query calls (`status`, `log`, `branches`, `remotes`, `diff`, …) return their
+payload directly, or an object carrying an `error` string when they fail.
+Mutating calls (`init`, `clone`, `commit`, `push`, …) return
+`{success, error, message}`. When a remote rejects the credentials the reply
+also carries `authRequired: true`, which is the signal to ask the user to sign
+in and retry.
+
+**Credentials**
+
+HTTPS username + token pairs are stored per ArozOS user, encrypted with
+AES-256-GCM, keyed by remote host. A transport call with no explicit credentials
+automatically uses the stored one for that host. Passing `remember: true` in the
+options saves the credential once the operation has actually succeeded. Tokens
+are never readable back from a script.
+
+### `git.isRepo(vpath)` → bool
+
+```javascript
+if (git.isRepo("user:/Desktop/myproject")) { /* … */ }
+```
+
+### `git.repoRoot(vpath)` → string | false
+
+Virtual path of the working tree root containing `vpath`.
+
+### `git.init(vpath)` → object
+
+Create an empty repository, creating the folder if needed.
+
+### `git.clone(url, vpath, options)` → object
+
+Clone into `vpath`, which must be empty or absent. Options: `username`, `token`,
+`remember`, `branch`, `depth`.
+
+```javascript
+var result = git.clone("https://github.com/tobychui/arozos.git", "user:/Desktop/arozos", {
+    username: "tobychui",
+    token: "ghp_…",
+    remember: true,
+    depth: 1
+});
+if (!result.success && result.authRequired) { /* ask the user to sign in */ }
+```
+
+### `git.status(vpath)` → object
+
+The full snapshot used by GitApp: `branch`, `detached`, `head`, `upstream`,
+`ahead`, `behind`, `clean`, `changes[]`, `remotes[]`, `conflicted`.
+
+Each entry of `changes` carries `path`, `status`
+(`added` / `modified` / `deleted` / `renamed` / `copied` / `untracked` /
+`conflicted`), `staging`, `worktree`, `staged`, `binary`, `size` and `preview`
+(`image` / `pdf` / `video` / `audio`, or absent when the browser cannot render
+the file).
+
+```javascript
+var status = git.status("user:/Desktop/myproject");
+console.log(status.branch + ": " + status.changes.length + " changed files");
+```
+
+### `git.log(vpath, limit)` → array
+
+Commits reachable from HEAD, newest first (default limit 50). Each commit has
+`hash`, `shortHash`, `subject`, `message`, `authorName`, `authorEmail`,
+`timestamp`, `parents` and `tags` (names of any tags pointing at it).
+
+### `git.branches(vpath)` → array
+
+Local and remote-tracking branches: `name`, `fullRef`, `hash`, `isRemote`,
+`isCurrent`, plus `remote` and `short` — for `origin/feature/login` those are
+`origin` and `feature/login`, which is what the branch-management calls below
+expect. For a local branch `short` equals `name` and `remote` is empty.
+
+### `git.deleteBranch(vpath, branch, force)` → object
+
+Delete a local branch. The checked-out branch is never deleted. A branch holding
+commits unreachable from HEAD is refused with `unmerged: true` unless `force` is
+set, mirroring `git branch -d` versus `-D`.
+
+```javascript
+var result = git.deleteBranch("user:/Desktop/myproject", "old-feature", false);
+if (result.unmerged) {
+    // confirm with the user, then retry with force
+    git.deleteBranch("user:/Desktop/myproject", "old-feature", true);
+}
+```
+
+### `git.renameBranch(vpath, oldName, newName)` → object
+
+Rename a local branch. Its upstream configuration moves with it, and HEAD
+follows when the renamed branch is the checked-out one.
+
+### `git.deleteRemoteBranch(vpath, remote, branch, options)` → object
+
+Delete a branch **on the remote** — a network push with an empty source refspec.
+The local remote-tracking ref is pruned too, so the branch stops appearing in
+`git.branches()`. The matching local branch, if any, is left alone. Options:
+`username`, `token`, `remember`.
+
+### `git.renameRemoteBranch(vpath, remote, oldName, newName, options)` → object
+
+Rename a branch on the remote. Git cannot rename a remote ref, so this pushes
+the new name and then deletes the old one — in that order, so an interrupted
+rename leaves the branch under both names rather than losing it. Options:
+`username`, `token`, `remember`.
+
+### `git.checkout(vpath, branch, create)` → object
+
+Switch branches, or create the branch first when `create` is `true`. Checking
+out a remote name such as `"origin/feature"` creates the matching local branch.
+
+### `git.remotes(vpath)` → array
+
+Configured remotes: `name` and `urls`.
+
+### `git.addRemote(vpath, name, url)` / `git.removeRemote(vpath, name)` → object
+
+Adding an existing remote name replaces its URL.
+
+### `git.add(vpath, files)` / `git.addAll(vpath)` → object
+
+Stage the given repo-relative paths, or every change. Deleted paths are removed
+from the index.
+
+### `git.unstage(vpath, files)` → object
+
+Remove paths from the index, leaving the working tree untouched.
+
+### `git.discard(vpath, files)` → object
+
+Throw away working tree changes. Untracked files are deleted, since there is
+nothing to restore them from.
+
+### `git.commit(vpath, message, files, options)` → object
+
+Stage `files` and commit them in one step. Options: `name`, `email`, `all`.
+The author defaults to the calling ArozOS user, then to the repository's own
+git config. Returns `{success, hash, message}`.
+
+```javascript
+var result = git.commit("user:/Desktop/myproject", "Fix the parser", ["src/parser.go"], {
+    name: "Toby Chui",
+    email: "toby@example.com"
+});
+```
+
+### `git.ignore(vpath, patterns)` → object
+
+Append rules to the repository's `.gitignore`, which is created when absent.
+Rules already present are skipped, so repeating the call is harmless, and the
+existing content is never rewritten. Returns `{success, message}` where the
+message names the rules actually added.
+
+```javascript
+git.ignore("user:/Desktop/myproject", ["/build", "*.log"]);
+```
+
+### `git.diff(vpath, file)` → object
+
+Diff of one path between HEAD and the working tree: `additions`, `deletions`,
+`binary`, `tooLarge`, `isNew`, `isDeleted` and `hunks[]`. Each hunk has
+`header`, `oldStart` / `oldLines`, `newStart` / `newLines` and `lines[]`, where
+every line is `{type: "context" | "add" | "del", oldLine, newLine, content}`.
+
+### `git.diffCommit(vpath, hash, file)` → object
+
+Same shape, comparing a commit against its first parent.
+
+### `git.commitFiles(vpath, hash)` → array
+
+The paths a commit touched, each with a `status` and a `preview` kind.
+
+### `git.fileBlob(vpath, file, revision)` → object
+
+Read a file's content at a revision, returning
+`{success, exists, base64, mime, kind, size}`. `revision` is `"HEAD"` (the
+default) or a full 40 character commit hash — branch names and short hashes are
+rejected.
+
+This is how a committed version of a binary file is obtained: it exists only
+inside the object database, so unlike the working tree copy it cannot be fetched
+through the normal media endpoint. `exists` is `false` — without an error — when
+the path was simply not part of that revision, which distinguishes "added in
+this change" from a read failure. Files above 8 MB are refused.
+
+```javascript
+var blob = git.fileBlob("user:/Desktop/myproject", "img/logo.png", "HEAD");
+if (blob.exists) {
+    // blob.base64 holds the committed image, blob.mime is "image/png"
+}
+```
+
+### History actions
+
+Operations on a single commit, used by the GitApp History tab. Each returns
+`{success, error, message}`, and the ones that create a commit also return its
+`hash`.
+
+- `git.checkoutCommit(vpath, hash)` — check the commit out in detached HEAD
+  state. Refuses when the working tree is dirty.
+- `git.resetToCommit(vpath, hash, mode)` — move the current branch to the
+  commit. `mode` is `"soft"`, `"mixed"` (default) or `"hard"`; a hard reset
+  refuses when there are uncommitted changes.
+- `git.createBranchAt(vpath, branch, hash)` — create a branch at the commit and
+  check it out.
+- `git.createTag(vpath, tag, hash, message)` — tag the commit. A non-empty
+  `message` makes an annotated tag, otherwise a lightweight one.
+- `git.revertCommit(vpath, hash, options)` — create a new commit undoing the
+  commit's changes.
+- `git.cherryPickCommit(vpath, hash, options)` — apply the commit's changes onto
+  the current HEAD, preserving the original author.
+- `git.amendMessage(vpath, message, options)` — rewrite the message of the HEAD
+  commit, keeping its tree, parents and author.
+
+Revert and cherry-pick use a **clean-or-refuse** strategy: because go-git has no
+merge engine, a change is applied only when the files it touches still hold the
+exact content it expects. If any file has diverged the whole operation is
+refused with a readable message rather than producing an incorrect result. This
+covers the common cases (reverting the latest commit, or an older commit whose
+files were untouched since) and safely declines the rest.
+
+```javascript
+var result = git.revertCommit("user:/Desktop/myproject", commitHash, {});
+if (!result.success) {
+    console.log(result.error); // e.g. "cannot apply cleanly — …"
+}
+```
+
+### `git.fetch(vpath, options)` / `git.pull(vpath, options)` / `git.push(vpath, options)` → object
+
+Options: `remote` (default `origin`), `branch` (default the current branch),
+`username`, `token`, `remember`, `force`, `setUpstream`.
+
+Only fast-forward merges are supported by the underlying library, so a diverged
+branch is reported as an error rather than being merged.
+
+```javascript
+var result = git.push("user:/Desktop/myproject", { setUpstream: true });
+if (!result.success && result.authRequired) { /* prompt, then retry with token */ }
+```
+
+### `git.saveCredential(host, username, token)` → object
+
+Store a credential for a host. `host` may be a bare host name or a full remote
+URL.
+
+### `git.listCredentials()` → array
+
+Stored credentials as `{host, username}`. **Tokens are never returned.**
+
+### `git.hasCredential(host)` → bool
+
+### `git.removeCredential(host)` → object
+
+### `git.remoteHost(url)` → string
+
+The host a remote URL maps to, i.e. the key credentials are stored under. Both
+`https://github.com/a/b.git` and `git@github.com:a/b.git` yield `github.com`.
 
 ---
 

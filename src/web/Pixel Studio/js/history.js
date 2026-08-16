@@ -94,6 +94,9 @@ PS.layerStructure = function (label, fn) {
     var before = { layers: PS.doc.layers.slice(), active: PS.doc.activeLayer };
     fn();
     var after = { layers: PS.doc.layers.slice(), active: PS.doc.activeLayer };
+    // the stack changed under it, so a panel multi-selection is no longer
+    // meaningful - fall back to "just the active layer"
+    if (PS.clearLayerSelection) { PS.clearLayerSelection(); }
     PS.pushHistory(label,
         function () {
             PS.doc.layers = before.layers.slice();

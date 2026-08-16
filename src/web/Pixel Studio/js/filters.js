@@ -215,22 +215,18 @@ PS.runFilter = function (f) {
             row.className = "form-row";
             var lab = document.createElement("label");
             lab.textContent = f.param.label;
-            var slider = document.createElement("input");
-            slider.type = "range";
-            slider.min = f.param.min;
-            slider.max = f.param.max;
-            slider.value = value;
-            var val = document.createElement("span");
-            val.className = "range-val";
-            val.textContent = value + (f.param.unit || "");
-            slider.addEventListener("input", function () {
-                value = parseFloat(slider.value);
-                val.textContent = value + (f.param.unit || "");
+            var inp = PS.ui.numberField(value, f.param.min, f.param.max, 1, function (v) {
+                value = v;
                 updatePreview();
             });
             row.appendChild(lab);
-            row.appendChild(slider);
-            row.appendChild(val);
+            row.appendChild(inp);
+            if (f.param.unit) {
+                var unit = document.createElement("span");
+                unit.className = "unit-label";
+                unit.textContent = f.param.unit;
+                row.appendChild(unit);
+            }
             body.appendChild(row);
             updatePreview();
         },

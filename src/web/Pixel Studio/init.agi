@@ -2,6 +2,16 @@
 	Pixel Studio - Layered image editor for ArozOS
 	Module registration script
 
+	Registers two webapps that live inside the src/web/Pixel Studio/ folder:
+	    Pixel Studio - the layered raster editor (this folder)
+	    Raw Editor   - the camera RAW developer sub-app (Pixel Studio/raw/)
+
+	Raw Editor decodes camera RAW files (ARW, DNG, NEF, CR2, ORF, RAF ...),
+	demosaics them into a viewable image and provides Camera-Raw style develop
+	controls plus 3D LUT (.cube) colour grading, entirely inside the browser
+	sandbox. Pixel Studio forwards any RAW file opened with it to Raw Editor
+	(see js/fileio.js), and Raw Editor hands the developed image back.
+
 	Do not call any user / filepath functions in this script.
 */
 
@@ -20,11 +30,31 @@ var moduleLaunchInfo = {
 	LaunchFWDir: "Pixel Studio/index.html",
 	SupportEmb: false,
 	InitFWSize: [1280, 820],
-	SupportedExt: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pxs"]
+	//RAW extensions are listed here as well so "Open with Pixel Studio" works on
+	//them; fileio.js detects the RAW format and hands the file to Raw Editor.
+	SupportedExt: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pxs",
+		".arw", ".dng", ".nef", ".cr2", ".cr3", ".orf", ".raf", ".rw2", ".pef", ".srw", ".tiff", ".tif"]
 }
 
 //Register the module
 registerModule(JSON.stringify(moduleLaunchInfo));
+
+//Raw Editor - camera RAW developer sub-app of Pixel Studio
+registerModule(JSON.stringify({
+	Name: "Raw Editor",
+	Desc: "Develop camera RAW files with Camera-Raw style controls and LUT grading",
+	Group: "Media",
+	IconPath: "Pixel Studio/raw/img/module_icon.svg",
+	Version: "1.0",
+	StartDir: "Pixel Studio/raw/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Pixel Studio/raw/index.html",
+	SupportEmb: true,
+	LaunchEmb: "Pixel Studio/raw/index.html",
+	InitFWSize: [1200, 760],
+	InitEmbSize: [1200, 760],
+	SupportedExt: [".arw", ".dng", ".nef", ".cr2", ".cr3", ".orf", ".raf", ".rw2", ".pef", ".srw", ".tiff", ".tif", ".jpg", ".jpeg", ".png", ".webp"]
+}));
 
 //Register a custom icon for .pxs files so the file manager shows it instead of a generic icon
 registerExtensionIcon(".pxs", "img/file_icon.png");

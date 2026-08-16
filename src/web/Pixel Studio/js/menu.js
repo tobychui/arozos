@@ -10,6 +10,7 @@ PS.menus = function () {
             items: [
                 { label: "New...", shortcut: "Ctrl+N", action: PS.fileNewDialog },
                 { label: "Open...", shortcut: "Ctrl+O", action: PS.fileOpenDialog },
+                { label: "Open in Raw Editor...", action: function () { PS.openInRawEditor(); } },
                 { sep: true },
                 { label: "Save", shortcut: "Ctrl+S", action: PS.fileSave },
                 { label: "Save As...", shortcut: "Ctrl+Shift+S", action: PS.fileSaveAs },
@@ -71,11 +72,15 @@ PS.menus = function () {
             items: [
                 { label: "New Layer", shortcut: "Ctrl+Shift+N", action: function () { PS.addLayer(); } },
                 { label: "Duplicate Layer", shortcut: "Ctrl+J", action: PS.duplicateLayer },
-                { label: "Delete Layer", action: PS.deleteLayer },
+                { label: "Delete Layer", action: PS.deleteSelectedLayers },
                 { sep: true },
                 {
                     label: "Merge Down", shortcut: "Ctrl+E", action: PS.mergeDown,
                     enabled: function () { return !!(PS.doc && PS.doc.activeLayer > 0); }
+                },
+                {
+                    label: "Merge Selected Layers", action: PS.mergeSelectedLayers,
+                    enabled: function () { return PS.selectedLayerIndices().length > 1; }
                 },
                 { label: "Flatten Image", shortcut: "Ctrl+Shift+E", action: PS.flattenImage },
                 { sep: true },
@@ -193,8 +198,14 @@ PS.openMenu = function (root, menu) {
 
     var dd = document.createElement("div");
     dd.className = "menu-dropdown";
+    PS.fillMenu(dd, menu.items, PS.closeMenus);
+    root.appendChild(dd);
+};
 
-    menu.items.forEach(function (item) {
+// Render menu item definitions - {label, shortcut, enabled, checked, action} or
+// {sep:true} - into a dropdown element. Shared by the menu bar and context menus.
+PS.fillMenu = function (dd, items, close) {
+    items.forEach(function (item) {
         if (item.sep) {
             var sep = document.createElement("div");
             sep.className = "menu-sep";
@@ -216,13 +227,11 @@ PS.openMenu = function (root, menu) {
         }
         div.addEventListener("click", function (e) {
             e.stopPropagation();
-            PS.closeMenus();
+            close();
             if (item.action) { item.action(); }
         });
         dd.appendChild(div);
     });
-
-    root.appendChild(dd);
 };
 
 PS.closeMenus = function () {
@@ -231,6 +240,54 @@ PS.closeMenus = function () {
     var dd = PS._openMenu.querySelector(".menu-dropdown");
     if (dd) { dd.remove(); }
     PS._openMenu = null;
+};
+
+/* ---------- context menu ---------- */
+
+PS._ctxMenu = null;
+
+// Popup menu at viewport coordinates, built from the same item definitions the
+// menu bar uses. Closes on pick, on a click outside, or on Escape.
+PS.contextMenu = function (x, y, items) {
+    PS.closeContextMenu();
+    PS.closeMenus();
+
+    var dd = document.createElement("div");
+    dd.className = "menu-dropdown context-menu";
+    PS.fillMenu(dd, items, PS.closeContextMenu);
+    document.body.appendChild(dd);
+
+    // keep the menu inside the window: flip it back over the click point when
+    // it would hang off the right or bottom edge
+    var r = dd.getBoundingClientRect();
+    dd.style.left = Math.max(0, (x + r.width > window.innerWidth) ? x - r.width : x) + "px";
+    dd.style.top = Math.max(0, (y + r.height > window.innerHeight) ? y - r.height : y) + "px";
+
+    PS._ctxMenu = dd;
+    // bound on the next tick so the click that opened the menu does not close it
+    setTimeout(function () {
+        document.addEventListener("pointerdown", PS._ctxOutside, true);
+        document.addEventListener("keydown", PS._ctxKey, true);
+        window.addEventListener("blur", PS.closeContextMenu);
+    }, 0);
+    return dd;
+};
+
+PS.closeContextMenu = function () {
+    if (!PS._ctxMenu) { return; }
+    PS._ctxMenu.remove();
+    PS._ctxMenu = null;
+    document.removeEventListener("pointerdown", PS._ctxOutside, true);
+    document.removeEventListener("keydown", PS._ctxKey, true);
+    window.removeEventListener("blur", PS.closeContextMenu);
+};
+
+PS._ctxOutside = function (e) {
+    if (PS._ctxMenu && !PS._ctxMenu.contains(e.target)) { PS.closeContextMenu(); }
+};
+
+PS._ctxKey = function (e) {
+    if (e.key === "Escape") { e.stopPropagation(); PS.closeContextMenu(); }
 };
 
 /* ---------- help dialogs ---------- */
@@ -259,7 +316,9 @@ PS.showShortcutsDialog = function () {
         ["Ctrl+Shift+I", "Invert selection"],
         ["Ctrl+J", "Duplicate layer"],
         ["Ctrl+Shift+N", "New layer"],
-        ["Ctrl+E / Ctrl+Shift+E", "Merge down / Flatten"],
+        ["Ctrl+E / Ctrl+Shift+E", "Merge selected (or down) / Flatten"],
+        ["Ctrl / Shift + click layer", "Select several layers to merge or delete"],
+        ["Right-click layer", "Layer context menu"],
         ["Ctrl+X / C / V", "Cut / Copy / Paste"],
         ["Ctrl+Shift+C", "Copy merged"],
         ["Alt+Backspace / Ctrl+Backspace", "Fill with FG / BG color"],

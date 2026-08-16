@@ -131,7 +131,12 @@
             opacity: 0; font-size: 11px; color: var(--text3); padding: 2px 4px;
             border-radius: 3px; transition: opacity .12s;
         }
-        .playlist-item:hover .pl-del { opacity: 1; }
+        @media (hover: hover) {
+            .playlist-item:hover .pl-del { opacity: 1; }
+        }
+        @media (hover: none) {
+            .playlist-item .pl-del { opacity: 1; }
+        }
         .playlist-item .pl-del:hover { color: #f87171; }
         .playlist-item i { margin-bottom: 5px !important; }
         .new-playlist-btn {
@@ -252,14 +257,22 @@
             transition: background .1s;
             color: var(--text2);
         }
-        .song-row:hover  { background: var(--hover); color: var(--text); }
+        /* Hover-reveal effects are gated to real pointer devices. On a touch screen a
+           :hover rule that swaps content makes the browser treat the first tap as a
+           hover and swallow the click, so the row needs a second tap to actually fire.
+           Kept in source order so the .active rules still win on equal specificity. */
+        @media (hover: hover) {
+            .song-row:hover  { background: var(--hover); color: var(--text); }
+        }
         .song-row.active { background: var(--active-bg); color: var(--accent); }
         .song-row.active .song-name { color: var(--accent); }
 
         .song-idx  { font-size: 12px; color: var(--text3); text-align: right; }
         .song-play { display: none; font-size: 14px; color: var(--accent); text-align: center; }
-        .song-row:hover .song-idx  { display: none; }
-        .song-row:hover .song-play { display: block; }
+        @media (hover: hover) {
+            .song-row:hover .song-idx  { display: none; }
+            .song-row:hover .song-play { display: block; }
+        }
         .song-row.active .song-idx  { display: none; }
         .song-row.active .song-play { display: block; }
 
@@ -279,7 +292,13 @@
         .song-artist{ font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .song-size  { font-size: 12px; color: var(--text3); text-align: right; white-space: nowrap; }
         .song-menu  { font-size: 16px; color: var(--text3); text-align: center; opacity: 0; transition: opacity .12s; position: relative; }
-        .song-row:hover .song-menu { opacity: 1; }
+        @media (hover: hover) {
+            .song-row:hover .song-menu { opacity: 1; }
+        }
+        /* No hover on touch, so keep the row menu permanently visible instead. */
+        @media (hover: none) {
+            .song-menu { opacity: 1; }
+        }
 
         @media (max-width: 768px) {
             .song-row,
@@ -375,7 +394,12 @@
         .queue-item-name { font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
         .queue-item-artist{ font-size: 11px; color: var(--text2); }
         .queue-item-del { opacity: 0; font-size: 12px; color: var(--text3); transition: opacity .12s; flex-shrink: 0; cursor: pointer; }
-        .queue-item:hover .queue-item-del { opacity: 1; }
+        @media (hover: hover) {
+            .queue-item:hover .queue-item-del { opacity: 1; }
+        }
+        @media (hover: none) {
+            .queue-item-del { opacity: 1; }
+        }
         .queue-item-del:hover { color: #f87171; }
 
         @media (max-width: 900px) {

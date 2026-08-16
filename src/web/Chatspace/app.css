@@ -48,13 +48,18 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 #app {
     display: grid;
-    grid-template-columns: 68px 1fr;
+    /* minmax(0, 1fr) floors the body track at 0 instead of its min-content;
+       without it the sidebar + content + right (thread) panel min-widths
+       force the track wider than the viewport, pushing the panel - and its
+       close button - off the right edge on narrow / floatWindow widths. */
+    grid-template-columns: 68px minmax(0, 1fr);
     grid-template-rows: 44px 1fr;
     grid-template-areas:
         "topbar topbar"
         "rail body";
     height: 100vh;
     width: 100vw;
+    overflow: hidden;
 }
 
 /* ================= Left rail ================= */
@@ -210,11 +215,17 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     font-size: 13px;
 }
 
-.sr-row:hover { background: #f0eef1; }
+.sr-row:hover, .sr-row.selected { background: #f0eef1; }
 .sr-row .sr-convo { font-weight: 700; white-space: nowrap; }
 .sr-row .sr-snippet { color: var(--cs-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .sr-row .sr-time { color: var(--cs-muted); font-size: 11px; white-space: nowrap; }
 .sr-empty { padding: 14px; color: var(--cs-muted); font-size: 13px; }
+
+/* Search empty-state hint (shown when the box is focused but blank) */
+.sr-hint { padding: 16px 14px 12px 14px; border-bottom: 1px solid var(--cs-border); }
+.sr-hint-title { font-weight: 700; font-size: 14px; color: var(--cs-text); display: flex; align-items: center; gap: 6px; }
+.sr-hint-title i.icon { color: var(--cs-muted); font-size: 13px; margin: 0; }
+.sr-hint-sub { margin-top: 4px; font-size: 12.5px; color: var(--cs-muted); line-height: 1.4; }
 
 .tb-right { display: flex; }
 
@@ -224,6 +235,9 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     grid-area: body;
     display: flex;
     min-height: 0;
+    /* Allow the flex row to shrink to its grid track so the thread panel
+       and its close button stay within the viewport when space is tight. */
+    min-width: 0;
     padding: 0 4px 4px 0;
     gap: 4px;
 }
@@ -311,7 +325,9 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     align-items: center;
     gap: 4px;
     font-size: 14px;
-    padding: 3px 16px;
+    /* left pad matches an item row (margin 8 + padding 16) so the collapse
+       caret sits in the same column as the # / lock / + row icons */
+    padding: 3px 16px 3px 24px;
     color: var(--cs-onpurple-dim);
     cursor: pointer;
     user-select: none;
@@ -416,9 +432,15 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     flex-shrink: 0;
 }
 
-.ch-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* overflow:hidden stops the name / topic from spilling over the right-hand
+   action buttons (star, members, huddle) when the pane is narrow. */
+.ch-left { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 
 #chNameBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;              /* let the channel name truncate instead of pushing siblings out */
     font-size: 17.5px;
     font-weight: 900;
     color: var(--cs-text);
@@ -428,7 +450,8 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 }
 
 #chNameBtn:hover { background: var(--cs-hover); }
-#chNameBtn i.icon { font-size: 11px; color: var(--cs-muted); }
+#chNameBtn i.icon { font-size: 11px; color: var(--cs-muted); flex-shrink: 0; }
+#chName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 #chStarBtn {
     color: var(--cs-muted);
@@ -436,6 +459,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     height: 28px;
     border-radius: 6px;
     font-size: 14px;
+    flex-shrink: 0;
 }
 
 #chStarBtn:hover { background: var(--cs-hover); }
@@ -450,6 +474,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     text-overflow: ellipsis;
     cursor: pointer;
     min-width: 0;
+    flex-shrink: 100;         /* the secondary topic yields space before the name truncates */
 }
 
 #chTopic:hover { text-decoration: underline; }
@@ -731,6 +756,38 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 .dl-menu-btn { background: none; }
 
+/* message right-click context menu */
+#msgContextMenu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+    z-index: 500;
+    padding: 6px 0;
+    width: 240px;
+    max-width: calc(100vw - 16px);
+}
+
+.cm-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--cs-text);
+}
+
+.cm-row:hover { background: var(--cs-hover); }
+.cm-row i.icon { width: 18px; text-align: center; margin: 0; font-size: 14px; color: var(--cs-muted); flex-shrink: 0; }
+.cm-label { flex: 1; }
+.cm-key { font-size: 12px; color: var(--cs-muted); flex-shrink: 0; }
+.cm-row.danger { color: #c22f2f; }
+.cm-row.danger i.icon { color: #c22f2f; }
+.cm-row.danger:hover { background: #fdeaea; }
+.cm-sep { border-top: 1px solid var(--cs-border); margin: 5px 0; }
+
 /* video / audio / text previews */
 .media-preview { display: block; }
 
@@ -756,7 +813,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 .media-foot .file-size { font-size: 12px; color: var(--cs-muted); }
 .media-foot .dl-menu-btn { margin-left: -4px; }
 
-.text-preview-wrap { max-width: 520px; }
+.text-preview-wrap { max-width: min(520px, 100%); }
 
 .text-preview {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
@@ -805,7 +862,10 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 
 .msg-img {
     display: block;
-    max-width: 360px;
+    /* min(...,100%) keeps the 360px cap in the wide pane but never exceeds a
+       narrow container (e.g. the thread panel), which used to force a
+       horizontal scrollbar */
+    max-width: min(360px, 100%);
     max-height: 280px;
     border-radius: 12px;
     border: 1px solid var(--cs-border);
@@ -889,7 +949,11 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 /* thread summary bar */
 
 .msg-thread-bar {
-    display: inline-flex;
+    /* block-level (own line) so it sits below an inline-block image preview
+       instead of floating to its right, but width:fit-content keeps the
+       compact pill shape */
+    display: flex;
+    width: fit-content;
     align-items: center;
     gap: 8px;
     margin-top: 4px;
@@ -1191,8 +1255,10 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
 .rp-section h4 { margin: 0 0 4px 0; font-size: 13px; }
 .rp-section .rp-value { font-size: 13.5px; }
 .rp-section .rp-sub { font-size: 12px; color: var(--cs-muted); margin-top: 2px; }
-.rp-section .rp-editlink { font-size: 12px; color: var(--cs-link); cursor: pointer; margin-left: 8px; font-weight: 600; }
-.rp-section .rp-editlink:hover { text-decoration: underline; }
+/* Global so the Edit link keeps its gap in the details modal too, not just
+   inside .rp-section (otherwise it renders as "Add a topicEdit"). */
+.rp-editlink { font-size: 12px; color: var(--cs-link); cursor: pointer; margin-left: 8px; font-weight: 600; }
+.rp-editlink:hover { text-decoration: underline; }
 
 .rp-action-row {
     display: flex;
@@ -1383,6 +1449,7 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     border-bottom: 1px solid #f0f0f0;
 }
 
+.browse-row.kbfocus { background: var(--cs-hover); }
 .browse-row .browse-name { font-weight: 800; font-size: 14.5px; }
 .browse-row .browse-name i.icon { font-size: 12px; color: var(--cs-muted); }
 .browse-row .browse-sub { font-size: 12.5px; color: var(--cs-muted); margin-top: 2px; }
@@ -1397,8 +1464,12 @@ button { background: none; border: none; cursor: pointer; padding: 0; }
     font-size: 14px;
 }
 
-.pick-row:hover { background: var(--cs-hover); }
-.pick-row .avatar { width: 26px; height: 26px; border-radius: 6px; overflow: hidden; }
+.pick-row:hover, .pick-row.kbfocus { background: var(--cs-hover); }
+/* position:relative + overflow:visible so the presence dot can overlay the
+   avatar corner instead of floating as a separate column between avatar/name */
+.pick-row .avatar { width: 26px; height: 26px; border-radius: 6px; position: relative; }
+.pick-row .avatar > .cs-avatar-img, .pick-row .avatar > .avatar-fallback { border-radius: 6px; overflow: hidden; }
+.pick-row .avatar .presence-dot { position: absolute; right: -3px; bottom: -3px; margin: 0; border: 2px solid #fff; }
 .pick-row .pick-name { flex: 1; font-weight: 600; }
 .pick-row .pick-check { color: var(--cs-green); visibility: hidden; }
 .pick-row.picked .pick-check { visibility: visible; }

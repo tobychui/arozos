@@ -1,0 +1,77 @@
+/*
+	GitApp — branch action backend
+
+	Drives the branch dropdown's right-click menu: deleting and renaming both
+	local branches and branches on a remote.
+
+	Remote operations are network pushes, so they can come back with
+	authRequired and be retried with credentials, exactly like push and pull.
+
+	POST opr      = delete | rename | deleteremote | renameremote
+	     repo     = virtual path of the repository
+	     branch   = branch name (without any remote prefix)
+	     newName  = new branch name          (rename, renameremote)
+	     remote   = remote name              (deleteremote, renameremote)
+	     force    = "true" to delete a branch holding unmerged commits (delete)
+	     username = HTTPS user name          (remote operations)
+	     token    = HTTPS token / password   (remote operations)
+	     remember = "true" to store the credential once it works
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+//buildOptions collects the optional credential fields. Absent fields are left
+//out so the git library falls back to the user's stored credential.
+function buildOptions() {
+    var options = {};
+
+    if (typeof username != "undefined" && username != "") {
+        options.username = username;
+    }
+    if (typeof token != "undefined" && token != "") {
+        options.token = token;
+    }
+    if (typeof remember != "undefined" && remember == "true") {
+        options.remember = true;
+    }
+    return options;
+}
+
+function remoteName() {
+    if (typeof remote != "undefined" && remote != "") {
+        return remote;
+    }
+    return "origin";
+}
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else if (typeof branch == "undefined" || branch.trim() == "") {
+    sendJSONResp({ success: false, error: "a branch name is required" });
+} else if (opr == "delete") {
+    sendJSONResp(git.deleteBranch(repo, branch.trim(),
+        typeof force != "undefined" && force == "true"));
+
+} else if (opr == "rename") {
+    if (typeof newName == "undefined" || newName.trim() == "") {
+        sendJSONResp({ success: false, error: "a new branch name is required" });
+    } else {
+        sendJSONResp(git.renameBranch(repo, branch.trim(), newName.trim()));
+    }
+
+} else if (opr == "deleteremote") {
+    sendJSONResp(git.deleteRemoteBranch(repo, remoteName(), branch.trim(), buildOptions()));
+
+} else if (opr == "renameremote") {
+    if (typeof newName == "undefined" || newName.trim() == "") {
+        sendJSONResp({ success: false, error: "a new branch name is required" });
+    } else {
+        sendJSONResp(git.renameRemoteBranch(repo, remoteName(),
+            branch.trim(), newName.trim(), buildOptions()));
+    }
+
+} else {
+    sendJSONResp({ success: false, error: "unknown operation: " + opr });
+}

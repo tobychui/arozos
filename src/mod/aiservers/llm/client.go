@@ -69,6 +69,31 @@ func (c *Client) Chat(messages []Message, opt ChatOptions) (*ChatResponse, error
 	return resp, nil
 }
 
+// ChatStream sends a streaming chat completion request, invoking cb for each
+// incremental delta as it arrives, and returns the fully assembled response
+// (with accumulated content/reasoning and usage) once the stream ends. It
+// dispatches to the configured wire format. GenerationMs/TokensPerSecond are
+// computed from the wall-clock request duration, exactly like Chat.
+func (c *Client) ChatStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
+	start := time.Now()
+	var resp *ChatResponse
+	var err error
+	if c.APIFormat == "anthropic" {
+		resp, err = c.chatAnthropicStream(messages, opt, cb)
+	} else {
+		resp, err = c.chatOpenAIStream(messages, opt, cb)
+	}
+	if err != nil {
+		return nil, err
+	}
+	elapsed := time.Since(start)
+	resp.Usage.GenerationMs = elapsed.Milliseconds()
+	if resp.Usage.CompletionTokens > 0 && elapsed.Seconds() > 0 {
+		resp.Usage.TokensPerSecond = float64(resp.Usage.CompletionTokens) / elapsed.Seconds()
+	}
+	return resp, nil
+}
+
 // ListModels lists model IDs exposed by the endpoint, dispatching to the
 // configured wire format. Used by connectivity tests and AGI scripts; does
 // not consume any tokens.

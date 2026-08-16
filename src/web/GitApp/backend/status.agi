@@ -1,0 +1,66 @@
+/*
+	GitApp — status and history backend
+
+	Returns everything the Changes / History sidebars render.
+
+	POST opr = status | log | commitfiles | branches
+	     repo = virtual path of the repository
+*/
+
+requirelib("git");
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "repository path is required" });
+} else {
+    var operation = opr;
+
+    if (operation == "status") {
+        var status = git.status(repo);
+        if (status.error) {
+            sendJSONResp({ success: false, error: status.error });
+        } else {
+            sendJSONResp({ success: true, status: status });
+        }
+
+    } else if (operation == "log") {
+        var count = 50;
+        if (typeof limit != "undefined" && limit != "") {
+            count = parseInt(limit, 10);
+            if (isNaN(count) || count <= 0) {
+                count = 50;
+            }
+        }
+
+        var commits = git.log(repo, count);
+        if (commits.error) {
+            sendJSONResp({ success: false, error: commits.error });
+        } else {
+            sendJSONResp({ success: true, commits: commits });
+        }
+
+    } else if (operation == "commitfiles") {
+        if (typeof hash == "undefined" || hash == "") {
+            sendJSONResp({ success: false, error: "commit hash is required" });
+        } else {
+            var files = git.commitFiles(repo, hash);
+            if (files.error) {
+                sendJSONResp({ success: false, error: files.error });
+            } else {
+                sendJSONResp({ success: true, files: files });
+            }
+        }
+
+    } else if (operation == "branches") {
+        var branches = git.branches(repo);
+        if (branches.error) {
+            sendJSONResp({ success: false, error: branches.error });
+        } else {
+            sendJSONResp({ success: true, branches: branches });
+        }
+
+    } else {
+        sendJSONResp({ success: false, error: "unknown operation: " + operation });
+    }
+}

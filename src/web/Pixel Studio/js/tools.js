@@ -892,10 +892,10 @@ PS.paintCursorOverlay = function (size, square) {
             cursor: "crosshair",
             icon: icon,
             options: function (host) {
-                PS.ui.slider(host, "Feather", PS.toolOpts.marquee.feather, 0, 50, 1, function (v) {
+                PS.ui.numeric(host, "Feather", PS.toolOpts.marquee.feather, 0, 50, 1, function (v) {
                     PS.toolOpts.marquee.feather = v;
                     PS.savePrefsDebounced();
-                }, function (v) { return v + "px"; });
+                }, "px");
                 PS.ui.label(host, "Shift adds, Alt subtracts from a selection");
             },
             onDown: function (pt, e) {
@@ -1084,7 +1084,7 @@ PS.registerTool("wand", {
     icon: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M6 18 15 9M13 4l.7 2.2M19.8 10.3 22 11M14.5 13.5l2 2M18.5 4.5l-2 2"/></svg>',
     options: function (host) {
         var o = PS.toolOpts.wand;
-        PS.ui.slider(host, "Tolerance", o.tolerance, 0, 150, 1, function (v) {
+        PS.ui.numeric(host, "Tolerance", o.tolerance, 0, 150, 1, function (v) {
             o.tolerance = v; PS.savePrefsDebounced();
         });
         PS.ui.checkbox(host, "Contiguous", o.contiguous, function (v) {
@@ -1094,7 +1094,7 @@ PS.registerTool("wand", {
         PS.ui.checkbox(host, "Smart edges (edge detection)", o.smart, function (v) {
             o.smart = v; PS.savePrefsDebounced();
         });
-        PS.ui.slider(host, "Edge sensitivity", o.edgeThreshold, 10, 200, 1, function (v) {
+        PS.ui.numeric(host, "Edge sensitivity", o.edgeThreshold, 10, 200, 1, function (v) {
             o.edgeThreshold = v; PS.savePrefsDebounced();
         });
     },
@@ -1115,22 +1115,22 @@ PS.registerTool("wand", {
 (function () {
     function paintToolOptions(kind, host) {
         var o = PS.toolOpts[kind];
-        PS.ui.slider(host, "Size", o.size, 1, 300, 1, function (v) {
+        PS.ui.numeric(host, "Size", o.size, 1, 300, 1, function (v) {
             o.size = v; PS.savePrefsDebounced();
-        }, function (v) { return v + "px"; });
+        }, "px");
         PS.ui.slider(host, "Opacity", Math.round(o.opacity * 100), 1, 100, 1, function (v) {
             o.opacity = v / 100; PS.savePrefsDebounced();
-        }, function (v) { return v + "%"; });
+        }, "%");
         if (kind === "brush") {
             PS.ui.select(host, "Stroke", PS.strokeTypes, o.type, function (v) {
                 o.type = v; PS.savePrefsDebounced();
             });
-            PS.ui.slider(host, "Hardness", Math.round((o.hardness || 0.8) * 100), 0, 99, 1, function (v) {
+            PS.ui.numeric(host, "Hardness", Math.round((o.hardness || 0.8) * 100), 0, 99, 1, function (v) {
                 o.hardness = v / 100; PS.savePrefsDebounced();
-            }, function (v) { return v + "%"; });
-            PS.ui.slider(host, "Flow", Math.round((o.flow || 0.7) * 100), 5, 100, 1, function (v) {
+            }, "%");
+            PS.ui.numeric(host, "Flow", Math.round((o.flow || 0.7) * 100), 5, 100, 1, function (v) {
                 o.flow = v / 100; PS.savePrefsDebounced();
-            }, function (v) { return v + "%"; });
+            }, "%");
         }
         if (kind === "eraser") {
             PS.ui.select(host, "Type", [
@@ -1172,7 +1172,7 @@ PS.registerTool("fill", {
     icon: '<svg viewBox="0 0 24 24" stroke-width="1.6"><path d="M10 3 5 8l7 7 7-5.5L10 3zM5 8l-1.5 1.5M19 15c.8 1.3 1.5 2.6 1.5 3.5a1.7 1.7 0 0 1-3.4 0c0-.9.9-2.2 1.9-3.5z"/></svg>',
     options: function (host) {
         var o = PS.toolOpts.fill;
-        PS.ui.slider(host, "Tolerance", o.tolerance, 0, 150, 1, function (v) {
+        PS.ui.numeric(host, "Tolerance", o.tolerance, 0, 150, 1, function (v) {
             o.tolerance = v; PS.savePrefsDebounced();
         });
         PS.ui.checkbox(host, "Contiguous", o.contiguous, function (v) {
@@ -1412,16 +1412,16 @@ PS.floodFillLayer = function (layer, pt, hex, opts) {
                     { v: "both", l: "Fill FG + Stroke BG" }
                 ], o.mode, function (v) { o.mode = v; PS.savePrefsDebounced(); });
             }
-            PS.ui.slider(host, "Stroke width", o.strokeWidth, 1, 60, 1, function (v) {
+            PS.ui.numeric(host, "Stroke width", o.strokeWidth, 1, 60, 1, function (v) {
                 o.strokeWidth = v; PS.savePrefsDebounced();
-            }, function (v) { return v + "px"; });
+            }, "px");
             if (o.kind === "rounded") {
-                PS.ui.slider(host, "Corner radius", o.radius, 1, 100, 1, function (v) {
+                PS.ui.numeric(host, "Corner radius", o.radius, 1, 100, 1, function (v) {
                     o.radius = v; PS.savePrefsDebounced();
                 });
             }
             if (o.kind === "star") {
-                PS.ui.slider(host, "Points", o.points, 3, 12, 1, function (v) {
+                PS.ui.numeric(host, "Points", o.points, 3, 12, 1, function (v) {
                     o.points = v; PS.savePrefsDebounced();
                 });
             }

@@ -12,6 +12,7 @@
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
+    <script src="../common/clipboard.js"></script>
     <script src="../common/textedit.js"></script>
     <script src="../common/lib/marked.min.js"></script>
     <!-- Dynamic print stylesheet: docs.js writes the @page rule (size,
@@ -28,11 +29,15 @@
     <div class="of-workspace" id="workspace">
         <div id="pageWrap">
             <div id="page">
-                <div id="docHeader" class="doc-hf" contenteditable="true"
-                     data-placeholder="Header - click to edit" spellcheck="false"></div>
+                <!-- page one's header / footer; docs.js clones a copy into
+                     every other sheet's margin band (layoutHeaderFooters) -->
+                <div id="docHeader" class="doc-hf doc-hf-header" contenteditable="true"
+                     data-hf="header" data-placeholder="Header - click to edit"
+                     spellcheck="false"></div>
                 <div id="editor" contenteditable="true" spellcheck="true"></div>
-                <div id="docFooter" class="doc-hf" contenteditable="true"
-                     data-placeholder="Footer - click to edit" spellcheck="false"></div>
+                <div id="docFooter" class="doc-hf doc-hf-footer" contenteditable="true"
+                     data-hf="footer" data-placeholder="Footer - click to edit"
+                     spellcheck="false"></div>
             </div>
         </div>
     </div>

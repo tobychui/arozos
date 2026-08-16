@@ -11,6 +11,8 @@ var BACKEND_PATH  = APP_NAME + "/backend/";
 // ── Server API endpoints (relative from any page in this app) ────────────────
 var MEDIA_API     = "../media";               // ?file=<vpath>  streams a file
 var TRANSCODE_API  = "../media/transcode";            // ?file
+var STORYBOARD_API = "../media/storyboard/";          // ?file[&image=1]  scrub previews
+var SUBTITLE_API   = "../media/subtitles/";           // ?file[&track=n|&font=n]  embedded tracks
 var AGI_INTERFACE = "../system/ajgi/interface?script=";
 
 // ── Script paths (used when calling ao_module_agirun from the frontend) ──────
@@ -23,6 +25,8 @@ var SCRIPT_GET_MOVIE_INFO     = BACKEND_PATH + "getMovieInfo.js";
 var SCRIPT_DISABLE_MOVIE_INFO = BACKEND_PATH + "disableMovieInfo.js";
 var SCRIPT_GET_WATCHTIME      = BACKEND_PATH + "getWatchTime.js";
 var SCRIPT_SET_WATCHTIME      = BACKEND_PATH + "setWatchTime.js";
+var SCRIPT_GET_INDEX_STATS    = BACKEND_PATH + "getIndexStats.js";
+var SCRIPT_CLEAR_INDEX        = BACKEND_PATH + "clearIndex.js";
 
 // ── Scanner settings ─────────────────────────────────────────────────────────
 var VALID_VIDEO_FORMATS = ["mp4", "webm", "ogg", "mkv", "avi", "mov", "m4v", "wmv", "flv", "rmvb", "ts"];

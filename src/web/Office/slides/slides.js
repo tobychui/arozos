@@ -704,7 +704,9 @@ var SlidesApp = (function () {
             }
         }
         el.addEventListener("focusout", onEditFocusOut);
-        if (window.OfficeTextEditBar) OfficeTextEditBar.reposition();
+        // the re-render replaced the object element - re-anchor the floating
+        // bar to the fresh node (also refreshes its table-op section)
+        showTextEditBar(o, el);
         syncListButtonState();
     }
 
@@ -846,6 +848,36 @@ var SlidesApp = (function () {
        stale content instead of duplicating the object. Bonus: objects now
        paste across two Slides windows. */
     var OBJ_CLIP_MARKER = "arozos-slides-objects";
+    /* A shared text/html snapshot of the copied objects so they can be
+       pasted into Docs/Sheets (and external editors). Images/text/tables/
+       shapes carry over; video/audio/lines are same-app only. */
+    function objectsToHtml(objs) {
+        if (!objs || !objs.length) return "";
+        var parts = [];
+        objs.forEach(function (o) {
+            if (o.type === "image") {
+                parts.push(OfficeClipboard.imageHtml(absoluteMedia(o.props.src), o.w, o.h));
+            } else if (o.type === "text") {
+                parts.push('<div>' + (o.props.html || "") + "</div>");
+            } else if (o.type === "table") {
+                parts.push(tableHtml(o));
+            } else if (o.type === "shape") {
+                parts.push(OfficeClipboard.imageHtml(
+                    OfficeClipboard.svgImageSrc(shapeSvg(o)), o.w, o.h));
+            } else if (o.type === "chart") {
+                // render the chart spec to a self-contained SVG snapshot
+                var csvg = OfficeCharts.renderToString(o.props.spec || {},
+                    Math.max(60, o.w), Math.max(60, o.h));
+                csvg = csvg.replace("<svg ", '<svg color="#202124" ');
+                parts.push(OfficeClipboard.imageHtml(
+                    OfficeClipboard.svgImageSrc(csvg), o.w, o.h));
+            }
+        });
+        return parts.join("\n");
+    }
+    // media?file= links are relative to Office/<app>/; Docs sits at the same
+    // depth so they resolve unchanged, but make device data URLs pass through
+    function absoluteMedia(src) { return src || ""; }
     function objectClipboardText() {
         return JSON.stringify({ app: OBJ_CLIP_MARKER, version: 1, objects: clip });
     }
@@ -862,11 +894,13 @@ var SlidesApp = (function () {
     function copySelection() {
         if (!sel.length) return;
         clip = selObjs().map(deep);
-        // async system-clipboard sync for menu/toolbar copies; real Ctrl+C
-        // goes through the "copy" event which sets it synchronously
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(objectClipboardText()).catch(function () { });
-        }
+        // async system-clipboard sync for menu/toolbar copies (writes both
+        // the object marker and the shared text/html); real Ctrl+C goes
+        // through the "copy" event which sets both synchronously
+        OfficeClipboard.writeAsync({
+            text: objectClipboardText(),
+            html: objectsToHtml(clip)
+        }).catch(function () { });
         OfficeApp.setStatus(clip.length + " object" + (clip.length > 1 ? "s" : "") + " copied");
     }
     function cutSelection() {
@@ -1491,6 +1525,74 @@ var SlidesApp = (function () {
         commit();
     }
 
+    /* ---------- table ops for the floating text-edit bar ----------
+       Rendered by OfficeTextEditBar as an extra divider-separated section
+       while a table object is being edited. */
+    function currentTableObj() {
+        if (editingId) {
+            var eo = objById(editingId);
+            if (eo && eo.type === "table") return eo;
+        }
+        var so = selObjs();
+        if (so.length === 1 && so[0].type === "table") return so[0];
+        return null;
+    }
+    function withTableObj(fn) {
+        var o = currentTableObj();
+        if (o) fn(o);
+    }
+    function slidesTableOps() {
+        return [
+            {
+                icon: "angle up", title: "Insert row above",
+                fn: function () { withTableObj(function (o) { tableAddRow(o, false); }); }
+            },
+            {
+                icon: "angle down", title: "Insert row below",
+                fn: function () { withTableObj(function (o) { tableAddRow(o, true); }); }
+            },
+            {
+                icon: "angle left", title: "Insert column left",
+                fn: function () { withTableObj(function (o) { tableAddCol(o, false); }); }
+            },
+            {
+                icon: "angle right", title: "Insert column right",
+                fn: function () { withTableObj(function (o) { tableAddCol(o, true); }); }
+            },
+            {
+                icon: "minus", title: "Delete row",
+                fn: function () { withTableObj(function (o) { tableDelRow(o); }); }
+            },
+            {
+                icon: "eraser", title: "Delete column",
+                fn: function () { withTableObj(function (o) { tableDelCol(o); }); }
+            },
+            {
+                icon: "trash alternate outline", title: "Delete table",
+                fn: function () {
+                    withTableObj(function (o) {
+                        endEdit(false);
+                        setSel([o.id]);
+                        deleteSelection();
+                    });
+                }
+            },
+            {
+                icon: "heading", title: "Header row",
+                active: function () {
+                    var o = currentTableObj();
+                    return !!(o && o.props.headerRow);
+                },
+                fn: function () {
+                    withTableObj(function (o) {
+                        o.props.headerRow = !o.props.headerRow;
+                        commit();
+                    });
+                }
+            }
+        ];
+    }
+
     /* ---------- table column / row resizing (edit mode) ---------- */
     function ensureTableGrid(o) {
         var rows = o.props.rows || [];
@@ -1597,7 +1699,8 @@ var SlidesApp = (function () {
                 o.props.fontSize = px;
                 $("#slFontSize").val(px);
                 commit();
-            }
+            },
+            tableOps: o.type === "table" ? slidesTableOps() : null
         });
     }
     /* Bulleted / numbered lists only make sense inside a full text box
@@ -1636,6 +1739,10 @@ var SlidesApp = (function () {
             var el = objEl(id);
             // focus moving into the floating format bar is still "editing"
             if (window.OfficeTextEditBar && OfficeTextEditBar.contains(document.activeElement)) return;
+            // a dialog opened over the editor (e.g. the Insert-link prompt)
+            // must not tear down the edit - otherwise the box re-renders and
+            // the command applies to a dead selection
+            if ($(".of-dialog-overlay").length) return;
             if (el && !el.contains(document.activeElement)) endEdit(true);
         }, 0);
     }
@@ -2327,14 +2434,48 @@ var SlidesApp = (function () {
             }
         }
         if (handled) { e.preventDefault(); return; }
+        // cross-app: a Docs picture / Sheets chart / cells arrive as text/html
+        var html = cd.getData("text/html");
+        if (html && pasteForeignHtml(html)) { e.preventDefault(); return; }
         if (clip && clip.length) { e.preventDefault(); pasteClipboard(); return; }
         var t = cd.getData("text/plain");
-        if (t) {
+        if (t && !OfficeClipboard.isMarker(t)) {
             e.preventDefault();
             var th = themeOf();
             addObj("text", { html: esc(t).replace(/\n/g, "<br>"), fontSize: 24, color: th.text, align: "left" },
                 { x: 280, y: 220, w: 400, h: 90 });
         }
+    }
+    /* Build slide objects from a shared text/html payload. Returns true when
+       something was inserted. */
+    function pasteForeignHtml(html) {
+        var p = OfficeClipboard.parse(html);
+        if (!p.hasContent) return false;
+        if (p.images.length) {
+            p.images.forEach(function (im) { placeImage(im.src); });
+            return true;
+        }
+        if (p.tables.length) {
+            objectFromHtmlTable(p.tables[0]);
+            return true;
+        }
+        // rich text -> a text box (sanitize to the inline subset we allow)
+        var frag = sanitizeCellHtml(p.html);
+        if (frag.replace(/<[^>]*>/g, "").replace(/\s/g, "") === "") return false;
+        var th = themeOf();
+        addObj("text", { html: frag, fontSize: 24, color: th.text, align: "left" },
+            { x: 240, y: 200, w: 480, h: 120 });
+        return true;
+    }
+    function objectFromHtmlTable(rows) {
+        var data = rows.map(function (tr) {
+            return tr.map(function (cell) { return sanitizeCellHtml(cell.innerHTML); });
+        });
+        var cols = data[0] ? data[0].length : 1;
+        var w = Math.min(880, Math.max(240, cols * 140));
+        var h = Math.min(480, Math.max(80, data.length * 34));
+        addObj("table", { rows: data, headerRow: false, fontSize: 16 },
+            { x: Math.round((SLIDE_W - w) / 2), y: Math.round((SLIDE_H - h) / 2), w: w, h: h });
     }
 
     /* Drop image files (or an image URL) onto the slide canvas. */
@@ -2371,6 +2512,8 @@ var SlidesApp = (function () {
             copySelection();
             if (e.clipboardData) {
                 e.clipboardData.setData("text/plain", objectClipboardText());
+                var html = objectsToHtml(clip);
+                if (html) e.clipboardData.setData("text/html", html);
                 e.preventDefault();
             }
             if (isCut) deleteSelection();
@@ -2632,10 +2775,12 @@ var SlidesApp = (function () {
     /* ================= PPTX import / export ================= */
     var PPTX_BACKEND = "Office/slides/backend/pptx.agi";
 
-    /* Load a .pptx from ArozOS storage through the "office" AGI lib. */
-    function importPptx(fp, fn) {
+    /* Load a .pptx ("import") or .odp ("import-odf") from ArozOS storage
+       through the "office" AGI lib. */
+    function importPptx(fp, fn, action) {
+        action = action || "import";
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(PPTX_BACKEND, { action: "import", src: fp }, function (data) {
+        ao_module_agirun(PPTX_BACKEND, { action: action, src: fp }, function (data) {
             OfficeApp.hideBusy();
             if (!data || data.error) {
                 OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
@@ -2662,11 +2807,16 @@ var SlidesApp = (function () {
             OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
         }, 120000);
     }
+    function importOdp(fp, fn) { importPptx(fp, fn, "import-odf"); }
     function importPptxDialog() {
         try {
             ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) importPptx(files[0].filepath, files[0].filename);
-            }, "user:/Desktop", "file", false, { filter: ["pptx"] });
+                if (files && files.length > 0) {
+                    var fp = files[0].filepath, fn = files[0].filename;
+                    if (/\.odp$/i.test(fn)) importOdp(fp, fn);
+                    else importPptx(fp, fn);
+                }
+            }, "user:/Desktop", "file", false, { filter: ["pptx", "odp"] });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -2712,6 +2862,44 @@ var SlidesApp = (function () {
         });
     }
 
+    /* Capture a poster frame of a video source as a PNG data URL - used as
+       the embedded media poster in pptx exports and the placeholder image
+       in pdf exports. Resolves null when the frame cannot be captured
+       (unsupported codec etc.); exports fall back to a generic poster. */
+    function captureVideoFrame(src) {
+        return new Promise(function (resolve) {
+            var v = document.createElement("video");
+            var done = false;
+            var timer = null;
+            function finish(result) {
+                if (done) return;
+                done = true;
+                if (timer) clearTimeout(timer);
+                v.removeAttribute("src");
+                try { v.load(); } catch (e) { /* detach only */ }
+                resolve(result);
+            }
+            timer = setTimeout(function () { finish(null); }, 8000);
+            v.muted = true;
+            v.preload = "auto";
+            v.addEventListener("error", function () { finish(null); });
+            v.addEventListener("loadeddata", function () {
+                // seek slightly in so black lead-in frames are skipped
+                try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); } catch (e) { finish(null); }
+            });
+            v.addEventListener("seeked", function () {
+                try {
+                    var c = document.createElement("canvas");
+                    c.width = v.videoWidth || 480;
+                    c.height = v.videoHeight || 270;
+                    c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+                    finish(c.toDataURL("image/png"));
+                } catch (e) { finish(null); }
+            });
+            v.src = src;
+        });
+    }
+
     /* Deep-clone the body and inline every image / chart as a dataURL so the
        server-side exporter can embed them into the .pptx. */
     function prepareBodyForPptx() {
@@ -2727,29 +2915,37 @@ var SlidesApp = (function () {
                     jobs.push(urlToDataUrl(o.props.src).then(function (durl) {
                         o.props.src = durl;
                     }).catch(function () { /* leave original src; exporter skips it */ }));
+                } else if (o.type === "video" && o.props.src) {
+                    // grab a real frame for the poster image; the media file
+                    // itself keeps its media?file= link - the server-side
+                    // exporter resolves the bytes (pptx: sidecar zip), so
+                    // they never ride this JSON payload
+                    jobs.push(captureVideoFrame(o.props.src).then(function (png) {
+                        if (png) o.props.png = png;
+                    }));
                 }
-            });
-            // video/audio cannot be represented by the exporter - drop them
-            // so their (potentially huge) data URLs never leave the browser
-            s.objects = s.objects.filter(function (o) {
-                return o.type !== "video" && o.type !== "audio";
+                // audio keeps its link untouched (no frame to capture)
             });
         });
         return Promise.all(jobs).then(function () { return b; });
     }
 
-    function exportPptx() {
+    // shared by .pptx ("export"), .odp ("export-odf") and .pdf
+    // ("export-pdf"): all need the prepared body (charts rastered to PNG,
+    // images inlined, video poster frames captured)
+    function exportSlidesFile(ext, action, busyLabel) {
         endEdit(true);
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ".pptx";
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ext;
+        var extRe = new RegExp("\\" + ext + "$", "i");
         try {
             ao_module_openFileSelector(function (files) {
                 if (!files || !files.length) return;
                 var fp = files[0].filepath;
-                if (!/\.pptx$/i.test(fp)) fp += ".pptx";
-                OfficeApp.showBusy("Exporting PowerPoint file...");
+                if (!extRe.test(fp)) fp += ext;
+                OfficeApp.showBusy(busyLabel);
                 prepareBodyForPptx().then(function (prepared) {
                     ao_module_agirun(PPTX_BACKEND, {
-                        action: "export",
+                        action: action,
                         dest: fp,
                         data: JSON.stringify(prepared)
                     }, function (data) {
@@ -2758,7 +2954,13 @@ var SlidesApp = (function () {
                             OfficeApp.toast("Export failed: " + data.error, "error");
                         } else {
                             OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                            OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                            if (data && data.mediaZip) {
+                                // pptx export packs video/audio into a sidecar zip
+                                OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
+                                    " - video/audio files saved to " + OfficeApp.basename(data.mediaZip));
+                            } else {
+                                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                            }
                         }
                     }, function () {
                         OfficeApp.hideBusy();
@@ -2773,6 +2975,11 @@ var SlidesApp = (function () {
             OfficeApp.toast("File selector is not available here", "error");
         }
     }
+    function exportPptx() { exportSlidesFile(".pptx", "export", "Exporting PowerPoint file..."); }
+    function exportOdp() { exportSlidesFile(".odp", "export-odf", "Exporting OpenDocument file..."); }
+    // server-side real-text PDF (mod/office); video/audio render their
+    // captured poster frame (or a generic placeholder)
+    function exportPdf() { exportSlidesFile(".pdf", "export-pdf", "Exporting PDF..."); }
 
     /* ================= menus ================= */
     function insertMenuItems() {
@@ -3105,10 +3312,11 @@ var SlidesApp = (function () {
                 { title: "Design", items: designMenuItems }
             ],
             binaryImporters: {
-                ".pptx": importPptx
+                ".pptx": function (fp, fn) { importPptx(fp, fn); },
+                ".odp": importOdp
             },
             fileMenuExtras: [
-                { label: "Import PowerPoint (.pptx)...", icon: "file powerpoint outline", action: importPptxDialog },
+                { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
                 {
                     label: "Export", icon: "external alternate", sub: [
                         {
@@ -3116,8 +3324,12 @@ var SlidesApp = (function () {
                             action: exportPptx
                         },
                         {
+                            label: "OpenDocument (.odp)", icon: "file alternate outline",
+                            action: exportOdp
+                        },
+                        {
                             label: "PDF document (.pdf)", icon: "file pdf outline",
-                            action: function () { SlidesExport.exportPDF(); }
+                            action: exportPdf
                         },
                         {
                             label: "Current slide as PNG", icon: "file image outline",

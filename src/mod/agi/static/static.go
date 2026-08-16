@@ -22,6 +22,25 @@ type AgiLibInjectionPayload struct {
 	ScriptPath string
 	Writer     http.ResponseWriter
 	Request    *http.Request
+
+	// RegisterCleanup lets a library hand back a teardown closure that the AGI
+	// runtime runs when the VM terminates - on normal return, exit(), timeout or
+	// force-stop alike. Libraries that hold Go resources across JS calls (open
+	// database handles, file descriptors) must use this so a script that throws
+	// before its explicit close() does not leak them.
+	//
+	// May be nil when a payload is constructed outside a script execution
+	// context (e.g. init.agi appdata injection); always nil-check before use.
+	RegisterCleanup func(cleanup func())
+}
+
+// RunCleanup registers a teardown closure if the payload supports it.
+// Safe to call on payloads with a nil RegisterCleanup.
+func (p *AgiLibInjectionPayload) RunCleanup(cleanup func()) {
+	if p == nil || p.RegisterCleanup == nil || cleanup == nil {
+		return
+	}
+	p.RegisterCleanup(cleanup)
 }
 
 // Get the full vpath if the passing value is a relative path

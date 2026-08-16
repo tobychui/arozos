@@ -354,18 +354,39 @@
    "load": "requirelib(\"http\");",
    "functions": [
     {
+     "name": "http.request",
+     "sig": "http.request(options)",
+     "desc": "Curl-like request. options: {url, method, headers, body, json, form, bodyBase64, contentType, username, password, timeout, followRedirect, responseType}. Returns a response object {ok, status, statusText, headers, body, error}. Body precedence: bodyBase64 > form > json > body; responseType 'base64' returns a binary body base64 encoded.",
+     "ret": "object",
+     "example": "requirelib(\"http\");\nvar resp = http.request({url:\"https://example.com/api\", method:\"POST\", headers:{\"Authorization\":\"Bearer x\"}, json:{a:1}});\nif (resp.ok){ console.log(resp.status, resp.body); }"
+    },
+    {
      "name": "http.get",
-     "sig": "http.get(url)",
-     "desc": "Perform an HTTP GET and return the response body as a string.",
+     "sig": "http.get(url, headers)",
+     "desc": "Perform an HTTP GET and return the response body as a string. headers is optional.",
      "ret": "string",
      "example": "requirelib(\"http\");\nvar body = http.get(\"https://example.com/api\");"
     },
     {
      "name": "http.post",
-     "sig": "http.post(url, jsonString)",
-     "desc": "Perform an HTTP POST with JSON body and return the response body.",
+     "sig": "http.post(url, body, headers, contentType)",
+     "desc": "Perform an HTTP POST and return the response body. Without headers/contentType the body is sent as JSON (backward compatible).",
      "ret": "string",
      "example": "requirelib(\"http\");\nvar resp = http.post(\"https://example.com/api\", JSON.stringify({a:1}));"
+    },
+    {
+     "name": "http.put / http.patch / http.delete",
+     "sig": "http.put(url, body, headers, contentType)",
+     "desc": "Method helpers built on http.request; each returns the response object. http.delete(url, headers) sends no body.",
+     "ret": "object",
+     "example": "requirelib(\"http\");\nvar resp = http.put(\"https://example.com/api/1\", JSON.stringify({a:1}), {\"Content-Type\":\"application/json\"});"
+    },
+    {
+     "name": "http.postForm / http.postJSON",
+     "sig": "http.postForm(url, formObject, headers)",
+     "desc": "POST helpers built on http.request. postForm sends application/x-www-form-urlencoded; postJSON sends a JSON body. Both return the response object.",
+     "ret": "object",
+     "example": "requirelib(\"http\");\nvar resp = http.postForm(\"https://example.com/api\", {a:1, b:2});"
     },
     {
      "name": "http.head",
@@ -620,7 +641,7 @@
     {
      "name": "sqlite.open",
      "sig": "sqlite.open(vpath)",
-     "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, and close methods. Throws SQLiteError on failure.",
+     "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, transaction, and close methods. Throws SQLiteError on failure. Databases open in WAL mode with a 5s busy timeout, so concurrent requests queue for the write lock instead of failing. Any handle still open when the script ends (including on error or exit) is closed automatically.",
      "ret": "object (db)",
      "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
     },
@@ -660,9 +681,16 @@
      "example": "var cols = db.schema(\"t\");\nsendJSONResp(cols);"
     },
     {
+     "name": "db.transaction",
+     "sig": "db.transaction(fn)",
+     "desc": "Run fn inside a single write transaction, committing when it returns and rolling back if it throws. fn receives the connection object and its return value is passed through. Use this for bulk writes: it collapses N lock cycles and N fsyncs into one. Opens with BEGIN IMMEDIATE so the busy timeout applies to acquiring the lock. Cannot be nested.",
+     "ret": "any",
+     "example": "db.transaction(function(tx) {\n    for (var i = 0; i < items.length; i++) {\n        tx.exec(\"INSERT INTO t (name) VALUES (?)\", [items[i]]);\n    }\n});"
+    },
+    {
      "name": "db.close",
      "sig": "db.close()",
-     "desc": "Close the database connection and release the handle.",
+     "desc": "Close the database connection and release the handle. Optional - handles are also closed automatically when the script ends.",
      "ret": "bool",
      "example": "db.close();"
     }
@@ -691,9 +719,16 @@
     {
      "name": "llm.request",
      "sig": "llm.request(messages, options)",
-     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage.",
+     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage. When the model exposes chain-of-thought, choices[0].message.reasoning_content holds its thinking text (DeepSeek reasoning_content, OpenRouter reasoning, or Anthropic thinking blocks).",
      "ret": "object",
      "example": "requirelib(\"llm\");\nvar resp = llm.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
+    },
+    {
+     "name": "llm.streamRequest",
+     "sig": "llm.streamRequest(messages, options, onDelta)",
+     "desc": "Streaming version of llm.request(). onDelta({content, reasoning}) fires for each incremental chunk as the model generates it (content = new answer text, reasoning = new thinking text); the assembled response with usage is returned when the stream ends. Safe to relay chunks straight to a browser via websocket.send().",
+     "ret": "object",
+     "example": "requirelib(\"llm\");\nrequirelib(\"websocket\");\nwebsocket.upgrade(300);\nvar resp = llm.streamRequest([{ role: \"user\", content: \"Explain gravity\" }], {}, function(d){\n    if (d.reasoning != \"\") websocket.send(JSON.stringify({ type: \"reasoning\", content: d.reasoning }));\n    if (d.content != \"\") websocket.send(JSON.stringify({ type: \"delta\", content: d.content }));\n});\nwebsocket.send(JSON.stringify({ type: \"done\", usage: resp.usage }));"
     },
     {
      "name": "llm.usage",
@@ -847,9 +882,9 @@
     {
      "name": "office.presentationToPptx",
      "sig": "office.presentationToPptx(bodyJson, destVpath)",
-     "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"office\");\nif (office.presentationToPptx(data, \"user:/Desktop/out.pptx\")){\n    sendResp(\"OK\");\n}"
+     "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Video/audio are not embedded: each renders as its poster frame and the media files are packed into a sidecar zip next to the pptx. Returns true, or the sidecar zip vpath (string) when one was written.",
+     "ret": "bool | string",
+     "example": "requirelib(\"office\");\nvar r = office.presentationToPptx(data, \"user:/Desktop/out.pptx\");\nif (r){ sendResp(\"OK\"); }"
     },
     {
      "name": "office.xlsxToWorkbook",
@@ -899,6 +934,69 @@
      "desc": "Read a native Office suite container and return its envelope JSON with binary assets extracted into <workdirBase>/<doc-hash>/ and referenced by media?file= links (keeps the JSON small even for video-heavy documents). Legacy plain-JSON files pass through unchanged.",
      "ret": "string (JSON)",
      "example": "requirelib(\"office\");\nvar envelope = office.unpackToWorkdir(\"user:/Documents/deck.ppta\", \"user:/.appdata/Office/cache\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
+    },
+    {
+     "name": "office.odtToDocument",
+     "sig": "office.odtToDocument(srcVpath)",
+     "desc": "Read an OpenDocument Text (.odt) file and return the Docs body schema as a JSON string (formatting, links, lists, tables, pictures as data URLs, page geometry, header/footer, page breaks).",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.odtToDocument(\"user:/Documents/notes.odt\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.documentToOdt",
+     "sig": "office.documentToOdt(jsonStr, destVpath)",
+     "desc": "Build an OpenDocument Text (.odt) file from a serialized Docs body JSON and write it to destVpath. Same subset as the docx exporter.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.documentToOdt(data, \"user:/Documents/notes.odt\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.odsToWorkbook",
+     "sig": "office.odsToWorkbook(srcVpath)",
+     "desc": "Read an OpenDocument Spreadsheet (.ods) and return the Sheets body schema as a JSON string. ODF of:= formulas are translated back to plain A1 references; styles, widths, merges and cell notes are kept.",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.odsToWorkbook(\"user:/Documents/report.ods\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.workbookToOds",
+     "sig": "office.workbookToOds(jsonStr, destVpath)",
+     "desc": "Build an OpenDocument Spreadsheet (.ods) from a serialized Sheets body JSON and write it to destVpath (formulas rewritten to ODF of:= syntax).",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.workbookToOds(data, \"user:/Documents/report.ods\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.odpToPresentation",
+     "sig": "office.odpToPresentation(srcVpath)",
+     "desc": "Read an OpenDocument Presentation (.odp) and return the Slides body schema as a JSON string, scaled into the 960x540 editor space (text, images, shapes, lines, tables, backgrounds, notes).",
+     "ret": "string (JSON)",
+     "example": "requirelib(\"office\");\nvar bodyJson = office.odpToPresentation(\"user:/Documents/deck.odp\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+    },
+    {
+     "name": "office.presentationToOdp",
+     "sig": "office.presentationToOdp(jsonStr, destVpath)",
+     "desc": "Build an OpenDocument Presentation (.odp) from a serialized Slides body JSON and write it to destVpath. Charts use their client-side PNG raster; video/audio objects are skipped.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.presentationToOdp(data, \"user:/Documents/deck.odp\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.documentToPdf",
+     "sig": "office.documentToPdf(jsonStr, destVpath)",
+     "desc": "Build a PDF with real selectable text from a serialized Docs body JSON and write it to destVpath. Renders headings, inline styles, links, lists, tables, inline images, page breaks, page geometry and header/footer with page numbers. Latin-1 core fonts; other characters are transliterated.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.documentToPdf(data, \"user:/Desktop/report.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.workbookPrintToPdf",
+     "sig": "office.workbookPrintToPdf(printJson, destVpath)",
+     "desc": "Build a real-text PDF from a Sheets print model ({sheets:[{name,colW,rowH,rows:[[{t,b,i,u,fc,bg,al}]]}]}) - formatted display strings plus styles computed by the web client. One A4-landscape section per sheet, columns scaled to fit the page.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.workbookPrintToPdf(printModelJson, \"user:/Desktop/sheet.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.presentationToPdf",
+     "sig": "office.presentationToPdf(jsonStr, destVpath)",
+     "desc": "Build a real-text PDF from a serialized Slides body JSON: one page per slide at the deck canvas size. Text and tables stay selectable; images/charts embed from data URLs; video/audio render their captured poster frame (props.png) or a generic placeholder.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.presentationToPdf(data, \"user:/Desktop/deck.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
     }
    ]
   },
@@ -1028,6 +1126,323 @@
      "desc": "Convert/resize an image. scaleFactor 0.5 = 50% size.",
      "ret": "bool",
      "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80);"
+    }
+   ]
+  },
+  {
+   "id": "notification",
+   "name": "notification",
+   "desc": "Raise notifications to ArozOS users through the core notification system. The delivery channel (Telegram, desktop, email, custom webhook) is chosen by each receiving user's own notification preferences; the script only sets the priority (low / medium / high). Available when the host wired the notification system in.",
+   "load": "requirelib(\"notification\");",
+   "functions": [
+    {
+     "name": "notification.send",
+     "sig": "notification.send(title, message, priority)",
+     "desc": "Send a notification to the current user. priority is optional and one of \"low\", \"medium\" (default) or \"high\". Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"notification\");\nnotification.send(\"Backup done\", \"Your nightly backup finished\");\nnotification.send(\"Disk failing\", \"SMART error on /dev/sda\", notification.PRIORITY_HIGH);"
+    },
+    {
+     "name": "notification.sendToUser",
+     "sig": "notification.sendToUser(username, title, message, priority)",
+     "desc": "Send a notification to another user. Requires admin permission. priority is optional (low / medium / high). Returns true on success.",
+     "ret": "bool",
+     "example": "requirelib(\"notification\");\nnotification.sendToUser(\"bob\", \"Hi Bob\", \"A message for you\", \"low\");"
+    },
+    {
+     "name": "notification.PRIORITY_LOW / PRIORITY_MEDIUM / PRIORITY_HIGH",
+     "sig": "notification.PRIORITY_HIGH",
+     "desc": "Convenience string constants (\"low\", \"medium\", \"high\") for the priority argument.",
+     "ret": "string",
+     "example": "requirelib(\"notification\");\nnotification.send(\"Urgent\", \"Something needs attention\", notification.PRIORITY_HIGH);"
+    }
+   ]
+  },
+  {
+   "id": "git",
+   "name": "git",
+   "desc": "Version control for folders in the user's virtual file system, backed by go-git (no git binary needed on the host). Query calls return their payload directly or an object with an error field; mutating calls return {success, error, message}, plus authRequired:true when a remote rejects the credentials. HTTPS credentials are stored per user, encrypted, and keyed by remote host. Repositories must live on a local storage pool. Available when the host wired the git manager in.",
+   "load": "requirelib(\"git\");",
+   "functions": [
+    {
+     "name": "git.isRepo",
+     "sig": "git.isRepo(vpath)",
+     "desc": "Check whether vpath is inside a git working tree.",
+     "ret": "bool",
+     "example": "requirelib(\"git\");\nif (git.isRepo(\"user:/Desktop/myproject\")) {\n    console.log(\"tracked by git\");\n}"
+    },
+    {
+     "name": "git.repoRoot",
+     "sig": "git.repoRoot(vpath)",
+     "desc": "Virtual path of the working tree root containing vpath. Returns false when vpath is not in a repository.",
+     "ret": "string | false",
+     "example": "var root = git.repoRoot(\"user:/Desktop/myproject/src\");"
+    },
+    {
+     "name": "git.init",
+     "sig": "git.init(vpath)",
+     "desc": "Create an empty repository at vpath, creating the folder when it does not exist.",
+     "ret": "object",
+     "example": "var result = git.init(\"user:/Desktop/newproject\");"
+    },
+    {
+     "name": "git.clone",
+     "sig": "git.clone(url, vpath, options)",
+     "desc": "Clone a remote into vpath, which must be empty or absent. Options: username, token, remember, branch, depth.",
+     "ret": "object",
+     "example": "var result = git.clone(\"https://github.com/tobychui/arozos.git\", \"user:/Desktop/arozos\", {\n    username: \"tobychui\",\n    token: \"ghp_...\",\n    remember: true,\n    depth: 1\n});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
+    },
+    {
+     "name": "git.status",
+     "sig": "git.status(vpath)",
+     "desc": "Full repository snapshot: branch, detached, head, upstream, ahead, behind, clean, changes[], remotes[], conflicted. Each change carries path, status, staging, worktree, staged, binary, size and preview (image/pdf/video/audio, absent when the browser cannot render it).",
+     "ret": "object",
+     "example": "var status = git.status(\"user:/Desktop/myproject\");\nconsole.log(status.branch + \": \" + status.changes.length + \" changed files\");"
+    },
+    {
+     "name": "git.log",
+     "sig": "git.log(vpath, limit)",
+     "desc": "Commits reachable from HEAD, newest first (default limit 50). Each has hash, shortHash, subject, message, authorName, authorEmail, timestamp and parents. Each commit also carries a tags array of tag names pointing at it.",
+     "ret": "array",
+     "example": "var commits = git.log(\"user:/Desktop/myproject\", 10);\ncommits.forEach(function(c) {\n    console.log(c.shortHash + \" \" + c.subject);\n});"
+    },
+    {
+     "name": "git.checkoutCommit",
+     "sig": "git.checkoutCommit(vpath, hash)",
+     "desc": "Check a commit out in detached HEAD state. Refuses when the working tree has uncommitted changes.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.checkoutCommit(\"user:/Desktop/myproject\", commitHash);"
+    },
+    {
+     "name": "git.resetToCommit",
+     "sig": "git.resetToCommit(vpath, hash, mode)",
+     "desc": "Move the current branch to a commit. mode is \"soft\" (HEAD only), \"mixed\" (also the index, the default) or \"hard\" (also the working tree). A hard reset refuses when there are uncommitted changes.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.resetToCommit(\"user:/Desktop/myproject\", commitHash, \"soft\");"
+    },
+    {
+     "name": "git.createBranchAt",
+     "sig": "git.createBranchAt(vpath, branch, hash)",
+     "desc": "Create a branch pointing at a commit and check it out.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.createBranchAt(\"user:/Desktop/myproject\", \"hotfix\", commitHash);"
+    },
+    {
+     "name": "git.createTag",
+     "sig": "git.createTag(vpath, tag, hash, message)",
+     "desc": "Tag a commit. A non-empty message produces an annotated tag, otherwise a lightweight one.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.createTag(\"user:/Desktop/myproject\", \"v1.0\", commitHash, \"First release\");"
+    },
+    {
+     "name": "git.revertCommit",
+     "sig": "git.revertCommit(vpath, hash, options)",
+     "desc": "Create a new commit undoing a commit's changes. Uses a clean-or-refuse strategy: since go-git has no merge engine, the revert is applied only when the affected files still match the reverted commit, otherwise it is refused rather than producing a wrong result. options may carry name and email.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar result = git.revertCommit(\"user:/Desktop/myproject\", commitHash, {});\nif (!result.success) { console.log(result.error); }"
+    },
+    {
+     "name": "git.cherryPickCommit",
+     "sig": "git.cherryPickCommit(vpath, hash, options)",
+     "desc": "Apply a commit's changes onto the current HEAD, preserving the original author. Uses the same clean-or-refuse strategy as revert. options may carry name and email for the committer.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.cherryPickCommit(\"user:/Desktop/myproject\", commitHash, {});"
+    },
+    {
+     "name": "git.amendMessage",
+     "sig": "git.amendMessage(vpath, message, options)",
+     "desc": "Rewrite the message of the HEAD commit, keeping its tree, parents and author. Only a branch tip can be amended.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.amendMessage(\"user:/Desktop/myproject\", \"Corrected commit message\", {});"
+    },
+    {
+     "name": "git.branches",
+     "sig": "git.branches(vpath)",
+     "desc": "Local and remote-tracking branches: name, fullRef, hash, isRemote, isCurrent, plus remote and short — for origin/feature/login those are \"origin\" and \"feature/login\", which is what the branch management calls expect. For a local branch short equals name and remote is empty.",
+     "ret": "array",
+     "example": "var branches = git.branches(\"user:/Desktop/myproject\");"
+    },
+    {
+     "name": "git.checkout",
+     "sig": "git.checkout(vpath, branch, create)",
+     "desc": "Switch to a branch, creating it from HEAD when create is true. Checking out a remote name such as \"origin/feature\" creates the matching local branch.",
+     "ret": "object",
+     "example": "git.checkout(\"user:/Desktop/myproject\", \"feature/login\", true);"
+    },
+    {
+     "name": "git.deleteBranch",
+     "sig": "git.deleteBranch(vpath, branch, force)",
+     "desc": "Delete a local branch. The checked-out branch is never deleted. A branch holding commits unreachable from HEAD is refused with unmerged:true unless force is set, mirroring git branch -d versus -D.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar result = git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", false);\nif (result.unmerged) {\n    //confirm with the user, then force\n    git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", true);\n}"
+    },
+    {
+     "name": "git.renameBranch",
+     "sig": "git.renameBranch(vpath, oldName, newName)",
+     "desc": "Rename a local branch. Its upstream configuration moves with it, and HEAD follows when the renamed branch is the checked-out one.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.renameBranch(\"user:/Desktop/myproject\", \"feature\", \"feature-v2\");"
+    },
+    {
+     "name": "git.deleteRemoteBranch",
+     "sig": "git.deleteRemoteBranch(vpath, remote, branch, options)",
+     "desc": "Delete a branch on the remote — a network push with an empty source refspec. The local remote-tracking ref is pruned too, so the branch stops appearing in git.branches(); any local branch of the same name is left alone. Options: username, token, remember.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar result = git.deleteRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"stale\", {});\nif (!result.success && result.authRequired) { /* prompt and retry */ }"
+    },
+    {
+     "name": "git.renameRemoteBranch",
+     "sig": "git.renameRemoteBranch(vpath, remote, oldName, newName, options)",
+     "desc": "Rename a branch on the remote. Git cannot rename a remote ref, so this pushes the new name then deletes the old one — in that order, so an interrupted rename leaves the branch under both names rather than losing it. Options: username, token, remember.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.renameRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"feature\", \"feature-v2\", {});"
+    },
+    {
+     "name": "git.remotes",
+     "sig": "git.remotes(vpath)",
+     "desc": "Configured remotes, each with name and urls.",
+     "ret": "array",
+     "example": "var remotes = git.remotes(\"user:/Desktop/myproject\");"
+    },
+    {
+     "name": "git.addRemote",
+     "sig": "git.addRemote(vpath, name, url)",
+     "desc": "Add a remote. Passing an existing name replaces its URL.",
+     "ret": "object",
+     "example": "git.addRemote(\"user:/Desktop/myproject\", \"origin\", \"https://github.com/owner/repo.git\");"
+    },
+    {
+     "name": "git.removeRemote",
+     "sig": "git.removeRemote(vpath, name)",
+     "desc": "Delete a remote by name.",
+     "ret": "object",
+     "example": "git.removeRemote(\"user:/Desktop/myproject\", \"upstream\");"
+    },
+    {
+     "name": "git.add",
+     "sig": "git.add(vpath, files)",
+     "desc": "Stage the given repository-relative paths. A deleted path is removed from the index.",
+     "ret": "object",
+     "example": "git.add(\"user:/Desktop/myproject\", [\"src/main.go\", \"README.md\"]);"
+    },
+    {
+     "name": "git.addAll",
+     "sig": "git.addAll(vpath)",
+     "desc": "Stage every change in the working tree, like git add -A.",
+     "ret": "object",
+     "example": "git.addAll(\"user:/Desktop/myproject\");"
+    },
+    {
+     "name": "git.unstage",
+     "sig": "git.unstage(vpath, files)",
+     "desc": "Remove paths from the index while leaving the working tree untouched.",
+     "ret": "object",
+     "example": "git.unstage(\"user:/Desktop/myproject\", [\"src/main.go\"]);"
+    },
+    {
+     "name": "git.discard",
+     "sig": "git.discard(vpath, files)",
+     "desc": "Throw away working tree changes. Untracked files are deleted, since there is nothing to restore them from.",
+     "ret": "object",
+     "example": "git.discard(\"user:/Desktop/myproject\", [\"src/broken.go\"]);"
+    },
+    {
+     "name": "git.commit",
+     "sig": "git.commit(vpath, message, files, options)",
+     "desc": "Stage files and commit them in one step. Options: name, email, all. The author defaults to the calling user, then to the repository git config. Returns {success, hash, message}.",
+     "ret": "object",
+     "example": "var result = git.commit(\"user:/Desktop/myproject\", \"Fix the parser\", [\"src/parser.go\"], {\n    name: \"Toby Chui\",\n    email: \"toby@example.com\"\n});\nconsole.log(result.hash);"
+    },
+    {
+     "name": "git.ignore",
+     "sig": "git.ignore(vpath, patterns)",
+     "desc": "Append rules to the repository's .gitignore, creating the file when absent. Rules that are already present are skipped and the existing content is never rewritten, so repeating the call is harmless. The returned message names the rules actually added.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\ngit.ignore(\"user:/Desktop/myproject\", [\"/build\", \"*.log\"]);"
+    },
+    {
+     "name": "git.diff",
+     "sig": "git.diff(vpath, file)",
+     "desc": "Diff of one path between HEAD and the working tree: additions, deletions, binary, tooLarge, isNew, isDeleted and hunks[]. Each hunk has header, oldStart/oldLines, newStart/newLines and lines[], where each line is {type, oldLine, newLine, content} and type is \"context\", \"add\" or \"del\".",
+     "ret": "object",
+     "example": "var diff = git.diff(\"user:/Desktop/myproject\", \"src/main.go\");\nconsole.log(\"+\" + diff.additions + \" -\" + diff.deletions);"
+    },
+    {
+     "name": "git.diffCommit",
+     "sig": "git.diffCommit(vpath, hash, file)",
+     "desc": "Same shape as git.diff, comparing a commit against its first parent.",
+     "ret": "object",
+     "example": "var diff = git.diffCommit(\"user:/Desktop/myproject\", commitHash, \"src/main.go\");"
+    },
+    {
+     "name": "git.commitFiles",
+     "sig": "git.commitFiles(vpath, hash)",
+     "desc": "The paths a commit touched, each with a status of added, modified or deleted, and a preview kind.",
+     "ret": "array",
+     "example": "var files = git.commitFiles(\"user:/Desktop/myproject\", commitHash);"
+    },
+    {
+     "name": "git.fileBlob",
+     "sig": "git.fileBlob(vpath, file, revision)",
+     "desc": "Read a file's content at a revision, returning {success, exists, base64, mime, kind, size}. revision is \"HEAD\" (the default) or a full 40 character commit hash; branch names and short hashes are rejected. This is the only way to obtain a committed binary file, which lives in the object database rather than on disk. exists is false without an error when the path was not part of that revision. Files above 8 MB are refused.",
+     "ret": "object",
+     "example": "requirelib(\"git\");\nvar blob = git.fileBlob(\"user:/Desktop/myproject\", \"img/logo.png\", \"HEAD\");\nif (blob.exists) {\n    //blob.base64 holds the committed image, blob.mime is \"image/png\"\n}"
+    },
+    {
+     "name": "git.fetch",
+     "sig": "git.fetch(vpath, options)",
+     "desc": "Update remote-tracking refs without touching the working tree. Options: remote, username, token, remember.",
+     "ret": "object",
+     "example": "git.fetch(\"user:/Desktop/myproject\", { remote: \"origin\" });"
+    },
+    {
+     "name": "git.pull",
+     "sig": "git.pull(vpath, options)",
+     "desc": "Fetch and fast-forward the current branch. A diverged branch is reported as an error rather than merged. Options: remote, branch, username, token, remember.",
+     "ret": "object",
+     "example": "var result = git.pull(\"user:/Desktop/myproject\", {});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
+    },
+    {
+     "name": "git.push",
+     "sig": "git.push(vpath, options)",
+     "desc": "Push a branch to a remote. Options: remote, branch, username, token, remember, force, setUpstream.",
+     "ret": "object",
+     "example": "var result = git.push(\"user:/Desktop/myproject\", { setUpstream: true });\nconsole.log(result.message);"
+    },
+    {
+     "name": "git.saveCredential",
+     "sig": "git.saveCredential(host, username, token)",
+     "desc": "Store an HTTPS credential for a host, encrypted, for the calling user only. host may be a bare host name or a full remote URL.",
+     "ret": "object",
+     "example": "git.saveCredential(\"github.com\", \"tobychui\", \"ghp_...\");"
+    },
+    {
+     "name": "git.listCredentials",
+     "sig": "git.listCredentials()",
+     "desc": "Stored credentials as {host, username}. Tokens are never returned.",
+     "ret": "array",
+     "example": "var saved = git.listCredentials();"
+    },
+    {
+     "name": "git.hasCredential",
+     "sig": "git.hasCredential(host)",
+     "desc": "Check whether a credential is stored for a host.",
+     "ret": "bool",
+     "example": "if (!git.hasCredential(\"github.com\")) {\n    //prompt the user\n}"
+    },
+    {
+     "name": "git.removeCredential",
+     "sig": "git.removeCredential(host)",
+     "desc": "Delete the stored credential for a host.",
+     "ret": "object",
+     "example": "git.removeCredential(\"github.com\");"
+    },
+    {
+     "name": "git.remoteHost",
+     "sig": "git.remoteHost(url)",
+     "desc": "The host a remote URL maps to, i.e. the key credentials are stored under. Both https://github.com/a/b.git and git@github.com:a/b.git yield github.com.",
+     "ret": "string",
+     "example": "var host = git.remoteHost(\"https://github.com/owner/repo.git\");"
     }
    ]
   }

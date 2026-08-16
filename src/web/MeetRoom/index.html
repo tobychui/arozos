@@ -81,7 +81,15 @@
                 </span>
             </div>
             <div class="room-meta">
-                <i class="user icon"></i><span id="participantCount">1</span>
+                <span class="meta-item" title="Meeting duration">
+                    <i class="hourglass half icon"></i><span id="meetingElapsed">00:00</span>
+                </span>
+                <span class="meta-item" title="Current time">
+                    <i class="clock outline icon"></i><span id="systemClock">--:--</span>
+                </span>
+                <span class="meta-item" title="Participants">
+                    <i class="user icon"></i><span id="participantCount">1</span>
+                </span>
             </div>
         </div>
 
@@ -100,6 +108,14 @@
                 <div class="chat-input">
                     <div id="uploadStatus" style="display:none;">
                         <i class="spinner loading icon"></i> <span id="uploadStatusText">Uploading...</span>
+                    </div>
+                    <div id="attachMenu" style="display:none;">
+                        <button id="attachDeviceBtn" class="attach-menu-item">
+                            <i class="upload icon"></i> Upload from device
+                        </button>
+                        <button id="attachArozosBtn" class="attach-menu-item">
+                            <i class="folder open outline icon"></i> From ArozOS files
+                        </button>
                     </div>
                     <div class="ui small action input fluid">
                         <input type="text" id="chatText" maxlength="4000" placeholder="Type a message... (Ctrl+V pastes an image)">
@@ -122,6 +138,17 @@
             </div>
         </div>
 
+        <!-- Floating, draggable connection-stats window -->
+        <div id="statsPanel" style="display:none;">
+            <div id="statsHeader">
+                <i class="chart line icon"></i><span class="stats-title">Connection stats</span>
+                <i id="statsCloseBtn" class="close icon stats-close" title="Close"></i>
+            </div>
+            <div id="statsBody">
+                <div class="stats-empty">Gathering connection statistics...</div>
+            </div>
+        </div>
+
         <div id="msgToast" style="display:none;" title="Click to open the chat">
             <div class="toast-title"><i class="comment icon"></i><span></span></div>
             <div class="toast-body"></div>
@@ -137,6 +164,9 @@
             <button id="shareBtn" class="ctrl-btn" title="Share your screen">
                 <i class="desktop icon"></i><span>Share</span>
             </button>
+            <button id="handBtn" class="ctrl-btn" title="Raise or lower your hand">
+                <i class="hand paper outline icon"></i><span>Raise</span>
+            </button>
             <button id="chatBtn" class="ctrl-btn" title="Open chat">
                 <i class="comments icon"></i><span>Chat</span>
                 <span id="chatBadge" class="chat-badge" style="display:none;"></span>
@@ -144,7 +174,10 @@
             <button id="peopleBtn" class="ctrl-btn" title="Participants and attendance">
                 <i class="users icon"></i><span>People</span>
             </button>
-            <button id="inviteBtn" class="ctrl-btn" title="Copy invite info">
+            <button id="statsBtn" class="ctrl-btn" title="Connection performance">
+                <i class="chart line icon"></i><span>Stats</span>
+            </button>
+            <button id="inviteBtn" class="ctrl-btn" title="Invite people">
                 <i class="share alternate icon"></i><span>Invite</span>
             </button>
             <button id="leaveBtn" class="ctrl-btn ctrl-danger" title="Leave the meeting">
@@ -153,6 +186,52 @@
             <button id="endBtn" class="ctrl-btn ctrl-danger" title="End the meeting for everyone" style="display:none;">
                 <i class="stop circle icon"></i><span>End</span>
             </button>
+        </div>
+
+        <!-- ================= Invite dialog ================= -->
+        <div id="inviteModal" style="display:none;">
+            <div class="invite-card">
+                <div class="invite-card-header">
+                    <i class="share alternate icon"></i> Invite people
+                    <i id="inviteCloseBtn" class="close icon invite-card-close"></i>
+                </div>
+                <div class="invite-card-body">
+                    <div class="invite-field">
+                        <label>Meeting</label>
+                        <div id="inviteTitle" class="invite-value"></div>
+                    </div>
+                    <div class="invite-field">
+                        <label>Meeting ID</label>
+                        <div class="invite-copy-row">
+                            <span id="inviteId" class="invite-id"></span>
+                            <button class="ui tiny icon button invite-copy-btn" data-copy="id" title="Copy meeting ID">
+                                <i class="copy icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="invite-field">
+                        <label>Invite link</label>
+                        <div class="invite-copy-row">
+                            <input id="inviteLink" type="text" readonly>
+                            <button class="ui tiny icon button invite-copy-btn" data-copy="link" title="Copy invite link">
+                                <i class="linkify icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="invitePasswordNote" class="invite-note" style="display:none;">
+                        <i class="lock icon"></i> This meeting is password protected - share the password with your guests separately.
+                    </div>
+                    <div class="invite-field">
+                        <label>Message (optional)</label>
+                        <textarea id="inviteMessage" rows="2" maxlength="500" placeholder="Add a personal note to your invitation..."></textarea>
+                    </div>
+                </div>
+                <div class="invite-card-footer">
+                    <button id="inviteCopyAllBtn" class="ui primary button">
+                        <i class="copy icon"></i> Copy invitation
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

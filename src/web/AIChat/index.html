@@ -813,7 +813,7 @@ function renderMarkdown(src){
     var blocks = [];
     src = src.replace(/```(\w+)?\n?([\s\S]*?)```/g, function(_, lang, code){
         var idx = blocks.length; blocks.push({ lang:lang||"", code:code.replace(/\n$/,"") });
-        return " CB" + idx + " ";
+        return " CB" + idx + " ";
     });
     var html = esc(src);
     html = html.replace(/`([^`\n]+)`/g, function(_, c){ return '<code class="inline">'+c+'</code>'; });
@@ -828,7 +828,7 @@ function renderMarkdown(src){
         return "\n<ul>"+items+"</ul>\n";
     });
     html = html.replace(/\n/g, "<br>");
-    html = html.replace(/ CB(\d+) /g, function(_, i){
+    html = html.replace(/ CB(\d+) /g, function(_, i){
         var b = blocks[+i];
         var head = b.lang ? '<div class="code-lang">'+esc(b.lang)+'</div>' : "";
         return '<div class="codeblock">'+head+'<button class="copy-code" title="Copy">⧉</button><pre><code>'+esc(b.code)+'</code></pre></div>';

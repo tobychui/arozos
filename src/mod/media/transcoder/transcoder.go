@@ -30,29 +30,55 @@ const (
 
 // Transcode and stream the given file. Make sure ffmpeg is installed before calling to transcoder.
 // startTime is a seek offset in seconds; pass 0 to start from the beginning.
+// When the host has a usable Intel or AMD hardware encoder (probed once and
+// cached by getHWEncoderProfile), it is used in place of libx264 to keep CPU
+// load down; otherwise this falls back to the original software path.
 func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
 	// Build the FFmpeg command based on the resolution parameter
 	var cmd *exec.Cmd
 
-	transcodeFormatArgs := []string{"-f", "mp4", "-vcodec", "libx264", "-preset", "superfast", "-g", "60", "-movflags", "frag_keyframe+empty_moov+faststart", "pipe:1"}
-	var preInputArgs []string
-	if startTime > 0.001 {
-		preInputArgs = []string{"-ss", fmt.Sprintf("%.3f", startTime)}
-	}
-	var middleArgs []string
+	var height string
 	switch resolution {
 	case "360p":
-		middleArgs = []string{"-i", inputFile, "-vf", "scale=-1:360"}
+		height = "360"
 	case "720p":
-		middleArgs = []string{"-i", inputFile, "-vf", "scale=-1:720"}
+		height = "720"
 	case "1080p":
-		middleArgs = []string{"-i", inputFile, "-vf", "scale=-1:1080"}
+		height = "1080"
 	case "":
-		middleArgs = []string{"-i", inputFile}
+		height = ""
 	default:
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}
+
+	var preInputArgs []string
+	if startTime > 0.001 {
+		preInputArgs = append(preInputArgs, "-ss", fmt.Sprintf("%.3f", startTime))
+	}
+
+	var videoCodecArgs []string
+	var vf string
+	if hw := getHWEncoderProfile(); hw != nil {
+		preInputArgs = append(append([]string{}, hw.PreInput...), preInputArgs...)
+		vf = hw.ScaleFilter(height)
+		videoCodecArgs = append([]string{"-vcodec", hw.Codec}, hw.EncodeArgs...)
+	} else {
+		if height != "" {
+			vf = "scale=-1:" + height
+		}
+		videoCodecArgs = []string{"-vcodec", "libx264", "-preset", "superfast"}
+	}
+
+	middleArgs := []string{"-i", inputFile}
+	if vf != "" {
+		middleArgs = append(middleArgs, "-vf", vf)
+	}
+
+	transcodeFormatArgs := []string{"-f", "mp4"}
+	transcodeFormatArgs = append(transcodeFormatArgs, videoCodecArgs...)
+	transcodeFormatArgs = append(transcodeFormatArgs, "-g", "60", "-movflags", "frag_keyframe+empty_moov+faststart", "pipe:1")
+
 	var args []string
 	args = append(args, preInputArgs...)
 	args = append(args, middleArgs...)

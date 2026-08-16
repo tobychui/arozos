@@ -66,6 +66,37 @@ func TestClientChatAnthropic(t *testing.T) {
 	}
 }
 
+func TestClientChatAnthropicThinking(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		//Extended-thinking responses interleave thinking and text blocks.
+		io.WriteString(w, `{"model":"claude-x",
+			"content":[
+				{"type":"thinking","thinking":"The user asked a simple question."},
+				{"type":"text","text":"The answer is 4."}
+			],
+			"usage":{"input_tokens":5,"output_tokens":9},
+			"stop_reason":"end_turn"}`)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "k", "anthropic", 0)
+	resp, err := c.Chat([]Message{{Role: "user", Content: "2+2?"}}, ChatOptions{Model: "claude-x"})
+	if err != nil {
+		t.Fatalf("anthropic request errored: %v", err)
+	}
+	if len(resp.Choices) == 0 {
+		t.Fatalf("no choices returned")
+	}
+	//The thinking block must not leak into the visible answer.
+	if resp.Choices[0].Message.Content != "The answer is 4." {
+		t.Errorf("answer content should exclude thinking, got: %q", resp.Choices[0].Message.Content)
+	}
+	if resp.Choices[0].Message.ReasoningContent != "The user asked a simple question." {
+		t.Errorf("thinking block not captured as reasoning: %q", resp.Choices[0].Message.ReasoningContent)
+	}
+}
+
 func TestClientChatAnthropicErrorEnvelope(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)

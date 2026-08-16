@@ -8,6 +8,9 @@
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <script src="backend/common.js"></script>
+
+    <!-- ASS/SSA subtitle parser + renderer (see script/ass.js) -->
+    <script src="script/ass.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -87,6 +90,14 @@
             width: 12px; height: 12px; background: #fff; border-radius: 50%;
         }
 
+        /* Portrait phones/tablets drive playback volume with the hardware keys,
+           so the in-page slider only eats toolbar width. Users who want it back
+           can force it on from the settings popup ("Volume bar → Always show"). */
+        @media (max-width: 899px) and (orientation: portrait) {
+            #volume-slider { display: none; }
+        }
+        body.always-show-volume #volume-slider { display: block; }
+
         #time-display {
             font-size: 13px; color: rgba(255,255,255,0.8);
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -94,18 +105,131 @@
         }
         #spacer { flex: 1; }
 
+        /* ─── ASS subtitle overlay ───────────────────────────────────────────────────── */
+        /* Sized in JS to the video's displayed rect so script coordinates land correctly
+           regardless of letterboxing. Children are absolutely positioned by the renderer. */
+        #ass-overlay {
+            display: none;
+            position: absolute;
+            left: 0; top: 0; width: 0; height: 0;
+            pointer-events: none;
+            overflow: hidden;
+            /* No z-index on purpose: subtitles sit directly after <video> in the DOM,
+               so they paint above the (unpositioned) video but below every later
+               positioned sibling — scrub preview, controls, menus and modals all stay
+               on top of the text instead of being covered by it. */
+
+            /* libass spaces lines by the font's own ascent+descent with no extra
+               leading; 1.2 would push stacked dual-language lines apart and break
+               the MarginV offsets releases use to sit them one above the other. */
+            line-height: 1.05;
+        }
+        #ass-overlay.active { display: block; }
+
+        /* ── Scrub-bar hover preview ───────────────────────────────────────── */
+        #scrub-preview {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            margin-bottom: 12px;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 8;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        #scrub-preview.active { display: flex; }
+        #scrub-preview-thumb {
+            display: none;
+            border-radius: 8px;
+            background-color: #000;
+            background-repeat: no-repeat;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.8), 0 0 0 2px rgba(255,255,255,0.14);
+        }
+        #scrub-preview-thumb.ready { display: block; }
+        #scrub-preview-time {
+            background: rgba(0,0,0,0.82);
+            border-radius: 6px;
+            padding: 3px 9px;
+            font-size: 12px; font-weight: 600;
+            color: #fff; white-space: nowrap;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Transcode-seek freeze frame ───────────────────────────────────── */
+        /* Deliberately no z-index: both sit immediately after <video> in the DOM,
+           so they paint above the (unpositioned) video but below every later
+           positioned sibling — controls and menus stay on top and clickable. */
+        #seek-freeze {
+            display: none;
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            background: #000;
+            pointer-events: none;
+        }
+        #seek-spinner {
+            display: none;
+            position: absolute; inset: 0;
+            align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        #seek-spinner.active { display: flex; }
+        .seek-spinner-box {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 10px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border-radius: 14px;
+            padding: 18px 24px;
+            font-size: 12px; color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .seek-spinner-box .spinner {
+            width: 38px; height: 38px;
+            border: 3px solid rgba(255,255,255,0.18);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: seekSpin 0.8s linear infinite;
+        }
+        @keyframes seekSpin { to { transform: rotate(360deg); } }
+
         /* ── Subtitle display ──────────────────────────────────────────────── */
         #subtitle-display {
             display: none;
             position: absolute;
             bottom: 72px; left: 50%; transform: translateX(-50%);
             width: 90%; text-align: center;
-            pointer-events: none; z-index: 15;
+            pointer-events: none;   /* z-index deliberately unset, see #ass-overlay */
             color: #fff; font-size: 22px; font-weight: 500; line-height: 1.45;
             text-shadow:
                 -1px -1px 0 #000,  1px -1px 0 #000,
                 -1px  1px 0 #000,  1px  1px 0 #000,
                 0    2px 6px rgba(0,0,0,0.85);
+        }
+
+        /* ── Centre play/pause flash indicator ─────────────────────────────── */
+        #play-flash {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 88px; height: 88px;
+            margin: -44px 0 0 -44px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            opacity: 0; z-index: 18;
+        }
+        #play-flash img { width: 40px; height: 40px; display: block; }
+        #play-flash.flash { animation: playFlash 0.62s ease-out; }
+        @keyframes playFlash {
+            0%   { opacity: 0;    transform: scale(0.68); }
+            18%  { opacity: 0.95; transform: scale(0.92); }
+            100% { opacity: 0;    transform: scale(1.32); }
         }
 
         /* ── Resume popup ──────────────────────────────────────────────────── */
@@ -156,6 +280,7 @@
         .ctx-item.ctx-active   { color: var(--accent); }
         .ctx-item.ctx-disabled { opacity: 0.3; pointer-events: none; }
         .ctx-icon { width: 16px; text-align: center; flex-shrink: 0; font-style: normal; }
+        img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
         .ctx-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; }
         .ctx-has-sub { justify-content: space-between; position: relative; }
         .ctx-sub-arrow { font-style: normal; opacity: 0.55; font-size: 15px; }
@@ -191,7 +316,8 @@
             background: none; border: none; cursor: pointer;
             color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
         }
-        #sset-close:hover { color: var(--text); }
+        #sset-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+        #sset-close:hover img { opacity: 1; }
         .sset-row {
             display: flex; align-items: center; gap: 10px;
             padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -216,6 +342,7 @@
             flex: 1; background: var(--surface2); color: var(--text);
             border: 1px solid rgba(255,255,255,0.08); border-radius: calc(var(--radius) / 1.6);
             padding: 5px 8px; font-size: 12px; cursor: pointer; outline: none; appearance: auto;
+            width: 100%;
         }
         .sset-colors { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; flex: 1; }
         .sset-color {
@@ -258,7 +385,8 @@
             background: none; border: none; cursor: pointer;
             color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
         }
-        #video-info-close:hover { color: var(--text); }
+        #video-info-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+        #video-info-close:hover img { opacity: 1; }
         #video-info-tabs {
             display: flex; gap: 3px;
             background: var(--surface2); border-radius: calc(var(--radius) / 1.25); padding: 3px; margin-bottom: 12px;
@@ -279,6 +407,62 @@
         .info-label { color: var(--text-sub); flex-shrink: 0; width: 110px; }
         .info-value { color: var(--text); word-break: break-all; }
 
+        /* ── Playback settings popup (gear button) ─────────────────────────── */
+        #settings-popup {
+            display: none;
+            position: absolute;
+            right: 14px; bottom: 62px;
+            z-index: 35;
+            background: rgba(28,28,30,0.97);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-radius: calc(var(--radius) * 1.5);
+            padding: 6px 0; width: 236px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            user-select: none;
+        }
+        #settings-popup.active { display: block; }
+        .set-section { padding: 6px 14px 8px; }
+        .set-section + .set-section { border-top: 1px solid rgba(255,255,255,0.08); }
+        .set-head {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+            text-transform: uppercase; color: var(--text-sub);
+            margin-bottom: 7px;
+        }
+        .set-head img { width: 14px; height: 14px; opacity: 0.7; display: block; }
+        .set-seg {
+            display: flex; background: var(--surface2);
+            border-radius: calc(var(--radius) * 1.2); padding: 2px; gap: 2px;
+        }
+        .set-seg-btn {
+            flex: 1; padding: 5px 0; font-size: 12px; font-family: inherit;
+            border: none; border-radius: var(--radius); cursor: pointer;
+            background: transparent; color: var(--text-sub);
+            transition: background 0.15s, color 0.15s; outline: none;
+        }
+        .set-seg-btn:hover  { color: var(--text); }
+        .set-seg-btn.active { background: var(--surface); color: var(--text); }
+
+        .speed-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .speed-btn {
+            padding: 5px 0; font-size: 12px; font-family: inherit;
+            border: none; border-radius: var(--radius); cursor: pointer;
+            background: var(--surface2); color: var(--text-sub);
+            transition: background 0.15s, color 0.15s; outline: none;
+        }
+        .speed-btn:hover  { color: var(--text); }
+        .speed-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+        .set-link {
+            display: flex; align-items: center; gap: 9px;
+            padding: 8px 14px; font-size: 13px; cursor: pointer;
+            color: var(--text); transition: background var(--transition);
+        }
+        .set-link:hover { background: rgba(255,255,255,0.08); }
+        .set-link img   { width: 15px; height: 15px; opacity: 0.8; display: block; }
+
         /* ── Toast ─────────────────────────────────────────────────────────── */
         #toast {
             position: fixed; bottom: 30px; left: 50%;
@@ -297,8 +481,26 @@
 
     <video id="main-video" preload="metadata"></video>
 
+    <!-- Frozen last frame + spinner, shown while a transcode seek re-buffers.
+         Must stay directly after <video> — stacking relies on DOM order. -->
+    <canvas id="seek-freeze"></canvas>
+    <div id="seek-spinner">
+        <div class="seek-spinner-box">
+            <div class="spinner"></div>
+            <span>Buffering…</span>
+        </div>
+    </div>
+
+    <!-- Styled ASS/SSA subtitles are drawn here, sized to the video's
+         displayed rectangle. The plain #subtitle-display below is used
+         for SubRip tracks. -->
+    <div id="ass-overlay"></div>
+
     <!-- Subtitle overlay -->
     <div id="subtitle-display"></div>
+
+    <!-- Centre play/pause flash indicator -->
+    <div id="play-flash"><img id="play-flash-icon" src="img/icons/play_white.svg" alt=""></div>
 
     <!-- Resume popup -->
     <div id="resume-popup">
@@ -312,10 +514,10 @@
 
     <!-- Context menu -->
     <div id="player-ctx">
-        <div class="ctx-item" id="ctx-play"><i class="ctx-icon">▶</i>Play</div>
-        <div class="ctx-item" id="ctx-pause"><i class="ctx-icon">⏸</i>Pause</div>
+        <div class="ctx-item" id="ctx-play"><img class="ctx-icon" src="img/icons/play_white.svg" alt="">Play</div>
+        <div class="ctx-item" id="ctx-pause"><img class="ctx-icon" src="img/icons/pause_white.svg" alt="">Pause</div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="ctx-repeat"><i class="ctx-icon">↺</i>Repeat: Off</div>
+        <div class="ctx-item" id="ctx-repeat"><img class="ctx-icon" src="img/icons/repeat_white.svg" alt="">Repeat: Off</div>
         <div class="ctx-divider"></div>
         <div class="ctx-item ctx-has-sub" id="ctx-subtitle-parent">
             <span>Subtitles</span>
@@ -327,13 +529,13 @@
             </div>
         </div>
         <div class="ctx-divider"></div>
-        <div class="ctx-item" id="ctx-subtitle-settings"><i class="ctx-icon">⚙</i>Subtitle Settings</div>
+        <div class="ctx-item" id="ctx-subtitle-settings"><img class="ctx-icon" src="img/icons/settings_white.svg" alt="">Subtitle Settings</div>
         <div class="ctx-item" id="ctx-props">Video Properties</div>
     </div>
 
     <!-- Subtitle settings modal -->
     <div id="subtitle-settings-modal">
-        <h3>Subtitle Settings<button id="sset-close">✕</button></h3>
+        <h3>Subtitle Settings<button id="sset-close" title="Close"><img src="img/icons/close_white.svg" alt=""></button></h3>
         <div class="sset-row">
             <span class="sset-label">Position</span>
             <div class="sset-seg">
@@ -376,7 +578,7 @@
 
     <!-- Video info / stats modal -->
     <div id="video-info-modal">
-        <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" onclick="closeVideoInfo()">✕</button></h3>
+        <h3><span id="video-info-title">Video Properties</span><button id="video-info-close" title="Close" onclick="closeVideoInfo()"><img src="img/icons/close_white.svg" alt=""></button></h3>
         <div id="video-info-tabs">
             <div class="info-tab active" onclick="showInfoTab('props')">Properties</div>
             <div class="info-tab"        onclick="showInfoTab('stats')">Stats</div>
@@ -384,11 +586,57 @@
         <div id="video-info-body"></div>
     </div>
 
+    <!-- Playback settings popup -->
+    <div id="settings-popup">
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/repeat_white.svg" alt="">Repeat</div>
+            <div class="set-seg" id="set-repeat-seg">
+                <button class="set-seg-btn active" data-repeat="off">Off</button>
+                <button class="set-seg-btn"        data-repeat="one">Repeat one</button>
+            </div>
+        </div>
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/play_white.svg" alt="">Playback speed</div>
+            <div class="speed-grid" id="set-speed-grid">
+                <button class="speed-btn" data-speed="0.25">0.25×</button>
+                <button class="speed-btn" data-speed="0.5">0.5×</button>
+                <button class="speed-btn" data-speed="0.75">0.75×</button>
+                <button class="speed-btn active" data-speed="1">Normal</button>
+                <button class="speed-btn" data-speed="1.25">1.25×</button>
+                <button class="speed-btn" data-speed="1.5">1.5×</button>
+                <button class="speed-btn" data-speed="1.75">1.75×</button>
+                <button class="speed-btn" data-speed="2">2×</button>
+            </div>
+        </div>
+        <div class="set-section">
+            <div class="set-head"><img src="img/icons/volume_white.svg" alt="">Volume bar</div>
+            <div class="set-seg" id="set-volbar-seg">
+                <button class="set-seg-btn active" data-volbar="auto">Auto</button>
+                <button class="set-seg-btn"        data-volbar="always">Always show</button>
+            </div>
+        </div>
+        <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
+            <div class="set-link" id="set-load-subtitle">
+                <img src="img/icons/movie_white.svg" alt="">Load SRT subtitle…
+            </div>
+            <div class="set-link" id="set-subtitle-settings">
+                <img src="img/icons/settings_white.svg" alt="">Subtitle settings
+            </div>
+            <div class="set-link" id="set-video-props">
+                <img src="img/icons/menu_white.svg" alt="">Video properties
+            </div>
+        </div>
+    </div>
+
     <!-- Player controls -->
     <div id="video-controls">
         <div id="progress-wrap">
             <div id="progress-bar" style="width:0%"></div>
             <div id="progress-thumb" style="left:0%"></div>
+            <div id="scrub-preview">
+                <div id="scrub-preview-thumb"></div>
+                <div id="scrub-preview-time">0:00</div>
+            </div>
         </div>
         <div id="controls-row">
             <button class="ctrl-btn" id="ctrl-play" title="Play / Pause (Space)">
@@ -402,6 +650,9 @@
             </div>
             <span id="time-display">0:00 / 0:00</span>
             <span id="spacer"></span>
+            <button class="ctrl-btn" id="ctrl-settings" title="Playback settings">
+                <img src="img/icons/settings_white.svg" alt="">
+            </button>
             <button class="ctrl-btn" id="ctrl-fs" title="Fullscreen (F)">
                 <img src="img/icons/fullscreen_white.svg" alt="">
             </button>
@@ -423,7 +674,9 @@ var transcodeDuration   = 0;      // total duration for transcoded video (from /
 var pendingResumePos    = 0;
 var watchSaveInterval   = null;
 var controlsTimer       = null;
-var repeatSingle        = false;
+var repeatSingle        = (localStorage.getItem('movie_repeat_one') === '1');
+var playbackSpeed       = parseFloat(localStorage.getItem('movie_playback_speed') || '1') || 1;
+var alwaysShowVolumeBar = (localStorage.getItem('movie_always_volume_bar') === '1');
 var infoRefreshTimer    = null;
 var currentInfoTab      = 'props';
 
@@ -456,6 +709,17 @@ function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Flash a large play/pause glyph in the centre of the video so the user gets
+// immediate feedback that their click / key press registered.
+function flashPlayState(isPlaying) {
+    var $f = $('#play-flash');
+    $('#play-flash-icon').attr('src',
+        isPlaying ? 'img/icons/play_white.svg' : 'img/icons/pause_white.svg');
+    $f.removeClass('flash');
+    void $f[0].offsetWidth;   // force reflow so the animation restarts
+    $f.addClass('flash');
 }
 
 var toastTimer;
@@ -513,6 +777,155 @@ if (files && files.length > 0) {
     }
 }
 
+// ── Scrub-bar hover preview (storyboard) ──────────────────────────────────────
+// The server renders one sprite sheet per file holding a downscaled frame every
+// few seconds; we fetch it once and keep it in memory, so hovering the timeline
+// costs nothing. Asking ffmpeg for a frame per hover would be hopeless on a
+// software-decoded H.265 source, which is exactly where previews matter most.
+var storyboard      = null;   // layout from the server + the loaded sheet URL
+var storyboardToken = 0;      // invalidates in-flight loads when the file changes
+var storyboardTimer = null;
+
+function resetStoryboard() {
+    storyboardToken++;
+    storyboard = null;
+    clearTimeout(storyboardTimer);
+    storyboardTimer = null;
+    $('#scrub-preview-thumb').removeClass('ready');
+    hideScrubPreview();
+}
+
+// Building the sheet runs ffmpeg, so hold off briefly and let playback (and any
+// transcode) get established before adding more load.
+function scheduleStoryboardLoad(filepath) {
+    resetStoryboard();
+    if (!filepath) { return; }
+    var token = storyboardToken;
+    storyboardTimer = setTimeout(function () { loadStoryboard(filepath, token); }, 3000);
+}
+
+function loadStoryboard(filepath, token) {
+    var base = STORYBOARD_API + '?file=' + encodeURIComponent(filepath);
+    fetch(base)
+        .then(function (r) { return r.json(); })
+        .then(function (meta) {
+            if (token !== storyboardToken) { return; }   // switched file while loading
+            if (!meta || meta.error || !meta.interval || !meta.tileWidth) { return; }
+            var img = new Image();
+            img.onload = function () {
+                if (token !== storyboardToken) { return; }
+                meta.url   = img.src;
+                storyboard = meta;
+            };
+            img.src = base + '&image=1';
+        })
+        .catch(function () {});   // previews are optional — stay silent on failure
+}
+
+// Whole-file duration, whichever playback mode is active
+function scrubTotalDuration() {
+    if (isTranscodedVideo) { return transcodeDuration; }
+    return vid.duration || 0;
+}
+
+function initScrubPreview() {
+    var $wrap = $('#progress-wrap');
+    $wrap.on('mousemove', function (e) {
+        var total = scrubTotalDuration();
+        var rect  = this.getBoundingClientRect();
+        if (!total || !isFinite(total) || rect.width <= 0) { hideScrubPreview(); return; }
+        var ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        showScrubPreview(ratio * total, ratio, rect.width);
+    });
+    $wrap.on('mouseleave', hideScrubPreview);
+}
+
+function showScrubPreview(time, ratio, barWidth) {
+    $('#scrub-preview-time').text(formatTime(time));
+
+    var $thumb = $('#scrub-preview-thumb');
+    var halfWidth;
+    if (storyboard && storyboard.url) {
+        var idx = Math.max(0, Math.min(storyboard.count - 1,
+                                       Math.floor(time / storyboard.interval)));
+        var col = idx % storyboard.cols;
+        var row = Math.floor(idx / storyboard.cols);
+        $thumb.addClass('ready').css({
+            'width':               storyboard.tileWidth + 'px',
+            'height':              storyboard.tileHeight + 'px',
+            'background-image':    'url("' + storyboard.url + '")',
+            'background-position': (-col * storyboard.tileWidth) + 'px '
+                                 + (-row * storyboard.tileHeight) + 'px'
+        });
+        halfWidth = storyboard.tileWidth / 2;
+    } else {
+        // Sheet not ready (or unavailable) — the timestamp alone is still useful
+        $thumb.removeClass('ready');
+        halfWidth = 28;
+    }
+
+    // Keep the popup within the bar rather than letting it hang off an edge
+    var x = Math.max(halfWidth, Math.min(barWidth - halfWidth, ratio * barWidth));
+    $('#scrub-preview').css('left', x + 'px').addClass('active');
+}
+
+function hideScrubPreview() { $('#scrub-preview').removeClass('active'); }
+
+// ── Transcode seek (seek-by-reload) ───────────────────────────────────────────
+// Formats the browser can't decode are streamed through ffmpeg, so "seeking"
+// means restarting the transcode at a new offset. Replacing .src blanks the
+// <video> to black until the first frame of the new segment arrives, which can
+// take seconds. Freeze the last painted frame under a spinner instead, and only
+// reveal the live element once it is genuinely playing again.
+var seekFreezeTimer = null;
+
+function showSeekFreeze() {
+    var canvas = document.getElementById('seek-freeze');
+    if (canvas && vid.videoWidth > 0 && vid.videoHeight > 0) {
+        canvas.width  = vid.videoWidth;
+        canvas.height = vid.videoHeight;
+        try {
+            canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+            $(canvas).show();
+        } catch (e) {
+            // No decodable frame right now (e.g. seeking again mid-buffer) —
+            // leave whatever is already frozen on screen rather than flashing black.
+        }
+    }
+    $('#seek-spinner').addClass('active');
+    clearTimeout(seekFreezeTimer);
+    // Safety net: a stalled transcode must never leave the overlay stuck on
+    seekFreezeTimer = setTimeout(hideSeekFreeze, 30000);
+}
+
+function hideSeekFreeze() {
+    clearTimeout(seekFreezeTimer);
+    seekFreezeTimer = null;
+    $('#seek-freeze').hide();
+    $('#seek-spinner').removeClass('active');
+}
+
+// Restart the transcode stream at `seconds`, holding the last frame until the
+// new segment plays. Clamped to the known duration.
+function transcodeSeekTo(seconds) {
+    if (!currentFile) { return; }
+    var pos = Math.max(0, seconds);
+    if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
+
+    showSeekFreeze();
+    setSubtitleSeekFloor(pos);
+    transcodeSeekOffset = pos;
+    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
+            + '&start=' + pos.toFixed(3);
+    vid.load();
+    vid.play();
+}
+
+// Current playback position in whole-file terms (transcode streams restart at 0)
+function effectivePlaybackTime() {
+    return isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+}
+
 // ── Video controls ────────────────────────────────────────────────────────────
 function initVideoControls() {
     var $prog  = $('#progress-bar');
@@ -542,12 +955,7 @@ function initVideoControls() {
     // Progress bar — seek-by-reload for transcoded streams
     $('#progress-wrap').on('click', function (e) {
         if (isTranscodedVideo && transcodeDuration > 0 && currentFile) {
-            var seekTo = (e.offsetX / $(this).width()) * transcodeDuration;
-            transcodeSeekOffset = seekTo;
-            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                    + '&start=' + seekTo.toFixed(3);
-            vid.load();
-            vid.play();
+            transcodeSeekTo((e.offsetX / $(this).width()) * transcodeDuration);
             return;
         }
         if (vid.duration) {
@@ -598,7 +1006,14 @@ function initVideoControls() {
     $(vid).on('ended', function () {
         clearWatchPosition();
         if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
-        if (repeatSingle) { vid.currentTime = 0; vid.play(); }
+        if (!repeatSingle) { return; }
+        if (isTranscodedVideo && transcodeSeekOffset > 0 && currentFile) {
+            // The stream started part-way in — restart it from the beginning
+            transcodeSeekTo(0);
+        } else {
+            vid.currentTime = 0;
+            vid.play();
+        }
     });
 
     $(vid).on('volumechange', function () {
@@ -606,6 +1021,16 @@ function initVideoControls() {
         localStorage.setItem('movie_volume', vid.volume);
         localStorage.setItem('movie_muted', vid.muted ? '1' : '0');
     });
+
+    // Drop the transcode-seek freeze frame the moment the new segment is live.
+    // 'playing' is the accurate signal; 'loadeddata' covers a seek made while
+    // paused (where 'playing' never fires), and 'error' avoids a stuck overlay.
+    // Any seek — native or transcode reload — re-bases the subtitle floor
+    $(vid).on('seeking', function () { setSubtitleSeekFloor(effectivePlaybackTime()); });
+
+    $(vid).on('playing', hideSeekFreeze);
+    $(vid).on('loadeddata', function () { if (vid.paused) { hideSeekFreeze(); } });
+    $(vid).on('error', hideSeekFreeze);
 
     // Auto-hide controls on mouse movement
     $('#player-wrap').on('mousemove touchstart', showControls);
@@ -623,14 +1048,19 @@ function updateMuteIcon() {
 
 function togglePlay() {
     $('#resume-popup').removeClass('active');
-    if (vid.paused) { vid.play(); } else { vid.pause(); }
+    var willPlay = vid.paused;
+    if (willPlay) { vid.play(); } else { vid.pause(); }
+    flashPlayState(willPlay);
 }
 
 function showControls() {
     $('#video-controls').removeClass('hidden');
     clearTimeout(controlsTimer);
     controlsTimer = setTimeout(function () {
-        if (!vid.paused) { $('#video-controls').addClass('hidden'); }
+        // Keep the bar up while the settings popup is open — it is anchored to it
+        if (!vid.paused && !$('#settings-popup').hasClass('active')) {
+            $('#video-controls').addClass('hidden');
+        }
     }, 3000);
 }
 
@@ -674,11 +1104,7 @@ function showResumePopup(savedPos, duration) {
 
     $('#resume-btn-continue').off('click').on('click', function () {
         if (isTranscodedVideo && currentFile) {
-            transcodeSeekOffset = pendingResumePos;
-            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                    + '&start=' + pendingResumePos.toFixed(3);
-            vid.load();
-            vid.play();
+            transcodeSeekTo(pendingResumePos);
         } else {
             vid.currentTime = pendingResumePos;
             vid.play();
@@ -703,8 +1129,11 @@ function initContextMenu() {
         $('#ctx-pause').toggleClass('ctx-disabled', vid.paused);
         $('#ctx-repeat')
             .toggleClass('ctx-active', repeatSingle)
-            .html('<i class="ctx-icon">' + (repeatSingle ? '✓' : '↺') + '</i>Repeat: ' + (repeatSingle ? 'On' : 'Off'));
+            .html('<img class="ctx-icon" src="img/icons/'
+                + (repeatSingle ? 'repeat_one_white.svg' : 'repeat_white.svg')
+                + '" alt="">Repeat: ' + (repeatSingle ? 'On' : 'Off'));
         $('#ctx-subtitle-sub').hide();
+        closeSettingsPopup();
 
         var rect = this.getBoundingClientRect();
         var x = e.clientX - rect.left;
@@ -720,11 +1149,90 @@ function initContextMenu() {
         if (!$(e.target).closest('#player-ctx').length) { $ctx.hide(); }
     });
 
-    $('#ctx-play').on('click',   function () { vid.play();          $ctx.hide(); });
-    $('#ctx-pause').on('click',  function () { vid.pause();         $ctx.hide(); });
-    $('#ctx-repeat').on('click', function () { repeatSingle = !repeatSingle; $ctx.hide(); });
+    $('#ctx-play').on('click',   function () { vid.play();  flashPlayState(true);  $ctx.hide(); });
+    $('#ctx-pause').on('click',  function () { vid.pause(); flashPlayState(false); $ctx.hide(); });
+    $('#ctx-repeat').on('click', function () { setRepeatSingle(!repeatSingle); $ctx.hide(); });
     $('#ctx-subtitle-settings').on('click', function () { $ctx.hide(); openSubtitleSettings(); });
     $('#ctx-props').on('click',  function () { $ctx.hide(); openVideoInfo('props'); });
+}
+
+// ── Playback settings popup (gear button) ─────────────────────────────────────
+function setAlwaysShowVolumeBar(on) {
+    alwaysShowVolumeBar = !!on;
+    localStorage.setItem('movie_always_volume_bar', alwaysShowVolumeBar ? '1' : '0');
+    $('body').toggleClass('always-show-volume', alwaysShowVolumeBar);
+    $('#set-volbar-seg .set-seg-btn').removeClass('active')
+        .filter('[data-volbar="' + (alwaysShowVolumeBar ? 'always' : 'auto') + '"]').addClass('active');
+}
+
+function setRepeatSingle(on) {
+    repeatSingle = !!on;
+    vid.loop = false;   // handled manually in the 'ended' handler
+    localStorage.setItem('movie_repeat_one', repeatSingle ? '1' : '0');
+    $('#set-repeat-seg .set-seg-btn').removeClass('active')
+        .filter('[data-repeat="' + (repeatSingle ? 'one' : 'off') + '"]').addClass('active');
+}
+
+function setPlaybackSpeed(rate) {
+    playbackSpeed = parseFloat(rate) || 1;
+    vid.playbackRate = playbackSpeed;
+    localStorage.setItem('movie_playback_speed', String(playbackSpeed));
+    $('#set-speed-grid .speed-btn').removeClass('active')
+        .filter('[data-speed="' + playbackSpeed + '"]').addClass('active');
+}
+
+function openSettingsPopup() {
+    setRepeatSingle(repeatSingle);
+    setPlaybackSpeed(playbackSpeed);
+    setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+    $('#player-ctx').hide();
+    $('#settings-popup').addClass('active');
+    showControls();
+}
+
+function closeSettingsPopup() { $('#settings-popup').removeClass('active'); }
+
+function toggleSettingsPopup() {
+    if ($('#settings-popup').hasClass('active')) { closeSettingsPopup(); }
+    else { openSettingsPopup(); }
+}
+
+function initSettingsPopup() {
+    $('#ctrl-settings').on('click', function (e) {
+        e.stopPropagation();
+        toggleSettingsPopup();
+    });
+
+    // Dismiss when clicking anywhere outside the popup or its button
+    $(document).on('mousedown.setpop', function (e) {
+        if (!$(e.target).closest('#settings-popup, #ctrl-settings').length) {
+            closeSettingsPopup();
+        }
+    });
+
+    $('#set-repeat-seg').on('click', '.set-seg-btn', function () {
+        setRepeatSingle($(this).data('repeat') === 'one');
+    });
+
+    $('#set-speed-grid').on('click', '.speed-btn', function () {
+        setPlaybackSpeed($(this).data('speed'));
+    });
+    $('#set-volbar-seg').on('click', '.set-seg-btn', function () {
+        setAlwaysShowVolumeBar($(this).data('volbar') === 'always');
+    });
+
+    $('#set-load-subtitle').on('click',    function () { closeSettingsPopup(); pickSubtitleFile(); });
+    $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
+    $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
+
+    // Apply persisted values to the video element
+    setRepeatSingle(repeatSingle);
+    setPlaybackSpeed(playbackSpeed);
+    setAlwaysShowVolumeBar(alwaysShowVolumeBar);
+
+    // A transcode seek replaces the media source, which resets playbackRate —
+    // reapply the chosen speed every time new media is loaded.
+    $(vid).on('loadedmetadata', function () { vid.playbackRate = playbackSpeed; });
 }
 
 // ── Video info / stats modal ──────────────────────────────────────────────────
@@ -871,6 +1379,7 @@ function initSubtitleSettings() {
     });
     $('#sset-font').on('change', function () {
         subtitleSettings.font = $(this).val();
+        ensureEmbeddedFontLoaded(subtitleSettings.font);   // no-op for built-in fonts
         applySubtitleSettings();
         syncSettingsPreview();
         saveSubtitleSettings();
@@ -919,6 +1428,7 @@ window.movieEmbOnSubtitleFile = function (raw) {
                 activeSubtitleIndex = loadedSubtitleFiles.length - 1;
             }
             showToast('Subtitle loaded: ' + name);
+            applyActiveSubtitle();   // a sidecar file replaces any styled track
             updateSubtitleSubmenu();
         },
         error: function () { showToast('Failed to load subtitle file'); }
@@ -945,13 +1455,22 @@ function parseSrt(content) {
         if (parts.length < 2) { return; }
         var start = parseSrtTime(parts[0].trim());
         var end   = parseSrtTime(parts[1].trim().split(' ')[0]);
-        var text  = lines.slice(tcIdx + 1).join('\n').trim().replace(/<[^>]+>/g, '');
+        // Strip inline SRT tags like <b>, <i>, <font>, plus any ASS override
+        // blocks such as {\an8} or {\pos(x,y)}. ffmpeg's ASS-to-SubRip
+        // conversion leaves positioning tags like those behind, so without this
+        // they would be shown to the viewer as literal text.
+        var text  = lines.slice(tcIdx + 1).join('\n').trim()
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/\{\\[^}]*\}/g, '')
+                        .trim();
         if (text) { cues.push({ start: start, end: end, text: text }); }
     });
     return cues;
 }
 
 function updateSubtitleDisplay() {
+    // Styled tracks are drawn by the ASS renderer on its own frame loop
+    if (assActive) { $('#subtitle-display').hide(); return; }
     if (activeSubtitleIndex < 0 || !loadedSubtitleFiles[activeSubtitleIndex]) {
         $('#subtitle-display').hide();
         return;
@@ -962,6 +1481,7 @@ function updateSubtitleDisplay() {
     var cues  = loadedSubtitleFiles[activeSubtitleIndex].cues;
     var found = null;
     for (var i = 0; i < cues.length; i++) {
+        if (cues[i].start < subtitleSeekFloor) { continue; }   // in flight when we landed
         if (currentTime >= cues[i].start && currentTime <= cues[i].end) { found = cues[i]; break; }
     }
     if (found) {
@@ -971,6 +1491,301 @@ function updateSubtitleDisplay() {
     }
 }
 
+// ── Embedded subtitle tracks and fonts ────────────────────────────────────────
+// MKV releases usually mux their subtitles (and the fonts they were typeset in)
+// into the container rather than shipping sidecar files. The server lists them
+// and extracts on demand; tracks are converted to SubRip, which keeps the text
+// and timing but drops ASS styling, positioning and karaoke.
+var embeddedSubtitles   = [];     // [{index, codec, language, title, forced, textual}]
+var embeddedFonts       = [];     // [{index, filename, mimetype}]
+var embeddedMediaPath   = null;   // file the two lists above describe
+var embeddedProbeToken  = 0;      // invalidates in-flight probes on file change
+var embeddedFontFaces   = [];     // FontFace objects registered for this video
+var embeddedFontsLoaded = {};     // family name -> already fetched
+
+function resetEmbeddedTracks() {
+    embeddedProbeToken++;
+    stopAssTrack();
+    embeddedSubtitles = [];
+    embeddedFonts     = [];
+    embeddedMediaPath = null;
+    // Font families are keyed by attachment ordinal, which means the same name
+    // refers to a different font in the next video — drop the old faces.
+    embeddedFontFaces.forEach(function (face) {
+        try { document.fonts.delete(face); } catch (e) {}
+    });
+    embeddedFontFaces   = [];
+    embeddedFontsLoaded = {};
+}
+
+function loadEmbeddedTrackList(filepath) {
+    resetEmbeddedTracks();
+    if (!filepath) { return; }
+
+    embeddedMediaPath = filepath;
+    var token = embeddedProbeToken;
+
+    fetch(SUBTITLE_API + '?file=' + encodeURIComponent(filepath))
+        .then(function (r) { return r.json(); })
+        .then(function (info) {
+            if (token !== embeddedProbeToken) { return; }
+            if (!info || info.error) { return; }
+            embeddedSubtitles = info.subtitles || [];
+            embeddedFonts     = info.fonts || [];
+            updateSubtitleSubmenu();
+            refreshEmbeddedFontOptions();
+        })
+        .catch(function () {});   // embedded tracks are a bonus — fail quietly
+}
+
+function embeddedTrackLabel(track, position) {
+    var label = track.title || '';
+    if (!label) { label = 'Track ' + (position + 1); }
+    if (track.language) { label += ' [' + track.language + ']'; }
+    if (track.forced)   { label += ' (forced)'; }
+    if (!track.textual) { label += ' — image based'; }
+    return label;
+}
+
+// Extraction has to scan the whole container, so it takes a few seconds on a
+// large file. Results are kept in loadedSubtitleFiles, making reselection free.
+function selectEmbeddedSubtitle(track, position) {
+    if (!track.textual) {
+        showToast('That track is image based and cannot be displayed');
+        return;
+    }
+
+    var cacheKey = 'embedded#' + track.index + '@' + embeddedMediaPath;
+    for (var i = 0; i < loadedSubtitleFiles.length; i++) {
+        if (loadedSubtitleFiles[i].path === cacheKey) {
+            activeSubtitleIndex = i;
+            applyActiveSubtitle();
+            updateSubtitleSubmenu();
+            return;
+        }
+    }
+
+    // ASS/SSA is fetched in its native form so the styling survives; everything
+    // else comes through as SubRip for the plain renderer.
+    var styled    = /^(ass|ssa)$/i.test(track.codec) && typeof ASS !== 'undefined';
+    var mediaPath = embeddedMediaPath;
+    var url = SUBTITLE_API + '?file=' + encodeURIComponent(mediaPath) + '&track=' + track.index
+            + (styled ? '&format=ass' : '');
+
+    showToast('Extracting subtitle track…');
+    $.ajax({
+        url: url,
+        dataType: 'text',
+        success: function (content) {
+            if (mediaPath !== embeddedMediaPath) { return; }   // episode changed
+
+            if (styled) {
+                var parsed = ASS.parse(content);
+                if (!parsed.events.length) {
+                    showToast('That track contained no readable text');
+                    return;
+                }
+                loadedSubtitleFiles.push({
+                    path: cacheKey,
+                    name: embeddedTrackLabel(track, position),
+                    cues: [],
+                    assTrack: parsed
+                });
+                activeSubtitleIndex = loadedSubtitleFiles.length - 1;
+                applyActiveSubtitle();
+                updateSubtitleSubmenu();
+                showToast('Subtitle loaded · ' + parsed.events.length + ' styled lines');
+                return;
+            }
+
+            var cues = parseSrt(content);
+            if (cues.length === 0) {
+                showToast('That track contained no readable text');
+                return;
+            }
+            loadedSubtitleFiles.push({
+                path: cacheKey,
+                name: embeddedTrackLabel(track, position),
+                cues: cues
+            });
+            activeSubtitleIndex = loadedSubtitleFiles.length - 1;
+            applyActiveSubtitle();
+            updateSubtitleSubmenu();
+            showToast('Subtitle loaded · ' + cues.length + ' lines');
+        },
+        error: function () { showToast('Could not extract that subtitle track'); }
+    });
+}
+
+// Switch the display between the styled ASS renderer and the plain SubRip
+// overlay depending on what the newly selected track carries.
+function applyActiveSubtitle() {
+    var entry = activeSubtitleIndex >= 0 ? loadedSubtitleFiles[activeSubtitleIndex] : null;
+    if (entry && entry.assTrack) {
+        startAssTrack(entry.assTrack);
+    } else {
+        stopAssTrack();
+        updateSubtitleDisplay();
+    }
+}
+
+// ── Subtitle seek floor ──────────────────────────────────────────────────────
+// After a seek, any line that had already begun before the landing point is
+// skipped entirely; only lines that start at or after it are shown. Seeking to
+// 1:02 with lines at 1:00-1:03 and 1:05-1:10 therefore shows nothing until 1:05.
+var subtitleSeekFloor = 0;
+
+function setSubtitleSeekFloor(time) {
+    subtitleSeekFloor = Math.max(0, time || 0);
+    if (assRenderer) { assRenderer.setSuppressBefore(subtitleSeekFloor); }
+    updateSubtitleDisplay();
+}
+
+function resetSubtitleSeekFloor() { setSubtitleSeekFloor(0); }
+
+// ── Styled ASS rendering ─────────────────────────────────────────────────────
+// ASS tracks are fetched in their native form and drawn by script/ass.js, which
+// preserves per-line styling and position. That is what makes dual-language
+// releases work: the Japanese and Chinese lines are separate events shown at the
+// same time, and a single-cue renderer can only ever display one of them.
+var assRenderer  = null;
+var assActive    = false;
+var assFrameReq  = null;
+
+function initAssRenderer() {
+    var overlay = document.getElementById('ass-overlay');
+    if (overlay && typeof ASS !== 'undefined') { assRenderer = new ASS.Renderer(overlay); }
+}
+
+// Match the overlay to the letterboxed picture inside the video element, so
+// script coordinates map onto what the viewer actually sees.
+function syncAssOverlayGeometry() {
+    if (!assRenderer) { return; }
+    var vid = document.getElementById('main-video');
+    var overlay = document.getElementById('ass-overlay');
+    var cw = vid.clientWidth, ch = vid.clientHeight;
+    var vw = vid.videoWidth, vh = vid.videoHeight;
+
+    // Until the decoder reports the picture size there is no way to know where
+    // the letterbox bars are. Falling back to the raw element box would scale
+    // the script against the black bars too and push bottom-anchored lines down
+    // over the controls, so keep the last known good geometry instead.
+    if (!(vw > 0 && vh > 0 && cw > 0 && ch > 0)) { return; }
+
+    var scale  = Math.min(cw / vw, ch / vh);
+    var width  = vw * scale;
+    var height = vh * scale;
+    var left   = (cw - width) / 2;
+    var top    = (ch - height) / 2;
+    if (overlay._w !== width || overlay._h !== height || overlay._l !== left || overlay._t !== top) {
+        overlay._w = width; overlay._h = height; overlay._l = left; overlay._t = top;
+        overlay.style.left   = left + 'px';
+        overlay.style.top    = top + 'px';
+        overlay.style.width  = width + 'px';
+        overlay.style.height = height + 'px';
+        assRenderer.resize(width, height);
+    }
+}
+
+function startAssTrack(track) {
+    if (!assRenderer) { return; }
+    stopAssTrack();
+    assRenderer.setTrack(track);
+    assActive = true;
+    $('#ass-overlay').addClass('active');
+    $('#subtitle-display').hide();     // the plain renderer must not double up
+    loadAssFonts(track);
+
+    var step = function () {
+        if (!assActive) { return; }
+        syncAssOverlayGeometry();
+        assRenderer.setTime(effectivePlaybackTime());
+        assFrameReq = requestAnimationFrame(step);
+    };
+    step();
+}
+
+function stopAssTrack() {
+    assActive = false;
+    if (assFrameReq) { cancelAnimationFrame(assFrameReq); assFrameReq = null; }
+    if (assRenderer) { assRenderer.clear(); }
+    $('#ass-overlay').removeClass('active');
+}
+
+// Only pull the fonts the track actually references — a release can attach a
+// dozen and use half of them.
+function loadAssFonts(track) {
+    if (typeof ASS === 'undefined') { return; }
+    ASS.referencedFonts(track).forEach(function (family) {
+        ensureEmbeddedFontLoaded(family);
+    });
+}
+
+// ── Embedded fonts ───────────────────────────────────────────────────────────
+// Registered under the font's own internal family name, which is what ASS styles
+// reference, and offered in Subtitle Settings for SubRip tracks. Fetched lazily:
+// a release can carry a dozen fonts and only a few are ever used.
+function embeddedFontFamily(font) {
+    return font.family || ('aroz-embedded-' + font.index);
+}
+
+function findEmbeddedFontByFamily(family) {
+    var wanted = String(family || '').replace(/^@/, '').toLowerCase();
+    var found = null;
+    embeddedFonts.forEach(function (f) {
+        if (embeddedFontFamily(f).toLowerCase() === wanted) { found = f; }
+    });
+    return found;
+}
+
+function refreshEmbeddedFontOptions() {
+    var $select = $('#sset-font');
+    $select.find('optgroup.embedded-fonts').remove();
+
+    if (embeddedFonts.length > 0) {
+        var $group = $('<optgroup label="Embedded in this video" class="embedded-fonts"></optgroup>');
+        embeddedFonts.forEach(function (font) {
+            $group.append($('<option></option>')
+                .attr('value', embeddedFontFamily(font))
+                .text(font.filename || ('Font ' + (font.index + 1))));
+        });
+        $select.append($group);
+    }
+
+    // A font picked for a previous video may not exist in this one
+    var stillOffered = $select.find('option').filter(function () {
+        return this.value === subtitleSettings.font;
+    }).length > 0;
+    if (!stillOffered) {
+        subtitleSettings.font = 'system-ui, sans-serif';
+        applySubtitleSettings();
+        saveSubtitleSettings();
+    }
+    $select.val(subtitleSettings.font);
+    ensureEmbeddedFontLoaded(subtitleSettings.font);
+}
+
+function ensureEmbeddedFontLoaded(family) {
+    if (!family || embeddedFontsLoaded[family] || !embeddedMediaPath) { return; }
+    if (typeof FontFace === 'undefined' || !document.fonts) { return; }
+
+    var meta = findEmbeddedFontByFamily(family);
+    if (!meta) { return; }   // a built-in font, or one this video does not carry
+
+    embeddedFontsLoaded[family] = true;   // claim it so we do not refetch in a loop
+    var url  = SUBTITLE_API + '?file=' + encodeURIComponent(embeddedMediaPath) + '&font=' + meta.index;
+    var face = new FontFace(embeddedFontFamily(meta), 'url("' + url + '")');
+    face.load().then(function (loaded) {
+        document.fonts.add(loaded);
+        embeddedFontFaces.push(loaded);
+        applySubtitleSettings();
+        syncSettingsPreview();
+        if (assRenderer) { assRenderer.clear(); }   // redraw with the real face
+    }).catch(function () {
+        embeddedFontsLoaded[family] = false;
+    });
+}
+
 function updateSubtitleSubmenu() {
     $('#ctx-subtitle-sub .ctx-sub-dynamic').remove();
     var disabled = (activeSubtitleIndex < 0);
@@ -978,17 +1793,46 @@ function updateSubtitleSubmenu() {
         .toggleClass('ctx-active', disabled)
         .find('.ctx-icon').text(disabled ? '✓' : '');
 
-    if (loadedSubtitleFiles.length > 0) {
-        var $load = $('#ctx-sub-load');
+    var $load = $('#ctx-sub-load');
+
+    // Tracks muxed into the video, listed whether or not they are loaded yet
+    if (embeddedSubtitles.length > 0) {
         $('<div class="ctx-divider ctx-sub-dynamic"></div>').insertBefore($load);
-        loadedSubtitleFiles.forEach(function (sf, idx) {
-            var isActive = (idx === activeSubtitleIndex);
-            $('<div class="ctx-item ctx-sub-dynamic' + (isActive ? ' ctx-active' : '') + '" data-sub-idx="' + idx + '">'
+        embeddedSubtitles.forEach(function (track, position) {
+            var cacheKey = 'embedded#' + track.index + '@' + embeddedMediaPath;
+            var isActive = activeSubtitleIndex >= 0 &&
+                           loadedSubtitleFiles[activeSubtitleIndex] &&
+                           loadedSubtitleFiles[activeSubtitleIndex].path === cacheKey;
+            $('<div class="ctx-item ctx-sub-dynamic'
+                + (isActive ? ' ctx-active' : '')
+                + (track.textual ? '' : ' ctx-disabled') + '">'
                 + '<i class="ctx-icon">' + (isActive ? '✓' : '') + '</i>'
-                + escapeHtml(sf.name)
+                + escapeHtml(embeddedTrackLabel(track, position))
+                + '</div>')
+            .on('click', function () {
+                selectEmbeddedSubtitle(track, position);
+                $('#player-ctx').hide();
+            })
+            .insertBefore($load);
+        });
+    }
+
+    // Sidecar files the user loaded by hand
+    var external = [];
+    loadedSubtitleFiles.forEach(function (sf, idx) {
+        if (String(sf.path).indexOf('embedded#') !== 0) { external.push({ sf: sf, idx: idx }); }
+    });
+    if (external.length > 0) {
+        $('<div class="ctx-divider ctx-sub-dynamic"></div>').insertBefore($load);
+        external.forEach(function (entry) {
+            var isActive = (entry.idx === activeSubtitleIndex);
+            $('<div class="ctx-item ctx-sub-dynamic' + (isActive ? ' ctx-active' : '') + '" data-sub-idx="' + entry.idx + '">'
+                + '<i class="ctx-icon">' + (isActive ? '✓' : '') + '</i>'
+                + escapeHtml(entry.sf.name)
                 + '</div>')
             .on('click', function () {
                 activeSubtitleIndex = parseInt($(this).data('sub-idx'), 10);
+                applyActiveSubtitle();
                 updateSubtitleSubmenu();
                 $('#player-ctx').hide();
             })
@@ -1025,6 +1869,7 @@ function initSubtitleMenu() {
 
     $('#ctx-sub-disable').on('click', function () {
         activeSubtitleIndex = -1;
+        stopAssTrack();
         $('#subtitle-display').hide();
         updateSubtitleSubmenu();
         $ctx.hide();
@@ -1032,18 +1877,23 @@ function initSubtitleMenu() {
 
     $('#ctx-sub-load').on('click', function () {
         $ctx.hide();
-        var startDir = 'user:/';
-        if (currentFile) {
-            var fp    = currentFile.filepath.replace(/\\/g, '/');
-            var slash = fp.lastIndexOf('/');
-            if (slash > 0) { startDir = fp.substring(0, slash); }
-        }
-        ao_module_openFileSelector(
-            window.movieEmbOnSubtitleFile,
-            startDir, 'file', false,
-            { fnameOverride: 'movieEmbOnSubtitleFile', extAllowed: '.srt' }
-        );
+        pickSubtitleFile();
     });
+}
+
+// Open the ArozOS file selector defaulted to the folder of the playing file
+function pickSubtitleFile() {
+    var startDir = 'user:/';
+    if (currentFile) {
+        var fp    = currentFile.filepath.replace(/\\/g, '/');
+        var slash = fp.lastIndexOf('/');
+        if (slash > 0) { startDir = fp.substring(0, slash); }
+    }
+    ao_module_openFileSelector(
+        window.movieEmbOnSubtitleFile,
+        startDir, 'file', false,
+        { fnameOverride: 'movieEmbOnSubtitleFile', extAllowed: '.srt' }
+    );
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
@@ -1059,11 +1909,7 @@ function initKeyboard() {
             case 'ArrowRight':
                 e.preventDefault();
                 if (isTranscodedVideo && transcodeDuration > 0 && currentFile) {
-                    var newPos = Math.min(transcodeDuration, vid.currentTime + transcodeSeekOffset + 10);
-                    transcodeSeekOffset = newPos;
-                    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                            + '&start=' + newPos.toFixed(3);
-                    vid.load(); vid.play();
+                    transcodeSeekTo(effectivePlaybackTime() + 10);
                 } else {
                     vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10);
                 }
@@ -1072,11 +1918,7 @@ function initKeyboard() {
             case 'ArrowLeft':
                 e.preventDefault();
                 if (isTranscodedVideo && transcodeDuration > 0 && currentFile) {
-                    var newPos = Math.max(0, vid.currentTime + transcodeSeekOffset - 10);
-                    transcodeSeekOffset = newPos;
-                    vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(currentFile.filepath)
-                            + '&start=' + newPos.toFixed(3);
-                    vid.load(); vid.play();
+                    transcodeSeekTo(effectivePlaybackTime() - 10);
                 } else {
                     vid.currentTime = Math.max(0, vid.currentTime - 10);
                 }
@@ -1103,12 +1945,17 @@ function initKeyboard() {
             case 'r':
             case 'R':
                 e.preventDefault();
-                repeatSingle = !repeatSingle;
+                setRepeatSingle(!repeatSingle);
                 showToast('Repeat: ' + (repeatSingle ? 'On' : 'Off')); break;
+
+            case 's':
+            case 'S':
+                e.preventDefault(); toggleSettingsPopup(); break;
 
             case 'Escape':
                 e.preventDefault();
                 $('#player-ctx').hide();
+                closeSettingsPopup();
                 closeVideoInfo();
                 closeSubtitleSettings(); break;
 
@@ -1122,6 +1969,14 @@ function initKeyboard() {
 function initMain(){
     initVideoControls();
     initContextMenu();
+    initSettingsPopup();
+    initScrubPreview();
+    initAssRenderer();
+    resetSubtitleSeekFloor();   // a freshly opened file starts unsuppressed
+    if (currentFile) {
+        scheduleStoryboardLoad(currentFile.filepath);
+        loadEmbeddedTrackList(currentFile.filepath);
+    }
     initSubtitleMenu();
     initSubtitleSettings();
     initKeyboard();

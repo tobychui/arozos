@@ -1,0 +1,463 @@
+<style>
+#ntf-root {
+    --ntf-bg: #ffffff;
+    --ntf-border: #e5e5e5;
+    --ntf-text: #1f1f1f;
+    --ntf-dim: #676767;
+    --ntf-soft: #f5f5f5;
+    --ntf-accent: #4d6bff;
+    --ntf-ok: #107c10;
+    --ntf-danger: #c42b1c;
+    background: var(--ntf-bg);
+    border: 1px solid var(--ntf-border);
+    border-radius: 12px;
+    color: var(--ntf-text);
+    padding: 16px;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+}
+body.dark #ntf-root {
+    --ntf-bg: #2b2b2b;
+    --ntf-border: #3b3b3b;
+    --ntf-text: #ececec;
+    --ntf-dim: #aaaaaa;
+    --ntf-soft: #343434;
+    --ntf-accent: #5a78ff;
+    --ntf-ok: #2ecc71;
+    --ntf-danger: #ff6b5e;
+}
+#ntf-root * { box-sizing: border-box; }
+.ntf-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.ntf-head .ntf-title { font-size:17px; font-weight:600; }
+.ntf-head .ntf-sub { font-size:12px; color:var(--ntf-dim); margin-top:2px; }
+.ntf-card {
+    border:1px solid var(--ntf-border);
+    border-radius:10px;
+    background:var(--ntf-soft);
+    padding:14px;
+    margin-bottom:12px;
+}
+.ntf-card-title { font-size:13.5px; font-weight:600; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+.ntf-card-desc { font-size:11.5px; color:var(--ntf-dim); margin-bottom:12px; line-height:1.5; }
+.ntf-field { margin-bottom:12px; }
+.ntf-field > label { display:block; font-size:12px; font-weight:600; color:var(--ntf-dim); margin-bottom:5px; }
+.ntf-field input[type=text], .ntf-field input[type=number], .ntf-field input[type=password], .ntf-field select, .ntf-field textarea {
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--ntf-border);
+    border-radius:8px;
+    background:var(--ntf-bg);
+    color:var(--ntf-text);
+    font-size:13px;
+    font-family:inherit;
+}
+.ntf-field textarea { min-height:70px; resize:vertical; }
+.ntf-hint { font-size:11px; color:var(--ntf-dim); margin-top:5px; line-height:1.5; }
+.ntf-agent { display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--ntf-border); border-radius:8px; margin-bottom:8px; background:var(--ntf-bg); }
+.ntf-agent .ntf-agent-info { flex:1; }
+.ntf-agent .ntf-agent-name { font-weight:600; font-size:13px; text-transform:capitalize; }
+.ntf-agent .ntf-agent-desc { font-size:11px; color:var(--ntf-dim); }
+.ntf-agent .ntf-tag { font-size:10.5px; padding:2px 7px; border-radius:10px; background:var(--ntf-soft); color:var(--ntf-dim); border:1px solid var(--ntf-border); }
+.ntf-agent .ntf-tag.warn { color:var(--ntf-danger); border-color:var(--ntf-danger); }
+.ntf-switch { position:relative; width:42px; height:22px; flex-shrink:0; }
+.ntf-switch input { opacity:0; width:0; height:0; }
+.ntf-slider { position:absolute; inset:0; background:#c9c9c9; border-radius:22px; transition:.2s; cursor:pointer; }
+.ntf-slider::before { content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+.ntf-switch input:checked + .ntf-slider { background:var(--ntf-accent); }
+.ntf-switch input:checked + .ntf-slider::before { transform:translateX(20px); }
+.ntf-btn { height:36px; padding:0 16px; border:1px solid var(--ntf-border); border-radius:8px; background:var(--ntf-bg); color:var(--ntf-text); font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1; box-sizing:border-box; vertical-align:middle; }
+.ntf-btn.primary { background:var(--ntf-accent); color:#fff; border-color:var(--ntf-accent); }
+.ntf-select { height:36px; padding:0 30px 0 10px; border:1px solid var(--ntf-border); border-radius:8px; background:var(--ntf-bg); color:var(--ntf-text); font-size:13px; font-family:inherit; box-sizing:border-box; cursor:pointer; vertical-align:middle; }
+.ntf-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+/* Keep Semantic icons aligned inside our flex controls (they ship a right margin + baseline that offsets them) */
+#ntf-root i.icon { margin:0; line-height:1; vertical-align:middle; }
+.ntf-row { display:flex; gap:10px; flex-wrap:wrap; }
+.ntf-row > .ntf-field { flex:1; min-width:140px; }
+.ntf-toast { display:none; margin-top:10px; padding:8px 12px; border-radius:8px; font-size:12.5px; color:#fff; }
+.ntf-hidden { display:none !important; }
+
+/* Delivery matrix */
+.ntf-matrix-wrap { overflow-x:auto; }
+table.ntf-matrix { width:100%; border-collapse:collapse; font-size:12.5px; }
+table.ntf-matrix th, table.ntf-matrix td { padding:8px 10px; text-align:center; border-bottom:1px solid var(--ntf-border); }
+table.ntf-matrix thead th { color:var(--ntf-dim); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; }
+table.ntf-matrix th.ntf-matrix-channel, table.ntf-matrix td.ntf-matrix-channel { text-align:left; }
+table.ntf-matrix td.ntf-matrix-channel .ntf-chan-name { font-weight:600; text-transform:capitalize; }
+table.ntf-matrix td.ntf-matrix-channel .ntf-chan-desc { font-size:11px; color:var(--ntf-dim); }
+table.ntf-matrix td.ntf-matrix-channel.ntf-chan-off .ntf-chan-name { color:var(--ntf-dim); }
+table.ntf-matrix input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:var(--ntf-accent); }
+.ntf-col-tag { font-size:10.5px; padding:1px 6px; border-radius:9px; border:1px solid var(--ntf-border); color:var(--ntf-dim); }
+.ntf-prio-low { color:#8a8f98; }
+.ntf-prio-high { color:var(--ntf-danger); }
+
+/* Browser permission button + status chip (same height so they line up) */
+.ntf-perm { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.ntf-perm .ntf-pill { height:36px; box-sizing:border-box; font-size:12px; padding:0 14px; border-radius:18px; border:1px solid var(--ntf-border); color:var(--ntf-dim); display:inline-flex; align-items:center; gap:7px; }
+.ntf-perm .ntf-pill.granted { color:var(--ntf-ok); border-color:var(--ntf-ok); }
+.ntf-perm .ntf-pill.denied { color:var(--ntf-danger); border-color:var(--ntf-danger); }
+</style>
+
+<div id="ntf-root">
+    <div class="ntf-head">
+        <i class="big bell icon" style="color:var(--ntf-accent);"></i>
+        <div>
+            <div class="ntf-title">Notifications</div>
+            <div class="ntf-sub">Choose how ArozOS reaches you and configure delivery agents.</div>
+        </div>
+    </div>
+
+    <!-- Delivery matrix -->
+    <div class="ntf-card">
+        <div class="ntf-card-title"><i class="th icon"></i> Delivery Matrix</div>
+        <div class="ntf-card-desc">Pick which channels deliver each priority of notification. For example, get everything on the desktop but only high-priority alerts by email. A channel with no ticks is off. Channels needing extra details are configured below.</div>
+        <div class="ntf-matrix-wrap">
+            <table class="ntf-matrix" id="ntf-matrix">
+                <thead>
+                    <tr>
+                        <th class="ntf-matrix-channel">Channel</th>
+                        <th><span class="ntf-prio-low">Low</span></th>
+                        <th>Medium</th>
+                        <th><span class="ntf-prio-high">High</span></th>
+                    </tr>
+                </thead>
+                <tbody id="ntf-matrix-body">
+                    <tr><td colspan="4" style="color:var(--ntf-dim);">Loading channels…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Browser notifications -->
+    <div class="ntf-card">
+        <div class="ntf-card-title"><i class="chrome icon"></i> Browser Notifications</div>
+        <div class="ntf-card-desc">Allow ArozOS to raise browser (Chrome / Edge / Firefox) notifications on your device when the desktop tab is not focused. This grants permission for this browser only.</div>
+        <div class="ntf-perm">
+            <button class="ntf-btn" id="ntf-perm-btn">Enable browser notifications</button>
+            <span class="ntf-pill" id="ntf-perm-status"><i class="circle outline icon"></i> Checking…</span>
+        </div>
+    </div>
+
+    <!-- Telegram per-user -->
+    <div class="ntf-card ntf-hidden" id="ntf-telegram-card">
+        <div class="ntf-card-title"><i class="telegram plane icon"></i> Telegram</div>
+        <div class="ntf-card-desc">Link your Telegram chat. Start a chat with the bot configured by your administrator, then enter your chat id below.</div>
+        <div class="ntf-field">
+            <label>Your Telegram chat id</label>
+            <input type="text" id="ntf-telegram-chatid" placeholder="e.g. 123456789">
+            <div class="ntf-hint">You can obtain your chat id by messaging a bot such as <code>@userinfobot</code>.</div>
+        </div>
+    </div>
+
+    <!-- Webhook per-user -->
+    <div class="ntf-card ntf-hidden" id="ntf-webhook-card">
+        <div class="ntf-card-title"><i class="linkify icon"></i> Custom HTML API (Webhook)</div>
+        <div class="ntf-card-desc">Deliver notifications to your own HTTP endpoint. Placeholders <code>{{title}}</code>, <code>{{message}}</code>, <code>{{sender}}</code>, <code>{{priority}}</code>, <code>{{id}}</code> and <code>{{timestamp}}</code> are substituted in the body.</div>
+        <div class="ntf-field">
+            <label>Endpoint URL</label>
+            <input type="text" id="ntf-webhook-url" placeholder="https://example.com/my-hook">
+        </div>
+        <div class="ntf-row">
+            <div class="ntf-field">
+                <label>Method</label>
+                <select id="ntf-webhook-method">
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                </select>
+            </div>
+            <div class="ntf-field">
+                <label>Content-Type (POST)</label>
+                <input type="text" id="ntf-webhook-contenttype" placeholder="application/json">
+            </div>
+        </div>
+        <div class="ntf-field">
+            <label>Body template (POST, optional)</label>
+            <textarea id="ntf-webhook-body" placeholder='{"title":"{{title}}","message":"{{message}}","priority":"{{priority}}"}'></textarea>
+            <div class="ntf-hint">Leave blank to send a default JSON body.</div>
+        </div>
+    </div>
+
+    <div class="ntf-actions" style="margin:4px 0 14px 0;">
+        <button class="ntf-btn primary" id="ntf-save">Save preferences</button>
+    </div>
+
+    <!-- Test notification -->
+    <div class="ntf-card">
+        <div class="ntf-card-title"><i class="paper plane icon"></i> Send a Test Notification</div>
+        <div class="ntf-card-desc">Send yourself a notification at the chosen priority to check your setup. It is routed just like a real one, so it only arrives on the channels you enabled for that priority.</div>
+        <div class="ntf-actions" style="margin-top:0;">
+            <select class="ntf-select" id="ntf-test-priority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+            </select>
+            <button class="ntf-btn" id="ntf-test">Send test notification</button>
+        </div>
+    </div>
+    <div class="ntf-toast" id="ntf-toast"></div>
+
+    <!-- Admin agent configuration -->
+    <div class="ntf-card ntf-hidden" id="ntf-admin-card" style="margin-top:16px;">
+        <div class="ntf-card-title"><i class="cogs icon"></i> Agent Configuration (Administrator)</div>
+        <div class="ntf-card-desc">System-wide credentials used by the delivery agents. These are shared by all users.</div>
+
+        <div class="ntf-field">
+            <label>Telegram bot token</label>
+            <input type="password" id="ntf-admin-telegram-token" placeholder="Paste a new bot token to update">
+            <div class="ntf-hint" id="ntf-admin-telegram-status"></div>
+        </div>
+        <div class="ntf-actions" style="margin-bottom:14px;">
+            <button class="ntf-btn" id="ntf-admin-save-telegram">Save Telegram token</button>
+        </div>
+
+        <div class="ui divider"></div>
+
+        <div class="ntf-row">
+            <div class="ntf-field">
+                <label>SMTP sender display name</label>
+                <input type="text" id="ntf-admin-smtp-name" placeholder="ArozOS">
+            </div>
+            <div class="ntf-field">
+                <label>SMTP sender address</label>
+                <input type="text" id="ntf-admin-smtp-sender" placeholder="no-reply@example.com">
+            </div>
+        </div>
+        <div class="ntf-row">
+            <div class="ntf-field">
+                <label>SMTP server domain</label>
+                <input type="text" id="ntf-admin-smtp-domain" placeholder="smtp.example.com">
+            </div>
+            <div class="ntf-field">
+                <label>SMTP port</label>
+                <input type="number" id="ntf-admin-smtp-port" placeholder="587">
+            </div>
+        </div>
+        <div class="ntf-field">
+            <label>SMTP password</label>
+            <input type="password" id="ntf-admin-smtp-password" placeholder="Leave blank to keep existing">
+            <div class="ntf-hint" id="ntf-admin-smtp-status"></div>
+        </div>
+        <div class="ntf-actions">
+            <button class="ntf-btn" id="ntf-admin-save-smtp">Save SMTP settings</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var API = "../../system/notification/";
+
+    /* theme */
+    (function applyTheme() {
+        try {
+            if (typeof preferredTheme !== 'undefined') {
+                document.body.classList.toggle('dark', (preferredTheme === 'dark' || preferredTheme === 'darkTheme'));
+                return;
+            }
+        } catch (e) {}
+        if (typeof ao_module_getSystemThemeColor === 'function') {
+            ao_module_getSystemThemeColor(function (c) { document.body.classList.toggle('dark', c !== 'whiteTheme'); });
+        }
+    })();
+
+    function toast(msg, ok) {
+        var t = document.getElementById("ntf-toast");
+        t.textContent = msg;
+        t.style.background = ok === false ? "#c42b1c" : (ok === true ? "#107c10" : "#4d6bff");
+        t.style.display = "block";
+        setTimeout(function () { t.style.display = "none"; }, 3200);
+    }
+
+    // Load the shared helper module, then boot the page.
+    function loadHelper(callback) {
+        if (typeof NotificationUI !== "undefined") { callback(NotificationUI); return; }
+        var s = document.createElement("script");
+        s.src = "../notification/notification.js";
+        s.onload = function () { callback(window.NotificationUI); };
+        s.onerror = function () { toast("Failed to load notification helper", false); };
+        document.head.appendChild(s);
+    }
+
+    function boot(N) {
+        var matrixBody = document.getElementById("ntf-matrix-body");
+        var PRIORITIES = N.PRIORITIES; // ["low","medium","high"]
+        //Friendly display names for known agents (fallback = the agent name).
+        var CHANNEL_LABELS = { smtpn: "Email", telegram: "Telegram", desktop: "Desktop", webhook: "Custom Webhook" };
+
+        function channelLabel(name) {
+            return CHANNEL_LABELS[name] || (name.charAt(0).toUpperCase() + name.slice(1));
+        }
+
+        function renderMatrix(agents, channels) {
+            matrixBody.innerHTML = "";
+            if (!agents.length) {
+                matrixBody.innerHTML = '<tr><td colspan="4" style="color:var(--ntf-dim);">No delivery channels registered.</td></tr>';
+                return;
+            }
+            agents.forEach(function (a) {
+                var row = channels[a.name] || {};
+                var note = "";
+                if (!a.available) {
+                    note = '<div class="ntf-chan-desc">Not configured by administrator</div>';
+                } else if (a.requiresUserSetup) {
+                    note = '<div class="ntf-chan-desc">Needs your details below</div>';
+                } else {
+                    note = '<div class="ntf-chan-desc">' + N.escapeHtml(a.desc) + '</div>';
+                }
+                var tr = document.createElement("tr");
+                var cells = '<td class="ntf-matrix-channel' + (a.available ? '' : ' ntf-chan-off') + '">' +
+                    '<div class="ntf-chan-name">' + N.escapeHtml(channelLabel(a.name)) + '</div>' + note + '</td>';
+                PRIORITIES.forEach(function (label) {
+                    cells += '<td><input type="checkbox" data-agent="' + N.escapeHtml(a.name) +
+                        '" data-priority="' + label + '"' + (row[label] ? " checked" : "") + '></td>';
+                });
+                tr.innerHTML = cells;
+                matrixBody.appendChild(tr);
+            });
+
+            // Toggle per-user detail cards based on which agents exist.
+            document.getElementById("ntf-telegram-card").classList.toggle("ntf-hidden", !agents.some(function (a) { return a.name === "telegram"; }));
+            document.getElementById("ntf-webhook-card").classList.toggle("ntf-hidden", !agents.some(function (a) { return a.name === "webhook"; }));
+        }
+
+        function collectMatrix() {
+            var channels = {};
+            $("#ntf-matrix-body input[type=checkbox]").each(function () {
+                if (!this.checked) return;
+                var agent = $(this).attr("data-agent");
+                var priority = $(this).attr("data-priority");
+                if (!channels[agent]) channels[agent] = {};
+                channels[agent][priority] = true;
+            });
+            return N.normalizeMatrix(channels);
+        }
+
+        function loadPreference() {
+            $.ajax({ url: API + "agents", method: "GET", success: function (agents) {
+                $.ajax({ url: API + "preference", method: "GET", success: function (pref) {
+                    renderMatrix(agents, pref.channels || {});
+                    $("#ntf-telegram-chatid").val(pref.telegramChatID || "");
+                    if (pref.webhook) {
+                        $("#ntf-webhook-url").val(pref.webhook.url || "");
+                        $("#ntf-webhook-method").val((pref.webhook.method || "POST").toUpperCase());
+                        $("#ntf-webhook-contenttype").val(pref.webhook.contentType || "");
+                        $("#ntf-webhook-body").val(pref.webhook.bodyTemplate || "");
+                    }
+                }});
+            }, error: function () { toast("Unable to load channels", false); }});
+        }
+
+        function savePreference() {
+            var url = $("#ntf-webhook-url").val().trim();
+            if (url !== "" && !N.isValidWebhookURL(url)) {
+                toast("Webhook URL must be a valid http/https URL", false);
+                return;
+            }
+            var payload = N.buildPreferencePayload({
+                channels: collectMatrix(),
+                telegramChatID: $("#ntf-telegram-chatid").val(),
+                webhookURL: url,
+                webhookMethod: $("#ntf-webhook-method").val(),
+                webhookContentType: $("#ntf-webhook-contenttype").val(),
+                webhookBody: $("#ntf-webhook-body").val()
+            });
+            $.ajax({ url: API + "preference", method: "POST", data: payload, success: function (resp) {
+                if (resp && resp.error) { toast(resp.error, false); return; }
+                toast("Preferences saved", true);
+            }, error: function () { toast("Failed to save preferences", false); }});
+        }
+
+        /* ── Browser notification permission ── */
+        function refreshPermissionUI() {
+            var ctor = (typeof Notification !== "undefined") ? Notification : undefined;
+            var state = N.browserPermissionState(ctor);
+            var pill = document.getElementById("ntf-perm-status");
+            var btn = document.getElementById("ntf-perm-btn");
+            pill.className = "ntf-pill";
+            if (state === "granted") {
+                pill.classList.add("granted");
+                pill.innerHTML = '<i class="check circle icon"></i> Enabled';
+                btn.disabled = true;
+            } else if (state === "denied") {
+                pill.classList.add("denied");
+                pill.innerHTML = '<i class="times circle icon"></i> Blocked in browser settings';
+                btn.disabled = true;
+            } else if (state === "unsupported") {
+                pill.innerHTML = '<i class="ban icon"></i> Not supported by this browser';
+                btn.disabled = true;
+            } else {
+                pill.innerHTML = '<i class="circle outline icon"></i> Not enabled';
+                btn.disabled = false;
+            }
+        }
+
+        function requestPermission() {
+            if (typeof Notification === "undefined") { refreshPermissionUI(); return; }
+            try {
+                var p = Notification.requestPermission(function () { refreshPermissionUI(); });
+                if (p && typeof p.then === "function") { p.then(refreshPermissionUI); }
+            } catch (e) { refreshPermissionUI(); }
+        }
+
+        document.getElementById("ntf-perm-btn").addEventListener("click", requestPermission);
+        refreshPermissionUI();
+
+        function sendTest() {
+            $.ajax({ url: API + "test", method: "POST",
+                data: { priority: $("#ntf-test-priority").val() },
+                success: function (resp) {
+                    if (resp && resp.error) { toast(resp.error, false); return; }
+                    toast("Test notification sent", true);
+                }, error: function () { toast("Failed to send test", false); }});
+        }
+
+        $("#ntf-save").on("click", savePreference);
+        $("#ntf-test").on("click", sendTest);
+
+        /* ── Admin section: only shown if the admin config endpoints are reachable ── */
+        function loadAdmin() {
+            $.ajax({ url: API + "config/telegram", method: "GET", success: function (view) {
+                document.getElementById("ntf-admin-card").classList.remove("ntf-hidden");
+                $("#ntf-admin-telegram-status").text(view.botTokenSet ? "A bot token is currently set." : "No bot token configured yet.");
+                $.ajax({ url: API + "config/smtp", method: "GET", success: function (smtp) {
+                    $("#ntf-admin-smtp-name").val(smtp.SMTPSenderDisplayName || "");
+                    $("#ntf-admin-smtp-sender").val(smtp.SMTPSender || "");
+                    $("#ntf-admin-smtp-domain").val(smtp.SMTPDomain || "");
+                    $("#ntf-admin-smtp-port").val(smtp.SMTPPort || "");
+                    $("#ntf-admin-smtp-status").text(smtp.PasswordSet ? "A password is currently set." : "No password configured yet.");
+                }});
+            }, error: function () { /* not an admin — keep the section hidden */ }});
+        }
+
+        $("#ntf-admin-save-telegram").on("click", function () {
+            $.ajax({ url: API + "config/telegram", method: "POST",
+                data: { botToken: $("#ntf-admin-telegram-token").val() },
+                success: function (resp) {
+                    if (resp && resp.error) { toast(resp.error, false); return; }
+                    toast("Telegram token saved", true);
+                    $("#ntf-admin-telegram-token").val("");
+                    loadPreference();
+                }, error: function () { toast("Failed to save token", false); }});
+        });
+
+        $("#ntf-admin-save-smtp").on("click", function () {
+            $.ajax({ url: API + "config/smtp", method: "POST", data: {
+                senderDisplayName: $("#ntf-admin-smtp-name").val(),
+                sender: $("#ntf-admin-smtp-sender").val(),
+                domain: $("#ntf-admin-smtp-domain").val(),
+                port: $("#ntf-admin-smtp-port").val(),
+                password: $("#ntf-admin-smtp-password").val()
+            }, success: function (resp) {
+                if (resp && resp.error) { toast(resp.error, false); return; }
+                toast("SMTP settings saved", true);
+                $("#ntf-admin-smtp-password").val("");
+                loadPreference();
+            }, error: function () { toast("Failed to save SMTP settings", false); }});
+        });
+
+        loadPreference();
+        loadAdmin();
+    }
+
+    loadHelper(boot);
+})();
+</script>

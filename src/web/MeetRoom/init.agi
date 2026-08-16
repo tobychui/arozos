@@ -8,10 +8,10 @@
 //Setup the module information
 var moduleLaunchInfo = {
 	Name: "MeetRoom",
-	Desc: "Video conferencing with chat, screen sharing and file sharing",
+	Desc: "Video conferencing with chat, screen sharing, raised hands and file sharing",
 	Group: "Internet",
 	IconPath: "MeetRoom/img/module_icon.svg",
-	Version: "1.0.0",
+	Version: "1.1.0",
 	StartDir: "MeetRoom/index.html",
 	SupportFW: true,
 	LaunchFWDir: "MeetRoom/index.html",

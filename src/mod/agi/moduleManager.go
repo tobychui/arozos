@@ -68,6 +68,12 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	if g.Option.MeetRoomManager != nil {
 		g.MeetRoomLibRegister()
 	}
+	if g.Option.NotificationSender != nil {
+		g.NotificationLibRegister()
+	}
+	if g.Option.GitManager != nil {
+		g.GitLibRegister()
+	}
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")

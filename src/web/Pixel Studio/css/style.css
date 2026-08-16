@@ -78,6 +78,14 @@ input, select, button, textarea {
     z-index: 300;
 }
 
+.menu-dropdown.context-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    min-width: 170px;
+    z-index: 400;
+}
+
 .menu-item {
     display: flex;
     align-items: center;
@@ -745,9 +753,13 @@ input, select, button, textarea {
 
 .layers-opacity-num {
     font-size: 11px;
-    color: var(--text-dim);
-    width: 34px;
-    text-align: right;
+    color: var(--text);
+    width: 46px;
+    flex: 0 0 auto;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 2px 2px 4px;
 }
 
 #layers-list {
@@ -765,7 +777,10 @@ input, select, button, textarea {
     cursor: pointer;
 }
 
+/* multi-selected rows sit under the active one, which stays the brighter of the two */
+.layer-row.selected { background: var(--bg-input); }
 .layer-row.active { background: var(--accent-dim); }
+.layer-row.selected.active { box-shadow: inset 2px 0 0 var(--accent); }
 
 .layer-row.drag-over-top { box-shadow: inset 0 2px 0 var(--accent); }
 .layer-row.drag-over-bottom { box-shadow: inset 0 -2px 0 var(--accent); }
@@ -1064,6 +1079,12 @@ input, select, button, textarea {
 .float-panel-body .form-row .range-val {
     width: 46px;
     text-align: right;
+    color: var(--text-dim);
+}
+
+/* unit suffix ("px", "%") shown after a value field */
+.form-row .unit-label {
+    flex: 0 0 auto;
     color: var(--text-dim);
 }
 

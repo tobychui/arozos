@@ -243,6 +243,14 @@ var OfficeApp = (function () {
             content: JSON.stringify(env)
         }, function () { }, function () { }, 60000);
     }
+    // drop the saved session snapshot so it stops prompting on next launch
+    function deleteSession() {
+        if (!cfg || !cfg.packed) return;
+        ao_module_agirun(CONTAINER_BACKEND, {
+            action: "session-delete",
+            app: cfg.appType
+        }, function () { }, function () { }, 60000);
+    }
     function trySessionRestore() {
         ao_module_agirun(CONTAINER_BACKEND, {
             action: "session-load",
@@ -259,24 +267,39 @@ var OfficeApp = (function () {
             var m = env.meta || {};
             var when = m._sessionAt ? new Date(m._sessionAt).toLocaleString() : "an earlier session";
             var what = m._origin && m._origin.fn ? escapeHtml(m._origin.fn) : "an unsaved document";
-            confirmDialog("Restore from previous session?",
-                "You were working on <b>" + what + "</b> (" + escapeHtml(when) + ").",
-                "Restore", "Start fresh",
-                function (restore) {
-                    if (!restore) { checkDraft(); return; }
-                    var origin = m._origin;
-                    delete m._sessionAt;
-                    delete m._origin;
-                    meta = m;
-                    if (origin && origin.fp) {
-                        filepath = origin.fp;
-                        filename = origin.fn;
+            var restore = function () {
+                var origin = m._origin;
+                delete m._sessionAt;
+                delete m._origin;
+                meta = m;
+                if (origin && origin.fp) {
+                    filepath = origin.fp;
+                    filename = origin.fn;
+                }
+                cfg.deserialize(env.body);
+                markDirty();
+                updateTitle();
+                setStatus("Previous session restored - remember to save");
+            };
+            dialog({
+                title: "Restore from previous session?",
+                body: "You were working on <b>" + what + "</b> (" + escapeHtml(when) + ").<br><br>" +
+                    '<span class="of-dim">Start fresh deletes the saved snapshot.</span>',
+                dismissable: true,
+                buttons: [
+                    // keeps the snapshot: dismiss now, may be offered next launch
+                    //{ label: "Start fresh", action: function (close) { close(); checkDraft(); } },
+                    // deletes the snapshot so it stops prompting
+                    {
+                        label: "Start fresh", danger: true,
+                        action: function (close) { close(); deleteSession(); checkDraft(); }
+                    },
+                    {
+                        label: "Restore", primary: true,
+                        action: function (close) { close(); restore(); }
                     }
-                    cfg.deserialize(env.body);
-                    markDirty();
-                    updateTitle();
-                    setStatus("Previous session restored - remember to save");
-                });
+                ]
+            });
         }, function () {
             // backend unreachable (standalone preview): fall back to drafts
             checkDraft();
@@ -778,6 +801,12 @@ var OfficeApp = (function () {
             var $m = $('<div class="of-menu" tabindex="-1">' + escapeHtml(m.title) + "</div>");
             var $drop = $('<div class="of-menu-drop"></div>');
             $m.append($drop);
+            // contextual menus (e.g. Table) only show when their condition
+            // holds; the app re-evaluates via OfficeApp.updateMenus()
+            if (m.when) {
+                $m.data("when", m.when);
+                $m.hide();
+            }
             $m.on("click", function (ev) {
                 if ($(ev.target).closest(".of-menu-drop").length) return;
                 var wasOpen = $m.hasClass("open");
@@ -806,6 +835,17 @@ var OfficeApp = (function () {
     }
     function refreshMenuChecks() {
         // menus re-render on open; nothing to do live
+    }
+    // show/hide conditional menubar menus (menu defs carrying when: fn)
+    function updateMenus() {
+        $(".of-menubar .of-menu").each(function () {
+            var w = $(this).data("when");
+            if (!w) return;
+            var on = false;
+            try { on = !!w(); } catch (e) { }
+            if (!on && $(this).hasClass("open")) closeAllMenus();
+            $(this).toggle(on);
+        });
     }
     function standardMenus() {
         var fileItems = function () {
@@ -1106,8 +1146,46 @@ var OfficeApp = (function () {
                 e.returnValue = "";
             }
         });
+        installFloatWindowCloseGuard();
 
         updateTitle();
+    }
+
+    /* The desktop routes a floatWindow's X button through the iframe's
+       ao_module_close() (see ao_module.js + desktop.html: it calls
+       contentWindow.ao_module_close() when defined). beforeunload does NOT
+       fire when the desktop just removes the iframe, so override that hook
+       to confirm before discarding unsaved changes. */
+    function installFloatWindowCloseGuard() {
+        if (typeof window.ao_module_close !== "function") return;
+        var reallyClose = function () {
+            markClean();   // never re-prompt while the window tears down
+            if (typeof window.ao_module_closeHandler === "function") {
+                ao_module_closeHandler();
+            }
+        };
+        window.ao_module_close = function () {
+            if (!dirty) { reallyClose(); return; }
+            dialog({
+                title: "Unsaved changes",
+                body: "<b>" + escapeHtml(filename || (cfg.defaultFileName + cfg.extension)) +
+                    "</b> has unsaved changes. Close it anyway?",
+                dismissable: true,
+                buttons: [
+                    { label: "Cancel" },
+                    {
+                        label: "Close without saving", danger: true,
+                        action: function (close) { close(); reallyClose(); }
+                    },
+                    {
+                        label: "Save & close", primary: true,
+                        // save() only calls back on success, so a failed or
+                        // cancelled save leaves the window open
+                        action: function (close) { close(); save(reallyClose); }
+                    }
+                ]
+            });
+        };
     }
 
     /* ---------- public API ---------- */
@@ -1137,6 +1215,7 @@ var OfficeApp = (function () {
         showBusy: showBusy,
         hideBusy: hideBusy,
         closeAllMenus: closeAllMenus,
+        updateMenus: updateMenus,
         // features
         registerShortcut: registerShortcut,
         print: printDoc,

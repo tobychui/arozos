@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -47,6 +48,9 @@ type anthropicResponse struct {
 	Content []struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
+		//Extended-thinking blocks carry their chain-of-thought in a
+		//dedicated "thinking" field rather than "text".
+		Thinking string `json:"thinking"`
 	} `json:"content"`
 	Usage struct {
 		InputTokens  int64 `json:"input_tokens"`
@@ -129,22 +133,190 @@ func (c *Client) chatAnthropic(messages []Message, opt ChatOptions) (*ChatRespon
 		return nil, fmt.Errorf("AI endpoint returned HTTP %d: %s", resp.StatusCode, truncate(string(respBody), 300))
 	}
 
-	//Map the Anthropic response onto the unified ChatResponse.
-	var text strings.Builder
+	//Map the Anthropic response onto the unified ChatResponse. Text blocks
+	//form the answer; thinking blocks are collected separately so callers can
+	//show the model's reasoning in a dedicated (collapsible) section.
+	var text, thinking strings.Builder
 	for _, block := range parsed.Content {
-		if block.Type == "text" {
+		switch block.Type {
+		case "text":
 			text.WriteString(block.Text)
+		case "thinking":
+			thinking.WriteString(block.Thinking)
 		}
 	}
 	unified := &ChatResponse{Model: parsed.Model}
 	choice := Choice{FinishReason: parsed.StopReason}
 	choice.Message.Role = "assistant"
 	choice.Message.Content = text.String()
+	choice.Message.ReasoningContent = thinking.String()
 	unified.Choices = append(unified.Choices, choice)
 	unified.Usage = Usage{
 		PromptTokens:     parsed.Usage.InputTokens,
 		CompletionTokens: parsed.Usage.OutputTokens,
 		TotalTokens:      parsed.Usage.InputTokens + parsed.Usage.OutputTokens,
+	}
+	return unified, nil
+}
+
+// anthropicStreamEvent is one SSE "data:" payload from a streaming Messages
+// call. A single struct covers every event type (message_start,
+// content_block_delta, message_delta, error, ...) since they are
+// distinguished by the Type field and use disjoint sub-objects.
+type anthropicStreamEvent struct {
+	Type    string `json:"type"`
+	Message *struct {
+		Model string `json:"model"`
+		Usage *struct {
+			InputTokens  int64 `json:"input_tokens"`
+			OutputTokens int64 `json:"output_tokens"`
+		} `json:"usage"`
+	} `json:"message"`
+	Delta *struct {
+		Type       string `json:"type"`
+		Text       string `json:"text"`
+		Thinking   string `json:"thinking"`
+		StopReason string `json:"stop_reason"`
+	} `json:"delta"`
+	Usage *struct {
+		OutputTokens int64 `json:"output_tokens"`
+	} `json:"usage"`
+	Error *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// chatAnthropicStream performs a streaming Anthropic Messages call, invoking cb
+// for each text/thinking delta and assembling the unified response. Anthropic
+// splits usage across message_start (input tokens) and message_delta (output
+// tokens), so both are accumulated before computing the total.
+func (c *Client) chatAnthropicStream(messages []Message, opt ChatOptions, cb StreamCallback) (*ChatResponse, error) {
+	system := ""
+	amsgs := []anthropicMessage{}
+	for _, m := range messages {
+		if m.Role == "system" {
+			if s, ok := m.Content.(string); ok {
+				if system != "" {
+					system += "\n\n"
+				}
+				system += s
+			}
+			continue
+		}
+		amsgs = append(amsgs, anthropicMessage{Role: m.Role, Content: toAnthropicContent(m.Content)})
+	}
+
+	maxTokens := anthropicDefaultMaxTokens
+	if opt.MaxTokens != nil && *opt.MaxTokens > 0 {
+		maxTokens = *opt.MaxTokens
+	}
+
+	reqStruct := anthropicRequest{
+		Model:       opt.Model,
+		MaxTokens:   maxTokens,
+		System:      system,
+		Messages:    amsgs,
+		Temperature: opt.Temperature,
+		Stream:      true,
+	}
+	body, err := json.Marshal(reqStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", anthropicURL(c.Endpoint), bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("User-Agent", "arozos-llm-client/1.0")
+	req.Header.Set("anthropic-version", anthropicVersion)
+	if c.APIKey != "" {
+		req.Header.Set("x-api-key", c.APIKey)
+	}
+
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return nil, errors.New("request to AI endpoint failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		if msg := openaiErrorMessage(respBody); msg != "" {
+			return nil, errors.New("AI endpoint error: " + msg)
+		}
+		return nil, fmt.Errorf("AI endpoint returned HTTP %d: %s", resp.StatusCode, truncate(string(respBody), 300))
+	}
+
+	var textB, thinkingB strings.Builder
+	var model, stopReason string
+	var inputTokens, outputTokens int64
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, readErr := reader.ReadString('\n')
+		if trimmed := strings.TrimRight(line, "\r\n"); strings.HasPrefix(trimmed, "data:") {
+			data := strings.TrimSpace(trimmed[len("data:"):])
+			if data != "" {
+				var ev anthropicStreamEvent
+				if json.Unmarshal([]byte(data), &ev) == nil {
+					switch ev.Type {
+					case "message_start":
+						if ev.Message != nil {
+							if ev.Message.Model != "" {
+								model = ev.Message.Model
+							}
+							if ev.Message.Usage != nil {
+								inputTokens = ev.Message.Usage.InputTokens
+							}
+						}
+					case "content_block_delta":
+						if ev.Delta != nil {
+							d := StreamDelta{}
+							if ev.Delta.Type == "thinking_delta" && ev.Delta.Thinking != "" {
+								d.Reasoning = ev.Delta.Thinking
+								thinkingB.WriteString(ev.Delta.Thinking)
+							} else if ev.Delta.Text != "" {
+								d.Content = ev.Delta.Text
+								textB.WriteString(ev.Delta.Text)
+							}
+							if cb != nil && (d.Content != "" || d.Reasoning != "") {
+								cb(d)
+							}
+						}
+					case "message_delta":
+						if ev.Delta != nil && ev.Delta.StopReason != "" {
+							stopReason = ev.Delta.StopReason
+						}
+						if ev.Usage != nil {
+							outputTokens = ev.Usage.OutputTokens
+						}
+					case "error":
+						if ev.Error != nil && ev.Error.Message != "" {
+							return nil, errors.New("AI endpoint error: " + ev.Error.Message)
+						}
+					}
+				}
+			}
+		}
+		if readErr != nil {
+			break
+		}
+	}
+
+	unified := &ChatResponse{Model: model}
+	choice := Choice{FinishReason: stopReason}
+	choice.Message.Role = "assistant"
+	choice.Message.Content = textB.String()
+	choice.Message.ReasoningContent = thinkingB.String()
+	unified.Choices = append(unified.Choices, choice)
+	unified.Usage = Usage{
+		PromptTokens:     inputTokens,
+		CompletionTokens: outputTokens,
+		TotalTokens:      inputTokens + outputTokens,
 	}
 	return unified, nil
 }

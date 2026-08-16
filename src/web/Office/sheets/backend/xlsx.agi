@@ -69,6 +69,68 @@ function main(){
         return;
     }
 
+    if (action == "import-odf"){
+        if (typeof src === "undefined" || !src || src.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "src is required" }));
+            return;
+        }
+        try {
+            var odfBody = office.odsToWorkbook(src);
+            if (!odfBody){
+                sendJSONResp(JSON.stringify({ error: "unable to parse the ods file" }));
+                return;
+            }
+            sendJSONResp('{"body":' + odfBody + '}');
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "import failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export-odf"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            if (!office.workbookToOds(data, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the ods file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
+    if (action == "export-pdf"){
+        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
+            sendJSONResp(JSON.stringify({ error: "dest is required" }));
+            return;
+        }
+        if (typeof data === "undefined" || !data){
+            sendJSONResp(JSON.stringify({ error: "data is required" }));
+            return;
+        }
+        try {
+            // data is the client-computed print model (formatted display
+            // text + styles), not the raw workbook JSON
+            if (!office.workbookPrintToPdf(data, dest)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
+                return;
+            }
+            sendResp("OK");
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
+        }
+        return;
+    }
+
     sendJSONResp(JSON.stringify({ error: "unknown action: " + action }));
 }
 

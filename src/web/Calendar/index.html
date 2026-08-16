@@ -101,14 +101,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sa
 .week-view{display:flex;flex-direction:column;height:100%;overflow:hidden}
 .wk-hdr{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
 .wk-time-gutter{width:52px;min-width:52px;flex-shrink:0}
-.wk-day-hdrs{flex:1;display:grid}
+.wk-day-hdrs{flex:1;display:grid;min-width:0}
+.wk-scroll-spacer{width:0;flex-shrink:0}
 .wk-day-hdr{text-align:center;padding:8px 4px 6px;border-left:1px solid var(--border);cursor:pointer}
 .wk-dn{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
 .wk-dd{font-size:22px;font-weight:300;line-height:1.15;color:var(--text)}
 .wk-dd.is-today{width:34px;height:34px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-weight:600;font-size:18px}
 .allday-row{display:flex;border-bottom:2px solid var(--border);flex-shrink:0;min-height:28px}
 .allday-lbl{width:52px;min-width:52px;font-size:10px;color:var(--text3);text-align:right;padding:6px 8px 0 0;flex-shrink:0}
-.allday-cells{flex:1;display:grid}
+.allday-cells{flex:1;display:grid;min-width:0}
 .allday-cell{border-left:1px solid var(--border);padding:2px 4px;min-height:28px}
 .allday-pill{font-size:11px;padding:2px 6px;border-radius:4px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .allday-pill:hover{filter:brightness(.92)}
@@ -665,7 +666,7 @@ function renderWeekView(){
       +'<div class="wk-dd'+(tod?' is-today':'')+'">'+(tod?'<div style="width:34px;height:34px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-weight:600;font-size:18px">'+d.getDate()+'</div>':d.getDate())+'</div>'
       +'</div>';
   });
-  hdr+='</div></div>';
+  hdr+='</div><div class="wk-scroll-spacer" id="wkScrollSpacerHdr"></div></div>';
 
   // All-day row
   var allDayEvMap={};
@@ -679,7 +680,7 @@ function renderWeekView(){
     });
     adr+='</div>';
   });
-  adr+='</div></div>';
+  adr+='</div><div class="wk-scroll-spacer" id="wkScrollSpacerAllday"></div></div>';
 
   // Time labels
   var lbls='<div class="time-labels">';
@@ -723,10 +724,22 @@ function renderWeekView(){
     // Keep S.gridScrollTop in sync so future renders restore correctly
     gs.addEventListener('scroll', function(){ S.gridScrollTop = gs.scrollTop; }, {passive:true});
   }
+  syncWkScrollbarGutter();
 
   clearInterval(S.nowTimer);
   S.nowTimer=setInterval(function(){ var n=new Date(),top=n.getHours()*60+n.getMinutes(); document.querySelectorAll('[id^="nowBar"]').forEach(function(el){ el.style.top=top+'px'; }); },60000);
 }
+
+// Reserve the same width in the header/all-day rows as the vertical scrollbar
+// actually occupies in the grid, so the day-column dividers line up.
+function syncWkScrollbarGutter(){
+  var gs=document.getElementById('gridScroll'); if(!gs) return;
+  var sbw=gs.offsetWidth-gs.clientWidth;
+  ['wkScrollSpacerHdr','wkScrollSpacerAllday'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.style.width=sbw+'px';
+  });
+}
+window.addEventListener('resize', syncWkScrollbarGutter);
 
 function injectWeekEvents(days){
   days.forEach(function(day,di){
