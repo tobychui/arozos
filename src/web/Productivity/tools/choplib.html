@@ -1,0 +1,190 @@
+<style>
+    .chop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+        margin-top: 4px;
+    }
+    .chop-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        display: flex; flex-direction: column; gap: 8px;
+    }
+    .chop-thumb {
+        width: 100%; height: 96px;
+        border-radius: 7px;
+        background: repeating-conic-gradient(#0000000d 0% 25%, transparent 0% 50%) 50% / 16px 16px;
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+    }
+    .chop-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .chop-name {
+        font-size: 12.5px; font-weight: 600;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        cursor: text;
+    }
+    .chop-card-btns { display: flex; gap: 4px; }
+    .chop-empty {
+        padding: 28px 18px; text-align: center;
+        font-size: 13px; color: var(--sub);
+        border: 1.5px dashed var(--border); border-radius: 10px;
+    }
+</style>
+
+<div class="field">
+    <span class="field-label">Company Chops &amp; Stamps</span>
+    <p style="font-size:12.5px;color:var(--sub);margin-bottom:10px;line-height:1.5;">
+        Load your company stamp as a transparent <strong style="color:var(--text)">PNG</strong>.
+        Saved chops can be placed on any document from the <strong style="color:var(--text)">PDF Editor</strong>.
+    </p>
+    <button class="btn btn-primary" id="chopAddBtn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#FFF" stroke-width="2" stroke-linecap="round">
+            <line x1="6.5" y1="2" x2="6.5" y2="11"/><line x1="2" y1="6.5" x2="11" y2="6.5"/>
+        </svg>
+        Add Chop (PNG)
+    </button>
+</div>
+<div id="chopList"></div>
+<div id="chopResult"></div>
+
+<script>
+(function(){
+    var registry = window.ProductivityToolModules = window.ProductivityToolModules || {};
+
+    /* ── Shared chop store (defined once, reused by the PDF Editor) ── */
+    if (!window.ProductivityChops) {
+        window.ProductivityChops = (function(){
+            var DIR = 'user:/.appdata/Productivity/Chops/';
+            var MOD = 'Productivity', KEY = 'chops';
+
+            // In-memory cache is the source of truth once loaded. ao_module_storage.setStorage()
+            // fires an async write and returns immediately without confirming completion, so
+            // reading the value straight back from the server after a save() can race the write
+            // and return stale data. Caching avoids that round trip entirely.
+            var cache = null;
+            var pending = [];
+            var fetching = false;
+
+            function load(cb){
+                if (cache !== null){ cb(cache.slice()); return; }
+                pending.push(cb);
+                if (fetching) return;
+                fetching = true;
+                ao_module_storage.loadStorage(MOD, KEY, function(raw){
+                    var arr = [];
+                    if (raw){ try { arr = JSON.parse(raw) || []; } catch(e){ arr = []; } }
+                    cache = arr;
+                    fetching = false;
+                    var queued = pending; pending = [];
+                    queued.forEach(function(fn){ fn(cache.slice()); });
+                });
+            }
+            function save(arr, cb){
+                cache = arr.slice();
+                ao_module_storage.setStorage(MOD, KEY, JSON.stringify(cache));
+                if (cb) cb(cache.slice());
+            }
+            function add(srcPath, name, onDone, onErr){
+                fetch(mediaUrl(srcPath)).then(function(r){
+                    if (!r.ok) throw new Error('Cannot read source image');
+                    return r.blob();
+                }).then(function(blob){
+                    var fname = 'chop_' + Date.now() + '.png';
+                    ao_module_uploadFile(new File([blob], fname, {type:'image/png'}), DIR, function(){
+                        load(function(arr){
+                            arr.push({ id: 'c' + Date.now(), name: name || 'Chop', path: DIR + fname });
+                            save(arr, function(){ if (onDone) onDone(arr); });
+                        });
+                    }, undefined, function(status){
+                        if (onErr) onErr('Upload failed (' + status + ')');
+                    });
+                }).catch(function(e){ if (onErr) onErr(e.message || String(e)); });
+            }
+            function remove(id, onDone){
+                load(function(arr){
+                    save(arr.filter(function(c){ return c.id !== id; }), onDone);
+                });
+            }
+            function rename(id, name, onDone){
+                load(function(arr){
+                    arr.forEach(function(c){ if (c.id === id) c.name = name; });
+                    save(arr, onDone);
+                });
+            }
+            return { DIR: DIR, load: load, save: save, add: add, remove: remove, rename: rename };
+        })();
+    }
+
+    registry.choplib = {
+        init: function(root) {
+            var listEl   = root.querySelector('#chopList');
+            var resultEl = root.querySelector('#chopResult');
+
+            function render(){
+                window.ProductivityChops.load(function(chops){
+                    if (!chops.length){
+                        listEl.innerHTML = '<div class="chop-empty">No chops yet. Add a transparent PNG of your company stamp to get started.</div>';
+                        return;
+                    }
+                    var html = '<div class="chop-grid">';
+                    chops.forEach(function(c){
+                        html += '<div class="chop-card">' +
+                            '<div class="chop-thumb"><img src="' + mediaUrl(c.path) + '" alt=""></div>' +
+                            '<div class="chop-name" data-rename="' + c.id + '" title="Click to rename">' + escHtml(c.name) + '</div>' +
+                            '<div class="chop-card-btns">' +
+                                '<button class="btn btn-outline" style="flex:1;padding:5px 8px;font-size:12px" data-rename="' + c.id + '">Rename</button>' +
+                                '<button class="icon-btn rm" data-remove="' + c.id + '" title="Remove">' + svgX() + '</button>' +
+                            '</div>' +
+                        '</div>';
+                    });
+                    html += '</div>';
+                    listEl.innerHTML = html;
+
+                    Array.prototype.forEach.call(listEl.querySelectorAll('[data-remove]'), function(btn){
+                        btn.addEventListener('click', function(){
+                            var id = this.getAttribute('data-remove');
+                            window.ProductivityChops.remove(id, render);
+                        });
+                    });
+                    Array.prototype.forEach.call(listEl.querySelectorAll('[data-rename]'), function(el){
+                        el.addEventListener('click', function(){
+                            var id = this.getAttribute('data-rename');
+                            var card = this.closest('.chop-card');
+                            var current = card ? card.querySelector('.chop-name').textContent : '';
+                            var name = prompt('Chop name', current);
+                            if (name != null && name.trim() !== ''){
+                                window.ProductivityChops.rename(id, name.trim(), render);
+                            }
+                        });
+                    });
+                });
+            }
+
+            root.querySelector('#chopAddBtn').addEventListener('click', function(){
+                ao_module_openFileSelector('_chopAddCb', 'user:/', 'file', false, { filter: ['png'] });
+            });
+
+            window._chopAddCb = function(files){
+                if (!files || !files.length) return;
+                var f = files[0];
+                if (!/\.png$/i.test(f.filename)){
+                    resultEl.innerHTML = '<div class="result-box result-err">Please choose a <strong>PNG</strong> image (transparent background recommended).</div>';
+                    return;
+                }
+                var defaultName = f.filename.replace(/\.png$/i, '');
+                resultEl.innerHTML = '<div class="result-box" style="color:var(--sub)">Importing chop…</div>';
+                window.ProductivityChops.add(f.filepath, defaultName, function(){
+                    resultEl.innerHTML = '';
+                    render();
+                }, function(err){
+                    resultEl.innerHTML = '<div class="result-box result-err"><strong>Error:</strong> ' + escHtml(String(err)) + '</div>';
+                });
+            };
+
+            render();
+        }
+    };
+})();
+</script>

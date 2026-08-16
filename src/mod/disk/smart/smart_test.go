@@ -166,7 +166,7 @@ func TestNewSmartListenerUnsupported(t *testing.T) {
 	}
 }
 
-// TestWmicGetinfoWindowsOnly runs wmic helper only on Windows.
+// TestWmicGetinfoWindowsOnly runs wmic/CIM helper only on Windows.
 func TestWmicGetinfoWindowsOnly(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("wmicGetinfo is Windows-only")
@@ -174,6 +174,24 @@ func TestWmicGetinfoWindowsOnly(t *testing.T) {
 	result := wmicGetinfo("os", "Caption")
 	if len(result) == 0 {
 		t.Error("expected at least one result from wmicGetinfo")
+	}
+	if result[0] == "Undefined" || result[0] == "" {
+		t.Fatalf("wmicGetinfo(os, Caption) = %v; CIM fallback should return a real caption when wmic.exe is missing", result)
+	}
+}
+
+// TestWmicGetinfoWindowsDiskDrive covers the diskdrive Model/Size path used by fillCapacity.
+func TestWmicGetinfoWindowsDiskDrive(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	models := wmicGetinfo("diskdrive", "Model")
+	if len(models) == 0 || models[0] == "Undefined" || models[0] == "" {
+		t.Fatalf("wmicGetinfo(diskdrive, Model) = %v", models)
+	}
+	sizes := wmicGetinfo("diskdrive", "Size")
+	if len(sizes) == 0 || sizes[0] == "Undefined" || sizes[0] == "" {
+		t.Fatalf("wmicGetinfo(diskdrive, Size) = %v", sizes)
 	}
 }
 
