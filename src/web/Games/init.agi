@@ -8,13 +8,13 @@ var moduleLaunchInfo = {
     Name: "Games",
 	Desc: "A collection of mini games",
 	Group: "Games",
-	IconPath: "img/module_icon.png",
+	IconPath: "Games/img/module_icon.svg",
 	Version: "0.1.0",
 	StartDir: "index.html",
 	SupportFW: true,
 	LaunchFWDir: "index.html",
 	SupportEmb: false,
-	InitFWSize: [800, 600],
+	InitFWSize: [1280, 800],
 	SupportedExt: []
 }
 

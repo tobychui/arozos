@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 560px;
+            padding: 16px 0;
+        }
+
+        #backBtn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #backBtn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        #backBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        #resetBtn {
+            background: none;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #resetBtn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 215, 0, 0.6);
+        }
+
+        #resetBtn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 24px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .game-info span {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 12px;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        #gameCanvas {
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            width: 60px;
+            height: 50px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        .ctrl-btn.fire {
+            width: 100px;
+            background: rgba(255, 68, 68, 0.2);
+            border-color: rgba(255, 68, 68, 0.5);
+            color: #ff4444;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: #141414;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+
+        .modal.win h2 {
+            color: #4caf50;
+        }
+
+        .modal.lose h2 {
+            color: #ff6432;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #888888;
+        }
+
+        .modal button {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0 4px;
+            transition: background 0.2s;
+        }
+
+        .modal button:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+    </style>
+    <link rel="stylesheet" href="css/arcade.css">
+</head>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
+    <div class="top-bar">
+        <button id="backBtn" onclick="goBack()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back
+        </button>
+        <button id="resetBtn" onclick="initGame()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="game-info">
+            <span id="score">Score: 0</span>
+            <span id="level">Level: 1</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="520" height="440"></canvas>
+
+    <div class="controls">
+        <div class="ctrl-btn" onclick="moveLeft()"><span class="px-sprite" data-icon="ui/left" data-icon-label="Left"></span></div>
+        <div class="ctrl-btn" onclick="moveRight()"><span class="px-sprite" data-icon="ui/right" data-icon-label="Right"></span></div>
+        <div class="ctrl-btn fire" onclick="fire()"><span class="px-sprite" data-icon="ui/fire" data-icon-label="Fire"></span></div>
+    </div>
+
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2 id="modalTitle"></h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 520;
+        const CANVAS_HEIGHT = 440;
+        const PLAYER_W = 34;
+        const PLAYER_H = 26;
+        const ALIEN_W = 32;
+        const ALIEN_H = 24;
+        const COLS = 8;
+        const ROWS = 4;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const art = GameKit.load({
+            alien_a: 'invaders/alien_a.png',
+            alien_b: 'invaders/alien_b.png',
+            alien_c: 'invaders/alien_c.png',
+            alien_d: 'invaders/alien_d.png',
+            player: 'invaders/player.png',
+            bullet: 'invaders/bullet.png',
+            boom: 'invaders/boom.png',
+            ufo: 'invaders/ufo.png'
+        }, function () {
+            draw();
+        });
+
+        /* One sprite per rank, the way the arcade original coloured its rows. */
+        const ROW_SPRITE = ['alien_c', 'alien_b', 'alien_d', 'alien_a'];
+        const ROW_VALUE = [40, 30, 20, 10];
+
+        let player = { x: CANVAS_WIDTH / 2 - PLAYER_W / 2, y: CANVAS_HEIGHT - 48 };
+        let bullets = [];
+        let enemyBullets = [];
+        let enemies = [];
+        let booms = [];
+        let score = 0;
+        let level = 1;
+        let gameOver = false;
+        let running = false;
+        let animationId = null;
+        let alienDir = 1;
+        let alienStep = 0;
+        let frame = 0;
+        let cooldown = 0;
+        const held = {};
+
+        function initGame() {
+            player = { x: CANVAS_WIDTH / 2 - PLAYER_W / 2, y: CANVAS_HEIGHT - 48 };
+            bullets = [];
+            enemyBullets = [];
+            booms = [];
+            score = 0;
+            level = 1;
+            alienDir = 1;
+            alienStep = 0;
+            frame = 0;
+            cooldown = 0;
+            gameOver = false;
+            running = true;
+
+            createEnemies();
+            document.getElementById('score').textContent = 'Score: 0';
+            document.getElementById('level').textContent = 'Level: 1';
+            document.getElementById('overlay').classList.add('hidden');
+
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            initGame();
+        }
+
+        function createEnemies() {
+            enemies = [];
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    enemies.push({
+                        x: 46 + col * 52,
+                        y: 34 + row * 40,
+                        row: row,
+                        alive: true
+                    });
+                }
+            }
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            if (!running) return;
+            frame++;
+
+            if (cooldown > 0) cooldown--;
+
+            /* Held keys give smooth movement instead of one nudge per press. */
+            if (held.left) player.x = Math.max(6, player.x - 4.5);
+            if (held.right) player.x = Math.min(CANVAS_WIDTH - PLAYER_W - 6, player.x + 4.5);
+            if (held.fire) fire();
+
+            const alive = enemies.filter(function (e) { return e.alive; });
+
+            /* The formation shuffles sideways, dropping a row at the edges. */
+            const marchEvery = Math.max(8, 34 - level * 3 - (ROWS * COLS - alive.length) * 0.4);
+            if (frame % Math.round(marchEvery) === 0 && alive.length) {
+                let hitEdge = false;
+                for (const e of alive) {
+                    const nx = e.x + alienDir * 10;
+                    if (nx < 8 || nx + ALIEN_W > CANVAS_WIDTH - 8) hitEdge = true;
+                }
+                if (hitEdge) {
+                    alienDir *= -1;
+                    for (const e of alive) e.y += 16;
+                } else {
+                    for (const e of alive) e.x += alienDir * 10;
+                }
+                alienStep = 1 - alienStep;
+
+                for (const e of alive) {
+                    if (e.y + ALIEN_H >= player.y) {
+                        endGame(false);
+                        return;
+                    }
+                }
+            }
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= 7;
+                if (bullets[i].y < -12) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                for (const e of enemies) {
+                    if (!e.alive) continue;
+                    const b = bullets[i];
+                    if (b.x > e.x && b.x < e.x + ALIEN_W && b.y > e.y && b.y < e.y + ALIEN_H) {
+                        e.alive = false;
+                        booms.push({ x: e.x, y: e.y, life: 14 });
+                        bullets.splice(i, 1);
+                        score += ROW_VALUE[e.row];
+                        document.getElementById('score').textContent = 'Score: ' + score;
+                        break;
+                    }
+                }
+            }
+
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                enemyBullets[i].y += 3.6;
+                if (enemyBullets[i].y > CANVAS_HEIGHT) {
+                    enemyBullets.splice(i, 1);
+                    continue;
+                }
+                const b = enemyBullets[i];
+                if (b.x > player.x && b.x < player.x + PLAYER_W && b.y > player.y && b.y < player.y + PLAYER_H) {
+                    booms.push({ x: player.x, y: player.y, life: 20 });
+                    endGame(false);
+                    return;
+                }
+            }
+
+            for (let i = booms.length - 1; i >= 0; i--) {
+                booms[i].life--;
+                if (booms[i].life <= 0) booms.splice(i, 1);
+            }
+
+            if (alive.length === 0) {
+                level++;
+                document.getElementById('level').textContent = 'Level: ' + level;
+                createEnemies();
+            } else if (Math.random() < 0.006 + level * 0.003) {
+                const shooter = alive[Math.floor(Math.random() * alive.length)];
+                enemyBullets.push({ x: shooter.x + ALIEN_W / 2, y: shooter.y + ALIEN_H });
+            }
+        }
+
+        function draw() {
+            GameKit.pixelate(ctx);
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            for (const e of enemies) {
+                if (!e.alive) continue;
+                /* A one pixel bob sells the classic two-frame march. */
+                const bob = alienStep ? 1 : -1;
+                GameKit.draw(ctx, art[ROW_SPRITE[e.row]], e.x, e.y + bob, ALIEN_W, ALIEN_H);
+            }
+
+            for (const b of bullets) {
+                GameKit.draw(ctx, art.bullet, b.x - 5, b.y, 10, 18);
+            }
+
+            ctx.fillStyle = '#ff4152';
+            for (const b of enemyBullets) {
+                ctx.fillRect(b.x - 2, b.y, 4, 10);
+            }
+
+            GameKit.draw(ctx, art.player, player.x, player.y, PLAYER_W, PLAYER_H);
+
+            for (const b of booms) {
+                GameKit.draw(ctx, art.boom, b.x - 4, b.y - 4, ALIEN_W + 8, ALIEN_H + 8);
+            }
+
+            ctx.fillStyle = 'rgba(255, 198, 26, 0.3)';
+            ctx.fillRect(0, CANVAS_HEIGHT - 12, CANVAS_WIDTH, 2);
+        }
+
+        function endGame(isWin) {
+            gameOver = true;
+            running = false;
+
+            const modal = document.getElementById('modal');
+            modal.className = 'modal ' + (isWin ? 'win' : 'lose');
+            document.getElementById('modalTitle').textContent = isWin ? 'You Win!' : 'Game Over';
+            document.getElementById('modalMsg').textContent = 'Score: ' + score + '  |  Level: ' + level;
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        function moveLeft() {
+            if (!running) return;
+            player.x = Math.max(6, player.x - 18);
+        }
+
+        function moveRight() {
+            if (!running) return;
+            player.x = Math.min(CANVAS_WIDTH - PLAYER_W - 6, player.x + 18);
+        }
+
+        function fire() {
+            if (!running || cooldown > 0) return;
+            bullets.push({ x: player.x + PLAYER_W / 2, y: player.y - 6 });
+            cooldown = 12;
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); held.left = true; }
+            if (e.key === 'ArrowRight') { e.preventDefault(); held.right = true; }
+            if (e.key === ' ') { e.preventDefault(); held.fire = true; }
+        });
+
+        document.addEventListener('keyup', function (e) {
+            if (e.key === 'ArrowLeft') held.left = false;
+            if (e.key === 'ArrowRight') held.right = false;
+            if (e.key === ' ') held.fire = false;
+        });
+
+        GameKit.autoFit(canvas, { reserveH: 96 });
+        GameKit.gate({
+            title: 'Space Invaders',
+            hint: 'Arrow keys move, space fires. Clear the formation before it lands.',
+            onStart: startGame
+        });
+
+        draw();
+    </script>
+</body>
+</html>

@@ -195,8 +195,12 @@
             background: rgba(255, 215, 0, 0.3);
         }
     </style>
+    <link rel="stylesheet" href="css/arcade.css">
 </head>
-<body>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
     <div class="top-bar">
         <button id="backBtn" onclick="goBack()">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -215,7 +219,7 @@
     </div>
 
     <div class="game-layout">
-        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <canvas id="gameCanvas" width="440" height="440"></canvas>
         <div class="side-panel">
             <div class="panel-box">
                 <h3>Score</h3>
@@ -232,6 +236,15 @@
         </div>
     </div>
 
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
     <div class="overlay hidden" id="overlay">
         <div class="modal" id="modal">
             <h2 id="modalTitle">Game Over</h2>
@@ -242,25 +255,35 @@
     </div>
 
     <script>
-        const CANVAS_SIZE = 400;
-        const GRID_COUNT = 20;
-        const CELL_SIZE = CANVAS_SIZE / GRID_COUNT;
+        const CANVAS_SIZE = 440;
+        const GRID_COUNT = 22;
+        const CELL = CANVAS_SIZE / GRID_COUNT;
         const INITIAL_SPEED = 150;
-        const SPEED_INCREMENT = 3;
-        const MIN_SPEED = 50;
+        const SPEED_INCREMENT = 4;
+        const MIN_SPEED = 60;
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        const art = GameKit.load({
+            head: 'snake/head.png',
+            head_open: 'snake/head_open.png',
+            body: 'snake/body.png',
+            tail: 'snake/tail.png',
+            apple: 'snake/apple.png'
+        }, function () {
+            draw();
+        });
 
         let snake = [];
         let food = null;
         let direction = { x: 1, y: 0 };
         let nextDirection = { x: 1, y: 0 };
         let score = 0;
-        let highScore = parseInt(localStorage.getItem('snakeHighScore') || '0');
+        let highScore = parseInt(localStorage.getItem('snakeHighScore') || '0', 10);
         let gameSpeed = INITIAL_SPEED;
         let gameOver = false;
-        let gameStarted = false;
+        let running = false;
         let lastUpdate = 0;
         let animationId = null;
 
@@ -268,16 +291,17 @@
 
         function initGame() {
             snake = [
-                { x: 5, y: 10 },
-                { x: 4, y: 10 },
-                { x: 3, y: 10 }
+                { x: 6, y: 11 },
+                { x: 5, y: 11 },
+                { x: 4, y: 11 }
             ];
             direction = { x: 1, y: 0 };
             nextDirection = { x: 1, y: 0 };
             score = 0;
             gameSpeed = INITIAL_SPEED;
             gameOver = false;
-            gameStarted = false;
+            running = true;
+            lastUpdate = 0;
 
             document.getElementById('score').textContent = '0';
             document.getElementById('overlay').classList.add('hidden');
@@ -288,6 +312,10 @@
             animationId = requestAnimationFrame(gameLoop);
         }
 
+        function startGame() {
+            initGame();
+        }
+
         function placeFood() {
             let valid = false;
             while (!valid) {
@@ -296,7 +324,7 @@
                     y: Math.floor(Math.random() * GRID_COUNT)
                 };
                 valid = true;
-                for (let segment of snake) {
+                for (const segment of snake) {
                     if (segment.x === food.x && segment.y === food.y) {
                         valid = false;
                         break;
@@ -308,7 +336,7 @@
         function gameLoop(timestamp) {
             if (gameOver) return;
 
-            if (timestamp - lastUpdate > gameSpeed) {
+            if (running && timestamp - lastUpdate > gameSpeed) {
                 update();
                 lastUpdate = timestamp;
             }
@@ -330,7 +358,7 @@
                 return;
             }
 
-            for (let segment of snake) {
+            for (const segment of snake) {
                 if (segment.x === head.x && segment.y === head.y) {
                     endGame();
                     return;
@@ -342,116 +370,79 @@
             if (head.x === food.x && head.y === food.y) {
                 score += 10;
                 document.getElementById('score').textContent = score;
-                gameSpeed = Math.max(MIN_SPEED, INITIAL_SPEED - Math.floor(score / 50) * SPEED_INCREMENT);
+                gameSpeed = Math.max(MIN_SPEED, INITIAL_SPEED - Math.floor(score / 30) * SPEED_INCREMENT);
                 placeFood();
             } else {
                 snake.pop();
             }
         }
 
+        /* Sprites face right, so each segment is rotated onto its heading. */
+        function drawRotated(img, gx, gy, dx, dy) {
+            const cx = gx * CELL + CELL / 2;
+            const cy = gy * CELL + CELL / 2;
+            let angle = 0;
+            if (dx === -1) angle = Math.PI;
+            else if (dy === -1) angle = -Math.PI / 2;
+            else if (dy === 1) angle = Math.PI / 2;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            GameKit.draw(ctx, img, -CELL / 2, -CELL / 2, CELL, CELL);
+            ctx.restore();
+        }
+
         function draw() {
+            GameKit.pixelate(ctx);
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
             for (let r = 0; r < GRID_COUNT; r++) {
                 for (let c = 0; c < GRID_COUNT; c++) {
-                    ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.04)';
-                    ctx.fillRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
                 }
             }
 
             if (food) {
-                ctx.fillStyle = '#ff4444';
-                ctx.beginPath();
-                ctx.arc(
-                    food.x * CELL_SIZE + CELL_SIZE / 2,
-                    food.y * CELL_SIZE + CELL_SIZE / 2,
-                    CELL_SIZE / 2.5,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.beginPath();
-                ctx.arc(
-                    food.x * CELL_SIZE + CELL_SIZE / 2 - 2,
-                    food.y * CELL_SIZE + CELL_SIZE / 2 - 2,
-                    CELL_SIZE / 6,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
+                GameKit.draw(ctx, art.apple, food.x * CELL + 1, food.y * CELL + 1, CELL - 2, CELL - 2);
             }
 
-            for (let i = 0; i < snake.length; i++) {
-                const segment = snake[i];
-                const alpha = 1 - (i / snake.length) * 0.5;
-
+            for (let i = snake.length - 1; i >= 0; i--) {
+                const seg = snake[i];
                 if (i === 0) {
-                    ctx.fillStyle = '#ffd700';
-                    ctx.fillRect(
-                        segment.x * CELL_SIZE + 1,
-                        segment.y * CELL_SIZE + 1,
-                        CELL_SIZE - 2,
-                        CELL_SIZE - 2
-                    );
-
-                    ctx.fillStyle = '#0a0a0a';
-                    const eyeSize = CELL_SIZE / 6;
-                    const eyeOffset = CELL_SIZE / 4;
-
-                    if (direction.x === 1) {
-                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
-                    } else if (direction.x === -1) {
-                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
-                    } else if (direction.y === -1) {
-                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
-                    } else {
-                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
-                    }
+                    const mouthOpen = food &&
+                        Math.abs(seg.x - food.x) + Math.abs(seg.y - food.y) <= 1;
+                    drawRotated(mouthOpen ? art.head_open : art.head, seg.x, seg.y, direction.x, direction.y);
+                } else if (i === snake.length - 1) {
+                    const prev = snake[i - 1];
+                    drawRotated(art.tail, seg.x, seg.y, prev.x - seg.x, prev.y - seg.y);
                 } else {
-                    ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
-                    ctx.fillRect(
-                        segment.x * CELL_SIZE + 1,
-                        segment.y * CELL_SIZE + 1,
-                        CELL_SIZE - 2,
-                        CELL_SIZE - 2
-                    );
+                    GameKit.draw(ctx, art.body, seg.x * CELL, seg.y * CELL, CELL, CELL);
                 }
-            }
-
-            if (!gameStarted) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-                ctx.fillStyle = '#ffd700';
-                ctx.font = 'bold 20px Segoe UI';
-                ctx.textAlign = 'center';
-                ctx.fillText('Press any arrow key to start', CANVAS_SIZE / 2, CANVAS_SIZE / 2);
             }
         }
 
         function endGame() {
             gameOver = true;
+            running = false;
 
             if (score > highScore) {
                 highScore = score;
-                localStorage.setItem('snakeHighScore', highScore.toString());
+                try {
+                    localStorage.setItem('snakeHighScore', String(highScore));
+                } catch (err) {
+                    /* Storage disabled -- the high score is cosmetic. */
+                }
                 document.getElementById('highScore').textContent = highScore;
             }
 
-            const overlay = document.getElementById('overlay');
             const modal = document.getElementById('modal');
-            const title = document.getElementById('modalTitle');
-            const msg = document.getElementById('modalMsg');
-
             modal.className = 'modal lose';
-            title.textContent = 'Game Over';
-            msg.textContent = 'Score: ' + score + (score >= highScore && score > 0 ? ' (New High Score!)' : '');
-
-            overlay.classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = 'Game Over';
+            document.getElementById('modalMsg').textContent = 'Score: ' + score +
+                (score >= highScore && score > 0 ? ' (New High Score!)' : '');
+            document.getElementById('overlay').classList.remove('hidden');
         }
 
         function hideOverlay() {
@@ -466,31 +457,34 @@
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.key) !== -1) {
                 e.preventDefault();
             }
-
-            if (gameOver) return;
+            if (!running) return;
 
             switch (e.key) {
                 case 'ArrowUp':
                     if (direction.y !== 1) nextDirection = { x: 0, y: -1 };
-                    gameStarted = true;
                     break;
                 case 'ArrowDown':
                     if (direction.y !== -1) nextDirection = { x: 0, y: 1 };
-                    gameStarted = true;
                     break;
                 case 'ArrowLeft':
                     if (direction.x !== 1) nextDirection = { x: -1, y: 0 };
-                    gameStarted = true;
                     break;
                 case 'ArrowRight':
                     if (direction.x !== -1) nextDirection = { x: 1, y: 0 };
-                    gameStarted = true;
                     break;
             }
         }
 
         document.addEventListener('keydown', handleKey);
-        initGame();
+
+        GameKit.autoFit(canvas, { reserveH: 40 });
+        GameKit.gate({
+            title: 'Snake',
+            hint: 'Steer with the arrow keys and eat the apples. The snake moves as soon as you start.',
+            onStart: startGame
+        });
+
+        draw();
     </script>
 </body>
 </html>

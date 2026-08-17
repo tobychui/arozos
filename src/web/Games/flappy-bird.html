@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 560px;
+            padding: 16px 0;
+        }
+
+        #backBtn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #backBtn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        #backBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        #resetBtn {
+            background: none;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #resetBtn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 215, 0, 0.6);
+        }
+
+        #resetBtn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 24px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .game-info span {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 12px;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        #gameCanvas {
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            width: 100px;
+            height: 50px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: #141414;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+
+        .modal.lose h2 {
+            color: #ff6432;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #888888;
+        }
+
+        .modal button {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0 4px;
+            transition: background 0.2s;
+        }
+
+        .modal button:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+    </style>
+    <link rel="stylesheet" href="css/arcade.css">
+</head>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
+    <div class="top-bar">
+        <button id="backBtn" onclick="goBack()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back
+        </button>
+        <button id="resetBtn" onclick="initGame()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="game-info">
+            <span id="score">Score: 0</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="360" height="520"></canvas>
+
+    <div class="controls">
+        <div class="ctrl-btn" onclick="flap()"><span class="px-sprite" data-icon="ui/up" data-icon-label="Flap"></span></div>
+    </div>
+
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2 id="modalTitle">Game Over</h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 360;
+        const CANVAS_HEIGHT = 520;
+
+        /*
+            Tuning: the original fell about twice as fast as a flap could lift
+            it, which made the bird impossible to hold in a gap. Rise per flap
+            is now roughly two thirds of the smallest gap, and the ceiling
+            bounces instead of ending the run.
+        */
+        const GRAVITY = 0.26;
+        const FLAP_V = -5.6;
+        const MAX_FALL = 7.2;
+        const PIPE_SPEED = 1.9;
+        const PIPE_W = 56;
+        const GAP_MIN = 148;
+        const GAP_MAX = 186;
+        const PIPE_SPACING = 210;
+        const BIRD_W = 38;
+        const BIRD_H = 30;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const art = GameKit.load({
+            bird_a: 'flappy/bird_a.png',
+            bird_b: 'flappy/bird_b.png',
+            bird_c: 'flappy/bird_c.png',
+            pipe: 'flappy/pipe.png',
+            cloud: 'flappy/cloud.png'
+        }, function () {
+            draw();
+        });
+
+        let bird = { x: 96, y: 220, vy: 0 };
+        let pipes = [];
+        let clouds = [];
+        let score = 0;
+        let best = parseInt(localStorage.getItem('arozos.games.flappy.best') || '0', 10);
+        let gameOver = false;
+        let running = false;
+        let frame = 0;
+        let animationId = null;
+
+        function initGame() {
+            bird = { x: 96, y: 220, vy: 0 };
+            pipes = [];
+            clouds = [
+                { x: 40, y: 70, w: 60 },
+                { x: 230, y: 150, w: 48 }
+            ];
+            score = 0;
+            frame = 0;
+            gameOver = false;
+            running = true;
+
+            document.getElementById('score').textContent = 'Score: 0';
+            document.getElementById('overlay').classList.add('hidden');
+
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            initGame();
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function addPipe() {
+            const gap = GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN);
+            const top = 60 + Math.random() * (CANVAS_HEIGHT - gap - 160);
+            pipes.push({ x: CANVAS_WIDTH + 10, top: top, gap: gap, passed: false });
+        }
+
+        function update() {
+            if (!running) return;
+            frame++;
+
+            bird.vy = Math.min(MAX_FALL, bird.vy + GRAVITY);
+            bird.y += bird.vy;
+
+            /* Bounce off the ceiling rather than dying on it. */
+            if (bird.y < 0) {
+                bird.y = 0;
+                bird.vy = 0;
+            }
+
+            if (bird.y + BIRD_H > CANVAS_HEIGHT) {
+                endGame();
+                return;
+            }
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const p = pipes[i];
+                p.x -= PIPE_SPEED;
+
+                if (!p.passed && p.x + PIPE_W < bird.x) {
+                    p.passed = true;
+                    score++;
+                    document.getElementById('score').textContent = 'Score: ' + score;
+                }
+
+                if (p.x + PIPE_W < -10) {
+                    pipes.splice(i, 1);
+                    continue;
+                }
+
+                const bx = bird.x + 5;
+                const bw = BIRD_W - 12;
+                const by = bird.y + 5;
+                const bh = BIRD_H - 10;
+                if (bx + bw > p.x && bx < p.x + PIPE_W &&
+                    (by < p.top || by + bh > p.top + p.gap)) {
+                    endGame();
+                    return;
+                }
+            }
+
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < CANVAS_WIDTH - PIPE_SPACING) {
+                addPipe();
+            }
+
+            for (let i = clouds.length - 1; i >= 0; i--) {
+                clouds[i].x -= 0.35;
+                if (clouds[i].x + clouds[i].w < 0) clouds.splice(i, 1);
+            }
+            if (Math.random() < 0.006) {
+                clouds.push({ x: CANVAS_WIDTH + 20, y: 40 + Math.random() * 260, w: 42 + Math.random() * 30 });
+            }
+        }
+
+        /*
+            The sheet gives one pipe mouth. It is stretched across the full pipe
+            width as a cap and the shaft is painted underneath it, mirrored for
+            the pipe hanging from the ceiling.
+        */
+        function drawShaft(x, y, h) {
+            if (h <= 0) return;
+            ctx.fillStyle = '#2f6d22';
+            ctx.fillRect(x + 3, y, PIPE_W - 6, h);
+            ctx.fillStyle = '#4f9c33';
+            ctx.fillRect(x + 8, y, 10, h);
+            ctx.fillStyle = '#7cd14f';
+            ctx.fillRect(x + 8, y, 4, h);
+        }
+
+        function drawPipe(p) {
+            const capH = 26;
+
+            drawShaft(p.x, 0, p.top - capH);
+            ctx.save();
+            ctx.translate(p.x, p.top);
+            ctx.scale(1, -1);
+            GameKit.stretch(ctx, art.pipe, 0, 0, PIPE_W, capH);
+            ctx.restore();
+
+            const bottomY = p.top + p.gap;
+            GameKit.stretch(ctx, art.pipe, p.x, bottomY, PIPE_W, capH);
+            drawShaft(p.x, bottomY + capH, CANVAS_HEIGHT - bottomY - capH);
+        }
+
+        function draw() {
+            GameKit.pixelate(ctx);
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            for (const c of clouds) {
+                ctx.globalAlpha = 0.6;
+                GameKit.draw(ctx, art.cloud, c.x, c.y, c.w, c.w * 0.55);
+                ctx.globalAlpha = 1;
+            }
+
+            for (const p of pipes) {
+                drawPipe(p);
+            }
+
+            /* Wing frame follows the climb: up-flap while rising, glide falling. */
+            let wing = art.bird_b;
+            if (bird.vy < -1) wing = art.bird_a;
+            else if (bird.vy > 2.5) wing = art.bird_c;
+
+            ctx.save();
+            ctx.translate(bird.x + BIRD_W / 2, bird.y + BIRD_H / 2);
+            ctx.rotate(Math.max(-0.4, Math.min(0.7, bird.vy / 12)));
+            GameKit.draw(ctx, wing, -BIRD_W / 2, -BIRD_H / 2, BIRD_W, BIRD_H);
+            ctx.restore();
+        }
+
+        function endGame() {
+            gameOver = true;
+            running = false;
+
+            if (score > best) {
+                best = score;
+                try {
+                    localStorage.setItem('arozos.games.flappy.best', String(best));
+                } catch (err) {
+                    /* Storage disabled -- the best score is cosmetic. */
+                }
+            }
+
+            const modal = document.getElementById('modal');
+            modal.className = 'modal lose';
+            document.getElementById('modalTitle').textContent = 'Game Over';
+            document.getElementById('modalMsg').textContent = 'Score: ' + score + '  |  Best: ' + best;
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        function flap() {
+            if (gameOver || !running) return;
+            bird.vy = FLAP_V;
+        }
+
+        function handleKey(e) {
+            if (e.key === ' ' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                flap();
+            }
+        }
+
+        canvas.addEventListener('click', flap);
+        document.addEventListener('keydown', handleKey);
+
+        GameKit.autoFit(canvas, { reserveH: 96 });
+        GameKit.gate({
+            title: 'Flappy Bird',
+            hint: 'Space or a tap flaps. Keep the bird inside the gaps.',
+            onStart: startGame
+        });
+
+        draw();
+    </script>
+</body>
+</html>

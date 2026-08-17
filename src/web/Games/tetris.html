@@ -182,8 +182,12 @@
             background: rgba(255, 215, 0, 0.3);
         }
     </style>
+    <link rel="stylesheet" href="css/arcade.css">
 </head>
-<body>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
     <div class="top-bar">
         <button id="backBtn" onclick="goBack()">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -191,7 +195,7 @@
             </svg>
             Back
         </button>
-        <button id="resetBtn" onclick="initGame()" style="background:none;border:1px solid rgba(255,215,0,0.3);color:#ffd700;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <button id="resetBtn" onclick="initGame()" title="New game">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
                 <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
                 <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -229,6 +233,15 @@
         </div>
     </div>
 
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
     <div class="overlay hidden" id="overlay">
         <div class="modal" id="modal">
             <h2 id="modalTitle"></h2>
@@ -242,15 +255,16 @@
         const COLS = 10;
         const ROWS = 20;
         const BLOCK_SIZE = 30;
+        /* One colour per tetromino, matched to the sprite sheet's block art. */
         const COLORS = [
             null,
-            '#ffd700',
-            '#ffcc00',
-            '#ffb300',
-            '#ff9800',
-            '#ff5722',
-            '#ffc107',
-            '#ffeb3b'
+            '#33d6d6',
+            '#ffc61a',
+            '#a76bff',
+            '#ff8a3d',
+            '#4da3ff',
+            '#3fd16b',
+            '#ff4152'
         ];
 
         const SHAPES = [
@@ -271,6 +285,7 @@
         const nextCanvas = document.getElementById('nextCanvas');
         const nextCtx = nextCanvas.getContext('2d');
 
+        /* Start with an empty grid so the idle draw behind the start gate works. */
         let board = [];
         let currentPiece = null;
         let nextPiece = null;
@@ -656,7 +671,25 @@
         }
 
         document.addEventListener('keydown', handleKey);
-        initGame();
+        /*
+            Nothing falls until the player presses Start -- the blocks used to
+            begin dropping while the page was still settling.
+        */
+        function startGame() {
+            initGame();
+        }
+
+        createBoard();
+
+        GameKit.autoFit(canvas, { reserveH: 40 });
+        GameKit.gate({
+            title: 'Tetris',
+            hint: 'Arrows move and rotate, space hard-drops, P pauses.',
+            onStart: startGame
+        });
+
+        draw();
+        drawNext();
     </script>
 </body>
 </html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dino Runner - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 560px;
+            padding: 16px 0;
+        }
+
+        #backBtn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #backBtn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        #backBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        #resetBtn {
+            background: none;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #resetBtn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 215, 0, 0.6);
+        }
+
+        #resetBtn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 24px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .game-info span {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 12px;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        #gameCanvas {
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            width: 100px;
+            height: 50px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: #141414;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+
+        .modal.lose h2 {
+            color: #ff6432;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #888888;
+        }
+
+        .modal button {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0 4px;
+            transition: background 0.2s;
+        }
+
+        .modal button:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+    </style>
+    <link rel="stylesheet" href="css/arcade.css">
+</head>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
+    <div class="top-bar">
+        <button id="backBtn" onclick="goBack()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back
+        </button>
+        <button id="resetBtn" onclick="initGame()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="game-info">
+            <span id="score">Score: 0</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="600" height="220"></canvas>
+
+    <div class="controls">
+        <div class="ctrl-btn" onclick="jump()"><span class="px-sprite" data-icon="ui/jump" data-icon-label="Jump"></span></div>
+    </div>
+
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2 id="modalTitle">Game Over</h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 220;
+        const GROUND_Y = 172;
+
+        /*
+            Physics note. Two things have to hold for an obstacle to be
+            clearable at all:
+
+              height  apex = JUMP_V^2 / (2 * GRAVITY) = ~127px, comfortably
+                      over the tallest obstacle (46px).
+              width   air time = 2 * |JUMP_V| / GRAVITY = ~44 frames. The dino
+                      is airborne for 44 * speed pixels while the obstacle plus
+                      the dino's own width (at most 48 + 28 = 76px) has to pass
+                      underneath, so even at the slowest speed there is a
+                      ~100px window to take off in.
+
+            The original numbers failed both tests, which is why the obstacles
+            were impossible to jump.
+        */
+        const GRAVITY = 0.52;
+        const JUMP_V = -11.5;
+        const DINO_W = 44;
+        const DINO_H = 44;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const art = GameKit.load({
+            run_a: 'dino/run_a.png',
+            run_b: 'dino/run_b.png',
+            jump: 'dino/jump.png',
+            ground: 'dino/ground.png',
+            cactus_small: 'dino/cactus_small.png',
+            cactus_big: 'dino/cactus_big.png',
+            bird: 'dino/bird.png',
+            cloud: 'flappy/cloud.png'
+        }, function () {
+            draw();
+        });
+
+        /*
+            Obstacle kinds, each sized so a normal jump clears it. "repeat"
+            draws the same sprite side by side to make a wider cactus patch.
+        */
+        const OBSTACLES = [
+            { sprite: 'cactus_small', width: 26, height: 26, air: 0, repeat: 1 },
+            { sprite: 'cactus_big', width: 28, height: 44, air: 0, repeat: 1 },
+            { sprite: 'cactus_big', width: 46, height: 40, air: 0, repeat: 2 },
+            { sprite: 'bird', width: 34, height: 20, air: 46, repeat: 1 }
+        ];
+
+        let dino = { x: 56, y: GROUND_Y - DINO_H, vy: 0, jumping: false };
+        let obstacles = [];
+        let clouds = [];
+        let groundOffset = 0;
+        let score = 0;
+        let best = parseInt(localStorage.getItem('arozos.games.dino.best') || '0', 10);
+        let gameOver = false;
+        let running = false;
+        let speed = 4;
+        let sinceSpawn = 0;
+        let nextSpawn = 260;
+        let frame = 0;
+        let animationId = null;
+
+        function initGame() {
+            dino = { x: 56, y: GROUND_Y - DINO_H, vy: 0, jumping: false };
+            obstacles = [];
+            clouds = [
+                { x: 120, y: 40, w: 54 },
+                { x: 400, y: 66, w: 44 }
+            ];
+            groundOffset = 0;
+            score = 0;
+            speed = 4;
+            sinceSpawn = 0;
+            nextSpawn = 260;
+            frame = 0;
+            gameOver = false;
+            running = true;
+
+            updateScore();
+            document.getElementById('overlay').classList.add('hidden');
+
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            initGame();
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = 'Score: ' + score;
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function spawnObstacle() {
+            const kind = OBSTACLES[Math.floor(Math.random() * (score > 4 ? OBSTACLES.length : 3))];
+            obstacles.push({
+                x: CANVAS_WIDTH + 20,
+                y: GROUND_Y - kind.height - kind.air,
+                width: kind.width,
+                height: kind.height,
+                sprite: kind.sprite,
+                repeat: kind.repeat
+            });
+
+            /*
+                A jump lasts ~38 frames, so the next obstacle must be at least
+                that far away at the current speed or it would be unavoidable.
+            */
+            const jumpSpan = speed * 46;
+            nextSpawn = jumpSpan + 70 + Math.random() * 190;
+            sinceSpawn = 0;
+        }
+
+        function update() {
+            if (!running) return;
+
+            frame++;
+            groundOffset = (groundOffset + speed) % 58;
+
+            if (dino.jumping) {
+                dino.vy += GRAVITY;
+                dino.y += dino.vy;
+                if (dino.y >= GROUND_Y - DINO_H) {
+                    dino.y = GROUND_Y - DINO_H;
+                    dino.jumping = false;
+                    dino.vy = 0;
+                }
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.x -= speed;
+
+                if (obs.x + obs.width < -20) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    updateScore();
+                    speed = Math.min(9, 4 + score * 0.12);
+                    continue;
+                }
+
+                /* Forgiving hitbox -- the sprites have transparent shoulders. */
+                const dx = dino.x + 8;
+                const dw = DINO_W - 16;
+                const dy = dino.y + 6;
+                const dh = DINO_H - 8;
+                if (dx + dw > obs.x + 4 && dx < obs.x + obs.width - 4 &&
+                    dy + dh > obs.y + 4 && dy < obs.y + obs.height) {
+                    endGame();
+                    return;
+                }
+            }
+
+            sinceSpawn += speed;
+            if (sinceSpawn >= nextSpawn) {
+                spawnObstacle();
+            }
+
+            for (let i = clouds.length - 1; i >= 0; i--) {
+                clouds[i].x -= speed * 0.25;
+                if (clouds[i].x + clouds[i].w < 0) clouds.splice(i, 1);
+            }
+            if (Math.random() < 0.004) {
+                clouds.push({ x: CANVAS_WIDTH + 20, y: 26 + Math.random() * 50, w: 40 + Math.random() * 24 });
+            }
+        }
+
+        function draw() {
+            GameKit.pixelate(ctx);
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            for (const cloud of clouds) {
+                ctx.globalAlpha = 0.75;
+                GameKit.draw(ctx, art.cloud, cloud.x, cloud.y, cloud.w, cloud.w * 0.55);
+                ctx.globalAlpha = 1;
+            }
+
+            /* Ground strip, scrolled by tiling one sprite width at a time. */
+            for (let x = -groundOffset; x < CANVAS_WIDTH + 58; x += 58) {
+                GameKit.draw(ctx, art.ground, x, GROUND_Y - 2, 58, 27);
+            }
+            ctx.fillStyle = 'rgba(255, 198, 26, 0.25)';
+            ctx.fillRect(0, GROUND_Y + 25, CANVAS_WIDTH, 2);
+
+            for (const obs of obstacles) {
+                const each = obs.width / obs.repeat;
+                for (let n = 0; n < obs.repeat; n++) {
+                    GameKit.draw(ctx, art[obs.sprite], obs.x + n * each, obs.y, each, obs.height);
+                }
+            }
+
+            const sprite = dino.jumping ? art.jump : (Math.floor(frame / 6) % 2 ? art.run_a : art.run_b);
+            GameKit.draw(ctx, sprite, dino.x, dino.y, DINO_W, DINO_H);
+        }
+
+        function endGame() {
+            gameOver = true;
+            running = false;
+
+            if (score > best) {
+                best = score;
+                try {
+                    localStorage.setItem('arozos.games.dino.best', String(best));
+                } catch (err) {
+                    /* Storage disabled -- the best score is cosmetic. */
+                }
+            }
+
+            const modal = document.getElementById('modal');
+            modal.className = 'modal lose';
+            document.getElementById('modalTitle').textContent = 'Game Over';
+            document.getElementById('modalMsg').textContent = 'Score: ' + score + '  |  Best: ' + best;
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        function jump() {
+            if (gameOver || !running || dino.jumping) return;
+            dino.jumping = true;
+            dino.vy = JUMP_V;
+        }
+
+        function handleKey(e) {
+            if (e.key === ' ' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                jump();
+            }
+        }
+
+        canvas.addEventListener('click', jump);
+        document.addEventListener('keydown', handleKey);
+
+        GameKit.autoFit(canvas, { reserveH: 96 });
+        GameKit.gate({
+            title: 'Dino Runner',
+            hint: 'Space, arrow up or a tap on the track jumps. Clear the cacti and the bird.',
+            onStart: startGame
+        });
+
+        draw();
+    </script>
+</body>
+</html>

@@ -161,8 +161,18 @@
         }
 
         .card-front {
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 2px solid rgba(255, 215, 0, 0.3);
+            background: #150f28;
+            border: 0;
+            box-shadow: 0 0 0 3px var(--gold-lo);
+            overflow: hidden;
+        }
+
+        .card-front::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: url('img/sprites/memory/back.png') center / contain no-repeat;
+            image-rendering: pixelated;
         }
 
         .card-front svg {
@@ -234,9 +244,19 @@
         .modal button:hover {
             background: rgba(255, 215, 0, 0.3);
         }
+
+        .card-art {
+            width: 96%;
+            height: 96%;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
     </style>
+    <link rel="stylesheet" href="css/arcade.css">
 </head>
-<body>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
     <div class="top-bar">
         <button id="backBtn" onclick="goBack()">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -264,7 +284,9 @@
         <button class="diff-btn" onclick="setDifficulty(2)">6x4</button>
     </div>
 
-    <div id="board"></div>
+    <div class="board-wrap">
+        <div id="board"></div>
+    </div>
 
     <div class="overlay hidden" id="overlay">
         <div class="modal" id="modal">
@@ -276,20 +298,23 @@
     </div>
 
     <script>
+        /*
+            Card faces come from the module sprite sheet so they match the rest
+            of the shell. Twelve unique faces covers the largest board (6x4).
+        */
+        /*
+            Card faces are the cropped sheet sprites. Twelve unique faces are
+            needed for the largest 6x4 board, so the seven "playing card" faces
+            are topped up with characters from the other games.
+        */
         const CARD_ICONS = [
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M12 7V12L15 15" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C8 3 4 7 4 12C4 17 8 21 12 21C16 21 20 17 20 12C20 7 16 3 12 3Z" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M9 12C9 9.5 10.5 7.5 12 7.5" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14 10L22 10L16 15L18 22L12 18L6 22L8 15L2 10L10 10Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M12 7V12L15 15" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C8 3 4 7 4 12C4 17 8 21 12 21C16 21 20 17 20 12C20 7 16 3 12 3Z" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M9 12C9 9.5 10.5 7.5 12 7.5" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14 10L22 10L16 15L18 22L12 18L6 22L8 15L2 10L10 10Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M12 7V12L15 15" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C8 3 4 7 4 12C4 17 8 21 12 21C16 21 20 17 20 12C20 7 16 3 12 3Z" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M9 12C9 9.5 10.5 7.5 12 7.5" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
-            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14 10L22 10L16 15L18 22L12 18L6 22L8 15L2 10L10 10Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>'
-        ];
+            'memory/face_1.png', 'memory/face_2.png', 'memory/face_3.png',
+            'memory/face_4.png', 'memory/face_5.png', 'memory/face_6.png',
+            'memory/face_7.png', 'snake/apple.png', 'invaders/alien_a.png',
+            'dino/cactus_small.png', 'flappy/bird_a.png', 'asteroids/rock_m.png'
+        ].map(function (file) {
+            return '<img src="img/sprites/' + file + '" alt="" class="card-art">';
+        });
 
         const DIFFICULTIES = [
             { cols: 4, rows: 3, pairs: 6 },

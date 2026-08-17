@@ -4,254 +4,136 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Games - ArozOS</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
-            color: #e0e0e0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            background: linear-gradient(90deg, #ffd700, #ffcc00, #ffb300);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            font-size: 1rem;
-            color: #888888;
-        }
-
-        .header-icon {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 12px;
-        }
-
-        .header-icon svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 20px;
-            max-width: 800px;
-            width: 100%;
-            padding: 0 20px;
-        }
-
-        .game-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 215, 0, 0.15);
-            border-radius: 12px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .game-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(255, 215, 0, 0.2);
-            border-color: rgba(255, 215, 0, 0.5);
-        }
-
-        .game-icon {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 12px;
-        }
-
-        .game-icon svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        .game-card h3 {
-            font-size: 1rem;
-            margin-bottom: 6px;
-            color: #ffffff;
-        }
-
-        .game-card p {
-            font-size: 0.8rem;
-            color: #888888;
-        }
-
-        .hello-banner {
-            background: rgba(255, 215, 0, 0.08);
-            border: 1px solid rgba(255, 215, 0, 0.25);
-            border-radius: 8px;
-            padding: 16px 24px;
-            margin-bottom: 30px;
-            text-align: center;
-            max-width: 500px;
-        }
-
-        .hello-icon {
-            width: 32px;
-            height: 32px;
-            margin: 0 auto 8px;
-        }
-
-        .hello-icon svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        .hello-banner p {
-            font-size: 1.1rem;
-            color: #ffd700;
-        }
-
-        .game-card.available {
-            border-color: rgba(255, 215, 0, 0.4);
-        }
-
-        .game-card.available:hover {
-            box-shadow: 0 8px 24px rgba(255, 215, 0, 0.3);
-            border-color: rgba(255, 215, 0, 0.7);
-        }
-
-        .badge {
-            display: inline-block;
-            background: rgba(255, 215, 0, 0.15);
-            color: #ffd700;
-            font-size: 0.65rem;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin-top: 4px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/arcade.css">
 </head>
-<body>
-    <div class="header">
-        <div class="header-icon">
-            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="6" y="14" width="36" height="20" rx="10" stroke="#ffd700" stroke-width="2" fill="none"/>
-                <circle cx="16" cy="24" r="3" fill="#ffd700"/>
-                <circle cx="32" cy="24" r="3" fill="#ffd700"/>
-                <line x1="10" y1="32" x2="14" y2="34" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
-                <line x1="34" y1="34" x2="38" y2="32" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
-                <line x1="18" y1="18" x2="14" y2="12" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
-                <line x1="30" y1="18" x2="34" y2="12" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
-            </svg>
+<body class="arcade">
+    <div class="px-screen">
+
+        <header class="px-frame px-glow px-header">
+            <canvas class="px-header__scene" data-scene="header" aria-hidden="true"></canvas>
+            <div class="px-header__body">
+                <span class="px-sprite px-logo-badge" data-icon="art/robot" data-icon-label="ArozOS"></span>
+                <div class="px-header__title">
+                    <span class="px-text" data-px="Mini Games" data-px-scale="5"></span>
+                    <div class="px-header__sub">Select a game to start playing!</div>
+                </div>
+                <span class="px-sprite px-deco px-deco--planet" data-icon="art/planet" aria-hidden="true"></span>
+                <span class="px-sprite px-deco px-deco--rocket" data-icon="art/rocket" aria-hidden="true"></span>
+                <div class="px-header__tools">
+                    <span class="px-chip" title="Games played">
+                        <span class="px-sprite" data-icon="ui/star" data-icon-label="Score"></span>
+                        <b id="playCount">0</b>
+                    </span>
+                    <button class="px-btn px-btn--icon" id="helpBtn" type="button" title="How to play">
+                        <span class="px-sprite" data-icon="ui/gear" data-icon-label="Help"></span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="px-frame px-panel">
+            <div class="px-grid" id="gameGrid"></div>
+        </section>
+
+        <div class="px-footer">
+            <canvas data-scene="moon" aria-hidden="true"></canvas>
+            <span class="px-sprite px-footer__astro" data-icon="art/astronaut" aria-hidden="true"></span>
         </div>
-        <h1>ArozOS Mini Games</h1>
-        <p>Select a game to start playing!</p>
     </div>
 
-    <div class="hello-banner">
-        <div class="hello-icon">
-            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 2L19 12L28 12L21 18L24 28L16 22L8 28L11 18L4 12L13 12Z" stroke="#ffd700" stroke-width="1.5" fill="none"/>
-            </svg>
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2>How to play</h2>
+            <p>
+                Pick any cabinet from the grid to start. Every game keeps its own
+                high score in this browser, and the Back button in a game returns
+                you here.
+            </p>
+            <button onclick="hideOverlay()">Got it</button>
         </div>
-        <p>Hello World! Welcome to the Games collection. More games coming soon!</p>
     </div>
 
-    <div class="game-grid">
-        <div class="game-card available" onclick="window.location.href='minesweeper.html'">
-            <div class="game-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="8" y="10" width="32" height="28" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <line x1="8" y1="18" x2="40" y2="18" stroke="#ffd700" stroke-width="1.5"/>
-                    <rect x="12" y="22" width="6" height="6" rx="1" fill="#ffd700" opacity="0.3"/>
-                    <rect x="20" y="22" width="6" height="6" rx="1" fill="#ffd700" opacity="0.6"/>
-                    <rect x="28" y="22" width="6" height="6" rx="1" fill="#ffd700"/>
-                    <rect x="12" y="30" width="6" height="6" rx="1" fill="#ffd700" opacity="0.6"/>
-                    <rect x="20" y="30" width="6" height="6" rx="1" fill="#ffd700" opacity="0.3"/>
-                    <rect x="28" y="30" width="6" height="6" rx="1" fill="#ffd700" opacity="0.9"/>
-                    <circle cx="34" cy="34" r="2" fill="#ff4444"/>
-                </svg>
-            </div>
-            <h3>Minesweeper</h3>
-            <p>Find all the mines</p>
-            <span class="badge">PLAYABLE</span>
-        </div>
-        <div class="game-card available" onclick="window.location.href='tetris.html'">
-            <div class="game-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="6" y="6" width="8" height="8" rx="1" fill="#ffd700"/>
-                    <rect x="18" y="6" width="8" height="8" rx="1" fill="#ffd700" opacity="0.7"/>
-                    <rect x="30" y="6" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
-                    <rect x="12" y="18" width="8" height="8" rx="1" fill="#ffd700" opacity="0.7"/>
-                    <rect x="24" y="18" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
-                    <rect x="6" y="30" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
-                    <rect x="18" y="30" width="8" height="8" rx="1" fill="#ffd700" opacity="0.7"/>
-                    <rect x="30" y="30" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
-                </svg>
-            </div>
-            <h3>Tetris</h3>
-            <p>Stack the blocks</p>
-            <span class="badge">PLAYABLE</span>
-        </div>
-        <div class="game-card available" onclick="window.location.href='snake.html'">
-            <div class="game-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M14 32C14 32 16 20 24 16C32 12 36 20 36 20" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <path d="M36 20C36 20 38 18 38 14C38 12 36 10 34 12" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <circle cx="30" cy="14" r="1.5" fill="#ffd700"/>
-                    <circle cx="34" cy="13" r="1.5" fill="#ffd700"/>
-                    <path d="M14 32L10 38H38L34 32" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <line x1="24" y1="32" x2="24" y2="38" stroke="#ffd700" stroke-width="2"/>
-                    <line x1="18" y1="32" x2="16" y2="38" stroke="#ffd700" stroke-width="2"/>
-                    <line x1="30" y1="32" x2="32" y2="38" stroke="#ffd700" stroke-width="2"/>
-                </svg>
-            </div>
-            <h3>Snake</h3>
-            <p>Classic snake game</p>
-            <span class="badge">PLAYABLE</span>
-        </div>
-        <div class="game-card available" onclick="window.location.href='memory.html'">
-            <div class="game-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="6" y="6" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <rect x="28" y="6" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <rect x="6" y="28" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <rect x="28" y="28" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
-                    <circle cx="13" cy="13" r="2" fill="#ffd700"/>
-                    <circle cx="35" cy="35" r="2" fill="#ffd700"/>
-                </svg>
-            </div>
-            <h3>Memory</h3>
-            <p>Match the pairs</p>
-            <span class="badge">PLAYABLE</span>
-        </div>
-        <div class="game-card available" onclick="window.location.href='pong.html'">
-            <div class="game-icon">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="4" y="10" width="6" height="28" rx="2" fill="#ffd700"/>
-                    <rect x="38" y="10" width="6" height="28" rx="2" fill="#ffd700" opacity="0.6"/>
-                    <circle cx="24" cy="24" r="4" fill="#ffd700"/>
-                    <line x1="24" y1="4" x2="24" y2="44" stroke="rgba(255, 215, 0, 0.3)" stroke-width="1.5" stroke-dasharray="3 3"/>
-                </svg>
-            </div>
-            <h3>Pong</h3>
-            <p>Classic pong game</p>
-            <span class="badge">PLAYABLE</span>
-        </div>
-    </div>
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script>
+        /* The launcher line-up. "id" doubles as the sprite name and page name. */
+        const GAMES = [
+            { id: 'minesweeper', name: 'Minesweeper', desc: 'Find all the mines', art: 'mines/flag.png' },
+            { id: 'tetris', name: 'Tetris', desc: 'Stack the blocks', art: 'tetris/piece.png' },
+            { id: 'snake', name: 'Snake', desc: 'Classic snake game', art: 'snake/head.png' },
+            { id: 'memory', name: 'Memory', desc: 'Match the pairs', art: 'memory/back.png' },
+            { id: 'pong', name: 'Pong', desc: 'Classic pong game', art: 'pong/ball.png' },
+            { id: 'space-invaders', name: 'Space Invaders', desc: 'Defend the earth', art: 'invaders/alien_b.png' },
+            { id: 'asteroids', name: 'Asteroids', desc: 'Shoot space rocks', art: 'asteroids/ship.png' },
+            { id: 'flappy-bird', name: 'Flappy Bird', desc: 'Flap through pipes', art: 'flappy/bird_a.png' },
+            { id: 'dino-runner', name: 'Dino Runner', desc: 'Jump over cacti', art: 'dino/run_a.png' }
+        ];
+
+        const PLAY_COUNT_KEY = 'arozos.games.plays';
+
+        function renderGrid() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = '';
+
+            GAMES.forEach(function (game) {
+                const card = document.createElement('div');
+                card.className = 'px-frame px-card';
+                card.tabIndex = 0;
+                card.setAttribute('role', 'link');
+                card.setAttribute('aria-label', game.name + ' - ' + game.desc);
+                card.innerHTML =
+                    '<img class="px-card__icon" src="img/sprites/' + game.art + '" alt="">' +
+                    '<span class="px-text px-card__name" data-px="' + game.name + '" data-px-scale="2"></span>' +
+                    '<span class="px-card__desc">' + game.desc + '</span>' +
+                    '<span class="px-badge">Playable</span>';
+
+                card.addEventListener('click', function () {
+                    launch(game.id);
+                });
+                card.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        launch(game.id);
+                    }
+                });
+
+                grid.appendChild(card);
+            });
+
+            pxUpgradeIcons(grid);
+            pxUpgradeText(grid);
+        }
+
+        function launch(id) {
+            try {
+                const plays = parseInt(localStorage.getItem(PLAY_COUNT_KEY), 10) || 0;
+                localStorage.setItem(PLAY_COUNT_KEY, plays + 1);
+            } catch (err) {
+                /* Private mode with storage disabled -- the counter is cosmetic. */
+            }
+            window.location.href = id + '.html';
+        }
+
+        function loadPlayCount() {
+            let plays = 0;
+            try {
+                plays = parseInt(localStorage.getItem(PLAY_COUNT_KEY), 10) || 0;
+            } catch (err) {
+                plays = 0;
+            }
+            document.getElementById('playCount').textContent = plays;
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        document.getElementById('helpBtn').addEventListener('click', function () {
+            document.getElementById('overlay').classList.remove('hidden');
+        });
+
+        renderGrid();
+        loadPlayCount();
+    </script>
 </body>
 </html>

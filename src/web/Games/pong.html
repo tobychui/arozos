@@ -199,8 +199,12 @@
             background: rgba(255, 215, 0, 0.3);
         }
     </style>
+    <link rel="stylesheet" href="css/arcade.css">
 </head>
-<body>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
     <div class="top-bar">
         <button id="backBtn" onclick="goBack()">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -222,7 +226,7 @@
     </div>
 
     <div class="game-layout">
-        <canvas id="gameCanvas" width="480" height="360"></canvas>
+        <canvas id="gameCanvas" width="520" height="380"></canvas>
         <div class="side-panel">
             <div class="panel-box">
                 <h3>Score</h3>
@@ -240,6 +244,15 @@
         </div>
     </div>
 
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
     <div class="overlay hidden" id="overlay">
         <div class="modal" id="modal">
             <h2 id="modalTitle"></h2>
@@ -250,87 +263,110 @@
     </div>
 
     <script>
-        const CANVAS_WIDTH = 480;
-        const CANVAS_HEIGHT = 360;
-        const PADDLE_WIDTH = 12;
-        const PADDLE_HEIGHT = 60;
-        const BALL_SIZE = 8;
+        const CANVAS_WIDTH = 520;
+        const CANVAS_HEIGHT = 380;
+        const PADDLE_W = 14;
+        const PADDLE_H = 66;
+        const BALL_SIZE = 14;
         const WIN_SCORE = 5;
-        const PADDLE_SPEED = 6;
-        const INITIAL_BALL_SPEED = 3;
+        const PADDLE_SPEED = 7;
+        const BALL_SPEED = 3.4;
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        let playerY = CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-        let aiY = CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-        let ballX = CANVAS_WIDTH / 2;
-        let ballY = CANVAS_HEIGHT / 2;
-        let ballDX = INITIAL_BALL_SPEED;
-        let ballDY = INITIAL_BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+        const art = GameKit.load({
+            paddle: 'pong/paddle.png',
+            paddle_ai: 'pong/paddle_ai.png',
+            ball: 'pong/ball.png'
+        }, function () {
+            draw();
+        });
+
+        let playerY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+        let aiY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+        let ballX = 0;
+        let ballY = 0;
+        let ballDX = BALL_SPEED;
+        let ballDY = BALL_SPEED;
         let score = 0;
-        let highScore = parseInt(localStorage.getItem('pongHighScore') || '0');
+        let highScore = parseInt(localStorage.getItem('pongHighScore') || '0', 10);
         let gameOver = false;
-        let gameStarted = false;
+        let running = false;
         let animationId = null;
+        const held = {};
 
         document.getElementById('highScore').textContent = highScore;
 
         function initGame() {
-            playerY = CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-            aiY = CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+            playerY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+            aiY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
             resetBall();
             score = 0;
             gameOver = false;
-            gameStarted = false;
+            running = true;
 
             document.getElementById('scoreDisplay').textContent = '0';
+            document.getElementById('score').textContent = '0';
             document.getElementById('overlay').classList.add('hidden');
 
             if (animationId) cancelAnimationFrame(animationId);
             animationId = requestAnimationFrame(gameLoop);
         }
 
+        function startGame() {
+            initGame();
+        }
+
         function resetBall() {
-            ballX = CANVAS_WIDTH / 2;
-            ballY = CANVAS_HEIGHT / 2;
-            ballDX = INITIAL_BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
-            ballDY = INITIAL_BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+            ballX = CANVAS_WIDTH / 2 - BALL_SIZE / 2;
+            ballY = CANVAS_HEIGHT / 2 - BALL_SIZE / 2;
+            ballDX = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+            ballDY = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1) * 0.6;
         }
 
         function gameLoop() {
             if (gameOver) return;
-
             update();
             draw();
-
             animationId = requestAnimationFrame(gameLoop);
         }
 
         function update() {
-            if (!gameStarted) return;
+            if (!running) return;
+
+            if (held.up) playerY -= PADDLE_SPEED;
+            if (held.down) playerY += PADDLE_SPEED;
+            playerY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_H, playerY));
 
             ballX += ballDX;
             ballY += ballDY;
 
-            if (ballY <= 0 || ballY >= CANVAS_HEIGHT - BALL_SIZE) {
-                ballDY = -ballDY;
+            if (ballY <= 0) {
+                ballY = 0;
+                ballDY = Math.abs(ballDY);
+            } else if (ballY >= CANVAS_HEIGHT - BALL_SIZE) {
+                ballY = CANVAS_HEIGHT - BALL_SIZE;
+                ballDY = -Math.abs(ballDY);
             }
 
-            if (ballX <= PADDLE_WIDTH + 10 && ballY >= playerY && ballY <= playerY + PADDLE_HEIGHT) {
-                ballDX = Math.abs(ballDX);
-                const hitPos = (ballY - playerY) / PADDLE_HEIGHT;
-                ballDY = INITIAL_BALL_SPEED * (0.5 + hitPos) * (Math.random() > 0.5 ? 1 : -1);
-                ballDX += 0.5;
+            const playerX = 16;
+            if (ballDX < 0 && ballX <= playerX + PADDLE_W && ballX + BALL_SIZE >= playerX &&
+                ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_H) {
+                ballX = playerX + PADDLE_W;
+                ballDX = Math.min(8, Math.abs(ballDX) + 0.35);
+                ballDY = ((ballY + BALL_SIZE / 2) - (playerY + PADDLE_H / 2)) / (PADDLE_H / 2) * 4;
             }
 
-            if (ballX >= CANVAS_WIDTH - PADDLE_WIDTH - BALL_SIZE - 10 && ballY >= aiY && ballY <= aiY + PADDLE_HEIGHT) {
+            const aiX = CANVAS_WIDTH - 16 - PADDLE_W;
+            if (ballDX > 0 && ballX + BALL_SIZE >= aiX && ballX <= aiX + PADDLE_W &&
+                ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_H) {
+                ballX = aiX - BALL_SIZE;
                 ballDX = -Math.abs(ballDX);
-                const hitPos = (ballY - aiY) / PADDLE_HEIGHT;
-                ballDY = INITIAL_BALL_SPEED * (0.5 + hitPos) * (Math.random() > 0.5 ? 1 : -1);
+                ballDY = ((ballY + BALL_SIZE / 2) - (aiY + PADDLE_H / 2)) / (PADDLE_H / 2) * 4;
             }
 
-            if (ballX < 0) {
+            if (ballX + BALL_SIZE < 0) {
                 endGame(false);
                 return;
             }
@@ -338,6 +374,7 @@
             if (ballX > CANVAS_WIDTH) {
                 score++;
                 document.getElementById('scoreDisplay').textContent = score;
+                document.getElementById('score').textContent = score;
                 if (score >= WIN_SCORE) {
                     endGame(true);
                     return;
@@ -345,60 +382,45 @@
                 resetBall();
             }
 
-            const aiTarget = ballY - PADDLE_HEIGHT / 2;
-            const aiDiff = aiTarget - aiY;
-            aiY += Math.sign(aiDiff) * Math.min(Math.abs(aiDiff), PADDLE_SPEED * 0.7);
+            const target = ballY + BALL_SIZE / 2 - PADDLE_H / 2;
+            const diff = target - aiY;
+            aiY += Math.sign(diff) * Math.min(Math.abs(diff), PADDLE_SPEED * 0.62);
+            aiY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_H, aiY));
         }
 
         function draw() {
+            GameKit.pixelate(ctx);
             ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(CANVAS_WIDTH / 2, 0);
-            ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            ctx.fillStyle = '#ffd700';
-            ctx.fillRect(10, playerY, PADDLE_WIDTH, PADDLE_HEIGHT);
-
-            ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            ctx.fillRect(CANVAS_WIDTH - 10 - PADDLE_WIDTH, aiY, PADDLE_WIDTH, PADDLE_HEIGHT);
-
-            ctx.fillStyle = '#ffd700';
-            ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
-
-            if (!gameStarted) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-                ctx.fillStyle = '#ffd700';
-                ctx.font = 'bold 18px Segoe UI';
-                ctx.textAlign = 'center';
-                ctx.fillText('Press any key or click to start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+            ctx.fillStyle = 'rgba(255, 198, 26, 0.25)';
+            for (let y = 6; y < CANVAS_HEIGHT; y += 22) {
+                ctx.fillRect(CANVAS_WIDTH / 2 - 2, y, 4, 12);
             }
+
+            GameKit.draw(ctx, art.paddle, 16, playerY, PADDLE_W, PADDLE_H);
+            GameKit.draw(ctx, art.paddle_ai, CANVAS_WIDTH - 16 - PADDLE_W, aiY, PADDLE_W, PADDLE_H);
+            GameKit.draw(ctx, art.ball, ballX, ballY, BALL_SIZE, BALL_SIZE);
         }
 
         function endGame(isWin) {
             gameOver = true;
+            running = false;
 
             if (score > highScore) {
                 highScore = score;
-                localStorage.setItem('pongHighScore', highScore.toString());
+                try {
+                    localStorage.setItem('pongHighScore', String(highScore));
+                } catch (err) {
+                    /* Storage disabled -- the high score is cosmetic. */
+                }
                 document.getElementById('highScore').textContent = highScore;
             }
 
-            const overlay = document.getElementById('overlay');
             const modal = document.getElementById('modal');
-            const title = document.getElementById('modalTitle');
-            const msg = document.getElementById('modalMsg');
-
             modal.className = 'modal ' + (isWin ? 'win' : 'lose');
-            title.textContent = isWin ? 'You Win!' : 'Game Over';
-            msg.textContent = 'Score: ' + score + ' | High Score: ' + highScore;
-
-            overlay.classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = isWin ? 'You Win!' : 'Game Over';
+            document.getElementById('modalMsg').textContent = 'Score: ' + score + '  |  Best: ' + highScore;
+            document.getElementById('overlay').classList.remove('hidden');
         }
 
         function hideOverlay() {
@@ -409,46 +431,37 @@
             window.location.href = 'index.html';
         }
 
-        function startGame() {
-            if (gameStarted) return;
-            gameStarted = true;
+        /* Pointer input goes through GameKit so it still lines up once the
+           canvas has been scaled to the window. */
+        function movePaddleTo(ev) {
+            if (!running) return;
+            const p = GameKit.pointer(canvas, ev);
+            playerY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_H, p.y - PADDLE_H / 2));
         }
 
-        function handleKey(e) {
-            if (['ArrowUp', 'ArrowDown'].indexOf(e.key) !== -1) {
-                e.preventDefault();
-            }
+        canvas.addEventListener('mousemove', movePaddleTo);
+        canvas.addEventListener('touchmove', function (ev) {
+            ev.preventDefault();
+            movePaddleTo(ev);
+        }, { passive: false });
 
-            if (gameOver) return;
-
-            startGame();
-
-            switch (e.key) {
-                case 'ArrowUp':
-                    playerY = Math.max(0, playerY - 20);
-                    break;
-                case 'ArrowDown':
-                    playerY = Math.min(CANVAS_HEIGHT - PADDLE_HEIGHT, playerY + 20);
-                    break;
-            }
-        }
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (gameOver) return;
-            startGame();
-
-            const rect = canvas.getBoundingClientRect();
-            const mouseY = e.clientY - rect.top;
-            playerY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_HEIGHT, mouseY - PADDLE_HEIGHT / 2));
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowUp') { e.preventDefault(); held.up = true; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); held.down = true; }
+        });
+        document.addEventListener('keyup', function (e) {
+            if (e.key === 'ArrowUp') held.up = false;
+            if (e.key === 'ArrowDown') held.down = false;
         });
 
-        canvas.addEventListener('click', () => {
-            if (gameOver) return;
-            startGame();
+        GameKit.autoFit(canvas, { reserveH: 40 });
+        GameKit.gate({
+            title: 'Pong',
+            hint: 'Move with the mouse or the up and down arrows. First to ' + WIN_SCORE + ' points wins.',
+            onStart: startGame
         });
 
-        document.addEventListener('keydown', handleKey);
-        initGame();
+        draw();
     </script>
 </body>
 </html>

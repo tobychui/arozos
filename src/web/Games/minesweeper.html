@@ -4,271 +4,92 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minesweeper - ArozOS</title>
+    <link rel="stylesheet" href="css/arcade.css">
     <style>
-        * {
-            margin: 0;
+        /* Page-local tweaks; everything else comes from css/arcade.css. */
+        .ms-boardwrap {
+            padding: calc(var(--px) * 3);
+            overflow: auto;
+            max-width: 100%;
+        }
+
+        .ms-face {
+            --frame: var(--gold-lo);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 44px;
             padding: 0;
-            box-sizing: border-box;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
-            color: #e0e0e0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            user-select: none;
+        .ms-face .px-sprite {
+            width: 26px;
+            height: 26px;
         }
 
-        .top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 520px;
-            padding: 16px 0;
+        .px-statusbar {
+            max-width: 100%;
         }
 
-        #backBtn {
-            background: rgba(255, 215, 0, 0.15);
-            border: 1px solid rgba(255, 215, 0, 0.4);
-            color: #ffd700;
-            padding: 8px 18px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .cell-art {
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            display: block;
         }
 
-        #backBtn:hover {
-            background: rgba(255, 215, 0, 0.3);
-        }
-
-        #backBtn svg {
-            width: 16px;
-            height: 16px;
-        }
-
-        .game-info {
-            display: flex;
-            gap: 24px;
-            font-size: 1rem;
-            font-family: 'Courier New', monospace;
-        }
-
-        .game-info span {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 4px 12px;
-            border-radius: 4px;
-            min-width: 60px;
-            text-align: center;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-        }
-
-        #resetBtn {
-            background: none;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            color: #ffd700;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #resetBtn:hover {
-            transform: scale(1.1);
-            border-color: rgba(255, 215, 0, 0.6);
-        }
-
-        #resetBtn svg {
-            width: 20px;
-            height: 20px;
-        }
-
-        .difficulty-bar {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .diff-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            color: #aaa;
-            padding: 6px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .diff-btn:hover, .diff-btn.active {
-            background: rgba(255, 215, 0, 0.2);
-            border-color: rgba(255, 215, 0, 0.5);
-            color: #ffd700;
-        }
-
-        #board {
-            display: grid;
-            gap: 1px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 2px solid rgba(255, 215, 0, 0.2);
-            border-radius: 4px;
-            padding: 2px;
-        }
-
-        .cell {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.9rem;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 2px;
-            transition: background 0.1s;
-        }
-
-        .cell.hidden {
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 1px solid rgba(255, 215, 0, 0.15);
-        }
-
-        .cell.hidden:hover {
-            background: linear-gradient(135deg, #333333, #2a2a2a);
-            border-color: rgba(255, 215, 0, 0.3);
-        }
-
-        .cell.revealed {
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .cell.flagged {
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-        }
-
-        .cell.mine-exploded {
-            background: rgba(255, 100, 50, 0.5);
-        }
-
-        .cell.mine-shown {
-            background: rgba(255, 215, 0, 0.1);
-        }
-
-        .n1 { color: #5b9bd5; }
-        .n2 { color: #4caf50; }
-        .n3 { color: #ffd700; }
-        .n4 { color: #c77dff; }
-        .n5 { color: #ff5722; }
-        .n6 { color: #00bcd4; }
-        .n7 { color: #ffd700; }
-        .n8 { color: #888; }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-
-        .overlay.hidden {
-            display: none;
-        }
-
-        .modal {
-            background: #141414;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 12px;
-            padding: 32px;
-            text-align: center;
-            max-width: 300px;
-        }
-
-        .modal h2 {
-            margin-bottom: 12px;
-            font-size: 1.5rem;
-        }
-
-        .modal.win h2 {
-            color: #4caf50;
-        }
-
-        .modal.lose h2 {
-            color: #ff6432;
-        }
-
-        .modal p {
-            margin-bottom: 20px;
-            color: #888888;
-        }
-
-        .modal button {
-            background: rgba(255, 215, 0, 0.15);
-            border: 1px solid rgba(255, 215, 0, 0.4);
-            color: #ffd700;
-            padding: 8px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            margin: 0 4px;
-            transition: background 0.2s;
-        }
-
-        .modal button:hover {
-            background: rgba(255, 215, 0, 0.3);
-        }
-
-        .cell svg {
-            width: 20px;
-            height: 20px;
+        .face-art {
+            width: 26px;
+            height: 26px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            display: block;
         }
     </style>
 </head>
-<body>
-    <div class="top-bar">
-        <button id="backBtn" onclick="goBack()">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Back
-        </button>
-        <button id="resetBtn" onclick="initGame()">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
-                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
-                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </button>
-        <div class="game-info">
-            <span id="mineCount">Mines: 0</span>
-            <span id="timer">Time: 0s</span>
+<body class="arcade">
+    <div class="px-screen">
+
+        <div class="top-bar">
+            <button id="backBtn" onclick="goBack()">
+                <span class="px-sprite" data-icon="ui/back" data-icon-label="Back"></span>
+                Back
+            </button>
+            <button id="resetBtn" onclick="initGame()" title="New game">
+                <span class="px-sprite" data-icon="ui/reset" data-icon-label="New game"></span>
+            </button>
+            <div class="game-info">
+                <span id="mineCount">Mines: 0</span>
+                <span id="timer">Time: 0s</span>
+            </div>
+        </div>
+
+        <div class="difficulty-bar">
+            <button class="diff-btn active" onclick="setDifficulty(0)">Beginner</button>
+            <button class="diff-btn" onclick="setDifficulty(1)">Intermediate</button>
+            <button class="diff-btn" onclick="setDifficulty(2)">Expert</button>
+        </div>
+
+        <div class="ms-boardwrap board-wrap">
+            <div id="board"></div>
+        </div>
+
+        <div class="px-frame px-panel px-statusbar">
+            <div class="px-statusbar__slot">
+                <img src="img/sprites/mines/bomb.png" alt="Flags placed" class="face-art">
+                <span class="px-text" id="flagStat" data-px="0" data-px-scale="2"></span>
+            </div>
+            <button class="px-btn ms-face" id="faceBtn" onclick="initGame()" title="New game">
+                <span id="faceSprite"><img src="img/sprites/mines/face_ok.png" alt="New game" class="face-art"></span>
+            </button>
+            <div class="px-statusbar__slot">
+                <span class="px-sprite" data-icon="ui/trophy" data-icon-label="Best time"></span>
+                <span class="px-text" id="bestStat" data-px="--" data-px-scale="2"></span>
+            </div>
         </div>
     </div>
-
-    <div class="difficulty-bar">
-        <button class="diff-btn active" onclick="setDifficulty(0)">Beginner</button>
-        <button class="diff-btn" onclick="setDifficulty(1)">Intermediate</button>
-        <button class="diff-btn" onclick="setDifficulty(2)">Expert</button>
-    </div>
-
-    <div id="board"></div>
 
     <div class="overlay hidden" id="overlay">
         <div class="modal" id="modal">
@@ -279,20 +100,16 @@
         </div>
     </div>
 
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
     <script>
         const DIFFICULTIES = [
-            { rows: 9, cols: 9, mines: 10 },
-            { rows: 16, cols: 16, mines: 40 },
-            { rows: 16, cols: 30, mines: 99 }
+            { rows: 9, cols: 9, mines: 10, key: 'beginner' },
+            { rows: 16, cols: 16, mines: 40, key: 'intermediate' },
+            { rows: 16, cols: 30, mines: 99, key: 'expert' }
         ];
 
-        const FLAG_SVG = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 22V4" stroke="#ffd700" stroke-width="2"/><path d="M5 4L20 4L15 11L20 11L5 11" fill="#ffd700" stroke="#ffd700" stroke-width="1.5"/></svg>';
-        const BOMB_SVG = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="13" r="7" fill="#ff4444" stroke="#ff6432" stroke-width="1.5"/><path d="M12 6V3" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="2" r="1.5" fill="#ffd700"/><path d="M10 3L11 2" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/><path d="M14 3L13 2" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>';
-        const MISS_SVG = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M18 6L6 18" stroke="#ff4444" stroke-width="2" stroke-linecap="round"/></svg>';
-
-        const FLAG_EMOJI = '\u{1F6A7}';
-        const BOMB_EMOJI = '\u{1F4A3}';
-        const CROSS_EMOJI = '\u274C';
+        const BEST_TIME_KEY = 'arozos.games.minesweeper.best';
 
         let currentDiff = 0;
         let board = [];
@@ -305,12 +122,44 @@
         let seconds = 0;
         let flagCount = 0;
 
+        /*
+            Cell art comes from the cropped sprite sheet. The markup is built
+            once and reused -- it goes into hundreds of cells per board.
+        */
+        function cellArt(file, label) {
+            return '<img src="img/sprites/' + file + '" alt="' + label + '" class="cell-art">';
+        }
+
+        const FLAG_SVG = cellArt('mines/flag.png', 'Flag');
+        const BOMB_SVG = cellArt('mines/bomb.png', 'Mine');
+        const MISS_SVG = cellArt('mines/boom.png', 'Wrong flag');
+
         function setDifficulty(idx) {
             currentDiff = idx;
             document.querySelectorAll('.diff-btn').forEach((b, i) => {
                 b.classList.toggle('active', i === idx);
             });
             initGame();
+        }
+
+        /* setChipText draws a read-out chip's label with the pixel font. */
+        function setChipText(id, value) {
+            const el = document.getElementById(id);
+            el.innerHTML = pxTextSVG(value, { scale: 2, shadow: null });
+            el.setAttribute('aria-label', value);
+        }
+
+        /* setPxText re-renders one of the pixel-font read-outs in place. */
+        function setPxText(id, value) {
+            const el = document.getElementById(id);
+            el.innerHTML = pxTextSVG(String(value), { scale: 3, shadow: null });
+            el.setAttribute('aria-label', String(value));
+            el.setAttribute('data-px-done', '1');
+        }
+
+        function setFace(file) {
+            const el = document.getElementById('faceSprite');
+            el.innerHTML = '<img src="img/sprites/mines/' + file + '" alt="New game" class="face-art">';
         }
 
         function initGame() {
@@ -341,6 +190,7 @@
                 }
             }
 
+            setFace('face_ok.png');
             updateUI();
             renderBoard();
             hideOverlay();
@@ -376,7 +226,7 @@
 
         function renderBoard() {
             const boardEl = document.getElementById('board');
-            boardEl.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
+            boardEl.style.gridTemplateColumns = `repeat(${cols}, 30px)`;
             boardEl.innerHTML = '';
 
             for (let r = 0; r < rows; r++) {
@@ -429,8 +279,9 @@
             cell.classList.add('revealed');
 
             if (board[r][c] > 0) {
-                cell.textContent = board[r][c];
                 cell.classList.add('n' + board[r][c]);
+                /* The digit is drawn with the pixel font so it matches the shell. */
+                cell.innerHTML = pxTextSVG(String(board[r][c]), { scale: 3, shadow: null });
             } else if (board[r][c] === 0) {
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
@@ -457,12 +308,14 @@
                 cell.innerHTML = FLAG_SVG;
             }
 
-            document.getElementById('mineCount').textContent = 'Mines: ' + (totalMines - flagCount);
+            setChipText('mineCount', 'Mines: ' + (totalMines - flagCount));
+            setPxText('flagStat', flagCount);
         }
 
         function loseGame(explodedR, explodedC) {
             gameOver = true;
             if (timerInterval) clearInterval(timerInterval);
+            setFace('face_dead.png');
 
             const cell = getCell(explodedR, explodedC);
             cell.classList.remove('hidden');
@@ -499,35 +352,70 @@
                 }
             }
 
-            if (unrevealedSafe === 0) {
-                gameOver = true;
-                if (timerInterval) clearInterval(timerInterval);
+            if (unrevealedSafe !== 0) return;
 
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        if (board[r][c] === -1) {
-                            flagged[r][c] = true;
-                            const mc = getCell(r, c);
-                            mc.innerHTML = FLAG_SVG;
-                            mc.classList.add('flagged');
-                        }
+            gameOver = true;
+            if (timerInterval) clearInterval(timerInterval);
+            setFace('face_cool.png');
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c] === -1) {
+                        flagged[r][c] = true;
+                        const mc = getCell(r, c);
+                        mc.innerHTML = FLAG_SVG;
+                        mc.classList.add('flagged');
                     }
                 }
-                document.getElementById('mineCount').textContent = 'Mines: 0';
-                setTimeout(() => showModal(true), 300);
             }
+
+            flagCount = totalMines;
+            setChipText('mineCount', 'Mines: 0');
+            setPxText('flagStat', flagCount);
+            recordBestTime(seconds);
+            setTimeout(() => showModal(true), 300);
         }
 
         function startTimer() {
             timerInterval = setInterval(() => {
                 seconds++;
-                document.getElementById('timer').textContent = 'Time: ' + seconds + 's';
+                setChipText('timer', 'Time: ' + seconds + 's');
             }, 1000);
         }
 
+        /* Best times are stored per difficulty, keyed by DIFFICULTIES[i].key. */
+        function loadBestTimes() {
+            try {
+                return JSON.parse(localStorage.getItem(BEST_TIME_KEY)) || {};
+            } catch (err) {
+                return {};
+            }
+        }
+
+        function recordBestTime(time) {
+            const key = DIFFICULTIES[currentDiff].key;
+            const best = loadBestTimes();
+            if (best[key] === undefined || time < best[key]) {
+                best[key] = time;
+                try {
+                    localStorage.setItem(BEST_TIME_KEY, JSON.stringify(best));
+                } catch (err) {
+                    /* Storage unavailable -- the best time is a nicety, not state. */
+                }
+            }
+            showBestTime();
+        }
+
+        function showBestTime() {
+            const best = loadBestTimes()[DIFFICULTIES[currentDiff].key];
+            setPxText('bestStat', best === undefined ? '--' : best + 'S');
+        }
+
         function updateUI() {
-            document.getElementById('mineCount').textContent = 'Mines: ' + totalMines;
-            document.getElementById('timer').textContent = 'Time: 0s';
+            setChipText('mineCount', 'Mines: ' + totalMines);
+            setChipText('timer', 'Time: 0s');
+            setPxText('flagStat', 0);
+            showBestTime();
         }
 
         function showModal(isWin) {
