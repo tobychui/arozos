@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 560px;
+            padding: 16px 0;
+        }
+
+        #backBtn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #backBtn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        #backBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        #resetBtn {
+            background: none;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #resetBtn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 215, 0, 0.6);
+        }
+
+        #resetBtn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 24px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .game-info span {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 12px;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .difficulty-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .diff-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            color: #aaa;
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .diff-btn:hover, .diff-btn.active {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: rgba(255, 215, 0, 0.5);
+            color: #ffd700;
+        }
+
+        #board {
+            display: grid;
+            gap: 8px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 215, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .card {
+            width: 70px;
+            height: 90px;
+            perspective: 600px;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.4s;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card.matched .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .card-front svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .card-back {
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            transform: rotateY(180deg);
+            font-size: 2rem;
+        }
+
+        .card.matched .card-back {
+            background: rgba(76, 175, 80, 0.15);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: #141414;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+            color: #4caf50;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #888888;
+        }
+
+        .modal button {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0 4px;
+            transition: background 0.2s;
+        }
+
+        .modal button:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button id="backBtn" onclick="goBack()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back
+        </button>
+        <button id="resetBtn" onclick="initGame()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="game-info">
+            <span id="moves">Moves: 0</span>
+            <span id="pairs">Pairs: 0</span>
+        </div>
+    </div>
+
+    <div class="difficulty-bar">
+        <button class="diff-btn active" onclick="setDifficulty(0)">4x3</button>
+        <button class="diff-btn" onclick="setDifficulty(1)">4x4</button>
+        <button class="diff-btn" onclick="setDifficulty(2)">6x4</button>
+    </div>
+
+    <div id="board"></div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2>You Win!</h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script>
+        const CARD_ICONS = [
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M12 7V12L15 15" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C8 3 4 7 4 12C4 17 8 21 12 21C16 21 20 17 20 12C20 7 16 3 12 3Z" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M9 12C9 9.5 10.5 7.5 12 7.5" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14 10L22 10L16 15L18 22L12 18L6 22L8 15L2 10L10 10Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M12 7V12L15 15" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C8 3 4 7 4 12C4 17 8 21 12 21C16 21 20 17 20 12C20 7 16 3 12 3Z" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M9 12C9 9.5 10.5 7.5 12 7.5" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14 10L22 10L16 15L18 22L12 18L6 22L8 15L2 10L10 10Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M12 7V12L15 15" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3C8 3 4 7 4 12C4 17 8 21 12 21C16 21 20 17 20 12C20 7 16 3 12 3Z" stroke="#ffd700" stroke-width="1.5" fill="none"/><path d="M9 12C9 9.5 10.5 7.5 12 7.5" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14 10L22 10L16 15L18 22L12 18L6 22L8 15L2 10L10 10Z" stroke="#ffd700" stroke-width="1.5" fill="none"/></svg>'
+        ];
+
+        const DIFFICULTIES = [
+            { cols: 4, rows: 3, pairs: 6 },
+            { cols: 4, rows: 4, pairs: 8 },
+            { cols: 6, rows: 4, pairs: 12 }
+        ];
+
+        let currentDiff = 0;
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moves = 0;
+        let locked = false;
+
+        function setDifficulty(idx) {
+            currentDiff = idx;
+            document.querySelectorAll('.diff-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === idx);
+            });
+            initGame();
+        }
+
+        function initGame() {
+            const diff = DIFFICULTIES[currentDiff];
+            const totalPairs = diff.pairs;
+
+            const selectedIcons = [];
+            const allIndices = Array.from({ length: CARD_ICONS.length }, (_, i) => i);
+            while (selectedIcons.length < totalPairs) {
+                const idx = allIndices[Math.floor(Math.random() * allIndices.length)];
+                selectedIcons.push(CARD_ICONS[idx]);
+                allIndices.splice(allIndices.indexOf(idx), 1);
+            }
+
+            const cardValues = [...selectedIcons, ...selectedIcons];
+            for (let i = cardValues.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cardValues[i], cardValues[j]] = [cardValues[j], cardValues[i]];
+            }
+
+            cards = cardValues;
+            flippedCards = [];
+            matchedPairs = 0;
+            moves = 0;
+            locked = false;
+
+            document.getElementById('moves').textContent = 'Moves: 0';
+            document.getElementById('pairs').textContent = 'Pairs: 0';
+
+            renderBoard(diff);
+            hideOverlay();
+        }
+
+        function renderBoard(diff) {
+            const board = document.getElementById('board');
+            board.style.gridTemplateColumns = `repeat(${diff.cols}, 70px)`;
+            board.innerHTML = '';
+
+            for (let i = 0; i < cards.length; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.index = i;
+
+                card.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-face card-front">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 3V21M3 12H21M6 6L18 18M18 6L6 18" stroke="#ffd700" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="card-face card-back">
+                            ${cards[i]}
+                        </div>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => flipCard(card));
+                board.appendChild(card);
+            }
+        }
+
+        function flipCard(card) {
+            if (locked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                moves++;
+                document.getElementById('moves').textContent = 'Moves: ' + moves;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            locked = true;
+            const [card1, card2] = flippedCards;
+
+            if (cards[card1.dataset.index] === cards[card2.dataset.index]) {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedPairs++;
+                document.getElementById('pairs').textContent = 'Pairs: ' + matchedPairs;
+                flippedCards = [];
+                locked = false;
+
+                if (matchedPairs === DIFFICULTIES[currentDiff].pairs) {
+                    setTimeout(() => showWin(), 500);
+                }
+            } else {
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    flippedCards = [];
+                    locked = false;
+                }, 800);
+            }
+        }
+
+        function showWin() {
+            const overlay = document.getElementById('overlay');
+            const msg = document.getElementById('modalMsg');
+
+            msg.textContent = 'Completed in ' + moves + ' moves!';
+            overlay.classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #ffd700, #ffcc00, #ffb300);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1rem;
+            color: #888888;
+        }
+
+        .header-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+        }
+
+        .header-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            max-width: 800px;
+            width: 100%;
+            padding: 0 20px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 215, 0, 0.15);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(255, 215, 0, 0.2);
+            border-color: rgba(255, 215, 0, 0.5);
+        }
+
+        .game-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+        }
+
+        .game-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .game-card h3 {
+            font-size: 1rem;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .game-card p {
+            font-size: 0.8rem;
+            color: #888888;
+        }
+
+        .hello-banner {
+            background: rgba(255, 215, 0, 0.08);
+            border: 1px solid rgba(255, 215, 0, 0.25);
+            border-radius: 8px;
+            padding: 16px 24px;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .hello-icon {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 8px;
+        }
+
+        .hello-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .hello-banner p {
+            font-size: 1.1rem;
+            color: #ffd700;
+        }
+
+        .game-card.available {
+            border-color: rgba(255, 215, 0, 0.4);
+        }
+
+        .game-card.available:hover {
+            box-shadow: 0 8px 24px rgba(255, 215, 0, 0.3);
+            border-color: rgba(255, 215, 0, 0.7);
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 215, 0, 0.15);
+            color: #ffd700;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="14" width="36" height="20" rx="10" stroke="#ffd700" stroke-width="2" fill="none"/>
+                <circle cx="16" cy="24" r="3" fill="#ffd700"/>
+                <circle cx="32" cy="24" r="3" fill="#ffd700"/>
+                <line x1="10" y1="32" x2="14" y2="34" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <line x1="34" y1="34" x2="38" y2="32" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18" y1="18" x2="14" y2="12" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <line x1="30" y1="18" x2="34" y2="12" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <h1>ArozOS Mini Games</h1>
+        <p>Select a game to start playing!</p>
+    </div>
+
+    <div class="hello-banner">
+        <div class="hello-icon">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 2L19 12L28 12L21 18L24 28L16 22L8 28L11 18L4 12L13 12Z" stroke="#ffd700" stroke-width="1.5" fill="none"/>
+            </svg>
+        </div>
+        <p>Hello World! Welcome to the Games collection. More games coming soon!</p>
+    </div>
+
+    <div class="game-grid">
+        <div class="game-card available" onclick="window.location.href='minesweeper.html'">
+            <div class="game-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="8" y="10" width="32" height="28" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <line x1="8" y1="18" x2="40" y2="18" stroke="#ffd700" stroke-width="1.5"/>
+                    <rect x="12" y="22" width="6" height="6" rx="1" fill="#ffd700" opacity="0.3"/>
+                    <rect x="20" y="22" width="6" height="6" rx="1" fill="#ffd700" opacity="0.6"/>
+                    <rect x="28" y="22" width="6" height="6" rx="1" fill="#ffd700"/>
+                    <rect x="12" y="30" width="6" height="6" rx="1" fill="#ffd700" opacity="0.6"/>
+                    <rect x="20" y="30" width="6" height="6" rx="1" fill="#ffd700" opacity="0.3"/>
+                    <rect x="28" y="30" width="6" height="6" rx="1" fill="#ffd700" opacity="0.9"/>
+                    <circle cx="34" cy="34" r="2" fill="#ff4444"/>
+                </svg>
+            </div>
+            <h3>Minesweeper</h3>
+            <p>Find all the mines</p>
+            <span class="badge">PLAYABLE</span>
+        </div>
+        <div class="game-card available" onclick="window.location.href='tetris.html'">
+            <div class="game-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="6" width="8" height="8" rx="1" fill="#ffd700"/>
+                    <rect x="18" y="6" width="8" height="8" rx="1" fill="#ffd700" opacity="0.7"/>
+                    <rect x="30" y="6" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
+                    <rect x="12" y="18" width="8" height="8" rx="1" fill="#ffd700" opacity="0.7"/>
+                    <rect x="24" y="18" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
+                    <rect x="6" y="30" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
+                    <rect x="18" y="30" width="8" height="8" rx="1" fill="#ffd700" opacity="0.7"/>
+                    <rect x="30" y="30" width="8" height="8" rx="1" fill="#ffd700" opacity="0.4"/>
+                </svg>
+            </div>
+            <h3>Tetris</h3>
+            <p>Stack the blocks</p>
+            <span class="badge">PLAYABLE</span>
+        </div>
+        <div class="game-card available" onclick="window.location.href='snake.html'">
+            <div class="game-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14 32C14 32 16 20 24 16C32 12 36 20 36 20" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <path d="M36 20C36 20 38 18 38 14C38 12 36 10 34 12" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <circle cx="30" cy="14" r="1.5" fill="#ffd700"/>
+                    <circle cx="34" cy="13" r="1.5" fill="#ffd700"/>
+                    <path d="M14 32L10 38H38L34 32" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <line x1="24" y1="32" x2="24" y2="38" stroke="#ffd700" stroke-width="2"/>
+                    <line x1="18" y1="32" x2="16" y2="38" stroke="#ffd700" stroke-width="2"/>
+                    <line x1="30" y1="32" x2="32" y2="38" stroke="#ffd700" stroke-width="2"/>
+                </svg>
+            </div>
+            <h3>Snake</h3>
+            <p>Classic snake game</p>
+            <span class="badge">PLAYABLE</span>
+        </div>
+        <div class="game-card available" onclick="window.location.href='memory.html'">
+            <div class="game-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="6" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <rect x="28" y="6" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <rect x="6" y="28" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <rect x="28" y="28" width="14" height="14" rx="2" stroke="#ffd700" stroke-width="2" fill="none"/>
+                    <circle cx="13" cy="13" r="2" fill="#ffd700"/>
+                    <circle cx="35" cy="35" r="2" fill="#ffd700"/>
+                </svg>
+            </div>
+            <h3>Memory</h3>
+            <p>Match the pairs</p>
+            <span class="badge">PLAYABLE</span>
+        </div>
+        <div class="game-card available" onclick="window.location.href='pong.html'">
+            <div class="game-icon">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="10" width="6" height="28" rx="2" fill="#ffd700"/>
+                    <rect x="38" y="10" width="6" height="28" rx="2" fill="#ffd700" opacity="0.6"/>
+                    <circle cx="24" cy="24" r="4" fill="#ffd700"/>
+                    <line x1="24" y1="4" x2="24" y2="44" stroke="rgba(255, 215, 0, 0.3)" stroke-width="1.5" stroke-dasharray="3 3"/>
+                </svg>
+            </div>
+            <h3>Pong</h3>
+            <p>Classic pong game</p>
+            <span class="badge">PLAYABLE</span>
+        </div>
+    </div>
+</body>
+</html>

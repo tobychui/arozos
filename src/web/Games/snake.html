@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 560px;
+            padding: 16px 0;
+        }
+
+        #backBtn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #backBtn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        #backBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        #resetBtn {
+            background: none;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #resetBtn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 215, 0, 0.6);
+        }
+
+        #resetBtn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .game-layout {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+
+        #gameCanvas {
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            min-width: 140px;
+        }
+
+        .panel-box h3 {
+            font-size: 0.85rem;
+            color: #ffd700;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat {
+            font-size: 1.2rem;
+            font-family: 'Courier New', monospace;
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .controls {
+            font-size: 0.8rem;
+            color: #888888;
+            line-height: 1.8;
+        }
+
+        .controls .key {
+            display: inline-block;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: #141414;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+
+        .modal.lose h2 {
+            color: #ff6432;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #888888;
+        }
+
+        .modal button {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0 4px;
+            transition: background 0.2s;
+        }
+
+        .modal button:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button id="backBtn" onclick="goBack()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back
+        </button>
+        <button id="resetBtn" onclick="initGame()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="game-layout">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="side-panel">
+            <div class="panel-box">
+                <h3>Score</h3>
+                <div class="stat" id="score">0</div>
+                <h3 style="margin-top:8px;">High Score</h3>
+                <div class="stat" id="highScore">0</div>
+            </div>
+            <div class="panel-box">
+                <h3>Controls</h3>
+                <div class="controls">
+                    <div><span class="key">↑</span> <span class="key">↓</span> <span class="key">←</span> <span class="key">→</span> Move</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2 id="modalTitle">Game Over</h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_SIZE = 400;
+        const GRID_COUNT = 20;
+        const CELL_SIZE = CANVAS_SIZE / GRID_COUNT;
+        const INITIAL_SPEED = 150;
+        const SPEED_INCREMENT = 3;
+        const MIN_SPEED = 50;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let snake = [];
+        let food = null;
+        let direction = { x: 1, y: 0 };
+        let nextDirection = { x: 1, y: 0 };
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('snakeHighScore') || '0');
+        let gameSpeed = INITIAL_SPEED;
+        let gameOver = false;
+        let gameStarted = false;
+        let lastUpdate = 0;
+        let animationId = null;
+
+        document.getElementById('highScore').textContent = highScore;
+
+        function initGame() {
+            snake = [
+                { x: 5, y: 10 },
+                { x: 4, y: 10 },
+                { x: 3, y: 10 }
+            ];
+            direction = { x: 1, y: 0 };
+            nextDirection = { x: 1, y: 0 };
+            score = 0;
+            gameSpeed = INITIAL_SPEED;
+            gameOver = false;
+            gameStarted = false;
+
+            document.getElementById('score').textContent = '0';
+            document.getElementById('overlay').classList.add('hidden');
+
+            placeFood();
+
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function placeFood() {
+            let valid = false;
+            while (!valid) {
+                food = {
+                    x: Math.floor(Math.random() * GRID_COUNT),
+                    y: Math.floor(Math.random() * GRID_COUNT)
+                };
+                valid = true;
+                for (let segment of snake) {
+                    if (segment.x === food.x && segment.y === food.y) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (gameOver) return;
+
+            if (timestamp - lastUpdate > gameSpeed) {
+                update();
+                lastUpdate = timestamp;
+            }
+
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            direction = nextDirection;
+
+            const head = {
+                x: snake[0].x + direction.x,
+                y: snake[0].y + direction.y
+            };
+
+            if (head.x < 0 || head.x >= GRID_COUNT || head.y < 0 || head.y >= GRID_COUNT) {
+                endGame();
+                return;
+            }
+
+            for (let segment of snake) {
+                if (segment.x === head.x && segment.y === head.y) {
+                    endGame();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                document.getElementById('score').textContent = score;
+                gameSpeed = Math.max(MIN_SPEED, INITIAL_SPEED - Math.floor(score / 50) * SPEED_INCREMENT);
+                placeFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            for (let r = 0; r < GRID_COUNT; r++) {
+                for (let c = 0; c < GRID_COUNT; c++) {
+                    ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.04)';
+                    ctx.fillRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
+
+            if (food) {
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.arc(
+                    food.x * CELL_SIZE + CELL_SIZE / 2,
+                    food.y * CELL_SIZE + CELL_SIZE / 2,
+                    CELL_SIZE / 2.5,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(
+                    food.x * CELL_SIZE + CELL_SIZE / 2 - 2,
+                    food.y * CELL_SIZE + CELL_SIZE / 2 - 2,
+                    CELL_SIZE / 6,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+
+            for (let i = 0; i < snake.length; i++) {
+                const segment = snake[i];
+                const alpha = 1 - (i / snake.length) * 0.5;
+
+                if (i === 0) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fillRect(
+                        segment.x * CELL_SIZE + 1,
+                        segment.y * CELL_SIZE + 1,
+                        CELL_SIZE - 2,
+                        CELL_SIZE - 2
+                    );
+
+                    ctx.fillStyle = '#0a0a0a';
+                    const eyeSize = CELL_SIZE / 6;
+                    const eyeOffset = CELL_SIZE / 4;
+
+                    if (direction.x === 1) {
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                    } else if (direction.x === -1) {
+                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                    } else if (direction.y === -1) {
+                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + eyeOffset, eyeSize, eyeSize);
+                    } else {
+                        ctx.fillRect(segment.x * CELL_SIZE + eyeOffset, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, segment.y * CELL_SIZE + CELL_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                    }
+                } else {
+                    ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+                    ctx.fillRect(
+                        segment.x * CELL_SIZE + 1,
+                        segment.y * CELL_SIZE + 1,
+                        CELL_SIZE - 2,
+                        CELL_SIZE - 2
+                    );
+                }
+            }
+
+            if (!gameStarted) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 20px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press any arrow key to start', CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+            }
+        }
+
+        function endGame() {
+            gameOver = true;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snakeHighScore', highScore.toString());
+                document.getElementById('highScore').textContent = highScore;
+            }
+
+            const overlay = document.getElementById('overlay');
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modalTitle');
+            const msg = document.getElementById('modalMsg');
+
+            modal.className = 'modal lose';
+            title.textContent = 'Game Over';
+            msg.textContent = 'Score: ' + score + (score >= highScore && score > 0 ? ' (New High Score!)' : '');
+
+            overlay.classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        function handleKey(e) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.key) !== -1) {
+                e.preventDefault();
+            }
+
+            if (gameOver) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    if (direction.y !== 1) nextDirection = { x: 0, y: -1 };
+                    gameStarted = true;
+                    break;
+                case 'ArrowDown':
+                    if (direction.y !== -1) nextDirection = { x: 0, y: 1 };
+                    gameStarted = true;
+                    break;
+                case 'ArrowLeft':
+                    if (direction.x !== 1) nextDirection = { x: -1, y: 0 };
+                    gameStarted = true;
+                    break;
+                case 'ArrowRight':
+                    if (direction.x !== -1) nextDirection = { x: 1, y: 0 };
+                    gameStarted = true;
+                    break;
+            }
+        }
+
+        document.addEventListener('keydown', handleKey);
+        initGame();
+    </script>
+</body>
+</html>

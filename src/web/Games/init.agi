@@ -1,0 +1,23 @@
+/*
+	Games Module Register Script
+	A mini game collection for ArozOS
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Games",
+	Desc: "A collection of mini games",
+	Group: "Games",
+	IconPath: "img/module_icon.png",
+	Version: "0.1.0",
+	StartDir: "index.html",
+	SupportFW: true,
+	LaunchFWDir: "index.html",
+	SupportEmb: false,
+	InitFWSize: [800, 600],
+	SupportedExt: []
+}
+
+//Register the module
+console.log("Registering Games module");
+registerModule(JSON.stringify(moduleLaunchInfo));
