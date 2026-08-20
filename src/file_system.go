@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"path/filepath"
 	"runtime"
@@ -379,6 +380,23 @@ Two cases
 2. Else
 => write chunks to tmp (via os package) + merge to fsa
 */
+/*
+	Low memory (websocket) upload tunables
+
+	uploadIdleTimeout is how long the server waits for the next chunk before it
+	assumes the client is gone. A paused upload is deliberately exempt from it -
+	the client is still there, it is just not sending - so uploadPauseTimeout
+	takes over instead, to cover an upload someone paused and forgot about.
+
+	uploadPauseCloseCode is a private-use websocket close code, so the client can
+	tell "your pause expired" apart from an ordinary disconnect and offer retry.
+*/
+const (
+	uploadIdleTimeout    = 300 * time.Second
+	uploadPauseTimeout   = 2 * time.Hour
+	uploadPauseCloseCode = 4001
+)
+
 func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	//Get user info
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -475,7 +493,14 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	//Handle WebSocket upload
 	blockCounter := 0
 	chunkName := []string{}
-	lastChunkArrivalTime := time.Now().Unix()
+
+	/*
+		Shared with the watchdog goroutine below, so these are read and written
+		atomically. pausedSince is 0 while the upload is running, and holds the
+		unix time the client paused at otherwise.
+	*/
+	var lastChunkArrivalTime int64 = time.Now().Unix()
+	var pausedSince int64 = 0
 
 	//Setup a timeout listener, check if connection still active every 1 minute
 	ticker := time.NewTicker(60 * time.Second)
@@ -486,7 +511,23 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			case <-done:
 				return
 			case <-ticker.C:
-				if time.Now().Unix()-lastChunkArrivalTime > 300 {
+				if pausedAt := atomic.LoadInt64(&pausedSince); pausedAt > 0 {
+					//Paused: silence is expected here, so only the pause clock
+					//applies. WriteControl is the one write that is safe to make
+					//from this goroutine while the reader holds the connection.
+					if time.Since(time.Unix(pausedAt, 0)) > uploadPauseTimeout {
+						systemWideLogger.PrintAndLog("File System", "Upload paused for too long. Disconnecting.", errors.New("upload pause timeout"))
+						c.WriteControl(websocket.CloseMessage,
+							websocket.FormatCloseMessage(uploadPauseCloseCode, "upload pause timeout"),
+							time.Now().Add(time.Second))
+						time.Sleep(1 * time.Second)
+						c.Close()
+						return
+					}
+					continue
+				}
+
+				if time.Now().Unix()-atomic.LoadInt64(&lastChunkArrivalTime) > int64(uploadIdleTimeout.Seconds()) {
 					//Already 5 minutes without new data arraival. Stop connection
 					systemWideLogger.PrintAndLog("File System", "Upload WebSocket connection timeout. Disconnecting.", errors.New("websocket connection timeout"))
 					c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
@@ -525,8 +566,47 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if mt == 1 {
-			// Text frame – either chunk metadata or done signal
+			// Text frame – either a control message, chunk metadata or done signal
 			textMsg := strings.TrimSpace(string(message))
+
+			/*
+				Control messages are checked before anything else, and regardless
+				of expectingBinary: a pause can land after the metadata frame but
+				before its binary payload, and the flow control below would
+				otherwise mistake it for a malformed chunk header.
+
+				A chunk header or done signal unmarshals into this struct with
+				every field false, so this is safe to try first.
+			*/
+			var ctrl struct {
+				Pause  bool `json:"pause"`
+				Resume bool `json:"resume"`
+				Ping   bool `json:"ping"`
+			}
+			if jsonErr := json.Unmarshal([]byte(textMsg), &ctrl); jsonErr == nil &&
+				(ctrl.Pause || ctrl.Resume || ctrl.Ping) {
+				if ctrl.Pause {
+					atomic.StoreInt64(&pausedSince, time.Now().Unix())
+				} else if ctrl.Resume {
+					atomic.StoreInt64(&pausedSince, 0)
+					//Do not count the paused stretch as idle time
+					atomic.StoreInt64(&lastChunkArrivalTime, time.Now().Unix())
+				}
+				/*
+					Any control message counts as the client still being there,
+					so it also holds off the idle timeout. That matters when a
+					pause is raised before this socket finished connecting: the
+					pause frame is lost, but the heartbeat still arrives, and
+					without this the upload would be reaped as idle anyway.
+
+					Answering every control message is what puts traffic on the
+					wire in both directions - a reverse proxy in front of us will
+					drop a connection it sees nothing on.
+				*/
+				atomic.StoreInt64(&lastChunkArrivalTime, time.Now().Unix())
+				c.WriteMessage(1, []byte(`{"pong":true}`))
+				continue
+			}
 
 			if !expectingBinary {
 				// Check if this is the done signal
@@ -629,7 +709,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			fileCRC32Hasher.Write(message)
 
 			// Update timing and quota tracking
-			lastChunkArrivalTime = time.Now().Unix()
+			atomic.StoreInt64(&lastChunkArrivalTime, time.Now().Unix())
 			totalFileSize += int64(len(message))
 
 			if totalFileSize > max_upload_size {

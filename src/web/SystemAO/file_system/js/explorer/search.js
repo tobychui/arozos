@@ -41,6 +41,18 @@ function toggleSearch(){
 }
 
 function hideSearchBar(skipFilelistRefresh = false){
+    /*
+        Nothing to undo when a search was never open.
+
+        Several places call this defensively on navigation - the Home button
+        among them - and the restore below would then apply
+        viewModeBeforeSearch's initial "list" value, silently dropping the user
+        out of grid or details view. It also saves a redundant re-listing.
+    */
+    if (!searchMode){
+        return;
+    }
+
     $(".searchbar").hide();
     initWindowSizes(true);
     $("#searchInput").val("");

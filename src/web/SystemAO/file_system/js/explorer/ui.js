@@ -25,8 +25,31 @@ function loadPreference(key, callback){
 }
 
 // ============================== WINDOW RESIZE FUNCTIONS =====================
-$(window).on("resize",function(){
+
+/*
+    Everything whose size is derived from the viewport, in one place.
+
+    This has to be re-runnable rather than something that only happens on the
+    first render: the file area's column density and the mobile sidebar width
+    are computed from measured widths, so after a rotation they are all still
+    describing the previous orientation.
+*/
+function applyResponsiveLayout(){
+    if (isMobile){
+        //Derived from the viewport at load time, so it is stale after a rotate
+        directorySidebarWidth = window.innerWidth;
+        $("#directorySidebar").css("width", window.innerWidth + "px");
+    }else{
+        //A pane width that was legal before can be over its ceiling now
+        reclampPaneWidths();
+    }
+
+    //Column dropping and tile density key off the file area's own width, which
+    //a rotation changes without anything re-rendering the list
+    updateListDensity();
+    updateZoomControlVisibility();
     initWindowSizes(false);
+
     if (!isMobile && window.innerWidth < 620 && sideBarShown == true){
         toggleSidebar(false);
     }else if (!isMobile && window.innerWidth > 650 && sideBarShown == false){
@@ -40,8 +63,31 @@ $(window).on("resize",function(){
     if (!pathInputMode){
         updatePathDisplay(currentPath);
     }
-    
-});
+}
+
+/*
+    Mobile browsers report the old innerWidth/innerHeight for a frame or two
+    after a rotation, so a single pass on the event lays the panes out against
+    the orientation that is going away. Run once immediately to keep the resize
+    responsive, then again once the metrics have settled.
+*/
+function scheduleResponsiveLayout(){
+    applyResponsiveLayout();
+    clearTimeout(responsiveLayoutTimer);
+    responsiveLayoutTimer = setTimeout(applyResponsiveLayout, 250);
+}
+
+$(window).on("resize", scheduleResponsiveLayout);
+
+/*
+    orientationchange fires on phones where a resize sometimes does not, and
+    visualViewport catches the browser chrome collapsing on scroll - which
+    changes the usable height without a window resize event.
+*/
+window.addEventListener("orientationchange", scheduleResponsiveLayout);
+if (window.visualViewport != undefined){
+    window.visualViewport.addEventListener("resize", scheduleResponsiveLayout);
+}
 
 function toggleMobileSidebar(show=undefined, callback=undefined){
     if(show == true){
@@ -79,6 +125,7 @@ function toggleSidebar(useAnimation=true){
     }
     
     sideBarShown = !sideBarShown;
+    updateSplitterVisibility();
     initWindowSizes(useAnimation);
 }
 
@@ -218,6 +265,9 @@ function hideAllPopupWindows(){
 }
 
 function showPopupWrapper(){
+    //Every dialog goes through here, so this is the one place that has to know
+    //the transfer panel shares the corner it is about to cover
+    collapseUploadPanelForDialog();
     $(".popupWrapper").fadeIn('fast');
     $('body').css("overflow","hidden");
 }

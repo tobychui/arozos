@@ -29,6 +29,9 @@ $(document).ready(function(){
         //Lets the transfer panel tell a manual scroll from its own
         bindUploadListScroll();
 
+        //Drag handles between the sidebar, file list and properties panes
+        initPaneSplitters();
+
         //Restore the operation toolbar preference (shown unless turned off)
         loadPreference("file_explorer/oprbar", function(value){
             showOprBar = (value !== "false");

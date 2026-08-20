@@ -154,6 +154,9 @@
                 <div class="fsSideTitle" locale="sidebar/devices">Devices</div>
                 <div id="storageroot" class="fmSideGroup"></div>
             </div>
+            <!-- Drag handles between the three panes. Desktop only; splitter.js
+                 leaves them hidden on the touch layout. -->
+            <div class="fmSplitter" id="fmSidebarSplitter" title="Resize"></div>
             <div id="folderView" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <!--
                     Sortable column header for the details view. It lives outside
@@ -169,6 +172,7 @@
                 </div>
                 <br>
             </div>
+            <div class="fmSplitter" id="fmPropsSplitter" title="Resize" style="display:none;"></div>
             <div id="propertiesView" class="small" style="display:none;">
                 <div class="preview" style="margin-top: 0.4em;">
                     <img class="ui fluid image" >
@@ -221,7 +225,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <small style="font-size:80%;"><span locale="opr/overwrite/copying">Copying</span> <span class="owm-fc"></span> <span locale="opr/overwrite/files">files from</span> <span class="owm-srcdir"></span> <span locale="opr/overwrite/to">to</span> <span class="owm-destdir"></span></small>
                 <p><span locale="opr/overwrite/dest">The destination has </span><span class="owm-fc"></span> <span locale="opr/overwrite/samename">files with the same names.</span></p>
 
@@ -244,12 +248,12 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/pre-remove/questions">Are you sure you want to remove these files <u>permanently?</u><br>This action is <u>irreversible</u>.</p>
                 <div class="ui list deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
-                <div class="popupbuttons allowHover" style="background-color: #eb4034 !important;" onclick="forceDelete(true);";>
+                <div class="popupbuttons allowHover negative" onclick="forceDelete(true);">
                 <i class="trash icon"></i> <span locale="opr/pre-remove/confirm">Confirm</span>
                 </div>
                 <div class="popupbuttons allowHover" onclick="cancelForceDelete();">
@@ -267,15 +271,15 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/remove/question">Are you sure you want to move these files to trash bin?</p>
                 <div class="ui list deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
-                <div class="popupbuttons allowHover" style="color: #2bbbdf !important;" onclick="deleteFile(true);";>
+                <div class="popupbuttons allowHover primary" onclick="deleteFile(true);">
                     <i class="recycle icon"></i> <span locale="opr/remove/confirm">Move to Trash</span>
                 </div>
-                <div class="popupbuttons allowHover" style="background-color: #ff7a7a !important;" onclick="hideAllPopupWindows(); forceDelete();">
+                <div class="popupbuttons allowHover negative" onclick="hideAllPopupWindows(); forceDelete();">
                     <i class="trash icon"></i> <span locale="opr/pre-remove/title">Delete Permanently</span>
                 </div>
                 <div class="popupbuttons allowHover" onclick="cancelDelete(); ">
@@ -292,7 +296,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/rename/instruction">Enter the new filename for renaming. </p>
                 <p class="multifileWarning"><i class="notice icon"></i> Other files will be named as file(#)</p>
                 <div class="ui left icon small fluid input" style="margin-bottom:12px;">
@@ -321,7 +325,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/newfile/instruction">Select a type of file to be created.</p>
                 <div class="newfilelist" style="max-height:18em; overflow-y:scroll">
                     <div class="item newFileFormat" ext="php">No Item</div>
@@ -349,7 +353,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/newfolder/desc">Enter the new folder name to be created.</p>
                 <div class="ui left icon small fluid input" style="margin-bottom:12px;">
                     <input id="createNewFolder" type="text" placeholder="New Folder Name" onkeydown="handleEnterKeyDown(event, function(){newFolder(true);});">
@@ -397,7 +401,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                <p locale="opr/openwith/desc">Select a module from the list below:</p>
                 <div id="openWithModuleList" class="ui segment" style="padding:0px;">
                     <div class="item selectable">
@@ -558,7 +562,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/confirmclose/desc">This file manager instance is currently uploading file to server. Closing this instance will cancel the upload tasks. <br>
                     <b>Confirm Exit?</b></p>
                 <div class="popupbuttons negative allowHover" onclick="ao_module_closeHandler(); hideAllPopupWindows();">
@@ -591,6 +595,7 @@
         <script type="text/javascript" src="js/explorer/pathbar.js"></script>
         <script type="text/javascript" src="js/explorer/sidebar.js"></script>
         <script type="text/javascript" src="js/explorer/viewmode.js"></script>
+        <script type="text/javascript" src="js/explorer/splitter.js"></script>
         <script type="text/javascript" src="js/explorer/search.js"></script>
         <script type="text/javascript" src="js/explorer/uploadui.js"></script>
         <script type="text/javascript" src="js/explorer/upload.js"></script>

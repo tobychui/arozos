@@ -139,6 +139,9 @@ function openFileLocation(){
 
 //Open the filepaths in the given paramters
 function openPathWithDefaultOpener(filepaths){
+    function isSafari() {
+        return this.window.navigator.userAgent.match(/iP(ad|od|hone)/i)
+    }
     console.log("Opening: ", filepaths);
     for (var i =0; i < filepaths.length; i++){
         let filepath = JSON.parse(JSON.stringify(filepaths[i]));
@@ -171,7 +174,15 @@ function openPathWithDefaultOpener(filepaths){
                         });
                     }else{
                         url = "defaultOpener.html";
-                        window.open(url + "#" + openParamter);
+                        let openURL = url + "#" + openParamter;
+                        if (isSafari()) {
+                            const a = document.createElement('a')
+                            a.setAttribute('href', openURL)
+                            a.setAttribute('target', '_blank')
+                            setTimeout(() => a.click())
+                        }else{
+                            window.open(openURL);
+                        }
                     }
                 }else{
                     //Assigned. Launch with given paramter
@@ -217,7 +228,15 @@ function openPathWithDefaultOpener(filepaths){
                             title: title
                         });
                     }else{
-                        window.open("../../" + url + "#" + openParamter);
+                        let openURL = "../../" + url + "#" + openParamter;
+                        if (isSafari()) {
+                            const a = document.createElement('a')
+                            a.setAttribute('href', openURL)
+                            a.setAttribute('target', '_blank')
+                            setTimeout(() => a.click())
+                        }else{
+                            window.open(openURL);
+                        }
                     }
                     
                 }

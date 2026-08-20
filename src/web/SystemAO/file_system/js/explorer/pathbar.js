@@ -85,13 +85,9 @@ function showEditCurrentPathInput(e){
     pathInputMode = true;
     $("#pathInputField").find("input").val(currentPath);
     $("#editPathBtn").hide();
-    if (isMobile){
-        $("#mobilePathDisplay").hide();
-        $(".mobilePathDisplayWrapper").append($("#pathInputField"));
-    }else{
-        //Desktop
-        $("#pathDisplayField").hide();
-    }
+    //Same element on both layouts - the mobile branch used to hide an id that
+    //no longer exists, which left the breadcrumb sitting beside the input
+    $("#pathDisplayField").hide();
     $("#pathInputField").show();
     $("#pathInputField").find("input").focus();
     
@@ -116,12 +112,8 @@ function openEnteredPath(object){
 function hideManualOpenPathInput(){
     $("#pathInputField").hide();
     pathInputMode = false;
-    if (isMobile){
-        $("#mobilePathDisplay").show();
-    }else{
-        $("#pathDisplayField").show();
-    }
-    
+    $("#pathDisplayField").show();
+
     //Restore the edit btn
     $("#editPathBtn").show();
 }
@@ -169,10 +161,13 @@ function updatePathDisplay(path){
     }
 
     let fullpath = domPathChunks.join(`<div class="divider">/</div>`);
+    /*
+        One breadcrumb element serves both layouts. There used to be a separate
+        #mobilePathDisplay; appending to it after it was removed silently did
+        nothing, so on a phone every segment below the root vanished while the
+        root chip - appended by class above - still showed.
+    */
     let targetDisplayDOM = $("#pathDisplayField");
-    if (isMobile){
-        targetDisplayDOM = $("#mobilePathDisplay");
-    }
     $(targetDisplayDOM).append(`<div id="pre-render" class="measure">${fullpath}</div>`);
     let pathWidth = $("#pre-render").width();
     let pathFieldWidth = $(targetDisplayDOM).width();

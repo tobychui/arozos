@@ -54,9 +54,8 @@ body.whiteTheme {
 
     --popup_bg: white;
     --popup_border: rgb(226, 226, 226);
-    --popup_header_bg: #171719;
-    --popup_header_txt: white;
-    --popup_header_bottom: #34b7eb;
+    --popup_header_bg: #ffffff;
+    --popup_header_txt: #1f2328;
     --popup_btn_border: #dedede;
     --popup_btn_hover: rgba(238, 238, 238, 0.932);
     --popup_btn_primary_bg: #51aded;
@@ -83,7 +82,7 @@ body.whiteTheme {
     --open_with_selected_text: white;
     --open_with_item_hover_background:rgba(35,35,35,0.14); 
 
-    --popup_wrapper_background: rgba(27,27,27,0.5);
+    --popup_wrapper_background: rgba(15, 20, 30, 0.18);
     --code_bg: #f7f7f9;
     --code_txt: #bd4147;
 
@@ -149,9 +148,8 @@ body.darkTheme{
 
     --popup_bg: #1c2129;
     --popup_border: #272c34;
-    --popup_header_bg: #12161b;
+    --popup_header_bg: #1c2129;
     --popup_header_txt: #e6e9ee;
-    --popup_header_bottom: #4a9eff;
     --popup_btn_border: #323945;
     --popup_btn_hover: #2a3039;
     --popup_btn_primary_bg: #4a9eff;
@@ -177,7 +175,7 @@ body.darkTheme{
     --open_with_selected_text: #e6e9ee;
     --open_with_item_hover_background: rgba(122, 138, 160, 0.16);
 
-    --popup_wrapper_background: rgba(8, 10, 13, 0.62);
+    --popup_wrapper_background: rgba(0, 0, 0, 0.38);
     --code_bg: #12161b;
     --code_txt: #ff8f93;
 
@@ -605,8 +603,14 @@ body.darkTheme .ui.icon.button{
     border-right:2px solid var(--dir_border);
     background-color:var(--dir_bg);
     color:var(--dir_txt);
+    /*
+        Starting size only. splitter.js rewrites width and min-width together as
+        the handle is dragged - min-width is what stops flexbox from shrinking
+        the pane, so it has to follow width down rather than pin it.
+    */
     width: 250px;
     min-width: 250px;
+    flex: 0 0 auto;
     scrollbar-width: thin;
 }
 
@@ -641,16 +645,6 @@ body.darkTheme .ui.icon.button{
     color: var(--text_color_secondary);
 }
 
-.mobilePathDisplayWrapper{
-    width:100%;
-    margin-bottom:5px;
-    
-}
-
-#mobilePathDisplay .divider{
-    color: var(--text_color_secondary) !important;
-}
-
 .pathDisplay{
     cursor: text;
     overflow:hidden;
@@ -668,6 +662,52 @@ body.darkTheme .ui.icon.button{
 /*
     Folder Viewer (Main viewer)
 */
+/*
+    Pane splitters
+
+    A 7px grab strip that straddles the border between two panes. The negative
+    side margins pull its own width back out of the flex line, so adding the
+    handle does not shift the layout by a pixel - it sits on top of the border
+    that was already there.
+
+    Hidden on the touch layout: splitter.js does not bind them there, and a
+    7px target is not a sensible touch affordance anyway.
+*/
+.fmSplitter{
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 7px;
+    margin-left: -3px;
+    margin-right: -4px;
+    position: relative;
+    z-index: 6;
+    cursor: col-resize;
+    background-color: transparent;
+    transition: background-color 0.12s ease;
+}
+
+.fmSplitter:hover,
+.fmSplitter.dragging{
+    background-color: var(--fs-accent);
+    opacity: 0.55;
+}
+
+/*
+    While a handle is being dragged the pointer regularly ends up over the panes
+    either side of it. Without this the cursor flickers back to the default and
+    stray text gets selected on the way past.
+*/
+body.fmResizing{
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+}
+body.fmResizing *{
+    cursor: col-resize !important;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 #folderView{
     flex-grow:1;
     padding-left:2em;
@@ -882,8 +922,10 @@ body.darkTheme .ui.icon.button{
 */
 
 #propertiesView{
+    /* Starting size only - see the note on #directorySidebar */
     width: 300px;
     min-width: 300px;
+    flex: 0 0 auto;
     padding: 1em;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -1079,67 +1121,172 @@ body.darkTheme .ui.icon.button{
     height: 15px;
     display: block;
 }
+/*
+    File operation dialogs
+
+    The embedded dialogs (overwrite, delete, rename, new file/folder, share,
+    open with). Drawn as a rounded card docked to the right edge rather than a
+    full bleed panel with a dark title bar.
+
+    The progress dialog that runs in a floatWindow over a websocket is a
+    separate page and is deliberately not restyled here.
+*/
 .popup{
-    position:fixed;
-    top:0;
-    z-index:200;
-    right:0;
-    bottom:30px;
-    padding-bottom:24px;
-    border: 0px solid transparent !important;
-    width: 30em;
-    height: 100%;
-    max-width: 100%;
+    position: fixed;
+    /*
+        Anchored to the bottom right and only as tall as its content: top is
+        deliberately auto, because pinning both top and bottom is what used to
+        stretch a three line confirmation over the full window height. The cap
+        keeps a long file list inside the viewport, and .popupcontent scrolls
+        once that cap is reached.
+    */
+    top: auto;
+    right: 10px;
+    bottom: 10px;
+    /* Above the transfer panel (500), below the toast and context menu (999) */
+    z-index: 601;
+    width: 23em;
+    max-width: calc(100% - 20px);
+    max-height: calc(100% - 20px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: 1px solid var(--popup_border);
-    background-color:var(--popup_bg);
+    border-radius: 12px;
+    background-color: var(--popup_bg);
+    box-shadow: 0px 8px 28px var(--fs-shadow);
 }
 
 .popup.wide{
-    width: 60em;
+    width: 44em;
 }
 
+/*
+    The header carries the card's own surface now. It used to be a dark bar with
+    an accent underline, which read as a separate title bar sitting on top of
+    the panel rather than part of one card.
+*/
 .popupheader{
-    width:100%;
-    padding:3px;
-    padding-left:12px;
-    border-bottom:2px solid var(--popup_header_bottom);
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: auto;
+    padding: 12px 10px 12px 16px;
+    border-bottom: 1px solid var(--divider);
     background-color: var(--popup_header_bg);
     color: var(--popup_header_txt);
-    height:29px;
+    font-size: 14px;
+}
+
+/*
+    The title is a bare text node between the icon and the closer, so it cannot
+    be targeted directly - pushing the closer instead is what right aligns it.
+*/
+.popupheader > span{
+    flex: 1 1 auto;
+    min-width: 0px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.popupheader > i.icon{
+    flex: 0 0 auto;
+    width: 16px;
+    margin: 0px;
+    font-size: 15px;
+    text-align: center;
+    opacity: 0.85;
 }
 
 .popupcontent{
-    height: calc(100% - 29px);
-    overflow:auto;
+    /*
+        Grows to its content and only shrinks when the card hits its cap.
+        min-height:0 is what lets it actually scroll then - a flex item's
+        default min-height:auto refuses to shrink below its content.
+    */
+    flex: 0 1 auto;
+    min-height: 0;
+    height: auto;
+    padding: 14px 16px 16px 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    color: var(--normal_object_txt);
+}
+
+.popupcontent p,
+.popupcontent small{
+    color: var(--fs-text-dim) !important;
+    line-height: 1.5;
 }
 
 .popupcloser{
-    position:absolute;
-    top:5px;
-    right:0px;
-    font-size: 120%;
-    cursor:pointer;
+    position: static;
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 100%;
+    cursor: pointer;
+    opacity: 0.75;
+}
+.popupcloser:hover{
+    background-color: var(--popup_btn_hover);
+    opacity: 1;
+}
+.popupcloser i.icon{
+    margin: 0px;
 }
 
+/* ---------- Option rows ---------- */
 .popupbuttons{
-    cursor:pointer;
-    padding:5px;
-    padding-left:12px;
-    margin-bottom:4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 10px 13px;
+    margin-bottom: 7px;
     border: 1px solid var(--popup_btn_border);
-    border-radius: 4px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--normal_object_txt);
+}
+
+.popupbuttons > i.icon{
+    flex: 0 0 auto;
+    width: 16px;
+    height: auto;
+    margin: 0px;
+    font-size: 14px;
+    text-align: center;
+    opacity: 0.75;
 }
 
 .popupbuttons.primary{
-    background-color:var(--popup_btn_primary_bg);
+    background-color: var(--popup_btn_primary_bg);
     border: 1px solid transparent;
-    color:var(--popup_btn_primary_txt);
+    color: var(--popup_btn_primary_txt) !important;
+}
+.popupbuttons.primary > i.icon{
+    color: var(--popup_btn_primary_txt) !important;
+    opacity: 1;
 }
 
 .popupbuttons.negative{
-    background-color:var(--popup_btn_negative_bg);
+    background-color: var(--popup_btn_negative_bg);
     border: 1px solid transparent;
-    color:var(--popup_btn_negative_txt);
+    color: var(--popup_btn_negative_txt) !important;
+}
+.popupbuttons.negative > i.icon{
+    color: var(--popup_btn_negative_txt) !important;
+    opacity: 1;
 }
 
 .popupbuttons.disabled{
@@ -1190,15 +1337,18 @@ body.darkTheme .ui.icon.button{
     left:0px;
     width:100%;
     height:100%;
-    z-index:199;
+    /* Directly under .popup, so the scrim covers the transfer panel too */
+    z-index:600;
     background-color: var(--popup_wrapper_background);
     display:none;
 }
-@supports (backdrop-filter: none) {
-    .popupWrapper {
-        backdrop-filter: blur(5px);
-    }
-}
+/*
+    The scrim is much lighter than it used to be, and no longer blurs: the
+    mockup shows the file list plainly behind the card. Some dimming is kept
+    rather than none, because the wrapper still swallows clicks - an invisible
+    overlay that silently eats them would be worse than a faint one that
+    explains itself.
+*/
 
 #openWithModuleList{
     height:50vh;
@@ -1415,10 +1565,50 @@ body.darkTheme .ui.icon.button{
     white-space: nowrap;
 }
 
-#uploadTab .uploadTaskAction{
+/*
+    The action column holds up to two controls: cancel, which only appears once
+    the transfer is paused, and the main pause/resume/retry button. Cancel is
+    deliberately hidden while uploading - the pause button is the one to reach
+    for, and putting a destructive control next to it invites misclicks.
+*/
+#uploadTab .uploadTaskActions{
     grid-column: 2;
     grid-row: 1 / span 2;
     align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+#uploadTab .uploadTaskCancel{
+    display: none;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--fs-text-faint);
+}
+#uploadTab .uploadTask.paused .uploadTaskCancel{
+    /*
+        Shown by state class alone, so nothing has to rewrite this button on a
+        progress tick - which is what used to swallow clicks on its neighbour.
+    */
+    display: flex;
+}
+#uploadTab .uploadTaskCancel:hover{
+    background-color: var(--fs-fill-hover);
+    color: var(--upload_progress_failed);
+}
+#uploadTab .uploadTaskCancel svg{
+    width: 22px;
+    height: 22px;
+    display: block;
+    pointer-events: none;
+}
+
+#uploadTab .uploadTaskAction{
     width: 30px;
     height: 30px;
     display: flex;
@@ -1432,6 +1622,14 @@ body.darkTheme .ui.icon.button{
     width: 26px;
     height: 26px;
     display: block;
+    /*
+        The glyph must not be the event target. It is swapped out whenever the
+        task changes state, and a press that spans the swap would leave mousedown
+        and mouseup on two different elements - which produces no click at all.
+        Letting the pointer fall through to the button itself makes the whole
+        30px control clickable regardless of what the icon does underneath.
+    */
+    pointer-events: none;
 }
 #uploadTab .uploadTask.done .uploadTaskAction{
     color: var(--upload_progress_succ);
@@ -1707,6 +1905,31 @@ i.blue{
         max-width: 148px;
     }
     
+    /*
+        Dialogs centre in the viewport instead of hugging a corner.
+
+        Centred with inset:0 + margin:auto rather than a translate(-50%,-50%),
+        because these are shown with semantic's transition("slide left in") -
+        its keyframes set transform themselves, so a centring transform would be
+        dropped for the length of the animation and the card would visibly jump
+        into place at the end. Auto margins are untouched by the animation.
+
+        The auto margins need a definite height to resolve against, which is
+        what height:fit-content provides - plain auto height would stretch to
+        fill the insets instead.
+    */
+    .popup{
+        right: 0;
+        bottom: 2em;
+        left: 0;
+        margin: auto;
+        width: calc(100% - 28px);
+        max-width: 420px;
+        height: -webkit-fit-content;
+        height: fit-content;
+        max-height: calc(100% - 40px);
+    }
+
     /* Properties view, disable function in small display size*/
     #propertiesView{
         display:none !important;
@@ -1716,12 +1939,9 @@ i.blue{
         display:none !important;
     }
 
-    /* popups */
-    .popup{
-        top: 5em;
-        bottom: 5em;
-        width:100%;
-        height: auto;
+    /* ...and with no pane to resize, neither does its handle */
+    #fmPropsSplitter{
+        display:none !important;
     }
 
 }
@@ -2025,6 +2245,15 @@ i.blue{
 }
 
 /* ---------- Details view: the mockup's columned list ---------- */
+/*
+    No top padding in details view, so the sticky header below can sit flush
+    against the top of the scrollport. With padding here the header pins that
+    far down instead, and scrolled rows stay visible in the band above it.
+*/
+#folderView.fmDetailsView {
+    padding-top: 0px;
+}
+
 #fmListHeader {
     position: sticky;
     top: 0;
@@ -2188,6 +2417,14 @@ i.blue{
     gap: 6px;
 }
 .fmZoomIcon {
+    /*
+        inline-block, because width and height do not apply to a non-replaced
+        inline element. As a bare <span> this box silently loses its size the
+        moment anything stops #fmZoom being a flex container, and the SVG inside
+        then renders at its 300px intrinsic size.
+    */
+    display: inline-block;
+    flex-shrink: 0;
     width: 14px;
     height: 14px;
     color: var(--fs-text-faint);

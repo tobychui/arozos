@@ -57,16 +57,24 @@ function appendUploadFileItem(filename, filesize){
             <span class="uploadTaskSize"></span>
             <span class="uploadTaskStatus"></span>
         </div>
-        <div class="uploadTaskAction" onclick="onUploadTaskButton('${newuuid}');"></div>
+        <div class="uploadTaskActions">
+            <div class="uploadTaskCancel" onclick="cancelUploadTask('${newuuid}');">${FSIcons.closeCircle}</div>
+            <div class="uploadTaskAction" onclick="onUploadTaskButton('${newuuid}');"></div>
+        </div>
         <div class="uploadTaskBar"><div class="uploadTaskBarFill"></div></div>
     </div>`);
 
     //Set as text, not html: a filename may legitimately contain angle brackets
     let row = getUploadTaskByID(newuuid);
     row.find(".uploadTaskName").text(filename).attr("title", filename);
+    //Visibility is driven purely by the row's state class in CSS, so this
+    //button never needs touching again - no per-tick DOM writes on it
+    row.find(".uploadTaskCancel").attr("title", applocale.getString("upload/cancel", "Cancel"));
 
-    //A new task always brings the panel back, even if it was collapsed
-    uploadPanelCollapsed = false;
+    //A new task brings the panel back, unless a dialog is holding that corner
+    if (!$(".popup").is(":visible")){
+        uploadPanelCollapsed = false;
+    }
     renderUploadTask(newuuid);
     updateUploadFileCount();
     return newuuid;
@@ -274,7 +282,25 @@ function renderUploadTask(taskUUID){
         iconName = "pauseCircle";
         btnTitle = applocale.getString("upload/pause", "Pause");
     }
-    row.find(".uploadTaskAction").html(FSIcons[iconName]).attr("title", btnTitle);
+    /*
+        Only touch the button when the glyph actually changes.
+
+        This runs on every progress update - many times a second during a real
+        upload - and rewriting the innerHTML destroys the <svg> the pointer is
+        currently pressing. A click is only synthesised when mousedown and
+        mouseup share a target, so a press that spans one of these rewrites is
+        silently swallowed: the button appeared to work only every few clicks.
+
+        The icon depends on state, not on bytes moved, so this is nearly always
+        a no-op.
+    */
+    let actionBtn = row.find(".uploadTaskAction");
+    if (actionBtn.attr("data-icon") != iconName){
+        actionBtn.attr("data-icon", iconName).html(FSIcons[iconName]);
+    }
+    if (actionBtn.attr("title") != btnTitle){
+        actionBtn.attr("title", btnTitle);
+    }
 }
 
 /*
@@ -343,9 +369,15 @@ function updateUploadFileCount(){
 */
 function applyUploadPanelVisibility(){
     let taskCount = $(".uploadTask").length;
+    /*
+        Paused counts as unfinished, not as idle: the tray button is the only
+        reminder that a transfer is still open once the panel is collapsed, and
+        an upload someone paused is exactly the one worth being reminded about.
+    */
     let transferring = false;
     uploadTaskInfo.forEach(function(info){
-        if (info.state == "uploading" || info.state == "processing" || info.state == "pending"){
+        if (info.state == "uploading" || info.state == "processing" ||
+            info.state == "pending" || info.state == "paused"){
             transferring = true;
         }
     });
@@ -375,7 +407,7 @@ function trimFinishedUploadRows(){
     let excess = finished.length - MAX_FINISHED_UPLOAD_ROWS;
     for (var i = 0; i < excess; i++){
         let row = $(finished[i]);
-        uploadTaskInfo.delete(row.attr("taskid"));
+        forgetUploadTask(row.attr("taskid"));
         row.remove();
     }
 }
@@ -420,8 +452,7 @@ function cancelUploadTask(taskUUID){
         }
     }
 
-    uploadRetryMap.delete(taskUUID);
-    uploadTaskInfo.delete(taskUUID);
+    forgetUploadTask(taskUUID);
     let row = getUploadTaskByID(taskUUID);
     if (row !== undefined){
         row.fadeOut("fast", function(){
@@ -453,9 +484,23 @@ function retryUploadFile(taskUUID){
     uploadFile(retryInfo.file, taskUUID, retryInfo.targetDir);
 }
 
+/*
+    Drop every trace of a task.
+
+    A row is not the only thing a task owns: uploadTransferMap holds a closure
+    over its socket and File, and uploadRetryMap holds the File itself so retry
+    can work. Removing the row without these leaves both alive with nothing left
+    that can reach them.
+*/
+function forgetUploadTask(taskUUID){
+    uploadTaskInfo.delete(taskUUID);
+    uploadTransferMap.delete(taskUUID);
+    uploadRetryMap.delete(taskUUID);
+}
+
 function clearCompletedUploads(){
     $("#uploadProgressList").find(".uploadTask.done, .uploadTask.failed").each(function(){
-        uploadTaskInfo.delete($(this).attr("taskid"));
+        forgetUploadTask($(this).attr("taskid"));
         $(this).remove();
     });
     updateUploadFileCount();
@@ -546,6 +591,21 @@ function scrollActiveUploadIntoView(){
     uploadListAutoScrollTop = list.scrollTop;
 }
 
+/*
+    Park the panel in the tray while a dialog is open.
+
+    A file operation dialog occupies the same bottom right corner, so the two
+    would otherwise sit on top of each other. The transfers keep running and the
+    status bar button keeps pulsing, so progress is still visible.
+*/
+function collapseUploadPanelForDialog(){
+    if ($(".uploadTask").length == 0){
+        return;
+    }
+    uploadPanelCollapsed = true;
+    applyUploadPanelVisibility();
+}
+
 //Collapse the panel down to #fmUploadListBtn. The tasks keep running.
 function toggleUploadMinimize(){
     uploadPanelCollapsed = true;
@@ -586,7 +646,9 @@ window.removeThisTask = removeThisTask;
 window.retryUploadFile = retryUploadFile;
 window.toggleUploadMinimize = toggleUploadMinimize;
 window.toggleUploadPanel = toggleUploadPanel;   // the status bar button
+window.collapseUploadPanelForDialog = collapseUploadPanelForDialog;
 window.closeUploadTab = closeUploadTab;
 window.clearCompletedUploads = clearCompletedUploads;
 window.cancelAllUploads = cancelAllUploads;
 window.onUploadTaskButton = onUploadTaskButton;
+window.cancelUploadTask = cancelUploadTask;   // the paused row's cancel button

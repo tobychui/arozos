@@ -1199,15 +1199,53 @@ function initDropTarget() {
         e.preventDefault();
         depth = 0;
         dom.dropzone.classList.remove('on');
-        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (!file) return;
-        if (!isSupported(file.name)) {
-            showOverlay('error', '"' + file.name + '" is not a supported 3D model format.');
+
+        //A drop from the OS carries real files
+        const local = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (local) {
+            if (!isSupported(local.name)) {
+                showOverlay('error', '"' + local.name + '" is not a supported 3D model format.');
+                return;
+            }
+            dom.fileCard.dataset.filepath = '';
+            openLocalFile(local);
             return;
         }
-        dom.fileCard.dataset.filepath = '';
-        openLocalFile(file);
+
+        //A drop from the ArozOS File Manager carries no file at all, just a
+        //record of where the file lives in the user's storage
+        const dropped = readDroppedStorageFiles(e);
+        if (dropped.length === 0) return;
+
+        let target = null;
+        for (let i = 0; i < dropped.length; i++) {
+            if (isSupported(dropped[i].filename)) { target = dropped[i]; break; }
+        }
+        if (!target) {
+            showOverlay('error', '"' + dropped[0].filename + '" is not a supported 3D model format.');
+            return;
+        }
+        openStoredFile(target.filepath, target.filename);
     });
+}
+
+/*
+    Pull the file records out of a File Manager drag. ao_module_utils does the
+    reading, but it assumes a well formed payload, so anything unparsable is
+    treated as "nothing was dropped" rather than being allowed to throw out of
+    the event handler.
+*/
+function readDroppedStorageFiles(dropEvent) {
+    try {
+        const filelist = ao_module_utils.getDropFileInfo(dropEvent);
+        if (!Array.isArray(filelist)) return [];
+        return filelist.filter(function (file) {
+            return file && file.filepath && file.filename;
+        });
+    } catch (err) {
+        console.log('[3D Viewer] could not read the dropped file list', err);
+        return [];
+    }
 }
 
 function initKeyboard() {

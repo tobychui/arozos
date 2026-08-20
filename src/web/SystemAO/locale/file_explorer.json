@@ -251,7 +251,8 @@
                 "upload/pause": "暫停",
                 "upload/resume": "繼續",
                 "upload/cancel": "取消",
-                "upload/retry": "重試"
+                "upload/retry": "重試",
+                "upload/pauseExpired": "上傳已取消：暫停時間過長"
             },
             "titles": {
                 "Back": "上一頁",
@@ -548,7 +549,8 @@
                 "upload/pause": "暫停",
                 "upload/resume": "繼續",
                 "upload/cancel": "取消",
-                "upload/retry": "重試"
+                "upload/retry": "重試",
+                "upload/pauseExpired": "上傳已取消：暫停時間過長"
             },
             "titles": {
                 "Back": "上一頁",
@@ -846,7 +848,8 @@
                 "upload/pause": "暂停",
                 "upload/resume": "继续",
                 "upload/cancel": "取消",
-                "upload/retry": "重试"
+                "upload/retry": "重试",
+                "upload/pauseExpired": "上传已取消：暂停时间过长"
             },
             "titles": {
                 "Back": "上一页",
@@ -1145,7 +1148,8 @@
                 "upload/pause": "Pause",
                 "upload/resume": "Resume",
                 "upload/cancel": "Cancel",
-                "upload/retry": "Retry"
+                "upload/retry": "Retry",
+                "upload/pauseExpired": "Upload cancelled: paused for too long"
             },
             "titles": {
                 "Back": "Back",
@@ -1444,7 +1448,8 @@
                 "upload/pause": "一時停止",
                 "upload/resume": "再開",
                 "upload/cancel": "キャンセル",
-                "upload/retry": "再試行"
+                "upload/retry": "再試行",
+                "upload/pauseExpired": "アップロードを中止しました：一時停止が長すぎます"
             },
             "titles": {
                 "Back": "戻る",
@@ -1745,7 +1750,8 @@
                 "upload/pause": "일시중지",
                 "upload/resume": "다시 시작",
                 "upload/cancel": "취소",
-                "upload/retry": "다시 시도"
+                "upload/retry": "다시 시도",
+                "upload/pauseExpired": "업로드 취소됨: 너무 오래 일시중지되었습니다"
             },
             "titles": {
                 "Back": "뒤로",

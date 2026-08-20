@@ -22,6 +22,25 @@ function bindFileObjectEvents(){
             evt.stopImmediatePropagation();
         }
 
+        /*
+            Double tap on a phone.
+
+            Two taps land as two independent clicks, so the gesture is timed
+            here. In multi-select the two taps select and deselect again, which
+            leaves the selection exactly as it was - so the pair can simply be
+            treated as "open" once the second one arrives.
+        */
+        let isSecondTap = false;
+        if (isMobile){
+            let thisFileID = $(this).attr("fileid");
+            let now = Date.now();
+            isSecondTap = (lastTapFileID === thisFileID &&
+                           (now - lastTapTime) < MOBILE_DOUBLE_TAP_MS);
+            lastTapFileID = thisFileID;
+            //Reset rather than extend, so a triple tap is not two double taps
+            lastTapTime = isSecondTap ? 0 : now;
+        }
+
         if (ctrlHold == true){
             if ($(this).hasClass("selected")){
                 $(this).removeClass("selected");
@@ -41,6 +60,18 @@ function bindFileObjectEvents(){
             }
             
             lastClickedFileID = parseInt($(this).attr("fileid"));
+
+            /*
+                Tapping twice opens the file even while multi-select is on -
+                otherwise there is no way to open anything without first leaving
+                the mode. Folders keep tap-to-select here: navigating away would
+                throw away the selection the user is building.
+            */
+            if (isSecondTap && isMobile && $(this).attr("type") == "file"){
+                updateSelectedObjectsCount();
+                openthis(this, evt);
+                return;
+            }
         }else if (shiftHold == true){
             //Select everything in range lastClicked to this
             var thisFileID = $(this).attr("fileid");
@@ -62,6 +93,13 @@ function bindFileObjectEvents(){
             //If on mobile, click means open (only on not muilti selection mode)
             evt.preventDefault();
             evt.stopImmediatePropagation();
+
+            //A single tap already opened this on the first of the two taps;
+            //acting again would launch the app a second time
+            if (isSecondTap){
+                return;
+            }
+
             openthis(this,evt);
 
             //Deselect everything if in multi-select mode

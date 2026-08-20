@@ -39,16 +39,34 @@
             $(object).removeClass('active');
             localStorage.setItem("file_explorer/viewProperties", "false");
         }
+        //The handle only belongs there while the pane it resizes is on screen
+        updateSplitterVisibility();
     }
 
     //The tile size slider only applies to the thumbnail grid
 function updateZoomControlVisibility(){
-    $("#fmZoom").toggle(viewMode == "grid");
+    /*
+        Explicit display, not .toggle(): jQuery writes an inline "display:block"
+        whenever the stylesheet has the element hidden, which the phone media
+        query does with !important. That inline value survives a rotation, and
+        once the media query stops matching it beats the flex layout this
+        control needs - the icon then has no flex context to size it and the
+        bare <svg> falls back to its 300px intrinsic size.
+    */
+    $("#fmZoom").css("display", viewMode == "grid" ? "flex" : "none");
     initWindowSizes(false);
 }
 
 function updateViewmodeButtons(){
     updateZoomControlVisibility();
+    /*
+        The details view pins its column header to the top of the file area.
+        A sticky box cannot rise above its containing block's content edge, so
+        the file area's top padding would hold the header that far down and let
+        rows scroll through the gap above it. Details view drops the padding -
+        the header is the top chrome there anyway.
+    */
+    $("#folderView").toggleClass("fmDetailsView", viewMode == "details");
         $(".videmode").removeClass('disabled');
         $(".videmode").each(function(){
             if ($(this).attr("mode") == viewMode){
@@ -131,20 +149,15 @@ $(document).on("click", function(event){
 //set restoreDefault to true for force small interface
 function togglePreviewWindowSize(restoreDefault = false){
     if ($("#propertiesView").hasClass("small") && restoreDefault == false){
-        //Set it to big
-        $("#propertiesView").css({
-            "width": "500px",
-            "min-width": "500px"
-        });
+        //Set it to big. Routed through the splitter setter so this button and a
+        //drag cannot end up disagreeing about the pane's bounds.
+        setPropertiesWidth(500);
         $("#propertiesView").removeClass("small").addClass("big");
         $("#propertiesView").find(".sizeToggle").html(`<i class="compress icon"></i>`);
         $("#propertiesView").find(".sizeToggle").attr("title", applocale.getString("sidebar/properties/shrink", "Shrink Properties Sidebar"));
     }else{
         //Set it to small
-        $("#propertiesView").css({
-            "width": "300px",
-            "min-width": "300px"
-        });
+        setPropertiesWidth(FM_PROPS_DEFAULT_WIDTH);
         $("#propertiesView").removeClass("big").addClass("small");
         $("#propertiesView").find(".sizeToggle").html(`<i class="expand icon"></i>`);
         $("#propertiesView").find(".sizeToggle").attr("title", applocale.getString("sidebar/properties/expand", "Expand Properties Sidebar"));
