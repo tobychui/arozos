@@ -87,6 +87,13 @@
             <!-- Drag handle: resizes the sidebar, double click restores the default -->
             <div class="splitter" id="splitter" title="Drag to resize"></div>
 
+            <!-- Middle column: the files touched by the selected commit (History tab only) -->
+            <div class="commitfilepane hidden" id="commitFilePane">
+                <div class="listhead"><span id="commitFilesLabel">No commit selected</span></div>
+                <div class="filelist" id="commitFileList"></div>
+            </div>
+            <div class="splitter hidden" id="commitFileSplitter" title="Drag to resize"></div>
+
             <div class="content">
                 <div class="contenthead">
                     <div class="path" id="diffPath">No file selected</div>

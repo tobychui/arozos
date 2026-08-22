@@ -24,6 +24,8 @@ var state = {
     tab: "changes",
     commits: [],
     activeCommit: null,
+    commitFiles: [],     //files touched by the selected commit (History tab)
+    activeCommitFile: null,
     busy: false
 };
 
@@ -772,6 +774,7 @@ function renderEmptyState() {
     $("#branchName").text("—");
     $("#changesCount").text("0");
     $("#fileList").empty();
+    $("#commitFileList").empty();
     $("#diffPath").text("No file selected");
     $("#diffActions").empty();
 
@@ -807,6 +810,7 @@ function loadHistory() {
         if (state.commits.length > 0) {
             selectCommit(state.commits[0].hash);
         } else {
+            renderCommitFiles([]);
             renderDiffMessage("No commits yet", "Make your first commit to see it here.");
         }
     });
@@ -854,32 +858,70 @@ function renderCommitList() {
 
 function selectCommit(hash) {
     state.activeCommit = hash;
+    state.activeCommitFile = null;
     renderCommitList();
 
     call("status.agi", { opr: "commitfiles", repo: state.repo, hash: hash }, function(reply) {
         if (!reply.success) {
+            renderCommitFiles([]);
             renderDiffMessage("Cannot read this commit", reply.error);
             return;
         }
 
         if (reply.files.length === 0) {
+            renderCommitFiles([]);
             renderDiffMessage("Empty commit", "This commit does not touch any file.");
             return;
         }
 
-        //Show the commit's file list, then open the first file's diff
-        $("#diffPath").text(reply.files.length + " changed file" + (reply.files.length === 1 ? "" : "s"));
-        var actions = $("#diffActions").empty();
-        reply.files.forEach(function(file) {
-            var button = $("<button></button>").text(file.path.split("/").pop()).attr("title", file.path);
-            button.on("click", function() {
-                showCommitDiff(hash, file.path, file.preview);
-            });
-            actions.append(button);
-        });
-
-        showCommitDiff(hash, reply.files[0].path, reply.files[0].preview);
+        //Fill the middle column with the commit's files, then open the first one
+        renderCommitFiles(reply.files);
+        selectCommitFile(reply.files[0]);
     });
+}
+
+/*
+    renderCommitFiles draws the middle column of the History tab. The rows reuse
+    the Changes tab's .filerow look, minus the staging checkbox — a committed
+    file has nothing left to stage.
+*/
+function renderCommitFiles(files) {
+    state.commitFiles = files;
+    $("#commitFilesLabel").text(
+        files.length === 0 ? "No changed files" :
+        files.length + " changed file" + (files.length === 1 ? "" : "s"));
+
+    var list = $("#commitFileList").empty();
+    if (files.length === 0) {
+        return;
+    }
+
+    files.forEach(function(file) {
+        var row = $("<div class='filerow'></div>");
+        if (file.path === state.activeCommitFile) {
+            row.addClass("active");
+        }
+
+        //Rendered right-to-left so a long folder chain truncates on the left and
+        //the file name stays visible, as in the Changes tab.
+        row.append($("<div class='fname'></div>")
+            .attr("title", file.path)
+            .text("‎" + file.path));
+        row.append(statusMark(file));
+
+        row.on("click", function() {
+            selectCommitFile(file);
+        });
+        list.append(row);
+    });
+}
+
+function selectCommitFile(file) {
+    state.activeCommitFile = file.path;
+    $("#commitFileList .filerow").removeClass("active");
+    renderCommitFiles(state.commitFiles);
+    $("#diffActions").empty();
+    showCommitDiff(state.activeCommit, file.path, file.preview);
 }
 
 function formatTime(unixSeconds) {
@@ -1939,39 +1981,60 @@ function togglePopover(selector, anchorSelector, beforeOpen) {
     }).addClass("open");
 }
 
-/* ── Sidebar splitter ─────────────────────────────────────────────────── */
+/* ── Pane splitters ───────────────────────────────────────────────────── */
 
 var SIDEBAR_MIN_WIDTH = 220;
 var SIDEBAR_DEFAULT_WIDTH = 300;
 var SIDEBAR_WIDTH_KEY = "gitapp-sidebar-width";
 
-//clampSidebarWidth keeps the sidebar usable and always leaves room for the diff.
-function clampSidebarWidth(width) {
-    var maximum = Math.max(SIDEBAR_MIN_WIDTH, Math.round($(window).width() * 0.7));
-    return Math.min(Math.max(Math.round(width), SIDEBAR_MIN_WIDTH), maximum);
+var COMMITFILES_MIN_WIDTH = 160;
+var COMMITFILES_DEFAULT_WIDTH = 260;
+var COMMITFILES_WIDTH_KEY = "gitapp-commitfiles-width";
+
+//clampPaneWidth keeps a pane usable and always leaves room for the diff.
+function clampPaneWidth(width, minimumWidth) {
+    var maximum = Math.max(minimumWidth, Math.round($(window).width() * 0.7));
+    return Math.min(Math.max(Math.round(width), minimumWidth), maximum);
 }
 
 function applySidebarWidth(width) {
-    $(".sidebar").css("flex-basis", clampSidebarWidth(width) + "px");
+    $(".sidebar").css("flex-basis", clampPaneWidth(width, SIDEBAR_MIN_WIDTH) + "px");
 }
 
-function setupSplitter() {
-    var stored = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY), 10);
-    applySidebarWidth(isNaN(stored) ? SIDEBAR_DEFAULT_WIDTH : stored);
+function applyCommitFilesWidth(width) {
+    $("#commitFilePane").css("flex-basis", clampPaneWidth(width, COMMITFILES_MIN_WIDTH) + "px");
+}
+
+/*
+    setupPaneSplitter wires one drag handle to the pane on its left.
+
+    Both the sidebar and the History tab's committed file column are resized the
+    same way, so the behaviour — drag, double click to restore, remember the
+    width — lives here once and is instantiated per handle.
+*/
+function setupPaneSplitter(options) {
+    var handle = $(options.handle);
+    var pane = $(options.pane);
+
+    var stored = parseInt(localStorage.getItem(options.storageKey), 10);
+    options.apply(isNaN(stored) ? options.defaultWidth : stored);
 
     var dragging = false;
 
     function moveTo(clientX) {
-        //The workspace may not start at x=0 once the window is scrolled or
-        //embedded, so measure against its own left edge.
-        var origin = $(".workspace").offset().left;
-        applySidebarWidth(clientX - origin);
+        //The pane may not start at x=0 once the window is scrolled or embedded,
+        //so measure against its own left edge.
+        options.apply(clientX - pane.offset().left);
     }
 
-    $("#splitter").on("mousedown", function(event) {
+    function currentWidth() {
+        return parseInt(pane.css("flex-basis"), 10);
+    }
+
+    handle.on("mousedown", function(event) {
         event.preventDefault();
         dragging = true;
-        $("#splitter").addClass("dragging");
+        handle.addClass("dragging");
         $("body").addClass("resizing");
         closePopovers();
         closeContextMenu();
@@ -1990,20 +2053,38 @@ function setupSplitter() {
             return;
         }
         dragging = false;
-        $("#splitter").removeClass("dragging");
+        handle.removeClass("dragging");
         $("body").removeClass("resizing");
-        localStorage.setItem(SIDEBAR_WIDTH_KEY, parseInt($(".sidebar").css("flex-basis"), 10));
+        localStorage.setItem(options.storageKey, currentWidth());
     });
 
     //Double click restores the default, matching the usual splitter convention
-    $("#splitter").on("dblclick", function() {
-        applySidebarWidth(SIDEBAR_DEFAULT_WIDTH);
-        localStorage.setItem(SIDEBAR_WIDTH_KEY, SIDEBAR_DEFAULT_WIDTH);
+    handle.on("dblclick", function() {
+        options.apply(options.defaultWidth);
+        localStorage.setItem(options.storageKey, options.defaultWidth);
     });
 
     //A window that shrank below the stored width must not hide the diff pane
     $(window).on("resize", function() {
-        applySidebarWidth(parseInt($(".sidebar").css("flex-basis"), 10));
+        options.apply(currentWidth());
+    });
+}
+
+function setupSplitter() {
+    setupPaneSplitter({
+        handle: "#splitter",
+        pane: ".sidebar",
+        storageKey: SIDEBAR_WIDTH_KEY,
+        defaultWidth: SIDEBAR_DEFAULT_WIDTH,
+        apply: applySidebarWidth
+    });
+
+    setupPaneSplitter({
+        handle: "#commitFileSplitter",
+        pane: "#commitFilePane",
+        storageKey: COMMITFILES_WIDTH_KEY,
+        defaultWidth: COMMITFILES_DEFAULT_WIDTH,
+        apply: applyCommitFilesWidth
     });
 }
 
@@ -2015,10 +2096,17 @@ function switchTab(tab) {
     $("#changesPane").toggleClass("hidden", tab !== "changes");
     $("#historyPane").toggleClass("hidden", tab !== "history");
 
+    //The committed file column belongs to the History tab only; the Changes tab
+    //already lists its files in the sidebar.
+    $("#commitFilePane").toggleClass("hidden", tab !== "history");
+    $("#commitFileSplitter").toggleClass("hidden", tab !== "history");
+
     if (tab === "history") {
         loadHistory();
     } else {
         state.activeCommit = null;
+        state.activeCommitFile = null;
+        renderCommitFiles([]);
         renderStatus();
     }
 }
