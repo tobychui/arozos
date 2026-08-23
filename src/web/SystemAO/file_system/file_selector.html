@@ -854,7 +854,7 @@
                     </div>
 
                     <div class="fsContent">
-                        <div class="fsFiles" id="fileArea">
+                        <div class="fsFiles" id="fileArea" oncontextmenu="showFolderContextMenu(event);">
                             <div class="fsPlaceholder" id="loadingPlaceholder">
                                 <div class="fsSpinner"></div>
                                 <div locale="message/loading">Loading</div>
@@ -2627,8 +2627,43 @@
                 var menu = $("#contextMenu");
                 menu.html(buildContextMenuItems(isDir));
                 menu.addClass("open");
+                positionContextMenu(menu, event);
+            }
 
-                //Clamp to the viewport so the menu never opens off screen
+            /*
+                Right click on empty space acts on the folder being browsed
+                rather than on any item, so it offers the two things that make
+                sense there. The per item handler above stops propagation, so
+                this only ever runs for a click that missed every file object.
+            */
+            function showFolderContextMenu(event){
+                event.preventDefault();
+                event.stopPropagation();
+                if (inlineEditActive){
+                    return;
+                }
+                //No item is involved - onContextAction keys off this being null
+                contextTarget = null;
+                closeMoreMenu();
+
+                var menu = $("#contextMenu");
+                menu.html(buildFolderContextMenuItems());
+                menu.addClass("open");
+                positionContextMenu(menu, event);
+            }
+
+            function buildFolderContextMenuItems(){
+                var items = [];
+                items.push(contextMenuItem("newfolder", ICONS.folderPlus,
+                    applocale.getString("ctx/newfolder", "New Folder")));
+                items.push('<div class="fsMenuSep"></div>');
+                items.push(contextMenuItem("folderproperties", ICONS.info,
+                    applocale.getString("ctx/folderproperties", "Folder Properties")));
+                return items.join("");
+            }
+
+            //Clamp to the viewport so a menu never opens off screen
+            function positionContextMenu(menu, event){
                 var width = menu.outerWidth();
                 var height = menu.outerHeight();
                 var left = event.clientX;
@@ -2673,6 +2708,19 @@
             function onContextAction(action){
                 var target = contextTarget;
                 closeContextMenu();
+
+                /*
+                    Folder level actions come from the empty space menu and have
+                    no target, so they are handled before the guard below.
+                */
+                if (action == "newfolder"){
+                    newFolder();
+                    return;
+                }else if (action == "folderproperties"){
+                    ctxProperties(currentDir);
+                    return;
+                }
+
                 if (target == null){
                     return;
                 }

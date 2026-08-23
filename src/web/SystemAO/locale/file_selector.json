@@ -71,7 +71,9 @@
                 "message/nameexists": "已有相同名稱的項目",
                 "message/zipfailed": "無法壓縮此資料夾",
                 "": "",
-                "footer/create": "建立"
+                "footer/create": "建立",
+                "ctx/newfolder": "新增資料夾",
+                "ctx/folderproperties": "資料夾內容"
             },
             "titles": {
                 "Back": "上一頁",
@@ -163,7 +165,9 @@
                 "message/nameexists": "已有相同名稱的項目",
                 "message/zipfailed": "無法壓縮此資料夾",
                 "": "",
-                "footer/create": "建立"
+                "footer/create": "建立",
+                "ctx/newfolder": "新增資料夾",
+                "ctx/folderproperties": "資料夾內容"
             },
             "titles": {
                 "Back": "上一頁",
@@ -255,7 +259,9 @@
                 "message/nameexists": "已有相同名称的项目",
                 "message/zipfailed": "无法压缩此文件夹",
                 "": "",
-                "footer/create": "创建"
+                "footer/create": "创建",
+                "ctx/newfolder": "新建文件夹",
+                "ctx/folderproperties": "文件夹属性"
             },
             "titles": {
                 "Back": "上一页",
@@ -347,7 +353,9 @@
                 "message/nameexists": "An item with that name already exists",
                 "message/zipfailed": "Unable to compress this folder",
                 "": "",
-                "footer/create": "Create"
+                "footer/create": "Create",
+                "ctx/newfolder": "New Folder",
+                "ctx/folderproperties": "Folder Properties"
             },
             "titles": {
                 "Back": "Back",
@@ -439,7 +447,9 @@
                 "message/nameexists": "同じ名前の項目が既に存在します",
                 "message/zipfailed": "このフォルダを圧縮できません",
                 "": "",
-                "footer/create": "作成"
+                "footer/create": "作成",
+                "ctx/newfolder": "新しいフォルダー",
+                "ctx/folderproperties": "フォルダーのプロパティ"
             },
             "titles": {
                 "Back": "戻る",
@@ -531,7 +541,9 @@
                 "message/nameexists": "같은 이름의 항목이 이미 있습니다",
                 "message/zipfailed": "이 폴더를 압축할 수 없습니다",
                 "": "",
-                "footer/create": "만들기"
+                "footer/create": "만들기",
+                "ctx/newfolder": "새 폴더",
+                "ctx/folderproperties": "폴더 속성"
             },
             "titles": {
                 "Back": "뒤로",
