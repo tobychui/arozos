@@ -166,3 +166,97 @@ func TestCancelConversionKillsRunningJob(t *testing.T) {
 		t.Errorf("CancelConversion(%q) = true on an already cancelled job, want false", key)
 	}
 }
+
+func TestRequiresEvenDimensions(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   bool
+	}{
+		{"mp4 output", "out.mp4", true},
+		{"mkv output uppercase", "OUT.MKV", true},
+		{"mov output", "clip.mov", true},
+		{"gif output", "anim.gif", false},
+		{"mp3 output", "song.mp3", false},
+		{"no extension", "output", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := requiresEvenDimensions(tt.output); got != tt.want {
+				t.Errorf("requiresEvenDimensions(%q) = %v, want %v", tt.output, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestVideoScaleFilterWithResolution checks the named-resolution branch, which
+// never needs to probe the source file.
+func TestVideoScaleFilterWithResolution(t *testing.T) {
+	tests := []struct {
+		name       string
+		resolution string
+		want       string
+		wantErr    bool
+	}{
+		{"720p", "720p", "scale=-2:720", false},
+		{"case insensitive 4K", "4K", "scale=-2:2160", false},
+		{"8k", "8k", "scale=-2:4320", false},
+		{"unsupported resolution", "999p", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := videoScaleFilter("input.webm", "output.mp4", tt.resolution)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("videoScaleFilter(%q) expected an error, got filter %q", tt.resolution, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("videoScaleFilter(%q) returned unexpected error: %v", tt.resolution, err)
+			}
+			if got != tt.want {
+				t.Errorf("videoScaleFilter(%q) = %q, want %q", tt.resolution, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestVideoScaleFilterUnprobeableSource checks the fallback used when ffprobe
+// cannot measure the source: even-only containers still get the rounding filter
+// (a no-op for even sized frames) while other containers get none.
+func TestVideoScaleFilterUnprobeableSource(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "does-not-exist.webm")
+
+	tests := []struct {
+		name   string
+		output string
+		want   string
+	}{
+		{"even only container", "output.mp4", evenDimensionFilter},
+		{"gif output needs no rounding", "output.gif", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := videoScaleFilter(missing, tt.output, "")
+			if err != nil {
+				t.Fatalf("videoScaleFilter returned unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("videoScaleFilter(%q) = %q, want %q", tt.output, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetVideoDimensionsInvalidFile ensures a missing or non-video file is
+// reported as an error instead of returning bogus dimensions.
+func TestGetVideoDimensionsInvalidFile(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "not-a-video.webm")
+	if w, h, err := getVideoDimensions(missing); err == nil {
+		t.Errorf("getVideoDimensions(%q) = (%d, %d), want an error", missing, w, h)
+	}
+}
