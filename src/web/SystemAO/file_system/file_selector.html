@@ -905,6 +905,7 @@
 
                 {
                     root: "user:/",             //Initial directory
+                    fallbackRoot: "user:/",     //Used when "root" no longer exists, see below
                     type: "file" | "folder" | "new",
                     allowMultiple: false,
                     listenerUUID: "",           //localStorage key used outside the virtual desktop
@@ -913,6 +914,11 @@
                         filter: ["mp3","flac"]  //Extension whitelist, no leading dot
                     }
                 }
+
+                "root" may be a directory restored from the caller's path memory, which
+                the user could have renamed or deleted since. When it fails to list, the
+                selector drops back to "fallbackRoot" (the path the calling app asked
+                for) before giving up on "user:/".
 
                 The result is handed back either through the float window parent callback
                 (inside the ArozOS desktop) or through localStorage[listenerUUID].
@@ -933,6 +939,7 @@
             var lastClickedItemID = 0;
             var listenerUUID = "";
             var fileOptions = {};
+            var fallbackRoot = "user:/";    //Where to land if the requested root is gone
 
             var viewMode = "list";          //"list" or "grid"
             var sortField = "name";         //name | date | type | size
@@ -1087,6 +1094,7 @@
                 type = initInfo.type;
                 multiSelect = initInfo.allowMultiple;
                 listenerUUID = initInfo.listenerUUID;
+                fallbackRoot = initInfo.fallbackRoot;
                 if (initInfo.options != undefined && initInfo.options != null){
                     fileOptions = JSON.parse(JSON.stringify(initInfo.options));
                 }
@@ -1104,6 +1112,17 @@
                     }else{
                         $("#filename").val("newfile.txt");
                     }
+                    /*
+                        This picker writes a new file rather than opening an
+                        existing one, so the confirm button says so.
+
+                        Resolved through getString rather than by swapping the
+                        locale attribute: applocale.translate() has already run
+                        by the time this executes, so a new attribute would never
+                        be looked up and the button would stay English.
+                    */
+                    $("#confirmBtn").attr("locale", "footer/create")
+                                    .text(applocale.getString("footer/create", "Create"));
                 }else if (type == "folder"){
                     //A filename has no meaning when picking a folder
                     $("#filename").hide();
@@ -1120,6 +1139,7 @@
             function loadSelectorInfoFromHash(){
                 var fallback = {
                     root: "user:/",
+                    fallbackRoot: "user:/",
                     type: "file",
                     allowMultiple: false
                 };
@@ -1130,6 +1150,10 @@
                     var selectInfo = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
                     if (selectInfo.root == undefined){
                         selectInfo.root = fallback.root;
+                    }
+                    if (selectInfo.fallbackRoot == undefined){
+                        //Older callers do not send one. Their root is the only path we have
+                        selectInfo.fallbackRoot = selectInfo.root;
                     }
                     if (selectInfo.type == undefined){
                         selectInfo.type = fallback.type;
@@ -1384,8 +1408,12 @@
                             return;
                         }
                         if (data.error !== undefined){
-                            //Load the index instead
-                            if (dir != "user:/"){
+                            //The directory is gone (a restored path memory entry that has
+                            //since been renamed or deleted). Try what the calling app
+                            //originally asked for, then the user root.
+                            if (fallbackRoot != undefined && fallbackRoot != "" && dir != fallbackRoot){
+                                listDir(fallbackRoot, false);
+                            }else if (dir != "user:/"){
                                 listDir("user:/", false);
                             }else{
                                 currentFileList = [];
@@ -1645,9 +1673,18 @@
                 selectThis(tile[0], {ctrlKey: false, shiftKey: false});
                 if (!detailsOpen){
                     toggleDetailsPanel();
-                }else{
-                    updateDetailsPanel();
                 }
+                /*
+                    Show this tile explicitly rather than whatever is selected.
+
+                    Plenty of items are previewable but not selectable in the
+                    current picker mode - a folder while picking files, any file
+                    while picking a folder - and selectThis() leaves those
+                    unselected by design. Going through the selection here left
+                    the panel blank for exactly those items until the tile itself
+                    was clicked.
+                */
+                updateDetailsFor([tile[0]]);
             }
 
             /* ------------------------------------------------------------------ */

@@ -2,8 +2,8 @@
     Cine Studio - inspector panel
 
     Property editor for the selected clip: Transform / Crop / Color on
-    the Video tab, volume on the Audio tab. Values live-update the
-    preview; history is committed when the gesture ends.
+    the Video tab, volume and volume ramps on the Audio tab. Values
+    live-update the preview; history is committed when the gesture ends.
 */
 "use strict";
 
@@ -23,7 +23,14 @@ CS.inspector = {
             });
         }
         document.getElementById("btn-toggle-inspector").addEventListener("click", function () {
-            document.getElementById("inspector").classList.toggle("hidden");
+            var hidden = document.getElementById("inspector").classList.toggle("hidden");
+            this.classList.toggle("active", hidden);
+            //The preview canvas is CSS-fitted, so it resizes with the panel:
+            //re-anchor the selection overlay onto its new box
+            CS.player.applyPreviewZoom();
+            //Percentage max-width / max-height on the canvas can settle one
+            //layout pass late, so measure again once the reflow is done
+            setTimeout(CS.previewctl.redraw, 0);
         });
     },
 
@@ -178,6 +185,7 @@ CS.inspector = {
         //---- Crop ----
         var crop = CS.inspector.section(body, "Crop", function () {
             p.crop = "fit";
+            p.cropTop = 0; p.cropBottom = 0; p.cropLeft = 0; p.cropRight = 0;
             CS.commit("Reset Crop");
         });
         CS.inspector.row(crop, "Type", [
@@ -190,6 +198,33 @@ CS.inspector = {
                 CS.commit("Change Crop");
             })
         ]);
+
+        //Per-edge crop in source pixels; the remaining region is what gets
+        //fitted into the frame, so cropping also re-frames the clip
+        var dims = CS.inspector.cropSourceDims(clip);
+        [
+            { key: "cropTop", label: "Top", span: dims.h },
+            { key: "cropBottom", label: "Bottom", span: dims.h },
+            { key: "cropLeft", label: "Left", span: dims.w },
+            { key: "cropRight", label: "Right", span: dims.w }
+        ].forEach(function (edge) {
+            var max = Math.max(0, edge.span - 2);
+            CS.inspector.row(crop, edge.label, [
+                CS.inspector.slider(0, max, 1, p[edge.key] || 0, function (v) {
+                    p[edge.key] = CS.inspector.clampCrop(p, edge.key, v, dims);
+                }),
+                CS.inspector.numChip(null, p[edge.key] || 0, "px", function (v) {
+                    p[edge.key] = CS.inspector.clampCrop(p, edge.key, v, dims);
+                }, 1)
+            ]);
+        });
+
+        var cropNote = document.createElement("div");
+        cropNote.className = "modal-note";
+        cropNote.textContent = dims.known
+            ? "Cropped from each edge of the " + dims.w + " x " + dims.h + " source, in source pixels."
+            : "Cropped from each edge of the source, in source pixels.";
+        crop.appendChild(cropNote);
 
         //---- Color ----
         var color = CS.inspector.section(body, "Color", function () {
@@ -296,7 +331,24 @@ CS.inspector = {
             head.innerHTML = CS.iconSVG("trash");
             head.title = "Remove effect";
 
-            if (def.noParam) {
+            if (def.params) {
+                //Multi-parameter effect (Fade To): one row per parameter
+                def.params.forEach(function (prm) {
+                    CS.inspector.row(sec, prm.name, [
+                        CS.inspector.slider(prm.min, prm.max, prm.step || 1,
+                            CS.effects.paramValue(e, prm), function (v) { e[prm.key] = v; }),
+                        CS.inspector.numChip(null, CS.effects.paramValue(e, prm), prm.unit, function (v) {
+                            e[prm.key] = CS.clamp(v, prm.min, prm.max);
+                        }, prm.step || 1)
+                    ]);
+                });
+                if (def.kind === "audiogain") {
+                    var fxNote = document.createElement("div");
+                    fxNote.className = "modal-note";
+                    fxNote.textContent = "Ramps the clip volume across its full length.";
+                    sec.appendChild(fxNote);
+                }
+            } else if (def.noParam) {
                 var note = document.createElement("div");
                 note.className = "modal-note";
                 note.textContent = "This effect has no settings.";
@@ -340,7 +392,93 @@ CS.inspector = {
             : "This controls the audio embedded in the video clip.";
         sec.appendChild(note);
 
+        CS.inspector.renderFadeToSection(body, clip);
+
         CS.applyIcons(body);
+    },
+
+    //"Fade To" filter: a linear volume ramp from a start to an end volume over
+    //the whole clip. Stored as a regular entry in the clip effect stack so it
+    //also shows up (and can be removed) on the Effects tab.
+    renderFadeToSection: function (body, clip) {
+        var def = CS.effects.get("fadeto");
+        var fx = CS.effects.clipHas(clip, "fadeto");
+
+        var sec = CS.inspector.section(body, def.name, function () {
+            if (CS.effects.clipHas(clip, "fadeto")) {
+                CS.effects.removeFromClip(clip, "fadeto");
+            }
+        });
+        var head = sec.parentNode.querySelector(".sec-reset");
+        head.title = fx ? "Remove Fade To" : "Reset section";
+        if (fx) { head.innerHTML = CS.iconSVG("trash"); }
+
+        if (!fx) {
+            var addBtn = document.createElement("button");
+            addBtn.className = "insp-select";
+            addBtn.style.width = "100%";
+            addBtn.style.justifyContent = "center";
+            addBtn.textContent = "Add Fade To";
+            addBtn.addEventListener("click", function () {
+                CS.effects.applyToClip(clip, "fadeto"); //commit re-renders the tab
+            });
+            var holder = document.createElement("div");
+            holder.className = "insp-row";
+            holder.appendChild(addBtn);
+            sec.appendChild(holder);
+
+            var hint = document.createElement("div");
+            hint.className = "modal-note";
+            hint.textContent = "Fades the clip volume from a start level to an end level.";
+            sec.appendChild(hint);
+            return;
+        }
+
+        def.params.forEach(function (prm) {
+            CS.inspector.row(sec, prm.name, [
+                CS.inspector.slider(prm.min, prm.max, prm.step || 1,
+                    CS.effects.paramValue(fx, prm), function (v) { fx[prm.key] = v; }),
+                CS.inspector.numChip(null, CS.effects.paramValue(fx, prm), prm.unit, function (v) {
+                    fx[prm.key] = CS.clamp(v, prm.min, prm.max);
+                }, prm.step || 1)
+            ]);
+        });
+
+        var rampNote = document.createElement("div");
+        rampNote.className = "modal-note";
+        rampNote.textContent = "The volume travels linearly from the start level to the end "
+            + "level across the whole clip, on top of the clip volume above.";
+        sec.appendChild(rampNote);
+    },
+
+    /* ---------- crop helpers ---------- */
+
+    //Pixel size of the clip source: media dimensions, or the project frame for
+    //generated clips (titles / colors) and media that has not been probed yet
+    cropSourceDims: function (clip) {
+        var W = CS.project.settings.width;
+        var H = CS.project.settings.height;
+        if (clip.kind !== "title" && clip.kind !== "color") {
+            var media = CS.getMedia(clip.mediaId);
+            if (media && media.width && media.height) {
+                return { w: media.width, h: media.height, known: true };
+            }
+        }
+        return { w: W, h: H, known: false };
+    },
+
+    //Keep a crop value inside the source and leave at least 2px of picture
+    //together with the crop on the opposite edge
+    clampCrop: function (props, key, value, dims) {
+        var opposites = {
+            cropTop: { other: "cropBottom", span: dims.h },
+            cropBottom: { other: "cropTop", span: dims.h },
+            cropLeft: { other: "cropRight", span: dims.w },
+            cropRight: { other: "cropLeft", span: dims.w }
+        };
+        var o = opposites[key];
+        var room = Math.max(0, o.span - 2 - (props[o.other] || 0));
+        return CS.clamp(Math.round(value), 0, room);
     },
 
     /* ---------- widget builders ---------- */

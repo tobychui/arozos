@@ -106,7 +106,9 @@ PS.fileOpenDialog = function () {
                 if (!filedata || !filedata.length) { return; }
                 PS.openFromPath(filedata[0].filepath, filedata[0].filename);
             };
-            ao_module_openFileSelector(window.psOpenCallback, "user:/Desktop", "file", false);
+            ao_module_openFileSelector(window.psOpenCallback, "user:/Desktop", "file", false, {
+                path_memory_key: "project"
+            });
         } else {
             // standalone fallback
             var inp = document.createElement("input");
@@ -378,7 +380,13 @@ PS.fileSaveAs = function () {
         };
         // start the picker where the document came from, falling back to Desktop
         var startDir = PS.doc.filePath ? PS.dirOf(PS.doc.filePath) : "user:/Desktop";
-        ao_module_openFileSelector(window.psSaveAsCallback, startDir, "new", false, { defaultName: defaultName });
+        ao_module_openFileSelector(window.psSaveAsCallback, startDir, "new", false, {
+            defaultName: defaultName,
+            path_memory_key: "project",
+            //An unsaved document has no folder of its own to start from, so open
+            //wherever Pixel Studio was last used instead
+            force_path_overwrite: !PS.doc.filePath
+        });
     } else {
         PS.makeSaveBlob(PS.extOf(defaultName) || "pxs", function (blob) {
             PS.downloadBlob(blob, defaultName);
@@ -469,7 +477,10 @@ PS.exportImage = function (format) {
                     });
                 }, quality);
             };
-            ao_module_openFileSelector(window.psExportCallback, "user:/Desktop", "new", false, { defaultName: filename });
+            ao_module_openFileSelector(window.psExportCallback, "user:/Desktop", "new", false, {
+                defaultName: filename,
+                path_memory_key: "export"
+            });
         } else {
             PS.makeSaveBlob(format, function (blob) {
                 PS.downloadBlob(blob, filename);

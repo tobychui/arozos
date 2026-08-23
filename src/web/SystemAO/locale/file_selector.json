@@ -3,17 +3,16 @@
     "version": "1.1",
     "keys": {
         "zh-tw": {
-            "fwtitle" : "選擇檔案",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title":"選擇檔案",
-                "roots/user":"使用者",
-                "roots/storage":"虛擬儲存裝置",
-                "message/loading":"載入中…",
-                "message/waitingResp":"正在確認選擇…",
-                "message/nofile":"沒有檔案",
-                "message/folderexists":"資料夾已存在",
-
+            "fwtitle": "選擇檔案",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title": "選擇檔案",
+                "roots/user": "使用者",
+                "roots/storage": "虛擬儲存裝置",
+                "message/loading": "載入中…",
+                "message/waitingResp": "正在確認選擇…",
+                "message/nofile": "沒有檔案",
+                "message/folderexists": "資料夾已存在",
                 "sidebar/quickaccess": "快速存取",
                 "sidebar/devices": "裝置",
                 "sidebar/vroot/desktop": "桌面",
@@ -26,24 +25,20 @@
                 "sidebar/vroot/web": "網頁",
                 "sidebar/vroot/model": "模型",
                 "sidebar/vroot/appdata": "程序數據",
-
                 "toolbar/sort": "排序：",
                 "sort/name": "名稱",
                 "sort/date": "修改日期",
                 "sort/type": "類型",
                 "sort/size": "大小",
-
                 "menu/newfolder": "新增資料夾",
                 "menu/details": "詳細資訊窗格",
                 "menu/hidden": "顯示隱藏檔案",
-
                 "list/name": "名稱",
                 "list/date": "修改日期",
                 "list/type": "類型",
                 "list/size": "大小",
                 "list/typefolder": "資料夾",
                 "list/typefile": "檔案",
-
                 "details/title": "詳細資訊",
                 "details/empty": "選擇項目以檢視詳細資訊",
                 "details/type": "類型",
@@ -57,13 +52,11 @@
                 "details/itemsSelected": "個項目已選取",
                 "details/folders": "資料夾",
                 "details/files": "檔案",
-
                 "footer/filename": "檔案名稱(N)：",
                 "footer/cancel": "取消",
                 "footer/open": "開啟",
                 "footer/allfiles": "所有檔案",
                 "footer/supportedfiles": "支援的檔案",
-
                 "newfolder/defaultname": "新增資料夾",
                 "ctx/open": "開啟",
                 "ctx/openwith": "選擇開啟方式",
@@ -77,42 +70,41 @@
                 "message/renamefailed": "重新命名失敗",
                 "message/nameexists": "已有相同名稱的項目",
                 "message/zipfailed": "無法壓縮此資料夾",
-
-                "":""
+                "": "",
+                "footer/create": "建立"
             },
-            "titles":{
-                "Back":"上一頁",
-                "Forward":"下一頁",
-                "Parent":"返回上層目錄",
-                "Refresh":"重新整理",
-                "Menu":"側邊欄",
-                "Close":"關閉",
-                "List View":"清單檢視",
-                "Grid View":"縮圖檢視",
-                "Sort Direction":"排序方向",
-                "More Options":"更多選項",
-                "More":"更多",
-                "Create Folder":"建立資料夾",
-                "New Folder":"新增資料夾"
+            "titles": {
+                "Back": "上一頁",
+                "Forward": "下一頁",
+                "Parent": "返回上層目錄",
+                "Refresh": "重新整理",
+                "Menu": "側邊欄",
+                "Close": "關閉",
+                "List View": "清單檢視",
+                "Grid View": "縮圖檢視",
+                "Sort Direction": "排序方向",
+                "More Options": "更多選項",
+                "More": "更多",
+                "Create Folder": "建立資料夾",
+                "New Folder": "新增資料夾"
             },
-            "placeholder":{
-                "Search":"搜尋",
-                "New Filename":"新增檔案",
-                "New Folder":"新增資料夾"
+            "placeholder": {
+                "Search": "搜尋",
+                "New Filename": "新增檔案",
+                "New Folder": "新增資料夾"
             }
         },
         "zh-hk": {
-            "fwtitle" : "選擇檔案",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title":"選擇檔案",
-                "roots/user":"使用者",
-                "roots/storage":"虛擬儲存裝置",
-                "message/loading":"載入中…",
-                "message/waitingResp":"正在確認選擇…",
-                "message/nofile":"沒有檔案",
-                "message/folderexists":"資料夾已存在",
-
+            "fwtitle": "選擇檔案",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title": "選擇檔案",
+                "roots/user": "使用者",
+                "roots/storage": "虛擬儲存裝置",
+                "message/loading": "載入中…",
+                "message/waitingResp": "正在確認選擇…",
+                "message/nofile": "沒有檔案",
+                "message/folderexists": "資料夾已存在",
                 "sidebar/quickaccess": "快速存取",
                 "sidebar/devices": "裝置",
                 "sidebar/vroot/desktop": "桌面",
@@ -125,24 +117,20 @@
                 "sidebar/vroot/web": "網頁",
                 "sidebar/vroot/model": "模型",
                 "sidebar/vroot/appdata": "程序數據",
-
                 "toolbar/sort": "排序：",
                 "sort/name": "名稱",
                 "sort/date": "修改日期",
                 "sort/type": "類型",
                 "sort/size": "大小",
-
                 "menu/newfolder": "新增資料夾",
                 "menu/details": "詳細資訊窗格",
                 "menu/hidden": "顯示隱藏檔案",
-
                 "list/name": "名稱",
                 "list/date": "修改日期",
                 "list/type": "類型",
                 "list/size": "大小",
                 "list/typefolder": "資料夾",
                 "list/typefile": "檔案",
-
                 "details/title": "詳細資訊",
                 "details/empty": "選擇項目以檢視詳細資訊",
                 "details/type": "類型",
@@ -156,13 +144,11 @@
                 "details/itemsSelected": "個項目已選取",
                 "details/folders": "資料夾",
                 "details/files": "檔案",
-
                 "footer/filename": "檔案名稱(N)：",
                 "footer/cancel": "取消",
                 "footer/open": "開啟",
                 "footer/allfiles": "所有檔案",
                 "footer/supportedfiles": "支援的檔案",
-
                 "newfolder/defaultname": "新增資料夾",
                 "ctx/open": "開啟",
                 "ctx/openwith": "選擇開啟方式",
@@ -176,42 +162,41 @@
                 "message/renamefailed": "重新命名失敗",
                 "message/nameexists": "已有相同名稱的項目",
                 "message/zipfailed": "無法壓縮此資料夾",
-
-                "":""
+                "": "",
+                "footer/create": "建立"
             },
-            "titles":{
-                "Back":"上一頁",
-                "Forward":"下一頁",
-                "Parent":"返回上層目錄",
-                "Refresh":"重新整理",
-                "Menu":"側邊欄",
-                "Close":"關閉",
-                "List View":"清單檢視",
-                "Grid View":"縮圖檢視",
-                "Sort Direction":"排序方向",
-                "More Options":"更多選項",
-                "More":"更多",
-                "Create Folder":"建立資料夾",
-                "New Folder":"新增資料夾"
+            "titles": {
+                "Back": "上一頁",
+                "Forward": "下一頁",
+                "Parent": "返回上層目錄",
+                "Refresh": "重新整理",
+                "Menu": "側邊欄",
+                "Close": "關閉",
+                "List View": "清單檢視",
+                "Grid View": "縮圖檢視",
+                "Sort Direction": "排序方向",
+                "More Options": "更多選項",
+                "More": "更多",
+                "Create Folder": "建立資料夾",
+                "New Folder": "新增資料夾"
             },
-            "placeholder":{
-                "Search":"搜尋",
-                "New Filename":"新增檔案",
-                "New Folder":"新增資料夾"
+            "placeholder": {
+                "Search": "搜尋",
+                "New Filename": "新增檔案",
+                "New Folder": "新增資料夾"
             }
         },
         "zh-cn": {
-            "fwtitle" : "选择文件",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title":"选择文件",
-                "roots/user":"使用者",
-                "roots/storage":"虚拟存储设备",
-                "message/loading":"载入中…",
-                "message/waitingResp":"正在确认选择…",
-                "message/nofile":"沒有文件",
-                "message/folderexists":"文件夹已存在",
-
+            "fwtitle": "选择文件",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title": "选择文件",
+                "roots/user": "使用者",
+                "roots/storage": "虚拟存储设备",
+                "message/loading": "载入中…",
+                "message/waitingResp": "正在确认选择…",
+                "message/nofile": "沒有文件",
+                "message/folderexists": "文件夹已存在",
                 "sidebar/quickaccess": "快速访问",
                 "sidebar/devices": "设备",
                 "sidebar/vroot/desktop": "桌面",
@@ -224,24 +209,20 @@
                 "sidebar/vroot/web": "网页",
                 "sidebar/vroot/model": "模型",
                 "sidebar/vroot/appdata": "程序数据",
-
                 "toolbar/sort": "排序：",
                 "sort/name": "名称",
                 "sort/date": "修改日期",
                 "sort/type": "类型",
                 "sort/size": "大小",
-
                 "menu/newfolder": "新建文件夹",
                 "menu/details": "详细信息窗格",
                 "menu/hidden": "显示隐藏文件",
-
                 "list/name": "名称",
                 "list/date": "修改日期",
                 "list/type": "类型",
                 "list/size": "大小",
                 "list/typefolder": "文件夹",
                 "list/typefile": "文件",
-
                 "details/title": "详细信息",
                 "details/empty": "选择项目以查看详细信息",
                 "details/type": "类型",
@@ -255,13 +236,11 @@
                 "details/itemsSelected": "个项目已选中",
                 "details/folders": "文件夹",
                 "details/files": "文件",
-
                 "footer/filename": "文件名(N)：",
                 "footer/cancel": "取消",
                 "footer/open": "打开",
                 "footer/allfiles": "所有文件",
                 "footer/supportedfiles": "支持的文件",
-
                 "newfolder/defaultname": "新建文件夹",
                 "ctx/open": "打开",
                 "ctx/openwith": "选择打开方式",
@@ -275,28 +254,28 @@
                 "message/renamefailed": "重命名失败",
                 "message/nameexists": "已有相同名称的项目",
                 "message/zipfailed": "无法压缩此文件夹",
-
-                "":""
+                "": "",
+                "footer/create": "创建"
             },
-            "titles":{
-                "Back":"上一页",
-                "Forward":"下一页",
-                "Parent":"返回上层目录",
-                "Refresh":"刷新",
-                "Menu":"侧边栏",
-                "Close":"关闭",
-                "List View":"列表视图",
-                "Grid View":"缩略图视图",
-                "Sort Direction":"排序方向",
-                "More Options":"更多选项",
-                "More":"更多",
-                "Create Folder":"创建文件夹",
-                "New Folder":"新增文件夹"
+            "titles": {
+                "Back": "上一页",
+                "Forward": "下一页",
+                "Parent": "返回上层目录",
+                "Refresh": "刷新",
+                "Menu": "侧边栏",
+                "Close": "关闭",
+                "List View": "列表视图",
+                "Grid View": "缩略图视图",
+                "Sort Direction": "排序方向",
+                "More Options": "更多选项",
+                "More": "更多",
+                "Create Folder": "创建文件夹",
+                "New Folder": "新增文件夹"
             },
-            "placeholder":{
-                "Search":"搜索",
-                "New Filename":"新增文件",
-                "New Folder":"新增文件夹"
+            "placeholder": {
+                "Search": "搜索",
+                "New Filename": "新增文件",
+                "New Folder": "新增文件夹"
             }
         },
         "en-us": {
@@ -310,7 +289,6 @@
                 "message/waitingResp": "Checking selection...",
                 "message/nofile": "No files",
                 "message/folderexists": "Folder already exists",
-
                 "sidebar/quickaccess": "Quick Access",
                 "sidebar/devices": "Devices",
                 "sidebar/vroot/desktop": "Desktop",
@@ -323,24 +301,20 @@
                 "sidebar/vroot/web": "Web",
                 "sidebar/vroot/model": "Models",
                 "sidebar/vroot/appdata": "App Data",
-
                 "toolbar/sort": "Sort:",
                 "sort/name": "Name",
                 "sort/date": "Date Modified",
                 "sort/type": "Type",
                 "sort/size": "Size",
-
                 "menu/newfolder": "New Folder",
                 "menu/details": "Details Pane",
                 "menu/hidden": "Show Hidden Files",
-
                 "list/name": "Name",
                 "list/date": "Date Modified",
                 "list/type": "Type",
                 "list/size": "Size",
                 "list/typefolder": "File folder",
                 "list/typefile": "File",
-
                 "details/title": "Details",
                 "details/empty": "Select an item to see its details",
                 "details/type": "Type",
@@ -354,13 +328,11 @@
                 "details/itemsSelected": "items selected",
                 "details/folders": "Folders",
                 "details/files": "Files",
-
                 "footer/filename": "File name(N):",
                 "footer/cancel": "Cancel",
                 "footer/open": "Open",
                 "footer/allfiles": "All Files",
                 "footer/supportedfiles": "Supported Files",
-
                 "newfolder/defaultname": "New Folder",
                 "ctx/open": "Open",
                 "ctx/openwith": "Open With",
@@ -374,8 +346,8 @@
                 "message/renamefailed": "Rename failed",
                 "message/nameexists": "An item with that name already exists",
                 "message/zipfailed": "Unable to compress this folder",
-
-                "": ""
+                "": "",
+                "footer/create": "Create"
             },
             "titles": {
                 "Back": "Back",
@@ -409,7 +381,6 @@
                 "message/waitingResp": "選択の確認中...",
                 "message/nofile": "ファイルがありません",
                 "message/folderexists": "フォルダは既に存在します",
-
                 "sidebar/quickaccess": "クイックアクセス",
                 "sidebar/devices": "デバイス",
                 "sidebar/vroot/desktop": "デスクトップ",
@@ -422,24 +393,20 @@
                 "sidebar/vroot/web": "ウェブ",
                 "sidebar/vroot/model": "モデル",
                 "sidebar/vroot/appdata": "アプリデータ",
-
                 "toolbar/sort": "並べ替え：",
                 "sort/name": "名前",
                 "sort/date": "更新日時",
                 "sort/type": "種類",
                 "sort/size": "サイズ",
-
                 "menu/newfolder": "新しいフォルダ",
                 "menu/details": "詳細ウィンドウ",
                 "menu/hidden": "隠しファイルを表示",
-
                 "list/name": "名前",
                 "list/date": "更新日時",
                 "list/type": "種類",
                 "list/size": "サイズ",
                 "list/typefolder": "ファイル フォルダー",
                 "list/typefile": "ファイル",
-
                 "details/title": "詳細",
                 "details/empty": "項目を選択すると詳細が表示されます",
                 "details/type": "種類",
@@ -453,13 +420,11 @@
                 "details/itemsSelected": "個の項目を選択中",
                 "details/folders": "フォルダ",
                 "details/files": "ファイル",
-
                 "footer/filename": "ファイル名(N)：",
                 "footer/cancel": "キャンセル",
                 "footer/open": "開く",
                 "footer/allfiles": "すべてのファイル",
                 "footer/supportedfiles": "対応ファイル",
-
                 "newfolder/defaultname": "新しいフォルダ",
                 "ctx/open": "開く",
                 "ctx/openwith": "プログラムから開く",
@@ -473,8 +438,8 @@
                 "message/renamefailed": "名前の変更に失敗しました",
                 "message/nameexists": "同じ名前の項目が既に存在します",
                 "message/zipfailed": "このフォルダを圧縮できません",
-
-                "": ""
+                "": "",
+                "footer/create": "作成"
             },
             "titles": {
                 "Back": "戻る",
@@ -508,7 +473,6 @@
                 "message/waitingResp": "선택 확인 중...",
                 "message/nofile": "파일 없음",
                 "message/folderexists": "폴더가 이미 존재합니다",
-
                 "sidebar/quickaccess": "즐겨찾기",
                 "sidebar/devices": "장치",
                 "sidebar/vroot/desktop": "바탕 화면",
@@ -521,24 +485,20 @@
                 "sidebar/vroot/web": "웹",
                 "sidebar/vroot/model": "모델",
                 "sidebar/vroot/appdata": "앱 데이터",
-
                 "toolbar/sort": "정렬:",
                 "sort/name": "이름",
                 "sort/date": "수정한 날짜",
                 "sort/type": "유형",
                 "sort/size": "크기",
-
                 "menu/newfolder": "새 폴더",
                 "menu/details": "세부 정보 창",
                 "menu/hidden": "숨김 파일 표시",
-
                 "list/name": "이름",
                 "list/date": "수정한 날짜",
                 "list/type": "유형",
                 "list/size": "크기",
                 "list/typefolder": "파일 폴더",
                 "list/typefile": "파일",
-
                 "details/title": "세부 정보",
                 "details/empty": "항목을 선택하면 세부 정보가 표시됩니다",
                 "details/type": "유형",
@@ -552,13 +512,11 @@
                 "details/itemsSelected": "개 항목 선택됨",
                 "details/folders": "폴더",
                 "details/files": "파일",
-
                 "footer/filename": "파일 이름(N):",
                 "footer/cancel": "취소",
                 "footer/open": "열기",
                 "footer/allfiles": "모든 파일",
                 "footer/supportedfiles": "지원되는 파일",
-
                 "newfolder/defaultname": "새 폴더",
                 "ctx/open": "열기",
                 "ctx/openwith": "연결 프로그램",
@@ -572,8 +530,8 @@
                 "message/renamefailed": "이름 바꾸기 실패",
                 "message/nameexists": "같은 이름의 항목이 이미 있습니다",
                 "message/zipfailed": "이 폴더를 압축할 수 없습니다",
-
-                "": ""
+                "": "",
+                "footer/create": "만들기"
             },
             "titles": {
                 "Back": "뒤로",
@@ -596,6 +554,5 @@
                 "New Folder": "새 폴더"
             }
         }
-
     }
 }

@@ -12,11 +12,33 @@
         export:  dest - virtual path of the .pptx to write
                  data - serialized Slides body JSON (images/charts inlined
                         as data URLs by the front end)
+                 dataFile - vpath of an uploaded temp file holding that same
+                        JSON, used instead of data when the payload is too
+                        big for a POST form body (deleted after reading)
                  -> {"ok":true, "mediaZip": <vpath or null>}
                  Video/audio files are not embedded in the pptx: they are
                  packed into <dest basename>.zip next to it (mediaZip),
                  and the slides show their captured poster frames.
 */
+
+/*
+    The front end streams an oversized payload to a temp file instead of
+    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
+    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
+    10MB. Read it back from dataFile when that path was taken, and remove the
+    temp file once it is in.
+*/
+function resolveData(){
+    if (typeof dataFile !== "undefined" && dataFile){
+        if (!requirelib("filelib")){
+            return "";
+        }
+        var content = filelib.readFile(dataFile);
+        filelib.deleteFile(dataFile);
+        return content;
+    }
+    return (typeof data === "undefined" || !data) ? "" : data;
+}
 
 function main(){
     if (!requirelib("office")){
@@ -53,14 +75,15 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
             // returns true, or the vpath (string) of the media sidecar
             // zip when the deck contains video/audio files
-            var r = office.presentationToPptx(data, dest);
+            var r = office.presentationToPptx(payload, dest);
             if (!r){
                 sendJSONResp(JSON.stringify({ error: "unable to write the pptx file" }));
                 return;
@@ -98,12 +121,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            if (!office.presentationToOdp(data, dest)){
+            if (!office.presentationToOdp(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the odp file" }));
                 return;
             }
@@ -119,12 +143,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            if (!office.presentationToPdf(data, dest)){
+            if (!office.presentationToPdf(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
                 return;
             }

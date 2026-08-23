@@ -16,14 +16,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     /* ---------- top bar ---------- */
 
-    document.getElementById("btn-open-project").addEventListener("click", CS.fileio.openDialog);
-    document.getElementById("btn-save-project").addEventListener("click", CS.fileio.saveProject);
-    document.getElementById("btn-save-state").addEventListener("click", function () {
-        CS.toast(CS.state.dirty ? "Project has unsaved changes" : "Project is saved");
+    document.getElementById("btn-open-menu").addEventListener("click", function (ev) {
+        CS.fileio.openMenu(ev.currentTarget);
     });
-    document.getElementById("project-name-btn").addEventListener("click", function (ev) {
-        CS.fileio.projectMenu(ev.currentTarget);
+    document.getElementById("btn-edit-menu").addEventListener("click", function (ev) {
+        CS.fileio.editMenu(ev.currentTarget);
     });
+    //The window title carries the saved / edited state, so the name itself is
+    //free to be the rename affordance
+    document.getElementById("project-name-btn").addEventListener("click", CS.fileio.renameDialog);
     document.getElementById("btn-export").addEventListener("click", CS.exporter.dialog);
     document.getElementById("btn-export-menu").addEventListener("click", function (ev) {
         CS.exporter.quickMenu(ev.currentTarget.parentNode);

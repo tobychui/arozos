@@ -589,7 +589,7 @@
         if (typeof ao_module_openFileSelector === "function" && window.parent !== window) {
             ao_module_openFileSelector(function (files) {
                 if (files && files.length) loadFromPath(files[0].filepath, files[0].filename);
-            }, "user:/", "file", false);
+            }, "user:/", "file", false, { path_memory_key: "raw" });
         } else {
             var inp = document.createElement("input");
             inp.type = "file";
@@ -774,7 +774,10 @@
                     var fp = files[0].filepath.split("/"); var fn = fp.pop(); var dir = fp.join("/");
                     if (!/\.jpe?g$/i.test(fn)) fn = stripExt(fn) + ".jpg";
                     uploadBlob(blob, fn, dir);
-                }, defDir, "new", false, { defaultName: baseName });
+                }, defDir, "new", false, {
+                    defaultName: baseName,
+                    path_memory_key: "raw-export"
+                });
             } else {
                 // Fallback: browser download.
                 var a = document.createElement("a");

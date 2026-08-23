@@ -153,6 +153,20 @@ VFS: `vfsLoad(path, cb(text), errcb)` (GET `media?file=`),
 For other backend needs write an `.agi` script under your app folder and call
 `ao_module_agirun("Office/<app>/backend/x.agi", {…}, cb)`.
 
+**Big payloads must go through `OfficeApp.agirunLarge(script, params, field,
+cb(data), errcb(msg), timeout)`.** The AGI gateway parses POST parameters with
+Go's `r.ParseForm`, which caps a urlencoded body at **10 MB**; past that the
+parse fails, *every* parameter disappears and the still-uploading connection is
+reset (the browser just reports a network error). `agirunLarge` posts inline
+while `params[field]` stays under 4 MB, and otherwise uploads that field to
+`user:/.appdata/Office/tmp/` through the system upload endpoint (streamed to
+disk, so the payload never has to fit in the host's RAM) and passes the vpath as
+`<field>File` instead. Backend scripts must accept both — read `dataFile` with
+`filelib.readFile()` and `filelib.deleteFile()` it right after (see
+`slides/backend/pptx.agi`). It also unifies error handling: `errcb` fires for
+transport failures *and* for `{error: …}` replies. The framework already routes
+every document save, session snapshot and export of all three apps through it.
+
 Utils: `escapeHtml basename dirname extOf stripExt`.
 
 Reserved shortcuts (framework): Ctrl+S/Shift+S/O/Alt+N/P/=/-/0, Ctrl+Z/Y via

@@ -708,7 +708,8 @@
                     insertImage(OfficeApp.mediaUrl(files[0].filepath));
                 }
             }, "user:/Desktop", "file", false, {
-                filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"]
+                filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
+                path_memory_key: "media"
             });
         } catch (e) {
             OfficeApp.toast("File selector unavailable outside ArozOS", "error");
@@ -2683,7 +2684,7 @@
                     if (/\.odt$/i.test(fn)) importOdt(fp, fn);
                     else importDocx(fp, fn);
                 }
-            }, "user:/Desktop", "file", false, { filter: ["docx", "odt"] });
+            }, "user:/Desktop", "file", false, { filter: ["docx", "odt"], path_memory_key: "import" });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -2824,24 +2825,23 @@
                 }
                 inlineImagesForExport(body.html).then(function (inlined) {
                     body.html = inlined;
-                    ao_module_agirun(DOCX_BACKEND, {
+                    // agirunLarge: documents with inlined images blow past
+                    // the 10MB POST form limit, so big payloads travel as an
+                    // uploaded temp file instead of a form field
+                    OfficeApp.agirunLarge(DOCX_BACKEND, {
                         action: action,
                         dest: fp,
                         data: JSON.stringify(body)
-                    }, function (data) {
+                    }, "data", function () {
                         OfficeApp.hideBusy();
-                        if (data && data.error) {
-                            OfficeApp.toast("Export failed: " + data.error, "error");
-                        } else {
-                            OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                            OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                        }
-                    }, function () {
+                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                    }, function (errmsg) {
                         OfficeApp.hideBusy();
-                        OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
+                        OfficeApp.toast("Export failed: " + errmsg, "error");
                     }, 180000);
                 });
-            }, "user:/Desktop", "new", false, { defaultName: defName });
+            }, "user:/Desktop", "new", false, { defaultName: defName, path_memory_key: "export" });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }

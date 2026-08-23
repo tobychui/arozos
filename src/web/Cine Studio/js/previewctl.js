@@ -23,6 +23,16 @@ CS.previewctl = {
         ov.addEventListener("pointerdown", CS.previewctl.onDown);
         ov.addEventListener("pointermove", CS.previewctl.onHover);
         window.addEventListener("resize", CS.previewctl.redraw);
+        //The preview canvas is CSS-fitted, so hiding a side panel or dragging a
+        //splitter resizes it without a window resize event. Watch the canvas
+        //itself so the overlay never drifts away from the frame it annotates.
+        if (window.ResizeObserver) {
+            CS.previewctl._ro = new ResizeObserver(function () {
+                CS.previewctl.redraw();
+            });
+            CS.previewctl._ro.observe(CS.player.canvas);
+            CS.previewctl._ro.observe(document.getElementById("canvas-wrap"));
+        }
     },
 
     /* ---------- geometry ---------- */
@@ -61,16 +71,18 @@ CS.previewctl = {
         var W = CS.project.settings.width;
         var H = CS.project.settings.height;
         var p = clip.props;
+        //The box follows the cropped region, exactly like the compositor
+        var rect = CS.player.cropRect(p, dims.sw, dims.sh);
         var dw, dh;
         if (p.crop === "stretch") {
             dw = W;
             dh = H;
         } else {
             var s = (p.crop === "fill")
-                ? Math.max(W / dims.sw, H / dims.sh)
-                : Math.min(W / dims.sw, H / dims.sh);
-            dw = dims.sw * s;
-            dh = dims.sh * s;
+                ? Math.max(W / rect.w, H / rect.h)
+                : Math.min(W / rect.w, H / rect.h);
+            dw = rect.w * s;
+            dh = rect.h * s;
         }
         var userScale = (p.scale === undefined ? 100 : p.scale) / 100;
         return {

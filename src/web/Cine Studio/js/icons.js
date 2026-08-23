@@ -15,7 +15,6 @@ CS.iconPaths = {
     "chevron-right": '<path d="M9 6l6 6-6 6"/>',
     "save":          '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
     "check-circle":  '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>',
-    "dot-circle":    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" style="fill:currentColor;stroke:none"/>',
     "panel-right":   '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
     "share":         '<rect x="4" y="9" width="16" height="12" rx="2"/><path d="M12 2v11"/><path d="M8 6l4-4 4 4"/>',
     "export-up":     '<path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
@@ -63,6 +62,7 @@ CS.iconPaths = {
 
     "film":          '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/><path d="M16 4v16"/><path d="M3 9h5"/><path d="M3 15h5"/><path d="M16 9h5"/><path d="M16 15h5"/>',
     "speaker":       '<path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M15.5 9.5a4 4 0 0 1 0 5"/><path d="M18 7a7.5 7.5 0 0 1 0 10"/>',
+    "speaker-off":   '<path d="M4 10v4h3l5 4V6l-5 4H4z"/><path d="M15.5 10l5 4"/><path d="M20.5 10l-5 4"/>',
     "eye":           '<path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
     "eye-off":       '<path d="M2.5 12S6 5.8 12 5.8c1.9 0 3.6.6 5 1.5M21.5 12S18 18.2 12 18.2c-1.9 0-3.6-.6-5-1.5"/><path d="M4 20L20 4"/>',
     "lock":          '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',

@@ -155,14 +155,15 @@ var OfficeApp = (function () {
         });
     }
     function vfsSave(path, content, cb, errcb) {
-        ao_module_agirun("Office/common/backend/filesaver.agi", {
+        // agirunLarge: a document past the 10MB POST form limit is uploaded
+        // as a temp file instead of a form field (see below)
+        agirunLarge("Office/common/backend/filesaver.agi", {
             filepath: path,
             content: content
-        }, function (data) {
-            if (data && data.error) { if (errcb) errcb(data.error); }
-            else { if (cb) cb(); }
-        }, function () {
-            if (errcb) errcb("connection error");
+        }, "content", function () {
+            if (cb) cb();
+        }, function (msg) {
+            if (errcb) errcb(msg);
         });
     }
 
@@ -225,6 +226,60 @@ var OfficeApp = (function () {
         }, function () { asDataURL(); });
     }
 
+    /* ---------- large AGI payloads ----------
+       The AGI gateway reads its POST parameters with Go's r.ParseForm, which
+       caps an application/x-www-form-urlencoded body at 10 MB. Past that the
+       parse fails, EVERY parameter silently disappears and the still-uploading
+       socket gets reset (the browser reports a network error). Export payloads
+       cross that line easily once images / chart bitmaps are inlined as data
+       URLs, so anything bigger than POST_INLINE_MAX is streamed to a temp file
+       through the system upload endpoint (buffered to disk server-side instead
+       of being held in RAM) and handed to the script as a vpath in <field>File.
+       The backend script reads that file and deletes it. */
+    var POST_INLINE_MAX = 4 * 1024 * 1024;   // stay well clear of the 10 MB form cap
+    var TMPDIR = WORKDIR + "/tmp";
+
+    function agirunLarge(script, params, field, cb, errcb, timeout) {
+        timeout = timeout || 0;
+        errcb = errcb || function () { };
+        var payload = params[field];
+        var post = function (p) {
+            ao_module_agirun(script, p, function (data) {
+                if (data && data.error) { errcb(data.error); return; }
+                cb(data);
+            }, function () { errcb("connection error"); }, timeout);
+        };
+        if (typeof payload !== "string" || payload.length <= POST_INLINE_MAX ||
+            typeof ao_module_uploadFile !== "function") {
+            post(params);
+            return;
+        }
+        prepareWorkdir(function () {
+            var name = "post-" + Date.now().toString(36) + "-" +
+                Math.random().toString(36).substring(2, 8) + ".json";
+            var file;
+            try {
+                file = new File([new Blob([payload], { type: "application/json" })],
+                    name, { type: "application/json" });
+            } catch (e) { post(params); return; }
+            ao_module_uploadFile(file, TMPDIR, function (resp) {
+                if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
+                    errcb("upload failed: " + resp);
+                    return;
+                }
+                // hand over the vpath instead of the payload itself
+                var p = {};
+                Object.keys(params).forEach(function (k) {
+                    if (k !== field) p[k] = params[k];
+                });
+                p[field + "File"] = TMPDIR + "/" + name;
+                post(p);
+            }, undefined, function () {
+                errcb("upload failed - the document is too large to send");
+            });
+        }, function () { post(params); });
+    }
+
     /* ---------- session snapshots ("Restore from previous session") ---------- */
     function saveSession() {
         if (!cfg || !cfg.packed) return;
@@ -237,11 +292,11 @@ var OfficeApp = (function () {
         m._sessionAt = now();
         m._origin = filepath ? { fp: filepath, fn: filename } : null;
         env.meta = m;
-        ao_module_agirun(CONTAINER_BACKEND, {
+        agirunLarge(CONTAINER_BACKEND, {
             action: "session-save",
             app: cfg.appType,
             content: JSON.stringify(env)
-        }, function () { }, function () { }, 60000);
+        }, "content", function () { }, function () { }, 60000);
     }
     // drop the saved session snapshot so it stops prompting on next launch
     function deleteSession() {
@@ -548,7 +603,7 @@ var OfficeApp = (function () {
                 if (files && files.length > 0) {
                     openPath(files[0].filepath, files[0].filename);
                 }
-            }, "user:/Desktop", "file", false, { filter: filter });
+            }, "user:/Desktop", "file", false, { filter: filter, path_memory_key: "document" });
         };
         if (dirty) {
             confirmDialog("Discard unsaved changes?",
@@ -573,7 +628,13 @@ var OfficeApp = (function () {
                 }
                 doSaveTo(fp, fn, cb);
             }
-        }, "user:/Desktop", "new", false, { defaultName: defName });
+        }, "user:/Desktop", "new", false, {
+            defaultName: defName,
+            path_memory_key: "document",
+            //A document that has never been saved has no folder of its own, so start
+            //from wherever this app was last used rather than the hardcoded Desktop
+            force_path_overwrite: !filepath
+        });
     }
     function doSaveTo(fp, fn, cb) {
         if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
@@ -596,13 +657,12 @@ var OfficeApp = (function () {
         };
         if (cfg.packed) {
             // native zip container: media data URLs become embedded assets
-            ao_module_agirun(CONTAINER_BACKEND, {
+            agirunLarge(CONTAINER_BACKEND, {
                 action: "save", filepath: fp, content: payload
-            }, function (data) {
-                if (data && data.error) fail(data.error);
-                else done();
-            }, function () {
-                fail("connection error");
+            }, "content", function () {
+                done();
+            }, function (msg) {
+                fail(msg);
             }, 120000);
         } else {
             vfsSave(fp, payload, done, fail);
@@ -1234,6 +1294,7 @@ var OfficeApp = (function () {
         vfsSave: vfsSave,
         blobToSrc: blobToSrc,
         mediaUrl: mediaUrl,
+        agirunLarge: agirunLarge,
         // utils
         escapeHtml: escapeHtml,
         basename: basename,

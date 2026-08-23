@@ -120,7 +120,8 @@ CS.fileio = {
                     CS.fileio.openFromPath(filedata[0].filepath, filedata[0].filename);
                 };
                 ao_module_openFileSelector(window.csOpenCallback, CS.APP_ROOT + "/Projects", "file", false, {
-                    filter: [CS.PROJECT_EXT]
+                    filter: [CS.PROJECT_EXT],
+                    path_memory_key: "project"
                 });
             } else {
                 var inp = document.createElement("input");
@@ -197,7 +198,11 @@ CS.fileio = {
                 CS.fileio.writeProjectTo(filepath, filename);
             };
             ao_module_openFileSelector(window.csSaveAsCallback, CS.APP_ROOT + "/Projects", "new", false, {
-                defaultName: defaultName
+                defaultName: defaultName,
+                path_memory_key: "project",
+                //A project that has never been saved carries no location context, so
+                //offer wherever the user last worked in Cine Studio
+                force_path_overwrite: !CS.project.filePath
             });
         } else {
             var blob = new Blob([CS.fileio.serializeProject()], { type: "application/json" });
@@ -336,7 +341,8 @@ CS.fileio = {
         });
     },
 
-    projectMenu: function (anchorEl) {
+    //Everything that opens or writes a project file
+    openMenu: function (anchorEl) {
         CS.showMenuUnder(anchorEl, [
             { label: "New Project...", icon: "file", action: CS.fileio.newProjectDialog },
             { label: "Open Project...", icon: "folder", action: CS.fileio.openDialog },
@@ -345,7 +351,16 @@ CS.fileio = {
             } },
             { sep: true },
             { label: "Save", icon: "save", action: CS.fileio.saveProject },
-            { label: "Save As...", icon: "save", action: CS.fileio.saveProjectAs },
+            { label: "Save As...", icon: "save", action: CS.fileio.saveProjectAs }
+        ]);
+    },
+
+    //Everything that changes the project that is already open
+    editMenu: function (anchorEl) {
+        CS.showMenuUnder(anchorEl, [
+            { label: "Undo", icon: "undo", disabled: CS.history.index <= 0, action: CS.undo },
+            { label: "Redo", icon: "redo",
+              disabled: CS.history.index >= CS.history.stack.length - 1, action: CS.redo },
             { sep: true },
             { label: "Rename...", icon: "nav-text", action: CS.fileio.renameDialog },
             { label: "Project Settings...", icon: "gear", action: CS.fileio.settingsDialog }

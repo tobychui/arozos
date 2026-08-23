@@ -466,6 +466,195 @@ function ao_module_newfw(launchConfig){
 }
 
 /*
+    File Selector Path Memory
+
+    Remembers the directory the user last worked in for each web app, so the file
+    selector re-opens where the user left off instead of at the hardcoded path the
+    app was written with. Everything lives in ONE localStorage entry
+    (ao_module_fs_pathmemory) shaped like:
+
+    {
+        "version": 1,
+        "scopes": {
+            "Cine Studio": {
+                "last": "user:/Desktop/myworkspace/",       //Last dir used anywhere in this app
+                "actions": {"export": "user:/Desktop/out/"},//Last dir used per action
+                "ts": 1700000000000                         //For LRU eviction
+            }
+        }
+    }
+
+    The scope name defaults to the web app folder name (e.g. "Cine Studio") and can
+    be overridden with ao_module_setPathMemoryScope() for apps that want to share or
+    split their memory.
+*/
+var ao_module_pathMemoryStorageKey = "ao_module_fs_pathmemory";
+var ao_module_pathMemoryDefaultAction = "default";
+var ao_module_pathMemoryMaxScopes = 64;     //Evict least recently used scopes past this
+var ao_module_pathMemoryScopeOverride = null;
+
+//Override the auto-derived path memory scope of this window, e.g. "Office"
+function ao_module_setPathMemoryScope(scopeName){
+    if (typeof(scopeName) == "string" && scopeName.trim() != ""){
+        ao_module_pathMemoryScopeOverride = scopeName.trim();
+    }else{
+        ao_module_pathMemoryScopeOverride = null;
+    }
+}
+
+//Get the path memory scope of this window. Derived from the web app folder name
+//by trimming the ArozOS web root prefix off the current pathname using ao_root.
+function ao_module_getPathMemoryScope(){
+    if (ao_module_pathMemoryScopeOverride != null){
+        return ao_module_pathMemoryScopeOverride;
+    }
+    try{
+        var segments = (window.location.pathname || "").split("/").filter(function(s){
+            return s.length > 0;
+        });
+        //Drop the trailing filename, if the URL carries one
+        if (segments.length > 0 && segments[segments.length - 1].indexOf(".") > 0){
+            segments.pop();
+        }
+        //ao_root ("../../") tells us how deep this page sits inside the web root,
+        //so the app folder survives ArozOS being hosted under a sub-path
+        var depth = ((ao_root || "").match(/\.\.\//g) || []).length;
+        if (depth > 0 && segments.length >= depth){
+            segments = segments.slice(segments.length - depth);
+        }
+        if (segments.length > 0){
+            return decodeURIComponent(segments[0]);
+        }
+    }catch(ex){
+        //Malformed URL. Fall through to the shared scope
+    }
+    return "default";
+}
+
+//Read the whole path memory object out of localStorage
+function ao_module_readPathMemory(){
+    try{
+        var raw = localStorage.getItem(ao_module_pathMemoryStorageKey);
+        if (raw == null || raw == ""){
+            return {version: 1, scopes: {}};
+        }
+        var parsed = JSON.parse(raw);
+        if (parsed == null || typeof(parsed) != "object" || typeof(parsed.scopes) != "object" || parsed.scopes == null){
+            return {version: 1, scopes: {}};
+        }
+        return parsed;
+    }catch(ex){
+        //Corrupted entry. Start over rather than breaking the file selector
+        return {version: 1, scopes: {}};
+    }
+}
+
+//Write the whole path memory object back, evicting the oldest scopes if needed
+function ao_module_writePathMemory(memory){
+    try{
+        var names = Object.keys(memory.scopes);
+        if (names.length > ao_module_pathMemoryMaxScopes){
+            names.sort(function(a, b){
+                return (memory.scopes[a].ts || 0) - (memory.scopes[b].ts || 0);
+            });
+            var overflow = names.length - ao_module_pathMemoryMaxScopes;
+            for (var i = 0; i < overflow; i++){
+                delete memory.scopes[names[i]];
+            }
+        }
+        localStorage.setItem(ao_module_pathMemoryStorageKey, JSON.stringify(memory));
+    }catch(ex){
+        //Storage full or blocked (private mode). Path memory is best effort only
+        console.log("[ao_module] Unable to save file selector path memory: " + ex);
+    }
+}
+
+/*
+    ao_module_getLastUsedPath(actionKey, scopeName)
+
+    Return the directory this app last used, or "" if nothing has been recorded yet.
+    Passing an actionKey returns that action's directory and falls back to the app
+    wide one; passing false as the actionKey returns the app wide one directly.
+*/
+function ao_module_getLastUsedPath(actionKey=ao_module_pathMemoryDefaultAction, scopeName=undefined){
+    var scope = ao_module_readPathMemory().scopes[scopeName || ao_module_getPathMemoryScope()];
+    if (scope == undefined){
+        return "";
+    }
+    if (actionKey !== false && actionKey != undefined && scope.actions != undefined &&
+        typeof(scope.actions[actionKey]) == "string"){
+        return scope.actions[actionKey];
+    }
+    return (typeof(scope.last) == "string") ? scope.last : "";
+}
+
+/*
+    ao_module_setLastUsedPath(path, actionKey, scopeName)
+
+    Record a directory as the last used one for this app. The file selector calls
+    this by itself, apps only need it when they open files through another route
+    (e.g. a drag and drop or a hardcoded recent-file list) and want the selector to
+    follow along.
+*/
+function ao_module_setLastUsedPath(path, actionKey=ao_module_pathMemoryDefaultAction, scopeName=undefined){
+    if (typeof(path) != "string" || path.trim() == ""){
+        return false;
+    }
+    path = path.trim();
+    if (path.substr(path.length - 1, 1) != "/"){
+        path = path + "/";
+    }
+    var memory = ao_module_readPathMemory();
+    var name = scopeName || ao_module_getPathMemoryScope();
+    if (memory.scopes[name] == undefined){
+        memory.scopes[name] = {last: "", actions: {}};
+    }
+    if (memory.scopes[name].actions == undefined){
+        memory.scopes[name].actions = {};
+    }
+    memory.scopes[name].last = path;
+    memory.scopes[name].ts = new Date().getTime();
+    if (actionKey !== false && actionKey != undefined && actionKey != ""){
+        memory.scopes[name].actions[actionKey] = path;
+    }
+    ao_module_writePathMemory(memory);
+    return true;
+}
+
+//Forget the last used path of one action, or of the whole app when actionKey is false
+function ao_module_clearLastUsedPath(actionKey=false, scopeName=undefined){
+    var memory = ao_module_readPathMemory();
+    var name = scopeName || ao_module_getPathMemoryScope();
+    if (memory.scopes[name] == undefined){
+        return false;
+    }
+    if (actionKey === false || actionKey == undefined || actionKey == ""){
+        delete memory.scopes[name];
+    }else if (memory.scopes[name].actions != undefined){
+        delete memory.scopes[name].actions[actionKey];
+    }
+    ao_module_writePathMemory(memory);
+    return true;
+}
+
+//Strip the object name off a returned filepath to get the directory holding it.
+//Folder selections are already a directory and are kept as-is, so re-opening the
+//selector lands inside the folder the user picked last time.
+function ao_module_pathMemoryDirOf(filepath, type){
+    if (typeof(filepath) != "string" || filepath == ""){
+        return "";
+    }
+    if (type == "folder"){
+        return (filepath.substr(filepath.length - 1, 1) == "/") ? filepath : filepath + "/";
+    }
+    var cutpoint = filepath.lastIndexOf("/");
+    if (cutpoint < 0){
+        return "";
+    }
+    return filepath.substring(0, cutpoint + 1);
+}
+
+/*
     File Selector
 
     Open a file selector and return selected item back to the current window
@@ -474,7 +663,7 @@ function ao_module_newfw(launchConfig){
     Possible selection type:
     type => {file / folder / all / new}
 
-    Example usage: 
+    Example usage:
     ao_module_openFileSelector(fileSelected, "user:/Desktop", "file",true);
 
     function fileSelected(filedata){
@@ -491,37 +680,124 @@ function ao_module_newfw(launchConfig){
         fnameOverride: "myfunction",           //For those defined with window.myfunction
         filter: ["mp3","aac","ogg","flac","wav"] //File extension filter
     }
+
+    Path memory (see the File Selector Path Memory section above)
+
+    The directory the user confirms is remembered per web app, and the next selector
+    opened by the same app starts there instead of at the "root" argument. The root
+    argument stays in effect as the fallback for the first ever call and for when the
+    remembered directory no longer exists. Additional options controlling this:
+
+    option = {
+        force_path_overwrite: true,     //Ignore the per-action memory and always open at
+                                        //the directory this app last used, whatever the
+                                        //action was. Use it for context free entry points
+                                        //("New Project", "New File"), not for Save As /
+                                        //Export where the caller passes a meaningful root
+        path_memory_key: "export",      //Bucket the memory per action instead of sharing
+                                        //one per app. Defaults to "default"
+        disable_path_memory: true       //Opt out completely: open exactly at "root" and
+                                        //record nothing
+    }
 */
 var ao_module_fileSelectionListener;
 var ao_module_fileSelectorWindow;
 function ao_module_openFileSelector(callback,root="user:/", type="file",allowMultiple=false, options=undefined){
+    if (options === null){
+        options = undefined;
+    }
+
+    //Resolve where this selector should open, honoring the path memory of this app
+    var actionKey = ao_module_pathMemoryDefaultAction;
+    var forceOverwrite = false;
+    var memoryDisabled = false;
+    if (options != undefined){
+        if (typeof(options.path_memory_key) == "string" && options.path_memory_key != ""){
+            actionKey = options.path_memory_key;
+        }
+        forceOverwrite = (options.force_path_overwrite === true);
+        memoryDisabled = (options.disable_path_memory === true);
+    }
+
+    var effectiveRoot = root;
+    if (!memoryDisabled){
+        //force_path_overwrite ignores what this action did last and jumps straight to
+        //wherever the app was last used, as a new project has no relation to the
+        //previous action. Otherwise the per-action memory wins, then the app wide one.
+        var rememberedPath = forceOverwrite ?
+            ao_module_getLastUsedPath(false) :
+            ao_module_getLastUsedPath(actionKey);
+        if (rememberedPath != ""){
+            effectiveRoot = rememberedPath;
+        }
+    }
+
     var initInfo = {
-        root: root,
+        root: effectiveRoot,
+        //Where the selector should land if the remembered directory has been
+        //renamed or deleted since it was recorded
+        fallbackRoot: root,
         type: type,
         allowMultiple: allowMultiple,
         listenerUUID: "",
         options: options
     }
     var initInfoEncoded = encodeURIComponent(JSON.stringify(initInfo))
+
+    //Resolve the caller's callback into something we can invoke ourselves, so that the
+    //confirmed directory can be recorded before the app gets to see the selection
+    var invokeUserCallback;
+    if (options != undefined && typeof(options.fnameOverride) != "undefined"){
+        var overrideName = options.fnameOverride;
+        invokeUserCallback = function(files){
+            if (typeof(window[overrideName]) == "function"){
+                window[overrideName](files);
+            }else{
+                console.log("[ao_module] File selector callback not found: " + overrideName);
+            }
+        };
+    }else if (typeof callback === "string"){
+        // Caller passed the function name as a string
+        var callbackName = callback;
+        invokeUserCallback = function(files){
+            if (typeof(window[callbackName]) == "function"){
+                window[callbackName](files);
+            }else{
+                console.log("[ao_module] File selector callback not found: " + callbackName);
+            }
+        };
+    }else if (typeof callback === "function"){
+        invokeUserCallback = callback;
+    }else{
+        invokeUserCallback = function(){};
+    }
+
+    //Wrap the callback so the confirmed directory becomes this app's last used path
+    var handleSelection = function(files){
+        if (!memoryDisabled && Array.isArray(files) && files.length > 0){
+            try{
+                var usedDir = ao_module_pathMemoryDirOf(files[0].filepath, type);
+                if (usedDir != ""){
+                    ao_module_setLastUsedPath(usedDir, actionKey);
+                }
+            }catch(ex){
+                console.log("[ao_module] Unable to record file selector path: " + ex);
+            }
+        }
+        invokeUserCallback(files);
+    };
+
     if (ao_module_virtualDesktop){
-        var callbackname;
-        if (typeof callback === 'string') {
-            // Caller passed the function name as a string — use it directly
-            callbackname = callback;
-        } else if (typeof callback === 'function' && callback.name) {
-            // Named function expression/declaration — use its name (must be window-scoped)
-            callbackname = callback.name;
-        } else {
-            // Anonymous/inline function — auto-register under a unique temp name so the
-            // desktop can call it back into this iframe's window after selection
-            callbackname = '_aoFs_' + Date.now();
-            window[callbackname] = function(files) {
-                try { callback(files); } finally { delete window[callbackname]; }
-            };
-        }
-        if (typeof(options) != "undefined" && typeof(options.fnameOverride) != "undefined"){
-            callbackname = options.fnameOverride;
-        }
+        //The desktop evals the callback name inside this iframe after selection, so the
+        //wrapper has to be reachable as a window scoped function of this window
+        var callbackname = "_aoFs_" + new Date().getTime() + "_" + Math.floor(Math.random() * 100000);
+        window[callbackname] = function(files){
+            try{
+                handleSelection(files);
+            }finally{
+                delete window[callbackname];
+            }
+        };
         parent.newFloatWindow({
             url: "SystemAO/file_system/file_selector.html#" + initInfoEncoded,
             //Sized so the sidebar, file list and details pane all fit without the
@@ -534,9 +810,6 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
             callback: callbackname
         });
     }else{
-        // Resolve string callback name to actual function for non-VDI polling mode
-        var cb = (typeof callback === 'string') ? (window[callback] || function(){}) : callback;
-
         //Create a return listener base on localStorage
         let listenerUUID = "fileSelector_" + new Date().getTime();
         ao_module_fileSelectionListener = setInterval(function(){
@@ -551,10 +824,10 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
                 },500);
                 if(selectedFiles == "&&selection_canceled&&"){
                     //Selection canceled. Return empty array
-                    cb([]);
+                    handleSelection([]);
                 }else{
                     //Files Selected
-                    cb(selectedFiles);
+                    handleSelection(selectedFiles);
                 }
 
                 clearInterval(ao_module_fileSelectionListener);

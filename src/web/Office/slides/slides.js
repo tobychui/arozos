@@ -1176,7 +1176,10 @@ var SlidesApp = (function () {
                     // the container at save time, keeping edits lightweight
                     placeImage(OfficeApp.mediaUrl(f.filepath));
                 });
-            }, "user:/Desktop", "file", true, { filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"] });
+            }, "user:/Desktop", "file", true, {
+                filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
+                path_memory_key: "media"
+            });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -1223,7 +1226,7 @@ var SlidesApp = (function () {
                 if (!files || !files.length) return;
                 // just link it - packToFile embeds the file at save time
                 placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
-            }, "user:/Desktop", "file", false, { filter: filters });
+            }, "user:/Desktop", "file", false, { filter: filters, path_memory_key: "media" });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -2816,7 +2819,7 @@ var SlidesApp = (function () {
                     if (/\.odp$/i.test(fn)) importOdp(fp, fn);
                     else importPptx(fp, fn);
                 }
-            }, "user:/Desktop", "file", false, { filter: ["pptx", "odp"] });
+            }, "user:/Desktop", "file", false, { filter: ["pptx", "odp"], path_memory_key: "import" });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }
@@ -2944,33 +2947,32 @@ var SlidesApp = (function () {
                 if (!extRe.test(fp)) fp += ext;
                 OfficeApp.showBusy(busyLabel);
                 prepareBodyForPptx().then(function (prepared) {
-                    ao_module_agirun(PPTX_BACKEND, {
+                    // agirunLarge: decks with inlined images blow past the
+                    // 10MB POST form limit, so big payloads travel as an
+                    // uploaded temp file instead of a form field
+                    OfficeApp.agirunLarge(PPTX_BACKEND, {
                         action: action,
                         dest: fp,
                         data: JSON.stringify(prepared)
-                    }, function (data) {
+                    }, "data", function (data) {
                         OfficeApp.hideBusy();
-                        if (data && data.error) {
-                            OfficeApp.toast("Export failed: " + data.error, "error");
+                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                        if (data && data.mediaZip) {
+                            // pptx export packs video/audio into a sidecar zip
+                            OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
+                                " - video/audio files saved to " + OfficeApp.basename(data.mediaZip));
                         } else {
-                            OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                            if (data && data.mediaZip) {
-                                // pptx export packs video/audio into a sidecar zip
-                                OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
-                                    " - video/audio files saved to " + OfficeApp.basename(data.mediaZip));
-                            } else {
-                                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                            }
+                            OfficeApp.toast("Exported " + OfficeApp.basename(fp));
                         }
-                    }, function () {
+                    }, function (errmsg) {
                         OfficeApp.hideBusy();
-                        OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
+                        OfficeApp.toast("Export failed: " + errmsg, "error");
                     }, 180000);
                 }).catch(function (err) {
                     OfficeApp.hideBusy();
                     OfficeApp.toast("Export failed: " + (err && err.message ? err.message : "prepare error"), "error");
                 });
-            }, "user:/Desktop", "new", false, { defaultName: defName });
+            }, "user:/Desktop", "new", false, { defaultName: defName, path_memory_key: "export" });
         } catch (e) {
             OfficeApp.toast("File selector is not available here", "error");
         }

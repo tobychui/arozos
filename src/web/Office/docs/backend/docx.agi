@@ -12,6 +12,9 @@
         export:  dest - virtual path of the .docx to write
                  data - serialized Docs body JSON (images inlined as
                         data URLs by the front end)
+                 dataFile - vpath of an uploaded temp file holding that same
+                        JSON, used instead of data when the payload is too
+                        big for a POST form body (deleted after reading)
                  -> "OK"
 
         import-odf / export-odf: same contract for OpenDocument (.odt)
@@ -23,6 +26,25 @@
     Legacy binary .doc is not supported (the office lib rejects it with a
     helpful message).
 */
+
+/*
+    The front end streams an oversized payload to a temp file instead of
+    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
+    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
+    10MB. Read it back from dataFile when that path was taken, and remove the
+    temp file once it is in.
+*/
+function resolveData(){
+    if (typeof dataFile !== "undefined" && dataFile){
+        if (!requirelib("filelib")){
+            return "";
+        }
+        var content = filelib.readFile(dataFile);
+        filelib.deleteFile(dataFile);
+        return content;
+    }
+    return (typeof data === "undefined" || !data) ? "" : data;
+}
 
 function main(){
     if (!requirelib("office")){
@@ -59,12 +81,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            var ok = office.documentToDocx(data, dest);
+            var ok = office.documentToDocx(payload, dest);
             if (!ok){
                 sendJSONResp(JSON.stringify({ error: "unable to write the docx file" }));
                 return;
@@ -99,12 +122,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            if (!office.documentToOdt(data, dest)){
+            if (!office.documentToOdt(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the odt file" }));
                 return;
             }
@@ -120,12 +144,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            if (!office.documentToPdf(data, dest)){
+            if (!office.documentToPdf(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
                 return;
             }

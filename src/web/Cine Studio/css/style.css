@@ -103,6 +103,11 @@ svg {
     color: var(--text-dim);
 }
 .tb-btn:hover { background: var(--bg-hover); color: var(--text); }
+.tb-btn.active { background: var(--accent-soft); color: var(--accent); }
+
+/* Labelled drop-down menus on the left of the top bar (Open / Edit) */
+.tb-menu { padding: 0 9px; gap: 6px; }
+.tb-menu-label { font-size: 12.5px; font-weight: 500; }
 
 .tb-center {
     position: absolute;
@@ -121,7 +126,6 @@ svg {
     font-weight: 600;
 }
 #project-name-btn:hover { background: var(--bg-hover); }
-#project-name-btn [data-icon] { color: var(--text-dim); }
 
 #export-split {
     display: flex;
@@ -1140,6 +1144,16 @@ input[type="range"].insp-slider::-moz-range-thumb, #tl-zoom::-moz-range-thumb {
     transition: width 0.2s linear;
 }
 .modal-note { font-size: 11.5px; color: var(--text-faint); line-height: 1.5; padding-top: 4px; }
+
+/* Monitor on / off toggle inside the export progress dialog */
+.export-monitor-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 12px;
+    padding: 0 12px;
+}
+.export-monitor-btn [data-icon] svg { width: 15px; height: 15px; }
 
 /* ======================= Scrollbars ======================= */
 

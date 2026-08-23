@@ -113,6 +113,17 @@ body before posting:
   (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
   Latin-1 and have no emoji glyphs.
 
+All that pre-baking makes the export payload big, and the AGI gateway reads
+its POST parameters with Go's `r.ParseForm`, which **drops every parameter
+once a urlencoded body passes 10 MB** (the connection is then reset
+mid-upload and the app can only report "cannot reach the ArozOS backend").
+Export calls therefore go through `OfficeApp.agirunLarge` instead of
+`ao_module_agirun`: under 4 MB it posts normally, above that it uploads the
+payload to `user:/.appdata/Office/tmp/` through the system upload endpoint
+(streamed to disk - the host never has to buffer it in RAM, which matters on
+low-memory boards) and passes `dataFile` to the backend script, which reads
+and deletes it. Raising the server-side form limit is *not* an option here.
+
 ### Header / footer
 
 The header and footer are one editable pair per **simulated** page: the

@@ -11,11 +11,33 @@
 
         export:  dest - virtual path of the .xlsx to write
                  data - serialized Sheets body JSON
+                 dataFile - vpath of an uploaded temp file holding that same
+                        JSON, used instead of data when the payload is too
+                        big for a POST form body (deleted after reading)
                  -> "OK"
 
     Legacy binary .xls is not supported (the office lib rejects it with a
     helpful message).
 */
+
+/*
+    The front end streams an oversized payload to a temp file instead of
+    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
+    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
+    10MB. Read it back from dataFile when that path was taken, and remove the
+    temp file once it is in.
+*/
+function resolveData(){
+    if (typeof dataFile !== "undefined" && dataFile){
+        if (!requirelib("filelib")){
+            return "";
+        }
+        var content = filelib.readFile(dataFile);
+        filelib.deleteFile(dataFile);
+        return content;
+    }
+    return (typeof data === "undefined" || !data) ? "" : data;
+}
 
 function main(){
     if (!requirelib("office")){
@@ -52,12 +74,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            var ok = office.workbookToXlsx(data, dest);
+            var ok = office.workbookToXlsx(payload, dest);
             if (!ok){
                 sendJSONResp(JSON.stringify({ error: "unable to write the xlsx file" }));
                 return;
@@ -92,12 +115,13 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
-            if (!office.workbookToOds(data, dest)){
+            if (!office.workbookToOds(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the ods file" }));
                 return;
             }
@@ -113,14 +137,15 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "dest is required" }));
             return;
         }
-        if (typeof data === "undefined" || !data){
+        var payload = resolveData();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "data is required" }));
             return;
         }
         try {
             // data is the client-computed print model (formatted display
             // text + styles), not the raw workbook JSON
-            if (!office.workbookPrintToPdf(data, dest)){
+            if (!office.workbookPrintToPdf(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
                 return;
             }
