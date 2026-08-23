@@ -190,3 +190,85 @@ func filterGrepResults(result string, sep string) string {
 	resultString := tmp[1]
 	return strings.TrimSpace(resultString)
 }
+
+// cimGetinfoRows reads multiple WMI properties of the same class in a single
+// query, keeping the values of one instance together on one row. Properties
+// that are null (or missing on that instance) come back as an empty string so
+// every row always has len(itemNames) columns.
+func cimGetinfoRows(wmicName string, itemNames []string) [][]string {
+	className := wmicClassName(wmicName)
+	psClass := strings.ReplaceAll(className, "'", "''")
+	quotedItems := make([]string, 0, len(itemNames))
+	for _, itemName := range itemNames {
+		quotedItems = append(quotedItems, "'"+strings.ReplaceAll(itemName, "'", "''")+"'")
+	}
+	script := fmt.Sprintf(
+		"Get-CimInstance -ClassName '%s' | ForEach-Object { $o = $_; (@(%s) | ForEach-Object { $p = $o.PSObject.Properties[$_]; if ($null -ne $p -and $null -ne $p.Value) { [string]$p.Value } else { '' } }) -join \"`t\" }",
+		psClass, strings.Join(quotedItems, ","),
+	)
+	cmd := exec.Command("powershell.exe",
+		"-NoProfile",
+		"-NonInteractive",
+		"-WindowStyle", "Hidden",
+		"-ExecutionPolicy", "Bypass",
+		"-Command", script,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil
+	}
+	var rows [][]string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.ReplaceAll(line, "\r", "")
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		cols := strings.Split(line, "\t")
+		if len(cols) != len(itemNames) {
+			//Unexpected output shape, discard this row instead of misaligning it
+			continue
+		}
+		for i := range cols {
+			cols[i] = strings.TrimSpace(cols[i])
+		}
+		rows = append(rows, cols)
+	}
+	return rows
+}
+
+/*
+wmicGetinfoRows returns the requested properties grouped per instance, so the
+caller never has to zip together separately queried slices. Querying each
+property on its own is racy: hardware can appear or disappear (e.g. a USB drive
+being unplugged) between two queries, and null values are skipped by CIM, both
+of which used to misalign the resulting slices.
+*/
+func wmicGetinfoRows(wmicName string, itemNames ...string) [][]string {
+	if len(itemNames) == 0 || runtime.GOOS != "windows" {
+		return nil
+	}
+	if rows := cimGetinfoRows(wmicName, itemNames); len(rows) > 0 {
+		return rows
+	}
+
+	//CIM unavailable, fall back to the legacy per-property wmic queries and
+	//trim everything down to the shortest result to stay in bounds.
+	columns := make([][]string, 0, len(itemNames))
+	shortest := -1
+	for _, itemName := range itemNames {
+		values := legacyWmicGetinfo(wmicName, itemName)
+		if shortest == -1 || len(values) < shortest {
+			shortest = len(values)
+		}
+		columns = append(columns, values)
+	}
+	var rows [][]string
+	for i := 0; i < shortest; i++ {
+		row := make([]string, 0, len(columns))
+		for _, column := range columns {
+			row = append(row, column[i])
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}

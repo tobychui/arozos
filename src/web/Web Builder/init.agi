@@ -1,21 +1,25 @@
 /*
 	Web Builder initiation script
+
+	Registers the visual site builder with the ArozOS desktop.
+	The module name is kept as "Web Builder" on purpose: module permissions and
+	user shortcuts are keyed by this name, so renaming it would silently drop
+	every existing permission group entry.
 */
 
 //Setup the module information
 var moduleLaunchInfo = {
-    Name: "Web Builder",
-	Desc: "The basic Web builder for writing HTML code",
+	Name: "Web Builder",
+	Desc: "Visual website builder that publishes to your personal site",
 	Group: "Office",
 	IconPath: "Web Builder/img/module_icon.png",
-	Version: "0.1.0",
+	Version: "1.0.0",
 	StartDir: "Web Builder/index.html",
 	SupportFW: true,
 	LaunchFWDir: "Web Builder/index.html",
-	InitFWSize: [1080, 580],
-	SupportedExt: [".html",".htm"]
+	InitFWSize: [1440, 900],
+	SupportedExt: [".wbsite", ".html", ".htm"]
 }
-
 
 //Register the module
 registerModule(JSON.stringify(moduleLaunchInfo));

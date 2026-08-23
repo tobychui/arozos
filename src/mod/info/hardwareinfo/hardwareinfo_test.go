@@ -257,3 +257,61 @@ func TestWmicGetinfoWindowsCpuAndDisk(t *testing.T) {
 		t.Fatalf("wmicGetinfo(Win32_USBHub, Description) returned empty")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// wmicGetinfoRows – grouped multi property query
+// ---------------------------------------------------------------------------
+
+// TestWmicGetinfoRowsShape verifies that every returned row carries exactly one
+// column per requested property, so callers can index them without bound
+// checks even when a device disappears mid-query.
+func TestWmicGetinfoRowsShape(t *testing.T) {
+	tests := []struct {
+		name      string
+		className string
+		items     []string
+	}{
+		{"no items", "logicaldisk", nil},
+		{"single item", "logicaldisk", []string{"DeviceID"}},
+		{"drive stat", "logicaldisk", []string{"DeviceID", "FileSystem", "FreeSpace"}},
+		{"unknown class", "definitely_not_a_wmi_class", []string{"DeviceID"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := wmicGetinfoRows(tt.className, tt.items...)
+			if runtime.GOOS != "windows" && rows != nil {
+				t.Fatalf("wmicGetinfoRows() = %v, want nil on non-Windows", rows)
+			}
+			if len(tt.items) == 0 && rows != nil {
+				t.Fatalf("wmicGetinfoRows() = %v, want nil when no property is requested", rows)
+			}
+			for i, row := range rows {
+				if len(row) != len(tt.items) {
+					t.Errorf("row %d has %d columns, want %d", i, len(row), len(tt.items))
+				}
+			}
+		})
+	}
+}
+
+// TestWmicGetinfoRowsLogicalDisk checks that the logical disk query used by
+// GetDriveStat actually returns usable, aligned rows on Windows.
+func TestWmicGetinfoRowsLogicalDisk(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	rows := wmicGetinfoRows("logicaldisk", "DeviceID", "FileSystem", "FreeSpace")
+	if len(rows) == 0 {
+		t.Fatal("wmicGetinfoRows(logicaldisk, ...) returned no row, want at least the system drive")
+	}
+	foundDriveLetter := false
+	for _, row := range rows {
+		if strings.Contains(row[0], ":") {
+			foundDriveLetter = true
+		}
+	}
+	if !foundDriveLetter {
+		t.Errorf("no drive letter found in %v", rows)
+	}
+}
