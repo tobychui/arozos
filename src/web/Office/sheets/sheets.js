@@ -1140,6 +1140,7 @@ var SheetsApp = (function () {
         if (onSelBorder(gp)) {
             commitEdit(false);
             drag = { mode: "movesel", srcRg: selRange(), grab: cellAtPos(gp), mv: { dC: 0, dR: 0 } };
+            gridEl.classList.add("sh-movesel");
             try { gridEl.setPointerCapture(e.pointerId); } catch (err) { }
             e.preventDefault();
             return;
@@ -1162,7 +1163,7 @@ var SheetsApp = (function () {
         if (!drag) {
             // hover feedback: the selection border is grabbable
             var onEdge = e.target !== fillEl && onSelBorder(gridPos(e));
-            gridEl.style.cursor = onEdge ? "move" : "";
+            gridEl.classList.toggle("sh-movesel", onEdge);
             return;
         }
         lastPointerEvt = e;
@@ -1220,6 +1221,7 @@ var SheetsApp = (function () {
         var d = drag;
         drag = null;
         gridEl.classList.remove("sh-filling");
+        gridEl.classList.remove("sh-movesel");
         try { gridEl.releasePointerCapture(e.pointerId); } catch (err) { }
         if (d.mode === "fill" && d.fillTo && (d.fillTo.dC || d.fillTo.dR)) {
             applyFill(d.startRg, d.fillTo.dC, d.fillTo.dR);
@@ -2274,6 +2276,9 @@ var SheetsApp = (function () {
                 ".xlsx": function (fp, fn) { SheetsIO.importXlsx(fp, fn); },
                 ".ods": function (fp, fn) { SheetsIO.importOds(fp, fn); }
             },
+            // a workbook opened from one of these keeps saving back into it
+            // (File > Save as offers the same list)
+            saveFormats: SheetsIO.saveFormats,
 
             onUndo: doUndo,
             onRedo: doRedo,

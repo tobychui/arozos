@@ -206,6 +206,9 @@ body.dark {
     z-index: 16;
 }
 #shGrid.sh-filling, #shGrid.sh-filling .sh-cell { cursor: crosshair; }
+/* grabbing the selection border moves the block - the rule has to name
+   .sh-cell too, since each cell's own `cursor: cell` beats the container's */
+#shGrid.sh-movesel, #shGrid.sh-movesel .sh-cell { cursor: move; }
 
 /* floating cell editor */
 #shCellInput {

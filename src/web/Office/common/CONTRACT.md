@@ -94,6 +94,9 @@ OfficeApp.init({
         ".pptx": function(filepath, filename){ … }
     },
 
+    // --- foreign-format saving (optional) — see "Save formats" below ---
+    saveFormats: [ { ext, label, icon, oneWay, unsupported, save }, … ],
+
     // --- undo/redo (recommended: use OfficeUndoStack) ---
     onUndo: function(){ undo.undo(); },
     onRedo: function(){ undo.redo(); },
@@ -233,6 +236,49 @@ undo.undo(); undo.redo(); undo.canUndo(); undo.canRedo();
 
 Your app owns only `body`. **Document your body schema in a comment at the top
 of your app.js** so the other apps / future importers can read it.
+
+## Save formats (`saveFormats`) — living in a foreign file
+
+By default a document can only be *saved* into the app's own container; a
+`.csv` or `.xlsx` you opened was an import, and Save became Save As. Declaring
+`saveFormats` lets an app write other formats too:
+
+```js
+saveFormats: [{
+    ext: ".csv",
+    label: "CSV (.csv)",              // shown in the Save as submenu
+    icon: "file alternate outline",   // semantic icon name
+    oneWay: true,                     // optional; a rendering such as PDF
+    unsupported: function(){ return ["2 charts"]; },   // null/[] = fine
+    save: function(fp, fn, done, fail){ … }            // fail(msg) on error
+}]
+```
+
+What the framework then does:
+
+- **File > Save as** turns into a format picker — the native container first
+  (still `Ctrl+Shift+S`), then one entry per format. With no `saveFormats` it
+  stays the plain "Save as..." command it has always been.
+- **Opening one of these formats keeps the document attached to that file**:
+  `filepath`/`filename` stay the original (`sales.csv`, not `sales.xlsa`), so
+  `Ctrl+S` writes straight back in the same format. An imported format with
+  **no** matching entry is read-only as before — `filepath` is null and Save
+  falls through to Save As.
+- **`unsupported()` is a veto, not a warning.** A foreign format holds less
+  than the container does, so return a list of plain-string reasons ("2
+  charts", "3 sheets — a delimited text file holds only one") when the
+  document would lose content. The framework refuses the write and offers
+  "Save as `<native ext>`..." instead. Reasons are escaped, never treated as
+  markup. Return `null`/`[]` when the format fits. Keep purely cosmetic
+  losses (fonts, colors, column widths) *out* of the list — vetoing on those
+  nags on every save.
+- **`oneWay: true`** marks a rendering (PDF): it is written, but the document
+  keeps its own path and stays dirty, because you cannot reopen it.
+- **Autosave** writes a foreign format only while `unsupported()` passes; when
+  it does not, autosave silently skips the file and falls back to the session
+  snapshot rather than popping a dialog.
+
+Sheets is the reference implementation (`sheets/sheets_io.js`, `SAVE_FORMATS`).
 
 ## Packed native files (zip container)
 

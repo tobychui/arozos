@@ -113,6 +113,23 @@ body before posting:
   (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
   Latin-1 and have no emoji glyphs.
 
+### Saving back into a foreign format
+
+Sheets declares `saveFormats` (see
+[`common/CONTRACT.md`](common/CONTRACT.md)), so a workbook opened from
+`.xlsx` / `.ods` / `.csv` / `.tsv` **stays that file**: `Ctrl+S` rewrites it
+in its own format instead of forcing a Save As to `.xlsa`, and File > Save as
+offers the whole list (plus PDF, which is one-way).
+
+Each format vetoes what it cannot hold — `.csv`/`.tsv` reject formulas,
+charts, notes, merges and second sheets; `.ods` rejects charts
+(`ods_writer.go` cannot represent them); `.xlsx` takes everything. The veto
+lists what would be lost and offers `.xlsa` instead, so no save quietly drops
+content. Purely visual formatting is deliberately *not* a veto reason: it
+would fire on nearly every CSV edit. When a format's Go writer gains or loses
+a capability, update the matching `unsupported()` in
+[`sheets/sheets_io.js`](sheets/sheets_io.js).
+
 All that pre-baking makes the export payload big, and the AGI gateway reads
 its POST parameters with Go's `r.ParseForm`, which **drops every parameter
 once a urlencoded body passes 10 MB** (the connection is then reset

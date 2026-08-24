@@ -355,7 +355,9 @@ var SheetsIO = (function () {
         if (t.indexOf(delim) >= 0 || t.indexOf("\n") >= 0 || t.indexOf("\r") >= 0) return '"' + t + '"';
         return t;
     }
-    function exportDelimited(delim) {
+    // the active sheet's used range as delimited text (values, not formulas),
+    // with the BOM Excel needs to read it back as UTF-8
+    function delimitedText(delim) {
         var ur = Core.usedRange();
         var lines = [];
         for (var r = ur.r1; r <= ur.r2; r++) {
@@ -371,9 +373,12 @@ var SheetsIO = (function () {
             }
             lines.push(row.join(delim));
         }
+        return "﻿" + lines.join("\r\n");
+    }
+    function exportDelimited(delim) {
         var ext = delim === "\t" ? ".tsv" : ".csv";
         var name = OfficeApp.stripExt(OfficeApp.getFileName() || "spreadsheet") + ext;
-        var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+        var blob = new Blob([delimitedText(delim)], { type: "text/csv;charset=utf-8" });
         var a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = name;
@@ -382,6 +387,108 @@ var SheetsIO = (function () {
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
         OfficeApp.setStatus("Exported " + name);
     }
+    // Save As / save-back target: writes into the ArozOS file system rather
+    // than downloading, so the document can go on living in that file
+    function saveDelimited(delim, fp, fn, done, fail) {
+        OfficeApp.vfsSave(fp, delimitedText(delim), done, fail);
+    }
+
+    /* ========== what each foreign format cannot hold ==========
+       Returned to OfficeApp as plain-string reasons: a non-empty list makes
+       it refuse the save and steer the user to .xlsa instead of quietly
+       shipping a file that has lost content. Purely visual formatting (fonts,
+       colors, number formats, column widths) is NOT counted - it never
+       survived a text grid and blocking on it would nag on every edit. */
+    function countCells(s, pred) {
+        var n = 0;
+        Object.keys(s.cells || {}).forEach(function (k) {
+            if (pred(s.cells[k])) n++;
+        });
+        return n;
+    }
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+    // .csv / .tsv: one sheet of plain values, nothing else
+    function delimitedUnsupported() {
+        var body = Core.getBody();
+        var s = Core.sheet();
+        var out = [];
+        if (body.sheets.length > 1) {
+            out.push(plural(body.sheets.length, "sheet", "sheets") +
+                " - a delimited text file holds only one");
+        }
+        var formulas = countCells(s, function (cell) {
+            return cell && typeof cell.v === "string" && cell.v.charAt(0) === "=";
+        });
+        if (formulas) {
+            out.push(plural(formulas, "formula", "formulas") + " - only " +
+                (formulas === 1 ? "its current value" : "their current values") + " would be kept");
+        }
+        var notes = countCells(s, function (cell) { return cell && cell.n; });
+        if (notes) out.push(plural(notes, "cell note", "cell notes"));
+        if (s.charts && s.charts.length) out.push(plural(s.charts.length, "chart", "charts"));
+        if (s.merges && s.merges.length) {
+            out.push(plural(s.merges.length, "merged cell range", "merged cell ranges"));
+        }
+        return out;
+    }
+    // .ods: everything but charts round-trips (mod/office/ods_writer.go)
+    function odsUnsupported() {
+        var n = 0;
+        Core.getBody().sheets.forEach(function (s) { n += (s.charts || []).length; });
+        return n ? [plural(n, "chart", "charts") +
+            " - the OpenDocument spreadsheet writer cannot store charts"] : [];
+    }
+
+    /* server-side writers, shared with the Export menu but reporting through
+       the framework's save callbacks instead of a toast */
+    function saveViaBackend(action, fp, done, fail) {
+        OfficeApp.agirunLarge(XLSX_BACKEND, {
+            action: action,
+            dest: fp,
+            data: JSON.stringify(Core.getBody())
+        }, "data", function () { done(); }, fail, 180000);
+    }
+    function savePdf(fp, fn, done, fail) {
+        var model;
+        try { model = Core.buildPrintModel(); }
+        catch (e) { fail(e.message); return; }
+        OfficeApp.agirunLarge(XLSX_BACKEND, {
+            action: "export-pdf",
+            dest: fp,
+            data: JSON.stringify(model)
+        }, "data", function () { done(); }, fail, 180000);
+    }
+    /*
+        The formats File > Save as offers besides .xlsa, and the ones a
+        document opened from .xlsx/.ods/.csv/.tsv is saved back into.
+        PDF is oneWay: it is a rendering, so saving one leaves the document
+        itself still pointing at its own file.
+    */
+    var SAVE_FORMATS = [
+        {
+            ext: ".xlsx", label: "Excel workbook (.xlsx)", icon: "file excel outline",
+            save: function (fp, fn, done, fail) { saveViaBackend("export", fp, done, fail); }
+        },
+        {
+            ext: ".ods", label: "OpenDocument spreadsheet (.ods)", icon: "file alternate outline",
+            unsupported: odsUnsupported,
+            save: function (fp, fn, done, fail) { saveViaBackend("export-odf", fp, done, fail); }
+        },
+        {
+            ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
+            oneWay: true, save: savePdf
+        },
+        {
+            ext: ".csv", label: "CSV (.csv)", icon: "file alternate outline",
+            unsupported: delimitedUnsupported,
+            save: function (fp, fn, done, fail) { saveDelimited(",", fp, fn, done, fail); }
+        },
+        {
+            ext: ".tsv", label: "TSV (.tsv)", icon: "file alternate outline",
+            unsupported: delimitedUnsupported,
+            save: function (fp, fn, done, fail) { saveDelimited("\t", fp, fn, done, fail); }
+        }
+    ];
 
     /* ================= XLSX (server-side via the office AGI lib) ================= */
     // shared by .xlsx ("import") and .ods ("import-odf")
@@ -403,8 +510,9 @@ var SheetsIO = (function () {
                 return;
             }
             Core.setBody(b);
-            OfficeApp.markDirty();
-            OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .xlsa");
+            // the framework kept us attached to the source file, so Save
+            // writes straight back to it in its own format
+            OfficeApp.setStatus("Opened " + fn);
         }, function () {
             OfficeApp.hideBusy();
             OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
@@ -727,6 +835,7 @@ var SheetsIO = (function () {
         parseDelimited: parseDelimited,
         importDelimited: importDelimited,
         exportDelimited: exportDelimited,
+        saveFormats: SAVE_FORMATS,
         importXlsx: importXlsx,
         importOds: importOds,
         importXlsxDialog: importXlsxDialog,

@@ -510,17 +510,38 @@ var OfficeApp = (function () {
     function loadNativeText(text, fp, fn) {
         loadNativeEnvelope(parseEnvelope(text), fp, fn);
     }
+    /*
+        A file opened from a foreign format stays attached to that file when
+        the app declared a writer for its extension (cfg.saveFormats): Save
+        then writes back in the original format, and only steps up to the
+        native container once the document outgrows it (see doSaveForeign).
+        With no writer the import is read-only and Save has to become Save As
+        - which is what every app did before saveFormats existed.
+    */
+    function adoptImportedPath(fp, fn) {
+        loadedFromImport = true;
+        if (saveFormatFor(extOf(fn))) {
+            filepath = fp;
+            filename = fn;
+        } else {
+            filepath = null;   // read-only import: force Save As on save
+            filename = stripExt(fn) + cfg.extension;
+        }
+    }
+    function importedStatus(fn) {
+        return filepath ? ("Opened " + fn) :
+            ("Imported " + fn + " - use Save to store it as " + cfg.extension);
+    }
     function loadImportText(text, fp, fn) {
         var ext = extOf(fn);
         var importer = (cfg.importers || {})[ext];
         if (!importer) { setStatus("Unsupported file type " + ext, "error"); return; }
         meta = { createdAt: now(), revision: 0 };
-        filepath = null;   // imported: force Save As on save
-        filename = stripExt(fn) + cfg.extension;
-        loadedFromImport = true;
+        adoptImportedPath(fp, fn);
         importer(text, fn);
         dirty = false; updateTitle();
-        setStatus("Imported " + fn + " - use Save to store it as " + cfg.extension);
+        if (filepath) addRecent(filepath, filename);
+        setStatus(importedStatus(fn));
     }
     function openPath(fp, fn) {
         fn = fn || basename(fp);
@@ -529,11 +550,10 @@ var OfficeApp = (function () {
         var bi = (cfg.binaryImporters || {})[extOf(fn)];
         if (bi) {
             meta = { createdAt: now(), revision: 0 };
-            filepath = null;   // imported: force Save As on save
-            filename = stripExt(fn) + cfg.extension;
-            loadedFromImport = true;
+            adoptImportedPath(fp, fn);
             dirty = false;
             updateTitle();
+            if (filepath) addRecent(filepath, filename);
             bi(fp, fn);
             return;
         }
@@ -611,20 +631,119 @@ var OfficeApp = (function () {
                 "Discard", "Cancel", function (yes) { if (yes) go(); });
         } else { go(); }
     }
+    /* ---------- foreign save formats (cfg.saveFormats) ---------- */
+    /*
+        An app may declare formats it can write besides its native container:
+
+            saveFormats: [{
+                ext: ".csv", label: "CSV (.csv)", icon: "file alternate outline",
+                oneWay: true,                        // a rendering (PDF):
+                                                     // never becomes the file
+                                                     // the document lives in
+                unsupported: fn -> null | [reason, ...],
+                save: fn(fp, fn, done, fail(msg))
+            }]
+
+        They drive both Save As (a format picker) and Save (a document opened
+        from one of these formats writes straight back to it). Apps that
+        declare none keep the native-format-only behaviour unchanged.
+    */
+    function saveFormats() { return (cfg && cfg.saveFormats) || []; }
+    function findSaveFormat(ext, adoptableOnly) {
+        var list = saveFormats();
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].ext !== ext) continue;
+            return (adoptableOnly && list[i].oneWay) ? null : list[i];
+        }
+        return null;
+    }
+    // a writer whose output the document can go on living in (excludes PDF)
+    function saveFormatFor(ext) { return findSaveFormat(ext, true); }
+    function formatLabel(fmt) { return (fmt && (fmt.label || fmt.ext)) || cfg.extension; }
+    function formatReasons(fmt) {
+        if (!fmt || !fmt.unsupported) return null;
+        var r;
+        try { r = fmt.unsupported(); } catch (e) { return null; }
+        return (r && r.length) ? r : null;
+    }
+    /*
+        A foreign format holds less than the native container does, so it may
+        refuse a document outright instead of silently dropping content. The
+        reasons come from the app as plain strings - escaped here, never
+        trusted as markup.
+    */
+    function formatBlockedDialog(fmt, reasons) {
+        var label = formatLabel(fmt);
+        var list = reasons.map(function (t) {
+            return "<li>" + escapeHtml(t) + "</li>";
+        }).join("");
+        setStatus("Cannot save in " + label + " format", "error");
+        dialog({
+            title: "Cannot save as " + label,
+            body: "<p>This " + escapeHtml(cfg.fileTypeName.toLowerCase()) +
+                " uses features that " + escapeHtml(label) + " cannot store:</p>" +
+                "<ul>" + list + "</ul>" +
+                "<p>Save it as " + escapeHtml(cfg.extension) +
+                " to keep them, or use File &gt; Export for a lossy copy.</p>",
+            buttons: [
+                { label: "Cancel" },
+                {
+                    label: "Save as " + cfg.extension + "...", primary: true,
+                    action: function (close) { close(); saveAsFormat(null); }
+                }
+            ]
+        });
+    }
+    function doSaveForeign(fp, fn, fmt, cb, silent) {
+        var reasons = formatReasons(fmt);
+        if (reasons) {
+            // autosave must never interrupt with a dialog: it skips the write
+            // and lets the session snapshot be the safety net instead
+            if (!silent) formatBlockedDialog(fmt, reasons);
+            return false;
+        }
+        if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+        setStatus("Saving...", "info", 0);
+        fmt.save(fp, fn, function () {
+            setStatus("Saved " + fn);
+            // a one-way rendering is a copy, not the document's own file - the
+            // editor keeps its path and stays dirty
+            if (!fmt.oneWay) {
+                filepath = fp; filename = fn;
+                loadedFromImport = false;
+                markClean();
+                addRecent(fp, fn);
+                saveSession();
+            }
+            if (cb) cb();
+        }, function (err) {
+            setStatus("Save failed: " + err, "error");
+        });
+        return true;
+    }
+
     function save(cb) {
         if (!filepath) { saveAs(cb); return; }
         doSaveTo(filepath, filename, cb);
     }
-    function saveAs(cb) {
-        var defName = filename || (cfg.defaultFileName + cfg.extension);
-        if (extOf(defName) !== cfg.extension) defName = stripExt(defName) + cfg.extension;
+    function saveAs(cb) { saveAsFormat(null, cb); }
+    /*
+        `fmt` is a cfg.saveFormats entry, or null for the native format. The
+        format fixes the extension, so the picker only supplies the name.
+    */
+    function saveAsFormat(fmt, cb) {
+        var ext = fmt ? fmt.ext : cfg.extension;
+        // ask before making the user pick a filename, not after
+        var reasons = formatReasons(fmt);
+        if (reasons) { formatBlockedDialog(fmt, reasons); return; }
+        var defName = stripExt(filename || cfg.defaultFileName) + ext;
         ao_module_openFileSelector(function (files) {
             if (files && files.length > 0) {
                 var fp = files[0].filepath;
                 var fn = files[0].filename;
-                if (extOf(fn) !== cfg.extension) {
-                    fp += cfg.extension;
-                    fn += cfg.extension;
+                if (extOf(fn) !== ext) {
+                    fp += ext;
+                    fn += ext;
                 }
                 doSaveTo(fp, fn, cb);
             }
@@ -636,12 +755,20 @@ var OfficeApp = (function () {
             force_path_overwrite: !filepath
         });
     }
-    function doSaveTo(fp, fn, cb) {
+    // returns false when the write was declined (format cannot hold the doc)
+    function doSaveTo(fp, fn, cb, silent) {
+        var ext = extOf(fn);
+        if (ext !== cfg.extension) {
+            // one of the app's own foreign formats - including a document
+            // opened from one and saved straight back with Ctrl+S
+            var fmt = findSaveFormat(ext, false);
+            if (fmt) return doSaveForeign(fp, fn, fmt, cb, silent);
+        }
         if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
         setStatus("Saving...", "info", 0);
         var env;
         try { env = buildEnvelope(); }
-        catch (e) { setStatus("Save failed: " + e.message, "error"); return; }
+        catch (e) { setStatus("Save failed: " + e.message, "error"); return false; }
         var payload = JSON.stringify(env);
         var done = function () {
             filepath = fp; filename = fn;
@@ -667,13 +794,18 @@ var OfficeApp = (function () {
         } else {
             vfsSave(fp, payload, done, fail);
         }
+        return true;
     }
 
     /* ---------- autosave ---------- */
     function autosaveEnabled() { return getSetting("autosave", true); }
     function autosaveTick() {
         if (dirty && filepath && autosaveEnabled()) {
-            save();
+            // a document living in a foreign format is autosaved only while
+            // that format can still hold it; when it cannot, doSaveTo's silent
+            // mode declines the write rather than interrupting with a dialog,
+            // and the session snapshot below protects the work instead
+            if (!doSaveTo(filepath, filename, null, true)) saveSession();
         } else if (dirty) {
             // unsaved (or autosave-off) documents still get a session
             // snapshot so "Restore from previous session" can recover them
@@ -816,6 +948,35 @@ var OfficeApp = (function () {
         if (x + w > window.innerWidth) x = Math.max(4, r.left - w - 2);
         positionFloatMenu($sm, x, r.top - 4);
     }
+    /*
+        With foreign writers declared, "Save as" becomes a format picker whose
+        first entry is the native container; without them it stays the plain
+        Save As command it has always been.
+    */
+    function saveAsMenuItem() {
+        var list = saveFormats();
+        if (!list.length) {
+            return {
+                label: "Save as...", icon: "copy outline", key: "Ctrl+Shift+S",
+                action: function () { saveAs(); }
+            };
+        }
+        var sub = [
+            {
+                label: cfg.fileTypeName + " (" + cfg.extension + ")",
+                icon: "save", key: "Ctrl+Shift+S",
+                action: function () { saveAsFormat(null); }
+            },
+            { sep: true }
+        ];
+        list.forEach(function (f) {
+            sub.push({
+                label: formatLabel(f), icon: f.icon || "file outline",
+                action: function () { saveAsFormat(f); }
+            });
+        });
+        return { label: "Save as", icon: "copy outline", sub: sub };
+    }
     function renderMenuItems($drop, items, depth) {
         depth = depth || 0;
         $drop.empty();
@@ -930,7 +1091,7 @@ var OfficeApp = (function () {
                 },
                 { sep: true },
                 { label: "Save", icon: "save", key: "Ctrl+S", action: function () { save(); } },
-                { label: "Save as...", icon: "copy outline", key: "Ctrl+Shift+S", action: function () { saveAs(); } },
+                saveAsMenuItem(),
                 { label: "Auto-save", checked: autosaveEnabled, action: function () { setSetting("autosave", !autosaveEnabled()); } }
             ];
             if (cfg.fileMenuExtras && cfg.fileMenuExtras.length) {
