@@ -55,6 +55,53 @@ func ParseSheetPrintJSON(jsonStr string) (*SheetPrintModel, error) {
 	return &m, nil
 }
 
+const (
+	// cell font before any page down-scaling
+	sheetBaseFontPt = 9.0
+	// left + right inset inside a cell (half of it on each side)
+	sheetCellPadMM = 1.6
+	// extra room added when widening a column, so grown text does not end
+	// up flush against the divider
+	sheetColAirMM = 1.2
+	// A column may grow this many times past the width the client asked
+	// for, and take at most this share of the page, so one very long cell
+	// cannot squeeze every other column into an unreadable sliver.
+	sheetColGrowMax  = 3.0
+	sheetColPageFrac = 0.4
+)
+
+// sheetFitColumns widens columns so their contents actually fit.
+//
+// The client measures its columns in the browser's UI font; the same text is
+// drawn here in Helvetica at 9pt, so a value that sat comfortably in its
+// column on screen can come out a hair too wide - and fpdf does not clip, it
+// just paints over the next column. Rather than truncate data the user can
+// see on screen, grow the column to its widest cell (bounded by the constants
+// above). Growing is safe: BuildSheetPdf scales widths and the font by the
+// same factor afterwards, so a column that fits its content here still fits
+// once the table is shrunk onto the page.
+func sheetFitColumns(pdf *fpdf.Fpdf, tr func(string) string, sheet *SheetPrintSheet,
+	widths []float64, usableW float64) {
+	for _, row := range sheet.Rows {
+		for c := 0; c < len(widths) && c < len(row); c++ {
+			cell := row[c]
+			if cell == nil || cell.T == "" {
+				continue
+			}
+			pdf.SetFont("Arial", pdfStyleStr(cell.B, cell.I, cell.U), sheetBaseFontPt)
+			need := pdf.GetStringWidth(tr(cell.T)) + sheetCellPadMM + sheetColAirMM
+			if need <= widths[c] {
+				continue
+			}
+			limit := max(widths[c]*sheetColGrowMax, widths[c])
+			if pageCap := usableW * sheetColPageFrac; limit > pageCap {
+				limit = max(pageCap, widths[c])
+			}
+			widths[c] = min(need, limit)
+		}
+	}
+}
+
 // BuildSheetPdf renders the print model into PDF bytes
 func BuildSheetPdf(m *SheetPrintModel) ([]byte, error) {
 	const marginMM = 12.0
@@ -86,15 +133,19 @@ func BuildSheetPdf(m *SheetPrintModel) ([]byte, error) {
 		if cols == 0 {
 			continue
 		}
-		// column widths: px -> mm, scaled to fit the page when too wide
+		// column widths: px -> mm, widened to fit their contents, then
+		// scaled down together with the font when the table is too wide
 		widths := make([]float64, cols)
-		total := 0.0
 		for i := 0; i < cols; i++ {
 			w := 100.0 * pxToMM
 			if i < len(sheet.ColW) && sheet.ColW[i] > 0 {
 				w = sheet.ColW[i] * pxToMM
 			}
 			widths[i] = w
+		}
+		sheetFitColumns(pdf, tr, sheet, widths, usableW)
+		total := 0.0
+		for _, w := range widths {
 			total += w
 		}
 		scale := 1.0
@@ -104,8 +155,10 @@ func BuildSheetPdf(m *SheetPrintModel) ([]byte, error) {
 				widths[i] *= scale
 			}
 		}
-		fontPt := 9.0 * scale
+		fontPt := sheetBaseFontPt * scale
 		if fontPt < 5 {
+			// the font stopped shrinking with the columns, so cells can
+			// overflow again - pdfFitText below is what keeps them apart
 			fontPt = 5
 		}
 
@@ -143,10 +196,11 @@ func BuildSheetPdf(m *SheetPrintModel) ([]byte, error) {
 					if align == "" {
 						align = "L"
 					}
-					// the cell is only as wide as its column: trim rather
-					// than let fpdf draw over the next column (pdfFitText)
-					innerW := widths[c] - 1.6
-					pdf.SetXY(x+0.8, y)
+					// last resort: a cell that still does not fit (the font
+					// hit its 5pt floor) is trimmed rather than drawn over
+					// the next column, since fpdf itself never clips
+					innerW := widths[c] - sheetCellPadMM
+					pdf.SetXY(x+sheetCellPadMM/2, y)
 					pdf.CellFormat(innerW, rowH, pdfFitText(pdf, tr, cell.T, innerW), "", 0, align, false, 0, "")
 				}
 				x += widths[c]

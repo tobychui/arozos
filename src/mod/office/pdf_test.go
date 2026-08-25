@@ -6,6 +6,9 @@ import (
 	"compress/zlib"
 	"io"
 	"math"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -591,32 +594,148 @@ func TestPdfFitText(t *testing.T) {
 	})
 }
 
-// the bug this pins down: fpdf's CellFormat does not clip, so a cell wider
-// than its column used to be painted straight over the next column
-func TestSheetPdfClipsOverlongCells(t *testing.T) {
-	overflow := "need help with my Deployment configuration"
-	// the Name column is wide enough for its value; the Message column is not
-	m := &SheetPrintModel{Sheets: []*SheetPrintSheet{
-		{Name: "contact-form", ColW: []float64{140, 200, 120, 90},
-			Rows: [][]*SheetPrintCell{
-				{{T: "Submitted at", B: true}, {T: "Name", B: true}, {T: "Email", B: true}, {T: "Message", B: true}},
-				{{T: "2026-08-24 21:01:24"}, {T: "Yami Odymel"}, {T: "yami@foobar.com"}, {T: overflow}},
-			}},
-	}}
-	data, err := BuildSheetPdf(m)
+// pdfDrawnRun is one text-drawing operation recovered from a content stream
+type pdfDrawnRun struct {
+	x, y, size float64
+	text       string
+}
+
+// pdfDrawnRuns pulls the "BT <x> <y> Td (text)Tj ET" runs out of a PDF along
+// with the font size in force, so a test can check where text actually landed
+func pdfDrawnRuns(t *testing.T, data []byte) []pdfDrawnRun {
+	t.Helper()
+	stream := pdfStreamsText(t, data)
+	// fpdf names font resources by content hash (/Fa76705d1...), not /F1
+	reSize := regexp.MustCompile(`/F\S+\s+([0-9.]+)\s+Tf`)
+	reRun := regexp.MustCompile(`BT\s+([0-9.]+)\s+([0-9.]+)\s+Td\s+\((.*?)\)\s*Tj`)
+	var runs []pdfDrawnRun
+	size := 0.0
+	for _, line := range strings.Split(stream, "\n") {
+		if m := reSize.FindStringSubmatch(line); m != nil {
+			size, _ = strconv.ParseFloat(m[1], 64)
+		}
+		for _, m := range reRun.FindAllStringSubmatch(line, -1) {
+			x, _ := strconv.ParseFloat(m[1], 64)
+			y, _ := strconv.ParseFloat(m[2], 64)
+			runs = append(runs, pdfDrawnRun{x: x, y: y, size: size, text: m[3]})
+		}
+	}
+	return runs
+}
+
+/*
+The reported bug: fpdf's CellFormat does not clip, so a value slightly
+wider than its column was painted straight over the next column
+("2026-08-24 21:01:2Yami Odymel"). Whatever the layout does about it -
+widen the column or trim the text - two cells on the same row must never
+end up drawn on top of each other.
+*/
+func TestSheetPdfCellsNeverOverlap(t *testing.T) {
+	// no bold anywhere, so every run uses one font and widths are measurable
+	row := func(vals ...string) []*SheetPrintCell {
+		out := make([]*SheetPrintCell, len(vals))
+		for i, v := range vals {
+			out[i] = &SheetPrintCell{T: v}
+		}
+		return out
+	}
+	cases := []struct {
+		name  string
+		colW  []float64
+		rows  [][]*SheetPrintCell
+		fitsW float64
+	}{
+		{
+			name: "contact form with default column widths",
+			colW: []float64{92, 92, 92, 92, 92},
+			rows: [][]*SheetPrintCell{
+				row("Submitted at", "Name", "Email", "Message", ""),
+				row("2026-08-24 21:01:21", "Yami Odymel", "yami@foobar.com", "Where is my TeaCat", ""),
+				row("2026-08-24 21:13:32", "Alan Yeung", "alan@example.com", "I need help with my DezKVM", "98765432"),
+			},
+		},
+		{
+			name: "one cell far longer than any sane column",
+			colW: []float64{92, 92},
+			rows: [][]*SheetPrintCell{
+				row("id", strings.Repeat("verylongword ", 60)),
+				row("1", "short"),
+			},
+		},
+		{
+			name: "many columns forced to shrink onto the page",
+			colW: []float64{200, 200, 200, 200, 200, 200, 200, 200, 200, 200},
+			rows: [][]*SheetPrintCell{
+				row("alpha bravo", "charlie delta", "echo foxtrot", "golf hotel", "india juliet",
+					"kilo lima", "mike november", "oscar papa", "quebec romeo", "sierra tango"),
+			},
+		},
+	}
+
+	// a probe document measures strings in the same font the renderer used
+	probe := fpdf.New("L", "mm", "A4", "")
+	probe.AddPage()
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := BuildSheetPdf(&SheetPrintModel{Sheets: []*SheetPrintSheet{
+				{Name: "sheet", ColW: tc.colW, Rows: tc.rows},
+			}})
+			if err != nil {
+				t.Fatalf("BuildSheetPdf: %v", err)
+			}
+			runs := pdfDrawnRuns(t, data)
+			if len(runs) == 0 {
+				t.Fatal("no text was drawn at all")
+			}
+			// group by baseline, then walk each row left to right
+			byLine := map[float64][]pdfDrawnRun{}
+			for _, r := range runs {
+				byLine[r.y] = append(byLine[r.y], r)
+			}
+			for _, line := range byLine {
+				sort.Slice(line, func(i, j int) bool { return line[i].x < line[j].x })
+				for i := 0; i+1 < len(line); i++ {
+					if line[i].size <= 0 {
+						t.Fatalf("no font size recovered for %q - the stream "+
+							"scan is broken, not the layout", line[i].text)
+					}
+					probe.SetFont("Arial", "", line[i].size)
+					// stream coordinates are points, GetStringWidth is mm
+					const mmToPt = 72.0 / 25.4
+					end := line[i].x + probe.GetStringWidth(line[i].text)*mmToPt
+					if end > line[i+1].x+0.5 { // 0.5pt slack for rounding
+						t.Errorf("%q (ends at %.1f) runs into %q (starts at %.1f)",
+							line[i].text, end, line[i+1].text, line[i+1].x)
+					}
+				}
+			}
+		})
+	}
+}
+
+// values that fit must be printed in full - the fix for overlapping columns
+// must not silently truncate data the user can read on screen
+func TestSheetPdfKeepsValuesWhole(t *testing.T) {
+	vals := []string{"2026-08-24 21:01:21", "Yami Odymel", "yami@foobar.com",
+		"I need help with my DezKVM", "98765432"}
+	cells := make([]*SheetPrintCell, len(vals))
+	for i, v := range vals {
+		cells[i] = &SheetPrintCell{T: v}
+	}
+	data, err := BuildSheetPdf(&SheetPrintModel{Sheets: []*SheetPrintSheet{
+		// the narrow default width the client sends when nothing was resized
+		{Name: "contact-form", ColW: []float64{92, 92, 92, 92, 92},
+			Rows: [][]*SheetPrintCell{cells}},
+	}})
 	if err != nil {
 		t.Fatalf("BuildSheetPdf: %v", err)
 	}
 	text := pdfStreamsText(t, data)
-	if strings.Contains(text, overflow) {
-		t.Error("a cell too wide for its column was drawn in full and overlaps its neighbour")
-	}
-	// short cells must still be written out untouched
-	if !strings.Contains(text, "Yami Odymel") {
-		t.Error("a cell that fits its column was trimmed anyway")
-	}
-	if !strings.Contains(text, "need") {
-		t.Error("the trimmed cell lost its leading text entirely")
+	for _, v := range vals {
+		if !strings.Contains(text, v) {
+			t.Errorf("value %q was truncated instead of the column being widened", v)
+		}
 	}
 }
 
