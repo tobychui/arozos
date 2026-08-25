@@ -199,13 +199,28 @@ the path that honours every mode exactly.
   [`pdf_slides.go`](../../mod/office/pdf_slides.go)): built on
   `github.com/go-pdf/fpdf` (MIT). Real selectable text, not screenshots.
   Gotchas encoded in `pdf.go` / `pdf_doc.go`:
-  - **`CellFormat` does not clip.** A string wider than its cell is drawn
-    straight across the neighbouring columns, which in Sheets exports read
-    as overlapping garbage (`2026-08-24 21:01:2Yami Odymel`). Every cell
-    draw must go through `pdfFitText()` (`pdf.go`), which trims to the
-    column width and marks the cut with an ellipsis — the print equivalent
-    of the grid's `overflow: hidden`. It measures the *translated* text but
-    cuts on runes of the original, so multi-byte characters never split.
+  - **`CellFormat` does not clip, and the client's column widths do not
+    survive the font change.** The client measures columns in the browser's
+    UI font and sends CSS pixels; `pdf_sheet.go` draws the same text in
+    Helvetica at 9pt, so a value that sat comfortably in its column on
+    screen can come out slightly wider here — and fpdf happily paints it
+    straight over the next column (`2026-08-24 21:01:2Yami Odymel`).
+    Two layers deal with this, in order:
+    1. `sheetFitColumns()` widens each column to its widest cell before
+       laying out, so the data is shown in full rather than truncated. The
+       growth is capped (`sheetColGrowMax`, `sheetColPageFrac`) so one very
+       long cell cannot squeeze the rest into slivers. Widening is safe
+       because widths and the font are then scaled by the same factor.
+    2. `pdfFitText()` (`pdf.go`) is the backstop for what still cannot fit
+       — mainly once the font hits its 5pt floor and stops shrinking with
+       the columns. It trims to the width and marks the cut with an
+       ellipsis, measuring the *translated* text but cutting on runes of
+       the original so multi-byte characters never split.
+
+    `TestSheetPdfCellsNeverOverlap` pins the invariant by reading back the
+    text-drawing operators and asserting no two runs on a baseline collide;
+    `TestSheetPdfKeepsValuesWhole` pins that the fix does not truncate data
+    that could have been shown. Any new cell drawing must keep both true.
   - Core fonts are **cp1252** — all text goes through `pdfTr()`, which
     also normalizes `&nbsp;`/thin spaces to plain spaces (fpdf only wraps
     lines at real spaces; contenteditable HTML is full of nbsp and the
