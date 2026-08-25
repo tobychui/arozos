@@ -199,6 +199,13 @@ the path that honours every mode exactly.
   [`pdf_slides.go`](../../mod/office/pdf_slides.go)): built on
   `github.com/go-pdf/fpdf` (MIT). Real selectable text, not screenshots.
   Gotchas encoded in `pdf.go` / `pdf_doc.go`:
+  - **`CellFormat` does not clip.** A string wider than its cell is drawn
+    straight across the neighbouring columns, which in Sheets exports read
+    as overlapping garbage (`2026-08-24 21:01:2Yami Odymel`). Every cell
+    draw must go through `pdfFitText()` (`pdf.go`), which trims to the
+    column width and marks the cut with an ellipsis — the print equivalent
+    of the grid's `overflow: hidden`. It measures the *translated* text but
+    cuts on runes of the original, so multi-byte characters never split.
   - Core fonts are **cp1252** — all text goes through `pdfTr()`, which
     also normalizes `&nbsp;`/thin spaces to plain spaces (fpdf only wraps
     lines at real spaces; contenteditable HTML is full of nbsp and the

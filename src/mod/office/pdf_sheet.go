@@ -143,8 +143,11 @@ func BuildSheetPdf(m *SheetPrintModel) ([]byte, error) {
 					if align == "" {
 						align = "L"
 					}
+					// the cell is only as wide as its column: trim rather
+					// than let fpdf draw over the next column (pdfFitText)
+					innerW := widths[c] - 1.6
 					pdf.SetXY(x+0.8, y)
-					pdf.CellFormat(widths[c]-1.6, rowH, tr(cell.T), "", 0, align, false, 0, "")
+					pdf.CellFormat(innerW, rowH, pdfFitText(pdf, tr, cell.T, innerW), "", 0, align, false, 0, "")
 				}
 				x += widths[c]
 			}

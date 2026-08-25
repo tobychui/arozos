@@ -518,6 +518,108 @@ func TestSheetPdf(t *testing.T) {
 	}
 }
 
+func TestPdfFitText(t *testing.T) {
+	pdf := fpdf.New("L", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "", 9)
+	tr := pdfTr(pdf)
+
+	wide := pdf.GetStringWidth(tr("2026-08-24 21:01:24")) + 1
+
+	tests := []struct {
+		name string
+		in   string
+		maxW float64
+		want string // "" means: expect exactly the translated input back
+	}{
+		{"fits untouched", "2026-08-24 21:01:24", wide, ""},
+		{"empty stays empty", "", wide, ""},
+		{"zero width yields nothing", "anything", 0, ""},
+		{"negative width yields nothing", "anything", -5, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := pdfFitText(pdf, tr, tc.in, tc.maxW)
+			want := tc.want
+			if want == "" && tc.maxW > 0 {
+				want = tr(tc.in)
+			}
+			if got != want {
+				t.Errorf("pdfFitText(%q, %v) = %q, want %q", tc.in, tc.maxW, got, want)
+			}
+		})
+	}
+
+	// the real job: a string too wide for its cell comes back shortened,
+	// never wider than the cell it has to sit in
+	t.Run("overlong text is trimmed to fit", func(t *testing.T) {
+		long := "need help with my Deployment configuration"
+		narrow := pdf.GetStringWidth(tr(long)) / 3
+		got := pdfFitText(pdf, tr, long, narrow)
+		if w := pdf.GetStringWidth(got); w > narrow {
+			t.Errorf("fitted text is %v wide, cell is only %v", w, narrow)
+		}
+		if got == tr(long) {
+			t.Error("overlong text was returned unchanged")
+		}
+		if !strings.HasPrefix(got, tr("need")) {
+			t.Errorf("trimmed text lost its start: %q", got)
+		}
+	})
+
+	// a cut must not land in the middle of a multi-byte character
+	t.Run("multi-byte text is cut on rune boundaries", func(t *testing.T) {
+		s := "café crème brûlée gâteau"
+		got := pdfFitText(pdf, tr, s, pdf.GetStringWidth(tr(s))/2)
+		if w := pdf.GetStringWidth(got); w > pdf.GetStringWidth(tr(s))/2 {
+			t.Errorf("fitted text %q overflows", got)
+		}
+		if got == "" {
+			t.Error("multi-byte text was dropped entirely")
+		}
+	})
+
+	// whatever comes back must fit, however little room there is - including
+	// a column too narrow for even the ellipsis
+	t.Run("never wider than the cell", func(t *testing.T) {
+		for _, maxW := range []float64{0.5, 1, 2, 3, 5, 10, 25} {
+			got := pdfFitText(pdf, tr, "abcdefghij klmnop", maxW)
+			if w := pdf.GetStringWidth(got); w > maxW {
+				t.Errorf("maxW=%v: got %q which is %v wide", maxW, got, w)
+			}
+		}
+	})
+}
+
+// the bug this pins down: fpdf's CellFormat does not clip, so a cell wider
+// than its column used to be painted straight over the next column
+func TestSheetPdfClipsOverlongCells(t *testing.T) {
+	overflow := "need help with my Deployment configuration"
+	// the Name column is wide enough for its value; the Message column is not
+	m := &SheetPrintModel{Sheets: []*SheetPrintSheet{
+		{Name: "contact-form", ColW: []float64{140, 200, 120, 90},
+			Rows: [][]*SheetPrintCell{
+				{{T: "Submitted at", B: true}, {T: "Name", B: true}, {T: "Email", B: true}, {T: "Message", B: true}},
+				{{T: "2026-08-24 21:01:24"}, {T: "Yami Odymel"}, {T: "yami@foobar.com"}, {T: overflow}},
+			}},
+	}}
+	data, err := BuildSheetPdf(m)
+	if err != nil {
+		t.Fatalf("BuildSheetPdf: %v", err)
+	}
+	text := pdfStreamsText(t, data)
+	if strings.Contains(text, overflow) {
+		t.Error("a cell too wide for its column was drawn in full and overlaps its neighbour")
+	}
+	// short cells must still be written out untouched
+	if !strings.Contains(text, "Yami Odymel") {
+		t.Error("a cell that fits its column was trimmed anyway")
+	}
+	if !strings.Contains(text, "need") {
+		t.Error("the trimmed cell lost its leading text entirely")
+	}
+}
+
 func TestParseSheetPrintJSON(t *testing.T) {
 	if _, err := ParseSheetPrintJSON("{"); err == nil {
 		t.Error("invalid JSON accepted")
