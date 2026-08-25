@@ -1,0 +1,265 @@
+/*
+    canvas.css
+
+    The editing stage: the device frame that hosts the page <iframe>, plus every
+    overlay drawn on top of it (selection box + resize handles, hover outline,
+    element badges, drop indicator and the floating text toolbar).
+
+    Overlays live in the parent document and are positioned from rectangles
+    measured inside the iframe, scaled by the current zoom (see js/canvas.js).
+*/
+
+#wb-stage {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: auto;
+    background: var(--wb-bg);
+    display: flex;
+    justify-content: center;
+}
+
+#wb-stage-inner {
+    padding: 22px 24px 60px;
+    min-width: min-content;
+}
+
+/*
+   #wb-frame-holder is sized in *screen* pixels (device width x zoom) and is
+   what centres the page. #wb-frame-wrap keeps the unscaled device width and
+   is scaled into it, so the overlay - a sibling of the wrap inside the holder
+   - can stay unscaled and draw crisp handles at any zoom level.
+*/
+#wb-frame-holder {
+    position: relative;
+    margin: 0 auto;
+}
+
+#wb-frame-wrap {
+    position: absolute;
+    top: 0; left: 0;
+    transform-origin: top left;
+}
+
+#wb-frame-shell {
+    position: relative;
+    background: #ffffff;
+    border: 1px dashed var(--wb-border-strong);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+    min-height: 400px;
+}
+body.dark #wb-frame-shell { background: #ffffff; }
+#wb-frame-shell.device-tablet,
+#wb-frame-shell.device-mobile {
+    border-style: solid;
+    border-radius: 14px;
+    box-shadow: 0 12px 34px rgba(16, 24, 40, 0.16);
+    overflow: hidden;
+}
+
+#wb-canvas-frame {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: #fff;
+}
+
+/* overlay layer sits exactly on top of the iframe */
+#wb-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* hover outline */
+#wb-hover-box {
+    position: absolute;
+    border: 1px solid var(--wb-accent);
+    border-radius: 1px;
+    display: none;
+    pointer-events: none;
+}
+
+/* selection box */
+#wb-select-box {
+    position: absolute;
+    border: 1.5px solid var(--wb-accent);
+    display: none;
+    pointer-events: none;
+}
+#wb-select-box.textediting { border-style: dashed; }
+
+/* element name badge */
+.wb-badge {
+    position: absolute;
+    top: -20px; left: -1.5px;
+    height: 19px;
+    display: flex; align-items: center; gap: 4px;
+    background: var(--wb-accent);
+    color: #fff;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 0 5px;
+    border-radius: 3px 3px 0 0;
+    white-space: nowrap;
+    pointer-events: auto;
+    user-select: none;
+}
+.wb-badge.below { top: auto; bottom: -20px; border-radius: 0 0 3px 3px; }
+.wb-badge-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.wb-badge-btn {
+    width: 15px; height: 15px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 0; padding: 0;
+    color: rgba(255, 255, 255, 0.85);
+    border-radius: 3px;
+}
+.wb-badge-btn:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.wb-badge-btn.drag { cursor: grab; }
+.wb-badge-btn.drag:active { cursor: grabbing; }
+
+#wb-hover-badge {
+    position: absolute;
+    height: 18px;
+    display: none; align-items: center;
+    background: var(--wb-accent);
+    color: #fff;
+    font-size: 10px; font-weight: 600;
+    padding: 0 5px;
+    border-radius: 3px 3px 0 0;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* resize handles */
+.wb-handle {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: var(--wb-surface);
+    border: 1.5px solid var(--wb-accent);
+    border-radius: 1px;
+    pointer-events: auto;
+    margin: -4px 0 0 -4px;
+}
+.wb-handle[data-dir="n"]  { top: 0;    left: 50%;  cursor: ns-resize; }
+.wb-handle[data-dir="s"]  { top: 100%; left: 50%;  cursor: ns-resize; }
+.wb-handle[data-dir="w"]  { top: 50%;  left: 0;    cursor: ew-resize; }
+.wb-handle[data-dir="e"]  { top: 50%;  left: 100%; cursor: ew-resize; }
+.wb-handle[data-dir="nw"] { top: 0;    left: 0;    cursor: nwse-resize; }
+.wb-handle[data-dir="ne"] { top: 0;    left: 100%; cursor: nesw-resize; }
+.wb-handle[data-dir="sw"] { top: 100%; left: 0;    cursor: nesw-resize; }
+.wb-handle[data-dir="se"] { top: 100%; left: 100%; cursor: nwse-resize; }
+
+/* live size readout while resizing */
+#wb-size-tip {
+    position: absolute;
+    display: none;
+    background: rgba(22, 24, 29, 0.92);
+    color: #fff;
+    font-size: 10.5px; font-family: var(--wb-mono);
+    padding: 2px 6px; border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* drop indicator */
+#wb-drop-line {
+    position: absolute;
+    display: none;
+    background: var(--wb-accent);
+    border-radius: 2px;
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+#wb-drop-line::before,
+#wb-drop-line::after {
+    content: '';
+    position: absolute;
+    width: 6px; height: 6px;
+    border: 2px solid var(--wb-accent);
+    border-radius: 50%;
+    background: #fff;
+}
+#wb-drop-line.horizontal::before { left: -4px; top: -2px; }
+#wb-drop-line.horizontal::after  { right: -4px; top: -2px; }
+#wb-drop-line.vertical::before   { top: -4px; left: -2px; }
+#wb-drop-line.vertical::after    { bottom: -4px; left: -2px; }
+
+#wb-drop-zone {
+    position: absolute;
+    display: none;
+    border: 2px dashed var(--wb-accent);
+    background: var(--wb-accent-soft);
+    border-radius: 6px;
+    pointer-events: none;
+}
+
+/* stage is in drag mode */
+#wb-stage.dragging #wb-hover-box,
+#wb-stage.dragging #wb-hover-badge { display: none !important; }
+
+/* -------------------------  Floating text toolbar  ------------------------- */
+
+#wb-text-toolbar {
+    position: fixed;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    background: var(--wb-surface);
+    border: 1px solid var(--wb-border);
+    border-radius: 10px;
+    box-shadow: var(--wb-shadow-pop);
+    padding: 5px 6px;
+    z-index: 8000;
+}
+#wb-text-toolbar.show { display: flex; }
+#wb-text-toolbar .wb-tt-label {
+    font-size: 12px; font-weight: 500;
+    color: var(--wb-text);
+    padding: 0 8px 0 4px;
+    white-space: nowrap;
+}
+#wb-text-toolbar .wb-tt-sep { width: 1px; height: 18px; background: var(--wb-border); margin: 0 4px; }
+.wb-tt-btn {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 0; border-radius: 6px;
+    color: var(--wb-text-dim);
+}
+.wb-tt-btn:hover { background: var(--wb-surface-3); color: var(--wb-text); }
+.wb-tt-btn.active { background: var(--wb-accent-soft); color: var(--wb-accent); }
+
+/* -------------------------  Preview mode  ------------------------- */
+
+body.wb-preview #wb-leftdock,
+body.wb-preview #wb-rail,
+body.wb-preview #wb-inspector,
+body.wb-preview #wb-overlay,
+body.wb-preview #wb-text-toolbar { display: none !important; }
+body.wb-preview #wb-frame-shell { border-color: transparent; }
+body.wb-preview #wb-stage-inner { padding-top: 16px; }
+
+#wb-preview-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 44px;
+    transform: translateX(-50%);
+    z-index: 8200;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(22, 24, 29, 0.94);
+    color: #fff;
+    border-radius: 10px;
+    padding: 8px 10px 8px 16px;
+    box-shadow: var(--wb-shadow-pop);
+    font-size: 12.5px;
+    font-weight: 500;
+}
+#wb-preview-bar .wb-btn {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: transparent;
+    color: #fff;
+}
+#wb-preview-bar .wb-btn:hover { background: rgba(255, 255, 255, 0.24); }

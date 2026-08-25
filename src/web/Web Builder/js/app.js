@@ -542,14 +542,32 @@ var WBApp = (function () {
         });
     }
 
+    /*
+        New Site opens the template gallery rather than dropping the user
+        straight into the default starter page: a template arrives with every
+        page written and its navigation already linked up.
+    */
     function newSite() {
         confirmDiscard(function () {
-            WBUI.prompt("New Site", "Site name", "My Website").then(function (name) {
-                if (name === null) { return; }
-                WBModel.newProject(name || "My Website");
+            WBGallery.open("My Website").then(function (choice) {
+                if (!choice) { return; }
+                var tpl = choice.templateId ? WBTemplates.get(choice.templateId) : null;
+                try {
+                    if (tpl) {
+                        WBModel.loadProject(WBTemplates.buildProject(tpl, choice.name));
+                    } else {
+                        WBModel.newProject(choice.name, { blank: true });
+                    }
+                } catch (e) {
+                    console.error("[wb] could not build the template", e);
+                    WBUI.toast("That template could not be loaded", "err");
+                    return;
+                }
                 WBFileIO.setPath("");
                 afterProjectLoaded();
-                WBUI.toast("New site created");
+                showPanel("pages");
+                openDock();
+                WBUI.toast(tpl ? "Created from the " + tpl.name + " template" : "Blank site created", "ok");
             });
         });
     }

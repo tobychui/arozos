@@ -1,261 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-		<meta name="theme-color" content="#ff9224">
-		<script src="../script/jquery.min.js"></script>
-		<script src="../script/ao_module.js"></script>
-		<script>
-		// When Web Builder is embedded as an iframe inside another ArozOS app (e.g. Productivity),
-		// ao_module_virtualDesktop is false because parent.isDesktopMode is not on the host app.
-		// This patch detects that case and routes ao_module_openFileSelector through the real desktop,
-		// registering the callback proxy on the host app window so the desktop can resolve it.
-		(function(){
-			try {
-				if (ao_module_virtualDesktop || !parent.ao_module_virtualDesktop) { return; }
-				ao_module_openFileSelector = function(callback, root, type, allowMultiple, options) {
-					root = (root != null) ? root : 'user:/';
-					type = type || 'file';
-					allowMultiple = allowMultiple || false;
+<head>
+    <meta charset="UTF-8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#f97316">
+    <title>ArozOS Site Builder</title>
+    <link rel="icon" href="img/small_icon.png">
 
-					var callbackname;
-					if (typeof callback === 'string') {
-						callbackname = callback;
-					} else if (typeof callback === 'function' && callback.name) {
-						callbackname = callback.name;
-					} else {
-						callbackname = '_aoFs_' + Date.now();
-					}
-					if (options && options.fnameOverride) {
-						callbackname = options.fnameOverride;
-					}
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/panels.css">
+    <link rel="stylesheet" href="css/canvas.css">
+    <link rel="stylesheet" href="css/inspector.css">
+    <link rel="stylesheet" href="css/colorpicker.css">
 
-					// Register proxy on the host app window — the desktop resolves callbacks there
-					parent[callbackname] = function(files) {
-						try {
-							var fn = (typeof callback === 'string') ? window[callback] : callback;
-							if (fn) { fn(files); }
-						} finally {
-							delete parent[callbackname];
-						}
-					};
+    <!-- jQuery is required by ao_module.js; the builder itself uses plain DOM APIs -->
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="js/embedcompat.js"></script>
+</head>
+<body>
 
-					var initInfo = {
-						root: root,
-						type: type,
-						allowMultiple: allowMultiple,
-						listenerUUID: '',
-						options: options
-					};
-					// parent = host app window, parent.parent = ArozOS desktop
-					parent.parent.newFloatWindow({
-						url: 'SystemAO/file_system/file_selector.html#' + encodeURIComponent(JSON.stringify(initInfo)),
-						width: 960,
-						height: 620,
-						appicon: 'SystemAO/file_system/img/selector.png',
-						title: 'Open',
-						parent: parent.ao_module_windowID,
-						callback: callbackname
-					});
-				};
-			} catch(e) {
-				// Cross-origin or not nested — leave ao_module_openFileSelector unchanged
-			}
-		})();
-		</script>
-		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
-		<script src="../script/semantic/semantic.min.js"></script>
-		<title>Web Builder</title>
+<div id="wb-app">
 
-		<!-- <link rel="manifest" crossorigin="use-credentials" href="manifest.json"> -->
-		<style>
-			body {
-				background-color: white;
-			}
+    <!-- ─────────────────────────  Top bar  ───────────────────────── -->
+    <header id="wb-topbar">
+        <button id="wb-project-btn" type="button" title="Project actions">
+            <span id="wb-project-name">My Website</span>
+            <span class="wb-caret" id="wb-project-caret"></span>
+        </button>
 
-			.blog.main{
-				background-color: #ff9224;
-				border: 1px solid #ff9224;
-				color: white;
-			}
+        <div class="wb-topbar-center">
+            <div class="wb-device-switch">
+                <button class="wb-device-btn active" data-device="base" type="button" title="Desktop"></button>
+                <button class="wb-device-btn" data-device="tablet" type="button" title="Tablet"></button>
+                <button class="wb-device-btn" data-device="mobile" type="button" title="Mobile"></button>
+            </div>
+            <div class="wb-topbar-sep"></div>
+            <div class="wb-history">
+                <button class="wb-icon-btn" id="wb-undo" type="button" title="Undo (Ctrl+Z)" disabled></button>
+                <button class="wb-icon-btn" id="wb-redo" type="button" title="Redo (Ctrl+Shift+Z)" disabled></button>
+            </div>
+        </div>
 
-			.blog.main:hover{
-				background-color: #c7721c !important;
-				border: 1px solid #c7721c !important;
-				color: white !important;
-			}
+        <div class="wb-topbar-right">
+            <div id="wb-save-state">
+                <span class="wb-save-icon"></span>
+                <span class="wb-save-text">Saved</span>
+            </div>
+            <button class="wb-btn" id="wb-preview-btn" type="button">
+                <span id="wb-preview-icon"></span><span>Preview</span>
+            </button>
+            <button class="wb-btn wb-btn-primary" id="wb-publish-btn" type="button">
+                <span id="wb-publish-icon"></span><span>Publish</span>
+            </button>
+            <button class="wb-icon-btn" id="wb-more-btn" type="button" title="More"></button>
+        </div>
+    </header>
 
-			.blog.green{
-				background-color: #47d191;
-				border: 1px solid #47d191;
-				color: white;
-			}
+    <!-- ─────────────────────────  Main  ───────────────────────── -->
+    <main id="wb-main">
 
-			.blog.green:hover{
-				background-color: #38a170 !important;
-				border: 1px solid #38a170 !important;
-				color: white !important;
-			}
+        <!-- icon rail -->
+        <nav id="wb-rail">
+            <button class="wb-rail-btn wb-rail-primary active" data-panel="add" type="button">
+                <span class="wb-rail-icon" data-icon="plus-circle"></span><span>Add</span>
+            </button>
+            <button class="wb-rail-btn" data-panel="pages" type="button">
+                <span class="wb-rail-icon" data-icon="pages"></span><span>Pages</span>
+            </button>
+            <button class="wb-rail-btn" data-panel="layers" type="button">
+                <span class="wb-rail-icon" data-icon="layers"></span><span>Layers</span>
+            </button>
+            <button class="wb-rail-btn" data-panel="design" type="button">
+                <span class="wb-rail-icon" data-icon="brush"></span><span>Design</span>
+            </button>
+            <button class="wb-rail-btn" data-panel="settings" type="button">
+                <span class="wb-rail-icon" data-icon="gear"></span><span>Settings</span>
+            </button>
+            <div class="wb-rail-spacer"></div>
+            <button class="wb-rail-btn" data-panel="help" type="button">
+                <span class="wb-rail-icon" data-icon="help"></span><span>Help</span>
+            </button>
+        </nav>
 
-			.blog.red{
-				background-color: #c4413d;
-				border: 1px solid #c4413d;
-				color: white;
-			}
+        <!-- left dock -->
+        <aside id="wb-leftdock">
 
-			.blog.red:hover{
-				background-color: #8c302d !important;
-				border: 1px solid #8c302d !important;
-				color: white !important;
-			}
+            <section class="wb-panel active" id="wb-panel-add">
+                <div class="wb-panel-hd">
+                    <h2 class="wb-panel-title">Add Elements<span class="wb-panel-tools"></span></h2>
+                </div>
+                <div class="wb-panel-bd"></div>
+            </section>
 
-            .topPad{
-                margin-top: 4px;
-            }
+            <section class="wb-panel" id="wb-panel-pages">
+                <div class="wb-panel-hd">
+                    <h2 class="wb-panel-title">Pages<span class="wb-panel-tools"></span></h2>
+                </div>
+                <div class="wb-panel-bd"></div>
+                <div class="wb-subpanel"></div>
+            </section>
 
-			#editorFrame{
-				width: 100%;
-				border: 0px solid transparent;
-				height: calc(100% - 10px);
-			}
-		</style>
-	</head>
-	<body>
-		<div class="ui compact mini top attached menu">
-			<div class="item" style="font-weight: bold;">
-				Web Builder
-			</div>
-			<div class="item" id="currentTitle">
-				(Default Title)
-			</div>
-			<a class="item" onclick="setTitle();">
-			  Change Title
-			</a>
-			<!-- 
-			<a class="item">
-			  Select Template
-			</a>
-			-->
-			<a class="item" onclick="forceSavePost();">
-				Save
-			</a>
-		  </div>
-		<iframe id="editorFrame" src="framedEditor.html"></iframe>
-		<script>
-			var editingFile = "";
-			var inputFiles = ao_module_loadInputFiles();
-			var editorWindow = $("#editorFrame")[0].contentWindow;
-			var currentWebDeployRoot = "";
-			var savePendingContents = "";
-			var currentTitle = "";
-			var currentTemplate = "";
-			
-			if (inputFiles != null && inputFiles.length > 0){
-				//Edit  mode
-				inputFiles = inputFiles[0];
-				ao_module_setWindowTitle(inputFiles.filename + " - Web Builder");
-			}else{
-				//New post mode
-				ao_module_setWindowTitle("untitled.html " + "- Web Builder")
-			}
+            <section class="wb-panel" id="wb-panel-layers">
+                <div class="wb-panel-hd">
+                    <h2 class="wb-panel-title">Layers<span class="wb-panel-tools"></span></h2>
+                </div>
+                <div class="wb-panel-bd"></div>
+                <div class="wb-subpanel"></div>
+            </section>
 
-			getWebRoot();
+            <section class="wb-panel" id="wb-panel-design">
+                <div class="wb-panel-hd">
+                    <h2 class="wb-panel-title">Design<span class="wb-panel-tools"></span></h2>
+                </div>
+                <div class="wb-panel-bd"></div>
+            </section>
 
-			function newEditor(){
-				editorWindow.initEditor();
-			}
+            <section class="wb-panel" id="wb-panel-settings">
+                <div class="wb-panel-hd">
+                    <h2 class="wb-panel-title">Settings<span class="wb-panel-tools"></span></h2>
+                </div>
+                <div class="wb-panel-bd"></div>
+            </section>
 
-			function setTitle(){
-				var newtitle = prompt("Webpage Title", currentTitle);
-				if (newtitle != null){
-					updateTitle(newtitle);
-				}
-			}
+            <section class="wb-panel" id="wb-panel-help">
+                <div class="wb-panel-hd">
+                    <h2 class="wb-panel-title">Help<span class="wb-panel-tools"></span></h2>
+                </div>
+                <div class="wb-panel-bd"></div>
+            </section>
 
-			function updateTitle(newtitle){
-				$("#currentTitle").text(newtitle);
-				currentTitle = newtitle;
-			}
+        </aside>
 
-			function handleWindowResize(){
-				$(editorWindow.document).find("#suneditor_maineditor").css("width", "100%");
-				var heightOverride = window.innerHeight - 45;
-				$(editorWindow.document).find("#suneditor_maineditor").css("height",  + "px");
-				$(editorWindow.document).find(".se-wrapper").css("height", heightOverride - 100 + "px");
-				$(editorWindow.document).find(".se-wrapper-inner").css("height", heightOverride - 100 + "px");
+        <!-- canvas -->
+        <section id="wb-stage">
+            <div id="wb-stage-inner">
+                <div id="wb-frame-holder">
+                    <div id="wb-frame-wrap" style="width:1280px">
+                        <div id="wb-frame-shell" class="device-base">
+                            <iframe id="wb-canvas-frame" title="Page canvas"></iframe>
+                        </div>
+                    </div>
 
-				$("#editorFrame").css("height", heightOverride + "px");
-			}
+                    <div id="wb-overlay">
+                        <div id="wb-hover-box"></div>
+                        <div id="wb-hover-badge"></div>
+                        <div id="wb-drop-zone"></div>
+                        <div id="wb-drop-line"></div>
+                        <div id="wb-size-tip"></div>
 
-			
-			$(window).on("resize", function(){
-				handleWindowResize();
-			});
+                        <div id="wb-select-box">
+                            <div class="wb-badge" id="wb-badge">
+                                <span class="wb-badge-label">Section</span>
+                                <button class="wb-badge-btn edit" type="button" title="Edit"></button>
+                                <button class="wb-badge-btn drag" type="button" title="Drag to move"></button>
+                                <button class="wb-badge-btn remove" type="button" title="Delete"></button>
+                            </div>
+                            <div class="wb-handle" data-dir="nw"></div>
+                            <div class="wb-handle" data-dir="n"></div>
+                            <div class="wb-handle" data-dir="ne"></div>
+                            <div class="wb-handle" data-dir="w"></div>
+                            <div class="wb-handle" data-dir="e"></div>
+                            <div class="wb-handle" data-dir="sw"></div>
+                            <div class="wb-handle" data-dir="s"></div>
+                            <div class="wb-handle" data-dir="se"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-			function handleSavefile(content){
-				savePost(content);
-				return false;
-			}
+        <!-- inspector -->
+        <aside id="wb-inspector">
+            <div id="wb-insp-path"></div>
 
-			function forceSavePost(){
-				var editorContent = editorWindow.getContent();
-				savePost(editorContent);
-				console.log("Saved");
-			}
+            <div id="wb-insp-head">
+                <div id="wb-insp-title">
+                    <div id="wb-insp-name">Heading</div>
+                    <div id="wb-insp-id">#heading-1</div>
+                </div>
+                <div id="wb-insp-actions"></div>
+            </div>
 
-			function saveFileSelected(filedata){
-				for (var i=0; i < filedata.length; i++){
-					var filename = filedata[i].filename;
-					var filepath = filedata[i].filepath;
-					editingFile = filepath;
-					ao_module_setWindowTitle(filename + " - Web Builder")
-				}
+            <div id="wb-insp-tabs">
+                <button class="wb-tab active" data-tab="content" type="button">Content</button>
+                <button class="wb-tab" data-tab="design" type="button">Design</button>
+                <button class="wb-tab" data-tab="advanced" type="button">Advanced</button>
+            </div>
 
-				//savePost again
-				var contentToSave = savePendingContents;
-				savePendingContents = "";
-				savePost(contentToSave);
-			}
+            <div id="wb-bp-hint"></div>
 
-			function savePost(postContent){
-				if (editingFile == ""){
-					savePendingContents = postContent;
-					ao_module_openFileSelector(saveFileSelected, currentWebDeployRoot || "user:/Desktop", "new",false, {
-						defaultName: "untitled.html"
-					});
-					return false;
-				}else{
-					//Create post
-					ao_module_agirun("Web Builder/backend/save.js", {
-						filepath: editingFile,
-						content: postContent,
-						title: currentTitle,
-					}, function(data){
-						if (data.error !== undefined){
-							alert(data.error);
-						}else{
-							
-							
-						}
-					});
-				}
-			}
+            <div id="wb-insp-body"></div>
 
-			function getWebRoot(callback = undefined){
-				$.get("../system/network/www/webRoot", function(data){
-					if (data == null || data == "" || data == undefined){
-						callback("");
-						return;
-					}
-					currentWebDeployRoot = data;
-					if (callback != undefined){
-						callback(data);
-					}
-					
-				});
-			}
-		</script>
-	</body>
+            <div id="wb-insp-empty">
+                <div class="wb-empty-icon" data-icon="box"></div>
+                <h4>Nothing selected</h4>
+                <p>Click an element on the canvas, or pick one from the Layers panel, to edit its content and style here.</p>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- ─────────────────────────  Status bar  ───────────────────────── -->
+    <footer id="wb-statusbar">
+        <div id="wb-breadcrumb"></div>
+
+        <div class="wb-status-center">
+            <div class="wb-status-mini">
+                <button class="wb-device-btn active" data-device="base" type="button" title="Desktop"></button>
+                <button class="wb-device-btn" data-device="mobile" type="button" title="Mobile"></button>
+            </div>
+            <div class="wb-zoom">
+                <button class="wb-zoom-btn" id="wb-zoom-out" type="button" title="Zoom out"></button>
+                <button id="wb-zoom-label" type="button" title="Reset zoom to 100%">100%</button>
+                <button class="wb-zoom-btn" id="wb-zoom-in" type="button" title="Zoom in"></button>
+            </div>
+        </div>
+
+        <div class="wb-status-right">
+            <span id="wb-status-saved">Not saved yet</span>
+            <span id="wb-status-dot"></span>
+        </div>
+    </footer>
+</div>
+
+<!-- floating text toolbar -->
+<div id="wb-text-toolbar">
+    <span class="wb-tt-label">Edit Text</span>
+    <button class="wb-tt-btn" data-tt="edit" type="button" title="Edit on canvas"></button>
+    <span class="wb-tt-sep"></span>
+    <button class="wb-tt-btn" data-tt="align-left" type="button" title="Align left"></button>
+    <button class="wb-tt-btn" data-tt="align-center" type="button" title="Align center"></button>
+    <button class="wb-tt-btn" data-tt="align-right" type="button" title="Align right"></button>
+    <span class="wb-tt-sep"></span>
+    <button class="wb-tt-btn" data-tt="bold" type="button" title="Bold"></button>
+    <button class="wb-tt-btn" data-tt="italic" type="button" title="Italic"></button>
+    <button class="wb-tt-btn" data-tt="link" type="button" title="Insert link"></button>
+    <span class="wb-tt-sep"></span>
+    <button class="wb-tt-btn" data-tt="more" type="button" title="More"></button>
+</div>
+
+<!-- preview mode bar -->
+<div id="wb-preview-bar" class="wb-hidden">
+    <span id="wb-preview-bar-label">Preview mode</span>
+    <button class="wb-btn wb-btn-sm" id="wb-exit-preview" type="button">Exit preview</button>
+</div>
+
+<div id="wb-modal-layer"></div>
+<div id="wb-toast-layer"></div>
+<div id="wb-busy"><div class="wb-spinner"></div><span>Working...</span></div>
+
+<script src="js/icons.js"></script>
+<script src="js/schema.js"></script>
+<script src="js/model.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/colorpicker.js"></script>
+
+<!-- Starter templates: kit and preset first, then one file per template -->
+<script src="templates/kit.js"></script>
+<script src="templates/registry.js"></script>
+<script src="templates/preset.js"></script>
+<script src="templates/t-ember.js"></script>
+<script src="templates/t-aurora.js"></script>
+<script src="templates/t-noir.js"></script>
+<script src="templates/t-slate.js"></script>
+<script src="templates/t-verdant.js"></script>
+<script src="templates/t-cobalt.js"></script>
+<script src="templates/t-bloom.js"></script>
+<script src="templates/t-lumen.js"></script>
+<script src="templates/t-circuit.js"></script>
+<script src="templates/t-quartz.js"></script>
+<script src="templates/t-pulse.js"></script>
+<script src="templates/t-archive.js"></script>
+
+<script src="js/canvas.js"></script>
+<script src="js/gallery.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/layers.js"></script>
+<script src="js/inspector.js"></script>
+<script src="js/design.js"></script>
+<script src="js/fileio.js"></script>
+<script src="js/formgen.js"></script>
+<script src="js/publish.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/app.js"></script>
+<script>
+    /* Fill every static chrome icon from the SVG registry (house rule: no emoji). */
+    (function () {
+        var map = {
+            "wb-project-caret": ["caret-down", 13],
+            "wb-undo": ["undo", 16],
+            "wb-redo": ["redo", 16],
+            "wb-preview-icon": ["play-circle", 15],
+            "wb-publish-icon": ["publish", 15],
+            "wb-more-btn": ["more-v", 17],
+            "wb-zoom-out": ["minus", 13],
+            "wb-zoom-in": ["plus", 13]
+        };
+        for (var id in map) {
+            var el = document.getElementById(id);
+            if (el) { el.innerHTML = WBIcon(map[id][0], map[id][1]); }
+        }
+        document.querySelectorAll("[data-device]").forEach(function (b) {
+            var d = b.getAttribute("data-device");
+            b.innerHTML = WBIcon(d === "base" ? "desktop" : d, 16);
+        });
+        document.querySelectorAll("[data-icon]").forEach(function (b) {
+            b.innerHTML = WBIcon(b.getAttribute("data-icon"), b.classList.contains("wb-rail-icon") ? 19 : 20);
+        });
+        document.querySelectorAll("#wb-text-toolbar [data-tt]").forEach(function (b) {
+            var m = {
+                edit: "pencil", "align-left": "align-left", "align-center": "align-center",
+                "align-right": "align-right", bold: "bold", italic: "italic",
+                link: "link", more: "more-h"
+            };
+            b.innerHTML = WBIcon(m[b.getAttribute("data-tt")], 15);
+        });
+        var badge = document.getElementById("wb-badge");
+        badge.querySelector(".edit").innerHTML = WBIcon("pencil", 11);
+        badge.querySelector(".drag").innerHTML = WBIcon("grip", 11);
+        badge.querySelector(".remove").innerHTML = WBIcon("close", 11);
+    })();
+</script>
+</body>
 </html>

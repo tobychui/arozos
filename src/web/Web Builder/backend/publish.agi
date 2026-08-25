@@ -1,0 +1,97 @@
+/*
+    publish.agi
+
+    Write a generated static site into a target folder, creating the folder (and
+    any subfolders the file list needs) first. Used both by Publish, which
+    targets a subfolder of the user's Personal Site web root, and by
+    Export To Folder.
+
+    Media files are NOT handled here - filelib does text I/O only, so binaries
+    are copied by the front end through /system/file_system/fileOpr.
+
+    POST parameters:
+        target   virtual path of the destination folder
+        files    JSON array of { path, content }, path relative to target
+
+    Responds with { "ok": true, "written": n } or an error.
+*/
+
+requirelib("filelib");
+
+function dirOf(p) {
+    var i = p.lastIndexOf("/");
+    if (i <= 0) { return ""; }
+    return p.substring(0, i);
+}
+
+function joinPath(a, b) {
+    if (a.charAt(a.length - 1) == "/") { a = a.substring(0, a.length - 1); }
+    if (b.charAt(0) == "/") { b = b.substring(1); }
+    return a + "/" + b;
+}
+
+function main() {
+    if (typeof (target) == "undefined" || target == "") {
+        sendJSONResp(JSON.stringify({ error: "Missing target folder" }));
+        return;
+    }
+
+    var list = [];
+    if (typeof (files) != "undefined" && files != "") {
+        try {
+            list = JSON.parse(files);
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "Could not parse the file list" }));
+            return;
+        }
+    }
+
+    if (!filelib.fileExists(target)) {
+        filelib.mkdir(target);
+        if (!filelib.fileExists(target)) {
+            sendJSONResp(JSON.stringify({ error: "Could not create " + target }));
+            return;
+        }
+    } else if (!filelib.isDir(target)) {
+        sendJSONResp(JSON.stringify({ error: "The publish target is a file, not a folder" }));
+        return;
+    }
+
+    var written = 0;
+    var failed = [];
+
+    for (var i = 0; i < list.length; i++) {
+        var rel = String(list[i].path || "");
+        if (rel == "" || rel.indexOf("..") >= 0) {
+            failed.push(rel);
+            continue;
+        }
+
+        var sub = dirOf(rel);
+        if (sub != "") {
+            var subdir = joinPath(target, sub);
+            if (!filelib.fileExists(subdir)) {
+                filelib.mkdir(subdir);
+            }
+        }
+
+        var dest = joinPath(target, rel);
+        var ok = filelib.writeFile(dest, String(list[i].content || ""));
+        if (ok === false) {
+            failed.push(rel);
+        } else {
+            written++;
+        }
+    }
+
+    if (failed.length > 0) {
+        sendJSONResp(JSON.stringify({
+            error: "Could not write " + failed.length + " file(s): " + failed.join(", ")
+        }));
+        return;
+    }
+
+    sendJSONResp(JSON.stringify({ ok: true, written: written, target: target }));
+}
+
+main();

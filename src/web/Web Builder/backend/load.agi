@@ -1,0 +1,40 @@
+/*
+    load.agi
+
+    Read a project (.wbsite) or HTML file from the user's file system and hand
+    it back to the builder front end.
+
+    POST parameters:
+        filepath   virtual path of the file to read
+
+    Responds with { "content": "..." } or an error.
+*/
+
+requirelib("filelib");
+
+function main() {
+    if (typeof (filepath) == "undefined" || filepath == "") {
+        sendJSONResp(JSON.stringify({ error: "Missing filepath" }));
+        return;
+    }
+
+    if (!filelib.fileExists(filepath)) {
+        sendJSONResp(JSON.stringify({ error: "File not found: " + filepath }));
+        return;
+    }
+
+    if (filelib.isDir(filepath)) {
+        sendJSONResp(JSON.stringify({ error: "That is a folder, not a site project" }));
+        return;
+    }
+
+    var content = filelib.readFile(filepath);
+    if (content === undefined || content === null) {
+        sendJSONResp(JSON.stringify({ error: "Could not read " + filepath }));
+        return;
+    }
+
+    sendJSONResp(JSON.stringify({ content: content }));
+}
+
+main();
