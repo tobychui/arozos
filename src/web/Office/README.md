@@ -74,8 +74,10 @@ Go structs are the source of truth — they mirror the JS exactly:
   documents written before the setting existed keep their behaviour.
 - **Sheets** (`spreadsheet`): [`xlsx.go`](../../mod/office/xlsx.go) —
   `{sheets[{name, cells{"A1":{v,s,n}}, colW, rowH, merges, freeze,
-  charts, filter}], active}`. Cell `v` is the raw input (`=`-prefix =
+  charts, filter, cf}], active}`. Cell `v` is the raw input (`=`-prefix =
   formula, evaluated client-side in [`sheets/formula.js`](sheets/formula.js)).
+  `cf` is the sheet's conditional-format rules (below) — client-side only,
+  so the Go structs do not model it.
 - **Slides** (`presentation`): [`office.go`](../../mod/office/office.go) —
   `{size:[960,540], theme, slides[{id, bg, notes, objects[{type, x, y, w,
   h, rot, z, props}]}]}`. Object types: `text`, `image`, `shape`, `line`,
@@ -112,6 +114,73 @@ body before posting:
 - **Emoji in Docs PDF** → client rasterizes each emoji to a small PNG
   (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
   Latin-1 and have no emoji glyphs.
+
+### Sheets formula engine
+
+[`sheets/formula.js`](sheets/formula.js) is a DOM-free tokenizer, parser and
+evaluator that also runs under Node, so it is unit-tested directly:
+
+```bash
+node web/Office/sheets/test_formula.js    # exits 1 on failure
+```
+
+Functions: `IF IFS IFERROR IFNA AND OR NOT` · `VLOOKUP HLOOKUP` ·
+`SUM AVERAGE MIN MAX COUNT COUNTA` · `ROUND ABS INT` ·
+`CONCAT LEN UPPER LOWER TRIM` · `TODAY NOW`.
+
+Two deliberate departures from Excel, both matching Sheets:
+
+- **`IF`'s `value_if_false` is optional and blank when omitted.** Excel
+  answers `FALSE`, which put a stray "FALSE" in the cell for the very common
+  `=IF(A2="foo","A2 is foo")` shape.
+- **Text comparison is case-insensitive** everywhere, so `="Google"="google"`
+  is true and `VLOOKUP("oRaNgE", ...)` finds `Orange`.
+
+`VLOOKUP`/`HLOOKUP` default to the approximate ("is_sorted") mode. Excel and
+Sheets binary-search there, which returns arbitrary answers on unsorted data;
+this scans and keeps the best match at or below the key instead — identical
+on sorted data, merely imperfect rather than arbitrary on unsorted. `FALSE`
+means exact match, and a miss is `#N/A` so `IFERROR`/`IFNA` can catch it.
+
+Not implemented: `COUNTIF`/`SUMIF`/`AVERAGEIF`, `INDEX`/`MATCH`, and
+cross-sheet references. Add new functions to the `call()` switch in
+`formula.js` and pin them with a case in `test_formula.js`.
+
+### Sheets conditional formatting
+
+[`sheets/sheets_cf.js`](sheets/sheets_cf.js) (`SheetsCF`) keeps a list of
+rules per sheet in `cf` and re-evaluates them every time the grid paints.
+Rule kinds: empty/not-empty, the text tests (contains, starts/ends with, is
+exactly), numeric comparisons incl. between, date before/after/on, and a
+**custom formula**.
+
+Two things make range rules work without a separate rule kind:
+
+- A **custom formula** is parsed once and evaluated per cell, with relative
+  references shifted from the range's top-left anchor and `$`-anchored ones
+  left alone — so `=SUM($B1:$D1)>$E1` tests each row against its own total,
+  and `=SUM($B$1:$D$4)>200` tests one aggregate for the whole block.
+- An **operand** may itself be a formula, evaluated once per rule rather
+  than per cell, so "is greater than `=AVERAGE($F$2:$F$99)`" costs no more
+  than a plain number.
+
+Formulas are compiled once per distinct source and their reference nodes are
+rewritten in place before each evaluation (`compile` / `evalAt`); re-parsing
+per cell was far too slow for a repainting grid.
+
+Rules are first-match-wins **per property**, like Google Sheets: the topmost
+rule that sets a background owns the background, and a later rule can still
+contribute a text colour the first left alone. `styleAt()` stays the cell's
+own style (what the toolbar edits and what is saved) while `effStyleAt()`
+layers the matching rule on top — paint and the PDF print model read the
+second, everything that edits formatting reads the first, so a rule is never
+mistaken for something the user applied by hand.
+
+Rules ride in the document body, so they persist in `.xlsa` and reach PDF
+export through the print model. **They are dropped on `.xlsx` / `.ods`
+export** — those writers would need real DXF / style-map records. If that
+matters, the alternative is baking the resolved colours into the exported
+cells' own styles at export time.
 
 ### Saving back into a foreign format
 

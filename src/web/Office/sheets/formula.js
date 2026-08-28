@@ -22,7 +22,20 @@
         dateToSerial(date) / serialToDate(n)     Excel-style 1900 date serials
 
     Values: number | string | boolean | null (empty) | FErr.
-    Errors: #DIV/0! #NAME? #REF! #VALUE! #CYCLE! (plus #NUM!).
+    Errors: #DIV/0! #NAME? #REF! #VALUE! #CYCLE! #NUM! #N/A.
+
+    Functions:
+        logical    IF IFS IFERROR IFNA AND OR NOT
+        lookup     VLOOKUP HLOOKUP
+        aggregate  SUM AVERAGE MIN MAX COUNT COUNTA
+        math       ROUND ABS INT
+        text       CONCAT (=CONCATENATE) LEN UPPER LOWER TRIM
+        date       TODAY NOW
+
+    IF / IFS / IFERROR evaluate only the branch they return, so
+    IF(A1=0,"",1/A1) never divides by zero. IF's value_if_false is optional
+    and blank when omitted (the Sheets rule - Excel answers FALSE there).
+    Text comparison is case-insensitive throughout, again matching Sheets.
 */
 var SheetFormula = (function () {
     "use strict";
@@ -33,7 +46,8 @@ var SheetFormula = (function () {
         REF: "#REF!",
         VALUE: "#VALUE!",
         CYCLE: "#CYCLE!",
-        NUM: "#NUM!"
+        NUM: "#NUM!",
+        NA: "#N/A"          // lookup found nothing (VLOOKUP / MATCH / IFS)
     };
     var ERR_LITERALS = ["#DIV/0!", "#NAME?", "#REF!", "#VALUE!", "#CYCLE!", "#NUM!", "#N/A", "#NULL!"];
 
@@ -417,6 +431,14 @@ var SheetFormula = (function () {
             return new FErr(ERR.VALUE, "Bad comparison");
         }
 
+        // normalized bounds of a range node, for functions that index into a
+        // range in two dimensions (lookups) rather than just sweeping it
+        function rangeBox(node) {
+            return {
+                c1: Math.min(node.a.col, node.b.col), c2: Math.max(node.a.col, node.b.col),
+                r1: Math.min(node.a.row, node.b.row), r2: Math.max(node.a.row, node.b.row)
+            };
+        }
         function eachRangeCell(node, fn) {
             var c1 = Math.min(node.a.col, node.b.col), c2 = Math.max(node.a.col, node.b.col);
             var r1 = Math.min(node.a.row, node.b.row), r2 = Math.max(node.a.row, node.b.row);
@@ -477,6 +499,72 @@ var SheetFormula = (function () {
             return toStr(ev(args[idx]));
         }
 
+        /*
+            VLOOKUP(search_key, range, index, [is_sorted]) and its transposed
+            twin HLOOKUP. `index` is 1-based *within the range*, so column 1
+            is the range's own first column, not the sheet's.
+
+            is_sorted defaults to TRUE, meaning "closest match at or below the
+            key". Excel and Sheets binary-search for that, which silently
+            returns nonsense when the data is not actually sorted; this scans
+            instead and keeps the best match at or below the key. On sorted
+            data - the only case those two define - the answer is identical,
+            and on unsorted data this one is merely imperfect rather than
+            arbitrary. FALSE means exact match only.
+        */
+        function lookup(name, args) {
+            if (args.length < 3 || args.length > 4) {
+                return new FErr(ERR.VALUE, name + " expects 3 or 4 arguments");
+            }
+            var keyv = ev(args[0]);
+            if (isErr(keyv)) return keyv;
+            if (args[1].t !== "range") {
+                return new FErr(ERR.VALUE, name + " needs a range to search, e.g. B2:D9");
+            }
+            var box = rangeBox(args[1]);
+            var idx = oneNum(args, 2);
+            if (isErr(idx)) return idx;
+            idx = Math.trunc(idx);
+            var vertical = name === "VLOOKUP";
+            var depth = vertical ? box.c2 - box.c1 + 1 : box.r2 - box.r1 + 1;
+            if (idx < 1) return new FErr(ERR.VALUE, name + " index must be 1 or more");
+            if (idx > depth) {
+                return new FErr(ERR.REF, name + " index " + idx + " is past the end of the range");
+            }
+            var sorted = true;
+            if (args.length > 3 && args[3].t !== "empty") {
+                var sv = boolify(ev(args[3]));
+                if (isErr(sv)) return sv;
+                sorted = sv;
+            }
+            var span = vertical ? box.r2 - box.r1 + 1 : box.c2 - box.c1 + 1;
+            if (span * depth > MAX_RANGE_CELLS) {
+                return new FErr(ERR.VALUE, "Range too large");
+            }
+            var keyAt = vertical ?
+                function (i) { return ctx.cell(box.c1, box.r1 + i); } :
+                function (i) { return ctx.cell(box.c1 + i, box.r1); };
+            var resultAt = vertical ?
+                function (i) { return ctx.cell(box.c1 + idx - 1, box.r1 + i); } :
+                function (i) { return ctx.cell(box.c1 + i, box.r1 + idx - 1); };
+
+            var best = -1, bestVal = null, i, cv, cmp;
+            for (i = 0; i < span; i++) {
+                cv = keyAt(i);
+                if (isErr(cv) || cv === null || cv === undefined) continue;
+                if (compare("=", keyv, cv) === true) return resultAt(i);
+                if (!sorted) continue;
+                // approximate: remember the largest entry still <= the key
+                if (compare("<=", cv, keyv) !== true) continue;
+                if (best < 0 || compare(">", cv, bestVal) === true) {
+                    best = i;
+                    bestVal = cv;
+                }
+            }
+            if (best >= 0) return resultAt(best);
+            return new FErr(ERR.NA, name + " found no match for " + toStr(keyv));
+        }
+
         function call(n) {
             var name = n.name === "CONCATENATE" ? "CONCAT" : n.name;
             var args = n.args;
@@ -488,9 +576,78 @@ var SheetFormula = (function () {
                     }
                     var cond = boolify(ev(args[0]));
                     if (isErr(cond)) return cond;
+                    // only the taken branch is evaluated, so
+                    // IF(A1=0,"",1/A1) never divides by zero
                     if (cond) return ev(args[1]);
-                    return args.length > 2 ? ev(args[2]) : false;
+                    // value_if_false is optional and blank by default (the
+                    // Sheets rule); Excel would answer FALSE here
+                    return args.length > 2 ? ev(args[2]) : null;
                 }
+                case "IFERROR":
+                case "IFNA": {
+                    if (args.length < 1 || args.length > 2) {
+                        return new FErr(ERR.VALUE, name + " expects 1 or 2 arguments");
+                    }
+                    var tryv;
+                    try { tryv = ev(args[0]); }
+                    catch (e) { tryv = isErr(e) ? e : new FErr(ERR.VALUE, "Formula error"); }
+                    var caught = name === "IFNA" ?
+                        (isErr(tryv) && tryv.code === ERR.NA) : isErr(tryv);
+                    if (!caught) return tryv;
+                    return args.length > 1 ? ev(args[1]) : null;
+                }
+                case "IFS": {
+                    // condition / value pairs, first true one wins
+                    if (args.length < 2 || args.length % 2 !== 0) {
+                        return new FErr(ERR.VALUE, "IFS expects condition/value pairs");
+                    }
+                    for (var ifsI = 0; ifsI < args.length; ifsI += 2) {
+                        var ifsC = boolify(ev(args[ifsI]));
+                        if (isErr(ifsC)) return ifsC;
+                        if (ifsC) return ev(args[ifsI + 1]);
+                    }
+                    return new FErr(ERR.NA, "No IFS condition was true");
+                }
+                case "AND":
+                case "OR": {
+                    if (!args.length) return new FErr(ERR.VALUE, name + " needs an argument");
+                    // blanks are skipped, the way a spreadsheet ignores empty
+                    // cells inside a range handed to AND/OR
+                    var seen = 0, acc = name === "AND";
+                    for (var lI = 0; lI < args.length; lI++) {
+                        var vals = [];
+                        if (args[lI].t === "range") {
+                            var lStop = eachRangeCell(args[lI], function (cv) {
+                                if (isErr(cv)) return cv;
+                                vals.push(cv);
+                                return undefined;
+                            });
+                            if (lStop !== undefined) return lStop;
+                        } else {
+                            var lv = ev(args[lI]);
+                            if (isErr(lv)) return lv;
+                            vals.push(lv);
+                        }
+                        for (var vI = 0; vI < vals.length; vI++) {
+                            if (vals[vI] === null || vals[vI] === undefined) continue;
+                            var b = boolify(vals[vI]);
+                            if (isErr(b)) return b;
+                            seen++;
+                            if (name === "AND") acc = acc && b;
+                            else acc = acc || b;
+                        }
+                    }
+                    if (!seen) return new FErr(ERR.VALUE, name + " found no logical values");
+                    return acc;
+                }
+                case "NOT": {
+                    if (args.length !== 1) return new FErr(ERR.VALUE, "NOT expects 1 argument");
+                    var nv = boolify(ev(args[0]));
+                    return isErr(nv) ? nv : !nv;
+                }
+                case "VLOOKUP":
+                case "HLOOKUP":
+                    return lookup(name, args);
                 case "SUM": {
                     st = collect(args);
                     if (st.err) return st.err;

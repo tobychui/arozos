@@ -325,6 +325,63 @@ body.dark {
 }
 .sh-filter-list input[type="checkbox"] { width: auto !important; }
 
+/* ============ conditional formatting dialog ============ */
+.sh-cf-empty {
+    color: var(--of-fg-soft);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+.sh-cf-list { max-height: 46vh; overflow-y: auto; }
+.sh-cf-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+.sh-cf-row:hover { background: var(--of-hover); }
+.sh-cf-swatch, .sh-cf-preview {
+    flex: 0 0 auto;
+    min-width: 46px;
+    padding: 6px 8px;
+    text-align: center;
+    font-size: 13px;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    color: var(--of-fg);
+}
+.sh-cf-info { flex: 1; min-width: 0; }
+.sh-cf-desc {
+    font-size: 13px;
+    color: var(--of-fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sh-cf-range { font-size: 12px; color: var(--of-fg-soft); }
+.sh-cf-del { flex: 0 0 auto; }
+.sh-cf-add { margin-top: 4px; }
+.sh-cf-hint {
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    line-height: 1.45;
+    margin-top: 6px;
+}
+.sh-cf-style { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.sh-cf-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--of-border);
+}
+.sh-cf-actions .of-btn.danger { margin-right: auto; }
+
 /* chart dialog data grid (shared look with slides) */
 .sh-grid-table { border-collapse: collapse; width: 100%; }
 .sh-grid-table td { padding: 1px; }

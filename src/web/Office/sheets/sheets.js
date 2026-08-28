@@ -39,14 +39,25 @@
                          rowField: 0,            // fields are 0-based col
                          colField: 1,            // offsets in range, -1=none
                          valField: 2,
-                         agg: "sum"|"count"|"avg"|"min"|"max" }
+                         agg: "sum"|"count"|"avg"|"min"|"max" },
+                cf: [ { id, range: "A1:F100",    // conditional formatting
+                        type: "gt"|"contains"|   // (sheets_cf.js); evaluated
+                              "formula"|...,     // top-down while painting
+                        v1, v2,                  // operands, as typed
+                        style: { bg, fc, b, i, u } } ]
             }
         ],
         active: 0
     }
 
     Formula engine: formula.js (SheetFormula). Charts/import/export/print:
-    sheets_io.js (SheetsIO). Cross-sheet references are not supported yet.
+    sheets_io.js (SheetsIO). Conditional formatting: sheets_cf.js (SheetsCF).
+    Cross-sheet references are not supported yet.
+
+    Cell styling has two layers: styleAt() is what the cell itself carries
+    (what the toolbar edits and what gets saved), effStyleAt() adds whatever
+    conditional rule currently matches. Paint and export read the second;
+    anything that edits or reports formatting reads the first.
 */
 
 var SheetsApp = (function () {
@@ -93,7 +104,7 @@ var SheetsApp = (function () {
         return {
             name: name, color: null, cols: 26, rows: 200,
             cells: {}, colW: {}, rowH: {}, merges: [],
-            freeze: { r: 0, c: 0 }, filter: null, charts: []
+            freeze: { r: 0, c: 0 }, filter: null, charts: [], cf: []
         };
     }
     function defaultBody() {
@@ -118,6 +129,7 @@ var SheetsApp = (function () {
             s.freeze.c = clamp(parseInt(s.freeze.c, 10) || 0, 0, 10);
             s.filter = s.filter || null;
             s.charts = Array.isArray(s.charts) ? s.charts : [];
+            s.cf = Array.isArray(s.cf) ? s.cf : [];
         });
         b.active = clamp(parseInt(b.active, 10) || 0, 0, b.sheets.length - 1);
         return b;
@@ -135,6 +147,22 @@ var SheetsApp = (function () {
     function styleAt(c, r) {
         var cell = sheet().cells[key(c, r)];
         return (cell && cell.s) ? cell.s : {};
+    }
+    /*
+        What a cell actually looks like: its own style with any matching
+        conditional-format rule layered on top. Painting and PDF export use
+        this; everything that edits or reports the cell's OWN formatting
+        (the toolbar, the Format menu, applyStyle) keeps using styleAt, so a
+        rule never gets mistaken for something the user set by hand.
+    */
+    function effStyleAt(c, r) {
+        var s = styleAt(c, r);
+        var cf = window.SheetsCF ? SheetsCF.styleFor(c, r) : null;
+        if (!cf) return s;
+        var out = {}, k;
+        for (k in s) if (Object.prototype.hasOwnProperty.call(s, k)) out[k] = s[k];
+        for (k in cf) if (Object.prototype.hasOwnProperty.call(cf, k)) out[k] = cf[k];
+        return out;
     }
     function setRaw(c, r, v) {
         var s = sheet(), k = key(c, r);
@@ -405,6 +433,9 @@ var SheetsApp = (function () {
         renderTabs();
         syncFxBar();
         updateStatusStats();
+        // a full render can mean a different sheet or document, so the
+        // toolbar's toggles have to be re-read rather than left as they were
+        syncToolbarFromSel();
     }
     function cellClasses(c, r, s, fmtd, inSel) {
         var cls = "sh-cell";
@@ -435,7 +466,7 @@ var SheetsApp = (function () {
         if (rect.w === 0 || rect.h === 0) return "";
         if (pinX !== null) rect = { x: pinX, y: rect.y, w: rect.w, h: rect.h };
         if (pinY !== null) rect = { x: rect.x, y: pinY, w: rect.w, h: rect.h };
-        var s = styleAt(c, r);
+        var s = effStyleAt(c, r);
         var text, fmtd;
         if ((s.fmt || "general") === "text") {
             text = String(rawAt(c, r) || "");
@@ -967,7 +998,8 @@ var SheetsApp = (function () {
                     rowH.push(h !== undefined ? h : DEF_ROWH);
                     var row = [];
                     for (var cc = ur.c1; cc <= ur.c2; cc++) {
-                        var st = styleAt(cc, r);
+                        // effective style: conditional colours print too
+                        var st = effStyleAt(cc, r);
                         var t, num = false;
                         if ((st.fmt || "general") === "text") {
                             var raw = rawAt(cc, r);
@@ -1475,6 +1507,7 @@ var SheetsApp = (function () {
             if (rg.c1 === rg.c2 && rg.r1 === rg.r2) return null;
             return rangeStr(rg);
         }).filter(function (m) { return !!m; });
+        if (window.SheetsCF) SheetsCF.shiftRanges(axis, index, count);
         setActive(clamp(head.c, 0, s.cols - 1), clamp(head.r, 0, s.rows - 1));
         commit();
     }
@@ -2046,6 +2079,9 @@ var SheetsApp = (function () {
         $tb.append(tbtn("filter", "Create / remove filter on selection", function () {
             if (window.SheetsIO) SheetsIO.toggleFilter();
         }, "shBtnFilter"));
+        $tb.append(tbtn("paint brush", "Conditional formatting", function () {
+            if (window.SheetsCF) SheetsCF.open();
+        }, "shBtnCondFmt"));
     }
     function syncToolbarFromSel() {
         var s = styleAt(anchor.c, anchor.r);
@@ -2053,6 +2089,7 @@ var SheetsApp = (function () {
         $("#shBtnItalic").toggleClass("active", !!s.i);
         $("#shBtnUnderline").toggleClass("active", !!s.u);
         $("#shBtnFilter").toggleClass("active", !!sheet().filter);
+        $("#shBtnCondFmt").toggleClass("active", (sheet().cf || []).length > 0);
         $("#shBtnCurrency").toggleClass("active", s.fmt === "currency");
         $("#shBtnPercent").toggleClass("active", s.fmt === "percent");
     }
@@ -2096,6 +2133,16 @@ var SheetsApp = (function () {
             { label: "Italic", icon: "italic", key: "Ctrl+I", action: function () { toggleStyleFlag("i"); } },
             { label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { toggleStyleFlag("u"); } },
             { label: "Wrap text", checked: function () { return !!styleAt(anchor.c, anchor.r).wrap; }, action: function () { toggleStyleFlag("wrap"); } },
+            { sep: true },
+            {
+                label: "Conditional formatting...", icon: "paint brush",
+                action: function () { if (window.SheetsCF) SheetsCF.open(); }
+            },
+            {
+                label: "Clear conditional formatting", icon: "eraser",
+                enabled: function () { return (sheet().cf || []).length > 0; },
+                action: function () { if (window.SheetsCF) SheetsCF.clearForSelection(); }
+            },
             { sep: true },
             { label: "Merge cells", icon: "compress", action: mergeSelection },
             { label: "Unmerge", icon: "expand", action: unmergeSelection },
@@ -2355,6 +2402,9 @@ var SheetsApp = (function () {
         valueAt: valueAt,
         displayText: displayText,
         rawAt: rawAt,
+        // evaluation context for conditional-format formulas: shares the
+        // active sheet's memoized calculator, so rules cost a lookup
+        calcCtx: function () { return calc.ctx; },
         usedRange: usedRange,
         parseRange: parseRange,
         rangeStr: rangeStr,
