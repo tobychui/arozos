@@ -52,6 +52,28 @@ func transcodeResolutionFromRequest(r *http.Request) transcoder.TranscodeOutputR
 	return transcoder.TranscodeResolution_original
 }
 
+// clientIDFromRequest reads the optional "client" parameter identifying the
+// player. It lets a seek retire the transcode it replaces instead of leaving it
+// running (see transcoder.HLSManager.GetOrCreate); an absent id is not an
+// error, only a less precise answer to "which transcode is this replacing".
+func clientIDFromRequest(r *http.Request) string {
+	clientID, err := utils.GetPara(r, "client")
+	if err != nil {
+		return ""
+	}
+	//Only ever compared for equality, so anything unexpected can simply be
+	//dropped rather than sanitised.
+	if len(clientID) > 64 {
+		return ""
+	}
+	for _, c := range clientID {
+		if !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '-' && c != '_' {
+			return ""
+		}
+	}
+	return clientID
+}
+
 // startTimeFromRequest reads the optional "start" seek offset in seconds.
 func startTimeFromRequest(r *http.Request) float64 {
 	startTimeStr, _ := utils.GetPara(r, "start")
@@ -102,14 +124,18 @@ func (s *Instance) ServeMediaProbe(w http.ResponseWriter, r *http.Request) {
 // ServeHLSPlaylist starts (or joins) an HLS transcode of the requested file and
 // returns its playlist once the first segment is ready.
 func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
+	//Errors here are reported with an HTTP status rather than a JSON body: the
+	//caller is a <video> element or an HLS player, and a 200 carrying JSON is
+	//indistinguishable to it from a playlist it cannot parse - which surfaces to
+	//the viewer as a bare "cannot play this format" with the real reason lost.
 	if s.hlsManager == nil {
-		utils.SendErrorResponse(w, "HLS output is not available on this host")
+		http.Error(w, "HLS output is not available on this host", http.StatusNotImplemented)
 		return
 	}
 
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		utils.SendErrorResponse(w, "User not logged in")
+		http.Error(w, "User not logged in", http.StatusUnauthorized)
 		return
 	}
 
@@ -119,17 +145,22 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := s.hlsManager.GetOrCreate(userinfo.Username, sourceFile,
+	session, err := s.hlsManager.GetOrCreate(userinfo.Username, clientIDFromRequest(r), sourceFile,
 		transcodeResolutionFromRequest(r), startTimeFromRequest(r))
 	if err != nil {
 		s.options.Logger.PrintAndLog("Media Server", "Unable to start HLS session", err)
-		utils.SendErrorResponse(w, "Unable to start HLS transcode")
+		http.Error(w, "Unable to start HLS transcode", http.StatusInternalServerError)
 		return
 	}
 
 	if err := session.WaitForPlaylist(transcoder.HLSPlaylistWaitTimeout); err != nil {
+		//ffmpeg's own last words explain a failed transcode - a seek past the
+		//end of the file, an unreadable stream - and nothing else does.
+		if tail := session.StderrTail(); tail != "" {
+			s.options.Logger.PrintAndLog("Media Server", "HLS transcode output: "+tail, nil)
+		}
 		s.options.Logger.PrintAndLog("Media Server", "HLS session produced no playable segment", err)
-		utils.SendErrorResponse(w, "Transcode did not produce a playable stream")
+		http.Error(w, "Transcode did not produce a playable stream", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -138,7 +169,7 @@ func (s *Instance) ServeHLSPlaylist(w http.ResponseWriter, r *http.Request) {
 	playlist, err := s.hlsManager.ReadPlaylist(session)
 	if err != nil {
 		s.options.Logger.PrintAndLog("Media Server", "Unable to read HLS playlist", err)
-		utils.SendErrorResponse(w, "Unable to read the transcode playlist")
+		http.Error(w, "Unable to read the transcode playlist", http.StatusInternalServerError)
 		return
 	}
 
@@ -204,12 +235,13 @@ func (s *Instance) ServeHLSSegment(w http.ResponseWriter, r *http.Request) {
 // an existing buffer when its hash still matches).
 //
 // It writes the error response itself and returns ok=false when the file cannot
-// be made available.
+// be made available. Like the endpoints it serves, it answers with an HTTP
+// status rather than a JSON body, since the caller is always a media element.
 func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Request) (string, bool) {
 	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
-		utils.SendErrorResponse(w, err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return "", false
 	}
 
@@ -217,7 +249,7 @@ func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Re
 		//Already on the local file system
 		absPath, err := filepath.Abs(realFilepath)
 		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return "", false
 		}
 		return absPath, true
@@ -239,14 +271,14 @@ func (s *Instance) resolveLocalTranscodeSource(w http.ResponseWriter, r *http.Re
 	}
 
 	if !s.options.EnableFileBuffering {
-		utils.SendErrorResponse(w, "unable to transcode remote file with file buffer disabled")
+		http.Error(w, "unable to transcode remote file with file buffer disabled", http.StatusNotImplemented)
 		return "", false
 	}
 
 	os.MkdirAll(buffpool, 0775)
 	s.options.Logger.PrintAndLog("Media Server", "Buffering video from remote file system handler (might take a while)", nil)
 	if err := s.BufferRemoteFileToTmp(buffFile, targetFsh, realFilepath); err != nil {
-		utils.SendErrorResponse(w, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return "", false
 	}
 

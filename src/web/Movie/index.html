@@ -481,6 +481,12 @@ html, body {
     display: flex; align-items: center; justify-content: center;
 }
 .ctrl-btn img { width: 24px; height: 24px; display: block; }
+.ctrl-cc-icon {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+    border: 1.5px solid #fff; border-radius: 4px; line-height: 1;
+}
 .ctrl-btn:hover { opacity: 0.7; }
 .ctrl-btn.focused { background: rgba(10,132,255,0.18); border-radius: 6px; }
 
@@ -1137,8 +1143,38 @@ body.always-show-volume #volume-slider { display: block; }
     box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
     color: var(--text);
     user-select: none;
+    overflow-y: auto;
+    max-height: 320px;
 }
 #settings-popup.active { display: block; }
+#settings-popup::-webkit-scrollbar,
+#subtitle-popup::-webkit-scrollbar { width: 8px; }
+#settings-popup::-webkit-scrollbar-track,
+#subtitle-popup::-webkit-scrollbar-track { background: transparent; }
+#settings-popup::-webkit-scrollbar-thumb,
+#subtitle-popup::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+#settings-popup::-webkit-scrollbar-thumb:hover,
+#subtitle-popup::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* ─── Subtitle popup (dedicated CC button) ───────────────────────────────────── */
+#subtitle-popup {
+    display: none;
+    position: absolute;
+    right: 20px; bottom: 62px;
+    z-index: 35;
+    background: rgba(28,28,30,0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 10px;
+    padding: 4px 0;
+    min-width: 220px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    color: var(--text);
+    user-select: none;
+    overflow-y: auto;
+    max-height: 320px;
+}
+#subtitle-popup.active { display: block; }
 .set-section { padding: 6px 14px 8px; }
 .set-section + .set-section { border-top: 1px solid rgba(255,255,255,0.08); }
 .set-head {
@@ -1227,7 +1263,13 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
     min-width: 200px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
     z-index: 32;
+    overflow-y: auto;
+    max-height: 320px;
 }
+#ctx-subtitle-sub::-webkit-scrollbar { width: 8px; }
+#ctx-subtitle-sub::-webkit-scrollbar-track { background: transparent; }
+#ctx-subtitle-sub::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+#ctx-subtitle-sub::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 /* Subtitle overlay */
 #subtitle-display {
@@ -1788,15 +1830,20 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                     </div>
                 </div>
                 <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
-                    <div class="set-link" id="set-load-subtitle">
-                        <img src="img/icons/movie_white.svg" alt="">Load SRT subtitle…
-                    </div>
-                    <div class="set-link" id="set-subtitle-settings">
-                        <img src="img/icons/settings_white.svg" alt="">Subtitle settings
-                    </div>
                     <div class="set-link" id="set-video-props">
                         <img src="img/icons/menu_white.svg" alt="">Video properties
                     </div>
+                </div>
+            </div>
+
+            <!-- Subtitle popup (dedicated CC button) -->
+            <div id="subtitle-popup">
+                <div class="ctx-item ctx-active" id="sub-pop-disable"><i class="ctx-icon">✓</i>Disable</div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-item" id="sub-pop-load"><i class="ctx-icon">+</i>Load SRT file…</div>
+                <div class="ctx-divider"></div>
+                <div class="set-link" id="sub-pop-settings">
+                    <img src="img/icons/settings_white.svg" alt="">Subtitle settings
                 </div>
             </div>
 
@@ -1822,6 +1869,7 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                     <span id="now-playing-title"></span>
                     <button class="ctrl-btn" id="ctrl-list"   title="Episode list (L)"><img src="img/icons/menu_white.svg" alt=""></button>
                     <button class="ctrl-btn" id="ctrl-cast"   title="Cast to Arozcast" onclick="openCastDialog()"><img src="img/icons/cast_white.svg" alt="" width="18" height="18"></button>
+                    <button class="ctrl-btn" id="ctrl-subtitle" title="Subtitles"><span class="ctrl-cc-icon">CC</span></button>
                     <button class="ctrl-btn" id="ctrl-settings" title="Playback settings (S)"><img src="img/icons/settings_white.svg" alt=""></button>
                     <button class="ctrl-btn" id="ctrl-fs"     title="Fullscreen (F)"><img src="img/icons/fullscreen_white.svg" alt=""></button>
                 </div>
@@ -2549,11 +2597,18 @@ function hideSeekFreeze() {
 // no re-transcode, no black frame. Only a seek past that window (or an MP4
 // stream, which has no seekable history at all) has to restart the transcode at
 // the new offset.
+// Restarting the transcode this close to the end of the file would leave ffmpeg
+// with nothing to encode, and the request comes back with no playable stream at
+// all — so a scrub to the very end lands just short of it instead.
+var TRANSCODE_SEEK_TAIL = 5;
+
 function transcodeSeekTo(seconds) {
     if (playingIndex < 0 || !currentEpisodes[playingIndex]) { return; }
     var vid = document.getElementById('main-video');
     var pos = Math.max(0, seconds);
-    if (transcodeDuration > 0) { pos = Math.min(transcodeDuration, pos); }
+    if (transcodeDuration > 0) {
+        pos = Math.min(Math.max(0, transcodeDuration - TRANSCODE_SEEK_TAIL), pos);
+    }
 
     if (usingHLS() && seekWithinTranscodedWindow(vid, pos)) {
         setSubtitleSeekFloor(pos);
@@ -2565,12 +2620,15 @@ function transcodeSeekTo(seconds) {
     showSeekFreeze();
     setSubtitleSeekFloor(pos);
     transcodeSeekOffset = pos;
-    if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, pos))) {
+    // The freeze frame stays up until the new stream is bound: attaching a
+    // playlist waits on the server to start the transcode, so playback resumes
+    // from the onReady callback rather than immediately.
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, pos),
+            function (reason) { hideSeekFreeze(); showToast(reason); },
+            function () { playVideo(vid); })) {
         hideSeekFreeze();
         showToast('This browser cannot play the HLS stream. Switch streaming mode to MP4 in settings.');
-        return;
     }
-    playVideo(vid);
 }
 
 // Whether `pos` (absolute time) falls inside what the current stream has
@@ -2583,6 +2641,32 @@ function seekWithinTranscodedWindow(vid, pos) {
     // Stay a segment clear of the live edge; seeking right onto it stalls until
     // the next segment lands.
     return relative <= available - 4;
+}
+
+// ─── HLS stream recovery ──────────────────────────────────────────────────────
+// An HLS transcode lives on the server, and it can disappear from under the
+// player: reaped after a long pause, retired when the same player asked for a
+// different offset, or lost with a restart. The next segment then 404s and the
+// element reports a decode error, which leaves a black frame and no way back.
+// Re-open the stream where it stopped instead.
+var streamRecoveryAttempts = 0;
+var STREAM_RECOVERY_LIMIT  = 3;   // consecutive tries before giving up
+
+function recoverTranscodeStream() {
+    if (!isTranscodedVideo || !usingHLS()) { return; }
+    if (playingIndex < 0 || !currentEpisodes[playingIndex]) { return; }
+    // A file that genuinely cannot be transcoded fails every time; retrying it
+    // forever would replace one dead player with a flickering one.
+    if (streamRecoveryAttempts >= STREAM_RECOVERY_LIMIT) { return; }
+    streamRecoveryAttempts++;
+
+    var vid      = document.getElementById('main-video');
+    var resumeAt = effectivePlaybackTime();
+    showSeekFreeze();
+    transcodeSeekOffset = resumeAt;
+    attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, resumeAt),
+        function (reason) { hideSeekFreeze(); showToast(reason); },
+        function () { playVideo(vid); });
 }
 
 // Current playback position in whole-file terms (transcode streams restart at 0)
@@ -2811,6 +2895,7 @@ $(document).ready(function () {
     initSearch();
     initContextMenu();
     initSettingsPopup();
+    initSubtitlePopup();
     initScrubPreview();
     initAssRenderer();
     initSubtitleMenu();
@@ -3495,11 +3580,10 @@ function beginEpisodeStream(ep, index, directPlay) {
         });
         playVideo(vid);
     } else if (!attachTranscodeStream(vid, transcodeStreamURL(ep.filepath, 0),
-                                      function (reason) { showToast(reason); })) {
+                                      function (reason) { showToast(reason); },
+                                      function () { playVideo(vid); })) {
         showToast('This browser cannot play the transcoded stream. Switch streaming mode to MP4 in settings.');
         return;
-    } else {
-        playVideo(vid);
     }
 
     armResumePrompt(ep, index);
@@ -3756,9 +3840,15 @@ function initVideoControls() {
     // Any seek — native or transcode reload — re-bases the subtitle floor
     $(vid).on('seeking', function () { setSubtitleSeekFloor(effectivePlaybackTime()); });
 
-    $(vid).on('playing', hideSeekFreeze);
+    $(vid).on('playing', function () {
+        hideSeekFreeze();
+        streamRecoveryAttempts = 0;   // the stream is healthy again
+    });
     $(vid).on('loadeddata', function () { if (vid.paused) { hideSeekFreeze(); } });
-    $(vid).on('error', hideSeekFreeze);
+    $(vid).on('error', function () {
+        hideSeekFreeze();
+        recoverTranscodeStream();
+    });
 
     // Auto-hide controls
     $('#video-container').on('mousemove touchstart', function () { showControls(); });
@@ -3824,8 +3914,8 @@ function showControls() {
     clearTimeout(controlsTimer);
     controlsTimer = setTimeout(function () {
         var isPlaying = castMode ? castIsPlaying : !document.getElementById('main-video').paused;
-        // Keep the bar up while the settings popup is open — it is anchored to it
-        if (isPlaying && !$('#settings-popup').hasClass('active')) {
+        // Keep the bar up while a popup is open — both are anchored to it
+        if (isPlaying && !$('#settings-popup').hasClass('active') && !$('#subtitle-popup').hasClass('active')) {
             $('#video-controls').addClass('hidden');
         }
     }, 3000);
@@ -3907,6 +3997,7 @@ function initContextMenu() {
         // Always collapse subtitle submenu on fresh open
         $('#ctx-subtitle-sub').hide();
         closeSettingsPopup();
+        closeSubtitlePopup();
 
         // Position menu, clamp inside container
         var rect = this.getBoundingClientRect();
@@ -3993,16 +4084,18 @@ function applyStreamMode(mode, reloadCurrent) {
     warnIfStreamModeUnplayable();
     if (!isTranscodedVideo || playingIndex < 0 || !currentEpisodes[playingIndex]) { return; }
 
-    // Restart the current file on the newly chosen transport, at the same spot
+    // Restart the current file on the newly chosen transport, at the same spot.
+    // Opening it directly at that offset rather than at zero avoids starting a
+    // transcode from the beginning only to abandon it a moment later.
     var resumeAt = effectivePlaybackTime();
-    transcodeSeekOffset = 0;
+    var startAt  = resumeAt > 1 ? resumeAt : 0;
     var vid = document.getElementById('main-video');
-    if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, 0))) {
+    transcodeSeekOffset = startAt;
+    if (!attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, startAt),
+            function (reason) { showToast(reason); },
+            function () { playVideo(vid); })) {
         showToast('This browser cannot play the HLS stream.');
-        return;
     }
-    playVideo(vid);
-    if (resumeAt > 1) { transcodeSeekTo(resumeAt); }
 }
 
 function playerVideoElement() { return document.getElementById('main-video'); }
@@ -4037,13 +4130,28 @@ function nearestPlaybackSpeed(rate) {
     }, PLAYBACK_SPEEDS[0]);
 }
 
+// Cap a bottom-anchored popup's height so it never runs past the top edge of
+// the player (it only ever opens upward) — the popup's own scrollbar takes
+// over for whatever doesn't fit.
+function clampBottomPopupHeight($popup) {
+    var container = document.getElementById('video-container');
+    if (!container) { return; }
+    var margin        = 10;
+    var containerRect = container.getBoundingClientRect();
+    var popupRect     = $popup[0].getBoundingClientRect();
+    var available     = popupRect.bottom - containerRect.top - margin;
+    $popup.css('max-height', Math.max(120, available) + 'px');
+}
+
 function openSettingsPopup() {
     setRepeatSingle(repeatSingle);
     setPlaybackSpeed(playbackSpeed);
     setAlwaysShowVolumeBar(alwaysShowVolumeBar);
     applyStreamMode(getStreamMode(), false);
     $('#player-ctx').hide();
+    closeSubtitlePopup();
     $('#settings-popup').addClass('active');
+    clampBottomPopupHeight($('#settings-popup'));
     showControls();
 }
 
@@ -4052,6 +4160,46 @@ function closeSettingsPopup() { $('#settings-popup').removeClass('active'); }
 function toggleSettingsPopup() {
     if ($('#settings-popup').hasClass('active')) { closeSettingsPopup(); }
     else { openSettingsPopup(); }
+}
+
+// ── Subtitle popup (dedicated CC button) ────────────────────────────────────
+function openSubtitlePopup() {
+    updateSubtitleSubmenu();
+    $('#player-ctx').hide();
+    closeSettingsPopup();
+    $('#subtitle-popup').addClass('active');
+    clampBottomPopupHeight($('#subtitle-popup'));
+    showControls();
+}
+
+function closeSubtitlePopup() { $('#subtitle-popup').removeClass('active'); }
+
+function toggleSubtitlePopup() {
+    if ($('#subtitle-popup').hasClass('active')) { closeSubtitlePopup(); }
+    else { openSubtitlePopup(); }
+}
+
+function initSubtitlePopup() {
+    $('#ctrl-subtitle').on('click', function (e) {
+        e.stopPropagation();
+        toggleSubtitlePopup();
+    });
+
+    $(document).on('mousedown.subpop', function (e) {
+        if (!$(e.target).closest('#subtitle-popup, #ctrl-subtitle').length) {
+            closeSubtitlePopup();
+        }
+    });
+
+    $('#sub-pop-disable').on('click', function () {
+        activeSubtitleIndex = -1;
+        stopAssTrack();
+        $('#subtitle-display').hide();
+        updateSubtitleSubmenu();
+        closeSubtitlePopup();
+    });
+    $('#sub-pop-load').on('click',     function () { closeSubtitlePopup(); pickSubtitleFile(); });
+    $('#sub-pop-settings').on('click', function () { closeSubtitlePopup(); openSubtitleSettings(); });
 }
 
 function initSettingsPopup() {
@@ -4081,9 +4229,7 @@ function initSettingsPopup() {
         applyStreamMode(String($(this).data('stream')), true);
     });
 
-    $('#set-load-subtitle').on('click',     function () { closeSettingsPopup(); pickSubtitleFile(); });
-    $('#set-subtitle-settings').on('click', function () { closeSettingsPopup(); openSubtitleSettings(); });
-    $('#set-video-props').on('click',       function () { closeSettingsPopup(); openVideoInfo('props'); });
+    $('#set-video-props').on('click', function () { closeSettingsPopup(); openVideoInfo('props'); });
 
     // Apply persisted values to the video element
     setRepeatSingle(repeatSingle);
@@ -4254,10 +4400,12 @@ function initKeyboard() {
                     // Escape dismisses an open overlay first; only closes the
                     // player once nothing is layered on top of it.
                     if ($('#settings-popup').hasClass('active') ||
+                        $('#subtitle-popup').hasClass('active') ||
                         $('#player-ctx').is(':visible') ||
                         $('#video-info-modal').is(':visible') ||
                         $('#subtitle-settings-modal').is(':visible')) {
                         closeSettingsPopup();
+                        closeSubtitlePopup();
                         $('#player-ctx').hide();
                         closeVideoInfo();
                         closeSubtitleSettings();
@@ -4877,16 +5025,15 @@ function ensureEmbeddedFontLoaded(family) {
     });
 }
 
-function updateSubtitleSubmenu() {
-    // Remove previously injected dynamic entries
-    $('#ctx-subtitle-sub .ctx-sub-dynamic').remove();
-
+// Builds the track list (Disable / embedded tracks / loaded sidecar files) into
+// one menu, given its "Disable" and "Load" anchor items — shared by the
+// right-click context submenu and the dedicated CC button popup so both stay
+// in sync from a single call to updateSubtitleSubmenu().
+function populateSubtitleTrackList($disable, $load, onSelect) {
+    $disable.siblings('.ctx-sub-dynamic').remove();
     var disabled = (activeSubtitleIndex < 0);
-    $('#ctx-sub-disable')
-        .toggleClass('ctx-active', disabled)
+    $disable.toggleClass('ctx-active', disabled)
         .find('.ctx-icon').text(disabled ? '✓' : '');
-
-    var $load = $('#ctx-sub-load');
 
     // Tracks muxed into the video, listed whether or not they are loaded yet
     if (embeddedSubtitles.length > 0) {
@@ -4904,7 +5051,7 @@ function updateSubtitleSubmenu() {
                 + '</div>')
             .on('click', function () {
                 selectEmbeddedSubtitle(track, position);
-                $('#player-ctx').hide();
+                onSelect();
             })
             .insertBefore($load);
         });
@@ -4927,11 +5074,21 @@ function updateSubtitleSubmenu() {
                 activeSubtitleIndex = parseInt($(this).data('sub-idx'), 10);
                 applyActiveSubtitle();
                 updateSubtitleSubmenu();
-                $('#player-ctx').hide();
+                onSelect();
             })
             .insertBefore($load);
         });
     }
+}
+
+function updateSubtitleSubmenu() {
+    populateSubtitleTrackList($('#ctx-sub-disable'), $('#ctx-sub-load'), function () {
+        $('#player-ctx').hide();
+    });
+    populateSubtitleTrackList($('#sub-pop-disable'), $('#sub-pop-load'), function () {
+        closeSubtitlePopup();
+    });
+    if ($('#subtitle-popup').hasClass('active')) { clampBottomPopupHeight($('#subtitle-popup')); }
 }
 
 function initSubtitleMenu() {
@@ -4956,6 +5113,21 @@ function initSubtitleMenu() {
         } else {
             $sub.css({ left: '100%', right: 'auto' });
         }
+
+        // Clamp vertically so the submenu never runs past the container edge —
+        // flip to open upward when there's more room above than below, and
+        // cap its height to whichever side it opens on (scrollbar handles the rest).
+        var margin        = 10;
+        var containerRect = document.getElementById('video-container').getBoundingClientRect();
+        var parentRect    = this.getBoundingClientRect();
+        var spaceBelow    = containerRect.bottom - parentRect.top - margin;
+        var spaceAbove    = parentRect.bottom - containerRect.top - margin;
+        if (spaceBelow < 160 && spaceAbove > spaceBelow) {
+            $sub.css({ top: 'auto', bottom: 0, maxHeight: Math.max(120, spaceAbove) + 'px' });
+        } else {
+            $sub.css({ top: 0, bottom: 'auto', maxHeight: Math.max(120, spaceBelow) + 'px' });
+        }
+
         $sub.show();
     });
     $parent.on('mouseleave', scheduleSubHide);

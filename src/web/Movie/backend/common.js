@@ -47,6 +47,17 @@ var SCRIPT_CLEAR_INDEX        = BACKEND_PATH + "clearIndex.js";
 // browsers that were already working.
 var STREAM_MODE_KEY = "movie_stream_mode";
 
+// Identifies this player to the HLS endpoint. Seeking outside the transcoded
+// window restarts the transcode at a new offset, and the server has no other
+// way to tell that the previous one is finished with: the MP4 stream dies with
+// its HTTP response, an HLS session does not. Without this every seek leaves
+// another ffmpeg racing through the rest of the film, and after a couple of
+// jumps the host is too busy to produce the segment the player is waiting for.
+//
+// One id per page load, so two tabs never retire each other's transcode.
+// Restricted to characters the server accepts for this parameter.
+var MOVIE_CLIENT_ID = "c" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
 function isWebKitClient() {
     var ua = navigator.userAgent;
     // On iOS every browser is WebKit underneath, whatever it calls itself.
@@ -159,42 +170,112 @@ function clearDirectPlaybackWatch(videoEl) {
 // startSeconds restarts the transcode at an offset; the resulting stream always
 // begins at zero, so callers track the offset separately.
 function transcodeStreamURL(filepath, startSeconds) {
-    var base = usingHLS() ? HLS_API : TRANSCODE_API;
+    var hls  = usingHLS();
+    var base = hls ? HLS_API : TRANSCODE_API;
     var url  = base + "?file=" + encodeURIComponent(filepath);
     if (startSeconds && startSeconds > 0.001) {
         url += "&start=" + startSeconds.toFixed(3);
     }
+    // Only HLS needs it, and the MP4 response is cacheable — a per-load
+    // parameter would defeat that cache for nothing.
+    if (hls) { url += "&client=" + MOVIE_CLIENT_ID; }
     return url;
+}
+
+// Fetch a playlist before handing it to the player.
+//
+// Answering a playlist request means starting (or joining) a transcode and
+// waiting for its first segment, so it can fail long after the player has
+// committed to the URL: a seek past the end of the file, a host too busy to
+// produce a segment in time, a session that has already been reaped. A <video>
+// element cannot tell any of that from a stream it simply cannot decode — it
+// reports NotSupportedError and the reason is lost. Asking first keeps the real
+// message, and hands the player a playlist that is already ready.
+function preflightPlaylist(url, callback) {
+    fetch(url, { credentials: "same-origin", cache: "no-store" })
+        .then(function (response) {
+            return response.text().then(function (body) {
+                if (response.ok && String(body).trim().indexOf("#EXTM3U") === 0) {
+                    callback(true);
+                    return;
+                }
+                callback(false, playlistErrorMessage(body, response.status));
+            });
+        })
+        .catch(function () {
+            callback(false, "Transcode failed: could not reach the server");
+        });
+}
+
+// Turn whatever arrived instead of a playlist into a line worth showing.
+function playlistErrorMessage(body, status) {
+    var text = String(body || "").trim();
+    // Some endpoints still report failure as a 200 carrying a JSON error object
+    if (text.charAt(0) === "{") {
+        try {
+            var parsed = JSON.parse(text);
+            if (parsed && parsed.error) { text = String(parsed.error); }
+        } catch (e) { /* not JSON after all — show it as it came */ }
+    }
+    if (!text) { text = "the transcode did not start (HTTP " + status + ")"; }
+    if (text.length > 120) { text = text.substring(0, 119) + "…"; }
+    return "Transcode failed: " + text;
 }
 
 // Point a <video> at a stream URL. HLS on a browser without native support is
 // routed through hls.js when it is available. Returns false when the stream
 // cannot be played at all, so the caller can say so rather than hang.
-function attachTranscodeStream(videoEl, url, onError) {
+//
+// A playlist is checked before the player is pointed at it, which makes the
+// attachment asynchronous: onReady fires once the stream is actually bound, and
+// is where the caller should call play(). onError reports a stream that never
+// became playable, with the server's own explanation.
+function attachTranscodeStream(videoEl, url, onError, onReady) {
     detachTranscodeStream(videoEl);
 
-    var isPlaylist = url.indexOf(HLS_API) === 0;
-    if (isPlaylist && !nativeHLSSupported(videoEl)) {
-        if (window.Hls && window.Hls.isSupported()) {
+    var ready = function () { if (typeof onReady === "function") { onReady(); } };
+    var fail  = function (reason, err) { if (typeof onError === "function") { onError(reason, err); } };
+
+    if (url.indexOf(HLS_API) !== 0) {
+        videoEl.src = url;
+        videoEl.load();
+        ready();
+        return true;
+    }
+
+    // Choose the player before making a request, so a browser that cannot play
+    // HLS at all is reported without waiting on a transcode it will not use.
+    var bind;
+    if (nativeHLSSupported(videoEl)) {
+        bind = function () { videoEl.src = url; videoEl.load(); ready(); };
+    } else if (window.Hls && window.Hls.isSupported()) {
+        bind = function () {
             var hls = new window.Hls({ enableWorker: true });
             videoEl._hlsInstance = hls;
             hls.loadSource(url);
             hls.attachMedia(videoEl);
-            return true;
-        }
-        if (window.MovieHLS && window.MovieHLS.isSupported()) {
+            ready();
+        };
+    } else if (window.MovieHLS && window.MovieHLS.isSupported()) {
+        bind = function () {
             videoEl._mseInstance = window.MovieHLS.attach(videoEl, url, {
-                onError: function (reason, err) {
-                    if (typeof onError === "function") { onError(reason, err); }
-                }
+                onError: function (reason, err) { fail(reason, err); }
             });
-            return true;
-        }
+            ready();
+        };
+    } else {
         return false;
     }
 
-    videoEl.src = url;
-    videoEl.load();
+    // A seek made while the previous playlist is still being fetched must not
+    // be overtaken by that older answer.
+    var generation = (videoEl._streamGeneration || 0) + 1;
+    videoEl._streamGeneration = generation;
+    preflightPlaylist(url, function (ok, reason) {
+        if (videoEl._streamGeneration !== generation) { return; }
+        if (!ok) { fail(reason); return; }
+        bind();
+    });
     return true;
 }
 
@@ -203,6 +284,8 @@ function attachTranscodeStream(videoEl, url, onError) {
 // segments into an element that has moved on.
 function detachTranscodeStream(videoEl) {
     if (!videoEl) { return; }
+    // Retires any playlist request still in flight for the old stream
+    videoEl._streamGeneration = (videoEl._streamGeneration || 0) + 1;
     if (videoEl._hlsInstance) {
         try { videoEl._hlsInstance.destroy(); } catch (e) {}
         videoEl._hlsInstance = null;

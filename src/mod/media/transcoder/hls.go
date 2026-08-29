@@ -21,6 +21,13 @@ package transcoder
 	transcode proceeds and the player can seek freely within whatever has been
 	produced so far. Seeking past that point is done the same way the MP4 path
 	does it: by starting a new session at a later -ss offset.
+
+	That last part is why a session carries the id of the player that asked for
+	it. The MP4 path kills its ffmpeg as soon as the client drops the response,
+	so a seek never leaves a transcode behind; an HLS session has no such
+	signal, and without one every seek would add another ffmpeg racing through
+	the rest of the film. A new session therefore supersedes the ones the same
+	player left behind (see GetOrCreate).
 */
 
 import (
@@ -56,8 +63,11 @@ const (
 	// serving playlists has to rewrite that URI onto the segment endpoint.
 	HLSInitSegmentName = "init.mp4"
 
-	hlsWorkingDirName  = "hls"
-	hlsIdleTimeout     = 5 * time.Minute
+	hlsWorkingDirName = "hls"
+	// hlsIdleTimeout has to outlast a pause: a paused player stops fetching
+	// segments entirely, and reaping its session under it means the next
+	// segment request 404s and playback dies with an unexplained decode error.
+	hlsIdleTimeout     = 15 * time.Minute
 	hlsMaxSessions     = 8
 	hlsJanitorInterval = 30 * time.Second
 
@@ -71,15 +81,57 @@ const (
 type HLSSession struct {
 	ID        string  // opaque identifier, also the temp directory name
 	Owner     string  // username allowed to fetch this session's segments
+	Client    string  // opaque id of the player that asked for this transcode
+	Source    string  // source file being transcoded
 	Dir       string  // directory holding the playlist and its segments
 	StartTime float64 // -ss offset this session was started at, in seconds
 
 	cmd    *exec.Cmd
+	stderr *tailBuffer   // last few KB of ffmpeg's diagnostics
 	exited chan struct{} // closed once the transcode process has been reaped
 
 	mu         sync.Mutex
 	lastAccess time.Time
 	stopped    bool
+}
+
+// tailBuffer keeps the last hlsStderrTailBytes written to it. ffmpeg reports
+// why a transcode produced nothing on stderr, and that is the only explanation
+// available when a session fails; the whole stream is not worth keeping, but
+// the end of it names the reason.
+type tailBuffer struct {
+	mu   sync.Mutex
+	data []byte
+}
+
+// hlsStderrTailBytes bounds how much of ffmpeg's stderr is retained per
+// session. Enough for the final error plus the surrounding context, small
+// enough that eight idle sessions cost nothing worth measuring.
+const hlsStderrTailBytes = 4096
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.data = append(t.data, p...)
+	if len(t.data) > hlsStderrTailBytes {
+		t.data = t.data[len(t.data)-hlsStderrTailBytes:]
+	}
+	return len(p), nil
+}
+
+func (t *tailBuffer) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return string(t.data)
+}
+
+// StderrTail returns the end of the transcode's diagnostic output, for logging
+// when the session fails to produce anything playable.
+func (s *HLSSession) StderrTail() string {
+	if s.stderr == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.stderr.String())
 }
 
 // touch records activity so the janitor does not reap a session that is still
@@ -367,7 +419,13 @@ func (m *HLSManager) Session(id string) *HLSSession {
 
 // GetOrCreate returns the session for this exact transcode, starting one if it
 // is not already running.
-func (m *HLSManager) GetOrCreate(owner string, inputFile string, resolution TranscodeOutputResolution, startTime float64) (*HLSSession, error) {
+//
+// client identifies the player asking, so that a seek - which arrives as a
+// request for the same file at a different offset - retires the transcode it
+// replaces instead of leaving it running. Pass an empty string when there is no
+// such id; the previous transcode of the same file for the same user is then
+// treated as the one being replaced.
+func (m *HLSManager) GetOrCreate(owner string, client string, inputFile string, resolution TranscodeOutputResolution, startTime float64) (*HLSSession, error) {
 	key := hlsSessionKey(owner, inputFile, resolution, startTime)
 
 	m.mu.Lock()
@@ -388,8 +446,11 @@ func (m *HLSManager) GetOrCreate(owner string, inputFile string, resolution Tran
 	session := &HLSSession{
 		ID:         key,
 		Owner:      owner,
+		Client:     client,
+		Source:     inputFile,
 		Dir:        filepath.Join(m.root, key),
 		StartTime:  startTime,
+		stderr:     &tailBuffer{},
 		lastAccess: time.Now(),
 	}
 	if err := os.MkdirAll(session.Dir, 0755); err != nil {
@@ -404,6 +465,9 @@ func (m *HLSManager) GetOrCreate(owner string, inputFile string, resolution Tran
 	}
 
 	cmd := exec.Command("ffmpeg", args...)
+	//Kept rather than discarded: when a transcode produces no playable segment,
+	//ffmpeg's own message is the only thing that says why.
+	cmd.Stderr = session.stderr
 	if err := cmd.Start(); err != nil {
 		os.RemoveAll(session.Dir)
 		return nil, err
@@ -427,8 +491,47 @@ func (m *HLSManager) GetOrCreate(owner string, inputFile string, resolution Tran
 		return existing, nil
 	}
 	m.sessions[key] = session
+	superseded := m.collectSuperseded(key, session)
 	m.mu.Unlock()
+
+	for _, old := range superseded {
+		old.stop()
+		logger.PrintAndLog("Transcoder", "Retired superseded HLS session "+old.ID, nil)
+	}
 	return session, nil
+}
+
+// collectSuperseded removes and returns the sessions the newly created one
+// replaces: the same player's earlier transcodes, or - when the player did not
+// identify itself - the same user's earlier transcodes of the same file.
+//
+// Must be called with m.mu held; the returned sessions are stopped by the
+// caller once the lock is released, since stopping waits on a process.
+func (m *HLSManager) collectSuperseded(newKey string, session *HLSSession) []*HLSSession {
+	var superseded []*HLSSession
+	for key, candidate := range m.sessions {
+		if key == newKey {
+			continue
+		}
+		if candidate.Owner != session.Owner {
+			continue
+		}
+		if session.Client != "" {
+			//A player only ever plays one thing at a time, so anything else it
+			//started - another offset, or the previous episode - is finished with.
+			if candidate.Client != session.Client {
+				continue
+			}
+		} else if candidate.Client != "" || candidate.Source != session.Source {
+			//Without an id the most that can be assumed is that the same user
+			//re-opened the same file. Never retire a session that does belong to
+			//an identified player.
+			continue
+		}
+		superseded = append(superseded, candidate)
+		delete(m.sessions, key)
+	}
+	return superseded
 }
 
 // evictToCapacity stops the least recently used sessions until there is room
