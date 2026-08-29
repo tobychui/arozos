@@ -326,6 +326,13 @@ body.dark {
 .sh-filter-list input[type="checkbox"] { width: auto !important; }
 
 /* ============ conditional formatting dialog ============ */
+.sh-cf-scope {
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--of-border);
+}
 .sh-cf-empty {
     color: var(--of-fg-soft);
     font-size: 13px;
@@ -365,6 +372,28 @@ body.dark {
 .sh-cf-range { font-size: 12px; color: var(--of-fg-soft); }
 .sh-cf-del { flex: 0 0 auto; }
 .sh-cf-add { margin-top: 4px; }
+/* text box with the grid-picker crosshair tucked into its right edge */
+.sh-cf-refwrap { position: relative; }
+.sh-cf-refwrap input[type="text"] { padding-right: 32px !important; }
+.sh-cf-refpick {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+}
+.sh-cf-refpick:hover { background: var(--of-hover); color: var(--of-accent); }
+.sh-cf-refpick i.icon { margin: 0 !important; font-size: 13px !important; }
 .sh-cf-hint {
     font-size: 12px;
     color: var(--of-fg-soft);

@@ -148,11 +148,27 @@ cross-sheet references. Add new functions to the `call()` switch in
 
 ### Sheets conditional formatting
 
-[`sheets/sheets_cf.js`](sheets/sheets_cf.js) (`SheetsCF`) keeps a list of
-rules per sheet in `cf` and re-evaluates them every time the grid paints.
-Rule kinds: empty/not-empty, the text tests (contains, starts/ends with, is
-exactly), numeric comparisons incl. between, date before/after/on, and a
-**custom formula**.
+[`sheets/sheets_cf.js`](sheets/sheets_cf.js) (`SheetsCF`) re-evaluates rules
+every time the grid paints. Rule kinds: empty/not-empty, the text tests
+(contains, starts/ends with, is exactly), numeric comparisons incl. between,
+date before/after/on, and a **custom formula**.
+
+**Rules belong to cells, not to the sheet.** `cell.cf` lists the rule ids a
+cell carries and `sheet.cfDefs` holds the bodies. That is what makes a rule
+behave like the rest of a cell's formatting: the panel shows only the rules
+on the current selection, and a rule travels on move, copy and fill because
+those already move whole cell objects (`deep(cell)`). Applying to a range
+stamps the id onto every cell in it, so range-wide rules are still one
+action — including onto empty cells, so a value typed there later is still
+formatted. `MAX_STAMP` caps how many cells one apply may touch.
+
+The id is shared, so editing is **copy-on-write**: the edit mints a new def
+and swaps it onto just the selected cells, leaving other cells that shared
+the old rule alone. `sweepDefs()` drops bodies nothing references.
+
+Ids are used rather than inlining rule objects per cell because `snap()`
+JSON-stringifies the whole body into the undo stack on every commit, 80 deep
+— a 1000-cell column rule costs ~27 KB this way instead of well over 100 KB.
 
 Two things make range rules work without a separate rule kind:
 
@@ -178,9 +194,10 @@ mistaken for something the user applied by hand.
 
 Rules ride in the document body, so they persist in `.xlsa` and reach PDF
 export through the print model. **They are dropped on `.xlsx` / `.ods`
-export** — those writers would need real DXF / style-map records. If that
-matters, the alternative is baking the resolved colours into the exported
-cells' own styles at export time.
+export** — those writers would need real DXF / style-map records, and the Go
+structs model neither `cell.cf` nor `sheet.cfDefs`. If that matters, the
+alternative is baking the resolved colours into the exported cells' own
+styles at export time.
 
 ### Saving back into a foreign format
 

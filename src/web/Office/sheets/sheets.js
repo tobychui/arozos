@@ -12,6 +12,8 @@
                 cells: {                         // sparse, keyed "A1"
                     "A1": { v: "raw input ('=' prefix = formula)",
                             n: "cell note",      // optional; xlsx comment
+                            cf: ["cf-a1b2"],     // conditional rules this
+                                                 // cell carries (sheets_cf.js)
                             s: {                 // style, all optional
                                 b,i,u: bool,
                                 al: "l"|"c"|"r",
@@ -40,11 +42,11 @@
                          colField: 1,            // offsets in range, -1=none
                          valField: 2,
                          agg: "sum"|"count"|"avg"|"min"|"max" },
-                cf: [ { id, range: "A1:F100",    // conditional formatting
-                        type: "gt"|"contains"|   // (sheets_cf.js); evaluated
-                              "formula"|...,     // top-down while painting
-                        v1, v2,                  // operands, as typed
-                        style: { bg, fc, b, i, u } } ]
+                cfDefs: { "cf-a1b2": {           // conditional rule bodies;
+                    anchor: "B2",                // cells reference them by id
+                    type: "gt"|"contains"|"formula"|...,
+                    v1, v2,                      // operands, as typed
+                    style: { bg, fc, b, i, u } } }
             }
         ],
         active: 0
@@ -104,7 +106,7 @@ var SheetsApp = (function () {
         return {
             name: name, color: null, cols: 26, rows: 200,
             cells: {}, colW: {}, rowH: {}, merges: [],
-            freeze: { r: 0, c: 0 }, filter: null, charts: [], cf: []
+            freeze: { r: 0, c: 0 }, filter: null, charts: [], cfDefs: {}
         };
     }
     function defaultBody() {
@@ -129,10 +131,15 @@ var SheetsApp = (function () {
             s.freeze.c = clamp(parseInt(s.freeze.c, 10) || 0, 0, 10);
             s.filter = s.filter || null;
             s.charts = Array.isArray(s.charts) ? s.charts : [];
-            s.cf = Array.isArray(s.cf) ? s.cf : [];
+            s.cfDefs = (s.cfDefs && typeof s.cfDefs === "object") ? s.cfDefs : {};
         });
         b.active = clamp(parseInt(b.active, 10) || 0, 0, b.sheets.length - 1);
         return b;
+    }
+    // a cell stays in the map while it still carries anything at all
+    function cellIsBare(cell) {
+        return !cell || (!cell.v && !cell.s && !cell.n &&
+            !(cell.cf && cell.cf.length));
     }
     function cellObj(c, r, create) {
         var s = sheet(), k = key(c, r);
@@ -171,7 +178,7 @@ var SheetsApp = (function () {
             if (cell) {
                 delete cell.v;
                 cell.v = "";
-                if (!cell.s) delete s.cells[k];
+                if (cellIsBare(cell)) delete s.cells[k];
             }
         } else {
             if (!s.cells[k]) s.cells[k] = { v: "" };
@@ -643,7 +650,7 @@ var SheetsApp = (function () {
             cell.n = text;
         } else if (cell) {
             delete cell.n;
-            if (cell.v === "" && !cell.s) delete s.cells[k];
+            if (cellIsBare(cell)) delete s.cells[k];
         }
         commit();
     }
@@ -1385,7 +1392,7 @@ var SheetsApp = (function () {
             fn(cell.s);
             // prune empty style objects / cells
             if (Object.keys(cell.s).length === 0) delete cell.s;
-            if (!cell.v && !cell.s) delete sheet().cells[key(c, r)];
+            if (cellIsBare(cell)) delete sheet().cells[key(c, r)];
         });
         commit();
         syncToolbarFromSel();
@@ -1507,7 +1514,9 @@ var SheetsApp = (function () {
             if (rg.c1 === rg.c2 && rg.r1 === rg.r2) return null;
             return rangeStr(rg);
         }).filter(function (m) { return !!m; });
-        if (window.SheetsCF) SheetsCF.shiftRanges(axis, index, count);
+        // rule ids ride along inside the cells; only the anchors that their
+        // relative references are measured from need moving
+        if (window.SheetsCF) SheetsCF.shiftAnchors(axis, index, count);
         setActive(clamp(head.c, 0, s.cols - 1), clamp(head.r, 0, s.rows - 1));
         commit();
     }
@@ -1536,7 +1545,20 @@ var SheetsApp = (function () {
             }
             rows.push(row);
         }
-        return { w: rg.c2 - rg.c1 + 1, h: rg.r2 - rg.r1 + 1, src: { c: rg.c1, r: rg.r1 }, cells: rows, rg: rg };
+        // the cells carry rule ids; the bodies must ride along too, or a
+        // paste onto another sheet would land ids that resolve to nothing
+        var defs = {};
+        rows.forEach(function (row) {
+            row.forEach(function (cell) {
+                (cell && cell.cf ? cell.cf : []).forEach(function (id) {
+                    if (s.cfDefs && s.cfDefs[id]) defs[id] = deep(s.cfDefs[id]);
+                });
+            });
+        });
+        return {
+            w: rg.c2 - rg.c1 + 1, h: rg.r2 - rg.r1 + 1,
+            src: { c: rg.c1, r: rg.r1 }, cells: rows, rg: rg, defs: defs
+        };
     }
     /* charts ride the system clipboard as marker JSON, like cells ride
        it as TSV - so Ctrl+C on a selected chart pastes a chart, even
@@ -1665,6 +1687,13 @@ var SheetsApp = (function () {
     function pasteInternal() {
         var s = sheet();
         var w = clipInternal.w, h = clipInternal.h;
+        // bring any rule bodies the copied cells refer to onto this sheet
+        if (clipInternal.defs) {
+            if (!s.cfDefs) s.cfDefs = {};
+            Object.keys(clipInternal.defs).forEach(function (id) {
+                if (!s.cfDefs[id]) s.cfDefs[id] = deep(clipInternal.defs[id]);
+            });
+        }
         var dC = anchor.c - clipInternal.src.c;
         var dR = anchor.r - clipInternal.src.r;
         for (var r = 0; r < h; r++) {
@@ -2089,7 +2118,9 @@ var SheetsApp = (function () {
         $("#shBtnItalic").toggleClass("active", !!s.i);
         $("#shBtnUnderline").toggleClass("active", !!s.u);
         $("#shBtnFilter").toggleClass("active", !!sheet().filter);
-        $("#shBtnCondFmt").toggleClass("active", (sheet().cf || []).length > 0);
+        // lit when the cell under the cursor carries a rule of its own
+        var ac = sheet().cells[key(anchor.c, anchor.r)];
+        $("#shBtnCondFmt").toggleClass("active", !!(ac && ac.cf && ac.cf.length));
         $("#shBtnCurrency").toggleClass("active", s.fmt === "currency");
         $("#shBtnPercent").toggleClass("active", s.fmt === "percent");
     }
@@ -2140,7 +2171,9 @@ var SheetsApp = (function () {
             },
             {
                 label: "Clear conditional formatting", icon: "eraser",
-                enabled: function () { return (sheet().cf || []).length > 0; },
+                enabled: function () {
+                    return !!(window.SheetsCF && SheetsCF.selectionHasRules());
+                },
                 action: function () { if (window.SheetsCF) SheetsCF.clearForSelection(); }
             },
             { sep: true },
@@ -2405,6 +2438,12 @@ var SheetsApp = (function () {
         // evaluation context for conditional-format formulas: shares the
         // active sheet's memoized calculator, so rules cost a lookup
         calcCtx: function () { return calc.ctx; },
+        cellObj: cellObj,
+        // drop a cell that has nothing left on it (used after removing rules)
+        pruneCell: function (c, r) {
+            var k = key(c, r);
+            if (cellIsBare(sheet().cells[k])) delete sheet().cells[k];
+        },
         usedRange: usedRange,
         parseRange: parseRange,
         rangeStr: rangeStr,

@@ -2,17 +2,28 @@
     ArozOS Office - Sheets: conditional formatting.
     Requires sheets.js (SheetsApp core API) and formula.js.
 
-    A sheet carries its rules in `cf: [rule, ...]`, evaluated top-down every
-    time the grid paints:
+    Rules belong to CELLS, not to the sheet. Each cell lists the rules it
+    carries and the sheet holds the rule bodies, keyed by id:
 
-        rule = {
-            id:    "cf-...",              // stable id, used by the editor
-            range: "A1:F1000",            // where the rule applies
-            type:  "gt" | "contains" | "formula" | ...   (see CONDS)
-            v1:    "200",                 // operand(s), kept as typed
-            v2:    "",                    // second operand for between
-            style: { bg, fc, b, i, u }    // what a matching cell gets
+        cell.cf    = ["cf-a1b2", ...]     // this cell's rules, in order
+        sheet.cfDefs["cf-a1b2"] = {
+            anchor: "B2",                 // cell the relative refs are read from
+            type:   "gt" | "contains" | "formula" | ...   (see CONDS)
+            v1:     "200",                // operand(s), kept as typed
+            v2:     "",                   // second operand for between
+            style:  { bg, fc, b, i, u }   // what a matching cell gets
         }
+
+    Ownership per cell is what makes a rule behave like the rest of a cell's
+    formatting: it shows up in the panel only for the cells that actually
+    carry it, and it travels on move, copy and fill because those already
+    move whole cell objects. Applying to a range simply stamps the id onto
+    every cell in it, so range-wide rules still take one action.
+
+    The id is shared, so editing a rule is copy-on-write: the edit mints a
+    new def and swaps it onto just the cells being edited, leaving any other
+    cells that happened to share the old rule alone. Defs nobody references
+    are swept up afterwards.
 
     Rules are first-match-wins *per property*, the way Google Sheets does it:
     the topmost matching rule that sets a background decides the background,
@@ -20,12 +31,11 @@
     alone. Only bg/fc/b/i/u are conditional - number format, alignment and
     borders always come from the cell's own style.
 
-    Operands may be formulas themselves ("=AVERAGE($F$2:$F$99)"), which is
-    what makes range rules work: the operand is evaluated once against the
-    sheet, so "is greater than =AVERAGE(...)" highlights above-average cells.
-    A "Custom formula" rule instead evaluates its formula per cell, with
-    relative references shifted from the range's top-left corner, so
-    "=$F2>=SUM($C2:$E2)" tests every row against its own total.
+    Operands may be cell references or formulas ("=AVERAGE($F$2:$F$99)"),
+    and a "Custom formula" rule evaluates its formula per cell. Both shift
+    relative references by the cell's offset from the rule's anchor, so
+    "=$F2>=SUM($C2:$E2)" stamped down a column tests every row against its
+    own total.
 */
 
 var SheetsCF = (function () {
@@ -157,12 +167,28 @@ var SheetsCF = (function () {
             return null;
         }
     }
-    /* An operand is either a literal the user typed or a formula. Formulas
-       are evaluated once per rule (not per cell) against the anchor, so
-       "=AVERAGE($F$2:$F$99)" costs the same as a plain number. */
-    function operandValue(raw, anchor) {
-        var s = String(raw === undefined || raw === null ? "" : raw);
-        if (/^\s*=/.test(s)) return evalAt(compile(s), anchor.c, anchor.r);
+    // a bare A1-style reference or range and nothing else: "B3", "$B$3", "B1:B3"
+    var REF_RE = /^\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?$/;
+
+    /*
+        An operand is a literal the user typed, a cell reference, or a
+        formula. References and formulas are shifted per cell exactly like a
+        custom formula is, so a rule over B2:B10 comparing against "C2" tests
+        every row against its own C - and a single-cell rule shifts by zero,
+        which is simply the cell named.
+
+        A bare "B3" counts as a reference for the number and date tests: the
+        literal text could never match one of those anyway. Text tests keep
+        it literal, because product codes really do look like "B3"; write
+        "=B3" there when the cell is what is meant.
+    */
+    function operandValue(raw, cond, dC, dR) {
+        var s = String(raw === undefined || raw === null ? "" : raw).trim();
+        if (s === "") return null;
+        if (s.charAt(0) === "=") return evalAt(compile(s), dC, dR);
+        if (cond && cond.kind !== "text" && REF_RE.test(s)) {
+            return evalAt(compile(s), dC, dR);
+        }
         return F.literalValue(s);
     }
 
@@ -183,7 +209,8 @@ var SheetsCF = (function () {
         if (cond.id === "notempty") return !isBlank;
         if (isBlank) return false;   // every other test needs something to test
 
-        var a = operandValue(rule.v1, anchor);
+        var dC = c - anchor.c, dR = r - anchor.r;
+        var a = operandValue(rule.v1, cond, dC, dR);
         if (cond.kind === "text") {
             var hay = textOf(val).toLowerCase();
             var needle = textOf(a).toLowerCase();
@@ -224,7 +251,7 @@ var SheetsCF = (function () {
             case "lte": return n <= an;
             case "between":
             case "notbetween": {
-                var b = numOf(operandValue(rule.v2, anchor));
+                var b = numOf(operandValue(rule.v2, cond, dC, dR));
                 if (b === null) return false;
                 var lo = Math.min(an, b), hi = Math.max(an, b);
                 var within = n >= lo && n <= hi;
@@ -234,42 +261,49 @@ var SheetsCF = (function () {
         return false;
     }
 
-    /* ================= render hook ================= */
-    var rangeCache = {};    // range string -> parsed range | null
+    /* ================= storage ================= */
+    var anchorCache = {};   // anchor cell key -> {c,r}
 
-    function rangeOf(str) {
-        if (!Object.prototype.hasOwnProperty.call(rangeCache, str)) {
-            rangeCache[str] = Core.parseRange(str);
-        }
-        return rangeCache[str];
-    }
     // caches are keyed by text, so they only need clearing when rules change
     function invalidate() {
         compiled = {};
-        rangeCache = {};
+        anchorCache = {};
+    }
+    function defs() {
+        var s = Core.sheet();
+        if (!s.cfDefs || typeof s.cfDefs !== "object") s.cfDefs = {};
+        return s.cfDefs;
+    }
+    function defOf(id) { return defs()[id] || null; }
+    function anchorOf(def) {
+        var k = (def && def.anchor) || "A1";
+        if (!Object.prototype.hasOwnProperty.call(anchorCache, k)) {
+            var p = F.parseCellKey(k);
+            anchorCache[k] = p ? { c: p.col, r: p.row } : { c: 0, r: 0 };
+        }
+        return anchorCache[k];
+    }
+    // ids on one cell, in the order they were applied
+    function idsAt(c, r) {
+        var cell = Core.sheet().cells[F.cellName(c, r)];
+        return (cell && Array.isArray(cell.cf)) ? cell.cf : null;
     }
 
-    function rules() {
-        var s = Core.sheet();
-        return (s && Array.isArray(s.cf)) ? s.cf : [];
-    }
+    /* ================= render hook ================= */
     /*
         The conditional part of a cell's style, or null when no rule applies.
-        Called for every painted cell, so it stays allocation-free until
-        something actually matches.
+        Called for every painted cell, so it does nothing at all until the
+        cell actually carries a rule.
     */
     function styleFor(c, r) {
-        var list = rules();
-        if (!list.length) return null;
+        var ids = idsAt(c, r);
+        if (!ids || !ids.length) return null;
         var out = null;
-        for (var i = 0; i < list.length; i++) {
-            var rule = list[i];
-            if (!rule || !rule.style) continue;
-            var rg = rangeOf(rule.range || "");
-            if (!rg || c < rg.c1 || c > rg.c2 || r < rg.r1 || r > rg.r2) continue;
-            var anchor = { c: rg.c1, r: rg.r1 };
-            if (!matches(rule, c, r, anchor)) continue;
-            var st = rule.style;
+        for (var i = 0; i < ids.length; i++) {
+            var def = defOf(ids[i]);
+            if (!def || !def.style) continue;
+            if (!matches(def, c, r, anchorOf(def))) continue;
+            var st = def.style;
             if (!out) out = {};
             // first rule to set a property owns it
             if (st.bg && !out.bg) out.bg = st.bg;
@@ -281,26 +315,110 @@ var SheetsCF = (function () {
         return out;
     }
 
-    /* row/column insert or delete moves the ranges rules point at */
-    function shiftRanges(axis, index, count) {
-        var s = Core.sheet();
-        if (!Array.isArray(s.cf) || !s.cf.length) return;
-        s.cf.forEach(function (rule) {
-            var rg = Core.parseRange(rule.range || "");
-            if (!rg) return;
-            var lo = axis === "col" ? "c1" : "r1", hi = axis === "col" ? "c2" : "r2";
-            [lo, hi].forEach(function (kk) {
-                var v = rg[kk];
-                if (count > 0) { if (v >= index) rg[kk] = v + count; }
-                else {
-                    var del = -count;
-                    if (v >= index + del) rg[kk] = v - del;
-                    else if (v >= index) rg[kk] = index;
-                }
-            });
-            rule.range = Core.rangeStr(rg);
+    /*
+        Inserting or deleting rows/columns moves the cells themselves - and
+        their rule ids with them - so only the anchors that relative
+        references are measured from have to be adjusted.
+    */
+    function shiftAnchors(axis, index, count) {
+        var d = defs();
+        Object.keys(d).forEach(function (id) {
+            var p = F.parseCellKey(d[id].anchor || "A1");
+            if (!p) return;
+            var v = axis === "col" ? p.col : p.row;
+            if (count > 0) { if (v >= index) v += count; }
+            else {
+                var del = -count;
+                if (v >= index + del) v -= del;
+                else if (v >= index) v = index;
+            }
+            d[id].anchor = F.cellName(axis === "col" ? v : p.col,
+                axis === "row" ? v : p.row);
         });
         invalidate();
+    }
+
+    /* ================= per-cell bookkeeping ================= */
+    var MAX_STAMP = 50000;      // guard against "apply to the whole sheet"
+
+    function eachCellIn(rg, fn) {
+        for (var r = rg.r1; r <= rg.r2; r++) {
+            for (var c = rg.c1; c <= rg.c2; c++) fn(c, r);
+        }
+    }
+    function rangeCellCount(rg) {
+        return (rg.c2 - rg.c1 + 1) * (rg.r2 - rg.r1 + 1);
+    }
+    // stamp a rule id onto every cell of a range, replacing `replaces` when given
+    function stampRange(rg, id, replaces) {
+        eachCellIn(rg, function (c, r) {
+            var cell = Core.cellObj(c, r, true);
+            if (!Array.isArray(cell.cf)) cell.cf = [];
+            var at = replaces ? cell.cf.indexOf(replaces) : -1;
+            if (at >= 0) cell.cf[at] = id;
+            else if (cell.cf.indexOf(id) < 0) cell.cf.push(id);
+        });
+    }
+    function unstampRange(rg, id) {
+        eachCellIn(rg, function (c, r) {
+            var cell = Core.sheet().cells[F.cellName(c, r)];
+            if (!cell || !Array.isArray(cell.cf)) return;
+            cell.cf = cell.cf.filter(function (x) { return x !== id; });
+            if (!cell.cf.length) delete cell.cf;
+            Core.pruneCell(c, r);
+        });
+    }
+    // forget rule bodies no cell refers to any more
+    function sweepDefs() {
+        var s = Core.sheet();
+        if (!s.cfDefs) return;
+        var live = {};
+        Object.keys(s.cells).forEach(function (k) {
+            var cell = s.cells[k];
+            if (cell && cell.cf) cell.cf.forEach(function (id) { live[id] = true; });
+        });
+        Object.keys(s.cfDefs).forEach(function (id) {
+            if (!live[id]) delete s.cfDefs[id];
+        });
+    }
+    /*
+        The rules present on the current selection, in the order the anchor
+        cell lists them, each with the block of selected cells carrying it.
+        This is what the panel shows - so it only ever describes the cells
+        the user has actually got selected.
+    */
+    function rulesInSelection() {
+        var sel = Core.selRange();
+        var seen = {}, order = [];
+        eachCellIn(sel, function (c, r) {
+            var ids = idsAt(c, r);
+            if (!ids) return;
+            ids.forEach(function (id) {
+                if (!defOf(id)) return;
+                var e = seen[id];
+                if (!e) {
+                    e = seen[id] = { id: id, def: defOf(id), n: 0,
+                        c1: c, c2: c, r1: r, r2: r };
+                    order.push(e);
+                }
+                e.n++;
+                if (c < e.c1) e.c1 = c;
+                if (c > e.c2) e.c2 = c;
+                if (r < e.r1) e.r1 = r;
+                if (r > e.r2) e.r2 = r;
+            });
+        });
+        return order;
+    }
+    function selectionHasRules() {
+        var sel = Core.selRange();
+        var found = false;
+        eachCellIn(sel, function (c, r) {
+            if (found) return;
+            var ids = idsAt(c, r);
+            if (ids && ids.length) found = true;
+        });
+        return found;
     }
 
     /* ================= rule descriptions ================= */
@@ -325,21 +443,79 @@ var SheetsCF = (function () {
     function genId() {
         return "cf-" + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
     }
-    function newRule() {
+    // an editor draft: the rule body plus the cells it is being applied to
+    function newDraft() {
         return {
-            id: genId(),
-            range: Core.rangeStr(Core.selRange()),
-            type: "notempty", v1: "", v2: "",
+            id: null,                                   // null = not saved yet
+            range: tidyRef(Core.rangeStr(Core.selRange())),
+            anchor: "", type: "notempty", v1: "", v2: "",
             style: {
                 bg: DEFAULT_STYLE.bg, fc: DEFAULT_STYLE.fc,
                 b: false, i: false, u: false
             }
         };
     }
+    function draftFrom(entry) {
+        return {
+            id: entry.id,
+            range: tidyRef(Core.rangeStr({
+                c1: entry.c1, r1: entry.r1, c2: entry.c2, r2: entry.r2
+            })),
+            anchor: entry.def.anchor || "",
+            type: entry.def.type, v1: entry.def.v1 || "", v2: entry.def.v2 || "",
+            style: $.extend({}, entry.def.style)
+        };
+    }
     function commitRules() {
+        sweepDefs();
         invalidate();
         Core.commit();
         Core.renderAll();
+    }
+
+    // the grid picker always hands back "B3:B3" for one cell; say "B3"
+    function tidyRef(rgStr) {
+        var p = String(rgStr).split(":");
+        return (p.length === 2 && p[0] === p[1]) ? p[0] : String(rgStr);
+    }
+    /*
+        A text box with a crosshair tucked into its right edge: click it,
+        drag on the grid, and the reference lands back in the box. It goes in
+        at the caret when the box has focus, so a range can be dropped into
+        the middle of a half-typed formula; otherwise it replaces the whole
+        value, which is what clicking straight into an untouched box means.
+    */
+    function refInput(id, placeholder, value, onInput) {
+        var $wrap = $('<div class="sh-cf-refwrap"></div>');
+        var $in = $('<input type="text">')
+            .attr({ id: id, placeholder: placeholder }).val(value);
+        var $btn = $('<button type="button" class="sh-cf-refpick" ' +
+            'title="Select a cell or range on the grid"><i class="crosshairs icon"></i></button>');
+        // keep the caret where it was: a plain click would blur the input first
+        $btn.on("mousedown", function (e) { e.preventDefault(); });
+        $btn.on("click", function () {
+            var el = $in[0];
+            var focused = document.activeElement === el;
+            var from = focused ? el.selectionStart : null;
+            var to = focused ? el.selectionEnd : null;
+            Core.pickRangeFromGrid(function (rgStr) {
+                if (!rgStr) return;
+                var ref = tidyRef(rgStr);
+                var pos;
+                if (from === null) {
+                    el.value = ref;
+                    pos = ref.length;
+                } else {
+                    el.value = el.value.slice(0, from) + ref + el.value.slice(to);
+                    pos = from + ref.length;
+                }
+                $in.trigger("input").trigger("change");
+                el.focus();
+                try { el.setSelectionRange(pos, pos); } catch (e) { }
+            });
+        });
+        if (onInput) $in.on("input", onInput);
+        return $wrap.append($in).append($btn);
     }
 
     // the dialog swaps between the rule list and the single-rule editor
@@ -354,37 +530,46 @@ var SheetsCF = (function () {
     }
 
     function showList($body) {
-        var list = rules();
+        var sel = tidyRef(Core.rangeStr(Core.selRange()));
+        var list = rulesInSelection();
         $body.empty();
+        $body.append($('<div class="sh-cf-scope"></div>')
+            .text("Rules on " + sel));
         if (!list.length) {
-            $body.append('<div class="sh-cf-empty">No rules on this sheet yet. ' +
-                'A rule paints cells in a range whenever their value matches a condition.</div>');
+            $body.append('<div class="sh-cf-empty">These cells carry no rules. ' +
+                'A rule belongs to the cells you apply it to and travels with them ' +
+                'when they are moved, copied or filled.</div>');
         }
         var $rows = $('<div class="sh-cf-list"></div>');
-        list.forEach(function (rule, i) {
+        list.forEach(function (entry) {
+            var covers = tidyRef(Core.rangeStr({
+                c1: entry.c1, r1: entry.r1, c2: entry.c2, r2: entry.r2
+            }));
             var $row = $('<div class="sh-cf-row"></div>');
             $row.append($('<div class="sh-cf-swatch"></div>')
-                .attr("style", swatchCss(rule.style || {})).text("123"));
+                .attr("style", swatchCss(entry.def.style || {})).text("123"));
             $row.append($('<div class="sh-cf-info"><div class="sh-cf-desc"></div>' +
                 '<div class="sh-cf-range"></div></div>')
-                .find(".sh-cf-desc").text(describe(rule)).end()
-                .find(".sh-cf-range").text(rule.range || "").end());
+                .find(".sh-cf-desc").text(describe(entry.def)).end()
+                .find(".sh-cf-range").text(
+                    covers + (entry.n > 1 ? "  -  " + entry.n + " cells" : "")).end());
             var $del = $('<button type="button" class="of-tbtn sh-cf-del" ' +
-                'title="Delete rule"><i class="trash alternate outline icon"></i></button>');
+                'title="Remove this rule from the selected cells">' +
+                '<i class="trash alternate outline icon"></i></button>');
             $del.on("click", function (e) {
                 e.stopPropagation();
-                Core.sheet().cf.splice(i, 1);
+                unstampRange(Core.selRange(), entry.id);
                 commitRules();
                 showList($body);
             });
             $row.append($del);
-            $row.on("click", function () { showEditor($body, rule, false); });
+            $row.on("click", function () { showEditor($body, draftFrom(entry), false); });
             $rows.append($row);
         });
         $body.append($rows);
         var $add = $('<button type="button" class="of-btn sh-cf-add">' +
             '<i class="plus icon"></i> Add another rule</button>');
-        $add.on("click", function () { showEditor($body, newRule(), true); });
+        $add.on("click", function () { showEditor($body, newDraft(), true); });
         $body.append($add);
     }
 
@@ -392,11 +577,7 @@ var SheetsCF = (function () {
         $body.empty();
         var $ed = $(
             '<label>Apply to range</label>' +
-            '<div style="display:flex;gap:6px;">' +
-            '<input type="text" id="shCfRange" style="flex:1;min-width:0;">' +
-            '<button type="button" class="of-tbtn" id="shCfPick" title="Select the range on the grid"' +
-            ' style="flex:0 0 auto;border:1px solid var(--of-border);"><i class="crosshairs icon"></i></button>' +
-            "</div>" +
+            '<div id="shCfRangeSlot"></div>' +
             '<label style="margin-top:10px;">Format cells if...</label>' +
             '<select id="shCfType"></select>' +
             '<div id="shCfArgs"></div>' +
@@ -412,23 +593,14 @@ var SheetsCF = (function () {
         );
         $body.append($ed);
 
-        var draft = {
-            id: rule.id, range: rule.range, type: rule.type,
-            v1: rule.v1 || "", v2: rule.v2 || "",
-            style: $.extend({}, rule.style)
-        };
+        var draft = rule;   // already a draft object (newDraft / draftFrom)
 
-        $ed.filter("#shCfRange").val(draft.range);
-        $body.find("#shCfRange").val(draft.range).on("change", function () {
+        $body.find("#shCfRangeSlot").append(
+            refInput("shCfRange", "A1:D20", draft.range, function () {
+                draft.range = $(this).val().trim();
+            }));
+        $body.find("#shCfRange").on("change", function () {
             draft.range = $(this).val().trim();
-        });
-        $body.find("#shCfPick").on("click", function () {
-            Core.pickRangeFromGrid(function (rgStr) {
-                if (rgStr) {
-                    draft.range = rgStr;
-                    $body.find("#shCfRange").val(rgStr);
-                }
-            });
         });
 
         var $type = $body.find("#shCfType");
@@ -440,26 +612,27 @@ var SheetsCF = (function () {
         var HINTS = {
             formula: "Relative references are read from the top-left cell of the range, " +
                 "so =$F2&gt;=SUM($C2:$E2) tests every row against its own total.",
-            text: "Matching ignores upper/lower case.",
-            date: "Type a date as YYYY-MM-DD or MM/DD/YYYY.",
-            num: "A value, or a formula such as =AVERAGE($F$2:$F$99) to compare " +
-                "against the whole range."
+            text: "Matching ignores upper/lower case. Write =B3 to compare against " +
+                "a cell rather than the text &quot;B3&quot;.",
+            date: "A date as YYYY-MM-DD or MM/DD/YYYY, a cell such as B3, or a formula.",
+            num: "A number, a cell such as B3, or a formula such as " +
+                "=AVERAGE($F$2:$F$99). Relative references shift per row."
         };
         function renderArgs() {
             var cond = condById(draft.type);
             var $args = $body.find("#shCfArgs").empty();
             var ph = cond.kind === "formula" ? "=$F2>100" :
-                (cond.kind === "date" ? "2026-01-31" :
-                    (cond.kind === "text" ? "text to look for" : "value or =formula"));
+                (cond.kind === "date" ? "2026-01-31, B3 or =formula" :
+                    (cond.kind === "text" ? "text to look for" : "value, B3 or =formula"));
             if (cond.args >= 1) {
-                $args.append($('<input type="text" id="shCfV1" style="margin-top:6px;">')
-                    .attr("placeholder", ph).val(draft.v1)
-                    .on("input", function () { draft.v1 = $(this).val(); }));
+                $args.append(refInput("shCfV1", ph, draft.v1, function () {
+                    draft.v1 = $(this).val();
+                }).css("margin-top", "6px"));
             }
             if (cond.args >= 2) {
-                $args.append($('<input type="text" id="shCfV2" style="margin-top:6px;">')
-                    .attr("placeholder", "and").val(draft.v2)
-                    .on("input", function () { draft.v2 = $(this).val(); }));
+                $args.append(refInput("shCfV2", "and", draft.v2, function () {
+                    draft.v2 = $(this).val();
+                }).css("margin-top", "6px"));
             }
             $body.find("#shCfHint").html(HINTS[cond.kind] || "");
         }
@@ -525,11 +698,27 @@ var SheetsCF = (function () {
                 OfficeApp.toast("Pick at least one formatting change", "error");
                 return;
             }
-            var s = Core.sheet();
-            if (!Array.isArray(s.cf)) s.cf = [];
-            var at = -1;
-            for (var i = 0; i < s.cf.length; i++) if (s.cf[i].id === draft.id) at = i;
-            if (at >= 0) s.cf[at] = draft; else s.cf.push(draft);
+            var rg = Core.parseRange(draft.range);
+            if (rangeCellCount(rg) > MAX_STAMP) {
+                OfficeApp.toast("That is " + rangeCellCount(rg) + " cells - apply the rule " +
+                    "to at most " + MAX_STAMP + " at a time", "error");
+                return;
+            }
+            /*
+                Copy-on-write: the edit always mints a new rule body and swaps
+                it in over the cells being edited. Cells elsewhere that happen
+                to share the old rule keep it, which is what per-cell
+                ownership has to mean once a rule can be copied around.
+            */
+            var id = genId();
+            defs()[id] = {
+                // relative references are read from where the rule was applied
+                anchor: draft.anchor || F.cellName(rg.c1, rg.r1),
+                type: draft.type, v1: draft.v1, v2: draft.v2,
+                style: $.extend({}, draft.style)
+            };
+            if (draft.id) unstampRange(Core.selRange(), draft.id);
+            stampRange(rg, id, null);
             commitRules();
             showList($body);
         });
@@ -537,8 +726,7 @@ var SheetsCF = (function () {
         if (!isNew) {
             var $del = $('<button type="button" class="of-btn danger">Delete</button>');
             $del.on("click", function () {
-                var s = Core.sheet();
-                s.cf = (s.cf || []).filter(function (x) { return x.id !== draft.id; });
+                unstampRange(Core.selRange(), draft.id);
                 commitRules();
                 showList($body);
             });
@@ -548,31 +736,33 @@ var SheetsCF = (function () {
     }
 
     /* clear every rule that covers the current selection */
+    /* strip every rule from the selected cells, leaving other cells alone */
     function clearForSelection() {
-        var s = Core.sheet();
-        if (!Array.isArray(s.cf) || !s.cf.length) {
-            OfficeApp.toast("This sheet has no conditional formatting", "error");
+        if (!selectionHasRules()) {
+            OfficeApp.toast("The selected cells have no conditional formatting", "error");
             return;
         }
         var sel = Core.selRange();
-        var before = s.cf.length;
-        s.cf = s.cf.filter(function (rule) {
-            var rg = Core.parseRange(rule.range || "");
-            if (!rg) return false;
-            // drop rules whose range overlaps what the user selected
-            var hit = !(rg.c2 < sel.c1 || rg.c1 > sel.c2 || rg.r2 < sel.r1 || rg.r1 > sel.r2);
-            return !hit;
+        var n = 0;
+        eachCellIn(sel, function (c, r) {
+            var cell = Core.sheet().cells[F.cellName(c, r)];
+            if (!cell || !cell.cf) return;
+            n++;
+            delete cell.cf;
+            Core.pruneCell(c, r);
         });
         commitRules();
-        OfficeApp.setStatus("Removed " + (before - s.cf.length) + " conditional format rule(s)");
+        OfficeApp.setStatus("Cleared conditional formatting from " + n + " cell(s)");
     }
 
     return {
         styleFor: styleFor,
-        shiftRanges: shiftRanges,
+        shiftAnchors: shiftAnchors,
         invalidate: invalidate,
         open: open,
         clearForSelection: clearForSelection,
+        selectionHasRules: selectionHasRules,
+        rulesInSelection: rulesInSelection,
         describe: describe,
         conditions: CONDS
     };

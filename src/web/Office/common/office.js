@@ -843,6 +843,30 @@ var OfficeApp = (function () {
         zoom = Math.max(25, Math.min(400, Math.round(z)));
         applyZoom();
     }
+    /*
+        Ctrl/Cmd + wheel zooms the document, not the whole ArozOS desktop.
+        The browser's own page zoom owns that gesture, so the listener has to
+        be non-passive to be allowed to preventDefault it.
+
+        Deltas are accumulated rather than stepped per event: one mouse notch
+        is ~100, but a trackpad pinch arrives as a stream of small deltas
+        (Chrome reports those as wheel events with ctrlKey set) and stepping
+        on each one would rocket through the zoom levels.
+    */
+    var WHEEL_ZOOM_STEP = 40;
+    var wheelAccum = 0;
+    function onWheelZoom(e) {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        // reversing direction should respond at once rather than first
+        // having to work off the leftover from the other direction
+        if (wheelAccum !== 0 && (wheelAccum < 0) !== (e.deltaY < 0)) wheelAccum = 0;
+        wheelAccum += e.deltaY;
+        // at most one level per event, so a single wheel notch (~100) is one
+        // step while a stream of small pinch deltas still adds up to one
+        if (wheelAccum <= -WHEEL_ZOOM_STEP) { wheelAccum = 0; zoomStep(1); }
+        else if (wheelAccum >= WHEEL_ZOOM_STEP) { wheelAccum = 0; zoomStep(-1); }
+    }
     function zoomStep(dir) {
         var i;
         if (dir > 0) {
@@ -1315,6 +1339,8 @@ var OfficeApp = (function () {
         registerShortcut("Ctrl++", function () { zoomStep(1); });
         registerShortcut("Ctrl+-", function () { zoomStep(-1); }, { description: "Zoom out" });
         registerShortcut("Ctrl+0", function () { setZoom(100); }, { description: "Reset zoom" });
+        // non-passive so the browser's own page zoom can be preventDefault-ed
+        window.addEventListener("wheel", onWheelZoom, { passive: false });
         if (cfg.onUndo) registerShortcut("Ctrl+Z", function () { cfg.onUndo(); }, { description: "Undo" });
         if (cfg.onRedo) {
             registerShortcut("Ctrl+Y", function () { cfg.onRedo(); }, { description: "Redo" });
