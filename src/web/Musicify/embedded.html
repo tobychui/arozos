@@ -267,6 +267,87 @@
 		var isMuted     = false;
 		var savedVol    = 0;
 
+		// ── Safari fallback: full-buffer 48kHz transcode ─────────────────────
+		// Safari's <audio> element can silently get stuck on some formats it
+		// claims to support (FLAC especially: some files decode fine, others
+		// just hang with currentTime frozen at 0 and no 'error' event to catch
+		// it). Rather than risk a stuck player, formats known to be unreliable
+		// on Safari are routed through the same whole-track 48kHz MP3 buffer
+		// endpoint the full Musicify desktop UI already uses for iOS. A
+		// completed buffered file behaves like any native source afterwards.
+		var FULLBUFFER_EXTS = ['flac', 'ogg', 'wma', 'webm', 'opus'];
+		var currentPlayingFilepath = null; // set as soon as playback is requested
+		var fullBufferAttempted    = false; // guards against retry loops
+
+		function isSafariBrowser() {
+			var ua = navigator.userAgent;
+			return /^((?!chrome|android|crios|fxios|edg\/).)*safari/i.test(ua);
+		}
+
+		function extOf(filepath) {
+			return (filepath.split('.').pop() || '').toLowerCase();
+		}
+
+		function needsFullBuffer(filepath) {
+			return isSafariBrowser() && FULLBUFFER_EXTS.indexOf(extOf(filepath)) !== -1;
+		}
+
+		// Single entry point for pointing the player at a track. Routes through
+		// the full-buffer transcode first when native playback is expected to
+		// get stuck; otherwise plays the file directly as before.
+		function setSource(filepath, autoplay) {
+			currentPlayingFilepath = filepath;
+			fullBufferAttempted = false;
+			if (needsFullBuffer(filepath)) {
+				loadViaFullBuffer(filepath, autoplay);
+			} else {
+				player.src = ao_root + 'media?file=' + encodeURIComponent(filepath);
+				player.load();
+				if (autoplay) player.play().catch(function() {});
+			}
+		}
+
+		// Requests a whole-track 48kHz MP3 from the shared fullbuffer.js backend
+		// and plays that instead of the raw source file once it is ready.
+		function loadViaFullBuffer(filepath, autoplay) {
+			fullBufferAttempted = true;
+			setBuffering(true);
+			player.pause();
+			fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/fullbuffer.js', {
+				method: 'POST', cache: 'no-cache',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ file: filepath, samplerate: '48' })
+			}).then(function(r) { return r.json(); }).then(function(data) {
+				if (currentPlayingFilepath !== filepath) return; // user moved on
+				setBuffering(false);
+				player.src = (data && data.path && !data.error) ?
+					ao_root + 'media?file=' + encodeURIComponent(data.path) :
+					ao_root + 'media?file=' + encodeURIComponent(filepath);
+				player.load();
+				if (autoplay) player.play().catch(function() {});
+			}).catch(function() {
+				if (currentPlayingFilepath !== filepath) return;
+				setBuffering(false);
+				player.src = ao_root + 'media?file=' + encodeURIComponent(filepath);
+				player.load();
+				if (autoplay) player.play().catch(function() {});
+			});
+		}
+
+		// Shows a spinner in place of the play/pause icon while a full-buffer
+		// transcode is in flight, since it can take a few seconds for a whole
+		// track — without this the player looks stuck in the exact way this
+		// fallback exists to avoid.
+		function setBuffering(isBuffering) {
+			var icon = document.getElementById('playIcon');
+			if (isBuffering) {
+				icon.className = 'notched circle loading icon';
+				icon.style.margin = '0';
+			} else {
+				syncPlayIcon();
+			}
+		}
+
 		// ── Startup ───────────────────────────────────────────────────────
 		ao_module_setFixedWindowSize();
 		ao_module_setWindowSize(360, 254);
@@ -296,7 +377,7 @@
 			document.getElementById('songList').innerHTML = '';
 		} else {
 			// Set src immediately for fast startup
-			player.src = ao_root + 'media?file=' + encodeURIComponent(playingFile.filepath);
+			setSource(playingFile.filepath, true);
 			var displayName = playingFile.filename || playingFile.filepath.split('/').pop();
 			ao_module_setWindowTitle(displayName);
 			document.getElementById('songTitle').textContent = displayName;
@@ -426,9 +507,7 @@
 		function loadSong(song) {
 			songInfo = song;
 			mediaExchanging = true;
-			player.src = ao_root + 'media?file=' + encodeURIComponent(song.filepath);
-			player.load();
-			player.play().catch(function() {});
+			setSource(song.filepath, true);
 			updatePlayerMeta(song);
 			highlightSelected();
 			setTimeout(function() { mediaExchanging = false; }, 400);
@@ -493,6 +572,15 @@
 
 		player.addEventListener('play',  syncPlayIcon);
 		player.addEventListener('pause', syncPlayIcon);
+
+		// Safety net for a format our extension check didn't flag (or a Safari
+		// quirk on a version we don't know about) that still fails natively —
+		// retry once through the full-buffer transcode before giving up.
+		player.addEventListener('error', function() {
+			if (currentPlayingFilepath && !fullBufferAttempted) {
+				loadViaFullBuffer(currentPlayingFilepath, true);
+			}
+		});
 
 		function syncPlayIcon() {
 			var i = document.getElementById('playIcon');
