@@ -492,8 +492,8 @@ body.darkTheme .ui.icon.button{
 
 .addressText{
     padding:5px;
-    border-radius: 0.4em;
-    border: 1px solid var(--address_text_border);
+    border-radius: 0.5em;
+    /* border: 1px solid var(--address_text_border); */
     flex-grow: 1;
     background-color: var(--address_text_background);
 }
@@ -736,6 +736,20 @@ body.fmResizing *{
     border: 1px solid var(--divider);
 }
 
+/*
+    Hidden entries, shown only when the user turns them on. Dimmed so they stay
+    distinguishable from ordinary content at a glance; they lift to full
+    strength on hover and while selected so they are still readable to work
+    with.
+*/
+.fileObject[data-hidden="true"]{
+    opacity: 0.45;
+}
+.fileObject[data-hidden="true"]:hover,
+.fileObject[data-hidden="true"].selected{
+    opacity: 1;
+}
+
 .fileviewList .fileObject.item:hover,.fileviewList .fileObject.card:hover{
     background-color: var(--fileobject_background_hover) !important;
 }
@@ -932,6 +946,42 @@ body.fmResizing *{
     color: var(--text_color);
     border-left: 1px solid var(--divider);
     background-color: var(--folder_view_background);
+}
+
+/*
+    Permission grid in the properties panel. Compact enough to sit inside the
+    properties table cell without stretching the panel.
+*/
+#propertiesView .fmPermTable{
+    border-collapse: collapse;
+    width: auto;
+    font-size: 12px;
+    line-height: 1.3;
+}
+#propertiesView .fmPermTable th{
+    padding: 1px 7px 3px 7px;
+    font-weight: 400;
+    color: var(--fs-text-dim) !important;
+    text-align: center;
+    white-space: nowrap;
+}
+#propertiesView .fmPermTable td{
+    padding: 1px 7px;
+    text-align: center;
+}
+#propertiesView .fmPermTable td.fmPermWho{
+    padding-left: 0px;
+    padding-right: 10px;
+    text-align: left;
+    color: var(--fs-text-dim) !important;
+    white-space: nowrap;
+}
+/* Granted reads as present, denied as a quiet dash rather than a red cross */
+#propertiesView .fmPermTable td.fmPermOn{
+    color: var(--upload_progress_succ) !important;
+}
+#propertiesView .fmPermTable td.fmPermOff{
+    color: var(--fs-text-faint) !important;
 }
 
 #propertiesView td, #propertiesView span, #propertiesView div{
@@ -1991,6 +2041,7 @@ i.blue{
     min-width: 0;
     cursor: text;
     padding-left: 4px;
+    padding-right: 0px;
 }
 
 .fmPathHome {

@@ -33,6 +33,7 @@ let viewMode = "list"; //Viewmode, support {list, grid, detail}
 let sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall, mostRecent, leastRecent}
 let currentPath = "user:/"
 let showOprBar = true;               //Classic file operation toolbar, persisted server side
+let showHiddenFiles = false;         //Dotfiles and .metadata folders, persisted server side
 let gridZoom = 170;                  //Grid tile width in px (100-170), driven by the status bar slider
 let viewHistory = [];
 let forwardHistory = [];             //Paths popped by Back, replayed by Forward. Cleared on any other navigation. //View history

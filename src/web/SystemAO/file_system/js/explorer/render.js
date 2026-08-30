@@ -177,8 +177,19 @@ function fileObjectAttributes(d){
     let modAttr = ` modtime="${d.modTime}"`;
     //dragstart / drop / dragover / dblclick are delegated on #folderView by
     //bindFileListDelegates(), so rows carry no inline handlers.
+    /*
+        Dotfiles are dimmed so they read as "shown because you asked", not as
+        ordinary content. Decided from the name rather than a server flag: the
+        listing carries no hidden field, and a leading dot is the same rule the
+        server filters on.
+
+        A data attribute rather than a class: every caller below already writes
+        its own class attribute, and a second one on the same element is
+        discarded by the parser rather than merged.
+    */
+    let hiddenAttr = d.filename.charAt(0) == "." ? ` data-hidden="true"` : "";
     return `draggable="true" fileID="${d.fileID}" filename="${d.filename}"` +
-           ` filepath="${d.filepath}" type="${d.type}"${sizeAttrs}${modAttr}`;
+           ` filepath="${d.filepath}" type="${d.type}"${sizeAttrs}${modAttr}${hiddenAttr}`;
 }
 
 function renderListItem(d){

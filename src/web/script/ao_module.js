@@ -466,6 +466,48 @@ function ao_module_newfw(launchConfig){
 }
 
 /*
+    ao_module_startFileOperation(oprConfig)
+
+    Start a move / copy / zip / unzip operation and show it in the system wide
+    file operation dialog. There is only ever one of those dialogs open: when it
+    is already running the operation is handed over to it instead of opening
+    another window with another status connection.
+
+    Example:
+        ao_module_startFileOperation({
+            opr: "copy",                            //move / copy / zip / unzip / unzipAndOpen
+            src: ["user:/Desktop/test.txt"],        //Source file list
+            dest: "user:/Documents/",               //Destination folder
+            overwriteMode: "ask",                   //skip / overwrite / keep / ask (optional)
+            callbackWindowID: ao_module_windowID,   //Window to notify when done (optional)
+            callbackFunction: "refreshList()"       //Function to call on that window (optional)
+        });
+*/
+function ao_module_startFileOperation(oprConfig){
+    if (ao_module_virtualDesktop){
+        parent.startFileOperation(oprConfig);
+        return;
+    }
+
+    //Standalone mode. Reuse the named window opened by the previous operation.
+    var dialogURL = ao_root + "SystemAO/file_system/file_operation.html#" + encodeURIComponent(JSON.stringify(oprConfig));
+    var existingDialog = null;
+    try {
+        existingDialog = window.open("", "arozFileOperationDialog");
+    } catch(ex) {
+        existingDialog = null;
+    }
+
+    if (existingDialog != null && typeof existingDialog.addFileOperation == "function"){
+        existingDialog.addFileOperation(oprConfig);
+        existingDialog.focus();
+        return;
+    }
+
+    window.open(dialogURL, "arozFileOperationDialog", "width=500,height=470");
+}
+
+/*
     File Selector Path Memory
 
     Remembers the directory the user last worked in for each web app, so the file

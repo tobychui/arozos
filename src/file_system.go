@@ -42,14 +42,42 @@ import (
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	storage "imuslab.com/arozos/mod/storage"
+	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
 
 var (
-	thumbRenderHandler *metadata.RenderHandler
-	shareEntryTable    *shareEntry.ShareEntryTable
-	shareManager       *share.Manager
-	wsConnectionStore  sync.Map
+	thumbRenderHandler    *metadata.RenderHandler
+	shareEntryTable       *shareEntry.ShareEntryTable
+	shareManager          *share.Manager
+	wsConnectionStore     sync.Map     //Storage of all the file operation tasks, keyed by operation id
+	fileOprTaskLock       sync.RWMutex //Lock guarding the mutable fields of the task records above
+	fileOprJanitorStarted atomic.Bool  //Whether the finished task record janitor is already running
+)
+
+// Status of a file operation task or of one of the files inside it
+const (
+	FsTask_Pending   = "pending"
+	FsTask_Ongoing   = "ongoing"
+	FsTask_Completed = "completed"
+	FsTask_Error     = "error"
+	FsTask_Cancelled = "cancelled"
+
+	//How long an operation that finished without error is kept before the
+	//janitor drops it, in seconds. Long enough for a connected dialog to render
+	//the result and fire its completion callback, short enough that the listing
+	//does not fill up with finished transfers.
+	fileOprFinishedRecordTTL = 3
+
+	//How many failed operations are kept per user. Failures are never dropped on
+	//a timer so they can still be reviewed after reopening the desktop from
+	//another browser or machine, but the backlog is bounded.
+	fileOprErrorRecordLimit = 32
+
+	//How often the janitor sweeps the finished task records. Kept well under
+	//fileOprFinishedRecordTTL so a record is actually dropped near its deadline
+	//rather than up to a whole sweep later.
+	fileOprJanitorInterval = 2 * time.Second
 )
 
 type trashedFile struct {
@@ -64,14 +92,35 @@ type trashedFile struct {
 	OriginalFilename string
 }
 
+// A single source file inside a file operation task
+type fileOperationSubtask struct {
+	Filename string  //Base name of this source file
+	Src      string  //Virtual path of this source file
+	IsDir    bool    //Whether this source is a folder
+	Size     int64   //Total size of this source file in bytes
+	Done     int64   //Bytes of this source file that are already processed
+	Progress float64 //Progress of this source file, in percentage
+	Status   string  //Status of this source file, see the FsTask_* constants
+	Error    string  //Error message of this source file, if any
+}
+
 type fileOperationTask struct {
 	ID                  string  //Unique id for the task operation
 	Owner               string  //Owner of the file opr
+	Operation           string  //Type of the file opr: move / copy / zip / unzip
 	Src                 string  //Source folder for opr
 	Dest                string  //Destination folder for opr
 	Progress            float64 //Progress for the operation
 	LatestFile          string  //Latest file that is current transfering
 	FileOperationSignal int     //Current control signal of the file opr
+
+	Files     []*fileOperationSubtask //Per source file progress of this operation
+	TotalSize int64                   //Total size of all the source files in bytes
+	DoneSize  int64                   //Total bytes processed so far
+	StartTime int64                   //Unix timestamp of when this operation started
+	EndTime   int64                   //Unix timestamp of when this operation ended, 0 if still running
+	Status    string                  //Status of this operation, see the FsTask_* constants
+	Error     string                  //Error message of this operation, if any
 }
 
 func FileSystemInit() {
@@ -92,6 +141,8 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/validateFileOpr", system_fs_validateFileOpr)
 	router.HandleFunc("/system/file_system/fileOpr", system_fs_handleOpr)
 	router.HandleFunc("/system/file_system/ws/fileOpr", system_fs_handleWebSocketOpr)
+	router.HandleFunc("/system/file_system/fileOprAsync", system_fs_handleAsyncOpr)
+	router.HandleFunc("/system/file_system/ws/fileOprStatus", system_fs_handleFileOprStatusWebSocket)
 	router.HandleFunc("/system/file_system/listDir", system_fs_handleList)
 	router.HandleFunc("/system/file_system/listDirHash", system_fs_handleDirHash)
 	router.HandleFunc("/system/file_system/listRoots", system_fs_listRoot)
@@ -1477,6 +1528,9 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 
 	This handler only handle zip, unzip, copy and move. Not other operations.
 	For other operations, please use the legacy handleOpr endpoint
+
+	The actual operation logic is shared with the asynchronous (background)
+	file operation endpoint, see runFileOperationTask below.
 */
 
 func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
@@ -1492,55 +1546,17 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	vdestFile, _ := utils.GetPara(r, "dest")
 	existsOpr, _ := utils.GetPara(r, "existsresp")
 
-	if existsOpr == "" {
-		existsOpr = "keep"
-	}
-
-	//Decode the source file list
-	var sourceFiles []string
-	tmp := []string{}
-	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
-	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
-	if err != nil {
-		systemWideLogger.PrintAndLog("File System", "Websocket file operation source file JSON parse error", err)
-		utils.SendErrorResponse(w, "Source file JSON parse error.")
-		return
-	}
-
-	//Bugged char filtering
-	for _, src := range sourceFiles {
-		tmp = append(tmp, strings.ReplaceAll(src, "{{plug_sign}}", "+"))
-	}
-	sourceFiles = tmp
-	vdestFile = strings.ReplaceAll(vdestFile, "{{plug_sign}}", "+")
-
-	//Decode the target position
-	escapedVdest, _ := url.QueryUnescape(vdestFile)
-	vdestFile = escapedVdest
-
-	destFsh, subpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
+	sourceFiles, vdestFile, err := parseFileOperationRequest(operation, vsrcFiles, vdestFile)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	destFshAbs := destFsh.FileSystemAbstraction
-	rdestFile, _ := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 
 	//Permission checking
 	if !userinfo.CanWrite(vdestFile) {
 		systemWideLogger.PrintAndLog("File System", "Access denied for "+userinfo.Username+" try to access "+vdestFile, nil)
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Access Denied"))
-		return
-	}
-
-	//Check if opr is suported
-	if operation == "move" || operation == "copy" || operation == "zip" || operation == "unzip" {
-
-	} else {
-		systemWideLogger.PrintAndLog("File System", "This file operation is not supported on WebSocket file operations endpoint. Please use the POST request endpoint instead. Received: "+operation, errors.New("operaiton not supported on websocket endpoint"))
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - Not supported operation"))
 		return
 	}
 
@@ -1556,26 +1572,246 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Create the file operation task and remember it
-	oprId := strconv.Itoa(int(time.Now().Unix())) + "_" + uuid.NewV4().String()
-	thisFileOperationTask := fileOperationTask{
-		ID:         oprId,
-		Owner:      userinfo.Username,
-		Src:        arozfs.ToSlash(filepath.Dir(sourceFiles[0])),
-		Dest:       arozfs.ToSlash(vdestFile),
-		Progress:   0.0,
-		LatestFile: arozfs.ToSlash(filepath.Base(sourceFiles[0])),
-	}
-	wsConnectionStore.Store(oprId, &thisFileOperationTask)
+	task := NewOngoingFileOperation(userinfo, operation, sourceFiles, vdestFile)
 
 	//Send over the oprId for this file operation for tracking
 	time.Sleep(300 * time.Millisecond)
-	c.WriteMessage(1, []byte(`{"oprid":"`+oprId+`"}`))
+	c.WriteMessage(1, []byte("{\"oprid\":\""+task.ID+"\"}"))
 
-	type ProgressUpdate struct {
-		LatestFile string
-		Progress   int
-		StatusFlag int
-		Error      string
+	//Run the operation on this request goroutine and stream the progress back
+	runFileOperationTask(task, userinfo, sourceFiles, vdestFile, existsOpr, func(update fileOprProgressUpdate) {
+		js, _ := json.Marshal(update)
+		c.WriteMessage(1, js)
+	})
+
+	//This endpoint do not keep the finished record. Remove it right away.
+	wsConnectionStore.Delete(task.ID)
+
+	//Close WebSocket connection after finished
+	time.Sleep(1 * time.Second)
+	c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+	c.Close()
+}
+
+/*
+	Handle file operations as a background task
+
+	Unlike the WebSocket endpoint above, this endpoint returns the operation id
+	right away and let the operation run in the background. The caller can then
+	watch the progress of all of its operations through a single status
+	WebSocket, see system_fs_handleFileOprStatusWebSocket below.
+*/
+
+func system_fs_handleAsyncOpr(w http.ResponseWriter, r *http.Request) {
+	//Get and check user permission
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Validate the token
+	tokenValid := CSRFTokenManager.HandleTokenValidation(w, r)
+	if !tokenValid {
+		http.Error(w, "Invalid CSRF token", http.StatusUnauthorized)
+		return
+	}
+
+	operation, _ := utils.PostPara(r, "opr")
+	vsrcFiles, _ := utils.PostPara(r, "src")
+	vdestFile, _ := utils.PostPara(r, "dest")
+	existsOpr, _ := utils.PostPara(r, "existsresp")
+
+	sourceFiles, vdestFile, err := parseFileOperationRequest(operation, vsrcFiles, vdestFile)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Permission checking
+	if !userinfo.CanWrite(vdestFile) {
+		systemWideLogger.PrintAndLog("File System", "Access denied for "+userinfo.Username+" try to access "+vdestFile, nil)
+		utils.SendErrorResponse(w, "Access Denied")
+		return
+	}
+
+	//Create the task record and start it in the background
+	task := NewOngoingFileOperation(userinfo, operation, sourceFiles, vdestFile)
+	go runFileOperationTask(task, userinfo, sourceFiles, vdestFile, existsOpr, nil)
+
+	js, _ := json.Marshal(map[string]string{"oprid": task.ID})
+	utils.SendJSONResponse(w, string(js))
+}
+
+/*
+	Stream the status of all the file operations of the requesting user
+
+	One connection is enough for all the file operations of a user. The client
+	side file operation dialog opens this once and renders every task it reports.
+	Control commands can also be sent over this socket in the following format
+	{"cmd":"pause | continue | cancel | remove", "oprid":"<operation_id>"} or
+	{"cmd":"clear"} for removing all the finished records of this user.
+*/
+
+func system_fs_handleFileOprStatusWebSocket(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	var upgrader = websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - " + err.Error()))
+		systemWideLogger.PrintAndLog("System", fmt.Sprint("Websocket Upgrade Error:", err.Error()), nil)
+		return
+	}
+	defer c.Close()
+
+	//Listen for control commands on this socket until it is closed by the client
+	clientGone := make(chan bool, 1)
+	go func() {
+		type controlCommand struct {
+			Cmd   string
+			Oprid string
+		}
+		for {
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				clientGone <- true
+				return
+			}
+
+			cmd := controlCommand{}
+			if json.Unmarshal(message, &cmd) != nil {
+				continue
+			}
+			ApplyFileOperationControl(userinfo.Username, cmd.Cmd, cmd.Oprid)
+		}
+	}()
+
+	//Push the full task list of this user on every tick
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		js, err := MarshalFileOperationForUser(userinfo.Username, true)
+		if err == nil {
+			if c.WriteMessage(websocket.TextMessage, js) != nil {
+				return
+			}
+		}
+
+		select {
+		case <-clientGone:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+/*
+	File operation task runner
+
+	These are the shared internals used by both the legacy WebSocket endpoint
+	and the background (async) file operation endpoint above.
+*/
+
+// fileOprProgressUpdate is the progress payload of the legacy WebSocket file operation endpoint
+type fileOprProgressUpdate struct {
+	LatestFile string
+	Progress   int
+	StatusFlag int
+	Error      string
+}
+
+// parseFileOperationRequest validates a file operation request and returns the
+// decoded source file list and the decoded destination virtual path
+func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile string) ([]string, string, error) {
+	//Check if opr is supported
+	if operation != "move" && operation != "copy" && operation != "zip" && operation != "unzip" {
+		systemWideLogger.PrintAndLog("File System", "This file operation is not supported on the file operation endpoint. Received: "+operation, errors.New("operation not supported"))
+		return nil, "", errors.New("operation not supported on this endpoint")
+	}
+
+	//Decode the source file list
+	var sourceFiles []string
+	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
+	err := json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	if err != nil {
+		systemWideLogger.PrintAndLog("File System", "File operation source file JSON parse error", err)
+		return nil, "", errors.New("Source file JSON parse error.")
+	}
+
+	if len(sourceFiles) == 0 {
+		return nil, "", errors.New("No source file given")
+	}
+
+	//Bugged char filtering
+	tmp := []string{}
+	for _, src := range sourceFiles {
+		tmp = append(tmp, strings.ReplaceAll(src, "{{plug_sign}}", "+"))
+	}
+	sourceFiles = tmp
+	vdestFile = strings.ReplaceAll(vdestFile, "{{plug_sign}}", "+")
+
+	//Decode the target position
+	escapedVdest, _ := url.QueryUnescape(vdestFile)
+	vdestFile = escapedVdest
+
+	if vdestFile == "" {
+		return nil, "", errors.New("Undefined dest location")
+	}
+
+	//Make sure the destination is resolvable before doing anything else
+	_, _, err = GetFSHandlerSubpathFromVpath(vdestFile)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return sourceFiles, vdestFile, nil
+}
+
+// runFileOperationTask executes the file operation described by the given task record.
+// onUpdate is optional and, when given, is called on every progress update.
+func runFileOperationTask(task *fileOperationTask, userinfo *user.User, sourceFiles []string, vdestFile string, existsOpr string, onUpdate func(fileOprProgressUpdate)) {
+	if existsOpr == "" {
+		existsOpr = "keep"
+	}
+
+	oprId := task.ID
+	operation := task.Operation
+
+	pushUpdate := func(update fileOprProgressUpdate) {
+		if onUpdate != nil {
+			onUpdate(update)
+		}
+	}
+
+	failTask := func(filename string, errmsg string) {
+		SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Error, errmsg)
+		pushUpdate(fileOprProgressUpdate{
+			LatestFile: filename,
+			Progress:   -1,
+			Error:      errmsg,
+			StatusFlag: filesystem.FsOpr_Error,
+		})
+	}
+
+	//Resolve the destination file system handler
+	destFsh, subpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
+	if err != nil {
+		failTask(filepath.Base(vdestFile), err.Error())
+		return
+	}
+	destFshAbs := destFsh.FileSystemAbstraction
+	rdestFile, _ := destFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+
+	if !userinfo.CanWrite(vdestFile) {
+		failTask(filepath.Base(vdestFile), "Access Denied: No Write Permission")
+		return
 	}
 
 	if operation == "zip" {
@@ -1592,32 +1828,12 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		for _, vsrcs := range sourceFiles {
 			thisSrcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrcs)
 			if err != nil {
-				stopStatus := ProgressUpdate{
-					LatestFile: filepath.Base(vsrcs),
-					Progress:   -1,
-					Error:      "File not exists",
-					StatusFlag: filesystem.FsOpr_Error,
-				}
-				js, _ := json.Marshal(stopStatus)
-				c.WriteMessage(1, js)
-				c.Close()
-				//Remove the task from ongoing tasks list
-				wsConnectionStore.Delete(oprId)
+				failTask(filepath.Base(vsrcs), "Source file not exists")
 				return
 			}
 			rsrc, err := thisSrcFsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
 			if err != nil {
-				stopStatus := ProgressUpdate{
-					LatestFile: filepath.Base(rsrc),
-					Progress:   -1,
-					Error:      "File not exists",
-					StatusFlag: filesystem.FsOpr_Error,
-				}
-				js, _ := json.Marshal(stopStatus)
-				c.WriteMessage(1, js)
-				c.Close()
-				//Remove the task from ongoing tasks list
-				wsConnectionStore.Delete(oprId)
+				failTask(filepath.Base(rsrc), "Source file not exists")
 				return
 			}
 
@@ -1635,20 +1851,17 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		//Create the zip file
 		err = filesystem.ArozZipFileWithProgress(sourceFileFsh, realSourceFiles, zipDestFsh, zipDestPath, false, func(currentFilename string, _ int, _ int, progress float64) int {
 			sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
-			currentStatus := ProgressUpdate{
+			pushUpdate(fileOprProgressUpdate{
 				LatestFile: currentFilename,
 				Progress:   int(math.Ceil(progress)),
 				Error:      "",
 				StatusFlag: sig,
-			}
-
-			js, _ := json.Marshal(currentStatus)
-			c.WriteMessage(1, js)
+			})
 			return sig
 		})
 
 		if err != nil {
-			systemWideLogger.PrintAndLog("File System", "Zipping websocket request failed: "+err.Error(), err)
+			systemWideLogger.PrintAndLog("File System", "Zipping request failed: "+err.Error(), err)
 		}
 
 		if destFsh.RequireBuffer {
@@ -1665,22 +1878,6 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 			cleanFsBufferFileFromList(realSourceFiles)
 		}
 	} else if operation == "unzip" {
-		//Check if the target destination exists and writable
-		if !userinfo.CanWrite(vdestFile) {
-			stopStatus := ProgressUpdate{
-				LatestFile: filepath.Base(vdestFile),
-				Progress:   -1,
-				Error:      "Access Denied: No Write Permission",
-				StatusFlag: filesystem.FsOpr_Error,
-			}
-			js, _ := json.Marshal(stopStatus)
-			c.WriteMessage(1, js)
-			c.Close()
-			//Remove the task from ongoing tasks list
-			wsConnectionStore.Delete(oprId)
-			return
-		}
-
 		//Create the destination folder
 		destFshAbs.MkdirAll(rdestFile, 0755)
 
@@ -1689,56 +1886,25 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		for _, vsrcs := range sourceFiles {
 			thisSrcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrcs)
 			if err != nil {
-				stopStatus := ProgressUpdate{
-					LatestFile: filepath.Base(vsrcs),
-					Progress:   -1,
-					Error:      "File not exists",
-					StatusFlag: filesystem.FsOpr_Error,
-				}
-				js, _ := json.Marshal(stopStatus)
-				c.WriteMessage(1, js)
-				c.Close()
-				//Remove the task from ongoing tasks list
-				wsConnectionStore.Delete(oprId)
+				failTask(filepath.Base(vsrcs), "Source file not exists")
 				return
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
 			rsrc, err := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 			if err != nil {
-				stopStatus := ProgressUpdate{
-					LatestFile: filepath.Base(rsrc),
-					Progress:   -1,
-					Error:      "File not exists",
-					StatusFlag: filesystem.FsOpr_Error,
-				}
-				js, _ := json.Marshal(stopStatus)
-				c.WriteMessage(1, js)
-				c.Close()
-				//Remove the task from ongoing tasks list
-				wsConnectionStore.Delete(oprId)
+				failTask(filepath.Base(rsrc), "Source file not exists")
 				return
 			}
 			if thisSrcFsh.RequireBuffer {
 				localBufferFilepath, err := bufferRemoteFileToLocal(thisSrcFsh, rsrc, false)
 				if err != nil {
-					stopStatus := ProgressUpdate{
-						LatestFile: filepath.Base(rsrc),
-						Progress:   -1,
-						Error:      "Failed to buffer file to local disk",
-						StatusFlag: filesystem.FsOpr_Error,
-					}
-					js, _ := json.Marshal(stopStatus)
-					c.WriteMessage(1, js)
-					c.Close()
-					//Remove the task from ongoing tasks list
-					wsConnectionStore.Delete(oprId)
+					failTask(filepath.Base(rsrc), "Failed to buffer file to local disk")
 					return
 				}
 				realSourceFiles = append(realSourceFiles, localBufferFilepath)
 			} else {
 				realSourceFiles = append(realSourceFiles, rsrc)
 			}
-
 		}
 
 		unzipDest := rdestFile
@@ -1750,14 +1916,12 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) int {
 			//Generate the status update struct
 			sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(progress))
-			currentStatus := ProgressUpdate{
+			pushUpdate(fileOprProgressUpdate{
 				LatestFile: filepath.Base(currentFile),
 				Progress:   int(math.Ceil(progress)),
 				Error:      "",
 				StatusFlag: sig,
-			}
-			js, _ := json.Marshal(currentStatus)
-			c.WriteMessage(1, js)
+			})
 
 			return sig
 		})
@@ -1785,22 +1949,11 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//Other operations that allow multiple source files to handle one by one
 		for i := 0; i < len(sourceFiles); i++ {
-			//TODO: REMOVE DEBUG
-			//time.Sleep(3 * time.Second)
 			vsrcFile := sourceFiles[i]
 			thisSrcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrcFile)
 			if err != nil {
-				stopStatus := ProgressUpdate{
-					LatestFile: filepath.Base(vsrcFile),
-					Progress:   -1,
-					Error:      "File not exists",
-					StatusFlag: filesystem.FsOpr_Error,
-				}
-				js, _ := json.Marshal(stopStatus)
-				c.WriteMessage(1, js)
-				c.Close()
-				//Remove the task from ongoing tasks list
-				wsConnectionStore.Delete(oprId)
+				MarkFileOperationSubtaskEnded(oprId, i, "Source file not exists")
+				failTask(filepath.Base(vsrcFile), "Source file not exists")
 				return
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
@@ -1808,53 +1961,32 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 
 			if !thisSrcFshAbs.FileExists(rsrcFile) {
 				//This source file not exists. Report Error and Stop
-				stopStatus := ProgressUpdate{
-					LatestFile: filepath.Base(rsrcFile),
-					Progress:   -1,
-					Error:      "File not exists",
-					StatusFlag: filesystem.FsOpr_Error,
-				}
-				js, _ := json.Marshal(stopStatus)
-				c.WriteMessage(1, js)
-				c.Close()
-				//Remove the task from ongoing tasks list
-				wsConnectionStore.Delete(oprId)
+				MarkFileOperationSubtaskEnded(oprId, i, "Source file not exists")
+				failTask(filepath.Base(rsrcFile), "Source file not exists")
 				return
 			}
 
-			if operation == "move" {
-				err := filesystem.FileMove(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, true, func(progress int, currentFile string) int {
-					//Multply child progress to parent progress
-					blockRatio := float64(100) / float64(len(sourceFiles))
-					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
-
-					//Construct return struct
-					sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(overallRatio))
-					currentStatus := ProgressUpdate{
-						LatestFile: filepath.Base(currentFile),
-						Progress:   int(overallRatio),
-						Error:      "",
-						StatusFlag: sig,
-					}
-
-					js, _ := json.Marshal(currentStatus)
-					c.WriteMessage(1, js)
-					return sig
+			//Progress handler shared by the move and copy operations. The overall
+			//progress is worked out from the bytes of every source file, so a
+			//small file no longer counts for as much of the bar as a large one.
+			subtaskProgressHandler := func(currentFile string, bytesDone int64, bytesTotal int64) int {
+				sig, overallProgress, _ := UpdateOngoingFileOperationSubtask(oprId, i, filepath.Base(currentFile), bytesDone, bytesTotal)
+				pushUpdate(fileOprProgressUpdate{
+					LatestFile: filepath.Base(currentFile),
+					Progress:   int(math.Ceil(overallProgress)),
+					Error:      "",
+					StatusFlag: sig,
 				})
+				return sig
+			}
+
+			if operation == "move" {
+				err := filesystem.FileMoveWithProgress(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, true, subtaskProgressHandler)
 
 				//Handle move starting error
 				if err != nil {
-					stopStatus := ProgressUpdate{
-						LatestFile: filepath.Base(rsrcFile),
-						Progress:   -1,
-						Error:      err.Error(),
-						StatusFlag: filesystem.FsOpr_Error,
-					}
-					js, _ := json.Marshal(stopStatus)
-					c.WriteMessage(1, js)
-					c.Close()
-					//Remove the task from ongoing tasks list
-					wsConnectionStore.Delete(oprId)
+					MarkFileOperationSubtaskEnded(oprId, i, err.Error())
+					failTask(filepath.Base(rsrcFile), err.Error())
 					return
 				}
 
@@ -1862,52 +1994,32 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 				metadata.RemoveCache(thisSrcFsh, rsrcFile)
 
 			} else if operation == "copy" {
-				err := filesystem.FileCopy(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, func(progress int, currentFile string) int {
-					//Multply child progress to parent progress
-					blockRatio := float64(100) / float64(len(sourceFiles))
-					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
-
-					//Construct return struct
-					sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(overallRatio))
-					currentStatus := ProgressUpdate{
-						LatestFile: filepath.Base(currentFile),
-						Progress:   int(overallRatio),
-						Error:      "",
-						StatusFlag: sig,
-					}
-					js, _ := json.Marshal(currentStatus)
-					c.WriteMessage(1, js)
-					return sig
-				})
+				err := filesystem.FileCopyWithProgress(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, subtaskProgressHandler)
 
 				//Handle Copy starting error
 				if err != nil {
-					stopStatus := ProgressUpdate{
-						LatestFile: filepath.Base(rsrcFile),
-						Progress:   -1,
-						Error:      err.Error(),
-						StatusFlag: filesystem.FsOpr_Error,
-					}
-					js, _ := json.Marshal(stopStatus)
-					c.WriteMessage(1, js)
-					c.Close()
-					//Remove the task from ongoing tasks list
-					wsConnectionStore.Delete(oprId)
+					MarkFileOperationSubtaskEnded(oprId, i, err.Error())
+					failTask(filepath.Base(rsrcFile), err.Error())
 					return
 				}
 			}
+
+			//This source file is done. Mark it as completed
+			MarkFileOperationSubtaskEnded(oprId, i, "")
 		}
 	}
 
-	//Remove the task from ongoing tasks list
-	//TODO: REMOVE DEBUG
-	wsConnectionStore.Delete(oprId)
+	//Check if the operation was cancelled by the user half way through
+	endingSignal := filesystem.FsOpr_Continue
+	if t, err := GetOngoingFileOperationByOprID(oprId); err == nil {
+		fileOprTaskLock.RLock()
+		if t.FileOperationSignal == filesystem.FsOpr_Cancel {
+			endingSignal = filesystem.FsOpr_Cancel
+		}
+		fileOprTaskLock.RUnlock()
+	}
 
-	//Close WebSocket connection after finished
-	time.Sleep(1 * time.Second)
-	c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
-	c.Close()
-
+	SetFileOperationTaskEnded(oprId, endingSignal, "")
 }
 
 /*
@@ -3480,11 +3592,18 @@ func cleanFsBufferFileFromList(filelist []string) {
 }
 
 /*
-	File operation load and resume features
+	File operation task book keeping
+
+	All file operations of all users are tracked in wsConnectionStore, keyed by
+	the operation id. Finished records are kept around for a while so the file
+	operation dialog can still show the completed entries to the user before
+	they are cleared (either by the user or by the janitor below).
 */
 
 // Handle all the on going task requests.
-// Accept parameter: flag={continue / pause / stop}
+// Accept parameter: flag={continue / pause / cancel / remove / clear}
+// When no flag is given, the ongoing task list of this user is returned.
+// Pass in all=true to include the recently finished tasks in the listing.
 func system_fs_HandleOnGoingTasks(w http.ResponseWriter, r *http.Request) {
 	//Get the user information
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -3495,69 +3614,235 @@ func system_fs_HandleOnGoingTasks(w http.ResponseWriter, r *http.Request) {
 
 	statusFlag, _ := utils.PostPara(r, "flag")
 	oprid, _ := utils.PostPara(r, "oprid")
-
 	if statusFlag == "" {
-		//No flag defined. Print all operations
-		ongoingTasks := GetAllOngoingFileOperationForUser(userinfo.Username)
-		js, _ := json.Marshal(ongoingTasks)
-		utils.SendJSONResponse(w, string(js))
-	} else if statusFlag != "" {
-		if oprid == "" {
-			utils.SendErrorResponse(w, "oprid is empty or not set")
-			return
-		}
-
-		//Get the operation record
-		oprRecord, err := GetOngoingFileOperationByOprID(oprid)
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
-		}
-
-		if statusFlag == "continue" {
-			//Continue the file operation
-			oprRecord.FileOperationSignal = filesystem.FsOpr_Continue
-		} else if statusFlag == "pause" {
-			//Pause the file operation until the flag is set to other status
-			oprRecord.FileOperationSignal = filesystem.FsOpr_Pause
-		} else if statusFlag == "cancel" {
-			//Cancel and stop the operation
-			oprRecord.FileOperationSignal = filesystem.FsOpr_Cancel
-		} else {
-			utils.SendErrorResponse(w, "unsupported operation")
-			return
-		}
-
-		SetOngoingFileOperation(oprRecord)
-
-		utils.SendOK(w)
-	} else if oprid != "" && statusFlag == "" {
-		//Get the operation record
-		oprRecord, err := GetOngoingFileOperationByOprID(oprid)
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
-		}
-
-		js, _ := json.Marshal(oprRecord)
-		utils.SendJSONResponse(w, string(js))
-
+		//Also accept the flag as a GET parameter for easier polling
+		statusFlag, _ = utils.GetPara(r, "flag")
+		oprid, _ = utils.GetPara(r, "oprid")
 	}
 
+	if statusFlag == "" {
+		//No flag defined. Print all operations of this user
+		includeFinished, _ := utils.GetPara(r, "all")
+		js, _ := MarshalFileOperationForUser(userinfo.Username, includeFinished == "true")
+		utils.SendJSONResponse(w, string(js))
+		return
+	}
+
+	if statusFlag == "clear" {
+		//Clear all the finished records of this user
+		ClearFinishedFileOperationForUser(userinfo.Username)
+		utils.SendOK(w)
+		return
+	}
+
+	if oprid == "" {
+		utils.SendErrorResponse(w, "oprid is empty or not set")
+		return
+	}
+
+	err = ApplyFileOperationControl(userinfo.Username, statusFlag, oprid)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	utils.SendOK(w)
 }
 
-func GetAllOngoingFileOperationForUser(username string) []*fileOperationTask {
+// ApplyFileOperationControl applies a control signal to one of the file operations
+// owned by the given user. Supported commands are continue, pause, cancel and remove.
+func ApplyFileOperationControl(username string, command string, oprid string) error {
+	if command == "clear" {
+		ClearFinishedFileOperationForUser(username)
+		return nil
+	}
+
+	//Get the operation record
+	oprRecord, err := GetOngoingFileOperationByOprID(oprid)
+	if err != nil {
+		return err
+	}
+
+	//Only the owner of this operation can control it
+	if oprRecord.Owner != username {
+		return errors.New("permission denied")
+	}
+
+	fileOprTaskLock.Lock()
+	defer fileOprTaskLock.Unlock()
+	switch command {
+	case "continue":
+		//Continue the file operation
+		oprRecord.FileOperationSignal = filesystem.FsOpr_Continue
+	case "pause":
+		//Pause the file operation until the flag is set to other status
+		oprRecord.FileOperationSignal = filesystem.FsOpr_Pause
+	case "cancel":
+		//Cancel and stop the operation
+		oprRecord.FileOperationSignal = filesystem.FsOpr_Cancel
+		if taskIsFinished(oprRecord) {
+			//Already finished. Nothing left to cancel, just drop the record
+			wsConnectionStore.Delete(oprid)
+		}
+	case "remove":
+		//Remove a finished record from the listing
+		if !taskIsFinished(oprRecord) {
+			return errors.New("task is still running")
+		}
+		wsConnectionStore.Delete(oprid)
+	default:
+		return errors.New("unsupported operation")
+	}
+
+	return nil
+}
+
+// NewOngoingFileOperation creates and registers a new file operation task record.
+// The size of each source file is resolved here so the front end can show the
+// transferred / total size of every file in the operation.
+func NewOngoingFileOperation(userinfo *user.User, operation string, sourceFiles []string, vdestFile string) *fileOperationTask {
+	/*
+		Sizing a source folder means walking it. For a move that the storage can
+		satisfy with a rename that walk costs far more than the move itself, and
+		it would only feed a bar that jumps straight to done, so it is skipped.
+		Should the rename fail after all and the files end up being streamed, the
+		first progress report fills the real sizes in, see
+		UpdateOngoingFileOperationSubtask.
+	*/
+	resolveSizes := !fileOperationCanBeRenamed(operation, sourceFiles, vdestFile)
+
+	subtasks := []*fileOperationSubtask{}
+	totalSize := int64(0)
+	for _, vsrc := range sourceFiles {
+		thisSize, thisIsDir := resolveFileOperationSourceInfo(userinfo, vsrc, resolveSizes)
+		totalSize += thisSize
+		subtasks = append(subtasks, &fileOperationSubtask{
+			Filename: filepath.Base(strings.TrimSuffix(vsrc, "/")),
+			Src:      arozfs.ToSlash(vsrc),
+			IsDir:    thisIsDir,
+			Size:     thisSize,
+			Done:     0,
+			Progress: 0,
+			Status:   FsTask_Pending,
+		})
+	}
+
+	thisTask := fileOperationTask{
+		ID:                  strconv.Itoa(int(time.Now().Unix())) + "_" + uuid.NewV4().String(),
+		Owner:               userinfo.Username,
+		Operation:           operation,
+		Src:                 arozfs.ToSlash(filepath.Dir(sourceFiles[0])),
+		Dest:                arozfs.ToSlash(vdestFile),
+		Progress:            0.0,
+		LatestFile:          arozfs.ToSlash(filepath.Base(sourceFiles[0])),
+		FileOperationSignal: filesystem.FsOpr_Continue,
+		Files:               subtasks,
+		TotalSize:           totalSize,
+		DoneSize:            0,
+		StartTime:           time.Now().Unix(),
+		Status:              FsTask_Ongoing,
+	}
+
+	wsConnectionStore.Store(thisTask.ID, &thisTask)
+	startFinishedFileOperationJanitor()
+	return &thisTask
+}
+
+// resolveFileOperationSourceInfo returns the size of a source file in bytes and
+// whether it is a folder. Set resolveSize to false to skip the folder walk when
+// the size is not worth what it costs to work out.
+// The size is 0 when it cannot be determined.
+func resolveFileOperationSourceInfo(userinfo *user.User, vsrc string, resolveSize bool) (int64, bool) {
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrc)
+	if err != nil {
+		return 0, false
+	}
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		return 0, false
+	}
+
+	isDir := fsh.FileSystemAbstraction.IsDir(rpath)
+	if !resolveSize {
+		return 0, isDir
+	}
+	if isDir {
+		size, _ := fsh.GetDirctorySizeFromRealPath(rpath, false)
+		return size, true
+	}
+	return fsh.FileSystemAbstraction.GetFileSize(rpath), false
+}
+
+// fileOperationCanBeRenamed reports whether an operation is a move that the
+// storage holding both of its ends can carry out on its own, in which case no
+// bytes travel through ArozOS and the operation finishes right away.
+func fileOperationCanBeRenamed(operation string, sourceFiles []string, vdestFile string) bool {
+	if operation != "move" {
+		return false
+	}
+
+	destFsh, _, err := GetFSHandlerSubpathFromVpath(vdestFile)
+	if err != nil || destFsh.ReadOnly {
+		return false
+	}
+
+	for _, vsrc := range sourceFiles {
+		srcFsh, _, err := GetFSHandlerSubpathFromVpath(vsrc)
+		if err != nil || srcFsh.ReadOnly || !filesystem.SameFileSystem(srcFsh, destFsh) {
+			return false
+		}
+	}
+	return true
+}
+
+// GetAllFileOperationForUser returns all the file operation records of the given user.
+// Set includeFinished to true to also return the recently finished records.
+// The records are live objects that the running operations keep updating, so
+// read them through MarshalFileOperationForUser unless you hold fileOprTaskLock.
+func GetAllFileOperationForUser(username string, includeFinished bool) []*fileOperationTask {
+	fileOprTaskLock.RLock()
+	defer fileOprTaskLock.RUnlock()
+	return collectFileOperationForUser(username, includeFinished)
+}
+
+// MarshalFileOperationForUser serializes the file operation records of a user
+// while holding the task lock, so the running operations cannot update a record
+// half way through the serialization.
+func MarshalFileOperationForUser(username string, includeFinished bool) ([]byte, error) {
+	fileOprTaskLock.RLock()
+	defer fileOprTaskLock.RUnlock()
+	return json.Marshal(collectFileOperationForUser(username, includeFinished))
+}
+
+// collectFileOperationForUser gathers the task records of a user in operation id
+// order. The caller is expected to be holding fileOprTaskLock.
+func collectFileOperationForUser(username string, includeFinished bool) []*fileOperationTask {
 	results := []*fileOperationTask{}
 	wsConnectionStore.Range(func(key, value interface{}) bool {
-		//oprid := key.(string)
 		taskInfo := value.(*fileOperationTask)
-		if taskInfo.Owner == username {
+		if taskInfo.Owner == username && (includeFinished || !taskIsFinished(taskInfo)) {
 			results = append(results, taskInfo)
 		}
 		return true
 	})
 
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ID < results[j].ID
+	})
 	return results
+}
+
+// ClearFinishedFileOperationForUser removes all the finished records of a user
+func ClearFinishedFileOperationForUser(username string) {
+	fileOprTaskLock.Lock()
+	defer fileOprTaskLock.Unlock()
+	wsConnectionStore.Range(func(key, value interface{}) bool {
+		taskInfo := value.(*fileOperationTask)
+		if taskInfo.Owner == username && taskIsFinished(taskInfo) {
+			wsConnectionStore.Delete(key)
+		}
+		return true
+	})
 }
 
 // Get an ongoing task record
@@ -3575,16 +3860,269 @@ func SetOngoingFileOperation(opr *fileOperationTask) {
 	wsConnectionStore.Store(opr.ID, opr)
 }
 
-// Update the status of an onging task record, return latest status code and error if any
+// Update the status of an ongoing task record, return latest status code and error if any
 func UpdateOngoingFileOperation(oprid string, currentFile string, progress float64) (int, error) {
 	t, err := GetOngoingFileOperationByOprID(oprid)
 	if err != nil {
 		return 0, err
 	}
 
+	fileOprTaskLock.Lock()
 	t.LatestFile = currentFile
 	t.Progress = progress
+	t.DoneSize = int64(float64(t.TotalSize) * progress / 100)
 
-	SetOngoingFileOperation(t)
-	return t.FileOperationSignal, nil
+	//Zip and unzip report one progress value for the whole operation. Spread it
+	//over the source files in order so the dialog can still show them one by one.
+	remaining := t.DoneSize
+	for _, thisSubtask := range t.Files {
+		if remaining >= thisSubtask.Size {
+			thisSubtask.Done = thisSubtask.Size
+			thisSubtask.Progress = 100
+			thisSubtask.Status = FsTask_Completed
+			remaining -= thisSubtask.Size
+		} else {
+			thisSubtask.Done = remaining
+			if thisSubtask.Size > 0 {
+				thisSubtask.Progress = float64(remaining) / float64(thisSubtask.Size) * 100
+			} else {
+				thisSubtask.Progress = progress
+			}
+			thisSubtask.Status = FsTask_Ongoing
+			remaining = 0
+		}
+	}
+	sig := t.FileOperationSignal
+	fileOprTaskLock.Unlock()
+
+	return sig, nil
+}
+
+/*
+UpdateOngoingFileOperationSubtask records how many bytes of one source file are
+already processed and recalculates the progress of the whole operation from it.
+It returns the current control signal and the overall progress of the operation.
+
+bytesTotal is the size the file operation itself reports for this source, which
+wins over the size resolved when the task was created: a folder can grow or
+shrink between the two, and the transfer knows better than the earlier walk.
+*/
+func UpdateOngoingFileOperationSubtask(oprid string, subtaskIndex int, currentFile string, bytesDone int64, bytesTotal int64) (int, float64, error) {
+	t, err := GetOngoingFileOperationByOprID(oprid)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	fileOprTaskLock.Lock()
+	if currentFile != "" {
+		t.LatestFile = currentFile
+	}
+	if subtaskIndex >= 0 && subtaskIndex < len(t.Files) {
+		thisSubtask := t.Files[subtaskIndex]
+		thisSubtask.Status = FsTask_Ongoing
+
+		if bytesTotal > 0 && bytesTotal != thisSubtask.Size {
+			//Keep the operation total in step with the corrected file size
+			t.TotalSize += bytesTotal - thisSubtask.Size
+			thisSubtask.Size = bytesTotal
+		}
+
+		if bytesDone > thisSubtask.Size {
+			bytesDone = thisSubtask.Size
+		}
+		thisSubtask.Done = bytesDone
+		if thisSubtask.Size > 0 {
+			thisSubtask.Progress = float64(bytesDone) / float64(thisSubtask.Size) * 100
+		}
+	}
+
+	t.DoneSize = sumFileOperationDoneSize(t)
+	recalculateFileOperationProgress(t)
+	sig := t.FileOperationSignal
+	progress := t.Progress
+	fileOprTaskLock.Unlock()
+
+	return sig, progress, nil
+}
+
+/*
+recalculateFileOperationProgress works out the overall progress of a task from
+the bytes of the files inside it, so copying a 1 KB text file next to a 4 GB
+image no longer moves the bar half way when the text file lands.
+
+Operations whose sizes could not be resolved fall back to weighting every source
+file equally. The caller is expected to be holding fileOprTaskLock.
+*/
+func recalculateFileOperationProgress(t *fileOperationTask) {
+	if t.TotalSize > 0 {
+		progress := float64(t.DoneSize) / float64(t.TotalSize) * 100
+		if progress > 100 {
+			progress = 100
+		}
+		t.Progress = progress
+		return
+	}
+
+	if len(t.Files) == 0 {
+		return
+	}
+	totalProgress := float64(0)
+	for _, thisSubtask := range t.Files {
+		totalProgress += thisSubtask.Progress
+	}
+	t.Progress = totalProgress / float64(len(t.Files))
+}
+
+// MarkFileOperationSubtaskEnded marks one source file inside a task as finished.
+// Pass in an empty errmsg for a successful completion.
+func MarkFileOperationSubtaskEnded(oprid string, subtaskIndex int, errmsg string) {
+	t, err := GetOngoingFileOperationByOprID(oprid)
+	if err != nil {
+		return
+	}
+
+	fileOprTaskLock.Lock()
+	defer fileOprTaskLock.Unlock()
+	if subtaskIndex < 0 || subtaskIndex >= len(t.Files) {
+		return
+	}
+
+	thisSubtask := t.Files[subtaskIndex]
+	if errmsg != "" {
+		thisSubtask.Status = FsTask_Error
+		thisSubtask.Error = errmsg
+	} else {
+		thisSubtask.Status = FsTask_Completed
+		thisSubtask.Progress = 100
+		thisSubtask.Done = thisSubtask.Size
+	}
+	t.DoneSize = sumFileOperationDoneSize(t)
+	recalculateFileOperationProgress(t)
+}
+
+// SetFileOperationTaskEnded closes off a task record with the given ending signal.
+// The record is kept in the store so the front end can still render the result.
+func SetFileOperationTaskEnded(oprid string, endingSignal int, errmsg string) {
+	t, err := GetOngoingFileOperationByOprID(oprid)
+	if err != nil {
+		return
+	}
+
+	fileOprTaskLock.Lock()
+	defer fileOprTaskLock.Unlock()
+	t.EndTime = time.Now().Unix()
+	t.Error = errmsg
+	switch {
+	case endingSignal == filesystem.FsOpr_Cancel || t.FileOperationSignal == filesystem.FsOpr_Cancel:
+		//A file operation stopped by the user reports the abort as an error on
+		//its way out. That is not a failure, so record it as a cancellation.
+		t.Status = FsTask_Cancelled
+		t.Error = ""
+		for _, thisSubtask := range t.Files {
+			if thisSubtask.Status == FsTask_Error {
+				thisSubtask.Status = FsTask_Cancelled
+				thisSubtask.Error = ""
+			}
+		}
+	case errmsg != "" || endingSignal == filesystem.FsOpr_Error:
+		t.Status = FsTask_Error
+	default:
+		t.Status = FsTask_Completed
+		t.Progress = 100
+		t.DoneSize = t.TotalSize
+		for _, thisSubtask := range t.Files {
+			if thisSubtask.Status == FsTask_Pending || thisSubtask.Status == FsTask_Ongoing {
+				thisSubtask.Status = FsTask_Completed
+				thisSubtask.Progress = 100
+				thisSubtask.Done = thisSubtask.Size
+			}
+		}
+	}
+
+	//Any file still marked as running at this point will never move again
+	for _, thisSubtask := range t.Files {
+		if thisSubtask.Status == FsTask_Pending || thisSubtask.Status == FsTask_Ongoing {
+			thisSubtask.Status = t.Status
+		}
+	}
+}
+
+// taskIsFinished checks if a task record has stopped running.
+// The caller is expected to be holding fileOprTaskLock when required.
+func taskIsFinished(t *fileOperationTask) bool {
+	return t.Status != FsTask_Ongoing && t.Status != FsTask_Pending
+}
+
+// sumFileOperationDoneSize sums up the transferred bytes of all the files in a task.
+// The caller is expected to be holding fileOprTaskLock.
+func sumFileOperationDoneSize(t *fileOperationTask) int64 {
+	total := int64(0)
+	for _, thisSubtask := range t.Files {
+		total += thisSubtask.Done
+	}
+	return total
+}
+
+// startFinishedFileOperationJanitor starts the background cleaner that tidies up
+// the finished task records, see clearExpiredFileOperationRecords.
+func startFinishedFileOperationJanitor() {
+	if !fileOprJanitorStarted.CompareAndSwap(false, true) {
+		return
+	}
+
+	go func() {
+		for {
+			time.Sleep(fileOprJanitorInterval)
+			clearExpiredFileOperationRecords()
+		}
+	}()
+}
+
+/*
+clearExpiredFileOperationRecords drops the finished task records that are no
+longer worth keeping.
+
+An operation that finished without an error is cleared on its own shortly
+after it ended, whether or not anyone was watching it: closing the browser
+tab half way through a copy must not leave the record behind forever.
+A failed operation is kept instead, so the user can still find out what went
+wrong after reopening the desktop from this or from another machine. Only the
+newest fileOprErrorRecordLimit failures of each user are kept.
+*/
+func clearExpiredFileOperationRecords() {
+	expireTime := time.Now().Unix() - fileOprFinishedRecordTTL
+	errorRecords := map[string][]*fileOperationTask{}
+
+	fileOprTaskLock.Lock()
+	defer fileOprTaskLock.Unlock()
+	wsConnectionStore.Range(func(key, value interface{}) bool {
+		taskInfo := value.(*fileOperationTask)
+		if !taskIsFinished(taskInfo) || taskInfo.EndTime == 0 {
+			//Still running, leave it alone
+			return true
+		}
+
+		if taskInfo.Status == FsTask_Error {
+			errorRecords[taskInfo.Owner] = append(errorRecords[taskInfo.Owner], taskInfo)
+			return true
+		}
+
+		if taskInfo.EndTime < expireTime {
+			wsConnectionStore.Delete(key)
+		}
+		return true
+	})
+
+	//Trim the failure backlog of each user down to the newest few
+	for _, records := range errorRecords {
+		if len(records) <= fileOprErrorRecordLimit {
+			continue
+		}
+		sort.Slice(records, func(i, j int) bool {
+			return records[i].EndTime > records[j].EndTime
+		})
+		for _, expiredRecord := range records[fileOprErrorRecordLimit:] {
+			wsConnectionStore.Delete(expiredRecord.ID)
+		}
+	}
 }

@@ -70,6 +70,60 @@ if ($(".fileObject.selected").length > 0){
 Properties Sidebar
 */
 
+/*
+    POSIX permission string as a grid.
+
+    "-rwxrwxrwx" is exact but asks the reader to count characters in threes to
+    answer "can the group write?". The same information as a table is read at a
+    glance. Anything that is not a recognisable 9 or 10 character mode string is
+    shown verbatim rather than guessed at - remote file systems and Windows
+    hosts do not all report this the same way.
+*/
+function renderPermissionTable(permission){
+    let mode = (permission == undefined || permission == null) ? "" : String(permission).trim();
+    //Drop the leading file type character when present
+    let bits = mode.length == 10 ? mode.substring(1) : mode;
+    if (bits.length != 9 || !/^[rwxsStTl-]{9}$/.test(bits)){
+        return escapeHTMLText(mode);
+    }
+
+    let rows = [
+        {label: applocale.getString("sidebar/properties/permOwner", "Owner"), offset: 0},
+        {label: applocale.getString("sidebar/properties/permGroup", "Group"), offset: 3},
+        {label: applocale.getString("sidebar/properties/permOthers", "Others"), offset: 6}
+    ];
+    let cols = [
+        applocale.getString("sidebar/properties/permRead", "Read"),
+        applocale.getString("sidebar/properties/permWrite", "Write"),
+        applocale.getString("sidebar/properties/permExec", "Exec")
+    ];
+
+    let html = '<table class="fmPermTable"><tr><th></th>';
+    for (let i = 0; i < cols.length; i++){
+        html += '<th>' + escapeHTMLText(cols[i]) + '</th>';
+    }
+    html += '</tr>';
+    rows.forEach(function(row){
+        html += '<tr><td class="fmPermWho">' + escapeHTMLText(row.label) + '</td>';
+        for (let i = 0; i < 3; i++){
+            //Only '-' means not granted; setuid/sticky letters still imply it
+            let granted = bits.charAt(row.offset + i) != "-";
+            html += '<td class="' + (granted ? "fmPermOn" : "fmPermOff") + '">' +
+                    (granted ? "✓" : "–") + '</td>';
+        }
+        html += '</tr>';
+    });
+    return html + '</table>';
+}
+
+//The mode string comes from the server, so escape before it goes into html
+function escapeHTMLText(text){
+    return String(text == undefined ? "" : text)
+        .split("&").join("&amp;")
+        .split("<").join("&lt;")
+        .split(">").join("&gt;");
+}
+
 function loadFileProperties(filepath){
 $.ajax({
     url: "../../system/file_system/getProperties",
@@ -92,28 +146,31 @@ $.ajax({
                 }
             }
             
-            //Load the preview 
+            /*
+                Preview
+
+                Hidden until a real thumbnail arrives. It used to fall back to
+                the generic file type icon, which told the reader nothing the
+                row they just clicked had not already shown them, and spent a
+                third of the panel doing it.
+
+                Hidden up front rather than only on failure, so the previously
+                selected file's image does not sit there while this one loads.
+            */
+            $(previewSidebar).find(".preview").hide();
             fetch("../../system/file_system/loadThumbnail?vpath=" + encodeURIComponent(data.VirtualPath))
             .then((response) => response.json())
             .then((imageData) => {
                 if (imageData.error !== undefined || imageData.trim() == ""){
-                    //Image load error.
-                    if (data.IsDirectory){
-                        //Load the folder image
-                        $(previewSidebar).find(".preview img").attr("src", "../../img/system/folder.svg")
-                    }else{
-                        let icon = "file outline";
-                        let ext = data.Basename.split(".").pop().toLowerCase();
-                        if (ext != ""){
-                            icon = ao_module_utils.getIconFromExt(ext);
-                        }
-                        let imagePath = "../../img/desktop/files_icon/default/" + icon + ".png";
-                        $(previewSidebar).find(".preview img").attr("src", imagePath);
-                    }
-                    
+                    //No thumbnail for this one - leave the preview hidden
+                    $(previewSidebar).find(".preview img").removeAttr("src");
                     return;
                 }
                 $(previewSidebar).find(".preview img").attr('src',"data:image/jpg;base64," + imageData);
+                $(previewSidebar).find(".preview").show();
+            })
+            .catch(() => {
+                $(previewSidebar).find(".preview").hide();
             });
 
             //Render the remaining information
@@ -156,7 +213,7 @@ $.ajax({
                     ${applocale.getString("sidebar/properties/permission", "Permission")}
                 </td>
                 <td>
-                    ${data.Permission}
+                    ${renderPermissionTable(data.Permission)}
                 </td>
             </tr><tr>
                 <td style="${styleOverwrite}">

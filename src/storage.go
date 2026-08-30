@@ -296,7 +296,8 @@ func GetFSHandlerSubpathFromVpath(vpath string) (*fs.FileSystemHandler, string, 
 	}
 
 	if fsh == nil || fsh.FileSystemAbstraction == nil {
-		return nil, "", errors.New("Unable to resolve requested path: " + err.Error())
+		//err is nil on this branch, do not dereference it for a message
+		return nil, "", errors.New("Unable to resolve requested path: file system handler not loaded")
 	}
 
 	if fsh.Closed {

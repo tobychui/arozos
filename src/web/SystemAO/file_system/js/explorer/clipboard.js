@@ -126,28 +126,14 @@ function paste(redirectPasteTarget="", nocheck=false){
                         });
                         
                     }else{
-                        //Pass the request to operation handler
-                        var oprConfig = {
+                        //Pass the request to the system wide file operation dialog
+                        ao_module_startFileOperation({
                             opr: "move",
                             src: fileList,
                             dest: targetDir,
                             overwriteMode: overwriteMode,
                             callbackWindowID: ao_module_windowID,
                             callbackFunction: `callRefresh("${targetDir}")`
-                        }
-                        var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-                        var title = "Moving " + fileList.length;
-                        if (fileList.length > 1){
-                            title += " files";
-                        }else{
-                            title += " file";
-                        }
-                        parent.newFloatWindow({
-                            url: "SystemAO/file_system/file_operation.html#" + configHash,
-                            width: 400,
-                            height: 220,
-                            appicon: "SystemAO/file_system/img/selector.png",
-                            title: title
                         });
                         hideAllPopupWindows();
                     }
@@ -187,28 +173,14 @@ function paste(redirectPasteTarget="", nocheck=false){
                         });
                         
                     }else{
-                        //Pass the request to operation handler
-                            var oprConfig = {
+                        //Pass the request to the system wide file operation dialog
+                        ao_module_startFileOperation({
                             opr: "copy",
                             src: fileList,
                             dest: targetDir,
                             overwriteMode: overwriteMode,
                             callbackWindowID: ao_module_windowID,
                             callbackFunction: `callRefresh("${targetDir}")`
-                        }
-                        var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-                        var title = "Copying " + fileList.length;
-                        if (fileList.length > 1){
-                            title += " files";
-                        }else{
-                            title += " file";
-                        }
-                        parent.newFloatWindow({
-                            url: "SystemAO/file_system/file_operation.html#" + configHash,
-                            width: 400,
-                            height: 220,
-                            appicon: "SystemAO/file_system/img/selector.png",
-                            title: title
                         });
                         hideAllPopupWindows();
                     }

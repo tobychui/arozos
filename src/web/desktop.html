@@ -1767,7 +1767,49 @@
             });
         }
 
-        //The background task checking function will ping server side at a more 
+        /*
+            System wide file operation dialog
+
+            Only one file operation dialog is opened at a time. Every move, copy,
+            zip and unzip request is handed over to the running dialog so the
+            desktop never ends up with a stack of windows each holding their own
+            status connection. See SystemAO/file_system/file_operation.html
+        */
+        var fileOperationWindowUID = "arozFileOperationDialog";
+        function startFileOperation(oprConfig, retryCount=0){
+            var fw = getFloatWindowByID(fileOperationWindowUID);
+            if (fw != undefined && $(fw).length > 0){
+                var dialogFrame = $(fw).find("iframe")[0];
+                if (dialogFrame != undefined && dialogFrame.contentWindow != null &&
+                    typeof dialogFrame.contentWindow.addFileOperation == "function"){
+                    dialogFrame.contentWindow.addFileOperation(oprConfig);
+
+                    //Bring the dialog back into view in case it was minimized
+                    $(fw).fadeIn(100);
+                    MoveFloatWindowToTop(fw);
+                    return;
+                }
+
+                //The dialog window exists but its page is still loading. Wait for it.
+                if (retryCount < 40){
+                    setTimeout(function(){
+                        startFileOperation(oprConfig, retryCount + 1);
+                    }, 250);
+                    return;
+                }
+            }
+
+            newFloatWindow({
+                uid: fileOperationWindowUID,
+                url: "SystemAO/file_system/file_operation.html#" + encodeURIComponent(JSON.stringify(oprConfig)),
+                width: 480,
+                height: 430,
+                appicon: "SystemAO/file_system/img/selector.png",
+                title: applocale.getString("fileOperation/title", "File Operation")
+            });
+        }
+
+        //The background task checking function will ping server side at a more
         //frequent interval if there is a background task running
         var rapidIntervalTaskListing = undefined;
         function updateBackgroundgTaskList(){
@@ -4605,11 +4647,9 @@
                             //Check if source is also from user:/
                             var srcVroot = filelist[0].filepath.split(":/").shift();
                             var mode = "copy"
-                            var title = "Copying "
                             if (srcVroot == "user"){
                                 //Move
                                 mode = "move"
-                                title = "Moving "
                             }
 
                             var filepathList = [];
@@ -4618,32 +4658,12 @@
                             });
 
                             //Start the file operation dialog
-                            var oprConfig = {
+                            startFileOperation({
                                 opr: mode,
                                 src: filepathList,
                                 dest: "user:/Desktop/",
                                 overwriteMode: "ask"
-                            }
-                            var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-
-                            //Genreate window title
-                            title = title + filepathList.length;
-                            if (filepathList.length > 1){
-                                title += " files";
-                            }else{
-                                title += " file";
-                            }
-
-                            newFloatWindow({
-                                url: "SystemAO/file_system/file_operation.html#" + configHash,
-                                width: 400,
-                                height: 220,
-                                appicon: "SystemAO/file_system/img/selector.png",
-                                title: title
                             });
-
-
-
                         }
 
                         
@@ -4851,28 +4871,13 @@
         
         //Use move if it is folder on desktop, use copy if it is a shortcut
         function moveSourceFilesToTarget(sourceList, target, opr="move"){
-            var oprConfig = {
+            //Hand the operation over to the system wide file operation dialog
+            startFileOperation({
                 opr: opr,
                 src: sourceList,
                 dest: target,
                 callbackWindowID: "desktop",
                 callbackFunction: `refresh(undefined, true)`
-            }
-            var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-            var title = "Copying " + sourceList.length;
-            if (sourceList.length > 1){
-                title += " files";
-            }else{
-                title += " file";
-            }
-
-            //Create FloatWindow to handle the file operations
-            newFloatWindow({
-                url: "SystemAO/file_system/file_operation.html#" + configHash,
-                width: 400,
-                height: 220,
-                appicon: "SystemAO/file_system/img/selector.png",
-                title: title
             });
 
             //Delete the file location from db
@@ -6532,36 +6537,17 @@
             }
 
             var mode = "copy";
-            var title = "Copying "
             if (thisOprCutMode){
                 mode = "move";
-                title = "Moving "
             }
 
             if (fileList.length > 0){
                 //There are something to move. Start the file operation dialog
-                var oprConfig = {
+                startFileOperation({
                     opr: mode,
                     src: fileList,
                     dest: "user:/Desktop/",
                     overwriteMode: "ask"
-                }
-                var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-
-                //Genreate window title
-                var title = title + fileList.length;
-                if (fileList.length > 1){
-                    title += " files";
-                }else{
-                    title += " file";
-                }
-
-                newFloatWindow({
-                    url: "SystemAO/file_system/file_operation.html#" + configHash,
-                    width: 400,
-                    height: 220,
-                    appicon: "SystemAO/file_system/img/selector.png",
-                    title: title
                 });
             }
             hideAllContextMenus();

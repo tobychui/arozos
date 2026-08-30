@@ -89,6 +89,26 @@ function updateViewmodeButtons(){
         });
     }
 
+/*
+    Show or hide dotfiles.
+
+    The filtering itself is the server's: listDir only returns hidden entries
+    when asked, so this re-lists rather than showing or hiding rows that were
+    never sent. Persisted server side like the toolbar preference, so it follows
+    the user between browsers.
+*/
+function toggleHiddenFiles(){
+    showHiddenFiles = !showHiddenFiles;
+    updateHiddenFilesToggle();
+    setPreference("file_explorer/showHidden", showHiddenFiles);
+    closeFileOprMenu();
+    refreshList();
+}
+
+function updateHiddenFilesToggle(){
+    $("#fmHiddenToggle").toggleClass("checked", showHiddenFiles);
+}
+
 //Update sorting method for file listing
 /*
     Apply a sort mode, persist it for this folder and re-list.
@@ -174,5 +194,6 @@ window.changeViewMode = changeViewMode;
 window.togglePreviewWindowSize = togglePreviewWindowSize;
 window.togglePropertiesView = togglePropertiesView;
 window.setSortMode = setSortMode;
+window.toggleHiddenFiles = toggleHiddenFiles;
             window.toggleSortMenu = toggleSortMenu;
             window.updateSortMenuState = updateSortMenuState;

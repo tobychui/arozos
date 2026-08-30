@@ -38,6 +38,12 @@ $(document).ready(function(){
             applyOprBarVisibility();
         });
 
+        //Hidden files stay hidden unless the user asked for them
+        loadPreference("file_explorer/showHidden", function(value){
+            showHiddenFiles = (value === "true" || value === true);
+            updateHiddenFilesToggle();
+        });
+
         //Restore the saved grid tile size
         loadPreference("file_explorer/gridZoom", function(value){
             let z = parseInt(value);

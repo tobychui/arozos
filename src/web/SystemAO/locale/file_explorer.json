@@ -252,7 +252,14 @@
                 "upload/resume": "繼續",
                 "upload/cancel": "取消",
                 "upload/retry": "重試",
-                "upload/pauseExpired": "上傳已取消：暫停時間過長"
+                "upload/pauseExpired": "上傳已取消：暫停時間過長",
+                "sidebar/properties/permOwner": "擁有者",
+                "sidebar/properties/permGroup": "群組",
+                "sidebar/properties/permOthers": "其他",
+                "sidebar/properties/permRead": "讀取",
+                "sidebar/properties/permWrite": "寫入",
+                "sidebar/properties/permExec": "執行",
+                "fileopr/Hidden Files": "顯示隱藏檔案"
             },
             "titles": {
                 "Back": "上一頁",
@@ -550,7 +557,14 @@
                 "upload/resume": "繼續",
                 "upload/cancel": "取消",
                 "upload/retry": "重試",
-                "upload/pauseExpired": "上傳已取消：暫停時間過長"
+                "upload/pauseExpired": "上傳已取消：暫停時間過長",
+                "sidebar/properties/permOwner": "擁有者",
+                "sidebar/properties/permGroup": "群組",
+                "sidebar/properties/permOthers": "其他",
+                "sidebar/properties/permRead": "讀取",
+                "sidebar/properties/permWrite": "寫入",
+                "sidebar/properties/permExec": "執行",
+                "fileopr/Hidden Files": "顯示隱藏檔案"
             },
             "titles": {
                 "Back": "上一頁",
@@ -849,7 +863,14 @@
                 "upload/resume": "继续",
                 "upload/cancel": "取消",
                 "upload/retry": "重试",
-                "upload/pauseExpired": "上传已取消：暂停时间过长"
+                "upload/pauseExpired": "上传已取消：暂停时间过长",
+                "sidebar/properties/permOwner": "所有者",
+                "sidebar/properties/permGroup": "群组",
+                "sidebar/properties/permOthers": "其他",
+                "sidebar/properties/permRead": "读取",
+                "sidebar/properties/permWrite": "写入",
+                "sidebar/properties/permExec": "执行",
+                "fileopr/Hidden Files": "显示隐藏文件"
             },
             "titles": {
                 "Back": "上一页",
@@ -1149,7 +1170,14 @@
                 "upload/resume": "Resume",
                 "upload/cancel": "Cancel",
                 "upload/retry": "Retry",
-                "upload/pauseExpired": "Upload cancelled: paused for too long"
+                "upload/pauseExpired": "Upload cancelled: paused for too long",
+                "sidebar/properties/permOwner": "Owner",
+                "sidebar/properties/permGroup": "Group",
+                "sidebar/properties/permOthers": "Others",
+                "sidebar/properties/permRead": "Read",
+                "sidebar/properties/permWrite": "Write",
+                "sidebar/properties/permExec": "Exec",
+                "fileopr/Hidden Files": "Show Hidden Files"
             },
             "titles": {
                 "Back": "Back",
@@ -1449,7 +1477,14 @@
                 "upload/resume": "再開",
                 "upload/cancel": "キャンセル",
                 "upload/retry": "再試行",
-                "upload/pauseExpired": "アップロードを中止しました：一時停止が長すぎます"
+                "upload/pauseExpired": "アップロードを中止しました：一時停止が長すぎます",
+                "sidebar/properties/permOwner": "所有者",
+                "sidebar/properties/permGroup": "グループ",
+                "sidebar/properties/permOthers": "その他",
+                "sidebar/properties/permRead": "読取",
+                "sidebar/properties/permWrite": "書込",
+                "sidebar/properties/permExec": "実行",
+                "fileopr/Hidden Files": "隠しファイルを表示"
             },
             "titles": {
                 "Back": "戻る",
@@ -1751,7 +1786,14 @@
                 "upload/resume": "다시 시작",
                 "upload/cancel": "취소",
                 "upload/retry": "다시 시도",
-                "upload/pauseExpired": "업로드 취소됨: 너무 오래 일시중지되었습니다"
+                "upload/pauseExpired": "업로드 취소됨: 너무 오래 일시중지되었습니다",
+                "sidebar/properties/permOwner": "소유자",
+                "sidebar/properties/permGroup": "그룹",
+                "sidebar/properties/permOthers": "기타",
+                "sidebar/properties/permRead": "읽기",
+                "sidebar/properties/permWrite": "쓰기",
+                "sidebar/properties/permExec": "실행",
+                "fileopr/Hidden Files": "숨김 파일 표시"
             },
             "titles": {
                 "Back": "뒤로",
