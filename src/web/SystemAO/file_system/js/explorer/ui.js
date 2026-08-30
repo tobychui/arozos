@@ -167,45 +167,46 @@ function initWindowSizes(animate=true){
     $("#propertiesView").css("height", windowHeight + "px");
 }
 
-function toggleDarkTheme(){
-    if ($(".darkTheme").length > 0){
-        //Set To whiteTheme
-        $("body").removeClass("darkTheme").addClass("whiteTheme");
-        currentTheme = "whiteTheme";
-        $("#darkthemebtn").attr("class","moon icon");
-        $("#darkthemebtn").parent().addClass("inverted");
-        $(".dropdown").removeClass("inverted");
-        setPreference("file_explorer/theme","whiteTheme");
-        $("#mobileNaviBar").removeClass("inverted");
-        $("#darkthemebtn").css("color", "#dadada");
-
-        //If in vdi mode, update desktop's listMenu as well
-        if (ao_module_virtualDesktop){
-            parent.initTheme("whiteTheme");
-        } else {
-            // Standalone: notify other open tabs via localStorage
-            try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: 'light', ts: Date.now()})); } catch(e) {}
-        }
-    }else{
-        //Set to DarkTheme
+/*
+    Paints the theme classes/icons only - no preference save, no broadcast.
+    Shared by the toolbar toggle button (below) and by the live-sync listener
+    in boot.js that reacts to the desktop's own theme switch, so a change
+    triggered from elsewhere doesn't loop back into another broadcast.
+*/
+function applyTheme(theme){
+    var isDark = (theme == "dark" || theme == "darkTheme");
+    if (isDark){
         $("body").removeClass("whiteTheme").addClass("darkTheme");
         currentTheme = "darkTheme";
         $("#darkthemebtn").attr("class","sun icon");
         $("#darkthemebtn").parent().removeClass("inverted");
         $("#darkthemebtn").css("color", "#3d3f47");
         $(".dropdown").addClass("inverted");
-        setPreference("file_explorer/theme","darkTheme");
         $("#mobileNaviBar").addClass("inverted");
-
-            //If in vdi mode, update desktop's listMenu as well
-            if (ao_module_virtualDesktop){
-            parent.initTheme("darkTheme");
-        } else {
-            // Standalone: notify other open tabs via localStorage
-            try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: 'dark', ts: Date.now()})); } catch(e) {}
-        }
+    }else{
+        $("body").removeClass("darkTheme").addClass("whiteTheme");
+        currentTheme = "whiteTheme";
+        $("#darkthemebtn").attr("class","moon icon");
+        $("#darkthemebtn").parent().addClass("inverted");
+        $(".dropdown").removeClass("inverted");
+        $("#mobileNaviBar").removeClass("inverted");
+        $("#darkthemebtn").css("color", "#dadada");
     }
+}
 
+function toggleDarkTheme(){
+    var goingWhite = $(".darkTheme").length > 0;
+    var newTheme = goingWhite ? "whiteTheme" : "darkTheme";
+    applyTheme(newTheme);
+    setPreference("file_explorer/theme", newTheme);
+
+    //If in vdi mode, update desktop's listMenu as well
+    if (ao_module_virtualDesktop){
+        parent.initTheme(newTheme);
+    } else {
+        // Standalone: notify other open tabs via localStorage
+        try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: goingWhite ? 'light' : 'dark', ts: Date.now()})); } catch(e) {}
+    }
 }
 
 /*
@@ -281,6 +282,7 @@ function showPopupWrapper(){
 window.hideAllPopupWindows = hideAllPopupWindows;
 window.hideMsgBox = hideMsgBox;     // the toast's close button
 window.toggleDarkTheme = toggleDarkTheme;
+window.applyTheme = applyTheme;
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.toggleSidebar = toggleSidebar;
 

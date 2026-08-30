@@ -78,10 +78,19 @@ $(document).ready(function(){
                     toggleDarkTheme();
                 }else{
                     //White theme
-                
+
                 }
             }
         });
+
+        //Live sync: the desktop's start-menu toggle (window.desktopThemeChanged,
+        //broadcast from desktop.html to every floatWindow iframe) or another
+        //standalone tab flipping the theme (via localStorage) both arrive here.
+        if (typeof ao_module_onThemeChanged == "function"){
+            ao_module_onThemeChanged(function(theme){
+                applyTheme(theme);
+            });
+        }
 
         //Initialize properties view
         if (localStorage.getItem("file_explorer/viewProperties") == "true"){
