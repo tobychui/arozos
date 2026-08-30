@@ -1,0 +1,294 @@
+<style>
+#tsRoot {
+    --ts-bg:      #ffffff;
+    --ts-border:  #e5e5e5;
+    --ts-text:    #1d1d1f;
+    --ts-dim:     #6e6e73;
+    --ts-soft:    #f5f5f7;
+    --ts-accent:  #0071e3;
+    --ts-divider: #e0e0e0;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ts-text);
+    background: var(--ts-bg);
+    border: 1px solid var(--ts-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 4px;
+}
+
+#tsRoot.dark {
+    --ts-bg:      #2b2b2b;
+    --ts-border:  #3b3b3b;
+    --ts-text:    #ececec;
+    --ts-dim:     #aaaaaa;
+    --ts-soft:    #333333;
+    --ts-divider: #3f3f3f;
+}
+
+#tsRoot h3 {
+    margin: 0 0 4px 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+#tsRoot .tsSub {
+    color: var(--ts-dim);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+#tsRoot .tsSection {
+    padding: 16px 0;
+    border-top: 1px solid var(--ts-divider);
+}
+#tsRoot .tsSectionTitle {
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+#tsRoot .tsSectionDesc {
+    color: var(--ts-dim);
+    font-size: 13px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+#tsRoot .tsRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+#tsRoot select,
+#tsRoot input[type="number"] {
+    padding: 7px 10px;
+    border: 1px solid var(--ts-border);
+    border-radius: 8px;
+    background: var(--ts-bg);
+    color: var(--ts-text);
+    font-size: 13.5px;
+    min-width: 150px;
+}
+#tsRoot input[type="number"] { width: 120px; min-width: 0; }
+
+/*
+    The size inputs are switched off while the bin is unlimited. The rules
+    above paint their own background and colour, which is what a browser would
+    otherwise dim on its own, so the disabled look has to be spelled out.
+*/
+#tsRoot select:disabled,
+#tsRoot input[type="number"]:disabled {
+    background: var(--ts-soft);
+    color: var(--ts-dim);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#tsRoot .tsUsage {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--ts-dim);
+}
+
+#tsRoot .tsActions {
+    padding-top: 18px;
+    border-top: 1px solid var(--ts-divider);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#tsRoot button.tsSave {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--ts-accent);
+    color: #ffffff;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+#tsRoot button.tsSave:disabled { opacity: 0.5; cursor: default; }
+#tsRoot .tsStatus { font-size: 13px; color: var(--ts-dim); }
+</style>
+
+<div id="tsRoot">
+    <h3 locale="ts/title">File Manager</h3>
+    <div class="tsSub" locale="ts/subtitle">Control how long deleted files are kept in the trash bin and how much space they may use.</div>
+
+    <div class="tsSection">
+        <div class="tsSectionTitle" locale="ts/retention/title">Automatic Removal</div>
+        <div class="tsSectionDesc" locale="ts/retention/desc">Files in the trash bin are permanently removed once they are older than this. Turn it off to keep them until you empty the bin yourself.</div>
+        <div class="tsRow">
+            <select id="tsRetention"></select>
+        </div>
+    </div>
+
+    <div class="tsSection">
+        <div class="tsSectionTitle" locale="ts/quota/title">Trash Bin Size Limit</div>
+        <div class="tsSectionDesc" locale="ts/quota/desc">When the limit is reached, deleting a file will ask you whether to empty the bin first, delete the file outright, or cancel.</div>
+        <div class="tsRow">
+            <select id="tsQuotaMode">
+                <option value="unlimited" locale="ts/quota/unlimited">No limit</option>
+                <option value="limited" locale="ts/quota/limited">Limit to</option>
+            </select>
+            <input type="number" id="tsQuotaValue" min="1" step="1" value="5">
+            <select id="tsQuotaUnit">
+                <option value="1048576">MB</option>
+                <option value="1073741824" selected>GB</option>
+            </select>
+        </div>
+        <div class="tsUsage" id="tsUsage"></div>
+    </div>
+
+    <div class="tsActions">
+        <button class="tsSave" id="tsSave" locale="ts/save">Save</button>
+        <span class="tsStatus" id="tsStatus"></span>
+    </div>
+</div>
+
+<script>
+(function () {
+    /*
+        Trash bin settings.
+
+        Both values live in the per user preference store the File Manager
+        already uses, and both treat zero as "no limit" - which is also what an
+        account that has never opened this page reads back, so the behaviour
+        before these settings existed is preserved.
+    */
+    /*
+        Own locale instance rather than the shared global one: this page is
+        loaded as a fragment into System Settings, which keeps its own strings
+        on the global applocale and re-reads them whenever the nav redraws.
+        Initialising the global here would replace them.
+    */
+    var tsLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
+        init: function (f, cb) { cb(); },
+        translate: function () {},
+        getString: function (k, fallback) { return fallback; }
+    };
+
+    function tsStr(key, fallback) {
+        return (tsLocale && tsLocale.getString) ? tsLocale.getString(key, fallback) : fallback;
+    }
+
+    function tsApplyTheme() {
+        var root = document.getElementById("tsRoot");
+        if (!root) return;
+        try {
+            if (typeof preferredTheme !== "undefined") {
+                root.classList.toggle("dark", preferredTheme === "dark" || preferredTheme === "darkTheme");
+            } else if (typeof ao_module_getSystemThemeColor === "function") {
+                ao_module_getSystemThemeColor(function (c) {
+                    root.classList.toggle("dark", c !== "whiteTheme");
+                });
+            }
+        } catch (e) {}
+    }
+
+    //Offered retention windows, capped at a year as the longest sensible hold
+    var TS_RETENTION_CHOICES = [0, 7, 14, 30, 60, 90, 180, 365];
+
+    function tsBuildRetentionOptions(){
+        var sel = document.getElementById("tsRetention");
+        sel.innerHTML = "";
+        TS_RETENTION_CHOICES.forEach(function (days) {
+            var opt = document.createElement("option");
+            opt.value = String(days);
+            opt.textContent = days === 0
+                ? tsStr("ts/retention/off", "Never remove automatically")
+                : tsStr("ts/retention/days", "%d days").replace("%d", days);
+            sel.appendChild(opt);
+        });
+    }
+
+    function tsFormatBytes(bytes) {
+        if (!(bytes > 0)) return "0 B";
+        var units = ["B", "KB", "MB", "GB", "TB"];
+        var i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+        return (bytes / Math.pow(1024, i)).toFixed(1) + " " + units[i];
+    }
+
+    function tsSyncQuotaInputs() {
+        var limited = document.getElementById("tsQuotaMode").value === "limited";
+        document.getElementById("tsQuotaValue").disabled = !limited;
+        document.getElementById("tsQuotaUnit").disabled = !limited;
+    }
+
+    function tsLoad() {
+        $.get("../../../system/file_system/trashSettings", function (data) {
+            if (data == null || data.error !== undefined) {
+                return;
+            }
+            document.getElementById("tsRetention").value = String(data.RetentionDays || 0);
+
+            if (data.QuotaBytes > 0) {
+                document.getElementById("tsQuotaMode").value = "limited";
+                //Show whole GB where it divides evenly, otherwise fall back to MB
+                if (data.QuotaBytes % 1073741824 === 0) {
+                    document.getElementById("tsQuotaUnit").value = "1073741824";
+                    document.getElementById("tsQuotaValue").value = data.QuotaBytes / 1073741824;
+                } else {
+                    document.getElementById("tsQuotaUnit").value = "1048576";
+                    document.getElementById("tsQuotaValue").value = Math.max(1, Math.round(data.QuotaBytes / 1048576));
+                }
+            } else {
+                document.getElementById("tsQuotaMode").value = "unlimited";
+            }
+            tsSyncQuotaInputs();
+
+            document.getElementById("tsUsage").textContent =
+                tsStr("ts/quota/inuse", "Currently using %s").replace("%s", tsFormatBytes(data.UsedBytes));
+        });
+    }
+
+    function tsSave() {
+        var btn = document.getElementById("tsSave");
+        var status = document.getElementById("tsStatus");
+        var retention = document.getElementById("tsRetention").value;
+
+        var quotaBytes = 0;
+        if (document.getElementById("tsQuotaMode").value === "limited") {
+            var amount = parseFloat(document.getElementById("tsQuotaValue").value);
+            var unit = parseInt(document.getElementById("tsQuotaUnit").value);
+            if (!(amount > 0)) {
+                status.textContent = tsStr("ts/invalid", "Enter a size larger than zero");
+                return;
+            }
+            quotaBytes = Math.round(amount * unit);
+        }
+
+        btn.disabled = true;
+        status.textContent = "";
+        $.post("../../../system/file_system/trashSettings",
+            { retentionDays: retention, quotaBytes: String(quotaBytes) },
+            function (data) {
+                btn.disabled = false;
+                if (data != null && data.error !== undefined) {
+                    status.textContent = data.error;
+                    return;
+                }
+                status.textContent = tsStr("ts/saved", "Saved");
+                setTimeout(function () { status.textContent = ""; }, 2500);
+            }).fail(function () {
+                btn.disabled = false;
+                status.textContent = tsStr("ts/savefailed", "Could not save");
+            });
+    }
+
+    /* Boot */
+    tsApplyTheme();
+    window.detailPageThemeCallback = function (isDark) {
+        var el = document.getElementById("tsRoot");
+        if (el) el.classList.toggle("dark", isDark);
+    };
+    document.getElementById("tsQuotaMode").addEventListener("change", tsSyncQuotaInputs);
+    document.getElementById("tsSave").addEventListener("click", tsSave);
+
+    tsLocale.init("../locale/disk/trashsettings.json", function () {
+        tsBuildRetentionOptions();
+        tsLocale.translate();
+        tsLoad();
+    });
+})();
+</script>

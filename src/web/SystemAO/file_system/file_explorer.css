@@ -2447,6 +2447,322 @@ i.blue{
 }
 .fmGroup { display: block; }
 
+/* ======================================================================
+   Trash bin view
+
+   Rendered into #folderList by js/explorer/trash.js when the path is the
+   %trashbin% sentinel. It replaces the file listing entirely, so it owns the
+   full width of the file area rather than sitting alongside file objects.
+   ====================================================================== */
+.fmTrashLoading{
+    padding: 28px 4px;
+    color: var(--fs-text-dim);
+}
+
+.fmTrashHeader{
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 4px 4px 20px 4px;
+}
+
+.fmTrashIcon{
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--fs-fill);
+    color: var(--fs-text-dim);
+}
+.fmTrashIcon svg{
+    width: 28px;
+    height: 28px;
+    display: block;
+}
+
+.fmTrashHeadText{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+.fmTrashTitle{
+    font-size: 20px;
+    color: var(--fs-text);
+    margin-bottom: 3px;
+}
+.fmTrashDesc{
+    font-size: 12.5px;
+    color: var(--fs-text-dim);
+    line-height: 1.5;
+}
+
+/* Usage readout. Its numbers are placeholders until retention lands. */
+.fmTrashUsage{
+    flex: 0 0 auto;
+    width: 190px;
+}
+.fmTrashUsageLabel{
+    font-size: 12px;
+    color: var(--fs-text-dim);
+}
+.fmTrashUsageValue{
+    font-size: 19px;
+    color: var(--fs-accent);
+    margin: 2px 0px 6px 0px;
+}
+.fmTrashUsageBar{
+    height: 6px;
+    border-radius: 999px;
+    background: var(--fs-line);
+    overflow: hidden;
+}
+.fmTrashUsageFill{
+    height: 100%;
+    border-radius: 999px;
+    background: var(--fs-accent);
+}
+.fmTrashUsageTotal{
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--fs-text-dim);
+}
+
+.fmTrashEmptyBtn{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13.5px;
+    white-space: nowrap;
+    background: var(--upload_progress_failed);
+    color: #ffffff;
+}
+.fmTrashEmptyBtn:hover{
+    opacity: 0.9;
+}
+.fmTrashBtnIcon svg{
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.fmTrashMoreBtn{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+.fmTrashMoreBtn:hover{ background: var(--fs-fill); }
+.fmTrashMoreBtn svg{ width: 100%; height: 100%; display: block; }
+
+.fmTrashBulkMenu{
+    position: absolute;
+    top: 44px;
+    right: 0px;
+    min-width: 220px;
+}
+
+/* ---------- Listing ---------- */
+.fmTrashTable{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.fmTrashTable th{
+    padding: 10px 10px;
+    text-align: left;
+    font-weight: 400;
+    color: var(--fs-text-dim) !important;
+    border-top: 1px solid var(--fs-line);
+    border-bottom: 1px solid var(--fs-line);
+    white-space: nowrap;
+}
+.fmTrashTable td{
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--fs-line-soft);
+    color: var(--fs-text) !important;
+    vertical-align: middle;
+}
+.fmTrashRow:hover{ background: var(--fs-row-hover); }
+.fmTrashRow.selected{ background: var(--fs-selected); }
+
+.fmTrashDim{ color: var(--fs-text-dim) !important; white-space: nowrap; }
+
+/*
+    The flex row lives on a span inside the cell, never on the <td> itself.
+    display:flex on a table cell drops it out of the table formatting context,
+    which collapses the column and leaves its bottom border out of line with
+    every other cell in the row.
+*/
+.fmTrashName{
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0px;
+}
+.fmTrashNameText{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- Sortable headers ---------- */
+.fmTrashSortable{ cursor: pointer; }
+.fmTrashSortable:hover{ background: var(--fs-fill); }
+.fmTrashTable th.sorted{ color: var(--fs-text) !important; }
+.fmTrashSortMark{
+    display: inline-block;
+    width: 12px;
+    margin-left: 3px;
+    font-size: 11px;
+}
+
+/* ---------- Details dialog ---------- */
+.fmTrashDetailTable{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 14px;
+}
+.fmTrashDetailTable td{
+    padding: 7px 0px;
+    border-bottom: 1px solid var(--fs-line-soft);
+    word-break: break-all;
+    color: var(--normal_object_txt) !important;
+}
+.fmTrashDetailKey{
+    width: 38%;
+    color: var(--fs-text-dim) !important;
+    white-space: nowrap;
+}
+
+/* ---------- Special view root chip in the address bar ---------- */
+.fmSpecialRoot{
+    display: inline-flex !important;
+    align-items: center;
+    gap: 7px;
+}
+.fmSpecialRootIcon{
+    width: 16px;
+    height: 16px;
+    color: var(--fs-icon);
+}
+.fmSpecialRootIcon svg{ width: 100%; height: 100%; display: block; }
+.fmTrashRowIcon{
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    color: var(--fs-icon);
+}
+.fmTrashRowIcon svg{ width: 100%; height: 100%; display: block; }
+
+.fmTrashColCheck{ width: 34px; }
+
+/* Drawn rather than an <input>, to match the check styling used elsewhere */
+.fmTrashCheck{
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--fs-line);
+    border-radius: 4px;
+    background: var(--fs-surface);
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+}
+.fmTrashCheck.checked{
+    background: var(--fs-accent);
+    border-color: var(--fs-accent);
+}
+.fmTrashCheck.checked::after{
+    content: "";
+    position: absolute;
+    left: 4.5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--fs-primary-fg);
+    border-width: 0px 2px 2px 0px;
+    transform: rotate(45deg);
+}
+
+.fmTrashActionCell{ width: 1%; white-space: nowrap; text-align: right; }
+
+.fmTrashRestoreBtn{
+    padding: 6px 14px;
+    border: 1px solid var(--popup_btn_border);
+    border-radius: 7px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--fs-text);
+}
+.fmTrashRestoreBtn:hover{ background: var(--fs-fill-hover); }
+
+.fmTrashRowMore{
+    width: 26px;
+    height: 26px;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+.fmTrashRowMore:hover{ background: var(--fs-fill); }
+.fmTrashRowMore svg{ width: 100%; height: 100%; display: block; }
+
+.fmTrashRowMenu{
+    position: fixed;
+    min-width: 210px;
+    z-index: 610;
+}
+
+.fmTrashEmpty{
+    padding: 40px 10px !important;
+    text-align: center;
+    color: var(--fs-text-dim) !important;
+}
+
+.fmTrashFootnote{
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 9px;
+    background: var(--fs-fill);
+    font-size: 12.5px;
+    color: var(--fs-text-dim);
+}
+.fmTrashFootIcon{
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+    color: var(--fs-accent);
+}
+.fmTrashFootIcon svg{ width: 100%; height: 100%; display: block; }
+
+@media only screen and (max-width: 720px) {
+    /* The usage readout is the first thing to go when space is tight */
+    .fmTrashHeader{ flex-wrap: wrap; }
+    .fmTrashUsage{ display: none; }
+    .fmTrashTable th:nth-child(3), .fmTrashTable td:nth-child(3),
+    .fmTrashTable th:nth-child(4), .fmTrashTable td:nth-child(4){ display: none; }
+}
+
 /* ---------- Status bar ---------- */
 #fmStatusBar {
     display: flex;

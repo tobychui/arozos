@@ -53,7 +53,15 @@ function updateZoomControlVisibility(){
         control needs - the icon then has no flex context to size it and the
         bare <svg> falls back to its 300px intrinsic size.
     */
-    $("#fmZoom").css("display", viewMode == "grid" ? "flex" : "none");
+    /*
+        A special view has no tiles to resize whatever view mode it was entered
+        from, and the resize handler and updateViewmodeButtons() both come
+        through here - so the test lives here rather than in the one-shot hide
+        applySpecialViewChrome() used to do, which either of them undid.
+    */
+    let specialView = (typeof getSpecialView === "function") ? getSpecialView(currentPath) : null;
+    let hidden = (specialView != null && specialView.hideViewModes === true) || viewMode != "grid";
+    $("#fmZoom").css("display", hidden ? "none" : "flex");
     initWindowSizes(false);
 }
 

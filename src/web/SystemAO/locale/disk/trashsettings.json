@@ -1,0 +1,126 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文",
+            "strings": {
+                "ts/title": "檔案管理員",
+                "ts/subtitle": "設定刪除的檔案在垃圾箱中保留多久，以及可佔用多少空間。",
+                "ts/retention/title": "自動移除",
+                "ts/retention/desc": "垃圾箱中超過此時間的檔案會被永久刪除。關閉後將保留至您手動清空為止。",
+                "ts/retention/off": "永不自動移除",
+                "ts/retention/days": "%d 天",
+                "ts/quota/title": "垃圾箱大小限制",
+                "ts/quota/desc": "達到上限後，刪除檔案時會詢問您要先清空垃圾箱、直接刪除，還是取消。",
+                "ts/quota/unlimited": "不限制",
+                "ts/quota/limited": "限制為",
+                "ts/quota/inuse": "目前已使用 %s",
+                "ts/save": "儲存",
+                "ts/saved": "已儲存",
+                "ts/savefailed": "無法儲存",
+                "ts/invalid": "請輸入大於零的大小"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文",
+            "strings": {
+                "ts/title": "檔案管理員",
+                "ts/subtitle": "設定刪除的檔案在垃圾箱中保留多久，以及可佔用多少空間。",
+                "ts/retention/title": "自動移除",
+                "ts/retention/desc": "垃圾箱中超過此時間的檔案會被永久刪除。關閉後將保留至您手動清空為止。",
+                "ts/retention/off": "永不自動移除",
+                "ts/retention/days": "%d 天",
+                "ts/quota/title": "垃圾箱大小限制",
+                "ts/quota/desc": "達到上限後，刪除檔案時會詢問您要先清空垃圾箱、直接刪除，還是取消。",
+                "ts/quota/unlimited": "不限制",
+                "ts/quota/limited": "限制為",
+                "ts/quota/inuse": "目前已使用 %s",
+                "ts/save": "儲存",
+                "ts/saved": "已儲存",
+                "ts/savefailed": "無法儲存",
+                "ts/invalid": "請輸入大於零的大小"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "ts/title": "文件管理器",
+                "ts/subtitle": "设置删除的文件在回收站中保留多久，以及可占用多少空间。",
+                "ts/retention/title": "自动移除",
+                "ts/retention/desc": "回收站中超过此时间的文件将被永久删除。关闭后将保留至您手动清空为止。",
+                "ts/retention/off": "永不自动移除",
+                "ts/retention/days": "%d 天",
+                "ts/quota/title": "回收站大小限制",
+                "ts/quota/desc": "达到上限后，删除文件时会询问您要先清空回收站、直接删除，还是取消。",
+                "ts/quota/unlimited": "不限制",
+                "ts/quota/limited": "限制为",
+                "ts/quota/inuse": "当前已使用 %s",
+                "ts/save": "保存",
+                "ts/saved": "已保存",
+                "ts/savefailed": "无法保存",
+                "ts/invalid": "请输入大于零的大小"
+            }
+        },
+        "en-us": {
+            "name": "English",
+            "strings": {
+                "ts/title": "File Manager",
+                "ts/subtitle": "Control how long deleted files are kept in the trash bin and how much space they may use.",
+                "ts/retention/title": "Automatic Removal",
+                "ts/retention/desc": "Files in the trash bin are permanently removed once they are older than this. Turn it off to keep them until you empty the bin yourself.",
+                "ts/retention/off": "Never remove automatically",
+                "ts/retention/days": "%d days",
+                "ts/quota/title": "Trash Bin Size Limit",
+                "ts/quota/desc": "When the limit is reached, deleting a file will ask you whether to empty the bin first, delete the file outright, or cancel.",
+                "ts/quota/unlimited": "No limit",
+                "ts/quota/limited": "Limit to",
+                "ts/quota/inuse": "Currently using %s",
+                "ts/save": "Save",
+                "ts/saved": "Saved",
+                "ts/savefailed": "Could not save",
+                "ts/invalid": "Enter a size larger than zero"
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "ts/title": "ファイルマネージャー",
+                "ts/subtitle": "削除したファイルをごみ箱に保持する期間と、使用できる容量を設定します。",
+                "ts/retention/title": "自動削除",
+                "ts/retention/desc": "この期間を過ぎたごみ箱内のファイルは完全に削除されます。オフにすると手動で空にするまで保持されます。",
+                "ts/retention/off": "自動削除しない",
+                "ts/retention/days": "%d 日",
+                "ts/quota/title": "ごみ箱の容量制限",
+                "ts/quota/desc": "上限に達すると、ファイル削除時にごみ箱を空にするか、直接削除するか、中止するかを確認します。",
+                "ts/quota/unlimited": "制限なし",
+                "ts/quota/limited": "上限",
+                "ts/quota/inuse": "現在 %s 使用中",
+                "ts/save": "保存",
+                "ts/saved": "保存しました",
+                "ts/savefailed": "保存できませんでした",
+                "ts/invalid": "0 より大きいサイズを入力してください"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "ts/title": "파일 관리자",
+                "ts/subtitle": "삭제된 파일을 휴지통에 보관하는 기간과 사용할 수 있는 공간을 설정합니다.",
+                "ts/retention/title": "자동 삭제",
+                "ts/retention/desc": "이 기간이 지난 휴지통의 파일은 영구 삭제됩니다. 끄면 직접 비울 때까지 보관됩니다.",
+                "ts/retention/off": "자동으로 삭제하지 않음",
+                "ts/retention/days": "%d일",
+                "ts/quota/title": "휴지통 크기 제한",
+                "ts/quota/desc": "한도에 도달하면 파일 삭제 시 휴지통을 비울지, 바로 삭제할지, 취소할지 묻습니다.",
+                "ts/quota/unlimited": "제한 없음",
+                "ts/quota/limited": "제한",
+                "ts/quota/inuse": "현재 %s 사용 중",
+                "ts/save": "저장",
+                "ts/saved": "저장됨",
+                "ts/savefailed": "저장할 수 없습니다",
+                "ts/invalid": "0보다 큰 크기를 입력하세요"
+            }
+        }
+    }
+}

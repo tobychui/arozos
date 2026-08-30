@@ -86,7 +86,11 @@
         pauseCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M10.1 9.2v5.6M13.9 9.2v5.6"/></svg>',
         playCircle:  S + '<circle cx="12" cy="12" r="9"/><path d="M10.2 8.6l5.2 3.4-5.2 3.4z"/></svg>',
         checkCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.7"/></svg>',
-        closeCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>'
+        closeCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>',
+
+        /* Trash bin view */
+        restore:     S + '<path d="M3 12a9 9 0 1 0 3.2-6.9"/><path d="M3 4v5h5"/></svg>',
+        trashBig:    S + '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>'
     };
 
     //Fill every element carrying data-fsicon="<name>" with its glyph

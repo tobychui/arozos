@@ -152,6 +152,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/listTrash", system_fs_scanTrashBin)
 	router.HandleFunc("/system/file_system/ws/listTrash", system_fs_WebSocketScanTrashBin)
 	router.HandleFunc("/system/file_system/clearTrash", system_fs_clearTrashBin)
+	router.HandleFunc("/system/file_system/trashSettings", system_fs_handleTrashSettings)
 	router.HandleFunc("/system/file_system/restoreTrash", system_fs_restoreFile)
 	router.HandleFunc("/system/file_system/zipHandler", system_fs_zipHandler)
 	router.HandleFunc("/system/file_system/getProperties", system_fs_getFileProperties)
@@ -274,6 +275,15 @@ func FileSystemInit() {
 		the arozos file system when no one is using the system
 	*/
 
+	//Trash bin retention and size limit, per user
+	registerSetting(settingModule{
+		Name:     "File Manager",
+		Desc:     "Trash Bin Retention and Size",
+		IconPath: "SystemAO/file_system/trashbin_img/small_icon.png",
+		Group:    "Disk",
+		StartDir: "SystemAO/disk/filemanager/trashsettings.html",
+	})
+
 	//Clear tmp folder if files is placed here too long
 	nightlyManager.RegisterNightlyTask(system_fs_clearOldTmpFiles)
 
@@ -291,6 +301,9 @@ func FileSystemInit() {
 	systemWideLogger.PrintAndLog("File System", "Started File Version History Cleaning in background", nil)
 
 	nightlyManager.RegisterNightlyTask(system_fs_clearVersionHistories)
+
+	//Purge trashed files older than each user's retention setting
+	nightlyManager.RegisterNightlyTask(system_fs_clearExpiredTrash)
 }
 
 /*
@@ -1117,6 +1130,202 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 
 	jsonString, _ := json.Marshal(duplicateFiles)
 	utils.SendJSONResponse(w, string(jsonString))
+}
+
+/*
+Trash bin settings
+
+Stored per user in the same preference table the File Manager already uses,
+so they follow the account rather than the browser.
+
+Both settings use zero as "no limit", which is also what an account that has
+never opened the settings page reads back:
+
+	trash/retentionDays   0 = never auto remove,  otherwise 1..365
+	trash/quotaBytes      0 = unlimited
+*/
+const (
+	trashRetentionPrefKey = "trash/retentionDays"
+	trashQuotaPrefKey     = "trash/quotaBytes"
+	trashMaxRetentionDays = 365
+
+	//What an account that has never opened the settings page holds trash for.
+	//An explicitly stored zero still means "never remove" - only the absence
+	//of a stored value falls back to this.
+	trashDefaultRetentionDays = 30
+)
+
+func system_fs_getTrashRetentionDays(username string) int {
+	result := ""
+	err := sysdb.Read("fs", "pref/"+trashRetentionPrefKey+"/"+username, &result)
+	if err != nil {
+		//Never set for this account
+		return trashDefaultRetentionDays
+	}
+	days, err := strconv.Atoi(result)
+	if err != nil || days < 0 {
+		//Stored but unreadable - the default is a safer answer than "never"
+		return trashDefaultRetentionDays
+	}
+	if days > trashMaxRetentionDays {
+		days = trashMaxRetentionDays
+	}
+	return days
+}
+
+func system_fs_getTrashQuotaBytes(username string) int64 {
+	result := ""
+	err := sysdb.Read("fs", "pref/"+trashQuotaPrefKey+"/"+username, &result)
+	if err != nil {
+		return 0
+	}
+	quota, err := utils.StringToInt64(result)
+	if err != nil || quota < 0 {
+		return 0
+	}
+	return quota
+}
+
+/*
+Space a single trashed entry takes up
+
+A folder counts for everything inside it, not the zero bytes its own entry
+reports - otherwise a user could fill the bin with folders and never reach
+the quota. Hidden files are included because they were moved along with the
+rest, and the trash itself lives inside a hidden folder.
+*/
+func system_fs_getTrashEntrySize(fsh *filesystem.FileSystemHandler, rpath string) int64 {
+	if fsh.FileSystemAbstraction.IsDir(rpath) {
+		size, _ := fsh.GetDirctorySizeFromRealPath(rpath, true)
+		return size
+	}
+	return int64(fsh.FileSystemAbstraction.GetFileSize(rpath))
+}
+
+// Total bytes currently sitting in a user's trash across every file system
+func system_fs_getTrashUsage(username string) int64 {
+	files, fshs, err := system_fs_listTrash(username)
+	if err != nil {
+		return 0
+	}
+	total := int64(0)
+	for c, file := range files {
+		total += system_fs_getTrashEntrySize(fshs[c], file)
+	}
+	return total
+}
+
+/*
+Read or write the trash settings for the logged in user.
+
+GET  with no value  -> {"RetentionDays":n,"QuotaBytes":n,"MaxRetentionDays":365,"UsedBytes":n}
+POST retentionDays / quotaBytes -> stores them
+*/
+func system_fs_handleTrashSettings(w http.ResponseWriter, r *http.Request) {
+	username, err := authAgent.GetUserName(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	retention, retentionSet := utils.PostPara(r, "retentionDays")
+	quota, quotaSet := utils.PostPara(r, "quotaBytes")
+
+	if retentionSet == nil && retention != "" {
+		days, err := strconv.Atoi(retention)
+		if err != nil || days < 0 || days > trashMaxRetentionDays {
+			utils.SendErrorResponse(w, "Invalid retention day given")
+			return
+		}
+		sysdb.Write("fs", "pref/"+trashRetentionPrefKey+"/"+username, strconv.Itoa(days))
+	}
+
+	if quotaSet == nil && quota != "" {
+		bytes, err := utils.StringToInt64(quota)
+		if err != nil || bytes < 0 {
+			utils.SendErrorResponse(w, "Invalid quota given")
+			return
+		}
+		sysdb.Write("fs", "pref/"+trashQuotaPrefKey+"/"+username, utils.Int64ToString(bytes))
+	}
+
+	type trashSettings struct {
+		RetentionDays    int
+		QuotaBytes       int64
+		MaxRetentionDays int
+		UsedBytes        int64
+	}
+	js, _ := json.Marshal(trashSettings{
+		RetentionDays:    system_fs_getTrashRetentionDays(username),
+		QuotaBytes:       system_fs_getTrashQuotaBytes(username),
+		MaxRetentionDays: trashMaxRetentionDays,
+		UsedBytes:        system_fs_getTrashUsage(username),
+	})
+	utils.SendJSONResponse(w, string(js))
+}
+
+/*
+Nightly cleanup
+
+Removes trashed files past their owner's retention window. Users who have
+not set a retention (or set it to zero) keep their trash indefinitely, which
+is the behaviour every account had before this setting existed.
+*/
+func system_fs_clearExpiredTrash() {
+	for _, username := range authAgent.ListUsers() {
+		retentionDays := system_fs_getTrashRetentionDays(username)
+		if retentionDays <= 0 {
+			//Auto removal disabled for this user
+			continue
+		}
+
+		userinfo, err := userHandler.GetUserInfoFromUsername(username)
+		if err != nil {
+			continue
+		}
+
+		cutoff := time.Now().Unix() - int64(retentionDays)*86400
+		files, fshs, err := system_fs_listTrash(username)
+		if err != nil {
+			continue
+		}
+
+		removed := 0
+		for c, file := range files {
+			/*
+				The removal time is stored as the file extension when the file
+				was recycled. Anything without a parsable timestamp is left
+				alone rather than guessed at.
+			*/
+			ext := filepath.Ext(file)
+			if len(ext) < 2 {
+				continue
+			}
+			timestamp, err := utils.StringToInt64(ext[1:])
+			if err != nil || timestamp > cutoff {
+				continue
+			}
+
+			fshAbs := fshs[c].FileSystemAbstraction
+			fileVpath, err := fshAbs.RealPathToVirtualPath(file, username)
+			if err == nil && userinfo.IsOwnerOfFile(fshs[c], fileVpath) {
+				userinfo.RemoveOwnershipFromFile(fshs[c], fileVpath)
+			}
+			fshAbs.RemoveAll(file)
+
+			//Drop the .trash folder too once nothing is left in it
+			remaining, _ := fshAbs.Glob(filepath.Dir(file) + "/*")
+			if len(remaining) == 0 {
+				fshAbs.Remove(filepath.Dir(file))
+			}
+			removed++
+		}
+
+		if removed > 0 {
+			systemWideLogger.PrintAndLog("File System", "Removed "+strconv.Itoa(removed)+
+				" expired trash item(s) for user "+username, nil)
+		}
+	}
 }
 
 // Scan all directory and get trash file and send back results with WebSocket
@@ -2380,6 +2589,24 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				fc, err := srcFshAbs.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.cache/*")
 				if len(fc) == 0 && err == nil {
 					srcFshAbs.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.cache/")
+				}
+
+				/*
+					Trash quota
+
+					Checked before the move, not after: once the file is inside
+					.trash it has already left the tree the user was looking at,
+					and undoing that cleanly is harder than refusing up front.
+					The client recognises this error code and offers to empty
+					the bin, delete outright, or do nothing.
+				*/
+				userTrashQuota := system_fs_getTrashQuotaBytes(userinfo.Username)
+				if userTrashQuota > 0 {
+					incomingSize := system_fs_getTrashEntrySize(srcFsh, rsrcFile)
+					if system_fs_getTrashUsage(userinfo.Username)+incomingSize > userTrashQuota {
+						utils.SendErrorResponse(w, "TRASH_QUOTA_EXCEEDED")
+						return
+					}
 				}
 
 				//Create a trash directory for this folder

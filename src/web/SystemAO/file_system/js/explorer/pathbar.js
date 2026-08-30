@@ -10,6 +10,11 @@
 // ============================== PATH SHORTCUT RESOLUTION ====================
 var pathShortcuts = {
     "%appdata%": "user:/.appdata/",
+    /*
+        Not a real path. listDirectory() recognises this sentinel and renders
+        the trash view instead of listing it - see js/explorer/trash.js.
+    */
+    "%trashbin%": "%trashbin%",
 };
 
 function resolvePathShortcut(path){
@@ -139,6 +144,23 @@ function openHomeDir(){
 }
 
 function updatePathDisplay(path){
+    /*
+        A special view has no directory tree to walk. Its sentinel (%trashbin%)
+        exists so the address bar can navigate to it, but showing that raw
+        keyword back once the view has loaded is noise - the registered icon and
+        localised name are what the user should read.
+    */
+    let specialView = getSpecialView(path);
+    if (specialView != null){
+        $(".pathDisplay").html("");
+        $(".pathDisplay").append('<div class="section fmSpecialRoot"><span class="fmSpecialRootIcon">' +
+            (FSIcons[specialView.icon] || "") + '</span><span>' +
+            applocale.getString(specialView.labelKey, specialView.labelFallback) + '</span></div>');
+        //The input keeps the sentinel, since that is what you would type
+        $("#pathInputField").find("input").val(path);
+        return;
+    }
+
     var pathInfo = path.split("/");
     var vdID = pathInfo[0];
     //As path always end with /, pop the empty pathinfo from array

@@ -11,13 +11,7 @@ function handleShareFilebuttonClick(event, object){
     event.preventDefault(); 
     event.stopImmediatePropagation();
     $(".fileObject.selected").removeClass("selected");
-    if (viewMode == "list"){
-        $(object).parent().parent().addClass("selected");
-    }else if (viewMode == "grid"){
-        $(object).parent().parent().parent().addClass("selected");
-    }else if (viewMode == "details"){
-        $(object).parent().parent().addClass("selected");
-    }
+    $(object).closest(".fileObject").addClass("selected");
     
     shareFile();
 }

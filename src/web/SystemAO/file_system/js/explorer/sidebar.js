@@ -51,6 +51,16 @@ function initRootDirs(){
                 var rootPath = thisRoot.RootPath;
                 $("#storageroot").append(`<div class="dir item vroot fsSideItem" filepath="${rootPath}" type="folder" rootname="${displayName}" onclick="openthis(this);"><span class="fsSideIcon" style="color:var(--fs-icon)">${FSIcons.drive}</span><span class="fsSideLabel">${displayName} (${rootPath})</span></div>`);
             }
+            /*
+                The trash bin sits with the devices but is not one of them: it
+                is a view, not a mounted root, so it is appended here rather
+                than coming back from listRoots.
+            */
+            $("#storageroot").append('<div class="dir item vroot fsSideItem fmTrashSideItem" filepath="' +
+                TRASH_VPATH + '" type="trash" onclick="openTrashBin();">' +
+                '<span class="fsSideIcon">' + FSIcons.trash + '</span>' +
+                '<span class="fsSideLabel">' + applocale.getString("trash/title", "Trash Bin") + '</span></div>');
+
             highlightCurrentRoot();
         }
     });
@@ -59,6 +69,12 @@ function initRootDirs(){
 function highlightCurrentRoot(){
     //Highlight the target vroot name on the side bar
     $(".vroot.active").removeClass("active");
+
+    //The trash view has no root path to match on, so it is handled up front
+    if (isTrashPath(currentPath)){
+        $(".fmTrashSideItem").addClass("active");
+        return;
+    }
     $(".vroot").each(function(){
         let rootname = $(this).attr("filepath");
         if ((currentPath.toLowerCase()).startsWith((rootname.toLowerCase()))){

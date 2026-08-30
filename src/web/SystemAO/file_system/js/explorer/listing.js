@@ -111,6 +111,23 @@ function listDirectory(path, callback=undefined, recordUndo=true){
     //Highlight new path coot
     highlightCurrentRoot();
     
+    /*
+        Special views (the trash bin, and anything registered alongside it) are
+        not directories the server can list. Everything above still applies to
+        them - history, path bar, nav button states - so the hand off happens
+        here rather than at the top of the function.
+    */
+    let specialView = getSpecialView(currentPath);
+    applySpecialViewChrome(specialView);
+    if (specialView != null){
+        if (ao_module_virtualDesktop){
+            ao_module_setWindowTitle(applocale.getString("title/title", "File Manager") +
+                " - " + applocale.getString(specialView.labelKey, specialView.labelFallback));
+        }
+        specialView.render(callback);
+        return;
+    }
+
     //Get sort mode from server side
     let loadStartPath = currentPath;
     $.ajax({

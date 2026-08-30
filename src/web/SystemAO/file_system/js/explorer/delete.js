@@ -73,13 +73,25 @@ function deleteFile(confirmed = false){
     }else{
         //Continue to delete files
         let fdlistLength = deleteFileList.length;
+        /*
+            Kept aside before the list is cleared below, so the trash full
+            dialog still knows what the user was trying to delete.
+        */
+        let pendingRecycleList = deleteFileList.slice();
         requestCSRFToken(function(token){
             $.ajax({
                 url: "../../system/file_system/fileOpr",
                 method:"POST",
                 data: {opr: "recycle", src: JSON.stringify(deleteFileList), csrft: token},
                 success: function(data){
-                    if (data.error !== undefined){
+                    if (data.error == "TRASH_QUOTA_EXCEEDED"){
+                        /*
+                            The bin is at its size limit. The server refused
+                            before moving anything, so the files are untouched
+                            and the user gets to choose what happens next.
+                        */
+                        showTrashFullDialog(pendingRecycleList);
+                    }else if (data.error !== undefined){
                         msgbox("red remove",applocale.getString("message/" + data.error,data.error));
                     }else{
                         refreshList();
@@ -111,6 +123,87 @@ function cancelForceDelete(){
 
 
 /*
+    Trash bin full
+
+    Offered when the server refuses a recycle because the user's trash size
+    limit would be exceeded. Nothing has moved at this point, so all three
+    outcomes are still open:
+
+        1. empty the bin, then move these files into it
+        2. delete them outright, skipping the bin
+        3. do nothing
+
+    The pending list is held here rather than on the dialog, so a stale dialog
+    cannot act on a previous selection.
+*/
+let trashFullPendingList = [];
+
+function showTrashFullDialog(filepaths){
+    trashFullPendingList = (filepaths == undefined) ? [] : filepaths.slice();
+    $("#trashFullBox").find(".trashFullCount").text(trashFullPendingList.length);
+    showPopupWrapper();
+    $("#trashFullBox").transition("slide left in");
+}
+
+//Option 1: make room by emptying the bin, then retry the move
+function trashFullClearAndRecycle(){
+    hideAllPopupWindows();
+    let retryList = trashFullPendingList.slice();
+    if (retryList.length == 0){
+        return;
+    }
+    $.get("../../system/file_system/clearTrash", function(data){
+        if (data !== null && data !== undefined && data.error !== undefined){
+            msgbox("red remove", data.error);
+            return;
+        }
+        requestCSRFToken(function(token){
+            $.ajax({
+                url: "../../system/file_system/fileOpr",
+                method: "POST",
+                data: {opr: "recycle", src: JSON.stringify(retryList), csrft: token},
+                success: function(data){
+                    if (data.error !== undefined){
+                        msgbox("red remove", applocale.getString("message/" + data.error, data.error));
+                    }else{
+                        refreshList();
+                        msgbox("checkmark", retryList.length +
+                            applocale.getString("message/recycle/success", " objects moved to trash bin."));
+                    }
+                }
+            });
+        });
+    });
+}
+
+//Option 2: skip the bin entirely
+function trashFullDeleteDirectly(){
+    hideAllPopupWindows();
+    let targets = trashFullPendingList.slice();
+    if (targets.length == 0){
+        return;
+    }
+    requestCSRFToken(function(token){
+        $.ajax({
+            url: "../../system/file_system/fileOpr",
+            method: "POST",
+            data: {opr: "delete", src: JSON.stringify(targets), csrft: token},
+            success: function(data){
+                if (data.error !== undefined){
+                    msgbox("red remove", applocale.getString("message/" + data.error, data.error));
+                }else{
+                    refreshList();
+                    msgbox("checkmark", applocale.getString("trash/deleted", "Deleted permanently"));
+                }
+            }
+        });
+    });
+}
+
+//Option 3 needs no handler beyond closing the dialog
+
+
+/*
     Reachable from outside this file: inline on* attributes in the markup,
     handlers generated in template strings, or another frame. Renaming any
     of these means updating those call sites too.
@@ -118,4 +211,7 @@ function cancelForceDelete(){
 window.cancelDelete = cancelDelete;
 window.cancelForceDelete = cancelForceDelete;
 window.deleteFile = deleteFile;
+window.showTrashFullDialog = showTrashFullDialog;
+window.trashFullClearAndRecycle = trashFullClearAndRecycle;
+window.trashFullDeleteDirectly = trashFullDeleteDirectly;
 window.forceDelete = forceDelete;

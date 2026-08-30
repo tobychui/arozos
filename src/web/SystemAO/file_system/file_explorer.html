@@ -554,6 +554,49 @@
             </div>
         </div>
 
+        <!-- Trash bin full. Raised when the server refuses a recycle because the
+             user's trash size limit would be exceeded; nothing has moved yet. -->
+        <div id="trashFullBox" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="trash icon"></i> <span locale="trash/full/title">Trash Bin Full</span>
+                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div class="popupcontent">
+                <p><span locale="trash/full/desc">The trash bin has reached its size limit, so these files cannot be moved into it.</span></p>
+                <div class="popupbuttons allowHover primary" onclick="trashFullClearAndRecycle();">
+                    <i class="recycle icon"></i> <span locale="trash/full/clearfirst">Empty the trash bin and move them there</span>
+                </div>
+                <div class="popupbuttons allowHover negative" onclick="trashFullDeleteDirectly();">
+                    <i class="trash icon"></i> <span locale="trash/full/deletenow">Delete them permanently instead</span>
+                </div>
+                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i> <span locale="trash/full/cancel">Do nothing</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trashed item details. Filled by js/explorer/trash.js; this is how
+             the columns the narrow layout drops stay reachable. -->
+        <div id="trashDetailsBox" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="trash icon"></i> <span locale="trash/details">Details</span>
+                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div class="popupcontent">
+                <table class="fmTrashDetailTable"></table>
+                <div class="popupbuttons allowHover primary fmTrashDetailRestore">
+                    <i class="checkmark icon"></i> <span locale="trash/restore">Restore</span>
+                </div>
+                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i> <span locale="opr/rename/cancel">Cancel</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Confirm Exit -->
          <!-- Open With Dialog-->
          <div id="confirmExit" class="popup" style="display:none;">
@@ -597,6 +640,8 @@
         <script type="text/javascript" src="js/explorer/sidebar.js"></script>
         <script type="text/javascript" src="js/explorer/viewmode.js"></script>
         <script type="text/javascript" src="js/explorer/splitter.js"></script>
+        <script type="text/javascript" src="js/explorer/specialview.js"></script>
+        <script type="text/javascript" src="js/explorer/trash.js"></script>
         <script type="text/javascript" src="js/explorer/search.js"></script>
         <script type="text/javascript" src="js/explorer/uploadui.js"></script>
         <script type="text/javascript" src="js/explorer/upload.js"></script>
