@@ -53,6 +53,14 @@ function forceDelete(confirmed=false){
 
 let deleteFileList = [];
 function deleteFile(confirmed = false){
+    /*
+        A special view holds its own rows, so it deletes them its own way - the
+        trash bin purges the entries it has selected rather than recycling
+        .fileObject elements that are not there.
+    */
+    if (!confirmed && runSpecialViewOperation("delete")){
+        return;
+    }
     if (!confirmed){
         //Show the confirm dialog
         $("#deleteConfirmBox").find(".deleteFilelist").html("");

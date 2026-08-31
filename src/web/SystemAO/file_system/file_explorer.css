@@ -77,6 +77,7 @@ body.whiteTheme {
     --upload_progresstext: rgb(255, 255, 255);
     --upload_progress_succ: #1e8e3e;
     --upload_progress_failed: #d93025;
+    --fs-danger-soft: #fce8e6;
 
     --open_with_selected: #51aded;
     --open_with_selected_text: white;
@@ -170,6 +171,7 @@ body.darkTheme{
     --upload_progresstext: #0d1014;
     --upload_progress_succ: #3ecf6d;
     --upload_progress_failed: #e5484d;
+    --fs-danger-soft: #3a2224;
 
     --open_with_selected: #1e3450;
     --open_with_selected_text: #e6e9ee;
@@ -2249,6 +2251,17 @@ i.blue{
     text-overflow: ellipsis;
 }
 
+/*
+    Separates the mounted storage devices above from the special views below
+    them - the trash bin and anything that joins it later. Without it the two
+    kinds run together and the bin reads as another drive.
+*/
+#directorySidebar .fsSideDivider {
+    height: 1px;
+    background: var(--fs-line);
+    margin: 7px 8px;
+}
+
 #selectInfo {
     font-size: 12px;
     color: var(--fs-text-faint);
@@ -2736,6 +2749,46 @@ i.blue{
     color: var(--fs-text-dim) !important;
 }
 
+/*
+    Sits at the end of the table while the server is still walking the file
+    system, with rows appearing above it as they are found.
+*/
+.fmTrashScanning{
+    padding: 14px 10px !important;
+    color: var(--fs-text-dim) !important;
+}
+
+/*
+    The flex box is an inner element rather than the cell itself: display:flex
+    on a <td> takes it out of the table's formatting context, which drops the
+    colspan and squeezes the row into the width of the first column.
+*/
+.fmTrashScanInner{
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.fmTrashSpinner{
+    width: 13px;
+    height: 13px;
+    min-width: 13px;
+    border: 2px solid var(--fs-line);
+    border-top-color: var(--fs-accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: fmTrashSpin 0.7s linear infinite;
+}
+
+@keyframes fmTrashSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* A spinning ring is exactly what this setting asks to be spared */
+@media (prefers-reduced-motion: reduce) {
+    .fmTrashSpinner{ animation: none; }
+}
+
 .fmTrashFootnote{
     display: flex;
     align-items: center;
@@ -2755,13 +2808,269 @@ i.blue{
 }
 .fmTrashFootIcon svg{ width: 100%; height: 100%; display: block; }
 
+/*
+    The original path is the widest column in the table and the one the layout
+    can most afford to lose. Driven by a class from updateListDensity() rather
+    than a media query, because the file area is bounded by two draggable panes
+    and the viewport width says nothing useful about it.
+*/
+#folderView.fmTrashHideOrigin .fmTrashColOrigin{ display: none !important; }
+
 @media only screen and (max-width: 720px) {
     /* The usage readout is the first thing to go when space is tight */
     .fmTrashHeader{ flex-wrap: wrap; }
     .fmTrashUsage{ display: none; }
-    .fmTrashTable th:nth-child(3), .fmTrashTable td:nth-child(3),
     .fmTrashTable th:nth-child(4), .fmTrashTable td:nth-child(4){ display: none; }
 }
+
+/* ---------- Trash bin: card layout (phones and very narrow panes) ---------- */
+/*
+    Drawn instead of the table below FM_TRASH_CARD_MAX_WIDTH - see
+    useTrashCardLayout() in js/explorer/trash.js. The same rows, restacked:
+    one line per item, with restore and delete moved to a bar along the bottom
+    where they act on the selection.
+*/
+.fmTrashCardHead{
+    background: var(--fs-surface);
+    border: 1px solid var(--fs-line);
+    border-radius: 14px;
+    padding: 16px;
+    margin: 10px 10px 12px 10px;
+}
+.fmTrashCardTop{
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+.fmTrashCardHead .fmTrashIcon{
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--fs-fill);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fs-icon);
+}
+.fmTrashCardHead .fmTrashIcon svg{ width: 24px; height: 24px; display: block; }
+.fmTrashCardHead .fmTrashTitle{
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--fs-text) !important;
+}
+.fmTrashCardHead .fmTrashDesc{
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--fs-text-dim) !important;
+    margin-top: 2px;
+}
+
+.fmTrashCardUsage{ margin-top: 15px; }
+.fmTrashCardUsage .fmTrashUsageLabel{
+    font-size: 12px;
+    color: var(--fs-text-dim) !important;
+}
+.fmTrashUsageRow{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 2px;
+}
+.fmTrashCardUsage .fmTrashUsageValue{
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--fs-accent) !important;
+}
+.fmTrashCardUsage .fmTrashUsageTotal{
+    font-size: 12px;
+    color: var(--fs-text-dim) !important;
+}
+.fmTrashCardUsage .fmTrashUsageBar{
+    margin-top: 8px;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--fs-fill);
+    overflow: hidden;
+}
+.fmTrashCardUsage .fmTrashUsageFill{
+    height: 100%;
+    border-radius: 3px;
+    background: var(--fs-accent);
+}
+
+.fmTrashCardEmptyBtn{
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--upload_progress_failed);
+}
+.fmTrashCardEmptyBtn .fmTrashBtnIcon{ width: 16px; height: 16px; }
+.fmTrashCardEmptyBtn .fmTrashBtnIcon svg{ width: 100%; height: 100%; display: block; }
+
+/* Kind filter chips, standing in for the table's sortable headers */
+.fmTrashChips{
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px 10px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.fmTrashChips::-webkit-scrollbar{ display: none; }
+.fmTrashChip{
+    flex: 0 0 auto;
+    padding: 6px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--fs-line);
+    background: var(--fs-bg);
+    color: var(--fs-text-dim);
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fmTrashChip.active{
+    background: var(--fs-accent-soft);
+    border-color: transparent;
+    color: var(--fs-accent-strong);
+    font-weight: 500;
+}
+.fmTrashChipSpacer{ flex: 1 1 auto; }
+.fmTrashChipMore{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+.fmTrashChipMore svg{ width: 100%; height: 100%; display: block; }
+.fmTrashChips .fmTrashBulkMenu{ right: 10px; top: 38px; }
+
+/* The rows themselves */
+.fmTrashCards{ padding: 0px; }
+.fmTrashCardRow{
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--fs-line-soft);
+}
+.fmTrashCardRow .fmTrashCheck{ flex: 0 0 auto; }
+.fmTrashCardIcon{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fmTrashCardIcon svg,
+.fmTrashCardIcon img{ width: 100%; height: 100%; display: block; object-fit: contain; }
+.fmTrashCardText{
+    flex: 1 1 auto;
+    min-width: 0;      /* lets the name ellipsis instead of stretching the row */
+}
+.fmTrashCardName{
+    font-size: 13.5px;
+    color: var(--fs-text) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fmTrashCardMeta{
+    font-size: 11.5px;
+    color: var(--fs-text-dim) !important;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fmTrashCardDays{
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    color: var(--fs-text-dim) !important;
+    white-space: nowrap;
+}
+.fmTrashCardRow .fmTrashRowMore{
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+}
+.fmTrashCards .fmTrashEmpty{ padding: 40px 10px !important; }
+.fmTrashCards .fmTrashScanRow{ padding: 14px 4px; }
+
+/*
+    Action bar. In normal flow rather than fixed: the file area is the thing
+    that scrolls, and a fixed bar would sit over the desktop chrome outside it.
+*/
+.fmTrashActionBar{
+    /*
+        Sticky to the foot of the file area: the list can run well past one
+        screen, and the two buttons are the whole point of selecting anything,
+        so they follow the scroll instead of sitting at the very bottom.
+    */
+    position: sticky;
+    bottom: 8px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 10px 14px 10px;
+    padding: 11px 12px;
+    border: 1px solid var(--fs-line);
+    border-radius: 12px;
+    background: var(--fs-surface);
+}
+.fmTrashBarCount{
+    flex: 1 1 auto;
+    font-size: 12px;
+    color: var(--fs-text-dim) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fmTrashBarBtn{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--fs-line);
+    border-radius: 9px;
+    background: var(--fs-bg);
+    color: var(--fs-text);
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fmTrashBarBtn.danger{
+    border-color: transparent;
+    background: var(--fs-danger-soft);
+    color: var(--upload_progress_failed);
+    font-weight: 500;
+}
+.fmTrashBarBtn .fmTrashBtnIcon{ width: 14px; height: 14px; }
+.fmTrashBarBtn .fmTrashBtnIcon svg{ width: 100%; height: 100%; display: block; }
+/* Nothing selected yet: the buttons are still there, just visibly inert */
+.fmTrashActionBar:not(.hasSelection) .fmTrashBarBtn{ opacity: 0.5; }
 
 /* ---------- Status bar ---------- */
 #fmStatusBar {
@@ -3069,6 +3378,20 @@ i.blue{
 /* Menu entries that cannot act on the current selection are hidden outright
    rather than greyed - the menu is long enough already. */
 .fsMenuItem.fmOprUnusable { display: none !important; }
+
+/*
+    An operation the current special view does not support. Dimmed rather than
+    removed from the toolbar: the bar keeps its shape as the user moves in and
+    out of the trash bin, and a button that has visibly gone grey explains
+    itself better than one that has vanished.
+*/
+.fileOprBar .fmOprBlocked,
+.fileOprBar .fmOprBlocked:hover {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: default;
+    background: none;
+}
 
 
 /* Menu entries that only make sense on a touch device */

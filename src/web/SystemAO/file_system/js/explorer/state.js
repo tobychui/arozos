@@ -10,6 +10,14 @@
 let directorySidebarWidth = 250; //Width of the sidebar
 
 /*
+    Trash bin layout thresholds, measured on the file area rather than on the
+    window: both panes beside it are draggable, so the viewport says little
+    about how much room the table actually has.
+*/
+const FM_TRASH_ORIGIN_MIN_WIDTH = 900;  //Below this the original path column goes
+const FM_TRASH_CARD_MAX_WIDTH = 560;    //Below this the table becomes cards
+
+/*
     Pane splitter limits (see js/explorer/splitter.js)
 
     The quick access sidebar opens at its widest and is only ever dragged

@@ -554,6 +554,28 @@
             </div>
         </div>
 
+        <!-- Permanent delete confirmation. The one action in the trash bin with
+             nothing behind it - the bin is already the safety net - so it is the
+             one that asks first. Raised by confirmTrashDelete() and
+             confirmEmptyTrashBin() in js/explorer/trash.js. -->
+        <div id="trashDeleteConfirmBox" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="trash icon"></i> <span locale="trash/confirm/title">Delete Permanently?</span>
+                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div class="popupcontent">
+                <p><span class="trashConfirmDesc"></span></p>
+                <div class="popupbuttons allowHover negative" onclick="trashDeleteConfirmed();">
+                    <i class="trash icon"></i> <span locale="trash/confirm/confirm">Delete Permanently</span>
+                </div>
+                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i> <span locale="trash/confirm/cancel">Cancel</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Trash bin full. Raised when the server refuses a recycle because the
              user's trash size limit would be exceeded; nothing has moved yet. -->
         <div id="trashFullBox" class="popup" style="display:none;">

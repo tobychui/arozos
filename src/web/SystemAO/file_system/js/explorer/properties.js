@@ -44,6 +44,10 @@ ao_module_newfw({
 }
 
 function showFileProperties(){
+    //As with delete: the view knows what its own selection means
+    if (runSpecialViewOperation("fileinfo")){
+        return;
+    }
 //Show the file list of the selected files
 if ($(".fileObject.selected").length > 0){
     //Build the filelist

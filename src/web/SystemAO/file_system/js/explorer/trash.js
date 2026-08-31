@@ -39,6 +39,38 @@ let trashSelection = {};        //Encoded filepath -> true for the checked rows
 let trashSortKey = "deleted";   //name | origin | deleted | size | remaining
 let trashSortAsc = false;       //Newest deletions first, as the old app did
 let trashSearchKeyword = "";    //"" = no filter, the whole bin is on show
+let trashKindFilter = "all";    //all | file | folder, set by the card layout chips
+
+/*
+    Scan state
+
+    A bin on a large NAS takes a while to list: the server walks every folder
+    of every mounted root looking for .trash directories. Rather than hold a
+    blank screen for all of it, the scan is streamed and each file is drawn as
+    the server finds it - see the loading section below.
+*/
+let trashScanning = false;      //A scan is in flight
+let trashScanGeneration = 0;    //Bumped per scan, so a stale one draws nothing
+let trashScanSocket = null;     //The live scan, dropped when another starts
+
+/*
+    Which layout was drawn last, so a resize only redraws when it actually
+    crosses the threshold rather than on every pixel of a window drag.
+*/
+let trashLayoutWasCard = null;
+
+function refreshTrashLayoutOnResize(){
+    if (!isTrashPath(currentPath)){
+        trashLayoutWasCard = null;
+        return;
+    }
+    let cardLayout = useTrashCardLayout();
+    if (trashLayoutWasCard === cardLayout){
+        return;
+    }
+    trashLayoutWasCard = cardLayout;
+    drawTrashView();
+}
 
 function isTrashPath(path){
     if (path == undefined || path == null){
@@ -61,13 +93,20 @@ function renderTrashView(callback){
     //The column header belongs to the details view, not to this one
     $("#fmListHeader").hide();
     $("#fileList").html("");
+    /*
+        Painted before the settings request goes out rather than after it comes
+        back, so clicking through to the bin puts something on screen straight
+        away - on a phone the sidebar is dismissed at that same moment and this
+        is what replaces it.
+    */
     $("#folderList").show().html('<div class="fmTrashLoading">' +
         applocale.getString("message/loading", "Loading") + '</div>');
 
     trashSelection = {};
     //Navigating in is a fresh look at the whole bin, not a continuation of
-    //whatever was last searched for
+    //whatever was last searched or filtered for
     trashSearchKeyword = "";
+    trashKindFilter = "all";
 
     //Settings first, so the header renders with the real limits rather than
     //flashing the defaults and correcting itself a moment later
@@ -81,8 +120,125 @@ function renderTrashView(callback){
     });
 }
 
-function loadTrashListing(callback){
+/*
+    Loading
+
+    /system/file_system/ws/listTrash streams one JSON trashedFile per discovery
+    and closes when the walk is done, so rows can be drawn as they arrive
+    instead of after the whole tree has been visited. If the socket cannot be
+    opened - an old reverse proxy, a blocked upgrade - the flat
+    /system/file_system/listTrash request stands in, which answers with
+    everything at once after the same walk.
+
+    @param callback  run once the scan finishes, however it finished
+    @param silent    keep the rows already on screen and swap them for the new
+                     set in one go at the end, instead of clearing to a loading
+                     message first. Used after a restore or a delete so someone
+                     working through the bin is not interrupted by the list
+                     they are working on disappearing.
+*/
+function loadTrashListing(callback, silent = false){
+    trashScanGeneration++;
+    let generation = trashScanGeneration;
+    closeTrashScanSocket();
+    trashScanning = true;
+
+    //Only the silent path needs somewhere to stage results, since the visible
+    //list has to stay untouched until the scan is done
+    let collected = [];
+
+    if (!silent){
+        trashItems = [];
+        drawTrashView();
+    }
+
+    function finish(items){
+        if (generation != trashScanGeneration){
+            //A newer scan, or a navigation away, has taken over
+            return;
+        }
+        trashScanning = false;
+        trashScanSocket = null;
+        if (items != null){
+            trashItems = items;
+        }
+        applyTrashSort();
+        drawTrashView();
+        if (callback !== undefined){
+            callback();
+        }
+    }
+
+    let socket = null;
+    try {
+        socket = new WebSocket(trashWebSocketEndpoint() + "/system/file_system/ws/listTrash");
+    } catch (e){
+        loadTrashListingFallback(generation, silent, callback);
+        return;
+    }
+    trashScanSocket = socket;
+
+    let opened = false;
+    socket.onopen = function(){
+        opened = true;
+    };
+
+    socket.onmessage = function(evt){
+        if (generation != trashScanGeneration){
+            return;
+        }
+        let item = null;
+        try {
+            item = JSON.parse(evt.data);
+        } catch (e){
+            return;
+        }
+        if (item == null || item.error !== undefined){
+            return;
+        }
+
+        if (silent){
+            collected.push(item);
+            return;
+        }
+
+        trashItems.push(item);
+        if (appendTrashRowLive(item)){
+            updateTrashLiveCounters();
+        }else{
+            //Nothing to append to yet, so draw the whole thing once
+            drawTrashView();
+        }
+    };
+
+    socket.onclose = function(){
+        if (generation != trashScanGeneration){
+            return;
+        }
+        if (!opened){
+            /*
+                Closed without ever connecting - the upgrade was refused. The
+                error handler leaves this to onclose so the fallback is only
+                started once.
+            */
+            loadTrashListingFallback(generation, silent, callback);
+            return;
+        }
+        finish(silent ? collected : null);
+    };
+
+    socket.onerror = function(){
+        //onclose always follows and decides what to do
+    };
+}
+
+//Long-poll stand-in for when the socket is unavailable
+function loadTrashListingFallback(generation, silent, callback){
     $.get("../../system/file_system/listTrash", function(data){
+        if (generation != trashScanGeneration){
+            return;
+        }
+        trashScanning = false;
         trashItems = (data == null || data.error !== undefined) ? [] : data;
         applyTrashSort();
         drawTrashView();
@@ -90,7 +246,15 @@ function loadTrashListing(callback){
             callback();
         }
     }).fail(function(){
-        trashItems = [];
+        if (generation != trashScanGeneration){
+            return;
+        }
+        trashScanning = false;
+        if (!silent){
+            //A silent reload that fails leaves the list it was refreshing alone
+            trashItems = [];
+        }
+        applyTrashSort();
         drawTrashView();
         if (callback !== undefined){
             callback();
@@ -98,12 +262,155 @@ function loadTrashListing(callback){
     });
 }
 
-function drawTrashView(){
+function trashWebSocketEndpoint(){
+    let protocol = (location.protocol === "https:") ? "wss://" : "ws://";
+    let port = window.location.port;
+    if (port == ""){
+        port = (location.protocol === "https:") ? "443" : "80";
+    }
+    return protocol + window.location.hostname + ":" + port;
+}
+
+/*
+    Drops a scan that is still running. The generation counter already stops a
+    stale socket from drawing anything, but the server keeps walking the tree
+    until the connection goes - which is the expensive part on a big NAS.
+*/
+function closeTrashScanSocket(){
+    if (trashScanSocket == null){
+        return;
+    }
+    let socket = trashScanSocket;
+    trashScanSocket = null;
+    //Detached first, so closing it does not read as a finished scan
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    try {
+        socket.close();
+    } catch (e){}
+}
+
+//Refresh without disturbing what is on screen - see the silent flag above
+function reloadTrashListingSilently(){
+    loadTrashListing(undefined, true);
+}
+
+/*
+    Appends one freshly discovered row to whichever layout is on screen.
+    Returns false when there is nothing to append to yet, leaving the caller to
+    draw the whole view instead.
+*/
+function appendTrashRowLive(item){
+    let cardLayout = useTrashCardLayout();
+    let container = cardLayout ? $(".fmTrashCards") : $(".fmTrashTable tbody");
+    if (container.length == 0){
+        return false;
+    }
+
+    let name = String(item.OriginalFilename == undefined ? "" : item.OriginalFilename);
+    if (trashSearchKeyword != "" &&
+        !trashSearchMatcher(trashSearchKeyword, searchCaseSensitive)(name)){
+        //Held back by the active filter, though it still counts towards the bin
+        return true;
+    }
+    if ((trashKindFilter == "file" && item.IsDir) ||
+        (trashKindFilter == "folder" && !item.IsDir)){
+        return true;
+    }
+
+    container.find(".fmTrashEmptyRow").remove();
+    /*
+        Rows are appended in the order the server walks the tree; the sort is
+        applied once the scan finishes rather than reshuffling the list on
+        every arrival.
+    */
+    let markup = cardLayout ? renderTrashCard(item) : renderTrashRow(item);
+    let scanRow = container.find(".fmTrashScanRow");
+    if (scanRow.length > 0){
+        scanRow.before(markup);
+    }else{
+        container.append(markup);
+    }
+    return true;
+}
+
+//The counters that would otherwise only be right after a full redraw
+function updateTrashLiveCounters(){
+    let usedBytes = currentTrashUsedBytes();
+    $(".fmTrashUsageValue").text(bytesToSize(usedBytes));
+    if (trashQuotaBytes > 0){
+        $(".fmTrashUsageFill").css("width",
+            Math.min(100, (usedBytes / trashQuotaBytes) * 100).toFixed(1) + "%");
+    }
+    $("#selectInfo").text(applocale.getString("message/itemCount", "%d items")
+        .replace("%d", visibleTrashItems().length));
+    //The chip counts describe the whole bin, so they move as it is discovered
+    let chips = $(".fmTrashChips");
+    if (chips.length > 0){
+        chips.replaceWith(renderTrashChips());
+    }
+}
+
+function currentTrashUsedBytes(){
     let usedBytes = 0;
     for (let i = 0; i < trashItems.length; i++){
         if (!trashItems[i].IsDir){
             usedBytes += trashItems[i].Filesize;
         }
+    }
+    return usedBytes;
+}
+
+/*
+    Sits at the end of the list while the server is still walking the tree.
+
+    The flex box is an inner element rather than the cell itself: display:flex
+    on a <td> takes it out of the table's formatting context, which drops the
+    colspan and squeezes the row into the width of the first column.
+*/
+function trashScanRow(){
+    return '<tr class="fmTrashScanRow"><td colspan="8" class="fmTrashScanning">' +
+        '<span class="fmTrashScanInner">' +
+            '<span class="fmTrashSpinner"></span><span>' +
+            applocale.getString("trash/scanning", "Scanning for deleted files") +
+            '</span>' +
+        '</span></td></tr>';
+}
+
+function trashScanCard(){
+    return '<div class="fmTrashScanRow fmTrashScanning">' +
+        '<span class="fmTrashScanInner">' +
+            '<span class="fmTrashSpinner"></span><span>' +
+            applocale.getString("trash/scanning", "Scanning for deleted files") +
+            '</span>' +
+        '</span></div>';
+}
+
+/*
+    Which of the two layouts to draw.
+
+    The table needs six columns to make sense; below that it turns into a
+    horizontally scrolling strip that is unusable on a phone, so the same rows
+    are drawn as a stack of cards with the actions moved to a bar along the
+    bottom. Measured on the file area, not the viewport - see the constants in
+    state.js.
+*/
+function isTrashCardWidth(width){
+    return width > 0 && width < FM_TRASH_CARD_MAX_WIDTH;
+}
+
+function useTrashCardLayout(){
+    return isMobile || isTrashCardWidth($("#folderView").width());
+}
+
+function drawTrashView(){
+    let usedBytes = currentTrashUsedBytes();
+
+    if (useTrashCardLayout()){
+        drawTrashCardView(usedBytes);
+        return;
     }
 
     /*
@@ -112,11 +419,19 @@ function drawTrashView(){
     */
     let visibleItems = visibleTrashItems();
     let rows = visibleItems.map(renderTrashRow).join("");
-    if (visibleItems.length == 0){
-        rows = '<tr><td colspan="8" class="fmTrashEmpty">' +
-            (trashSearchKeyword == ""
+    if (visibleItems.length == 0 && !trashScanning){
+        /*
+            Only once the scan is done does an empty table mean an empty bin -
+            during one it just means nothing has turned up yet.
+        */
+        rows = '<tr class="fmTrashEmptyRow"><td colspan="8" class="fmTrashEmpty">' +
+            (trashSearchKeyword == "" && trashKindFilter == "all"
                 ? applocale.getString("trash/empty", "The trash bin is empty")
                 : applocale.getString("trash/noMatch", "No items match your search")) + '</td></tr>';
+    }
+    if (trashScanning){
+        //Kept last, so rows found from here on are inserted above it
+        rows += trashScanRow();
     }
 
     $("#folderList").html(
@@ -124,24 +439,198 @@ function drawTrashView(){
         '<table class="fmTrashTable"><thead><tr>' +
             '<th class="fmTrashColCheck"><span class="fmTrashCheck" id="fmTrashSelectAll" onclick="toggleTrashSelectAll();"></span></th>' +
             trashHeaderCell("name",      applocale.getString("trash/col/name", "Name")) +
-            trashHeaderCell("origin",    applocale.getString("trash/col/origin", "Original Location")) +
+            trashHeaderCell("origin",    applocale.getString("trash/col/origin", "Original Location"),
+                                         "fmTrashColOrigin") +
             trashHeaderCell("deleted",   applocale.getString("trash/col/deleted", "Deleted")) +
             trashHeaderCell("size",      applocale.getString("trash/col/size", "Size")) +
             trashHeaderCell("remaining", applocale.getString("trash/col/remaining", "Time Left")) +
             '<th colspan="2"></th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table>' +
         '<div class="fmTrashFootnote"><span class="fmTrashFootIcon">' + FSIcons.info + '</span><span>' +
-            (trashRetentionDays > 0
-                ? applocale.getString("trash/footnote",
-                    "Files are permanently removed after %d days. You can also empty the bin yourself.")
-                    .replace("%d", trashRetentionDays)
-                : applocale.getString("trash/footnoteNoExpiry",
-                    "Files are kept until you empty the trash bin. Automatic removal can be turned on in System Settings.")) +
+            trashFootnoteText() +
         '</span></div>');
 
     updateTrashSelectionState();
     $("#selectInfo").text(applocale.getString("message/itemCount", "%d items")
         .replace("%d", visibleItems.length));
+}
+
+/*
+    Wording shared by both layouts, so the table and the cards cannot drift
+    apart when the retention setting changes what there is to say.
+*/
+function trashDescText(){
+    return trashRetentionDays > 0
+        ? applocale.getString("trash/desc",
+            "These files have been deleted and will be removed permanently after %d days.")
+            .replace("%d", trashRetentionDays)
+        : applocale.getString("trash/descNoExpiry",
+            "These files have been deleted. They are kept until you empty the trash bin.");
+}
+
+function trashFootnoteText(){
+    return trashRetentionDays > 0
+        ? applocale.getString("trash/footnote",
+            "Files are permanently removed after %d days. You can also empty the bin yourself.")
+            .replace("%d", trashRetentionDays)
+        : applocale.getString("trash/footnoteNoExpiry",
+            "Files are kept until you empty the trash bin. Automatic removal can be turned on in System Settings.");
+}
+
+/*
+    Card layout
+
+    The phone rendering of the same list. Everything it shows comes from the
+    same state the table uses, so sorting, searching, selection and the row
+    menu all keep working - only the markup differs.
+*/
+function drawTrashCardView(usedBytes){
+    let visibleItems = visibleTrashItems();
+
+    let rows = visibleItems.map(renderTrashCard).join("");
+    if (visibleItems.length == 0 && !trashScanning){
+        rows = '<div class="fmTrashEmptyRow fmTrashEmpty">' +
+            (trashSearchKeyword == "" && trashKindFilter == "all"
+                ? applocale.getString("trash/empty", "The trash bin is empty")
+                : applocale.getString("trash/noMatch", "No items match your search")) + '</div>';
+    }
+    if (trashScanning){
+        rows += trashScanCard();
+    }
+
+    $("#folderList").html(
+        renderTrashCardHeader(usedBytes) +
+        renderTrashChips() +
+        '<div class="fmTrashCards">' + rows + '</div>' +
+        '<div class="fmTrashFootnote"><span class="fmTrashFootIcon">' + FSIcons.info + '</span><span>' +
+            trashFootnoteText() + '</span></div>' +
+        renderTrashActionBar());
+
+    updateTrashSelectionState();
+    $("#selectInfo").text(applocale.getString("message/itemCount", "%d items")
+        .replace("%d", visibleItems.length));
+}
+
+function renderTrashCardHeader(usedBytes){
+    let hasQuota = trashQuotaBytes > 0;
+    let percent = hasQuota ? Math.min(100, (usedBytes / trashQuotaBytes) * 100) : 0;
+    return '<div class="fmTrashCardHead">' +
+        '<div class="fmTrashCardTop">' +
+            '<div class="fmTrashIcon">' + FSIcons.trashBig + '</div>' +
+            '<div class="fmTrashHeadText">' +
+                '<div class="fmTrashTitle">' + applocale.getString("trash/title", "Trash Bin") + '</div>' +
+                '<div class="fmTrashDesc">' + trashDescText() + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="fmTrashCardUsage">' +
+            '<div class="fmTrashUsageLabel">' + applocale.getString("trash/used", "Space Used") + '</div>' +
+            '<div class="fmTrashUsageRow">' +
+                '<span class="fmTrashUsageValue">' + bytesToSize(usedBytes) + '</span>' +
+                '<span class="fmTrashUsageTotal">' + (hasQuota
+                    ? applocale.getString("trash/total", "Total %s").replace("%s", bytesToSize(trashQuotaBytes))
+                    : applocale.getString("trash/nolimit", "No size limit")) + '</span>' +
+            '</div>' +
+            (hasQuota ? '<div class="fmTrashUsageBar"><div class="fmTrashUsageFill" style="width: ' +
+                percent.toFixed(1) + '%;"></div></div>' : '') +
+        '</div>' +
+        '<button class="fmTrashCardEmptyBtn" onclick="confirmEmptyTrashBin();">' +
+            '<span class="fmTrashBtnIcon">' + FSIcons.trash + '</span>' +
+            '<span>' + applocale.getString("trash/emptybtn", "Empty Trash Bin") + '</span>' +
+        '</button>' +
+    '</div>';
+}
+
+/*
+    All / Files / Folders, with a live count on each. The counts ignore the
+    chip filter itself but honour an active search, so they describe what
+    tapping that chip would actually show.
+*/
+function renderTrashChips(){
+    let searched = trashSearchKeyword == ""
+        ? trashItems
+        : trashItems.filter(function(item){
+            return trashSearchMatcher(trashSearchKeyword, searchCaseSensitive)(
+                String(item.OriginalFilename == undefined ? "" : item.OriginalFilename));
+        });
+    let folders = searched.filter(function(item){ return item.IsDir; }).length;
+
+    function chip(kind, label, count){
+        return '<button class="fmTrashChip' + (trashKindFilter == kind ? " active" : "") +
+            '" onclick="setTrashKindFilter(&quot;' + kind + '&quot;);">' +
+            label + ' (' + count + ')</button>';
+    }
+
+    return '<div class="fmTrashChips">' +
+        chip("all",    applocale.getString("trash/kind/all", "All"), searched.length) +
+        chip("file",   applocale.getString("trash/kind/files", "Files"), searched.length - folders) +
+        chip("folder", applocale.getString("trash/kind/folders", "Folders"), folders) +
+        '<span class="fmTrashChipSpacer"></span>' +
+        '<button class="fmTrashChipMore" title="Sort" onclick="toggleTrashBulkMenu(event);">' +
+            FSIcons.sort + '</button>' +
+        '<div class="fsMenu fmTrashBulkMenu" id="fmTrashBulkMenu">' +
+            trashSortMenuItems() +
+        '</div>' +
+    '</div>';
+}
+
+//The column headers have nowhere to live in this layout, so sorting moves here
+function trashSortMenuItems(){
+    let fields = [
+        ["name",      applocale.getString("trash/col/name", "Name")],
+        ["deleted",   applocale.getString("trash/col/deleted", "Deleted")],
+        ["size",      applocale.getString("trash/col/size", "Size")],
+        ["remaining", applocale.getString("trash/col/remaining", "Time Left")]
+    ];
+    return fields.map(function(f){
+        let mark = trashSortKey == f[0] ? (trashSortAsc ? " \u2191" : " \u2193") : "";
+        return '<div class="fsMenuItem" onclick="sortTrashBy(&quot;' + f[0] + '&quot;);">' +
+            '<span>' + f[1] + mark + '</span></div>';
+    }).join("");
+}
+
+function renderTrashCard(item){
+    let displayName = item.OriginalFilename;
+    //smallGlyph draws the same yellow folder and generated file glyphs the
+    //file list uses, so a trashed item looks like it did before it was deleted
+    let icon = FileThumb.smallGlyph(displayName, item.IsDir);
+    let key = encodeURIComponent(item.Filepath);
+    /*
+        Folders report no meaningful size, so they say what they are instead -
+        the "--" the table shows would read as missing information here.
+    */
+    let meta = item.IsDir
+        ? applocale.getString("trash/typeFolder", "Folder")
+        : bytesToSize(item.Filesize) + '  &middot;  ' + escapeTrashText(item.RemoveDate);
+
+    return '<div class="fmTrashRow fmTrashCardRow" data-key="' + key + '">' +
+        '<span class="fmTrashCheck" onclick="toggleTrashRow(&quot;' + key + '&quot;);"></span>' +
+        '<span class="fmTrashCardIcon">' + icon + '</span>' +
+        '<div class="fmTrashCardText">' +
+            '<div class="fmTrashCardName">' + escapeTrashText(displayName) + '</div>' +
+            '<div class="fmTrashCardMeta">' + meta + '</div>' +
+        '</div>' +
+        '<span class="fmTrashCardDays">' + formatTrashRemaining(item.RemoveTimestamp) + '</span>' +
+        '<button class="fmTrashRowMore" title="More" onclick="toggleTrashRowMenu(event, &quot;' + key + '&quot;);">' +
+            FSIcons.more + '</button>' +
+    '</div>';
+}
+
+/*
+    Restore and delete move out of each row and into a bar along the bottom,
+    where they act on the selection - there is no room for a button per row at
+    this width, and the row menu still covers the single item case.
+*/
+function renderTrashActionBar(){
+    return '<div class="fmTrashActionBar">' +
+        '<span class="fmTrashCheck" id="fmTrashSelectAll" onclick="toggleTrashSelectAll();"></span>' +
+        '<span class="fmTrashBarCount" id="fmTrashBarCount"></span>' +
+        '<button class="fmTrashBarBtn" onclick="restoreSelectedTrash();">' +
+            '<span class="fmTrashBtnIcon">' + FSIcons.restore + '</span>' +
+            '<span>' + applocale.getString("trash/restore", "Restore") + '</span></button>' +
+        '<button class="fmTrashBarBtn danger" onclick="deleteSelectedTrash();">' +
+            '<span class="fmTrashBtnIcon">' + FSIcons.trash + '</span>' +
+            '<span>' + applocale.getString("trash/deletePermanently", "Delete Permanently") + '</span></button>' +
+    '</div>';
 }
 
 function renderTrashHeader(usedBytes){
@@ -156,12 +645,7 @@ function renderTrashHeader(usedBytes){
         '<div class="fmTrashIcon">' + FSIcons.trashBig + '</div>' +
         '<div class="fmTrashHeadText">' +
             '<div class="fmTrashTitle">' + applocale.getString("trash/title", "Trash Bin") + '</div>' +
-            '<div class="fmTrashDesc">' + (trashRetentionDays > 0
-                ? applocale.getString("trash/desc",
-                    "These files have been deleted and will be removed permanently after %d days.")
-                    .replace("%d", trashRetentionDays)
-                : applocale.getString("trash/descNoExpiry",
-                    "These files have been deleted. They are kept until you empty the trash bin.")) + '</div>' +
+            '<div class="fmTrashDesc">' + trashDescText() + '</div>' +
         '</div>' +
         '<div class="fmTrashUsage">' +
             '<div class="fmTrashUsageLabel">' + applocale.getString("trash/used", "Space Used") + '</div>' +
@@ -172,7 +656,7 @@ function renderTrashHeader(usedBytes){
                 ? applocale.getString("trash/quota", "of %s").replace("%s", bytesToSize(trashQuotaBytes))
                 : applocale.getString("trash/nolimit", "No size limit")) + '</div>' +
         '</div>' +
-        '<button class="fmTrashEmptyBtn" onclick="emptyTrashBin();">' +
+        '<button class="fmTrashEmptyBtn" onclick="confirmEmptyTrashBin();">' +
             '<span class="fmTrashBtnIcon">' + FSIcons.trash + '</span>' +
             '<span>' + applocale.getString("trash/emptybtn", "Empty Trash Bin") + '</span>' +
         '</button>' +
@@ -202,7 +686,7 @@ function renderTrashRow(item){
         '<td class="fmTrashColCheck"><span class="fmTrashCheck" onclick="toggleTrashRow(&quot;' + key + '&quot;);"></span></td>' +
         '<td><span class="fmTrashName"><span class="fmTrashRowIcon">' + icon +
             '</span><span class="fmTrashNameText">' + escapeTrashText(displayName) + '</span></span></td>' +
-        '<td class="fmTrashDim">' + escapeTrashText(item.OriginalPath) + '</td>' +
+        '<td class="fmTrashDim fmTrashColOrigin">' + escapeTrashText(item.OriginalPath) + '</td>' +
         '<td class="fmTrashDim">' + escapeTrashText(item.RemoveDate) + '</td>' +
         '<td class="fmTrashDim">' + size + '</td>' +
         '<td class="fmTrashDim">' + formatTrashRemaining(item.RemoveTimestamp) + '</td>' +
@@ -287,13 +771,32 @@ function trashSearchMatcher(keyword, caseSensitive){
 
 //The rows the current keyword leaves on screen
 function visibleTrashItems(){
-    if (trashSearchKeyword == ""){
+    let matches = trashSearchKeyword == ""
+        ? null
+        : trashSearchMatcher(trashSearchKeyword, searchCaseSensitive);
+    if (matches == null && trashKindFilter == "all"){
         return trashItems;
     }
-    let matches = trashSearchMatcher(trashSearchKeyword, searchCaseSensitive);
     return trashItems.filter(function(item){
+        if (trashKindFilter == "file" && item.IsDir){
+            return false;
+        }
+        if (trashKindFilter == "folder" && !item.IsDir){
+            return false;
+        }
+        if (matches == null){
+            return true;
+        }
         return matches(String(item.OriginalFilename == undefined ? "" : item.OriginalFilename));
     });
+}
+
+//Chips in the card layout; the table has sortable columns instead
+function setTrashKindFilter(kind){
+    trashKindFilter = kind;
+    //Rows the filter hides must not stay selected behind it
+    trashSelection = {};
+    drawTrashView();
 }
 
 /*
@@ -351,8 +854,14 @@ function updateTrashSelectionState(){
     });
     let count = Object.keys(trashSelection).length;
     $("#fmTrashSelectAll").toggleClass("checked", count > 0 && count == visibleTrashItems().length);
-    $("#fmSelectionSize").text(count > 0 ?
-        applocale.getString("message/selectedCount", "%d selected").replace("%d", count) : "");
+    let label = applocale.getString("message/selectedCount", "%d selected").replace("%d", count);
+    $("#fmSelectionSize").text(count > 0 ? label : "");
+    /*
+        The card layout's bar always shows the count, including zero: it is the
+        only thing explaining what its two buttons will act on.
+    */
+    $("#fmTrashBarCount").text(label);
+    $(".fmTrashActionBar").toggleClass("hasSelection", count > 0);
 }
 
 function selectedTrashPaths(){
@@ -379,7 +888,13 @@ function restoreTrashPaths(paths){
     function next(){
         if (remaining.length == 0){
             msgbox("checkmark", applocale.getString("trash/restored", "Restored"));
-            renderTrashView();
+            /*
+                Silent: the list is rescanned in the background and swapped in
+                when it is ready, so someone working through the bin keeps the
+                rows they were about to act on instead of being dropped back to
+                a loading message after every restore.
+            */
+            reloadTrashListingSilently();
             return;
         }
         $.ajax({
@@ -411,6 +926,58 @@ function restoreSelectedTrash(){
     restoreTrashPaths(paths);
 }
 
+/*
+    Permanent delete confirmation
+
+    Everything else in the File Manager can be walked back - a delete goes to
+    the bin, and the bin can restore it. These two cannot, so they are the ones
+    that ask first. The pending work is held here rather than on the dialog, so
+    a stale dialog cannot act on a selection the user has moved on from.
+*/
+let trashDeletePendingPaths = [];
+let trashDeleteEmptiesBin = false;
+
+function showTrashDeleteConfirm(description){
+    $("#trashDeleteConfirmBox").find(".trashConfirmDesc").text(description);
+    showPopupWrapper();
+    $("#trashDeleteConfirmBox").transition("slide left in");
+}
+
+//Confirm before purging the given entries
+function confirmTrashDelete(paths){
+    if (paths == undefined || paths.length == 0){
+        return;
+    }
+    trashDeletePendingPaths = paths.slice();
+    trashDeleteEmptiesBin = false;
+    showTrashDeleteConfirm(applocale.getString("trash/confirm/descItems",
+        "%d item(s) will be permanently deleted. This cannot be undone.")
+        .replace("%d", paths.length));
+}
+
+//Confirm before emptying the bin, which is the same thing to everything in it
+function confirmEmptyTrashBin(){
+    closeTrashMenus();
+    if (trashItems.length == 0){
+        return;
+    }
+    trashDeletePendingPaths = [];
+    trashDeleteEmptiesBin = true;
+    showTrashDeleteConfirm(applocale.getString("trash/confirm/descEmpty",
+        "Everything in the trash bin will be permanently deleted. This cannot be undone."));
+}
+
+function trashDeleteConfirmed(){
+    hideAllPopupWindows();
+    if (trashDeleteEmptiesBin){
+        emptyTrashBin();
+        return;
+    }
+    if (trashDeletePendingPaths.length > 0){
+        deleteTrashPaths(trashDeletePendingPaths.slice());
+    }
+}
+
 function deleteTrashPaths(paths){
     if (paths.length == 0){
         return;
@@ -426,11 +993,12 @@ function deleteTrashPaths(paths){
                 }else{
                     msgbox("checkmark", applocale.getString("trash/deleted", "Deleted permanently"));
                 }
-                renderTrashView();
+                //Rescanned in the background - see the note in restoreTrashPaths
+                reloadTrashListingSilently();
             },
             error: function(){
                 msgbox("red remove", applocale.getString("trash/deleteFailed", "Delete failed"));
-                renderTrashView();
+                reloadTrashListingSilently();
             }
         });
     });
@@ -443,7 +1011,7 @@ function deleteSelectedTrash(){
         msgbox("question", applocale.getString("message/No file selected", "No file selected"));
         return;
     }
-    deleteTrashPaths(paths);
+    confirmTrashDelete(paths);
 }
 
 function emptyTrashBin(){
@@ -456,7 +1024,7 @@ function emptyTrashBin(){
         }else{
             msgbox("checkmark", applocale.getString("trash/emptied", "Trash bin emptied"));
         }
-        renderTrashView();
+        reloadTrashListingSilently();
     });
 }
 
@@ -474,7 +1042,7 @@ function toggleTrashRowMenu(event, key){
             '<span class="fsMenuIcon">' + FSIcons.info + '</span><span>' +
             applocale.getString("trash/details", "Details") + '</span></div>' +
         '<div class="fsMenuSep"></div>' +
-        '<div class="fsMenuItem" onclick="deleteTrashPaths([decodeURIComponent(&quot;' + key + '&quot;)]); closeTrashMenus();">' +
+        '<div class="fsMenuItem" onclick="closeTrashMenus(); confirmTrashDelete([decodeURIComponent(&quot;' + key + '&quot;)]);">' +
             '<span class="fsMenuIcon">' + FSIcons.trash + '</span><span>' +
             applocale.getString("trash/deleteOne", "Delete Permanently") + '</span></div>' +
     '</div>');
@@ -517,10 +1085,11 @@ $(document).on("click", function(event){
     and the sort mode the nav bar stores is per folder, which this view has none
     of.
 */
-function trashHeaderCell(key, label){
+function trashHeaderCell(key, label, extraClass = ""){
     let active = trashSortKey == key;
     let mark = active ? (trashSortAsc ? "&#8593;" : "&#8595;") : "";
     return '<th class="fmTrashSortable' + (active ? " sorted" : "") +
+        (extraClass == "" ? "" : " " + extraClass) +
         '" onclick="sortTrashBy(&quot;' + key + '&quot;);">' + label +
         '<span class="fmTrashSortMark">' + mark + '</span></th>';
 }
@@ -571,6 +1140,26 @@ function applyTrashSort(){
     stay reachable on a phone. It reuses the file operation dialog markup, which
     brings the card styling and the scrim close behaviour with it.
 */
+/*
+    The File Info button, answered for the row the user has ticked. The details
+    dialog describes one entry, so a multiple selection has no single answer to
+    give.
+*/
+function showSelectedTrashDetails(){
+    closeTrashMenus();
+    let keys = Object.keys(trashSelection);
+    if (keys.length == 0){
+        msgbox("question", applocale.getString("message/No file selected", "No file selected"));
+        return;
+    }
+    if (keys.length > 1){
+        msgbox("question", applocale.getString("trash/oneAtATime",
+            "Select a single item to see its details"));
+        return;
+    }
+    showTrashItemDetails(keys[0]);
+}
+
 function showTrashItemDetails(key){
     closeTrashMenus();
     let filepath = decodeURIComponent(key);
@@ -619,8 +1208,32 @@ registerSpecialView(TRASH_VPATH, {
     labelFallback: "Trash Bin",
     hideViewModes: true,
     hidePropertiesPane: true,
+    sidebar: true,                  //Gets its own entry under the storage devices
+    /*
+        Nothing in the bin can be opened, renamed, copied into or uploaded to -
+        the entries are not where they claim to be, and the bin is not a
+        directory. What is left is navigation, plus the two things the bin can
+        genuinely do with a selection.
+    */
+    toolbar: ["home", "refresh", "delete", "fileinfo"],
+    toolbarHandlers: {
+        delete: function(){
+            deleteSelectedTrash();
+        },
+        fileinfo: function(){
+            showSelectedTrashDetails();
+        }
+    },
     render: function(callback){
         renderTrashView(callback);
+    },
+    open: function(){
+        openTrashBin();
+    },
+    //Navigating away drops a scan that is still walking the tree
+    leave: function(){
+        trashScanning = false;
+        closeTrashScanSocket();
     },
     //Searching the bin is this file's business, not the File Manager's
     search: function(keyword){
@@ -638,6 +1251,9 @@ window.openTrashBin = openTrashBin;
 window.emptyTrashBin = emptyTrashBin;
 window.restoreTrashItem = restoreTrashItem;
 window.deleteTrashPaths = deleteTrashPaths;
+window.confirmTrashDelete = confirmTrashDelete;
+window.confirmEmptyTrashBin = confirmEmptyTrashBin;
+window.trashDeleteConfirmed = trashDeleteConfirmed;
 window.restoreSelectedTrash = restoreSelectedTrash;
 window.deleteSelectedTrash = deleteSelectedTrash;
 window.toggleTrashRow = toggleTrashRow;
@@ -647,5 +1263,10 @@ window.toggleTrashBulkMenu = toggleTrashBulkMenu;
 window.closeTrashMenus = closeTrashMenus;
 window.sortTrashBy = sortTrashBy;
 window.showTrashItemDetails = showTrashItemDetails;
+window.showSelectedTrashDetails = showSelectedTrashDetails;
 window.loadTrashListing = loadTrashListing;
 window.searchTrashBin = searchTrashBin;
+window.reloadTrashListingSilently = reloadTrashListingSilently;
+window.setTrashKindFilter = setTrashKindFilter;
+window.isTrashCardWidth = isTrashCardWidth;
+window.refreshTrashLayoutOnResize = refreshTrashLayoutOnResize;

@@ -375,7 +375,8 @@ function syncOprMenuDuplicates(){
         let dup = offered[$(this).attr("data-opr")] === true;
         //An entry shows only if the toolbar is not already offering it AND it
         //can actually do something with the current selection / clipboard
-        let unusable = $(this).hasClass("fmOprUnusable");
+        //Blocked by the current special view, or unusable for the selection
+        let unusable = $(this).hasClass("fmOprUnusable") || $(this).hasClass("fmOprBlocked");
         $(this).toggle(!dup && !unusable);
     });
 

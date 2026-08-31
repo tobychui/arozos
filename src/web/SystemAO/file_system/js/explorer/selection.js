@@ -284,6 +284,15 @@ function bindFileObjectEvents(){
 
     //Right click on empty space of the file selector
     $("#folderView").off("contextmenu").on("contextmenu", function(e){
+        /*
+            A special view is not a directory: there is nothing to paste into,
+            create a file in, or upload to. Its own table counts as "empty
+            space" by the test below - right clicking the column header was
+            enough to open the menu - so it is refused up front.
+        */
+        if (isSpecialViewPath(currentPath)){
+            return;
+        }
         if ($(e.target).attr("id") == "folderView" || $(e.target).attr("id") == "fileList" || $(e.target).attr("id") == "folderList" || $(e.target).is("table") || $(e.target).is("th")){
             //Context menu on the empty space of the folder / file list
             e.preventDefault();

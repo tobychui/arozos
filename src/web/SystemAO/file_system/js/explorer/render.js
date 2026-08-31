@@ -425,4 +425,18 @@ function updateListDensity(){
     let width = $("#folderView").width();
     $("#folderView").toggleClass("fmNarrow", width < 620)
                     .toggleClass("fmVeryNarrow", width < 460);
+    /*
+        The trash bin's own thresholds. Its rows carry a full original path,
+        which is the widest thing in the table and the first thing worth
+        dropping - at the default window size the table already overflows with
+        it, so it only earns its place once the pane is dragged wider.
+
+        Narrower still and the table stops working at all, and the card layout
+        in trash.js takes over.
+    */
+    $("#folderView").toggleClass("fmTrashHideOrigin", width < FM_TRASH_ORIGIN_MIN_WIDTH)
+                    .toggleClass("fmTrashCardMode", isTrashCardWidth(width));
+
+    //Crossing the card threshold changes the markup, not just which parts show
+    refreshTrashLayoutOnResize();
 }

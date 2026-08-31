@@ -14,6 +14,47 @@
     file_explorer.html - see the <script> block at the end of that file.
 */
 
+/*
+    Where the dragged sidebar width is remembered between visits. Per browser
+    rather than per account: it describes this window on this screen, which is
+    the same reason the view mode and properties toggle live here too.
+*/
+const FM_SIDEBAR_WIDTH_KEY = "file_explorer/sidebarWidth";
+
+function saveSidebarWidth(width){
+    try {
+        localStorage.setItem(FM_SIDEBAR_WIDTH_KEY, String(Math.round(width)));
+    } catch (e){
+        //Private browsing or a full store - the width simply is not remembered
+    }
+}
+
+/*
+    Applies the remembered width, if there is one. Run through setSidebarWidth
+    rather than written straight to the element, so a width saved on a wider
+    screen is clamped to what fits here instead of squeezing the file list.
+*/
+function restoreSidebarWidth(){
+    if (isMobile){
+        //The drawer covers the window here; a remembered column width is meaningless
+        return;
+    }
+    let stored = null;
+    try {
+        stored = localStorage.getItem(FM_SIDEBAR_WIDTH_KEY);
+    } catch (e){
+        return;
+    }
+    if (stored == null || stored == ""){
+        return;
+    }
+    let width = parseInt(stored);
+    if (isNaN(width) || width <= 0){
+        return;
+    }
+    setSidebarWidth(width);
+}
+
 function clampPaneWidth(width, min, max){
     if (max < min){
         //A window too narrow to honour both bounds: the floor wins, otherwise
@@ -114,6 +155,9 @@ function bindPaneSplitter(handleID, options){
             handle.removeEventListener("pointercancel", onEnd);
             handle.classList.remove("dragging");
             $("body").removeClass("fmResizing");
+            if (typeof options.onEnd === "function"){
+                options.onEnd();
+            }
             //The file list re-flows its columns and tile density from its width
             initWindowSizes(false);
         }
@@ -134,7 +178,9 @@ function initPaneSplitters(){
     bindPaneSplitter("fmSidebarSplitter", {
         direction: 1,   //dragging right widens the sidebar
         getWidth: function(){ return $("#directorySidebar").outerWidth(); },
-        setWidth: setSidebarWidth
+        setWidth: setSidebarWidth,
+        //Saved on release rather than on every move, so a drag writes once
+        onEnd: function(){ saveSidebarWidth(directorySidebarWidth); }
     });
 
     bindPaneSplitter("fmPropsSplitter", {
@@ -143,6 +189,7 @@ function initPaneSplitters(){
         setWidth: setPropertiesWidth
     });
 
+    restoreSidebarWidth();
     updateSplitterVisibility();
 }
 
