@@ -1,0 +1,245 @@
+/*
+    Folder & File Compare backend for Code Studio
+    author: tobychui
+
+    Serves the "Compare" tool under Code Studio/tools/compare/.
+    All operations run with the invoking user's file system permissions.
+
+    Supported operations (POST "opr"):
+      scan     - walk a directory and return its file tree metadata
+      stat     - stat a single path
+      hash     - batch MD5 of a list of virtual paths
+      read     - read a file as text (with binary detection)
+      write    - write text content into a file
+      mkdirp   - create a directory and all of its parents
+      remove   - permanently delete a list of paths (recursive for folders)
+*/
+
+//Maximum number of entries a single scan may return. Keeps a runaway
+//recursive scan from stalling the AGI VM on a huge tree.
+var SCAN_ENTRY_LIMIT = 20000;
+
+//Files larger than this are not returned as text. The front end falls back
+//to hash only comparison for them.
+var TEXT_READ_LIMIT = 4 * 1024 * 1024;
+
+function respondError(msg) {
+    sendJSONResp(JSON.stringify({
+        error: msg
+    }));
+}
+
+function trimTrailingSlash(p) {
+    while (p.length > 1 && p.charAt(p.length - 1) == "/") {
+        p = p.substring(0, p.length - 1);
+    }
+    return p;
+}
+
+function joinVpath(base, rel) {
+    if (rel == "") {
+        return base;
+    }
+    return trimTrailingSlash(base) + "/" + rel;
+}
+
+//Walk a directory breadth first and collect every entry below it.
+//Returns {items: [...], truncated: bool}
+function scanTree(rootPath, recursive, maxDepth) {
+    var items = [];
+    var truncated = false;
+    var queue = [{ rel: "", depth: 0 }];
+
+    while (queue.length > 0) {
+        var current = queue.shift();
+        var absPath = joinVpath(rootPath, current.rel);
+        var entries = filelib.readdir(absPath);
+        if (entries === false || entries === null) {
+            continue;
+        }
+
+        for (var i = 0; i < entries.length; i++) {
+            var entry = entries[i];
+            if (items.length >= SCAN_ENTRY_LIMIT) {
+                truncated = true;
+                break;
+            }
+
+            var relPath = current.rel == "" ? entry.Filename : current.rel + "/" + entry.Filename;
+            items.push({
+                p: relPath,
+                d: entry.IsDir,
+                s: entry.IsDir ? 0 : entry.Filesize,
+                m: entry.Modtime
+            });
+
+            if (entry.IsDir && recursive && (maxDepth <= 0 || current.depth + 1 < maxDepth)) {
+                queue.push({ rel: relPath, depth: current.depth + 1 });
+            }
+        }
+
+        if (truncated) {
+            break;
+        }
+    }
+
+    return { items: items, truncated: truncated };
+}
+
+//Delete a path, descending into folders first so non-empty ones can go away
+function removeRecursive(target) {
+    if (!filelib.fileExists(target)) {
+        return true;
+    }
+    if (filelib.isDir(target)) {
+        var children = filelib.readdir(target);
+        if (children !== false && children !== null) {
+            for (var i = 0; i < children.length; i++) {
+                removeRecursive(children[i].Filepath);
+            }
+        }
+    }
+    filelib.deleteFile(target);
+    return !filelib.fileExists(target);
+}
+
+//Binary files are detected by looking for NUL bytes in the leading chunk,
+//the same heuristic most diff tools use.
+function looksBinary(content) {
+    var probeLength = content.length < 8000 ? content.length : 8000;
+    for (var i = 0; i < probeLength; i++) {
+        if (content.charCodeAt(i) === 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+if (!requirelib("filelib")) {
+    respondError("Unable to load filelib");
+} else if (typeof opr == "undefined") {
+    respondError("Missing opr parameter");
+} else if (opr == "scan") {
+    if (typeof path == "undefined" || path == "") {
+        respondError("Missing path parameter");
+    } else if (!filelib.fileExists(path)) {
+        respondError("Path not found: " + path);
+    } else if (!filelib.isDir(path)) {
+        respondError("Not a directory: " + path);
+    } else {
+        var wantRecursive = true;
+        if (typeof recursive != "undefined" && recursive == "false") {
+            wantRecursive = false;
+        }
+        var depthLimit = 0;
+        if (typeof maxdepth != "undefined" && maxdepth != "") {
+            depthLimit = parseInt(maxdepth);
+            if (isNaN(depthLimit)) {
+                depthLimit = 0;
+            }
+        }
+
+        var scanned = scanTree(trimTrailingSlash(path), wantRecursive, depthLimit);
+        sendJSONResp(JSON.stringify({
+            root: trimTrailingSlash(path),
+            truncated: scanned.truncated,
+            items: scanned.items
+        }));
+    }
+} else if (opr == "stat") {
+    if (typeof path == "undefined" || path == "") {
+        respondError("Missing path parameter");
+    } else if (!filelib.fileExists(path)) {
+        sendJSONResp(JSON.stringify({ exists: false }));
+    } else {
+        var statIsDir = filelib.isDir(path);
+        sendJSONResp(JSON.stringify({
+            exists: true,
+            isDir: statIsDir,
+            size: statIsDir ? 0 : filelib.filesize(path),
+            mtime: filelib.mtime(path, true)
+        }));
+    }
+} else if (opr == "hash") {
+    if (typeof paths == "undefined" || paths == "") {
+        respondError("Missing paths parameter");
+    } else {
+        var hashTargets = JSON.parse(paths);
+        var hashes = {};
+        for (var h = 0; h < hashTargets.length; h++) {
+            var hashTarget = hashTargets[h];
+            if (!filelib.fileExists(hashTarget) || filelib.isDir(hashTarget)) {
+                hashes[hashTarget] = "";
+                continue;
+            }
+            var sum = filelib.md5(hashTarget);
+            hashes[hashTarget] = (sum === false) ? "" : sum;
+        }
+        sendJSONResp(JSON.stringify({ hashes: hashes }));
+    }
+} else if (opr == "read") {
+    if (typeof path == "undefined" || path == "") {
+        respondError("Missing path parameter");
+    } else if (!filelib.fileExists(path)) {
+        respondError("File not found: " + path);
+    } else if (filelib.isDir(path)) {
+        respondError("Cannot read a directory as text: " + path);
+    } else if (filelib.filesize(path) > TEXT_READ_LIMIT) {
+        sendJSONResp(JSON.stringify({
+            oversized: true,
+            size: filelib.filesize(path)
+        }));
+    } else {
+        var fileContent = filelib.readFile(path);
+        if (fileContent === false || fileContent === null) {
+            respondError("Unable to read " + path);
+        } else {
+            sendJSONResp(JSON.stringify({
+                content: fileContent,
+                binary: looksBinary(fileContent),
+                size: filelib.filesize(path),
+                mtime: filelib.mtime(path, true)
+            }));
+        }
+    }
+} else if (opr == "write") {
+    if (typeof path == "undefined" || typeof content == "undefined") {
+        respondError("Missing path or content parameter");
+    } else if (filelib.writeFile(path, content)) {
+        sendJSONResp(JSON.stringify({
+            success: true,
+            mtime: filelib.mtime(path, true),
+            size: filelib.filesize(path)
+        }));
+    } else {
+        respondError("Unable to write to " + path);
+    }
+} else if (opr == "mkdirp") {
+    if (typeof path == "undefined" || path == "") {
+        respondError("Missing path parameter");
+    } else if (filelib.fileExists(path) && filelib.isDir(path)) {
+        sendJSONResp(JSON.stringify({ success: true }));
+    } else if (filelib.mkdir(path)) {
+        sendJSONResp(JSON.stringify({ success: true }));
+    } else {
+        respondError("Unable to create directory " + path);
+    }
+} else if (opr == "remove") {
+    if (typeof paths == "undefined" || paths == "") {
+        respondError("Missing paths parameter");
+    } else {
+        var removeTargets = JSON.parse(paths);
+        var failed = [];
+        for (var r = 0; r < removeTargets.length; r++) {
+            if (!removeRecursive(removeTargets[r])) {
+                failed.push(removeTargets[r]);
+            }
+        }
+        sendJSONResp(JSON.stringify({
+            success: failed.length == 0,
+            failed: failed
+        }));
+    }
+} else {
+    respondError("Unknown operation: " + opr);
+}

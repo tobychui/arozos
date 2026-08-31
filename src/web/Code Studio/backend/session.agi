@@ -1,0 +1,77 @@
+/*
+    Code Studio — per project workspace state
+
+    Remembers which tabs were open in a project folder, so reopening the folder
+    restores them. The state lives in a hidden file next to the project, inside
+    the .metadata folder ArozOS already uses for per folder data:
+
+        <project>/.metadata/.codestudio.json
+
+    Files and folders whose name starts with a dot are filtered out of the
+    directory listing API, so the file never shows up in the explorer.
+
+    POST opr    = load | save | clear
+         folder = virtual path of the project folder
+         data   = the JSON state blob (save only)
+*/
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+function metadataFolderOf(projectFolder) {
+    var base = projectFolder;
+    if (base.charAt(base.length - 1) != "/") {
+        base = base + "/";
+    }
+    return base + ".metadata/";
+}
+
+if (!requirelib("filelib")) {
+    sendJSONResp({ success: false, error: "Unable to load filelib" });
+} else if (typeof folder == "undefined" || folder == "") {
+    sendJSONResp({ success: false, error: "A project folder is required" });
+} else {
+
+    var metaFolder  = metadataFolderOf(folder);
+    var sessionFile = metaFolder + ".codestudio.json";
+
+    if (opr == "load") {
+        if (!filelib.fileExists(sessionFile)) {
+            sendJSONResp({ success: true, session: null });
+        } else {
+            var content = filelib.readFile(sessionFile);
+            if (content === false || content === "") {
+                sendJSONResp({ success: true, session: null });
+            } else {
+                try {
+                    sendJSONResp({ success: true, session: JSON.parse(content) });
+                } catch (e) {
+                    //A corrupted state file should never block opening a folder
+                    sendJSONResp({ success: true, session: null });
+                }
+            }
+        }
+
+    } else if (opr == "save") {
+        if (typeof data == "undefined" || data == "") {
+            sendJSONResp({ success: false, error: "No state given" });
+        } else {
+            //mkdir is a no-op when the folder is already there
+            try { filelib.mkdir(metaFolder); } catch (e) { }
+
+            if (filelib.writeFile(sessionFile, data)) {
+                sendJSONResp({ success: true });
+            } else {
+                sendJSONResp({ success: false, error: "Unable to write " + sessionFile });
+            }
+        }
+
+    } else if (opr == "clear") {
+        if (filelib.fileExists(sessionFile)) {
+            filelib.deleteFile(sessionFile);
+        }
+        sendJSONResp({ success: true });
+
+    } else {
+        sendJSONResp({ success: false, error: "Unknown operation: " + opr });
+    }
+}

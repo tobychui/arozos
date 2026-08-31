@@ -1,0 +1,1369 @@
+/*
+    Folder & File Compare - Code Studio tool
+    Classic two pane comparison UI
+
+    The palette lives in CSS variables so the whole tool can flip to the
+    ArozOS dark theme without duplicating any layout rules.
+*/
+
+:root {
+    --cmp-chrome: #f0f0f0;
+    --cmp-chrome-alt: #e4e4e4;
+    --cmp-toolbar-top: #fdfdfd;
+    --cmp-toolbar-bottom: #e6e6e6;
+    --cmp-border: #b5b5b5;
+    --cmp-border-soft: #d4d4d4;
+    --cmp-pane: #ffffff;
+    --cmp-pane-alt: #fafafa;
+    --cmp-header: #f2f2f2;
+    --cmp-text: #1c1c1c;
+    --cmp-text-dim: #6b6b6b;
+    --cmp-select: #cce4f7;
+    --cmp-select-border: #7fb4e0;
+    --cmp-focusrow: #e8f2fb;
+    --cmp-accent: #1a5fb4;
+
+    /* comparison result colours */
+    --cmp-same: #1c1c1c;
+    --cmp-diff: #cc0000;
+    --cmp-newer: #0033cc;
+    --cmp-orphan: #cc0000;
+    --cmp-minor: #8a6d00;
+    --cmp-gap-a: #ffffff;
+    --cmp-gap-b: #e9e9e9;
+    --cmp-diffbg: #ffe4e4;
+    --cmp-diffbg-strong: #ff9c9c;
+    --cmp-addbg: #e4f0ff;
+    --cmp-addbg-strong: #a3ccf5;
+    --cmp-minorbg: #fff6d8;
+    --cmp-folder: #d9a520;
+}
+
+body.dark {
+    --cmp-chrome: #2b2b2b;
+    --cmp-chrome-alt: #333333;
+    --cmp-toolbar-top: #3a3a3a;
+    --cmp-toolbar-bottom: #2e2e2e;
+    --cmp-border: #1c1c1c;
+    --cmp-border-soft: #444444;
+    --cmp-pane: #242424;
+    --cmp-pane-alt: #292929;
+    --cmp-header: #333333;
+    --cmp-text: #e6e6e6;
+    --cmp-text-dim: #9a9a9a;
+    --cmp-select: #2d4f6b;
+    --cmp-select-border: #4a86b8;
+    --cmp-focusrow: #303c46;
+    --cmp-accent: #61a8ff;
+
+    --cmp-same: #e6e6e6;
+    --cmp-diff: #ff6b6b;
+    --cmp-newer: #6fa8ff;
+    --cmp-orphan: #ff6b6b;
+    --cmp-minor: #d8b64a;
+    --cmp-gap-a: #242424;
+    --cmp-gap-b: #2f2f2f;
+    --cmp-diffbg: #4a2626;
+    --cmp-diffbg-strong: #8f3a3a;
+    --cmp-addbg: #23394f;
+    --cmp-addbg-strong: #3d6c99;
+    --cmp-minorbg: #4a4126;
+    --cmp-folder: #e0b348;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    background: var(--cmp-chrome);
+    color: var(--cmp-text);
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    font-size: 12px;
+    user-select: none;
+}
+
+#appRoot {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Toolbar                                                             */
+/* ------------------------------------------------------------------ */
+
+#toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    gap: 1px;
+    padding: 3px 4px;
+    background: linear-gradient(to bottom, var(--cmp-toolbar-top), var(--cmp-toolbar-bottom));
+    border-bottom: 1px solid var(--cmp-border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+.tbtn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 46px;
+    padding: 2px 6px 1px 6px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--cmp-text);
+    font-size: 11px;
+    line-height: 1.15;
+    cursor: pointer;
+}
+
+.tbtn i.icon {
+    font-size: 15px;
+    height: 17px;
+    margin: 0 0 2px 0;
+    opacity: 0.85;
+}
+
+.tbtn:hover {
+    background: rgba(120, 170, 220, 0.22);
+    border-color: var(--cmp-select-border);
+}
+
+.tbtn.active {
+    background: var(--cmp-select);
+    border-color: var(--cmp-select-border);
+}
+
+.tbtn.disabled,
+.tbtn[disabled] {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.tbtn.danger i.icon {
+    color: #c0392b;
+}
+
+.tbsep {
+    width: 1px;
+    margin: 3px 4px;
+    background: var(--cmp-border-soft);
+}
+
+.tbspacer {
+    flex: 1 1 auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Path bar + filter bar                                               */
+/* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Open comparison tabs                                                */
+/* ------------------------------------------------------------------ */
+
+#tabbar {
+    flex: 0 0 auto;
+    display: none;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 3px 4px 0 4px;
+    background: var(--cmp-chrome-alt);
+    border-bottom: 1px solid var(--cmp-border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+#tabbar.on {
+    display: flex;
+}
+
+.cmptab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 230px;
+    padding: 3px 6px 4px 8px;
+    border: 1px solid var(--cmp-border-soft);
+    border-bottom: none;
+    border-radius: 3px 3px 0 0;
+    background: var(--cmp-chrome);
+    color: var(--cmp-text-dim);
+    cursor: pointer;
+}
+
+.cmptab:hover {
+    background: var(--cmp-focusrow);
+}
+
+.cmptab.active {
+    background: var(--cmp-pane);
+    border-color: var(--cmp-border);
+    color: var(--cmp-text);
+    margin-bottom: -1px;
+    padding-bottom: 5px;
+}
+
+.cmptab i.icon {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+.cmptab .tablabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* an unsaved edit somewhere in that comparison */
+.cmptab .tabdirty {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cmp-diff);
+}
+
+.cmptab .tabclose {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    line-height: 13px;
+    text-align: center;
+    border-radius: 2px;
+    color: var(--cmp-text-dim);
+    font-size: 13px;
+}
+
+.cmptab .tabclose:hover {
+    background: var(--cmp-diff);
+    color: #ffffff;
+}
+
+#pathbar {
+    flex: 0 0 auto;
+    display: flex;
+    background: var(--cmp-chrome);
+    border-bottom: 1px solid var(--cmp-border-soft);
+}
+
+.pathside {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    width: 50%;
+    padding: 3px 4px;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.pathside + .pathside {
+    border-left: 1px solid var(--cmp-border-soft);
+}
+
+.pathside input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 21px;
+    padding: 1px 5px;
+    border: 1px solid var(--cmp-border);
+    border-radius: 2px;
+    background: var(--cmp-pane);
+    color: var(--cmp-text);
+    font-family: inherit;
+    font-size: 12px;
+    user-select: text;
+}
+
+.minibtn {
+    flex: 0 0 auto;
+    height: 21px;
+    min-width: 22px;
+    padding: 0 5px;
+    border: 1px solid var(--cmp-border);
+    border-radius: 2px;
+    background: linear-gradient(to bottom, var(--cmp-toolbar-top), var(--cmp-toolbar-bottom));
+    color: var(--cmp-text);
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.minibtn:hover {
+    background: var(--cmp-select);
+}
+
+.minibtn i.icon {
+    margin: 0;
+    font-size: 12px;
+}
+
+#filterbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    background: var(--cmp-chrome);
+    border-bottom: 1px solid var(--cmp-border);
+}
+
+#filterbar label {
+    color: var(--cmp-text-dim);
+}
+
+#filterbar input[type=text] {
+    width: 240px;
+    height: 20px;
+    padding: 1px 5px;
+    border: 1px solid var(--cmp-border);
+    border-radius: 2px;
+    background: var(--cmp-pane);
+    color: var(--cmp-text);
+    font-family: inherit;
+    user-select: text;
+}
+
+/* ------------------------------------------------------------------ */
+/* View host                                                           */
+/* ------------------------------------------------------------------ */
+
+#viewhost {
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0;
+    background: var(--cmp-pane);
+}
+
+.view {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.view.visible {
+    display: flex;
+}
+
+/* ------------------------------------------------------------------ */
+/* Home / session picker                                               */
+/* ------------------------------------------------------------------ */
+
+#homeView {
+    flex-direction: row;
+    background: var(--cmp-pane);
+}
+
+#sessionSidebar {
+    flex: 0 0 190px;
+    border-right: 1px solid var(--cmp-border-soft);
+    background: var(--cmp-pane-alt);
+    overflow-y: auto;
+    padding: 6px 0;
+}
+
+#sessionSidebar .grouphead {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-weight: 600;
+}
+
+#sessionSidebar .sessiontype {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px 4px 26px;
+    cursor: pointer;
+}
+
+#sessionSidebar .sessiontype:hover {
+    background: var(--cmp-focusrow);
+}
+
+#sessionSidebar .sessiontype.selected {
+    background: var(--cmp-select);
+}
+
+#sessionSidebar .sessiontype i.icon {
+    color: var(--cmp-accent);
+    margin: 0;
+}
+
+#homeMain {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 18px;
+    min-width: 0;
+    overflow-y: auto;
+}
+
+#homeMain .hint {
+    color: var(--cmp-text-dim);
+    text-align: center;
+}
+
+#homeTiles {
+    display: flex;
+    gap: 26px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.hometile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 108px;
+    padding: 10px 4px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.hometile:hover {
+    background: var(--cmp-focusrow);
+    border-color: var(--cmp-select-border);
+}
+
+.hometile .tileart {
+    width: 56px;
+    height: 56px;
+}
+
+#homeForm {
+    width: 100%;
+    max-width: 620px;
+    border: 1px solid var(--cmp-border-soft);
+    border-radius: 4px;
+    padding: 12px;
+    background: var(--cmp-pane-alt);
+}
+
+#homeForm .frow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+#homeForm .frow span.flabel {
+    flex: 0 0 74px;
+    color: var(--cmp-text-dim);
+}
+
+#homeForm input[type=text] {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 24px;
+    padding: 2px 6px;
+    border: 1px solid var(--cmp-border);
+    border-radius: 2px;
+    background: var(--cmp-pane);
+    color: var(--cmp-text);
+    font-family: inherit;
+    font-size: 12px;
+    user-select: text;
+}
+
+#homeForm .factions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+#recentList {
+    width: 100%;
+    max-width: 620px;
+}
+
+#recentList .recentitem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--cmp-text-dim);
+}
+
+#recentList .recentitem:hover {
+    background: var(--cmp-focusrow);
+    color: var(--cmp-text);
+}
+
+#recentList .recentitem .rpath {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Folder compare grid                                                 */
+/* ------------------------------------------------------------------ */
+
+#folderGrid {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.gridhead {
+    flex: 0 0 auto;
+    display: flex;
+    background: var(--cmp-header);
+    border-bottom: 1px solid var(--cmp-border);
+    font-size: 11px;
+}
+
+.gridhead .side {
+    display: flex;
+    width: 50%;
+    box-sizing: border-box;
+}
+
+.gridhead .side + .side {
+    border-left: 2px solid var(--cmp-border);
+}
+
+.gridhead .cell {
+    padding: 3px 6px;
+    border-right: 1px solid var(--cmp-border-soft);
+    overflow: hidden;
+    white-space: nowrap;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.gridhead .cell:hover {
+    background: var(--cmp-focusrow);
+}
+
+.gridbody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: var(--cmp-pane);
+}
+
+.grow {
+    display: flex;
+    line-height: 17px;
+    height: 17px;
+    box-sizing: border-box;
+}
+
+.grow:hover {
+    background: var(--cmp-focusrow);
+}
+
+.grow.selected {
+    background: var(--cmp-select);
+}
+
+.grow .side {
+    display: flex;
+    width: 50%;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.grow .side + .side {
+    border-left: 2px solid var(--cmp-border-soft);
+}
+
+.grow .cell {
+    padding: 0 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.grow .cell.name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* shared column geometry, used by both the header and the rows */
+.cell.name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cell.size {
+    flex: 0 0 92px;
+    text-align: right;
+}
+
+.cell.mtime {
+    flex: 0 0 152px;
+}
+
+.gridhead .cell.mtime {
+    border-right: none;
+}
+
+.grow .cell.size,
+.grow .cell.mtime {
+    color: inherit;
+}
+
+.grow .cell.mtime {
+    text-align: right;
+}
+
+.grow .cell.empty {
+    color: transparent;
+}
+
+/* result colouring */
+.grow .side.st-same .cell { color: var(--cmp-same); }
+.grow .side.st-diff .cell { color: var(--cmp-diff); }
+.grow .side.st-newer .cell { color: var(--cmp-newer); }
+.grow .side.st-orphan .cell { color: var(--cmp-orphan); }
+.grow .side.st-minor .cell { color: var(--cmp-minor); }
+.grow .side.st-blank {
+    background: repeating-linear-gradient(135deg,
+        var(--cmp-gap-a) 0px, var(--cmp-gap-a) 4px,
+        var(--cmp-gap-b) 4px, var(--cmp-gap-b) 8px);
+}
+
+.grow.selected .side.st-blank {
+    background: var(--cmp-select);
+}
+
+/* the little square status marker in front of a name */
+.marker {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.marker.m-same { background: transparent; border-color: transparent; }
+.marker.m-diff { background: var(--cmp-diff); }
+.marker.m-newer { background: var(--cmp-newer); }
+.marker.m-orphan { background: var(--cmp-orphan); border-radius: 50%; }
+.marker.m-minor { background: var(--cmp-minor); }
+
+.twisty {
+    flex: 0 0 auto;
+    width: 11px;
+    text-align: center;
+    color: var(--cmp-text-dim);
+    cursor: pointer;
+}
+
+.ficon {
+    flex: 0 0 auto;
+    width: 13px;
+    text-align: center;
+}
+
+.ficon.folder svg,
+.ficon.file svg {
+    width: 12px;
+    height: 12px;
+    vertical-align: -2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Text compare                                                        */
+/* ------------------------------------------------------------------ */
+
+#textBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+}
+
+/*
+    Each side is its own scroller, so a long line scrolls horizontally inside
+    its own half instead of pushing the other pane off screen. Vertical
+    scrolling is kept in step by text.js, and the divider between them is
+    draggable.
+*/
+.tpane {
+    position: relative;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: scroll;
+    background: var(--cmp-pane);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+}
+
+#textLeftPane {
+    flex: 0 0 50%;
+}
+
+#textRightPane {
+    flex: 1 1 auto;
+}
+
+/* only the right pane shows a vertical scrollbar, the way a desktop diff does */
+#textLeftPane::-webkit-scrollbar:vertical {
+    width: 0;
+}
+
+.tsplit {
+    flex: 0 0 7px;
+    cursor: col-resize;
+    background: var(--cmp-chrome);
+    border-left: 1px solid var(--cmp-border);
+    border-right: 1px solid var(--cmp-border);
+    background-image: linear-gradient(to bottom,
+        transparent calc(50% - 14px),
+        var(--cmp-text-dim) calc(50% - 14px), var(--cmp-text-dim) calc(50% - 13px),
+        transparent calc(50% - 13px),
+        transparent calc(50% - 1px),
+        var(--cmp-text-dim) calc(50% - 1px), var(--cmp-text-dim) 50%,
+        transparent 50%,
+        transparent calc(50% + 12px),
+        var(--cmp-text-dim) calc(50% + 12px), var(--cmp-text-dim) calc(50% + 13px),
+        transparent calc(50% + 13px));
+}
+
+.tsplit:hover,
+.tsplit.dragging {
+    background-color: var(--cmp-select);
+}
+
+.tpanerows {
+    width: max-content;
+    min-width: 100%;
+}
+
+.diffmap {
+    flex: 0 0 14px;
+    position: relative;
+    background: var(--cmp-pane-alt);
+    border-right: 1px solid var(--cmp-border-soft);
+    cursor: pointer;
+}
+
+.diffmap .mapmark {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    min-height: 2px;
+}
+
+.diffmap .mapview {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border: 1px solid var(--cmp-accent);
+    background: rgba(120, 170, 220, 0.18);
+    pointer-events: none;
+}
+
+.trow {
+    display: flex;
+    align-items: stretch;
+    height: 16px;
+    min-width: 100%;
+    width: max-content;
+    background: var(--cmp-pane);
+}
+
+/* the coloured edge bar marking what kind of difference the line is */
+.tmark {
+    flex: 0 0 4px;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--cmp-pane);
+}
+
+.tnum {
+    flex: 0 0 46px;
+    position: sticky;
+    left: 4px;
+    z-index: 2;
+    padding: 0 5px 0 0;
+    text-align: right;
+    color: var(--cmp-text-dim);
+    background: var(--cmp-pane-alt);
+    border-right: 1px solid var(--cmp-border-soft);
+    font-size: 11px;
+    line-height: 16px;
+    user-select: none;
+}
+
+.ttext {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    line-height: 16px;
+    white-space: pre;
+    outline: none;
+    user-select: text;
+}
+
+.ttext:focus {
+    box-shadow: inset 0 0 0 1px var(--cmp-accent);
+}
+
+/* whole line tint, so the difference reads across the full pane width */
+.trow.r-change { background: var(--cmp-diffbg); }
+.trow.r-add    { background: var(--cmp-addbg); }
+.trow.r-minor  { background: var(--cmp-minorbg); }
+
+.trow.r-change .tnum,
+.trow.r-change .tmark { background: var(--cmp-diffbg); }
+.trow.r-add .tnum,
+.trow.r-add .tmark { background: var(--cmp-addbg); }
+.trow.r-minor .tnum,
+.trow.r-minor .tmark { background: var(--cmp-minorbg); }
+
+.trow.r-change .tmark { background: var(--cmp-diff); }
+.trow.r-add .tmark { background: var(--cmp-newer); }
+.trow.r-minor .tmark { background: var(--cmp-minor); }
+
+/* a line with no counterpart on this side */
+.trow.gap {
+    background: repeating-linear-gradient(135deg,
+        var(--cmp-gap-a) 0px, var(--cmp-gap-a) 4px,
+        var(--cmp-gap-b) 4px, var(--cmp-gap-b) 8px);
+}
+
+.trow.gap .tmark,
+.trow.gap .tnum {
+    background: transparent;
+    color: transparent;
+    border-right-color: transparent;
+}
+
+.trow.cursorline .tnum {
+    color: var(--cmp-text);
+    font-weight: 600;
+}
+
+.trow.currentsection .tmark {
+    box-shadow: inset 0 0 0 1px var(--cmp-text);
+}
+
+/* the exact characters that differ inside an otherwise matching line */
+.inlinediff {
+    background: var(--cmp-diffbg-strong);
+    box-shadow: 0 0 0 1px var(--cmp-diffbg-strong);
+    border-radius: 1px;
+}
+
+.trow.r-add .inlinediff {
+    background: var(--cmp-addbg-strong);
+    box-shadow: 0 0 0 1px var(--cmp-addbg-strong);
+}
+
+.trow.r-minor .inlinediff {
+    background: var(--cmp-minor);
+    box-shadow: 0 0 0 1px var(--cmp-minor);
+    opacity: 0.55;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hex compare                                                         */
+/* ------------------------------------------------------------------ */
+
+#hexScroller {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    background: var(--cmp-pane);
+}
+
+.hexrow {
+    display: flex;
+    line-height: 16px;
+}
+
+.hexside {
+    display: flex;
+    width: 50%;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.hexside + .hexside {
+    border-left: 2px solid var(--cmp-border);
+}
+
+.hexoff {
+    flex: 0 0 74px;
+    padding-right: 6px;
+    text-align: right;
+    color: var(--cmp-text-dim);
+    background: var(--cmp-pane-alt);
+    border-right: 1px solid var(--cmp-border-soft);
+    user-select: none;
+}
+
+.hexbytes {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    white-space: pre;
+    user-select: text;
+}
+
+.hexascii {
+    flex: 1 1 auto;
+    padding: 0 6px;
+    white-space: pre;
+    color: var(--cmp-text-dim);
+    user-select: text;
+}
+
+.bdiff {
+    background: var(--cmp-diffbg-strong);
+}
+
+/* ------------------------------------------------------------------ */
+/* Picture compare                                                     */
+/* ------------------------------------------------------------------ */
+
+#pictureBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    background: var(--cmp-pane-alt);
+}
+
+.picpane {
+    flex: 1 1 50%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+.picpane + .picpane {
+    border-left: 2px solid var(--cmp-border);
+}
+
+.picpane img {
+    max-width: 100%;
+    max-height: 100%;
+    image-rendering: pixelated;
+    background:
+        linear-gradient(45deg, #cfcfcf 25%, transparent 25%, transparent 75%, #cfcfcf 75%) 0 0/16px 16px,
+        linear-gradient(45deg, #cfcfcf 25%, transparent 25%, transparent 75%, #cfcfcf 75%) 8px 8px/16px 16px,
+        #f7f7f7;
+}
+
+#picOverlayPane {
+    display: none;
+    flex: 1 1 100%;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#picOverlayPane canvas {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Log pane + status bar                                               */
+/* ------------------------------------------------------------------ */
+
+#logpane {
+    flex: 0 0 auto;
+    height: 82px;
+    display: flex;
+    border-top: 1px solid var(--cmp-border);
+    background: var(--cmp-pane);
+}
+
+#logpane.collapsed {
+    height: 0;
+    border-top: none;
+    overflow: hidden;
+}
+
+#logIconCol {
+    flex: 0 0 26px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 4px;
+    background: var(--cmp-chrome);
+    border-right: 1px solid var(--cmp-border-soft);
+    color: var(--cmp-accent);
+}
+
+#logLines {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 3px 6px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11px;
+    color: var(--cmp-text);
+    user-select: text;
+}
+
+#logLines .logline.err { color: var(--cmp-diff); }
+#logLines .logline.ok { color: #2a7d2a; }
+body.dark #logLines .logline.ok { color: #7bd67b; }
+
+#statusbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    background: var(--cmp-chrome-alt);
+    border-top: 1px solid var(--cmp-border);
+    font-size: 11px;
+}
+
+#statusbar .sbcell {
+    padding: 3px 8px;
+    border-right: 1px solid var(--cmp-border-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#statusbar .sbcell.grow {
+    flex: 1 1 auto;
+    display: block;
+    height: auto;
+}
+
+#statusbar .legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 10px;
+}
+
+#statusbar .legend .marker {
+    width: 8px;
+    height: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Progress + modal dialog                                             */
+/* ------------------------------------------------------------------ */
+
+#busyOverlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.72);
+    z-index: 40;
+}
+
+body.dark #busyOverlay {
+    background: rgba(20, 20, 20, 0.72);
+}
+
+#busyOverlay.on {
+    display: flex;
+}
+
+#busyBox {
+    min-width: 240px;
+    padding: 14px 18px;
+    border: 1px solid var(--cmp-border);
+    border-radius: 4px;
+    background: var(--cmp-chrome);
+    text-align: center;
+}
+
+#busyBar {
+    height: 8px;
+    margin-top: 8px;
+    border: 1px solid var(--cmp-border);
+    background: var(--cmp-pane);
+}
+
+#busyBar div {
+    height: 100%;
+    width: 0%;
+    background: var(--cmp-accent);
+    transition: width 0.12s linear;
+}
+
+.dlgmask {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 60;
+}
+
+.dlgmask.on {
+    display: flex;
+}
+
+.dlg {
+    width: 560px;
+    max-width: calc(100% - 24px);
+    max-height: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    background: var(--cmp-chrome);
+    border: 1px solid var(--cmp-border);
+    border-radius: 4px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+}
+
+.dlg .dlghead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: linear-gradient(to bottom, var(--cmp-toolbar-top), var(--cmp-toolbar-bottom));
+    border-bottom: 1px solid var(--cmp-border);
+    font-weight: 600;
+}
+
+.dlg .dlghead .closex {
+    cursor: pointer;
+    color: var(--cmp-text-dim);
+}
+
+.dlg .dlgtabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px 0 8px;
+    background: var(--cmp-chrome);
+    border-bottom: 1px solid var(--cmp-border);
+}
+
+.dlg .dlgtabs .tab {
+    padding: 4px 12px;
+    border: 1px solid var(--cmp-border-soft);
+    border-bottom: none;
+    border-radius: 3px 3px 0 0;
+    background: var(--cmp-chrome-alt);
+    cursor: pointer;
+}
+
+.dlg .dlgtabs .tab.active {
+    background: var(--cmp-pane);
+    border-color: var(--cmp-border);
+    margin-bottom: -1px;
+    padding-bottom: 5px;
+}
+
+.dlg .dlgbody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+    background: var(--cmp-pane);
+}
+
+.dlg .dlgfoot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--cmp-border);
+    background: var(--cmp-chrome);
+}
+
+.dlgpage { display: none; }
+.dlgpage.active { display: block; }
+
+.fieldset {
+    border: 1px solid var(--cmp-border-soft);
+    border-radius: 3px;
+    padding: 8px 10px 10px 10px;
+    margin-bottom: 12px;
+}
+
+.fieldset > .legendtitle {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.twocol {
+    display: flex;
+    gap: 16px;
+}
+
+.twocol > div {
+    flex: 1 1 50%;
+    min-width: 0;
+}
+
+.chk {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 3px 0;
+    cursor: pointer;
+}
+
+.chk.indent {
+    margin-left: 20px;
+}
+
+.chk.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.chk input {
+    margin: 0;
+}
+
+.numin {
+    width: 56px;
+    height: 20px;
+    padding: 1px 4px;
+    border: 1px solid var(--cmp-border);
+    background: var(--cmp-pane);
+    color: var(--cmp-text);
+    font-family: inherit;
+    user-select: text;
+}
+
+.txtin {
+    width: 100%;
+    box-sizing: border-box;
+    height: 22px;
+    padding: 2px 5px;
+    border: 1px solid var(--cmp-border);
+    background: var(--cmp-pane);
+    color: var(--cmp-text);
+    font-family: inherit;
+    user-select: text;
+}
+
+textarea.txtin {
+    height: 58px;
+    font-family: Consolas, "Courier New", monospace;
+    white-space: pre;
+}
+
+.note {
+    color: var(--cmp-text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.btn {
+    min-width: 76px;
+    height: 24px;
+    padding: 0 12px;
+    border: 1px solid var(--cmp-border);
+    border-radius: 2px;
+    background: linear-gradient(to bottom, var(--cmp-toolbar-top), var(--cmp-toolbar-bottom));
+    color: var(--cmp-text);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: var(--cmp-select);
+}
+
+.btn.primary {
+    border-color: var(--cmp-accent);
+    background: var(--cmp-accent);
+    color: #ffffff;
+}
+
+.btn.primary:hover {
+    filter: brightness(1.1);
+}
+
+/* dropdown used by the Sessions and Select toolbar buttons */
+.popmenu {
+    position: absolute;
+    display: none;
+    min-width: 200px;
+    padding: 3px 0;
+    border: 1px solid var(--cmp-border);
+    border-radius: 3px;
+    background: var(--cmp-chrome);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    z-index: 70;
+}
+
+.popmenu.on { display: block; }
+
+.popmenu .pitem {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.popmenu .pitem:hover {
+    background: var(--cmp-select);
+}
+
+.popmenu .pitem.disabled {
+    opacity: 0.42;
+    cursor: default;
+}
+
+.popmenu .pitem.disabled:hover {
+    background: transparent;
+}
+
+.popmenu .pitem i.icon {
+    width: 15px;
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* the path of the clicked row, shown at the top of the row context menu */
+.popmenu .phead {
+    padding: 3px 12px 5px 12px;
+    margin-bottom: 3px;
+    border-bottom: 1px solid var(--cmp-border-soft);
+    color: var(--cmp-text-dim);
+    font-weight: 600;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.popmenu .pdiv {
+    height: 1px;
+    margin: 3px 0;
+    background: var(--cmp-border-soft);
+}

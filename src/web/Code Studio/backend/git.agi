@@ -1,0 +1,198 @@
+/*
+    Code Studio — source control backend
+
+    Thin wrapper over the git AGI library for the Source Control side view.
+    Every path is a virtual path and is permission checked by the runtime,
+    so a user can only touch repositories inside their own file system.
+
+    POST opr  = isrepo | status | stage | unstage | discard | stageall
+                | commit | fetch | pull | push | branches | checkout
+                | diff | log | init
+         repo = virtual path of any folder inside the working tree
+
+    Extra parameters per operation
+      stage / unstage / discard : files    JSON array of repo relative paths
+      commit                    : message, files (optional JSON array)
+      checkout                  : branch, create ("true" to create it)
+      diff                      : file
+      log                       : limit
+      fetch / pull / push       : username, token, remember ("true")
+*/
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+//Parse the optional file list — the front end always sends a JSON array
+function parseFileList() {
+    if (typeof files == "undefined" || files == "") {
+        return [];
+    }
+    try {
+        var parsed = JSON.parse(files);
+        return (parsed instanceof Array) ? parsed : [String(parsed)];
+    } catch (e) {
+        return [String(files)];
+    }
+}
+
+function trimTrailingSlash(vpath) {
+    var trimmed = String(vpath);
+    while (trimmed.length > 1 && trimmed.charAt(trimmed.length - 1) == "/") {
+        trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    return trimmed;
+}
+
+/*
+    The git library resolves any path inside a working tree to the repository
+    that contains it, so opening a plain folder that happens to sit inside a
+    checkout would otherwise show that outer repository's history. Code Studio
+    only manages the repository whose root *is* the opened project folder;
+    anything above it is out of scope.
+
+    Returns the working tree root of the opened folder, or false when the folder
+    is not itself a repository root.
+*/
+function repoRootOfProject() {
+    var root = git.repoRoot(repo);
+    if (root === false || root === "" || root === undefined) {
+        return false;
+    }
+    return trimTrailingSlash(root);
+}
+
+function projectIsRepoRoot() {
+    var root = repoRootOfProject();
+    return (root !== false && root == trimTrailingSlash(repo));
+}
+
+//Credentials are only forwarded when the user just typed them in
+function transportOptions() {
+    var options = {};
+    if (typeof username != "undefined" && username != "") {
+        options.username = username;
+    }
+    if (typeof token != "undefined" && token != "") {
+        options.token = token;
+    }
+    if (typeof remember != "undefined" && String(remember) == "true") {
+        options.remember = true;
+    }
+    return options;
+}
+
+if (!requirelib("git")) {
+    sendJSONResp({ success: false, error: "The git library is not available on this host" });
+} else if (typeof repo == "undefined" || repo == "") {
+    sendJSONResp({ success: false, error: "A repository path is required" });
+} else {
+
+    var operation = opr;
+    var projectRoot = repoRootOfProject();
+    var isOwnRepo = (projectRoot !== false && projectRoot == trimTrailingSlash(repo));
+
+    if (operation == "isrepo") {
+        sendJSONResp({
+            success: true,
+            isRepo: isOwnRepo,
+            root: isOwnRepo ? projectRoot : false,
+            //Set when the folder is not a repository itself but lives inside one
+            outerRoot: (!isOwnRepo && projectRoot !== false) ? projectRoot : ""
+        });
+
+    } else if (operation != "init" && !isOwnRepo) {
+        //Every other operation is scoped to the opened folder's own repository
+        sendJSONResp({
+            success: false,
+            error: "This folder is not a git repository",
+            outsideRepo: true,
+            outerRoot: (projectRoot !== false) ? projectRoot : ""
+        });
+
+    } else if (operation == "status") {
+        var status = git.status(repo);
+        if (status.error) {
+            sendJSONResp({ success: false, error: status.error });
+        } else {
+            sendJSONResp({ success: true, status: status });
+        }
+
+    } else if (operation == "stage") {
+        sendJSONResp(git.add(repo, parseFileList()));
+
+    } else if (operation == "stageall") {
+        sendJSONResp(git.addAll(repo));
+
+    } else if (operation == "unstage") {
+        sendJSONResp(git.unstage(repo, parseFileList()));
+
+    } else if (operation == "discard") {
+        sendJSONResp(git.discard(repo, parseFileList()));
+
+    } else if (operation == "commit") {
+        if (typeof message == "undefined" || message.trim() == "") {
+            sendJSONResp({ success: false, error: "A commit message is required" });
+        } else {
+            var commitFiles = parseFileList();
+            if (commitFiles.length > 0) {
+                sendJSONResp(git.commit(repo, message.trim(), commitFiles, {}));
+            } else {
+                sendJSONResp(git.commit(repo, message.trim()));
+            }
+        }
+
+    } else if (operation == "fetch") {
+        sendJSONResp(git.fetch(repo, transportOptions()));
+
+    } else if (operation == "pull") {
+        sendJSONResp(git.pull(repo, transportOptions()));
+
+    } else if (operation == "push") {
+        sendJSONResp(git.push(repo, transportOptions()));
+
+    } else if (operation == "branches") {
+        var branches = git.branches(repo);
+        if (branches.error) {
+            sendJSONResp({ success: false, error: branches.error });
+        } else {
+            sendJSONResp({ success: true, branches: branches });
+        }
+
+    } else if (operation == "checkout") {
+        if (typeof branch == "undefined" || branch.trim() == "") {
+            sendJSONResp({ success: false, error: "A branch name is required" });
+        } else {
+            var createBranch = (typeof create != "undefined" && String(create) == "true");
+            sendJSONResp(git.checkout(repo, branch.trim(), createBranch));
+        }
+
+    } else if (operation == "diff") {
+        var target = (typeof file == "undefined") ? "" : file;
+        var diff = git.diff(repo, target);
+        if (diff.error) {
+            sendJSONResp({ success: false, error: diff.error });
+        } else {
+            sendJSONResp({ success: true, diff: diff });
+        }
+
+    } else if (operation == "log") {
+        var count = 30;
+        if (typeof limit != "undefined" && limit != "") {
+            var parsedLimit = parseInt(limit, 10);
+            if (!isNaN(parsedLimit) && parsedLimit > 0) {
+                count = parsedLimit;
+            }
+        }
+        var commits = git.log(repo, count);
+        if (commits.error) {
+            sendJSONResp({ success: false, error: commits.error });
+        } else {
+            sendJSONResp({ success: true, commits: commits });
+        }
+
+    } else if (operation == "init") {
+        sendJSONResp(git.init(repo));
+
+    } else {
+        sendJSONResp({ success: false, error: "Unknown operation: " + operation });
+    }
+}

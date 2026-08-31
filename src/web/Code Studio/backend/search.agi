@@ -1,0 +1,203 @@
+/*
+    Code Studio — project wide text search
+
+    Walks the opened project folder and returns every line matching the
+    keyword. Only text files are read; binaries, oversized files and the
+    usual dependency folders are skipped so a search stays cheap.
+
+    POST root       = virtual path of the folder to search
+         keyword    = text to look for
+         include    = optional comma separated globs, e.g. "*.js, *.html"
+         matchCase  = "true" to respect case
+         wholeWord  = "true" to match whole words only
+*/
+
+HTTP_HEADER = "application/json; charset=utf-8";
+
+var MAX_FILE_SIZE   = 1048576;  //1 MB — bigger files are almost never source
+var MAX_FILES       = 3000;
+var MAX_TOTAL_HITS  = 500;
+var MAX_HITS_IN_FILE = 60;
+
+var SKIP_FOLDERS = ["/node_modules/", "/.git/", "/vendor/", "/dist/", "/build/",
+                    "/.cache/", "/__pycache__/"];
+
+var BINARY_EXT = ["png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "svgz", "pdf",
+                  "zip", "gz", "7z", "rar", "tar", "exe", "dll", "so", "dylib",
+                  "mp3", "mp4", "avi", "mkv", "mov", "wav", "flac", "ttf", "otf",
+                  "woff", "woff2", "eot", "class", "jar", "wasm", "psd", "db"];
+
+function stringContains(haystack, needle) {
+    return haystack.indexOf(needle) !== -1;
+}
+
+function endsWithText(text, suffix) {
+    return text.length >= suffix.length &&
+           text.lastIndexOf(suffix) === text.length - suffix.length;
+}
+
+function escapeRegExpText(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+//Turn a shell style glob into an anchored regular expression
+function globToRegExp(pattern) {
+    var escaped = escapeRegExpText(pattern.replace(/^\s+|\s+$/g, ""));
+    escaped = escaped.replace(/\\\*/g, ".*").replace(/\\\?/g, ".");
+    return new RegExp("^" + escaped + "$", "i");
+}
+
+function shouldSkipPath(path) {
+    for (var i = 0; i < SKIP_FOLDERS.length; i++) {
+        if (stringContains(path, SKIP_FOLDERS[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//Matched against the optional include globs; no filters means everything matches
+function matchesInclude(filename) {
+    if (includeFilters.length === 0) {
+        return true;
+    }
+    for (var i = 0; i < includeFilters.length; i++) {
+        if (includeFilters[i].test(filename)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function lineMatches(line) {
+    if (wordMatcher !== null) {
+        return wordMatcher.test(line);
+    }
+    return stringContains(caseSensitive ? line : line.toLowerCase(), needle);
+}
+
+function isBinaryName(filename) {
+    var ext = filename.split(".").pop().toLowerCase();
+    for (var i = 0; i < BINARY_EXT.length; i++) {
+        if (BINARY_EXT[i] === ext) {
+            return true;
+        }
+    }
+    return false;
+}
+
+if (!requirelib("filelib")) {
+    sendJSONResp({ success: false, error: "Unable to load filelib" });
+} else if (typeof root == "undefined" || root == "") {
+    sendJSONResp({ success: false, error: "A search root is required" });
+} else if (typeof keyword == "undefined" || keyword == "") {
+    sendJSONResp({ success: false, error: "A search keyword is required" });
+} else {
+
+    var caseSensitive = (typeof matchCase != "undefined" && String(matchCase) == "true");
+    var wholeWordOnly = (typeof wholeWord != "undefined" && String(wholeWord) == "true");
+
+    //Build the matcher once — a regex for whole word mode, plain indexOf otherwise
+    var wordMatcher = null;
+    if (wholeWordOnly) {
+        wordMatcher = new RegExp("\\b" + escapeRegExpText(keyword) + "\\b", caseSensitive ? "" : "i");
+    }
+    var needle = caseSensitive ? keyword : keyword.toLowerCase();
+
+    //Optional include filters
+    var includeFilters = [];
+    if (typeof include != "undefined" && include.replace(/\s/g, "") != "") {
+        var patterns = include.split(",");
+        for (var p = 0; p < patterns.length; p++) {
+            if (patterns[p].replace(/\s/g, "") != "") {
+                includeFilters.push(globToRegExp(patterns[p]));
+            }
+        }
+    }
+
+    var searchRoot = root;
+    if (!endsWithText(searchRoot, "/")) {
+        searchRoot = searchRoot + "/";
+    }
+
+    var allFiles = filelib.walk(searchRoot, "file");
+    if (allFiles === false || allFiles === null) {
+        allFiles = [];
+    }
+
+    var results   = [];
+    var totalHits = 0;
+    var scanned   = 0;
+    var truncated = false;
+
+    for (var f = 0; f < allFiles.length; f++) {
+        if (totalHits >= MAX_TOTAL_HITS || scanned >= MAX_FILES) {
+            truncated = true;
+            break;
+        }
+
+        var filepath = allFiles[f];
+        if (shouldSkipPath(filepath)) {
+            continue;
+        }
+
+        var filename = filepath.split("/").pop();
+        if (filename.charAt(0) === ".") {
+            continue;
+        }
+        if (isBinaryName(filename) || !matchesInclude(filename)) {
+            continue;
+        }
+        if (filelib.filesize(filepath) > MAX_FILE_SIZE) {
+            continue;
+        }
+
+        scanned++;
+
+        var content = filelib.readFile(filepath);
+        if (content === false || content === null || content === "") {
+            continue;
+        }
+        //A NUL byte means this is not text after all
+        if (stringContains(content, String.fromCharCode(0))) {
+            continue;
+        }
+
+        var lines = content.split("\n");
+        var hits  = [];
+
+        for (var l = 0; l < lines.length; l++) {
+            if (lineMatches(lines[l])) {
+                var text = lines[l].replace(/\t/g, "    ");
+                if (text.length > 240) {
+                    text = text.substring(0, 240) + "…";
+                }
+                hits.push({ line: l + 1, text: text });
+                totalHits++;
+
+                if (hits.length >= MAX_HITS_IN_FILE || totalHits >= MAX_TOTAL_HITS) {
+                    truncated = true;
+                    break;
+                }
+            }
+        }
+
+        if (hits.length > 0) {
+            results.push({
+                path: filepath,
+                name: filename,
+                relative: filepath.indexOf(searchRoot) === 0 ?
+                          filepath.substring(searchRoot.length) : filepath,
+                hits: hits
+            });
+        }
+    }
+
+    sendJSONResp({
+        success:   true,
+        results:   results,
+        totalHits: totalHits,
+        scanned:   scanned,
+        truncated: truncated
+    });
+}
