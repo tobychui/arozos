@@ -429,91 +429,88 @@
         <!-- Context Menu -->
         <div id="contextmenu" class="contextmenu" style="min-width:250px;">
             <div class="item" onclick="openViaButton();">
-                <i class="folder open icon"></i> <span locale="contextmenu/open">Open</span>
+                <span locale="contextmenu/open">Open</span>
             </div>
             <div class="item fileonly" onclick="openWith();">
-                <i class="external icon"></i> <span locale="contextmenu/openWith">Open With</span>
+                <span locale="contextmenu/openWith">Open With</span> <i class="external icon"></i>
             </div>
             <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
-                <i class="external icon"></i> <span locale="contextmenu/openNewWindow">Open In New Window</span>
+                <span locale="contextmenu/openNewWindow">Open In New Window</span> <i class="external icon"></i>
             </div>
             <!-- This is the vroot alternative new windows-->
             <div class="item vrootonly" onclick="openSelectedVroot();">
-                <i class="external icon"></i> <span locale="contextmenu/openNewWindowVroot">Open In New Window</span>
+                <span locale="contextmenu/openNewWindowVroot">Open In New Window</span> <i class="external icon"></i>
             </div>
             <div class="item shareonly" onclick="openFileLocation();">
-                <i class="folder outline icon"></i> <span locale="contextmenu/openFileLocation">Open File Location</span>
+                <span locale="contextmenu/openFileLocation">Open File Location</span> <i class="folder outline icon"></i>
             </div>
             <div class="item singleObjectOnlyHide" onclick="shareFile();">
-                <i class="share alternate icon"></i> <span locale="contextmenu/Share">Share</span>
+                <span locale="contextmenu/Share">Share</span> <i class="share alternate icon"></i>
             </div>
             <div class="item mobileonly" onclick="toggleCtrl();">
-                <i class="mouse pointer icon"></i> <span locale="contextmenu/MuitSelect">Multi-select</span>
+                <span locale="contextmenu/MuitSelect">Multi-select</span> <i class="mouse pointer icon"></i>
             </div>
-            <div class="item" onclick="copy();">
-                <i class="copy icon"></i> <span locale="contextmenu/copy">Copy</span>
-                <span class="description">Ctrl + C</span>
+            <div class="item hasHotkey" onclick="copy();">
+                <span locale="contextmenu/copy">Copy</span> <span class="description">Ctrl + C</span>
             </div>
-            <div class="item allowNoSelection" onclick="paste();">
-                <i class="paste icon"></i> <span locale="contextmenu/paste">Paste</span>
-                <span class="description">Ctrl + V</span>
+            <div class="item allowNoSelection hasHotkey" onclick="paste();">
+                <span locale="contextmenu/paste">Paste</span> <span class="description">Ctrl + V</span>
             </div>
-            <div class="item" onclick="cut();">
-                <i class="cut icon"></i> <span locale="contextmenu/cut">Cut</span>
-                <span class="description">Ctrl + X</span>
+            <div class="item hasHotkey" onclick="cut();">
+                <span locale="contextmenu/cut">Cut</span> <span class="description">Ctrl + X</span>
             </div>
             <div class="divider vroothide noSelectionOnly"></div>
             <div class="item noSelectionOnly" onclick="newfile();">
-                <i class="file outline icon"></i>  <span locale="contextmenu/newFile">New File</span>
+                <span locale="contextmenu/newFile">New File</span> <i class="file outline icon"></i>
             </div>
             <div class="item noSelectionOnly" onclick="newFolder();">
-                <i class="folder outline icon"></i> <span locale="contextmenu/newFolder">New Folder</span>
+                <span locale="contextmenu/newFolder">New Folder</span> <i class="folder outline icon"></i>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="upload();">
-                <i class="upload icon"></i>  <span locale="contextmenu/upload">Upload</span>
+                <span locale="contextmenu/upload">Upload</span> <i class="upload icon"></i>
             </div>
             <div class="item" onclick="zipFile();">
-                <i class="zip file icon"></i> <span locale="contextmenu/zip">Create Zip</span>
+                <span locale="contextmenu/zip">Create Zip</span>
             </div>
             <div class="item zipFileOnly" onclick="unzipHere();">
-                <i class="inbox icon"></i> <span locale="contextmenu/unzip">Unzip Here</span>
+                <span locale="contextmenu/unzip">Unzip Here</span> <i class="inbox icon"></i>
             </div>
             <div class="item" onclick="rename();">
-                <i class="i cursor icon"></i> <span locale="contextmenu/rename">Rename</span>
+                <span locale="contextmenu/rename">Rename</span>
             </div>
             <div class="item" onclick="deleteFile();">
-                <i class="trash icon"></i> <span locale="contextmenu/delete">Delete</span>
+                <span locale="contextmenu/delete">Delete</span> <i class="trash icon"></i>
             </div>
             <div class="item folderonly singleObjectOnlyHide" onclick="createDesktopShortcut();">
-                <i class="external square icon"></i> <span locale="opr/shortcut/title">Create Shortcut on Desktop</span>
+                <span locale="opr/shortcut/title">Create Shortcut on Desktop</span> <i class="external square icon"></i>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="refreshList();">
-                <i class="refresh icon"></i> <span locale="contextmenu/refresh">Refresh</span>
+                <span locale="contextmenu/refresh">Refresh</span> <i class="refresh icon"></i>
             </div>
             <div class="item" onclick="downloadFile();">
-                <i class="download icon"></i> <span locale="contextmenu/download">Download</span>
+                <span locale="contextmenu/download">Download</span> <i class="download icon"></i>
             </div>
             <div class="item" onclick="showFileProperties();">
-                <i class="info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
+                <span locale="contextmenu/properties">Properties</span>
             </div>
             <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
             <div class="item noSelectionOnly" onclick="showCurrentDirectoryProperties();">
-                <i class="ui info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
+                <span locale="contextmenu/properties">Properties</span>
             </div>
             <div class="item vrootonly" onclick="showSharesManager();">
-                <i class="share alternate icon"></i> <span locale="contextmenu/sharemanager">Open Shares Manager</span>
+                <span locale="contextmenu/sharemanager">Open Shares Manager</span> <i class="share alternate icon"></i>
             </div>
             <!-- This properties show the vroot properties -->
             <div class="item specialviewonly" onclick="createSpecialViewShortcut();">
-                <i class="external icon"></i> <span locale="opr/shortcut/create">Create Desktop Shortcut</span>
+                <span locale="opr/shortcut/create">Create Desktop Shortcut</span> <i class="external icon"></i>
             </div>
             <div class="item vrootonly" onclick="createVrootShortcut();">
-                <i class="external icon"></i> <span locale="opr/shortcut/create">Create Desktop Shortcut</span>
+                <span locale="opr/shortcut/create">Create Desktop Shortcut</span> <i class="external icon"></i>
             </div>
             <div class="item vrootonly" onclick="showVrootProperties();">
-                <i class="ui info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
+                <span locale="contextmenu/properties">Properties</span>
             </div>
         </div>
 

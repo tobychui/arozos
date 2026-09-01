@@ -1039,9 +1039,15 @@ body.fmResizing *{
     background-color: var(--contextmenu_hover);
 }
 
+/* Label expands to fill the row so the trailing element is always right-aligned */
+.contextmenu .item > span:not(.description){
+    flex-grow: 1;
+}
+
 /*
-    The rows carry semantic-ui font icons. Their default em based width and
-    right margin fight the flex gap, so pin them to a fixed box instead.
+    The rows carry semantic-ui font icons. Pin to a fixed box and push to the
+    trailing edge with margin-left: auto.  Items that carry a .description
+    (Copy / Paste / Cut) hide their icon — the hotkey text is the indicator.
 
     The colour needs !important: ao.css styles every <i> and <span> under a
     themed body with a blanket rule whose :not() chain scores higher than any
@@ -1052,17 +1058,21 @@ body.fmResizing *{
     width: 16px;
     min-width: 16px;
     height: auto;
-    margin: 0px;
+    margin-left: auto;
     font-size: 14px;
     text-align: center;
     color: var(--fs-icon) !important;
-    opacity: 1;
+    opacity: 0.6;
+}
+
+/* Items that already show a hotkey — no icon needed */
+.contextmenu .item.hasHotkey > i.icon {
+    display: none;
 }
 
 /* Keyboard hint, pushed to the trailing edge */
 .contextmenu .description{
     margin-left: auto;
-    padding-left: 18px;
     color: var(--fs-text-faint) !important;
     font-size: 12px;
 }
