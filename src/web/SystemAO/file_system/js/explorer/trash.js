@@ -1145,6 +1145,56 @@ function applyTrashSort(){
     dialog describes one entry, so a multiple selection has no single answer to
     give.
 */
+/*
+    Move files into the bin.
+
+    Shares the quota refusal path with delete.js: the server answers
+    TRASH_QUOTA_EXCEEDED before moving anything, and the same dialog offers to
+    empty the bin, delete outright, or do nothing.
+*/
+function recycleFilesToTrash(filepaths){
+    if (filepaths == undefined || filepaths.length == 0){
+        return;
+    }
+    let targets = filepaths.slice();
+    requestCSRFToken(function(token){
+        $.ajax({
+            url: "../../system/file_system/fileOpr",
+            method: "POST",
+            data: {opr: "recycle", src: JSON.stringify(targets), csrft: token},
+            success: function(data){
+                if (data.error == "TRASH_QUOTA_EXCEEDED"){
+                    showTrashFullDialog(targets);
+                }else if (data.error !== undefined){
+                    msgbox("red remove", applocale.getString("message/" + data.error, data.error));
+                }else{
+                    msgbox("checkmark", targets.length +
+                        applocale.getString("message/recycle/success", " objects moved to trash bin."));
+                    /*
+                        Both ends of the move need redrawing: the folder the
+                        files came from, and the bin if that is what is on
+                        screen - a drop can happen from either.
+                    */
+                    if (isTrashPath(currentPath)){
+                        reloadTrashListingSilently();
+                    }else{
+                        refreshList();
+                    }
+                }
+
+                // Check if there are files that is recycled from Desktop
+                // If so, refresh the Desktop to remove them
+                if (targets.some(function(path){ return pathIsOnDesktop(path); })){
+                    parent.refresh(undefined, true);
+                }
+            },
+            error: function(){
+                msgbox("red remove", applocale.getString("trash/deleteFailed", "Delete failed"));
+            }
+        });
+    });
+}
+
 function showSelectedTrashDetails(){
     closeTrashMenus();
     let keys = Object.keys(trashSelection);
@@ -1196,6 +1246,24 @@ function showTrashItemDetails(key){
     $("#trashDetailsBox").transition("slide left in");
 }
 
+function pathIsOnDesktop(path) {
+    if (typeof path != "string") {
+        return false;
+    }
+    var filteredDest = path;
+    if (filteredDest.substr(filteredDest.length - 1) == "/") {
+        filteredDest = filteredDest.substr(0, filteredDest.length - 1);
+    }
+    var dirChunk = filteredDest.split("/");
+    if (dirChunk.length == 2 || dirChunk.length == 3) {
+        if (dirChunk[0].toLowerCase() == "user:" && dirChunk[1].toLowerCase() == "desktop") {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 /*
     Registration
 
@@ -1209,6 +1277,8 @@ registerSpecialView(TRASH_VPATH, {
     hideViewModes: true,
     hidePropertiesPane: true,
     sidebar: true,                  //Gets its own entry under the storage devices
+    //Drawn on the desktop, and in any file listing holding a shortcut to it
+    desktopIcon: "SystemAO/file_system/trashbin_img/desktop_icon.svg",
     /*
         Nothing in the bin can be opened, renamed, copied into or uploaded to -
         the entries are not where they claim to be, and the bin is not a
@@ -1229,6 +1299,15 @@ registerSpecialView(TRASH_VPATH, {
     },
     open: function(){
         openTrashBin();
+    },
+    /*
+        Dropped files are recycled, which is what dragging onto a trash bin has
+        meant on every desktop for thirty years. No confirmation: the whole
+        point of the bin is that this is the undoable kind of delete, and the
+        files are one Restore away.
+    */
+    drop: function(filepaths){
+        recycleFilesToTrash(filepaths);
     },
     //Navigating away drops a scan that is still walking the tree
     leave: function(){
@@ -1264,6 +1343,7 @@ window.closeTrashMenus = closeTrashMenus;
 window.sortTrashBy = sortTrashBy;
 window.showTrashItemDetails = showTrashItemDetails;
 window.showSelectedTrashDetails = showSelectedTrashDetails;
+window.recycleFilesToTrash = recycleFilesToTrash;
 window.loadTrashListing = loadTrashListing;
 window.searchTrashBin = searchTrashBin;
 window.reloadTrashListingSilently = reloadTrashListingSilently;

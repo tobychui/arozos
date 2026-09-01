@@ -2484,7 +2484,7 @@ function openWithDefaultProgram(filePath) {
             if (!module || module.error !== undefined) {
                 launchWindow("SystemAO/file_system/defaultOpener.html",
                     encodeURIComponent(JSON.stringify(descriptor[0])),
-                    "Select an opener", "SystemAO/file_system/img/opener.png", [320, 510]);
+                    "Select an opener", "SystemAO/file_system/img/opener.png", [380, 560]);
                 return;
             }
 

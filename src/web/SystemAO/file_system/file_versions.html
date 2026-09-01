@@ -4,100 +4,127 @@
         <title locale="title/title">File Version History</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
-        <link rel="stylesheet" href="../../script/ao.css">
+        <link rel="stylesheet" href="dialog.css">
+        <script type="text/javascript" src="js/dialog.js"></script>
         <style>
-            body{
-                background-color: var(--body_background);
+            .versionHead{
+                margin-bottom: 16px;
             }
-            .backgroundIcon{
-                position: fixed;
-                bottom: 0px;
-                right: 0px;
-                opacity: 0.3;
-                margin-right: -8em;
-                margin-bottom: -5em;
-                z-index: -99;
-                pointer-events: none;
-                user-select: none;
+
+            .versionHead h3{
+                margin: 0px 0px 6px 0px;
+                font-size: 17px;
+                font-weight: 600;
+                color: var(--dlg_text);
             }
+
+            .versionHead .desc{
+                color: var(--dlg_text_dim);
+                font-size: 13px;
+                line-height: 1.5;
+            }
+
         </style>
     </head>
-    <body id="filePropertiesWindow">
-        <br>
-        <div class="backgroundIcon">
-            <img class="ui medium image" src="../../img/system/file-restore.svg">
-        </div>
-        <div class="ui container">
-            <h3 class="ui header">
-                <div class="content">
-                    <span locale="title/title">File Version History</span>
-                    <div class="sub header" locale="title/desc">Any file versions that is more than 30 days old will be automatically removed from the system.</div>
+    <body class="whiteTheme">
+        <div class="dialog">
+            <div class="dialogBody">
+                <div class="versionHead">
+                    <h3 locale="title/title">File Version History</h3>
+                    <div class="desc" locale="title/desc">Any file versions that is more than 30 days old will be automatically removed from the system.</div>
                 </div>
-            </h3>
-            <button onclick="createSnapshot();" class="ui basic button"><i class="ui green add icon"></i> <span locale="button/newver">Create New Version</span></button>
-            
-            <div class="ui divider"></div>
-            <div id="succ" style="display:none;" class="ui green message">
-                <i class="ui green circle check icon"></i> <span id="msg">File Restore Succeed</span>
+
+                <button class="dlgBtn" onclick="createSnapshot();">
+                    <i class="plus icon"></i> <span locale="button/newver">Create New Version</span>
+                </button>
+
+                <div class="dlgSectionLabel" locale="section/history">Version History</div>
+                <div class="dlgList" id="versions">
+                    <div class="dlgEmpty"><div class="dlgSpinner" style="margin: 0px auto 10px auto;"></div><div locale="message/loading">Loading...</div></div>
+                </div>
             </div>
-            <div>
-                <table class="ui very basic fluid celled table unstackable">
-                    <tbody id="versions">
-                      <tr>
-                        <td>
-                          <h4 class="ui header">
-                                <div class="content">
-                                <span locale="message/nofile/title">No File</span>
-                                <div locale="message/nofile/desc" class="sub header">Invalid usage</div>
-                            </div>
-                            </h4>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+
+            <div class="dialogFooter">
+                <button id="deleteAllBtn" class="dlgBtn danger" onclick="deleteAllVersions();">
+                    <i class="trash icon"></i> <span locale="button/removeAll">Delete All Versions</span>
+                </button>
+                <div class="spacer"></div>
+                <button class="dlgBtn" onclick="ao_module_close();" locale="button/close">Close</button>
             </div>
-            <div class="ui divider"></div>
-            <button class="ui red  button" onclick="deleteAllVersions();"><i class="ui trash icon"></i> <span locale="button/removeAll">Remove All Version Histories</span></button>
-            <br>
         </div>
+
+        <div class="dlgMenu" id="rowMenu"></div>
+
         <script>
+            /*
+                file_versions.html
+
+                The snapshots ArozOS keeps of one file, newest first, with the
+                file as it stands now sitting on top of them as the current
+                version. The per row actions moved into a menu because three
+                icon buttons per row made the list read as a toolbar rather
+                than as a history.
+
+                Version numbers are assigned here, not by the server: the
+                snapshot folder name is a timestamp, which is precise but tells
+                the reader nothing about the order they are looking at.
+            */
             var files = ao_module_loadInputFiles();
             var targetFile = "";
             var currentVersionList = [];
-            if (files.length >= 1){
+            var fileOwner = "";
+            var currentFileInfo = null;
+            var pollTimer = null;
+
+            applocale.init("../../SystemAO/locale/file_versions.json", function(){
+                applocale.translate();
+                dlgInitTheme();
+
+                if (files.length < 1){
+                    renderNoFile();
+                    return;
+                }
+
                 targetFile = files[0];
-                applocale.init("../../SystemAO/locale/file_versions.json", function(){
-                    applocale.translate();
-                    loadVersionHistory(targetFile);
-                    initTheme();
-                });
-                
-                setInterval(function(){
+                loadFileInfo();
+                loadVersionHistory(targetFile);
+
+                //Another window may snapshot the same file while this one is open
+                pollTimer = setInterval(function(){
                     checkHistoryListUpdate(targetFile);
-                }, 3000)
-            }else{
-                //No file selected
-                applocale.init("../../SystemAO/locale/file_versions.json", function(){
-                    applocale.translate();
-                    initTheme();
-                });
+                }, 3000);
+            });
+
+            $(document).on("click", function(event){
+                if ($(event.target).closest("#rowMenu, .dlgIconBtn").length == 0){
+                    $("#rowMenu").hide();
+                }
+            });
+
+            function renderNoFile(){
+                $("#versions").html('<div class="dlgEmpty"><i class="file outline icon"></i><div>' +
+                    applocale.getString("message/nofile/title", "No File") + "</div></div>");
+                $("#deleteAllBtn").addClass("disabled");
             }
 
-            function initTheme(){
-                //Load system theme
-                $.get("../../system/file_system/preference?key=" + "file_explorer/theme",function(data){
-                    if (data.error === undefined){
-                        if (data == "darkTheme"){
-                            $("body").addClass("darkTheme");
-                            $("#succ").attr("class","ui black message");
-                        }else{
-                            $("body").addClass("whiteTheme");
+            //The owner and the live file size are shown on the current version
+            //row, and neither is part of the version history response
+            function loadFileInfo(){
+                $.ajax({
+                    url: "../../system/file_system/getProperties",
+                    data: {path: targetFile},
+                    method: "POST",
+                    success: function(data){
+                        if (data == undefined || data.error !== undefined){
+                            return;
                         }
+                        currentFileInfo = data;
+                        fileOwner = data.Owner;
+                        renderVersionList();
                     }
                 });
             }
@@ -108,7 +135,7 @@
                     data: {path: vpath},
                     method: "POST",
                     success: function(data){
-                        if (data.error == undefined){
+                        if (data != undefined && data.error == undefined){
                             if (currentVersionList.length != data.Versions.length){
                                 loadVersionHistory(vpath);
                             }
@@ -118,115 +145,173 @@
             }
 
             function loadVersionHistory(vpath){
-                $("#versions").html("Loading...");
                 $.ajax({
                     url: "../../system/file_system/versionHistory",
                     data: {path: vpath},
                     method: "POST",
                     success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            $("#versions").html("");
-                            currentVersionList = data.Versions;
-                            data.Versions.forEach(fileVersionEntry => {
-                                var filesize = ao_module_utils.formatBytes(fileVersionEntry.Filesize, 1);
-                                $("#versions").append(`<tr>
-                                    <td>
-                                    <h4 class="ui header">
-                                        <div class="content">
-                                        <span>${fileVersionEntry.Filename}</span>
-                                        <div class="sub header">${fileVersionEntry.OverwriteTime} / ${filesize}</div>
-                                    </div>
-                                    </h4></td>
-                                    <td>
-                                        <div class="ui icon mini buttons">
-                                            <button relpath="${fileVersionEntry.Relpath}" onclick="downloadVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/download", "Download Version")}"><i class="ui blue download icon"></i></button>
-                                            <button verid="${fileVersionEntry.HistoryID}" onclick="restoreVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/restore", "Restore This Version")}"><i class="ui green history icon"></i></button>
-                                            <button verid="${fileVersionEntry.HistoryID}" onclick="deleteVersion(this);" class="ui very basic icon button" title="${applocale.getString("title/delete", "Delete")}"><i class="ui red trash icon"></i></button>
-                                        </div>
-                                        
-                                    </td>
-                                </tr>`);
-                            });
-
-                            if (data.Versions.length == 0){
-                                //This file has no version history
-                                $("#versions").html(`<tr>
-                                    <td>
-                                        <h4 class="ui header">
-                                            <div class="content">
-                                                <i class="ui history icon"></i><span> ${applocale.getString("message/nohist/title", "No History")}</span>
-                                                <div class="sub header">${applocale.getString("message/nohist/desc", "This file has no previous version histories.")}</div>
-                                            </div>
-                                        </h4>
-                                    </td>
-                                </tr>`);
-                            }
-                            applocale.translate();
+                        if (data == undefined || data.error !== undefined){
+                            $("#versions").html('<div class="dlgEmpty"><i class="question circle outline icon"></i><div>' +
+                                dlgEscape(data == undefined ? "No response" : data.error) + "</div></div>");
+                            return;
                         }
+                        currentVersionList = data.Versions;
+                        renderVersionList();
+                    },
+                    error: function(){
+                        $("#versions").html('<div class="dlgEmpty"><i class="question circle outline icon"></i><div>' +
+                            applocale.getString("message/failed", "Unable to read the version history") + "</div></div>");
                     }
                 });
             }
 
-            function downloadVersion(object){
-                var relpath = $(object).attr("relpath");
+            function ownerSuffix(){
+                return (fileOwner == "") ? "" : " (" + fileOwner + ")";
+            }
+
+            function renderVersionList(){
+                var html = "";
+                var totalVersions = currentVersionList.length + 1;
+
+                //The file as it stands now is the newest version
+                if (currentFileInfo != null){
+                    html += versionRowHTML({
+                        number: totalVersions,
+                        current: true,
+                        time: currentFileInfo.LastModTime,
+                        size: currentFileInfo.Filesize,
+                        historyID: "",
+                        relpath: ""
+                    });
+                }
+
+                //Server returns newest first, so the number counts down
+                for (var i = 0; i < currentVersionList.length; i++){
+                    var entry = currentVersionList[i];
+                    html += versionRowHTML({
+                        number: currentVersionList.length - i,
+                        current: false,
+                        time: entry.OverwriteTime,
+                        size: entry.Filesize,
+                        historyID: entry.HistoryID,
+                        relpath: entry.Relpath
+                    });
+                }
+
+                if (currentVersionList.length == 0 && currentFileInfo == null){
+                    html = '<div class="dlgEmpty"><i class="history icon"></i><div>' +
+                        applocale.getString("message/nohist/title", "No History") + "</div><div>" +
+                        applocale.getString("message/nohist/desc", "This file has no previous version histories.") + "</div></div>";
+                }
+
+                $("#versions").html(html);
+                $("#deleteAllBtn").toggleClass("disabled", currentVersionList.length == 0);
+            }
+
+            function versionRowHTML(entry){
+                var title = applocale.getString("version/label", "Version") + " " + entry.number;
+                if (entry.current){
+                    title += " " + applocale.getString("version/current", "(current)");
+                }
+
+                return '<div class="dlgListRow static' + (entry.current ? " selected" : "") + '">' +
+                    '<div class="rowIcon"><i class="file outline icon"></i></div>' +
+                    '<div class="rowText">' +
+                        '<div class="rowTitle">' + dlgEscape(title) + "</div>" +
+                        '<div class="rowSub">' + dlgEscape(entry.time + ownerSuffix()) + "</div>" +
+                    "</div>" +
+                    '<div class="rowMeta">' + dlgEscape(dlgBytesToSize(entry.size)) + "</div>" +
+                    '<button class="dlgIconBtn" verid="' + dlgEscape(entry.historyID) + '" relpath="' + dlgEscape(entry.relpath) + '" ' +
+                        'iscurrent="' + (entry.current ? "true" : "false") + '" onclick="openRowMenu(this);">' +
+                        '<i class="ellipsis horizontal icon"></i></button>' +
+                    "</div>";
+            }
+
+            function openRowMenu(button){
+                var isCurrent = $(button).attr("iscurrent") == "true";
+                var versionID = $(button).attr("verid");
+                var relpath = $(button).attr("relpath");
+
+                var html = '<div class="dlgMenuItem" onclick="downloadVersion(\'' + dlgEscape(relpath) + '\');">' +
+                    '<i class="download icon"></i>' + applocale.getString("title/download", "Download Version") + "</div>";
+
+                if (!isCurrent){
+                    html += '<div class="dlgMenuItem" onclick="restoreVersion(\'' + dlgEscape(versionID) + '\');">' +
+                        '<i class="history icon"></i>' + applocale.getString("title/restore", "Restore This Version") + "</div>";
+                    html += '<div class="dlgMenuItem danger" onclick="deleteVersion(\'' + dlgEscape(versionID) + '\');">' +
+                        '<i class="trash icon"></i>' + applocale.getString("title/delete", "Delete") + "</div>";
+                }
+
+                var menu = $("#rowMenu");
+                menu.html(html).show();
+
+                //Anchor under the button, kept inside the window
+                var offset = $(button).offset();
+                var left = offset.left + $(button).outerWidth() - menu.outerWidth();
+                var top = offset.top + $(button).outerHeight() + 4;
+                if (left < 8){
+                    left = 8;
+                }
+                if (top + menu.outerHeight() > $(window).height() - 8){
+                    top = offset.top - menu.outerHeight() - 4;
+                }
+                menu.css({left: left + "px", top: top + "px"});
+            }
+
+            function downloadVersion(relpath){
+                $("#rowMenu").hide();
                 var dirname = targetFile.split("/");
                 dirname.pop();
-                var accessPath = dirname.join("/") + "/" + relpath;
-                window.open("../../media/download?file=" + accessPath)
+                var accessPath = dirname.join("/") + "/" + (relpath == "" ? targetFile.split("/").pop() : relpath);
+                window.open("../../media/download?file=" + accessPath);
             }
 
             function createSnapshot(){
-                //Create a snapshot of the current object
                 $.ajax({
                     url: "../../system/file_system/versionHistory",
                     data: {path: targetFile, opr: "new"},
                     method: "POST",
                     success: function(data){
-                        if (data.error != undefined){
-                            alert(data.error)
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
                         }else{
-                            msgbox(applocale.getString("msgbox/created","New Version Created"));
+                            dlgToast(applocale.getString("msgbox/created", "New Version Created"));
                             loadVersionHistory(targetFile);
                         }
                     }
                 });
             }
 
-            function restoreVersion(object){
-                var versionID = $(object).attr("verid");
-                if (confirm(applocale.getString("warning/restore", "Restoring this file will remove all newer version histories of this file. Confirm?"))){
-                    $.ajax({
-                        url: "../../system/file_system/versionHistory",
-                        data: {path: targetFile, opr: "restore", histid: versionID},
-                        method: "POST",
-                        success: function(data){
-                            if (data.error != undefined){
-                                alert(data.error)
-                            }else{
-                                loadVersionHistory(targetFile);
-                                msgbox(applocale.getString("msgbox/restored","Restore Succeed"));
-                            }
-                        }
-                    });
+            function restoreVersion(versionID){
+                $("#rowMenu").hide();
+                if (!confirm(applocale.getString("warning/restore", "Restoring this file will remove all newer version histories of this file. Confirm?"))){
+                    return;
                 }
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: targetFile, opr: "restore", histid: versionID},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
+                        }else{
+                            loadFileInfo();
+                            loadVersionHistory(targetFile);
+                            dlgToast(applocale.getString("msgbox/restored", "Restore Succeed"));
+                        }
+                    }
+                });
             }
 
-            function msgbox(message){
-                $("#msg").text(message);
-                $("#succ").stop().finish().fadeIn("fast").delay(3000).fadeOut("fast");
-            }
-
-            function deleteVersion(object){
-                var versionID = $(object).attr("verid");
+            function deleteVersion(versionID){
+                $("#rowMenu").hide();
                 $.ajax({
                     url: "../../system/file_system/versionHistory",
                     data: {path: targetFile, opr: "delete", histid: versionID},
                     method: "POST",
                     success: function(data){
-                        if (data.error != undefined){
-                            alert(data.error)
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
                         }else{
                             loadVersionHistory(targetFile);
                         }
@@ -234,26 +319,24 @@
                 });
             }
 
-            function deleteAllVersions(object){
-                var versionID = $(object).attr("verid");
-                if (confirm(applocale.getString("warning/deleteall", "This operation will **PERMANENTLY DELETE ALL** version history of this file. Confirm?"))){
-                    $.ajax({
-                        url: "../../system/file_system/versionHistory",
-                        data: {path: targetFile, opr: "deleteAll", histid: versionID},
-                        method: "POST",
-                        success: function(data){
-                            if (data.error != undefined){
-                                alert(data.error)
-                            }else{
-                                msgbox(applocale.getString("msgbox/deletedall","All version history deleted"));
-                                loadVersionHistory(targetFile);
-                            }
-                        }
-                    });
+            function deleteAllVersions(){
+                if (!confirm(applocale.getString("warning/deleteall", "This operation will **PERMANENTLY DELETE ALL** version history of this file. Confirm?"))){
+                    return;
                 }
-                
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: targetFile, opr: "deleteAll"},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
+                        }else{
+                            dlgToast(applocale.getString("msgbox/deletedall", "All version history deleted"));
+                            loadVersionHistory(targetFile);
+                        }
+                    }
+                });
             }
-             
         </script>
     </body>
-</html> 
+</html>

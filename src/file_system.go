@@ -2893,6 +2893,8 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		Permission     string
 		LastModTime    string
 		LastModUnix    int64
+		CreationTime   string
+		CreationUnix   int64
 		IsDirectory    bool
 		Owner          string
 	}
@@ -2978,6 +2980,15 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	//Get the file creation time. Not every platform / file system records one,
+	//in which case it is left empty for the client to grey out
+	creationTimeString := ""
+	var creationUnix int64 = 0
+	if creationTime, ok := filesystem.GetFileCreationTime(fileStat); ok {
+		creationTimeString = time.Unix(creationTime, 0).Format("2006-01-02 15:04:05")
+		creationUnix = creationTime
+	}
+
 	//Get file owner
 	owner := userinfo.GetFileOwner(fsh, vpath)
 
@@ -2998,6 +3009,8 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		Permission:     fileStat.Mode().Perm().String(),
 		LastModTime:    fileStat.ModTime().Format("2006-01-02 15:04:05"),
 		LastModUnix:    fileStat.ModTime().Unix(),
+		CreationTime:   creationTimeString,
+		CreationUnix:   creationUnix,
 		IsDirectory:    fileStat.IsDir(),
 		Owner:          owner,
 	}

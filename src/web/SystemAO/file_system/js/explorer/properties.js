@@ -12,8 +12,8 @@ var fileList = [currentPath];
 var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
 ao_module_newfw({
     url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
-    width: 340,
-    height: 480,
+    width: 440,
+    height: 560,
     appicon: "SystemAO/file_system/img/properties.png",
     title: "File Properties",
 });
@@ -60,8 +60,8 @@ if ($(".fileObject.selected").length > 0){
     var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
     ao_module_newfw({
         url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
-        width: 340,
-        height: 480,
+        width: 440,
+        height: 560,
         appicon: "SystemAO/file_system/img/properties.png",
         title: "File Properties",
     });

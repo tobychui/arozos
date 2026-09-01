@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Trash Bin">
+    <!--
+        Trash Bin desktop icon.
+
+        Replaces the flat green tile with the long drop shadow that shipped with
+        the standalone Trash Bin app. Drawn rather than exported so it stays
+        crisp at any desktop icon size, and kept to the same 128x128 box as the
+        PNG it stands in for.
+
+        The bin is deliberately low contrast steel on a cool slate tile: it sits
+        on the user's own wallpaper, so a loud colour would fight whatever is
+        behind it, and the desktop already spends its accent colour elsewhere.
+    -->
+    <defs>
+        <linearGradient id="tbTile" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7c8798"/>
+            <stop offset="1" stop-color="#59616f"/>
+        </linearGradient>
+        <linearGradient id="tbBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="1" stop-color="#dfe4ea"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Tile -->
+    <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#tbTile)"/>
+    <!-- A single soft highlight along the top edge, instead of a bevel -->
+    <path d="M34 8h60a26 26 0 0 1 26 26v6a26 26 0 0 0-26-26H34A26 26 0 0 0 8 40v-6A26 26 0 0 1 34 8z"
+          fill="#ffffff" opacity="0.16"/>
+
+    <!-- Lid handle -->
+    <path d="M54 30h20a4 4 0 0 1 4 4v4H50v-4a4 4 0 0 1 4-4z" fill="url(#tbBody)"/>
+    <!-- Lid -->
+    <rect x="36" y="40" width="56" height="11" rx="5.5" fill="url(#tbBody)"/>
+
+    <!-- Body: tapered, so it reads as a bin rather than a box -->
+    <path d="M43 57h42l-4.2 40.5A7 7 0 0 1 73.8 104H54.2a7 7 0 0 1-7-6.5L43 57z"
+          fill="url(#tbBody)"/>
+    <!-- Slots -->
+    <g fill="#9aa3b0" opacity="0.75">
+        <rect x="55" y="67" width="5" height="26" rx="2.5"/>
+        <rect x="68" y="67" width="5" height="26" rx="2.5"/>
+    </g>
+</svg>

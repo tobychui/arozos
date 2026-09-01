@@ -9,6 +9,9 @@
 
 let directorySidebarWidth = 250; //Width of the sidebar
 
+//Which special view the sidebar context menu was opened on, if any
+let contextMenuSpecialView = "";
+
 /*
     Trash bin layout thresholds, measured on the file area rather than on the
     window: both panes beside it are draggable, so the viewport says little

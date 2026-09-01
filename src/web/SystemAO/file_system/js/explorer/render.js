@@ -146,7 +146,14 @@ function applyShortcutOverrides(d, shortcut){
             d.icon = "blue external";
     }
 
-    if (shortcut.Icon != undefined && shortcut.Icon != ""){
+    /*
+        A shortcut pointing at a sentinel path shows that view's icon, matching
+        what the desktop draws for the same file.
+    */
+    let specialIcon = specialPathIconFrom(shortcut.Path, "../../");
+    if (specialIcon != null){
+        d.imagePath = specialIcon;
+    }else if (shortcut.Icon != undefined && shortcut.Icon != ""){
         d.imagePath = (shortcut.Icon.includes("http://") || shortcut.Icon.includes("https://"))
             ? shortcut.Icon
             : "../../" + shortcut.Icon;

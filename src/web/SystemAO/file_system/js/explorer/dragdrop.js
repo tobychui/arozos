@@ -45,6 +45,42 @@
         //Check if this is file upload or file move / copy function
         let dt = event.dataTransfer
         let files = dt.files
+
+        /*
+            A special view is open, so there is no directory under the cursor to
+            copy or upload into - pasting would send the files at a sentinel
+            path and come back as "target path error".
+
+            An in-app drag is handed to the view instead, which is how dropping
+            onto the trash bin recycles whether the drop lands on the sidebar
+            entry, the desktop icon, or the open bin itself. Files dragged in
+            from the operating system have nowhere to go either way.
+        */
+        if (isSpecialViewPath(currentPath)){
+            if (files.length > 0){
+                msgbox("red remove", applocale.getString("message/specialview/noUpload",
+                    "Files cannot be uploaded here"));
+                return;
+            }
+            let payload = dt.getData("filedata");
+            let handled = false;
+            if (payload != undefined && payload != ""){
+                try {
+                    let dropped = JSON.parse(payload);
+                    handled = runSpecialViewDrop(currentPath, dropped.map(function(file){
+                        return file.filepath;
+                    }));
+                } catch (ex){
+                    console.log(ex);
+                }
+            }
+            if (!handled){
+                msgbox("red remove", applocale.getString("message/specialview/noDrop",
+                    "This view does not accept dropped files"));
+            }
+            return;
+        }
+
         if (files.length > 0){
             //Upload file via dragdrop
             msgbox("upload",applocale.getString("message/upload/started", "Upload Started"));
@@ -219,6 +255,38 @@ function dropToFolder(event){
     }
 }
 
+/*
+    A drop onto one of the sidebar's special views.
+
+    Only files already inside ArozOS are accepted: an OS drag carries real
+    files to upload, and there is nothing behind a sentinel path to upload
+    them to. What the drop then means is the view's business - the trash bin
+    recycles them.
+*/
+function dropToSpecialView(event, sentinelPath){
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    let payload = event.dataTransfer.getData("filedata");
+    if (payload == undefined || payload == ""){
+        return;
+    }
+
+    let filelist = [];
+    try {
+        filelist = JSON.parse(payload);
+    } catch (e){
+        return;
+    }
+    if (filelist.length == 0){
+        return;
+    }
+
+    runSpecialViewDrop(sentinelPath, filelist.map(function(file){
+        return file.filepath;
+    }));
+}
+
 function allowDrop(event){
     event.preventDefault();
 }
@@ -230,6 +298,7 @@ function allowDrop(event){
     of these means updating those call sites too.
 */
 window.allowDrop = allowDrop;
+window.dropToSpecialView = dropToSpecialView;
 window.disableDrag = disableDrag;
 window.drop = drop;
 window.dropToFolder = dropToFolder;

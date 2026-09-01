@@ -308,7 +308,10 @@
                 "trash/confirm/descEmpty": "垃圾箱中的所有項目都會被永久刪除，此動作無法復原。",
                 "trash/confirm/confirm": "永久刪除",
                 "trash/confirm/cancel": "取消",
-                "trash/oneAtATime": "請只選擇一個項目以檢視詳細資料"
+                "trash/oneAtATime": "請只選擇一個項目以檢視詳細資料",
+                "opr/shortcut/create": "建立桌面捷徑",
+                "message/specialview/noUpload": "無法將檔案上傳到此處",
+                "message/specialview/noDrop": "此檢視不接受拖放的檔案"
             },
             "titles": {
                 "Back": "上一頁",
@@ -662,7 +665,10 @@
                 "trash/confirm/descEmpty": "垃圾箱中的所有項目都會被永久刪除，此動作無法復原。",
                 "trash/confirm/confirm": "永久刪除",
                 "trash/confirm/cancel": "取消",
-                "trash/oneAtATime": "請只選擇一個項目以檢視詳細資料"
+                "trash/oneAtATime": "請只選擇一個項目以檢視詳細資料",
+                "opr/shortcut/create": "建立桌面捷徑",
+                "message/specialview/noUpload": "無法將檔案上傳到此處",
+                "message/specialview/noDrop": "此檢視不接受拖放的檔案"
             },
             "titles": {
                 "Back": "上一頁",
@@ -1017,7 +1023,10 @@
                 "trash/confirm/descEmpty": "回收站中的所有项目都将被永久删除，此操作无法撤销。",
                 "trash/confirm/confirm": "永久删除",
                 "trash/confirm/cancel": "取消",
-                "trash/oneAtATime": "请只选择一个项目以查看详细信息"
+                "trash/oneAtATime": "请只选择一个项目以查看详细信息",
+                "opr/shortcut/create": "创建桌面快捷方式",
+                "message/specialview/noUpload": "无法将文件上传到此处",
+                "message/specialview/noDrop": "此视图不接受拖放的文件"
             },
             "titles": {
                 "Back": "上一页",
@@ -1373,7 +1382,10 @@
                 "trash/confirm/descEmpty": "Everything in the trash bin will be permanently deleted. This cannot be undone.",
                 "trash/confirm/confirm": "Delete Permanently",
                 "trash/confirm/cancel": "Cancel",
-                "trash/oneAtATime": "Select a single item to see its details"
+                "trash/oneAtATime": "Select a single item to see its details",
+                "opr/shortcut/create": "Create Desktop Shortcut",
+                "message/specialview/noUpload": "Files cannot be uploaded here",
+                "message/specialview/noDrop": "This view does not accept dropped files"
             },
             "titles": {
                 "Back": "Back",
@@ -1729,7 +1741,10 @@
                 "trash/confirm/descEmpty": "ごみ箱の中身をすべて完全に削除します。この操作は元に戻せません。",
                 "trash/confirm/confirm": "完全に削除",
                 "trash/confirm/cancel": "キャンセル",
-                "trash/oneAtATime": "詳細を表示する項目を 1 つだけ選択してください"
+                "trash/oneAtATime": "詳細を表示する項目を 1 つだけ選択してください",
+                "opr/shortcut/create": "デスクトップにショートカットを作成",
+                "message/specialview/noUpload": "ここにファイルをアップロードすることはできません",
+                "message/specialview/noDrop": "このビューはドロップされたファイルを受け付けません"
             },
             "titles": {
                 "Back": "戻る",
@@ -2087,7 +2102,10 @@
                 "trash/confirm/descEmpty": "휴지통의 모든 항목이 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
                 "trash/confirm/confirm": "영구 삭제",
                 "trash/confirm/cancel": "취소",
-                "trash/oneAtATime": "세부 정보를 보려면 항목을 하나만 선택하세요"
+                "trash/oneAtATime": "세부 정보를 보려면 항목을 하나만 선택하세요",
+                "opr/shortcut/create": "바탕화면 바로 가기 만들기",
+                "message/specialview/noUpload": "여기에는 파일을 업로드할 수 없습니다",
+                "message/specialview/noDrop": "이 보기는 끌어다 놓은 파일을 받지 않습니다"
             },
             "titles": {
                 "Back": "뒤로",

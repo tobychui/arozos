@@ -13,6 +13,8 @@
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
+    <!-- Sentinel paths (%trashbin%, ...), shared with the File Manager -->
+    <script type="text/javascript" src="./SystemAO/file_system/shared/specialpaths.js"></script>
     <!-- <script type="text/javascript" src="./script/html2canvas.min.js"></script> -->
     <link rel="icon" href="img/system/favicon.png">
     <style>
@@ -4123,7 +4125,14 @@
                 //Shortcut
                 var shortcutImage = filedata.ShortcutImage;
                 shortenedName = JSON.parse(JSON.stringify(filedata.ShortcutName));
-                imagePath = shortcutImage;
+                /*
+                    A shortcut to a sentinel path (%trashbin% and friends) is
+                    drawn with that view's own icon rather than whatever is
+                    written in the file - shortcuts made by an older build, or
+                    by hand, then still look right.
+                */
+                var specialIcon = specialPathIconFrom(filedata.ShortcutPath, "");
+                imagePath = (specialIcon != null) ? specialIcon : shortcutImage;
                 type = "shortcut";
             }
             //Check if it is under small text mode
@@ -4846,6 +4855,19 @@
                     }
                     openFileWithModule(shortcutModule, openFileList);
                 } else if (shortcutType == "folder") {
+                    /*
+                        A sentinel path is a view, not a directory: there is
+                        nowhere on disk to move anything to. The trash bin is
+                        the one that means something anyway - dropping onto it
+                        recycles, the same as dragging onto the sidebar entry
+                        inside the File Manager.
+                    */
+                    if (isSpecialPath(shortcutData.ShortcutPath)) {
+                        if (getSpecialPathInfo(shortcutData.ShortcutPath).recycleOnDrop === true) {
+                            recycleDroppedFiles(collectDropSources(sourceFilepath));
+                        }
+                        return;
+                    }
                     //Move the source file into this folder
                     var moveSources = [sourceFilepath];
                     if ($(".launchIconWrapper.selected").length > 1){
@@ -4869,6 +4891,63 @@
         }
 
         
+        /*
+            Everything a drop is carrying: the whole desktop selection when the
+            dragged icon is part of it, otherwise just the one that was dragged.
+            Same rule moveSourceFilesToTarget's callers use.
+        */
+        function collectDropSources(sourceFilepath){
+            let sources = [];
+            if ($(".launchIconWrapper.selected").length > 1){
+                $(".launchIconWrapper.selected").each(function(){
+                    let thisFileData = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                    sources.push(thisFileData.Filepath);
+                });
+            }
+            if (sources.length == 0 && sourceFilepath != undefined && sourceFilepath != ""){
+                sources.push(sourceFilepath);
+            }
+            return sources;
+        }
+
+        /*
+            Move files into the trash bin. No confirmation, as on any other
+            desktop: this is the undoable delete, and the files are one Restore
+            away inside the File Manager's bin.
+        */
+        function recycleDroppedFiles(filepaths){
+            if (filepaths == undefined || filepaths.length == 0){
+                return;
+            }
+            generateCSRFToken(function(csrftoken){
+                $.ajax({
+                    url: "system/file_system/fileOpr",
+                    method: "POST",
+                    data: {opr: "recycle", src: JSON.stringify(filepaths), csrft: csrftoken},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            //TRASH_QUOTA_EXCEEDED lands here too - the desktop has
+                            //no dialog for it, so it is reported as it comes back
+                            alert(data.error);
+                            return;
+                        }
+                        //Drop the desktop positions of whatever just left
+                        filepaths.forEach(function(fpath){
+                            let filename = fpath.split("/").pop();
+                            $.ajax({
+                                url: "system/desktop/files",
+                                data: {del: filename},
+                                success: function(){
+                                    refresh(undefined, true);
+                                }
+                            });
+                        });
+                        refresh(undefined, true);
+                    }
+                });
+            });
+        }
+
         //Use move if it is folder on desktop, use copy if it is a shortcut
         function moveSourceFilesToTarget(sourceList, target, opr="move"){
             //Hand the operation over to the system wide file operation dialog
@@ -5267,8 +5346,8 @@
                             var openParamter = encodeURIComponent(JSON.stringify(openFileObject));
                             newFloatWindow({
                                 url: url + "#" + openParamter,
-                                width: 320,
-                                height: 510,
+                                width: 380,
+                                height: 560,
                                 appicon: icon,
                                 title: title
                             });
@@ -6062,8 +6141,8 @@
            var hashPassthrough = encodeURIComponent(JSON.stringify(filelist));
             newFloatWindow({
                 url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
-                width: 340,
-                height: 480,
+                width: 440,
+                height: 560,
                 appicon: "SystemAO/file_system/img/properties.png",
                 title: "File Properties",
             });
@@ -6083,8 +6162,8 @@
             
             newFloatWindow({
                 url: "SystemAO/file_system/defaultOpener.html#" + encodeURIComponent(JSON.stringify(fileDescriptor)),
-                width: 320,
-                height: 510,
+                width: 380,
+                height: 560,
                 appicon: "SystemAO/file_system/img/opener.png",
                 title: "Select WebApp to Open File",
             });

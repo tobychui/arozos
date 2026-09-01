@@ -167,8 +167,8 @@ function openPathWithDefaultOpener(filepaths){
                     if (ao_module_virtualDesktop){
                         parent.newFloatWindow({
                             url: url + "#" + openParamter,
-                            width: 320,
-                            height: 510,
+                            width: 380,
+                            height: 560,
                             appicon: icon,
                             title: title
                         });

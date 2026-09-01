@@ -15,12 +15,14 @@
             hideViewModes: true,            //grid/list/details make no sense here
             hidePropertiesPane: true,       //neither does the properties pane
             sidebar: true,                  //optional, give it a sidebar entry
+            desktopIcon: "...",             //optional, see below
             toolbar: ["refresh", "delete"], //which file operations work here
             toolbarHandlers: {              //optional, how it performs them
                 delete: function(){ ... }
             },
             render: function(callback){ ... },
             search: function(keyword, caseSensitive){ ... },  //optional
+            drop: function(filepaths){ ... },  //optional, files dragged onto it
             open: function(){ ... },        //optional, how the sidebar opens it
             leave: function(){ ... }        //optional, navigating away
         });
@@ -28,6 +30,21 @@
     A view that leaves out "search" simply keeps whatever it last drew when the
     user presses Enter in the search box, since handleSearch() has nothing to
     hand the keyword to and the server-side search cannot see these rows.
+
+    A view with a "drop" handler accepts files dragged onto its sidebar entry,
+    and onto its icon on the desktop. It is given the vpaths of what was
+    dropped and decides what that means - the trash bin recycles them. A view
+    without one ignores drops rather than attempting a move into a path that
+    does not exist.
+
+    A view with a "sidebar" entry can also be put on the desktop, through the
+    right click menu on that entry. The shortcut it writes is an ordinary
+    .shortcut file of type "folder" whose path is the sentinel, so the desktop
+    opens it by launching the File Manager there - the same way it opens a
+    shortcut to any other folder. "desktopIcon" is the image written into that
+    file; leave it out and the icon registered for the path in
+    shared/specialpaths.js is used, which is what both the desktop and the file
+    listing draw anyway.
 
     "toolbar" lists the data-opr names from the file operation bar that mean
     something in this view. Everything else is greyed out and made unclickable,
@@ -211,6 +228,49 @@ function applySpecialViewToolbar(view){
     Hand a file operation to the view currently on screen. Returns true when the
     view dealt with it, leaving the caller to do nothing more.
 */
+/*
+    Put a special view on the desktop.
+
+    Written as a type "folder" shortcut pointing at the sentinel path: the
+    desktop already knows how to open one of those (it launches the File
+    Manager at the path), and specialpaths.js gives both ends the icon, so
+    nothing on the desktop needs to learn what a trash bin is.
+*/
+function createSpecialViewShortcut(sentinelPath){
+    let target = (sentinelPath == undefined || sentinelPath == "")
+        ? contextMenuSpecialView : sentinelPath;
+    let view = getSpecialView(target);
+    if (view == null){
+        return;
+    }
+
+    let label = applocale.getString(view.labelKey, view.labelFallback);
+    let icon = view.desktopIcon;
+    if (icon == undefined || icon == ""){
+        let info = getSpecialPathInfo(target);
+        icon = (info == null) ? "" : info.icon;
+    }
+
+    requestDesktopShortcut(label, target, icon);
+}
+
+/*
+    Hand files dropped on a view over to it. Returns true when the view took
+    them, so a caller can tell the difference between "handled" and "this view
+    does not accept drops".
+*/
+function runSpecialViewDrop(sentinelPath, filepaths){
+    let view = getSpecialView(sentinelPath);
+    if (view == null || typeof view.drop !== "function"){
+        return false;
+    }
+    if (filepaths == undefined || filepaths.length == 0){
+        return false;
+    }
+    view.drop(filepaths);
+    return true;
+}
+
 function runSpecialViewOperation(opr){
     let view = getSpecialView(currentPath);
     if (view == null || view.toolbarHandlers == undefined){
@@ -285,3 +345,5 @@ window.renderSpecialViewSidebarEntries = renderSpecialViewSidebarEntries;
 window.openSpecialView = openSpecialView;
 window.applySpecialViewToolbar = applySpecialViewToolbar;
 window.runSpecialViewOperation = runSpecialViewOperation;
+window.createSpecialViewShortcut = createSpecialViewShortcut;
+window.runSpecialViewDrop = runSpecialViewDrop;

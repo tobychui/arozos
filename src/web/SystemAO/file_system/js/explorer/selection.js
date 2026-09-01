@@ -224,6 +224,9 @@ function bindFileObjectEvents(){
         $("#contextmenu").find(".vroothide").show();
         $("#contextmenu").find(".noSelectionOnly").hide();
         $("#contextmenu").find(".vrootonly").hide();
+        //Belongs to the sidebar's special views, not to a file or folder - and
+        //a folder already has its own "create shortcut" entry above
+        $("#contextmenu").find(".specialviewonly").hide();
         $("#contextmenu").find(".zipFileOnly").hide();
 
         //Hide general menu options for single / multiple
@@ -336,6 +339,34 @@ function bindFileObjectEvents(){
             }
         });
 
+        /*
+            The special view rows are not storage roots, so the vroot entries
+            below mean nothing for them. They get one entry of their own: put
+            this view on the desktop.
+        */
+        if ($(e.target).hasClass("fmSpecialSideItem")){
+            e.preventDefault();
+            contextMenuSpecialView = $(e.target).attr("filepath");
+            $(e.target).addClass("active");
+            $("#contextmenu").find(".item").hide();
+            /*
+                The separators are their own elements, not .item, so hiding the
+                entries leaves them stacked on top of each other above the one
+                entry this menu has.
+            */
+            $("#contextmenu").find(".divider").hide();
+            $("#contextmenu").find(".specialviewonly").show();
+
+            calculateContextMenuOffsets(e);
+            $("#contextmenu").addClass("visible");
+            if ($("#contextmenu").offset().top < 0){
+                $("#contextmenu").css("top","0px");
+            }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
+                $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
+            }
+            return;
+        }
+
         if ($(e.target).attr("rootname") != undefined){
             //Correct one. Show vroot functions
             e.preventDefault();
@@ -343,6 +374,7 @@ function bindFileObjectEvents(){
             $(e.target).addClass("active");
             $("#contextmenu").find(".item").hide();
             $("#contextmenu").find(".vroothide").hide();
+            $("#contextmenu").find(".specialviewonly").hide();
             $("#contextmenu").find(".vrootonly").show();
 
             //Show context menu
@@ -503,6 +535,20 @@ function bindFileListDelegates(){
 
     view.on("drop", ".fileObject[type='folder']", function(event){
         dropToFolder(event.originalEvent || event);
+    });
+
+    /*
+        The sidebar's special views accept drops too - dragging onto the trash
+        bin is how every other desktop deletes something. The rows are redrawn
+        whenever the roots reload, so this is delegated from #storageroot
+        rather than bound to them.
+    */
+    $("#storageroot").off("dragover.specialview").on("dragover.specialview", ".fmSpecialSideItem", function(event){
+        allowDrop(event.originalEvent || event);
+    });
+
+    $("#storageroot").off("drop.specialview").on("drop.specialview", ".fmSpecialSideItem", function(event){
+        dropToSpecialView(event.originalEvent || event, $(this).attr("filepath"));
     });
 
     //Sortable column headers in details view

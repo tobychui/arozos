@@ -1,0 +1,677 @@
+/*
+    dialog.css
+
+    Shared look for the File Manager's small dialog windows: file properties,
+    the "open with" picker and the version history manager.
+
+    These three used to each carry their own ad-hoc Semantic UI markup, which
+    made them drift apart visually even though they are opened from the same
+    context menu. Everything they have in common - the tab strip, the property
+    rows, the list rows, the sticky footer - lives here so a change to one is a
+    change to all three.
+
+    Both themes are driven by the same variables; the page picks the theme by
+    putting whiteTheme or darkTheme on <body>, exactly like the other File
+    Manager pages do.
+*/
+
+body.whiteTheme{
+    --dlg_bg: #ffffff;
+    --dlg_bg_soft: #f5f6f8;
+    --dlg_bg_hover: #f1f3f5;
+    --dlg_bg_selected: #e8f0fe;
+    --dlg_text: #1f2328;
+    --dlg_text_dim: #6b7280;
+    --dlg_border: #e3e5e8;
+    --dlg_border_strong: #d0d3d8;
+    --dlg_accent: #1a73e8;
+    --dlg_accent_text: #ffffff;
+    --dlg_accent_soft: #e8f0fe;
+    --dlg_danger: #d93025;
+    --dlg_field_bg: #ffffff;
+}
+
+body.darkTheme{
+    --dlg_bg: #202124;
+    --dlg_bg_soft: #292a2d;
+    --dlg_bg_hover: #303134;
+    --dlg_bg_selected: #283142;
+    --dlg_text: #e8eaed;
+    --dlg_text_dim: #9aa0a6;
+    --dlg_border: #3c4043;
+    --dlg_border_strong: #4a4d51;
+    --dlg_accent: #8ab4f8;
+    --dlg_accent_text: #202124;
+    --dlg_accent_soft: #283142;
+    --dlg_danger: #f28b82;
+    --dlg_field_bg: #2b2c2f;
+}
+
+html, body{
+    height: 100%;
+}
+
+body{
+    margin: 0px;
+    padding: 0px;
+    overflow: hidden;
+    background-color: var(--dlg_bg) !important;
+    color: var(--dlg_text);
+    font-size: 14px;
+}
+
+body, body h1, body h2, body h3, body h4, body p, body span, body div,
+body td, body th, body label, body input, body select, body button{
+    font-family: "Segoe UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans CJK TC", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Layout: header (optional) / scrolling body / sticky footer */
+.dialog{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background-color: var(--dlg_bg);
+}
+
+.dialogBody{
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 18px 20px 8px 20px;
+}
+
+.dialogFooter{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--dlg_border);
+    background-color: var(--dlg_bg);
+}
+
+.dialogFooter .spacer{
+    flex: 1 1 auto;
+}
+
+/* Tab strip */
+.dlgTabs{
+    flex: 0 0 auto;
+    display: flex;
+    border-bottom: 1px solid var(--dlg_border);
+    padding: 0px 8px;
+}
+
+.dlgTabs .dlgTab{
+    flex: 1 1 0px;
+    text-align: center;
+    padding: 12px 6px 10px 6px;
+    color: var(--dlg_text_dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.dlgTabs .dlgTab:hover{
+    color: var(--dlg_text);
+}
+
+.dlgTabs .dlgTab.active{
+    color: var(--dlg_accent);
+    border-bottom-color: var(--dlg_accent);
+}
+
+/* A tab whose feature the host platform does not provide stays reachable, so
+   the reader can still see the values and the reason, but reads as inactive */
+.dlgTabs .dlgTab.unsupported{
+    opacity: 0.45;
+}
+
+.dlgPage{
+    display: none;
+}
+
+.dlgPage.active{
+    display: block;
+}
+
+/* File heading: icon + name + mime */
+.dlgFileHead{
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.dlgFileIcon{
+    flex: 0 0 auto;
+    position: relative;
+    width: 74px;
+    height: 74px;
+    border-radius: 10px;
+    background-color: var(--dlg_bg_soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.dlgFileIcon svg{
+    width: 44px;
+    height: 44px;
+}
+
+/* Sits on the badge drawn in the lower half of the sheet */
+.dlgFileIcon i.icon{
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    top: 50%;
+    /* Semantic gives every icon a fixed em width, which would pin this one to
+       the left edge instead of over the badge */
+    width: 100%;
+    margin: 0px;
+    font-size: 13px;
+    line-height: 1;
+    text-align: center;
+}
+
+.dlgFileIcon img.thumbnail{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dlgFileHeadInfo{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+.dlgMime{
+    margin-top: 8px;
+    color: var(--dlg_text_dim);
+    word-break: break-all;
+}
+
+/* Form controls */
+.dlgField{
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border: 1px solid var(--dlg_border_strong);
+    border-radius: 8px;
+    background-color: var(--dlg_field_bg);
+    color: var(--dlg_text);
+    font-size: 14px;
+    outline: none;
+}
+
+.dlgField:focus{
+    border-color: var(--dlg_accent);
+}
+
+.dlgField:disabled{
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+select.dlgField{
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    cursor: pointer;
+}
+
+/* Drawn instead of relying on the browser's own arrow, which the appearance
+   reset above removes and which differs per platform */
+.dlgSelectWrap{
+    position: relative;
+    display: block;
+}
+
+.dlgSelectWrap:after{
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin-top: -6px;
+    border-right: 1.5px solid var(--dlg_text_dim);
+    border-bottom: 1.5px solid var(--dlg_text_dim);
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+/* Key / value property rows */
+.dlgPropRow{
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 9px 0px;
+}
+
+.dlgPropRow .k{
+    flex: 0 0 104px;
+    color: var(--dlg_text_dim);
+}
+
+.dlgPropRow .v{
+    flex: 1 1 auto;
+    min-width: 0px;
+    word-break: break-all;
+    color: var(--dlg_text);
+}
+
+.dlgPropRow .v.dim{
+    color: var(--dlg_text_dim);
+}
+
+/* Labelled rows used by the permission editor */
+.dlgFormRow{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0px;
+}
+
+.dlgFormRow > label{
+    flex: 0 0 92px;
+    color: var(--dlg_text_dim);
+}
+
+.dlgFormRow > .control{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+.dlgFormRow > .suffix{
+    flex: 0 0 auto;
+    color: var(--dlg_text_dim);
+    font-family: "Consolas", "Menlo", monospace;
+    min-width: 42px;
+}
+
+.dlgFormRow .staticValue{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dlg_text);
+}
+
+.dlgFormRow .staticValue i.icon{
+    margin: 0px;
+    color: var(--dlg_text_dim);
+}
+
+.dlgSectionLabel{
+    margin: 18px 0px 4px 0px;
+    color: var(--dlg_text_dim);
+}
+
+.dlgDivider{
+    height: 1px;
+    background-color: var(--dlg_border);
+    margin: 16px 0px;
+}
+
+/* Buttons */
+.dlgBtn{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--dlg_border_strong);
+    background-color: transparent;
+    color: var(--dlg_text);
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dlgBtn i.icon{
+    margin: 0px;
+    opacity: 0.75;
+    height: auto;
+    width: auto;
+}
+
+.dlgBtn:hover{
+    background-color: var(--dlg_bg_hover);
+}
+
+.dlgBtn.primary{
+    background-color: var(--dlg_accent);
+    border-color: var(--dlg_accent);
+    color: var(--dlg_accent_text);
+}
+
+.dlgBtn.primary i.icon{
+    color: var(--dlg_accent_text);
+    opacity: 1;
+}
+
+.dlgBtn.primary:hover{
+    filter: brightness(1.08);
+}
+
+.dlgBtn.danger{
+    color: var(--dlg_danger);
+    border-color: var(--dlg_danger);
+}
+
+.dlgBtn.danger i.icon{
+    color: var(--dlg_danger);
+    opacity: 1;
+}
+
+.dlgBtn.ghost{
+    border-color: transparent;
+    color: var(--dlg_text_dim);
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.dlgBtn.tiny{
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.dlgBtn:disabled, .dlgBtn.disabled{
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Toggle switch */
+.dlgToggle{
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 20px;
+    flex: 0 0 auto;
+}
+
+.dlgToggle input{
+    opacity: 0;
+    width: 0px;
+    height: 0px;
+    position: absolute;
+}
+
+.dlgToggle .slider{
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    background-color: var(--dlg_border_strong);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.dlgToggle .slider:before{
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 2px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    transition: transform 0.15s;
+}
+
+.dlgToggle input:checked + .slider{
+    background-color: var(--dlg_accent);
+}
+
+.dlgToggle input:checked + .slider:before{
+    transform: translateX(18px);
+}
+
+.dlgToggle input:disabled + .slider{
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Selectable list rows: the app picker and the version list */
+.dlgList{
+    display: block;
+}
+
+.dlgListRow{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.dlgListRow:hover{
+    background-color: var(--dlg_bg_hover);
+}
+
+.dlgListRow.selected{
+    background-color: var(--dlg_bg_selected);
+}
+
+.dlgListRow.static{
+    cursor: default;
+}
+
+/* A row that is only there to be read should not light up under the pointer */
+.dlgListRow.static:hover{
+    background-color: transparent;
+}
+
+.dlgListRow.static.selected:hover{
+    background-color: var(--dlg_bg_selected);
+}
+
+.dlgListRow .rowIcon{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dlgListRow .rowIcon img{
+    max-width: 28px;
+    max-height: 28px;
+}
+
+.dlgListRow .rowIcon i.icon{
+    margin: 0px;
+    font-size: 18px;
+    color: var(--dlg_text_dim);
+}
+
+.dlgListRow .rowText{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+.dlgListRow .rowTitle{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dlgListRow .rowSub{
+    color: var(--dlg_text_dim);
+    font-size: 12.5px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dlgListRow .rowMeta{
+    flex: 0 0 auto;
+    color: var(--dlg_text_dim);
+    font-size: 12.5px;
+}
+
+.dlgListRow .rowTick{
+    flex: 0 0 auto;
+    width: 20px;
+    text-align: center;
+    color: var(--dlg_accent);
+    visibility: hidden;
+}
+
+.dlgListRow.selected .rowTick{
+    visibility: visible;
+}
+
+.dlgEmpty{
+    text-align: center;
+    color: var(--dlg_text_dim);
+    padding: 26px 10px;
+}
+
+.dlgEmpty i.icon{
+    font-size: 22px;
+    margin-bottom: 8px;
+    color: var(--dlg_text_dim);
+}
+
+/* Inline notice, used to explain a greyed out feature */
+.dlgNotice{
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background-color: var(--dlg_bg_soft);
+    border: 1px solid var(--dlg_border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--dlg_text_dim);
+    font-size: 13px;
+    margin-bottom: 14px;
+}
+
+.dlgNotice i.icon{
+    margin: 0px;
+    color: var(--dlg_text_dim);
+}
+
+/* Anything the host cannot do is shown, but visibly out of reach */
+.dlgUnsupported{
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* Toast used in place of the old inline success message */
+.dlgToast{
+    position: fixed;
+    left: 50%;
+    bottom: 74px;
+    transform: translateX(-50%);
+    background-color: var(--dlg_text);
+    color: var(--dlg_bg);
+    padding: 9px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    display: none;
+    z-index: 99;
+    max-width: 86%;
+    text-align: center;
+}
+
+/* Small popup menu used by the version list rows */
+.dlgMenu{
+    position: absolute;
+    min-width: 168px;
+    background-color: var(--dlg_bg);
+    border: 1px solid var(--dlg_border);
+    border-radius: 8px;
+    box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.16);
+    padding: 6px;
+    display: none;
+    z-index: 100;
+}
+
+.dlgMenu .dlgMenuItem{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--dlg_text);
+    white-space: nowrap;
+}
+
+.dlgMenu .dlgMenuItem:hover{
+    background-color: var(--dlg_bg_hover);
+}
+
+.dlgMenu .dlgMenuItem.danger, .dlgMenu .dlgMenuItem.danger i.icon{
+    color: var(--dlg_danger);
+}
+
+.dlgMenu .dlgMenuItem i.icon{
+    margin: 0px;
+    opacity: 0.8;
+}
+
+.dlgIconBtn{
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--dlg_text_dim);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    line-height: 1;
+}
+
+.dlgIconBtn:hover{
+    background-color: var(--dlg_bg_hover);
+    color: var(--dlg_text);
+}
+
+.dlgIconBtn i.icon{
+    margin: 0px;
+}
+
+/* Full window loader shown while the first request is in flight */
+.dlgLoader{
+    position: fixed;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    background-color: var(--dlg_bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--dlg_text_dim);
+    z-index: 200;
+}
+
+.dlgSpinner{
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--dlg_border_strong);
+    border-top-color: var(--dlg_accent);
+    animation: dlgSpin 0.8s linear infinite;
+}
+
+@keyframes dlgSpin{
+    to{ transform: rotate(360deg); }
+}

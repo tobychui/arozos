@@ -4,110 +4,225 @@
         <title locale="title/title">File Properties</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
-        <link rel="stylesheet" href="../../script/ao.css">
-        <style>
-            body{
-                overflow:hidden;
-            }
-
-            #filePropertiesWindow{
-                background-color: var(--body_background);
-                color: var(--body_text);
-            }
-
-            #filePropertiesWindow td,.header,p,div{
-                color: var(--body_text) !important;
-            }
-
-            #filePropertiesWindow input{
-                background-color: var(--body_background_secondary) !important;
-                color: var(--text_color) !important;
-                font-size: 1.2em;
-            }
-
-            .small.basic.white.fluid.button{
-                color: var(--text_color_secondary) !important;
-            }
-
-            .small.basic.white.fluid.button:hover{
-                background-color: var(--body_background_active) !important;
-            }
-
-        </style>
+        <link rel="stylesheet" href="dialog.css">
+        <script type="text/javascript" src="js/dialog.js"></script>
     </head>
-    <body id="filePropertiesWindow">
-        <br>
-        <div class="ui container">
-            <h3 class="ui header">
-                <span locale="title/title">File Properties</span>
-                <div class="sub header" locale="title/desc">Basic File Information</div>
-            </h3>
-            <div class="ui divider"></div>
-            <div id="properties">
-
+    <body class="whiteTheme">
+        <div class="dialog">
+            <div class="dlgTabs">
+                <div class="dlgTab active" tab="basic" onclick="switchTab('basic');" locale="tab/basic">Basic</div>
+                <div class="dlgTab" tab="permission" onclick="switchTab('permission');" locale="tab/permission">Permissions</div>
+                <div class="dlgTab" tab="other" onclick="switchTab('other');" locale="tab/other">Other</div>
             </div>
-            <br>
-            <button style="display:none;" class="ui small white basic fluid button singleFileOnly" onclick="changeDefaultWebApp();"><i class="ui external square alternate icon blue"></i><span locale="button/changeDefault">Change Default WebApp</span></button>
-            <button style="display:none; margin-top: 4px;" class="ui small basic white fluid button singleFileOnly" onclick="viewVersionHistory();"><i class="ui undo green icon"></i><span locale="button/versionHistory">View Version History</span></button>
-            <button style="margin-top: 4px;" class="ui small basic white fluid button linuxonly" onclick="openFilePermissionPanel();" locale="button/changeFilePermission">Change File Permissions</button>
-            <br>
+            <div class="dialogBody">
+                <!-- Basic -->
+                <div class="dlgPage active" id="page_basic">
+                    <div class="dlgFileHead">
+                        <div id="basicIcon"></div>
+                        <div class="dlgFileHeadInfo">
+                            <input id="basicName" class="dlgField" type="text" value="" readonly>
+                            <div class="dlgMime" id="basicMime"></div>
+                        </div>
+                    </div>
+                    <div id="basicProperties"></div>
+                </div>
+
+                <!-- Permissions -->
+                <div class="dlgPage" id="page_permission">
+                    <div id="permissionNotice" class="dlgNotice" style="display:none;">
+                        <i class="info circle icon"></i>
+                        <span id="permissionNoticeText"></span>
+                    </div>
+                    <div id="permissionForm">
+                        <div class="dlgFormRow">
+                            <label locale="perm/owner">Owner</label>
+                            <div class="control">
+                                <div class="staticValue"><i class="user icon"></i> <span id="permOwnerName">-</span></div>
+                            </div>
+                        </div>
+                        <div class="dlgFormRow">
+                            <label locale="perm/group">Group</label>
+                            <div class="control">
+                                <div class="dlgSelectWrap">
+                                    <select id="permGroup" class="dlgField" disabled></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="dlgSectionLabel" locale="perm/access">Access Permissions</div>
+                        <div class="dlgFormRow">
+                            <label locale="perm/owner">Owner</label>
+                            <div class="control">
+                                <div class="dlgSelectWrap">
+                                    <select id="permUser" class="dlgField" onchange="syncFromSelectors();"></select>
+                                </div>
+                            </div>
+                            <div class="suffix" id="permUserBits">(---)</div>
+                        </div>
+                        <div class="dlgFormRow">
+                            <label locale="perm/group">Group</label>
+                            <div class="control">
+                                <div class="dlgSelectWrap">
+                                    <select id="permGrp" class="dlgField" onchange="syncFromSelectors();"></select>
+                                </div>
+                            </div>
+                            <div class="suffix" id="permGrpBits">(---)</div>
+                        </div>
+                        <div class="dlgFormRow">
+                            <label locale="perm/others">Others</label>
+                            <div class="control">
+                                <div class="dlgSelectWrap">
+                                    <select id="permOther" class="dlgField" onchange="syncFromSelectors();"></select>
+                                </div>
+                            </div>
+                            <div class="suffix" id="permOtherBits">(---)</div>
+                        </div>
+
+                        <div class="dlgDivider"></div>
+
+                        <div class="dlgFormRow">
+                            <label locale="perm/octal">Octal</label>
+                            <div class="control" style="max-width: 100px;">
+                                <input id="permOctal" class="dlgField" type="text" maxlength="4" oninput="syncFromOctal();">
+                            </div>
+                        </div>
+                        <div class="dlgFormRow" id="recursiveRow" title="Recursive permission change is not supported by this server">
+                            <label style="flex: 1 1 auto;" locale="perm/recursive">Apply to enclosed files and folders</label>
+                            <div class="dlgToggle">
+                                <input id="permRecursive" type="checkbox" disabled>
+                                <label class="slider" for="permRecursive"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other -->
+                <div class="dlgPage" id="page_other">
+                    <div id="otherProperties"></div>
+                </div>
+            </div>
+
+            <div class="dialogFooter">
+                <button class="dlgBtn footerBasic footerOther" onclick="copyPath();"><i class="copy outline icon"></i> <span locale="button/copyPath">Copy Path</span></button>
+                <div class="spacer"></div>
+                <button class="dlgBtn footerBasic footerOther" onclick="ao_module_close();" locale="button/close">Close</button>
+                <button class="dlgBtn footerPermission" style="display:none;" onclick="ao_module_close();" locale="button/cancel">Cancel</button>
+                <button id="permApplyBtn" class="dlgBtn primary footerPermission" style="display:none;" onclick="applyPermission();" locale="button/confirm">OK</button>
+            </div>
         </div>
-        <div id="filesizeLoader" class="ui active dimmer">
-            <div class="ui indeterminate text loader" locale="loader/loadingFileSize">Calculating File Size</div>
+
+        <div id="dlgLoader" class="dlgLoader">
+            <div class="dlgSpinner"></div>
+            <div locale="loader/loadingFileSize">Calculating File Size</div>
         </div>
+
         <script>
-            //Initiate the view model
+            /*
+                file_properties.html
+
+                Three tabs over one selection: what the object is (Basic), who
+                may touch it (Permissions) and where it lives / what opens it
+                (Other). The tab strip replaced a single scrolling table that
+                mixed all three, plus two buttons that opened further windows.
+
+                Permissions are a POSIX concept: on a Windows host the tab is
+                still readable but visibly out of reach, because the server
+                refuses chmod there.
+            */
             var files = ao_module_loadInputFiles();
-            var fileProperties = [];
-            var fileInfo = {};
+            var fileInfo = {};              //Properties of the single selected object
+            var multiProperties = [];       //Properties of every object, multi selection only
+            var hostOS = "";
+            var permissionSupported = true;
+            var permissionLoaded = false;
+            var currentTab = "basic";
+
+            //Octal digit to a human readable access level. Index is the digit.
+            var permissionLevels = [
+                {bits: "---", key: "perm/level/none", text: "None"},
+                {bits: "--x", key: "perm/level/execute", text: "Execute only"},
+                {bits: "-w-", key: "perm/level/write", text: "Write only"},
+                {bits: "-wx", key: "perm/level/writeExecute", text: "Write and execute"},
+                {bits: "r--", key: "perm/level/read", text: "Read only"},
+                {bits: "r-x", key: "perm/level/readExecute", text: "Read and execute"},
+                {bits: "rw-", key: "perm/level/readWrite", text: "Read and write"},
+                {bits: "rwx", key: "perm/level/readWriteExecute", text: "Read, write and execute"}
+            ];
+
+            applocale.init("../locale/file_properties.json", function(){
+                applocale.translate();
+                buildPermissionSelectors();
+                dlgInitTheme();
+                loadHostInfo();
+                initFileProperties();
+            });
+
+            /* ---------------------------------------------------------------
+                Tabs
+            --------------------------------------------------------------- */
+            function switchTab(tabName){
+                currentTab = tabName;
+                $(".dlgTab").removeClass("active");
+                $('.dlgTab[tab="' + tabName + '"]').addClass("active");
+                $(".dlgPage").removeClass("active");
+                $("#page_" + tabName).addClass("active");
+
+                $(".footerBasic, .footerOther, .footerPermission").hide();
+                if (tabName == "permission"){
+                    $(".footerPermission").show();
+                    if (!permissionLoaded){
+                        loadPermission();
+                    }
+                }else{
+                    $(".footerBasic").show();
+                }
+            }
+
+            /* ---------------------------------------------------------------
+                Host capabilities
+            --------------------------------------------------------------- */
+            function loadHostInfo(){
+                $.get("../../system/info/getArOZInfo", function(data){
+                    hostOS = data.HostOS;
+                    if (hostOS == "windows"){
+                        //The server rejects chmod on a Windows host, so the
+                        //whole tab is shown read only rather than pretending
+                        permissionSupported = false;
+                        $('.dlgTab[tab="permission"]').addClass("unsupported");
+                        $("#permissionNoticeText").text(applocale.getString("perm/unsupported/windows",
+                            "This server runs on Windows, which does not use POSIX file permissions. The values below are shown for reference only."));
+                        $("#permissionNotice").show();
+                        $("#permissionForm").addClass("dlgUnsupported");
+                        $("#permApplyBtn").addClass("disabled");
+                    }
+                });
+            }
+
+            /* ---------------------------------------------------------------
+                Basic and Other tabs
+            --------------------------------------------------------------- */
             function initFileProperties(){
-                $("#properties").html("");
                 if (files.length == 1){
-                    //There are only 1 file to be shown
                     getFileProp(files[0], renderSingleObject);
                 }else if (files.length > 1){
-                    for (var i =0; i < files.length; i++){
+                    multiProperties = [];
+                    for (var i = 0; i < files.length; i++){
                         getFileProp(files[i], function(data){
-                            fileProperties.push(data);
-                            if (fileProperties.length == files.length){
+                            multiProperties.push(data);
+                            if (multiProperties.length == files.length){
                                 renderMultipleObjects();
                             }
                         });
                     }
-                }
-            }
-
-            applocale.init("../locale/file_properties.json", function(){
-                applocale.translate();
-                initFileProperties();
-            });
-
-           
-          
-
-            //Hide windows / linux only operations
-            $.get("/system/info/getArOZInfo", function(data){
-                if (data.HostOS == "windows"){
-                    $(".linuxonly").hide();
                 }else{
-                    $(".windowsonly").hide();
+                    hideLoader();
+                    $("#basicProperties").html('<div class="dlgEmpty"><i class="file outline icon"></i><div>' +
+                        applocale.getString("message/nofile", "No file selected") + "</div></div>");
                 }
-            });
-
-            function viewVersionHistory(){
-                var hashPassthrough = encodeURIComponent(JSON.stringify(files));
-                ao_module_newfw({
-                    url: "SystemAO/file_system/file_versions.html#" + hashPassthrough,
-                    width: 570,
-                    height: 480,
-                    appicon: "SystemAO/file_system/img/properties.png",
-                    title: "File Version History",
-                });
             }
 
             function getFileProp(vpath, callback){
@@ -117,354 +232,402 @@
                     method: "POST",
                     success: function(data){
                         callback(data);
-                        fileInfo = data;
-                        //Initialize system theme
-                        fpw_loadPreference("file_explorer/theme",function(data){
-                            if (data.error === undefined){
-                                if (data == "darkTheme"){
-                                    $("body").addClass("darkTheme");
-                                }else{
-                                    $("body").addClass("whiteTheme");
-                                }
-                            }
-                        });
-
+                    },
+                    error: function(){
+                        callback({error: "Unable to reach the file system"});
                     }
-                })
+                });
             }
 
-            function openFilePermissionPanel(){
-                var hashPassthrough = encodeURIComponent(JSON.stringify(files));
-                ao_module_newfw({
-                    url: "SystemAO/file_system/file_permission.html#" + hashPassthrough,
-                    width: 340,
-                    height: 480,
-                    appicon: "SystemAO/file_system/img/properties.png",
-                    title: "File Permissions",
-                });
+            function propRow(key, value, dim){
+                return '<div class="dlgPropRow"><span class="k">' + dlgEscape(key) + '</span>' +
+                    '<span class="v' + (dim ? " dim" : "") + '">' + value + "</span></div>";
+            }
+
+            function localizedKey(key){
+                return applocale.getString("properties/key/" + key, key);
+            }
+
+            function renderSingleObject(data){
+                hideLoader();
+                fileInfo = data;
+                if (data.error !== undefined){
+                    $("#basicProperties").html('<div class="dlgEmpty"><i class="question circle outline icon"></i><div>' +
+                        dlgEscape(data.error) + "</div></div>");
+                    $('.dlgTab[tab="permission"]').addClass("unsupported");
+                    return;
+                }
+
+                var isShortcut = (!data.IsDirectory && data.Basename.split(".").pop() == "shortcut");
+
+                //Heading
+                $("#basicIcon").html(dlgFileIconHTML(data.Basename, data.IsDirectory));
+                $("#basicName").val(data.Basename);
+                $("#basicMime").text(data.MimeType);
+                loadThumbnail(data);
+
+                //Basic property rows
+                var fileTypeText = applocale.getString("type/file", "File");
+                if (data.IsDirectory){
+                    fileTypeText = applocale.getString("type/folder", "Folder");
+                }else if (isShortcut){
+                    fileTypeText = applocale.getString("type/shortcut", "System Shortcut");
+                }
+
+                var basicHTML = "";
+                basicHTML += propRow(localizedKey("File Type"), dlgEscape(fileTypeText));
+                basicHTML += propRow(data.IsDirectory ? localizedKey("Folder Size") : localizedKey("File Size"), sizeText(data.Filesize));
+                basicHTML += propRow(localizedKey("Location"), dlgEscape(data.VirtualDirname));
+                basicHTML += propRow(localizedKey("Last Modified"), modTimeText(data));
+                basicHTML += propRow(localizedKey("Created"), creationTimeText(data));
+                $("#basicProperties").html(basicHTML);
+
+                //Other tab
+                renderOtherTab(data, isShortcut);
+
+                //Permission tab defaults
+                $("#permOwnerName").text(data.Owner);
+                loadUserGroups(data.Owner);
             }
 
             function renderMultipleObjects(){
                 hideLoader();
-                var filesizeSum = sumProperties(fileProperties, "Filesize");
-                $("#properties").append(ui_getInput(fileProperties[0].VirtualDirname + "/", "Root Name"));
-                var filecount = 0;
-                var foldercount = 0;
-                for (var i =0; i < fileProperties.length; i++){
-                    if (fileProperties[i].IsDirectory){
-                        foldercount++;
+                var totalSize = 0;
+                var fileCount = 0;
+                var folderCount = 0;
+                var readable = [];
+                for (var i = 0; i < multiProperties.length; i++){
+                    if (multiProperties[i].error !== undefined){
+                        continue;
+                    }
+                    readable.push(multiProperties[i]);
+                    totalSize += multiProperties[i].Filesize;
+                    if (multiProperties[i].IsDirectory){
+                        folderCount++;
                     }else{
-                        filecount++;
+                        fileCount++;
                     }
                 }
-                $("#properties").append(ui_getText(applocale.getString("selection/multi", "Multiple selections")));
-                $("#properties").append(ui_getText(filecount + applocale.getString("counter/files", " Files")));
-                $("#properties").append(ui_getText(foldercount + applocale.getString("counter/folders", " Folders")));
-                
-                let totalSizeText = bytesToSize(filesizeSum) + ` (${filesizeSum} bytes)`
-                if (filesizeSum < 0){
-                    //Network folder. Do not render size
-                    totalSizeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/Not available for network folders", "Not available for network folders")}`;
+
+                if (readable.length == 0){
+                    $("#basicProperties").html('<div class="dlgEmpty"><i class="question circle outline icon"></i><div>' +
+                        applocale.getString("message/unreadable", "The selected items could not be read") + "</div></div>");
+                    return;
                 }
 
-                //Append other properties as table
-                $("#properties").append(ui_getTable(
-                        [],
-                        [
-                            ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
-                            ["Storage Directory", fileProperties[0].StorageDirname + "/"],
-                            ["Total Size", totalSizeText],
-                        ]
-                    ));
+                fileInfo = readable[0];
+                $("#basicIcon").html(dlgMultiIconHTML());
+                $("#basicName").val(readable.length + applocale.getString("counter/items", " items selected"));
+                $("#basicMime").text(applocale.getString("selection/multi", "Multiple selections"));
 
-                
+                var basicHTML = "";
+                basicHTML += propRow(localizedKey("File Type"), dlgEscape(
+                    fileCount + applocale.getString("counter/files", " Files") + ", " +
+                    folderCount + applocale.getString("counter/folders", " Folders")));
+                basicHTML += propRow(localizedKey("Total Size"), sizeText(totalSize));
+                basicHTML += propRow(localizedKey("Location"), dlgEscape(readable[0].VirtualDirname));
+                $("#basicProperties").html(basicHTML);
+
+                var otherHTML = "";
+                otherHTML += propRow(localizedKey("Virtual Directory"), dlgEscape(readable[0].VirtualDirname + "/"));
+                otherHTML += propRow(localizedKey("Storage Directory"), dlgEscape(readable[0].StorageDirname + "/"));
+                otherHTML += propRow(localizedKey("Owner"), dlgEscape(readable[0].Owner));
+                $("#otherProperties").html(otherHTML);
+
+                $("#permOwnerName").text(readable[0].Owner);
+                loadUserGroups(readable[0].Owner);
             }
 
-            function sumProperties(data, propName){
-                var sum = 0;
-                for (var i = 0; i < data.length; i++){
-                    sum += data[i][propName];
+            function renderOtherTab(data, isShortcut){
+                var otherHTML = "";
+
+                //Default opener and version history only make sense for a real file
+                if (!data.IsDirectory && !isShortcut){
+                    otherHTML += '<div id="defaultOpenerRow">' + propRow(localizedKey("Default WebApp"),
+                        '<span class="dim">' + applocale.getString("message/loading", "Loading...") + "</span>") + "</div>";
                 }
-                return sum;
-            }
-            
-            //Render one object property to the ui element
-            function renderSingleObject(data){
-                hideLoader();
-                if (data.error !== undefined){
-                    //Something went wrong
-                    $("#properties").append(`<h4 class="ui header">
-                        <i class="question icon"></i>
-                        <div class="content">
-                            File Properties Unknown
-                            <div class="sub header">The system were unable to read the selected file properties.</div>
-                        </div>
-                    </h4>
-                    <div class="ui divider"></div>
-                    <small>${data.error}</small>
-                    `);
-                }else{
-                    //Append Filename
-                    var filesizeText = "File Size";
-                    if (data.IsDirectory){
-                        $("#properties").append(ui_getInput(data.Basename, "Folder Name"));
-                        filesizeText = "Folder Size";
-                    }else{
-                        $("#properties").append(ui_getInput(data.Basename, "File Name"));
-                    }
-                    
-                    //Append MIME Type
-                    $("#properties").append(ui_getText(data.MimeType));
-                    
-                    //Get the default opener
-                    if (!data.IsDirectory){
-                        //Check if this file is shortcut
-                        if ( data.Basename.split(".").pop() == "shortcut"){
-                            //This is shortcut file
-                            $("#properties").append(ui_getTable(
-                                        [],
-                                        [
-                                            ["Virtual Path", data.VirtualPath],
-                                            ["Storage Path", data.StoragePath],
-                                            ["Permission", data.Permission],
-                                            ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
-                                            ["File Type", "System Shortcut"],
-                                            ["Owner",data.Owner],
 
-                                        ]
-                                    ));
+                otherHTML += propRow(localizedKey("Virtual Path"), dlgEscape(data.VirtualPath));
+                otherHTML += propRow(localizedKey("Storage Path"), dlgEscape(data.StoragePath));
+                otherHTML += propRow(localizedKey("Owner"), dlgEscape(data.Owner));
+                otherHTML += propRow(localizedKey("Permission"), '<span style="font-family: Consolas, Menlo, monospace;">' + dlgEscape(data.Permission) + "</span>");
+                otherHTML += propRow(localizedKey("MIME Type"), dlgEscape(data.MimeType));
+
+                if (!data.IsDirectory && !isShortcut){
+                    otherHTML += '<div class="dlgDivider"></div>' +
+                        '<button class="dlgBtn" style="width: 100%;" onclick="viewVersionHistory();">' +
+                        '<i class="history icon"></i> <span>' + applocale.getString("button/versionHistory", "View File Version History") + "</span></button>";
+                }
+
+                $("#otherProperties").html(otherHTML);
+
+                if (!data.IsDirectory && !isShortcut){
+                    loadDefaultOpener(data);
+                }
+            }
+
+            function loadDefaultOpener(data){
+                $.ajax({
+                    url: "../../system/modules/getDefault",
+                    method: "GET",
+                    data: {
+                        opr: "launch",
+                        ext: "." + data.Basename.split(".").pop(),
+                        mode: "launch"
+                    },
+                    success: function(openerinfo){
+                        var value = "";
+                        if (openerinfo == undefined || openerinfo.Name == undefined){
+                            value = '<a href="#" onclick="changeDefaultWebApp(); return false;">' +
+                                applocale.getString("message/setDefault", "Set Default WebApp") + "</a>";
                         }else{
-                            //Normal Files
-                            $(".singleFileOnly").show();
-                            $.ajax({
-                                url: "../../system/modules/getDefault",
-                                method: "GET",
-                                data: {
-                                    opr: "launch",
-                                    ext: "." + data.Basename.split(".").pop(),
-                                    mode: "launch"
-                                },
-                                success: function(openerinfo) {
-                                    //Check if the module is set.
-                                    var defaultWebAppField = ["Default WebApp",`<img class="ui mini spaced image" style="margin-left: 0px; padding-right: 8px;" src="../../${openerinfo.IconPath}">` + openerinfo.Name];
-                                    if ( openerinfo.Name == undefined){
-                                        //Not set. 
-                                        defaultWebAppField = ["Default WebApp", `<a href="#" onclick="changeDefaultWebApp();">Set Default WebApp</a>`];
-                                    }
-                                    //Append other properties as table
-                                    $("#properties").append(ui_getTable(
-                                        [],
-                                        [
-                                            defaultWebAppField,
-                                            ["Virtual Path", data.VirtualPath],
-                                            ["Storage Path", data.StoragePath],
-                                            [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
-                                            ["Permission", data.Permission],
-                                            ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
-                                            ["File Type", "File"],
-                                            ["Owner",data.Owner],
-
-                                        ]
-                                    ));
-                                }
-                            });
+                            var iconPath = (openerinfo.IconPath == "") ? "img/system/favicon.png" : openerinfo.IconPath;
+                            value = '<span style="display: inline-flex; align-items: center; gap: 8px;">' +
+                                '<img src="../../' + dlgEscape(iconPath) + '" style="height: 20px; width: 20px; object-fit: contain;">' +
+                                dlgEscape(openerinfo.Name) +
+                                '<a href="#" style="margin-left: 4px;" onclick="changeDefaultWebApp(); return false;">' +
+                                applocale.getString("button/change", "Change") + "</a></span>";
                         }
-                        
-                    }else{
-                        let folderSizeText = bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`;
-                        if (data.Filesize < 0){
-                            //Network folder. Do not render size
-                            folderSizeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/Not available for network folders", "Not available for network folders")}`;
-                        }
-                        let lastModTimeText = generateDisplayLastModTime(data.LastModTime);
-                        if (data.LastModUnix == 0){
-                            lastModTimeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/No record", "No record")}`;
-                        }
-                        $("#properties").append(ui_getTable(
-                            [],
-                            [
-                                ["Virtual Path", data.VirtualPath],
-                                ["Storage Path", data.StoragePath],
-                                [filesizeText, folderSizeText ],
-                                ["Permission", data.Permission],
-                                ["Last Modified", lastModTimeText],
-                                ["File Type", "Folder"],
-                                ["Owner",data.Owner],
-
-                            ]
-                        ));
+                        $("#defaultOpenerRow").html(propRow(localizedKey("Default WebApp"), value));
                     }
-                   
+                });
+            }
 
+            //A thumbnail says more about an image than any glyph can, but most
+            //file types have none: the drawn icon stays until one arrives
+            function loadThumbnail(data){
+                if (data.IsDirectory){
+                    return;
                 }
-                
+                fetch("../../system/file_system/loadThumbnail?vpath=" + encodeURIComponent(data.VirtualPath))
+                .then(function(response){ return response.json(); })
+                .then(function(imageData){
+                    if (imageData == undefined || imageData.error !== undefined || String(imageData).trim() == ""){
+                        return;
+                    }
+                    $("#basicIcon").find(".dlgFileIcon").html('<img class="thumbnail" src="data:image/jpg;base64,' + imageData + '">');
+                })
+                .catch(function(){
+                    //Keep the drawn icon
+                });
+            }
+
+            function sizeText(bytes){
+                if (bytes < 0){
+                    //Network drives do not report a size
+                    return '<span class="dim">' + applocale.getString("properties/error/Not available for network folders", "Not available for network folders") + "</span>";
+                }
+                return dlgEscape(dlgBytesToSize(bytes) + " (" + bytes + " bytes)");
+            }
+
+            function modTimeText(data){
+                if (data.LastModUnix == 0){
+                    return '<span class="dim">' + applocale.getString("properties/error/No record", "No record") + "</span>";
+                }
+                return dlgEscape(data.LastModTime);
+            }
+
+            //Creation time is not recorded by every platform: Linux only
+            //exposes it through statx, so the server may report it as unknown
+            function creationTimeText(data){
+                if (data.CreationTime == undefined || data.CreationTime == ""){
+                    return '<span class="dim">' + applocale.getString("properties/error/Not recorded by host", "Not recorded by this host") + "</span>";
+                }
+                return dlgEscape(data.CreationTime);
             }
 
             function hideLoader(){
-                $("#filesizeLoader").hide();
-                $("body").css('overflow-y',"auto");
+                $("#dlgLoader").hide();
             }
 
-            //Model rendering scripts
-            function ui_getInput(value, placeholder="", type="text"){
-                return `<div class="ui fluid small input">
-                            <input type="${type}" placeholder="${placeholder}" value="${value}" readonly="true">
-                        </div>`
-            }
-
-            function ui_getText(value, color="black"){
-                return `<p style="color:${color}; margin-bottom:0px;">${value}</p>`;
-            }
-
-            function ui_getDivider(){
-                return `<div class="ui divider"></div>`;
-            }
-
-            //head is a 1D array and table is 2D array
-            function ui_getTable(heads, table){
-                html =  `<table class="ui very basic fluid table">`;
-                if (heads.length > 0){
-                    html += `<thead><tr>`;
-                    for (var i =0; i < heads.length; i++){
-                        html += `<th>${heads[i]}</th>`;
-                    }
-                    html += `</tr></thead>`;
+            /* ---------------------------------------------------------------
+                Permission tab
+            --------------------------------------------------------------- */
+            function buildPermissionSelectors(){
+                var options = "";
+                for (var i = 7; i >= 0; i--){
+                    options += '<option value="' + i + '">' +
+                        dlgEscape(applocale.getString(permissionLevels[i].key, permissionLevels[i].text)) + "</option>";
                 }
-                html += `<tbody>`;
-                for (var i =0; i < table.length; i++){
-                    html += `<tr>`;
-                    for (var j =0; j < table[i].length; j++){
-                        var keyString = table[i][j];
-                        if (j == 0 && applocale){
-                            keyString = applocale.getString("properties/key/" + keyString.trim(), keyString);
+                $("#permUser").html(options);
+                $("#permGrp").html(options);
+                $("#permOther").html(options);
+            }
+
+            /*
+                The file's POSIX group is not something ArozOS can change - the
+                server only accepts a mode string - so the field lists the
+                owner's permission groups for reference and stays disabled.
+            */
+            function loadUserGroups(owner){
+                $.get("../../system/users/userinfo", function(data){
+                    var groups = [];
+                    if (data != undefined && data.Usergroup != undefined && data.Username == owner){
+                        groups = data.Usergroup;
+                    }
+                    if (groups.length == 0){
+                        groups = [applocale.getString("perm/group/unknown", "Not available")];
+                    }
+                    var options = "";
+                    for (var i = 0; i < groups.length; i++){
+                        options += '<option value="' + dlgEscape(groups[i]) + '">' + dlgEscape(groups[i]) + "</option>";
+                    }
+                    $("#permGroup").html(options);
+                }).fail(function(){
+                    $("#permGroup").html('<option>' + applocale.getString("perm/group/unknown", "Not available") + "</option>");
+                });
+            }
+
+            function loadPermission(){
+                if (files.length == 0){
+                    return;
+                }
+                permissionLoaded = true;
+                $.ajax({
+                    url: "../../system/file_system/handleFilePermission",
+                    data: {file: files[0]},
+                    success: function(data){
+                        if (data == undefined || data.error !== undefined){
+                            setOctal("0644");
+                            return;
                         }
-                        html += `<td style="word-break: break-all;">${keyString}</td>`
+                        setOctal(String(data));
+                    },
+                    error: function(){
+                        setOctal("0644");
                     }
-                    html += `</tr>`;
+                });
+            }
+
+            function setOctal(octal){
+                //The server reports a four digit mode where the first digit is
+                //always zero; only the last three are editable here
+                var mode = String(octal).replace(/[^0-7]/g, "");
+                while (mode.length < 4){
+                    mode = "0" + mode;
                 }
-                
-                html += `</tbody>
-                        </table>`;
-                return html
+                mode = mode.substring(mode.length - 4);
+                $("#permOctal").val(mode);
+                $("#permUser").val(mode.charAt(1));
+                $("#permGrp").val(mode.charAt(2));
+                $("#permOther").val(mode.charAt(3));
+                updateBitsHint();
             }
 
-            function bytesToSize(bytes) {
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-                if (bytes == 0) return '0 Byte';
-                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+            function syncFromSelectors(){
+                var mode = "0" + $("#permUser").val() + $("#permGrp").val() + $("#permOther").val();
+                $("#permOctal").val(mode);
+                updateBitsHint();
             }
 
-            /*
+            function syncFromOctal(){
+                var typed = $("#permOctal").val().replace(/[^0-7]/g, "");
+                $("#permOctal").val(typed);
+                if (typed.length != 4){
+                    return;
+                }
+                $("#permUser").val(typed.charAt(1));
+                $("#permGrp").val(typed.charAt(2));
+                $("#permOther").val(typed.charAt(3));
+                updateBitsHint();
+            }
 
-            Updates Oct 2020 - Matching File Explorer Theme on other file system tabs
+            function updateBitsHint(){
+                $("#permUserBits").text("(" + permissionLevels[parseInt($("#permUser").val())].bits + ")");
+                $("#permGrpBits").text("(" + permissionLevels[parseInt($("#permGrp").val())].bits + ")");
+                $("#permOtherBits").text("(" + permissionLevels[parseInt($("#permOther").val())].bits + ")");
+            }
 
-            */
-           
-            function fpw_toggleDarkTheme(){
-                $("#filePropertiesWindow").css({
-                    "background-color":"#242330",
-                    "color":"white",
+            function applyPermission(){
+                if (!permissionSupported){
+                    return;
+                }
+                var mode = $("#permOctal").val();
+                if (mode.length != 4 || mode.charAt(0) != "0"){
+                    dlgToast(applocale.getString("perm/invalid", "Invalid permission value"));
+                    return;
+                }
+
+                var pending = files.length;
+                var failure = "";
+                files.forEach(function(filepath){
+                    $.ajax({
+                        url: "../../system/file_system/handleFilePermission",
+                        data: {file: filepath, mode: mode},
+                        success: function(data){
+                            if (data != undefined && data.error !== undefined){
+                                failure = data.error;
+                            }
+                        },
+                        error: function(){
+                            failure = applocale.getString("perm/failed", "Unable to update the file permission");
+                        },
+                        complete: function(){
+                            pending--;
+                            if (pending == 0){
+                                if (failure != ""){
+                                    dlgToast(failure);
+                                }else{
+                                    dlgToast(applocale.getString("perm/updated", "Permission updated"));
+                                    permissionLoaded = false;
+                                }
+                            }
+                        }
+                    });
                 });
-
-                $("#filePropertiesWindow td,.header,p,div").css({
-                    "color":"white",
-                });
-
-                $("#filePropertiesWindow .input").addClass("inverted transparent big")
             }
 
+            /* ---------------------------------------------------------------
+                Footer actions
+            --------------------------------------------------------------- */
+            function copyPath(){
+                var path = fileInfo.VirtualPath;
+                if (path == undefined && files.length > 0){
+                    path = files[0];
+                }
+                if (path == undefined){
+                    return;
+                }
+                if (dlgCopyToClipboard(path)){
+                    dlgToast(applocale.getString("message/copied", "Path copied"));
+                }else{
+                    dlgToast(applocale.getString("message/copyFailed", "Unable to copy the path"));
+                }
+            }
 
-            function fpw_loadPreference(key, callback){
-                $.get("../../system/file_system/preference?key=" + key,function(data){
-                    callback(data);
+            function viewVersionHistory(){
+                var hashPassthrough = encodeURIComponent(JSON.stringify(files));
+                ao_module_newfw({
+                    url: "SystemAO/file_system/file_versions.html#" + hashPassthrough,
+                    width: 560,
+                    height: 560,
+                    appicon: "img/system/file-restore.svg",
+                    title: "File Version History"
                 });
             }
 
-
-            /*
-                Updates 30 Jan 2021: Added change of file opener
-            */
-
-             //Open Opener Selector for the given file
+            //Open the opener picker for this file type
             function changeDefaultWebApp(){
-                var ext = fileInfo.Ext;
-                var openFileList = [];
                 var openFileObject = {
                     filepath: fileInfo.VirtualPath,
-                    filename: fileInfo.Basename,
-                }
-                openFileList.push(openFileObject);
-                var openParamter = encodeURIComponent(JSON.stringify(openFileObject));
+                    filename: fileInfo.Basename
+                };
                 ao_module_newfw({
-                    url: "SystemAO/file_system/defaultOpener.html#" + openParamter,
-                    width: 320,
-                    height: 510,
+                    url: "SystemAO/file_system/defaultOpener.html#" + encodeURIComponent(JSON.stringify(openFileObject)),
+                    width: 380,
+                    height: 560,
                     appicon: "SystemAO/file_system/img/opener.png",
-                    title: "Default WebApp for " + ext,
+                    title: "Default WebApp for " + fileInfo.Ext,
                     parent: ao_module_windowID,
                     callback: "handleRefresh"
                 });
             }
 
+            //Called back by the opener picker once a new default is stored
             function handleRefresh(){
-                //Default opener changed. Update the display
-                initFileProperties();
-            }
-
-            /*
-                Updates 9 April 2021: Added day compare for last modification days
-            */
-
-            function generateDisplayLastModTime(lastModTime){
-                //Try to split the date into js date format
-                var dateInfo = (lastModTime.split(" ")[0]).split("-");
-                var modTime = new Date(dateInfo[0],dateInfo[1],dateInfo[2]);
-                var diff = calcDate(new Date(), modTime);
-                var displayText = "Unknown";
-                if (diff[2] > 0){
-                    //years
-                    displayText = diff[2] + applocale.getString("lastmod/time/year", " year");
-                    if (diff[2] > 1){
-                        displayText += applocale.getString("lastmod/time/s", "s")
-                    }
-
-                    displayText += applocale.getString("lastmod/time/ago", " ago");
-                    
-                }else if (diff[1] > 0){
-                    //months
-                    displayText = diff[1] +  applocale.getString("lastmod/time/month", "  month");
-                    if (diff[1] > 1){
-                        displayText += applocale.getString("lastmod/time/s", "s")
-                    }
-
-                    displayText += applocale.getString("lastmod/time/ago", " ago");
-                }else if (diff [0] > 0){
-                    //days
-                    displayText = diff[0] + applocale.getString("lastmod/time/days", "  day");
-                    if (diff[0] > 1){
-                        displayText += applocale.getString("lastmod/time/s", "s");
-                    }
-
-                    displayText += applocale.getString("lastmod/time/ago", " ago");
-                }else{
-                    //just now
-                    displayText = applocale.getString("lastmod/time/today", "Today");
+                if (fileInfo.VirtualPath != undefined){
+                    loadDefaultOpener(fileInfo);
                 }
-
-                return displayText + " (" + lastModTime + ")";
-            }
-
-            function calcDate(date1 = new Date(),date2) {
-                var diff = Math.floor(date1.getTime() - date2.getTime());
-                var day = 1000 * 60 * 60 * 24;
-
-                var days = Math.floor(diff/day);
-                var months = Math.floor(days/31);
-                var years = Math.floor(months/12);
-
-
-                return [days, months, years];
             }
         </script>
     </body>

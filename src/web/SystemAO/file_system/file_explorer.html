@@ -506,6 +506,12 @@
                 <i class="share alternate icon"></i> <span locale="contextmenu/sharemanager">Open Shares Manager</span>
             </div>
             <!-- This properties show the vroot properties -->
+            <div class="item specialviewonly" onclick="createSpecialViewShortcut();">
+                <i class="external icon"></i> <span locale="opr/shortcut/create">Create Desktop Shortcut</span>
+            </div>
+            <div class="item vrootonly" onclick="createVrootShortcut();">
+                <i class="external icon"></i> <span locale="opr/shortcut/create">Create Desktop Shortcut</span>
+            </div>
             <div class="item vrootonly" onclick="showVrootProperties();">
                 <i class="ui info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
             </div>
@@ -642,6 +648,7 @@
 
            
         <!-- Shared with file_selector.html: file icons, thumbnails, opener lookup -->
+        <script type="text/javascript" src="shared/specialpaths.js"></script>
         <script type="text/javascript" src="shared/fsicons.js"></script>
         <script type="text/javascript" src="shared/filethumb.js"></script>
         

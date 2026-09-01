@@ -124,6 +124,16 @@ function listDirectory(path, callback=undefined, recordUndo=true){
             ao_module_setWindowTitle(applocale.getString("title/title", "File Manager") +
                 " - " + applocale.getString(specialView.labelKey, specialView.labelFallback));
         }
+        /*
+            The sidebar and file area event handlers are normally bound by
+            finaliseRender(), at the end of a directory listing. A special view
+            never goes through that, so opening the File Manager straight into
+            one - which a desktop shortcut to %trashbin% now does - left the
+            sidebar right click, among others, unbound until the user happened
+            to visit a real folder. Bind them here too; every binding in there
+            detaches itself first, so doing it twice is harmless.
+        */
+        bindFileObjectEvents();
         specialView.render(callback);
         return;
     }
