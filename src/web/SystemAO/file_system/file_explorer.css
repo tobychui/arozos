@@ -1017,6 +1017,8 @@ body.fmResizing *{
     -moz-box-shadow: 0px 8px 28px var(--fs-shadow);
     box-shadow: 0px 8px 28px var(--fs-shadow);
     z-index: 999;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
 }
 
 .contextmenu.visible{

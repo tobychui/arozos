@@ -134,51 +134,54 @@ function bindFileObjectEvents(){
         }
     });
 
-    //This function calculate and offset the context menu to not go out of the window area
+    /*
+        Place the context menu next to the cursor, keeping the whole menu
+        inside the window.
+    */
+    const contextMenuMargin = 8;
+
     function calculateContextMenuOffsets(evt){
-        var defaultLeftPost = evt.pageX + "px";
-        var defaultTopPost =evt.pageY + "px";
-        
-        if (evt.pageX > window.innerWidth / 2){
-            defaultLeftPost = evt.pageX - $("#contextmenu").width();
-            
-            if (defaultLeftPost < 0){
-                //over the left boundary
-                defaultLeftPost = 0;
-            }
-            defaultLeftPost = defaultLeftPost + "px";
-        }else{
+        let menu = $("#contextmenu");
+        let menuWidth = menu.outerWidth();
+        let menuHeight = menu.outerHeight();
+        let viewWidth = window.innerWidth;
+        let viewHeight = window.innerHeight;
 
-            if (evt.pageX + $("#contextmenu").width() > window.innerWidth){
-                //Over the right boundary
-                defaultLeftPost = window.innerWidth - $("#contextmenu").width();
-                defaultLeftPost = defaultLeftPost + "px";
-            }
+        //Viewport coordinates of the click, with a fallback for synthetic events
+        let clickX = (evt.clientX == undefined)?evt.pageX:evt.clientX;
+        let clickY = (evt.clientY == undefined)?evt.pageY:evt.clientY;
+
+        //Open towards the side of the cursor with more room
+        let left = clickX;
+        if (clickX > viewWidth / 2){
+            left = clickX - menuWidth;
         }
 
-        if (evt.pageY > window.innerHeight / 2){
-            defaultTopPost = evt.pageY - $("#contextmenu").height();
-
-            if (defaultTopPost < 0){
-                //over the top boundary
-                defaultTopPost = 0;
-            }
-            defaultTopPost = defaultTopPost + "px"
-            
-        }else{
-            if (evt.pageY + $("#contextmenu").height() > window.innerHeight){
-                //Over the lower boundary
-                defaultTopPost =  window.innerHeight - $("#contextmenu").height();
-                defaultTopPost = defaultTopPost + "px"
-            }
+        let top = clickY;
+        if (clickY > viewHeight / 2){
+            top = clickY - menuHeight;
         }
-        
-        $("#contextmenu").css({
-            left: defaultLeftPost,
-            top: defaultTopPost
+
+        //Pull the menu back inside the window if it still overflows any edge
+        if (left + menuWidth > viewWidth - contextMenuMargin){
+            left = viewWidth - menuWidth - contextMenuMargin;
+        }
+        if (left < contextMenuMargin){
+            left = contextMenuMargin;
+        }
+
+        if (top + menuHeight > viewHeight - contextMenuMargin){
+            top = viewHeight - menuHeight - contextMenuMargin;
+        }
+        if (top < contextMenuMargin){
+            top = contextMenuMargin;
+        }
+
+        menu.css({
+            left: left + "px",
+            top: top + "px"
         });
-
-    }  
+    }
 
     //Rightclick on a file object
     $(".fileObject").off("contextmenu").on("contextmenu", function(evt){
@@ -260,12 +263,6 @@ function bindFileObjectEvents(){
         }
 
         $("#contextmenu").addClass("visible");
-        //Handle CSS offset of the contextmenu
-        if ($("#contextmenu").offset().top < 0){
-            $("#contextmenu").css("top","0px");
-        }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-            $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-        }
 
         if (isMobile){
             $("#contextmenu").find(".mobileonly").show();
@@ -305,17 +302,9 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".vroothide").show();
             $("#contextmenu").find(".zipFileOnly").hide();
 
-            //Calculate the position of the context menu
-            calculateContextMenuOffsets(e);
-
-            //Show context menu
+            //Show context menu, then place it (it must be rendered to be measured)
             $("#contextmenu").addClass("visible");
-            //Handle CSS offset of the contextmenu
-            if ($("#contextmenu").offset().top < 0){
-                $("#contextmenu").css("top","0px");
-            }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-                $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-            }
+            calculateContextMenuOffsets(e);
         }
     });
 
@@ -357,13 +346,8 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".divider").hide();
             $("#contextmenu").find(".specialviewonly").show();
 
-            calculateContextMenuOffsets(e);
             $("#contextmenu").addClass("visible");
-            if ($("#contextmenu").offset().top < 0){
-                $("#contextmenu").css("top","0px");
-            }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-                $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-            }
+            calculateContextMenuOffsets(e);
             return;
         }
 
@@ -377,16 +361,9 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".specialviewonly").hide();
             $("#contextmenu").find(".vrootonly").show();
 
-            //Show context menu
-            calculateContextMenuOffsets(e);
-
+            //Show context menu, then place it (it must be rendered to be measured)
             $("#contextmenu").addClass("visible");
-            //Handle CSS offset of the contextmenu
-            if ($("#contextmenu").offset().top < 0){
-                $("#contextmenu").css("top","0px");
-            }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-                $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-            }
+            calculateContextMenuOffsets(e);
         }
     });
 
