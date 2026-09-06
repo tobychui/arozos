@@ -714,7 +714,7 @@ body.fmResizing *{
     flex-grow:1;
     padding-left:2em;
     padding-right:2em;
-    padding-top:2em;
+    padding-top:1.4em;
     overflow-y:auto;
     background-color: var(--folder_view_background);
     scrollbar-width: thin;
@@ -2311,13 +2311,9 @@ i.blue{
 }
 
 /* ---------- Details view: the mockup's columned list ---------- */
-/*
-    No top padding in details view, so the sticky header below can sit flush
-    against the top of the scrollport. With padding here the header pins that
-    far down instead, and scrolled rows stay visible in the band above it.
-*/
 #folderView.fmDetailsView {
     padding-top: 0px;
+    border-top: 10px solid var(--folder_view_background);
 }
 
 #fmListHeader {

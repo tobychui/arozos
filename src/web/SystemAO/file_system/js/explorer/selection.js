@@ -293,7 +293,8 @@ function bindFileObjectEvents(){
         if (isSpecialViewPath(currentPath)){
             return;
         }
-        if ($(e.target).attr("id") == "folderView" || $(e.target).attr("id") == "fileList" || $(e.target).attr("id") == "folderList" || $(e.target).is("table") || $(e.target).is("th")){
+
+        if ($(e.target).closest(".fileObject").length == 0){
             //Context menu on the empty space of the folder / file list
             e.preventDefault();
             $("#contextmenu").find(".item").hide();
