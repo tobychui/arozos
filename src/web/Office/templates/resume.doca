@@ -1,0 +1,33 @@
+{
+ "type": "arozos/office",
+ "app": "document",
+ "version": 1,
+ "meta": {
+  "title": "Resume",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "html": "<h1 class=\"doc-title\">Your Name</h1><p style=\"color:#5f6368;\">City, Country &nbsp;&middot;&nbsp; you@example.com &nbsp;&middot;&nbsp; +00 000 000 000</p><h2>Profile</h2><p>Two sentences on what you do and what you are looking for. Lead with the thing you want to be hired for.</p><h2>Experience</h2><h3>Job Title &mdash; Company</h3><p style=\"color:#5f6368;\">Month Year &ndash; Present</p><ul><li>An achievement, with the number that makes it real.</li><li>Something you built or changed, and the effect it had.</li><li>Scope: team size, budget, systems owned.</li></ul><h3>Job Title &mdash; Earlier Company</h3><p style=\"color:#5f6368;\">Month Year &ndash; Month Year</p><ul><li>Keep older roles shorter than recent ones.</li></ul><h2>Education</h2><p><b>Degree</b>, Institution &mdash; Year</p><h2>Skills</h2><p>The tools and languages you would be comfortable being tested on.</p>",
+  "page": {
+   "size": "A4",
+   "orientation": "portrait",
+   "margins": {
+    "top": 25.4,
+    "right": 25.4,
+    "bottom": 25.4,
+    "left": 25.4
+   },
+   "columns": 1,
+   "colGap": 10
+  },
+  "header": "",
+  "footer": "",
+  "hfMode": "all",
+  "pageNumbers": false,
+  "comments": [],
+  "trackChanges": false
+ }
+}

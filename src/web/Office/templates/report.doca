@@ -1,0 +1,33 @@
+{
+ "type": "arozos/office",
+ "app": "document",
+ "version": 1,
+ "meta": {
+  "title": "Report",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "html": "<h1 class=\"doc-title\">Quarterly Report</h1><p style=\"color:#5f6368;\">Prepared by Your Name &nbsp;&middot;&nbsp; Month Year</p><h2>Summary</h2><p>One short paragraph on what this report covers and the single most important thing the reader should take away from it.</p><h2>Highlights</h2><ul><li>The first result worth calling out.</li><li>The second, with a number attached to it.</li><li>Something that did not go to plan, and why.</li></ul><h2>Detail</h2><p>Expand on each highlight here. Keep one idea per paragraph.</p><table><tbody><tr><td><b>Metric</b></td><td><b>Target</b></td><td><b>Actual</b></td></tr><tr><td>Revenue</td><td>100,000</td><td>112,400</td></tr><tr><td>New customers</td><td>250</td><td>238</td></tr><tr><td>Churn</td><td>2.0%</td><td>1.6%</td></tr></tbody></table><h2>Next steps</h2><ol><li>What happens next, and who owns it.</li><li>The decision you need from the reader.</li></ol>",
+  "page": {
+   "size": "A4",
+   "orientation": "portrait",
+   "margins": {
+    "top": 25.4,
+    "right": 25.4,
+    "bottom": 25.4,
+    "left": 25.4
+   },
+   "columns": 1,
+   "colGap": 10
+  },
+  "header": "Quarterly Report",
+  "footer": "Confidential",
+  "hfMode": "all",
+  "pageNumbers": true,
+  "comments": [],
+  "trackChanges": false
+ }
+}

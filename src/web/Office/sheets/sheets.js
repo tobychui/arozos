@@ -2374,19 +2374,32 @@ var SheetsApp = (function () {
                 { title: "Format", items: formatMenuItems },
                 { title: "Data", items: dataMenuItems }
             ],
+            /*
+                .xlsx / .ods need the Office converters - the AGI backend in
+                ArozOS, the WebAssembly module in the web edition. The
+                real-text .pdf renderer is still server-only, so the web
+                edition points at File > Print / PDF for that. The delimited
+                exports are written right here and always available.
+            */
             fileMenuExtras: [
-                {
+                !OfficePlatform.canConvert() ? null : {
                     label: "Import Excel / OpenDocument...", icon: "file excel outline",
                     action: function () { SheetsIO.importXlsxDialog(); }
                 },
                 {
-                    label: "Export", icon: "external alternate", sub: [
-                        { label: "Excel (.xlsx)", icon: "file excel outline", action: function () { SheetsIO.exportXlsx(); } },
-                        { label: "OpenDocument (.ods)", icon: "file alternate outline", action: function () { SheetsIO.exportOds(); } },
-                        { label: "PDF document (.pdf)", icon: "file pdf outline", action: function () { SheetsIO.exportPdf(); } },
-                        { label: "CSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited(","); } },
-                        { label: "TSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited("\t"); } }
-                    ]
+                    label: "Export", icon: "external alternate", sub: function () {
+                        var items = [];
+                        if (OfficePlatform.canConvert()) {
+                            items.push({ label: "Excel (.xlsx)", icon: "file excel outline", action: function () { SheetsIO.exportXlsx(); } });
+                            items.push({ label: "OpenDocument (.ods)", icon: "file alternate outline", action: function () { SheetsIO.exportOds(); } });
+                        }
+                        if (OfficePlatform.hasBackend()) {
+                            items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: function () { SheetsIO.exportPdf(); } });
+                        }
+                        items.push({ label: "CSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited(","); } });
+                        items.push({ label: "TSV (current sheet)", icon: "file alternate outline", action: function () { SheetsIO.exportDelimited("\t"); } });
+                        return items;
+                    }
                 }
             ],
 

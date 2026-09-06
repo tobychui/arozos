@@ -12,7 +12,16 @@
     Requires (include before this file):
         ../../script/jquery.min.js
         ../../script/ao_module.js
+        ../common/mode.js
+        ../common/container.js
+        ../common/platform.js
         ../common/office.css
+
+    Everything that reaches outside the browser tab - file dialogs, reading
+    and writing documents, the native container, session snapshots, AGI
+    calls - goes through OfficePlatform (common/platform.js), which is what
+    lets the same source run both as an ArozOS webapp and as the standalone
+    static-hosting build.
 
     Usage: see Office/common/CONTRACT.md for the full API reference.
 */
@@ -133,6 +142,12 @@ var OfficeApp = (function () {
         return i < 0 ? String(p) : String(p).substring(0, i);
     }
     function now() { return new Date().getTime(); }
+    // "meeting-notes" -> "Meeting Notes": template file names become the
+    // suggested document name, so they should read like one
+    function titleCase(s) {
+        return String(s || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim()
+            .replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); });
+    }
 
     function lsKey(k) { return "office_" + (cfg ? cfg.appType : "generic") + "_" + k; }
     function getSetting(k, def) {
@@ -145,139 +160,18 @@ var OfficeApp = (function () {
         try { localStorage.setItem(lsKey(k), JSON.stringify(v)); } catch (e) { }
     }
 
-    /* ---------- VFS helpers ---------- */
-    function vfsLoad(path, cb, errcb) {
-        $.ajax({
-            url: ao_root + "media?file=" + encodeURIComponent(path) + "&nocache=" + now(),
-            dataType: "text",
-            success: function (data) { cb(data); },
-            error: function (xhr) { if (errcb) errcb(xhr); }
-        });
-    }
-    function vfsSave(path, content, cb, errcb) {
-        // agirunLarge: a document past the 10MB POST form limit is uploaded
-        // as a temp file instead of a form field (see below)
-        agirunLarge("Office/common/backend/filesaver.agi", {
-            filepath: path,
-            content: content
-        }, "content", function () {
-            if (cb) cb();
-        }, function (msg) {
-            if (errcb) errcb(msg);
-        });
-    }
-
-    /* ---------- media (working-directory based, no base64 megabytes) ---------- */
-    var WORKDIR = "user:/.appdata/Office";
-    var DATAURL_MAX = 1024 * 1024;   // blobs under 1 MB may stay inline
-    var workdirReady = false;
-    function mediaUrl(vpath) {
-        // page-relative form matching what the server-side unpacker writes;
-        // the packer recognizes it and embeds the file at save time
-        return "../../media?file=" + encodeURIComponent(vpath);
-    }
-    function prepareWorkdir(cb, errcb) {
-        if (workdirReady) { cb(); return; }
-        ao_module_agirun(CONTAINER_BACKEND, { action: "prepare" }, function (data) {
-            if (data && data.error) { if (errcb) errcb(data.error); return; }
-            workdirReady = true;
-            cb();
-        }, function () {
-            if (errcb) errcb("connection error");
-        });
-    }
-    /* Turn a Blob/File into a document-storable src string. Small images
-       stay inline data URLs; anything bigger is streamed to the Office
-       working directory through the system upload endpoint and referenced
-       by a media?file= link (packToFile embeds it into the container). */
+    /* ---------- host bridge (see common/platform.js) ----------
+       These stay on OfficeApp because the whole suite already calls them
+       through it; the implementation - ArozOS virtual file system and AGI
+       gateway, or the visitor's own device - lives in OfficePlatform. */
+    function vfsLoad(path, cb, errcb) { OfficePlatform.readText(path, cb, errcb); }
+    function vfsSave(path, content, cb, errcb) { OfficePlatform.writeText(path, content, cb, errcb); }
+    function mediaUrl(vpath) { return OfficePlatform.mediaUrl(vpath); }
     function blobToSrc(blob, filename, cb, errcb) {
-        errcb = errcb || function (msg) { setStatus(msg, "error"); };
-        var asDataURL = function (failMsg) {
-            // inline fallback only for small payloads - big base64 blobs
-            // would break the save POST again
-            if (blob.size > 8 * 1024 * 1024) {
-                errcb(failMsg || "File is too large to embed without an ArozOS backend");
-                return;
-            }
-            var reader = new FileReader();
-            reader.onload = function () { cb(reader.result); };
-            reader.onerror = function () { errcb("Could not read the file"); };
-            reader.readAsDataURL(blob);
-        };
-        if (blob.size <= DATAURL_MAX) { asDataURL(); return; }
-        if (typeof ao_module_uploadFile !== "function") { asDataURL(); return; }
-        prepareWorkdir(function () {
-            var safe = String(filename || "media").replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 80);
-            var name = Date.now().toString(36) + "-" + safe;
-            var file;
-            try {
-                file = new File([blob], name, { type: blob.type || "application/octet-stream" });
-            } catch (e) { asDataURL(); return; }
-            ao_module_uploadFile(file, WORKDIR + "/uploads",
-                function (resp) {
-                    if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
-                        errcb("Upload failed: " + resp);
-                        return;
-                    }
-                    cb(mediaUrl(WORKDIR + "/uploads/" + name));
-                },
-                undefined,
-                function () { asDataURL("Upload failed and the file is too large to embed"); });
-        }, function () { asDataURL(); });
+        OfficePlatform.blobToSrc(blob, filename, cb, errcb);
     }
-
-    /* ---------- large AGI payloads ----------
-       The AGI gateway reads its POST parameters with Go's r.ParseForm, which
-       caps an application/x-www-form-urlencoded body at 10 MB. Past that the
-       parse fails, EVERY parameter silently disappears and the still-uploading
-       socket gets reset (the browser reports a network error). Export payloads
-       cross that line easily once images / chart bitmaps are inlined as data
-       URLs, so anything bigger than POST_INLINE_MAX is streamed to a temp file
-       through the system upload endpoint (buffered to disk server-side instead
-       of being held in RAM) and handed to the script as a vpath in <field>File.
-       The backend script reads that file and deletes it. */
-    var POST_INLINE_MAX = 4 * 1024 * 1024;   // stay well clear of the 10 MB form cap
-    var TMPDIR = WORKDIR + "/tmp";
-
     function agirunLarge(script, params, field, cb, errcb, timeout) {
-        timeout = timeout || 0;
-        errcb = errcb || function () { };
-        var payload = params[field];
-        var post = function (p) {
-            ao_module_agirun(script, p, function (data) {
-                if (data && data.error) { errcb(data.error); return; }
-                cb(data);
-            }, function () { errcb("connection error"); }, timeout);
-        };
-        if (typeof payload !== "string" || payload.length <= POST_INLINE_MAX ||
-            typeof ao_module_uploadFile !== "function") {
-            post(params);
-            return;
-        }
-        prepareWorkdir(function () {
-            var name = "post-" + Date.now().toString(36) + "-" +
-                Math.random().toString(36).substring(2, 8) + ".json";
-            var file;
-            try {
-                file = new File([new Blob([payload], { type: "application/json" })],
-                    name, { type: "application/json" });
-            } catch (e) { post(params); return; }
-            ao_module_uploadFile(file, TMPDIR, function (resp) {
-                if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
-                    errcb("upload failed: " + resp);
-                    return;
-                }
-                // hand over the vpath instead of the payload itself
-                var p = {};
-                Object.keys(params).forEach(function (k) {
-                    if (k !== field) p[k] = params[k];
-                });
-                p[field + "File"] = TMPDIR + "/" + name;
-                post(p);
-            }, undefined, function () {
-                errcb("upload failed - the document is too large to send");
-            });
-        }, function () { post(params); });
+        OfficePlatform.agirunLarge(script, params, field, cb, errcb, timeout);
     }
 
     /* ---------- session snapshots ("Restore from previous session") ---------- */
@@ -292,26 +186,16 @@ var OfficeApp = (function () {
         m._sessionAt = now();
         m._origin = filepath ? { fp: filepath, fn: filename } : null;
         env.meta = m;
-        agirunLarge(CONTAINER_BACKEND, {
-            action: "session-save",
-            app: cfg.appType,
-            content: JSON.stringify(env)
-        }, "content", function () { }, function () { }, 60000);
+        OfficePlatform.sessionSave(cfg.appType, JSON.stringify(env));
     }
     // drop the saved session snapshot so it stops prompting on next launch
     function deleteSession() {
         if (!cfg || !cfg.packed) return;
-        ao_module_agirun(CONTAINER_BACKEND, {
-            action: "session-delete",
-            app: cfg.appType
-        }, function () { }, function () { }, 60000);
+        OfficePlatform.sessionDelete(cfg.appType);
     }
     function trySessionRestore() {
-        ao_module_agirun(CONTAINER_BACKEND, {
-            action: "session-load",
-            app: cfg.appType
-        }, function (data) {
-            var env = data && data.envelope;
+        OfficePlatform.sessionLoad(cfg.appType, function (envelope) {
+            var env = envelope;
             if (typeof env === "string") {
                 try { env = JSON.parse(env); } catch (e) { env = null; }
             }
@@ -355,10 +239,7 @@ var OfficeApp = (function () {
                     }
                 ]
             });
-        }, function () {
-            // backend unreachable (standalone preview): fall back to drafts
-            checkDraft();
-        }, 60000);
+        });
     }
 
     /* ---------- envelope ---------- */
@@ -390,7 +271,7 @@ var OfficeApp = (function () {
     function updateTitle() {
         var name = filename || (cfg.defaultFileName + cfg.extension);
         var t = name + (dirty ? " •" : "") + " - " + cfg.appName;
-        try { ao_module_setWindowTitle(t); } catch (e) { document.title = t; }
+        OfficePlatform.setWindowTitle(t);
         var $dn = $(".of-docname");
         $dn.html((dirty ? '<span class="of-dirty-dot">• </span>' : "") + escapeHtml(name));
     }
@@ -485,30 +366,65 @@ var OfficeApp = (function () {
     }
 
     /* ---------- recent documents ---------- */
-    function getRecents() { return getSetting("recent", []); }
+    /* A recent entry is only useful where the path survives the page: the
+       standalone build opens File objects the visitor picked, which are gone
+       on reload, so it keeps no list rather than offering dead entries. */
+    function getRecents() {
+        if (!OfficePlatform.tracksRecents()) return [];
+        return getSetting("recent", []);
+    }
     function addRecent(fp, fn) {
+        if (!OfficePlatform.tracksRecents()) return;
         var list = getRecents().filter(function (r) { return r.fp !== fp; });
         list.unshift({ fp: fp, fn: fn, t: now() });
         setSetting("recent", list.slice(0, RECENT_MAX));
     }
 
     /* ---------- document lifecycle ---------- */
-    var CONTAINER_BACKEND = "Office/common/backend/container.agi";
-    function loadNativeEnvelope(env, fp, fn) {
+    /*
+        Foreign binary formats (.docx / .xlsx / .pptx / ODF) go through the Go
+        converters - server side in ArozOS, in the WebAssembly module in a
+        standalone build made with them. Reading the list through here rather
+        than off cfg keeps one decision in one place: with no converters they
+        are neither offered in the Open dialog's filter nor accepted by
+        openPath.
+    */
+    function binaryImporters() {
+        if (!OfficePlatform.canConvert()) return {};
+        return cfg.binaryImporters || {};
+    }
+    function loadNativeEnvelope(env, fp, fn, opts) {
         if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType) {
             throw new Error("Not a valid " + cfg.fileTypeName + " file");
         }
         meta = env.meta || {};
-        filepath = fp; filename = fn;
         loadedFromImport = false;
+        /*
+            A template is a starting point, not a file the person is editing:
+            the content loads but the document stays unattached, so Ctrl+S
+            asks where to put it instead of writing back over the template.
+            The name is kept as a suggestion for that dialog.
+        */
+        if (opts && opts.asTemplate) {
+            var pretty = titleCase(stripExt(fn));
+            filepath = null;
+            filename = pretty + cfg.extension;
+            meta = { createdAt: now(), revision: 0 };
+            cfg.deserialize(env.body);
+            markClean();
+            setStatus("New " + cfg.fileTypeName.toLowerCase() +
+                " from the " + pretty + " template");
+            return;
+        }
+        filepath = fp; filename = fn;
         cfg.deserialize(env.body);
         markClean();
         addRecent(fp, fn);
         setStatus("Opened " + fn);
         checkDraft();
     }
-    function loadNativeText(text, fp, fn) {
-        loadNativeEnvelope(parseEnvelope(text), fp, fn);
+    function loadNativeText(text, fp, fn, opts) {
+        loadNativeEnvelope(parseEnvelope(text), fp, fn, opts);
     }
     /*
         A file opened from a foreign format stays attached to that file when
@@ -543,11 +459,11 @@ var OfficeApp = (function () {
         if (filepath) addRecent(filepath, filename);
         setStatus(importedStatus(fn));
     }
-    function openPath(fp, fn) {
+    function openPath(fp, fn, opts) {
         fn = fn || basename(fp);
         // binary foreign formats (e.g. .pptx) are handled by the app itself,
         // usually through a server-side AGI conversion - no text fetch here
-        var bi = (cfg.binaryImporters || {})[extOf(fn)];
+        var bi = binaryImporters()[extOf(fn)];
         if (bi) {
             meta = { createdAt: now(), revision: 0 };
             adoptImportedPath(fp, fn);
@@ -559,31 +475,28 @@ var OfficeApp = (function () {
         }
         setStatus("Opening " + fn + "...", "info", 0);
         // packed apps store native files as zip containers with embedded
-        // assets - those must be unpacked server-side, not fetched as text
+        // assets, so they are unpacked rather than fetched as text - server
+        // side in ArozOS, by OfficeContainer in the standalone build
         if (cfg.packed && extOf(fn) === cfg.extension) {
-            ao_module_agirun(CONTAINER_BACKEND, { action: "load", filepath: fp }, function (data) {
-                if (!data || data.error) {
-                    setStatus("Failed to open " + fn + ": " + ((data && data.error) || "no response"), "error");
-                    return;
-                }
-                var env = data.envelope;
+            OfficePlatform.containerLoad(fp, function (envelope) {
+                var env = envelope;
                 if (typeof env === "string") {
                     try { env = JSON.parse(env); } catch (e) { env = null; }
                 }
                 try {
-                    loadNativeEnvelope(env, fp, fn);
+                    loadNativeEnvelope(env, fp, fn, opts);
                 } catch (err) {
                     setStatus("Cannot open " + fn + ": " + err.message, "error");
                 }
-            }, function () {
-                setStatus("Failed to load " + fn, "error");
-            }, 120000);
+            }, function (msg) {
+                setStatus("Failed to open " + fn + ": " + (msg || "unknown error"), "error");
+            });
             return;
         }
         vfsLoad(fp, function (text) {
             try {
                 if (extOf(fn) === cfg.extension) {
-                    loadNativeText(text, fp, fn);
+                    loadNativeText(text, fp, fn, opts);
                 } else {
                     loadImportText(text, fp, fn);
                 }
@@ -616,14 +529,12 @@ var OfficeApp = (function () {
             (Object.keys(cfg.importers || {})).forEach(function (e) {
                 filter.push(e.substring(1));
             });
-            (Object.keys(cfg.binaryImporters || {})).forEach(function (e) {
+            (Object.keys(binaryImporters())).forEach(function (e) {
                 filter.push(e.substring(1));
             });
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    openPath(files[0].filepath, files[0].filename);
-                }
-            }, "user:/Desktop", "file", false, { filter: filter, path_memory_key: "document" });
+            OfficePlatform.pickOpen({ filter: filter, memoryKey: "document" }, function (files) {
+                openPath(files[0].filepath, files[0].filename);
+            });
         };
         if (dirty) {
             confirmDialog("Discard unsaved changes?",
@@ -648,7 +559,25 @@ var OfficeApp = (function () {
         from one of these formats writes straight back to it). Apps that
         declare none keep the native-format-only behaviour unchanged.
     */
-    function saveFormats() { return (cfg && cfg.saveFormats) || []; }
+    /*
+        Two flags mark a writer that cannot exist everywhere:
+
+          needsConvert  goes through the Office format converters (.xlsx,
+                        .ods, ...) - present in ArozOS, and in a standalone
+                        build shipped with the WebAssembly module
+          needsBackend  needs a server outright (the real-text PDF renderer)
+
+        Filtering here rather than in each app keeps Save As, the
+        save-back-into-a-foreign-format path and autosave consistent.
+    */
+    function saveFormats() {
+        var list = (cfg && cfg.saveFormats) || [];
+        return list.filter(function (f) {
+            if (f.needsBackend && !OfficePlatform.hasBackend()) return false;
+            if (f.needsConvert && !OfficePlatform.canConvert()) return false;
+            return true;
+        });
+    }
     function findSaveFormat(ext, adoptableOnly) {
         var list = saveFormats();
         for (var i = 0; i < list.length; i++) {
@@ -737,22 +666,15 @@ var OfficeApp = (function () {
         var reasons = formatReasons(fmt);
         if (reasons) { formatBlockedDialog(fmt, reasons); return; }
         var defName = stripExt(filename || cfg.defaultFileName) + ext;
-        ao_module_openFileSelector(function (files) {
-            if (files && files.length > 0) {
-                var fp = files[0].filepath;
-                var fn = files[0].filename;
-                if (extOf(fn) !== ext) {
-                    fp += ext;
-                    fn += ext;
-                }
-                doSaveTo(fp, fn, cb);
-            }
-        }, "user:/Desktop", "new", false, {
+        OfficePlatform.pickSave({
             defaultName: defName,
-            path_memory_key: "document",
+            ext: ext,
+            memoryKey: "document",
             //A document that has never been saved has no folder of its own, so start
             //from wherever this app was last used rather than the hardcoded Desktop
-            force_path_overwrite: !filepath
+            forceOverwrite: !filepath
+        }, function (file) {
+            doSaveTo(file.filepath, file.filename, cb);
         });
     }
     // returns false when the write was declined (format cannot hold the doc)
@@ -784,13 +706,7 @@ var OfficeApp = (function () {
         };
         if (cfg.packed) {
             // native zip container: media data URLs become embedded assets
-            agirunLarge(CONTAINER_BACKEND, {
-                action: "save", filepath: fp, content: payload
-            }, "content", function () {
-                done();
-            }, function (msg) {
-                fail(msg);
-            }, 120000);
+            OfficePlatform.containerSave(fp, payload, done, fail);
         } else {
             vfsSave(fp, payload, done, fail);
         }
@@ -800,7 +716,10 @@ var OfficeApp = (function () {
     /* ---------- autosave ---------- */
     function autosaveEnabled() { return getSetting("autosave", true); }
     function autosaveTick() {
-        if (dirty && filepath && autosaveEnabled()) {
+        // a host with no file system to write back to (the standalone build
+        // saves by downloading) must never autosave: the snapshot below is
+        // the whole safety net there
+        if (dirty && filepath && autosaveEnabled() && OfficePlatform.autosavesToFile()) {
             // a document living in a foreign format is autosaved only while
             // that format can still hold it; when it cannot, doSaveTo's silent
             // mode declines the write rather than interrupting with a dialog,
@@ -820,7 +739,7 @@ var OfficeApp = (function () {
     function applyTheme() {
         var dark = isDark();
         $("body").toggleClass("dark", dark);
-        try { ao_module_setWindowTheme(dark ? "dark" : "white"); } catch (e) { }
+        OfficePlatform.setWindowTheme(dark);
         if (cfg && cfg.onThemeChanged) { try { cfg.onThemeChanged(dark); } catch (e) { } }
     }
     function toggleTheme() {
@@ -1097,7 +1016,7 @@ var OfficeApp = (function () {
             var items = [
                 { label: "New", icon: "file outline", key: "Ctrl+Alt+N", action: newDocument },
                 { label: "Open...", icon: "folder open", key: "Ctrl+O", action: openDialog },
-                {
+                !OfficePlatform.tracksRecents() ? null : {
                     label: "Open recent", icon: "history", sub: function () {
                         return getRecents().map(function (r) {
                             return {
@@ -1369,11 +1288,11 @@ var OfficeApp = (function () {
 
         // load input file (embedded / open-with) or start blank
         meta = { createdAt: now(), revision: 0 };
-        var inputs = null;
-        try { inputs = ao_module_loadInputFiles(); } catch (e) { }
+        var inputs = OfficePlatform.loadInputFiles();
         if (inputs && inputs.length > 0) {
             cfg.create();
-            openPath(inputs[0].filepath, inputs[0].filename);
+            openPath(inputs[0].filepath, inputs[0].filename,
+                { asTemplate: !!inputs[0].asTemplate });
         } else {
             cfg.create();
             markClean();
@@ -1394,8 +1313,58 @@ var OfficeApp = (function () {
             }
         });
         installFloatWindowCloseGuard();
+        installStandaloneDropOpen();
 
         updateTitle();
+
+        // the standalone build has no storage behind it - say so once, so
+        // "Save downloads a copy" is not a surprise the first time
+        if (OfficePlatform.isStandalone() && (!inputs || !inputs.length)) {
+            setStatus("Web edition - open a " + cfg.extension +
+                " from this device, and Save downloads it back", "info", 9000);
+        }
+    }
+
+    /*
+        Standalone build: dropping a document on the window opens it.
+        This is the whole point of the web edition - somebody was sent a
+        .doca and wants to look at it - so it is worth a drop target even
+        though the apps already handle drops of their own.
+
+        It listens in the capture phase but only claims the event when every
+        dropped file is one this app can open; anything else (an image being
+        dropped into the page, say) falls straight through to the app's own
+        handler untouched.
+    */
+    function installStandaloneDropOpen() {
+        if (!OfficePlatform.isStandalone()) return;
+        var openable = function (name) {
+            var e = extOf(name);
+            return e === cfg.extension || !!(cfg.importers || {})[e];
+        };
+        var claims = function (e) {
+            var dt = e.dataTransfer;
+            if (!dt || !dt.files || dt.files.length !== 1) return false;
+            return openable(dt.files[0].name);
+        };
+        document.addEventListener("dragover", function (e) {
+            if (!claims(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "copy";
+        }, true);
+        document.addEventListener("drop", function (e) {
+            if (!claims(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var file = e.dataTransfer.files[0];
+            var go = function () { OfficePlatform.adoptDroppedFile(file, openPath); };
+            if (dirty) {
+                confirmDialog("Discard unsaved changes?",
+                    "The current document has unsaved changes that will be lost.",
+                    "Discard", "Cancel", function (yes) { if (yes) go(); });
+            } else { go(); }
+        }, true);
     }
 
     /* The desktop routes a floatWindow's X button through the iframe's
@@ -1476,6 +1445,9 @@ var OfficeApp = (function () {
         getSetting: getSetting,
         setSetting: setSetting,
         getRecents: getRecents,
+        // host (see common/platform.js)
+        hasBackend: function () { return OfficePlatform.hasBackend(); },
+        isStandalone: function () { return OfficePlatform.isStandalone(); },
         // vfs / media
         vfsLoad: vfsLoad,
         vfsSave: vfsSave,

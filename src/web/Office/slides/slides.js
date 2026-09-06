@@ -1168,21 +1168,24 @@ var SlidesApp = (function () {
         img.onerror = function () { place(480, 320); };
         img.src = src;
     }
+    /* ArozOS storage does not exist in the standalone web edition; the menu
+       drops the entry there rather than offering a picker that cannot open. */
+    function storageSourceItem(action) {
+        if (!OfficePlatform.hasBackend()) return null;
+        return { label: "From ArozOS storage...", icon: "folder open", action: action };
+    }
     function imageFromStorage() {
-        try {
-            ao_module_openFileSelector(function (files) {
-                (files || []).forEach(function (f) {
-                    // reference the storage file - packToFile embeds it into
-                    // the container at save time, keeping edits lightweight
-                    placeImage(OfficeApp.mediaUrl(f.filepath));
-                });
-            }, "user:/Desktop", "file", true, {
-                filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
-                path_memory_key: "media"
+        OfficePlatform.pickOpen({
+            filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
+            multiple: true,
+            memoryKey: "media"
+        }, function (files) {
+            files.forEach(function (f) {
+                // reference the storage file - packToFile embeds it into
+                // the container at save time, keeping edits lightweight
+                placeImage(OfficeApp.mediaUrl(f.filepath));
             });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        });
     }
     function imageFromDevice() {
         $("#slDeviceImage").trigger("click");
@@ -1221,15 +1224,10 @@ var SlidesApp = (function () {
         var filters = kind === "video"
             ? ["mp4", "webm", "ogv"]
             : ["mp3", "wav", "ogg", "flac", "aac"];
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                // just link it - packToFile embeds the file at save time
-                placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
-            }, "user:/Desktop", "file", false, { filter: filters, path_memory_key: "media" });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        OfficePlatform.pickOpen({ filter: filters, memoryKey: "media" }, function (files) {
+            // just link it - packToFile embeds the file at save time
+            placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
+        });
     }
     function mediaFromDevice(kind) {
         var input = document.createElement("input");
@@ -2552,7 +2550,7 @@ var SlidesApp = (function () {
         var $imgBtn = tbtn("image outline", "Insert image", function (e) {
             var r = e.currentTarget.getBoundingClientRect();
             OfficeApp.showContextMenu(r.left, r.bottom + 4, [
-                { label: "From ArozOS storage...", icon: "folder open", action: imageFromStorage },
+                storageSourceItem(imageFromStorage),
                 { label: "From this device...", icon: "upload", action: imageFromDevice },
                 { label: "From URL...", icon: "linkify", action: imageFromUrl }
             ]);
@@ -2775,21 +2773,29 @@ var SlidesApp = (function () {
     }
     function clearPrintArea() { $("#slPrintArea").empty(); }
 
-    /* ================= PPTX import / export ================= */
+    /* ================= PPTX / ODP import / export =================
+       The same Go converters either way: the office AGI library in ArozOS,
+       the WebAssembly build of it (src/wasm/office) in the standalone web
+       edition. One descriptor names both; OfficePlatform picks. A null wasm
+       name marks a conversion that is still server-only. */
     var PPTX_BACKEND = "Office/slides/backend/pptx.agi";
+    var CONVERT = {
+        "import": { agi: PPTX_BACKEND, action: "import", wasm: "pptxToPresentation" },
+        "import-odf": { agi: PPTX_BACKEND, action: "import-odf", wasm: "odpToPresentation" },
+        "export": { agi: PPTX_BACKEND, action: "export", wasm: "presentationToPptx" },
+        "export-odf": { agi: PPTX_BACKEND, action: "export-odf", wasm: "presentationToOdp" },
+        // the real-text PDF renderer stays server side; the web edition
+        // offers File > Print / PDF instead
+        "export-pdf": { agi: PPTX_BACKEND, action: "export-pdf", wasm: null }
+    };
 
-    /* Load a .pptx ("import") or .odp ("import-odf") from ArozOS storage
-       through the "office" AGI lib. */
+    /* Load a .pptx ("import") or .odp ("import-odf"). */
     function importPptx(fp, fn, action) {
         action = action || "import";
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(PPTX_BACKEND, { action: action, src: fp }, function (data) {
+        OfficePlatform.convertIn(CONVERT[action], fp, function (data) {
             OfficeApp.hideBusy();
-            if (!data || data.error) {
-                OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
-                return;
-            }
-            var b = data.body;
+            var b = data;
             if (typeof b === "string") {
                 try { b = JSON.parse(b); } catch (e) { b = null; }
             }
@@ -2805,24 +2811,19 @@ var SlidesApp = (function () {
             undo.init(snap());
             OfficeApp.markDirty();
             OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .ppta");
-        }, function () {
+        }, function (msg) {
             OfficeApp.hideBusy();
-            OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
-        }, 120000);
+            OfficeApp.toast("Import failed: " + msg, "error");
+        });
     }
     function importOdp(fp, fn) { importPptx(fp, fn, "import-odf"); }
     function importPptxDialog() {
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    var fp = files[0].filepath, fn = files[0].filename;
-                    if (/\.odp$/i.test(fn)) importOdp(fp, fn);
-                    else importPptx(fp, fn);
-                }
-            }, "user:/Desktop", "file", false, { filter: ["pptx", "odp"], path_memory_key: "import" });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        if (!OfficePlatform.requireConvert("PowerPoint / OpenDocument import")) return;
+        OfficePlatform.pickOpen({ filter: ["pptx", "odp"], memoryKey: "import" }, function (files) {
+            var fp = files[0].filepath, fn = files[0].filename;
+            if (/\.odp$/i.test(fn)) importOdp(fp, fn);
+            else importPptx(fp, fn);
+        });
     }
 
     /* Rasterize a chart spec to a PNG dataURL (charts export as pictures). */
@@ -2937,45 +2938,39 @@ var SlidesApp = (function () {
     // ("export-pdf"): all need the prepared body (charts rastered to PNG,
     // images inlined, video poster frames captured)
     function exportSlidesFile(ext, action, busyLabel) {
+        var spec = CONVERT[action];
+        // PDF is server-only; the rest run wherever there are converters
+        var allowed = spec.wasm ? OfficePlatform.requireConvert("Exporting " + ext)
+            : OfficePlatform.requireBackend("Exporting " + ext);
+        if (!allowed) return;
         endEdit(true);
         var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ext;
-        var extRe = new RegExp("\\" + ext + "$", "i");
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                var fp = files[0].filepath;
-                if (!extRe.test(fp)) fp += ext;
-                OfficeApp.showBusy(busyLabel);
-                prepareBodyForPptx().then(function (prepared) {
-                    // agirunLarge: decks with inlined images blow past the
-                    // 10MB POST form limit, so big payloads travel as an
-                    // uploaded temp file instead of a form field
-                    OfficeApp.agirunLarge(PPTX_BACKEND, {
-                        action: action,
-                        dest: fp,
-                        data: JSON.stringify(prepared)
-                    }, "data", function (data) {
-                        OfficeApp.hideBusy();
-                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                        if (data && data.mediaZip) {
-                            // pptx export packs video/audio into a sidecar zip
-                            OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
-                                " - video/audio files saved to " + OfficeApp.basename(data.mediaZip));
-                        } else {
-                            OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                        }
-                    }, function (errmsg) {
-                        OfficeApp.hideBusy();
-                        OfficeApp.toast("Export failed: " + errmsg, "error");
-                    }, 180000);
-                }).catch(function (err) {
+        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            OfficeApp.showBusy(busyLabel);
+            prepareBodyForPptx().then(function (prepared) {
+                // in ArozOS this posts through agirunLarge (decks with
+                // inlined images blow past the 10MB POST form limit); in the
+                // web edition it runs in the wasm module and downloads
+                OfficePlatform.convertOut(spec, fp, JSON.stringify(prepared), function (res) {
                     OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: " + (err && err.message ? err.message : "prepare error"), "error");
+                    OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                    if (res && res.mediaZip) {
+                        // pptx export packs video/audio into a sidecar zip
+                        OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
+                            " - video/audio files saved to " + res.mediaZip);
+                    } else {
+                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                    }
+                }, function (errmsg) {
+                    OfficeApp.hideBusy();
+                    OfficeApp.toast("Export failed: " + errmsg, "error");
                 });
-            }, "user:/Desktop", "new", false, { defaultName: defName, path_memory_key: "export" });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+            }).catch(function (err) {
+                OfficeApp.hideBusy();
+                OfficeApp.toast("Export failed: " + (err && err.message ? err.message : "prepare error"), "error");
+            });
+        });
     }
     function exportPptx() { exportSlidesFile(".pptx", "export", "Exporting PowerPoint file..."); }
     function exportOdp() { exportSlidesFile(".odp", "export-odf", "Exporting OpenDocument file..."); }
@@ -2989,7 +2984,7 @@ var SlidesApp = (function () {
             { label: "Text box", icon: "font", action: insertText },
             {
                 label: "Image", icon: "image outline", sub: [
-                    { label: "From ArozOS storage...", icon: "folder open", action: imageFromStorage },
+                    storageSourceItem(imageFromStorage),
                     { label: "From this device...", icon: "upload", action: imageFromDevice },
                     { label: "From URL...", icon: "linkify", action: imageFromUrl }
                 ]
@@ -3006,13 +3001,13 @@ var SlidesApp = (function () {
             { sep: true },
             {
                 label: "Video", icon: "film", sub: [
-                    { label: "From ArozOS storage...", icon: "folder open", action: function () { mediaFromStorage("video"); } },
+                    storageSourceItem(function () { mediaFromStorage("video"); }),
                     { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("video"); } }
                 ]
             },
             {
                 label: "Audio", icon: "music", sub: [
-                    { label: "From ArozOS storage...", icon: "folder open", action: function () { mediaFromStorage("audio"); } },
+                    storageSourceItem(function () { mediaFromStorage("audio"); }),
                     { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("audio"); } }
                 ]
             },
@@ -3317,31 +3312,46 @@ var SlidesApp = (function () {
                 ".pptx": function (fp, fn) { importPptx(fp, fn); },
                 ".odp": importOdp
             },
+            /*
+                .pptx / .odp need the Office converters - the AGI backend in
+                ArozOS, the WebAssembly module in the web edition. The
+                real-text .pdf renderer is still server-only, so the web
+                edition points at File > Print / PDF for that. The PNG
+                exports are rendered by html2canvas right here and are always
+                available.
+            */
             fileMenuExtras: [
-                { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
+                !OfficePlatform.canConvert() ? null :
+                    { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
                 {
-                    label: "Export", icon: "external alternate", sub: [
-                        {
-                            label: "PowerPoint (.pptx)", icon: "file powerpoint outline",
-                            action: exportPptx
-                        },
-                        {
-                            label: "OpenDocument (.odp)", icon: "file alternate outline",
-                            action: exportOdp
-                        },
-                        {
-                            label: "PDF document (.pdf)", icon: "file pdf outline",
-                            action: exportPdf
-                        },
-                        {
+                    label: "Export", icon: "external alternate", sub: function () {
+                        var items = [];
+                        if (OfficePlatform.canConvert()) {
+                            items.push({
+                                label: "PowerPoint (.pptx)", icon: "file powerpoint outline",
+                                action: exportPptx
+                            });
+                            items.push({
+                                label: "OpenDocument (.odp)", icon: "file alternate outline",
+                                action: exportOdp
+                            });
+                        }
+                        if (OfficePlatform.hasBackend()) {
+                            items.push({
+                                label: "PDF document (.pdf)", icon: "file pdf outline",
+                                action: exportPdf
+                            });
+                        }
+                        items.push({
                             label: "Current slide as PNG", icon: "file image outline",
                             action: function () { SlidesExport.exportPNG(false); }
-                        },
-                        {
+                        });
+                        items.push({
                             label: "All slides as PNGs", icon: "images outline",
                             action: function () { SlidesExport.exportPNG(true); }
-                        }
-                    ]
+                        });
+                        return items;
+                    }
                 }
             ],
             viewMenuExtras: [

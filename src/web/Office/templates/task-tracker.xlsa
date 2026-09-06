@@ -1,0 +1,189 @@
+{
+ "type": "arozos/office",
+ "app": "spreadsheet",
+ "version": 1,
+ "meta": {
+  "title": "Task Tracker",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "sheets": [
+   {
+    "name": "Tasks",
+    "cells": {
+     "A1": {
+      "v": "Task Tracker",
+      "s": {
+       "b": true,
+       "fs": 18
+      }
+     },
+     "A3": {
+      "v": "Task",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "B3": {
+      "v": "Owner",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "C3": {
+      "v": "Status",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "D3": {
+      "v": "Due",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "E3": {
+      "v": "Notes",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "A4": {
+      "v": "Write the project brief"
+     },
+     "B4": {
+      "v": "Ana"
+     },
+     "C4": {
+      "v": "Done"
+     },
+     "D4": {
+      "v": "2026-01-12",
+      "s": {
+       "fmt": "date"
+      }
+     },
+     "E4": {
+      "v": "Signed off"
+     },
+     "A5": {
+      "v": "Draft the schedule"
+     },
+     "B5": {
+      "v": "Ben"
+     },
+     "C5": {
+      "v": "In progress"
+     },
+     "D5": {
+      "v": "2026-01-19",
+      "s": {
+       "fmt": "date"
+      }
+     },
+     "E5": {
+      "v": ""
+     },
+     "A6": {
+      "v": "Book the venue"
+     },
+     "B6": {
+      "v": "Chi"
+     },
+     "C6": {
+      "v": "Blocked"
+     },
+     "D6": {
+      "v": "2026-01-22",
+      "s": {
+       "fmt": "date"
+      }
+     },
+     "E6": {
+      "v": "Waiting on budget"
+     },
+     "A7": {
+      "v": "Send invitations"
+     },
+     "B7": {
+      "v": "Ana"
+     },
+     "C7": {
+      "v": "Not started"
+     },
+     "D7": {
+      "v": "2026-02-02",
+      "s": {
+       "fmt": "date"
+      }
+     },
+     "E7": {
+      "v": ""
+     },
+     "A8": {
+      "v": ""
+     },
+     "B8": {
+      "v": ""
+     },
+     "C8": {
+      "v": ""
+     },
+     "D8": {
+      "v": ""
+     },
+     "E8": {
+      "v": ""
+     },
+     "A10": {
+      "v": "Done",
+      "s": {
+       "b": true
+      }
+     },
+     "B10": {
+      "v": "=COUNTA(A4:A8)"
+     },
+     "A11": {
+      "v": "Total",
+      "s": {
+       "b": true
+      }
+     },
+     "B11": {
+      "v": "=COUNTA(A4:A8)"
+     }
+    },
+    "colW": {
+     "0": 230,
+     "1": 90,
+     "2": 110,
+     "3": 110,
+     "4": 200
+    },
+    "rowH": {},
+    "merges": [],
+    "freeze": {
+     "r": 3,
+     "c": 0
+    },
+    "charts": [],
+    "filter": null
+   }
+  ],
+  "active": 0
+ }
+}

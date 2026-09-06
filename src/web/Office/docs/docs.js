@@ -684,11 +684,14 @@
 
     /* ================= images ================= */
     function imageMenuItems() {
-        return [
-            { label: "From ArozOS storage...", icon: "hdd outline", action: insertImageFromStorage },
-            { label: "From this device...", icon: "upload", action: function () { $("#deviceImageInput").trigger("click"); } },
-            { label: "From URL...", icon: "world", action: insertImageFromUrl }
-        ];
+        var items = [];
+        // no ArozOS storage to browse in the standalone web edition
+        if (OfficePlatform.hasBackend()) {
+            items.push({ label: "From ArozOS storage...", icon: "hdd outline", action: insertImageFromStorage });
+        }
+        items.push({ label: "From this device...", icon: "upload", action: function () { $("#deviceImageInput").trigger("click"); } });
+        items.push({ label: "From URL...", icon: "world", action: insertImageFromUrl });
+        return items;
     }
     function insertImage(src) {
         if (!src) return;
@@ -701,15 +704,13 @@
     }
     function insertImageFromStorage() {
         try {
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    // reference the storage file - packToFile embeds it into
-                    // the container at save time, keeping edits lightweight
-                    insertImage(OfficeApp.mediaUrl(files[0].filepath));
-                }
-            }, "user:/Desktop", "file", false, {
+            OfficePlatform.pickOpen({
                 filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
-                path_memory_key: "media"
+                memoryKey: "media"
+            }, function (files) {
+                // reference the storage file - packToFile embeds it into
+                // the container at save time, keeping edits lightweight
+                insertImage(OfficeApp.mediaUrl(files[0].filepath));
             });
         } catch (e) {
             OfficeApp.toast("File selector unavailable outside ArozOS", "error");
@@ -2645,19 +2646,27 @@
         setImportedContent(sanitizeHtml(text, { keepClasses: false }));
     }
 
-    /* ================= DOCX import / export (office AGI lib) ================= */
+    /* ================= DOCX / ODT import / export =================
+       The same Go converters either way: the office AGI library in ArozOS,
+       the WebAssembly build of it (src/wasm/office) in the standalone web
+       edition. One descriptor names both, and OfficePlatform picks. */
     var DOCX_BACKEND = "Office/docs/backend/docx.agi";
+    var CONVERT = {
+        "import": { agi: DOCX_BACKEND, action: "import", wasm: "docxToDocument" },
+        "import-odf": { agi: DOCX_BACKEND, action: "import-odf", wasm: "odtToDocument" },
+        "export": { agi: DOCX_BACKEND, action: "export", wasm: "documentToDocx" },
+        "export-odf": { agi: DOCX_BACKEND, action: "export-odf", wasm: "documentToOdt" },
+        // the real-text PDF renderer stays server side for now; the web
+        // edition offers File > Print / PDF instead
+        "export-pdf": { agi: DOCX_BACKEND, action: "export-pdf", wasm: null }
+    };
 
     // shared by .docx ("import") and .odt ("import-odf")
     function importDocFile(fp, fn, action) {
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(DOCX_BACKEND, { action: action, src: fp }, function (data) {
+        OfficePlatform.convertIn(CONVERT[action], fp, function (body) {
             OfficeApp.hideBusy();
-            if (!data || data.error) {
-                OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
-                return;
-            }
-            var b = data.body;
+            var b = body;
             if (typeof b === "string") {
                 try { b = JSON.parse(b); } catch (e) { b = null; }
             }
@@ -2669,25 +2678,20 @@
             undo.reset(snapshot());
             OfficeApp.markDirty();
             OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .doca");
-        }, function () {
+        }, function (msg) {
             OfficeApp.hideBusy();
-            OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
-        }, 120000);
+            OfficeApp.toast("Import failed: " + msg, "error");
+        });
     }
     function importDocx(fp, fn) { importDocFile(fp, fn, "import"); }
     function importOdt(fp, fn) { importDocFile(fp, fn, "import-odf"); }
     function importDocxDialog() {
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    var fp = files[0].filepath, fn = files[0].filename;
-                    if (/\.odt$/i.test(fn)) importOdt(fp, fn);
-                    else importDocx(fp, fn);
-                }
-            }, "user:/Desktop", "file", false, { filter: ["docx", "odt"], path_memory_key: "import" });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        if (!OfficePlatform.requireConvert("Word / OpenDocument import")) return;
+        OfficePlatform.pickOpen({ filter: ["docx", "odt"], memoryKey: "import" }, function (files) {
+            var fp = files[0].filepath, fn = files[0].filename;
+            if (/\.odt$/i.test(fn)) importOdt(fp, fn);
+            else importDocx(fp, fn);
+        });
     }
 
     /* inline storage-served images (media?file=...) as data URLs so the
@@ -2808,43 +2812,37 @@
     }
     // shared by .docx ("export") and .odt ("export-odf")
     function exportDocFile(ext, action, busyLabel) {
+        var spec = CONVERT[action];
+        // PDF is server-only; the rest run wherever there are converters
+        var allowed = spec.wasm ? OfficePlatform.requireConvert("Exporting " + ext)
+            : OfficePlatform.requireBackend("Exporting " + ext);
+        if (!allowed) return;
         var defName = exportBaseName() + ext;
-        var extRe = new RegExp("\\" + ext + "$", "i");
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                var fp = files[0].filepath;
-                if (!extRe.test(fp)) fp += ext;
-                OfficeApp.showBusy(busyLabel);
-                var body = currentBody();
-                // suggestions applied, comment anchors unwrapped
-                body.html = resolvedHtml();
-                if (action === "export-pdf") {
-                    // PDF core fonts have no emoji glyphs - rasterize them
-                    body.html = rasterizeEmojiForPdf(body.html);
-                }
-                inlineImagesForExport(body.html).then(function (inlined) {
-                    body.html = inlined;
-                    // agirunLarge: documents with inlined images blow past
-                    // the 10MB POST form limit, so big payloads travel as an
-                    // uploaded temp file instead of a form field
-                    OfficeApp.agirunLarge(DOCX_BACKEND, {
-                        action: action,
-                        dest: fp,
-                        data: JSON.stringify(body)
-                    }, "data", function () {
-                        OfficeApp.hideBusy();
-                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                    }, function (errmsg) {
-                        OfficeApp.hideBusy();
-                        OfficeApp.toast("Export failed: " + errmsg, "error");
-                    }, 180000);
+        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            OfficeApp.showBusy(busyLabel);
+            var body = currentBody();
+            // suggestions applied, comment anchors unwrapped
+            body.html = resolvedHtml();
+            if (action === "export-pdf") {
+                // PDF core fonts have no emoji glyphs - rasterize them
+                body.html = rasterizeEmojiForPdf(body.html);
+            }
+            inlineImagesForExport(body.html).then(function (inlined) {
+                body.html = inlined;
+                // in ArozOS this posts through agirunLarge (documents with
+                // inlined images blow past the 10MB POST form limit); in the
+                // web edition it runs in the wasm module and downloads
+                OfficePlatform.convertOut(spec, fp, JSON.stringify(body), function () {
+                    OfficeApp.hideBusy();
+                    OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                    OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                }, function (errmsg) {
+                    OfficeApp.hideBusy();
+                    OfficeApp.toast("Export failed: " + errmsg, "error");
                 });
-            }, "user:/Desktop", "new", false, { defaultName: defName, path_memory_key: "export" });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+            });
+        });
     }
     function exportDocx() { exportDocFile(".docx", "export", "Exporting Word file..."); }
     function exportOdt() { exportDocFile(".odt", "export-odf", "Exporting OpenDocument file..."); }
@@ -3364,19 +3362,33 @@
                     }
                 }
             ],
+            /*
+                .docx / .odt need the Office converters - the AGI backend in
+                ArozOS, the WebAssembly module in the web edition. The
+                real-text .pdf renderer is still server-only, so the web
+                edition points at File > Print / PDF for that. .html / .md /
+                .txt are written right here and are always available.
+            */
             fileMenuExtras: [
                 { label: "Page setup...", icon: "file alternate outline", action: pageSetupDialog },
-                { label: "Import Word / OpenDocument...", icon: "file word outline", action: importDocxDialog },
+                !OfficePlatform.canConvert() ? null :
+                    { label: "Import Word / OpenDocument...", icon: "file word outline", action: importDocxDialog },
                 {
                     label: "Export", icon: "external alternate",
-                    sub: [
-                        { label: "Word (.docx)", icon: "file word outline", action: exportDocx },
-                        { label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt },
-                        { label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf },
-                        { label: "Web page (.html)", icon: "file code outline", action: exportHTML },
-                        { label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown },
-                        { label: "Plain text (.txt)", icon: "file outline", action: exportText }
-                    ]
+                    sub: function () {
+                        var items = [];
+                        if (OfficePlatform.canConvert()) {
+                            items.push({ label: "Word (.docx)", icon: "file word outline", action: exportDocx });
+                            items.push({ label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt });
+                        }
+                        if (OfficePlatform.hasBackend()) {
+                            items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf });
+                        }
+                        items.push({ label: "Web page (.html)", icon: "file code outline", action: exportHTML });
+                        items.push({ label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown });
+                        items.push({ label: "Plain text (.txt)", icon: "file outline", action: exportText });
+                        return items;
+                    }
                 }
             ],
             editMenuExtras: [

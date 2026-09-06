@@ -24,6 +24,9 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
    directly in the browser.
 4. Every page must work both inside an ArozOS FloatWindow **and** standalone in
    a plain browser tab (ao_module handles this; never call `parent.*` directly).
+5. **Never call `ao_module_*` or `ao_root` directly — go through
+   `OfficePlatform`** (see below). The suite ships in two hosts and that layer
+   is the only thing that knows which one it is running in.
 
 ## Standard page skeleton
 
@@ -39,6 +42,16 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <link rel="stylesheet" href="app.css">
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <!-- host layer: mode.js picks the host, container.js is the browser-side
+         .doca/.xlsa/.ppta packer, recents.js is the browser-side recent
+         document store, wasm.js lazily loads the Office format converters,
+         platform.js is the abstraction itself.
+         All five must load before office.js. -->
+    <script src="../common/mode.js"></script>
+    <script src="../common/container.js"></script>
+    <script src="../common/recents.js"></script>
+    <script src="../common/wasm.js"></script>
+    <script src="../common/platform.js"></script>
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
@@ -174,6 +187,122 @@ Utils: `escapeHtml basename dirname extOf stripExt`.
 
 Reserved shortcuts (framework): Ctrl+S/Shift+S/O/Alt+N/P/=/-/0, Ctrl+Z/Y via
 your hooks, Ctrl+/ (shortcuts help). Register everything else yourself.
+
+## OfficePlatform (common/platform.js) — the host abstraction
+
+The suite runs in two hosts from one code base, and this is the seam:
+
+| host | where | file dialogs | documents | Office-format conversions |
+|---|---|---|---|---|
+| `arozos` | the ArozOS desktop | `ao_module_openFileSelector` | ArozOS virtual file system | the AGI backends → `mod/office` |
+| `standalone` | any static web server ("ArozOS Office Web") | `<input type=file>` / drag and drop / `?open=<relative path>` | the visitor's device; `Save` downloads the file back | the same `mod/office` code compiled to WebAssembly — **when the build shipped it** |
+
+The mode is one line in `common/mode.js` (`window.OFFICE_STANDALONE`, plus
+`window.OFFICE_WASM`), which `apps/ArozOS Office Web/generate.go` rewrites in
+its output tree. Never test those flags — ask `OfficePlatform`.
+
+### Two capability questions, deliberately separate
+
+```js
+OfficePlatform.hasBackend()   // is there an ArozOS server?
+                              // gate storage, AGI scripts, accounts,
+                              // and the real-text PDF renderer on this
+OfficePlatform.canConvert()   // can this build convert .docx/.xlsx/.pptx/ODF?
+                              // true in ArozOS; true in a standalone build
+                              // made with -wasm. Gate import/export on this.
+```
+
+They are not the same question and must not be conflated: a standalone build
+with the converters can write a .docx but still cannot render a server PDF.
+
+```js
+OfficePlatform.mode()               // "arozos" | "standalone"
+OfficePlatform.isStandalone()       // !hasBackend()
+OfficePlatform.requireBackend(what) // guards: toast + return false when the
+OfficePlatform.requireConvert(what) // capability is missing
+OfficePlatform.tracksRecents()      // false in standalone (paths do not outlive the page)
+OfficePlatform.autosavesToFile()    // false in standalone (autosave would download)
+
+// dialogs - cb gets [{filepath, filename}] / {filepath, filename}
+OfficePlatform.pickOpen({filter:["doca","txt"], multiple, memoryKey}, cb)
+OfficePlatform.pickSave({defaultName, ext, memoryKey, forceOverwrite}, cb)
+
+// Office interchange formats. One descriptor names both mechanisms; the
+// host picks. wasm:null marks a conversion that is still server-only.
+OfficePlatform.convertIn({agi, action, wasm}, srcPath, cb(bodyJson), errcb)
+OfficePlatform.convertOut({agi, action, wasm}, destPath, bodyJson,
+                          cb({mediaZip}), errcb)
+
+// io - OfficeApp.vfsLoad / vfsSave / blobToSrc / mediaUrl / agirunLarge all
+// forward to these, so app code normally keeps using OfficeApp
+readText writeText containerLoad containerSave
+sessionSave sessionLoad sessionDelete
+agirun agirunLarge prepareWorkdir mediaUrl blobToSrc
+loadInputFiles adoptDroppedFile setWindowTitle setWindowTheme
+```
+
+**Adding a format conversion:** add the converter to
+[`src/wasm/office/convert.go`](../../../wasm/office/convert.go) (and its
+pairing test), then call `OfficePlatform.convertIn/convertOut` with a
+descriptor naming the AGI action *and* the wasm converter. Gate the menu
+entry on `canConvert()` and guard the handler with `requireConvert()`.
+A `saveFormats` writer gets `needsConvert: true`.
+
+**Adding something that needs the server outright:** guard with
+`requireBackend()`, build the menu entry behind `hasBackend()`, and mark a
+writer `needsBackend: true`. The framework filters both flags out of Save As,
+save-back and autosave for you, and `cfg.binaryImporters` are dropped
+wholesale when `canConvert()` is false — nothing else is needed for an
+importer.
+
+`OfficeContainer` (`common/container.js`) is the browser-side twin of
+`mod/office/packed.go`: `pack(envelopeJson) -> Uint8Array` and
+`unpack(bytes) -> envelopeJson` for the native zip containers, with assets
+inlined as data URLs on the way in and re-extracted on the way out. It is
+what makes the standalone build able to open a file ArozOS wrote, and write
+one ArozOS can open. Only `platform.js` calls it.
+Tests: `node common/test_container.js`.
+
+`OfficeRecents` (`common/recents.js`) is the suite's *browser-side* recent
+document list, and the thing that makes the home page work. A file the visitor
+picked is a `File` that dies with the page, so a recent document here is a
+**copy of the document**, not a pointer to one: the index (name, app, size,
+time) lives in `localStorage` so it can be read synchronously, and the bytes
+live in IndexedDB. `OfficePlatform` writes to it on every open and save in the
+standalone host, and resolves `recent:/<id>` back out of it.
+
+```js
+OfficeRecents.supported()                          // is there anywhere to store?
+OfficeRecents.index()                              // newest first, synchronous
+OfficeRecents.remember({name, app, ext, bytes}, cb(id), errcb)
+OfficeRecents.load(id, cb(Uint8Array), errcb)
+OfficeRecents.touch(id) / forget(id, cb) / clear(cb)
+```
+
+Entries are keyed by name + app, so re-saving updates one entry rather than
+piling up copies, and both a count and a total-bytes cap evict the oldest.
+
+**Entry points.** Any page can point an app at something to load, in either
+host — this is how the home page opens templates and recent documents:
+
+| link | effect |
+|---|---|
+| `?open=<relative path>` | open a document published next to the app |
+| `?template=<relative path>` | load it as a **new unsaved document**, so Save asks for a name instead of writing back over the template |
+| `?recent=<id>` | reopen one of this browser's recent documents |
+
+Paths must be relative; `fetchRelative` refuses anything with a scheme, so
+`?open=` cannot be turned into a fetch of another site. A path that is not a
+vpath (`user:/`, `local:/`, `recent:/`, …) is read over HTTP and unpacked
+client-side **in both hosts**, which is what lets `templates/` work in ArozOS
+as well as in the web edition.
+
+`OfficeWasm` (`common/wasm.js`) loads the WebAssembly converters
+(`Office/common/wasm/office.wasm`, built from
+[`src/wasm/office`](../../../wasm/office)) the first time a conversion is
+actually asked for — never on page load, since the module is several MB and
+most visitors only ever read a `.doca`. Only `platform.js` calls it; the
+suite goes through `convertIn`/`convertOut`.
 
 ## OfficeHotkeys (common/hotkeys.js) — shared keyboard registry
 

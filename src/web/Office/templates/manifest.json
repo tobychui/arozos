@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "note": "Getting-started templates. Files are built by build_templates.js - edit the bodies there, not the .doca/.xlsa/.ppta files. 'preview' names a thumbnail the home page draws as SVG (see drawPreview in home/home.js); 'app' must match the envelope's app field.",
+  "templates": [
+    {
+      "id": "blank-document",
+      "file": "blank-document.doca",
+      "app": "document",
+      "label": "Blank Document",
+      "blurb": "An empty page to start from.",
+      "preview": "doc-blank"
+    },
+    {
+      "id": "report",
+      "file": "report.doca",
+      "app": "document",
+      "label": "Report",
+      "blurb": "Summary, highlights, a table of figures and next steps.",
+      "preview": "doc-report"
+    },
+    {
+      "id": "resume",
+      "file": "resume.doca",
+      "app": "document",
+      "label": "Resume",
+      "blurb": "Profile, experience, education and skills.",
+      "preview": "doc-resume"
+    },
+    {
+      "id": "invoice",
+      "file": "invoice.xlsa",
+      "app": "spreadsheet",
+      "label": "Invoice",
+      "blurb": "Line items, subtotal, tax and total due.",
+      "preview": "sheet-invoice"
+    },
+    {
+      "id": "budget-sheet",
+      "file": "budget-sheet.xlsa",
+      "app": "spreadsheet",
+      "label": "Budget Sheet",
+      "blurb": "Planned against actual, with the difference worked out.",
+      "preview": "sheet-budget"
+    },
+    {
+      "id": "presentation",
+      "file": "presentation.ppta",
+      "app": "presentation",
+      "label": "Presentation",
+      "blurb": "Title, problem, proposal, how it works, the ask.",
+      "preview": "slides-pitch"
+    },
+    {
+      "id": "letter",
+      "file": "letter.doca",
+      "app": "document",
+      "label": "Letter",
+      "blurb": "Addresses, date, salutation and sign-off.",
+      "preview": "doc-letter"
+    },
+    {
+      "id": "meeting-notes",
+      "file": "meeting-notes.doca",
+      "app": "document",
+      "label": "Meeting Notes",
+      "blurb": "Attendees, agenda, decisions and an actions table.",
+      "preview": "doc-notes"
+    },
+    {
+      "id": "task-tracker",
+      "file": "task-tracker.xlsa",
+      "app": "spreadsheet",
+      "label": "Task Tracker",
+      "blurb": "Task, owner, status and due date, with a frozen header.",
+      "preview": "sheet-tasks"
+    },
+    {
+      "id": "lesson",
+      "file": "lesson.ppta",
+      "app": "presentation",
+      "label": "Lesson",
+      "blurb": "Objectives, starter, main activity and plenary.",
+      "preview": "slides-lesson"
+    },
+    {
+      "id": "blank-spreadsheet",
+      "file": "blank-spreadsheet.xlsa",
+      "app": "spreadsheet",
+      "label": "Blank Spreadsheet",
+      "blurb": "An empty grid to start from.",
+      "preview": "sheet-blank"
+    },
+    {
+      "id": "blank-presentation",
+      "file": "blank-presentation.ppta",
+      "app": "presentation",
+      "label": "Blank Presentation",
+      "blurb": "One empty slide to start from.",
+      "preview": "slides-blank"
+    }
+  ]
+}
