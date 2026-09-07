@@ -398,18 +398,26 @@
         <div id="openWith" class="popup" style="display:none;">
             <div class="popupheader">
                 <i class="external icon"></i> <span locale="opr/openwith/title">Open File With</span>
-                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                <div class="popupcloser desktopOnly" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent">
                <p locale="opr/openwith/desc">Select a module from the list below:</p>
-                <div id="openWithModuleList" class="ui segment" style="padding:0px;">
-                    <div class="item selectable">
-                        <div class="content" style="padding-left:12px;">
-                            <div class="header" locale="opr/openwith/loading">Loading...</div>
+                <div id="openWithModuleList">
+                    <div class="openWithSectionLabel" id="openWithSuggestedLabel" locale="opr/openwith/suggested">Suggested WebApps</div>
+                    <div id="openWithSuggestedList">
+                        <div class="item">
+                            <div class="content">
+                                <div class="header" locale="opr/openwith/loading">Loading...</div>
+                            </div>
                         </div>
                     </div>
+                    <div class="openWithToggleRow" id="openWithToggleRow" style="display:none;" onclick="toggleOpenWithOtherModules();">
+                        <i class="caret right icon" id="openWithToggleIcon"></i>
+                        <span id="openWithToggleLabel" locale="opr/openwith/showAll">Other WebApps...</span>
+                    </div>
+                    <div id="openWithOtherList" style="display:none;"></div>
                 </div>
                 <div class="openWithModule popupbuttons allowHover primary" onclick="openWithSelectedModule(this);";>
                     <i class="external icon"></i> <span locale="opr/openwith/openWithWebApp">Open with Selected Module</span>
@@ -420,7 +428,7 @@
                 <div class="popupbuttons allowHover vdonly" onclick="openRawFileInFloatWindow(this);">
                     <i class="window restore outline icon"></i> <span locale="opr/openwith/openInNewWindow">Open File directly in floatWindow</span>
                 </div>
-                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                <div class="popupbuttons allowHover mobileOnly" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i> <span locale="opr/openwith/cancel">Cancel</span>
                 </div>
             </div>
@@ -525,13 +533,14 @@
         </div>
 
         <!--
-            Transfer panel. Shows one row per upload (and per zip-preparation
-            task started from download.js). Rendering lives in
-            js/explorer/uploadui.js - the markup below is only the shell.
+            Transfer panel. Shows one row per task - an upload, or the server
+            side zipping a folder download starts in download.js - so its title
+            and summary icon are deliberately generic. Rendering lives in
+            js/explorer/uploadui.js; the markup below is only the shell.
         -->
         <div id="uploadTab" style="display:none;">
             <div class="uploadHeader">
-                <span class="uploadHeaderTitle" id="uploadHeaderTitle">Uploading</span>
+                <span class="uploadHeaderTitle" id="uploadHeaderTitle">Tasks</span>
                 <div class="uploadHeaderBtn" onclick="toggleUploadMinimize();" title="Minimize">
                     <span data-fsicon="minus"></span>
                 </div>
@@ -543,7 +552,7 @@
 
             </div>
             <div class="uploadSummary">
-                <span class="uploadSummaryIcon" data-fsicon="cloudUpload"></span>
+                <span class="uploadSummaryIcon" id="uploadSummaryIcon" data-fsicon="taskProgress"></span>
                 <span class="uploadSummaryText" id="uploadSummaryText"></span>
             </div>
             <div class="uploadActions">

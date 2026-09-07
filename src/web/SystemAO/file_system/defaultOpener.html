@@ -37,7 +37,7 @@
 
                 <div class="dlgDivider"></div>
                 <div class="dlgListRow" id="showAllRow" onclick="toggleAllModules();">
-                    <div class="rowIcon"><i id="showAllIcon" class="plus circle outline icon"></i></div>
+                    <div class="rowIcon"><i id="showAllIcon" class="caret right icon"></i></div>
                     <div class="rowText"><div class="rowTitle" id="showAllLabel" locale="button/showAll">Other applications...</div></div>
                 </div>
                 <div class="dlgList" id="otherList" style="display:none;"></div>
@@ -121,7 +121,7 @@
                         $("#otherList").html(others).show();
                         showingAll = true;
                         $("#showAllLabel").text(applocale.getString("button/showLess", "Hide other applications"));
-                        $("#showAllIcon").attr("class", "minus circle outline icon");
+                        $("#showAllIcon").attr("class", "caret down icon");
                     }else{
                         $("#suggestedList").html(suggested);
                         $("#otherList").html(others);
@@ -147,12 +147,12 @@
                     showingAll = false;
                     $("#otherList").slideUp("fast");
                     $("#showAllLabel").text(applocale.getString("button/showAll", "Other applications..."));
-                    $("#showAllIcon").attr("class", "plus circle outline icon");
+                    $("#showAllIcon").attr("class", "caret right icon");
                 }else{
                     showingAll = true;
                     $("#otherList").slideDown("fast");
                     $("#showAllLabel").text(applocale.getString("button/showLess", "Hide other applications"));
-                    $("#showAllIcon").attr("class", "minus circle outline icon");
+                    $("#showAllIcon").attr("class", "caret down icon");
                 }
             }
 

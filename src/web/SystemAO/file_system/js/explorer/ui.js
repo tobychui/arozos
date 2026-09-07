@@ -448,7 +448,8 @@ $(window).on("resize", function(){
 
 /*
     Hide menu entries that cannot act right now: most operations need a
-    selection, and Paste needs something on the clipboard.
+    selection, and Paste needs something on the clipboard - unless the large
+    toolbar is hidden, in which case Paste always stays.
 
     This applies to the overflow menu only. The large toolbar buttons keep their
     old behaviour of staying put and doing nothing, because a toolbar that
@@ -460,7 +461,15 @@ var OPR_NEEDS_SELECTION = ["open", "openwith", "copy", "cut", "rename", "delete"
 
 function updateOprMenuRelevance(){
     let hasSelection = $(".fileObject.selected").length > 0;
-    let hasClipboard = (typeof clipboard != "undefined") && clipboard.length > 0;
+    let hasClipboard = clipboardHasContent();
+
+    /*
+        With the large toolbar hidden this menu is the only place Paste could be
+        reached from, so it stays listed there whatever the clipboard looks like
+        - what this page knows about the clipboard is not the whole story, see
+        clipboardHasContent() in clipboard.js.
+    */
+    let oprBarHidden = !$("#fileOprBar").is(":visible");
 
     $("#fmMoreMenu [data-opr]").each(function(){
         let opr = $(this).attr("data-opr");
@@ -468,7 +477,7 @@ function updateOprMenuRelevance(){
         if (OPR_NEEDS_SELECTION.indexOf(opr) >= 0){
             usable = hasSelection;
         }else if (opr == "paste"){
-            usable = hasClipboard;
+            usable = hasClipboard || oprBarHidden;
         }
         $(this).toggleClass("fmOprUnusable", !usable);
     });

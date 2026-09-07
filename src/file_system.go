@@ -3331,6 +3331,30 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 		zipDestFsh = nil
 	}
 
+	if opr == "tmpzipAsync" {
+		/*
+			Same as tmpzip, but the zipping runs in the background and reports
+			its progress into the file operation task list, so the caller can
+			follow it on /system/file_system/ongoing instead of staring at a
+			request that returns nothing until the archive is finished.
+		*/
+		if filename == "" {
+			utils.SendErrorResponse(w, "tmpzipAsync does not support a custom destination")
+			return
+		}
+
+		vzipPath := "tmp:/" + filename
+		task := NewOngoingFileOperation(userinfo, "zip", virtualSourcePaths, vzipPath)
+		go runTmpZipTask(task.ID, sourceFshs, realSourcePaths, zipDestFsh, zipOutput, destFsh, rdest)
+
+		js, _ := json.Marshal(map[string]string{
+			"oprid": task.ID,
+			"dest":  vzipPath,
+		})
+		utils.SendJSONResponse(w, string(js))
+		return
+	}
+
 	if opr == "zip" {
 		//Check if destination location exists
 		if rdest == "" || !destFshAbs.FileExists(filepath.Dir(zipOutput)) {
@@ -3366,6 +3390,54 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 		os.Remove(zipOutput)
 	}
 	cleanFsBufferFileFromList(realSourcePaths)
+}
+
+/*
+runTmpZipTask builds a temporary zip in the background, keeping the file
+operation record of oprId up to date so the front end can poll its progress.
+
+The progress handler returns the task's control signal, which is what lets a
+user cancel the archive from the file operation list: ArozZipFileWithProgress
+stops and reports the cancellation as an error, and finishTmpZipTask turns that
+back into a cancelled record.
+*/
+func runTmpZipTask(oprId string, sourceFshs []*filesystem.FileSystemHandler, realSourcePaths []string, zipDestFsh *filesystem.FileSystemHandler, zipOutput string, destFsh *filesystem.FileSystemHandler, rdest string) {
+	err := filesystem.ArozZipFileWithProgress(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false, func(currentFilename string, _ int, _ int, progress float64) int {
+		sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
+		return sig
+	})
+
+	if err != nil {
+		systemWideLogger.PrintAndLog("File System", "Zipping request failed: "+err.Error(), err)
+		finishTmpZipTask(oprId, err)
+		return
+	}
+
+	if destFsh.RequireBuffer {
+		//Write the buffer zip file to destination
+		f, _ := os.Open(zipOutput)
+		err = destFsh.FileSystemAbstraction.WriteStream(rdest, f, 0775)
+		f.Close()
+		os.Remove(zipOutput)
+		if err != nil {
+			systemWideLogger.PrintAndLog("File System", "Zip write to remote file system with driver "+destFsh.Filesystem+" failed", err)
+			finishTmpZipTask(oprId, err)
+			return
+		}
+	}
+
+	cleanFsBufferFileFromList(realSourcePaths)
+	finishTmpZipTask(oprId, nil)
+}
+
+// finishTmpZipTask closes off the task record of a background tmp zip.
+// Pass in the error the zipping ended with, or nil when it completed.
+func finishTmpZipTask(oprId string, err error) {
+	if err != nil {
+		SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Error, err.Error())
+		return
+	}
+	SetFileOperationTaskEnded(oprId, filesystem.FsOpr_Continue, "")
 }
 
 // Manage file version history

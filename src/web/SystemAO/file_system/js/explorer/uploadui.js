@@ -13,6 +13,12 @@
         setUploadTaskState(uuid, state)    -> pending|uploading|processing|
                                               paused|done|failed
         setUploadTaskStatusText(uuid, s)   -> override the right hand label
+        setUploadTaskPercentage(uuid, p)   -> progress of a task that reports a
+                                              percentage rather than bytes
+                                              (server side zipping)
+        setUploadTaskDoneLink(uuid, ...)   -> put a text link on the finished
+                                              row, for a download the browser
+                                              may have blocked
 
     Part of the ArozOS File Manager. Loaded as a plain script from
     file_explorer.html - see the <script> block at the end of that file.
@@ -48,13 +54,18 @@ function appendUploadFileItem(filename, filesize){
         speed: 0,
         lastLoaded: 0,
         lastTime: Date.now(),
-        statusOverride: null
+        statusOverride: null,
+        //Set instead of size/loaded by a task the server reports in percent
+        percent: null,
+        //{label, url, filename} shown in place of the completed tick
+        doneLink: null
     });
 
     $("#uploadProgressList").append(`<div class="uploadTask pending" taskID="${newuuid}">
         <div class="uploadTaskName"></div>
         <div class="uploadTaskMeta">
             <span class="uploadTaskSize"></span>
+            <span class="uploadTaskDoneLink" onclick="onUploadTaskDoneLink('${newuuid}');"></span>
             <span class="uploadTaskStatus"></span>
         </div>
         <div class="uploadTaskActions">
@@ -160,6 +171,52 @@ function setUploadTaskStatusText(taskUUID, text){
 }
 
 /*
+    Progress of a task whose total is not counted in bytes.
+
+    Server side zipping reports how far it is as a percentage of the files it
+    has packed, with no byte figure that would mean anything to the panel, so
+    such a task carries a percentage instead of a loaded/total pair.
+*/
+function setUploadTaskPercentage(taskUUID, percent){
+    let info = uploadTaskInfo.get(taskUUID);
+    if (info === undefined){
+        return;
+    }
+    if (!isFinite(percent)){
+        return;
+    }
+    info.percent = Math.max(0, Math.min(100, percent));
+    renderUploadTask(taskUUID);
+    updateUploadSummary();
+}
+
+/*
+    Put a text link on a completed task, in place of its tick.
+
+    A download that starts on its own is exactly what pop-up blockers stop, and
+    when they do the row would otherwise only say "Completed" with no way to get
+    at the file. The link is that way out - it runs from a real click, which no
+    browser blocks. It sits at the left of the status line, opposite the label,
+    rather than in the button column where it would read as a stray word.
+*/
+function setUploadTaskDoneLink(taskUUID, label, url, filename){
+    let info = uploadTaskInfo.get(taskUUID);
+    if (info === undefined){
+        return;
+    }
+    info.doneLink = {label: label, url: url, filename: filename};
+    renderUploadTask(taskUUID);
+}
+
+function onUploadTaskDoneLink(taskUUID){
+    let info = uploadTaskInfo.get(taskUUID);
+    if (info === undefined || !info.doneLink){
+        return;
+    }
+    generateDownloadFromURL(info.doneLink.url, info.doneLink.filename);
+}
+
+/*
     Rendering
 */
 
@@ -213,6 +270,26 @@ function formatUploadEta(seconds){
     return applocale.getString("upload/eta/hours", "%d hr left").replace("%d", Math.round(seconds / 3600));
 }
 
+/*
+    How far along a task is, in percent.
+
+    Bytes where they are known, the server reported percentage otherwise, and a
+    finished task is always a full bar - a zip whose last file was packed after
+    the final progress report would otherwise stop just short of the end.
+*/
+function uploadTaskPercentage(info){
+    if (info.state == "done"){
+        return 100;
+    }
+    if (info.size > 0){
+        return Math.min(100, info.loaded / info.size * 100);
+    }
+    if (info.percent !== null && info.percent !== undefined){
+        return info.percent;
+    }
+    return 0;
+}
+
 function renderUploadTask(taskUUID){
     let info = uploadTaskInfo.get(taskUUID);
     let row = getUploadTaskByID(taskUUID);
@@ -221,17 +298,16 @@ function renderUploadTask(taskUUID){
     }
 
     let knownSize = info.size > 0;
-    let percentage = 0;
-    if (info.state == "done"){
-        percentage = 100;
-    }else if (knownSize){
-        percentage = Math.min(100, info.loaded / info.size * 100);
-    }
+    let hasPercent = info.percent !== null && info.percent !== undefined;
+    let percentage = uploadTaskPercentage(info);
 
-    //A task with no announced total (zip preparation) has no percentage to
-    //show, so its bar sweeps instead of filling
-    let indeterminate = !knownSize && info.state != "done" && info.state != "failed";
-    row.attr("class", "uploadTask " + info.state + (indeterminate ? " indeterminate" : ""));
+    //Only a task that reports neither bytes nor a percentage has nothing to
+    //fill a bar with, and it sweeps instead
+    let indeterminate = !knownSize && !hasPercent && info.state != "done" && info.state != "failed";
+    let showDoneLink = info.state == "done" && info.doneLink != null;
+    row.attr("class", "uploadTask " + info.state +
+        (indeterminate ? " indeterminate" : "") +
+        (showDoneLink ? " withDoneLink" : ""));
     row.find(".uploadTaskBarFill").css("width", indeterminate ? "" : percentage + "%");
 
     //Byte counter. Without a known total there is nothing meaningful to divide by.
@@ -258,21 +334,36 @@ function renderUploadTask(taskUUID){
     }else if (info.state == "pending"){
         statusText = applocale.getString("upload/waiting", "Waiting");
     }else if (info.state == "processing"){
-        statusText = applocale.getString("upload/processing", "Processing");
+        //"45%" says more than "Processing" once the server reports progress
+        statusText = hasPercent ? Math.round(info.percent) + "%" :
+                     applocale.getString("upload/processing", "Processing");
     }else if (knownSize && info.speed > 0){
         statusText = formatUploadEta((info.size - info.loaded) / info.speed);
     }
     row.find(".uploadTaskStatus").text(statusText);
 
-    //Round button on the right. Completed rows show a status glyph instead of
-    //a control, which is why the icon is chosen from the state, not the handle.
+    //The other half of that line: the download link of a finished download.
+    //Written only when it changes, for the same reason the glyph below is.
+    let linkEl = row.find(".uploadTaskDoneLink");
+    if (showDoneLink && linkEl.text() != info.doneLink.label){
+        linkEl.text(info.doneLink.label);
+    }
+
+    /*
+        Round button on the right, chosen from the state rather than the handle.
+
+        A finished row has no control left to offer, and the tick that used to
+        stand there said nothing the row's own label does not already say, so
+        CSS hides the button on .done and nothing is drawn into it.
+    */
+    if (info.state == "done"){
+        return;
+    }
+
     let handle = uploadTransferMap.get(taskUUID);
     let iconName = "closeCircle";
     let btnTitle = applocale.getString("upload/cancel", "Cancel");
-    if (info.state == "done"){
-        iconName = "checkCircle";
-        btnTitle = applocale.getString("upload/completed", "Completed");
-    }else if (info.state == "failed"){
+    if (info.state == "failed"){
         iconName = "refresh";
         btnTitle = applocale.getString("upload/retry", "Retry");
     }else if (info.state == "paused"){
@@ -311,6 +402,8 @@ function updateUploadSummary(){
     let loaded = 0;
     let total = 0;
     let hasUnknown = false;
+    let percentSum = 0;
+    let taskCount = 0;
     uploadTaskInfo.forEach(function(info){
         loaded += info.loaded;
         if (info.size > 0){
@@ -318,7 +411,14 @@ function updateUploadSummary(){
         }else{
             hasUnknown = true;
         }
+        percentSum += uploadTaskPercentage(info);
+        taskCount++;
     });
+
+    //Every task counts the same towards the ring. Weighting them by size would
+    //need a size for each, which is exactly what a zip task cannot give.
+    let overall = taskCount > 0 ? percentSum / taskCount : 0;
+    setUploadSummaryRing(overall);
 
     //The %s slots get the same boxed number markup as the rows. The literal
     //text around them comes from the locale file and never changes width.
@@ -329,8 +429,30 @@ function updateUploadSummary(){
                 .replace("%s", formatUploadBytesHTML(total));
     }else if (loaded > 0){
         html = formatUploadBytesHTML(loaded);
+    }else if (taskCount > 0){
+        //Nothing to count in bytes - a zip task only ever reports a percentage
+        html = Math.round(overall) + "%";
     }
     $("#uploadSummaryText").html(html);
+}
+
+/*
+    The ring in the summary row.
+
+    It replaces what used to be a cloud upload glyph: the panel carries server
+    side tasks as well as uploads now, so the icon says how far the work is
+    rather than what kind of work it is. The arc is the second circle of the
+    taskProgress icon in shared/fsicons.js, drawn from its 12 o'clock position.
+*/
+function setUploadSummaryRing(percent){
+    let arc = document.querySelector("#uploadSummaryIcon .taskProgressArc");
+    if (arc == null){
+        return;
+    }
+    //Circumference of the icon's r=9 circle in its 24x24 box
+    let circumference = 56.5;
+    let filled = Math.max(0, Math.min(100, percent)) / 100 * circumference;
+    arc.setAttribute("stroke-dasharray", filled.toFixed(1) + " " + circumference);
 }
 
 function updateUploadFileCount(){
@@ -341,11 +463,13 @@ function updateUploadFileCount(){
         }
     });
 
+    //Uploads are not the only thing that rides this panel - a folder download
+    //zips server side first - so the title names tasks rather than uploads
     let title = "";
     if (active > 0){
-        title = applocale.getString("upload/title", "Uploading %d items").replace("%d", active);
+        title = applocale.getString("upload/title", "%d tasks in progress").replace("%d", active);
     }else{
-        title = applocale.getString("upload/titleDone", "%d items completed").replace("%d", $(".uploadTask").length);
+        title = applocale.getString("upload/titleDone", "%d tasks completed").replace("%d", $(".uploadTask").length);
     }
     $("#uploadHeaderTitle").text(title);
 
@@ -651,4 +775,5 @@ window.closeUploadTab = closeUploadTab;
 window.clearCompletedUploads = clearCompletedUploads;
 window.cancelAllUploads = cancelAllUploads;
 window.onUploadTaskButton = onUploadTaskButton;
+window.onUploadTaskDoneLink = onUploadTaskDoneLink;   // the "Download again" link
 window.cancelUploadTask = cancelUploadTask;   // the paused row's cancel button

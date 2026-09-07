@@ -66,6 +66,7 @@ body.whiteTheme {
     --popup_btn_negative_bg_hover: #f57676;
 
     --modulelist_bg: white;
+    --modulelist_hover: rgba(35, 35, 35, 0.06);
 
     --contextmenu_background: #ffffff;
     --contextmenu_hover: #f9f9f9;
@@ -1009,7 +1010,7 @@ body.fmResizing *{
     position: fixed;
     display: none;
     width: 200px;
-    padding: 6px;
+    padding: 4px;
     background-color: var(--contextmenu_background);
     border: 1px solid var(--divider);
     border-radius: 10px;
@@ -1028,8 +1029,8 @@ body.fmResizing *{
 .contextmenu .item{
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
+    gap: 7px;
+    padding: 5px 7px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 13.5px;
@@ -1082,7 +1083,7 @@ body.fmResizing *{
 .contextmenu .divider{
     width: auto;
     height: 1px;
-    margin: 5px 4px;
+    margin: 3px;
     background-color: var(--fs-line-soft);
     border-bottom: 0px;
 }
@@ -1414,24 +1415,72 @@ body.fmResizing *{
     explains itself.
 */
 
+/*
+    The Open With picker. Laid out like the standalone opener dialog
+    (SystemAO/file_system/defaultOpener.html): the WebApps that registered the
+    selected file's extension are listed first and everything else stays folded
+    behind the toggle row, so a long module list no longer buries the two apps
+    that can actually open the file.
+
+    The box grows with its content up to a cap rather than always standing 50vh
+    tall - a two app suggestion list used to leave most of the card empty.
+*/
 #openWithModuleList{
-    height:50vh;
+    max-height:42vh;
     overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width: thin;
+    padding: 4px;
     background-color: var(--modulelist_bg);
     border: 1px solid var(--divider);
-    border-radius: 0;
+    border-radius: 8px;
 }
 
 #openWithModuleList .ui.avatar.image, #openWithModuleList .ui.avatar.image img, #openWithModuleList .ui.avatar.image svg, #openWithModuleList .ui.avatar.images .image, #openWithModuleList .ui.avatar.images img, #openWithModuleList .ui.avatar.images svg{
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    margin: 0px;
     border-radius: 0;
+    object-fit: contain;
+}
+
+.openWithSectionLabel{
+    padding: 6px 8px 4px 8px;
+    color: var(--fs-text-dim);
+    font-size: 12.5px;
 }
 
 #openWithModuleList .item{
-    padding:8px;
-    padding-left:22px;
-    border-radius: 2px;
+    padding: 8px 10px;
+    border-radius: 6px;
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+#openWithModuleList .item .content{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+#openWithModuleList .item .header{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hidden until the row is picked, so the list does not look pre-ticked */
+#openWithModuleList .item .tick{
+    flex: 0 0 auto;
+    width: 20px;
+    text-align: center;
+    color: inherit;
+    visibility: hidden;
+}
+
+#openWithModuleList .item.selected .tick{
+    visibility: visible;
 }
 
 #openWithModuleList .item:hover{
@@ -1445,6 +1494,38 @@ body.fmResizing *{
 
 #openWithModuleList .item.selectable:hover{
     background-color:var(--open_with_item_hover_background);
+}
+
+/* The one row that unfolds the WebApps which did not register this file type */
+.openWithToggleRow{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--divider);
+    border-radius: 6px;
+    color: var(--fs-text-dim);
+    cursor: pointer;
+    user-select: none;
+}
+
+.openWithToggleRow:hover{
+    background-color: var(--open_with_item_hover_background);
+}
+
+.openWithToggleRow i.icon{
+    flex: 0 0 auto;
+    width: 20px;
+    margin: 0px;
+    text-align: center;
+}
+
+.openWithEmptyNote{
+    padding: 14px 10px;
+    text-align: center;
+    color: var(--fs-text-dim);
+    font-size: 13px;
 }
 
 /*
@@ -1580,6 +1661,15 @@ body.fmResizing *{
 }
 
 /*
+    A row with no byte counter has an empty size cell, and the flex gap after it
+    would indent whatever comes next - which is what the download link on a
+    finished download would otherwise be, sitting a notch right of the task name
+*/
+#uploadTab .uploadTaskSize:empty{
+    display: none;
+}
+
+/*
     Byte counters update several times a second, so every glyph has to keep its
     x position or the text is unreadable. Two things are needed: tabular figures
     so "1" occupies the same advance as "8", and a fixed cell per part so a
@@ -1624,8 +1714,15 @@ body.fmResizing *{
     text-align: center;
 }
 
+/*
+    Always the right hand end of the status line, whatever is to its left: a
+    byte counter, the download link of a finished download, or nothing at all.
+    An auto margin rather than the row's space-between, which only reaches the
+    edge when there happen to be two items on the line.
+*/
 #uploadTab .uploadTaskStatus{
     flex: 0 0 auto;
+    margin-left: auto;
     white-space: nowrap;
 }
 
@@ -1638,7 +1735,12 @@ body.fmResizing *{
 #uploadTab .uploadTaskActions{
     grid-column: 2;
     grid-row: 1 / span 2;
-    align-self: center;
+    /*
+        Bottom rather than centre: the column spans the name and the status
+        line, and centring it hung the buttons between the two with a gap under
+        them. Ending the column lines their base up with the status text.
+    */
+    align-self: end;
     display: flex;
     align-items: center;
     gap: 2px;
@@ -1672,6 +1774,34 @@ body.fmResizing *{
     pointer-events: none;
 }
 
+/*
+    The "Download again" link on a finished download.
+
+    A completed download row shows this instead of the tick: the browser may
+    have blocked the download that started on its own, and a tick would then be
+    the only thing on screen while nothing had actually been saved.
+
+    It lives in the status line rather than the button column, so it reads as
+    one row with the label opposite it - the link at the left of the line, and
+    "Completed" pinned to its right hand end.
+*/
+#uploadTab .uploadTaskDoneLink{
+    display: none;
+    white-space: nowrap;
+    color: var(--upload_progressbar);
+    cursor: pointer;
+}
+#uploadTab .uploadTask.withDoneLink .uploadTaskDoneLink{
+    display: inline-block;
+}
+#uploadTab .uploadTaskDoneLink:hover{
+    text-decoration: underline;
+}
+/* No control on a finished row - see renderUploadTask() */
+#uploadTab .uploadTask.done .uploadTaskAction{
+    display: none;
+}
+
 #uploadTab .uploadTaskAction{
     width: 30px;
     height: 30px;
@@ -1695,18 +1825,11 @@ body.fmResizing *{
     */
     pointer-events: none;
 }
-#uploadTab .uploadTask.done .uploadTaskAction{
-    color: var(--upload_progress_succ);
-    cursor: default;
-}
 #uploadTab .uploadTask.failed .uploadTaskAction{
     color: var(--upload_progress_failed);
 }
 #uploadTab .uploadTaskAction:hover{
     background-color: var(--fs-fill-hover);
-}
-#uploadTab .uploadTask.done .uploadTaskAction:hover{
-    background-color: transparent;
 }
 
 /* ---------- Progress bar ---------- */
@@ -1767,6 +1890,12 @@ body.fmResizing *{
     width: 19px;
     height: 19px;
     display: block;
+}
+
+/* The filled part of the ring, sized by setUploadSummaryRing() */
+#uploadTab .uploadSummaryIcon .taskProgressArc{
+    color: var(--upload_progressbar);
+    transition: stroke-dasharray 0.25s linear;
 }
 
 #uploadTab .uploadSummaryText{
@@ -3318,7 +3447,7 @@ i.blue{
 
 /* Greyed section label above the options */
 .fsMenuHeader {
-    padding: 4px 9px 6px 9px;
+    padding: 3px 6px 4px 6px;
     font-size: 12px;
     color: var(--fs-text-faint);
     cursor: default;

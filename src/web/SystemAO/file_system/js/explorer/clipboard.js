@@ -29,6 +29,30 @@ function changeOverwriteRule(mode, doPasteAgain=false){
 }
 
 
+/*
+    Whether there is anything to paste.
+
+    Not the same question as "is this page's clipboard array empty": a copy made
+    in another file manager window is handed over through localStorage, and
+    paste() below prefers that one, so a page that has copied nothing itself can
+    still have something to paste.
+*/
+function clipboardHasContent(){
+    if (typeof clipboard != "undefined" && clipboard.length > 0){
+        return true;
+    }
+    if (typeof useLocalstorage != "undefined" && useLocalstorage){
+        try{
+            let stored = localStorage.getItem("ao/file_system/clipboard");
+            return stored != null && stored != "" && JSON.parse(stored).length > 0;
+        }catch(ex){
+            //Unreadable or malformed - treat it as nothing to paste
+            return false;
+        }
+    }
+    return false;
+}
+
 function copy(){
     cutMode = false;
     clipboard = [];

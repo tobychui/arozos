@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -416,5 +417,41 @@ func TestClearFinishedFileOperationForUser(t *testing.T) {
 	}
 	if _, err := GetOngoingFileOperationByOprID(ongoing.ID); err != nil {
 		t.Error("the ongoing task should not have been cleared")
+	}
+}
+
+func TestFinishTmpZipTask(t *testing.T) {
+	tests := []struct {
+		name       string
+		zipErr     error
+		cancelled  bool
+		wantStatus string
+		wantErrMsg string
+	}{
+		{"a completed archive ends as completed", nil, false, FsTask_Completed, ""},
+		{"a failed archive keeps its error", errors.New("disk full"), false, FsTask_Error, "disk full"},
+		{"a cancelled archive is not a failure", errors.New("Operation cancelled by user"), true, FsTask_Cancelled, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := newTestFileOperationTask(t, "tmpzip_"+strconv.Itoa(int(time.Now().UnixNano())), []int64{100})
+			task.Operation = "zip"
+			if tt.cancelled {
+				task.FileOperationSignal = filesystem.FsOpr_Cancel
+			}
+
+			finishTmpZipTask(task.ID, tt.zipErr)
+
+			if task.Status != tt.wantStatus {
+				t.Errorf("status = %s, want %s", task.Status, tt.wantStatus)
+			}
+			if task.Error != tt.wantErrMsg {
+				t.Errorf("error = %q, want %q", task.Error, tt.wantErrMsg)
+			}
+			if task.EndTime == 0 {
+				t.Errorf("EndTime not set on a finished task")
+			}
+		})
 	}
 }

@@ -106,6 +106,8 @@ function musicifyApp() {
 
         // ── Internal playback guard ──────────────────────────────────────────
         _suppressEnded: false,  // true while a new track is loading (prevents double-skip)
+        _skipTimer: null,       // pending "skip after playback error" timeout
+        _skipTrack: null,       // the track that failed and armed _skipTimer
 
         // ── Helpers (accessible from Alpine template expressions) ─────────────
         // A "desktop" sidebar is a static, always-visible column. Mobile browsers
@@ -207,7 +209,7 @@ function musicifyApp() {
                 if (MUSICIFY_DEBUG) console.log('[Musicify] audio waiting – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
             });
             this._audio.addEventListener('play',  () => {
-                self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._updateMediaSession();
+                self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._cancelErrorSkip(); self._updateMediaSession();
                 if (self._audioCtx && self._audioCtx.state === 'suspended') self._audioCtx.resume().catch(() => {});
             });
             this._audio.addEventListener('pause', () => { self.isPlaying = false; self._updateMediaSession(); });
@@ -1004,6 +1006,7 @@ function musicifyApp() {
                 clearTimeout(this._transcodeEndFallbackTimer);
                 this._transcodeEndFallbackTimer = null;
             }
+            this._cancelErrorSkip();
             this.currentTrack = song;
             this._updateVizColor(song);
             this.coverError = false;
@@ -1406,8 +1409,38 @@ function musicifyApp() {
         },
 
         _onError() {
+            var err = this._audio.error;
+            // MEDIA_ERR_ABORTED is not a playback failure: swapping the source while a
+            // fetch is still in flight raises one on Safari, and acting on it would skip
+            // a track that never even got a chance to play.
+            if (err && err.code === 1) return;
+            if (!this._audio.getAttribute('src')) return;
+            // Only one skip may be queued at a time. A single unplayable file can emit
+            // more than one error event (Safari does this when the failed source is torn
+            // down as the next track loads); without this guard the extra event queues a
+            // second skip and two tracks get passed over instead of one.
+            if (this._skipTimer) return;
+            var self = this;
+            var failed = this.currentTrack;
+            this._skipTrack = failed;
             this._showToast('Playback error – skipping', 'error');
-            setTimeout(() => { this.nextTrack(); }, 1500);
+            this._skipTimer = setTimeout(function() {
+                self._skipTimer = null;
+                self._skipTrack = null;
+                // The user (or another code path) may have moved on during the countdown
+                if (failed && (!self.currentTrack || self.currentTrack.filepath !== failed.filepath)) return;
+                self.nextTrack();
+            }, 1500);
+        },
+
+        // Drop a queued error-skip — called whenever a new track starts loading or
+        // playback recovers, so a stale timer can't skip the track that follows.
+        _cancelErrorSkip() {
+            if (this._skipTimer) {
+                clearTimeout(this._skipTimer);
+                this._skipTimer = null;
+            }
+            this._skipTrack = null;
         },
 
         isCurrentTrack(song) {
