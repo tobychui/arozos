@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ArozOS Office</title>
+    <link rel="icon" type="image/svg+xml" href="../img/docs.svg">
+    <link rel="stylesheet" href="../home/home.css">
+</head>
+<!--
+    The home page of the ArozOS Office suite.
+
+    data-office-base is how every path in home.js is built. This page is
+    served from two places with different depths - Office/home/index.html in
+    the ArozOS tree, and the site root in the generated web edition - and the
+    generator rewrites the attribute (and the literal ../ links below) when
+    it copies this file out. Relative fetch()es resolve against the document,
+    not the script, so home.js must not hardcode either depth.
+
+    No framework and no icon font: everything below is vanilla JS over the
+    sprite in this file, which keeps the first page a visitor sees down to a
+    few tens of KB.
+-->
+<body data-office-base="../">
+
+<!-- Icon sprite. Drawn here rather than pulled from an icon font: the rest
+     of the suite loads Semantic UI, but the home page needs ~16 glyphs and
+     not 600 KB of CSS to get them. -->
+<svg class="hm-sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V7.5z"/><path d="M14 3v4.5h4.5"/><path d="M8.5 12.5h7M8.5 16h7"/></symbol>
+    <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="1.5"/><path d="M3.5 9h17M3.5 14.5h17M9.5 4v16M15 4v16"/></symbol>
+    <symbol id="i-slides" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="13" rx="1.5"/><path d="M9 21h6"/><path d="M12 17.5V21"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2.5h8a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.5V4"/><path d="M8 8l4-4 4 4"/><path d="M4.5 15v3.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11.5"/><path d="M8 11.5l4 4 4-4"/><path d="M4.5 15v3.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="M6.5 9.5l5.5 5.5 5.5-5.5"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="M14.5 6.5L9 12l5.5 5.5"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="M9.5 6.5L15 12l-5.5 5.5"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4.5 12h14"/><path d="M13 6.5l5.5 5.5-5.5 5.5"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.5h15"/><path d="M9.5 6.5V4.5h5v2"/><path d="M6.5 6.5l1 13h9l1-13"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.5 17.5h5"/><path d="M10 20.5h4"/><path d="M12 3.5a5.5 5.5 0 0 0-3.2 10c.5.4.7.9.7 1.4v.6h5v-.6c0-.5.2-1 .7-1.4A5.5 5.5 0 0 0 12 3.5z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5l1.8 4.7 4.7 1.8-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2.5h8A1.5 1.5 0 0 1 20.5 9v1.5"/><path d="M3.5 9.5h17l-2 8.5a1.5 1.5 0 0 1-1.5 1.2H5.5A1.5 1.5 0 0 1 4 17.9z"/></symbol>
+</svg>
+
+<div class="hm">
+
+    <!-- ============ sidebar ============ -->
+    <aside class="hm-side">
+        <a class="hm-brand" href="../home/index.html">
+            <span class="hm-brand-mark">
+                <svg viewBox="0 0 24 24" class="hm-brand-glyph"><use href="#i-doc"></use></svg>
+            </span>
+            <span class="hm-brand-text">
+                <b>ArozOS Office</b>
+                <span>Web Edition</span>
+            </span>
+        </a>
+
+        <nav class="hm-nav" id="hmNav">
+            <button type="button" class="hm-navitem is-active" data-filter="">
+                <svg class="ic"><use href="#i-home"></use></svg><span>Home</span>
+            </button>
+            <button type="button" class="hm-navitem" data-filter="document">
+                <svg class="ic"><use href="#i-doc"></use></svg><span>Documents</span>
+            </button>
+            <button type="button" class="hm-navitem" data-filter="spreadsheet">
+                <svg class="ic"><use href="#i-sheet"></use></svg><span>Spreadsheets</span>
+            </button>
+            <button type="button" class="hm-navitem" data-filter="presentation">
+                <svg class="ic"><use href="#i-slides"></use></svg><span>Presentations</span>
+            </button>
+
+            <div class="hm-navsep"></div>
+
+            <button type="button" class="hm-navitem" data-goto="templates">
+                <svg class="ic"><use href="#i-grid"></use></svg><span>Templates</span>
+            </button>
+            <button type="button" class="hm-navitem" data-action="open-device">
+                <svg class="ic"><use href="#i-folder"></use></svg><span>Open from device</span>
+            </button>
+        </nav>
+
+        <div class="hm-side-foot">
+            <div class="hm-privacy">
+                <div class="hm-privacy-head">
+                    <svg class="ic"><use href="#i-spark"></use></svg>
+                    <b>All in your browser</b>
+                </div>
+                <p>Your files never leave this device. No account required.</p>
+            </div>
+            <div class="hm-version">
+                <div>ArozOS Office Web Edition</div>
+                <div><span id="hmVersion">v1.0.0</span> &nbsp;&middot;&nbsp; GPLv3</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ============ main ============ -->
+    <main class="hm-main">
+
+        <div class="hm-top">
+            <div class="hm-searchwrap">
+                <svg class="ic hm-searchic"><use href="#i-search"></use></svg>
+                <input type="search" id="hmSearch" class="hm-search" placeholder="Search documents..."
+                       autocomplete="off" spellcheck="false">
+            </div>
+            <button type="button" class="hm-btn" data-action="open-device">
+                <svg class="ic"><use href="#i-upload"></use></svg> Import file
+            </button>
+            <div class="hm-createwrap">
+                <button type="button" class="hm-btn hm-btn-primary" id="hmCreate">
+                    Create new <svg class="ic"><use href="#i-chev-down"></use></svg>
+                </button>
+                <div class="hm-menu" id="hmCreateMenu" hidden></div>
+            </div>
+        </div>
+
+        <section class="hm-hero">
+            <div class="hm-hero-text">
+                <h1>Welcome to ArozOS Office</h1>
+                <p>Create, edit and collaborate on documents, spreadsheets and
+                   presentations &mdash; right in your browser.</p>
+            </div>
+            <!-- Decorative: a document window with the three app icons
+                 drifting out of it. Inline so it themes with the page and
+                 costs no extra request. -->
+            <svg class="hm-hero-art" viewBox="0 0 520 260" aria-hidden="true" focusable="false">
+                <circle cx="60" cy="180" r="5" fill="#c7dbfb"/>
+                <circle cx="497" cy="150" r="6" fill="#c7dbfb"/>
+                <circle cx="196" cy="24" r="4" fill="#c7dbfb"/>
+                <circle cx="176" cy="34" r="6" fill="#a9c9f7"/>
+                <path d="M96 168C120 196 168 196 196 168" stroke="#c7dbfb" stroke-width="2"
+                      stroke-dasharray="4 6" fill="none"/>
+                <path d="M104 108C132 74 168 66 196 74" stroke="#c7dbfb" stroke-width="2"
+                      stroke-dasharray="4 6" fill="none"/>
+                <!-- back card -->
+                <rect x="238" y="30" width="252" height="176" rx="12" fill="#eef4fe"/>
+                <!-- main window -->
+                <rect x="212" y="46" width="266" height="182" rx="12" fill="#ffffff"
+                      stroke="#dbe6f8" stroke-width="1.5"/>
+                <path d="M212 58a12 12 0 0 1 12-12h242a12 12 0 0 1 12 12v12H212z" fill="#3b82f6"/>
+                <circle cx="228" cy="58" r="3.2" fill="#ffffff" opacity=".85"/>
+                <circle cx="240" cy="58" r="3.2" fill="#ffffff" opacity=".6"/>
+                <circle cx="252" cy="58" r="3.2" fill="#ffffff" opacity=".4"/>
+                <rect x="228" y="86" width="118" height="8" rx="4" fill="#dce7f8"/>
+                <rect x="228" y="104" width="86" height="8" rx="4" fill="#eaf0fa"/>
+                <rect x="228" y="126" width="234" height="76" rx="8" fill="#eaf2fe"/>
+                <circle cx="262" cy="152" r="11" fill="#bcd6fa"/>
+                <path d="M240 190l30-28 22 20 26-30 32 38z" fill="#9dc4f7"/>
+                <rect x="360" y="86" width="102" height="8" rx="4" fill="#eaf0fa"/>
+                <rect x="360" y="104" width="72" height="8" rx="4" fill="#eaf0fa"/>
+                <!-- floating app tiles -->
+                <g>
+                    <rect x="96" y="72" width="62" height="62" rx="14" fill="#ffffff"
+                          stroke="#e3ecfa" stroke-width="1.5"/>
+                    <rect x="112" y="86" width="30" height="34" rx="4" fill="#3b82f6"/>
+                    <path d="M119 96h16M119 103h16M119 110h10" stroke="#ffffff" stroke-width="2.4"
+                          stroke-linecap="round"/>
+                </g>
+                <g>
+                    <rect x="118" y="150" width="62" height="62" rx="14" fill="#ffffff"
+                          stroke="#e3ecfa" stroke-width="1.5"/>
+                    <rect x="134" y="164" width="30" height="34" rx="4" fill="#16a34a"/>
+                    <path d="M134 175h30M134 186h30M144 164v34M154 164v34" stroke="#ffffff"
+                          stroke-width="2"/>
+                </g>
+                <g>
+                    <rect x="392" y="52" width="58" height="58" rx="14" fill="#ffffff"
+                          stroke="#f6e3d2" stroke-width="1.5"/>
+                    <rect x="406" y="66" width="30" height="30" rx="4" fill="#f97316"/>
+                    <path d="M412 75h18M412 82h18M412 89h11" stroke="#ffffff" stroke-width="2.4"
+                          stroke-linecap="round"/>
+                </g>
+            </svg>
+        </section>
+
+        <section class="hm-sec">
+            <h2 class="hm-h2">Create new</h2>
+            <div class="hm-newgrid" id="hmNewGrid"></div>
+        </section>
+
+        <div class="hm-cols">
+            <section class="hm-sec hm-col-recent">
+                <div class="hm-sechead">
+                    <h2 class="hm-h2">Recently opened</h2>
+                    <button type="button" class="hm-link" id="hmRecentAll">View all</button>
+                </div>
+                <div class="hm-card" id="hmRecentCard">
+                    <div id="hmRecentList"></div>
+                    <div class="hm-card-foot">
+                        <button type="button" class="hm-btn" data-action="open-device">
+                            <svg class="ic"><use href="#i-open"></use></svg> Open from device
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="hm-sec hm-col-tpl" id="templates">
+                <div class="hm-sechead">
+                    <h2 class="hm-h2">Templates</h2>
+                    <button type="button" class="hm-link" id="hmTplAll">View all</button>
+                </div>
+                <div class="hm-tplgrid" id="hmTplGrid"></div>
+                <div class="hm-pager" id="hmTplPager"></div>
+            </section>
+        </div>
+
+        <div class="hm-tip">
+            <svg class="ic hm-tip-ic"><use href="#i-bulb"></use></svg>
+            <span class="hm-tip-label">Tip</span>
+            <span class="hm-tip-text">
+                Use <kbd>Ctrl</kbd> + <kbd>O</kbd> to quickly open a file, or drag
+                and drop any supported file onto the page.
+            </span>
+            <span class="hm-tip-formats">Supported formats: .doca, .xlsa, .ppta</span>
+        </div>
+    </main>
+</div>
+
+<div class="hm-drop" id="hmDrop" hidden><div>Drop the file to open it</div></div>
+<input type="file" id="hmFile" hidden>
+
+<script src="../common/mode.js"></script>
+<script src="../common/recents.js"></script>
+<script src="../home/home.js"></script>
+</body>
+</html>

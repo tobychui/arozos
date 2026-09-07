@@ -1,0 +1,474 @@
+/*
+    ArozOS Office - home page styles
+
+    Self-contained: this page deliberately does not pull in Semantic UI (the
+    suite's icon/CSS framework) because it is the first thing a visitor
+    loads and needs about sixteen glyphs, all of which are drawn as SVG in
+    index.html.
+
+    The three app accents match the apps themselves (Docs blue, Sheets green,
+    Slides orange) and are set per-card through --accent, so a card, its icon
+    tile and its hover border all move together.
+*/
+
+:root {
+    --bg: #f7f9fc;
+    --panel: #ffffff;
+    --line: #e6e9ef;
+    --line-soft: #eef1f6;
+    --text: #101828;
+    --dim: #667085;
+    --dimmer: #98a2b3;
+    --blue: #2563eb;
+    --blue-soft: #eaf1fe;
+    --blue-line: #cddffc;
+    --doc: #3b82f6;
+    --sheet: #16a34a;
+    --slides: #f97316;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05);
+    --shadow-lift: 0 8px 24px rgba(16, 24, 40, .10);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+}
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+.hm-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* every icon is a stroked 24px glyph unless it opts out */
+.ic {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.hm {
+    display: flex;
+    min-height: 100%;
+    align-items: stretch;
+}
+
+/* ================= sidebar ================= */
+.hm-side {
+    width: 278px;
+    flex: none;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    padding: 22px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+.hm-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+    padding: 0 6px 0 4px;
+    margin-bottom: 26px;
+}
+.hm-brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, .30);
+}
+.hm-brand-glyph {
+    width: 21px; height: 21px;
+    fill: none; stroke: #fff; stroke-width: 1.7;
+    stroke-linecap: round; stroke-linejoin: round;
+}
+.hm-brand-text { display: flex; flex-direction: column; line-height: 1.25; }
+.hm-brand-text b { font-size: 15.5px; font-weight: 600; letter-spacing: -.01em; }
+.hm-brand-text span { font-size: 12px; color: var(--dim); }
+
+.hm-nav { display: flex; flex-direction: column; gap: 2px; }
+.hm-navitem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #344054;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+.hm-navitem:hover { background: #f4f6fa; }
+.hm-navitem.is-active { background: var(--blue-soft); color: var(--blue); font-weight: 500; }
+.hm-navitem .ic { stroke-width: 1.75; }
+.hm-navsep { height: 1px; background: var(--line); margin: 12px 4px; }
+
+.hm-side-foot { margin-top: auto; padding-top: 20px; }
+.hm-privacy {
+    background: #f2f6fe;
+    border: 1px solid #e2ebfb;
+    border-radius: var(--radius);
+    padding: 13px 14px;
+}
+.hm-privacy-head {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--blue); font-size: 13.5px; margin-bottom: 4px;
+}
+.hm-privacy-head .ic { width: 16px; height: 16px; }
+.hm-privacy p { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.45; }
+.hm-version {
+    margin-top: 16px; padding: 0 4px;
+    font-size: 11.5px; color: var(--dimmer); line-height: 1.6;
+}
+
+/* ================= main ================= */
+.hm-main {
+    flex: 1;
+    min-width: 0;
+    padding: 22px 40px 40px;
+    max-width: 1320px;
+}
+
+/* ---- top bar ---- */
+.hm-top { display: flex; align-items: center; gap: 12px; margin-bottom: 34px; }
+.hm-searchwrap { position: relative; margin-left: auto; width: min(330px, 34vw); }
+.hm-searchic {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--dimmer); pointer-events: none;
+}
+.hm-search {
+    width: 100%;
+    padding: 10px 14px 10px 40px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    font: inherit;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    outline: none;
+}
+.hm-search::placeholder { color: var(--dimmer); }
+.hm-search:focus { border-color: var(--blue-line); box-shadow: 0 0 0 3px var(--blue-soft); }
+.hm-search::-webkit-search-cancel-button { cursor: pointer; }
+
+.hm-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: #344054;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    white-space: nowrap;
+}
+.hm-btn:hover { background: #f8fafc; }
+.hm-btn-primary {
+    background: var(--blue); border-color: var(--blue); color: #fff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 2px 8px rgba(37, 99, 235, .25);
+}
+.hm-btn-primary:hover { background: #1d4fd7; }
+
+.hm-createwrap { position: relative; }
+.hm-menu[hidden] { display: none; }
+.hm-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+    min-width: 232px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lift);
+    padding: 6px;
+}
+.hm-menu button {
+    display: flex; align-items: center; gap: 11px;
+    width: 100%; padding: 9px 10px;
+    border: 0; border-radius: 8px; background: transparent;
+    font: inherit; color: var(--text); text-align: left; cursor: pointer;
+}
+.hm-menu button:hover { background: #f4f6fa; }
+.hm-menu .hm-menu-sep { height: 1px; background: var(--line); margin: 5px 4px; }
+.hm-menu .hm-mi-sub { display: block; font-size: 12px; color: var(--dim); }
+
+/* ---- hero ---- */
+.hm-hero {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 28px; margin-bottom: 20px;
+}
+.hm-hero-text { padding-top: 4px; max-width: 560px; }
+.hm-hero h1 {
+    margin: 0 0 10px;
+    font-size: 38px; line-height: 1.15; font-weight: 700; letter-spacing: -.022em;
+}
+.hm-hero p { margin: 0; color: var(--dim); font-size: 15px; max-width: 520px; }
+/* The artwork is taller than the two lines of text beside it, so it is let
+   to hang into the section below rather than padding the hero out with the
+   empty band that difference would otherwise leave. */
+.hm-hero-art {
+    width: 580px; max-width: 50%; height: auto; flex: none;
+    margin: -26px -14px -52px 0;
+    pointer-events: none;
+}
+
+/* ---- sections ---- */
+.hm-sec { margin-bottom: 30px; }
+.hm-h2 { margin: 0 0 14px; font-size: 15.5px; font-weight: 600; letter-spacing: -.005em; }
+.hm-sechead { display: flex; align-items: baseline; justify-content: space-between; }
+.hm-sechead .hm-h2 { margin-bottom: 14px; }
+.hm-link {
+    border: 0; background: none; padding: 0;
+    color: var(--blue); font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer;
+}
+.hm-link:hover { text-decoration: underline; }
+
+/* ---- create new ---- */
+.hm-newgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.hm-newcard {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px;
+    background: var(--panel);
+    border: 1px solid var(--accent-line, var(--line));
+    border-radius: 14px;
+    text-decoration: none; color: inherit;
+    cursor: pointer; text-align: left; font: inherit;
+    box-shadow: var(--shadow);
+    transition: transform .13s ease, box-shadow .13s ease;
+}
+.hm-newcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.hm-newcard-ic {
+    width: 44px; height: 44px; border-radius: 11px; flex: none;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+}
+.hm-newcard-ic .ic { width: 24px; height: 24px; stroke-width: 1.6; }
+.hm-newcard-body { min-width: 0; flex: 1; }
+.hm-newcard-body b { display: block; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.hm-newcard-body span { display: block; font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+.hm-newcard-go { color: var(--dimmer); flex: none; }
+.hm-newcard:hover .hm-newcard-go { color: var(--accent); }
+
+/* ---- two column area ---- */
+.hm-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+    gap: 26px;
+    align-items: start;
+    margin-top: 4px;
+}
+
+/* ---- recent ---- */
+.hm-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.hm-row {
+    display: flex; align-items: center; gap: 13px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    cursor: pointer;
+    position: relative;
+}
+.hm-row:hover { background: #f9fbfe; }
+.hm-row-ic {
+    width: 32px; height: 32px; border-radius: 8px; flex: none;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+}
+.hm-row-ic .ic { width: 18px; height: 18px; }
+.hm-row-body { flex: 1; min-width: 0; }
+.hm-row-name {
+    font-size: 13.8px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hm-row-sub { font-size: 12px; color: var(--dim); }
+.hm-row-time { font-size: 12.5px; color: var(--dim); white-space: nowrap; flex: none; }
+.hm-row-more {
+    width: 28px; height: 28px; flex: none;
+    border: 0; border-radius: 7px; background: transparent;
+    color: var(--dimmer); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+.hm-row-more:hover { background: #eef1f6; color: var(--text); }
+.hm-card-foot { padding: 14px 16px; display: flex; justify-content: center; }
+
+.hm-empty { padding: 34px 20px; text-align: center; color: var(--dim); }
+.hm-empty-ic {
+    width: 42px; height: 42px; margin: 0 auto 12px;
+    border-radius: 11px; background: #f2f5fa; color: var(--dimmer);
+    display: flex; align-items: center; justify-content: center;
+}
+.hm-empty-ic .ic { width: 22px; height: 22px; }
+.hm-empty b { display: block; color: var(--text); font-weight: 600; margin-bottom: 3px; }
+.hm-empty p { margin: 0; font-size: 12.5px; }
+
+/* ---- templates ---- */
+.hm-tplgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.hm-tpl {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    padding: 10px 10px 0;
+    cursor: pointer; font: inherit; color: inherit; text-align: center;
+    box-shadow: var(--shadow);
+    transition: transform .13s ease, box-shadow .13s ease, border-color .13s ease;
+    display: flex; flex-direction: column;
+}
+.hm-tpl:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--accent-line, var(--blue-line));
+}
+.hm-tpl-thumb {
+    width: 100%; aspect-ratio: 4 / 3.35;
+    border: 1px solid var(--line-soft); border-radius: 7px;
+    background: #fff; overflow: hidden; display: block;
+}
+.hm-tpl-thumb svg { display: block; width: 100%; height: 100%; }
+.hm-tpl-label {
+    padding: 9px 4px 11px;
+    font-size: 12.5px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.hm-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; }
+.hm-pgbtn {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--dim); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+.hm-pgbtn:hover:not(:disabled) { background: #f4f6fa; color: var(--text); }
+.hm-pgbtn:disabled { opacity: .4; cursor: default; }
+.hm-pgdots { display: flex; gap: 7px; }
+.hm-pgdot {
+    width: 9px; height: 9px; border-radius: 50%; padding: 0;
+    border: 0; background: #d3dae5; cursor: pointer;
+}
+.hm-pgdot.is-active { background: var(--blue); }
+
+/* ---- tip ---- */
+.hm-tip {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 30px; padding: 14px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 13px; color: var(--dim);
+    box-shadow: var(--shadow);
+}
+.hm-tip-ic { color: #f59e0b; }
+.hm-tip-label { font-weight: 600; color: var(--text); }
+.hm-tip-text { flex: 1; min-width: 0; }
+.hm-tip kbd {
+    display: inline-block; padding: 1px 6px; margin: 0 1px;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px;
+    background: #f8fafc; color: #344054;
+    font-family: inherit; font-size: 11.5px; font-weight: 500;
+}
+.hm-tip-formats { color: var(--dimmer); font-size: 12.5px; white-space: nowrap; }
+
+/* ---- drag and drop overlay ---- */
+/* [hidden] alone loses to display:flex, so the overlay states it itself */
+.hm-drop[hidden] { display: none; }
+.hm-drop {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(37, 99, 235, .07);
+    backdrop-filter: blur(1px);
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+}
+.hm-drop > div {
+    padding: 18px 28px;
+    background: var(--panel);
+    border: 2px dashed var(--blue);
+    border-radius: 14px;
+    color: var(--blue); font-weight: 600;
+    box-shadow: var(--shadow-lift);
+}
+
+/* ================= responsive ================= */
+@media (max-width: 1180px) {
+    .hm-cols { grid-template-columns: 1fr; }
+    .hm-hero-art { display: none; }
+    .hm-hero-text { max-width: none; }
+}
+@media (max-width: 900px) {
+    .hm-side { display: none; }
+    .hm-main { padding: 18px 20px 32px; }
+    .hm-newgrid { grid-template-columns: 1fr; }
+    .hm-hero h1 { font-size: 30px; }
+    .hm-top { flex-wrap: wrap; }
+    .hm-searchwrap { order: -1; width: 100%; margin-left: 0; }
+    .hm-tip { flex-wrap: wrap; }
+    .hm-tip-formats { width: 100%; }
+}
+@media (max-width: 560px) {
+    .hm-tplgrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ================= dark ================= */
+/* The suite stores one theme choice for every app under office_theme; the
+   home page follows it, and follows the system when nothing is stored. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #16181c;
+        --panel: #1e2126;
+        --line: #2f343c;
+        --line-soft: #282c33;
+        --text: #e8eaed;
+        --dim: #9aa0a6;
+        --dimmer: #7c848d;
+        --blue-soft: #1c2a44;
+        --blue-line: #2c4a7a;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+        --shadow-lift: 0 8px 24px rgba(0, 0, 0, .5);
+    }
+}
+:root[data-theme="dark"] {
+    --bg: #16181c;
+    --panel: #1e2126;
+    --line: #2f343c;
+    --line-soft: #282c33;
+    --text: #e8eaed;
+    --dim: #9aa0a6;
+    --dimmer: #7c848d;
+    --blue-soft: #1c2a44;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-lift: 0 8px 24px rgba(0, 0, 0, .5);
+}
+:root[data-theme="dark"] .hm-navitem:hover,
+:root[data-theme="dark"] .hm-menu button:hover,
+:root[data-theme="dark"] .hm-row:hover,
+:root[data-theme="dark"] .hm-btn:hover { background: #262a31; }
+:root[data-theme="dark"] .hm-privacy { background: #1b2436; border-color: #26344e; }
+:root[data-theme="dark"] .hm-tip kbd { background: #262a31; color: var(--text); }
+:root[data-theme="dark"] .hm-tpl-thumb { background: #f4f6fa; }

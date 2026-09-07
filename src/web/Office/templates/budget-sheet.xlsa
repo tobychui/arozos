@@ -1,0 +1,307 @@
+{
+ "type": "arozos/office",
+ "app": "spreadsheet",
+ "version": 1,
+ "meta": {
+  "title": "Budget Sheet",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "sheets": [
+   {
+    "name": "Budget",
+    "cells": {
+     "A1": {
+      "v": "Monthly Budget",
+      "s": {
+       "b": true,
+       "fs": 18
+      }
+     },
+     "A3": {
+      "v": "Category",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "B3": {
+      "v": "Planned",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "C3": {
+      "v": "Actual",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "D3": {
+      "v": "Difference",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "A4": {
+      "v": "Rent / mortgage"
+     },
+     "B4": {
+      "v": "1200",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C4": {
+      "v": "1200",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D4": {
+      "v": "=B4-C4",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A5": {
+      "v": "Utilities"
+     },
+     "B5": {
+      "v": "180",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C5": {
+      "v": "164.20",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D5": {
+      "v": "=B5-C5",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A6": {
+      "v": "Groceries"
+     },
+     "B6": {
+      "v": "420",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C6": {
+      "v": "468.75",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D6": {
+      "v": "=B6-C6",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A7": {
+      "v": "Transport"
+     },
+     "B7": {
+      "v": "120",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C7": {
+      "v": "98.40",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D7": {
+      "v": "=B7-C7",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A8": {
+      "v": "Insurance"
+     },
+     "B8": {
+      "v": "95",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C8": {
+      "v": "95",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D8": {
+      "v": "=B8-C8",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A9": {
+      "v": "Savings"
+     },
+     "B9": {
+      "v": "300",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C9": {
+      "v": "300",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D9": {
+      "v": "=B9-C9",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A10": {
+      "v": "Other"
+     },
+     "B10": {
+      "v": "150",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C10": {
+      "v": "212.10",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D10": {
+      "v": "=B10-C10",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A12": {
+      "v": "Total",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "B12": {
+      "v": "=SUM(B4:B10)",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C12": {
+      "v": "=SUM(C4:C10)",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D12": {
+      "v": "=B12-C12",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A14": {
+      "v": "Income",
+      "s": {
+       "b": true
+      }
+     },
+     "B14": {
+      "v": "2800",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A15": {
+      "v": "Left over",
+      "s": {
+       "b": true
+      }
+     },
+     "B15": {
+      "v": "=B14-C12",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     }
+    },
+    "colW": {
+     "0": 160,
+     "1": 110,
+     "2": 110,
+     "3": 110
+    },
+    "rowH": {},
+    "merges": [],
+    "freeze": {
+     "r": 3,
+     "c": 1
+    },
+    "charts": [],
+    "filter": null
+   }
+  ],
+  "active": 0
+ }
+}

@@ -271,6 +271,12 @@ select.dlgField{
     color: var(--dlg_text_dim);
 }
 
+/* Rows of one kind sit together; the gap alone separates the groups, so no
+   rule is drawn to pull the eye away from the values themselves */
+.dlgPropGroup + .dlgPropGroup{
+    margin-top: 14px;
+}
+
 /* Labelled rows used by the permission editor */
 .dlgFormRow{
     display: flex;

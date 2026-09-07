@@ -16,7 +16,7 @@
             <div class="dlgTabs">
                 <div class="dlgTab active" tab="basic" onclick="switchTab('basic');" locale="tab/basic">Basic</div>
                 <div class="dlgTab" tab="permission" onclick="switchTab('permission');" locale="tab/permission">Permissions</div>
-                <div class="dlgTab" tab="other" onclick="switchTab('other');" locale="tab/other">Other</div>
+                <div class="dlgTab" tab="versions" onclick="switchTab('versions');" locale="tab/versions">Versions</div>
             </div>
             <div class="dialogBody">
                 <!-- Basic -->
@@ -100,20 +100,39 @@
                     </div>
                 </div>
 
-                <!-- Other -->
-                <div class="dlgPage" id="page_other">
-                    <div id="otherProperties"></div>
+                <!-- Versions -->
+                <div class="dlgPage" id="page_versions">
+                    <div id="versionsUnavailable" class="dlgEmpty" style="display:none;">
+                        <i class="history icon"></i>
+                        <div locale="message/noVersions">Version history is only kept for files</div>
+                    </div>
+                    <div id="versionsManager" style="display:none;">
+                        <div class="dlgNotice">
+                            <i class="info circle icon"></i>
+                            <span locale="versions/desc">Any file version that is more than 30 days old is removed from the system automatically.</span>
+                        </div>
+                        <button class="dlgBtn" onclick="createSnapshot();">
+                            <i class="plus icon"></i> <span locale="versions/newver">Create New Version</span>
+                        </button>
+                        <div class="dlgSectionLabel" locale="versions/history">Version History</div>
+                        <div class="dlgList" id="versionList"></div>
+                    </div>
                 </div>
             </div>
 
             <div class="dialogFooter">
-                <button class="dlgBtn footerBasic footerOther" onclick="copyPath();"><i class="copy outline icon"></i> <span locale="button/copyPath">Copy Path</span></button>
+                <button class="dlgBtn footerBasic" onclick="copyPath();"><i class="copy outline icon"></i> <span locale="button/copyPath">Copy Path</span></button>
+                <button id="deleteAllVersionsBtn" class="dlgBtn danger footerVersions" style="display:none;" onclick="deleteAllVersions();">
+                    <i class="trash icon"></i> <span locale="versions/removeAll">Delete All Versions</span>
+                </button>
                 <div class="spacer"></div>
-                <button class="dlgBtn footerBasic footerOther" onclick="ao_module_close();" locale="button/close">Close</button>
+                <button class="dlgBtn footerBasic footerVersions" onclick="ao_module_close();" locale="button/close">Close</button>
                 <button class="dlgBtn footerPermission" style="display:none;" onclick="ao_module_close();" locale="button/cancel">Cancel</button>
                 <button id="permApplyBtn" class="dlgBtn primary footerPermission" style="display:none;" onclick="applyPermission();" locale="button/confirm">OK</button>
             </div>
         </div>
+
+        <div class="dlgMenu" id="rowMenu"></div>
 
         <div id="dlgLoader" class="dlgLoader">
             <div class="dlgSpinner"></div>
@@ -124,10 +143,20 @@
             /*
                 file_properties.html
 
-                Three tabs over one selection: what the object is (Basic), who
-                may touch it (Permissions) and where it lives / what opens it
-                (Other). The tab strip replaced a single scrolling table that
-                mixed all three, plus two buttons that opened further windows.
+                Three tabs over one selection: everything the object is -
+                type, size, opener, paths, dates and ownership (Basic), who may
+                touch it (Permissions) and its snapshot history (Versions). The
+                tab strip replaced a single scrolling table that mixed all
+                three, plus two buttons that opened further windows.
+
+                Basic groups its rows by kind - what / opens with / where /
+                when / who - because a flat list of ten rows reads as one
+                undifferentiated block however the rows are ordered.
+
+                Versions is the whole snapshot manager, which used to be a
+                separate window reached through a button in here. Nothing about
+                it wanted its own window: it acts on the one file this dialog
+                is already about.
 
                 Permissions are a POSIX concept: on a Windows host the tab is
                 still readable but visibly out of reach, because the server
@@ -141,6 +170,11 @@
             var permissionLoaded = false;
             var currentTab = "basic";
 
+            //Version manager state
+            var versionsLoaded = false;
+            var versionList = [];
+            var versionPollTimer = null;
+
             //Octal digit to a human readable access level. Index is the digit.
             var permissionLevels = [
                 {bits: "---", key: "perm/level/none", text: "None"},
@@ -152,6 +186,12 @@
                 {bits: "rw-", key: "perm/level/readWrite", text: "Read and write"},
                 {bits: "rwx", key: "perm/level/readWriteExecute", text: "Read, write and execute"}
             ];
+
+            $(document).on("click", function(event){
+                if ($(event.target).closest("#rowMenu, .dlgIconBtn").length == 0){
+                    $("#rowMenu").hide();
+                }
+            });
 
             applocale.init("../locale/file_properties.json", function(){
                 applocale.translate();
@@ -171,14 +211,34 @@
                 $(".dlgPage").removeClass("active");
                 $("#page_" + tabName).addClass("active");
 
-                $(".footerBasic, .footerOther, .footerPermission").hide();
+                $(".footerBasic, .footerVersions, .footerPermission").hide();
                 if (tabName == "permission"){
                     $(".footerPermission").show();
                     if (!permissionLoaded){
                         loadPermission();
                     }
+                }else if (tabName == "versions"){
+                    $(".footerVersions").show();
+                    if (!versionsSupported()){
+                        //Nothing to delete where no history is kept
+                        $("#deleteAllVersionsBtn").hide();
+                    }else if (!versionsLoaded){
+                        versionsLoaded = true;
+                        loadVersionHistory();
+                    }
                 }else{
                     $(".footerBasic").show();
+                }
+
+                //Another window may snapshot the same file, but only watch for
+                //that while the list is actually on screen
+                $("#rowMenu").hide();
+                if (versionPollTimer != null){
+                    clearInterval(versionPollTimer);
+                    versionPollTimer = null;
+                }
+                if (tabName == "versions" && versionsSupported()){
+                    versionPollTimer = setInterval(checkHistoryListUpdate, 3000);
                 }
             }
 
@@ -203,7 +263,7 @@
             }
 
             /* ---------------------------------------------------------------
-                Basic and Other tabs
+                Basic and Versions tabs
             --------------------------------------------------------------- */
             function initFileProperties(){
                 if (files.length == 1){
@@ -248,6 +308,16 @@
                 return applocale.getString("properties/key/" + key, key);
             }
 
+            //Rows of the same kind travel together; the gap between groups is
+            //what keeps a ten row list scannable
+            function propGroup(rows){
+                var kept = rows.filter(function(row){ return row != ""; });
+                if (kept.length == 0){
+                    return "";
+                }
+                return '<div class="dlgPropGroup">' + kept.join("") + "</div>";
+            }
+
             function renderSingleObject(data){
                 hideLoader();
                 fileInfo = data;
@@ -274,16 +344,44 @@
                     fileTypeText = applocale.getString("type/shortcut", "System Shortcut");
                 }
 
+                //A real file is the only thing that has an opener to show
+                var hasOpener = (!data.IsDirectory && !isShortcut);
+
                 var basicHTML = "";
-                basicHTML += propRow(localizedKey("File Type"), dlgEscape(fileTypeText));
-                basicHTML += propRow(data.IsDirectory ? localizedKey("Folder Size") : localizedKey("File Size"), sizeText(data.Filesize));
-                basicHTML += propRow(localizedKey("Location"), dlgEscape(data.VirtualDirname));
-                basicHTML += propRow(localizedKey("Last Modified"), modTimeText(data));
-                basicHTML += propRow(localizedKey("Created"), creationTimeText(data));
+                //What it is
+                basicHTML += propGroup([
+                    propRow(localizedKey("File Type"), dlgEscape(fileTypeText)),
+                    propRow(data.IsDirectory ? localizedKey("Folder Size") : localizedKey("File Size"), sizeText(data.Filesize))
+                ]);
+                //What opens it
+                basicHTML += propGroup([
+                    hasOpener ? '<div id="defaultOpenerRow">' + propRow(localizedKey("Default WebApp"),
+                        '<span class="dim">' + applocale.getString("message/loading", "Loading...") + "</span>") + "</div>" : ""
+                ]);
+                //Where it lives
+                basicHTML += propGroup([
+                    propRow(localizedKey("Location"), dlgEscape(data.VirtualDirname)),
+                    propRow(localizedKey("Virtual Path"), dlgEscape(data.VirtualPath)),
+                    propRow(localizedKey("Storage Path"), dlgEscape(data.StoragePath))
+                ]);
+                //When it changed
+                basicHTML += propGroup([
+                    propRow(localizedKey("Last Modified"), modTimeText(data)),
+                    propRow(localizedKey("Created"), creationTimeText(data))
+                ]);
+                //Who it belongs to
+                basicHTML += propGroup([
+                    propRow(localizedKey("Owner"), dlgEscape(data.Owner)),
+                    propRow(localizedKey("Permission"), '<span style="font-family: Consolas, Menlo, monospace;">' + dlgEscape(data.Permission) + "</span>")
+                ]);
                 $("#basicProperties").html(basicHTML);
 
-                //Other tab
-                renderOtherTab(data, isShortcut);
+                if (hasOpener){
+                    loadDefaultOpener(data);
+                }
+
+                //Versions tab
+                renderVersionsTab(data, isShortcut);
 
                 //Permission tab defaults
                 $("#permOwnerName").text(data.Owner);
@@ -321,49 +419,280 @@
                 $("#basicMime").text(applocale.getString("selection/multi", "Multiple selections"));
 
                 var basicHTML = "";
-                basicHTML += propRow(localizedKey("File Type"), dlgEscape(
-                    fileCount + applocale.getString("counter/files", " Files") + ", " +
-                    folderCount + applocale.getString("counter/folders", " Folders")));
-                basicHTML += propRow(localizedKey("Total Size"), sizeText(totalSize));
-                basicHTML += propRow(localizedKey("Location"), dlgEscape(readable[0].VirtualDirname));
+                basicHTML += propGroup([
+                    propRow(localizedKey("File Type"), dlgEscape(
+                        fileCount + applocale.getString("counter/files", " Files") + ", " +
+                        folderCount + applocale.getString("counter/folders", " Folders"))),
+                    propRow(localizedKey("Total Size"), sizeText(totalSize))
+                ]);
+                basicHTML += propGroup([
+                    propRow(localizedKey("Location"), dlgEscape(readable[0].VirtualDirname)),
+                    propRow(localizedKey("Virtual Directory"), dlgEscape(readable[0].VirtualDirname + "/")),
+                    propRow(localizedKey("Storage Directory"), dlgEscape(readable[0].StorageDirname + "/"))
+                ]);
+                basicHTML += propGroup([
+                    propRow(localizedKey("Owner"), dlgEscape(readable[0].Owner))
+                ]);
                 $("#basicProperties").html(basicHTML);
 
-                var otherHTML = "";
-                otherHTML += propRow(localizedKey("Virtual Directory"), dlgEscape(readable[0].VirtualDirname + "/"));
-                otherHTML += propRow(localizedKey("Storage Directory"), dlgEscape(readable[0].StorageDirname + "/"));
-                otherHTML += propRow(localizedKey("Owner"), dlgEscape(readable[0].Owner));
-                $("#otherProperties").html(otherHTML);
+                //Version history is per file, so a selection has none to show
+                renderVersionsTab(null, false);
 
                 $("#permOwnerName").text(readable[0].Owner);
                 loadUserGroups(readable[0].Owner);
             }
 
-            function renderOtherTab(data, isShortcut){
-                var otherHTML = "";
+            /* ---------------------------------------------------------------
+                Versions tab
 
-                //Default opener and version history only make sense for a real file
-                if (!data.IsDirectory && !isShortcut){
-                    otherHTML += '<div id="defaultOpenerRow">' + propRow(localizedKey("Default WebApp"),
-                        '<span class="dim">' + applocale.getString("message/loading", "Loading...") + "</span>") + "</div>";
+                Snapshots are kept per file under .metadata/.localver, so a
+                folder, a shortcut or a multiple selection has nothing to show
+                and the tab greys out instead of offering actions that would
+                fail.
+            --------------------------------------------------------------- */
+            function versionsSupported(){
+                return (files.length == 1 && fileInfo.error === undefined &&
+                    fileInfo.IsDirectory === false && !isShortcutFile(fileInfo));
+            }
+
+            function isShortcutFile(data){
+                return (data != undefined && data.Basename != undefined &&
+                    data.Basename.split(".").pop() == "shortcut");
+            }
+
+            function renderVersionsTab(data, isShortcut){
+                if (data == null || data.IsDirectory || isShortcut){
+                    $("#versionsUnavailable").show();
+                    $("#versionsManager").hide();
+                    $("#deleteAllVersionsBtn").hide();
+                    $('.dlgTab[tab="versions"]').addClass("unsupported");
+                    return;
                 }
 
-                otherHTML += propRow(localizedKey("Virtual Path"), dlgEscape(data.VirtualPath));
-                otherHTML += propRow(localizedKey("Storage Path"), dlgEscape(data.StoragePath));
-                otherHTML += propRow(localizedKey("Owner"), dlgEscape(data.Owner));
-                otherHTML += propRow(localizedKey("Permission"), '<span style="font-family: Consolas, Menlo, monospace;">' + dlgEscape(data.Permission) + "</span>");
-                otherHTML += propRow(localizedKey("MIME Type"), dlgEscape(data.MimeType));
+                $("#versionsUnavailable").hide();
+                $("#versionsManager").show();
+                $("#versionList").html('<div class="dlgEmpty"><div class="dlgSpinner" style="margin: 0px auto 10px auto;"></div><div>' +
+                    applocale.getString("message/loading", "Loading...") + "</div></div>");
 
-                if (!data.IsDirectory && !isShortcut){
-                    otherHTML += '<div class="dlgDivider"></div>' +
-                        '<button class="dlgBtn" style="width: 100%;" onclick="viewVersionHistory();">' +
-                        '<i class="history icon"></i> <span>' + applocale.getString("button/versionHistory", "View File Version History") + "</span></button>";
+                //This tab may already be the one on screen when the properties
+                //finally arrive, in which case nothing else starts the load
+                if (currentTab == "versions" && !versionsLoaded){
+                    versionsLoaded = true;
+                    loadVersionHistory();
+                }
+            }
+
+            function loadVersionHistory(){
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: files[0]},
+                    method: "POST",
+                    success: function(data){
+                        if (data == undefined || data.error !== undefined){
+                            $("#versionList").html('<div class="dlgEmpty"><i class="question circle outline icon"></i><div>' +
+                                dlgEscape(data == undefined ? "No response" : data.error) + "</div></div>");
+                            return;
+                        }
+                        versionList = data.Versions;
+                        renderVersionList();
+                    },
+                    error: function(){
+                        $("#versionList").html('<div class="dlgEmpty"><i class="question circle outline icon"></i><div>' +
+                            applocale.getString("versions/failed", "Unable to read the version history") + "</div></div>");
+                    }
+                });
+            }
+
+            function checkHistoryListUpdate(){
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: files[0]},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error == undefined && versionList.length != data.Versions.length){
+                            versionList = data.Versions;
+                            renderVersionList();
+                        }
+                    }
+                });
+            }
+
+            function renderVersionList(){
+                var html = "";
+
+                //The file as it stands now is the newest version. Numbers are
+                //assigned here, not by the server: a snapshot is named by its
+                //timestamp, which says nothing about the order on screen.
+                html += versionRowHTML({
+                    number: versionList.length + 1,
+                    current: true,
+                    time: fileInfo.LastModTime,
+                    size: fileInfo.Filesize,
+                    historyID: "",
+                    relpath: ""
+                });
+
+                //Server returns newest first, so the number counts down
+                for (var i = 0; i < versionList.length; i++){
+                    html += versionRowHTML({
+                        number: versionList.length - i,
+                        current: false,
+                        time: versionList[i].OverwriteTime,
+                        size: versionList[i].Filesize,
+                        historyID: versionList[i].HistoryID,
+                        relpath: versionList[i].Relpath
+                    });
                 }
 
-                $("#otherProperties").html(otherHTML);
+                $("#versionList").html(html);
+                $("#deleteAllVersionsBtn").toggleClass("disabled", versionList.length == 0);
 
-                if (!data.IsDirectory && !isShortcut){
-                    loadDefaultOpener(data);
+                if (versionList.length == 0){
+                    $("#versionList").append('<div class="dlgEmpty"><div>' +
+                        applocale.getString("versions/empty/desc", "This file has no previous version histories.") + "</div></div>");
                 }
+            }
+
+            function versionRowHTML(entry){
+                var title = applocale.getString("versions/label", "Version") + " " + entry.number;
+                if (entry.current){
+                    title += " " + applocale.getString("versions/current", "(current)");
+                }
+                var owner = (fileInfo.Owner == undefined || fileInfo.Owner == "") ? "" : " (" + fileInfo.Owner + ")";
+
+                return '<div class="dlgListRow static' + (entry.current ? " selected" : "") + '">' +
+                    '<div class="rowIcon"><i class="file outline icon"></i></div>' +
+                    '<div class="rowText">' +
+                        '<div class="rowTitle">' + dlgEscape(title) + "</div>" +
+                        '<div class="rowSub">' + dlgEscape(entry.time + owner) + "</div>" +
+                    "</div>" +
+                    '<div class="rowMeta">' + dlgEscape(dlgBytesToSize(entry.size)) + "</div>" +
+                    '<button class="dlgIconBtn" verid="' + dlgEscape(entry.historyID) + '" relpath="' + dlgEscape(entry.relpath) + '" ' +
+                        'iscurrent="' + (entry.current ? "true" : "false") + '" onclick="openRowMenu(this);">' +
+                        '<i class="ellipsis horizontal icon"></i></button>' +
+                    "</div>";
+            }
+
+            function openRowMenu(button){
+                var isCurrent = $(button).attr("iscurrent") == "true";
+                var versionID = $(button).attr("verid");
+                var relpath = $(button).attr("relpath");
+
+                var html = '<div class="dlgMenuItem" onclick="downloadVersion(\'' + dlgEscape(relpath) + '\');">' +
+                    '<i class="download icon"></i>' + applocale.getString("versions/action/download", "Download Version") + "</div>";
+
+                if (!isCurrent){
+                    html += '<div class="dlgMenuItem" onclick="restoreVersion(\'' + dlgEscape(versionID) + '\');">' +
+                        '<i class="history icon"></i>' + applocale.getString("versions/action/restore", "Restore This Version") + "</div>";
+                    html += '<div class="dlgMenuItem danger" onclick="deleteVersion(\'' + dlgEscape(versionID) + '\');">' +
+                        '<i class="trash icon"></i>' + applocale.getString("versions/action/delete", "Delete") + "</div>";
+                }
+
+                var menu = $("#rowMenu");
+                menu.html(html).show();
+
+                //Anchor under the button, kept inside the window
+                var offset = $(button).offset();
+                var left = offset.left + $(button).outerWidth() - menu.outerWidth();
+                var top = offset.top + $(button).outerHeight() + 4;
+                if (left < 8){
+                    left = 8;
+                }
+                if (top + menu.outerHeight() > $(window).height() - 8){
+                    top = offset.top - menu.outerHeight() - 4;
+                }
+                menu.css({left: left + "px", top: top + "px"});
+            }
+
+            function downloadVersion(relpath){
+                $("#rowMenu").hide();
+                var dirname = files[0].split("/");
+                var basename = dirname.pop();
+                var accessPath = dirname.join("/") + "/" + (relpath == "" ? basename : relpath);
+                window.open("../../media/download?file=" + accessPath);
+            }
+
+            function createSnapshot(){
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: files[0], opr: "new"},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
+                        }else{
+                            dlgToast(applocale.getString("versions/msg/created", "New Version Created"));
+                            loadVersionHistory();
+                        }
+                    }
+                });
+            }
+
+            function restoreVersion(versionID){
+                $("#rowMenu").hide();
+                if (!confirm(applocale.getString("versions/warn/restore", "Restoring this file will remove all newer version histories of this file. Confirm?"))){
+                    return;
+                }
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: files[0], opr: "restore", histid: versionID},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
+                            return;
+                        }
+                        dlgToast(applocale.getString("versions/msg/restored", "Restore Succeed"));
+                        //The file itself changed, so the Basic tab is stale too
+                        refreshAfterRestore();
+                    }
+                });
+            }
+
+            //A restore rewrites the file, so the size and modification time on
+            //the Basic tab are stale the moment it succeeds
+            function refreshAfterRestore(){
+                getFileProp(files[0], function(data){
+                    if (data.error === undefined){
+                        renderSingleObject(data);
+                    }
+                    loadVersionHistory();
+                });
+            }
+
+            function deleteVersion(versionID){
+                $("#rowMenu").hide();
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: files[0], opr: "delete", histid: versionID},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
+                        }else{
+                            loadVersionHistory();
+                        }
+                    }
+                });
+            }
+
+            function deleteAllVersions(){
+                if (!confirm(applocale.getString("versions/warn/deleteall", "This operation will PERMANENTLY DELETE ALL version history of this file. Confirm?"))){
+                    return;
+                }
+                $.ajax({
+                    url: "../../system/file_system/versionHistory",
+                    data: {path: files[0], opr: "deleteAll"},
+                    method: "POST",
+                    success: function(data){
+                        if (data != undefined && data.error != undefined){
+                            dlgToast(data.error);
+                        }else{
+                            dlgToast(applocale.getString("versions/msg/deletedall", "All version history deleted"));
+                            loadVersionHistory();
+                        }
+                    }
+                });
             }
 
             function loadDefaultOpener(data){
@@ -593,17 +922,6 @@
                 }else{
                     dlgToast(applocale.getString("message/copyFailed", "Unable to copy the path"));
                 }
-            }
-
-            function viewVersionHistory(){
-                var hashPassthrough = encodeURIComponent(JSON.stringify(files));
-                ao_module_newfw({
-                    url: "SystemAO/file_system/file_versions.html#" + hashPassthrough,
-                    width: 560,
-                    height: 560,
-                    appicon: "img/system/file-restore.svg",
-                    title: "File Version History"
-                });
             }
 
             //Open the opener picker for this file type

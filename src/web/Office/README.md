@@ -18,6 +18,19 @@ All three apps are registered by the single [`init.agi`](init.agi) in this
 folder (module registration only — it runs with system scope, don't put
 user/file logic in it).
 
+Two more folders sit alongside them:
+
+- [`home/`](home/) — the suite's home page: create a document, pick up a
+  recent one, or start from a template. It is published to the root of the
+  standalone web edition (see below) and also works in place at
+  `Office/home/index.html`. Vanilla JS, no framework, no icon font.
+- [`templates/`](templates/) — the getting-started templates. They are
+  plain-JSON envelopes with native extensions (both unpackers pass a non-"PK"
+  payload straight through), generated from readable literals by
+  `node templates/build_templates.js` — **edit that file, not the
+  `.doca`/`.xlsa`/`.ppta` output**, and keep `manifest.json` in step (the
+  builder fails if the two disagree).
+
 ## Architecture at a glance
 
 ```
@@ -52,6 +65,41 @@ Three layers, strictly separated:
    [`src/mod/agi/README.md`](../../mod/agi/README.md) — **keep it and
    [`src/web/Terminal/docs/api.json`](../../web/Terminal/docs/api.json)
    in sync whenever you change an `office.*` function.**
+
+### Two hosts, one code base
+
+The same front end also ships as a **standalone web edition** ("ArozOS Office
+Web"): the suite served by a plain static file server with no ArozOS behind
+it, so a document can be shared with someone who has no account. Documents
+are opened from and saved back to the visitor's own device, native containers
+are packed and unpacked in the browser, and every server-side conversion is
+switched off.
+
+That is not a fork. Everything reaching outside the browser tab goes through
+[`common/platform.js`](common/platform.js) (`OfficePlatform`), which carries
+both host implementations and picks one from the flags in
+[`common/mode.js`](common/mode.js);
+[`common/container.js`](common/container.js) is the browser-side twin of
+[`packed.go`](../../mod/office/packed.go). The generator
+[`apps/ArozOS Office Web/generate.go`](../../../apps/ArozOS%20Office%20Web/generate.go)
+copies the tree, drops the `.agi` backends, and flips those flags — that is
+the whole build.
+
+The **Office interchange formats work there too**: `mod/office` is pure
+`[]byte`/struct code with no I/O, so it compiles to WebAssembly
+([`src/wasm/office`](../../wasm/office)) and the standalone build runs the
+identical converters in the page — a `.docx` it writes is what ArozOS would
+have written. `generate.go -wasm` builds and ships that module, and
+`common/wasm.js` fetches it the first time an import or export is used.
+
+Two capability questions, and they are **not** the same:
+
+- `OfficePlatform.hasBackend()` — is there a server? (storage, AGI scripts,
+  the real-text PDF renderer)
+- `OfficePlatform.canConvert()` — can this build convert Office formats?
+
+**Gate anything new on the right one** (details in `CONTRACT.md`), or it will
+be a dead menu entry out there.
 
 **Read [`common/CONTRACT.md`](common/CONTRACT.md) before touching any
 front-end code** — it defines the shared `OfficeApp` framework (toolbar,
@@ -351,9 +399,12 @@ the path that honours every mode exactly.
 ```bash
 cd src
 go test ./mod/office/          # converter unit tests (every format)
-go vet ./mod/office/
-gofmt -l mod/office/           # must print nothing
+go test ./wasm/office/         # the WebAssembly bridge's conversion table
+go vet ./mod/office/ ./wasm/office/
+gofmt -l mod/office/ wasm/office/      # must print nothing
 node --check web/Office/docs/docs.js   # etc. for each edited JS file
+node web/Office/sheets/test_formula.js    # formula engine
+node web/Office/common/test_container.js  # native container (vs. packed.go)
 sh ../scripts/check-conventions.sh --diff origin/master
 ```
 

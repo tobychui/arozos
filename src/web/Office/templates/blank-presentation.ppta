@@ -1,0 +1,28 @@
+{
+ "type": "arozos/office",
+ "app": "presentation",
+ "version": 1,
+ "meta": {
+  "title": "Blank Presentation",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "size": [
+   960,
+   540
+  ],
+  "theme": "light",
+  "slides": [
+   {
+    "id": "t1",
+    "bg": "#ffffff",
+    "notes": "",
+    "objects": [],
+    "transition": "none"
+   }
+  ]
+ }
+}
