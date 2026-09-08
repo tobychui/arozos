@@ -1371,7 +1371,7 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
 }
 
 /* ─── Video info modal ───────────────────────────────────────────────────────── */
-#video-info-modal {
+#video-info-modal, #adv-settings-modal {
     display: none;
     position: absolute;
     top: 50%; left: 50%;
@@ -1385,17 +1385,29 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
     width: 340px;
     box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1);
 }
-#video-info-modal h3 {
+#video-info-modal h3, #adv-settings-modal h3 {
     font-size: 14px; font-weight: 600;
     margin-bottom: 12px;
     display: flex; align-items: center; justify-content: space-between;
 }
-#video-info-close {
+#video-info-close, #adv-settings-close {
     background: none; border: none; cursor: pointer;
     color: var(--text-sub); font-size: 17px; line-height: 1; padding: 0; outline: none;
 }
-#video-info-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
-#video-info-close:hover img { opacity: 1; }
+#video-info-close img, #adv-settings-close img { width: 14px; height: 14px; display: block; opacity: 0.55; transition: opacity var(--transition); }
+#video-info-close:hover img, #adv-settings-close:hover img { opacity: 1; }
+
+/* Advanced settings modal rows — same switch as the Settings tab, tighter */
+#adv-settings-modal { width: 380px; max-height: 70%; overflow-y: auto; }
+.adv-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.adv-row:first-child { border-top: none; }
+.adv-row-text  { flex: 1; min-width: 0; }
+.adv-row-label { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.adv-row-desc  { font-size: 11px; color: var(--text-sub); line-height: 1.45; }
 #video-info-tabs {
     display: flex; gap: 3px;
     background: var(--surface2);
@@ -1795,6 +1807,26 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                 <div id="video-info-body"></div>
             </div>
 
+            <!-- Advanced settings modal -->
+            <div id="adv-settings-modal">
+                <h3><span>Advanced Settings</span><button id="adv-settings-close" title="Close" onclick="closeAdvancedSettings()"><img src="img/icons/close_white.svg" alt=""></button></h3>
+                <div id="adv-settings-body">
+                    <div class="adv-row">
+                        <div class="adv-row-text">
+                            <div class="adv-row-label">Disable playlist show when change episode</div>
+                            <div class="adv-row-desc">
+                                Keep the playlist hidden when you skip to another episode. When this is
+                                off, a hidden playlist peeks open for 2 seconds and closes again.
+                            </div>
+                        </div>
+                        <label class="settings-switch" title="Disable playlist show when change episode">
+                            <input type="checkbox" id="adv-no-playlist-peek">
+                            <span class="settings-switch-track"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <!-- Playback settings popup -->
             <div id="settings-popup">
                 <div class="set-section">
@@ -1832,6 +1864,9 @@ img.ctx-icon { height: 16px; opacity: 0.85; display: block; }
                 <div class="set-section" style="padding-left:0;padding-right:0;padding-bottom:2px;">
                     <div class="set-link" id="set-video-props">
                         <img src="img/icons/menu_white.svg" alt="">Video properties
+                    </div>
+                    <div class="set-link" id="set-advanced">
+                        <img src="img/icons/settings_white.svg" alt="">Advanced settings
                     </div>
                 </div>
             </div>
@@ -1977,6 +2012,13 @@ var libraryCacheTs   = 0;   // timestamp of the index currently in memory
 // Set once the user manually opens/closes the playlist, so orientation changes
 // stop auto-managing it until the next playback starts.
 var playlistUserToggled = false;
+
+// Skipping between episodes must not reshuffle the layout. A playlist that is
+// already open stays open; a closed one only peeks open for this long before
+// tucking itself away again (unless the user disabled the peek entirely).
+var PLAYLIST_PEEK_MS   = 2000;
+var playlistPeekTimer  = null;
+var disablePlaylistPeek = (localStorage.getItem('movie_no_playlist_peek') === '1');
 
 // ─── Arozcast cast state ──────────────────────────────────────────────────────
 var castWs          = null;
@@ -3487,6 +3529,9 @@ function isWebPlayable(ext) {
     return ['mp4', 'webm', 'ogg'].includes(ext);
 }
 function startPlayback(index) {
+    // Coming from inside the player means this is an episode change rather than
+    // a fresh playback, and the playlist is handled differently (see below).
+    var isEpisodeChange = $('#view-player').hasClass('active');
     cancelCountdown();
     hideSeekFreeze();   // never carry a frozen frame across to a different episode
     resetSubtitleSeekFloor();   // a fresh episode starts unsuppressed
@@ -3540,9 +3585,14 @@ function startPlayback(index) {
 
     renderSidebar(currentEpisodes, index);
 
-    // New playback — drop any manual show/hide the user applied to the last one
-    playlistUserToggled = false;
-    applyPlaylistVisibility();
+    if (isEpisodeChange) {
+        peekPlaylistForEpisodeChange();
+    } else {
+        // New playback — drop any manual show/hide the user applied to the last one
+        cancelPlaylistPeek();
+        playlistUserToggled = false;
+        applyPlaylistVisibility();
+    }
 
     highlightPlayingEpisode(index);
 
@@ -3669,6 +3719,7 @@ function closePlayer() {
     }
     saveWatchPosition();
     cancelCountdown();
+    cancelPlaylistPeek();
     hideSeekFreeze();
     resetStoryboard();
     resetEmbeddedTracks();
@@ -3931,8 +3982,32 @@ function toggleFullscreen() {
 }
 
 function toggleSidebar() {
+    cancelPlaylistPeek();         // a manual toggle outranks a pending auto-close
     playlistUserToggled = true;   // stop auto-management until the next playback
     $('#playlist-sidebar').toggleClass('collapsed');
+}
+
+function cancelPlaylistPeek() {
+    if (playlistPeekTimer) { clearTimeout(playlistPeekTimer); playlistPeekTimer = null; }
+}
+
+// Skipping to another episode used to re-run applyPlaylistVisibility(), which
+// popped the sidebar open and left it there. Instead: leave an open playlist
+// alone, and let a closed one peek open just long enough to show what is playing
+// now — or not at all, when disabled in Advanced settings.
+function peekPlaylistForEpisodeChange() {
+    cancelPlaylistPeek();
+    var $sidebar = $('#playlist-sidebar');
+    if (!$sidebar.hasClass('collapsed')) { return; }   // already open — nothing to do
+    if (disablePlaylistPeek) { return; }
+    if (!currentEpisodes || currentEpisodes.length <= 1) { return; }
+    $sidebar.removeClass('collapsed');
+    playlistPeekTimer = setTimeout(function () {
+        playlistPeekTimer = null;
+        $('#playlist-sidebar').addClass('collapsed');
+        // The peek is transient — keep a later resize from re-opening it
+        playlistUserToggled = true;
+    }, PLAYLIST_PEEK_MS);
 }
 
 // The playlist sidebar eats a lot of width, so it is only opened automatically
@@ -4230,6 +4305,13 @@ function initSettingsPopup() {
     });
 
     $('#set-video-props').on('click', function () { closeSettingsPopup(); openVideoInfo('props'); });
+    $('#set-advanced').on('click',    function () { closeSettingsPopup(); openAdvancedSettings(); });
+
+    $('#adv-no-playlist-peek').on('change', function () {
+        disablePlaylistPeek = $(this).is(':checked');
+        localStorage.setItem('movie_no_playlist_peek', disablePlaylistPeek ? '1' : '0');
+        if (disablePlaylistPeek) { cancelPlaylistPeek(); }
+    });
 
     // Apply persisted values to the video element
     setRepeatSingle(repeatSingle);
@@ -4246,6 +4328,7 @@ function initSettingsPopup() {
 
 function openVideoInfo(tab) {
     currentInfoTab = tab || 'props';
+    closeAdvancedSettings();
     $('#video-info-modal').show();
     $('.info-tab').removeClass('active').eq(currentInfoTab === 'props' ? 0 : 1).addClass('active');
     $('#video-info-title').text(currentInfoTab === 'props' ? 'Video Properties' : 'Streaming Stats');
@@ -4260,6 +4343,14 @@ function closeVideoInfo() {
     $('#video-info-modal').hide();
     if (infoRefreshTimer) { clearInterval(infoRefreshTimer); infoRefreshTimer = null; }
 }
+
+function openAdvancedSettings() {
+    closeVideoInfo();
+    $('#adv-no-playlist-peek').prop('checked', disablePlaylistPeek);
+    $('#adv-settings-modal').show();
+}
+
+function closeAdvancedSettings() { $('#adv-settings-modal').hide(); }
 
 function showInfoTab(tab) {
     currentInfoTab = tab;
@@ -4403,11 +4494,13 @@ function initKeyboard() {
                         $('#subtitle-popup').hasClass('active') ||
                         $('#player-ctx').is(':visible') ||
                         $('#video-info-modal').is(':visible') ||
+                        $('#adv-settings-modal').is(':visible') ||
                         $('#subtitle-settings-modal').is(':visible')) {
                         closeSettingsPopup();
                         closeSubtitlePopup();
                         $('#player-ctx').hide();
                         closeVideoInfo();
+                        closeAdvancedSettings();
                         closeSubtitleSettings();
                     } else {
                         closePlayer();
