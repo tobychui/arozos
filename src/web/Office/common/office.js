@@ -274,6 +274,8 @@ var OfficeApp = (function () {
         OfficePlatform.setWindowTitle(t);
         var $dn = $(".of-docname");
         $dn.html((dirty ? '<span class="of-dirty-dot">• </span>' : "") + escapeHtml(name));
+        // the document's identity only ever changes alongside its title
+        updateForeignBanner();
     }
     function setStatus(msg, type, timeout) {
         var $m = $(".of-status-msg");
@@ -677,33 +679,18 @@ var OfficeApp = (function () {
             doSaveTo(file.filepath, file.filename, cb);
         });
     }
-    // returns false when the write was declined (format cannot hold the doc)
-    function doSaveTo(fp, fn, cb, silent) {
-        var ext = extOf(fn);
-        if (ext !== cfg.extension) {
-            // one of the app's own foreign formats - including a document
-            // opened from one and saved straight back with Ctrl+S
-            var fmt = findSaveFormat(ext, false);
-            if (fmt) return doSaveForeign(fp, fn, fmt, cb, silent);
-        }
-        if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
-        setStatus("Saving...", "info", 0);
+    /*
+        Write the document into the app's own container at fp. Shared by Save
+        / Save As and by the convert-to-native action, which writes a copy
+        without moving the open document onto it - so this deliberately
+        touches nothing but the file. Returns false when the envelope could
+        not even be built.
+    */
+    function writeNative(fp, done, fail) {
         var env;
         try { env = buildEnvelope(); }
-        catch (e) { setStatus("Save failed: " + e.message, "error"); return false; }
+        catch (e) { fail(e.message); return false; }
         var payload = JSON.stringify(env);
-        var done = function () {
-            filepath = fp; filename = fn;
-            loadedFromImport = false;
-            markClean();
-            addRecent(fp, fn);
-            setStatus("Saved " + fn);
-            saveSession();   // keep the session snapshot in step with the file
-            if (cb) cb();
-        };
-        var fail = function (err) {
-            setStatus("Save failed: " + err, "error");
-        };
         if (cfg.packed) {
             // native zip container: media data URLs become embedded assets
             OfficePlatform.containerSave(fp, payload, done, fail);
@@ -711,6 +698,120 @@ var OfficeApp = (function () {
             vfsSave(fp, payload, done, fail);
         }
         return true;
+    }
+    // returns false when the write was declined (format cannot hold the doc)
+    function doSaveTo(fp, fn, cb, silent) {
+        var ext = extOf(fn);
+        if (ext !== cfg.extension) {
+            // one of the app's own foreign formats - including a document
+            // opened from one and saved straight back with Ctrl+S
+            var fmt = findSaveFormat(ext, false);
+            if (fmt) {
+                // a writer too expensive to run on a timer (rasterizing
+                // charts, seeking videos for a poster frame, refetching every
+                // image) stays out of autosave; the caller falls back to the
+                // session snapshot, which is what that safety net is for
+                if (silent && fmt.noAutosave) return false;
+                return doSaveForeign(fp, fn, fmt, cb, silent);
+            }
+        }
+        if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+        setStatus("Saving...", "info", 0);
+        return writeNative(fp, function () {
+            filepath = fp; filename = fn;
+            loadedFromImport = false;
+            markClean();
+            addRecent(fp, fn);
+            setStatus("Saved " + fn);
+            saveSession();   // keep the session snapshot in step with the file
+            if (cb) cb();
+        }, function (err) {
+            setStatus("Save failed: " + err, "error");
+        });
+    }
+
+    /* ---------- foreign-format banner ---------- */
+    /*
+        A document opened from .docx / .pptx / .csv / ... goes on living in
+        that file: Save rewrites it in its own format rather than quietly
+        turning it into a native container (see doSaveTo). That is the right
+        default - somebody who opened a .docx wants a .docx back - but it
+        also means every ArozOS Office feature the foreign format cannot hold
+        is being dropped on each save, which is worth saying out loud once
+        rather than only at the moment content is lost.
+
+        So the editor carries a banner under the toolbar for as long as the
+        open file is not native, offering the one-click way out: convert to
+        the app's own format. Native documents never see any of this.
+    */
+    var bannerDismissed = null;   // filepath the banner was dismissed for
+
+    // the format the open document currently lives in, or null when that is
+    // the app's own container (or nothing on disk yet)
+    function foreignFormat() {
+        if (!filepath || !filename) return null;
+        var ext = extOf(filename);
+        if (!ext || ext === cfg.extension) return null;
+        return { ext: ext, fmt: findSaveFormat(ext, true) };
+    }
+    function buildForeignBanner() {
+        var $b = $('<div class="of-fmtbanner of-noprint" style="display:none;"></div>');
+        $b.append('<i class="exclamation triangle icon"></i>');
+        $b.append('<span class="of-fmtbanner-msg"></span>');
+        $b.append($('<button type="button" class="of-fmtbanner-btn"></button>')
+            .html('<i class="exchange icon"></i>Convert to ' + escapeHtml(cfg.extension))
+            .attr("title", "Save a copy as an ArozOS Office " + cfg.fileTypeName.toLowerCase() +
+                " and open it")
+            .on("click", convertToNative));
+        $b.append($('<button type="button" class="of-fmtbanner-x" title="Dismiss">×</button>')
+            .on("click", function () {
+                bannerDismissed = filepath;
+                $(".of-fmtbanner").hide();
+            }));
+        return $b;
+    }
+    function updateForeignBanner() {
+        var $b = $(".of-fmtbanner");
+        if (!$b.length) return;
+        var f = foreignFormat();
+        if (!f || bannerDismissed === filepath) { $b.hide(); return; }
+        var what = f.fmt ? formatLabel(f.fmt) : (f.ext + " file");
+        $b.find(".of-fmtbanner-msg").html(
+            "This is a <b>" + escapeHtml(what) + "</b>, not an ArozOS Office " +
+            escapeHtml(cfg.fileTypeName.toLowerCase()) + ". Saving keeps that format, " +
+            "so anything " + escapeHtml(f.ext) + " cannot store is lost.");
+        $b.css("display", "");
+    }
+    /*
+        Write the document out as a native container and open that copy in a
+        window of its own. The editor stays on the original foreign file: the
+        converted document is a new file, and which of the two to go on
+        working in is the person's call, not ours.
+    */
+    function convertToNative() {
+        var defName = stripExt(filename || cfg.defaultFileName) + cfg.extension;
+        OfficePlatform.pickSave({
+            defaultName: defName,
+            ext: cfg.extension,
+            memoryKey: "document"
+        }, function (file) {
+            if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+            setStatus("Converting to " + cfg.extension + "...", "info", 0);
+            writeNative(file.filepath, function () {
+                setStatus("Converted to " + file.filename);
+                addRecent(file.filepath, file.filename);
+                // the question has been answered for this file either way
+                bannerDismissed = filepath;
+                updateForeignBanner();
+                var opened = OfficePlatform.openDocument(file.filepath, file.filename,
+                    { appIcon: cfg.appIcon });
+                toast(opened ? ("Converted - " + file.filename + " opened in a new window")
+                    : ("Converted - saved as " + file.filename));
+            }, function (err) {
+                setStatus("Convert failed: " + err, "error");
+                toast("Convert failed: " + err, "error");
+            });
+        });
     }
 
     /* ---------- autosave ---------- */
@@ -913,6 +1014,9 @@ var OfficeApp = (function () {
             { sep: true }
         ];
         list.forEach(function (f) {
+            // hidden: a writer that only exists to save a document back into
+            // the file it came from (a second extension for the same format)
+            if (f.hidden) return;
             sub.push({
                 label: formatLabel(f), icon: f.icon || "file outline",
                 action: function () { saveAsFormat(f); }
@@ -1247,6 +1351,12 @@ var OfficeApp = (function () {
         var $menubar = buildMenubar(standardMenus());
         $("body").prepend($menubar);
         $("body").append(buildStatusbar());
+        // the foreign-format banner sits under the whole toolbar strip, so
+        // it reads as a note about the document rather than part of the
+        // chrome; apps with no toolbar get it straight under the menubar
+        var $banner = buildForeignBanner();
+        var $tb = $("body > .of-toolbar").last();
+        if ($tb.length) $tb.after($banner); else $menubar.after($banner);
 
         // shortcuts (standard)
         registerShortcut("Ctrl+S", function () { save(); }, { description: "Save" });

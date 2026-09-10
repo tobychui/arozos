@@ -2466,7 +2466,10 @@
         "ul.of-checklist li.checked::before{content:\"\\2611  \";}" +
         "ul.of-checklist li.checked{text-decoration:line-through;color:#888;}" +
         ".hf{color:#777;font-size:9pt;margin:10px 0;}";
-    function exportHTML() {
+    /* The three text renderings, built once and used twice: File > Export
+       downloads them, and the matching saveFormats writer stores them - which
+       is what a document opened from .html / .txt / .md is saved back into. */
+    function buildHTML() {
         var body = currentBody();
         var title = exportBaseName();
         var out = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n" +
@@ -2478,19 +2481,21 @@
         out += resolvedHtml() + "\n";
         if (hf && body.footer) out += '<div class="hf">' + esc(body.footer) + "</div>\n";
         out += "</body>\n</html>\n";
-        downloadFile(title + ".html", "text/html", out);
+        return out;
     }
-    function exportText() {
+    function buildText() {
         var div = document.createElement("div");
         div.innerHTML = resolvedHtml();
-        downloadFile(exportBaseName() + ".txt", "text/plain", div.innerText || "");
+        return div.innerText || "";
     }
-    function exportMarkdown() {
+    function buildMarkdown() {
         var div = document.createElement("div");
         div.innerHTML = resolvedHtml();
-        var md = htmlToMarkdown(div).replace(/\n{3,}/g, "\n\n").trim() + "\n";
-        downloadFile(exportBaseName() + ".md", "text/markdown", md);
+        return htmlToMarkdown(div).replace(/\n{3,}/g, "\n\n").trim() + "\n";
     }
+    function exportHTML() { downloadFile(exportBaseName() + ".html", "text/html", buildHTML()); }
+    function exportText() { downloadFile(exportBaseName() + ".txt", "text/plain", buildText()); }
+    function exportMarkdown() { downloadFile(exportBaseName() + ".md", "text/markdown", buildMarkdown()); }
 
     /* --- basic HTML -> Markdown conversion (hand-written, MVP scope) --- */
     function htmlToMarkdown(rootEl) {
@@ -2676,8 +2681,9 @@
             }
             loadBody(b);
             undo.reset(snapshot());
-            OfficeApp.markDirty();
-            OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .doca");
+            // the framework kept us attached to the source file, so Save
+            // writes straight back to it in its own format
+            OfficeApp.setStatus("Opened " + fn);
         }, function (msg) {
             OfficeApp.hideBusy();
             OfficeApp.toast("Import failed: " + msg, "error");
@@ -2846,6 +2852,117 @@
     }
     function exportDocx() { exportDocFile(".docx", "export", "Exporting Word file..."); }
     function exportOdt() { exportDocFile(".odt", "export-odf", "Exporting OpenDocument file..."); }
+
+    /* ================= saving back into a foreign format =================
+       A document opened from .docx / .odt / .html / .md / .txt goes on living
+       in that file: the framework keeps filepath/filename pointing at it and
+       Ctrl+S comes back here instead of forcing a Save As to .doca. These are
+       the same renderings the Export menu produces, reporting through the
+       framework's save callbacks rather than a toast of their own. */
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+    function saveViaConverter(action, fp, done, fail) {
+        var b = currentBody();
+        // suggestions applied, comment anchors unwrapped
+        b.html = resolvedHtml();
+        // PDF core fonts have no emoji glyphs - rasterize them
+        if (action === "export-pdf") b.html = rasterizeEmojiForPdf(b.html);
+        inlineImagesForExport(b.html).then(function (inlined) {
+            b.html = inlined;
+            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(b),
+                function () { done(); }, fail);
+        }).catch(function (err) {
+            fail((err && err.message) ? err.message : "could not prepare the document");
+        });
+    }
+    function saveTextFile(build, fp, done, fail) {
+        var content;
+        try { content = build(); }
+        catch (e) { fail(e.message || "could not render the document"); return; }
+        OfficeApp.vfsSave(fp, content, done, fail);
+    }
+    /*
+        Comments and pending suggestions live only in the native container:
+        every other writer is fed resolvedHtml(), which unwraps the comment
+        anchors, keeps insertions and drops deletions. That is a change to the
+        text itself, so it is a veto rather than a quiet loss. Formatting a
+        format merely renders differently is deliberately not listed - it
+        would fire on nearly every save.
+    */
+    function reviewUnsupported() {
+        var out = [];
+        var c = (comments || []).length;
+        if (c) out.push(plural(c, "comment", "comments"));
+        var s = allSuggestions().length;
+        if (s) {
+            out.push(plural(s, "pending suggestion", "pending suggestions") +
+                " - insertions would be accepted and deletions applied");
+        }
+        return out;
+    }
+    // .txt holds no pictures and no table structure at all
+    function textUnsupported() {
+        var out = reviewUnsupported();
+        var imgs = editor.querySelectorAll("img").length;
+        if (imgs) out.push(plural(imgs, "image", "images"));
+        var tables = editor.querySelectorAll("table").length;
+        if (tables) {
+            out.push(plural(tables, "table", "tables") +
+                " - only " + (tables === 1 ? "its" : "their") + " text would be kept");
+        }
+        return out;
+    }
+    /*
+        The formats File > Save as offers besides .doca, and the ones a
+        document opened from one of them is saved back into. needsConvert
+        marks the writers that go through the Office format converters and
+        needsBackend the ones that need a server outright (the real-text PDF
+        renderer); OfficeApp drops whichever the running host cannot do,
+        leaving the three text renderings - built right here in the browser -
+        always available. PDF is oneWay: it is a rendering, so writing one
+        leaves the document on its own file.
+    */
+    var SAVE_FORMATS = [
+        {
+            ext: ".docx", label: "Word document (.docx)", icon: "file word outline",
+            needsConvert: true, noAutosave: true,
+            unsupported: reviewUnsupported,
+            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
+        },
+        {
+            ext: ".odt", label: "OpenDocument text (.odt)", icon: "file alternate outline",
+            needsConvert: true, noAutosave: true,
+            unsupported: reviewUnsupported,
+            save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
+        },
+        {
+            ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
+            needsBackend: true, oneWay: true,
+            save: function (fp, fn, done, fail) { saveViaConverter("export-pdf", fp, done, fail); }
+        },
+        {
+            ext: ".html", label: "Web page (.html)", icon: "file code outline",
+            unsupported: reviewUnsupported,
+            save: function (fp, fn, done, fail) { saveTextFile(buildHTML, fp, done, fail); }
+        },
+        {
+            // the same writer under the other extension a web page may carry:
+            // save-back only, so Save as does not offer it twice
+            ext: ".htm", label: "Web page (.htm)", icon: "file code outline",
+            hidden: true,
+            unsupported: reviewUnsupported,
+            save: function (fp, fn, done, fail) { saveTextFile(buildHTML, fp, done, fail); }
+        },
+        {
+            ext: ".md", label: "Markdown (.md)", icon: "file alternate outline",
+            unsupported: reviewUnsupported,
+            save: function (fp, fn, done, fail) { saveTextFile(buildMarkdown, fp, done, fail); }
+        },
+        {
+            ext: ".txt", label: "Plain text (.txt)", icon: "file outline",
+            unsupported: textUnsupported,
+            save: function (fp, fn, done, fail) { saveTextFile(buildText, fp, done, fail); }
+        }
+    ];
 
     /* ================= floating selection format bar ================= */
     /* PowerPoint-style mini toolbar (shared OfficeTextEditBar) floating
@@ -3265,6 +3382,7 @@
                 ".docx": importDocx,
                 ".odt": importOdt
             },
+            saveFormats: SAVE_FORMATS,
 
             onUndo: doUndo,
             onRedo: doRedo,

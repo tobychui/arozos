@@ -81,6 +81,32 @@ var OfficePlatform = (function () {
         if (window.OfficeApp && OfficeApp.toast) OfficeApp.toast(msg, type);
         else status(msg, type);
     }
+    /*
+        This page's path relative to the ArozOS web root ("Office/docs/
+        index.html"), which is the form newFloatWindow wants. ao_root is the
+        way back up to that root ("../../"), so the same number of trailing
+        path segments is the way back down to here - and the app keeps
+        working if the whole desktop is served from a sub-path.
+    */
+    function pagePath() {
+        var parts = String(window.location.pathname).split("/")
+            .filter(function (s) { return s.length > 0; });
+        var up = (String(typeof ao_root === "string" ? ao_root : "").match(/\.\.\//g) || []).length;
+        if (up > 0 && parts.length > up + 1) parts = parts.slice(parts.length - up - 1);
+        return parts.join("/");
+    }
+    // a path relative to this page ("../img/docs.svg") in the same web-root
+    // relative form ("Office/img/docs.svg")
+    function pageRelative(rel) {
+        var dir = pagePath().split("/");
+        dir.pop();
+        String(rel || "").split("/").forEach(function (seg) {
+            if (!seg || seg === ".") return;
+            if (seg === "..") { dir.pop(); return; }
+            dir.push(seg);
+        });
+        return dir.join("/");
+    }
 
     /* ================================================================
        ArozOS host
@@ -330,6 +356,25 @@ var OfficePlatform = (function () {
             var entry = entryPointFiles();
             if (entry) return entry;
             try { return ao_module_loadInputFiles(); } catch (e) { return null; }
+        },
+        /* Open a document in a second window of this same app - the desktop
+           launches another floatWindow, a plain browser tab another tab. The
+           file is handed over the same way the desktop hands one to an
+           opened-with app: the hash carries the input file list. */
+        openDocument: function (filepath, filename, opts) {
+            opts = opts || {};
+            var hash = "#" + encodeURIComponent(JSON.stringify(
+                [{ filepath: filepath, filename: filename }]));
+            try {
+                ao_module_newfw({
+                    url: pagePath() + hash,
+                    title: filename,
+                    appicon: opts.appIcon ? pageRelative(opts.appIcon) : undefined,
+                    width: opts.width || 1080,
+                    height: opts.height || 700
+                });
+                return true;
+            } catch (e) { return false; }
         },
         setWindowTitle: function (t) {
             try { ao_module_setWindowTitle(t); } catch (e) { document.title = t; }
@@ -760,6 +805,9 @@ var OfficePlatform = (function () {
         loadInputFiles: entryPointFiles,
         setWindowTitle: function (t) { document.title = t; },
         setWindowTheme: function () { },
+        /* Saving here is a download, so there is no path a second window
+           could be pointed at - the caller says so instead. */
+        openDocument: function () { return false; },
 
         /* A File that arrived by drag and drop rather than through a picker:
            register it the same way pickOpen does, then hand the caller the
@@ -836,6 +884,9 @@ var OfficePlatform = (function () {
         blobToSrc: function (b, n, cb, errcb) { host.blobToSrc(b, n, cb, errcb); },
 
         loadInputFiles: function () { return host.loadInputFiles(); },
+        // open a document in a second window of this app; false = this host
+        // has nowhere to open it from (the standalone build saves by download)
+        openDocument: function (fp, fn, o) { return !!host.openDocument(fp, fn, o || {}); },
         adoptDroppedFile: function (f, cb) {
             if (host.adoptDroppedFile) host.adoptDroppedFile(f, cb);
         },

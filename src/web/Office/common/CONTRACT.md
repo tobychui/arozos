@@ -239,6 +239,8 @@ readText writeText containerLoad containerSave
 sessionSave sessionLoad sessionDelete
 agirun agirunLarge prepareWorkdir mediaUrl blobToSrc
 loadInputFiles adoptDroppedFile setWindowTitle setWindowTheme
+openDocument     // open a document in a second window of this app;
+                 // false = nowhere to open it from (standalone downloads)
 ```
 
 **Adding a format conversion:** add the converter to
@@ -378,6 +380,12 @@ saveFormats: [{
     label: "CSV (.csv)",              // shown in the Save as submenu
     icon: "file alternate outline",   // semantic icon name
     oneWay: true,                     // optional; a rendering such as PDF
+    hidden: true,                     // optional; save-back only, kept out of
+                                      // the Save as list (a second extension
+                                      // for a format already listed, .htm)
+    noAutosave: true,                 // optional; too expensive to run on a
+                                      // timer - autosave skips it and keeps
+                                      // the session snapshot instead
     unsupported: function(){ return ["2 charts"]; },   // null/[] = fine
     save: function(fp, fn, done, fail){ … }            // fail(msg) on error
 }]
@@ -403,11 +411,24 @@ What the framework then does:
   nags on every save.
 - **`oneWay: true`** marks a rendering (PDF): it is written, but the document
   keeps its own path and stays dirty, because you cannot reopen it.
-- **Autosave** writes a foreign format only while `unsupported()` passes; when
-  it does not, autosave silently skips the file and falls back to the session
-  snapshot rather than popping a dialog.
+- **Autosave** writes a foreign format only while `unsupported()` passes, and
+  never writes one marked `noAutosave`; in either case it silently skips the
+  file and falls back to the session snapshot rather than popping a dialog.
+  `noAutosave` is for writers whose *preparation* is the expensive part —
+  Slides rasterizes every chart and seeks each video for a poster frame, Docs
+  refetches and re-rasterizes every image — which is fine once on Ctrl+S and
+  wrong every 25 seconds.
+- **A warning strip appears under the toolbar** for as long as the open file
+  is not the app's own container, because living in a foreign file means
+  everything that format cannot hold is dropped on every save. Its **Convert
+  to `<native ext>`** button asks where to put a native copy, writes it, and
+  opens it in a window of its own (`OfficePlatform.openDocument`) — this
+  editor stays on the original file. The framework owns all of it
+  (`updateForeignBanner` / `convertToNative`, `.of-fmtbanner` in
+  `office.css`); apps need do nothing, and a native document never sees it.
 
-Sheets is the reference implementation (`sheets/sheets_io.js`, `SAVE_FORMATS`).
+All three apps declare `saveFormats`; Sheets is the reference implementation
+(`sheets/sheets_io.js`, `SAVE_FORMATS`).
 
 ## Packed native files (zip container)
 

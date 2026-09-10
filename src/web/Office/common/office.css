@@ -24,6 +24,9 @@
     --of-hover: rgba(60, 64, 67, 0.08);
     --of-active: rgba(60, 64, 67, 0.14);
     --of-scrollbar: #c3c7cc;
+    --of-warn-bg: #fdf3d8;
+    --of-warn-fg: #6b5210;
+    --of-warn-border: #e5cf94;
 }
 
 body.dark {
@@ -40,6 +43,9 @@ body.dark {
     --of-hover: rgba(232, 234, 237, 0.08);
     --of-active: rgba(232, 234, 237, 0.15);
     --of-scrollbar: #4d5157;
+    --of-warn-bg: #3a3423;
+    --of-warn-fg: #f0dda6;
+    --of-warn-border: #5e5433;
 }
 
 /* Per-app accent colors */
@@ -233,6 +239,64 @@ body.of-app {
     background: transparent;
     cursor: pointer;
 }
+
+/* ============ Foreign-format banner ============ */
+/* Sits between the toolbar and the workspace while the open document lives
+   in a format that is not the app's own container (.docx, .pptx, .csv, ...).
+   office.js builds and shows it; see updateForeignBanner(). */
+.of-fmtbanner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    padding: 7px 10px 7px 12px;
+    background: var(--of-warn-bg);
+    color: var(--of-warn-fg);
+    border-bottom: 1px solid var(--of-warn-border);
+    font-size: 13px;
+    line-height: 1.35;
+}
+.of-fmtbanner > i.icon {
+    flex: 0 0 auto;
+    margin: 0;
+    opacity: 0.85;
+}
+.of-fmtbanner .of-fmtbanner-msg {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.of-fmtbanner .of-fmtbanner-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border: 1px solid var(--of-warn-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg);
+    color: var(--of-warn-fg);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.of-fmtbanner .of-fmtbanner-btn:hover { background: var(--of-hover); }
+.of-fmtbanner .of-fmtbanner-btn i.icon { margin: 0; }
+.of-fmtbanner .of-fmtbanner-x {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font-size: 17px;
+    line-height: 1;
+    opacity: 0.6;
+    cursor: pointer;
+}
+.of-fmtbanner .of-fmtbanner-x:hover { background: var(--of-hover); opacity: 1; }
 
 /* ============ Workspace ============ */
 .of-workspace {

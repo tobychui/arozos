@@ -49,3 +49,4 @@ src/system/telegram_conf.json
 # must never be committed
 src/system/git/
 /.kilo
+/reference

@@ -249,20 +249,42 @@ styles at export time.
 
 ### Saving back into a foreign format
 
-Sheets declares `saveFormats` (see
-[`common/CONTRACT.md`](common/CONTRACT.md)), so a workbook opened from
-`.xlsx` / `.ods` / `.csv` / `.tsv` **stays that file**: `Ctrl+S` rewrites it
-in its own format instead of forcing a Save As to `.xlsa`, and File > Save as
+All three apps declare `saveFormats` (see
+[`common/CONTRACT.md`](common/CONTRACT.md)), so a document opened from a
+foreign format **stays that file**: `Ctrl+S` rewrites it in its own format
+instead of forcing a Save As to the native container, and File > Save as
 offers the whole list (plus PDF, which is one-way).
+
+| App | saved back into | declared in |
+|---|---|---|
+| Docs | .docx, .odt, .html/.htm, .md, .txt (+ .pdf one-way) | `SAVE_FORMATS` in [`docs/docs.js`](docs/docs.js) |
+| Sheets | .xlsx, .ods, .csv, .tsv (+ .pdf one-way) | `SAVE_FORMATS` in [`sheets/sheets_io.js`](sheets/sheets_io.js) |
+| Slides | .pptx, .odp (+ .pdf one-way) | `SAVE_FORMATS` in [`slides/slides.js`](slides/slides.js) |
 
 Each format vetoes what it cannot hold — `.csv`/`.tsv` reject formulas,
 charts, notes, merges and second sheets; `.ods` rejects charts
-(`ods_writer.go` cannot represent them); `.xlsx` takes everything. The veto
-lists what would be lost and offers `.xlsa` instead, so no save quietly drops
-content. Purely visual formatting is deliberately *not* a veto reason: it
-would fire on nearly every CSV edit. When a format's Go writer gains or loses
-a capability, update the matching `unsupported()` in
-[`sheets/sheets_io.js`](sheets/sheets_io.js).
+(`ods_writer.go` cannot represent them); `.odp` rejects video and audio
+objects (`odp_writer.go` emits no case for them); every Docs writer but the
+native one rejects comments and pending suggestions, because they are fed
+`resolvedHtml()` and would come back with insertions accepted and deletions
+applied; `.txt` additionally rejects images and tables; `.xlsx` and `.pptx`
+take everything. The veto lists what would be lost and offers the native
+extension instead, so no save quietly drops content. Purely visual formatting
+is deliberately *not* a veto reason: it would fire on nearly every CSV edit.
+When a format's Go writer gains or loses a capability, update the matching
+`unsupported()`.
+
+**The banner.** Living in a foreign file is the right default — somebody who
+opened a `.docx` wants a `.docx` back — but it also means every feature that
+format cannot hold is dropped on each save. So the framework shows a warning
+strip under the toolbar for as long as the open file is not native
+(`updateForeignBanner` in [`common/office.js`](common/office.js), styled
+`.of-fmtbanner` in [`common/office.css`](common/office.css)), with the one
+click out: **Convert to `<native ext>`** asks where to put a native copy,
+writes it, and opens it in a window of its own through
+`OfficePlatform.openDocument` — leaving this editor on the original file,
+because which of the two to go on working in is the person's call. Native
+documents never see any of it, and the strip can be dismissed per file.
 
 All that pre-baking makes the export payload big, and the AGI gateway reads
 its POST parameters with Go's `r.ParseForm`, which **drops every parameter

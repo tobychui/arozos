@@ -2809,8 +2809,9 @@ var SlidesApp = (function () {
             editingId = null;
             renderAll();
             undo.init(snap());
-            OfficeApp.markDirty();
-            OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .ppta");
+            // the framework kept us attached to the source file, so Save
+            // writes straight back to it in its own format
+            OfficeApp.setStatus("Opened " + fn);
         }, function (msg) {
             OfficeApp.hideBusy();
             OfficeApp.toast("Import failed: " + msg, "error");
@@ -2977,6 +2978,69 @@ var SlidesApp = (function () {
     // server-side real-text PDF (mod/office); video/audio render their
     // captured poster frame (or a generic placeholder)
     function exportPdf() { exportSlidesFile(".pdf", "export-pdf", "Exporting PDF..."); }
+
+    /* ================= saving back into a foreign format =================
+       A deck opened from .pptx / .odp goes on living in that file: the
+       framework keeps filepath/filename pointing at it and Ctrl+S comes back
+       here instead of forcing a Save As to .ppta. These are the same
+       converters the Export menu uses, reporting through the framework's
+       save callbacks rather than a toast of their own. */
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+    function saveViaConverter(action, fp, done, fail) {
+        endEdit(true);
+        prepareBodyForPptx().then(function (prepared) {
+            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(prepared),
+                function (res) {
+                    // .pptx keeps video and audio beside the file rather than
+                    // embedding them - say where they went
+                    if (res && res.mediaZip) {
+                        OfficeApp.toast("Video / audio files saved to " + res.mediaZip);
+                    }
+                    done();
+                }, fail);
+        }).catch(function (err) {
+            fail((err && err.message) ? err.message : "could not prepare the presentation");
+        });
+    }
+    /* .odp: the OpenDocument presentation writer emits text, images, charts,
+       shapes, lines and tables (mod/office/odp_writer.go) - a video or audio
+       object would simply vanish, so the save is refused instead. */
+    function odpUnsupported() {
+        var n = 0;
+        ((body && body.slides) || []).forEach(function (s) {
+            (s.objects || []).forEach(function (o) {
+                if (o.type === "video" || o.type === "audio") n++;
+            });
+        });
+        return n ? [plural(n, "video / audio object", "video / audio objects") +
+            " - the OpenDocument presentation writer cannot store them"] : [];
+    }
+    /*
+        The formats File > Save as offers besides .ppta, and the ones a deck
+        opened from .pptx / .odp is saved back into. needsConvert marks the
+        writers that go through the Office format converters and needsBackend
+        the ones that need a server outright (the real-text PDF renderer);
+        OfficeApp drops whichever the running host cannot do. PDF is oneWay -
+        it is a rendering, so writing one leaves the deck on its own file.
+    */
+    var SAVE_FORMATS = [
+        {
+            ext: ".pptx", label: "PowerPoint presentation (.pptx)", icon: "file powerpoint outline",
+            needsConvert: true, noAutosave: true,
+            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
+        },
+        {
+            ext: ".odp", label: "OpenDocument presentation (.odp)", icon: "file alternate outline",
+            needsConvert: true, noAutosave: true,
+            unsupported: odpUnsupported,
+            save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
+        },
+        {
+            ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
+            needsBackend: true, oneWay: true,
+            save: function (fp, fn, done, fail) { saveViaConverter("export-pdf", fp, done, fail); }
+        }
+    ];
 
     /* ================= menus ================= */
     function insertMenuItems() {
@@ -3312,6 +3376,7 @@ var SlidesApp = (function () {
                 ".pptx": function (fp, fn) { importPptx(fp, fn); },
                 ".odp": importOdp
             },
+            saveFormats: SAVE_FORMATS,
             /*
                 .pptx / .odp need the Office converters - the AGI backend in
                 ArozOS, the WebAssembly module in the web edition. The
