@@ -591,3 +591,208 @@ body.dark .sl-h { background: #2b2d31; }
     .sl-thumb-view { width: 88px; height: 49.5px; }
     .sl-thumb-mini { transform: scale(0.091667); }
 }
+
+/* ============ Picture tools (slides_image.js) ============ */
+
+/* the floating picture bar reuses the text bar's chrome so the two feel
+   like one family; only the label and the split crop control differ */
+.sl-imagebar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px 0 2px;
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    white-space: nowrap;
+}
+.sl-imagebar-label i.icon { margin: 0 !important; font-size: 12px !important; }
+.sl-imagebar .of-te-btn.active { background: var(--of-accent-soft); color: var(--of-accent); }
+/* crop + caret read as one split button */
+.sl-imagebar-crop { border-radius: 4px 0 0 4px !important; }
+.sl-imagebar-caret { width: 16px !important; border-radius: 0 4px 4px 0 !important; }
+.sl-imagebar-caret i.icon { font-size: 10px !important; }
+
+/* ---- crop shape grid ---- */
+.sl-shapegrid {
+    position: fixed;
+    z-index: 1500;
+    padding: 6px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    user-select: none;
+}
+.sl-shapegrid-none {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+.sl-shapegrid-cells {
+    display: grid;
+    grid-template-columns: repeat(6, 32px);
+    gap: 2px;
+    border-top: 1px solid var(--of-border);
+    padding-top: 5px;
+}
+.sl-shapegrid-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-shapegrid-none:hover, .sl-shapegrid-cell:hover { background: var(--of-hover); }
+.sl-shapegrid-none.active, .sl-shapegrid-cell.active {
+    background: var(--of-accent-soft);
+    color: var(--of-accent);
+}
+
+/* ---- format side panel ---- */
+#slFormatPanel {
+    flex: 0 0 268px;
+    width: 268px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--of-chrome-bg);
+    border-left: 1px solid var(--of-border);
+    user-select: none;
+}
+.sl-fp-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 12px 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--of-fg);
+}
+.sl-fp-title i.icon { margin: 0 !important; color: var(--of-accent); }
+.sl-fp-title span { flex: 1 1 auto; }
+.sl-fp-close {
+    border: none;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+}
+.sl-fp-close:hover { background: var(--of-hover); color: var(--of-fg); }
+.sl-fp-close i.icon { margin: 0 !important; }
+.sl-fp-empty { padding: 10px 14px; color: var(--of-fg-soft); font-size: 12px; }
+
+.sl-fp-section { border-top: 1px solid var(--of-border); }
+.sl-fp-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-fp-head:hover { background: var(--of-hover); }
+.sl-fp-head i.icon { margin: 0 !important; font-size: 11px !important; transition: transform 0.15s ease; }
+.sl-fp-section.closed .sl-fp-head i.icon { transform: rotate(-90deg); }
+.sl-fp-body { padding: 0 14px 12px 14px; }
+.sl-fp-section.closed .sl-fp-body { display: none; }
+
+.sl-fp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sl-fp-field { margin-bottom: 8px; min-width: 0; }
+.sl-fp-field label {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 11px;
+    color: var(--of-fg-soft);
+}
+.sl-fp-inputrow { display: flex; align-items: center; gap: 4px; }
+.sl-fp-num {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+}
+.sl-fp-num:focus { border-color: var(--of-accent); }
+.sl-fp-unit { flex: 0 0 auto; font-size: 11px; color: var(--of-fg-soft); min-width: 26px; }
+.sl-fp-range { flex: 1 1 auto; min-width: 0; accent-color: var(--of-accent); }
+.sl-fp-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 10px;
+    font-size: 12px;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-fp-iconbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-fp-iconbtn:hover { background: var(--of-hover); }
+.sl-fp-iconbtn.active { background: var(--of-accent-soft); color: var(--of-accent); border-color: var(--of-accent); }
+.sl-fp-iconbtn i.icon { margin: 0 !important; font-size: 12px !important; }
+
+/* re-colour swatches: the picture itself seen through each filter, so the
+   preview is literally the result */
+.sl-fp-swatches { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.sl-fp-swatch {
+    display: block;
+    padding: 0;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    overflow: hidden;
+}
+.sl-fp-swatch img {
+    display: block;
+    width: 100%;
+    height: 42px;
+    object-fit: cover;
+    background: var(--of-chrome-bg2);
+}
+.sl-fp-swatch span {
+    display: block;
+    padding: 2px 3px 3px;
+    font-size: 9px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sl-fp-swatch:hover { border-color: var(--of-accent); }
+.sl-fp-swatch.active { border-color: var(--of-accent); box-shadow: 0 0 0 1px var(--of-accent); color: var(--of-accent); }

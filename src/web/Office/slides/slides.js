@@ -58,10 +58,16 @@
       line         : points (a bent connector's polyline), arrowStart
       table        : cellFill[][], cellPad[t,r,b,l]
 
-    An image also carries crop / mask / orig when it has been cropped in
-    the editor - the same props, since a crop made here and one made in
-    PowerPoint mean the same thing. See the "image crop tool" section
-    below and CONTRACT.md for the frame-vs-source identity they obey.
+    An image also carries what the picture tools put on it:
+      crop[l,t,r,b] / mask / radius  the crop and the shaped crop
+      orig {x,y,w,h}                 the frame Reset image puts back
+      flipH / flipV                  mirrored horizontally / vertically
+      recolor / bright / contrast    the colour treatment (slides_image.js)
+      opacity                        1 - transparency
+    These are the same props the pptx reader writes, because a crop or a
+    tint made here and one made in PowerPoint mean the same thing. See the
+    "image crop tool" section below, slides_image.js for the tools that
+    edit them, and CONTRACT.md for the frame-vs-source identity they obey.
 */
 
 var SlidesApp = (function () {
@@ -305,6 +311,15 @@ var SlidesApp = (function () {
         if (p.opacity) wrapS += "opacity:" + clamp(Number(p.opacity) || 1, 0, 1) + ";";
         var clip = maskClipPath(p.mask);
         if (clip) wrapS += "clip-path:" + clip + ";-webkit-clip-path:" + clip + ";";
+        // re-colour and the brightness / contrast adjustments are one CSS
+        // filter, built by the picture tools so the canvas, the thumbnails,
+        // present mode and the panel's own swatches all agree
+        if (window.SlidesImageTools) {
+            var f = SlidesImageTools.imageFilter(p);
+            if (f) imgS += "filter:" + f + ";";
+        }
+        var flip = (p.flipH ? "scaleX(-1) " : "") + (p.flipV ? "scaleY(-1)" : "");
+        if (flip) imgS += "transform:" + flip.trim() + ";";
         return '<div class="sl-img-wrap" style="' + wrapS + '">' +
             '<img draggable="false" src="' + esc(p.src || "") +
             '" style="' + imgS + '" alt=""></div>';
@@ -687,6 +702,7 @@ var SlidesApp = (function () {
     function renderOverlay() {
         if (!framesEl) return;
         framesEl.innerHTML = "";
+        if (window.SlidesImageTools) SlidesImageTools.reposition();
         if (cropId) {
             // the crop tool replaces the selection frame while it is open
             renderCropOverlay();
@@ -889,9 +905,12 @@ var SlidesApp = (function () {
         if (!o || o.type !== "image") return;
         if (cropId === o.id) endCrop(false);
         var full = fullImageRect(o);
-        delete o.props.crop;
-        delete o.props.mask;
-        delete o.props.radius;
+        // everything the picture tools can put on a picture comes off: the
+        // crop, the shaped crop, the flips and the colour treatment
+        ["crop", "mask", "radius", "flipH", "flipV",
+         "recolor", "bright", "contrast", "opacity"].forEach(function (k) {
+            delete o.props[k];
+        });
         if (o.props.orig) {
             o.x = o.props.orig.x; o.y = o.props.orig.y;
             o.w = o.props.orig.w; o.h = o.props.orig.h;
@@ -1122,6 +1141,8 @@ var SlidesApp = (function () {
         renderOverlay();
         renderThumb(cur);
         updateStatus();
+        // the picture bar is anchored to a DOM node the re-render replaced
+        if (window.SlidesImageTools) SlidesImageTools.sync();
         OfficeApp.markDirty();
         undo.push(snap());
     }
@@ -3076,33 +3097,25 @@ var SlidesApp = (function () {
         $tb.append(tbtn("table", "Insert table", tableDialog));
         $tb.append(tbtn("chart bar", "Insert chart", function () { chartDialog(null); }));
         // picture tools: only meaningful with an image selected, so they
-        // are hidden until there is one (syncToolbarFromSel)
+        // are hidden until there is one (syncToolbarFromSel). Crop and the
+        // crop shapes are one split control - the button crops, the caret
+        // beside it picks the outline to crop to.
         $tb.append(tbtn("crop", "Crop image", function () {
             var io = selectedImage();
             if (io) { if (cropId === io.id) endCrop(true); else startCrop(io.id); }
         }, "slBtnCrop"));
-        $tb.append(tbtn("object ungroup outline", "Mask image to a shape", function (e) {
-            var io = selectedImage();
-            if (!io) return;
-            var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, [{
-                label: "None (rectangle)",
-                checked: function () { return !io.props.mask; },
-                action: function () { setImageMask(io, ""); }
-            }, { sep: true }].concat(SHAPE_KINDS.filter(function (s) {
-                return s.kind !== "rect";
-            }).map(function (s) {
-                return {
-                    label: s.label,
-                    checked: function () { return io.props.mask === s.kind; },
-                    action: function () { setImageMask(io, s.kind); }
-                };
-            })));
-        }, "slBtnMask"));
+        $tb.append(tbtn("caret down", "Crop to shape", function (e) {
+            if (selectedImage() && window.SlidesImageTools) {
+                SlidesImageTools.showShapeMenu(e.currentTarget);
+            }
+        }, "slBtnCropShape"));
         $tb.append(tbtn("history", "Reset image", function () {
             var io = selectedImage();
             if (io) resetImage(io);
         }, "slBtnResetImg"));
+        $tb.append(tbtn("sliders horizontal", "Image format options", function () {
+            if (window.SlidesImageTools) SlidesImageTools.togglePanel();
+        }, "slBtnImgFmt"));
         $tb.append('<div class="of-tsep"></div>');
 
         var $fs = $('<input type="number" class="of-tinput sl-num" id="slFontSize" min="6" max="200" step="1" title="Font size" value="24">');
@@ -3249,8 +3262,12 @@ var SlidesApp = (function () {
         var so = selObjs();
         var o = so.length ? so[0] : null;
         var isImg = !!selectedImage();
-        $("#slBtnCrop, #slBtnMask, #slBtnResetImg").toggle(isImg);
+        $("#slBtnCrop, #slBtnCropShape, #slBtnResetImg, #slBtnImgFmt").toggle(isImg);
         $("#slBtnCrop").toggleClass("active", !!cropId);
+        if (window.SlidesImageTools) {
+            $("#slBtnImgFmt").toggleClass("active", SlidesImageTools.panelOpen());
+            SlidesImageTools.sync();
+        }
         if (!o) return;
         var p = o.props;
         if (o.type === "text" || o.type === "shape" || o.type === "table") {
@@ -3817,6 +3834,24 @@ var SlidesApp = (function () {
     }
 
     function init() {
+        // the picture tools live in their own module and reach the document
+        // only through this host object
+        if (window.SlidesImageTools) {
+            SlidesImageTools.init({
+                getImage: selectedImage,
+                objEl: objEl,
+                commit: commit,
+                startCrop: startCrop,
+                endCrop: endCrop,
+                isCropping: function () { return !!cropId; },
+                resetImage: resetImage,
+                setMask: setImageMask,
+                shapeKinds: SHAPE_KINDS,
+                shapePoints: shapePoints,
+                slideSize: [SLIDE_W, SLIDE_H],
+                relayout: layoutCanvas
+            });
+        }
         snapGrid = false;
         undo = new OfficeUndoStack({ limit: 100, apply: applyUndoState });
 

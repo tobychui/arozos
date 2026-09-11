@@ -112,7 +112,17 @@ type Props struct {
 	Opacity float64   `json:"opacity,omitempty"` // 0..1, 0 = fully opaque
 	// a shaped crop: the picture is clipped to one of the shape kinds
 	// below ("" or "rect" = a plain rectangle)
-	Mask string `json:"mask,omitempty"`
+	Mask  string `json:"mask,omitempty"`
+	FlipH bool   `json:"flipH,omitempty"`
+	FlipV bool   `json:"flipV,omitempty"`
+	// picture colour: a re-colour preset key (see RECOLORS in
+	// slides/slides_image.js) and the brightness / contrast offsets, where
+	// 0 is "leave alone" and the range is roughly -0.9 .. 1
+	Recolor  string  `json:"recolor,omitempty"`
+	Bright   float64 `json:"bright,omitempty"`
+	Contrast float64 `json:"contrast,omitempty"`
+	// editor-only: the crop panel's aspect-ratio latch
+	LockAspect bool `json:"lockAspect,omitempty"`
 	// the frame the whole picture filled before it was first cropped, so
 	// Reset image can put it back. Editor state - no format stores it.
 	Orig *Rect `json:"orig,omitempty"`

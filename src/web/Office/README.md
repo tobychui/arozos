@@ -172,21 +172,41 @@ editor and one made in PowerPoint are interchangeable. `fullImageRect()`
 in `slides.js` inverts the pair to find where the whole picture sits, and
 that is the whole of the crop tool's geometry.
 
-Three commands, on the picture's context menu and on the toolbar (which
-shows them only while a picture is selected):
+The tools live in [`slides/slides_image.js`](slides/slides_image.js)
+(`SlidesImageTools`) and reach the document only through a host object of
+callbacks, so `slides.js` stays about the document and the canvas. They are
+reachable three ways: a **floating picture bar** under the selected image
+(the text-edit bar's chrome, so the two feel like one family), the toolbar,
+and the picture's context menu.
 
 - **Crop image** (also a double-click) opens the tool: the object itself is
   hidden and the overlay draws the whole picture ghosted with the kept part
   at full strength over it. A grip moves the frame; dragging the picture
   moves the source behind it. Enter or a click outside applies, Esc restores.
-- **Mask image** clips it to any of the editor's shape kinds (`props.mask`),
-  drawn as a `clip-path` built from the same `shapePoints()` the shape
-  objects use, and written to `.pptx` as a `prstGeom` on the picture.
-- **Reset image** clears the crop, the mask and the corner radius, puts the
-  frame back to `props.orig` — stamped the first time a picture is trimmed,
-  and holding the frame the *whole* picture filled — and corrects the height
-  to the source's own aspect ratio, so a picture stretched by dragging a
-  corner comes back undistorted too.
+  Crop and the crop shapes are one split control — the caret beside it opens
+  a **grid of shape icons**, drawn by `shapeIcon()` from the same
+  `shapePoints()` the canvas uses so an icon cannot drift from the mask it
+  applies. Picking one sets `props.mask`, drawn as a `clip-path` and written
+  to `.pptx` as a `prstGeom` on the picture.
+- **Format options** opens `#slFormatPanel`, docked right of the canvas:
+  size, rotation and flips, position and align-to-slide, re-colour, and the
+  brightness / contrast / transparency adjustments. `imageFilter()` is the
+  single place that turns `recolor` + `bright` + `contrast` into a CSS
+  filter, so the canvas, the thumbnails, present mode and the panel's own
+  swatches cannot disagree — the swatches show the picture itself through
+  each filter, so the preview *is* the result.
+- **Reset image** takes off everything the tools can put on: the crop, the
+  shaped crop, the flips and the colour treatment. It puts the frame back to
+  `props.orig` — stamped the first time a picture is trimmed, and holding the
+  frame the *whole* picture filled — and corrects the height to the source's
+  own aspect ratio, so a picture stretched by dragging a corner comes back
+  undistorted too.
+
+The colour work round-trips through `.pptx` as the DrawingML effects on the
+picture's `<a:blip>`: `a:alphaModFix` for transparency, `a:grayscl` /
+`a:biLevel` / `a:duotone` for the re-colour preset, and `a:lum` for
+brightness and contrast. The one preset with no DrawingML equivalent is
+*Negative*, which is written as no effect rather than as something else.
 
 ### Sheets formula engine
 

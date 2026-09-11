@@ -844,17 +844,51 @@ func buildPicSp(id int, o *Object, rid string) string {
 				`<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val %d"/></a:avLst></a:prstGeom>`, adj)
 		}
 	}
-	blip := `<a:blip r:embed="` + rid + `"/>`
-	if p.Opacity > 0 && p.Opacity < 1 {
-		blip = `<a:blip r:embed="` + rid + `"><a:alphaModFix amt="` +
-			fmt.Sprintf("%d", int(p.Opacity*100000)) + `"/></a:blip>`
-	}
+	blip := `<a:blip r:embed="` + rid + `">` + pictureEffects(p) + `</a:blip>`
 	return fmt.Sprintf(
 		`<p:pic><p:nvPicPr><p:cNvPr id="%d" name="Picture %d"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>`+
 			`<p:blipFill>%s%s<a:stretch><a:fillRect/></a:stretch></p:blipFill>`+
 			`<p:spPr>%s%s</p:spPr></p:pic>`,
 		id, id, blip, srcRect,
-		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false), geom)
+		xfrm(o.X, o.Y, o.W, o.H, o.Rot, p.FlipH, p.FlipV), geom)
+}
+
+// pictureEffects renders the colour effects a picture carries as the
+// DrawingML children of its <a:blip>: transparency, a greyscale wash or a
+// duotone tint for the re-colour preset, and the luminance pair for the
+// brightness / contrast adjustments.
+func pictureEffects(p Props) string {
+	var sb strings.Builder
+	if p.Opacity > 0 && p.Opacity < 1 {
+		sb.WriteString(fmt.Sprintf(`<a:alphaModFix amt="%d"/>`, int(p.Opacity*100000)))
+	}
+	switch p.Recolor {
+	case "":
+		// nothing
+	case "gray":
+		sb.WriteString(`<a:grayscl/>`)
+	case "black-white":
+		sb.WriteString(`<a:biLevel thresh="50000"/>`)
+	case "negative":
+		// DrawingML has no image inversion; the nearest honest thing is to
+		// leave the picture alone rather than write something else
+	default:
+		if tint, ok := recolorTints[p.Recolor]; ok {
+			sb.WriteString(`<a:duotone><a:prstClr val="black"/><a:srgbClr val="` +
+				hexColor(tint, "808080") + `"/></a:duotone>`)
+		}
+	}
+	if p.Bright != 0 || p.Contrast != 0 {
+		lum := `<a:lum`
+		if p.Bright != 0 {
+			lum += fmt.Sprintf(` bright="%d"`, int(p.Bright*100000))
+		}
+		if p.Contrast != 0 {
+			lum += fmt.Sprintf(` contrast="%d"`, int(p.Contrast*100000))
+		}
+		sb.WriteString(lum + `/>`)
+	}
+	return sb.String()
 }
 
 func buildTableFrame(id int, o *Object) string {

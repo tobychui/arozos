@@ -451,6 +451,77 @@ func TestPptxPictureMaskRoundTrips(t *testing.T) {
 	}
 }
 
+func TestPptxPictureEffectsRoundTrip(t *testing.T) {
+	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 32))
+	tests := []struct {
+		name string
+		in   Props
+		want func(Props) string // "" when the value survived
+	}{
+		{"flips", Props{FlipH: true, FlipV: true}, func(p Props) string {
+			if !p.FlipH || !p.FlipV {
+				return fmt.Sprintf("flipH/flipV = %v/%v, want true/true", p.FlipH, p.FlipV)
+			}
+			return ""
+		}},
+		{"greyscale", Props{Recolor: "gray"}, func(p Props) string {
+			if p.Recolor != "gray" {
+				return "recolor = " + p.Recolor + ", want gray"
+			}
+			return ""
+		}},
+		{"black and white", Props{Recolor: "black-white"}, func(p Props) string {
+			if p.Recolor != "black-white" {
+				return "recolor = " + p.Recolor + ", want black-white"
+			}
+			return ""
+		}},
+		{"duotone tint", Props{Recolor: "teal"}, func(p Props) string {
+			if p.Recolor != "teal" {
+				return "recolor = " + p.Recolor + ", want teal"
+			}
+			return ""
+		}},
+		{"brightness and contrast", Props{Bright: 0.2, Contrast: -0.3}, func(p Props) string {
+			if p.Bright != 0.2 || p.Contrast != -0.3 {
+				return fmt.Sprintf("bright/contrast = %v/%v, want 0.2/-0.3", p.Bright, p.Contrast)
+			}
+			return ""
+		}},
+		{"transparency", Props{Opacity: 0.4}, func(p Props) string {
+			if p.Opacity != 0.4 {
+				return fmt.Sprintf("opacity = %v, want 0.4", p.Opacity)
+			}
+			return ""
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			props := tc.in
+			props.Src = encodeDataURL(png, "png")
+			props.Fit = "fill"
+			pres := &Presentation{Slides: []*Slide{{Objects: []*Object{{
+				Type: "image", X: 0, Y: 0, W: 200, H: 100, Z: 1, Props: props,
+			}}}}}
+			data, err := BuildPptx(pres)
+			if err != nil {
+				t.Fatalf("BuildPptx: %v", err)
+			}
+			got, err := ParsePptx(data)
+			if err != nil {
+				t.Fatalf("ParsePptx: %v", err)
+			}
+			objs := got.Slides[0].Objects
+			if len(objs) != 1 || objs[0].Type != "image" {
+				t.Fatalf("objects = %+v, want one image", objs)
+			}
+			if msg := tc.want(objs[0].Props); msg != "" {
+				t.Error(msg)
+			}
+		})
+	}
+}
+
 func TestPptxRoundPictureKeepsItsRadius(t *testing.T) {
 	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 32))
 	pres := &Presentation{Slides: []*Slide{{Objects: []*Object{{

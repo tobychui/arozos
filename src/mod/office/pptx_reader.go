@@ -1375,13 +1375,8 @@ func (sc *slideCtx) parsePic(node *xnode, cm coordMap) *Object {
 	if rad := sc.cornerRadius(spPr, prst, box); rad > 0 {
 		props.Radius = round2(rad)
 	}
-	if am := blip.first("alphaModFix"); am != nil {
-		if v := am.attr("amt"); v != "" {
-			if o := clamp01(atofDefault(v, 100000) / 100000); o < 1 {
-				props.Opacity = round2(o)
-			}
-		}
-	}
+	props.FlipH, props.FlipV = box.FlipH, box.FlipV
+	readPictureEffects(blip, &props)
 	return &Object{
 		Type: "image", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
 		Props: props,
@@ -1692,4 +1687,72 @@ func (sc *slideCtx) parseChartFrame(gdata *xnode, box xfrmBox) *Object {
 		Type: "chart", X: box.X, Y: box.Y, W: box.W, H: box.H,
 		Props: Props{Spec: chartSpecJSON(spec)},
 	}
+}
+
+// readPictureEffects reads the colour effects DrawingML allows on a
+// picture's blip: transparency, a greyscale wash, a duotone tint and the
+// luminance (brightness / contrast) pair. They map onto the editor's
+// re-colour presets and adjustment offsets.
+func readPictureEffects(blip *xnode, props *Props) {
+	if blip == nil {
+		return
+	}
+	if am := blip.first("alphaModFix"); am != nil {
+		if v := am.attr("amt"); v != "" {
+			if o := clamp01(atofDefault(v, 100000) / 100000); o < 1 {
+				props.Opacity = round2(o)
+			}
+		}
+	}
+	if blip.first("grayscl") != nil {
+		props.Recolor = "gray"
+	}
+	if blip.first("biLevel") != nil {
+		props.Recolor = "black-white"
+	}
+	if dt := blip.first("duotone"); dt != nil {
+		// the second stop is the colour the picture is washed into
+		plain := colorCtx{}
+		var hexes []string
+		for i := range dt.Nodes {
+			if c := plain.resolveColor(&dt.Nodes[i]); c != "" {
+				hexes = append(hexes, c)
+			}
+		}
+		if len(hexes) > 0 {
+			props.Recolor = nearestRecolor(hexes[len(hexes)-1])
+		}
+	}
+	if lum := blip.first("lum"); lum != nil {
+		if v := lum.attr("bright"); v != "" {
+			props.Bright = round2(atofDefault(v, 0) / 100000)
+		}
+		if v := lum.attr("contrast"); v != "" {
+			props.Contrast = round2(atofDefault(v, 0) / 100000)
+		}
+	}
+}
+
+// recolorTints is the colour each re-colour preset washes a picture into,
+// shared by the reader (nearest match on a duotone) and the writer
+var recolorTints = map[string]string{
+	"blue-light": "#9fc5f8", "blue-dark": "#1c4587", "teal": "#12b5cb",
+	"green": "#34a853", "lime": "#b7e1a1", "yellow": "#ffd966",
+	"orange": "#f6b26b", "red": "#e06666", "purple": "#8e7cc3",
+	"pink": "#ea9999", "sepia": "#b5814f", "washout": "#d9d9d9",
+}
+
+// nearestRecolor picks the preset whose tint is closest to a colour
+func nearestRecolor(hex string) string {
+	r, g, b := hexToRGB(hex)
+	best, bestD := "gray", 0.0
+	first := true
+	for key, tint := range recolorTints {
+		tr, tg, tb := hexToRGB(tint)
+		d := (r-tr)*(r-tr) + (g-tg)*(g-tg) + (b-tb)*(b-tb)
+		if first || d < bestD {
+			best, bestD, first = key, d, false
+		}
+	}
+	return best
 }

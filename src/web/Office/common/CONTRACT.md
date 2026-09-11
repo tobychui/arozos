@@ -557,6 +557,9 @@ back to the stylesheet, so nothing here changes how a new deck looks.
 | `crop` | image | `[left, top, right, bottom]` fractions clipped off the source |
 | `mask` | image | a shaped crop: a `SHAPE_KINDS` kind the picture is clipped to |
 | `orig` | image | `{x,y,w,h}` the frame before the first crop — Reset image |
+| `flipH` / `flipV` | image | mirrored horizontally / vertically |
+| `recolor` | image | a re-colour preset key (`RECOLORS` in `slides_image.js`) |
+| `bright` / `contrast` | image | adjustment offsets; 0 = leave alone, range ≈ -0.9..1 |
 | `radius` | image, shape | corner radius in px |
 | `opacity` | image | 0..1; 0 means fully opaque |
 | `points` | line | the polyline a bent connector follows, relative to `x`/`y` |
@@ -595,6 +598,34 @@ corrects the height to the source's own aspect ratio.
 here and one made in PowerPoint are the same thing; the renderer draws it as
 a `clip-path` built from `shapePoints()`, so every shape the editor can draw
 is also a mask it can cut.
+
+## Picture tools (slides/slides_image.js)
+
+`SlidesImageTools` owns everything that acts on a selected picture, so
+`slides.js` stays about the document and the canvas. It never touches the
+model directly — `init()` takes a host object of callbacks (`getImage`,
+`commit`, `startCrop`, `setMask`, `resetImage`, …) and slides.js drives it
+with `sync()` / `reposition()` from `setSel`, `commit` and `renderOverlay`.
+**`init()` must run before `OfficeApp.init()`**: loading a document selects
+objects, and that syncs the tools.
+
+Three pieces:
+
+- the **floating picture bar** — the text-edit bar's chrome (`.of-textedit-bar`,
+  `.of-te-btn`) anchored under a selected image: crop, reset, format options.
+  Crop and the crop shapes are one split control, the caret opening the grid.
+- the **shape grid** — the crop shapes as icons rather than names, drawn by
+  `shapeIcon()` from the same `shapePoints()` the canvas uses, so an icon
+  cannot drift from the mask it applies.
+- the **format panel** — `#slFormatPanel`, docked to the right of `#slMain`
+  (it is a flex sibling, so the canvas re-fits itself via `relayout`): size,
+  rotation and flips, position and align-to-slide, re-colour and the
+  brightness / contrast / transparency adjustments.
+
+`imageFilter(props)` is the single place that turns `recolor` + `bright` +
+`contrast` into a CSS filter, so the canvas, the thumbnails, present mode and
+the panel's own swatches cannot disagree — the swatches are the picture
+itself seen through each filter, so the preview *is* the result.
 
 The presentation body may also carry `fonts`: `[{family, weight, style, src}]`
 where `src` is a font-file data URL taken from the source deck's embedded
