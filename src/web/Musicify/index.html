@@ -636,6 +636,7 @@
         .btn-primary:hover { background: var(--accent2); }
         .btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
         .btn-secondary:hover { background: var(--hover); color: var(--text); }
+        .btn-secondary.fav-active { color: var(--accent); border-color: var(--accent); }
         .btn-danger    { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.25); }
         .btn-danger:hover { background: rgba(239,68,68,.25); }
 
@@ -957,6 +958,20 @@
                     <i class="ui history icon"></i> Recently Added
                 </a>
 
+                <template x-if="favoriteFolders.length > 0">
+                    <div>
+                        <div class="sidebar-section-label" style="margin-top:8px;">Favorites</div>
+                        <template x-for="fav in favoriteFolders" :key="fav.path">
+                            <div class="playlist-item" :class="{active: view==='folders' && folderPath===fav.path}"
+                                 x-on:click="openFavoriteFolder(fav)" :title="fav.path">
+                                <i class="ui heart icon" style="flex-shrink:0;"></i>
+                                <span class="pl-name" x-text="fav.name"></span>
+                                <span class="pl-del" x-on:click.stop="removeFavoriteFolder(fav.path, $event)">&#10005;</span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
                 <div class="sidebar-section-label" style="margin-top:8px;">Playlists</div>
 
                 <template x-for="pl in playlists" :key="pl.name">
@@ -1128,11 +1143,23 @@
                 </div>
                 <div class="content-body">
                     <!-- Back button -->
-                    <template x-if="folderStack.length > 0">
-                        <div style="margin-bottom:12px;">
-                            <button class="btn btn-secondary" x-on:click="folderBack()">
+                    <template x-if="folderStack.length > 0 || (canFavoriteCurrentFolder() && !(folderContents.songs && folderContents.songs.length))">
+                        <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-secondary" x-show="folderStack.length > 0" x-on:click="folderBack()">
                                 <i class="ui arrow left icon"></i> Back
                             </button>
+                            <template x-if="!(folderContents.songs && folderContents.songs.length)">
+                                <span style="margin-left:auto;">
+                                    <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;"
+                                    :class="isFolderFavorited(folderPath) ? 'fav-active' : ''"
+                                    x-show="canFavoriteCurrentFolder()"
+                                    :title="isFolderFavorited(folderPath) ? 'Remove this folder from Favorites' : 'Pin this folder to the Favorites list'"
+                                    x-on:click="toggleFavoriteFolder()">
+                                    <i class="ui icon" :class="isFolderFavorited(folderPath) ? 'heart' : 'heart outline'"></i>
+                                    <span x-text="isFolderFavorited(folderPath) ? 'Favorited' : 'Mark as Favorite'"></span>
+                                </button>
+                                </span>
+                            </template>
                         </div>
                     </template>
 
@@ -1158,10 +1185,20 @@
                                 <div class="section-title" style="font-size:13px;margin-bottom:0;">
                                     <span x-text="folderContents.songs.length"></span> tracks
                                 </div>
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;"
+                                    :class="isFolderFavorited(folderPath) ? 'fav-active' : ''"
+                                    x-show="canFavoriteCurrentFolder()"
+                                    :title="isFolderFavorited(folderPath) ? 'Remove this folder from Favorites' : 'Pin this folder to the Favorites list'"
+                                    x-on:click="toggleFavoriteFolder()">
+                                    <i class="ui icon" :class="isFolderFavorited(folderPath) ? 'heart' : 'heart outline'"></i>
+                                    <span x-text="isFolderFavorited(folderPath) ? 'Favorited' : 'Mark as Favorite'"></span>
+                                </button>
                                 <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
                                     x-on:click="playList(folderContents.songs, 0)">
                                     <i class="ui play icon"></i> Play all
                                 </button>
+                                </div>
                             </div>
                             <div class="song-list">
                                 <div class="song-list-header">

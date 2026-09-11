@@ -28,6 +28,9 @@ function musicifyApp() {
         folderContents: { folders: [], songs: [] },
         musicLibraries: [],     // [ { label, root } ] from listRoots.js
 
+        // ── Favorite (pinned) folders ───────────────────────────────────────
+        favoriteFolders: [],    // [ { path, name, root } ] persisted per user
+
         // ── Artists ─────────────────────────────────────────────────────────
         artists: [],
         selectedArtist: null,   // full artist object for dedicated artist songs view
@@ -280,6 +283,9 @@ function musicifyApp() {
             // Load playlists for sidebar
             this._loadPlaylists();
 
+            // Load pinned folders for the sidebar Favorites section
+            this._loadFavoriteFolders();
+
             // Pre-load available music library roots for the folder-view switcher
             this._loadMusicLibraries();
 
@@ -443,6 +449,87 @@ function musicifyApp() {
                 crumbs.push({ name: parts[i], path: acc });
             }
             return crumbs;
+        },
+
+        // ════════════════════════════════════════════════════════════════════
+        //  FAVORITE (PINNED) FOLDERS
+        // ════════════════════════════════════════════════════════════════════
+        _loadFavoriteFolders() {
+            const self = this;
+            ao_module_storage.loadStorage("Musicify", "favorites", function(val) {
+                if (!val) return;
+                try {
+                    var list = JSON.parse(val);
+                    if (Array.isArray(list)) {
+                        self.favoriteFolders = list.filter(f => f && f.path);
+                    }
+                } catch(e) {}
+            });
+        },
+
+        _saveFavoriteFolders() {
+            ao_module_storage.setStorage("Musicify", "favorites", JSON.stringify(this.favoriteFolders));
+        },
+
+        // The library root itself is always reachable from the Folders tab, so
+        // there is nothing to gain from pinning it.
+        canFavoriteCurrentFolder() {
+            return !!this.folderPath && this.folderPath !== this.folderRoot;
+        },
+
+        isFolderFavorited(path) {
+            var p = path || this.folderPath;
+            return this.favoriteFolders.some(f => f.path === p);
+        },
+
+        toggleFavoriteFolder() {
+            if (!this.canFavoriteCurrentFolder()) return;
+            var path = this.folderPath;
+            var name = path.split('/').filter(s => s !== '').pop() || path;
+            if (this.isFolderFavorited(path)) {
+                this.favoriteFolders = this.favoriteFolders.filter(f => f.path !== path);
+                this._saveFavoriteFolders();
+                this._showToast('Removed "' + name + '" from Favorites');
+            } else {
+                this.favoriteFolders.push({ path: path, name: name, root: this.folderRoot });
+                this._saveFavoriteFolders();
+                this._showToast('Added "' + name + '" to Favorites');
+            }
+        },
+
+        removeFavoriteFolder(path, event) {
+            if (event) event.stopPropagation();
+            var fav = this.favoriteFolders.find(f => f.path === path);
+            this.favoriteFolders = this.favoriteFolders.filter(f => f.path !== path);
+            this._saveFavoriteFolders();
+            this._showToast('Removed "' + ((fav && fav.name) || 'folder') + '" from Favorites');
+        },
+
+        // Open the Folders view straight at a pinned folder. The ancestor paths
+        // between the library root and the target are pushed onto the folder
+        // stack so the Back button still walks back up the tree.
+        openFavoriteFolder(fav) {
+            if (!fav || !fav.path) return;
+            this.view = 'folders';
+            this.searchQuery = '';
+            this.artistDetailOpen = false;
+            this.selectedArtist = null;
+            if (window.innerWidth <= 768) this.sidebarOpen = false;
+            if (this.showNowPlaying) this.closeNowPlaying();
+
+            var root = fav.root || this.folderRoot;
+            this.folderRoot = root;
+            this.folderStack = [];
+            if (fav.path.indexOf(root + '/') === 0) {
+                var rest = fav.path.substring(root.length + 1).split('/');
+                var acc = root;
+                this.folderStack.push(acc);
+                for (var i = 0; i < rest.length - 1; i++) {
+                    acc = acc + '/' + rest[i];
+                    this.folderStack.push(acc);
+                }
+            }
+            this.loadFolder(fav.path);
         },
 
         // ════════════════════════════════════════════════════════════════════
