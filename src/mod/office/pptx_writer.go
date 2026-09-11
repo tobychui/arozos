@@ -32,15 +32,27 @@ import (
 
 const nsDecl = `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"`
 
+// shapeKindToPrst is the inverse of prstToShapeKind (pptx_reader.go) for
+// the kinds the editor can draw, so a shape or a shaped crop written here
+// reads back as the same thing
 var shapeKindToPrst = map[string]string{
-	"rect":     "rect",
-	"round":    "roundRect",
-	"ellipse":  "ellipse",
-	"triangle": "triangle",
-	"diamond":  "diamond",
-	"arrow":    "rightArrow",
-	"star":     "star5",
-	"chevron":  "chevron",
+	"rect":          "rect",
+	"round":         "roundRect",
+	"ellipse":       "ellipse",
+	"triangle":      "triangle",
+	"rtTriangle":    "rtTriangle",
+	"diamond":       "diamond",
+	"arrow":         "rightArrow",
+	"leftArrow":     "leftArrow",
+	"upArrow":       "upArrow",
+	"downArrow":     "downArrow",
+	"star":          "star5",
+	"chevron":       "chevron",
+	"pentagon":      "pentagon",
+	"hexagon":       "hexagon",
+	"parallelogram": "parallelogram",
+	"trapezoid":     "trapezoid",
+	"plus":          "mathPlus",
 }
 
 // BuildPptx serializes a Presentation without a media resolver (video /
@@ -474,7 +486,9 @@ func alignToAlgn(align string) string {
 	return "l"
 }
 
-// buildRuns renders paragraph runs for flattened text lines
+// buildRuns renders paragraph runs for flattened text lines. Kept for the
+// callers that genuinely have plain text (shape captions written in the
+// editor, table cells) - rich HTML goes through buildRichBody instead.
 func buildRuns(lines []string, fontSizePx float64, color string, bold, italic, underline bool, align string) string {
 	var sb strings.Builder
 	rpr := fmt.Sprintf(`<a:rPr lang="en-US" sz="%d"`, fontSizeToSz(fontSizePx))
@@ -502,6 +516,147 @@ func buildRuns(lines []string, fontSizePx float64, color string, bold, italic, u
 	return sb.String()
 }
 
+// pxToEmuRound converts CSS pixels to EMU
+func pxToEmuRound(px float64) int64 { return int64(px*emuPerPx + 0.5) }
+
+// buildRichBody renders the editor's storage HTML as PresentationML
+// paragraphs, keeping per-run font, size, weight, colour and highlight and
+// per-paragraph alignment, spacing, indents and bullets.
+func buildRichBody(o *Object, fallbackColor string) string {
+	p := o.Props
+	base := inlineStyle{
+		sizePx: p.FontSize,
+		font:   firstFontFamily(p.FontFamily),
+		bold:   p.Bold, italic: p.Italic, underline: p.Underline,
+		color: p.Color,
+	}
+	if base.color == "" {
+		base.color = p.TextColor
+	}
+	if base.color == "" {
+		base.color = fallbackColor
+	}
+	if base.sizePx <= 0 {
+		base.sizePx = 24
+	}
+	paras := parseStorageHTML(p.HTML, base)
+
+	var sb strings.Builder
+	for _, para := range paras {
+		align := para.Align
+		if align == "" {
+			align = p.Align
+		}
+		sb.WriteString(`<a:p><a:pPr`)
+		if a := alignToAlgn(align); a != "l" {
+			sb.WriteString(` algn="` + a + `"`)
+		}
+		if para.PadLeft != 0 {
+			sb.WriteString(fmt.Sprintf(` marL="%d"`, pxToEmuRound(para.PadLeft)))
+		}
+		if para.Indent != 0 {
+			sb.WriteString(fmt.Sprintf(` indent="%d"`, pxToEmuRound(para.Indent)))
+		}
+		sb.WriteString(`>`)
+		lh := para.LineHeight
+		if lh <= 0 {
+			lh = p.LineHeight
+		}
+		if lh > 0 {
+			// the reader turns a pptx percentage into a CSS multiplier by
+			// multiplying with the font's line height; undo that here
+			sb.WriteString(fmt.Sprintf(`<a:lnSpc><a:spcPct val="%d"/></a:lnSpc>`,
+				int(lh/pptxLineHeightFactor*100000)))
+		}
+		if para.MarginTop > 0 {
+			sb.WriteString(fmt.Sprintf(`<a:spcBef><a:spcPts val="%d"/></a:spcBef>`,
+				int(para.MarginTop*0.75*100)))
+		}
+		if para.MarginBot > 0 {
+			sb.WriteString(fmt.Sprintf(`<a:spcAft><a:spcPts val="%d"/></a:spcAft>`,
+				int(para.MarginBot*0.75*100)))
+		}
+		if para.Bullet != "" {
+			sb.WriteString(`<a:buChar char="` + xmlEscape(para.Bullet) + `"/>`)
+		} else {
+			sb.WriteString(`<a:buNone/>`)
+		}
+		sb.WriteString(`</a:pPr>`)
+		for _, r := range para.Runs {
+			if r.Break {
+				sb.WriteString(`<a:br>` + runRPr(r, base) + `</a:br>`)
+				continue
+			}
+			if r.Text == "" {
+				continue
+			}
+			sb.WriteString(`<a:r>` + runRPr(r, base) + `<a:t>` + xmlEscape(r.Text) + `</a:t></a:r>`)
+		}
+		sb.WriteString(`</a:p>`)
+	}
+	return sb.String()
+}
+
+// runRPr renders one run's <a:rPr>
+func runRPr(r htmlRun, base inlineStyle) string {
+	size := r.SizePx
+	if size <= 0 {
+		size = base.sizePx
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(`<a:rPr lang="en-US" sz="%d"`, fontSizeToSz(size)))
+	sb.WriteString(` b="` + boolAttr(r.Bold) + `" i="` + boolAttr(r.Italic) + `"`)
+	if r.Underline {
+		sb.WriteString(` u="sng"`)
+	}
+	if r.Strike {
+		sb.WriteString(` strike="sngStrike"`)
+	}
+	sb.WriteString(` dirty="0">`)
+	color := r.Color
+	if color == "" {
+		color = base.color
+	}
+	sb.WriteString(`<a:solidFill><a:srgbClr val="` + hexColor(color, "202124") + `"/></a:solidFill>`)
+	if r.Highlight != "" {
+		if h := hexColor(r.Highlight, ""); h != "" {
+			sb.WriteString(`<a:highlight><a:srgbClr val="` + h + `"/></a:highlight>`)
+		}
+	}
+	font := r.Font
+	if font == "" {
+		font = base.font
+	}
+	if font != "" {
+		f := xmlEscape(font)
+		sb.WriteString(`<a:latin typeface="` + f + `"/><a:ea typeface="` + f +
+			`"/><a:cs typeface="` + f + `"/>`)
+	}
+	sb.WriteString(`</a:rPr>`)
+	return sb.String()
+}
+
+// bodyPrFor renders the <a:bodyPr> for an object, honouring the vertical
+// anchor and the text insets an imported deck carries
+func bodyPrFor(p Props, defaultAnchor string) string {
+	anchor := defaultAnchor
+	switch p.VAlign {
+	case "middle":
+		anchor = "ctr"
+	case "bottom":
+		anchor = "b"
+	case "top":
+		anchor = "t"
+	}
+	ins := `lIns="0" tIns="0" rIns="0" bIns="0"`
+	if len(p.Pad) == 4 {
+		ins = fmt.Sprintf(`tIns="%d" rIns="%d" bIns="%d" lIns="%d"`,
+			pxToEmuRound(p.Pad[0]), pxToEmuRound(p.Pad[1]),
+			pxToEmuRound(p.Pad[2]), pxToEmuRound(p.Pad[3]))
+	}
+	return `<a:bodyPr wrap="square" anchor="` + anchor + `" anchorCtr="0" ` + ins + `><a:noAutofit/></a:bodyPr>`
+}
+
 func buildTextSp(id int, o *Object, theme string) string {
 	p := o.Props
 	color := p.Color
@@ -511,10 +666,11 @@ func buildTextSp(id int, o *Object, theme string) string {
 	return fmt.Sprintf(
 		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="TextBox %d"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>`+
 			`<p:spPr>%s<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>`+
-			`<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0"/><a:lstStyle/>%s</p:txBody></p:sp>`,
+			`<p:txBody>%s<a:lstStyle/>%s</p:txBody></p:sp>`,
 		id, id,
 		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false),
-		buildRuns(htmlToLines(p.HTML), p.FontSize, color, p.Bold, p.Italic, p.Underline, p.Align))
+		bodyPrFor(p, "t"),
+		buildRichBody(o, color))
 }
 
 func buildShapeSp(id int, o *Object) string {
@@ -523,13 +679,39 @@ func buildShapeSp(id int, o *Object) string {
 	if !ok {
 		prst = "rect"
 	}
-	ln := ""
-	if p.StrokeW > 0 {
-		ln = fmt.Sprintf(`<a:ln w="%d"><a:solidFill><a:srgbClr val="%s"/></a:solidFill></a:ln>`,
-			pxToEmu(p.StrokeW), hexColor(p.Stroke, "333333"))
+	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
+	if prst == "roundRect" && p.Radius > 0 && o.W > 0 && o.H > 0 {
+		adj := int(p.Radius / minF(o.W, o.H) * 100000)
+		if adj > 0 && adj <= 50000 {
+			geom = fmt.Sprintf(
+				`<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val %d"/></a:avLst></a:prstGeom>`, adj)
+		}
 	}
-	tx := `<p:txBody><a:bodyPr anchor="ctr" anchorCtr="0"/><a:lstStyle/><a:p/></p:txBody>`
-	if strings.TrimSpace(p.Text) != "" {
+	ln := `<a:ln><a:noFill/></a:ln>`
+	if p.StrokeW > 0 && p.Stroke != "" && p.Stroke != "none" {
+		ln = fmt.Sprintf(`<a:ln w="%d"><a:solidFill><a:srgbClr val="%s"/></a:solidFill>`,
+			pxToEmu(p.StrokeW), hexColor(p.Stroke, "333333"))
+		if p.Dash {
+			ln += `<a:prstDash val="dash"/>`
+		}
+		ln += `</a:ln>`
+	}
+	fill := `<a:noFill/>`
+	if p.Fill != "" && p.Fill != "none" {
+		fill = `<a:solidFill><a:srgbClr val="` + hexColor(p.Fill, "E07B1F") + `"/></a:solidFill>`
+	} else if p.Fill == "" {
+		fill = `<a:solidFill><a:srgbClr val="E07B1F"/></a:solidFill>`
+	}
+
+	tx := `<p:txBody>` + bodyPrFor(p, "ctr") + `<a:lstStyle/><a:p/></p:txBody>`
+	if p.HTML != "" {
+		tc := p.TextColor
+		if tc == "" {
+			tc = "#FFFFFF"
+		}
+		tx = `<p:txBody>` + bodyPrFor(p, "ctr") + `<a:lstStyle/>` +
+			buildRichBody(o, tc) + `</p:txBody>`
+	} else if strings.TrimSpace(p.Text) != "" {
 		tc := p.TextColor
 		if tc == "" {
 			tc = "#FFFFFF"
@@ -538,21 +720,34 @@ func buildShapeSp(id int, o *Object) string {
 		if fs <= 0 {
 			fs = 18
 		}
-		tx = `<p:txBody><a:bodyPr anchor="ctr" anchorCtr="0"/><a:lstStyle/>` +
-			buildRuns(strings.Split(p.Text, "\n"), fs, tc, p.Bold, false, false, "center") +
+		align := p.Align
+		if align == "" {
+			align = "center"
+		}
+		tx = `<p:txBody>` + bodyPrFor(p, "ctr") + `<a:lstStyle/>` +
+			buildRuns(strings.Split(p.Text, "\n"), fs, tc, p.Bold, false, false, align) +
 			`</p:txBody>`
 	}
 	return fmt.Sprintf(
 		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="Shape %d"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>`+
-			`<p:spPr>%s<a:prstGeom prst="%s"><a:avLst/></a:prstGeom>`+
-			`<a:solidFill><a:srgbClr val="%s"/></a:solidFill>%s</p:spPr>%s</p:sp>`,
+			`<p:spPr>%s%s%s%s</p:spPr>%s</p:sp>`,
 		id, id,
 		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false),
-		prst, hexColor(p.Fill, "E07B1F"), ln, tx)
+		geom, fill, ln, tx)
+}
+
+func minF(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func buildLineSp(id int, o *Object) string {
 	p := o.Props
+	if len(p.Points) > 2 {
+		return buildPolylineSp(id, o)
+	}
 	// bounding box with flips encoding the line direction
 	x, y, w, h := o.X, o.Y, o.W, o.H
 	flipH, flipV := false, false
@@ -566,6 +761,15 @@ func buildLineSp(id int, o *Object) string {
 		h = -h
 		flipV = true
 	}
+	return fmt.Sprintf(
+		`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="%d" name="Line %d"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr>`+
+			`<p:spPr>%s<a:prstGeom prst="line"><a:avLst/></a:prstGeom>%s</p:spPr></p:cxnSp>`,
+		id, id,
+		xfrm(x, y, w, h, 0, flipH, flipV), lineLn(p))
+}
+
+// lineLn renders the <a:ln> of a line object, with its dash and arrow heads
+func lineLn(p Props) string {
 	sw := p.StrokeW
 	if sw <= 0 {
 		sw = 2
@@ -575,24 +779,82 @@ func buildLineSp(id int, o *Object) string {
 	if p.Dash {
 		ln += `<a:prstDash val="dash"/>`
 	}
-	if p.ArrowEnd {
-		ln += `<a:tailEnd type="arrow"/>`
+	if p.ArrowStart {
+		ln += `<a:headEnd type="triangle"/>`
 	}
-	ln += `</a:ln>`
+	if p.ArrowEnd {
+		ln += `<a:tailEnd type="triangle"/>`
+	}
+	return ln + `</a:ln>`
+}
+
+// buildPolylineSp exports a bent connector as a freeform shape. Rebuilding
+// the original bentConnector preset would mean re-deriving its rotation and
+// flips from the path; a custGeom states the very path the editor draws, so
+// nothing can drift.
+func buildPolylineSp(id int, o *Object) string {
+	pts := o.Props.Points
+	minX, minY := pts[0][0], pts[0][1]
+	maxX, maxY := minX, minY
+	for _, pt := range pts {
+		minX, maxX = minF(minX, pt[0]), maxF(maxX, pt[0])
+		minY, maxY = minF(minY, pt[1]), maxF(maxY, pt[1])
+	}
+	w, h := maxX-minX, maxY-minY
+	var path strings.Builder
+	for i, pt := range pts {
+		x := pxToEmu(pt[0] - minX)
+		y := pxToEmu(pt[1] - minY)
+		if i == 0 {
+			path.WriteString(fmt.Sprintf(`<a:moveTo><a:pt x="%d" y="%d"/></a:moveTo>`, x, y))
+			continue
+		}
+		path.WriteString(fmt.Sprintf(`<a:lnTo><a:pt x="%d" y="%d"/></a:lnTo>`, x, y))
+	}
 	return fmt.Sprintf(
-		`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="%d" name="Line %d"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr>`+
-			`<p:spPr>%s<a:prstGeom prst="line"><a:avLst/></a:prstGeom>%s</p:spPr></p:cxnSp>`,
+		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="Connector %d"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>`+
+			`<p:spPr>%s<a:custGeom><a:avLst/><a:gdLst/><a:rect l="0" t="0" r="r" b="b"/>`+
+			`<a:pathLst><a:path w="%d" h="%d">%s</a:path></a:pathLst></a:custGeom>`+
+			`<a:noFill/>%s</p:spPr>`+
+			`<p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>`,
 		id, id,
-		xfrm(x, y, w, h, 0, flipH, flipV), ln)
+		xfrm(o.X+minX, o.Y+minY, maxF(w, 1), maxF(h, 1), 0, false, false),
+		pxToEmu(maxF(w, 1)), pxToEmu(maxF(h, 1)), path.String(), lineLn(o.Props))
 }
 
 func buildPicSp(id int, o *Object, rid string) string {
+	p := o.Props
+	srcRect := ""
+	if len(p.Crop) == 4 {
+		srcRect = fmt.Sprintf(`<a:srcRect l="%d" t="%d" r="%d" b="%d"/>`,
+			int(p.Crop[0]*100000), int(p.Crop[1]*100000),
+			int(p.Crop[2]*100000), int(p.Crop[3]*100000))
+	}
+	// a shaped crop is a preset geometry on the picture itself
+	prst := "rect"
+	if q, ok := shapeKindToPrst[p.Mask]; ok {
+		prst = q
+	}
+	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
+	if (prst == "roundRect" || p.Mask == "" || p.Mask == "rect") &&
+		p.Radius > 0 && o.W > 0 && o.H > 0 {
+		adj := int(p.Radius / minF(o.W, o.H) * 100000)
+		if adj > 0 && adj <= 50000 {
+			geom = fmt.Sprintf(
+				`<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val %d"/></a:avLst></a:prstGeom>`, adj)
+		}
+	}
+	blip := `<a:blip r:embed="` + rid + `"/>`
+	if p.Opacity > 0 && p.Opacity < 1 {
+		blip = `<a:blip r:embed="` + rid + `"><a:alphaModFix amt="` +
+			fmt.Sprintf("%d", int(p.Opacity*100000)) + `"/></a:blip>`
+	}
 	return fmt.Sprintf(
 		`<p:pic><p:nvPicPr><p:cNvPr id="%d" name="Picture %d"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>`+
-			`<p:blipFill><a:blip r:embed="%s"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`+
-			`<p:spPr>%s<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`,
-		id, id, rid,
-		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false))
+			`<p:blipFill>%s%s<a:stretch><a:fillRect/></a:stretch></p:blipFill>`+
+			`<p:spPr>%s%s</p:spPr></p:pic>`,
+		id, id, blip, srcRect,
+		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false), geom)
 }
 
 func buildTableFrame(id int, o *Object) string {
@@ -643,22 +905,44 @@ func buildTableFrame(id int, o *Object) string {
 			if c < len(row) {
 				cell = row[c]
 			}
-			bold := p.HeaderRow && ri == 0
-			rpr := fmt.Sprintf(`<a:rPr lang="en-US" sz="%d"`, fontSizeToSz(fs))
-			if bold {
-				rpr += ` b="1"`
+			// cells hold the same limited HTML the text objects do, so
+			// per-cell bold / colour / font survive the round trip
+			base := inlineStyle{
+				sizePx: fs, color: color,
+				bold: p.HeaderRow && ri == 0,
 			}
-			rpr += ` dirty="0"><a:solidFill><a:srgbClr val="` + hexColor(color, "202124") + `"/></a:solidFill></a:rPr>`
-			// cells hold a limited HTML subset - flatten to text paragraphs
 			var paras strings.Builder
-			for _, line := range htmlToLines(cell) {
+			for _, para := range parseStorageHTML(cell, base) {
 				paras.WriteString(`<a:p>`)
-				if line != "" {
-					paras.WriteString(`<a:r>` + rpr + `<a:t>` + xmlEscape(line) + `</a:t></a:r>`)
+				if a := alignToAlgn(para.Align); a != "l" {
+					paras.WriteString(`<a:pPr algn="` + a + `"/>`)
+				}
+				for _, r := range para.Runs {
+					if r.Break {
+						paras.WriteString(`<a:br/>`)
+						continue
+					}
+					if r.Text == "" {
+						continue
+					}
+					paras.WriteString(`<a:r>` + runRPr(r, base) + `<a:t>` +
+						xmlEscape(r.Text) + `</a:t></a:r>`)
 				}
 				paras.WriteString(`</a:p>`)
 			}
-			sb.WriteString(`<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>` + paras.String() + `</a:txBody><a:tcPr/></a:tc>`)
+			ins := ""
+			if len(p.CellPad) == 4 {
+				ins = fmt.Sprintf(` marT="%d" marR="%d" marB="%d" marL="%d"`,
+					pxToEmuRound(p.CellPad[0]), pxToEmuRound(p.CellPad[1]),
+					pxToEmuRound(p.CellPad[2]), pxToEmuRound(p.CellPad[3]))
+			}
+			tcPr := `<a:tcPr` + ins + `/>`
+			if ri < len(p.CellFill) && c < len(p.CellFill[ri]) && p.CellFill[ri][c] != "" {
+				tcPr = `<a:tcPr` + ins + `><a:solidFill><a:srgbClr val="` +
+					hexColor(p.CellFill[ri][c], "FFFFFF") + `"/></a:solidFill></a:tcPr>`
+			}
+			sb.WriteString(`<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>` + paras.String() +
+				`</a:txBody>` + tcPr + `</a:tc>`)
 		}
 		sb.WriteString(`</a:tr>`)
 	}

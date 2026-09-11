@@ -232,7 +232,8 @@ func TestOdpRoundTrip(t *testing.T) {
 		t.Errorf("line lost: %+v", ln)
 	}
 	tb := byType["table"]
-	if tb == nil || len(tb.Props.Rows) != 2 || tb.Props.Rows[0][0] != "A" {
+	// cells come back as the editor's rich HTML; compare the text they show
+	if tb == nil || len(tb.Props.Rows) != 2 || cellText(tb.Props.Rows[0][0]) != "A" {
 		b, _ := json.Marshal(tb)
 		t.Errorf("table lost: %s", b)
 	}

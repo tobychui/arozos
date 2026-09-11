@@ -106,9 +106,35 @@ func slidePdfText(pdf *fpdf.Fpdf, tr func(string) string, o *Object, theme strin
 	}
 	pdf.SetFont("Arial", pdfStyleStr(p.Bold, p.Italic, p.Underline), sizePt)
 	pdfSetTextHex(pdf, color, 32, 33, 36)
-	lineH := fs * 1.3 * pxToMM
-	pdf.SetXY(x, y)
-	pdf.MultiCell(w, lineH, tr(strings.Join(htmlToLines(p.HTML), "\n")), "", align, false)
+	// an imported deck states its own line height and text insets; a
+	// document made in the editor falls back to the editor's own metrics
+	lh := p.LineHeight
+	if lh <= 0 {
+		lh = 1.3
+	}
+	lineH := fs * lh * pxToMM
+	padT, padL, padR := 0.0, 0.0, 0.0
+	if len(p.Pad) == 4 {
+		padT, padR, padL = p.Pad[0]*pxToMM, p.Pad[1]*pxToMM, p.Pad[3]*pxToMM
+	}
+	lines := htmlToLines(p.HTML)
+	inner := w - padL - padR
+	if inner < 1 {
+		inner = 1
+	}
+	top := y + padT
+	if p.VAlign == "middle" || p.VAlign == "bottom" {
+		free := o.H*pxToMM - padT - float64(len(lines))*lineH
+		if free > 0 {
+			if p.VAlign == "middle" {
+				top += free / 2
+			} else {
+				top += free
+			}
+		}
+	}
+	pdf.SetXY(x+padL, top)
+	pdf.MultiCell(inner, lineH, tr(strings.Join(lines, "\n")), "", align, false)
 }
 
 func slidePdfShape(pdf *fpdf.Fpdf, tr func(string) string, o *Object, x, y, w, h float64) {

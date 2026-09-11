@@ -42,8 +42,26 @@
                     }
                 ]
             }
-        ]
+        ],
+        fonts: [                       // optional: font faces a .pptx/.odp
+            { family, weight, style, src }   // brought with it, installed as
+        ]                              // @font-face (see installEmbeddedFonts)
     }
+
+    Objects imported from a .pptx / .odp carry extra props that keep the
+    typography and geometry of the file they came from. All are optional -
+    an object made in the editor omits them and falls back to the
+    stylesheet. See "Imported-deck fidelity props" in common/CONTRACT.md:
+      text / shape : fontFamily, valign, pad[t,r,b,l], lineHeight,
+                     and on a shape, html (rich text in place of text)
+      image        : crop[l,t,r,b] fractions, radius, opacity
+      line         : points (a bent connector's polyline), arrowStart
+      table        : cellFill[][], cellPad[t,r,b,l]
+
+    An image also carries crop / mask / orig when it has been cropped in
+    the editor - the same props, since a crop made here and one made in
+    PowerPoint mean the same thing. See the "image crop tool" section
+    below and CONTRACT.md for the frame-vs-source identity they obey.
 */
 
 var SlidesApp = (function () {
@@ -83,14 +101,23 @@ var SlidesApp = (function () {
     var MEDIA_MAX_BYTES = 200 * 1024 * 1024;  // uploads stream to the workdir
 
     var SHAPE_KINDS = [
-        { kind: "rect",     label: "Rectangle" },
-        { kind: "round",    label: "Rounded rectangle" },
-        { kind: "ellipse",  label: "Ellipse" },
-        { kind: "triangle", label: "Triangle" },
-        { kind: "diamond",  label: "Diamond" },
-        { kind: "arrow",    label: "Arrow" },
-        { kind: "star",     label: "Star" },
-        { kind: "chevron",  label: "Chevron" }
+        { kind: "rect",          label: "Rectangle" },
+        { kind: "round",         label: "Rounded rectangle" },
+        { kind: "ellipse",       label: "Ellipse" },
+        { kind: "triangle",      label: "Triangle" },
+        { kind: "rtTriangle",    label: "Right triangle" },
+        { kind: "diamond",       label: "Diamond" },
+        { kind: "pentagon",      label: "Pentagon" },
+        { kind: "hexagon",       label: "Hexagon" },
+        { kind: "parallelogram", label: "Parallelogram" },
+        { kind: "trapezoid",     label: "Trapezoid" },
+        { kind: "plus",          label: "Cross" },
+        { kind: "star",          label: "Star" },
+        { kind: "chevron",       label: "Chevron" },
+        { kind: "arrow",         label: "Arrow (right)" },
+        { kind: "leftArrow",     label: "Arrow (left)" },
+        { kind: "upArrow",       label: "Arrow (up)" },
+        { kind: "downArrow",     label: "Arrow (down)" }
     ];
 
     /* ================= state ================= */
@@ -110,8 +137,16 @@ var SlidesApp = (function () {
     var lastPointerEvt = null;
     var thumbTimer = null;
     var snapGrid = false;
+    /* image crop mode: cropId is the picture being cropped, cropRect is the
+       part of it that will be kept and cropFull is where the whole picture
+       sits behind that (both in slide units), cropBefore is what to put
+       back if the crop is cancelled */
+    var cropId = null;
+    var cropRect = null;
+    var cropFull = null;
+    var cropBefore = null;
 
-    var canvasEl, layerEl, framesEl, guideVEl, guideHEl, marqueeEl;
+    var canvasEl, layerEl, framesEl, guideVEl, guideHEl, marqueeEl, cropEl;
 
     /* ================= small utils ================= */
     function esc(t) { return OfficeApp.escapeHtml(t); }
@@ -199,10 +234,52 @@ var SlidesApp = (function () {
                 if (!o.props || typeof o.props !== "object") o.props = {};
             });
         });
+        if (!Array.isArray(b.fonts)) delete b.fonts;
+        installEmbeddedFonts(b.fonts);
         return b;
     }
 
+    /* A deck imported from a file may carry the font faces it was designed
+       in, so text renders in the right typeface on a machine that does not
+       have them installed. They go in one stylesheet for the whole page:
+       the editor, the thumbnails, present mode and print all share it. */
+    function installEmbeddedFonts(fonts) {
+        var el = document.getElementById("slEmbeddedFonts");
+        if (!fonts || !fonts.length) {
+            if (el) el.parentNode.removeChild(el);
+            return;
+        }
+        if (!el) {
+            el = document.createElement("style");
+            el.id = "slEmbeddedFonts";
+            document.head.appendChild(el);
+        }
+        var css = "";
+        fonts.forEach(function (f) {
+            if (!f || typeof f.src !== "string" || f.src.indexOf("data:") !== 0) return;
+            if (!f.family) return;
+            css += "@font-face{font-family:'" + String(f.family).replace(/['\\]/g, "") +
+                "';src:url(" + f.src + ");font-weight:" + (Number(f.weight) || 400) +
+                ";font-style:" + (f.style === "italic" ? "italic" : "normal") +
+                ";font-display:block;}\n";
+        });
+        el.textContent = css;
+    }
+
     /* ================= rendering: objects ================= */
+    /* Imported decks (pptx / odp) carry their own typography on the text
+       object: the CSS font stack the file asked for, the text-box insets,
+       the paragraph line height and the vertical anchor. Documents made in
+       the editor have none of those and fall back to the stylesheet. */
+    var VALIGN_JUSTIFY = { top: "flex-start", middle: "center", bottom: "flex-end" };
+
+    function padStyle(pad) {
+        if (!pad || pad.length !== 4) return "";
+        return "padding:" + pad.map(function (v) {
+            return (Number(v) || 0) + "px";
+        }).join(" ") + ";";
+    }
+
     function textStyle(p) {
         var s = "font-size:" + (Number(p.fontSize) || 24) + "px;";
         if (p.color) s += "color:" + esc(p.color) + ";";
@@ -210,7 +287,55 @@ var SlidesApp = (function () {
         if (p.bold) s += "font-weight:700;";
         if (p.italic) s += "font-style:italic;";
         if (p.underline) s += "text-decoration:underline;";
+        if (p.fontFamily) s += "font-family:" + esc(p.fontFamily) + ";";
+        if (p.lineHeight) s += "line-height:" + (Number(p.lineHeight) || 1.3) + ";";
+        s += padStyle(p.pad);
+        s += "justify-content:" + (VALIGN_JUSTIFY[p.valign] || "flex-start") + ";";
         return s;
+    }
+
+    /* An imported picture may be cropped (pptx srcRect), have rounded
+       corners and be partly transparent. The crop is reproduced the way
+       PowerPoint defines it: the visible rectangle is scaled up to fill
+       the frame and the rest is clipped by the wrapper. */
+    function imageHtml(p) {
+        var imgS = "object-fit:" + esc(p.fit || "contain") + ";" + cropImgStyle(p.crop);
+        var wrapS = "";
+        if (p.radius) wrapS += "border-radius:" + (Number(p.radius) || 0) + "px;";
+        if (p.opacity) wrapS += "opacity:" + clamp(Number(p.opacity) || 1, 0, 1) + ";";
+        var clip = maskClipPath(p.mask);
+        if (clip) wrapS += "clip-path:" + clip + ";-webkit-clip-path:" + clip + ";";
+        return '<div class="sl-img-wrap" style="' + wrapS + '">' +
+            '<img draggable="false" src="' + esc(p.src || "") +
+            '" style="' + imgS + '" alt=""></div>';
+    }
+
+    /* The visible rectangle is scaled up to fill the frame and the rest is
+       clipped by the wrapper - the same definition PowerPoint's srcRect
+       uses, so an imported crop and one made here mean the same thing. */
+    function cropImgStyle(c) {
+        if (!c || c.length !== 4) return "";
+        var l = Number(c[0]) || 0, t = Number(c[1]) || 0;
+        var kw = 1 - l - (Number(c[2]) || 0);
+        var kh = 1 - t - (Number(c[3]) || 0);
+        if (!(kw > 0.001) || !(kh > 0.001)) return "";
+        return "position:absolute;object-fit:fill;" +
+            "width:" + (100 / kw) + "%;height:" + (100 / kh) + "%;" +
+            "left:" + (-l / kw * 100) + "%;top:" + (-t / kh * 100) + "%;";
+    }
+
+    /* A shaped crop ("mask image"): the picture is clipped to one of the
+       editor's shape outlines. shapePoints() already defines every polygon
+       shape, so asking it for a 100x100 box yields percentages directly. */
+    function maskClipPath(kind) {
+        if (!kind || kind === "rect") return "";
+        if (kind === "ellipse") return "ellipse(50% 50% at 50% 50%)";
+        if (kind === "round") return "";        // border-radius draws this one
+        var pts = shapePoints(kind, 100, 100);
+        if (!pts) return "";
+        return "polygon(" + pts.map(function (pt) {
+            return pt[0].toFixed(2) + "% " + pt[1].toFixed(2) + "%";
+        }).join(",") + ")";
     }
 
     function shapePoints(kind, w, h) {
@@ -225,6 +350,31 @@ var SlidesApp = (function () {
                        [w * 0.62, h], [w * 0.62, h * 0.7], [0, h * 0.7]]; break;
             case "chevron":
                 pts = [[0, 0], [w * 0.72, 0], [w, h / 2], [w * 0.72, h], [0, h], [w * 0.28, h / 2]]; break;
+            case "leftArrow":
+                pts = [[w, h * 0.3], [w * 0.38, h * 0.3], [w * 0.38, 0], [0, h / 2],
+                       [w * 0.38, h], [w * 0.38, h * 0.7], [w, h * 0.7]]; break;
+            case "upArrow":
+                pts = [[w * 0.3, h], [w * 0.3, h * 0.38], [0, h * 0.38], [w / 2, 0],
+                       [w, h * 0.38], [w * 0.7, h * 0.38], [w * 0.7, h]]; break;
+            case "downArrow":
+                pts = [[w * 0.3, 0], [w * 0.3, h * 0.62], [0, h * 0.62], [w / 2, h],
+                       [w, h * 0.62], [w * 0.7, h * 0.62], [w * 0.7, 0]]; break;
+            case "rtTriangle":
+                pts = [[0, 0], [w, h], [0, h]]; break;
+            case "pentagon":
+                pts = [[w / 2, 0], [w, h * 0.38], [w * 0.81, h], [w * 0.19, h], [0, h * 0.38]]; break;
+            case "hexagon":
+                pts = [[w * 0.25, 0], [w * 0.75, 0], [w, h / 2],
+                       [w * 0.75, h], [w * 0.25, h], [0, h / 2]]; break;
+            case "parallelogram":
+                pts = [[w * 0.25, 0], [w, 0], [w * 0.75, h], [0, h]]; break;
+            case "trapezoid":
+                pts = [[w * 0.25, 0], [w * 0.75, 0], [w, h], [0, h]]; break;
+            case "plus":
+                pts = [[w * 0.35, 0], [w * 0.65, 0], [w * 0.65, h * 0.35], [w, h * 0.35],
+                       [w, h * 0.65], [w * 0.65, h * 0.65], [w * 0.65, h], [w * 0.35, h],
+                       [w * 0.35, h * 0.65], [0, h * 0.65], [0, h * 0.35], [w * 0.35, h * 0.35]];
+                break;
             case "star":
                 pts = [];
                 var cx = w / 2, cy = h / 2, rx = w / 2, ry = h / 2, inner = 0.42;
@@ -244,13 +394,18 @@ var SlidesApp = (function () {
         var w = Math.max(4, o.w), h = Math.max(4, o.h);
         var p = o.props;
         var sw = Number(p.strokeW) || 0;
-        var attrs = 'fill="' + esc(p.fill || "#e07b1f") + '"' +
-            (sw > 0 ? ' stroke="' + esc(p.stroke || "#333333") + '" stroke-width="' + sw + '"' : ' stroke="none"') +
+        // an imported shape may legitimately have no fill (an outline-only
+        // box); only an editor-made shape with nothing set gets the default
+        var fill = p.fill || "#e07b1f";
+        var attrs = 'fill="' + esc(fill) + '"' +
+            (sw > 0 ? ' stroke="' + esc(p.stroke || "#333333") + '" stroke-width="' + sw + '"' +
+                (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") : ' stroke="none"') +
             ' stroke-linejoin="round" vector-effect="non-scaling-stroke"';
         var inner;
-        var i = Math.max(1, sw / 2 + 0.5);
+        var i = sw > 0 ? Math.max(0.5, sw / 2) : 0;
         if (o.props.kind === "rect" || o.props.kind === "round" || !o.props.kind) {
-            var rx = o.props.kind === "round" ? Math.min(w, h) * 0.15 : 0;
+            var rx = o.props.kind === "round"
+                ? (p.radius !== undefined ? Number(p.radius) : Math.min(w, h) * 0.15) : 0;
             inner = '<rect x="' + i + '" y="' + i + '" width="' + (w - 2 * i) + '" height="' + (h - 2 * i) +
                 '" rx="' + rx + '" ' + attrs + "/>";
         } else if (o.props.kind === "ellipse") {
@@ -270,16 +425,39 @@ var SlidesApp = (function () {
         var s = "font-size:" + (Number(p.fontSize) || 18) + "px;";
         s += "color:" + esc(p.textColor || contrastText(p.fill)) + ";";
         if (p.bold) s += "font-weight:700;";
+        if (p.italic) s += "font-style:italic;";
+        if (p.fontFamily) s += "font-family:" + esc(p.fontFamily) + ";";
+        if (p.lineHeight) s += "line-height:" + (Number(p.lineHeight) || 1.25) + ";";
+        // an imported shape carries the same rich paragraph HTML a text
+        // object does, plus the alignment and insets its source stated
+        if (p.html) {
+            s += "text-align:" + esc(p.align || "center") + ";";
+            s += "justify-content:" + (VALIGN_JUSTIFY[p.valign] || "center") + ";";
+            s += padStyle(p.pad);
+            return '<div class="sl-shape-text sl-shape-rich" style="' + s + '">' + p.html + "</div>";
+        }
         return '<div class="sl-shape-text" style="' + s + '">' + esc(p.text || "") + "</div>";
     }
 
+    /* A line is normally two points: its origin and the vector in o.w/o.h.
+       A connector imported from a pptx may bend, and then carries the whole
+       polyline in props.points (relative to o.x/o.y) with o.w/o.h still
+       spanning end to end, so selection and dragging keep working. */
+    function linePoints(o) {
+        var p = o.props && o.props.points;
+        if (p && p.length >= 2) {
+            return p.map(function (pt) { return [Number(pt[0]) || 0, Number(pt[1]) || 0]; });
+        }
+        return [[0, 0], [o.w, o.h]];
+    }
     function lineBBox(o) {
-        return {
-            x: o.x + Math.min(0, o.w),
-            y: o.y + Math.min(0, o.h),
-            w: Math.abs(o.w),
-            h: Math.abs(o.h)
-        };
+        var pts = linePoints(o);
+        var x0 = pts[0][0], y0 = pts[0][1], x1 = x0, y1 = y0;
+        pts.forEach(function (pt) {
+            x0 = Math.min(x0, pt[0]); x1 = Math.max(x1, pt[0]);
+            y0 = Math.min(y0, pt[1]); y1 = Math.max(y1, pt[1]);
+        });
+        return { x: o.x + x0, y: o.y + y0, w: x1 - x0, h: y1 - y0 };
     }
     function positionLineEl(el, o) {
         var bb = lineBBox(o);
@@ -292,28 +470,43 @@ var SlidesApp = (function () {
         var p = o.props;
         var sw = Number(p.strokeW) || 2;
         var stroke = p.stroke || "#202124";
-        var x1 = Math.max(0, -o.w), y1 = Math.max(0, -o.h);
-        var x2 = x1 + o.w, y2 = y1 + o.h;
-        var out = '<svg xmlns="http://www.w3.org/2000/svg" style="overflow:visible;" width="100%" height="100%">';
-        // generous transparent hit area
-        out += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 +
-            '" stroke="rgba(0,0,0,0)" stroke-width="' + Math.max(14, sw + 10) + '"/>';
-        var ex = x2, ey = y2;
+        // draw in the element's own box: shift the polyline so its
+        // top-left corner sits at 0,0
+        var pts = linePoints(o);
+        var ox = 0, oy = 0;
+        pts.forEach(function (pt) { ox = Math.min(ox, pt[0]); oy = Math.min(oy, pt[1]); });
+        pts = pts.map(function (pt) { return [pt[0] - ox, pt[1] - oy]; });
         var head = "";
-        if (p.arrowEnd) {
-            var ang = Math.atan2(y2 - y1, x2 - x1);
+        var first = pts[0], last = pts[pts.length - 1];
+        var trimmed = pts.slice();
+
+        function arrowAt(tip, from) {
+            var ang = Math.atan2(tip[1] - from[1], tip[0] - from[0]);
             var s = 6 + sw * 2.4;
-            var bx = x2 - s * Math.cos(ang), by = y2 - s * Math.sin(ang);
+            var bx = tip[0] - s * Math.cos(ang), by = tip[1] - s * Math.sin(ang);
             var px = s * 0.45 * -Math.sin(ang), py = s * 0.45 * Math.cos(ang);
-            head = '<polygon points="' + x2.toFixed(1) + "," + y2.toFixed(1) + " " +
+            head += '<polygon points="' + tip[0].toFixed(1) + "," + tip[1].toFixed(1) + " " +
                 (bx + px).toFixed(1) + "," + (by + py).toFixed(1) + " " +
                 (bx - px).toFixed(1) + "," + (by - py).toFixed(1) +
                 '" fill="' + esc(stroke) + '"/>';
-            ex = x2 - s * 0.6 * Math.cos(ang);
-            ey = y2 - s * 0.6 * Math.sin(ang);
+            // pull the stroke back so it does not poke through the head
+            return [tip[0] - s * 0.6 * Math.cos(ang), tip[1] - s * 0.6 * Math.sin(ang)];
         }
-        out += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + ex + '" y2="' + ey +
-            '" stroke="' + esc(stroke) + '" stroke-width="' + sw + '" stroke-linecap="round"' +
+        if (p.arrowEnd) trimmed[trimmed.length - 1] = arrowAt(last, pts[pts.length - 2]);
+        if (p.arrowStart) trimmed[0] = arrowAt(first, pts[1]);
+
+        function poly(list) {
+            return list.map(function (pt) {
+                return pt[0].toFixed(1) + "," + pt[1].toFixed(1);
+            }).join(" ");
+        }
+        var out = '<svg xmlns="http://www.w3.org/2000/svg" style="overflow:visible;" width="100%" height="100%">';
+        // generous transparent hit area
+        out += '<polyline points="' + poly(pts) + '" fill="none" ' +
+            'stroke="rgba(0,0,0,0)" stroke-width="' + Math.max(14, sw + 10) + '"/>';
+        out += '<polyline points="' + poly(trimmed) + '" fill="none"' +
+            ' stroke="' + esc(stroke) + '" stroke-width="' + sw +
+            '" stroke-linecap="round" stroke-linejoin="round"' +
             (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") + "/>";
         out += head + "</svg>";
         return out;
@@ -390,13 +583,18 @@ var SlidesApp = (function () {
             out += '<col style="width:' + wPct + '%">';
         }
         out += "</colgroup>";
+        // an imported table states its own cell shading and insets
+        var cellPad = padStyle(p.cellPad);
         rows.forEach(function (r, ri) {
             var isHead = p.headerRow && ri === 0;
             var trStyle = (p.rowH && p.rowH[ri] !== undefined) ? ' style="height:' + p.rowH[ri] + '%;"' : "";
             out += '<tr class="' + (isHead ? "sl-thead" : "") + '"' + trStyle + ">";
             r.forEach(function (cell, ci) {
+                var bg = (p.cellFill && p.cellFill[ri]) ? p.cellFill[ri][ci] : "";
+                if (!bg && isHead) bg = headBg;
+                var tdStyle = cellPad + (bg ? "background:" + esc(bg) + ";" : "");
                 out += '<td data-r="' + ri + '" data-c="' + ci + '"' +
-                    (isHead ? ' style="background:' + headBg + ';"' : "") + ">" +
+                    (tdStyle ? ' style="' + tdStyle + '"' : "") + ">" +
                     sanitizeCellHtml(cell) + "</td>";
             });
             out += "</tr>";
@@ -426,8 +624,7 @@ var SlidesApp = (function () {
                     (o.props.html || "") + "</div>";
                 break;
             case "image":
-                d.innerHTML = '<img draggable="false" src="' + esc(o.props.src || "") +
-                    '" style="object-fit:' + esc(o.props.fit || "contain") + ';" alt="">';
+                d.innerHTML = imageHtml(o.props);
                 break;
             case "shape":
                 d.innerHTML = shapeSvg(o) + shapeTextDiv(o);
@@ -490,6 +687,12 @@ var SlidesApp = (function () {
     function renderOverlay() {
         if (!framesEl) return;
         framesEl.innerHTML = "";
+        if (cropId) {
+            // the crop tool replaces the selection frame while it is open
+            renderCropOverlay();
+            return;
+        }
+        if (cropEl) cropEl.innerHTML = "";
         var s = curScale() || 1;
         var hs = Math.max(7, 10 / s);
         var bw = Math.max(1, 1.6 / s);
@@ -506,9 +709,12 @@ var SlidesApp = (function () {
             if (sel.length === 1) {
                 if (o.type === "line") {
                     fr.className += " sl-frame-line";
-                    var x1 = Math.max(0, -o.w), y1 = Math.max(0, -o.h);
-                    fr.appendChild(mkHandle("p1", x1, y1, hs));
-                    fr.appendChild(mkHandle("p2", x1 + o.w, y1 + o.h, hs));
+                    // handles sit on the real endpoints, which for a bent
+                    // connector are the ends of its polyline
+                    var lp = linePoints(o);
+                    fr.appendChild(mkHandle("p1", lp[0][0] - (bb.x - o.x), lp[0][1] - (bb.y - o.y), hs));
+                    fr.appendChild(mkHandle("p2", lp[lp.length - 1][0] - (bb.x - o.x),
+                        lp[lp.length - 1][1] - (bb.y - o.y), hs));
                 } else {
                     var w = bb.w, hgt = bb.h;
                     [["nw", 0, 0], ["n", w / 2, 0], ["ne", w, 0], ["e", w, hgt / 2],
@@ -529,6 +735,202 @@ var SlidesApp = (function () {
             }
             framesEl.appendChild(fr);
         });
+    }
+
+    /* ================= image crop tool =================
+       Cropping is a view onto the picture, never a change to its pixels:
+       the object frame states which part is visible and props.crop states
+       which part of the source that is. While the tool is open the whole
+       picture is shown ghosted, with the part that will be kept drawn at
+       full strength on top - so dragging a handle shrinks the visible
+       window and dragging the picture slides it behind that window. */
+
+    // fullImageRect returns where the whole picture sits, in slide units,
+    // given the frame and crop an object currently has
+    function fullImageRect(o) {
+        var c = o.props.crop;
+        var l = 0, t = 0, kw = 1, kh = 1;
+        if (c && c.length === 4) {
+            l = Number(c[0]) || 0;
+            t = Number(c[1]) || 0;
+            kw = 1 - l - (Number(c[2]) || 0);
+            kh = 1 - t - (Number(c[3]) || 0);
+        }
+        if (!(kw > 0.001) || !(kh > 0.001)) { l = 0; t = 0; kw = 1; kh = 1; }
+        var fw = o.w / kw, fh = o.h / kh;
+        return { x: o.x - l * fw, y: o.y - t * fh, w: fw, h: fh };
+    }
+
+    function startCrop(id) {
+        var o = objById(id);
+        if (!o || o.type !== "image") return;
+        if (editingId) endEdit(true);
+        if (cropId && cropId !== id) endCrop(true);
+        setSel([id]);
+        cropId = id;
+        cropBefore = { x: o.x, y: o.y, w: o.w, h: o.h,
+                       crop: o.props.crop ? o.props.crop.slice() : null };
+        cropFull = fullImageRect(o);
+        cropRect = { x: o.x, y: o.y, w: o.w, h: o.h };
+        renderOverlay();
+        syncToolbarFromSel();
+        OfficeApp.setStatus(
+            "Crop: drag the handles to trim, drag the picture to reposition, " +
+            "Enter to apply, Esc to cancel", "info", 6000);
+    }
+
+    function endCrop(apply) {
+        if (!cropId) return;
+        var o = objById(cropId);
+        cropId = null;
+        if (o) {
+            if (apply) {
+                var l = (cropRect.x - cropFull.x) / cropFull.w;
+                var t = (cropRect.y - cropFull.y) / cropFull.h;
+                var r = 1 - (cropRect.x + cropRect.w - cropFull.x) / cropFull.w;
+                var b = 1 - (cropRect.y + cropRect.h - cropFull.y) / cropFull.h;
+                var crop = [l, t, r, b].map(function (v) {
+                    return Math.round(clamp(v, 0, 0.99) * 10000) / 10000;
+                });
+                var cropped = crop.some(function (v) { return v > 0.0005; });
+                // the frame the whole picture would fill is what Reset image
+                // puts back, so it is stamped the first time one is trimmed
+                if (cropped && !o.props.orig) {
+                    o.props.orig = {
+                        x: Math.round(cropFull.x * 100) / 100,
+                        y: Math.round(cropFull.y * 100) / 100,
+                        w: Math.round(cropFull.w * 100) / 100,
+                        h: Math.round(cropFull.h * 100) / 100
+                    };
+                }
+                o.x = cropRect.x; o.y = cropRect.y;
+                o.w = cropRect.w; o.h = cropRect.h;
+                if (cropped) o.props.crop = crop; else delete o.props.crop;
+                commit();
+            } else {
+                o.x = cropBefore.x; o.y = cropBefore.y;
+                o.w = cropBefore.w; o.h = cropBefore.h;
+                if (cropBefore.crop) o.props.crop = cropBefore.crop;
+                else delete o.props.crop;
+                renderEditorSlide();
+            }
+        }
+        cropRect = cropFull = cropBefore = null;
+        renderOverlay();
+        syncToolbarFromSel();
+    }
+
+    var CROP_HANDLES = [
+        ["nw", 0, 0], ["n", 0.5, 0], ["ne", 1, 0], ["e", 1, 0.5],
+        ["se", 1, 1], ["s", 0.5, 1], ["sw", 0, 1], ["w", 0, 0.5]
+    ];
+
+    function renderCropOverlay() {
+        if (!cropEl) return;
+        var o = objById(cropId);
+        if (!o) { cropEl.innerHTML = ""; return; }
+        // the picture itself is hidden while the tool is open, so what is
+        // on screen is only the ghost and the part being kept
+        var srcEl = objEl(cropId);
+        if (srcEl) srcEl.classList.add("sl-cropping");
+        var s = curScale() || 1;
+        var src = esc(o.props.src || "");
+        var box = function (r) {
+            return "left:" + r.x + "px;top:" + r.y + "px;" +
+                "width:" + Math.max(1, r.w) + "px;height:" + Math.max(1, r.h) + "px;";
+        };
+        var html = '<div class="sl-crop-ghost" style="' + box(cropFull) + '">' +
+            '<img draggable="false" src="' + src + '" alt=""></div>';
+        // the kept part: the same picture, positioned so it lines up with
+        // the ghost behind it, clipped by the crop rectangle
+        html += '<div class="sl-crop-rect" style="' + box(cropRect) + '">' +
+            '<img draggable="false" src="' + src + '" alt="" style="' +
+            "left:" + (cropFull.x - cropRect.x) + "px;top:" + (cropFull.y - cropRect.y) + "px;" +
+            "width:" + cropFull.w + "px;height:" + cropFull.h + 'px;">';
+        // corner grips are drawn as an L hugging the corner, edge grips as
+        // a bar centred on the edge - the same language Slides/Docs use
+        var len = Math.min(Math.max(9, 14 / s), Math.min(cropRect.w, cropRect.h) / 2);
+        var th = Math.max(2.5, 4 / s);
+        CROP_HANDLES.forEach(function (h) {
+            var name = h[0];
+            var left, top, w, hgt, extra = "";
+            if (name === "n" || name === "s") {
+                w = len; hgt = th;
+                left = cropRect.w / 2 - len / 2;
+                top = name === "n" ? 0 : cropRect.h - th;
+            } else if (name === "e" || name === "w") {
+                w = th; hgt = len;
+                left = name === "w" ? 0 : cropRect.w - th;
+                top = cropRect.h / 2 - len / 2;
+            } else {
+                w = len; hgt = len;
+                left = name.indexOf("w") >= 0 ? 0 : cropRect.w - len;
+                top = name.indexOf("n") >= 0 ? 0 : cropRect.h - len;
+                extra = "background:transparent;" +
+                    "border-" + (name.indexOf("n") >= 0 ? "top" : "bottom") +
+                    ":" + th + "px solid #202124;" +
+                    "border-" + (name.indexOf("w") >= 0 ? "left" : "right") +
+                    ":" + th + "px solid #202124;";
+            }
+            html += '<div class="sl-croph" data-ch="' + name + '" style="' +
+                "left:" + left + "px;top:" + top + "px;" +
+                "width:" + w + "px;height:" + hgt + "px;" + extra + '"></div>';
+        });
+        html += "</div>";
+        cropEl.innerHTML = html;
+    }
+
+    /* Reset image: undo every crop and shaped crop and put the picture
+       back the way it came in. props.orig remembers the frame the whole
+       picture filled when it was first trimmed; without one (a picture
+       that was only masked) the frame stays where it is and only its
+       height is corrected to the source's own aspect ratio. */
+    function resetImage(o) {
+        if (!o || o.type !== "image") return;
+        if (cropId === o.id) endCrop(false);
+        var full = fullImageRect(o);
+        delete o.props.crop;
+        delete o.props.mask;
+        delete o.props.radius;
+        if (o.props.orig) {
+            o.x = o.props.orig.x; o.y = o.props.orig.y;
+            o.w = o.props.orig.w; o.h = o.props.orig.h;
+            delete o.props.orig;
+        } else {
+            o.x = full.x; o.y = full.y; o.w = full.w; o.h = full.h;
+        }
+        var nat = naturalSizeOf(o);
+        if (nat && nat.w > 0 && nat.h > 0) {
+            // a picture stretched by dragging a corner is undistorted too
+            o.h = Math.max(8, o.w * nat.h / nat.w);
+        }
+        commit();
+        OfficeApp.setStatus("Image reset", "success", 2000);
+    }
+
+    // naturalSizeOf reads the source's own pixel size off the live <img>,
+    // which is already decoded because the object is on screen
+    function naturalSizeOf(o) {
+        var el = objEl(o.id);
+        var img = el ? el.querySelector("img") : null;
+        if (img && img.naturalWidth > 0) {
+            return { w: img.naturalWidth, h: img.naturalHeight };
+        }
+        return null;
+    }
+
+    function setImageMask(o, kind) {
+        if (!o || o.type !== "image") return;
+        if (cropId === o.id) endCrop(true);
+        if (!kind || kind === "rect") {
+            delete o.props.mask;
+            delete o.props.radius;
+        } else {
+            o.props.mask = kind;
+            if (kind === "round") o.props.radius = Math.min(o.w, o.h) * 0.15;
+            else delete o.props.radius;
+        }
+        commit();
     }
 
     /* ================= rendering: rail / thumbnails ================= */
@@ -750,6 +1152,7 @@ var SlidesApp = (function () {
             updateRailActive();
             return;
         }
+        endCrop(true);
         endEdit(true);
         cur = clamp(i, 0, body.slides.length - 1);
         sel = [];
@@ -834,6 +1237,7 @@ var SlidesApp = (function () {
     }
     function deleteSelection() {
         if (!sel.length) return;
+        endCrop(false);
         endEdit(false);
         var slide = curSlide();
         slide.objects = slide.objects.filter(function (o) { return sel.indexOf(o.id) < 0; });
@@ -1658,6 +2062,7 @@ var SlidesApp = (function () {
     function startEdit(id) {
         var o = objById(id);
         if (!o) return;
+        endCrop(true);
         if (editingId && editingId !== id) endEdit(true);
         var el = objEl(id);
         if (!el) return;
@@ -1825,6 +2230,34 @@ var SlidesApp = (function () {
         if (e.button === 2) return;   // context menu handled separately
         OfficeApp.closeAllMenus();
         var pt = toSlideXY(e);
+
+        // crop mode owns every press until it is closed
+        if (cropId) {
+            if (e.target.classList && e.target.classList.contains("sl-croph")) {
+                drag = {
+                    mode: "crophandle", h: e.target.getAttribute("data-ch"),
+                    start: pt, moved: false,
+                    g: { x: cropRect.x, y: cropRect.y, w: cropRect.w, h: cropRect.h }
+                };
+                try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
+                e.preventDefault();
+                return;
+            }
+            if (e.target.closest && e.target.closest(".sl-crop-rect, .sl-crop-ghost")) {
+                drag = {
+                    mode: "croppan", start: pt, moved: false,
+                    g: { x: cropFull.x, y: cropFull.y }
+                };
+                try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
+                e.preventDefault();
+                return;
+            }
+            // a press anywhere else closes the tool; the next click then
+            // does whatever it was going to do, against a settled DOM
+            endCrop(true);
+            e.preventDefault();
+            return;
+        }
 
         // table column/row resize bars (present in table edit mode)
         if (e.target.classList && e.target.classList.contains("sl-tbl-rz")) {
@@ -2032,10 +2465,46 @@ var SlidesApp = (function () {
                 renderOverlay();
                 break;
             }
+            case "crophandle": {
+                if (!cropRect || !cropFull) return;
+                g = drag.g;
+                var MINC = 8;
+                var nx = g.x, ny = g.y, nw = g.w, nh = g.h;
+                var name = drag.h;
+                if (name.indexOf("w") >= 0) {
+                    nx = clamp(g.x + dx, cropFull.x, g.x + g.w - MINC);
+                    nw = g.x + g.w - nx;
+                } else if (name.indexOf("e") >= 0) {
+                    nw = clamp(g.w + dx, MINC, cropFull.x + cropFull.w - g.x);
+                }
+                if (name.indexOf("n") >= 0) {
+                    ny = clamp(g.y + dy, cropFull.y, g.y + g.h - MINC);
+                    nh = g.y + g.h - ny;
+                } else if (name.indexOf("s") >= 0) {
+                    nh = clamp(g.h + dy, MINC, cropFull.y + cropFull.h - g.y);
+                }
+                cropRect = { x: nx, y: ny, w: nw, h: nh };
+                renderCropOverlay();
+                break;
+            }
+            case "croppan": {
+                if (!cropRect || !cropFull) return;
+                // the picture slides behind the window, so the window must
+                // stay inside the picture
+                cropFull.x = clamp(drag.g.x + dx,
+                    cropRect.x + cropRect.w - cropFull.w, cropRect.x);
+                cropFull.y = clamp(drag.g.y + dy,
+                    cropRect.y + cropRect.h - cropFull.h, cropRect.y);
+                renderCropOverlay();
+                break;
+            }
             case "lineend": {
                 o = objById(drag.id);
                 if (!o) return;
                 g = drag.g;
+                // dragging an endpoint straightens an imported bent
+                // connector - the editor only draws two-point lines
+                if (o.props && o.props.points) delete o.props.points;
                 if (drag.h === "p2") {
                     var e2x = g.x + g.w + dx, e2y = g.y + g.h + dy;
                     if (snapGrid) { e2x = Math.round(e2x / GRID) * GRID; e2y = Math.round(e2y / GRID) * GRID; }
@@ -2139,6 +2608,10 @@ var SlidesApp = (function () {
             if (d.moved) commit();
             return;
         }
+        if (d.mode === "crophandle" || d.mode === "croppan") {
+            // the crop tool stays open until it is applied or cancelled
+            return;
+        }
         if (d.mode === "move" && !d.moved) {
             if (d.pendingToggle) {
                 setSel(sel.filter(function (id) { return id !== d.pendingToggle; }));
@@ -2164,6 +2637,7 @@ var SlidesApp = (function () {
         if (!o) return;
         if (o.type === "text" || o.type === "shape" || o.type === "table") startEdit(id);
         else if (o.type === "chart") chartDialog(o);
+        else if (o.type === "image") startCrop(id);
     }
 
     /* ================= context menus ================= */
@@ -2267,6 +2741,30 @@ var SlidesApp = (function () {
             if (o.type === "image") {
                 items.push({ sep: true });
                 items.push({
+                    label: "Crop image", icon: "crop",
+                    action: function () { startCrop(o.id); }
+                });
+                items.push({
+                    label: "Mask image", icon: "object ungroup outline",
+                    sub: [{
+                        label: "None (rectangle)",
+                        checked: function () { return !o.props.mask; },
+                        action: function () { setImageMask(o, ""); }
+                    }, { sep: true }].concat(SHAPE_KINDS.filter(function (s) {
+                        return s.kind !== "rect";
+                    }).map(function (s) {
+                        return {
+                            label: s.label,
+                            checked: function () { return o.props.mask === s.kind; },
+                            action: function () { setImageMask(o, s.kind); }
+                        };
+                    }))
+                });
+                items.push({
+                    label: "Reset image", icon: "history",
+                    action: function () { resetImage(o); }
+                });
+                items.push({
                     label: "Image fit", icon: "image outline", sub: ["contain", "cover", "fill"].map(function (f) {
                         return {
                             label: f.charAt(0).toUpperCase() + f.substring(1),
@@ -2322,7 +2820,7 @@ var SlidesApp = (function () {
         var HK = OfficeHotkeys;
         var GS = "Slides", GO = "Objects", GT = "Text editing";
         var notPresenting = function () { return !presActive(); };
-        var editorIdle = function () { return !presActive() && !editingId; };
+        var editorIdle = function () { return !presActive() && !editingId && !cropId; };
 
         HK.register("F5", function () { endEdit(true); startPresent(cur); },
             { id: "sl.present", description: "Start presentation", group: GS, allowInInput: true, when: notPresenting });
@@ -2352,11 +2850,17 @@ var SlidesApp = (function () {
         HK.register("Backspace", function () { deleteSelection(); },
             { id: "sl.delete2", when: function () { return editorIdle() && sel.length > 0; } });
         HK.register("Escape", function () {
+            if (cropId) { endCrop(false); return; }
             if (editingId) { endEdit(true); return; }
             if (pendingDraw) { disarmDraw(); return; }
             if (sel.length) { setSel([]); return; }
             return false;
         }, { id: "sl.escape", allowInInput: true, when: notPresenting });
+        HK.register("Enter", function () {
+            if (!cropId) return false;
+            endCrop(true);
+        }, { id: "sl.cropapply", description: "Apply crop", group: GO,
+             when: function () { return !presActive() && !!cropId; } });
 
         // arrows: nudge the selection (Shift = 10 px) or walk the deck
         ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].forEach(function (k) {
@@ -2571,6 +3075,34 @@ var SlidesApp = (function () {
         }, "slBtnArrow"));
         $tb.append(tbtn("table", "Insert table", tableDialog));
         $tb.append(tbtn("chart bar", "Insert chart", function () { chartDialog(null); }));
+        // picture tools: only meaningful with an image selected, so they
+        // are hidden until there is one (syncToolbarFromSel)
+        $tb.append(tbtn("crop", "Crop image", function () {
+            var io = selectedImage();
+            if (io) { if (cropId === io.id) endCrop(true); else startCrop(io.id); }
+        }, "slBtnCrop"));
+        $tb.append(tbtn("object ungroup outline", "Mask image to a shape", function (e) {
+            var io = selectedImage();
+            if (!io) return;
+            var r = e.currentTarget.getBoundingClientRect();
+            OfficeApp.showContextMenu(r.left, r.bottom + 4, [{
+                label: "None (rectangle)",
+                checked: function () { return !io.props.mask; },
+                action: function () { setImageMask(io, ""); }
+            }, { sep: true }].concat(SHAPE_KINDS.filter(function (s) {
+                return s.kind !== "rect";
+            }).map(function (s) {
+                return {
+                    label: s.label,
+                    checked: function () { return io.props.mask === s.kind; },
+                    action: function () { setImageMask(io, s.kind); }
+                };
+            })));
+        }, "slBtnMask"));
+        $tb.append(tbtn("history", "Reset image", function () {
+            var io = selectedImage();
+            if (io) resetImage(io);
+        }, "slBtnResetImg"));
         $tb.append('<div class="of-tsep"></div>');
 
         var $fs = $('<input type="number" class="of-tinput sl-num" id="slFontSize" min="6" max="200" step="1" title="Font size" value="24">');
@@ -2707,9 +3239,18 @@ var SlidesApp = (function () {
         $tb.append($present);
     }
 
+    // selectedImage returns the lone selected picture, or null
+    function selectedImage() {
+        var so = selObjs();
+        return (so.length === 1 && so[0].type === "image") ? so[0] : null;
+    }
+
     function syncToolbarFromSel() {
         var so = selObjs();
         var o = so.length ? so[0] : null;
+        var isImg = !!selectedImage();
+        $("#slBtnCrop, #slBtnMask, #slBtnResetImg").toggle(isImg);
+        $("#slBtnCrop").toggleClass("active", !!cropId);
         if (!o) return;
         var p = o.props;
         if (o.type === "text" || o.type === "shape" || o.type === "table") {
@@ -3216,10 +3757,12 @@ var SlidesApp = (function () {
         layerEl.className = "sl-slidebase";
         var overlay = document.getElementById("slOverlay");
         overlay.innerHTML = '<div id="slFrames"></div>' +
+            '<div id="slCrop"></div>' +
             '<div id="slGuideV" class="sl-guide"></div>' +
             '<div id="slGuideH" class="sl-guide"></div>' +
             '<div id="slMarquee"></div>';
         framesEl = document.getElementById("slFrames");
+        cropEl = document.getElementById("slCrop");
         guideVEl = document.getElementById("slGuideV");
         guideHEl = document.getElementById("slGuideH");
         marqueeEl = document.getElementById("slMarquee");

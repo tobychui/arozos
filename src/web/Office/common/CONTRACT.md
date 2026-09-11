@@ -541,6 +541,67 @@ lists via execCommand; htmlToLines (mod/office) flattens them to bullet/number
 prefixes for .pptx. present.js adds transitions, click-to-reveal animations,
 laser pointer (L), interactive links, and a presenter-view popup.
 
+## Imported-deck fidelity props (slides.js)
+
+A deck opened from a `.pptx` / `.odp` carries the typography and geometry of
+the file it came from, which the editor's own objects do not have. Every one
+of these is **optional** — a document made in the editor omits them and falls
+back to the stylesheet, so nothing here changes how a new deck looks.
+
+| prop | on | meaning |
+|---|---|---|
+| `fontFamily` | text, shape | CSS font stack (latin + east-asian face, then a generic) |
+| `valign` | text, shape | `top` / `middle` / `bottom` — the text box's vertical anchor |
+| `pad` | text, shape | text insets `[top, right, bottom, left]` in px |
+| `lineHeight` | text, shape | unitless line-height multiplier |
+| `crop` | image | `[left, top, right, bottom]` fractions clipped off the source |
+| `mask` | image | a shaped crop: a `SHAPE_KINDS` kind the picture is clipped to |
+| `orig` | image | `{x,y,w,h}` the frame before the first crop — Reset image |
+| `radius` | image, shape | corner radius in px |
+| `opacity` | image | 0..1; 0 means fully opaque |
+| `points` | line | the polyline a bent connector follows, relative to `x`/`y` |
+| `arrowStart` | line | arrow head at the first point |
+| `cellFill` | table | per-cell background colours, `rows`-shaped |
+| `cellPad` | table | cell insets `[t, r, b, l]` in px |
+| `html` | shape | rich paragraph HTML, used in place of the plain `text` |
+
+`props.html` is the same restricted HTML text objects use: one `<div>` per
+paragraph carrying `text-align` / `line-height` / margins / `padding-left`,
+one `<span>` per run carrying font, size, weight and colour, and — for a
+bulleted paragraph — an absolutely positioned marker span that reproduces
+PowerPoint's hanging indent. `renderObjectEl` renders it as-is, so anything
+written into it must already be escaped.
+
+**Cropping is a view, never a change to the pixels.** The object frame says
+which part of the picture is visible; `props.crop` says which part of the
+source that is. The two are tied together by one identity, which the crop
+tool, the renderer and both format writers all rely on:
+
+```
+fullWidth = frame.w / (1 - crop.left - crop.right)      // and the same for h
+fullLeft  = frame.x - crop.left * fullWidth             // where the whole picture sits
+```
+
+While the crop tool is open (`startCrop`, double-click a picture or the
+toolbar's crop button) the object itself is hidden — `.sl-obj.sl-cropping` —
+and `#slCrop` draws the whole picture ghosted with the kept part at full
+strength on top. Dragging a grip moves the *frame*; dragging the picture
+moves the *source underneath it*. Enter or a click outside applies, Esc
+restores. **Reset image** clears `crop`, `mask` and `radius`, puts the frame
+back to `props.orig` (stamped the first time a picture is trimmed) and
+corrects the height to the source's own aspect ratio.
+
+`mask` maps onto a `prstGeom` on the `p:pic` in .pptx, so a shaped crop made
+here and one made in PowerPoint are the same thing; the renderer draws it as
+a `clip-path` built from `shapePoints()`, so every shape the editor can draw
+is also a mask it can cut.
+
+The presentation body may also carry `fonts`: `[{family, weight, style, src}]`
+where `src` is a font-file data URL taken from the source deck's embedded
+fonts. `normalizeBody` installs them as `@font-face` rules in a single
+page-level `<style id="slEmbeddedFonts">`, shared by the editor, the
+thumbnails, present mode and print.
+
 ## OfficeCharts (common/charts.js) — for Sheets and Slides
 
 ```js

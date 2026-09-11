@@ -163,6 +163,31 @@ body before posting:
   (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
   Latin-1 and have no emoji glyphs.
 
+### Slides: cropping a picture
+
+Cropping never touches the pixels. The object frame says which part of the
+picture is visible and `props.crop` says which part of the source that is —
+the same definition PowerPoint's `srcRect` uses, so a crop made in the
+editor and one made in PowerPoint are interchangeable. `fullImageRect()`
+in `slides.js` inverts the pair to find where the whole picture sits, and
+that is the whole of the crop tool's geometry.
+
+Three commands, on the picture's context menu and on the toolbar (which
+shows them only while a picture is selected):
+
+- **Crop image** (also a double-click) opens the tool: the object itself is
+  hidden and the overlay draws the whole picture ghosted with the kept part
+  at full strength over it. A grip moves the frame; dragging the picture
+  moves the source behind it. Enter or a click outside applies, Esc restores.
+- **Mask image** clips it to any of the editor's shape kinds (`props.mask`),
+  drawn as a `clip-path` built from the same `shapePoints()` the shape
+  objects use, and written to `.pptx` as a `prstGeom` on the picture.
+- **Reset image** clears the crop, the mask and the corner radius, puts the
+  frame back to `props.orig` — stamped the first time a picture is trimmed,
+  and holding the frame the *whole* picture filled — and corrects the height
+  to the source's own aspect ratio, so a picture stretched by dragging a
+  corner comes back undistorted too.
+
 ### Sheets formula engine
 
 [`sheets/formula.js`](sheets/formula.js) is a DOM-free tokenizer, parser and
@@ -332,6 +357,42 @@ the path that honours every mode exactly.
 
 ### Format notes (hard-won lessons — don't re-learn these)
 
+- **PPTX/ODP import is inheritance, not element reading.** A deck's
+  appearance is almost never stated on the shape you are looking at. The
+  readers ([`pptx_reader.go`](../../mod/office/pptx_reader.go) +
+  `pptx_text.go` / `pptx_xml.go`, [`odp_reader.go`](../../mod/office/odp_reader.go))
+  resolve, lowest priority first: the presentation's default text style,
+  the master's `txStyles` for the placeholder kind, the master's and then
+  the layout's matching placeholder `lstStyle`, the shape's own `lstStyle`,
+  the paragraph's `pPr`, the run's `rPr` — per outline level. Colours go
+  through the theme's `clrScheme` *and* the master's `clrMap` (that is what
+  makes `tx1` mean `dk1` on one deck and `lt1` on another), with the
+  `lumMod`/`lumOff`/`shade`/`tint` transforms applied. A slide is drawn on
+  top of its layout's decoration and the master's, minus their
+  placeholders, which are prototypes rather than content. Skipping any of
+  this does not merely lose polish — text lands at the wrong size, in the
+  wrong place, sometimes white on white. `pptx_fidelity_test.go` pins each
+  rule with the smallest package that exercises it; the ODF equivalents are
+  in `odf_test.go`.
+- **Line spacing is `1.2 × the stated percentage`.** PowerPoint's "single"
+  spacing is the font's line height, so `<a:lnSpc><a:spcPct val="115000"/>`
+  is CSS `line-height: 1.15 × 1.2`. The constant is `pptxLineHeightFactor`,
+  checked against Google Slides' own PDF export of a real deck. Two related
+  traps: a paragraph's block `font-size` must be its **smallest** run (it
+  is a floor under every line box, so a big run would inflate a short line
+  under it), and an `<a:br/>` needs a sized zero-width span after it or the
+  empty line it opens gets no height at all.
+- **Embedded fonts are usually undecodable.** `<p:embeddedFontLst>` points
+  at `.fntdata` parts, which are EOT wrappers.
+  [`pptx_fonts.go`](../../mod/office/pptx_fonts.go) unwraps a bare sfnt or
+  an *uncompressed* EOT (what PowerPoint writes) into an `@font-face` data
+  URL, under a per-face and per-deck size cap so a multi-megabyte CJK face
+  cannot make a document painful to edit. Google Slides writes
+  MicroType-Express-compressed EOT, which needs a decompressor far larger
+  than the rest of this package — those faces are declined and the text
+  falls back to the CSS stack. That is the one remaining reason an imported
+  deck can differ visibly from its source: the glyphs are a substitute, so
+  a line may wrap a word earlier.
 - **DOCX pagination** ([`docx_writer.go`](../../mod/office/docx_writer.go)):
   Word substitutes its own Normal-style defaults (Calibri etc.) unless the
   style sheet pins the editor's typography into `docDefaults` +
@@ -448,7 +509,23 @@ sh ../scripts/check-conventions.sh --diff origin/master
 ## Ideas / known gaps (future work)
 
 - CJK/Unicode text in PDF export (needs an embedded font — see above).
-- Native OOXML charts instead of PNG rasters.
+- **MicroType Express decompression** so Google-Slides-embedded fonts can
+  be used (see the format notes) — the last visible gap between an
+  imported deck and its source.
+- **Native OOXML chart *writing***. Charts are now *read* into live chart
+  objects ([`pptx_chart.go`](../../mod/office/pptx_chart.go), from the
+  `c:numCache` / `c:strCache` values, so no embedded workbook is needed),
+  but they are still *written* as the client-rendered PNG in `props.png`.
+  A round trip therefore turns a chart into a picture.
+- Embedded fonts are read but not written back, so a `.pptx` exported from
+  a deck that carried its fonts no longer carries them.
+- A **shaped crop** (`props.mask`) round-trips through `.pptx` as the
+  picture's `prstGeom`, but neither the `.odp` writer nor the PDF exporter
+  draws one — ODF would need a custom shape with a bitmap fill, and
+  `pdf_slides.go` places pictures as plain rectangles. The rectangular
+  crop itself is exported to all three.
+- Slides: SmartArt (`dgm:`), 3-D effects, shadows and animations are
+  skipped rather than approximated.
 - Real-time collaboration (the `sharedspace` AGI lib was built for this).
 - Docs: footnotes, section breaks, multi-column export to docx/pdf
   (`page.columns` renders in-editor and exports to docx, but the PDF

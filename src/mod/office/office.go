@@ -43,6 +43,26 @@ type Presentation struct {
 	Size   []int    `json:"size,omitempty"`
 	Theme  string   `json:"theme,omitempty"`
 	Slides []*Slide `json:"slides"`
+	// font faces the source file carried with it, so the deck renders in
+	// the typeface it was designed in even where that font is not
+	// installed. Empty for documents authored in the editor.
+	Fonts []*EmbeddedFont `json:"fonts,omitempty"`
+}
+
+// EmbeddedFont is one @font-face the Slides editor installs for a document
+type EmbeddedFont struct {
+	Family string `json:"family"`
+	Weight int    `json:"weight,omitempty"` // 400 or 700
+	Style  string `json:"style,omitempty"`  // "" or "italic"
+	Src    string `json:"src"`              // data URL
+}
+
+// Rect is a plain rectangle in slide units
+type Rect struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	W float64 `json:"w"`
+	H float64 `json:"h"`
 }
 
 // Slide is a single slide
@@ -77,9 +97,25 @@ type Props struct {
 	Bold      bool    `json:"bold,omitempty"`
 	Italic    bool    `json:"italic,omitempty"`
 	Underline bool    `json:"underline,omitempty"`
+	// text layout - set by the pptx/odp readers so an imported deck keeps
+	// the typography of the file it came from. All are optional: a text
+	// object without them renders on the editor's own defaults.
+	FontFamily string    `json:"fontFamily,omitempty"` // CSS font stack
+	VAlign     string    `json:"valign,omitempty"`     // top | middle | bottom
+	Pad        []float64 `json:"pad,omitempty"`        // insets [t,r,b,l] px
+	LineHeight float64   `json:"lineHeight,omitempty"` // unitless multiplier
 	// image
-	Src string `json:"src,omitempty"`
-	Fit string `json:"fit,omitempty"`
+	Src     string    `json:"src,omitempty"`
+	Fit     string    `json:"fit,omitempty"`
+	Crop    []float64 `json:"crop,omitempty"`    // [left,top,right,bottom] fractions
+	Radius  float64   `json:"radius,omitempty"`  // corner radius, px
+	Opacity float64   `json:"opacity,omitempty"` // 0..1, 0 = fully opaque
+	// a shaped crop: the picture is clipped to one of the shape kinds
+	// below ("" or "rect" = a plain rectangle)
+	Mask string `json:"mask,omitempty"`
+	// the frame the whole picture filled before it was first cropped, so
+	// Reset image can put it back. Editor state - no format stores it.
+	Orig *Rect `json:"orig,omitempty"`
 	// shape
 	Kind      string  `json:"kind,omitempty"`
 	Fill      string  `json:"fill,omitempty"`
@@ -88,13 +124,22 @@ type Props struct {
 	Text      string  `json:"text,omitempty"`
 	TextColor string  `json:"textColor,omitempty"`
 	// line
-	Dash     bool `json:"dash,omitempty"`
-	ArrowEnd bool `json:"arrowEnd,omitempty"`
+	Dash       bool `json:"dash,omitempty"`
+	ArrowEnd   bool `json:"arrowEnd,omitempty"`
+	ArrowStart bool `json:"arrowStart,omitempty"`
+	// elbow / rotated connectors imported from pptx: the polyline the
+	// connector actually follows, relative to the object's x/y. Absent on
+	// a plain two-point line, which is the only kind the editor draws.
+	Points [][]float64 `json:"points,omitempty"`
 	// table
 	Rows      [][]string `json:"rows,omitempty"`
 	HeaderRow bool       `json:"headerRow,omitempty"`
 	ColW      []float64  `json:"colW,omitempty"` // column widths, percent
 	RowH      []float64  `json:"rowH,omitempty"` // row heights, percent
+	// per-cell background colours ("" = none) and the cell insets, both
+	// set by the pptx reader so an imported table keeps its shading
+	CellFill [][]string `json:"cellFill,omitempty"`
+	CellPad  []float64  `json:"cellPad,omitempty"` // [t,r,b,l] px
 	// chart (spec kept opaque; Png is a client-side raster for export)
 	Spec json.RawMessage `json:"spec,omitempty"`
 	Png  string          `json:"png,omitempty"`
@@ -250,6 +295,10 @@ func htmlToLines(h string) []string {
 	s = blockOpenRe.ReplaceAllString(s, "")
 	s = tagRe.ReplaceAllString(s, "")
 	s = strings.ReplaceAll(s, "&nbsp;", " ")
+	// zero-width spaces are line-height padding the readers insert, not text
+	s = strings.ReplaceAll(s, "&#8203;", "")
+	s = strings.ReplaceAll(s, "&#x200b;", "")
+	s = strings.ReplaceAll(s, "​", "")
 	s = strings.ReplaceAll(s, "&lt;", "<")
 	s = strings.ReplaceAll(s, "&gt;", ">")
 	s = strings.ReplaceAll(s, "&quot;", "\"")

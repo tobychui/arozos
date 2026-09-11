@@ -151,13 +151,152 @@ func (b *odpBuilder) textStyleFor(o *Object, p *Presentation) string {
 	return b.newStyle("paragraph", align+`<style:text-properties`+props+`/>`)
 }
 
+// emitText writes a text object as a draw:frame, one text:p per paragraph
+// and one text:span per run, so the per-run typography an imported deck
+// carries survives a save into .odp instead of flattening to plain lines
 func (b *odpBuilder) emitText(body *strings.Builder, o *Object, p *Presentation) {
-	ps := b.textStyleFor(o, p)
-	body.WriteString(`<draw:frame` + odpGeom(o) + `><draw:text-box>`)
-	for _, ln := range htmlToLines(o.Props.HTML) {
-		body.WriteString(`<text:p text:style-name="` + ps + `">` + xmlEscape(ln) + `</text:p>`)
-	}
+	body.WriteString(`<draw:frame draw:style-name="` + b.frameStyleFor(o) + `"` +
+		odpGeom(o) + `><draw:text-box>`)
+	b.emitParagraphs(body, o, p)
 	body.WriteString(`</draw:text-box></draw:frame>`)
+}
+
+// emitParagraphs renders the object's rich HTML into ODF paragraphs
+func (b *odpBuilder) emitParagraphs(body *strings.Builder, o *Object, p *Presentation) {
+	base := inlineStyle{
+		sizePx: o.Props.FontSize,
+		font:   firstFontFamily(o.Props.FontFamily),
+		bold:   o.Props.Bold, italic: o.Props.Italic, underline: o.Props.Underline,
+		color: o.Props.Color,
+	}
+	if base.color == "" {
+		base.color = o.Props.TextColor
+	}
+	if base.color == "" {
+		if c, ok := themeText[p.Theme]; ok {
+			base.color = "#" + c
+		}
+	}
+	if base.sizePx <= 0 {
+		base.sizePx = 24
+	}
+	for _, para := range parseStorageHTML(o.Props.HTML, base) {
+		align := para.Align
+		if align == "" {
+			align = o.Props.Align
+		}
+		ps := b.paraStyleFor(align, para, o.Props.LineHeight)
+		body.WriteString(`<text:p text:style-name="` + ps + `">`)
+		if para.Bullet != "" {
+			body.WriteString(xmlEscape(para.Bullet) + " ")
+		}
+		for _, r := range para.Runs {
+			if r.Break {
+				body.WriteString(`<text:line-break/>`)
+				continue
+			}
+			if r.Text == "" {
+				continue
+			}
+			body.WriteString(`<text:span text:style-name="` + b.runStyleFor(r, base) + `">` +
+				xmlEscape(r.Text) + `</text:span>`)
+		}
+		body.WriteString(`</text:p>`)
+	}
+}
+
+// paraStyleFor mints the automatic paragraph style of one paragraph
+func (b *odpBuilder) paraStyleFor(align string, para htmlPara, objLineHeight float64) string {
+	props := ""
+	switch align {
+	case "center":
+		props += ` fo:text-align="center"`
+	case "right":
+		props += ` fo:text-align="end"`
+	case "justify":
+		props += ` fo:text-align="justify"`
+	}
+	lh := para.LineHeight
+	if lh <= 0 {
+		lh = objLineHeight
+	}
+	if lh > 0 {
+		props += fmt.Sprintf(` fo:line-height="%d%%"`, int(lh/pptxLineHeightFactor*100))
+	}
+	if para.MarginTop > 0 {
+		props += ` fo:margin-top="` + pxToCm(para.MarginTop) + `"`
+	}
+	if para.MarginBot > 0 {
+		props += ` fo:margin-bottom="` + pxToCm(para.MarginBot) + `"`
+	}
+	if para.PadLeft != 0 {
+		props += ` fo:margin-left="` + pxToCm(para.PadLeft) + `"`
+	}
+	if para.Indent != 0 {
+		// a bulleted paragraph writes its marker inline, so the negative
+		// first-line indent is what puts the marker in the hanging position
+		props += ` fo:text-indent="` + pxToCm(para.Indent) + `"`
+	}
+	return b.newStyle("paragraph", `<style:paragraph-properties`+props+`/>`)
+}
+
+// runStyleFor mints the automatic text style of one run
+func (b *odpBuilder) runStyleFor(r htmlRun, base inlineStyle) string {
+	size := r.SizePx
+	if size <= 0 {
+		size = base.sizePx
+	}
+	props := fmt.Sprintf(` fo:font-size="%.1fpt"`, size*72.0/96.0)
+	if r.Bold {
+		props += ` fo:font-weight="bold"`
+	}
+	if r.Italic {
+		props += ` fo:font-style="italic"`
+	}
+	if r.Underline {
+		props += ` style:text-underline-style="solid"`
+	}
+	if r.Strike {
+		props += ` style:text-line-through-style="solid"`
+	}
+	color := r.Color
+	if color == "" {
+		color = base.color
+	}
+	if strings.HasPrefix(color, "#") {
+		props += ` fo:color="` + color + `"`
+	}
+	if strings.HasPrefix(r.Highlight, "#") {
+		props += ` fo:background-color="` + r.Highlight + `"`
+	}
+	font := r.Font
+	if font == "" {
+		font = base.font
+	}
+	if font != "" {
+		props += ` style:font-name="` + xmlEscape(font) + `"`
+	}
+	return b.newStyle("text", `<style:text-properties`+props+`/>`)
+}
+
+// frameStyleFor carries a text object's vertical anchor and insets
+func (b *odpBuilder) frameStyleFor(o *Object) string {
+	props := ` draw:fill="none" draw:stroke="none"`
+	switch o.Props.VAlign {
+	case "middle":
+		props += ` draw:textarea-vertical-align="middle"`
+	case "bottom":
+		props += ` draw:textarea-vertical-align="bottom"`
+	default:
+		props += ` draw:textarea-vertical-align="top"`
+	}
+	if len(o.Props.Pad) == 4 {
+		props += ` fo:padding-top="` + pxToCm(o.Props.Pad[0]) + `"` +
+			` fo:padding-right="` + pxToCm(o.Props.Pad[1]) + `"` +
+			` fo:padding-bottom="` + pxToCm(o.Props.Pad[2]) + `"` +
+			` fo:padding-left="` + pxToCm(o.Props.Pad[3]) + `"`
+	}
+	return b.newStyle("graphic", `<style:graphic-properties`+props+`/>`)
 }
 
 func (b *odpBuilder) emitImage(body *strings.Builder, o *Object, src string) {
@@ -165,36 +304,100 @@ func (b *odpBuilder) emitImage(body *strings.Builder, o *Object, src string) {
 	if pic == "" {
 		return
 	}
-	body.WriteString(`<draw:frame` + odpGeom(o) + `>` +
+	clip := ""
+	if len(o.Props.Crop) == 4 {
+		// fo:clip lists the insets top, right, bottom, left
+		clip = fmt.Sprintf(` fo:clip="rect(%.2f%% %.2f%% %.2f%% %.2f%%)"`,
+			o.Props.Crop[1]*100, o.Props.Crop[2]*100,
+			o.Props.Crop[3]*100, o.Props.Crop[0]*100)
+	}
+	body.WriteString(`<draw:frame` + odpGeom(o) + clip + `>` +
 		`<draw:image xlink:href="` + pic + `" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
 		`</draw:frame>`)
 }
 
+// odpShapeTypes maps the editor's shape kinds onto ODF enhanced-geometry
+// types, for everything a plain draw:rect / draw:ellipse cannot express
+var odpShapeTypes = map[string]string{
+	"triangle":      "isosceles-triangle",
+	"rtTriangle":    "right-triangle",
+	"diamond":       "diamond",
+	"arrow":         "right-arrow",
+	"leftArrow":     "left-arrow",
+	"upArrow":       "up-arrow",
+	"downArrow":     "down-arrow",
+	"star":          "star5",
+	"chevron":       "pentagon-right",
+	"pentagon":      "pentagon-right",
+	"hexagon":       "hexagon",
+	"parallelogram": "parallelogram",
+	"trapezoid":     "trapezoid",
+	"plus":          "cross",
+}
+
 func (b *odpBuilder) emitShape(body *strings.Builder, o *Object) {
 	props := ""
+	// the fill is always stated: leaving it out lets a reader apply the
+	// format's own default, which is not what the object says
 	if strings.HasPrefix(o.Props.Fill, "#") {
 		props += ` draw:fill="solid" draw:fill-color="` + o.Props.Fill + `"`
+	} else {
+		props += ` draw:fill="none"`
 	}
 	if strings.HasPrefix(o.Props.Stroke, "#") && o.Props.StrokeW > 0 {
-		props += fmt.Sprintf(` draw:stroke="solid" svg:stroke-color="%s" svg:stroke-width="%s"`,
-			o.Props.Stroke, pxToCm(o.Props.StrokeW))
+		dash := "solid"
+		if o.Props.Dash {
+			dash = "dash"
+		}
+		props += fmt.Sprintf(` draw:stroke="%s" svg:stroke-color="%s" svg:stroke-width="%s"`,
+			dash, o.Props.Stroke, pxToCm(o.Props.StrokeW))
 	} else {
 		props += ` draw:stroke="none"`
 	}
+	switch o.Props.VAlign {
+	case "top":
+		props += ` draw:textarea-vertical-align="top"`
+	case "bottom":
+		props += ` draw:textarea-vertical-align="bottom"`
+	default:
+		props += ` draw:textarea-vertical-align="middle"`
+	}
+	if len(o.Props.Pad) == 4 {
+		props += ` fo:padding-top="` + pxToCm(o.Props.Pad[0]) + `"` +
+			` fo:padding-right="` + pxToCm(o.Props.Pad[1]) + `"` +
+			` fo:padding-bottom="` + pxToCm(o.Props.Pad[2]) + `"` +
+			` fo:padding-left="` + pxToCm(o.Props.Pad[3]) + `"`
+	}
 	gs := b.newStyle("graphic", `<style:graphic-properties`+props+`/>`)
+
 	tag := "draw:rect"
 	extra := ""
+	geomType := ""
 	switch o.Props.Kind {
 	case "ellipse":
 		tag = "draw:ellipse"
 	case "round":
-		extra = ` draw:corner-radius="0.3cm"`
+		r := o.Props.Radius
+		if r <= 0 {
+			r = minF(o.W, o.H) * 0.15
+		}
+		extra = ` draw:corner-radius="` + pxToCm(r) + `"`
+	default:
+		if t, ok := odpShapeTypes[o.Props.Kind]; ok {
+			tag = "draw:custom-shape"
+			geomType = t
+		}
 	}
 	body.WriteString(`<` + tag + ` draw:style-name="` + gs + `"` + odpGeom(o) + extra + `>`)
-	if strings.TrimSpace(o.Props.Text) != "" {
+	if o.Props.HTML != "" {
+		b.emitParagraphs(body, o, &Presentation{})
+	} else if strings.TrimSpace(o.Props.Text) != "" {
 		body.WriteString(`<text:p>` + xmlEscape(o.Props.Text) + `</text:p>`)
 	}
-	body.WriteString(`</` + strings.Split(tag, " ")[0] + `>`)
+	if geomType != "" {
+		body.WriteString(`<draw:enhanced-geometry draw:type="` + geomType + `"/>`)
+	}
+	body.WriteString(`</` + tag + `>`)
 }
 
 func (b *odpBuilder) emitLine(body *strings.Builder, o *Object) {
@@ -233,20 +436,53 @@ func (b *odpBuilder) emitTable(body *strings.Builder, o *Object) {
 			`<style:table-column-properties style:column-width="`+pxToCm(o.W*pct/100)+`"/>`)
 		body.WriteString(`<table:table-column table:style-name="` + cs + `"/>`)
 	}
+	fs := o.Props.FontSize
+	if fs <= 0 {
+		fs = 16
+	}
 	for ri, row := range rows {
-		body.WriteString(`<table:table-row>`)
+		rs := ""
+		if ri < len(o.Props.RowH) && o.Props.RowH[ri] > 0 {
+			rs = ` table:style-name="` + b.newStyle("table-row",
+				`<style:table-row-properties style:row-height="`+
+					pxToCm(o.H*o.Props.RowH[ri]/100)+`"/>`) + `"`
+		}
+		body.WriteString(`<table:table-row` + rs + `>`)
 		for ci := 0; ci < cols; ci++ {
 			cell := ""
 			if ci < len(row) {
-				cell = strings.Join(htmlToLines(row[ci]), " ")
+				cell = row[ci]
 			}
-			bold := o.Props.HeaderRow && ri == 0
-			inner := xmlEscape(cell)
-			if bold && inner != "" {
-				ts := b.newStyle("text", `<style:text-properties fo:font-weight="bold"/>`)
-				inner = `<text:span text:style-name="` + ts + `">` + inner + `</text:span>`
+			base := inlineStyle{
+				sizePx: fs, color: o.Props.Color,
+				bold: o.Props.HeaderRow && ri == 0,
 			}
-			body.WriteString(`<table:table-cell><text:p>` + inner + `</text:p></table:table-cell>`)
+			cellStyle := ""
+			if ri < len(o.Props.CellFill) && ci < len(o.Props.CellFill[ri]) &&
+				strings.HasPrefix(o.Props.CellFill[ri][ci], "#") {
+				cellStyle = ` table:style-name="` + b.newStyle("table-cell",
+					`<style:table-cell-properties fo:background-color="`+
+						o.Props.CellFill[ri][ci]+`"/>`) + `"`
+			}
+			body.WriteString(`<table:table-cell` + cellStyle + `>`)
+			// cells hold the same rich HTML text objects do
+			for _, para := range parseStorageHTML(cell, base) {
+				body.WriteString(`<text:p text:style-name="` +
+					b.paraStyleFor(para.Align, para, 0) + `">`)
+				for _, r := range para.Runs {
+					if r.Break {
+						body.WriteString(`<text:line-break/>`)
+						continue
+					}
+					if r.Text == "" {
+						continue
+					}
+					body.WriteString(`<text:span text:style-name="` +
+						b.runStyleFor(r, base) + `">` + xmlEscape(r.Text) + `</text:span>`)
+				}
+				body.WriteString(`</text:p>`)
+			}
+			body.WriteString(`</table:table-cell>`)
 		}
 		body.WriteString(`</table:table-row>`)
 	}

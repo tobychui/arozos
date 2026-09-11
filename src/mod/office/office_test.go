@@ -197,8 +197,13 @@ func TestPptxRoundtrip(t *testing.T) {
 			if len(o.Props.Rows) != 2 || len(o.Props.Rows[0]) != 2 {
 				t.Fatalf("table dims = %dx%d, want 2x2", len(o.Props.Rows), len(o.Props.Rows[0]))
 			}
-			if o.Props.Rows[0][0] != "h1" || o.Props.Rows[1][1] != "b" {
+			// cells come back as the editor's rich HTML - compare the
+			// text they render, not the markup around it
+			if cellText(o.Props.Rows[0][0]) != "h1" || cellText(o.Props.Rows[1][1]) != "b" {
 				t.Errorf("table content lost: %v", o.Props.Rows)
+			}
+			if !strings.Contains(o.Props.Rows[0][0], "font-weight:700") {
+				t.Errorf("header row bold lost: %q", o.Props.Rows[0][0])
 			}
 			if !o.Props.HeaderRow {
 				t.Errorf("headerRow flag lost")
@@ -239,9 +244,26 @@ func TestTableCellHtmlFlatten(t *testing.T) {
 		t.Fatalf("ParsePptx failed: %v", err)
 	}
 	cell := got.Slides[0].Objects[0].Props.Rows[0][0]
-	if cell != "x&amp;y<br>z" {
-		t.Errorf("cell after roundtrip = %q, want %q", cell, "x&amp;y<br>z")
+	if cellText(cell) != "x&y\nz" {
+		t.Errorf("cell text after roundtrip = %q, want %q", cellText(cell), "x&y\nz")
 	}
+	if !strings.Contains(cell, "font-weight:700") {
+		t.Errorf("cell bold run lost in roundtrip: %q", cell)
+	}
+}
+
+// cellText renders a table cell's storage HTML down to the text it shows,
+// so tests can assert on content without pinning the exact markup
+func cellText(html string) string {
+	lines := htmlToLines(html)
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		l = strings.TrimSpace(strings.ReplaceAll(l, "&#8203;", ""))
+		if l != "" {
+			out = append(out, l)
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 func TestParsePresentationJSON(t *testing.T) {
