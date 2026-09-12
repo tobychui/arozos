@@ -547,11 +547,14 @@ body.always-show-volume #volume-slider { display: block; }
        so they paint above the (unpositioned) video but below every later
        positioned sibling — scrub preview, controls, menus and modals all stay
        on top of the text instead of being covered by it. */
-
-    /* libass spaces lines by the font's own ascent+descent with no extra
-       leading; 1.2 would push stacked dual-language lines apart and break the
-       MarginV offsets releases use to sit them one above the other. */
-    line-height: 1.05;
+    /* ...but that only holds if the cues stay *inside* this box. The renderer
+       gives each cue an inline z-index so simultaneous lines stack in event
+       order (see ass.js boxCss), and a positioned element with z-index:auto is
+       not a stacking context — so those cues would otherwise be promoted into
+       the player's stacking context and outrank the controls, which are
+       themselves z-index:auto. Isolating creates the stacking context that keeps
+       cue ordering internal, without giving this layer a z-index of its own. */
+    isolation: isolate;
 }
 #ass-overlay.active { display: block; }
 
@@ -563,7 +566,10 @@ body.always-show-volume #volume-slider { display: block; }
     margin-bottom: 12px;
     transform: translateX(-50%);
     pointer-events: none;
-    z-index: 8;
+    /* Above the centre play/pause flash, so scrubbing right after a click
+       does not put the thumbnail behind it. (ASS cues no longer need
+       outranking here — #ass-overlay isolates them.) */
+    z-index: 20;
     flex-direction: column;
     align-items: center;
     gap: 6px;
@@ -5112,6 +5118,10 @@ function ensureEmbeddedFontLoaded(family) {
         embeddedFontFaces.push(loaded);
         applySubtitleSettings();
         syncSettingsPreview();
+        // The renderer sizes every run off the face's own ascent/descent, so a
+        // face arriving late invalidates the measurements taken against the
+        // fallback it was standing in for.
+        if (typeof ASS !== 'undefined' && ASS.invalidateFontMetrics) { ASS.invalidateFontMetrics(); }
         if (assRenderer) { assRenderer.clear(); }   // redraw with the real face
     }).catch(function () {
         embeddedFontsLoaded[family] = false;
