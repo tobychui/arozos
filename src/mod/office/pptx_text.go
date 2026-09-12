@@ -290,6 +290,15 @@ func fontStackFor(latin, ea string) string {
 	if base := baseFontName(ea); base != ea {
 		add(base)
 	}
+	// the shipped document fonts (web/Office/common/fonts), offered before
+	// the generic. They are the only faces the browser-side PDF exporter can
+	// embed - a system font's bytes are not readable from a page - so a run
+	// that lands on one exports as real text instead of a picture of itself.
+	// Noto Sans leads so Latin keeps a Latin design; the CJK faces behind it
+	// cover what it does not, in the order a browser will try them.
+	for _, shipped := range shippedFontFallbacks {
+		add(shipped)
+	}
 	generic := "sans-serif"
 	l := strings.ToLower(latin)
 	switch {
@@ -303,6 +312,12 @@ func fontStackFor(latin, ea string) string {
 	}
 	parts = append(parts, generic)
 	return strings.Join(parts, ",")
+}
+
+// shippedFontFallbacks are the families in web/Office/common/fonts, in the
+// order fonts.js offers them to the browser. Keep the two lists in step.
+var shippedFontFallbacks = []string{
+	"Noto Sans", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR",
 }
 
 func quoteFontName(n string) string {

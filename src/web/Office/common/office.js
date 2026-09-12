@@ -1319,6 +1319,60 @@ var OfficeApp = (function () {
     }
     function hideBusy() { $(".of-busy-overlay").remove(); }
 
+    /* showProgress is showBusy's opposite number: a small panel in the
+       corner of the editing area for work that takes a while but has no
+       reason to hold the document hostage. Exporting is the case it was
+       written for - the deck is snapshotted when the export starts, so
+       carrying on editing while it runs changes nothing about the file
+       that comes out.
+
+           var p = OfficeApp.showProgress({ title: "Exporting PDF",
+                                            anchor: "#slCanvasArea" });
+           p.set(done, total, "Exporting 3 of 6 pages");
+           p.close();
+
+       anchor is the element to sit in the top-right of; the panel is
+       positioned from its box rather than placed inside it, so it does not
+       have to care how that element is laid out. */
+    function showProgress(o) {
+        o = o || {};
+        var $p = $('<div class="of-progress-panel of-noprint">' +
+            '<div class="of-pp-title"></div>' +
+            '<div class="of-pp-msg"></div>' +
+            '<div class="of-pp-bar"><div class="of-pp-fill"></div></div>' +
+            '</div>');
+        $p.find(".of-pp-title").text(o.title || "Working...");
+        $("body").append($p);
+
+        function place() {
+            var $a = o.anchor ? $(o.anchor) : $();
+            var el = $a.length ? $a[0] : null;
+            var r = el ? el.getBoundingClientRect() : null;
+            if (r && r.width > 0) {
+                $p.css({ top: (r.top + 12) + "px", right: (window.innerWidth - r.right + 12) + "px" });
+            } else {
+                $p.css({ top: "64px", right: "16px" });
+            }
+        }
+        place();
+        $(window).on("resize.ofprogress", place);
+
+        var handle = {
+            set: function (done, total, msg) {
+                var pct = total > 0 ? Math.max(0, Math.min(100, done * 100 / total)) : 0;
+                $p.find(".of-pp-fill").css("width", pct + "%");
+                if (msg !== undefined) $p.find(".of-pp-msg").text(msg);
+                place();
+            },
+            message: function (msg) { $p.find(".of-pp-msg").text(msg); },
+            close: function () {
+                $(window).off("resize.ofprogress", place);
+                $p.remove();
+            }
+        };
+        return handle;
+    }
+
     /* ---------- statusbar ---------- */
     function buildStatusbar() {
         var $sb = $('<div class="of-statusbar of-noprint"></div>');
@@ -1540,6 +1594,7 @@ var OfficeApp = (function () {
         showContextMenu: showContextMenu,
         showBusy: showBusy,
         hideBusy: hideBusy,
+        showProgress: showProgress,
         closeAllMenus: closeAllMenus,
         updateMenus: updateMenus,
         // features

@@ -786,6 +786,45 @@ body.of-app {
 }
 @keyframes of-spin { to { transform: rotate(360deg); } }
 
+/* ============ Progress panel ============ */
+/* The non-blocking counterpart of the busy overlay: it sits in the corner
+   of the editing area and leaves the document usable underneath. */
+.of-progress-panel {
+    position: fixed;
+    z-index: 1400;
+    min-width: 210px;
+    max-width: 280px;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    box-shadow: 0 4px 16px var(--of-shadow);
+    font-size: 12.5px;
+}
+.of-progress-panel .of-pp-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.of-progress-panel .of-pp-msg {
+    color: var(--of-fg-soft);
+    margin-bottom: 8px;
+    min-height: 1.2em;
+}
+.of-progress-panel .of-pp-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--of-border);
+    overflow: hidden;
+}
+.of-progress-panel .of-pp-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 2px;
+    background: var(--of-accent);
+    transition: width 0.2s ease;
+}
+
 /* ============ Print ============ */
 @media print {
     .of-menubar, .of-toolbar, .of-statusbar, .of-noprint,

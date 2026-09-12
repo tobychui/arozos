@@ -95,7 +95,8 @@ have written. `generate.go -wasm` builds and ships that module, and
 Two capability questions, and they are **not** the same:
 
 - `OfficePlatform.hasBackend()` — is there a server? (storage, AGI scripts,
-  the Docs/Sheets PDF renderers — Slides renders its own PDF in the browser)
+  the Docs/Sheets PDF renderers — Slides renders its own PDF in the browser
+  and needs no backend for it)
 - `OfficePlatform.canConvert()` — can this build convert Office formats?
 
 **Gate anything new on the right one** (details in `CONTRACT.md`), or it will
@@ -194,46 +195,84 @@ Every element goes in as the PDF object it should be:
 | rotation | one matrix about the object's centre, with the element measured unrotated |
 
 **The font rule, and the one fallback.** A PDF can only show text in a font
-it embeds, and a browser will not hand over the bytes of a system font. So
-real text is possible exactly when the family the browser *actually
-resolved* is metric-compatible with one of the 14 standard PDF fonts
-(Helvetica / Times / Courier and their clones — `stdFamilyOf`) and every
-character is WinAnsi-encodable. Which family was resolved has to be
-measured, not asked: `document.fonts.check()` answers "is it loaded" and
-says yes to any name, so `haveFamily` probes widths against two generics
-instead.
+it carries, and a browser will not hand over the bytes of a system font.
+Three answers, tried in that order, per character (`resolveChar`):
 
-When that test fails — a deck set in Open Sans, or in Chinese — **that one
-text box** is rasterized and nothing else on the page is. The picture is
-taken through an SVG `<foreignObject>`, so the *browser* lays it out and
-paints it. html2canvas was tried first and is wrong for this: it
-re-implements layout over a clone, and on mixed CJK/Latin text with
-`pre-wrap` it breaks lines somewhere the browser did not — exactly the
-drift this rework removes. It survives only as a last resort for the case
-where even the foreignObject route fails, because a wrong element beats a
-missing one. Two things that route needs and that are easy to get wrong:
-the computed styles have to be inlined onto the clone (an SVG image cannot
-reach the page's stylesheets), and the markup must be serialized with
-`XMLSerializer` — `innerHTML` writes `<br>` unclosed, which is not
-well-formed XML and makes the whole element vanish.
+1. one of the 14 standard PDF fonts, when the family the browser *actually
+   resolved* is metrically identical to it (Arial / Liberation Sans →
+   Helvetica, and so on) and the character is WinAnsi-encodable. Costs
+   nothing and every reader already has them. Which family was resolved has
+   to be measured, not asked: `document.fonts.check()` answers "is it
+   loaded" and says yes to any name, so `haveFamily` probes widths against
+   two generics instead.
+2. one of the faces the suite ships with itself (`common/fonts`, see
+   [the note there](common/fonts/README.md)) — fetched, parsed for glyph
+   coverage, and embedded subset to the glyphs the deck actually used. This
+   is what carries CJK.
+3. nothing covers it — emoji, a script we do not ship — and only then does
+   **that one text box** come in as a picture of itself.
+
+A system font that is none of the above is stepped over rather than used,
+and the character lands on the shipped face the document's own font stack
+names next. That is the same thing the browser does when a font has no
+glyph, which is why `OfficeFonts.stack()` is on the end of every
+font-family the editor writes. Because a substituted face is not the one
+the line was measured in, each fragment is then squeezed to the width the
+browser gave it (`Tz`), so it cannot push the rest of the line out of
+shape; when the face *is* the one the browser used, the ratio is 1 and
+nothing happens.
+
+Two things about placing the text that are easy to get wrong, and were:
+
+- **The baseline is measured, not computed.** A canvas `measureText`
+  reports the ascent and descent the browser resolved for a font stack —
+  the very numbers it laid the text out with. Font files state metrics that
+  browsers do not always use, and a system font states nothing we can read.
+- **`Range.getClientRects()` returns the content box, not the line box**:
+  ascent plus descent tall, not `line-height` tall. The baseline is an
+  ascent below the top of that rect. Treating it as the line box puts every
+  line a couple of pixels high at 30px type.
+
+When a box does have to be rasterized, the picture is taken through an SVG
+`<foreignObject>`, so the *browser* lays it out and paints it. html2canvas
+was tried first and is wrong for this: it re-implements layout over a
+clone, and on mixed CJK/Latin text with `pre-wrap` it breaks lines
+somewhere the browser did not — exactly the drift this rework removes. It
+survives only as a last resort for the case where even the foreignObject
+route fails, because a wrong element beats a missing one. Two things that
+route needs and that are easy to get wrong: the computed styles have to be
+inlined onto the clone (an SVG image cannot reach the page's stylesheets),
+and the markup must be serialized with `XMLSerializer` — `innerHTML`
+writes `<br>` unclosed, which is not well-formed XML and makes the whole
+element vanish.
 
 **Why the slide surface has its own font.** `.sl-slidebase` sets
-`Arial, "Liberation Sans", Helvetica, sans-serif` instead of inheriting the
-app's UI font. A deck must not change shape depending on which OS the
-editor runs on, and those three are metrically identical to each other and
-to PDF's Helvetica — so editor-authored text exports as real, selectable
-text everywhere. Text that states its own font (anything imported)
-overrides it.
+`Arial, "Liberation Sans", Helvetica, "Noto Sans", "Noto Sans TC",
+"Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif` instead of
+inheriting the app's UI font. A deck must not change shape depending on
+which OS the editor runs on; the first three are metrically identical to
+each other and to PDF's Helvetica, and the shipped faces behind them carry
+everything those three have no glyph for. Keep that list in step with
+`OfficeFonts.FALLBACK`. Text that states its own font (anything imported)
+overrides it and goes through `OfficeFonts.stack()`, which puts the same
+tail back on — including on the Go side, where `fontStackFor`
+(`mod/office/pptx_text.go`) appends `shippedFontFallbacks` to every stack
+an import writes.
+
+**Only faces that are drawn with may be embedded.** The embedder subsets a
+font down to the glyphs asked of it, and a subset of no glyphs is not a
+font any more — a CFF one fails outright on save. So `prepareFonts` loads
+faces for coverage first, then walks the slide object by object making the
+real raster-or-text decision, and embeds only what will actually be drawn.
 
 The bytes are written through `OfficePlatform.writeBytes`, which base64s
 them down the same oversized-payload path every export uses and lands in
 `common/backend/binsaver.agi` → `office.writeBinaryFile`. In the standalone
 web edition it is a download, which means **PDF export now works there
-too** — it no longer needs a backend.
-
-`mod/office/pdf_slides.go` stays: `office.presentationToPdf` is a
-documented AGI function that scripts may call. The webapp no longer uses
-it.
+too** — it no longer needs a backend. Rendering does not block the editor:
+File > Export puts a small progress panel in the corner of the canvas
+(`OfficeApp.showProgress`) and works from a snapshot of the deck, so
+carrying on editing cannot change the file that comes out.
 
 ### Slides: cropping a picture
 
@@ -597,15 +636,24 @@ sh ../scripts/check-conventions.sh --diff origin/master
   `.claude/launch.json` has a `webroot-static` config that serves
   `src/web/` on `:8123`; the apps load standalone (AGI calls fail
   gracefully). Menus/toolbars/editing are all testable this way.
+- **Checking a Slides PDF export properly** means rendering it and looking
+  at it beside the editor's own render of the same slide — the exporter's
+  whole claim is that the two are the same picture. `PDF Viewer/js/pdf.js`
+  is already in the tree and will rasterize the bytes into a canvas from a
+  scratch page served by the same static server. Reading `getTextContent()`
+  off each page is the quick regression check: every string that is on the
+  slide should come back, because anything that fell back to a raster
+  would not.
 
 ## Ideas / known gaps (future work)
 
-- CJK/Unicode text as *text* in PDF export. Both renderers hit the same
-  wall: a PDF can only show glyphs from a font it embeds, and neither the
-  Go binary nor the browser can supply a CJK font's bytes. Slides works
-  around it per text box (see above); Docs and Sheets still degrade.
-  Embedding a font would need it vendored, plus `@pdf-lib/fontkit` on the
-  client — that is the fix if someone wants it.
+- **CJK text as text in the Docs and Sheets PDF export.** Slides solved
+  this by shipping the fonts and embedding them in the browser
+  (`common/fonts`, `slides_pdf.js`); the Go renderer behind Docs and
+  Sheets still transliterates, because `fpdf`'s core fonts are cp1252.
+  The fix is either to give those two the same browser-side treatment —
+  which is the smaller job, since the machinery now exists — or to teach
+  `mod/office/pdf.go` to embed a CID font.
 - **MicroType Express decompression** so Google-Slides-embedded fonts can
   be used (see the format notes) — the last visible gap between an
   imported deck and its source.
@@ -619,8 +667,7 @@ sh ../scripts/check-conventions.sh --diff origin/master
 - A **shaped crop** (`props.mask`) round-trips through `.pptx` as the
   picture's `prstGeom` and is a real clip path in the browser-rendered
   PDF, but the `.odp` writer does not draw one — ODF would need a custom
-  shape with a bitmap fill. (`mod/office/pdf_slides.go` does not draw one
-  either; nothing in the webapp reaches it any more.)
+  shape with a bitmap fill.
 - Slides: SmartArt (`dgm:`), 3-D effects, shadows and animations are
   skipped rather than approximated.
 - Real-time collaboration (the `sharedspace` AGI lib was built for this).

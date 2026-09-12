@@ -754,39 +754,3 @@ func TestParseSheetPrintJSON(t *testing.T) {
 		t.Error("cell text lost in parse")
 	}
 }
-
-func TestSlidesPdf(t *testing.T) {
-	pres := &Presentation{Theme: "clean", Slides: []*Slide{
-		{Objects: []*Object{
-			{Type: "text", X: 60, Y: 40, W: 840, H: 80,
-				Props: Props{HTML: "Slide Title", FontSize: 40, Bold: true, Align: "center"}},
-			{Type: "shape", X: 100, Y: 200, W: 200, H: 100,
-				Props: Props{Kind: "rect", Fill: "#34568a", Text: "Caption"}},
-			{Type: "table", X: 400, Y: 200, W: 400, H: 120,
-				Props: Props{Rows: [][]string{{"H1", "H2"}, {"a", "b"}}, HeaderRow: true}},
-		}},
-		{Bg: "#101418", Objects: []*Object{
-			{Type: "video", X: 100, Y: 60, W: 480, H: 270,
-				Props: Props{Src: "../../media?file=user%3A%2Fclip.mp4"}},
-		}},
-	}}
-	data, err := BuildSlidesPdf(pres)
-	if err != nil {
-		t.Fatalf("BuildSlidesPdf: %v", err)
-	}
-	s := string(data)
-	// 960x540 px deck -> 720 x 405 pt pages
-	if !strings.Contains(s, "720.00 405.00") {
-		t.Error("slide page size wrong (expected 720x405pt)")
-	}
-	text := pdfStreamsText(t, data)
-	for _, want := range []string{"Slide Title", "Caption", "H1", "a"} {
-		if !strings.Contains(text, want) {
-			t.Errorf("slides PDF missing %q", want)
-		}
-	}
-	// the video placeholder embeds the poster PNG as an image object
-	if !strings.Contains(s, "/Subtype /Image") {
-		t.Error("video poster image missing")
-	}
-}

@@ -44,10 +44,9 @@
         "Letter": { w: 215.9, h: 279.4 },
         "Legal":  { w: 215.9, h: 355.6 }
     };
-    var FONTS = [
-        "Arial", "Georgia", "Times New Roman", "Courier New",
-        "Verdana", "Segoe UI", "Tahoma", "Trebuchet MS"
-    ];
+    // OfficeFonts (common/fonts.js) owns the list so that the families the
+    // suite ships with itself are on it - see the note there
+    var FONTS = OfficeFonts.MENU;
     var FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
     var LINE_SPACINGS = ["1", "1.15", "1.5", "2"];
     // which pages carry the header / footer text
@@ -336,6 +335,25 @@
         } catch (e) { }
         afterEdit(true);
     }
+    /* execCommand("fontName") writes <font face="...">, naming one family and
+       nothing else - a character that family has no glyph for then falls to
+       whatever the machine happens to have. Tag the new nodes, then rewrite
+       them to carry the full stack from OfficeFonts, so the shipped faces
+       are behind every choice the user makes. */
+    var FONT_MARK = "__ofdocfont__";
+    function applyFontFamily(name) {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        try {
+            document.execCommand("fontName", false, FONT_MARK);
+            var tagged = editor.querySelectorAll('font[face="' + FONT_MARK + '"]');
+            for (var i = 0; i < tagged.length; i++) {
+                tagged[i].removeAttribute("face");
+                tagged[i].style.fontFamily = OfficeFonts.stack(name);
+            }
+        } catch (e) { }
+        afterEdit(true);
+    }
     function applyFontSize(pt) {
         if (inHeaderFooter()) return;
         restoreSel();
@@ -483,9 +501,9 @@
 
         $fontSel = $('<select class="of-tselect tb-font" title="Font family"></select>');
         FONTS.forEach(function (f) {
-            $fontSel.append($("<option></option>").attr("value", f).text(f).css("font-family", f));
+            $fontSel.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
-        $fontSel.on("change", function () { exec("fontName", this.value); });
+        $fontSel.on("change", function () { applyFontFamily(this.value); });
         $t.append($fontSel);
 
         $sizeSel = $('<select class="of-tselect tb-size" title="Font size (pt)"></select>');

@@ -293,7 +293,7 @@ var SlidesApp = (function () {
         if (p.bold) s += "font-weight:700;";
         if (p.italic) s += "font-style:italic;";
         if (p.underline) s += "text-decoration:underline;";
-        if (p.fontFamily) s += "font-family:" + esc(p.fontFamily) + ";";
+        if (p.fontFamily) s += "font-family:" + esc(OfficeFonts.stack(p.fontFamily)) + ";";
         if (p.lineHeight) s += "line-height:" + (Number(p.lineHeight) || 1.3) + ";";
         s += padStyle(p.pad);
         s += "justify-content:" + (VALIGN_JUSTIFY[p.valign] || "flex-start") + ";";
@@ -441,7 +441,7 @@ var SlidesApp = (function () {
         s += "color:" + esc(p.textColor || contrastText(p.fill)) + ";";
         if (p.bold) s += "font-weight:700;";
         if (p.italic) s += "font-style:italic;";
-        if (p.fontFamily) s += "font-family:" + esc(p.fontFamily) + ";";
+        if (p.fontFamily) s += "font-family:" + esc(OfficeFonts.stack(p.fontFamily)) + ";";
         if (p.lineHeight) s += "line-height:" + (Number(p.lineHeight) || 1.25) + ";";
         // an imported shape carries the same rich paragraph HTML a text
         // object does, plus the alignment and insets its source stated
@@ -3341,10 +3341,7 @@ var SlidesApp = (function () {
         "import": { agi: PPTX_BACKEND, action: "import", wasm: "pptxToPresentation" },
         "import-odf": { agi: PPTX_BACKEND, action: "import-odf", wasm: "odpToPresentation" },
         "export": { agi: PPTX_BACKEND, action: "export", wasm: "presentationToPptx" },
-        "export-odf": { agi: PPTX_BACKEND, action: "export-odf", wasm: "presentationToOdp" },
-        // the real-text PDF renderer stays server side; the web edition
-        // offers File > Print / PDF instead
-        "export-pdf": { agi: PPTX_BACKEND, action: "export-pdf", wasm: null }
+        "export-odf": { agi: PPTX_BACKEND, action: "export-odf", wasm: "presentationToOdp" }
     };
 
     /* Load a .pptx ("import") or .odp ("import-odf"). */
@@ -3493,9 +3490,9 @@ var SlidesApp = (function () {
         return Promise.all(jobs).then(function () { return b; });
     }
 
-    // shared by .pptx ("export"), .odp ("export-odf") and .pdf
-    // ("export-pdf"): all need the prepared body (charts rastered to PNG,
-    // images inlined, video poster frames captured)
+    // shared by .pptx ("export") and .odp ("export-odf"): both need the
+    // prepared body (charts rastered to PNG, images inlined, video poster
+    // frames captured)
     function exportSlidesFile(ext, action, busyLabel) {
         var spec = CONVERT[action];
         // PDF is server-only; the rest run wherever there are converters
@@ -3553,29 +3550,51 @@ var SlidesApp = (function () {
         var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ".pdf";
         OfficePlatform.pickSave({ defaultName: defName, ext: ".pdf", memoryKey: "export" }, function (file) {
             var fp = file.filepath;
-            OfficeApp.showBusy("Exporting PDF...");
+            // rendering a deck takes a moment, and there is no reason for
+            // the editor to be unusable while it happens - savePdfTo works
+            // from a snapshot, so editing on does not change what comes out
+            var prog = OfficeApp.showProgress({
+                title: "Exporting PDF", anchor: "#slCanvasArea"
+            });
+            prog.set(0, 1, "Preparing...");
             savePdfTo(fp, function () {
-                OfficeApp.hideBusy();
+                prog.close();
                 OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
                 OfficeApp.toast("Exported " + OfficeApp.basename(fp));
             }, function (msg) {
-                OfficeApp.hideBusy();
+                prog.close();
                 OfficeApp.toast("Export failed: " + msg, "error");
-            });
+            }, prog);
         });
     }
 
-    // savePdfTo renders the deck and writes the bytes; shared by File >
-    // Export and by the .pdf entry in SAVE_FORMATS
-    function savePdfTo(fp, done, fail) {
+    /* savePdfTo renders the deck and writes the bytes; shared by File >
+       Export and by the .pdf entry in SAVE_FORMATS. prog is optional - a
+       progress panel to report pages through.
+
+       The deck is copied before rendering. The export runs without blocking
+       the editor, so the document underneath can change while it is going;
+       taking a snapshot is what makes the file that lands on disk the deck
+       as it was when the export was asked for. */
+    function savePdfTo(fp, done, fail, prog) {
         if (!canExportPdf()) { fail("the PDF library failed to load"); return; }
         endEdit(true);
         endCrop(true);
-        SlidesPdf.build(body, {
+        var snapshot;
+        try {
+            snapshot = JSON.parse(JSON.stringify(body));
+        } catch (e) {
+            fail("the presentation could not be read");
+            return;
+        }
+        SlidesPdf.build(snapshot, {
             onProgress: function (n, total) {
-                OfficeApp.showBusy("Exporting PDF... slide " + n + " of " + total);
+                if (prog) prog.set(n, total, "Exporting " + n + " / " + total +
+                    (total === 1 ? " page" : " pages"));
+                else OfficeApp.setStatus("Exporting PDF... slide " + n + " of " + total);
             }
         }).then(function (bytes) {
+            if (prog) prog.message("Writing " + OfficeApp.basename(fp) + "...");
             OfficePlatform.writeBytes(fp, bytes, done, fail);
         }).catch(function (err) {
             fail(err && err.message ? err.message : "render error");
@@ -4004,11 +4023,10 @@ var SlidesApp = (function () {
             saveFormats: SAVE_FORMATS,
             /*
                 .pptx / .odp need the Office converters - the AGI backend in
-                ArozOS, the WebAssembly module in the web edition. The
-                real-text .pdf renderer is still server-only, so the web
-                edition points at File > Print / PDF for that. The PNG
-                exports are rendered by html2canvas right here and are always
-                available.
+                ArozOS, the WebAssembly module in the web edition. The .pdf
+                export is rendered here in the browser (slides_pdf.js), so it
+                needs no backend at all. The PNG exports are rendered by
+                html2canvas right here and are always available.
             */
             fileMenuExtras: [
                 !OfficePlatform.canConvert() ? null :

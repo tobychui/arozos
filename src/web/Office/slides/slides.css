@@ -173,9 +173,21 @@
    font it was laid out in is one a PDF can show. Arial and Liberation
    Sans are metrically identical to each other and to PDF's Helvetica, so
    this stack resolves to the same metrics on Windows, macOS and Linux.
-   Text that states its own font (anything imported) overrides this. */
+
+   Behind them come the fonts the suite ships (common/fonts/fonts.css),
+   which is what carries everything Arial has no glyph for - CJK above
+   all. The browser picks per character, and because those files travel
+   with the app the exporter can embed the very bytes the screen was
+   drawn with. Without them CJK would fall to whatever the machine has,
+   and a system font cannot be embedded: the text could only reach the
+   PDF as a picture of itself.
+
+   Keep this list in step with OfficeFonts.FALLBACK (common/fonts.js).
+   Text that states its own font (anything imported) overrides this, and
+   goes through OfficeFonts.stack() so it gets the same tail. */
 .sl-slidebase, #slCanvas {
-    font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+    font-family: Arial, "Liberation Sans", Helvetica, "Noto Sans",
+        "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif;
 }
 .sl-slidebase {
     position: absolute;

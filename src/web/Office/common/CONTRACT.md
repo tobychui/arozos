@@ -52,6 +52,7 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <script src="../common/recents.js"></script>
     <script src="../common/wasm.js"></script>
     <script src="../common/platform.js"></script>
+    <script src="../common/fonts.js"></script>
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
@@ -59,6 +60,8 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <!-- optional: ../common/charts.js, ../common/textedit.js,
          ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js,
          ../common/lib/html2canvas.min.js -->
+    <!-- with fonts.js: ../common/fonts/fonts.css declares the shipped
+         document faces; an app that lets the user pick a font needs it -->
 </head>
 <body data-officeapp="docs">   <!-- docs | sheets | slides -->
     <!-- app builds its own toolbar + workspace; framework injects
@@ -156,7 +159,14 @@ UI: `setStatus(msg, "info"|"error", timeoutMs /*0=sticky*/)`,
 `dialog({title, body /*html or $el*/, wide, dismissable, buttons:[{label, primary,
 danger, action(close, $body)}]})`, `confirm(title, msgHtml, yesLabel, noLabel,
 cb(bool))`, `prompt(title, label, defVal, cb(value|null))`, `toast(msg, type)`,
-`showContextMenu(x, y, items)`, `showBusy(msg)` / `hideBusy()`.
+`showContextMenu(x, y, items)`, `showBusy(msg)` / `hideBusy()`,
+`showProgress({title, anchor})` -> `{set(done, total, msg), message(msg),
+close()}`.
+
+`showBusy` blocks the whole page; `showProgress` puts a small panel in the
+top-right of `anchor` and leaves the document usable. Use the second one for
+work the user has no reason to wait on - but then the work must run from a
+snapshot, or editing on will change what it produces.
 
 Features: `registerShortcut("Ctrl+B", fn)` (Cmd normalized to Ctrl),
 `print()`, `setZoom(pct) getZoom() zoomIn() zoomOut()`, `toggleTheme() isDark()`.
@@ -651,14 +661,39 @@ OfficeCharts.render(containerEl, spec);                     // fit container
 ```
 Text inherits `currentColor` → theme-aware automatically.
 
+## Document fonts (common/fonts/, OFL)
+
+`OfficeFonts` (`common/fonts.js`) owns the families the suite ships with
+itself and the rules for falling back between them. Read
+[`fonts/README.md`](fonts/README.md) before touching the files.
+
+```js
+OfficeFonts.MENU                    // family names for a font picker
+OfficeFonts.stack("Arial")          // -> "Arial, Noto Sans, Noto Sans TC, …"
+OfficeFonts.isShipped("Noto Sans TC")
+OfficeFonts.faceFor(family, bold, italic)   // -> { url, synthBold, … } | null
+OfficeFonts.preload(["Noto Sans TC"])       // -> Promise
+```
+
+**Every font-family a document carries must go through `stack()`.** A bare
+family name sends any character it has no glyph for to whatever the machine
+happens to have — and a system font's bytes cannot be embedded, so that text
+can only reach a PDF as a picture. The tail `stack()` appends is what keeps
+it exportable. This applies on the Go side too: `fontStackFor`
+(`mod/office/pptx_text.go`) appends the same list to every stack an import
+writes, and the two lists have to stay in step.
+
 ## Vendored libs (common/lib/, all MIT)
 
 - `marked.min.js` — Markdown → HTML (Docs import)
 - `pdf-lib.min.js` — PDF generation (global `PDFLib`). Used by the Slides
   PDF export, which builds the file in the browser out of real PDF objects
-  (`slides/slides_pdf.js`). No `@pdf-lib/fontkit` is vendored, so it can
-  only embed the 14 standard fonts — that is what decides when text can go
-  in as text; see the Office README.
+  (`slides/slides_pdf.js`).
+- `fontkit.umd.min.js` — `@pdf-lib/fontkit`, which is what lets `pdf-lib`
+  embed a font of our own. **Loaded on demand, not from the page**: it is
+  the largest script here and only an export needs it (`loadFontkit` in
+  `slides_pdf.js` injects the tag). Its subsetter has sharp edges that the
+  shipped fonts are built to avoid — see `fonts/README.md`.
 - `html2canvas.min.js` — DOM → canvas (Slides PNG export). **Not** the
   first choice for the PDF export's raster fallback: it re-implements
   layout over a clone and re-wraps mixed-script text. That path uses an

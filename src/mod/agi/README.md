@@ -1449,14 +1449,6 @@ formula evaluation). One A4-landscape section per sheet, columns scaled
 down to fit when the sheet is wider than the page. Returns `true` on
 success.
 
-### `office.presentationToPdf(jsonStr, destVpath)`
-Build a real-text PDF from a serialized Slides body JSON: one page per
-slide at the deck's canvas size (960x540 default). Text boxes, shape
-captions and tables are selectable text; images and charts embed from
-their client-inlined data URLs; video/audio objects render their
-captured poster frame (`props.png`) or a generic placeholder. Returns
-`true` on success.
-
 ```javascript
 requirelib("office");
 var ok = office.documentToPdf(bodyJsonString, "user:/Desktop/report.pdf");

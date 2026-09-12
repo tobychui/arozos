@@ -50,7 +50,6 @@ import (
 	    office.presentationToOdp(jsonStr, destVpath)  => true on success
 	    office.documentToPdf(jsonStr, destVpath)      => true on success (real-text PDF)
 	    office.workbookPrintToPdf(printJson, destVpath) => true on success (client print model)
-	    office.presentationToPdf(jsonStr, destVpath)  => true on success (real-text PDF)
 
 	Legacy binary formats (.ppt / .xls / .doc) are not supported.
 
@@ -691,13 +690,6 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		return office.BuildSheetPdf(m)
 	})
-	registerOdfExport("_office_presentationToPdf", func(jsonStr string) ([]byte, error) {
-		pres, err := office.ParsePresentationJSON(jsonStr)
-		if err != nil {
-			return nil, err
-		}
-		return office.BuildSlidesPdf(pres)
-	})
 
 	/* ---------- write a file the web client produced ----------
 	   Slides builds its PDF in the browser (only the browser knows how the
@@ -734,7 +726,6 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 
 		office.documentToPdf = _office_documentToPdf;             // Docs body JSON string -> pdf file (real text)
 		office.workbookPrintToPdf = _office_workbookPrintToPdf;   // Sheets print-model JSON -> pdf file (real text)
-		office.presentationToPdf = _office_presentationToPdf;     // Slides body JSON string -> pdf file (real text)
 		office.writeBinaryFile = _office_writeBinaryFile;         // base64 string -> binary file (client-produced exports)
 	`)
 }

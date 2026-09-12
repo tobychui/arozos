@@ -754,6 +754,39 @@ func TestFontStackFor(t *testing.T) {
 	}
 }
 
+// Every stack ends with the shipped document fonts: they are the only faces
+// the browser-side PDF exporter can embed, so a run that falls through to one
+// exports as real text. The document's own face must still come first, and
+// the shipped names must not be repeated when the document already asked for
+// one of them.
+func TestFontStackOffersShippedFonts(t *testing.T) {
+	tests := []struct {
+		name      string
+		latin, ea string
+		wantFirst string
+	}{
+		{"latin document", "Arial", "", "Arial"},
+		{"document already names a shipped face", "Noto Sans TC", "", "'Noto Sans TC'"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := fontStackFor(tc.latin, tc.ea)
+			parts := strings.Split(got, ",")
+			if parts[0] != tc.wantFirst {
+				t.Errorf("stack %q starts with %q, want %q", got, parts[0], tc.wantFirst)
+			}
+			for _, shipped := range shippedFontFallbacks {
+				if !strings.Contains(got, quoteFontName(shipped)) {
+					t.Errorf("stack %q is missing the shipped face %q", got, shipped)
+				}
+				if n := strings.Count(got, quoteFontName(shipped)); n != 1 {
+					t.Errorf("stack %q names %q %d times, want once", got, shipped, n)
+				}
+			}
+		})
+	}
+}
+
 func TestFontWeightOf(t *testing.T) {
 	tests := []struct {
 		name string

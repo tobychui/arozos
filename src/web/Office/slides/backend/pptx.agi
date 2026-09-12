@@ -138,28 +138,6 @@ function main(){
         return;
     }
 
-    if (action == "export-pdf"){
-        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
-            sendJSONResp(JSON.stringify({ error: "dest is required" }));
-            return;
-        }
-        var payload = resolveData();
-        if (!payload){
-            sendJSONResp(JSON.stringify({ error: "data is required" }));
-            return;
-        }
-        try {
-            if (!office.presentationToPdf(payload, dest)){
-                sendJSONResp(JSON.stringify({ error: "unable to write the pdf file" }));
-                return;
-            }
-            sendResp("OK");
-        } catch (e) {
-            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
-        }
-        return;
-    }
-
     sendJSONResp(JSON.stringify({ error: "unknown action: " + action }));
 }
 

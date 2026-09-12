@@ -30,14 +30,25 @@
     Rasterizing is the documented last resort, never the first move, and it
     is always scoped to the one element that needs it.
 
-    The font rule. A PDF can only show text in a font it embeds, and the
-    browser will not hand over the bytes of a system font. So real text is
-    possible exactly when the resolved family is metric-compatible with one
-    of the 14 standard PDF fonts (Helvetica / Times / Courier and their
-    aliases) and every character is WinAnsi-encodable. A deck set in Open
-    Sans or in Chinese falls back to a per-object raster, which is at least
-    pixel-exact. Embedding arbitrary fonts would need fontkit and the font
-    files themselves; see the README's known gaps.
+    The font rule. A PDF can only show text in a font it carries, and the
+    browser will not hand over the bytes of a system font. Three answers,
+    tried in that order, per character:
+
+      1. one of the 14 standard PDF fonts, when the family the browser
+         resolved is metrically identical to it (Arial / Liberation Sans ->
+         Helvetica, and so on). Costs nothing and every reader has them.
+      2. one of the faces the suite ships with itself (common/fonts,
+         OfficeFonts) - embedded, subset to the glyphs actually used. This
+         is what carries CJK, and it is why those families are in every
+         font stack the editor writes.
+      3. nothing covers it - emoji, a script we do not ship - and only then
+         does that one text box come in as a picture of itself.
+
+    A system font that is none of the above is substituted by the shipped
+    face the document's own font stack names next, which is the same thing
+    the browser does when it has no glyph. The fragment is then squeezed to
+    the width the browser gave it (Tz), so a substituted face cannot push a
+    line out of shape.
 
     Usage:
         SlidesPdf.build(body, { onProgress: fn(done, total) })
@@ -55,6 +66,9 @@ var SlidesPdf = (function () {
 
     /* ---------------- fonts ---------------- */
 
+    // where fontkit lives; it is fetched only when an export runs
+    var FONTKIT_URL = "../common/lib/fontkit.umd.min.js";
+
     /* Families that are metric-compatible with a standard PDF font, so
        text set in them lands in exactly the same place as on screen. */
     var STD_FAMILIES = {
@@ -70,23 +84,14 @@ var SlidesPdf = (function () {
         TimesRoman: ["TimesRoman", "TimesRomanBold", "TimesRomanItalic", "TimesRomanBoldItalic"],
         Courier: ["Courier", "CourierBold", "CourierOblique", "CourierBoldOblique"]
     };
+    var GENERICS = { "sans-serif": 1, "serif": 1, "monospace": 1, "cursive": 1, "fantasy": 1 };
 
-    // WinAnsi is what the standard fonts can encode; anything outside it
-    // (CJK, most symbols, emoji) has no glyph to show
-    function isWinAnsi(str) {
-        for (var i = 0; i < str.length; i++) {
-            var c = str.charCodeAt(i);
-            if (c === 9 || c === 10 || c === 13) continue;
-            if (c < 32) return false;
-            if (c > 255) {
-                // a handful above U+00FF are in WinAnsi; keeping to the
-                // Latin-1 range is the safe, checkable rule
-                return false;
-            }
-        }
-        return true;
+    /* WinAnsi is what the standard fonts can encode. A handful of code
+       points above U+00FF are in it too, but keeping to the Latin-1 range
+       is the rule that can be checked without a table. */
+    function winAnsiCp(cp) {
+        return cp >= 32 && cp <= 255;
     }
-
     /* haveFamily reports whether a family is actually installed. It has to
        be measured: document.fonts.check() answers "is it loaded", and for a
        local family Chrome says yes whatever name you give it. The reliable
@@ -125,34 +130,298 @@ var SlidesPdf = (function () {
         return familyKnown[name];
     }
 
-    /* stdFamilyOf resolves a computed font-family list down to the standard
-       font it is metric-compatible with, or "" when there is none. The
-       first family the browser can actually use is the one that decides,
-       because that is the one the text was measured in. */
-    function stdFamilyOf(cssFamily) {
-        var parts = String(cssFamily || "").split(",");
-        for (var i = 0; i < parts.length; i++) {
-            var name = parts[i].trim().replace(/^["']|["']$/g, "");
-            if (!name) continue;
-            var key = name.toLowerCase();
-            var generic = (key === "sans-serif" || key === "serif" ||
-                key === "monospace" || key === "cursive" || key === "fantasy");
-            if (!generic && !haveFamily(name)) continue;   // the browser skipped it too
-            return STD_FAMILIES[key] || "";
+    /* familyList turns a computed font-family into the list the browser
+       walks, with the shipped faces on the end. The tail matters for old
+       content: a <font face="..."> names one family and nothing else, and
+       without it a character that family has no glyph for would have
+       nowhere to go. */
+    function familyList(cssFamily) {
+        var out = [], seen = {};
+        function add(n) {
+            n = String(n).trim().replace(/^["']|["']$/g, "");
+            if (!n || seen[n.toLowerCase()]) return;
+            seen[n.toLowerCase()] = true;
+            out.push(n);
         }
-        return "";
+        String(cssFamily || "").split(",").forEach(add);
+        OfficeFonts.FALLBACK.forEach(add);
+        return out;
     }
 
-    /* fontCache hands out the embedded standard fonts lazily, so a deck
-       that never uses italics does not carry an italic font object */
-    function makeFontCache(pdfDoc) {
-        var cache = {};
-        return function (family, bold, italic) {
+    /* fontkit is what lets pdf-lib embed a font file of our own. It is the
+       largest script the app has and only an export needs it, so it is
+       fetched on the first export and not before. */
+    var fontkitPromise = null;
+    function loadFontkit() {
+        if (fontkitPromise) return fontkitPromise;
+        if (window.fontkit) {
+            fontkitPromise = Promise.resolve(window.fontkit);
+            return fontkitPromise;
+        }
+        fontkitPromise = new Promise(function (resolve, reject) {
+            var el = document.createElement("script");
+            el.src = FONTKIT_URL;
+            el.onload = function () {
+                if (window.fontkit) resolve(window.fontkit);
+                else reject(new Error("the font toolkit did not load"));
+            };
+            el.onerror = function () { reject(new Error("the font toolkit did not load")); };
+            document.head.appendChild(el);
+        });
+        return fontkitPromise;
+    }
+
+    /* makeFonts is the document's font supply.
+
+       A standard font is there for the asking. A shipped face goes through
+       two stages, and the split matters:
+
+         want()  fetches the file and parses it, which is what answers "does
+                 this face have a glyph for this character". Asynchronous,
+                 so a slide says what it needs, waits (ready), then draws.
+         use()   puts it in the PDF. Only faces that really get drawn with
+                 may be embedded: the embedder subsets a font down to the
+                 glyphs that were asked of it, and a subset of nothing is
+                 not a font any more - a CFF one fails outright on save.
+
+       Drawing itself stays synchronous, which is what lets a fragment be
+       measured and placed in one pass. */
+    function makeFonts(pdfDoc, fontkit) {
+        var std = {};
+        var faces = {};        // url -> { kit, font? }, or null when it failed
+        var asked = {};        // url -> Promise, set the moment it is wanted
+        var wanted = [];
+
+        function stdFont(family, bold, italic) {
             var names = STD_VARIANTS[family] || STD_VARIANTS.Helvetica;
             var key = names[(bold ? 1 : 0) + (italic ? 2 : 0)];
-            if (!cache[key]) cache[key] = pdfDoc.embedStandardFont(PDFLib.StandardFonts[key]);
-            return cache[key];
+            if (!std[key]) std[key] = pdfDoc.embedStandardFont(PDFLib.StandardFonts[key]);
+            return std[key];
+        }
+
+        function want(family, bold, italic) {
+            var face = OfficeFonts.faceFor(family, bold, italic);
+            if (!face || asked[face.url]) return;
+            asked[face.url] = fetch(face.url).then(function (r) {
+                if (!r.ok) throw new Error("cannot read " + face.url);
+                return r.arrayBuffer();
+            }).then(function (buf) {
+                var bytes = new Uint8Array(buf);
+                faces[face.url] = { bytes: bytes, kit: fontkit.create(bytes) };
+            }, function () {
+                // a font that will not load is not a reason to fail the
+                // export: the next family in the stack gets the character
+                faces[face.url] = null;
+            });
+            wanted.push(asked[face.url]);
+        }
+
+        function use(family, bold, italic) {
+            var face = OfficeFonts.faceFor(family, bold, italic);
+            if (!face) return;
+            var rec = faces[face.url];
+            if (!rec || rec.font || rec.embedding) return;
+            rec.embedding = pdfDoc.embedFont(rec.bytes, { subset: true })
+                .then(function (font) { rec.font = font; });
+            wanted.push(rec.embedding);
+        }
+
+        function ready() {
+            var all = wanted;
+            wanted = [];
+            if (!all.length) return Promise.resolve();
+            return Promise.all(all).then(function () { });
+        }
+
+        // shipped hands back a loaded face, null while it is not there
+        function shipped(family, bold, italic) {
+            var face = OfficeFonts.faceFor(family, bold, italic);
+            if (!face) return null;
+            var rec = faces[face.url];
+            if (!rec) return null;
+            return {
+                font: rec.font, kit: rec.kit,
+                synthBold: face.synthBold, synthItalic: face.synthItalic
+            };
+        }
+
+        // tried says whether asking again could still change the answer
+        function tried(family, bold, italic) {
+            var face = OfficeFonts.faceFor(family, bold, italic);
+            return !face || !!asked[face.url];
+        }
+
+        return {
+            std: stdFont, want: want, use: use,
+            ready: ready, shipped: shipped, tried: tried
         };
+    }
+
+    /* resolveChar walks a font stack the way the browser does and says what
+       the PDF can put this one character in:
+
+         { std }      one of the 14 standard fonts
+         { shipped }  a face the suite ships, already embedded
+         { need }     a shipped face that is named but not loaded yet, so
+                      the answer is not known until it is
+         null         nothing here can show this character
+
+       A family that is neither - a system font - is stepped over rather
+       than used: its bytes are unreadable, so the character goes to the
+       next entry, which is the shipped face for its script. */
+    function resolveChar(cp, names, fonts, bold, italic) {
+        for (var i = 0; i < names.length; i++) {
+            var name = names[i];
+            var key = name.toLowerCase();
+            if (OfficeFonts.isShipped(name)) {
+                var rec = fonts.shipped(name, bold, italic);
+                if (!rec) {
+                    if (!fonts.tried(name, bold, italic)) return { need: name };
+                    continue;
+                }
+                if (rec.kit && rec.kit.hasGlyphForCodePoint &&
+                    !rec.kit.hasGlyphForCodePoint(cp)) continue;
+                return { shipped: name };
+            }
+            if (STD_FAMILIES[key] && (GENERICS[key] || haveFamily(name)) && winAnsiCp(cp)) {
+                return { std: STD_FAMILIES[key] };
+            }
+        }
+        return null;
+    }
+
+    /* segmentText cuts a fragment into the pieces that share one font, the
+       way a browser does per character. Returns null when any character has
+       nowhere to go, which is the signal to rasterize instead. */
+    function segmentText(text, names, fonts, bold, italic) {
+        var segs = [], cur = null;
+        for (var i = 0; i < text.length; i++) {
+            var cp = text.codePointAt(i);
+            var ch = String.fromCodePoint(cp);
+            if (ch.length > 1) i++;          // a surrogate pair
+            var res = resolveChar(cp, names, fonts, bold, italic);
+            if (!res || res.need) return null;
+            var key = res.std ? "s:" + res.std : "f:" + res.shipped;
+            if (cur && cur.key === key) cur.text += ch;
+            else { cur = { key: key, res: res, text: ch }; segs.push(cur); }
+        }
+        return segs;
+    }
+
+    function faceOf(res, fonts, bold, italic) {
+        if (res.std) return { font: fonts.std(res.std, bold, italic), synthBold: false };
+        var rec = fonts.shipped(res.shipped, bold, italic);
+        return rec ? { font: rec.font, synthBold: rec.synthBold } : null;
+    }
+
+    /* Where the baseline sits is the browser's decision, and the exporter
+       has to ask rather than compute: a system font's metrics are not
+       readable from the page, and even for a font that is, the numbers the
+       file states are not always the ones the browser uses.
+
+       A canvas answers it. measureText reports the ascent and descent the
+       browser resolved for a font stack, which is exactly what it used to
+       lay the text out - so the two cannot drift apart.
+
+       This is also why the run's own rect is the reference: the rects a
+       Range hands back for text are the content box, ascent plus descent
+       tall, not the line box. The baseline is therefore an ascent below the
+       top of the rect, with the halving below for the case where a browser
+       hands back the taller box instead. */
+    var metricsCache = {};
+    var metricsCtx = null;
+    function fontMetricsOf(cs) {
+        var font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+        if (metricsCache[font]) return metricsCache[font];
+        var size = parseFloat(cs.fontSize) || 12;
+        var m = null;
+        try {
+            if (!metricsCtx) metricsCtx = document.createElement("canvas").getContext("2d");
+            metricsCtx.font = font;
+            var tm = metricsCtx.measureText("Hxg");
+            if (tm && tm.fontBoundingBoxAscent !== undefined) {
+                m = { ascent: tm.fontBoundingBoxAscent, descent: tm.fontBoundingBoxDescent };
+            }
+        } catch (e) { /* fall through to the estimate */ }
+        // a browser without the font bounding box: the usual proportions
+        if (!m) m = { ascent: size * 0.9, descent: size * 0.22 };
+        metricsCache[font] = m;
+        return m;
+    }
+
+    /* eachTextNode is the walk both the font pre-pass and the run collector
+       make, kept in one place so they cannot disagree about what counts as
+       text on the slide. */
+    function eachTextNode(rootEl, fn) {
+        var walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+        var node;
+        while ((node = walker.nextNode())) {
+            var text = node.nodeValue;
+            if (!text || !text.trim()) continue;
+            var parent = node.parentElement;
+            if (!parent) continue;
+            var cs = window.getComputedStyle(parent);
+            if (cs.visibility === "hidden" || cs.display === "none") continue;
+            // source newlines and tabs are whitespace the browser already
+            // collapsed; they must not reach a font, but the string has to
+            // keep its length - the line split indexes back into the node
+            fn(node, text.replace(/[\u0000-\u001F\u007F]/g, " "), cs);
+        }
+    }
+
+    /* prepareFonts loads what this slide is about to need, and then checks
+       that what arrived really covers it. The second look is not paranoia:
+       the Traditional Chinese face has no simplified forms, so a deck that
+       mixes them only discovers it needs the next file once the first one
+       is in hand. Each pass asks for exactly one more face per character
+       that is still homeless, so nothing large is fetched on spec. */
+    function prepareFonts(objs, stageEl, fonts) {
+        var MAX_PASSES = OfficeFonts.FALLBACK.length + 2;
+
+        function eachChar(rootEl, fn) {
+            eachTextNode(rootEl, function (node, text, cs) {
+                var names = familyList(cs.fontFamily);
+                var bold = (parseInt(cs.fontWeight, 10) || 400) >= 600;
+                var italic = cs.fontStyle === "italic" || cs.fontStyle === "oblique";
+                for (var i = 0; i < text.length; i++) {
+                    var cp = text.codePointAt(i);
+                    if (cp > 0xFFFF) i++;
+                    fn(resolveChar(cp, names, fonts, bold, italic), bold, italic);
+                }
+            });
+        }
+
+        function pass(n) {
+            var asked = false;
+            eachChar(stageEl, function (res, bold, italic) {
+                if (res && res.need) {
+                    fonts.want(res.need, bold, italic);
+                    asked = true;
+                }
+            });
+            if (!asked || n >= MAX_PASSES) return fonts.ready();
+            return fonts.ready().then(function () { return pass(n + 1); });
+        }
+
+        /* Now that coverage is known, embed the faces this slide will draw
+           with - and only those. It has to be the real decision, object by
+           object: a text box that falls back to a raster draws with nothing
+           at all, and a face left embedded but undrawn is a subset of no
+           glyphs, which is not a font. */
+        function embedUsed() {
+            (objs || []).forEach(function (o, i) {
+                var el = stageEl.children[i];
+                if (!el || needsRaster(o, el, fonts)) return;
+                textRootsOf(o, el).forEach(function (root) {
+                    eachChar(root, function (res, bold, italic) {
+                        if (res && res.shipped) fonts.use(res.shipped, bold, italic);
+                    });
+                });
+            });
+            return fonts.ready();
+        }
+
+        return pass(0).then(embedUsed);
     }
 
     /* ---------------- small helpers ---------------- */
@@ -212,10 +481,10 @@ var SlidesPdf = (function () {
        coordinates run down from the top-left of the slide, a PDF page's run
        up from the bottom-left, and mixing the two up is the single easiest
        way to get an export subtly wrong. */
-    function Page(page, pdfDoc, fontFor) {
+    function Page(page, pdfDoc, fonts) {
         this.p = page;
         this.doc = pdfDoc;
-        this.fontFor = fontFor;
+        this.fonts = fonts;
         this.gsCache = {};
     }
     Page.prototype.y = function (topPx) { return px(SLIDE_H - topPx); };
@@ -311,37 +580,31 @@ var SlidesPdf = (function () {
        off the live DOM: its box, its baseline and the style in force. */
     function collectRuns(rootEl, origin) {
         var runs = [];
-        var walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
-        var node;
-        while ((node = walker.nextNode())) {
-            var text = node.nodeValue;
-            if (!text || !text.trim()) continue;
-            var parent = node.parentElement;
-            if (!parent) continue;
-            var cs = window.getComputedStyle(parent);
-            if (cs.visibility === "hidden" || cs.display === "none") continue;
+        eachTextNode(rootEl, function (node, text, cs) {
             // one entry per line box the fragment occupies
             var range = document.createRange();
             range.selectNodeContents(node);
             var rects = Array.prototype.slice.call(range.getClientRects());
-            if (!rects.length) continue;
-            var perLine = splitByLine(node, text, rects);
-            perLine.forEach(function (ln) {
-                runs.push({
-                    text: ln.text,
-                    rect: ln.rect,
-                    origin: origin,
-                    family: cs.fontFamily,
-                    size: parseFloat(cs.fontSize) || 12,
-                    weight: parseInt(cs.fontWeight, 10) || (cs.fontWeight === "bold" ? 700 : 400),
-                    italic: cs.fontStyle === "italic" || cs.fontStyle === "oblique",
-                    underline: cs.textDecorationLine.indexOf("underline") >= 0,
-                    strike: cs.textDecorationLine.indexOf("line-through") >= 0,
-                    color: cs.color,
-                    background: cs.backgroundColor
-                });
+            if (!rects.length) return;
+            var shared = {
+                origin: origin,
+                names: familyList(cs.fontFamily),
+                metrics: fontMetricsOf(cs),
+                size: parseFloat(cs.fontSize) || 12,
+                weight: parseInt(cs.fontWeight, 10) || (cs.fontWeight === "bold" ? 700 : 400),
+                italic: cs.fontStyle === "italic" || cs.fontStyle === "oblique",
+                underline: cs.textDecorationLine.indexOf("underline") >= 0,
+                strike: cs.textDecorationLine.indexOf("line-through") >= 0,
+                color: cs.color,
+                background: cs.backgroundColor
+            };
+            splitByLine(node, text, rects).forEach(function (ln) {
+                var r = Object.create(shared);
+                r.text = ln.text;
+                r.rect = ln.rect;
+                runs.push(r);
             });
-        }
+        });
         return runs;
     }
 
@@ -379,46 +642,96 @@ var SlidesPdf = (function () {
         return out.length ? out : [{ text: text, rect: lineRects[0] }];
     }
 
-    // canDrawAsText is the whole fallback decision, in one place
-    function canDrawAsText(runs) {
+    // canDrawAsText is the whole fallback decision, in one place: every
+    // character of every run has to have a font that can show it
+    function canDrawAsText(runs, fonts) {
         for (var i = 0; i < runs.length; i++) {
-            if (!stdFamilyOf(runs[i].family)) return false;
-            if (!isWinAnsi(runs[i].text)) return false;
+            var r = runs[i];
+            if (!segmentText(r.text, r.names, fonts, r.weight >= 600, r.italic)) return false;
         }
         return true;
     }
 
-    /* drawRuns puts every run on the page as real text, each at the
-       baseline the browser gave it. The standard fonts are metrically the
-       families they stand in for, so the glyphs land where they were. */
+    /* drawFragment puts one line fragment on the page as real text, in as
+       many pieces as it takes fonts to spell it.
+
+       fitPx, when it is given, is the width the browser gave the fragment.
+       The text is squeezed or stretched to exactly that with Tz, which
+       costs nothing when the PDF font is the one the browser used (the
+       ratio is 1) and is what keeps a substituted face - a system font we
+       could not embed - from pushing the rest of the line out of place.
+
+       Bold that a shipped face does not have is stroked rather than filled,
+       at the width the browser smears it by. Neither side moves the advance
+       widths, so the two stay in step. */
+    function drawFragment(pg, spec) {
+        var fonts = pg.fonts;
+        var segs = segmentText(spec.text, spec.names, fonts, spec.bold, spec.italic);
+        if (!segs || !segs.length) return 0;
+
+        var total = 0;
+        for (var i = 0; i < segs.length; i++) {
+            var face = faceOf(segs[i].res, fonts, spec.bold, spec.italic);
+            if (!face) return 0;
+            segs[i].face = face;
+            segs[i].w = face.font.widthOfTextAtSize(segs[i].text, spec.sizePx);
+            total += segs[i].w;
+        }
+
+        var scale = 1;
+        if (spec.fitPx > 0 && total > 0) {
+            var ratio = spec.fitPx / total;
+            // a ratio far from 1 means the measurement, not the font, is
+            // wrong (a collapsed space, a transform) - leave it alone
+            if (ratio > 0.5 && ratio < 2 && Math.abs(ratio - 1) > 0.005) scale = ratio;
+        }
+
+        var col = spec.color || PDFLib.rgb(0, 0, 0);
+        var cursor = spec.xPx;
+        segs.forEach(function (seg) {
+            pg.save();
+            var ops = [];
+            if (scale !== 1) ops.push(PDFLib.setCharacterSqueeze(scale * 100));
+            if (seg.face.synthBold) {
+                ops.push(PDFLib.setTextRenderingMode(PDFLib.TextRenderingMode.FillAndOutline));
+                ops.push(PDFLib.setLineWidth(px(spec.sizePx / 28)));
+                ops.push(PDFLib.setStrokingColor(col));
+            }
+            if (ops.length) pg.ops(ops);
+            pg.p.drawText(seg.text, {
+                x: px(cursor), y: pg.y(spec.baselinePx),
+                size: px(spec.sizePx), font: seg.face.font, color: col
+            });
+            pg.restore();
+            cursor += seg.w * scale;
+        });
+        return total * scale;
+    }
+
+    /* drawRuns puts every run on the page at the baseline the browser laid
+       it out on, in the width the browser gave it. */
     function drawRuns(pg, runs) {
         runs.forEach(function (r) {
-            var fam = stdFamilyOf(r.family) || "Helvetica";
-            var font = pg.fontFor(fam, r.weight >= 600, r.italic);
-            var sizePt = px(r.size);
-            // the browser's rect is the line box; the baseline sits an
-            // ascender below its top
-            var ascent = font.heightAtSize(r.size, { descender: false });
+            var x = r.origin.x + (r.rect.left - r.origin.left);
+            var top = r.origin.y + (r.rect.top - r.origin.top);
             var lineH = r.rect.bottom - r.rect.top;
-            var glyphH = font.heightAtSize(r.size, { descender: true });
-            var baselineTop = r.rect.top - r.origin.top + (lineH - glyphH) / 2 + ascent;
-            var x = r.rect.left - r.origin.left;
+            var domW = r.rect.right - r.rect.left;
+            var glyphH = r.metrics.ascent + r.metrics.descent;
+            var baseline = (lineH - glyphH) / 2 + r.metrics.ascent;
             var col = parseColor(r.color) || PDFLib.rgb(0, 0, 0);
             var bg = parseFill(r.background);
-            var w = font.widthOfTextAtSize(r.text, r.size);
-            if (bg) {
-                pg.rect(r.origin.x + x, r.origin.y + (r.rect.top - r.origin.top),
-                    w, lineH, { fill: bg.c, fillOpacity: bg.a });
-            }
-            pg.p.drawText(r.text, {
-                x: px(r.origin.x + x),
-                y: pg.y(r.origin.y + baselineTop),
-                size: sizePt, font: font, color: col
+            if (bg) pg.rect(x, top, domW, lineH, { fill: bg.c, fillOpacity: bg.a });
+            // a fragment that starts or ends on a space cannot be fitted to
+            // its rect: the browser collapses those, the measurement does not
+            var w = drawFragment(pg, {
+                text: r.text, names: r.names,
+                bold: r.weight >= 600, italic: r.italic,
+                sizePx: r.size, xPx: x, baselinePx: top + baseline,
+                color: col, fitPx: /^\s|\s$/.test(r.text) ? 0 : domW
             });
             if (r.underline || r.strike) {
-                var yOff = r.underline ? baselineTop + r.size * 0.11 : baselineTop - r.size * 0.28;
-                pg.rect(r.origin.x + x, r.origin.y + yOff, w, Math.max(0.7, r.size * 0.06),
-                    { fill: col });
+                var yOff = r.underline ? baseline + r.size * 0.11 : baseline - r.size * 0.28;
+                pg.rect(x, top + yOff, w || domW, Math.max(0.7, r.size * 0.06), { fill: col });
             }
         });
     }
@@ -629,19 +942,20 @@ var SlidesPdf = (function () {
 
     /* svgTranslatable asks whether drawSvg can express this tree, before
        anything is drawn - an element it does not know, or a label in a
-       script the standard fonts cannot show, means the chart has to come
-       in as a picture instead. */
-    function svgTranslatable(el) {
+       script no font here can show, means the chart has to come in as a
+       picture instead. */
+    function svgTranslatable(el, fonts) {
         for (var i = 0; i < el.children.length; i++) {
             var c = el.children[i];
             var tag = c.tagName.toLowerCase();
             if (!SVG_KNOWN[tag]) return false;
             if (tag === "text") {
-                var str = c.textContent || "";
-                if (str.trim() && !isWinAnsi(str)) return false;
-                if (!stdFamilyOf(window.getComputedStyle(c).fontFamily)) return false;
+                var str = (c.textContent || "").replace(/[\u0000-\u001F\u007F]/g, " ");
+                var cs = window.getComputedStyle(c);
+                if (str.trim() && !segmentText(str, familyList(cs.fontFamily), fonts,
+                    (parseInt(cs.fontWeight, 10) || 400) >= 600, false)) return false;
             }
-            if (tag === "g" && !svgTranslatable(c)) return false;
+            if (tag === "g" && !svgTranslatable(c, fonts)) return false;
         }
         return true;
     }
@@ -736,22 +1050,31 @@ var SlidesPdf = (function () {
                         });
                         break;
                     case "text":
-                        var str = c.textContent || "";
+                        var str = (c.textContent || "").replace(/[\u0000-\u001F\u007F]/g, " ");
                         if (!str.trim()) break;
-                        if (!isWinAnsi(str)) { ok = false; return; }
                         // the svg is measured in px like the rest of the
-                        // slide; only the final drawText call is in points
+                        // slide; only the final drawText call is in points.
+                        // A label is placed from its own anchor, so it is
+                        // measured first and never fitted to a box.
+                        var names = familyList(cs.fontFamily);
+                        var bold = (parseInt(cs.fontWeight, 10) || 400) >= 600;
                         var sizePx = (parseFloat(cs.fontSize) || 12) * k;
-                        var fam = stdFamilyOf(cs.fontFamily) || "Helvetica";
-                        var font = pg.fontFor(fam, (parseInt(cs.fontWeight, 10) || 400) >= 600, false);
-                        var twPx = font.widthOfTextAtSize(str, sizePx);
+                        var segs = segmentText(str, names, pg.fonts, bold, false);
+                        if (!segs) { ok = false; return; }
+                        var twPx = 0;
+                        segs.forEach(function (seg) {
+                            var f = faceOf(seg.res, pg.fonts, bold, false);
+                            if (f) twPx += f.font.widthOfTextAtSize(seg.text, sizePx);
+                        });
                         var anchor = c.getAttribute("text-anchor") || "start";
                         var tx = X(parseFloat(c.getAttribute("x") || 0));
                         if (anchor === "middle") tx -= twPx / 2;
                         else if (anchor === "end") tx -= twPx;
-                        pg.p.drawText(str, {
-                            x: px(tx), y: pg.y(Y(parseFloat(c.getAttribute("y") || 0))),
-                            size: px(sizePx), font: font, color: fillCol || PDFLib.rgb(0, 0, 0)
+                        drawFragment(pg, {
+                            text: str, names: names, bold: bold, italic: false,
+                            sizePx: sizePx, xPx: tx,
+                            baselinePx: Y(parseFloat(c.getAttribute("y") || 0)),
+                            color: fillCol || PDFLib.rgb(0, 0, 0), fitPx: 0
                         });
                         break;
                     case "defs":
@@ -801,24 +1124,34 @@ var SlidesPdf = (function () {
     /* needsRaster answers the fallback question up front, before anything
        is drawn and before any transform is touched. It only inspects fonts
        and characters, so a rotated element can be asked safely. */
-    function needsRaster(o, el) {
+    /* textRootsOf names the elements an object actually takes its text
+       from, so that asking "can this be drawn as text" and asking "which
+       faces will it draw with" cannot look at different things. */
+    function textRootsOf(o, el) {
+        if (!el) return [];
+        if (o.type === "text") return [el.querySelector(".sl-text-in")].filter(Boolean);
+        if (o.type === "shape") return [el.querySelector(".sl-shape-text")].filter(Boolean);
+        if (o.type === "table") return Array.prototype.slice.call(el.querySelectorAll("td, th"));
+        if (o.type === "chart") return [el.querySelector("svg")].filter(Boolean);
+        return [];
+    }
+
+    function needsRaster(o, el, fonts) {
         if (!el) return false;
         if (o.type === "chart") {
             var svg = el.querySelector("svg");
-            return !svg || !svgTranslatable(svg);
+            return !svg || !svgTranslatable(svg, fonts);
         }
-        var root = null;
-        if (o.type === "text") root = el.querySelector(".sl-text-in");
-        else if (o.type === "shape") root = el.querySelector(".sl-shape-text");
-        else if (o.type === "table") root = el;
-        else return false;
-        if (!root) return false;
-        var runs = collectRuns(root, { left: 0, top: 0, x: 0, y: 0 });
-        return runs.length > 0 && !canDrawAsText(runs);
+        var roots = textRootsOf(o, el);
+        for (var i = 0; i < roots.length; i++) {
+            var runs = collectRuns(roots[i], { left: 0, top: 0, x: 0, y: 0 });
+            if (runs.length && !canDrawAsText(runs, fonts)) return true;
+        }
+        return false;
     }
 
     function drawObject(pg, o, el, ctx) {
-        var raster = !!(el && needsRaster(o, el));
+        var raster = !!(el && needsRaster(o, el, pg.fonts));
         return withRotation(pg, o, el, function () {
             return raster ? drawAsRaster(pg, o, el, ctx)
                 : drawObjectBody(pg, o, el, ctx);
@@ -1047,7 +1380,11 @@ var SlidesPdf = (function () {
     function waitForImages(root) {
         var imgs = Array.prototype.slice.call(root.querySelectorAll("img"));
         var pending = imgs.filter(function (im) { return !im.complete; });
-        var fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+        // the shipped faces have to be in place before anything is
+        // measured: a line laid out in a fallback wraps somewhere else
+        var fonts = OfficeFonts.preload().then(function () {
+            return document.fonts && document.fonts.ready ? document.fonts.ready : null;
+        });
         if (!pending.length) return fonts;
         return Promise.all([fonts].concat(pending.map(function (im) {
             return new Promise(function (res) {
@@ -1067,27 +1404,38 @@ var SlidesPdf = (function () {
         var slides = (body && body.slides) || [];
         if (!slides.length) return Promise.reject(new Error("the presentation has no slides"));
 
-        return PDFLib.PDFDocument.create().then(function (pdfDoc) {
-            var fontFor = makeFontCache(pdfDoc);
+        return loadFontkit().then(function (fontkit) {
+            return PDFLib.PDFDocument.create().then(function (pdfDoc) {
+                pdfDoc.registerFontkit(fontkit);
+                return { doc: pdfDoc, kit: fontkit };
+            });
+        }).then(function (made) {
+            var pdfDoc = made.doc;
+            var fonts = makeFonts(pdfDoc, made.kit);
             var embedImage = makeImageEmbedder(pdfDoc);
             var theme = SlidesApp.themeOf();
             var chain = Promise.resolve();
             slides.forEach(function (slide, idx) {
                 chain = chain.then(function () {
                     var page = pdfDoc.addPage([px(SLIDE_W), px(SLIDE_H)]);
-                    var pg = new Page(page, pdfDoc, fontFor);
+                    var pg = new Page(page, pdfDoc, fonts);
                     var bg = parseColor(slide.bg || theme.bg);
                     if (bg) pg.rect(0, 0, SLIDE_W, SLIDE_H, { fill: bg });
                     return withStage(slide, function (stageEl) {
                         var ctx = { stage: stageEl, embed: embedImage };
+                        // every face this slide needs is in hand before a
+                        // single object is measured, so the drawing below
+                        // can stay synchronous
                         var objs = slide.objects || [];
-                        var seq = Promise.resolve();
-                        objs.forEach(function (o, i) {
-                            seq = seq.then(function () {
-                                return drawObject(pg, o, stageEl.children[i], ctx);
+                        return prepareFonts(objs, stageEl, fonts).then(function () {
+                            var seq = Promise.resolve();
+                            objs.forEach(function (o, i) {
+                                seq = seq.then(function () {
+                                    return drawObject(pg, o, stageEl.children[i], ctx);
+                                });
                             });
+                            return seq;
                         });
-                        return seq;
                     });
                 }).then(function () {
                     if (opts.onProgress) opts.onProgress(idx + 1, slides.length);
@@ -1098,9 +1446,6 @@ var SlidesPdf = (function () {
     }
 
     return {
-        build: build,
-        // exposed for the tests and for anyone reusing the SVG translator
-        _stdFamilyOf: stdFamilyOf,
-        _isWinAnsi: isWinAnsi
+        build: build
     };
 })();

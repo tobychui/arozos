@@ -35,10 +35,17 @@
 */
 
 var OfficeTextEditBar = (function () {
-    var FONTS = [
+    /* The font menu. OfficeFonts (common/fonts.js) owns the list, because
+       the families the suite ships with itself have to be on it: they are
+       the ones a PDF export can embed. It is optional only so that this bar
+       still works in a page that did not load it. */
+    var FONTS = (typeof OfficeFonts !== "undefined") ? OfficeFonts.MENU : [
         "Arial", "Georgia", "Times New Roman", "Courier New", "Verdana",
         "Segoe UI", "Tahoma", "Trebuchet MS", "Impact", "Comic Sans MS"
     ];
+    function fontStack(name) {
+        return (typeof OfficeFonts !== "undefined") ? OfficeFonts.stack(name) : name;
+    }
     // ladder the enlarge / shrink buttons step through
     var SIZE_STEPS = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36,
         40, 44, 48, 54, 60, 66, 72, 80, 88, 96, 120, 144];
@@ -163,6 +170,28 @@ var OfficeTextEditBar = (function () {
         saveSelection();
     }
 
+    /* ---------- font family ----------
+       execCommand("fontName") writes <font face="...">, which names one
+       family and nothing else - so a character that family has no glyph for
+       goes to whatever the machine happens to have, and the export cannot
+       embed that. Tag the new nodes with a sentinel face, then rewrite them
+       to carry the full stack (the chosen family plus the shipped
+       fallbacks), which is what every other font-family in a document
+       carries too. */
+    var FONT_MARK = "__oftefont__";
+    function applyFontFamily(name) {
+        restoreSelection();
+        try {
+            document.execCommand("fontName", false, FONT_MARK);
+            var tagged = anchorEl.querySelectorAll('font[face="' + FONT_MARK + '"]');
+            for (var i = 0; i < tagged.length; i++) {
+                tagged[i].removeAttribute("face");
+                tagged[i].style.fontFamily = fontStack(name);
+            }
+        } catch (e) { }
+        saveSelection();
+    }
+
     /* ---------- font size: execCommand only knows 1-7, so apply the
        classic trick - set size 7 then rewrite the font tags to px ---------- */
     function applyFontSizePx(px) {
@@ -192,10 +221,10 @@ var OfficeTextEditBar = (function () {
 
         var $font = $('<select class="of-te-font" title="Font family"></select>');
         FONTS.forEach(function (f) {
-            $font.append($('<option></option>').attr("value", f).text(f).css("font-family", f));
+            $font.append($('<option></option>').attr("value", f).text(f).css("font-family", fontStack(f)));
         });
         $font.on("mousedown", saveSelection);
-        $font.on("change", function () { exec("fontName", $font.val()); });
+        $font.on("change", function () { applyFontFamily($font.val()); });
         $row1.append($font);
 
         var $size = $('<input type="number" class="of-te-size" min="6" max="200" step="1" title="Font size (px)">');
