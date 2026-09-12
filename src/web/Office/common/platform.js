@@ -272,6 +272,24 @@ var OfficePlatform = (function () {
             });
         },
 
+        /* Write bytes the client produced (the Slides PDF renderer is the
+           one that needs this: only the browser knows how the text laid
+           out). Base64 rides the same oversized-payload path every export
+           uses, and the backend decodes it with office.writeBinaryFile. */
+        writeBytes: function (path, bytes, cb, errcb) {
+            var b64;
+            try { b64 = bytesToBase64(bytes); }
+            catch (e) { if (errcb) errcb("could not encode the file"); return; }
+            arozos.agirunLarge("Office/common/backend/binsaver.agi", {
+                filepath: path,
+                content: b64
+            }, "content", function () {
+                if (cb) cb();
+            }, function (msg) {
+                if (errcb) errcb(msg);
+            });
+        },
+
         containerLoad: function (path, cb, errcb) {
             // templates and ?open= documents are web assets: read and unpack
             // them here rather than asking the backend for a vpath it has no
@@ -432,6 +450,18 @@ var OfficePlatform = (function () {
         xhr.onerror = function () { errcb("network error"); };
         xhr.send();
     }
+    /* base64 in chunks: String.fromCharCode.apply on a multi-megabyte
+       array blows the argument limit */
+    function bytesToBase64(bytes) {
+        var arr = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+        var CHUNK = 0x8000;
+        var parts = [];
+        for (var i = 0; i < arr.length; i += CHUNK) {
+            parts.push(String.fromCharCode.apply(null, arr.subarray(i, i + CHUNK)));
+        }
+        return btoa(parts.join(""));
+    }
+
     function download(bytesOrText, filename, mime) {
         var blob = (bytesOrText instanceof Uint8Array)
             ? new Blob([bytesOrText], { type: mime || "application/octet-stream" })
@@ -729,6 +759,15 @@ var OfficePlatform = (function () {
                 if (errcb) errcb(e.message || "download failed");
             }
         },
+        writeBytes: function (path, bytes, cb, errcb) {
+            try {
+                download(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes),
+                    saveName(path), "application/octet-stream");
+                if (cb) cb();
+            } catch (e) {
+                if (errcb) errcb(e.message || "download failed");
+            }
+        },
 
         containerLoad: function (path, cb, errcb) {
             var f = localFiles[path];
@@ -868,6 +907,9 @@ var OfficePlatform = (function () {
 
         readText: function (p, cb, errcb) { host.readText(p, cb, errcb); },
         writeText: function (p, c, cb, errcb) { host.writeText(p, c, cb, errcb); },
+        // a file the client rendered itself (the Slides PDF); bytes is a
+        // Uint8Array, and the standalone host turns it into a download
+        writeBytes: function (p, b, cb, errcb) { host.writeBytes(p, b, cb, errcb); },
 
         containerLoad: function (p, cb, errcb) { host.containerLoad(p, cb, errcb); },
         containerSave: function (p, j, cb, errcb) { host.containerSave(p, j, cb, errcb); },

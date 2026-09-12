@@ -1463,6 +1463,20 @@ var ok = office.documentToPdf(bodyJsonString, "user:/Desktop/report.pdf");
 if (ok) { sendResp("OK"); }
 ```
 
+### `office.writeBinaryFile(base64, destVpath)`
+Write a file the web client produced. The payload is the file's bytes,
+base64 encoded; the same write permission check as every exporter above
+applies to `destVpath`. This exists because some exports can only be
+rendered in the browser - the Slides PDF is built there, since only the
+browser knows which font it resolved and where every line wrapped.
+Returns `true` on success.
+
+```javascript
+requirelib("office");
+var ok = office.writeBinaryFile(base64Payload, "user:/Desktop/deck.pdf");
+if (ok) { sendResp("OK"); }
+```
+
 ## ffmpeg API
 
 Load:
@@ -2569,6 +2583,6 @@ This documentation covers all available AGI APIs with practical examples. For mo
 ## Notes and Caveats
 
 - `requirelib("audio")` is registered in code but currently has no callable functions.
-- `filelib` currently does not expose `writeBinaryFile` / `readBinaryFile` on the public `filelib` object.
+- `filelib` currently does not expose `writeBinaryFile` / `readBinaryFile` on the public `filelib` object. `office.writeBinaryFile(base64, destVpath)` covers the write half for anything the web client renders itself.
 - Most APIs return `false` or `null` on failure; many also raise AGI runtime errors.
 - For admin-only APIs (`userExists`, `createUser`, `removeUser`), check `userIsAdmin()` first.

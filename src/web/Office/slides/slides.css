@@ -166,6 +166,17 @@
 #slNotes.collapsed #slNotesText { display: none; }
 
 /* ============ Slide surface & objects ============ */
+/* A slide carries a document font of its own rather than inheriting the
+   app's UI font. Two reasons, and they are the same reason: a deck must
+   not change shape depending on which OS the editor happens to run on,
+   and the PDF export can only put text in the PDF *as text* when the
+   font it was laid out in is one a PDF can show. Arial and Liberation
+   Sans are metrically identical to each other and to PDF's Helvetica, so
+   this stack resolves to the same metrics on Windows, macOS and Linux.
+   Text that states its own font (anything imported) overrides this. */
+.sl-slidebase, #slCanvas {
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+}
 .sl-slidebase {
     position: absolute;
     inset: 0;

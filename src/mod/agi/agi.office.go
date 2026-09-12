@@ -3,6 +3,7 @@ package agi
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -698,6 +699,19 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		return office.BuildSlidesPdf(pres)
 	})
 
+	/* ---------- write a file the web client produced ----------
+	   Slides builds its PDF in the browser (only the browser knows how the
+	   text actually laid out), so it needs a way to put those bytes on the
+	   file system. Same (payload, destVpath) shape and the same write
+	   permission check as every exporter above. */
+	registerOdfExport("_office_writeBinaryFile", func(b64 string) ([]byte, error) {
+		data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(b64))
+		if err != nil {
+			return nil, errors.New("payload is not valid base64: " + err.Error())
+		}
+		return data, nil
+	})
+
 	vm.Run(`
 		var office = {};
 
@@ -721,6 +735,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		office.documentToPdf = _office_documentToPdf;             // Docs body JSON string -> pdf file (real text)
 		office.workbookPrintToPdf = _office_workbookPrintToPdf;   // Sheets print-model JSON -> pdf file (real text)
 		office.presentationToPdf = _office_presentationToPdf;     // Slides body JSON string -> pdf file (real text)
+		office.writeBinaryFile = _office_writeBinaryFile;         // base64 string -> binary file (client-produced exports)
 	`)
 }
 

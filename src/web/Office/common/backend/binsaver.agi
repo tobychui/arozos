@@ -1,0 +1,62 @@
+/*
+    ArozOS Office Suite - binary FileSaver backend
+    Writes a base64-encoded payload the web client produced to a file on
+    the server. Used by the Slides PDF export, which is built in the
+    browser because only the browser knows how its text laid out.
+
+    Required POST parameters:
+        filepath  - virtual path to the target file (e.g. user:/Desktop/deck.pdf)
+        content   - the file's bytes, base64 encoded
+        contentFile - vpath of an uploaded temp file holding that base64,
+                    used instead of content when the payload is too big for
+                    a POST form body (deleted after reading)
+
+    Response: JSON {"error": "..."} on failure, "OK" on success
+*/
+
+/*
+    Same oversized-payload path as filesaver.agi: Go's r.ParseForm drops
+    EVERY parameter once a urlencoded body passes 10MB, so the front end
+    streams the payload to a temp file and passes its vpath instead.
+*/
+function resolveContent(){
+    if (typeof contentFile !== "undefined" && contentFile){
+        if (!requirelib("filelib")){
+            return "";
+        }
+        var loaded = filelib.readFile(contentFile);
+        filelib.deleteFile(contentFile);
+        return loaded;
+    }
+    return (typeof content === "undefined" || !content) ? "" : content;
+}
+
+function main(){
+    if (!requirelib("office")){
+        sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+        return;
+    }
+
+    if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
+        sendJSONResp(JSON.stringify({ error: "filepath is required" }));
+        return;
+    }
+
+    var payload = resolveContent();
+    if (!payload){
+        sendJSONResp(JSON.stringify({ error: "content is required" }));
+        return;
+    }
+
+    try {
+        if (!office.writeBinaryFile(payload, filepath)){
+            sendJSONResp(JSON.stringify({ error: "unable to write file" }));
+            return;
+        }
+        sendResp("OK");
+    } catch (e) {
+        sendJSONResp(JSON.stringify({ error: "write failed: " + e.message }));
+    }
+}
+
+main();

@@ -997,6 +997,13 @@
      "desc": "Build a real-text PDF from a serialized Slides body JSON: one page per slide at the deck canvas size. Text and tables stay selectable; images/charts embed from data URLs; video/audio render their captured poster frame (props.png) or a generic placeholder.",
      "ret": "boolean",
      "example": "requirelib(\"office\");\nvar ok = office.presentationToPdf(data, \"user:/Desktop/deck.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+    },
+    {
+     "name": "office.writeBinaryFile",
+     "sig": "office.writeBinaryFile(base64, destVpath)",
+     "desc": "Write a file the web client produced: the payload is the file's bytes, base64 encoded, and destVpath gets the same write permission check as every exporter. Used by exports that can only be rendered in the browser, such as the Slides PDF.",
+     "ret": "boolean",
+     "example": "requirelib(\"office\");\nvar ok = office.writeBinaryFile(base64Payload, \"user:/Desktop/deck.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
     }
    ]
   },

@@ -3533,9 +3533,54 @@ var SlidesApp = (function () {
     }
     function exportPptx() { exportSlidesFile(".pptx", "export", "Exporting PowerPoint file..."); }
     function exportOdp() { exportSlidesFile(".odp", "export-odf", "Exporting OpenDocument file..."); }
-    // server-side real-text PDF (mod/office); video/audio render their
-    // captured poster frame (or a generic placeholder)
-    function exportPdf() { exportSlidesFile(".pdf", "export-pdf", "Exporting PDF..."); }
+    /* PDF is built in the browser (slides_pdf.js), not on the server: only
+       the browser knows which font it actually resolved and where every
+       line wrapped, and that is exactly what the export has to reproduce.
+       Each element goes in as the real PDF object it should be - text as
+       text, pictures as embedded images with real clip paths, shapes and
+       charts as vectors - and only an element the format genuinely cannot
+       express falls back to a raster of itself. */
+    function canExportPdf() {
+        return typeof PDFLib !== "undefined" && !!window.SlidesPdf;
+    }
+    function exportPdf() {
+        if (!canExportPdf()) {
+            OfficeApp.toast("The PDF library failed to load", "error");
+            return;
+        }
+        endEdit(true);
+        endCrop(true);
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ".pdf";
+        OfficePlatform.pickSave({ defaultName: defName, ext: ".pdf", memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            OfficeApp.showBusy("Exporting PDF...");
+            savePdfTo(fp, function () {
+                OfficeApp.hideBusy();
+                OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+            }, function (msg) {
+                OfficeApp.hideBusy();
+                OfficeApp.toast("Export failed: " + msg, "error");
+            });
+        });
+    }
+
+    // savePdfTo renders the deck and writes the bytes; shared by File >
+    // Export and by the .pdf entry in SAVE_FORMATS
+    function savePdfTo(fp, done, fail) {
+        if (!canExportPdf()) { fail("the PDF library failed to load"); return; }
+        endEdit(true);
+        endCrop(true);
+        SlidesPdf.build(body, {
+            onProgress: function (n, total) {
+                OfficeApp.showBusy("Exporting PDF... slide " + n + " of " + total);
+            }
+        }).then(function (bytes) {
+            OfficePlatform.writeBytes(fp, bytes, done, fail);
+        }).catch(function (err) {
+            fail(err && err.message ? err.message : "render error");
+        });
+    }
 
     /* ================= saving back into a foreign format =================
        A deck opened from .pptx / .odp goes on living in that file: the
@@ -3594,9 +3639,11 @@ var SlidesApp = (function () {
             save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
         },
         {
+            // rendered in the browser, so it needs no backend - only the
+            // PDF library (see exportPdf)
             ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
-            needsBackend: true, oneWay: true,
-            save: function (fp, fn, done, fail) { saveViaConverter("export-pdf", fp, done, fail); }
+            oneWay: true,
+            save: function (fp, fn, done, fail) { savePdfTo(fp, done, fail); }
         }
     ];
 
@@ -3979,7 +4026,7 @@ var SlidesApp = (function () {
                                 action: exportOdp
                             });
                         }
-                        if (OfficePlatform.hasBackend()) {
+                        if (canExportPdf()) {
                             items.push({
                                 label: "PDF document (.pdf)", icon: "file pdf outline",
                                 action: exportPdf
@@ -4051,6 +4098,9 @@ var SlidesApp = (function () {
         getCurrentIndex: function () { return cur; },
         renderSlideContent: renderSlideContent,
         themeOf: themeOf,
+        // the PDF exporter builds its clip paths from the very same
+        // outlines the canvas draws, so the two cannot disagree
+        shapePoints: shapePoints,
         slideCount: function () { return body ? body.slides.length : 0; }
     };
 })();

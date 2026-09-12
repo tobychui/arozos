@@ -95,7 +95,7 @@ have written. `generate.go -wasm` builds and ships that module, and
 Two capability questions, and they are **not** the same:
 
 - `OfficePlatform.hasBackend()` — is there a server? (storage, AGI scripts,
-  the real-text PDF renderer)
+  the Docs/Sheets PDF renderers — Slides renders its own PDF in the browser)
 - `OfficePlatform.canConvert()` — can this build convert Office formats?
 
 **Gate anything new on the right one** (details in `CONTRACT.md`), or it will
@@ -162,6 +162,78 @@ body before posting:
 - **Emoji in Docs PDF** → client rasterizes each emoji to a small PNG
   (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
   Latin-1 and have no emoji glyphs.
+
+### Slides: PDF export is rendered in the browser
+
+**Docs and Sheets export PDF on the server; Slides does not.** Its
+exporter is [`slides/slides_pdf.js`](slides/slides_pdf.js) (`SlidesPdf`),
+built on the vendored `pdf-lib`, and it runs against the very DOM the
+editor is showing.
+
+The reason is that a slide's appearance is decided by the browser: which
+font it resolved out of a stack, where each line wrapped, how tall each
+line box came out. A server-side renderer has to re-derive all of that and
+the derivations drift — the symptom was a CJK deck exporting as rows of
+dots, because `fpdf`'s core fonts are cp1252 and the layout had been
+guessed in Helvetica anyway.
+
+Every element goes in as the PDF object it should be:
+
+| element | becomes |
+|---|---|
+| text | real `Tj` text, one show-text per line fragment, at the baseline the browser laid it out on |
+| image | the original JPEG/PNG bytes, embedded once and re-used |
+| crop / shaped crop / rounded corners | a real PDF **clip path** (`shapePathOps`, from the same `shapePoints()` the canvas draws) |
+| flip | a negative scale in the transformation matrix |
+| transparency | an `ExtGState` with `/ca` |
+| re-colour, brightness, contrast | the picture re-encoded through a canvas — a pixel operation in any renderer |
+| shape | a real vector path, filled and stroked |
+| line | a real vector polyline, arrow heads as filled triangles |
+| table | real vector cell fills and rules, plus text |
+| chart | the chart's own SVG, translated element by element into PDF vectors |
+| rotation | one matrix about the object's centre, with the element measured unrotated |
+
+**The font rule, and the one fallback.** A PDF can only show text in a font
+it embeds, and a browser will not hand over the bytes of a system font. So
+real text is possible exactly when the family the browser *actually
+resolved* is metric-compatible with one of the 14 standard PDF fonts
+(Helvetica / Times / Courier and their clones — `stdFamilyOf`) and every
+character is WinAnsi-encodable. Which family was resolved has to be
+measured, not asked: `document.fonts.check()` answers "is it loaded" and
+says yes to any name, so `haveFamily` probes widths against two generics
+instead.
+
+When that test fails — a deck set in Open Sans, or in Chinese — **that one
+text box** is rasterized and nothing else on the page is. The picture is
+taken through an SVG `<foreignObject>`, so the *browser* lays it out and
+paints it. html2canvas was tried first and is wrong for this: it
+re-implements layout over a clone, and on mixed CJK/Latin text with
+`pre-wrap` it breaks lines somewhere the browser did not — exactly the
+drift this rework removes. It survives only as a last resort for the case
+where even the foreignObject route fails, because a wrong element beats a
+missing one. Two things that route needs and that are easy to get wrong:
+the computed styles have to be inlined onto the clone (an SVG image cannot
+reach the page's stylesheets), and the markup must be serialized with
+`XMLSerializer` — `innerHTML` writes `<br>` unclosed, which is not
+well-formed XML and makes the whole element vanish.
+
+**Why the slide surface has its own font.** `.sl-slidebase` sets
+`Arial, "Liberation Sans", Helvetica, sans-serif` instead of inheriting the
+app's UI font. A deck must not change shape depending on which OS the
+editor runs on, and those three are metrically identical to each other and
+to PDF's Helvetica — so editor-authored text exports as real, selectable
+text everywhere. Text that states its own font (anything imported)
+overrides it.
+
+The bytes are written through `OfficePlatform.writeBytes`, which base64s
+them down the same oversized-payload path every export uses and lands in
+`common/backend/binsaver.agi` → `office.writeBinaryFile`. In the standalone
+web edition it is a download, which means **PDF export now works there
+too** — it no longer needs a backend.
+
+`mod/office/pdf_slides.go` stays: `office.presentationToPdf` is a
+documented AGI function that scripts may call. The webapp no longer uses
+it.
 
 ### Slides: cropping a picture
 
@@ -528,7 +600,12 @@ sh ../scripts/check-conventions.sh --diff origin/master
 
 ## Ideas / known gaps (future work)
 
-- CJK/Unicode text in PDF export (needs an embedded font — see above).
+- CJK/Unicode text as *text* in PDF export. Both renderers hit the same
+  wall: a PDF can only show glyphs from a font it embeds, and neither the
+  Go binary nor the browser can supply a CJK font's bytes. Slides works
+  around it per text box (see above); Docs and Sheets still degrade.
+  Embedding a font would need it vendored, plus `@pdf-lib/fontkit` on the
+  client — that is the fix if someone wants it.
 - **MicroType Express decompression** so Google-Slides-embedded fonts can
   be used (see the format notes) — the last visible gap between an
   imported deck and its source.
@@ -540,10 +617,10 @@ sh ../scripts/check-conventions.sh --diff origin/master
 - Embedded fonts are read but not written back, so a `.pptx` exported from
   a deck that carried its fonts no longer carries them.
 - A **shaped crop** (`props.mask`) round-trips through `.pptx` as the
-  picture's `prstGeom`, but neither the `.odp` writer nor the PDF exporter
-  draws one — ODF would need a custom shape with a bitmap fill, and
-  `pdf_slides.go` places pictures as plain rectangles. The rectangular
-  crop itself is exported to all three.
+  picture's `prstGeom` and is a real clip path in the browser-rendered
+  PDF, but the `.odp` writer does not draw one — ODF would need a custom
+  shape with a bitmap fill. (`mod/office/pdf_slides.go` does not draw one
+  either; nothing in the webapp reaches it any more.)
 - Slides: SmartArt (`dgm:`), 3-D effects, shadows and animations are
   skipped rather than approximated.
 - Real-time collaboration (the `sharedspace` AGI lib was built for this).

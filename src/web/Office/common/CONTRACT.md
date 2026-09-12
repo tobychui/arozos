@@ -235,13 +235,20 @@ OfficePlatform.convertOut({agi, action, wasm}, destPath, bodyJson,
 
 // io - OfficeApp.vfsLoad / vfsSave / blobToSrc / mediaUrl / agirunLarge all
 // forward to these, so app code normally keeps using OfficeApp
-readText writeText containerLoad containerSave
+readText writeText writeBytes containerLoad containerSave
 sessionSave sessionLoad sessionDelete
 agirun agirunLarge prepareWorkdir mediaUrl blobToSrc
 loadInputFiles adoptDroppedFile setWindowTitle setWindowTheme
 openDocument     // open a document in a second window of this app;
                  // false = nowhere to open it from (standalone downloads)
 ```
+
+`writeBytes(path, Uint8Array, cb, errcb)` is for a file the client
+rendered itself. In ArozOS it base64s the payload down the same
+oversized-payload path as every export and lands in
+`common/backend/binsaver.agi` -> `office.writeBinaryFile`; in the
+standalone edition it is a download. The Slides PDF export is the reason
+it exists (see the Office README).
 
 **Adding a format conversion:** add the converter to
 [`src/wasm/office/convert.go`](../../../wasm/office/convert.go) (and its
@@ -647,8 +654,16 @@ Text inherits `currentColor` → theme-aware automatically.
 ## Vendored libs (common/lib/, all MIT)
 
 - `marked.min.js` — Markdown → HTML (Docs import)
-- `pdf-lib.min.js` — PDF generation (global `PDFLib`)
-- `html2canvas.min.js` — DOM → canvas (Slides PNG export)
+- `pdf-lib.min.js` — PDF generation (global `PDFLib`). Used by the Slides
+  PDF export, which builds the file in the browser out of real PDF objects
+  (`slides/slides_pdf.js`). No `@pdf-lib/fontkit` is vendored, so it can
+  only embed the 14 standard fonts — that is what decides when text can go
+  in as text; see the Office README.
+- `html2canvas.min.js` — DOM → canvas (Slides PNG export). **Not** the
+  first choice for the PDF export's raster fallback: it re-implements
+  layout over a clone and re-wraps mixed-script text. That path uses an
+  SVG `<foreignObject>` so the browser lays out its own content, and only
+  falls back here if that fails outright.
 
 ## Testing without a full ArozOS server
 
