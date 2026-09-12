@@ -459,6 +459,15 @@ var SlidesPdf = (function () {
         };
     }
     // parseColor is parseFill when only the colour is wanted
+    /* contrastOf answers "what colour shows up on this fill" - only used
+       for a shape's markings when it has no stroke colour of its own */
+    function contrastOf(css) {
+        var f = parseFill(css);
+        if (!f) return "#333333";
+        var lum = 0.299 * f.c.red + 0.587 * f.c.green + 0.114 * f.c.blue;
+        return lum > 0.6 ? "#333333" : "#ffffff";
+    }
+
     function parseColor(css) {
         var f = parseFill(css);
         return f ? f.c : null;
@@ -537,7 +546,7 @@ var SlidesPdf = (function () {
                 PDFLib.lineTo(X(w), Y(h)), PDFLib.lineTo(X(0), Y(h)), PDFLib.closePath());
             return ops;
         }
-        if (kind === "round") {
+        if (kind === "roundRect") {
             var r = Math.min(radius > 0 ? radius : Math.min(w, h) * 0.15, Math.min(w, h) / 2);
             var k = r * 0.5523;
             ops.push(PDFLib.moveTo(X(r), Y(0)));
@@ -562,15 +571,28 @@ var SlidesPdf = (function () {
             ops.push(PDFLib.closePath());
             return ops;
         }
-        var pts = (window.SlidesApp && SlidesApp.shapePoints)
-            ? SlidesApp.shapePoints(kind, w, h) : null;
-        if (!pts || !pts.length) {
-            return shapePathOps("rect", x, y, w, h, 0);
+        var d = (window.SlidesShapes) ? SlidesShapes.path(kind, w, h) : "";
+        if (!d) return shapePathOps("rect", x, y, w, h, 0);
+        return svgPathOps(d, X, Y);
+    }
+
+    /* svgPathOps turns one of the catalogue's paths into PDF path
+       operators. It only has to understand M, L, C and Z because that is
+       all slides_shapes.js ever writes - arcs arrive already converted to
+       cubics, which is the whole reason for that restriction. */
+    function svgPathOps(d, X, Y) {
+        var ops = [];
+        var re = /([MLCZ])([^MLCZ]*)/g;
+        var m;
+        while ((m = re.exec(d))) {
+            var cmd = m[1];
+            if (cmd === "Z") { ops.push(PDFLib.closePath()); continue; }
+            var v = m[2].trim().split(/[\s,]+/).map(Number);
+            if (cmd === "M") ops.push(PDFLib.moveTo(X(v[0]), Y(v[1])));
+            else if (cmd === "L") ops.push(PDFLib.lineTo(X(v[0]), Y(v[1])));
+            else ops.push(PDFLib.appendBezierCurve(X(v[0]), Y(v[1]),
+                X(v[2]), Y(v[3]), X(v[4]), Y(v[5])));
         }
-        pts.forEach(function (pt, i) {
-            ops.push(i === 0 ? PDFLib.moveTo(X(pt[0]), Y(pt[1])) : PDFLib.lineTo(X(pt[0]), Y(pt[1])));
-        });
-        ops.push(PDFLib.closePath());
         return ops;
     }
 
@@ -1248,19 +1270,56 @@ var SlidesPdf = (function () {
     /* ---- shape object ---- */
     function drawShapeObject(pg, o, el, origin, ctx) {
         var p = o.props || {};
-        var fill = (p.fill && p.fill !== "none") ? parseColor(p.fill) : null;
-        var stroke = (p.strokeW > 0 && p.stroke && p.stroke !== "none") ? parseColor(p.stroke) : null;
+        var kind = window.SlidesShapes ? SlidesShapes.canonical(p.kind || "rect") : (p.kind || "rect");
+        var open = window.SlidesShapes && SlidesShapes.isOpen(kind);
+        var evenOdd = window.SlidesShapes && SlidesShapes.evenOdd(kind);
+        var strokeW = Number(p.strokeW) || 0;
+        var fillCss = p.fill, strokeCss = p.stroke;
+        // the same rule the canvas follows: a bracket, brace or arc is a
+        // line, so it is stroked and never filled (see shapeSvg)
+        if (open) {
+            if (!strokeCss || strokeCss === "none") {
+                strokeCss = (fillCss && fillCss !== "none") ? fillCss : "#333333";
+            }
+            if (!strokeW) strokeW = 2;
+            fillCss = "none";
+        }
+        var fill = (fillCss && fillCss !== "none") ? parseColor(fillCss) : null;
+        var stroke = (strokeW > 0 && strokeCss && strokeCss !== "none") ? parseColor(strokeCss) : null;
         if (fill || stroke) {
-            var ops = shapePathOps(p.kind || "rect", o.x, o.y, o.w, o.h, p.radius);
+            var ops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius);
             if (fill) ops.unshift(PDFLib.setFillingColor(fill));
             if (stroke) {
                 ops.unshift(PDFLib.setStrokingColor(stroke));
-                ops.unshift(PDFLib.setLineWidth(px(p.strokeW)));
-                if (p.dash) ops.unshift(PDFLib.setDashPattern([px(p.strokeW * 3), px(p.strokeW * 2.4)], 0));
+                ops.unshift(PDFLib.setLineWidth(px(strokeW)));
+                if (p.dash) ops.unshift(PDFLib.setDashPattern([px(strokeW * 3), px(strokeW * 2.4)], 0));
             }
-            ops.push(fill && stroke ? PDFLib.fillAndStroke() : (fill ? PDFLib.fill() : PDFLib.stroke()));
+            if (fill && stroke) {
+                ops.push(evenOdd ? PDFLib.PDFOperator.of(PDFLib.PDFOperatorNames.FillEvenOddAndStroke)
+                    : PDFLib.fillAndStroke());
+            } else if (fill) {
+                ops.push(evenOdd ? PDFLib.PDFOperator.of(PDFLib.PDFOperatorNames.FillEvenOdd)
+                    : PDFLib.fill());
+            } else {
+                ops.push(PDFLib.stroke());
+            }
             pg.save();
             pg.ops(ops);
+            pg.restore();
+        }
+        // markings the canvas draws over the outline - the bars of a
+        // predefined process, the fold of a folded corner
+        var det = window.SlidesShapes ? SlidesShapes.detail(kind, o.w, o.h) : "";
+        if (det) {
+            var dc = stroke || parseColor(contrastOf(fillCss)) || PDFLib.rgb(0.2, 0.2, 0.2);
+            var X = function (v) { return px(o.x + v); };
+            var Y = function (v) { return px(SLIDE_H - (o.y + v)); };
+            var dops = svgPathOps(det, X, Y);
+            dops.unshift(PDFLib.setLineWidth(px(strokeW > 0 ? strokeW : 1)));
+            dops.unshift(PDFLib.setStrokingColor(dc));
+            dops.push(PDFLib.stroke());
+            pg.save();
+            pg.ops(dops);
             pg.restore();
         }
         // the caption rides on the same text rules as a text box

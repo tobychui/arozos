@@ -184,11 +184,11 @@ Every element goes in as the PDF object it should be:
 |---|---|
 | text | real `Tj` text, one show-text per line fragment, at the baseline the browser laid it out on |
 | image | the original JPEG/PNG bytes, embedded once and re-used |
-| crop / shaped crop / rounded corners | a real PDF **clip path** (`shapePathOps`, from the same `shapePoints()` the canvas draws) |
+| crop / shaped crop / rounded corners | a real PDF **clip path** (`shapePathOps`, from the same `SlidesShapes` geometry the canvas draws) |
 | flip | a negative scale in the transformation matrix |
 | transparency | an `ExtGState` with `/ca` |
 | re-colour, brightness, contrast | the picture re-encoded through a canvas — a pixel operation in any renderer |
-| shape | a real vector path, filled and stroked |
+| shape | a real vector path from the catalogue, filled and stroked (even-odd where the shape has holes; stroked only, where it is a brace or a bracket) |
 | line | a real vector polyline, arrow heads as filled triangles |
 | table | real vector cell fills and rules, plus text |
 | chart | the chart's own SVG, translated element by element into PDF vectors |
@@ -274,6 +274,73 @@ File > Export puts a small progress panel in the corner of the canvas
 (`OfficeApp.showProgress`) and works from a snapshot of the deck, so
 carrying on editing cannot change the file that comes out.
 
+### Slides: starting a slide
+
+New slide is a split control on the toolbar: the button adds one, the caret
+beside it opens `showLayoutPicker()` — every layout in `LAYOUTS` as a
+preview of itself. The previews are built by the same `newSlide()` and
+`renderSlideContent()` the document uses, at the scale the rail uses, so a
+preview cannot come to disagree with the slide choosing it makes. The
+layouts are skeletons of real text objects, not a placeholder system; there
+is nothing to "fill in" afterwards, which is why the preview can be the
+real thing. The previews outline every box (`.sl-layoutpick-mini .sl-obj`),
+stated at slide scale so the transform brings it down to a hairline -
+without it a layout is a few grey smudges and one looks like the next.
+
+**Delete belongs to whatever has the keyboard.** A thumbnail takes focus
+when it is clicked, and focusing one selects it, so the slide the keyboard
+is on and the slide being edited are never two different slides. Delete
+then removes the slide; with the canvas focused the same key removes the
+selected objects. Both are registered with `HK` and guarded by
+`railFocused()`, so neither has to know about the other.
+
+### Slides: the shape catalogue
+
+Every shape the editor draws lives in
+[`slides/slides_shapes.js`](slides/slides_shapes.js) (`SlidesShapes`) as
+geometry — about 130 of them, in the four groups the Insert > Shape picker
+offers: shapes, arrows, call outs and equation.
+
+**They are named after the PresentationML presets they are** (`rightBrace`,
+`flowChartDecision`, `wedgeRoundRectCallout`). That is the point of the
+file: an imported deck keeps its own vocabulary, and
+`prstToShapeKind` / `shapeKindPrst` (`mod/office/pptx_{reader,writer}.go`)
+are a lookup rather than a translation. The editor had three names of its
+own before the catalogue — `round`, `arrow`, `star` — and they are gone:
+`SlidesShapes.ALIASES` knows what they used to mean and `normalizeBody()`
+runs every kind through `canonical()` as a document loads, so a deck
+written back then is rewritten the first time it is opened. The Go writer
+keeps the same three for a `.ppta` that has not been through the editor
+yet. A preset the catalogue does not draw is sent to the nearest outline
+that it does, and only a completely unknown one becomes a rectangle. The symptom
+that prompted all this was a `rightBrace` importing as a thin outlined
+rectangle, rotated — two long diagonal lines where a brace should be.
+
+Every shape produces an SVG path using **only M, L, C and Z**. Arcs are
+converted to cubics once, by `Path.arc()`, so nothing downstream has to
+understand an arc flag — and three things get to share one geometry:
+
+- the canvas (`shapeSvg` in `slides.js`),
+- `clip-path: path(...)`, which is how a picture is cropped to a shape, and
+- the PDF exporter, whose translator (`svgPathOps`) is about fifteen lines
+  because that is all it has to parse.
+
+Three flags on a catalogue entry change how it is drawn, and all three
+paths honour them: `open` (a brace, a bracket, an arc — a line and not an
+area, so it is stroked and never filled, and gets a stroke of its own if the
+document did not give it one), `evenOdd` (the path has holes in it), and
+`detail` (markings such as the divider bars of a predefined process, drawn
+over the outline rather than filled).
+
+The picker itself is `showShapePicker()`: the categories down the left, the
+shapes of the one in hand as icons on the right. The icons come from
+`SlidesShapes.icon()` — the same geometry again — so a picker entry cannot
+come to disagree with what choosing it inserts.
+
+`MASK_KINDS` is deliberately *not* the whole catalogue: a shaped crop reads
+as a silhouette, so the crop-shape grid offers the couple of dozen outlines
+that still say something at thumbnail size.
+
 ### Slides: cropping a picture
 
 Cropping never touches the pixels. The object frame says which part of the
@@ -295,8 +362,8 @@ and the picture's context menu.
   at full strength over it. A grip moves the frame; dragging the picture
   moves the source behind it. Enter or a click outside applies, Esc restores.
   Crop and the crop shapes are one split control — the caret beside it opens
-  a **grid of shape icons**, drawn by `shapeIcon()` from the same
-  `shapePoints()` the canvas uses so an icon cannot drift from the mask it
+  a **grid of shape icons**, drawn by `SlidesShapes.icon()` from the same
+  geometry the canvas uses so an icon cannot drift from the mask it
   applies. Picking one sets `props.mask`, drawn as a `clip-path` and written
   to `.pptx` as a `prstGeom` on the picture.
 - **Format options** opens `#slFormatPanel`, docked right of the canvas:
@@ -632,6 +699,11 @@ sh ../scripts/check-conventions.sh --diff origin/master
   weirdly in a real Office app, generate a reference file with
   python-docx/python-pptx and **diff the XML part-by-part** — that's how
   both the pagination and media problems were cracked.
+- **Thumbnails scale themselves.** A preview is the whole 960x540 slide
+  shrunk by a transform, and the box it has to fit is whatever the rail can
+  spare once the scrollbar has taken its cut — which varies by platform. So
+  `fitThumbs()` measures the box and sets `--sl-thumb-scale`; a hard-coded
+  scale is how the right-hand edge of every preview came to be missing.
 - **Front-end smoke test without a full server**: the repo's
   `.claude/launch.json` has a `webroot-static` config that serves
   `src/web/` on `:8123`; the apps load standalone (AGI calls fail

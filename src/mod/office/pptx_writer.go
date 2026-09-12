@@ -32,27 +32,26 @@ import (
 
 const nsDecl = `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"`
 
-// shapeKindToPrst is the inverse of prstToShapeKind (pptx_reader.go) for
-// the kinds the editor can draw, so a shape or a shaped crop written here
-// reads back as the same thing
+// shapeKindToPrst carries the three names the editor used before its shape
+// catalogue existed. A .ppta written back then still says them, and export
+// has to keep working; everything else is its own preset name already, and
+// shapeKindPrst falls through to that.
 var shapeKindToPrst = map[string]string{
-	"rect":          "rect",
-	"round":         "roundRect",
-	"ellipse":       "ellipse",
-	"triangle":      "triangle",
-	"rtTriangle":    "rtTriangle",
-	"diamond":       "diamond",
-	"arrow":         "rightArrow",
-	"leftArrow":     "leftArrow",
-	"upArrow":       "upArrow",
-	"downArrow":     "downArrow",
-	"star":          "star5",
-	"chevron":       "chevron",
-	"pentagon":      "pentagon",
-	"hexagon":       "hexagon",
-	"parallelogram": "parallelogram",
-	"trapezoid":     "trapezoid",
-	"plus":          "mathPlus",
+	"round": "roundRect",
+	"arrow": "rightArrow",
+	"star":  "star5",
+}
+
+// shapeKindPrst is the preset to write for an editor shape kind, and
+// "rect" for one this package has never heard of.
+func shapeKindPrst(kind string) string {
+	if p, ok := shapeKindToPrst[kind]; ok {
+		return p
+	}
+	if _, ok := prstToShapeKind[kind]; ok {
+		return kind
+	}
+	return "rect"
 }
 
 // BuildPptx serializes a Presentation without a media resolver (video /
@@ -675,10 +674,7 @@ func buildTextSp(id int, o *Object, theme string) string {
 
 func buildShapeSp(id int, o *Object) string {
 	p := o.Props
-	prst, ok := shapeKindToPrst[p.Kind]
-	if !ok {
-		prst = "rect"
-	}
+	prst := shapeKindPrst(p.Kind)
 	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
 	if prst == "roundRect" && p.Radius > 0 && o.W > 0 && o.H > 0 {
 		adj := int(p.Radius / minF(o.W, o.H) * 100000)
@@ -831,10 +827,7 @@ func buildPicSp(id int, o *Object, rid string) string {
 			int(p.Crop[2]*100000), int(p.Crop[3]*100000))
 	}
 	// a shaped crop is a preset geometry on the picture itself
-	prst := "rect"
-	if q, ok := shapeKindToPrst[p.Mask]; ok {
-		prst = q
-	}
+	prst := shapeKindPrst(p.Mask)
 	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
 	if (prst == "roundRect" || p.Mask == "" || p.Mask == "rect") &&
 		p.Radius > 0 && o.W > 0 && o.H > 0 {

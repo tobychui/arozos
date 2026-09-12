@@ -21,7 +21,7 @@
             commit:   fn,                    // model changed, redraw + undo
             startCrop: fn(id), endCrop: fn(apply), isCropping: fn -> bool,
             resetImage: fn(obj), setMask: fn(obj, kind),
-            shapeKinds: [{kind,label}], shapePoints: fn(kind,w,h),
+            shapeKinds: [{kind,label}],
             slideSize: [w,h], relayout: fn
         });
 
@@ -92,27 +92,11 @@ var SlidesImageTools = (function () {
 
     /* ================= shape grid ================= */
 
-    // shapeIcon draws one crop shape as a small outline, using the very
-    // same geometry the canvas uses so the icon cannot drift from the mask
+    // shapeIcon draws one crop shape as a small outline. The catalogue draws
+    // it, from the very same geometry the canvas uses, so the icon cannot
+    // drift from the mask it stands for.
     function shapeIcon(kind, size) {
-        var s = size || 22, pad = 2, w = s - pad * 2, h = s - pad * 2;
-        var body;
-        if (kind === "rect" || !kind) {
-            body = '<rect x="' + pad + '" y="' + pad + '" width="' + w + '" height="' + h + '"/>';
-        } else if (kind === "round") {
-            body = '<rect x="' + pad + '" y="' + pad + '" width="' + w + '" height="' + h +
-                '" rx="' + (w * 0.22) + '"/>';
-        } else if (kind === "ellipse") {
-            body = '<ellipse cx="' + (s / 2) + '" cy="' + (s / 2) + '" rx="' + (w / 2) + '" ry="' + (h / 2) + '"/>';
-        } else {
-            var pts = host.shapePoints(kind, w, h) || [];
-            body = '<polygon points="' + pts.map(function (pt) {
-                return (pt[0] + pad).toFixed(1) + "," + (pt[1] + pad).toFixed(1);
-            }).join(" ") + '"/>';
-        }
-        return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 ' + s + " " + s + '" ' +
-            'fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">' +
-            body + "</svg>";
+        return SlidesShapes.icon(kind || "rect", size || 22);
     }
 
     /* showShapeMenu opens the crop-shape picker under an element. The

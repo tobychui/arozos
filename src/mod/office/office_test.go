@@ -169,11 +169,13 @@ func TestPptxRoundtrip(t *testing.T) {
 		t.Errorf("text X = %v, want ~80", textObj.X)
 	}
 
-	// shape kind + text survive
+	// shape kind + text survive. The fixture asks for "star", the name the
+	// editor used before its shape catalogue existed; a round trip through
+	// the preset geometry is what rewrites it as the preset's own name.
 	for _, o := range s1.Objects {
 		if o.Type == "shape" {
-			if o.Props.Kind != "star" {
-				t.Errorf("shape kind = %q, want star", o.Props.Kind)
+			if o.Props.Kind != "star5" {
+				t.Errorf("shape kind = %q, want star5", o.Props.Kind)
 			}
 			if o.Props.Text != "star text" {
 				t.Errorf("shape text = %q, want %q", o.Props.Text, "star text")

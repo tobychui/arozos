@@ -416,8 +416,8 @@ func TestPptxPictureMaskRoundTrips(t *testing.T) {
 	// a shaped crop is a preset geometry on the picture; every kind the
 	// editor can draw must survive being written and read back
 	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 32))
-	for _, kind := range []string{"ellipse", "triangle", "diamond", "star",
-		"chevron", "hexagon", "downArrow", "plus"} {
+	for _, kind := range []string{"ellipse", "triangle", "diamond", "star5",
+		"chevron", "hexagon", "downArrow", "plus", "roundRect", "heart"} {
 		t.Run(kind, func(t *testing.T) {
 			pres := &Presentation{Slides: []*Slide{{Objects: []*Object{{
 				Type: "image", X: 10, Y: 20, W: 200, H: 100, Z: 1,
@@ -526,7 +526,7 @@ func TestPptxRoundPictureKeepsItsRadius(t *testing.T) {
 	png := []byte("\x89PNG\r\n\x1a\n" + strings.Repeat("x", 32))
 	pres := &Presentation{Slides: []*Slide{{Objects: []*Object{{
 		Type: "image", X: 0, Y: 0, W: 200, H: 100, Z: 1,
-		Props: Props{Src: encodeDataURL(png, "png"), Mask: "round", Radius: 10},
+		Props: Props{Src: encodeDataURL(png, "png"), Mask: "roundRect", Radius: 10},
 	}}}}}
 	data, err := BuildPptx(pres)
 	if err != nil {
@@ -537,8 +537,8 @@ func TestPptxRoundPictureKeepsItsRadius(t *testing.T) {
 		t.Fatalf("ParsePptx: %v", err)
 	}
 	p := got.Slides[0].Objects[0].Props
-	if p.Mask != "round" {
-		t.Errorf("mask = %q, want round", p.Mask)
+	if p.Mask != "roundRect" {
+		t.Errorf("mask = %q, want roundRect", p.Mask)
 	}
 	// 10px of the 100px short side is a 10% adjust
 	if p.Radius < 9.5 || p.Radius > 10.5 {
@@ -784,6 +784,88 @@ func TestFontStackOffersShippedFonts(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+/* ---------------- preset geometries ---------------- */
+
+// The editor's catalogue (web/Office/slides/slides_shapes.js) names its
+// shapes after the PresentationML presets, so a preset it draws must come
+// back as itself and go out as itself. A round trip through both tables is
+// what pins that down - and it is what stopped rightBrace from importing as
+// an outlined rectangle.
+func TestPresetGeometryRoundTrip(t *testing.T) {
+	for _, prst := range []string{
+		"rect", "roundRect", "ellipse", "triangle", "rtTriangle", "diamond",
+		"rightArrow", "leftArrow", "upArrow", "downArrow", "star5",
+		"chevron", "pentagon", "hexagon", "parallelogram", "trapezoid",
+		"rightBrace", "leftBrace", "bracePair", "leftBracket", "rightBracket",
+		"wedgeRectCallout", "wedgeRoundRectCallout", "cloudCallout",
+		"flowChartDecision", "flowChartDocument", "flowChartTerminator",
+		"can", "cube", "donut", "heart", "cloud", "quadArrow", "mathPlus",
+	} {
+		t.Run(prst, func(t *testing.T) {
+			kind, ok := prstToShapeKind[prst]
+			if !ok {
+				t.Fatalf("preset %q has no shape kind", prst)
+			}
+			if got := shapeKindPrst(kind); got != prst {
+				t.Errorf("%q -> kind %q -> %q, want %q back", prst, kind, got, prst)
+			}
+		})
+	}
+}
+
+// A preset the editor cannot draw still has to land on something, and
+// "rect" is the answer of last resort - never an empty geometry.
+// The editor had three names of its own before the catalogue: round, arrow
+// and star. They are gone from the catalogue, but a .ppta written back then
+// still says them, so export has to translate - and what comes back is the
+// preset's own name, which is how a deck gets rewritten by opening it.
+func TestLegacyShapeNamesStillExport(t *testing.T) {
+	for legacy, want := range map[string]string{
+		"round": "roundRect", "arrow": "rightArrow", "star": "star5",
+	} {
+		t.Run(legacy, func(t *testing.T) {
+			if got := shapeKindPrst(legacy); got != want {
+				t.Errorf("%q exports as %q, want %q", legacy, got, want)
+			}
+			if _, drawn := prstToShapeKind[legacy]; drawn {
+				t.Errorf("%q is still in the catalogue; it should only be a legacy alias", legacy)
+			}
+		})
+	}
+}
+
+func TestPresetGeometryFallback(t *testing.T) {
+	if got := shapeKindPrst("nothingLikeThisExists"); got != "rect" {
+		t.Errorf("unknown kind -> %q, want rect", got)
+	}
+	if got := shapeKindPrst(""); got != "rect" {
+		t.Errorf("empty kind -> %q, want rect", got)
+	}
+}
+
+// Every kind the ODF writer knows has to read back as the same kind, or a
+// deck loses its shapes on a .odp round trip.
+func TestOdpShapeTypesRoundTrip(t *testing.T) {
+	seen := map[string]string{}
+	for kind, typ := range odpShapeTypes {
+		if other, dup := seen[typ]; dup {
+			// two kinds may share an ODF type (chevron and homePlate do);
+			// the reader can only pick one, and that is fine
+			t.Logf("ODF type %q is shared by %q and %q", typ, other, kind)
+			continue
+		}
+		seen[typ] = kind
+	}
+	for typ, kind := range seen {
+		eg := &onode{name: "enhanced-geometry", attrs: map[string]string{"type": typ}}
+		n := &onode{name: "custom-shape", children: []onodeChild{{el: eg}}}
+		got := odpCustomShapeKind(n)
+		if got != kind && odpShapeTypes[got] != typ {
+			t.Errorf("ODF type %q read back as %q, want %q", typ, got, kind)
+		}
 	}
 }
 

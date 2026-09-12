@@ -622,7 +622,7 @@ func (cv *odpConverter) shape(n *onode, slide *Slide, ox, oy, kx, ky float64) {
 		kind = odpCustomShapeKind(n)
 	default:
 		if n.attr("corner-radius") != "" {
-			kind = "round"
+			kind = "roundRect"
 		}
 	}
 	fill := st.Fill
@@ -654,7 +654,9 @@ func (cv *odpConverter) shape(n *onode, slide *Slide, ox, oy, kx, ky float64) {
 	cv.add(slide, &Object{Type: "shape", X: x, Y: y, W: w, H: h, Rot: rot, Props: props})
 }
 
-// odpCustomShapeKind maps a draw:custom-shape's enhanced geometry type
+// odpCustomShapeKind maps a draw:custom-shape's enhanced geometry type onto
+// the shape the editor draws for it - the inverse of odpShapeTypes
+// (odp_writer.go), plus the spellings other producers use.
 func odpCustomShapeKind(n *onode) string {
 	eg := n.first("enhanced-geometry")
 	if eg == nil {
@@ -664,33 +666,187 @@ func odpCustomShapeKind(n *onode) string {
 	case "ellipse", "circle":
 		return "ellipse"
 	case "round-rectangle", "rounded-rectangle":
-		return "round"
-	case "isosceles-triangle", "triangle":
+		return "roundRect"
+	case "triangle":
+		return "triangle"
+	case "star":
+		return "star5"
+	case "isosceles-triangle":
 		return "triangle"
 	case "right-triangle":
 		return "rtTriangle"
 	case "diamond":
 		return "diamond"
-	case "right-arrow":
-		return "arrow"
-	case "left-arrow":
-		return "leftArrow"
-	case "up-arrow":
-		return "upArrow"
-	case "down-arrow":
-		return "downArrow"
-	case "star5", "star":
-		return "star"
-	case "pentagon", "pentagon-right":
-		return "chevron"
+	case "pentagon":
+		return "pentagon"
 	case "hexagon":
 		return "hexagon"
+	case "octagon":
+		return "octagon"
 	case "parallelogram":
 		return "parallelogram"
 	case "trapezoid":
 		return "trapezoid"
 	case "cross":
 		return "plus"
+	case "pentagon-right":
+		return "chevron"
+	case "can":
+		return "can"
+	case "cube":
+		return "cube"
+	case "ring":
+		return "donut"
+	case "forbidden":
+		return "noSmoking"
+	case "heart":
+		return "heart"
+	case "lightning":
+		return "lightningBolt"
+	case "sun":
+		return "sun"
+	case "moon":
+		return "moon"
+	case "cloud":
+		return "cloud"
+	case "smiley":
+		return "smileyFace"
+	case "paper":
+		return "foldedCorner"
+	case "block-arc":
+		return "blockArc"
+	case "arc":
+		return "arc"
+	case "pie":
+		return "pie"
+	case "frame":
+		return "frame"
+	case "right-arrow":
+		return "rightArrow"
+	case "left-arrow":
+		return "leftArrow"
+	case "up-arrow":
+		return "upArrow"
+	case "down-arrow":
+		return "downArrow"
+	case "left-right-arrow":
+		return "leftRightArrow"
+	case "up-down-arrow":
+		return "upDownArrow"
+	case "quad-arrow":
+		return "quadArrow"
+	case "notched-right-arrow":
+		return "notchedRightArrow"
+	case "striped-right-arrow":
+		return "stripedRightArrow"
+	case "circular-arrow":
+		return "circularArrow"
+	case "right-arrow-callout":
+		return "rightArrowCallout"
+	case "left-arrow-callout":
+		return "leftArrowCallout"
+	case "up-arrow-callout":
+		return "upArrowCallout"
+	case "down-arrow-callout":
+		return "downArrowCallout"
+	case "left-right-arrow-callout":
+		return "leftRightArrowCallout"
+	case "star4":
+		return "star4"
+	case "star5":
+		return "star5"
+	case "star6":
+		return "star6"
+	case "star8":
+		return "star8"
+	case "star12":
+		return "star12"
+	case "star24":
+		return "star24"
+	case "bang":
+		return "irregularSeal1"
+	case "rectangular-callout":
+		return "wedgeRectCallout"
+	case "round-rectangular-callout":
+		return "wedgeRoundRectCallout"
+	case "round-callout":
+		return "wedgeEllipseCallout"
+	case "cloud-callout":
+		return "cloudCallout"
+	case "left-bracket":
+		return "leftBracket"
+	case "right-bracket":
+		return "rightBracket"
+	case "bracket-pair":
+		return "bracketPair"
+	case "left-brace":
+		return "leftBrace"
+	case "right-brace":
+		return "rightBrace"
+	case "brace-pair":
+		return "bracePair"
+	case "mathplus":
+		return "mathPlus"
+	case "mathminus":
+		return "mathMinus"
+	case "mathmultiply":
+		return "mathMultiply"
+	case "mathdivide":
+		return "mathDivide"
+	case "mathequal":
+		return "mathEqual"
+	case "mathnotequal":
+		return "mathNotEqual"
+	case "flowchart-process":
+		return "flowChartProcess"
+	case "flowchart-alternate-process":
+		return "flowChartAlternateProcess"
+	case "flowchart-decision":
+		return "flowChartDecision"
+	case "flowchart-data":
+		return "flowChartInputOutput"
+	case "flowchart-predefined-process":
+		return "flowChartPredefinedProcess"
+	case "flowchart-internal-storage":
+		return "flowChartInternalStorage"
+	case "flowchart-document":
+		return "flowChartDocument"
+	case "flowchart-multidocument":
+		return "flowChartMultidocument"
+	case "flowchart-terminator":
+		return "flowChartTerminator"
+	case "flowchart-preparation":
+		return "flowChartPreparation"
+	case "flowchart-manual-input":
+		return "flowChartManualInput"
+	case "flowchart-manual-operation":
+		return "flowChartManualOperation"
+	case "flowchart-connector":
+		return "flowChartConnector"
+	case "flowchart-off-page-connector":
+		return "flowChartOffpageConnector"
+	case "flowchart-card":
+		return "flowChartPunchedCard"
+	case "flowchart-punched-tape":
+		return "flowChartPunchedTape"
+	case "flowchart-summing-junction":
+		return "flowChartSummingJunction"
+	case "flowchart-or":
+		return "flowChartOr"
+	case "flowchart-collate":
+		return "flowChartCollate"
+	case "flowchart-sort":
+		return "flowChartSort"
+	case "flowchart-extract":
+		return "flowChartExtract"
+	case "flowchart-merge":
+		return "flowChartMerge"
+	case "flowchart-delay":
+		return "flowChartDelay"
+	case "flowchart-magnetic-disk":
+		return "flowChartMagneticDisk"
+	case "flowchart-display":
+		return "flowChartDisplay"
 	}
 	return "rect"
 }

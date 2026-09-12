@@ -26,8 +26,9 @@
                         props: { ... } // per type:
                         //  text : { html, fontSize, color, align, bold, italic, underline }
                         //  image: { src, fit: "contain"|"cover"|"fill" }
-                        //  shape: { kind: "rect"|"round"|"ellipse"|"triangle"|"diamond"|
-                        //                 "arrow"|"star"|"chevron",
+                        //  shape: { kind: a SlidesShapes name, which is the
+                        //                 PresentationML preset name -
+                        //                 "rect"|"roundRect"|"ellipse"|"rightBrace"|...
                         //           fill, stroke, strokeW, text, textColor, fontSize, bold }
                         //  line : { stroke, strokeW, dash, arrowEnd }
                         //  table: { rows: [["a","b"],...], headerRow, colW?, rowH?, fontSize, color }
@@ -106,25 +107,25 @@ var SlidesApp = (function () {
     ];
     var MEDIA_MAX_BYTES = 200 * 1024 * 1024;  // uploads stream to the workdir
 
-    var SHAPE_KINDS = [
-        { kind: "rect",          label: "Rectangle" },
-        { kind: "round",         label: "Rounded rectangle" },
-        { kind: "ellipse",       label: "Ellipse" },
-        { kind: "triangle",      label: "Triangle" },
-        { kind: "rtTriangle",    label: "Right triangle" },
-        { kind: "diamond",       label: "Diamond" },
-        { kind: "pentagon",      label: "Pentagon" },
-        { kind: "hexagon",       label: "Hexagon" },
-        { kind: "parallelogram", label: "Parallelogram" },
-        { kind: "trapezoid",     label: "Trapezoid" },
-        { kind: "plus",          label: "Cross" },
-        { kind: "star",          label: "Star" },
-        { kind: "chevron",       label: "Chevron" },
-        { kind: "arrow",         label: "Arrow (right)" },
-        { kind: "leftArrow",     label: "Arrow (left)" },
-        { kind: "upArrow",       label: "Arrow (up)" },
-        { kind: "downArrow",     label: "Arrow (down)" }
-    ];
+    /* What a picture can be masked to. Deliberately a short list and not
+       the whole catalogue, for two reasons. A mask reads as a silhouette,
+       so the outlines worth offering are the ones that still say something
+       at thumbnail size - and every one of these is a polygon, which is
+       what lets maskClipPath() state it in percentages so the clip follows
+       the frame while it is being dragged. A curved shape would have to be
+       restated in pixels at every size. Every shape the editor can draw
+       lives in SlidesShapes (slides_shapes.js) and is offered by the
+       Insert > Shape picker. */
+    var MASK_KINDS = [
+        "rect", "roundRect", "ellipse", "triangle", "rtTriangle", "diamond",
+        "pentagon", "hexagon", "heptagon", "octagon", "decagon", "dodecagon",
+        "parallelogram", "trapezoid", "plus", "star4", "star5", "star6",
+        "star8", "star12", "chevron", "homePlate", "rightArrow", "leftArrow",
+        "upArrow", "downArrow", "leftRightArrow", "upDownArrow",
+        "flowChartManualInput", "flowChartInputOutput", "irregularSeal1"
+    ].map(function (k) {
+        return { kind: k, label: SlidesShapes.label(k) };
+    });
 
     /* ================= state ================= */
     var body = null;          // document body (see schema above)
@@ -206,7 +207,21 @@ var SlidesApp = (function () {
             s.objects.push(newTextObj("Left content", 50, 130, 420, 360, 20, "left", textColor));
             s.objects.push(newTextObj("Right content", 490, 130, 420, 360, 20, "left", textColor));
         } else if (kind === "caption") {
-            s.objects.push(newTextObj("Caption", 80, 440, 800, 60, 20, "center", textColor));
+            s.objects.push(newTextObj("Title", 60, 60, 840, 300, 28, "left", textColor));
+            s.objects.push(newTextObj("Caption", 60, 400, 840, 60, 16, "left", textColor));
+        } else if (kind === "section") {
+            s.objects.push(newTextObj("Section header", 60, 230, 840, 80, 36, "left", textColor));
+        } else if (kind === "onecol") {
+            s.objects.push(newTextObj("Heading", 60, 60, 840, 60, 28, "left", textColor));
+            s.objects.push(newTextObj("Text", 60, 140, 840, 340, 18, "left", textColor));
+        } else if (kind === "mainpoint") {
+            s.objects.push(newTextObj("Main point", 80, 210, 800, 120, 44, "left", textColor));
+        } else if (kind === "sectiondesc") {
+            s.objects.push(newTextObj("Section title", 60, 120, 380, 90, 30, "left", textColor));
+            s.objects.push(newTextObj("Description", 60, 230, 380, 200, 16, "left", textColor));
+        } else if (kind === "bignumber") {
+            s.objects.push(newTextObj("100%", 80, 160, 800, 140, 88, "center", textColor));
+            s.objects.push(newTextObj("What it stands for", 80, 320, 800, 60, 18, "center", textColor));
         }
         s.objects.forEach(function (o, i) { o.z = i + 1; });
         return s;
@@ -238,6 +253,10 @@ var SlidesApp = (function () {
                 o.rot = Number(o.rot) || 0;
                 o.z = i + 1;
                 if (!o.props || typeof o.props !== "object") o.props = {};
+                // decks written before the shape catalogue carry three
+                // editor-invented names; rewrite them as they come in
+                if (o.props.kind) o.props.kind = SlidesShapes.canonical(o.props.kind);
+                if (o.props.mask) o.props.mask = SlidesShapes.canonical(o.props.mask);
             });
         });
         if (!Array.isArray(b.fonts)) delete b.fonts;
@@ -345,7 +364,7 @@ var SlidesApp = (function () {
     function maskClipPath(kind) {
         if (!kind || kind === "rect") return "";
         if (kind === "ellipse") return "ellipse(50% 50% at 50% 50%)";
-        if (kind === "round") return "";        // border-radius draws this one
+        if (kind === "roundRect") return "";    // border-radius draws this one
         var pts = shapePoints(kind, 100, 100);
         if (!pts) return "";
         return "polygon(" + pts.map(function (pt) {
@@ -353,86 +372,71 @@ var SlidesApp = (function () {
         }).join(",") + ")";
     }
 
+    /* shapePoints is the polygon form of a shape, for the one caller that
+       wants corners rather than a path: the CSS clip-path of a mask, which
+       states them as percentages so the clip follows the frame. A shape
+       with curves in it has none, and says so - which is why MASK_KINDS is
+       all polygons. */
     function shapePoints(kind, w, h) {
-        var pts;
-        switch (kind) {
-            case "triangle":
-                pts = [[w / 2, 0], [w, h], [0, h]]; break;
-            case "diamond":
-                pts = [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]]; break;
-            case "arrow":
-                pts = [[0, h * 0.3], [w * 0.62, h * 0.3], [w * 0.62, 0], [w, h / 2],
-                       [w * 0.62, h], [w * 0.62, h * 0.7], [0, h * 0.7]]; break;
-            case "chevron":
-                pts = [[0, 0], [w * 0.72, 0], [w, h / 2], [w * 0.72, h], [0, h], [w * 0.28, h / 2]]; break;
-            case "leftArrow":
-                pts = [[w, h * 0.3], [w * 0.38, h * 0.3], [w * 0.38, 0], [0, h / 2],
-                       [w * 0.38, h], [w * 0.38, h * 0.7], [w, h * 0.7]]; break;
-            case "upArrow":
-                pts = [[w * 0.3, h], [w * 0.3, h * 0.38], [0, h * 0.38], [w / 2, 0],
-                       [w, h * 0.38], [w * 0.7, h * 0.38], [w * 0.7, h]]; break;
-            case "downArrow":
-                pts = [[w * 0.3, 0], [w * 0.3, h * 0.62], [0, h * 0.62], [w / 2, h],
-                       [w, h * 0.62], [w * 0.7, h * 0.62], [w * 0.7, 0]]; break;
-            case "rtTriangle":
-                pts = [[0, 0], [w, h], [0, h]]; break;
-            case "pentagon":
-                pts = [[w / 2, 0], [w, h * 0.38], [w * 0.81, h], [w * 0.19, h], [0, h * 0.38]]; break;
-            case "hexagon":
-                pts = [[w * 0.25, 0], [w * 0.75, 0], [w, h / 2],
-                       [w * 0.75, h], [w * 0.25, h], [0, h / 2]]; break;
-            case "parallelogram":
-                pts = [[w * 0.25, 0], [w, 0], [w * 0.75, h], [0, h]]; break;
-            case "trapezoid":
-                pts = [[w * 0.25, 0], [w * 0.75, 0], [w, h], [0, h]]; break;
-            case "plus":
-                pts = [[w * 0.35, 0], [w * 0.65, 0], [w * 0.65, h * 0.35], [w, h * 0.35],
-                       [w, h * 0.65], [w * 0.65, h * 0.65], [w * 0.65, h], [w * 0.35, h],
-                       [w * 0.35, h * 0.65], [0, h * 0.65], [0, h * 0.35], [w * 0.35, h * 0.35]];
-                break;
-            case "star":
-                pts = [];
-                var cx = w / 2, cy = h / 2, rx = w / 2, ry = h / 2, inner = 0.42;
-                for (var i = 0; i < 10; i++) {
-                    var ang = -Math.PI / 2 + i * Math.PI / 5;
-                    var f = (i % 2 === 0) ? 1 : inner;
-                    pts.push([cx + rx * f * Math.cos(ang), cy + ry * f * Math.sin(ang)]);
-                }
-                break;
-            default:
-                pts = null;
-        }
-        return pts;
+        return SlidesShapes.points(kind, w, h);
     }
 
+    /* shapeSvg draws one shape. The geometry comes from SlidesShapes, so
+       the canvas, the icon in the picker, a shaped crop and the PDF export
+       are all working from the same outline.
+
+       Two shapes are still drawn as SVG primitives rather than as a path:
+       a rectangle and an ellipse, because a rounded rectangle's radius is
+       a property the user sets and `rx` follows the box as it is resized. */
     function shapeSvg(o) {
         var w = Math.max(4, o.w), h = Math.max(4, o.h);
         var p = o.props;
+        var kind = SlidesShapes.canonical(p.kind || "rect");
         var sw = Number(p.strokeW) || 0;
+        var stroke = p.stroke || "";
         // an imported shape may legitimately have no fill (an outline-only
         // box); only an editor-made shape with nothing set gets the default
         var fill = p.fill || "#e07b1f";
+        // a bracket, a brace or an arc is a line and not an area: with no
+        // stroke there would be nothing on the slide at all
+        var open = SlidesShapes.isOpen(kind);
+        if (open) {
+            if (!stroke || stroke === "none") stroke = (fill && fill !== "none") ? fill : "#333333";
+            if (!sw) sw = 2;
+            fill = "none";
+        }
+        var hasStroke = sw > 0 && stroke && stroke !== "none";
         var attrs = 'fill="' + esc(fill) + '"' +
-            (sw > 0 ? ' stroke="' + esc(p.stroke || "#333333") + '" stroke-width="' + sw + '"' +
+            (SlidesShapes.evenOdd(kind) ? ' fill-rule="evenodd"' : "") +
+            (hasStroke ? ' stroke="' + esc(stroke) + '" stroke-width="' + sw + '"' +
                 (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") : ' stroke="none"') +
             ' stroke-linejoin="round" vector-effect="non-scaling-stroke"';
         var inner;
-        var i = sw > 0 ? Math.max(0.5, sw / 2) : 0;
-        if (o.props.kind === "rect" || o.props.kind === "round" || !o.props.kind) {
-            var rx = o.props.kind === "round"
+        var i = hasStroke ? Math.max(0.5, sw / 2) : 0;
+        if (kind === "rect" || kind === "roundRect") {
+            var rx = kind === "roundRect"
                 ? (p.radius !== undefined ? Number(p.radius) : Math.min(w, h) * 0.15) : 0;
             inner = '<rect x="' + i + '" y="' + i + '" width="' + (w - 2 * i) + '" height="' + (h - 2 * i) +
                 '" rx="' + rx + '" ' + attrs + "/>";
-        } else if (o.props.kind === "ellipse") {
+        } else if (kind === "ellipse") {
             inner = '<ellipse cx="' + (w / 2) + '" cy="' + (h / 2) + '" rx="' + (w / 2 - i) + '" ry="' + (h / 2 - i) + '" ' + attrs + "/>";
         } else {
-            var pts = shapePoints(o.props.kind, w, h) || [[0, 0], [w, 0], [w, h], [0, h]];
-            inner = '<polygon points="' + pts.map(function (pt) {
-                return pt[0].toFixed(1) + "," + pt[1].toFixed(1);
-            }).join(" ") + '" ' + attrs + "/>";
+            var d = SlidesShapes.path(kind, w, h);
+            if (!d) d = SlidesShapes.path("rect", w, h);
+            inner = '<path d="' + d + '" ' + attrs + "/>";
         }
+        // markings - the divider bars of a predefined process, the fold of a
+        // folded corner. They are drawn, never filled.
+        var det = SlidesShapes.detail(kind, w, h);
+        if (det) {
+            inner += '<path d="' + det + '" fill="none" stroke="' +
+                esc(hasStroke ? stroke : contrastText(fill)) + '" stroke-width="' +
+                (sw > 0 ? sw : 1) + '" vector-effect="non-scaling-stroke"/>';
+        }
+        // a stroke sits astride the outline, so half of it falls outside the
+        // box - which is what PowerPoint draws too
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + " " + h +
-            '" preserveAspectRatio="none">' + inner + "</svg>";
+            '" preserveAspectRatio="none" style="overflow:visible">' + inner + "</svg>";
     }
 
     function shapeTextDiv(o) {
@@ -946,13 +950,27 @@ var SlidesApp = (function () {
             delete o.props.radius;
         } else {
             o.props.mask = kind;
-            if (kind === "round") o.props.radius = Math.min(o.w, o.h) * 0.15;
+            if (kind === "roundRect") o.props.radius = Math.min(o.w, o.h) * 0.15;
             else delete o.props.radius;
         }
         commit();
     }
 
     /* ================= rendering: rail / thumbnails ================= */
+
+    /* A preview is the whole slide at 960x540, shrunk by a transform. The
+       box it has to fit inside is whatever the rail can spare once the
+       scrollbar has taken its cut, which varies by platform - so measure it
+       rather than assume it. Getting this wrong does not look like a wrong
+       scale, it looks like the right-hand edge of every slide is missing. */
+    function fitThumbs() {
+        var view = document.querySelector("#slThumbs .sl-thumb-view");
+        var thumbs = document.getElementById("slThumbs");
+        if (!view || !thumbs) return;
+        var w = view.clientWidth;
+        if (w > 0) thumbs.style.setProperty("--sl-thumb-scale", w / SLIDE_W);
+    }
+
     function renderThumb(i) {
         var $mini = $("#slThumbs .sl-thumb").eq(i).find(".sl-thumb-mini");
         if ($mini.length && body.slides[i]) renderSlideContent($mini[0], body.slides[i]);
@@ -966,16 +984,31 @@ var SlidesApp = (function () {
     }
 
     var dragSlideIdx = -1;
+
+    // railFocused answers whose Delete key it is: the rail's or the canvas's
+    function railFocused() {
+        var a = document.activeElement;
+        var rail = document.getElementById("slRail");
+        return !!(a && rail && rail.contains(a));
+    }
+
     function renderRail() {
+        // deleting a slide rebuilds the rail, and the keyboard should not
+        // have to be given back by hand to delete the next one
+        var refocus = railFocused();
         var $t = $("#slThumbs").empty();
         body.slides.forEach(function (s, i) {
-            var $th = $('<div class="sl-thumb" draggable="true"></div>');
+            var $th = $('<div class="sl-thumb" draggable="true" tabindex="0"></div>');
             if (i === cur) $th.addClass("active");
             $th.append('<div class="sl-thumb-num">' + (i + 1) + "</div>");
             var $view = $('<div class="sl-thumb-view"><div class="sl-thumb-mini sl-slidebase"></div></div>');
             $th.append($view);
             renderSlideContent($view.find(".sl-thumb-mini")[0], s);
-            $th.on("click", function () { selectSlide(i); });
+            // Taking focus is what lets Delete mean "this slide", and
+            // focusing selects - so the slide the keyboard is on and the
+            // slide being edited can never be two different slides.
+            $th.on("click", function () { $th.focus(); selectSlide(i); });
+            $th.on("focus", function () { selectSlide(i); });
             $th.on("contextmenu", function (e) {
                 e.preventDefault();
                 selectSlide(i);
@@ -1012,6 +1045,8 @@ var SlidesApp = (function () {
             });
             $t.append($th);
         });
+        fitThumbs();
+        if (refocus) $("#slThumbs .sl-thumb").eq(cur).focus();
     }
     function updateRailActive() {
         $("#slThumbs .sl-thumb").each(function (i) {
@@ -1555,12 +1590,66 @@ var SlidesApp = (function () {
             { x: 330, y: 240, w: 300, h: 60 });
         startEdit(o.id);
     }
+    /* showShapePicker is the Insert > Shape control: the categories on the
+       left, the shapes of the one in hand as icons on the right. Icons and
+       not a list of names, because the outline is the thing being chosen -
+       and they are drawn from the catalogue, so a picker entry cannot come
+       to disagree with what gets inserted. */
+    var $shapePicker = null;
+    function closeShapePicker() {
+        if ($shapePicker) { $shapePicker.remove(); $shapePicker = null; }
+        $(document).off("mousedown.slshapepick");
+    }
+    function showShapePicker(x, y) {
+        closeShapePicker();
+        var $m = $('<div class="sl-shapepick of-noprint"></div>');
+        var $cats = $('<div class="sl-shapepick-cats"></div>');
+        var $grid = $('<div class="sl-shapepick-grid"></div>');
+        SlidesShapes.CATEGORIES.forEach(function (c, idx) {
+            var $b = $('<button type="button" class="sl-shapepick-cat"></button>');
+            $b.append($('<i class="icon"></i>').addClass(c.icon));
+            $b.append($("<span></span>").text(c.label));
+            $b.append('<i class="caret right icon sl-shapepick-more"></i>');
+            function open() {
+                $cats.find(".sl-shapepick-cat").removeClass("active");
+                $b.addClass("active");
+                $grid.empty();
+                c.kinds.forEach(function (k) {
+                    var $cell = $('<button type="button" class="sl-shapepick-cell"></button>')
+                        .attr("title", SlidesShapes.label(k))
+                        .html(SlidesShapes.icon(k, 22));
+                    $cell.on("click", function () { closeShapePicker(); insertShape(k); });
+                    $grid.append($cell);
+                });
+            }
+            $b.on("mouseenter click", open);
+            if (idx === 0) open();
+            $cats.append($b);
+        });
+        $m.append($cats).append($grid);
+        $("body").append($m);
+        var mw = $m.outerWidth(), mh = $m.outerHeight();
+        $m.css({
+            left: Math.max(4, Math.min(x, window.innerWidth - mw - 6)) + "px",
+            top: Math.max(4, Math.min(y, window.innerHeight - mh - 6)) + "px"
+        });
+        $shapePicker = $m;
+        setTimeout(function () {
+            $(document).on("mousedown.slshapepick", function (e) {
+                if ($shapePicker && !$shapePicker[0].contains(e.target)) closeShapePicker();
+            });
+        }, 0);
+    }
+
     function insertShape(kind) {
         var th = themeOf();
+        // a brace or a bracket only reads as itself tall and narrow, so the
+        // catalogue gets to say what box its shapes want
+        var size = SlidesShapes.defaultSize(kind) || [200, 160];
         addObj("shape", {
             kind: kind, fill: /^#[0-9a-fA-F]{6}$/.test(th.accent) ? th.accent : "#e07b1f",
             stroke: "#333333", strokeW: 0, text: "", fontSize: 18
-        }, { x: 380, y: 190, w: 200, h: 160 });
+        }, { x: 480 - size[0] / 2, y: 270 - size[1] / 2, w: size[0], h: size[1] });
     }
     function armDraw(kind) {
         endEdit(true);
@@ -2342,6 +2431,9 @@ var SlidesApp = (function () {
                 h: hname, id: o.id, start: pt, moved: false,
                 g: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }
             };
+            // the pointer leaves the knob as soon as the object turns, so
+            // the rotate cursor has to be put on the canvas for the drag
+            if (drag.mode === "rotate") canvasEl.classList.add("sl-rotating");
             try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
             return;
         }
@@ -2603,6 +2695,7 @@ var SlidesApp = (function () {
         var d = drag;
         drag = null;
         lastPointerEvt = null;
+        canvasEl.classList.remove("sl-rotating");
         hideGuides();
         try { canvasEl.releasePointerCapture(e.pointerId); } catch (err) { }
 
@@ -2771,7 +2864,7 @@ var SlidesApp = (function () {
                         label: "None (rectangle)",
                         checked: function () { return !o.props.mask; },
                         action: function () { setImageMask(o, ""); }
-                    }, { sep: true }].concat(SHAPE_KINDS.filter(function (s) {
+                    }, { sep: true }].concat(MASK_KINDS.filter(function (s) {
                         return s.kind !== "rect";
                     }).map(function (s) {
                         return {
@@ -2870,6 +2963,16 @@ var SlidesApp = (function () {
             { id: "sl.delete", description: "Delete selection", group: GO, when: function () { return editorIdle() && sel.length > 0; } });
         HK.register("Backspace", function () { deleteSelection(); },
             { id: "sl.delete2", when: function () { return editorIdle() && sel.length > 0; } });
+        /* Delete means the slide when the rail has the keyboard and the
+           canvas when it does not. Registered after the object one so it
+           gets first look (the registry is LIFO), though the two guards are
+           mutually exclusive anyway - selecting a slide clears the object
+           selection. */
+        HK.register("Delete", function () { deleteSlide(cur); },
+            { id: "sl.deleteslide", description: "Delete slide", group: GS,
+                when: function () { return editorIdle() && railFocused(); } });
+        HK.register("Backspace", function () { deleteSlide(cur); },
+            { id: "sl.deleteslide2", when: function () { return editorIdle() && railFocused(); } });
         HK.register("Escape", function () {
             if (cropId) { endCrop(false); return; }
             if (editingId) { endEdit(true); return; }
@@ -3068,7 +3171,14 @@ var SlidesApp = (function () {
         $tb.append(tbtn("undo", "Undo (Ctrl+Z)", function () { doUndo(); }));
         $tb.append(tbtn("redo", "Redo (Ctrl+Y)", function () { doRedo(); }));
         $tb.append('<div class="of-tsep"></div>');
+        // New slide is a split control: the button adds one, the caret
+        // beside it picks the layout to start from
         $tb.append(tbtn("plus square outline", "New slide (Ctrl+M)", function () { addSlideAfter(cur); }));
+        $tb.append(tbtn("caret down", "New slide with layout", function (e) {
+            var r = e.currentTarget.getBoundingClientRect();
+            OfficeApp.closeAllMenus();
+            showLayoutPicker(r.left - 60, r.bottom + 4);
+        }, "slBtnLayout"));
         $tb.append('<div class="of-tsep"></div>');
 
         $tb.append(tbtn("font", "Insert text box", insertText));
@@ -3083,9 +3193,8 @@ var SlidesApp = (function () {
         $tb.append($imgBtn);
         var $shpBtn = tbtn("object group", "Insert shape", function (e) {
             var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, SHAPE_KINDS.map(function (s) {
-                return { label: s.label, action: function () { insertShape(s.kind); } };
-            }));
+            OfficeApp.closeAllMenus();
+            showShapePicker(r.left, r.bottom + 4);
         });
         $tb.append($shpBtn);
         $tb.append(tbtn("minus", "Draw line", function () {
@@ -3678,9 +3787,11 @@ var SlidesApp = (function () {
                 ]
             },
             {
-                label: "Shape", icon: "object group", sub: SHAPE_KINDS.map(function (s) {
-                    return { label: s.label, action: function () { insertShape(s.kind); } };
-                })
+                label: "Shape...", icon: "object group",
+                action: function (e) {
+                    var r = document.getElementById("toolbar").getBoundingClientRect();
+                    showShapePicker(r.left + 120, r.bottom + 4);
+                }
             },
             { label: "Line", icon: "minus", action: function () { armDraw("line"); } },
             { label: "Arrow", icon: "long arrow alternate right", action: function () { armDraw("arrow"); } },
@@ -3704,18 +3815,64 @@ var SlidesApp = (function () {
             { label: "New slide from layout", icon: "th large", sub: layoutMenuItems }
         ];
     }
+    /* The layouts a new slide can start from, in the order the picker
+       shows them. They are skeletons of real objects, not a placeholder
+       system - so what the preview draws is what the slide will be. */
     var LAYOUTS = [
-        { key: "blank", label: "Blank" },
         { key: "title", label: "Title slide" },
+        { key: "section", label: "Section header" },
+        { key: "content", label: "Title and body" },
+        { key: "two", label: "Title and two columns" },
         { key: "normal", label: "Title only" },
-        { key: "content", label: "Title and content" },
-        { key: "two", label: "Two content boxes" },
-        { key: "caption", label: "Caption (bottom text)" }
+        { key: "onecol", label: "One-column text" },
+        { key: "mainpoint", label: "Main point" },
+        { key: "sectiondesc", label: "Section title and description" },
+        { key: "caption", label: "Caption" },
+        { key: "bignumber", label: "Big number" },
+        { key: "blank", label: "Blank" }
     ];
     function layoutMenuItems() {
         return LAYOUTS.map(function (l) {
             return { label: l.label, action: function () { addSlideAfter(cur, l.key); } };
         });
+    }
+
+    /* showLayoutPicker is the caret beside New slide: every layout as a
+       preview of itself. The previews are built by the same newSlide() and
+       renderSlideContent() the document uses, at the scale the rail uses,
+       so a preview cannot come to disagree with the slide it makes. */
+    var $layoutPicker = null;
+    function closeLayoutPicker() {
+        if ($layoutPicker) { $layoutPicker.remove(); $layoutPicker = null; }
+        $(document).off("mousedown.sllayoutpick");
+    }
+    function showLayoutPicker(x, y) {
+        closeLayoutPicker();
+        var $m = $('<div class="sl-layoutpick of-noprint"></div>');
+        LAYOUTS.forEach(function (l) {
+            var $c = $('<button type="button" class="sl-layoutpick-cell"></button>');
+            var $v = $('<div class="sl-layoutpick-view"><div class="sl-layoutpick-mini sl-slidebase"></div></div>');
+            $c.append($v);
+            $c.append($('<div class="sl-layoutpick-label"></div>').text(l.label));
+            $m.append($c);
+            renderSlideContent($v.find(".sl-layoutpick-mini")[0], newSlide(l.key));
+            $c.on("click", function () {
+                closeLayoutPicker();
+                addSlideAfter(cur, l.key);
+            });
+        });
+        $("body").append($m);
+        var mw = $m.outerWidth(), mh = $m.outerHeight();
+        $m.css({
+            left: Math.max(4, Math.min(x, window.innerWidth - mw - 6)) + "px",
+            top: Math.max(4, Math.min(y, window.innerHeight - mh - 6)) + "px"
+        });
+        $layoutPicker = $m;
+        setTimeout(function () {
+            $(document).on("mousedown.sllayoutpick", function (e) {
+                if ($layoutPicker && !$layoutPicker[0].contains(e.target)) closeLayoutPicker();
+            });
+        }, 0);
     }
     function slideMenuItems() {
         return [
@@ -3883,7 +4040,6 @@ var SlidesApp = (function () {
             }
         });
 
-        $("#slRailAdd").on("click", function () { addSlideAfter(body.slides.length - 1); });
 
         $("#slDeviceImage").on("change", function () {
             var files = this.files;
@@ -3892,7 +4048,10 @@ var SlidesApp = (function () {
         });
 
         registerHotkeys();
-        window.addEventListener("resize", layoutCanvas);
+        window.addEventListener("resize", function () {
+            layoutCanvas();
+            fitThumbs();
+        });
         // live list-button state as the caret moves through the text box
         document.addEventListener("selectionchange", function () {
             if (editingId && editingKind === "text") syncListButtonState();
@@ -3912,8 +4071,7 @@ var SlidesApp = (function () {
                 isCropping: function () { return !!cropId; },
                 resetImage: resetImage,
                 setMask: setImageMask,
-                shapeKinds: SHAPE_KINDS,
-                shapePoints: shapePoints,
+                shapeKinds: MASK_KINDS,
                 slideSize: [SLIDE_W, SLIDE_H],
                 relayout: layoutCanvas
             });
@@ -4116,9 +4274,6 @@ var SlidesApp = (function () {
         getCurrentIndex: function () { return cur; },
         renderSlideContent: renderSlideContent,
         themeOf: themeOf,
-        // the PDF exporter builds its clip paths from the very same
-        // outlines the canvas draws, so the two cannot disagree
-        shapePoints: shapePoints,
         slideCount: function () { return body ? body.slides.length : 0; }
     };
 })();

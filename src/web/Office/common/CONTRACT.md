@@ -613,8 +613,10 @@ corrects the height to the source's own aspect ratio.
 
 `mask` maps onto a `prstGeom` on the `p:pic` in .pptx, so a shaped crop made
 here and one made in PowerPoint are the same thing; the renderer draws it as
-a `clip-path` built from `shapePoints()`, so every shape the editor can draw
-is also a mask it can cut.
+a `clip-path` built from `SlidesShapes.points()` - stated in percentages, so
+the clip follows the frame as it is dragged. That is why the crop shapes are
+the catalogue's polygons and not all of it: a curved outline would have to be
+restated in pixels at every size.
 
 ## Picture tools (slides/slides_image.js)
 
@@ -632,7 +634,7 @@ Three pieces:
   `.of-te-btn`) anchored under a selected image: crop, reset, format options.
   Crop and the crop shapes are one split control, the caret opening the grid.
 - the **shape grid** — the crop shapes as icons rather than names, drawn by
-  `shapeIcon()` from the same `shapePoints()` the canvas uses, so an icon
+  `shapeIcon()` from the same `SlidesShapes` geometry the canvas uses, so an icon
   cannot drift from the mask it applies.
 - the **format panel** — `#slFormatPanel`, docked to the right of `#slMain`
   (it is a flex sibling, so the canvas re-fits itself via `relayout`): size,
@@ -682,6 +684,31 @@ can only reach a PDF as a picture. The tail `stack()` appends is what keeps
 it exportable. This applies on the Go side too: `fontStackFor`
 (`mod/office/pptx_text.go`) appends the same list to every stack an import
 writes, and the two lists have to stay in step.
+
+## Slides shape geometry (slides/slides_shapes.js)
+
+`SlidesShapes` owns every shape the Slides editor draws, named after the
+PresentationML preset it is. Paths use only `M`, `L`, `C` and `Z`, which is
+what lets the canvas, `clip-path: path()` and the PDF exporter share one
+geometry.
+
+```js
+SlidesShapes.path(kind, w, h)      // "M0 0L100 0..." ("" if unknown)
+SlidesShapes.detail(kind, w, h)    // markings to stroke, or ""
+SlidesShapes.points(kind, w, h)    // polygon corners, or null for a curved one
+SlidesShapes.icon(kind, size)      // the same outline as a small SVG
+SlidesShapes.canonical(kind)       // preset spelling -> catalogue name
+SlidesShapes.isOpen / evenOdd / label / defaultSize / CATEGORIES
+```
+
+Adding a shape means adding it here and nowhere else - the picker, the
+crop-shape grid, the canvas and the export all read from this one table.
+Keep the names in step with `prstToShapeKind` (`mod/office/pptx_reader.go`).
+
+`ALIASES` holds the three names the editor used before this file existed
+(`round`, `arrow`, `star`). They are not shapes any more - `normalizeBody()`
+rewrites them through `canonical()` as a document loads, so nothing
+downstream has to know about them.
 
 ## Vendored libs (common/lib/, all MIT)
 

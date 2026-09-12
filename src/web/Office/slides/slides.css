@@ -28,20 +28,6 @@
     overflow-x: hidden;
     padding: 10px 8px 4px 8px;
 }
-#slRailAdd {
-    flex: 0 0 auto;
-    margin: 6px 8px 8px 8px;
-    padding: 6px 8px;
-    border: 1px dashed var(--of-border);
-    border-radius: 5px;
-    background: transparent;
-    color: var(--of-fg-soft);
-    cursor: pointer;
-    font-size: 12px;
-    font-family: inherit;
-}
-#slRailAdd:hover { background: var(--of-hover); color: var(--of-fg); }
-#slRailAdd i.icon { margin: 0 2px 0 0 !important; font-size: 11px !important; }
 
 .sl-thumb {
     display: flex;
@@ -59,16 +45,27 @@
     color: var(--of-fg-soft);
     padding-top: 2px;
 }
+/* The preview takes whatever width the rail can spare - which is not a
+   number this stylesheet can know, because the scrollbar's width is the
+   platform's business and it eats into it. So the box is fluid and holds
+   the slide's shape, and the scale that fits a 960px slide inside it is
+   measured and set as --sl-thumb-scale (fitThumbs() in slides.js). A
+   hard-coded scale here is how the right edge of every preview came to be
+   clipped by the width of a scrollbar. */
 .sl-thumb-view {
     position: relative;
-    width: 136px;
-    height: 76.5px;
+    flex: 1 1 auto;
+    min-width: 0;
+    aspect-ratio: 960 / 540;
     overflow: hidden;
     border: 2px solid var(--of-border);
     border-radius: 4px;
     background: #fff;
     box-sizing: content-box;
 }
+/* focusing a thumbnail selects it, so the active border is already the
+   focus indicator - the browser's own outline would only double it up */
+.sl-thumb:focus { outline: none; }
 .sl-thumb.active .sl-thumb-view {
     border-color: var(--of-accent);
     box-shadow: 0 0 0 1px var(--of-accent);
@@ -79,7 +76,7 @@
     top: 0;
     width: 960px;
     height: 540px;
-    transform: scale(0.141667);
+    transform: scale(var(--sl-thumb-scale, 0.141667));
     transform-origin: 0 0;
     pointer-events: none;
 }
@@ -373,7 +370,16 @@ body.dark .sl-h { background: #2b2d31; }
 .sl-h[data-h="e"], .sl-h[data-h="w"] { cursor: ew-resize; }
 .sl-h[data-h="nw"], .sl-h[data-h="se"] { cursor: nwse-resize; }
 .sl-h[data-h="ne"], .sl-h[data-h="sw"] { cursor: nesw-resize; }
-.sl-h[data-h="rot"] { cursor: grab; }
+/* The rotate knob gets a cursor that says rotate. There is no keyword for
+   it, so it is drawn here - a circular arrow with a white halo so it reads
+   on a dark picture as well as on the page, with grab as the fallback for
+   anything that will not take a custom cursor. .sl-rotating keeps it while
+   the drag runs, because the pointer leaves the knob almost immediately. */
+.sl-h[data-h="rot"],
+#slCanvas.sl-rotating,
+#slCanvas.sl-rotating * {
+    cursor: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='4'%20stroke-linejoin='round'%20stroke-linecap='round'%3E%3Cpath%20d='M7.05%2016.95A7%207%200%201%201%2016.95%2016.95'/%3E%3Cpath%20d='M13.98%2019.92L18.93%2018.93L14.97%2014.97Z'/%3E%3C/g%3E%3Cpath%20d='M7.05%2016.95A7%207%200%201%201%2016.95%2016.95'%20fill='none'%20stroke='%23000'%20stroke-width='1.9'%20stroke-linecap='round'/%3E%3Cpath%20d='M13.98%2019.92L18.93%2018.93L14.97%2014.97Z'%20fill='%23000'/%3E%3C/svg%3E") 12 12, grab;
+}
 .sl-h[data-h="p1"], .sl-h[data-h="p2"] { cursor: move; }
 .sl-rot-stem {
     position: absolute;
@@ -611,8 +617,6 @@ body.dark .sl-h { background: #2b2d31; }
 /* ============ Small screens ============ */
 @media (max-width: 700px) {
     #slRail { flex: 0 0 120px; width: 120px; }
-    .sl-thumb-view { width: 88px; height: 49.5px; }
-    .sl-thumb-mini { transform: scale(0.091667); }
 }
 
 /* ============ Picture tools (slides_image.js) ============ */
@@ -636,6 +640,140 @@ body.dark .sl-h { background: #2b2d31; }
 .sl-imagebar-caret i.icon { font-size: 10px !important; }
 
 /* ---- crop shape grid ---- */
+/* ---- New slide layout picker ---- */
+/* Every layout as a preview of itself, at the scale the rail uses. The
+   previews are real slides, rendered by renderSlideContent. */
+.sl-layoutpick {
+    position: fixed;
+    z-index: 1500;
+    display: grid;
+    grid-template-columns: repeat(3, 140px);
+    gap: 4px;
+    padding: 8px;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    user-select: none;
+}
+.sl-layoutpick-cell {
+    display: block;
+    padding: 6px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 11.5px;
+    text-align: center;
+    cursor: pointer;
+}
+.sl-layoutpick-cell:hover { background: var(--of-hover); }
+.sl-layoutpick-view {
+    position: relative;
+    width: 128px;
+    height: 72px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: #fff;
+    box-sizing: content-box;
+}
+.sl-layoutpick-cell:hover .sl-layoutpick-view { border-color: var(--of-accent); }
+.sl-layoutpick-mini {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 960px;
+    height: 540px;
+    transform: scale(0.13333);
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+.sl-layoutpick-label {
+    margin-top: 5px;
+    color: var(--of-fg-soft);
+    line-height: 1.25;
+}
+/* Outline every box in a preview, or the layout is a few grey smudges and
+   you cannot tell one from the next. The mini is the whole 960px slide
+   scaled to 128, so the outline has to be stated at slide scale: 7px lands
+   at about one. A mid grey rather than a theme colour, because what is
+   behind it is the deck's own background, which may be light or dark. */
+.sl-layoutpick-mini .sl-obj {
+    outline: 7px solid #b7bcc2;
+    outline-offset: -3px;
+}
+
+/* ---- Insert > Shape picker ---- */
+/* Categories down the left, the shapes of the one in hand as icons on the
+   right. Same chrome as the crop-shape grid above it, because they are the
+   same act of choosing an outline. */
+.sl-shapepick {
+    position: fixed;
+    z-index: 1500;
+    display: flex;
+    align-items: stretch;
+    padding: 5px;
+    gap: 5px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    user-select: none;
+}
+.sl-shapepick-cats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 5px;
+    border-right: 1px solid var(--of-border);
+}
+.sl-shapepick-cat {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 132px;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+.sl-shapepick-cat i.icon { margin: 0 !important; font-size: 12px !important; opacity: 0.75; }
+.sl-shapepick-cat span { flex: 1 1 auto; }
+.sl-shapepick-cat .sl-shapepick-more { opacity: 0.4; }
+.sl-shapepick-cat:hover { background: var(--of-hover); }
+.sl-shapepick-cat.active { background: var(--of-accent-soft); color: var(--of-accent); }
+.sl-shapepick-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 30px);
+    grid-auto-rows: 30px;
+    gap: 1px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.sl-shapepick-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-shapepick-cell:hover { background: var(--of-hover); color: var(--of-accent); }
+
 .sl-shapegrid {
     position: fixed;
     z-index: 1500;

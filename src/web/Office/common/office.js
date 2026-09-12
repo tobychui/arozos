@@ -778,8 +778,8 @@ var OfficeApp = (function () {
         var what = f.fmt ? formatLabel(f.fmt) : (f.ext + " file");
         $b.find(".of-fmtbanner-msg").html(
             "This is a <b>" + escapeHtml(what) + "</b>, not an ArozOS Office " +
-            escapeHtml(cfg.fileTypeName.toLowerCase()) + ". Saving keeps that format, " +
-            "so anything " + escapeHtml(f.ext) + " cannot store is lost.");
+            escapeHtml(cfg.fileTypeName.toLowerCase()) + ". " +
+            "Anything " + escapeHtml(f.ext) + " cannot store is lost on save.");
         $b.css("display", "");
     }
     /*
