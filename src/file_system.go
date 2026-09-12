@@ -917,7 +917,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Log the upload filename
-	systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+filepath.Base(decodedUploadLocation), nil)
+	//systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+filepath.Base(decodedUploadLocation), nil)
 
 	//Set owner of the new uploaded file
 	userinfo.SetOwnerOfFile(fsh, unescapedPath)
@@ -1076,7 +1076,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	*/
 
 	//Fnish upload. Fix the tmp filename
-	systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+handler.Filename, nil)
+	//systemWideLogger.PrintAndLog("File System", userinfo.Username+" uploaded a file: "+handler.Filename, nil)
 
 	//Do upload finishing stuff
 
