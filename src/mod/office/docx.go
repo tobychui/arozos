@@ -21,10 +21,24 @@ import (
 type Document struct {
 	HTML        string    `json:"html"`
 	Page        *PageConf `json:"page,omitempty"`
-	Header      string    `json:"header,omitempty"`
+	Header      string    `json:"header,omitempty"` // plain text (older documents)
 	Footer      string    `json:"footer,omitempty"`
+	HeaderHTML  string    `json:"headerHtml,omitempty"` // rich header; wins over Header
+	FooterHTML  string    `json:"footerHtml,omitempty"`
 	PageNumbers bool      `json:"pageNumbers,omitempty"`
 	HFMode      string    `json:"hfMode,omitempty"` // header/footer repetition
+	// Footnotes are referenced from the text by <sup class="doc-fnref"
+	// data-fn="ID">; numbered in reference order
+	Footnotes []Footnote `json:"footnotes,omitempty"`
+	// LineSpacing is the multiple of single spacing a paragraph without
+	// data-ls uses (0 = the editor's default)
+	LineSpacing float64 `json:"lineSpacing,omitempty"`
+}
+
+// Footnote is one footnote's content (block HTML)
+type Footnote struct {
+	ID   string `json:"id"`
+	HTML string `json:"html"`
 }
 
 // Header/footer repetition modes (body.hfMode); the empty string means
@@ -61,6 +75,10 @@ type PageConf struct {
 	Margins     *MarginsMM `json:"margins,omitempty"`
 	Columns     int        `json:"columns,omitempty"` // text columns (0/1 = single)
 	ColGap      float64    `json:"colGap,omitempty"`  // gap between columns, mm
+	// distance of the header from the top edge / the footer from the
+	// bottom edge, mm (nil = the editor's default)
+	HeaderDist *float64 `json:"headerDist,omitempty"`
+	FooterDist *float64 `json:"footerDist,omitempty"`
 }
 
 // MarginsMM holds page margins in millimetres

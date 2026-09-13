@@ -58,7 +58,8 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <script src="../common/colorpicker.js"></script>
     <script src="../common/clipboard.js"></script>
     <!-- optional: ../common/charts.js, ../common/textedit.js,
-         ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js,
+         ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js +
+         ../common/pdfcore.js,
          ../common/lib/html2canvas.min.js -->
     <!-- with fonts.js: ../common/fonts/fonts.css declares the shipped
          document faces; an app that lets the user pick a font needs it -->
@@ -714,12 +715,18 @@ downstream has to know about them.
 
 - `marked.min.js` — Markdown → HTML (Docs import)
 - `pdf-lib.min.js` — PDF generation (global `PDFLib`). Used by the Slides
-  PDF export, which builds the file in the browser out of real PDF objects
-  (`slides/slides_pdf.js`).
+  and Docs PDF exports, which build the file in the browser out of real PDF
+  objects (`slides/slides_pdf.js`, `docs/docs_pdf.js`) on the shared
+  `common/pdfcore.js` (`OfficePdfCore`: font resolution against the shipped
+  faces, text runs, clip paths, raster fallback) — load it after pdf-lib.
+  Docs hands the actual PDF assembly to a Web Worker: `common/pdfworker.js`
+  (which `importScripts` pdf-lib, fontkit and `common/pdfdraw.js`) turns a
+  plain-data display list into the file; `pdfdraw.js` is also loaded in the
+  page as the fallback when no worker can start.
 - `fontkit.umd.min.js` — `@pdf-lib/fontkit`, which is what lets `pdf-lib`
   embed a font of our own. **Loaded on demand, not from the page**: it is
   the largest script here and only an export needs it (`loadFontkit` in
-  `slides_pdf.js` injects the tag). Its subsetter has sharp edges that the
+  `common/pdfcore.js` injects the tag). Its subsetter has sharp edges that the
   shipped fonts are built to avoid — see `fonts/README.md`.
 - `html2canvas.min.js` — DOM → canvas (Slides PNG export). **Not** the
   first choice for the PDF export's raster fallback: it re-implements

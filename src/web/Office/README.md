@@ -95,8 +95,8 @@ have written. `generate.go -wasm` builds and ships that module, and
 Two capability questions, and they are **not** the same:
 
 - `OfficePlatform.hasBackend()` — is there a server? (storage, AGI scripts,
-  the Docs/Sheets PDF renderers — Slides renders its own PDF in the browser
-  and needs no backend for it)
+  the Sheets PDF renderer — Docs and Slides render their own PDF in the
+  browser and need no backend for it)
 - `OfficePlatform.canConvert()` — can this build convert Office formats?
 
 **Gate anything new on the right one** (details in `CONTRACT.md`), or it will
@@ -115,12 +115,40 @@ both in a FloatWindow and a plain tab).
 Go structs are the source of truth — they mirror the JS exactly:
 
 - **Docs** (`document`): [`docx.go`](../../mod/office/docx.go) —
-  `{html, page{size, orientation, margins(mm), columns, colGap}, header,
-  footer, hfMode, pageNumbers, comments, trackChanges}`. `html` is a
-  sanitized contenteditable subset (see `sanitizeHtml` in `docs.js`).
-  `hfMode` (`all` | `except-first` | `none`, Format > Header & footer)
-  says which pages repeat the header/footer text; empty means `all`, so
-  documents written before the setting existed keep their behaviour.
+  `{html, page{size, orientation, margins(mm), columns, colGap, headerDist,
+  footerDist}, header, footer, headerHtml, footerHtml, footnotes[{id, html}],
+  lineSpacing, hfMode, pageNumbers, comments, trackChanges}`. `html` is a
+  sanitized contenteditable subset (see `sanitizeHtml` in `docs.js`) — the
+  **rich model** below. `header`/`footer` are the plain-text pair the editor
+  types into; `headerHtml`/`footerHtml` win when set (an imported header with
+  its own typography, a picture, a PAGE field). `lineSpacing` is the
+  document's default multiple (1.15 when absent). `hfMode` (`all` |
+  `except-first` | `none`, Format > Header & footer) says which pages repeat
+  the header/footer; empty means `all`, so documents written before the
+  setting existed keep their behaviour.
+
+  The rich model is plain HTML with inline CSS **in points** plus a few data
+  attributes, so one representation is shared by the editor, the layout
+  engine, the PDF exporter and the DOCX reader/writer:
+  - blocks: `padding-top` = spacing before (a heading's is `margin-top`,
+    which collapses like Google Docs does), `margin-bottom` = after,
+    `margin-left/right` + `text-indent` = indents, `border-*` + `padding-*`
+    = paragraph rules and their space; `data-ls` (multiple),
+    `data-lsexact` / `data-lsmin` (pt), `data-keep-next`,
+    `data-keep-lines`, `data-widow="0"`, `data-page-break-before`,
+    `data-tabs="right:451.3:dot;…"`.
+  - lists: `ol/ul.doc-list[data-num][data-fmt][data-lvltext]` with
+    `padding-left` and `--doc-hang`; the marker text is computed into
+    `li[data-marker]` by the layout engine (Word numbering continues across
+    lists that share a `data-num`).
+  - inline: `span.doc-tab` (a real tab), `sup.doc-fnref[data-fn]`,
+    `span.doc-field[data-field=PAGE|NUMPAGES]`.
+  - pictures: `width/height` in pt, `object-view-box: inset(…)` for a crop,
+    `img.doc-anchor` for one anchored above/below the text.
+  - tables: `table.of-table` with a pt `width`, `table-layout: fixed` and a
+    pt `<colgroup>`; cells state borders/padding/background inline.
+    `data-docx="1"` marks a table laid out the Word way (no spacing around
+    it) — one made in the editor has none and keeps docs.css's 8pt.
 - **Sheets** (`spreadsheet`): [`xlsx.go`](../../mod/office/xlsx.go) —
   `{sheets[{name, cells{"A1":{v,s,n}}, colW, rowH, merges, freeze,
   charts, filter, cf}], active}`. Cell `v` is the raw input (`=`-prefix =
@@ -160,13 +188,76 @@ body before posting:
 - **Sheets PDF print model** → client sends formatted display strings +
   styles (`Core.buildPrintModel()` in `sheets.js`) because formula
   evaluation and number formatting live in the client.
-- **Emoji in Docs PDF** → client rasterizes each emoji to a small PNG
-  (`rasterizeEmojiForPdf` in `docs.js`) because PDF core fonts are
-  Latin-1 and have no emoji glyphs.
+
+### Docs: one layout, drawn three ways
+
+A Docs page looks the same in the editor, in its PDF and (as far as Word's
+model allows) in its `.docx`, because there is only one layout:
+
+- [`docs/docs_layout.js`](docs/docs_layout.js) (`DocsLayout`) lays the live
+  editor DOM out the way a word processor does and paginates it: line
+  heights from real font metrics (`fontRatios`, measured on a 2048px canvas
+  — CSS `line-height: normal` differs per font and per platform), list
+  numbering, tab stops with leaders, table rules compensated for pixel
+  snapping, keep-with-next / keep-lines / widow and orphan control,
+  footnote space at the foot of each page. **A page boundary is real in the
+  DOM**: whatever crosses it is split into two elements — a paragraph at a
+  line, the list or quote around it, a table row cell by cell (a copy of
+  the row takes the rest of every cell) — and a `.doc-autobreak` spacer
+  between the halves carries the second one to the next sheet. Each half is
+  a box of its own, so borders, shading and cell rules end at the bottom of
+  their page. The halves are paired by a token (`data-split` on the head,
+  `data-split-of` on the tail, `data-pair` on the spacer; CSS
+  `.doc-split-head/-tail` drops the spacing and rule at the cut and the
+  marker of a continued list item). Undoing a split moves the tail's content
+  back and rejoins the divided text node, following the caret through it.
+  Editing around a cut goes through the same undo: `unsplitAtCaret` runs
+  before Backspace/Delete at the edge of a cut and before any key typed over
+  a selection that spans one, `unsplitWithin` before a table gains or loses
+  a row or column, and `repairSplits` drops what editing left behind (a tail
+  whose spacer was deleted, a marker copied by Enter). A relayout after
+  typing starts from the page that was edited. Nothing it adds is saved:
+  `stripLayoutArtifacts()` in `docs.js` undoes every split and removes every
+  spacer and computed attribute before a body is serialized (the paste
+  sanitizer strips them too).
+- The paper is **one `.doc-sheet` per page** in `#pageSheets`, behind the
+  transparent `#page`. The gap between two sheets is empty space, not a
+  band painted over one long sheet, and since nothing in the flow sits
+  there, nothing can show through. (A multi-column document is not
+  paginated and keeps a single sheet.) The status bar's "Page N of M"
+  follows the caret, or the middle of the view after a scroll.
+- [`docs/docs_pdf.js`](docs/docs_pdf.js) (`DocsPdf`) reads each sheet of that
+  DOM: text runs at the browser's baselines, fills and borders (a collapsed
+  table rule at the width the document states), pictures with their crop,
+  list markers (a disc/ring/square bullet becomes the shape at the glyph's
+  measured ink box — the only face shipped with the glyph is a CJK one,
+  twice the size), tab leaders and the footnote rule. **The export does not
+  hold the editor.** The page is only held while it is measured (a few
+  hundred ms for 90 pages, in its export state); what to draw is written
+  down as a plain-data display list, and
+  [`common/pdfworker.js`](common/pdfworker.js) assembles the file with
+  [`common/pdfdraw.js`](common/pdfdraw.js) in a Web Worker — embedding and
+  deflating pictures, subsetting fonts and serializing is where the time
+  goes (on the 92-page reference it held the page for ~14s before). The
+  same `pdfdraw.js` runs in the page when a worker cannot be started.
+  Progress shows in `OfficeApp.showProgress`, as in Slides, and the
+  document can be edited meanwhile without changing the file that comes
+  out. Font resolution against the shipped Noto faces, text runs and the
+  raster fallback live in [`common/pdfcore.js`](common/pdfcore.js), also
+  used by Slides (whose exporter still assembles in the page). `docs/backend/docx.agi`'s `export-pdf` and
+  `mod/office/pdf_doc.go` remain for AGI callers (`office.documentToPdf`),
+  but the editor no longer uses them.
+- The DOCX reader/writer (next section) map that same model to
+  WordprocessingML and back.
+
+Check changes against real documents: the round trip docx → editor → PDF
+was tuned against Google Docs' own PDF exports; comparing text line
+positions page by page (PyMuPDF on the PDF, `getClientRects()` on the DOM)
+finds a regression in minutes where eyeballing takes hours.
 
 ### Slides: PDF export is rendered in the browser
 
-**Docs and Sheets export PDF on the server; Slides does not.** Its
+**Sheets exports PDF on the server; Docs and Slides do not.** Slides'
 exporter is [`slides/slides_pdf.js`](slides/slides_pdf.js) (`SlidesPdf`),
 built on the vendored `pdf-lib`, and it runs against the very DOM the
 editor is showing.
@@ -591,13 +682,46 @@ the path that honours every mode exactly.
   falls back to the CSS stack. That is the one remaining reason an imported
   deck can differ visibly from its source: the glyphs are a substitute, so
   a line may wrap a word earlier.
-- **DOCX pagination** ([`docx_writer.go`](../../mod/office/docx_writer.go)):
-  Word substitutes its own Normal-style defaults (Calibri etc.) unless the
-  style sheet pins the editor's typography into `docDefaults` +
-  `pPrDefault` *and* every named style. That's why `docxStyles` spells out
-  Arial 11pt / 1.5 line-height / explicit spacing everywhere. Change the
-  editor's typography → change it there too, or exported page breaks
-  drift from the editor's.
+- **DOCX import is inheritance too**
+  ([`docx_reader.go`](../../mod/office/docx_reader.go),
+  [`docx_props.go`](../../mod/office/docx_props.go),
+  [`docx_numbering.go`](../../mod/office/docx_numbering.go)): a
+  paragraph's look is docDefaults → the paragraph style's `basedOn` chain
+  → direct `pPr` → character style → run `rPr`. Toggles are tri-state
+  (`<w:b w:val="0"/>` switches bold *off* against a bold style — reading it
+  as "present = on" is the classic bug). Numbering resolves `num` →
+  `abstractNum` → `lvlOverride`, with counters per list id.
+- **Google Docs exports get Google Docs' layout rules** (detected by the
+  all-zero rsids): the empty paragraph above a table loses its spacing
+  after, spacing-before after a page break is dropped, a heading's
+  spacing-before collapses with the spacing-after above it, a picture has
+  1.5pt either side, rows round up to whole pixels, and "Arial Unicode MS"
+  is Arial. Each rule was measured against its own PDF; they are `cv.gdocs`
+  branches so a Word document is not bent by them.
+- **A turned or mirrored picture is baked into the bitmap on import**
+  ([`docx_picture.go`](../../mod/office/docx_picture.go)): a CSS transform
+  would not move the text around it, so the frame is swapped and the crop
+  turned with it, and the picture lays out, prints and saves as it looks.
+- **DOCX export writes what the editor draws**
+  ([`docx_writer.go`](../../mod/office/docx_writer.go)): `docDefaults`,
+  heading styles and `editorBlockCSS` mirror `docs.css` (a `blockquote`'s
+  3px rule and padding, a `pre`'s frame and shading, a `th` centred), so
+  the export starts from the editor's defaults and lays the element's own
+  inline style over them. Paragraph borders use Word's geometry: the text
+  keeps its indent and the rule is drawn `w:space` outside it — the reader
+  maps that back to `margin + border + padding`. A block inside an indent
+  container (the browser's indent command wraps paragraphs in a
+  `blockquote style="margin: 0 0 0 40px"`) takes the container's indent.
+  Three custom styles mark what Word cannot express, so an import restores
+  it exactly: `ArozPageNumber` (the page number the editor draws by itself —
+  it comes back as `pageNumbers`, not footer text), `ArozHorizontalRule`
+  (an `<hr>`) and `ArozEditorTable` (an editor-made table, which keeps its
+  CSS spacing). The editor's plain 9pt grey header/footer also comes back
+  plain. A table or picture in a multi-column page is sized to one column.
+- **The editor model must round-trip.** `TestDocxRichRoundTrip` pins
+  model → docx → model for each construct; when adding one, add a row. A
+  mismatch shows up as layout drift the next time the file is opened, not
+  as an error.
 - **PPTX video/audio are NOT embedded**
   ([`pptx_writer.go`](../../mod/office/pptx_writer.go)): embedded media
   (`a:videoFile` + `p14:media` + timing tree, python-pptx-identical
@@ -719,13 +843,19 @@ sh ../scripts/check-conventions.sh --diff origin/master
 
 ## Ideas / known gaps (future work)
 
-- **CJK text as text in the Docs and Sheets PDF export.** Slides solved
+- **CJK text as text in the Sheets PDF export.** Slides and Docs solved
   this by shipping the fonts and embedding them in the browser
-  (`common/fonts`, `slides_pdf.js`); the Go renderer behind Docs and
-  Sheets still transliterates, because `fpdf`'s core fonts are cp1252.
-  The fix is either to give those two the same browser-side treatment —
-  which is the smaller job, since the machinery now exists — or to teach
-  `mod/office/pdf.go` to embed a CID font.
+  (`common/fonts`, `common/pdfcore.js`); the Go renderer behind Sheets
+  still transliterates, because `fpdf`'s core fonts are cp1252.
+- **Docs line breaking differs from Google Docs in one respect**: Google
+  Docs breaks only at spaces (a word longer than the line is cut at the
+  character), while Chrome also breaks after a hyphen or between quote
+  marks. A long code line can therefore wrap one word differently, which
+  moves the rest of that page by a line. CSS has no switch to take break
+  opportunities away; fixing it means marking them in the text.
+- A DOCX table with no rows (Google Docs writes these) takes no space in
+  the editor; Google Docs gives the heading after it a little less
+  spacing-before.
 - **MicroType Express decompression** so Google-Slides-embedded fonts can
   be used (see the format notes) — the last visible gap between an
   imported deck and its source.
@@ -743,9 +873,12 @@ sh ../scripts/check-conventions.sh --diff origin/master
 - Slides: SmartArt (`dgm:`), 3-D effects, shadows and animations are
   skipped rather than approximated.
 - Real-time collaboration (the `sharedspace` AGI lib was built for this).
-- Docs: footnotes, section breaks, multi-column export to docx/pdf
-  (`page.columns` renders in-editor and exports to docx, but the PDF
-  renderer ignores it).
+- Docs: section breaks (one page setup per document), and **pagination of
+  multi-column documents** — `page.columns` renders as CSS columns with
+  dotted page guides only, so text runs across the sheet boundaries in the
+  page view and in the browser PDF (which draws that view); the `.docx`
+  export writes real Word columns. Paginating columns means giving
+  `DocsLayout.paginate` a column-balancing pass.
 - Sheets PDF: merged-cell rendering in the print model.
 - Slides: shape text with per-run styling in pptx (currently
   object-level bold/italic/color only).

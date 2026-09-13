@@ -108,6 +108,8 @@
     var $fontSel, $sizeSel, $styleSel;
     var findState = { hits: [], cur: -1 };
     var hfClones = [];             // header/footer copies for pages 2..n
+    var hfContent = { header: "", footer: "" };   // header/footer HTML
+    var footnotes = {};            // footnote id -> HTML (body.footnotes)
     var comments = [];             // review comments [{id,text,at,resolved}]
     var suggesting = false;        // track-changes ("suggest edits") mode
 
@@ -116,6 +118,10 @@
             size: "A4",
             orientation: "portrait",
             margins: { top: 20, right: 20, bottom: 20, left: 20 },
+            headerDist: 12.7,  // header distance from the top edge, mm
+            footerDist: 12.7,  // footer distance from the bottom edge, mm
+            lineSpacing: 1.15, // multiple of single spacing for paragraphs
+                               // that do not state their own (data-ls)
             pageNumbers: false,
             hfMode: "all",     // header/footer on: all | except-first | none
             columns: 1,        // 1-3 text columns (2 = IEEE-style)
@@ -209,9 +215,18 @@
         for (i = bad.length - 1; i >= 0; i--) {
             if (bad[i].parentNode) bad[i].parentNode.removeChild(bad[i]);
         }
+        // layout-only pieces copied out of a paginated document
+        var layout = root.querySelectorAll(".doc-autobreak");
+        for (i = layout.length - 1; i >= 0; i--) {
+            if (layout[i].parentNode) layout[i].parentNode.removeChild(layout[i]);
+        }
         var all = root.querySelectorAll("*");
         for (i = 0; i < all.length; i++) {
             var el = all[i];
+            el.removeAttribute("data-split");
+            el.removeAttribute("data-split-of");
+            el.removeAttribute("data-pair");
+            el.classList.remove("doc-split-head", "doc-split-tail");
             for (var a = el.attributes.length - 1; a >= 0; a--) {
                 var at = el.attributes[a];
                 var n = at.name.toLowerCase();
@@ -229,10 +244,35 @@
     }
 
     /* ================= serialize / deserialize ================= */
+    /* Everything the layout engine computes (px line heights, tab widths,
+       list markers, spacer elements) is derived from the document and made
+       again on load - it is never saved. */
+    function stripLayoutArtifacts(root) {
+        removeAutoBreaks(root);
+        DocsLayout.restoreTablePadding(root);
+        DocsLayout.restorePictureLines(root);
+        var styled = root.querySelectorAll("[style]");
+        for (var i = 0; i < styled.length; i++) {
+            var el = styled[i];
+            el.style.lineHeight = "";
+            if (el.classList.contains("doc-tab")) {
+                el.style.width = "";
+                el.style.display = "";
+            }
+            if (el.classList.contains("doc-pagebreak")) el.style.height = "";
+            if (!el.getAttribute("style")) el.removeAttribute("style");
+        }
+        var marked = root.querySelectorAll("[data-marker],[data-n],[data-leader]");
+        for (i = 0; i < marked.length; i++) {
+            marked[i].removeAttribute("data-marker");
+            marked[i].removeAttribute("data-n");
+            marked[i].removeAttribute("data-leader");
+        }
+    }
     function cleanedHtml() {
         var clone = editor.cloneNode(true);
-        // strip layout-only automatic page spacers (visual pagination)
-        removeAutoBreaks(clone);
+        // strip layout-only spacers and computed layout values
+        stripLayoutArtifacts(clone);
         // strip find highlight spans
         var hits = clone.querySelectorAll("span.of-find-hit");
         for (var i = 0; i < hits.length; i++) {
@@ -249,8 +289,17 @@
         clone.normalize();
         return clone.innerHTML;
     }
-    function hfText(el) {
-        return (el.textContent || "").replace(/\n+/g, " ").trim();
+    function hfText(html) {
+        var div = document.createElement("div");
+        div.innerHTML = html || "";
+        var f = div.querySelectorAll(".doc-field");
+        for (var i = 0; i < f.length; i++) f[i].parentNode.removeChild(f[i]);
+        return (div.textContent || "").replace(/\s+/g, " ").trim();
+    }
+    // header/footer HTML worth saving as rich content: anything beyond a
+    // single run of plain text
+    function hfIsRich(html) {
+        return /<(p|div|h\d|img|span|b|i|u|table|ul|ol|br)\b/i.test(html || "");
     }
     function currentBody() {
         return {
@@ -263,24 +312,51 @@
                     bottom: pageConf.margins.bottom, left: pageConf.margins.left
                 },
                 columns: pageConf.columns,
-                colGap: pageConf.colGap
+                colGap: pageConf.colGap,
+                headerDist: pageConf.headerDist,
+                footerDist: pageConf.footerDist
             },
-            header: hfText(headerEl),
-            footer: hfText(footerEl),
+            header: hfText(hfContent.header),
+            footer: hfText(hfContent.footer),
+            headerHtml: hfIsRich(hfContent.header) ? hfContent.header : undefined,
+            footerHtml: hfIsRich(hfContent.footer) ? hfContent.footer : undefined,
+            footnotes: currentFootnotes(),
+            lineSpacing: docLineSpacing(),
             hfMode: pageConf.hfMode,
             pageNumbers: !!pageConf.pageNumbers,
             comments: JSON.parse(JSON.stringify(comments)),
             trackChanges: suggesting
         };
     }
+    // the footnotes the text still references, in reference order
+    function currentFootnotes() {
+        var out = [];
+        var seen = {};
+        var refs = editor.querySelectorAll("sup.doc-fnref");
+        for (var i = 0; i < refs.length; i++) {
+            var id = refs[i].getAttribute("data-fn");
+            if (seen[id]) continue;
+            seen[id] = true;
+            out.push({ id: id, html: footnotes[id] || "" });
+        }
+        return out.length ? out : undefined;
+    }
     function loadBody(b) {
         b = b || {};
+        dirtyFromY = null;
+        lastPages = [];
         closeFind();
         deselectImage();
         editor.innerHTML = sanitizeHtml(b.html || "<p><br></p>", { keepClasses: true }) || "<p><br></p>";
         normalizePageBreaks();
-        headerEl.textContent = b.header || "";
-        footerEl.textContent = b.footer || "";
+        hfContent.header = b.headerHtml ? sanitizeHtml(b.headerHtml, { keepClasses: true }) : esc(b.header || "");
+        hfContent.footer = b.footerHtml ? sanitizeHtml(b.footerHtml, { keepClasses: true }) : esc(b.footer || "");
+        headerEl.innerHTML = hfContent.header;
+        footerEl.innerHTML = hfContent.footer;
+        footnotes = {};
+        (Array.isArray(b.footnotes) ? b.footnotes : []).forEach(function (fn) {
+            if (fn && fn.id !== undefined) footnotes[String(fn.id)] = sanitizeHtml(fn.html || "", { keepClasses: true });
+        });
         var p = b.page || {};
         pageConf.size = PAGE_SIZES[p.size] ? p.size : "A4";
         pageConf.orientation = (p.orientation === "landscape") ? "landscape" : "portrait";
@@ -291,6 +367,9 @@
         };
         pageConf.columns = Math.min(3, Math.max(1, Math.round(num(p.columns, 1))));
         pageConf.colGap = Math.min(30, Math.max(2, num(p.colGap, 8)));
+        pageConf.headerDist = Math.min(80, Math.max(0, num(p.headerDist, 12.7)));
+        pageConf.footerDist = Math.min(80, Math.max(0, num(p.footerDist, 12.7)));
+        pageConf.lineSpacing = Math.min(5, Math.max(0.5, num(b.lineSpacing, 1.15)));
         pageConf.pageNumbers = !!b.pageNumbers;
         pageConf.hfMode = (HF_MODES.indexOf(b.hfMode) >= 0) ? b.hfMode : "all";
         comments = Array.isArray(b.comments) ?
@@ -402,13 +481,19 @@
         if (inHeaderFooter()) return;
         restoreSel();
         var blocks = getSelectedBlocks();
-        blocks.forEach(function (b) { b.style.lineHeight = v; });
+        blocks.forEach(function (b) {
+            b.setAttribute("data-ls", v);
+            b.removeAttribute("data-lsexact");
+            b.removeAttribute("data-lsmin");
+        });
         afterEdit(true);
+        updatePageGuides();
     }
     function currentLineSpacing() {
         var blocks = getSelectedBlocks();
-        if (blocks.length && blocks[0].style.lineHeight) return blocks[0].style.lineHeight;
-        return "";
+        if (!blocks.length) return "";
+        var v = blocks[0].getAttribute("data-ls");
+        return v ? String(parseFloat(v)) : String(docLineSpacing());
     }
     function toggleChecklist() {
         if (inHeaderFooter()) return;
@@ -1013,7 +1098,15 @@
     function withTable(fn) {
         var cell = currentCell();
         var table = cell ? cell.closest("table") : null;
-        if (table) fn(table, cell);
+        if (!table) return;
+        // a row split across a page is one row again before rows or columns
+        // are counted
+        if (DocsLayout.unsplitWithin(editor, table)) {
+            noteEditAtCaret();
+            cell = currentCell() || cell;
+            table = cell.closest("table") || table;
+        }
+        fn(table, cell);
     }
     function docsTableOps() {
         if (!currentCell()) return null;
@@ -1483,9 +1576,21 @@
         var tag = document.getElementById("pagePrintStyle");
         if (tag) tag.textContent = css;
     }
-    /* ---------- page guides (visual pagination) ---------- */
+    /* ---------- pagination (DocsLayout) ----------
+       The document is one flow; docs_layout.js decides where every page
+       ends, splits what crosses the boundary and pushes the rest onto the
+       next sheet with layout-only spacers (.doc-autobreak; splits and
+       spacers are undone on save). This section supplies the page geometry
+       and draws what sits around the flow: one sheet of paper per page,
+       the header and footer bands, the footnote area and the automatic page
+       number. Everything it draws is a real
+       element in #page, which is what lets the PDF exporter draw the same
+       page the editor shows. */
     var MM_PX = 96 / 25.4;
-    var PAGE_GAP_PX = 24;    // visual gap between two sheets at a page break
+    var PT_PX = 96 / 72;
+    var PAGE_GAP_PX = 24;        // visual gap between two sheets
+    var HEADER_MIN_PX = 7;       // Google Docs never starts a header higher
+    var lastPages = [];          // page records of the current layout
     function pageGuidesOn() { return OfficeApp.getSetting("pageGuides", true); }
     // element top in layout px relative to #page (CSS zoom safe - unlike
     // getBoundingClientRect, offsetTop is not scaled)
@@ -1497,71 +1602,43 @@
         }
         return y;
     }
-    /* True multi-page rendering.
-       Every page boundary - explicit (Insert > Page break) or automatic
-       (content overflow) - is a real block in the flow that eats the rest
-       of its sheet and paints the gap between two separate sheets:
-         - explicit breaks are .doc-pagebreak (persisted, exported to docx)
-         - automatic ones are .doc-pagebreak.doc-autobreak, layout-only
-           spacers inserted before the block that crosses the boundary and
-           STRIPPED from serialization (cleanedHtml)
-       Blocks taller than a page cannot be split, and CSS multi-column
-       layouts reflow around inserted blocks, so those cases fall back to
-       the dotted guide line. */
-    var GAP_OVERHANG_PX = 26;   // gap band reaches past the sheet edge so it
-                                // also cuts the sheet's side shadow
-    function gapMarkup() {
-        return '<div class="doc-pb-gap"><div class="doc-pb-gap-in"></div></div>';
-    }
     function removeAutoBreaks(root) {
-        var list = root.querySelectorAll(".doc-autobreak");
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].parentNode) list[i].parentNode.removeChild(list[i]);
-        }
+        DocsLayout.removeSpacers(root);
     }
-    /* stretch a break element so the next content starts at the top of the
-       following sheet; returns that sheet's content-top offset */
-    function stretchBreak(el, pageStart, innerHpx, topPx, mLeftPx, mRightPx, mBotPx) {
-        el.style.height = "0px";
-        var top = offsetTopInPage(el);
-        // a break can sit several auto-pages further down (guarded above,
-        // but keep the math safe). Strictly greater: a break that lands
-        // exactly ON the boundary belongs to this page - counting it as the
-        // next one used to insert a whole blank sheet.
-        while (top > pageStart + innerHpx + 0.5) pageStart += innerHpx;
-        var rest = Math.max(0, pageStart + innerHpx - top);
-        el.style.height = (rest + mBotPx + PAGE_GAP_PX + topPx) + "px";
-        var gap = el.querySelector(".doc-pb-gap");
-        if (gap) {
-            gap.style.top = (rest + mBotPx) + "px";
-            gap.style.height = PAGE_GAP_PX + "px";
-            gap.style.left = -(mLeftPx + GAP_OVERHANG_PX) + "px";
-            gap.style.right = -(mRightPx + GAP_OVERHANG_PX) + "px";
-            var inner = gap.firstChild;
-            if (inner) {
-                // the sheet-edge shadows only span the actual sheet width
-                inner.style.left = GAP_OVERHANG_PX + "px";
-                inner.style.right = GAP_OVERHANG_PX + "px";
-            }
-        }
-        return top + parseFloat(el.style.height);
+    function docLineSpacing() {
+        return pageConf.lineSpacing > 0 ? pageConf.lineSpacing : 1.15;
     }
-    // first top-level editor block extending past the boundary (the one that
-    // must move to the next sheet)
-    function blockAtBoundary(boundary) {
-        for (var c = editor.firstElementChild; c; c = c.nextElementSibling) {
-            var top = offsetTopInPage(c);
-            if (top + c.offsetHeight > boundary + 1) return c;
-        }
-        return null;
+    function pageGeometry() {
+        var d = PAGE_SIZES[pageConf.size] || PAGE_SIZES.A4;
+        var land = pageConf.orientation === "landscape";
+        var m = pageConf.margins;
+        var g = {
+            sheetW: (land ? d.h : d.w) * MM_PX,
+            sheetH: (land ? d.w : d.h) * MM_PX,
+            mTop: m.top * MM_PX, mBot: m.bottom * MM_PX,
+            mL: m.left * MM_PX, mR: m.right * MM_PX,
+            headerDist: (pageConf.headerDist >= 0 ? pageConf.headerDist : 12.7) * MM_PX,
+            footerDist: (pageConf.footerDist >= 0 ? pageConf.footerDist : 12.7) * MM_PX
+        };
+        g.contentW = g.sheetW - g.mL - g.mR;
+        return g;
     }
-    /* ---------- header / footer bands ----------
-       The editable header/footer is repeated once per simulated page, parked
-       in that sheet's margin band. Every copy is editable and they mirror
-       each other, so the text can be changed from any page. pageConf.hfMode
-       decides which pages get one, and the exporters read the same setting. */
-    var HF_GAP_PX = 14;      // space between a band and the text area
+    /* the passes that give a rendered subtree its word-processor layout:
+       list markers, exact line heights, tab stops */
+    function runLayoutPasses(root) {
+        DocsLayout.applyNumbering(root);
+        DocsLayout.applyLineHeights(root, docLineSpacing());
+        DocsLayout.applyTableBorders(root);
+        DocsLayout.applyTabs(root);
+    }
 
+    /* ---------- header / footer bands ----------
+       The editable header/footer is repeated once per page, parked in that
+       sheet's margin band at the header/footer distance from the paper
+       edge. Every copy is editable and they mirror each other, so it can be
+       changed from any page. pageConf.hfMode decides which pages get one,
+       and the exporters read the same setting. The content is rich HTML
+       (hfContent); a PAGE / NUMPAGES field shows each sheet's own number. */
     function hfPairs() {
         return [{ header: headerEl, footer: footerEl }].concat(hfClones);
     }
@@ -1570,29 +1647,36 @@
         if (pageConf.hfMode === "except-first" && pageIndex === 0) return false;
         return true;
     }
-    // mirror one band's text into every other copy (never into the one being
-    // typed in, so the caret survives)
-    function syncHfText(kind, text, except) {
+    // the stored form of a band: fields keep their placeholder, not the
+    // number the copy happened to show
+    function hfSerialize(el) {
+        var clone = el.cloneNode(true);
+        var f = clone.querySelectorAll(".doc-field");
+        for (var i = 0; i < f.length; i++) f[i].textContent = "1";
+        stripLayoutArtifacts(clone);
+        return clone.innerHTML;
+    }
+    // mirror one band into every other copy (never into the one being typed
+    // in, so the caret survives)
+    function syncHfFrom(el) {
+        var kind = el.getAttribute("data-hf");
+        hfContent[kind] = hfSerialize(el);
         hfPairs().forEach(function (pair) {
-            var el = pair[kind];
-            if (el !== except && el.textContent !== text) el.textContent = text;
+            var other = pair[kind];
+            if (other !== el) other.innerHTML = hfContent[kind];
         });
     }
     function bindHfEvents(el) {
         el.addEventListener("input", function () {
-            syncHfText(el.getAttribute("data-hf"), el.textContent, el);
+            syncHfFrom(el);
             OfficeApp.markDirty();
             undo.pushDebounced(snapshot, 600);
-        });
-        el.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") e.preventDefault();   // single line only
         });
         el.addEventListener("paste", function (e) {
             e.preventDefault();
             var t = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
             if (t) {
-                try { document.execCommand("insertText", false, t.replace(/\s*\n+\s*/g, " ")); }
-                catch (err) { }
+                try { document.execCommand("insertText", false, t); } catch (err) { }
             }
         });
     }
@@ -1604,7 +1688,7 @@
         el.setAttribute("spellcheck", "false");
         el.setAttribute("data-hf", kind);
         el.setAttribute("data-placeholder", src.getAttribute("data-placeholder") || "");
-        el.textContent = src.textContent;
+        el.innerHTML = hfContent[kind] || "";
         bindHfEvents(el);
         pageEl.appendChild(el);
         return el;
@@ -1617,45 +1701,176 @@
             });
         });
     }
-    function layoutHeaderFooters(pageTops, innerHpx, topPx, mL, mR, mB) {
+    function layoutHeaderFooters(pages, geo) {
         // one copy per page after the first (page one uses the originals)
-        while (hfClones.length < pageTops.length - 1) {
+        while (hfClones.length < pages.length - 1) {
             hfClones.push({ header: makeHfCopy("header"), footer: makeHfCopy("footer") });
         }
-        while (hfClones.length > pageTops.length - 1) {
+        while (hfClones.length > pages.length - 1) {
             var drop = hfClones.pop();
             if (drop.header.parentNode) drop.header.parentNode.removeChild(drop.header);
             if (drop.footer.parentNode) drop.footer.parentNode.removeChild(drop.footer);
         }
-        var text = { header: headerEl.textContent, footer: footerEl.textContent };
-        var pageHpx = topPx + innerHpx + mB;
         var lead = true;
         hfPairs().forEach(function (pair, i) {
             var show = hfShownOn(i);
-            var sheetTop = pageTops[i] - topPx;
+            var sheetTop = pages[i].sheetTop;
             ["header", "footer"].forEach(function (kind) {
                 var el = pair[kind];
                 el.hidden = !show;
                 el.classList.toggle("doc-hf-lead", show && lead);
                 if (!show) return;
-                if (el !== document.activeElement && el.textContent !== text[kind]) {
-                    el.textContent = text[kind];
+                if (el !== document.activeElement && el.innerHTML !== hfContent[kind] &&
+                        hfSerialize(el) !== hfContent[kind]) {
+                    el.innerHTML = hfContent[kind] || "";
                 }
-                el.style.left = mL + "px";
-                el.style.right = mR + "px";
+                var fields = el.querySelectorAll(".doc-field");
+                for (var f = 0; f < fields.length; f++) {
+                    var v = fields[f].getAttribute("data-field") === "NUMPAGES" ? pages.length : i + 1;
+                    if (fields[f].textContent !== String(v)) fields[f].textContent = String(v);
+                }
+                el.style.left = geo.mL + "px";
+                el.style.width = geo.contentW + "px";
+                el.style.right = "auto";
+                runLayoutPasses(el);
                 var h = el.offsetHeight;
                 var top;
                 if (kind === "header") {
-                    top = Math.max(sheetTop + 2, pageTops[i] - HF_GAP_PX - h);
+                    top = sheetTop + Math.max(HEADER_MIN_PX, geo.headerDist);
                 } else {
-                    top = Math.min(sheetTop + pageHpx - 2 - h,
-                        pageTops[i] + innerHpx + HF_GAP_PX);
+                    top = sheetTop + geo.sheetH - geo.footerDist - h;
                 }
-                el.style.top = Math.round(top) + "px";
+                el.style.top = top + "px";
             });
             if (show) lead = false;
         });
+        layoutPageNumbers(pages, geo);
     }
+    /* "Page numbers" without a PAGE field in the footer: a plain number
+       centred in the bottom margin of every page that shows the footer */
+    function layoutPageNumbers(pages, geo) {
+        var old = pageEl.querySelectorAll(".doc-pagenum");
+        for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+        if (!pageConf.pageNumbers) return;
+        if (/data-field="PAGE"/.test(hfContent.footer || "") || /data-field="PAGE"/.test(hfContent.header || "")) return;
+        pages.forEach(function (pg, idx) {
+            if (pageConf.hfMode === "except-first" && idx === 0) return;
+            var n = document.createElement("div");
+            n.className = "doc-pagenum";
+            n.textContent = String(idx + 1);
+            n.style.left = geo.mL + "px";
+            n.style.width = geo.contentW + "px";
+            pageEl.appendChild(n);
+            n.style.top = (pg.sheetTop + geo.sheetH - geo.footerDist / 2 - n.offsetHeight / 2) + "px";
+        });
+    }
+
+    /* ---------- footnotes ----------
+       body.footnotes holds each note's HTML; the text references them with
+       sup.doc-fnref[data-fn]. The notes are drawn under a short rule at the
+       bottom of the page that references them, numbered in reference
+       order, and stay editable there. */
+    var fnMeasureEl = null;
+    var fnOrder = [];
+    function footnoteArea(ids, geo) {
+        var area = document.createElement("div");
+        area.className = "doc-fn-area";
+        area.style.width = geo.contentW + "px";
+        area.appendChild(Object.assign(document.createElement("div"), { className: "doc-fn-sep" }));
+        ids.forEach(function (id) {
+            var fn = document.createElement("div");
+            fn.className = "doc-fn";
+            fn.setAttribute("data-fn", id);
+            fn.innerHTML = footnotes[id] || "<p><br></p>";
+            var first = fn.querySelector("p,h1,h2,h3,h4,h5,h6,li") || fn;
+            var mark = document.createElement("sup");
+            mark.className = "doc-fnnum";
+            mark.setAttribute("contenteditable", "false");
+            mark.textContent = String(fnOrder.indexOf(id) + 1);
+            first.insertBefore(mark, first.firstChild);
+            area.appendChild(fn);
+        });
+        return area;
+    }
+    function measureFootnotes(ids, geo) {
+        if (!fnMeasureEl) {
+            fnMeasureEl = document.createElement("div");
+            fnMeasureEl.className = "doc-fn-measure";
+            pageEl.appendChild(fnMeasureEl);
+        }
+        fnMeasureEl.innerHTML = "";
+        var area = footnoteArea(ids, geo);
+        fnMeasureEl.appendChild(area);
+        runLayoutPasses(area);
+        var h = area.offsetHeight;
+        fnMeasureEl.innerHTML = "";
+        return h;
+    }
+    function renderFootnoteAreas(pages, geo) {
+        var old = pageEl.querySelectorAll(".doc-fn-area");
+        for (var i = 0; i < old.length; i++) {
+            if (old[i].parentNode === pageEl) old[i].parentNode.removeChild(old[i]);
+        }
+        pages.forEach(function (pg) {
+            if (!pg.footnotes || !pg.footnotes.length) return;
+            var area = footnoteArea(pg.footnotes, geo);
+            area.style.left = geo.mL + "px";
+            area.style.top = pg.footnoteTop + "px";
+            area.querySelectorAll(".doc-fn").forEach(function (fn) {
+                fn.setAttribute("contenteditable", "true");
+                fn.addEventListener("input", function () {
+                    var clone = fn.cloneNode(true);
+                    var marks = clone.querySelectorAll(".doc-fnnum");
+                    for (var m = 0; m < marks.length; m++) marks[m].parentNode.removeChild(marks[m]);
+                    stripLayoutArtifacts(clone);
+                    footnotes[fn.getAttribute("data-fn")] = clone.innerHTML;
+                    OfficeApp.markDirty();
+                    undo.pushDebounced(snapshot, 600);
+                });
+            });
+            pageEl.appendChild(area);
+            runLayoutPasses(area);
+        });
+    }
+
+    /* ---------- the sheets ----------
+       One sheet of paper per page, behind the flow. Between two sheets
+       there is nothing at all, which is what makes the pages really
+       separate: the flow has no content there (a split puts the rest of a
+       paragraph or a table row on the next sheet), so no border or shading
+       can show in the gap. A multi-column document is not paginated, and
+       keeps one long sheet. */
+    function renderSheets(pages, geo) {
+        var holder = document.getElementById("pageSheets");
+        if (!holder) {
+            holder = document.createElement("div");
+            holder.id = "pageSheets";
+            holder.className = "of-noprint";
+            holder.setAttribute("aria-hidden", "true");
+            pageEl.insertBefore(holder, pageEl.firstChild);
+        }
+        var want = [];
+        var gapless = pages.length > 1 && pages[1].sheetTop - pages[0].sheetTop <= geo.sheetH + 0.5;
+        if (gapless) {
+            var last = pages[pages.length - 1];
+            want.push({ top: 0, h: last.sheetTop + geo.sheetH });
+        } else {
+            pages.forEach(function (pg) { want.push({ top: pg.sheetTop, h: geo.sheetH }); });
+        }
+        while (holder.children.length > want.length) holder.removeChild(holder.lastChild);
+        while (holder.children.length < want.length) {
+            var sheet = document.createElement("div");
+            sheet.className = "doc-sheet";
+            holder.appendChild(sheet);
+        }
+        want.forEach(function (w, i) {
+            var el = holder.children[i];
+            var top = w.top + "px", h = w.h + "px";
+            if (el.style.top !== top) el.style.top = top;
+            if (el.style.height !== h) el.style.height = h;
+        });
+    }
+
     /* ---------- deferred relayout ----------
        Pictures in a document that was just opened are still decoding while
        loadBody() paginates: they measure zero tall, so the page tops - and
@@ -1669,9 +1884,7 @@
     function scheduleRelayout() {
         clearTimeout(relayoutTimer);
         relayoutTimer = setTimeout(function () {
-            relayouting = true;
             updatePageGuides();
-            relayouting = false;
         }, 80);
     }
     function watchContentSize() {
@@ -1706,7 +1919,89 @@
         }[mode]);
     }
 
+    /* The earliest point an edit touched since the last layout (#page
+       coordinates), or null when the whole document has to be laid out
+       again - a newly opened document, page setup, anything that is not
+       typing at a caret. */
+    var dirtyFromY = null;
+    var lastGeoKey = "";
+    function geoKey(geo) {
+        return [geo.sheetW, geo.sheetH, geo.mTop, geo.mBot, geo.mL, geo.mR, docLineSpacing(),
+            OfficeApp.getZoom()].join(",");
+    }
+    // a viewport y as a #page layout y (the framework zooms #page)
+    function pageYOf(clientY) {
+        var pr = pageEl.getBoundingClientRect();
+        var scale = pageEl.offsetHeight ? pr.height / pageEl.offsetHeight : 1;
+        return (clientY - pr.top) / (scale || 1);
+    }
+    // where the caret is, in #page layout px; null when it is not in the text
+    function caretPageY() {
+        try {
+            var sel = window.getSelection();
+            if (!sel || !sel.rangeCount) return null;
+            var r = sel.getRangeAt(0);
+            if (!pageEl.contains(r.startContainer)) return null;
+            var rects = r.getClientRects();
+            var rect = rects.length ? rects[0] : null;
+            if (!rect || !rect.height) {
+                var n = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+                rect = n.getBoundingClientRect();
+            }
+            return Math.max(0, pageYOf(rect.top));
+        } catch (e) {
+            return null;
+        }
+    }
+    function noteEditAtCaret() {
+        var y = editor.contains((window.getSelection() || {}).anchorNode || null) ? caretPageY() : null;
+        if (y === null) y = 0;
+        dirtyFromY = dirtyFromY === null ? y : Math.min(dirtyFromY, y);
+    }
+
+    /* ---------- "Page 3 of 12" in the status bar ----------
+       The page the caret is on after a click or a keystroke, the page in
+       the middle of the view after a scroll - whichever happened last. */
+    var pageShownBy = "caret";
+    var pageIndicatorTimer = null;
+    function pageIndexAt(y) {
+        var n = 0;
+        for (var i = 0; i < lastPages.length; i++) {
+            if (lastPages[i].sheetTop <= y + 0.5) n = i;
+        }
+        return n;
+    }
+    function updatePageIndicator(by) {
+        if (by) pageShownBy = by;
+        var total = Math.max(1, lastPages.length);
+        var y = null;
+        if (pageShownBy === "caret") y = caretPageY();
+        if (y === null && workspaceEl) {
+            var wr = workspaceEl.getBoundingClientRect();
+            y = pageYOf(wr.top + wr.height / 2);
+        }
+        var n = Math.min(total, pageIndexAt(y || 0) + 1);
+        OfficeApp.updateStatusItem("pg", "Page " + n + " of " + total);
+    }
+    function schedulePageIndicator(by) {
+        if (by) pageShownBy = by;
+        if (pageIndicatorTimer) return;
+        pageIndicatorTimer = setTimeout(function () {
+            pageIndicatorTimer = null;
+            updatePageIndicator();
+        }, 120);
+    }
     function updatePageGuides() {
+        if (relayouting) return lastPages.length || 1;
+        relayouting = true;
+        try {
+            return layoutPages();
+        } finally {
+            relayoutH = editor.offsetHeight;
+            relayouting = false;
+        }
+    }
+    function layoutPages() {
         var holder = document.getElementById("pageGuides");
         if (!holder) {
             holder = document.createElement("div");
@@ -1715,98 +2010,73 @@
             pageEl.appendChild(holder);
         }
         holder.innerHTML = "";
-        var d = PAGE_SIZES[pageConf.size] || PAGE_SIZES.A4;
-        var pageHmm = (pageConf.orientation === "landscape") ? d.w : d.h;
-        var m = pageConf.margins;
-        var innerHpx = Math.max(60, (pageHmm - m.top - m.bottom) * MM_PX);
-        var topPx = m.top * MM_PX;
-        var mL = m.left * MM_PX, mR = m.right * MM_PX, mB = m.bottom * MM_PX;
-        var multiCol = pageConf.columns > 1;
-
-        // park the header/footer bands first: a copy still sitting at the
-        // bottom of a longer previous layout would inflate scrollHeight and
-        // conjure a phantom page below
+        var geo = pageGeometry();
+        // park the bands first: a copy still sitting at the bottom of a
+        // longer previous layout would stretch #page and conjure a phantom
+        // page below
         parkHeaderFooters();
-        // relayout from the natural flow (self-heal breaks that arrived
-        // without their gap markup, e.g. via raw HTML)
-        removeAutoBreaks(editor);
+        pageEl.style.minHeight = geo.sheetH + "px";
+        // an edit only needs the pages from where it happened
+        var fromY = dirtyFromY;
+        dirtyFromY = null;
+        var incremental = fromY !== null && lastPages.length > 2 && pageConf.columns <= 1 &&
+            lastGeoKey === geoKey(geo);
+        lastGeoKey = geoKey(geo);
+        if (!incremental) removeAutoBreaks(editor);
         normalizePageBreaks();
-        var breaks = Array.prototype.slice.call(editor.querySelectorAll(".doc-pagebreak"));
-        var i;
-        for (i = 0; i < breaks.length; i++) breaks[i].style.height = "0px";
+        runLayoutPasses(editor);
+        fnOrder = DocsLayout.numberFootnotes(editor);
 
-        var pages = 1;
-        var pageStart = topPx;
-        var pageTops = [topPx];   // content-top of every sheet, for the bands
-        var bi = 0;
-        var guard = 0;
-        while (guard++ < 400) {
-            var boundary = pageStart + innerHpx;
-            // (a) an explicit break on this page ends it early
-            if (bi < breaks.length && offsetTopInPage(breaks[bi]) <= boundary + 0.5) {
-                pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
-                pageTops.push(pageStart);
-                pages++;
-                continue;
-            }
-            // small epsilon guards against 1px scrollHeight rounding creating
-            // a phantom extra page
-            if (boundary >= pageEl.scrollHeight - mB - 6 - 0.5) break;
-            // (b) automatic overflow: separate the sheets for real by pushing
-            // the crossing block onto the next sheet with a layout-only spacer
-            if (!multiCol) {
-                var block = blockAtBoundary(boundary);
-                if (block && block === breaks[bi]) {
-                    // the boundary lands just before an explicit break - the
-                    // break itself owns this cut
-                    pageStart = stretchBreak(breaks[bi++], pageStart, innerHpx, topPx, mL, mR, mB);
-                    pageTops.push(pageStart);
-                    pages++;
-                    continue;
-                }
-                if (block && offsetTopInPage(block) > pageStart + 1) {
-                    var sp = document.createElement("div");
-                    sp.className = "doc-pagebreak doc-autobreak";
-                    sp.setAttribute("contenteditable", "false");
-                    sp.innerHTML = gapMarkup();
-                    block.parentNode.insertBefore(sp, block);
-                    pageStart = stretchBreak(sp, pageStart, innerHpx, topPx, mL, mR, mB);
-                    pageTops.push(pageStart);
-                    pages++;
-                    continue;
+        var pages;
+        if (pageConf.columns > 1) {
+            // CSS columns reflow around anything inserted, so a columned
+            // document keeps dotted guides at each page height
+            pages = [];
+            var innerH = Math.max(60, geo.sheetH - geo.mTop - geo.mBot);
+            var total = Math.max(1, Math.ceil((editor.offsetHeight + 1) / innerH));
+            for (var p = 0; p < total; p++) {
+                pages.push({
+                    index: p, sheetTop: p * innerH, contentTop: geo.mTop + p * innerH,
+                    contentBottom: geo.mTop + (p + 1) * innerH, footnotes: [], footnoteTop: 0
+                });
+                if (p > 0 && pageGuidesOn()) {
+                    var g = document.createElement("div");
+                    g.className = "doc-pageguide";
+                    g.style.top = (geo.mTop + p * innerH) + "px";
+                    g.setAttribute("data-label", "Page " + (p + 1));
+                    holder.appendChild(g);
                 }
             }
-            // (c) unsplittable block / multi-column layout: dotted fallback
-            if (pageGuidesOn()) {
-                var g = document.createElement("div");
-                g.className = "doc-pageguide";
-                g.style.top = boundary + "px";
-                g.setAttribute("data-label", "Page " + (pages + 1));
-                holder.appendChild(g);
-            }
-            pageStart = boundary;
-            pageTops.push(pageStart);
-            pages++;
+        } else {
+            var refs = editor.querySelectorAll("sup.doc-fnref");
+            pages = DocsLayout.paginate({
+                editor: editor, pageEl: pageEl,
+                sheetH: geo.sheetH, gap: PAGE_GAP_PX, mTop: geo.mTop, mBot: geo.mBot,
+                fnRefs: refs,
+                measureFootnotes: refs.length ? function (ids) { return measureFootnotes(ids, geo); } : null,
+                fromY: incremental ? fromY : undefined,
+                prevPages: incremental ? lastPages : null
+            });
         }
-        // the last sheet always shows at full page height
-        pageEl.style.minHeight = (pageStart + innerHpx + mB) + "px";
-        layoutHeaderFooters(pageTops, innerHpx, topPx, mL, mR, mB);
-        relayoutH = editor.offsetHeight;   // what this layout was made for
-        return pages;
+        lastPages = pages;
+        var last = pages[pages.length - 1];
+        pageEl.style.minHeight = (last.sheetTop + geo.sheetH + pageEl.clientTop * 2) + "px";
+        renderSheets(pages, geo);
+        renderFootnoteAreas(pages, geo);
+        layoutHeaderFooters(pages, geo);
+        updatePageIndicator();
+        return pages.length;
     }
     /* ---------- explicit page breaks ---------- */
     function pageBreakHtml() {
-        return '<div class="doc-pagebreak" contenteditable="false">' +
-            gapMarkup() + "</div>";
+        return '<div class="doc-pagebreak" contenteditable="false"></div>';
     }
-    // imported / restored breaks may lack the gap child or the guard attribute
+    // imported / restored breaks may carry old gap markup or lack the guard
     function normalizePageBreaks() {
         var list = editor.querySelectorAll(".doc-pagebreak");
         for (var i = 0; i < list.length; i++) {
             list[i].setAttribute("contenteditable", "false");
-            if (!list[i].querySelector(".doc-pb-gap-in")) {
-                list[i].innerHTML = gapMarkup();
-            }
+            if (list[i].firstChild) list[i].innerHTML = "";
         }
     }
     function insertPageBreak() {
@@ -2466,7 +2736,98 @@
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
     }
-    function exportPdf() { exportDocFile(".pdf", "export-pdf", "Exporting PDF..."); }
+    /* ================= PDF =================
+       Drawn in the browser from the pages the editor shows (docs_pdf.js),
+       so the export paginates exactly like the preview, carries real
+       selectable text, embeds the shipped CJK faces, and needs no server -
+       it works in the standalone web edition too.
+
+       The page is held only while it is measured, in its export state:
+       100% zoom (a zoomed layout rounds borders to different pixels), no
+       selection chrome, and review marks shown as resolved - suggestions
+       accepted, comment highlights off - which is what the other exports
+       write too. Everything after that (fonts, pictures, compression) runs
+       from the measured snapshot in a Web Worker, and the document can be
+       edited meanwhile without changing the file that comes out. */
+    function canExportPdf() {
+        return typeof PDFLib !== "undefined" && !!window.DocsPdf;
+    }
+    function renderPdf(onProgress) {
+        var prevZoom = 100;
+        var relaid = false;
+        var geo = pageGeometry();
+        return DocsPdf.build({
+            pageEl: pageEl,
+            pages: function () { return lastPages; },
+            sheetW: geo.sheetW, sheetH: geo.sheetH,
+            title: exportBaseName(),
+            onProgress: onProgress,
+            enter: function () {
+                clearFindHits();
+                deselectImage();
+                prevZoom = OfficeApp.getZoom() || 100;
+                if (prevZoom !== 100) OfficeApp.setZoom(100);
+                document.body.classList.add("doc-exporting");
+                // hiding pending deletions changes the text flow; everything
+                // else the export state does is paint only
+                if (prevZoom !== 100 || editor.querySelector("del.doc-del")) {
+                    updatePageGuides();
+                    relaid = true;
+                }
+            },
+            leave: function () {
+                document.body.classList.remove("doc-exporting");
+                if (prevZoom !== 100) OfficeApp.setZoom(prevZoom);
+                if (relaid) updatePageGuides();
+            }
+        });
+    }
+    // how far along an export is, in words and as a fraction
+    function pdfProgressText(done, total, stage) {
+        if (stage === "measure") return { f: 0.02, msg: "Reading the pages..." };
+        if (stage === "prepare") return { f: 0.06, msg: "Preparing fonts and pictures..." };
+        if (stage === "save") return { f: 0.95, msg: "Writing the file..." };
+        return {
+            f: 0.1 + 0.85 * (total ? done / total : 0),
+            msg: "Exporting " + done + " / " + total + (total === 1 ? " page" : " pages")
+        };
+    }
+    /* savePdfTo renders and writes the bytes; shared by File > Export and by
+       the .pdf entry in SAVE_FORMATS. prog is an optional progress panel. */
+    function savePdfTo(fp, done, fail, prog) {
+        if (!canExportPdf()) { fail("the PDF library failed to load"); return; }
+        renderPdf(function (n, total, stage) {
+            var p = pdfProgressText(n, total, stage);
+            if (prog) prog.set(p.f * 100, 100, p.msg);
+            else OfficeApp.setStatus("PDF: " + p.msg);
+        }).then(function (bytes) {
+            if (prog) prog.message("Writing " + OfficeApp.basename(fp) + "...");
+            OfficePlatform.writeBytes(fp, bytes, done, fail);
+        }).catch(function (err) {
+            fail(err && err.message ? err.message : "render error");
+        });
+    }
+    function exportPdf() {
+        if (!canExportPdf()) {
+            OfficeApp.toast("The PDF library failed to load", "error");
+            return;
+        }
+        OfficePlatform.pickSave({ defaultName: exportBaseName() + ".pdf", ext: ".pdf", memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            // the export does not hold the document: a panel in the corner
+            // reports it while editing goes on
+            var prog = OfficeApp.showProgress({ title: "Exporting PDF", anchor: "#workspace" });
+            prog.set(0, 100, "Reading the pages...");
+            savePdfTo(fp, function () {
+                prog.close();
+                OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+            }, function (msg) {
+                prog.close();
+                OfficeApp.toast("Export failed: " + msg, "error");
+            }, prog);
+        });
+    }
     var EXPORT_CSS =
         "body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;" +
         "color:#1f2328;max-width:820px;margin:24px auto;padding:0 18px;}" +
@@ -2678,10 +3039,7 @@
         "import": { agi: DOCX_BACKEND, action: "import", wasm: "docxToDocument" },
         "import-odf": { agi: DOCX_BACKEND, action: "import-odf", wasm: "odtToDocument" },
         "export": { agi: DOCX_BACKEND, action: "export", wasm: "documentToDocx" },
-        "export-odf": { agi: DOCX_BACKEND, action: "export-odf", wasm: "documentToOdt" },
-        // the real-text PDF renderer stays server side for now; the web
-        // edition offers File > Print / PDF instead
-        "export-pdf": { agi: DOCX_BACKEND, action: "export-pdf", wasm: null }
+        "export-odf": { agi: DOCX_BACKEND, action: "export-odf", wasm: "documentToOdt" }
     };
 
     // shared by .docx ("import") and .odt ("import-odf")
@@ -2750,57 +3108,6 @@
             probe.src = im.getAttribute("src");
         });
     }
-    /* Emoji characters have no glyphs in the PDF core fonts, so before a
-       PDF export they are rasterized (canvas + the platform emoji font)
-       into small inline images the server-side renderer can draw. */
-    var emojiPngCache = {};
-    function emojiToPng(ch) {
-        if (emojiPngCache[ch]) return emojiPngCache[ch];
-        var c = document.createElement("canvas");
-        c.width = 36; c.height = 36;
-        var ctx = c.getContext("2d");
-        ctx.font = '30px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillText(ch, 18, 20);
-        var durl = c.toDataURL("image/png");
-        emojiPngCache[ch] = durl;
-        return durl;
-    }
-    function rasterizeEmojiForPdf(html) {
-        var re;
-        try {
-            re = new RegExp("\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic}\\uFE0F?)*", "gu");
-        } catch (e) {
-            return html; // very old engine without unicode property escapes
-        }
-        var root = document.createElement("div");
-        root.innerHTML = html;
-        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-        var nodes = [];
-        while (walker.nextNode()) nodes.push(walker.currentNode);
-        nodes.forEach(function (tn) {
-            var t = tn.nodeValue || "";
-            re.lastIndex = 0;
-            if (!re.test(t)) return;
-            re.lastIndex = 0;
-            var frag = document.createDocumentFragment();
-            var last = 0, m;
-            while ((m = re.exec(t)) !== null) {
-                if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
-                var img = document.createElement("img");
-                img.src = emojiToPng(m[0]);
-                img.setAttribute("width", "14");
-                img.setAttribute("height", "14");
-                frag.appendChild(img);
-                last = m.index + m[0].length;
-            }
-            if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
-            tn.parentNode.replaceChild(frag, tn);
-        });
-        return root.innerHTML;
-    }
-
     function inlineImagesForExport(html) {
         var div = document.createElement("div");
         div.innerHTML = html;
@@ -2837,10 +3144,7 @@
     // shared by .docx ("export") and .odt ("export-odf")
     function exportDocFile(ext, action, busyLabel) {
         var spec = CONVERT[action];
-        // PDF is server-only; the rest run wherever there are converters
-        var allowed = spec.wasm ? OfficePlatform.requireConvert("Exporting " + ext)
-            : OfficePlatform.requireBackend("Exporting " + ext);
-        if (!allowed) return;
+        if (!OfficePlatform.requireConvert("Exporting " + ext)) return;
         var defName = exportBaseName() + ext;
         OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
             var fp = file.filepath;
@@ -2848,10 +3152,6 @@
             var body = currentBody();
             // suggestions applied, comment anchors unwrapped
             body.html = resolvedHtml();
-            if (action === "export-pdf") {
-                // PDF core fonts have no emoji glyphs - rasterize them
-                body.html = rasterizeEmojiForPdf(body.html);
-            }
             inlineImagesForExport(body.html).then(function (inlined) {
                 body.html = inlined;
                 // in ArozOS this posts through agirunLarge (documents with
@@ -2882,8 +3182,6 @@
         var b = currentBody();
         // suggestions applied, comment anchors unwrapped
         b.html = resolvedHtml();
-        // PDF core fonts have no emoji glyphs - rasterize them
-        if (action === "export-pdf") b.html = rasterizeEmojiForPdf(b.html);
         inlineImagesForExport(b.html).then(function (inlined) {
             b.html = inlined;
             OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(b),
@@ -2954,8 +3252,8 @@
         },
         {
             ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
-            needsBackend: true, oneWay: true,
-            save: function (fp, fn, done, fail) { saveViaConverter("export-pdf", fp, done, fail); }
+            oneWay: true,
+            save: function (fp, fn, done, fail) { savePdfTo(fp, done, fail); }
         },
         {
             ext: ".html", label: "Web page (.html)", icon: "file code outline",
@@ -3150,8 +3448,19 @@
     }
 
     /* ================= editor events ================= */
+    // keys that change the text: Backspace/Delete at the caret, and anything
+    // typed, cut or pasted over a selection
+    function editsAcrossPages(e) {
+        if (e.key === "Backspace" || e.key === "Delete") return true;
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || sel.getRangeAt(0).collapsed) return false;
+        if (e.key === "Enter" || e.key === "Tab") return true;
+        if ((e.ctrlKey || e.metaKey) && !e.altKey) return /^[xv]$/i.test(e.key);
+        return e.key.length === 1;
+    }
     function bindEditorEvents() {
         editor.addEventListener("input", function () {
+            noteEditAtCaret();
             OfficeApp.markDirty();
             scheduleCounts();
             undo.pushDebounced(snapshot, 600);
@@ -3202,6 +3511,11 @@
             }
         });
         editor.addEventListener("keydown", function (e) {
+            // a page boundary in the way of the edit is taken out first, so
+            // the key acts on the text on both sides of it
+            if (!selectedImg && !e.isComposing && editsAcrossPages(e)) {
+                if (DocsLayout.unsplitAtCaret(editor, e.key !== "Delete")) noteEditAtCaret();
+            }
             if ((e.key === "Delete" || e.key === "Backspace") && selectedImg) {
                 e.preventDefault();
                 var img = selectedImg;
@@ -3350,6 +3664,15 @@
     }
 
     /* ================= boot ================= */
+    /* the few entry points other scripts (and automated checks) use - the
+       counterpart of SlidesApp */
+    window.DocsApp = {
+        currentBody: function () { return currentBody(); },
+        loadBody: function (b) { loadBody(b); },
+        renderPdf: renderPdf,
+        pages: function () { return lastPages.slice(); }
+    };
+
     $(document).ready(function () {
         editor = document.getElementById("editor");
         headerEl = document.getElementById("docHeader");
@@ -3517,9 +3840,7 @@
                             items.push({ label: "Word (.docx)", icon: "file word outline", action: exportDocx });
                             items.push({ label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt });
                         }
-                        if (OfficePlatform.hasBackend()) {
-                            items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf });
-                        }
+                        items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf });
                         items.push({ label: "Web page (.html)", icon: "file code outline", action: exportHTML });
                         items.push({ label: "Markdown (.md)", icon: "file alternate outline", action: exportMarkdown });
                         items.push({ label: "Plain text (.txt)", icon: "file outline", action: exportText });
@@ -3598,7 +3919,13 @@
         initTableResize();
         buildCommentsPanel();
         OfficeApp.addStatusItem("suggest", "");
+        OfficeApp.addStatusItem("pg", "Page 1 of 1");
         OfficeApp.addStatusItem("wc", "0 words · 0 characters");
+        document.addEventListener("selectionchange", function () {
+            var sel = window.getSelection();
+            if (sel && sel.anchorNode && pageEl.contains(sel.anchorNode)) schedulePageIndicator("caret");
+        });
+        workspaceEl.addEventListener("scroll", function () { schedulePageIndicator("scroll"); }, { passive: true });
         if (OfficeApp.getSetting("cmtPanel", false)) showCommentsPanel(true);
         updateSuggestStatus();
         if (OfficeApp.getSetting("layoutBoxes", false)) {

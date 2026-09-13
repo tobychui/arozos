@@ -23,16 +23,37 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    background: #ffffff;
+    /* #page is the frame the flow is laid out in; the paper is drawn by one
+       .doc-sheet per page behind it, so the gap between two sheets is real
+       empty space rather than a band painted over one long sheet */
+    background: transparent;
     color: #1f2328;
-    /*box-shadow: 0 1px 3px var(--of-paper-shadow), 0 4px 14px var(--of-paper-shadow); */
-    border: 1px solid #e2e5e9;
-    border-radius: 2px;
 }
-body.dark #page {
+#editor {
+    position: relative;
+    z-index: 1;
+}
+#pageSheets {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+.doc-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
     /* paper stays white in dark mode - deliberate, see header comment */
     background: #ffffff;
-    color: #1f2328;
+    /* an outline, not a border: the sheet is exactly the page's size */
+    outline: 1px solid #e2e5e9;
+    border-radius: 2px;
+}
+body.dark .doc-sheet {
+    outline: none;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 6px 22px rgba(0, 0, 0, 0.6);
 }
 
@@ -51,17 +72,15 @@ body.dark #page {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     color: #6b7078;
-    padding: 2px 0;
-    border-bottom: 1px dashed transparent;
+    padding: 0;
     cursor: text;
     z-index: 6;
 }
-.doc-hf.doc-hf-footer {
-    border-bottom: none;
-    border-top: 1px dashed transparent;
-}
+/* the edit affordance is an outline: a border would move the content off
+   the header/footer distance the document states */
 .doc-hf:hover, .doc-hf:focus {
-    border-color: #c9cdd3;
+    outline: 1px dashed #c9cdd3;
+    outline-offset: 1px;
 }
 /* only the first visible copy nags: one placeholder per document, not one
    per page */
@@ -71,22 +90,67 @@ body.dark #page {
     pointer-events: none;
 }
 .doc-hf[hidden] { display: none; }
+/* rich header/footer content (an imported header, a picture) is document
+   text: it takes the body's typography, not the placeholder grey */
+.doc-hf > p, .doc-hf > h1, .doc-hf > h2, .doc-hf > h3, .doc-hf > h4,
+.doc-hf > h5, .doc-hf > h6, .doc-hf > table, .doc-hf > ul, .doc-hf > ol {
+    margin: 0;
+    font-family: Arial, "Noto Sans", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif;
+    font-size: 11pt;
+    color: #000000;
+}
+.doc-hf img { max-width: none; }
+.doc-hf img.doc-anchor { display: block; }
+.doc-hf .doc-field { font-variant-numeric: tabular-nums; }
+
+/* the page number of "Page setup > Print page numbers" (no PAGE field) */
+.doc-pagenum {
+    position: absolute;
+    text-align: center;
+    font-family: Arial, "Noto Sans", sans-serif;
+    font-size: 10pt;
+    color: #444444;
+    pointer-events: none;
+    z-index: 6;
+}
 
 /* ============ Editor content ============ */
+/* Typography follows the word processors a .docx comes from: spacing
+   before/after is margin (neighbouring spacing collapses to the larger of
+   the two, as it does in Google Docs), and every block's line height is set in px by docs_layout.js from the
+   font's own metrics. Inline elements get line-height 0 so a run in
+   another font cannot make its line taller than that rule says - the
+   layout engine gives a bigger run its own height. */
 #editor {
     flex: 1 1 auto;
     outline: none;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: Arial, "Noto Sans", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif;
     font-size: 11pt;
-    line-height: 1.5;
+    line-height: 1.32;
+    color: #000000;
+    tab-size: 36pt;
     word-wrap: break-word;
     overflow-wrap: break-word;
     caret-color: #1a73e8;
 }
-#editor p, #editor div { margin: 0 0 0pt; }
-#editor h1, #editor h2, #editor h3, #editor h4 {
+#editor span, #editor a, #editor b, #editor strong, #editor i, #editor em,
+#editor u, #editor s, #editor strike, #editor font, #editor code,
+#editor sup, #editor sub, #editor mark, #editor small,
+.doc-hf span, .doc-hf a, .doc-hf b, .doc-hf i, .doc-hf u, .doc-hf sup, .doc-hf sub,
+.doc-fn span, .doc-fn a, .doc-fn b, .doc-fn i, .doc-fn u, .doc-fn sup, .doc-fn sub {
+    line-height: 0;
+}
+#editor sup, #editor sub, .doc-hf sup, .doc-hf sub, .doc-fn sup, .doc-fn sub {
+    font-size: 60%;
+    vertical-align: 0.667em;
+}
+#editor sub, .doc-hf sub, .doc-fn sub { vertical-align: -0.233em; }
+#editor p, #editor div { margin: 0; }
+#editor h1, #editor h2, #editor h3, #editor h4, #editor h5, #editor h6 {
     margin: 14pt 0 6pt;
-    line-height: 1.25;
+    /* the page's typeface, not the UI kit's heading font (the export
+       writes headings in the body font) */
+    font-family: inherit;
     font-weight: 600;
     color: #1f2328;
 }
@@ -94,10 +158,17 @@ body.dark #page {
 #editor h2 { font-size: 16pt; }
 #editor h3 { font-size: 13pt; }
 #editor h4 { font-size: 11pt; font-style: italic; }
+#editor h5 { font-size: 11pt; }
+#editor h6 { font-size: 11pt; font-style: italic; }
 #editor .doc-title {
     font-size: 26pt;
     font-weight: 400;
     margin: 0 0 12pt;
+}
+#editor .doc-subtitle {
+    font-size: 15pt;
+    color: #666666;
+    margin: 0 0 16pt;
 }
 #editor a { color: #1a58c2; text-decoration: underline; cursor: text; }
 #editor a:hover { color: #0f3f96; }
@@ -124,14 +195,85 @@ body.dark #page {
     white-space: pre-wrap;
     margin: 8pt 0;
 }
-#editor ul, #editor ol { margin: 4pt 0 8pt; padding-left: 28px; }
-#editor li { margin: 2pt 0; }
+/* Lists: the marker text is computed by docs_layout.js (li[data-marker])
+   and hangs --doc-hang to the left of the item's text, which starts at the
+   list's padding - Word's "indent" and "hanging" */
+#editor ul, #editor ol, .doc-hf ul, .doc-hf ol, .doc-fn ul, .doc-fn ol {
+    margin: 0;
+    padding-left: 36pt;
+    list-style: none;
+}
+#editor li, .doc-hf li, .doc-fn li { position: relative; margin: 0; }
+#editor li::before, .doc-hf li::before, .doc-fn li::before {
+    content: attr(data-marker);
+    position: absolute;
+    left: calc(-1 * var(--doc-hang, 18pt));
+    white-space: pre;
+    text-indent: 0;
+    font-style: normal;
+    text-decoration: none;
+}
+
+/* Tabs: a real tab character, sized to its tab stop by docs_layout.js */
+span.doc-tab { white-space: pre; }
+span.doc-tab[data-leader="dot"] {
+    background-image: radial-gradient(circle, currentColor 0.55px, transparent 0.8px);
+    background-size: 4px 3px;
+    background-repeat: repeat-x;
+    background-position: 0 calc(100% - 0.28em);
+}
+span.doc-tab[data-leader="hyphen"], span.doc-tab[data-leader="underscore"] {
+    border-bottom: 1px solid currentColor;
+}
+
+/* Footnote references in the text */
+#editor sup.doc-fnref { cursor: default; user-select: none; }
+
+/* Layout-only spacers the paginator inserts (never saved) */
+#editor .doc-autobreak {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+}
+#editor tr.doc-autobreak { display: table-row; }
+#editor td.doc-autobreak-cell {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    line-height: 0;
+}
+/* The two halves of a block split across a page (docs_layout.js): the
+   spacing, rule and first-line indent belong to the paragraph's start and
+   end, not to the page cut, and the continuation of a list item has no
+   marker of its own. */
+#editor .doc-split-head {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom-style: none !important;
+}
+#editor .doc-split-tail {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top-style: none !important;
+    text-indent: 0 !important;
+}
+#editor li.doc-split-tail::before { content: none !important; }
 
 /* Images */
 #editor img {
     max-width: 100%;
     height: auto;
     cursor: default;
+}
+/* a picture anchored above/below the text (a full-bleed cover, a banner):
+   its own box on its own line, allowed past the text column */
+#editor img.doc-anchor {
+    display: block;
+    max-width: none;
 }
 #editor img.of-selimg {
     outline: 2px solid var(--of-accent);
@@ -155,14 +297,52 @@ body.dark #page {
     border-collapse: collapse;
     width: 100%;
     margin: 8pt 0;
+    /* columns keep their widths (equal until resized) whatever is typed
+       into them - the way Word and the export lay a table out */
+    table-layout: fixed;
 }
 #editor table.of-table td, #editor table.of-table th {
     border: 1px solid #b9bec7;
     padding: 4px 8px;
     min-width: 2em;
     vertical-align: top;
+    overflow-wrap: break-word;
 }
 #editor table.of-table th { background: #f1f3f4; font-weight: 600; }
+/* an imported table states its own borders, padding and width inline */
+#editor table.of-table[data-docx] { margin-top: 0; margin-bottom: 0; }
+#editor table.of-table[data-docx] td, #editor table.of-table[data-docx] th { min-width: 0; }
+
+/* Footnotes: drawn at the bottom of the page that references them */
+.doc-fn-area {
+    position: absolute;
+    z-index: 6;
+    font-family: Arial, "Noto Sans", "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif;
+    font-size: 10pt;
+    color: #000000;
+}
+.doc-fn-sep {
+    height: 10.8pt;
+    position: relative;
+}
+.doc-fn-sep::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5.02pt;
+    width: 144pt;
+    border-top: 0.75pt solid #000000;
+}
+.doc-fn { outline: none; }
+.doc-fn p { margin: 0; }
+.doc-fn sup.doc-fnnum { user-select: none; }
+.doc-fn-measure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
 
 /* Multi-column layout: title/author blocks marked via
    Format > Page layout > Span all columns stretch across every column */
@@ -197,12 +377,10 @@ body.dark #page {
 }
 
 /* ============ Page breaks (explicit + automatic pagination) ============
-   Real blocks in the flow, stretched by updatePageGuides() to eat the rest
-   of their sheet. The .doc-pb-gap child paints the cut between the two
-   sheets: it reaches PAST the sheet edges (GAP_OVERHANG_PX) so it also
-   erases the sheet's side shadow across the gap - each page keeps its own
-   separate vertical shadow. The .doc-pb-gap-in child draws the two facing
-   sheet edges across the actual sheet width only. */
+   An explicit break is a real block in the flow, stretched by the
+   paginator to eat the rest of its sheet; so is every automatic spacer.
+   Nothing is painted over the gap between two sheets - there is simply no
+   sheet there (#pageSheets). */
 .doc-pagebreak {
     position: relative;
     margin: 0;
@@ -212,25 +390,10 @@ body.dark #page {
     break-after: page;
     page-break-after: always;
 }
-.doc-pb-gap {
-    position: absolute;
-    background: var(--of-bg);
-    pointer-events: none;
-}
-.doc-pb-gap-in {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    /* left/right set inline to the overhang so edges align with the sheet */
-    /* box-shadow: inset 0 4px 6px -4px var(--of-paper-shadow),
-                inset 0 -4px 6px -4px var(--of-paper-shadow); */
-    border-top: 1px solid rgba(60, 64, 67, 0.16);
-    border-bottom: 1px solid rgba(60, 64, 67, 0.16);
-}
 @media print {
     /* the sheet cut is a screen affordance; the printer paginates for real */
     .doc-pagebreak { height: 0 !important; }
-    .doc-pb-gap { display: none; }
+    #pageSheets { display: none; }
     /* automatic spacers are layout-only - the printer re-paginates */
     .doc-autobreak { display: none !important; }
 }
@@ -562,3 +725,13 @@ body.dark #editor del.doc-del { color: #f28b82; background: rgba(242, 139, 130, 
 @media print {
     #docCmtPanel { display: none !important; }
 }
+
+/* ============ PDF export state ============
+   While docs_pdf.js draws the pages, review marks show as resolved: the
+   suggestions accepted and the comment highlights off - what every other
+   export writes too. (Hiding deletions changes the flow, so the export
+   repaginates after setting this.) */
+body.doc-exporting #editor span.doc-cmt { background: none; border-bottom: 0; }
+body.doc-exporting #editor ins.doc-ins { color: inherit; text-decoration: inherit; background: none; }
+body.doc-exporting #editor del.doc-del { display: none; }
+body.doc-exporting .doc-hf-lead:empty::before { content: none; }
