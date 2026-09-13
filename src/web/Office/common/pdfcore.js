@@ -153,7 +153,11 @@ var OfficePdfCore = (function () {
         function stdFont(family, bold, italic) {
             var names = STD_VARIANTS[family] || STD_VARIANTS.Helvetica;
             var key = names[(bold ? 1 : 0) + (italic ? 2 : 0)];
-            if (!std[key]) std[key] = pdfDoc.embedStandardFont(PDFLib.StandardFonts[key]);
+            if (!std[key]) {
+                std[key] = pdfDoc.embedStandardFont(PDFLib.StandardFonts[key]);
+                // what a recorded drawing names the font by (pdfdraw.js)
+                std[key].__ref = "k:" + key;
+            }
             return std[key];
         }
 
@@ -180,7 +184,10 @@ var OfficePdfCore = (function () {
             var rec = faces[face.url];
             if (!rec || rec.font || rec.embedding) return;
             rec.embedding = pdfDoc.embedFont(rec.bytes, { subset: true })
-                .then(function (font) { rec.font = font; });
+                .then(function (font) {
+                    font.__ref = "f:" + absoluteUrl(face.url);
+                    rec.font = font;
+                });
             wanted.push(rec.embedding);
         }
 
@@ -213,6 +220,10 @@ var OfficePdfCore = (function () {
             std: stdFont, want: want, use: use,
             ready: ready, shipped: shipped, tried: tried
         };
+    }
+
+    function absoluteUrl(u) {
+        try { return new URL(u, document.baseURI).href; } catch (e) { return u; }
     }
 
     /* resolveChar walks a font stack the way the browser does and says what
@@ -426,7 +437,11 @@ var OfficePdfCore = (function () {
     // only the first time each distinct value is used on this page
     Page.prototype.alpha = function (a) {
         var key = "a" + Math.round(a * 1000);
-        if (!this.gsCache[key]) {
+        if (!this.gsCache[key] && this.p.recordAlpha) {
+            // a recording page (pdfdraw.js) makes the state where it is replayed
+            this.p.recordAlpha(key, a);
+            this.gsCache[key] = true;
+        } else if (!this.gsCache[key]) {
             var ref = this.doc.context.register(this.doc.context.obj({
                 Type: "ExtGState", ca: a, CA: a
             }));

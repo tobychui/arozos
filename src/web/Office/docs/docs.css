@@ -347,34 +347,16 @@ span.doc-tab[data-leader="hyphen"], span.doc-tab[data-leader="underscore"] {
 /* Multi-column layout: title/author blocks marked via
    Format > Page layout > Span all columns stretch across every column */
 #editor .col-span-all { column-span: all; }
-
-/* Page guides: dashed lines showing where printed pages break */
-#pageGuides {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 5;
+/* A run of text between full-width blocks in a multi-column document: the
+   paginator wraps it (layout only, never saved) and gives the part that
+   runs past a page bottom the height that is left, filled column by
+   column; everything else balances. */
+#editor .doc-colsec {
+    column-count: var(--doc-cols, 2);
+    column-gap: var(--doc-colgap, 8mm);
+    column-fill: balance;
 }
-.doc-pageguide {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 2px dashed #b7c8e4;
-}
-.doc-pageguide::after {
-    content: attr(data-label);
-    position: absolute;
-    right: 2px;
-    top: -9px;
-    font-size: 9px;
-    line-height: 16px;
-    padding: 0 6px;
-    color: #6a86b8;
-    background: #eef3fb;
-    border: 1px solid #b7c8e4;
-    border-radius: 8px;
-    font-family: "Segoe UI", Arial, sans-serif;
-}
+#editor .doc-colsec.doc-colsec-fill { column-fill: auto; }
 
 /* ============ Page breaks (explicit + automatic pagination) ============
    An explicit break is a real block in the flow, stretched by the
@@ -430,7 +412,8 @@ span.doc-tab[data-leader="hyphen"], span.doc-tab[data-leader="underscore"] {
 /* Layout boxes: visualize which regions span all columns (orange) and
    which flow inside the columns (blue) - View > Layout boxes */
 #page { position: relative; }
-body.doc-show-boxes #editor > * {
+body.doc-show-boxes #editor > *:not(.doc-colsec):not(.doc-autobreak),
+body.doc-show-boxes #editor > .doc-colsec > * {
     outline: 1px dashed rgba(66, 133, 244, 0.55);
     outline-offset: 1px;
 }

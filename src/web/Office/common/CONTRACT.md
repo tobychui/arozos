@@ -719,10 +719,13 @@ downstream has to know about them.
   objects (`slides/slides_pdf.js`, `docs/docs_pdf.js`) on the shared
   `common/pdfcore.js` (`OfficePdfCore`: font resolution against the shipped
   faces, text runs, clip paths, raster fallback) — load it after pdf-lib.
-  Docs hands the actual PDF assembly to a Web Worker: `common/pdfworker.js`
-  (which `importScripts` pdf-lib, fontkit and `common/pdfdraw.js`) turns a
-  plain-data display list into the file; `pdfdraw.js` is also loaded in the
-  page as the fallback when no worker can start.
+  Docs and Slides hand the actual PDF assembly to a Web Worker:
+  `common/pdfworker.js` (which `importScripts` pdf-lib, fontkit and
+  `common/pdfdraw.js`) turns a plain-data job into the file - Docs writes a
+  display list, Slides a recording of its pdf-lib calls
+  (`OfficePdfDraw.recorder()`). Load `pdfdraw.js` in the page too: it
+  starts the worker (`OfficePdfDraw.run`) and is the fallback when none
+  can start.
 - `fontkit.umd.min.js` — `@pdf-lib/fontkit`, which is what lets `pdf-lib`
   embed a font of our own. **Loaded on demand, not from the page**: it is
   the largest script here and only an export needs it (`loadFontkit` in
@@ -733,6 +736,23 @@ downstream has to know about them.
   layout over a clone and re-wraps mixed-script text. That path uses an
   SVG `<foreignObject>` so the browser lays out its own content, and only
   falls back here if that fails outright.
+
+## Start-up splash (common/splash.js)
+
+An app can show a splash while it starts and opens its document (Docs does):
+`<script src="../common/splash.js" data-app="Docs" data-icon="../img/docs.svg"
+data-size="1080x700"></script>` as the **first element of `<body>`**, with the
+app's stylesheets and scripts after it rather than in `<head>` (they would hold
+the first paint back). Inside a web desktop float window it is a coloured card
+in a small window that grows to `data-size` about its own centre when ready
+(register the app with an `InitFWSize` of 400x240 so the window opens at that
+size); in a full tab it is a plain page with the icon and a status line. It
+styles itself. `OfficeApp` drives it: `setStatus` / `showBusy` text becomes its
+status line, and it goes away when the opened document is on screen, a dialog
+opens, or an error is reported. An app with an asynchronous importer calls
+`OfficeApp.documentLoaded()` when the document is in, and
+`OfficeApp.splashStep(msg, fn)` to show a step before synchronous work (it runs
+`fn` straight away when there is no splash).
 
 ## Testing without a full ArozOS server
 

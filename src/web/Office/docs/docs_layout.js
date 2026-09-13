@@ -769,6 +769,12 @@ var DocsLayout = (function () {
         c.classList.remove("doc-split-head", "doc-split-tail");
         if (!c.getAttribute("class")) c.removeAttribute("class");
         if (el.tagName === "OL") c.removeAttribute("start");
+        if (el.classList.contains("doc-colsec")) {
+            // the rest of a column section is laid out afresh on its page
+            c.style.height = "";
+            c.classList.remove("doc-colsec-fill");
+            if (!c.getAttribute("style")) c.removeAttribute("style");
+        }
         if (el.tagName === "TR") {
             c.style.height = "";
             c.removeAttribute("height");
@@ -840,6 +846,7 @@ var DocsLayout = (function () {
        being copied, so no half is ever left empty. */
     function splitTree(start, boundary) {
         var cur = start;
+        if (!cur || cur === boundary || !boundary.contains(cur)) return null;
         while (cur && cur.parentNode && cur.parentNode !== boundary) {
             var parent = cur.parentNode;
             if (!prevMeaningful(cur)) {
@@ -901,6 +908,7 @@ var DocsLayout = (function () {
         }
         if (tail.parentNode) tail.parentNode.removeChild(tail);
         unmark(head, "head");
+        if (head.classList.contains("doc-colsec")) resetColumns(head);
     }
     function mergeChildren(head, tail) {
         var c, nx;
@@ -1001,6 +1009,7 @@ var DocsLayout = (function () {
         try {
             removeSpacerList(root.querySelectorAll(".doc-autobreak"), root);
             repairSplits(root, true);
+            unwrapColumns(root);
             var breaks = root.querySelectorAll(".doc-pagebreak");
             for (var i = 0; i < breaks.length; i++) breaks[i].style.height = "0px";
         } finally {
@@ -1091,6 +1100,166 @@ var DocsLayout = (function () {
         return true;
     }
 
+    /* ---- columns ----
+
+       A multi-column page is laid out in column sections: every run of
+       text that flows in columns (everything between two full-width blocks,
+       .col-span-all) is wrapped in a div.doc-colsec with CSS columns, and a
+       full-width block stays outside, across the page. A section that fits
+       on its page balances its columns; one that runs past the page bottom
+       is given the height that is left and filled column by column, and it
+       splits - like any other block - at the first content that spilled
+       into a column past the last one. The copy of the section carries the
+       rest to the next page, where it is laid out the same way.
+
+       Sections are layout only, like spacers: made before every layout of a
+       columned document and taken out again on everything that is saved. */
+    function isSpanning(el) {
+        return el.classList.contains("col-span-all") || el.classList.contains("doc-pagebreak") ||
+            el.getAttribute("data-page-break-before") === "1";
+    }
+    function resetColumns(sec) {
+        sec.classList.remove("doc-colsec-fill");
+        sec.style.height = "";
+        if (!sec.getAttribute("style")) sec.removeAttribute("style");
+    }
+    function unwrapColumns(root) {
+        var secs = root.querySelectorAll(".doc-colsec");
+        for (var i = secs.length - 1; i >= 0; i--) {
+            var sec = secs[i];
+            var parent = sec.parentNode;
+            if (!parent) continue;
+            while (sec.firstChild) parent.insertBefore(sec.firstChild, sec);
+            parent.removeChild(sec);
+            noteMoved();
+        }
+    }
+    function wrapColumns(root) {
+        var sec = null;
+        for (var n = root.firstChild; n; ) {
+            var next = n.nextSibling;
+            var breaks = n.nodeType === 1 && (isSpacer(n) || isSpanning(n) || n.classList.contains("doc-colsec"));
+            if (breaks) {
+                sec = null;
+            } else if (n.nodeType === 1 || (n.nodeType === 3 && /\S/.test(n.nodeValue))) {
+                if (!sec) {
+                    sec = document.createElement("div");
+                    sec.className = "doc-colsec";
+                    root.insertBefore(sec, n);
+                }
+                sec.appendChild(n);
+                noteMoved();
+            } else if (sec) {
+                sec.appendChild(n);
+            }
+            n = next;
+        }
+    }
+
+    /* the first content of a column section that sits in a column past the
+       last one the page has: { before: el } or { block, node, offset } /
+       { block, beforeEl } for a line inside a paragraph */
+    Paginator.prototype.columnOverflow = function (sec) {
+        var n = Math.max(1, this.o.columns || 1);
+        var cs = window.getComputedStyle(sec);
+        var gap = parseFloat(cs.columnGap) || 0;
+        var colW = (sec.clientWidth - gap * (n - 1)) / n;
+        var scale = this._scale || 1;
+        var limit = sec.getBoundingClientRect().left + (n * colW + (n - 0.5) * gap) * scale;
+        function past(rect) { return rect.left >= limit - 0.5; }
+        function anyPast(rects) {
+            for (var i = 0; i < rects.length; i++) if (past(rects[i])) return true;
+            return false;
+        }
+        var range = document.createRange();
+        function charRect(node, i, len) {
+            for (; i < len; i++) {
+                range.setStart(node, i);
+                range.setEnd(node, i + 1);
+                var rr = range.getClientRects();
+                if (rr.length && rr[0].height > 0) return { rect: rr[rr.length - 1], at: i };
+            }
+            return null;
+        }
+        function inLine(block) {
+            var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
+            var node;
+            while ((node = walker.nextNode())) {
+                if (node.nodeType === 1) {
+                    if (node.tagName === "IMG" && anyPast(node.getClientRects())) return { block: block, beforeEl: node };
+                    continue;
+                }
+                if (!node.nodeValue) continue;
+                range.selectNodeContents(node);
+                if (!anyPast(range.getClientRects())) continue;
+                var len = node.nodeValue.length;
+                var lo = 0, hi = len - 1, ans = len;
+                while (lo <= hi) {
+                    var mid = (lo + hi) >> 1;
+                    var cr = charRect(node, mid, len);
+                    if (!cr) { hi = mid - 1; continue; }
+                    if (past(cr.rect)) { ans = Math.min(ans, cr.at); hi = mid - 1; }
+                    else lo = cr.at + 1;
+                }
+                return { block: block, node: node, offset: Math.min(ans, len) };
+            }
+            return null;
+        }
+        function find(container) {
+            for (var c = container.firstElementChild; c; c = c.nextElementSibling) {
+                if (isSpacer(c)) continue;
+                var rects = c.getClientRects();
+                if (!rects.length) continue;
+                if (past(rects[0])) return { before: c };
+                if (!anyPast(rects)) continue;
+                if (c.tagName === "TABLE") {
+                    var rows = rowsOf(c);
+                    for (var r = 0; r < rows.length; r++) {
+                        if (anyPast(rows[r].getClientRects())) return { before: r === 0 ? c : rows[r] };
+                    }
+                    return { before: c };
+                }
+                if (c.tagName === "IMG" || c.tagName === "HR" || c.tagName === "VIDEO" || c.tagName === "IFRAME") {
+                    return { before: c };
+                }
+                if (hasBlockChild(c)) {
+                    var inner = find(c);
+                    if (inner) return inner;
+                    return { before: c };
+                }
+                return inLine(c) || { before: c };
+            }
+            return null;
+        };
+        return find(sec);
+    };
+
+    Paginator.prototype.splitColumns = function (sec, B, C, boundary) {
+        var top = this.top(sec);
+        var avail = B - top;
+        if (avail < 2) return top > C + 1 ? this.beforeCut(sec, C, boundary) : { kind: "overflow", y: top };
+        sec.classList.add("doc-colsec-fill");
+        sec.style.height = avail + "px";
+        var hit = this.columnOverflow(sec);
+        if (!hit) return { kind: "fit" };
+        // nothing of the section fits: it moves whole, or spills when it
+        // already starts the page
+        var startNode = hit.before ? hit.before.parentNode : (hit.beforeEl ? hit.beforeEl.parentNode : hit.node);
+        var startOffset = hit.before ? Array.prototype.indexOf.call(hit.before.parentNode.childNodes, hit.before) :
+            (hit.beforeEl ? Array.prototype.indexOf.call(hit.beforeEl.parentNode.childNodes, hit.beforeEl) : hit.offset);
+        if (edgeEmpty(sec, startNode, startOffset, true)) {
+            resetColumns(sec);
+            return top > C + 1 ? this.beforeCut(sec, C, boundary) : { kind: "overflow", y: top };
+        }
+        // the page is full: its footnotes are the references above B in the
+        // columns that stay
+        if (hit.before) return { kind: "before", el: hit.before, col: true, y: B + 0.5, boundary: boundary };
+        return {
+            kind: "line", el: hit.block, node: hit.node, offset: hit.offset, beforeEl: hit.beforeEl,
+            y: B + 0.5, boundary: boundary
+        };
+    };
+
     function blockKids(container) {
         var out = [];
         for (var c = container.firstElementChild; c; c = c.nextElementSibling) {
@@ -1161,6 +1330,7 @@ var DocsLayout = (function () {
             return this.beforeCut(el, C, boundary);
         }
         if (el.classList.contains("doc-pagebreak")) return null;
+        if (el.classList.contains("doc-colsec")) return this.splitColumns(el, B, C, boundary);
         if (isList(el) || tag === "TBODY") {
             var inner = this.findCut(el, B, C, boundary);
             return this.hoist(inner, el, C, boundary);
@@ -1251,8 +1421,9 @@ var DocsLayout = (function () {
             var cut = hasBlockChild(td) ? this.findCut(td, B - padB, C, td)
                 : this.splitLines(td, B - padB, C, td);
             if (cut && cut.kind === "fit") cut = null;
-            if (cut && cut.kind === "overflow") {
-                // this cell cannot give anything up: move the row if we can
+            if (cut && (cut.kind === "overflow" || (cut.kind === "before" && cut.el === td))) {
+                // this cell cannot give anything up (or all of it moves):
+                // move the row if we can
                 cut = { kind: "cellstart", td: td, y: rowTop };
             }
             if (cut) {
@@ -1447,7 +1618,7 @@ var DocsLayout = (function () {
                 return;
             case "before":
                 var el = cut.el;
-                if (el.tagName === "TR") {
+                if (el.tagName === "TR" && !cut.col) {
                     var cols = 0;
                     for (var c = 0; c < el.cells.length; c++) cols += el.cells[c].colSpan;
                     var sp = makeSpacer("row", cols);
@@ -1538,6 +1709,8 @@ var DocsLayout = (function () {
             var r = refs[i];
             var rect = r.getBoundingClientRect();
             if (!rect.height) continue;
+            // a reference in a column past the page's last one is not here
+            if (this.o.columns > 1 && rect.left > this.editor.getBoundingClientRect().right + 1) continue;
             var y = this.rectTop(rect);
             if (y >= y0 - 1 && y < y1) {
                 var id = r.getAttribute("data-fn");
@@ -1597,6 +1770,7 @@ var DocsLayout = (function () {
             });
         } else {
             removeSpacers(this.editor);
+            if (o.columns > 1) wrapColumns(this.editor);
             pages = [];
         }
         var contentEnd = function (self) { return self.bottom(self.editor); };

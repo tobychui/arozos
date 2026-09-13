@@ -29,8 +29,20 @@
         ["poly", [x, y, ...], rgb, strokeW]
         ["frame", x, y, w, h, rgb, strokeW]
 
+    A page may instead be a recording, { size: [w, h] (pt), calls: [...] },
+    made by recorder() below: the pdf-lib page calls an exporter made (Slides
+    draws with pdf-lib directly), written down as data and made again here.
+    A font is named "k:<standard font>" or "f:<url of a shipped face>", a
+    picture by its id in job.images.
+
     Usage:
         OfficePdfDraw.render(job, { fontkit, onProgress }) -> Promise<Uint8Array>
+        OfficePdfDraw.run(job, { onProgress, loadFontkit })  (in the page:
+            renders in a worker, or here when no worker can start)
+        var rec = OfficePdfDraw.recorder();   (in the page)
+            rec.addPage([w, h]) -> a stand-in for a pdf-lib PDFPage
+            rec.embed(src)      -> Promise<picture handle> for drawImage
+            rec.job(title)      -> the job
 */
 
 var OfficePdfDraw = (function () {
@@ -71,7 +83,9 @@ var OfficePdfDraw = (function () {
         function loadFont(ref) {
             if (fontCache[ref]) return fontCache[ref];
             var p;
-            if (ref.indexOf("s:") === 0) {
+            if (ref.indexOf("k:") === 0) {
+                p = Promise.resolve(pdfDoc.embedStandardFont(PDFLib.StandardFonts[ref.substring(2)]));
+            } else if (ref.indexOf("s:") === 0) {
                 var parts = ref.split(":");
                 var names = STD_VARIANTS[parts[1]] || STD_VARIANTS.Helvetica;
                 var key = names[(parts[2] === "1" ? 1 : 0) + (parts[3] === "1" ? 2 : 0)];
@@ -113,8 +127,12 @@ var OfficePdfDraw = (function () {
                 var kind = sniff(bytes);
                 if (kind === "jpg") return pdfDoc.embedJpg(bytes);
                 if (kind === "png") return pdfDoc.embedPng(bytes);
-                return null;
-            }).catch(function () { return null; });
+                // a recording names what it could not check: try it as a PNG
+                return spec.guess ? pdfDoc.embedPng(bytes) : null;
+            }).catch(function () { return null; }).then(function (img) {
+                imageReady[id] = img;
+                return img;
+            });
             return imageCache[id];
         }
 
@@ -250,6 +268,65 @@ var OfficePdfDraw = (function () {
             }
         }
 
+        /* ---- recorded pages ---- */
+
+        // what a recorded argument refers to: fonts and pictures by name
+        function refsIn(v, fonts, images) {
+            if (!v || typeof v !== "object") return;
+            if (v.__font) { fonts.push(v.__font); return; }
+            if (v.__img) { images.push(v.__img); return; }
+            if (Array.isArray(v)) { v.forEach(function (x) { refsIn(x, fonts, images); }); return; }
+            for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) refsIn(v[k], fonts, images);
+        }
+        function preloadCalls(calls) {
+            var fonts = [], images = [];
+            calls.forEach(function (c) { refsIn(c, fonts, images); });
+            return Promise.all(fonts.map(loadFont).concat(images.map(loadImage)));
+        }
+        function decode(v) {
+            if (!v || typeof v !== "object") return v;
+            if (v.__font) return fontReady[v.__font];
+            if (v.__img) return imageReady[v.__img];
+            if (Array.isArray(v)) return v.map(decode);
+            var out = {};
+            for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) out[k] = decode(v[k]);
+            return out;
+        }
+        function replay(page, calls) {
+            var gs = {};
+            calls.forEach(function (c) {
+                switch (c[0]) {
+                    case "ops":
+                        // operator arguments were kept as the text they write
+                        page.pushOperators.apply(page, c[1].map(function (o) {
+                            return PDFLib.PDFOperator.of(o[0], o[1]);
+                        }));
+                        break;
+                    case "alpha":
+                        if (!gs[c[1]]) {
+                            var ref = pdfDoc.context.register(pdfDoc.context.obj({ Type: "ExtGState", ca: c[2], CA: c[2] }));
+                            page.node.setExtGState(PDFLib.PDFName.of(c[1]), ref);
+                            gs[c[1]] = true;
+                        }
+                        break;
+                    case "drawImage":
+                        var img = imageReady[c[1].__img];
+                        if (img) page.drawImage(img, decode(c[2]));
+                        break;
+                    case "drawText":
+                        var o = decode(c[2]);
+                        if (o.font) page.drawText(c[1], o);
+                        break;
+                    case "drawSvgPath":
+                        page.drawSvgPath(c[1], decode(c[2]));
+                        break;
+                    default:
+                        if (typeof page[c[0]] === "function") page[c[0]](decode(c[1]));
+                }
+            });
+        }
+        var imageReady = {};
+
         function tick() {
             return new Promise(function (res) { setTimeout(res, 0); });
         }
@@ -262,6 +339,16 @@ var OfficePdfDraw = (function () {
             doc.setProducer("ArozOS Office");
             var chain = Promise.resolve();
             job.pages.forEach(function (ops, i) {
+                if (!Array.isArray(ops)) {
+                    chain = chain.then(function () {
+                        return preloadCalls(ops.calls);
+                    }).then(function () {
+                        replay(pdfDoc.addPage(ops.size), ops.calls);
+                        if (opts.onProgress) opts.onProgress(i + 1, total, "page");
+                        return tick();
+                    });
+                    return;
+                }
                 chain = chain.then(function () {
                     return preload(ops);
                 }).then(function () {
@@ -282,5 +369,127 @@ var OfficePdfDraw = (function () {
         });
     }
 
-    return { render: render };
+    /* ---------------- recording (in the page) ---------------- */
+
+    function encodeArg(v) {
+        if (v === undefined || v === null || typeof v !== "object") return v;
+        if (v.__ref) return { __font: v.__ref };
+        if (v.__img) return { __img: v.__img };
+        if (Array.isArray(v)) return v.map(encodeArg);
+        var out = {};
+        for (var k in v) {
+            if (!Object.prototype.hasOwnProperty.call(v, k) || v[k] === undefined) continue;
+            out[k] = encodeArg(v[k]);
+        }
+        return out;
+    }
+
+    function recorder() {
+        var pages = [];
+        var images = {};
+        var bySrc = {};
+        var seq = 0;
+        function RecPage(calls) {
+            this.calls = calls;
+            this.node = {};
+        }
+        ["drawRectangle", "drawLine", "drawCircle", "drawEllipse", "drawSquare"].forEach(function (m) {
+            RecPage.prototype[m] = function (o) { this.calls.push([m, encodeArg(o)]); };
+        });
+        RecPage.prototype.drawText = function (text, o) { this.calls.push(["drawText", String(text), encodeArg(o)]); };
+        RecPage.prototype.drawImage = function (img, o) {
+            if (img && img.__img) this.calls.push(["drawImage", { __img: img.__img }, encodeArg(o)]);
+        };
+        RecPage.prototype.drawSvgPath = function (d, o) { this.calls.push(["drawSvgPath", String(d), encodeArg(o)]); };
+        RecPage.prototype.pushOperators = function () {
+            var list = [];
+            for (var i = 0; i < arguments.length; i++) {
+                var op = arguments[i];
+                // PDFOperator writes each argument with String(); keeping
+                // that text keeps the content stream byte for byte
+                list.push([op.name, (op.args || []).map(function (a) { return String(a); })]);
+            }
+            this.calls.push(["ops", list]);
+        };
+        RecPage.prototype.recordAlpha = function (key, a) { this.calls.push(["alpha", key, a]); };
+
+        return {
+            addPage: function (size) {
+                var calls = [];
+                pages.push({ size: size, calls: calls });
+                return new RecPage(calls);
+            },
+            // a picture is named, not embedded: the worker embeds it once
+            embed: function (src) {
+                if (!src) return Promise.resolve(null);
+                if (bySrc[src]) return Promise.resolve(bySrc[src]);
+                var id = "p" + (seq++);
+                var abs = src;
+                if (src.indexOf("data:") !== 0) {
+                    try { abs = new URL(src, document.baseURI).href; } catch (e) { abs = src; }
+                }
+                images[id] = { src: abs, guess: true };
+                bySrc[src] = { __img: id };
+                return Promise.resolve(bySrc[src]);
+            },
+            job: function (title) {
+                return { title: title || "", images: images, pages: pages };
+            }
+        };
+    }
+
+    /* ---------------- running a job (in the page) ---------------- */
+
+    var WORKER_URL = "../common/pdfworker.js";
+
+    /* The worker is where the time goes (pictures, fonts, compression).
+       When one cannot be started at all - an old browser, a page opened
+       from disk - the same code runs in the page instead, just less
+       politely. */
+    function run(job, o) {
+        o = o || {};
+        return new Promise(function (resolve, reject) {
+            var worker;
+            var started = false;
+            function inPage() {
+                var fk = o.loadFontkit ? o.loadFontkit() : Promise.resolve(self.fontkit);
+                fk.then(function (kit) {
+                    return render(job, { fontkit: kit, onProgress: o.onProgress });
+                }).then(resolve, reject);
+            }
+            try {
+                worker = new Worker(WORKER_URL);
+            } catch (e) {
+                inPage();
+                return;
+            }
+            worker.onmessage = function (e) {
+                var m = e.data || {};
+                started = true;
+                if (m.type === "progress") {
+                    if (o.onProgress) o.onProgress(m.done, m.total, m.stage);
+                } else if (m.type === "done") {
+                    worker.terminate();
+                    resolve(m.bytes);
+                } else if (m.type === "error") {
+                    worker.terminate();
+                    reject(new Error(m.message || "the PDF could not be written"));
+                }
+            };
+            worker.onerror = function (e) {
+                if (e && e.preventDefault) e.preventDefault();
+                worker.terminate();
+                if (!started) inPage();
+                else reject(new Error((e && e.message) || "the PDF worker failed"));
+            };
+            var transfer = [];
+            Object.keys(job.images || {}).forEach(function (id) {
+                var b = job.images[id].bytes;
+                if (b && b.buffer && transfer.indexOf(b.buffer) < 0) transfer.push(b.buffer);
+            });
+            worker.postMessage({ job: job }, transfer);
+        });
+    }
+
+    return { render: render, recorder: recorder, run: run };
 })();

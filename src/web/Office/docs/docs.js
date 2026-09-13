@@ -59,7 +59,8 @@
         { v: "h3",    label: "Heading 3" },
         { v: "h4",    label: "Heading 4" }
     ];
-    var BLOCK_SEL = "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div";
+    // (a column section and a page spacer are layout, not blocks of the text)
+    var BLOCK_SEL = "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div:not(.doc-colsec):not(.doc-autobreak)";
 
     /* Special characters palette - every glyph is generated at runtime from
        code points (never a literal emoji in this source file). */
@@ -1533,14 +1534,17 @@
         pageEl.style.padding = m.top + "mm " + m.right + "mm " + m.bottom + "mm " + m.left + "mm";
         // multi-column text layout (2 = IEEE-paper style); blocks marked
         // with .col-span-all (title, authors) stretch across every column
+        // the columns themselves are the column sections the paginator
+        // wraps the text in (docs_layout.js); they read these
+        editor.style.columnCount = "";
+        editor.style.columnGap = "";
+        editor.style.columnFill = "";
         if (pageConf.columns > 1) {
-            editor.style.columnCount = pageConf.columns;
-            editor.style.columnGap = pageConf.colGap + "mm";
-            editor.style.columnFill = "balance";
+            editor.style.setProperty("--doc-cols", String(pageConf.columns));
+            editor.style.setProperty("--doc-colgap", pageConf.colGap + "mm");
         } else {
-            editor.style.columnCount = "";
-            editor.style.columnGap = "";
-            editor.style.columnFill = "";
+            editor.style.removeProperty("--doc-cols");
+            editor.style.removeProperty("--doc-colgap");
         }
         updatePrintStyle();
         updatePageGuides();
@@ -1591,7 +1595,6 @@
     var PAGE_GAP_PX = 24;        // visual gap between two sheets
     var HEADER_MIN_PX = 7;       // Google Docs never starts a header higher
     var lastPages = [];          // page records of the current layout
-    function pageGuidesOn() { return OfficeApp.getSetting("pageGuides", true); }
     // element top in layout px relative to #page (CSS zoom safe - unlike
     // getBoundingClientRect, offsetTop is not scaled)
     function offsetTopInPage(el) {
@@ -1838,8 +1841,7 @@
        there is nothing at all, which is what makes the pages really
        separate: the flow has no content there (a split puts the rest of a
        paragraph or a table row on the next sheet), so no border or shading
-       can show in the gap. A multi-column document is not paginated, and
-       keeps one long sheet. */
+       can show in the gap. */
     function renderSheets(pages, geo) {
         var holder = document.getElementById("pageSheets");
         if (!holder) {
@@ -1849,14 +1851,7 @@
             holder.setAttribute("aria-hidden", "true");
             pageEl.insertBefore(holder, pageEl.firstChild);
         }
-        var want = [];
-        var gapless = pages.length > 1 && pages[1].sheetTop - pages[0].sheetTop <= geo.sheetH + 0.5;
-        if (gapless) {
-            var last = pages[pages.length - 1];
-            want.push({ top: 0, h: last.sheetTop + geo.sheetH });
-        } else {
-            pages.forEach(function (pg) { want.push({ top: pg.sheetTop, h: geo.sheetH }); });
-        }
+        var want = pages.map(function (pg) { return { top: pg.sheetTop, h: geo.sheetH }; });
         while (holder.children.length > want.length) holder.removeChild(holder.lastChild);
         while (holder.children.length < want.length) {
             var sheet = document.createElement("div");
@@ -2002,14 +1997,6 @@
         }
     }
     function layoutPages() {
-        var holder = document.getElementById("pageGuides");
-        if (!holder) {
-            holder = document.createElement("div");
-            holder.id = "pageGuides";
-            holder.className = "of-noprint";
-            pageEl.appendChild(holder);
-        }
-        holder.innerHTML = "";
         var geo = pageGeometry();
         // park the bands first: a copy still sitting at the bottom of a
         // longer previous layout would stretch #page and conjure a phantom
@@ -2027,37 +2014,16 @@
         runLayoutPasses(editor);
         fnOrder = DocsLayout.numberFootnotes(editor);
 
-        var pages;
-        if (pageConf.columns > 1) {
-            // CSS columns reflow around anything inserted, so a columned
-            // document keeps dotted guides at each page height
-            pages = [];
-            var innerH = Math.max(60, geo.sheetH - geo.mTop - geo.mBot);
-            var total = Math.max(1, Math.ceil((editor.offsetHeight + 1) / innerH));
-            for (var p = 0; p < total; p++) {
-                pages.push({
-                    index: p, sheetTop: p * innerH, contentTop: geo.mTop + p * innerH,
-                    contentBottom: geo.mTop + (p + 1) * innerH, footnotes: [], footnoteTop: 0
-                });
-                if (p > 0 && pageGuidesOn()) {
-                    var g = document.createElement("div");
-                    g.className = "doc-pageguide";
-                    g.style.top = (geo.mTop + p * innerH) + "px";
-                    g.setAttribute("data-label", "Page " + (p + 1));
-                    holder.appendChild(g);
-                }
-            }
-        } else {
-            var refs = editor.querySelectorAll("sup.doc-fnref");
-            pages = DocsLayout.paginate({
-                editor: editor, pageEl: pageEl,
-                sheetH: geo.sheetH, gap: PAGE_GAP_PX, mTop: geo.mTop, mBot: geo.mBot,
-                fnRefs: refs,
-                measureFootnotes: refs.length ? function (ids) { return measureFootnotes(ids, geo); } : null,
-                fromY: incremental ? fromY : undefined,
-                prevPages: incremental ? lastPages : null
-            });
-        }
+        var refs = editor.querySelectorAll("sup.doc-fnref");
+        var pages = DocsLayout.paginate({
+            editor: editor, pageEl: pageEl,
+            sheetH: geo.sheetH, gap: PAGE_GAP_PX, mTop: geo.mTop, mBot: geo.mBot,
+            columns: pageConf.columns > 1 ? pageConf.columns : 1,
+            fnRefs: refs,
+            measureFootnotes: refs.length ? function (ids) { return measureFootnotes(ids, geo); } : null,
+            fromY: incremental ? fromY : undefined,
+            prevPages: incremental ? lastPages : null
+        });
         lastPages = pages;
         var last = pages[pages.length - 1];
         pageEl.style.minHeight = (last.sheetTop + geo.sheetH + pageEl.clientTop * 2) + "px";
@@ -3055,11 +3021,14 @@
                 OfficeApp.toast("Import failed: unexpected response", "error");
                 return;
             }
-            loadBody(b);
-            undo.reset(snapshot());
-            // the framework kept us attached to the source file, so Save
-            // writes straight back to it in its own format
-            OfficeApp.setStatus("Opened " + fn);
+            OfficeApp.splashStep("Laying out the pages...", function () {
+                loadBody(b);
+                undo.reset(snapshot());
+                // the framework kept us attached to the source file, so Save
+                // writes straight back to it in its own format
+                OfficeApp.setStatus("Opened " + fn);
+                OfficeApp.documentLoaded();
+            });
         }, function (msg) {
             OfficeApp.hideBusy();
             OfficeApp.toast("Import failed: " + msg, "error");
@@ -3872,14 +3841,6 @@
             ],
 
             viewMenuExtras: [
-                {
-                    label: "Page guides",
-                    checked: pageGuidesOn,
-                    action: function () {
-                        OfficeApp.setSetting("pageGuides", !pageGuidesOn());
-                        updatePageGuides();
-                    }
-                },
                 {
                     label: "Layout boxes",
                     checked: function () { return document.body.classList.contains("doc-show-boxes"); },

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Docs</title>
     <link rel="icon" type="image/png" href="docs.png">
+    <!-- Dynamic print stylesheet: docs.js writes the @page rule (size,
+         orientation, margins, optional page-number margin box) in here
+         whenever the page setup changes. Static print rules live in docs.css. -->
+    <style id="pagePrintStyle"></style>
+</head>
+<body data-officeapp="docs">
+    <!-- start-up splash: first, so it covers the page before anything draws -->
+    <script src="../common/splash.js" data-app="Docs" data-icon="../img/docs.svg" data-size="1080x700"></script>
+    <!-- the app's stylesheets and scripts come after the splash, so it can
+         paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <link rel="stylesheet" href="../common/office.css">
     <link rel="stylesheet" href="../common/fonts/fonts.css">
@@ -23,12 +33,6 @@
     <script src="../common/clipboard.js"></script>
     <script src="../common/textedit.js"></script>
     <script src="../common/lib/marked.min.js"></script>
-    <!-- Dynamic print stylesheet: docs.js writes the @page rule (size,
-         orientation, margins, optional page-number margin box) in here
-         whenever the page setup changes. Static print rules live in docs.css. -->
-    <style id="pagePrintStyle"></style>
-</head>
-<body data-officeapp="docs">
 
     <!-- Toolbar (buttons are built by docs.js) -->
     <div class="of-toolbar of-noprint" id="toolbar"></div>

@@ -3697,10 +3697,24 @@ var SlidesApp = (function () {
             return;
         }
         SlidesPdf.build(snapshot, {
-            onProgress: function (n, total) {
-                if (prog) prog.set(n, total, "Exporting " + n + " / " + total +
-                    (total === 1 ? " page" : " pages"));
-                else OfficeApp.setStatus("Exporting PDF... slide " + n + " of " + total);
+            title: OfficeApp.stripExt(OfficeApp.getFileName() || "Presentation"),
+            onProgress: function (n, total, stage) {
+                // measuring the slides is the first half, writing the file
+                // (in a worker) the second
+                var f = total > 0 ? n / total : 0;
+                var pct, msg;
+                if (stage === "save") {
+                    pct = 97;
+                    msg = "Writing the file...";
+                } else if (stage === "page") {
+                    pct = 50 + 45 * f;
+                    msg = "Writing " + n + " / " + total + (total === 1 ? " page" : " pages");
+                } else {
+                    pct = 50 * f;
+                    msg = "Exporting " + n + " / " + total + (total === 1 ? " page" : " pages");
+                }
+                if (prog) prog.set(pct, 100, msg);
+                else OfficeApp.setStatus("Exporting PDF... " + msg);
             }
         }).then(function (bytes) {
             if (prog) prog.message("Writing " + OfficeApp.basename(fp) + "...");

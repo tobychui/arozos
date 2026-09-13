@@ -277,7 +277,61 @@ var OfficeApp = (function () {
         // the document's identity only ever changes alongside its title
         updateForeignBanner();
     }
+    /* ---------- start-up splash (common/splash.js, when the app has one) ----------
+       While it shows, status messages and busy messages are what it says;
+       it goes away when the document is on screen (documentLoaded), when
+       something needs the person (a dialog), or when something failed. */
+    function splashActive() {
+        return !!(window.OfficeSplash && OfficeSplash.active());
+    }
+    function splashDone() {
+        if (!splashActive()) return;
+        OfficeSplash.done();
+        showFromTop();
+    }
+    /* The document comes out from behind the splash at its beginning. The
+       window grows and the layout settles for a moment after that (a float
+       window resizing, pictures and fonts arriving), and any of it can
+       leave the view scrolled part-way down the first page - so the top is
+       asked for again until it has settled, unless the person has started
+       scrolling themselves. */
+    function showFromTop() {
+        var $ws = $(".of-workspace");
+        if (!$ws.length) return;
+        var touched = false;
+        var mark = function () { touched = true; };
+        $ws.one("wheel touchstart keydown mousedown", mark);
+        var top = function () {
+            if (touched) return;
+            $ws.scrollTop(0).scrollLeft(0);
+        };
+        top();
+        requestAnimationFrame(top);
+        [120, 350, 800].forEach(function (ms) { setTimeout(top, ms); });
+        setTimeout(function () { $ws.off("wheel touchstart keydown mousedown", mark); }, 900);
+    }
+    // the document an app was asked to open is on screen
+    function documentLoaded() {
+        splashDone();
+    }
+    // say msg on the splash and let it paint before fn does synchronous work
+    // (laying out a long document); without a splash fn just runs
+    function splashStep(msg, fn) {
+        if (!splashActive()) { fn(); return; }
+        OfficeSplash.status(msg);
+        // a frame to paint it in - or a moment, where frames do not come (a
+        // tab or window in the background)
+        var ran = false;
+        var go = function () { if (!ran) { ran = true; fn(); } };
+        requestAnimationFrame(function () { setTimeout(go, 0); });
+        setTimeout(go, 150);
+    }
+
     function setStatus(msg, type, timeout) {
+        if (splashActive()) {
+            if (type === "error") splashDone();
+            else OfficeSplash.status(msg);
+        }
         var $m = $(".of-status-msg");
         $m.text(msg || "").removeClass("error");
         if (type === "error") $m.addClass("error");
@@ -416,6 +470,7 @@ var OfficeApp = (function () {
             markClean();
             setStatus("New " + cfg.fileTypeName.toLowerCase() +
                 " from the " + pretty + " template");
+            documentLoaded();
             return;
         }
         filepath = fp; filename = fn;
@@ -423,6 +478,7 @@ var OfficeApp = (function () {
         markClean();
         addRecent(fp, fn);
         setStatus("Opened " + fn);
+        documentLoaded();
         checkDraft();
     }
     function loadNativeText(text, fp, fn, opts) {
@@ -460,6 +516,7 @@ var OfficeApp = (function () {
         dirty = false; updateTitle();
         if (filepath) addRecent(filepath, filename);
         setStatus(importedStatus(fn));
+        documentLoaded();
     }
     function openPath(fp, fn, opts) {
         fn = fn || basename(fp);
@@ -481,30 +538,34 @@ var OfficeApp = (function () {
         // side in ArozOS, by OfficeContainer in the standalone build
         if (cfg.packed && extOf(fn) === cfg.extension) {
             OfficePlatform.containerLoad(fp, function (envelope) {
-                var env = envelope;
-                if (typeof env === "string") {
-                    try { env = JSON.parse(env); } catch (e) { env = null; }
-                }
-                try {
-                    loadNativeEnvelope(env, fp, fn, opts);
-                } catch (err) {
-                    setStatus("Cannot open " + fn + ": " + err.message, "error");
-                }
+                splashStep("Preparing " + fn + "...", function () {
+                    var env = envelope;
+                    if (typeof env === "string") {
+                        try { env = JSON.parse(env); } catch (e) { env = null; }
+                    }
+                    try {
+                        loadNativeEnvelope(env, fp, fn, opts);
+                    } catch (err) {
+                        setStatus("Cannot open " + fn + ": " + err.message, "error");
+                    }
+                });
             }, function (msg) {
                 setStatus("Failed to open " + fn + ": " + (msg || "unknown error"), "error");
             });
             return;
         }
         vfsLoad(fp, function (text) {
-            try {
-                if (extOf(fn) === cfg.extension) {
-                    loadNativeText(text, fp, fn, opts);
-                } else {
-                    loadImportText(text, fp, fn);
+            splashStep("Preparing " + fn + "...", function () {
+                try {
+                    if (extOf(fn) === cfg.extension) {
+                        loadNativeText(text, fp, fn, opts);
+                    } else {
+                        loadImportText(text, fp, fn);
+                    }
+                } catch (err) {
+                    setStatus("Cannot open " + fn + ": " + err.message, "error");
                 }
-            } catch (err) {
-                setStatus("Cannot open " + fn + ": " + err.message, "error");
-            }
+            });
         }, function () {
             setStatus("Failed to load " + fn, "error");
         });
@@ -1227,6 +1288,7 @@ var OfficeApp = (function () {
 
     /* ---------- dialogs / toasts / context menu ---------- */
     function dialog(opt) {
+        splashDone();   // a question for the person: nothing may cover it
         var $ov = $('<div class="of-dialog-overlay"></div>');
         var $dl = $('<div class="of-dialog"></div>');
         if (opt.wide) $dl.addClass("wide");
@@ -1292,6 +1354,7 @@ var OfficeApp = (function () {
         return d;
     }
     function toast(msg, type, ms) {
+        if (type === "error") splashDone();
         var $h = $(".of-toast-holder");
         if (!$h.length) { $h = $('<div class="of-toast-holder"></div>'); $("body").append($h); }
         var $t = $('<div class="of-toast"></div>').text(msg);
@@ -1313,6 +1376,11 @@ var OfficeApp = (function () {
     }
     function showBusy(msg) {
         hideBusy();
+        // the splash already covers the app and says what is happening
+        if (splashActive()) {
+            OfficeSplash.status(msg || "Working...");
+            return;
+        }
         var $o = $('<div class="of-busy-overlay"><div class="of-spinner"></div><div class="of-busy-msg"></div></div>');
         $o.find(".of-busy-msg").text(msg || "Working...");
         $("body").append($o);
@@ -1460,6 +1528,7 @@ var OfficeApp = (function () {
         } else {
             cfg.create();
             markClean();
+            splashDone();
             if (cfg.packed) {
                 trySessionRestore();   // falls back to checkDraft() itself
             } else {
@@ -1594,6 +1663,8 @@ var OfficeApp = (function () {
         showContextMenu: showContextMenu,
         showBusy: showBusy,
         hideBusy: hideBusy,
+        documentLoaded: documentLoaded,
+        splashStep: splashStep,
         showProgress: showProgress,
         closeAllMenus: closeAllMenus,
         updateMenus: updateMenus,

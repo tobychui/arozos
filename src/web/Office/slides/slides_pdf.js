@@ -50,9 +50,19 @@
     the width the browser gave it (Tz), so a substituted face cannot push a
     line out of shape.
 
+    Where it runs. Each slide is measured and drawn in the page, but onto a
+    recording (OfficePdfDraw.recorder, common/pdfdraw.js): every pdf-lib
+    call is written down as data, pictures are named rather than embedded,
+    and fonts are only parsed here for their glyph widths. The file itself -
+    embedding and deflating the pictures, subsetting the fonts, writing it
+    out - is made from that recording in a Web Worker (common/pdfworker.js),
+    so a large deck does not freeze the editor while it is written.
+
     Usage:
-        SlidesPdf.build(body, { onProgress: fn(done, total) })
+        SlidesPdf.build(body, { onProgress: fn(done, total, stage) })
             -> Promise<Uint8Array>
+        stage: "measure" per slide drawn, then "page" and "save" from the
+        worker
 */
 
 var SlidesPdf = (function () {
@@ -72,7 +82,7 @@ var SlidesPdf = (function () {
     var collectRuns = C.collectRuns, canDrawAsText = C.canDrawAsText;
     var drawFragment = C.drawFragment, drawRuns = C.drawRuns;
     var rasterizeElement = C.rasterizeElement, rasterizeFallback = C.rasterizeFallback;
-    var filteredImageData = C.filteredImageData, makeImageEmbedder = C.makeImageEmbedder;
+    var filteredImageData = C.filteredImageData;
     // a slide page: the core's drawing context at the slide's height
     function Page(page, pdfDoc, fonts) {
         return new C.Page(page, pdfDoc, fonts, SLIDE_H);
@@ -738,14 +748,17 @@ var SlidesPdf = (function () {
                 return { doc: pdfDoc, kit: fontkit };
             });
         }).then(function (made) {
+            // this document is never saved: it only lends its fonts their
+            // metrics - the drawing goes to the recording
             var pdfDoc = made.doc;
             var fonts = makeFonts(pdfDoc, made.kit);
-            var embedImage = makeImageEmbedder(pdfDoc);
+            var rec = OfficePdfDraw.recorder();
+            var embedImage = rec.embed;
             var theme = SlidesApp.themeOf();
             var chain = Promise.resolve();
             slides.forEach(function (slide, idx) {
                 chain = chain.then(function () {
-                    var page = pdfDoc.addPage([px(SLIDE_W), px(SLIDE_H)]);
+                    var page = rec.addPage([px(SLIDE_W), px(SLIDE_H)]);
                     var pg = new Page(page, pdfDoc, fonts);
                     var bg = parseColor(slide.bg || theme.bg);
                     if (bg) pg.rect(0, 0, SLIDE_W, SLIDE_H, { fill: bg });
@@ -766,10 +779,16 @@ var SlidesPdf = (function () {
                         });
                     });
                 }).then(function () {
-                    if (opts.onProgress) opts.onProgress(idx + 1, slides.length);
+                    if (opts.onProgress) opts.onProgress(idx + 1, slides.length, "measure");
+                    // let the editor breathe between slides
+                    return new Promise(function (res) { setTimeout(res, 0); });
                 });
             });
-            return chain.then(function () { return pdfDoc.save(); });
+            return chain.then(function () {
+                return OfficePdfDraw.run(rec.job(opts.title), {
+                    onProgress: opts.onProgress, loadFontkit: loadFontkit
+                });
+            });
         });
     }
 

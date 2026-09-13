@@ -39,7 +39,7 @@ var DocsPdf = (function () {
     var PT = 96 / 72;
 
     // subtrees that are editor chrome, not page content
-    var SKIP_SELECTOR = "#pageSheets, #pageGuides, .doc-fn-measure, .of-img-handle, .doc-autobreak";
+    var SKIP_SELECTOR = "#pageSheets, .doc-fn-measure, .of-img-handle, .doc-autobreak";
 
     function skipped(el) {
         return !!(el && el.closest && el.closest(SKIP_SELECTOR));
@@ -546,56 +546,6 @@ var DocsPdf = (function () {
         });
     }
 
-    /* ---------------- running the job ---------------- */
-
-    var WORKER_URL = "../common/pdfworker.js";
-
-    /* The worker is where the time goes (pictures, fonts, compression).
-       When one cannot be started at all - an old browser, a page opened
-       from disk - the same code runs here instead, just less politely. */
-    function renderJob(job, onProgress) {
-        return new Promise(function (resolve, reject) {
-            var worker;
-            var started = false;
-            function inPage() {
-                C.loadFontkit().then(function (fk) {
-                    return OfficePdfDraw.render(job, { fontkit: fk, onProgress: onProgress });
-                }).then(resolve, reject);
-            }
-            try {
-                worker = new Worker(WORKER_URL);
-            } catch (e) {
-                inPage();
-                return;
-            }
-            worker.onmessage = function (e) {
-                var m = e.data || {};
-                started = true;
-                if (m.type === "progress") {
-                    if (onProgress) onProgress(m.done, m.total, m.stage);
-                } else if (m.type === "done") {
-                    worker.terminate();
-                    resolve(m.bytes);
-                } else if (m.type === "error") {
-                    worker.terminate();
-                    reject(new Error(m.message || "the PDF could not be written"));
-                }
-            };
-            worker.onerror = function (e) {
-                if (e && e.preventDefault) e.preventDefault();
-                worker.terminate();
-                if (!started && typeof OfficePdfDraw !== "undefined") inPage();
-                else reject(new Error((e && e.message) || "the PDF worker failed"));
-            };
-            var transfer = [];
-            Object.keys(job.images).forEach(function (id) {
-                var b = job.images[id].bytes;
-                if (b && b.buffer && transfer.indexOf(b.buffer) < 0) transfer.push(b.buffer);
-            });
-            worker.postMessage({ job: job }, transfer);
-        });
-    }
-
     function waitForImages(root) {
         var imgs = Array.prototype.slice.call(root.querySelectorAll("img"));
         var pending = imgs.filter(function (im) { return !im.complete; });
@@ -661,7 +611,7 @@ var DocsPdf = (function () {
             return displayList(snap, data, fonts);
         }).then(function (job) {
             data = null;
-            return renderJob(job, progress);
+            return OfficePdfDraw.run(job, { onProgress: progress, loadFontkit: C.loadFontkit });
         });
     }
 

@@ -223,8 +223,7 @@ model allows) in its `.docx`, because there is only one layout:
 - The paper is **one `.doc-sheet` per page** in `#pageSheets`, behind the
   transparent `#page`. The gap between two sheets is empty space, not a
   band painted over one long sheet, and since nothing in the flow sits
-  there, nothing can show through. (A multi-column document is not
-  paginated and keeps a single sheet.) The status bar's "Page N of M"
+  there, nothing can show through. The status bar's "Page N of M"
   follows the caret, or the middle of the view after a scroll.
 - [`docs/docs_pdf.js`](docs/docs_pdf.js) (`DocsPdf`) reads each sheet of that
   DOM: text runs at the browser's baselines, fills and borders (a collapsed
@@ -244,9 +243,22 @@ model allows) in its `.docx`, because there is only one layout:
   document can be edited meanwhile without changing the file that comes
   out. Font resolution against the shipped Noto faces, text runs and the
   raster fallback live in [`common/pdfcore.js`](common/pdfcore.js), also
-  used by Slides (whose exporter still assembles in the page). `docs/backend/docx.agi`'s `export-pdf` and
+  used by Slides. `docs/backend/docx.agi`'s `export-pdf` and
   `mod/office/pdf_doc.go` remain for AGI callers (`office.documentToPdf`),
   but the editor no longer uses them.
+- **Columns** (`page.columns` > 1) paginate the same way. Before each
+  layout, every run of text between two full-width blocks (`.col-span-all`,
+  a page break) is wrapped in a layout-only `div.doc-colsec` that carries
+  the CSS columns (`--doc-cols`, `--doc-colgap` on `#editor`). A section
+  that fits its page balances; one that runs past the page bottom is given
+  the height that is left and filled column by column
+  (`.doc-colsec-fill`), and `splitColumns` finds the first content that
+  spilled into a column past the last one (`columnOverflow`: a paragraph at
+  that character, a table at that row) and cuts there - so the copy of the
+  section carries the rest to the next page like any other split.
+  Sections are unwrapped with the spacers on everything saved. A columned
+  document is always laid out whole (no incremental relayout), which is
+  fine for the short papers the layout is for.
 - The DOCX reader/writer (next section) map that same model to
   WordprocessingML and back.
 
@@ -261,6 +273,18 @@ finds a regression in minutes where eyeballing takes hours.
 exporter is [`slides/slides_pdf.js`](slides/slides_pdf.js) (`SlidesPdf`),
 built on the vendored `pdf-lib`, and it runs against the very DOM the
 editor is showing.
+
+It draws each slide onto a **recording**, not a PDF:
+`OfficePdfDraw.recorder()` ([`common/pdfdraw.js`](common/pdfdraw.js))
+hands it stand-ins for pdf-lib's page, whose calls (`drawText`,
+`drawImage`, `pushOperators`, ...) are written down as data - operator
+arguments as the text they put in the content stream, fonts by the file
+they come from (the fonts are still parsed in the page, for their glyph
+widths), pictures by source. `OfficePdfDraw.run()` replays the recording
+in the same Web Worker Docs uses, where the pictures are embedded and
+deflated, the fonts subset and the file written. On a 30-slide deck of
+large pictures that is the difference between an 11s freeze and a longest
+stall of about a tenth of a second; the drawing code itself did not change.
 
 The reason is that a slide's appearance is decided by the browser: which
 font it resolved out of a stack, where each line wrapped, how tall each
@@ -611,6 +635,18 @@ payload to `user:/.appdata/Office/tmp/` through the system upload endpoint
 low-memory boards) and passes `dataFile` to the backend script, which reads
 and deletes it. Raising the server-side form limit is *not* an option here.
 
+### Docs: start-up splash
+
+Opening a large document takes a moment (fetching and unpacking it, a server
+or WebAssembly conversion for `.docx`, laying out every page), so Docs starts
+behind a splash that says what is happening — [`common/splash.js`](common/splash.js),
+contract in `CONTRACT.md`. In a desktop float window it is the classic office
+splash (the window opens small, `InitFWSize` 400x240, and grows to 1080x700
+around its centre once the document is on screen); in a browser tab it is a
+white page with the Docs icon and the status under it. `docs/index.html` loads
+its stylesheets and scripts in `<body>`, after the splash, so the splash paints
+while they arrive.
+
 ### Header / footer
 
 The header and footer are one editable pair per **simulated** page: the
@@ -785,8 +821,6 @@ the path that honours every mode exactly.
       margins, cell padding, list indent) must be mirrored by the
       constants at the top of `pdf_doc.go`, or the two page counts drift
       apart.
-    - Multi-column page layout (`page.columns`) is **not** implemented in
-      the PDF exporter — those documents export as a single column.
   - Embedding a Unicode font was deliberately rejected (megabytes on the
     binary); CJK text transliterates/degrades. That's the top candidate
     if someone asks for CJK PDF export.
@@ -873,12 +907,9 @@ sh ../scripts/check-conventions.sh --diff origin/master
 - Slides: SmartArt (`dgm:`), 3-D effects, shadows and animations are
   skipped rather than approximated.
 - Real-time collaboration (the `sharedspace` AGI lib was built for this).
-- Docs: section breaks (one page setup per document), and **pagination of
-  multi-column documents** — `page.columns` renders as CSS columns with
-  dotted page guides only, so text runs across the sheet boundaries in the
-  page view and in the browser PDF (which draws that view); the `.docx`
-  export writes real Word columns. Paginating columns means giving
-  `DocsLayout.paginate` a column-balancing pass.
+- Docs: section breaks (one page setup per document; a document cannot mix
+  column counts), and keep-with-next / widow control inside columns (a
+  column cut goes exactly where the text reaches the last column).
 - Sheets PDF: merged-cell rendering in the print model.
 - Slides: shape text with per-run styling in pptx (currently
   object-level bold/italic/color only).
