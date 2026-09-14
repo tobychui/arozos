@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 116">
+  <!-- Sheets app icon for the start-up splash (common/splash.js) -->
+  <defs>
+    <linearGradient id="sheetsPage" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3cbc57"/>
+      <stop offset="1" stop-color="#1e973a"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 4H64L92 32V104A8 8 0 0 1 84 112H12A8 8 0 0 1 4 104V12A8 8 0 0 1 12 4Z" fill="url(#sheetsPage)"/>
+  <path d="M64 4V26A6 6 0 0 0 70 32H92Z" fill="#a8e2b3"/>
+  <g fill="#ffffff">
+    <rect x="22.5" y="52" width="11" height="8.5" rx="1.6"/>
+    <rect x="36" y="52" width="11" height="8.5" rx="1.6"/>
+    <rect x="49.5" y="52" width="11" height="8.5" rx="1.6"/>
+    <rect x="63" y="52" width="11" height="8.5" rx="1.6"/>
+    <rect x="22.5" y="63" width="11" height="8.5" rx="1.6"/>
+    <rect x="36" y="63" width="11" height="8.5" rx="1.6"/>
+    <rect x="49.5" y="63" width="11" height="8.5" rx="1.6"/>
+    <rect x="63" y="63" width="11" height="8.5" rx="1.6"/>
+    <rect x="22.5" y="74" width="11" height="8.5" rx="1.6"/>
+    <rect x="36" y="74" width="11" height="8.5" rx="1.6"/>
+    <rect x="49.5" y="74" width="11" height="8.5" rx="1.6"/>
+    <rect x="63" y="74" width="11" height="8.5" rx="1.6"/>
+  </g>
+</svg>

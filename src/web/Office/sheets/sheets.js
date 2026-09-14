@@ -85,7 +85,7 @@ var SheetsApp = (function () {
     var colX = [0], rowY = [0];   // prefix pixel offsets (geometry cache)
     var mergeAnchor = {};         // "A1" -> {c,r,cs,rs}
     var mergeCover = {};          // covered "B1" -> anchor key
-    var hiddenRows = {};          // row index -> true (from filter)
+    var hiddenRows = {};          // row index -> true (sheet.hiddenRows + filter)
     var clipInternal = null;      // {w,h,src:{c,r},cells:[[{v,s}|null]]}
     var clipTsv = "";             // what we last wrote to system clipboard
     var clipCut = false;
@@ -93,6 +93,7 @@ var SheetsApp = (function () {
     var drag = null;
     var rafPending = false, lastPointerEvt = null;
     var gridEl, cellsEl, spacerEl, colHeadIn, rowHeadIn, inputEl, rangeBoxEl, fillEl;
+    var frozenRowsEl, frozenColsEl, frozenCornerEl;
 
     function esc(t) { return OfficeApp.escapeHtml(t); }
     function deep(o) { return JSON.parse(JSON.stringify(o)); }
@@ -106,7 +107,8 @@ var SheetsApp = (function () {
         return {
             name: name, color: null, cols: 26, rows: 200,
             cells: {}, colW: {}, rowH: {}, merges: [],
-            freeze: { r: 0, c: 0 }, filter: null, charts: [], cfDefs: {}
+            freeze: { r: 0, c: 0 }, filter: null, charts: [], cfDefs: {},
+            hiddenRows: []
         };
     }
     function defaultBody() {
@@ -132,9 +134,22 @@ var SheetsApp = (function () {
             s.filter = s.filter || null;
             s.charts = Array.isArray(s.charts) ? s.charts : [];
             s.cfDefs = (s.cfDefs && typeof s.cfDefs === "object") ? s.cfDefs : {};
+            s.hiddenRows = cleanRowList(s.hiddenRows, s.rows);
         });
         b.active = clamp(parseInt(b.active, 10) || 0, 0, b.sheets.length - 1);
         return b;
+    }
+    // sorted, de-duplicated 0-based row indices inside the sheet
+    function cleanRowList(list, rows) {
+        if (!Array.isArray(list)) return [];
+        var seen = {}, out = [];
+        list.forEach(function (v) {
+            var r = parseInt(v, 10);
+            if (isNaN(r) || r < 0 || r >= rows || seen[r]) return;
+            seen[r] = true;
+            out.push(r);
+        });
+        return out.sort(function (a, b) { return a - b; });
     }
     // a cell stays in the map while it still carries anything at all
     function cellIsBare(cell) {
@@ -243,9 +258,10 @@ var SheetsApp = (function () {
         return mergeAnchor[key(c, r)] || null;
     }
 
-    /* ================= filter (hidden rows) ================= */
+    /* ================= hidden rows (user-hidden + filter) ================= */
     function rebuildFilter() {
         hiddenRows = {};
+        sheet().hiddenRows.forEach(function (r) { hiddenRows[r] = true; });
         var f = sheet().filter;
         if (!f) return;
         var rg = parseRange(f.range);
@@ -302,8 +318,34 @@ var SheetsApp = (function () {
     }
 
     /* ================= calculation & display ================= */
+    /* One calculator for the whole workbook: values are memoized per sheet,
+       so Sheet!A1 references resolve across tabs and switching tabs keeps
+       everything already computed. */
     function rebuildCalc() {
-        calc = F.createCalculator(rawAt);
+        calc = F.createCalculator(function (c, r, s) {
+            var sh = body.sheets[s];
+            var cell = sh && sh.cells[key(c, r)];
+            return cell ? cell.v : "";
+        }, {
+            activeSheet: function () { return body.active; },
+            sheetIndex: sheetIndexByName
+        });
+    }
+    function sheetIndexByName(name) {
+        var want = String(name).toLowerCase();
+        for (var i = 0; i < body.sheets.length; i++) {
+            if (String(body.sheets[i].name).toLowerCase() === want) return i;
+        }
+        return -1;
+    }
+    // run fn(cell, sheetIndex) over every formula cell of every sheet
+    function eachFormulaCell(fn) {
+        body.sheets.forEach(function (sh, si) {
+            Object.keys(sh.cells).forEach(function (k) {
+                var cell = sh.cells[k];
+                if (cell && cell.v && String(cell.v).charAt(0) === "=") fn(cell, si);
+            });
+        });
     }
     function recalc() {
         if (calc) calc.reset();
@@ -466,13 +508,14 @@ var SheetsApp = (function () {
         if (s.bd) css += "border:1px solid var(--of-fg-soft);";
         return css;
     }
-    function renderCellHtml(c, r, sel, pinX, pinY) {
+    /* One cell at its sheet position. Frozen cells use the same coordinates:
+       they go into a sticky layer (#shFrozenRows/Cols/Corner) whose origin
+       is the sheet's, and the browser keeps that layer pinned. */
+    function renderCellHtml(c, r, sel, frozen) {
         var k = key(c, r);
         if (mergeCover[k]) return "";
         var rect = cellRect(c, r);
         if (rect.w === 0 || rect.h === 0) return "";
-        if (pinX !== null) rect = { x: pinX, y: rect.y, w: rect.w, h: rect.h };
-        if (pinY !== null) rect = { x: rect.x, y: pinY, w: rect.w, h: rect.h };
         var s = effStyleAt(c, r);
         var text, fmtd;
         if ((s.fmt || "general") === "text") {
@@ -484,8 +527,7 @@ var SheetsApp = (function () {
         }
         var inSel = sel && c >= sel.c1 && c <= sel.c2 && r >= sel.r1 && r <= sel.r2;
         var cls = cellClasses(c, r, s, fmtd, inSel);
-        if (pinX !== null || pinY !== null) cls += " frozen";
-        if (pinX !== null && pinY !== null) cls += " frozen-corner";
+        if (frozen) cls += " frozen";
         var cellData = sheet().cells[k];
         var noteAttr = "";
         if (cellData && cellData.n) {
@@ -508,35 +550,46 @@ var SheetsApp = (function () {
         var r1 = Math.max(fz.r, idxAt(rowY, st) - 1);
         var r2 = Math.min(s.rows - 1, idxAt(rowY, st + vh) + 1);
 
-        var out = [];
+        var out = [], rowsOut = [], colsOut = [], cornerOut = [];
         var c, r;
         // main quadrant
         for (r = r1; r <= r2; r++) {
             if (hiddenRows[r]) continue;
-            for (c = c1; c <= c2; c++) out.push(renderCellHtml(c, r, sel, null, null));
+            for (c = c1; c <= c2; c++) out.push(renderCellHtml(c, r, sel, false));
         }
-        // frozen rows (pinned vertically)
+        // frozen rows (sticky to the top, scroll sideways with the sheet)
         for (r = 0; r < fz.r; r++) {
             if (hiddenRows[r]) continue;
-            for (c = c1; c <= c2; c++) out.push(renderCellHtml(c, r, sel, null, st + rowY[r]));
+            for (c = c1; c <= c2; c++) rowsOut.push(renderCellHtml(c, r, sel, true));
         }
-        // frozen cols (pinned horizontally)
+        // frozen cols (sticky to the left, scroll vertically with the sheet)
         for (c = 0; c < fz.c; c++) {
             for (r = r1; r <= r2; r++) {
                 if (hiddenRows[r]) continue;
-                out.push(renderCellHtml(c, r, sel, sl + colX[c], null));
+                colsOut.push(renderCellHtml(c, r, sel, true));
             }
         }
-        // frozen corner
+        // frozen corner (sticky both ways)
         for (r = 0; r < fz.r; r++) {
             if (hiddenRows[r]) continue;
-            for (c = 0; c < fz.c; c++) out.push(renderCellHtml(c, r, sel, sl + colX[c], st + rowY[r]));
+            for (c = 0; c < fz.c; c++) cornerOut.push(renderCellHtml(c, r, sel, true));
         }
-        cellsEl.innerHTML = out.join("");
+        setLayerHtml(cellsEl, out);
+        setLayerHtml(frozenRowsEl, rowsOut);
+        setLayerHtml(frozenColsEl, colsOut);
+        setLayerHtml(frozenCornerEl, cornerOut);
 
         renderHeaders(c1, c2, r1, r2, sl, st, sel);
         renderRangeBox(sel);
         if (window.SheetsIO) SheetsIO.renderCharts();
+    }
+    // skip the DOM rebuild when a layer's markup did not change (the frozen
+    // corner never does while scrolling)
+    function setLayerHtml(el, parts) {
+        var html = parts.join("");
+        if (el._shHtml === html) return;
+        el._shHtml = html;
+        el.innerHTML = html;
     }
     function renderHeaders(c1, c2, r1, r2, sl, st, sel) {
         var s = sheet(), fz = s.freeze;
@@ -576,6 +629,18 @@ var SheetsApp = (function () {
         }
         for (r = r1; r <= r2; r++) { if (!hiddenRows[r]) rowHead(r, false); }
         for (r = 0; r < fz.r; r++) { if (!hiddenRows[r]) rowHead(r, true); }
+        // a marker on the boundary where user-hidden rows collapsed (hidden
+        // rows have no height, so rowY[first] is that boundary); frozen-area
+        // runs are pinned like their rows
+        hiddenRuns().forEach(function (run) {
+            var pinned = run.r1 < fz.r;
+            if (!pinned && (run.r2 < r1 - 1 || run.r1 > r2 + 1)) return;
+            var my = Math.max(6, (pinned ? st : 0) + rowY[run.r1]);
+            var label = run.r1 === run.r2 ? "Row " + (run.r1 + 1) + " is hidden" :
+                "Rows " + (run.r1 + 1) + "-" + (run.r2 + 1) + " are hidden";
+            out.push('<div class="sh-rowh-hidden" data-hr1="' + run.r1 + '" data-hr2="' + run.r2 +
+                '" title="' + label + ' - click to show" style="top:' + my + 'px;"></div>');
+        });
         rowHeadIn.innerHTML = out.join("");
         rowHeadIn.style.transform = "translateY(" + (-st) + "px)";
     }
@@ -623,7 +688,7 @@ var SheetsApp = (function () {
         head = { c: 0, r: 0 };
         selCols = selRows = null;
         selChart = null;
-        rebuildCalc();
+        // no rebuildCalc: the calculator is workbook-wide and follows body.active
         renderAll();
     }
     function addSheet() {
@@ -683,7 +748,14 @@ var SheetsApp = (function () {
             if (!v) return;
             v = v.trim().substring(0, 40);
             if (!v) return;
+            var old = body.sheets[i].name;
+            if (v !== old && sheetIndexByName(v) >= 0 && sheetIndexByName(v) !== i) {
+                OfficeApp.toast("A sheet called " + v + " already exists", "error");
+                return;
+            }
             body.sheets[i].name = v;
+            // formulas that name the sheet follow the rename
+            if (v !== old) eachFormulaCell(function (cell) { cell.v = F.renameSheetRefs(cell.v, old, v); });
             commit();
             renderTabs();
         });
@@ -963,36 +1035,30 @@ var SheetsApp = (function () {
     }
 
     /* ================= cross-sheet reads + sheet creation (pivot) ================= */
-    /* Computed values of a range on ANY sheet. The calculator is bound to
-       the active sheet, so flip it, read, flip back. */
+    /* Computed values of a range on ANY sheet. */
     function readRangeValues(sheetIdx, rgStr) {
         var rg = parseRange(rgStr);
         if (!rg || sheetIdx < 0 || sheetIdx >= body.sheets.length) return null;
-        var saved = body.active;
         var out = [];
-        try {
-            if (sheetIdx !== saved) { body.active = sheetIdx; rebuildCalc(); }
-            for (var r = rg.r1; r <= rg.r2; r++) {
-                var row = [];
-                for (var c = rg.c1; c <= rg.c2; c++) row.push(calc.value(c, r));
-                out.push(row);
-            }
-        } finally {
-            if (body.active !== saved) { body.active = saved; rebuildCalc(); }
+        for (var r = rg.r1; r <= rg.r2; r++) {
+            var row = [];
+            for (var c = rg.c1; c <= rg.c2; c++) row.push(calc.value(c, r, sheetIdx));
+            out.push(row);
         }
         return out;
     }
     /* Print model for the server-side PDF exporter (sheets_io exportPdf):
        per sheet, the used-range grid of formatted display strings plus the
        print-relevant styles and the raw (unzoomed) column widths / row
-       heights in css px. Flips the active sheet like readRangeValues so
-       formulas evaluate against the right sheet. */
+       heights in css px. Flips the active sheet so the per-sheet helpers
+       (styles, merges, conditional formats) read the right one; the
+       calculator is workbook-wide and needs no rebuild. */
     function buildPrintModel() {
         var saved = body.active;
         var out = { sheets: [] };
         try {
             for (var i = 0; i < body.sheets.length; i++) {
-                if (body.active !== i) { body.active = i; rebuildCalc(); }
+                if (body.active !== i) body.active = i;
                 var s = sheet();
                 var ur = usedRange();
                 var colW = [], rowH = [], rows = [];
@@ -1001,6 +1067,7 @@ var SheetsApp = (function () {
                     colW.push(w !== undefined ? w : DEF_COLW);
                 }
                 for (var r = ur.r1; r <= ur.r2; r++) {
+                    if (s.hiddenRows.indexOf(r) >= 0) continue;     // hidden rows do not print
                     var h = s.rowH[String(r)];
                     rowH.push(h !== undefined ? h : DEF_ROWH);
                     var row = [];
@@ -1032,7 +1099,7 @@ var SheetsApp = (function () {
                 out.sheets.push({ name: s.name, colW: colW, rowH: rowH, rows: rows });
             }
         } finally {
-            if (body.active !== saved) { body.active = saved; rebuildCalc(); }
+            body.active = saved;
         }
         return out;
     }
@@ -1321,6 +1388,21 @@ var SheetsApp = (function () {
     }
     function onRowHeadDown(e) {
         var t = e.target;
+        // the marker left where rows are hidden: click to show them again
+        var mark = t.closest ? t.closest(".sh-rowh-hidden") : null;
+        if (mark) {
+            e.preventDefault();
+            if (e.button !== 0) return;
+            unhideRows(parseInt(mark.getAttribute("data-hr1"), 10), parseInt(mark.getAttribute("data-hr2"), 10));
+            e.preventDefault();
+            return;
+        }
+        // right-click inside the selected rows keeps them for the menu
+        if (e.button === 2 && selRows) {
+            var rh = t.closest ? t.closest(".sh-rowh") : null;
+            var rr = rh ? parseInt(rh.getAttribute("data-r"), 10) : -1;
+            if (rr >= selRows.r1 && rr <= selRows.r2) { e.preventDefault(); return; }
+        }
         if (t.hasAttribute && t.hasAttribute("data-rzr")) {
             var r = parseInt(t.getAttribute("data-rzr"), 10);
             drag = { mode: "rzr", r: r, startH: rowHeight(r) / zoomF, startY: e.clientY };
@@ -1484,19 +1566,23 @@ var SheetsApp = (function () {
             }
             cells[key(axis === "col" ? nv : p.col, axis === "row" ? nv : p.row)] = s.cells[k];
         });
-        Object.keys(cells).forEach(function (k) {
-            var cell = cells[k];
-            if (cell.v && String(cell.v).charAt(0) === "=") {
-                cell.v = F.adjustInsertDelete(cell.v, axis, index, count);
-            }
-        });
         s.cells = cells;
+        // formulas on every sheet that point at this one shift with it
+        eachFormulaCell(function (cell, si) {
+            cell.v = F.adjustInsertDelete(cell.v, axis, index, count,
+                { target: s.name, home: body.sheets[si].name });
+        });
         if (axis === "col") {
             s.colW = shiftKeyedMap(s.colW, index, count);
             s.cols = clamp(s.cols + count, 1, MAX_COLS);
         } else {
             s.rowH = shiftKeyedMap(s.rowH, index, count);
             s.rows = clamp(s.rows + count, 1, MAX_ROWS);
+            s.hiddenRows = cleanRowList(s.hiddenRows.map(function (r) {
+                if (count > 0) return r >= index ? r + count : r;
+                if (r >= index && r < index - count) return -1;     // deleted
+                return r >= index - count ? r + count : r;
+            }), s.rows);
         }
         s.merges = s.merges.map(function (m) {
             var rg = parseRange(m);
@@ -1843,12 +1929,10 @@ var SheetsApp = (function () {
                 else delete s.cells[k];
             }
         }
-        // references into the moved range follow it (moved formulas included)
-        Object.keys(s.cells).forEach(function (ck) {
-            var cl = s.cells[ck];
-            if (cl && cl.v && String(cl.v).charAt(0) === "=") {
-                cl.v = F.rewriteMovedRange(cl.v, rg, dC, dR);
-            }
+        // references into the moved range follow it (moved formulas included,
+        // and formulas on other sheets that point here)
+        eachFormulaCell(function (cl, si) {
+            cl.v = F.rewriteMovedRange(cl.v, rg, dC, dR, { target: s.name, home: body.sheets[si].name });
         });
         // merges wholly inside the source range move with it
         s.merges = s.merges.map(function (m) {
@@ -1948,6 +2032,161 @@ var SheetsApp = (function () {
         renderAll();
     }
 
+    /* ================= hide / unhide rows ================= */
+    function userHiddenIn(r1, r2) {
+        return sheet().hiddenRows.filter(function (r) { return r >= r1 && r <= r2; });
+    }
+    // maximal runs [{r1, r2}] of user-hidden rows, for the header markers
+    function hiddenRuns() {
+        var runs = [], list = sheet().hiddenRows;
+        for (var i = 0; i < list.length; i++) {
+            var last = runs[runs.length - 1];
+            if (last && list[i] === last.r2 + 1) last.r2 = list[i];
+            else runs.push({ r1: list[i], r2: list[i] });
+        }
+        return runs;
+    }
+    function hideRows(r1, r2) {
+        commitEdit(false);
+        var s = sheet();
+        r1 = clamp(r1, 0, s.rows - 1);
+        r2 = clamp(r2, r1, s.rows - 1);
+        if (r1 === 0 && r2 === s.rows - 1) {
+            OfficeApp.toast("At least one row has to stay visible", "error");
+            return;
+        }
+        var list = s.hiddenRows.slice();
+        for (var r = r1; r <= r2; r++) list.push(r);
+        s.hiddenRows = cleanRowList(list, s.rows);
+        // the selection now has no height: move to the first visible row
+        // below the block (or above it, at the end of the sheet)
+        var next = r2 + 1;
+        while (next < s.rows && s.hiddenRows.indexOf(next) >= 0) next++;
+        if (next >= s.rows) {
+            next = r1 - 1;
+            while (next > 0 && s.hiddenRows.indexOf(next) >= 0) next--;
+        }
+        commit();       // rebuilds the hidden-row map and geometry
+        setActive(clamp(anchor.c, 0, s.cols - 1), clamp(next, 0, s.rows - 1));
+        OfficeApp.setStatus(r1 === r2 ? "Row " + (r1 + 1) + " hidden" :
+            "Rows " + (r1 + 1) + "-" + (r2 + 1) + " hidden");
+    }
+    // show the user-hidden rows inside r1..r2 (select the rows around a
+    // hidden block to unhide it, as in Excel)
+    function unhideRows(r1, r2) {
+        commitEdit(false);
+        var s = sheet();
+        var gone = userHiddenIn(r1, r2);
+        if (!gone.length) {
+            OfficeApp.setStatus("No hidden rows in the selection");
+            return;
+        }
+        s.hiddenRows = s.hiddenRows.filter(function (r) { return r < r1 || r > r2; });
+        commit();
+        renderAll();
+        OfficeApp.setStatus(gone.length === 1 ? "Row " + (gone[0] + 1) + " shown" : gone.length + " rows shown");
+    }
+    // Ctrl+Shift+9 / menu on a plain cell selection: widen by one row each
+    // side so a block hidden between the selected rows is found
+    function unhideAroundSelection() {
+        var rg = selRange();
+        unhideRows(Math.max(0, rg.r1 - (selRows ? 0 : 1)), rg.r2 + (selRows ? 0 : 1));
+    }
+
+    /* ================= row header context menu ================= */
+    function rowHeaderMenu(x, y) {
+        var rg = selRange();
+        var n = rg.r2 - rg.r1 + 1;
+        var rowsLabel = n === 1 ? "row " + (rg.r1 + 1) : "rows " + (rg.r1 + 1) + "-" + (rg.r2 + 1);
+        var fz = sheet().freeze;
+        var items = [
+            { label: "Cut", icon: "cut", key: "Ctrl+X", action: function () { execClipboard("cut"); } },
+            { label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { execClipboard("copy"); } },
+            { label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { execClipboard("paste"); } },
+            { sep: true },
+            {
+                label: "Insert " + n + " row" + (n > 1 ? "s" : "") + " above", icon: "plus",
+                action: function () { insertDeleteFixed("row", rg.r1, n); }
+            },
+            {
+                label: "Insert " + n + " row" + (n > 1 ? "s" : "") + " below", icon: "plus",
+                action: function () { insertDeleteFixed("row", rg.r2 + 1, n); }
+            },
+            {
+                label: "Delete " + rowsLabel, icon: "minus",
+                action: function () { insertDeleteFixed("row", rg.r1, -n); }
+            },
+            {
+                label: "Clear " + rowsLabel, icon: "eraser", key: "Del",
+                action: function () { clearSelection(false); }
+            },
+            { sep: true },
+            {
+                label: "Hide " + rowsLabel, icon: "eye slash outline", key: "Ctrl+Alt+9",
+                action: function () { hideRows(rg.r1, rg.r2); }
+            },
+            {
+                label: "Unhide rows", icon: "eye", key: "Ctrl+Shift+9",
+                enabled: function () { return userHiddenIn(rg.r1, rg.r2).length > 0; },
+                action: function () { unhideRows(rg.r1, rg.r2); }
+            },
+            {
+                label: "Unhide all rows", icon: "eye",
+                enabled: function () { return sheet().hiddenRows.length > 0; },
+                action: function () { unhideRows(0, sheet().rows - 1); }
+            },
+            { sep: true },
+            {
+                label: "Resize " + rowsLabel + "...", icon: "arrows alternate vertical",
+                action: function () { rowHeightDialog(rg.r1, rg.r2); }
+            },
+            { sep: true },
+            {
+                label: "Freeze up to row " + (rg.r2 + 1), icon: "lock",
+                enabled: function () { return rg.r2 + 1 <= 20; },
+                action: function () { freezeTo(rg.r2 + 1, fz.c); }
+            },
+            {
+                label: "Unfreeze rows", icon: "lock open",
+                enabled: function () { return fz.r > 0; },
+                action: function () { freezeTo(0, fz.c); }
+            }
+        ];
+        OfficeApp.showContextMenu(x, y, items);
+    }
+    function rowHeightDialog(r1, r2) {
+        var cur = sheet().rowH[String(r1)];
+        OfficeApp.prompt("Row height", "Height in pixels (14-400)", String(Math.round(cur !== undefined ? cur : DEF_ROWH)), function (v) {
+            if (v === null || v === undefined) return;
+            var h = parseInt(v, 10);
+            if (isNaN(h)) return;
+            h = clamp(h, 14, 400);
+            for (var r = r1; r <= r2; r++) sheet().rowH[String(r)] = h;
+            commit();
+            renderAll();
+        });
+    }
+    function onRowHeadContextMenu(e) {
+        e.preventDefault();
+        var h = e.target.closest ? e.target.closest(".sh-rowh") : null;
+        if (h) {
+            var r = parseInt(h.getAttribute("data-r"), 10);
+            // right-clicking outside the selected rows selects that row first
+            if (!selRows || r < selRows.r1 || r > selRows.r2) {
+                commitEdit(false);
+                selRows = { r1: r, r2: r };
+                selCols = null;
+                selChart = null;
+                anchor = { c: 0, r: r };
+                head = { c: 0, r: r };
+                afterSelChange();
+            }
+        } else if (!selRows) {
+            return;
+        }
+        rowHeaderMenu(e.clientX, e.clientY);
+    }
+
     /* ================= context menus ================= */
     function cellContextMenu(x, y) {
         var rg = selRange();
@@ -1978,6 +2217,15 @@ var SheetsApp = (function () {
                 label: "Delete column(s)", icon: "minus", action: function () {
                     insertDeleteFixed("col", rg.c1, -(rg.c2 - rg.c1 + 1));
                 }
+            },
+            {
+                label: "Hide row(s)", icon: "eye slash outline", key: "Ctrl+Alt+9",
+                action: function () { hideRows(rg.r1, rg.r2); }
+            },
+            {
+                label: "Unhide rows", icon: "eye", key: "Ctrl+Shift+9",
+                enabled: function () { return userHiddenIn(Math.max(0, rg.r1 - 1), rg.r2 + 1).length > 0; },
+                action: unhideAroundSelection
             },
             { sep: true },
             {
@@ -2224,6 +2472,9 @@ var SheetsApp = (function () {
         gridEl = document.getElementById("shGrid");
         cellsEl = document.getElementById("shCells");
         spacerEl = document.getElementById("shSpacer");
+        frozenRowsEl = document.getElementById("shFrozenRows");
+        frozenColsEl = document.getElementById("shFrozenCols");
+        frozenCornerEl = document.getElementById("shFrozenCorner");
         colHeadIn = document.getElementById("shColHeadIn");
         rowHeadIn = document.getElementById("shRowHeadIn");
         inputEl = document.getElementById("shCellInput");
@@ -2248,6 +2499,7 @@ var SheetsApp = (function () {
 
         document.getElementById("shColHead").addEventListener("pointerdown", onColHeadDown);
         document.getElementById("shRowHead").addEventListener("pointerdown", onRowHeadDown);
+        document.getElementById("shRowHead").addEventListener("contextmenu", onRowHeadContextMenu);
         document.getElementById("shCorner").addEventListener("click", function () {
             var ur = usedRange();
             anchor = { c: 0, r: 0 };
@@ -2415,6 +2667,21 @@ var SheetsApp = (function () {
         OfficeApp.registerShortcut("Ctrl+B", function () { toggleStyleFlag("b"); });
         OfficeApp.registerShortcut("Ctrl+I", function () { toggleStyleFlag("i"); });
         OfficeApp.registerShortcut("Ctrl+U", function () { toggleStyleFlag("u"); });
+        // Google Sheets' keys (Excel's Ctrl+9 is taken by the browser's tab switch)
+        var hideOpts = { description: "Hide selected rows", group: "Rows", allowInInput: false, inDialogs: false };
+        OfficeApp.registerShortcut("Ctrl+Alt+9", function () {
+            if (editing) return false;
+            var rg = selRange();
+            hideRows(rg.r1, rg.r2);
+        }, hideOpts);
+        var unhideOpts = { description: "Unhide rows in / around the selection", group: "Rows", allowInInput: false, inDialogs: false };
+        var unhide = function () {
+            if (editing) return false;
+            unhideAroundSelection();
+        };
+        OfficeApp.registerShortcut("Ctrl+Shift+9", unhide, unhideOpts);
+        // with Shift held most layouts report "(" for the 9 key
+        OfficeApp.registerShortcut("Ctrl+Shift+(", unhide, { group: "Rows", allowInInput: false, inDialogs: false });
 
         buildToolbar();
         OfficeApp.addStatusItem("stats", "");

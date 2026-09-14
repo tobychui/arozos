@@ -6,7 +6,7 @@
     <title>Docs</title>
     <link rel="icon" type="image/png" href="docs.png">
     <!-- fetched first: the start-up splash shows it -->
-    <link rel="preload" href="../img/docs.svg" as="image">
+    <link rel="preload" href="../img/splash/docs.svg" as="image">
     <!-- Dynamic print stylesheet: docs.js writes the @page rule (size,
          orientation, margins, optional page-number margin box) in here
          whenever the page setup changes. Static print rules live in docs.css. -->
@@ -14,7 +14,7 @@
 </head>
 <body data-officeapp="docs">
     <!-- start-up splash: first, so it covers the page before anything draws -->
-    <script src="../common/splash.js" data-app="Docs" data-icon="../img/docs.svg" data-size="1080x700"></script>
+    <script src="../common/splash.js" data-app="Docs" data-size="1080x700"></script>
     <!-- the app's stylesheets and scripts come after the splash, so it can
          paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">

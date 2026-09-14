@@ -33,6 +33,9 @@ type WorkSheet struct {
 	RowH   map[string]float64   `json:"rowH,omitempty"`
 	Merges []string             `json:"merges,omitempty"`
 	Freeze *FreezePane          `json:"freeze,omitempty"`
+	// HiddenRows lists 0-based rows the user hid (<row hidden="1"> in xlsx);
+	// rows hidden by a filter are not in it
+	HiddenRows []int `json:"hiddenRows,omitempty"`
 	// Charts round-trip as native DrawingML chart parts (xlsx_charts.go);
 	// Filter is a webapp-owned blob not representable in xlsx
 	Charts json.RawMessage `json:"charts,omitempty"`

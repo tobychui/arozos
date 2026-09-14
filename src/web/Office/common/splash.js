@@ -5,31 +5,36 @@
     has a face and says what is happening ("Opening report.docx...",
     "Laying out the pages...").
 
-    Two looks, chosen by where the app runs:
+    One look - a soft tinted card with the app's icon, "ArozOS <App>", a
+    tagline, moving dots and the status line in the bottom-left corner -
+    in two places:
 
       window    inside a web desktop float window: the window starts small
-                in the middle of the desktop, a coloured card with the app
-                name, moving dots and the status line in the corner - and
-                grows to its working size, still centred on the desktop,
-                once the document is ready
+                in the middle of the desktop and grows to its working size,
+                still centred on the desktop, once the document is ready
       page      a full browser tab (or the mobile desktop, whose windows
-                fill the screen): a plain page with the app icon in the
-                middle and the status under it
+                fill the screen): the same card fills the page
+
+    The card scales with the space it has. Docs, Sheets and Slides get their
+    own colours and tagline; any other app (or none) gets the suite card:
+    the ArozOS mark, "Create · Edit · Collaborate" and a progress bar.
 
     Include it as the FIRST element of <body>, so it covers the page before
     anything else has drawn:
 
-        <script src="../common/splash.js" data-app="Docs"
-                data-icon="../img/docs.svg" data-size="1080x700"></script>
+        <script src="../common/splash.js" data-app="Docs" data-size="1080x700"></script>
 
-    data-size is the window's working size in window mode. The splash brings
-    its own styles: it paints before any stylesheet of the app has arrived,
-    so an app should load its stylesheets and scripts after this tag (in
-    <body>) rather than in <head>, where they would hold the first paint
-    back. The framework (office.js) feeds it status text and
-    calls done() when the document is on screen, when a dialog needs the
-    person, or when something failed; a start that never finishes is let go
-    after a while so the app is never locked behind it.
+    Its artwork is in img/splash/ next to this folder (the app icons, the
+    ArozOS mark and the two corner shapes, which are masks painted in the
+    app's colour); data-icon overrides the icon. data-size is the window's
+    working size in window mode. The splash brings its own styles: it
+    paints before any stylesheet of the app has arrived, so an app should
+    load its stylesheets and scripts after this tag (in <body>) rather than
+    in <head>, where they would hold the first paint back. The framework
+    (office.js) feeds it status text and calls done() when the document is
+    on screen, when a dialog needs the person, or when something failed; a
+    start that never finishes is let go after a while so the app is never
+    locked behind it.
 
         OfficeSplash.status("Opening report.docx...")
         OfficeSplash.done()
@@ -39,143 +44,220 @@
 var OfficeSplash = (function () {
     "use strict";
 
-    var SPLASH_W = 400, SPLASH_H = 240;   // the window while it starts
+    var SPLASH_W = 480, SPLASH_H = 320;   // the window while it starts
     var GIVE_UP_MS = 60000;
 
     var script = document.currentScript;
     var appName = (script && script.getAttribute("data-app")) || "Office";
-    var icon = (script && script.getAttribute("data-icon")) || "";
     var sizeAttr = ((script && script.getAttribute("data-size")) || "1080x700").split("x");
     var workW = parseInt(sizeAttr[0], 10) || 1080, workH = parseInt(sizeAttr[1], 10) || 700;
 
+    // img/splash/, resolved against this script so it works at any depth
+    var ART = "../img/splash/";
+    try { if (script && script.src) ART = new URL("../img/splash/", script.src).href; } catch (e) { }
+    var icon = (script && script.getAttribute("data-icon")) || "";
+
     var root = null, statusEl = null, finished = false, giveUp = null;
 
-    // each app's colour for the window card
-    var APP_COLOURS = { docs: "#1f6fbf", sheets: "#1e8a3c", slides: "#cf6c16" };
+    var APPS = {
+        docs: ["Write, edit and collaborate", "with ease."],
+        sheets: ["Create powerful spreadsheets, analyse data,", "and turn your ideas into insights."],
+        slides: ["Design beautiful presentations,", "share your ideas, make an impact."]
+    };
 
+    /* Sizes are in em against a 600x375 reference card with 16px type; the
+       root font size scales that reference to the space available. */
     var CSS = [
         ".of-splash {",
+        "    --sp-bg: linear-gradient(160deg, #f6f8fe 0%, #eef2fb 100%);",
+        "    --sp-top: linear-gradient(225deg, #8d9af3 0%, #b9c3fa 45%, #e4e8fd 100%);",
+        "    --sp-bottom: linear-gradient(180deg, #d6e2fb 0%, #c9d9fa 100%);",
+        "    --sp-accent: #2f74e0;",
+        "    --sp-accent-soft: rgba(47, 116, 224, 0.3);",
+        "    --sp-ink: #20252c;",
+        "    --sp-sub: #6b7079;",
+        "    --sp-status: #858a93;",
+        "    --sp-track: #dce3f0;",
+        "    --sp-shape-alpha: 1;",
         "    position: fixed;",
         "    inset: 0;",
         "    z-index: 5000;",
         "    box-sizing: border-box;",
-        "    font-family: \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;",
+        "    overflow: hidden;",
+        "    background: var(--sp-bg);",
+        "    color: var(--sp-ink);",
+        "    font-family: \"Segoe UI Variable Display\", \"Segoe UI\", -apple-system, BlinkMacSystemFont, \"Helvetica Neue\", Roboto, Arial, sans-serif;",
+        "    font-size: clamp(10px, min(2.667vw, 4.267vh), 17px);",
         "    user-select: none;",
         "    -webkit-user-select: none;",
         "    transition: opacity 0.22s ease;",
         "}",
+        ".of-splash *, .of-splash *::before { box-sizing: border-box; }",
         ".of-splash.of-splash-out { opacity: 0; pointer-events: none; }",
-        ".of-splash-mark { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }",
-        ".of-splash-window {",
-        "    background: var(--of-splash-bg, #1f6fbf);",
-        "    color: #ffffff;",
+        ".of-splash-docs {",
+        "    --sp-bg: linear-gradient(160deg, #f5f8fe 0%, #edf3fd 55%, #e6effc 100%);",
+        "    --sp-top: linear-gradient(225deg, #b5d0fa 0%, #cfe0fc 60%, #e2ecfd 100%);",
+        "    --sp-bottom: linear-gradient(180deg, #d3e3fc 0%, #c6dbfa 100%);",
+        "    --sp-accent: #2f7be6;",
+        "    --sp-accent-soft: rgba(47, 123, 230, 0.3);",
         "}",
-        ".of-splash-brand {",
+        ".of-splash-sheets {",
+        "    --sp-bg: linear-gradient(160deg, #f8fcf8 0%, #f1f9f2 55%, #e8f5ea 100%);",
+        "    --sp-top: linear-gradient(225deg, #b9e5bf 0%, #cdeed1 60%, #e1f4e3 100%);",
+        "    --sp-bottom: linear-gradient(180deg, #d2eed5 0%, #c3e8c8 100%);",
+        "    --sp-accent: #2e9d45;",
+        "    --sp-accent-soft: rgba(46, 157, 69, 0.32);",
+        "}",
+        ".of-splash-slides {",
+        "    --sp-bg: linear-gradient(160deg, #fffcf7 0%, #fef7ec 55%, #fdf1e0 100%);",
+        "    --sp-top: linear-gradient(225deg, #fcd9ab 0%, #fde6c8 60%, #fef1df 100%);",
+        "    --sp-bottom: linear-gradient(180deg, #fde3c2 0%, #fbd9b0 100%);",
+        "    --sp-accent: #f28a1c;",
+        "    --sp-accent-soft: rgba(242, 138, 28, 0.32);",
+        "}",
+        ".of-splash.of-splash-dark {",
+        "    --sp-bg: linear-gradient(160deg, #1f232a 0%, #1a1e24 100%);",
+        "    --sp-ink: #e6e9ee;",
+        "    --sp-sub: #a4abb5;",
+        "    --sp-status: #8a919b;",
+        "    --sp-track: #353b45;",
+        "    --sp-shape-alpha: 0.16;",
+        "}",
+        ".of-splash-shape {",
         "    position: absolute;",
-        "    left: 12px;",
-        "    top: 9px;",
-        "    display: flex;",
-        "    align-items: center;",
-        "    gap: 6px;",
-        "    font-size: 12px;",
-        "    opacity: 0.95;",
+        "    pointer-events: none;",
+        "    opacity: var(--sp-shape-alpha);",
+        "    -webkit-mask-repeat: no-repeat;",
+        "    mask-repeat: no-repeat;",
+        "    -webkit-mask-size: 100% 100%;",
+        "    mask-size: 100% 100%;",
         "}",
-        ".of-splash-mid {",
-        "    position: absolute;",
-        "    left: 0;",
-        "    right: 0;",
-        "    top: 50%;",
-        "    transform: translateY(-58%);",
-        "    text-align: center;",
-        "}",
-        ".of-splash-name {",
-        "    font-size: 46px;",
-        "    font-weight: 300;",
-        "    line-height: 1.1;",
-        "    letter-spacing: 0.5px;",
-        "}",
-        ".of-splash-window .of-splash-status {",
-        "    position: absolute;",
-        "    left: 12px;",
-        "    right: 12px;",
-        "    bottom: 9px;",
-        "    font-size: 12px;",
-        "    white-space: nowrap;",
-        "    overflow: hidden;",
-        "    text-overflow: ellipsis;",
-        "    opacity: 0.95;",
-        "}",
-        ".of-splash-dots {",
-        "    position: relative;",
-        "    width: 90px;",
-        "    height: 5px;",
-        "    margin: 12px auto 0;",
-        "}",
-        ".of-splash-dots span {",
-        "    position: absolute;",
+        ".of-splash-shape-top {",
         "    top: 0;",
+        "    right: 0;",
+        "    width: min(29.07vw, 46.51vh);",
+        "    height: min(29.07vw, 46.51vh);",
+        "    background: var(--sp-top);",
+        "}",
+        ".of-splash-shape-bottom {",
         "    left: 0;",
-        "    width: 4px;",
-        "    height: 4px;",
-        "    border-radius: 50%;",
-        "    background: currentColor;",
-        "    opacity: 0;",
-        "    animation: of-splash-dot 2.4s infinite cubic-bezier(0.4, 0, 0.6, 1);",
+        "    bottom: 0;",
+        "    width: min(43.6vw, 69.77vh);",
+        "    height: min(23.26vw, 37.21vh);",
+        "    background: var(--sp-bottom);",
         "}",
-        ".of-splash-dots span:nth-child(2) { animation-delay: 0.14s; }",
-        ".of-splash-dots span:nth-child(3) { animation-delay: 0.28s; }",
-        ".of-splash-dots span:nth-child(4) { animation-delay: 0.42s; }",
-        ".of-splash-dots span:nth-child(5) { animation-delay: 0.56s; }",
-        "@keyframes of-splash-dot {",
-        "    0% { left: 0; opacity: 0; }",
-        "    15% { opacity: 1; }",
-        "    35% { left: 45%; }",
-        "    65% { left: 55%; }",
-        "    85% { opacity: 1; }",
-        "    100% { left: 100%; opacity: 0; }",
-        "}",
-        ".of-splash-page {",
-        "    background: #ffffff;",
-        "    color: #5f6368;",
-        "}",
-        ".of-splash-page.of-splash-dark { background: #1f2328; color: #b8bec6; }",
+        ".of-splash-dark .of-splash-shape { background: var(--sp-accent); }",
         ".of-splash-center {",
         "    position: absolute;",
         "    left: 0;",
         "    right: 0;",
         "    top: 50%;",
-        "    transform: translateY(-60%);",
+        "    transform: translateY(-50%);",
+        "    padding: 0 1.2em;",
         "    text-align: center;",
         "}",
         ".of-splash-icon {",
-        "    width: 88px;",
-        "    height: 88px;",
         "    display: block;",
-        "    margin: 0 auto 22px;",
+        "    width: 4.6em;",
+        "    height: 5.56em;",
+        "    margin: 0 auto 0.75em;",
+        "    filter: drop-shadow(0 0.35em 0.6em var(--sp-accent-soft));",
         "}",
-        ".of-splash-page .of-splash-status {",
-        "    font-size: 13px;",
-        "    min-height: 1.4em;",
-        "    padding: 0 16px;",
+        ".of-splash-title {",
+        "    font-size: 1.75em;",
+        "    font-weight: 400;",
+        "    line-height: 1.15;",
+        "    letter-spacing: -0.01em;",
+        "    white-space: nowrap;",
         "}",
-        ".of-splash-foot {",
-        "    position: absolute;",
-        "    left: 0;",
-        "    right: 0;",
-        "    bottom: 22px;",
+        ".of-splash-title b { font-weight: 400; color: var(--sp-accent); }",
+        ".of-splash-tagline {",
+        "    margin-top: 0.4em;",
+        "    font-size: 0.88em;",
+        "    line-height: 1.45;",
+        "    color: var(--sp-sub);",
+        "}",
+        ".of-splash-tagline span { display: block; }",
+        ".of-splash-dots {",
+        "    display: flex;",
+        "    justify-content: center;",
+        "    gap: 0.55em;",
+        "    margin-top: 1em;",
+        "}",
+        ".of-splash-dots span {",
+        "    width: 0.46em;",
+        "    height: 0.46em;",
+        "    border-radius: 50%;",
+        "    background: var(--sp-accent);",
+        "    opacity: 0.3;",
+        "    animation: of-splash-dot 1.35s infinite ease-in-out;",
+        "}",
+        ".of-splash-dots span:nth-child(2) { animation-delay: 0.18s; }",
+        ".of-splash-dots span:nth-child(3) { animation-delay: 0.36s; }",
+        "@keyframes of-splash-dot {",
+        "    0%, 70%, 100% { opacity: 0.3; transform: scale(0.9); }",
+        "    30% { opacity: 1; transform: scale(1); }",
+        "}",
+        ".of-splash-brand {",
         "    display: flex;",
         "    align-items: center;",
         "    justify-content: center;",
-        "    gap: 7px;",
-        "    font-size: 13px;",
+        "    gap: 0.85em;",
+        "}",
+        ".of-splash-logo { width: 3.5em; height: 3.5em; display: block; border-radius: 22%; }",
+        ".of-splash-dark .of-splash-logo { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14); }",
+        ".of-splash-wordmark {",
+        "    font-size: 2.6em;",
+        "    font-weight: 500;",
+        "    line-height: 1;",
+        "    letter-spacing: -0.015em;",
+        "}",
+        ".of-splash-motto {",
+        "    margin-top: 0.55em;",
+        "    font-size: 1em;",
+        "    color: #8a93a3;",
+        "    word-spacing: 0.2em;",
+        "}",
+        ".of-splash-dark .of-splash-motto { color: var(--sp-sub); }",
+        ".of-splash-bar {",
+        "    position: relative;",
+        "    width: 9.75em;",
+        "    height: 0.3em;",
+        "    margin: 1.9em auto 0;",
+        "    border-radius: 1em;",
+        "    background: var(--sp-track);",
+        "    overflow: hidden;",
+        "}",
+        ".of-splash-bar::before {",
+        "    content: \"\";",
+        "    position: absolute;",
+        "    top: 0;",
+        "    bottom: 0;",
+        "    left: 0;",
+        "    width: 64%;",
+        "    border-radius: inherit;",
+        "    background: var(--sp-accent);",
+        "    animation: of-splash-bar 2s infinite ease-in-out;",
+        "}",
+        "@keyframes of-splash-bar {",
+        "    0% { left: 0; width: 0; }",
+        "    55% { left: 0; width: 64%; }",
+        "    100% { left: 100%; width: 10%; }",
+        "}",
+        ".of-splash-status {",
+        "    position: absolute;",
+        "    left: 1.3em;",
+        "    right: 1.3em;",
+        "    bottom: 1.1em;",
+        "    font-size: max(10px, 0.7em);",
+        "    color: var(--sp-status);",
+        "    white-space: nowrap;",
+        "    overflow: hidden;",
+        "    text-overflow: ellipsis;",
         "}",
         "@media (prefers-reduced-motion: reduce) {",
         "    .of-splash-dots span { animation: none; opacity: 0.8; }",
-        "    .of-splash-dots span:nth-child(1) { left: 30%; }",
-        "    .of-splash-dots span:nth-child(2) { left: 40%; }",
-        "    .of-splash-dots span:nth-child(3) { left: 50%; }",
-        "    .of-splash-dots span:nth-child(4) { left: 60%; }",
-        "    .of-splash-dots span:nth-child(5) { left: 70%; }",
+        "    .of-splash-bar::before { animation: none; }",
         "    .of-splash { transition: none; }",
         "}",
         "@media print {",
@@ -186,9 +268,17 @@ var OfficeSplash = (function () {
     function injectStyle() {
         var st = document.createElement("style");
         st.setAttribute("data-of-splash", "");
-        var app = document.body ? document.body.getAttribute("data-officeapp") : "";
-        st.textContent = ".of-splash{--of-splash-bg:" + (APP_COLOURS[app] || "#1f6fbf") + ";}\n" + CSS;
+        var masks = ".of-splash-shape-top{-webkit-mask-image:url(\"" + ART + "shape_top.svg\");mask-image:url(\"" + ART + "shape_top.svg\");}\n" +
+            ".of-splash-shape-bottom{-webkit-mask-image:url(\"" + ART + "shape_bottom.svg\");mask-image:url(\"" + ART + "shape_bottom.svg\");}\n";
+        st.textContent = CSS + "\n" + masks;
         (document.head || document.documentElement).appendChild(st);
+    }
+
+    // which app this is: the page's data-officeapp, else the data-app name
+    function appKey() {
+        var key = (document.body && document.body.getAttribute("data-officeapp")) || appName;
+        key = String(key || "").toLowerCase();
+        return APPS[key] ? key : "";
     }
 
     // the web desktop's float window this page sits in, when it can be sized
@@ -228,72 +318,67 @@ var OfficeSplash = (function () {
         if (text) n.textContent = text;
         return n;
     }
-    // the suite mark: four rounded squares
-    function mark(cls) {
-        var ns = "http://www.w3.org/2000/svg";
-        var svg = document.createElementNS(ns, "svg");
-        svg.setAttribute("viewBox", "0 0 24 24");
-        svg.setAttribute("class", cls);
-        svg.setAttribute("aria-hidden", "true");
-        [[3.5, 3.5], [13.5, 3.5], [3.5, 13.5], [13.5, 13.5]].forEach(function (p) {
-            var r = document.createElementNS(ns, "rect");
-            r.setAttribute("x", p[0]);
-            r.setAttribute("y", p[1]);
-            r.setAttribute("width", 7);
-            r.setAttribute("height", 7);
-            r.setAttribute("rx", 1.5);
-            svg.appendChild(r);
-        });
-        return svg;
+    function img(cls, src) {
+        var n = el("img", cls);
+        n.src = src;
+        n.alt = "";
+        n.draggable = false;
+        return n;
     }
-    function dots() {
+
+    // Docs / Sheets / Slides: icon, "ArozOS <App>", tagline, dots
+    function appCard(key) {
+        var center = el("div", "of-splash-center");
+        center.appendChild(img("of-splash-icon", icon || (ART + key + ".svg")));
+        var title = el("div", "of-splash-title", "ArozOS ");
+        title.appendChild(el("b", "", appName));
+        center.appendChild(title);
+        var tagline = el("div", "of-splash-tagline");
+        APPS[key].forEach(function (line) { tagline.appendChild(el("span", "", line)); });
+        center.appendChild(tagline);
         var d = el("div", "of-splash-dots");
-        for (var i = 0; i < 5; i++) d.appendChild(el("span"));
-        return d;
+        for (var i = 0; i < 3; i++) d.appendChild(el("span"));
+        center.appendChild(d);
+        return center;
+    }
+
+    // any other app: the ArozOS mark, the motto and a progress bar
+    function suiteCard() {
+        var center = el("div", "of-splash-center");
+        var brand = el("div", "of-splash-brand");
+        brand.appendChild(img("of-splash-logo", icon || (ART + "arozos.svg")));
+        brand.appendChild(el("div", "of-splash-wordmark", "ArozOS"));
+        center.appendChild(brand);
+        center.appendChild(el("div", "of-splash-motto", "Create · Edit · Collaborate"));
+        center.appendChild(el("div", "of-splash-bar"));
+        return center;
     }
 
     function build() {
         injectStyle();
         var fw = floatWindow();
-        root = el("div", "of-splash of-noprint " + (fw ? "of-splash-window" : "of-splash-page"));
+        var key = appKey();
+        root = el("div", "of-splash of-noprint " + (fw ? "of-splash-window" : "of-splash-page") +
+            (key ? " of-splash-" + key : ""));
         root.setAttribute("role", "status");
         root.setAttribute("aria-live", "polite");
         var dark = false;
         try { dark = localStorage.getItem("office_theme") === "dark"; } catch (e) { }
         if (dark) root.classList.add("of-splash-dark");
 
+        root.appendChild(el("div", "of-splash-shape of-splash-shape-top"));
+        root.appendChild(el("div", "of-splash-shape of-splash-shape-bottom"));
+        root.appendChild(key ? appCard(key) : suiteCard());
+        statusEl = el("div", "of-splash-status", "Loading your workspace...");
+        root.appendChild(statusEl);
+
         if (fw) {
-            var brand = el("div", "of-splash-brand");
-            brand.appendChild(mark("of-splash-mark"));
-            brand.appendChild(el("span", "", "ArozOS Office"));
-            root.appendChild(brand);
-            var mid = el("div", "of-splash-mid");
-            mid.appendChild(el("div", "of-splash-name", appName));
-            mid.appendChild(dots());
-            root.appendChild(mid);
-            statusEl = el("div", "of-splash-status", "Loading...");
-            root.appendChild(statusEl);
             // start small, like a splash, in the middle of the desktop;
             // grown back in done()
             try {
                 setResizable(fw, false);
                 placeCentred(fw, SPLASH_W, SPLASH_H);
             } catch (e) { }
-        } else {
-            var center = el("div", "of-splash-center");
-            if (icon) {
-                var img = el("img", "of-splash-icon");
-                img.src = icon;
-                img.alt = "";
-                center.appendChild(img);
-            }
-            statusEl = el("div", "of-splash-status", "Loading " + appName + "...");
-            center.appendChild(statusEl);
-            root.appendChild(center);
-            var foot = el("div", "of-splash-foot");
-            foot.appendChild(mark("of-splash-mark"));
-            foot.appendChild(el("span", "", "ArozOS Office"));
-            root.appendChild(foot);
         }
         document.body.insertBefore(root, document.body.firstChild);
         giveUp = setTimeout(done, GIVE_UP_MS);

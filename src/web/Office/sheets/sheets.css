@@ -106,8 +106,22 @@ body.dark {
     position: relative;
     background: var(--of-paper);
 }
-#shSpacer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; }
+/* #shSpacer is in flow and sized to the whole sheet (rebuildGeometry): it
+   gives the grid its scroll extent and is the box the frozen layers stick
+   within. The frozen panes are position:sticky, so the browser keeps them
+   pinned in the same frame it scrolls - redrawing them at scrollTop from
+   the scroll event lags a frame, and they visibly bounced. */
+#shSpacer { position: relative; width: 1px; height: 1px; }
 #shCells { position: absolute; left: 0; top: 0; }
+.sh-frozen-layer {
+    position: sticky;
+    width: 0;               /* zero-size, so they can travel the full sheet */
+    height: 0;
+    overflow: visible;
+}
+#shFrozenCols { left: 0; z-index: 12; }
+#shFrozenRows { top: 0; z-index: 13; }
+#shFrozenCorner { top: 0; left: 0; z-index: 14; }
 
 /* headers */
 .sh-colh, .sh-rowh {
@@ -124,11 +138,41 @@ body.dark {
     cursor: pointer;
     overflow: hidden;
 }
+/* the tints are translucent: layer them over an opaque base, or frozen
+   headers let the scrolled rows underneath show through */
 .sh-colh.sel, .sh-rowh.sel {
-    background: var(--of-accent-soft);
+    background: linear-gradient(var(--of-accent-soft), var(--of-accent-soft)), var(--sh-headbg);
     color: var(--of-accent);
     font-weight: 600;
 }
+/* where user-hidden rows collapsed: a small up/down chevron pill sitting on
+   the row boundary; clicking it shows the rows again */
+.sh-rowh-hidden {
+    position: absolute;
+    left: 2px;              /* clear of the centred row numbers */
+    width: 13px;
+    height: 12px;
+    margin-top: -6px;
+    box-sizing: border-box;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg);
+    cursor: pointer;
+    z-index: 7;             /* above the row resize handles (5) */
+}
+.sh-rowh-hidden::before, .sh-rowh-hidden::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    margin-left: -3px;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+}
+.sh-rowh-hidden::before { top: 1px; border-bottom: 3px solid var(--of-fg-soft); }
+.sh-rowh-hidden::after { bottom: 1px; border-top: 3px solid var(--of-fg-soft); }
+.sh-rowh-hidden:hover { border-color: var(--of-accent); }
+.sh-rowh-hidden:hover::before { border-bottom-color: var(--of-accent); }
+.sh-rowh-hidden:hover::after { border-top-color: var(--of-accent); }
 .sh-rz {
     position: absolute;
     z-index: 5;
@@ -177,13 +221,13 @@ body.dark {
 .sh-cell.rgt { justify-content: flex-end; }
 .sh-cell.lft { justify-content: flex-start; }
 .sh-cell.wrap { white-space: pre-wrap; word-break: break-word; align-items: flex-start; }
-.sh-cell.sel { background-color: var(--sh-sel-bg); }
+/* selection tint painted over the cell's own (opaque) fill, so frozen cells
+   stay solid and filled cells still show they are selected */
+.sh-cell.sel { background-image: linear-gradient(var(--sh-sel-bg), var(--sh-sel-bg)); }
 .sh-cell.err { color: var(--of-danger); }
 .sh-cell.b { font-weight: 700; }
 .sh-cell.i { font-style: italic; }
 .sh-cell.u { text-decoration: underline; }
-.sh-cell.frozen { z-index: 12; }
-.sh-cell.frozen-corner { z-index: 14; }
 
 /* active cell + range border + fill handle */
 #shRangeBox {

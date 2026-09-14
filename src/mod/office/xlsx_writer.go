@@ -527,6 +527,16 @@ func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable, hasDrawing bool, l
 			maxRow = row
 		}
 	}
+	// hidden rows need a <row> element even when they hold no cells
+	hidden := map[int]bool{}
+	for _, r := range ws.HiddenRows {
+		if r >= 0 && r < 1048576 {
+			hidden[r] = true
+			if _, ok := rows[r]; !ok {
+				rows[r] = nil
+			}
+		}
+	}
 	var rowIdxs []int
 	for r := range rows {
 		rowIdxs = append(rowIdxs, r)
@@ -540,6 +550,9 @@ func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable, hasDrawing bool, l
 		attrs := fmt.Sprintf(` r="%d"`, r+1)
 		if h, ok := ws.RowH[strconv.Itoa(r)]; ok && h > 0 {
 			attrs += fmt.Sprintf(` ht="%s" customHeight="1"`, trimFloat(pxToRowPt(h)))
+		}
+		if hidden[r] {
+			attrs += ` hidden="1"`
 		}
 		sb.WriteString("<row" + attrs + ">")
 		for _, c := range cells {

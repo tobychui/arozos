@@ -108,7 +108,9 @@ eq("OR one true", run("OR(1>2,2>1)"), true);
 eq("OR none true", run("OR(1>2,3>4)"), false);
 eq("NOT", run("NOT(1>2)"), true);
 eq("AND over a range of numbers", run("AND(A1:B2)"), true);   // non-zero = true
-eq("AND over text is an error", run("AND(A1:C1)"), "#VALUE!");
+eq("AND skips text in a range (Excel)", run("AND(A1:C1)"), true);
+eq("AND skips text in a ref (Excel)", run("AND(TRUE,C1)"), true);
+eq("AND over typed text is an error", run('AND(TRUE,"hello")'), "#VALUE!");
 eq("AND ignores blank cells", run("AND(TRUE,D9)"), true);
 eq("AND with no logicals", run("AND(D9)"), "#VALUE!");
 eq("IFERROR catches", run('IFERROR(1/0,"oops")'), "oops");
@@ -174,6 +176,96 @@ eq("insert row before untouched", F.adjustInsertDelete("=A1", "row", 2, 1), "=A1
 eq("delete row -> #REF!", F.adjustInsertDelete("=A3", "row", 2, -1), "=#REF!");
 eq("delete row shifts up", F.adjustInsertDelete("=A5", "row", 2, -1), "=A4");
 eq("insert col shifts", F.adjustInsertDelete("=C1", "col", 1, 2), "=E1");
+
+/* blank vs text */
+eq("blank equals empty text", run('D9=""'), true);
+eq("blank is not text", run('D9="x"'), false);
+
+/* math / choose / dates */
+eq("MOD", run("MOD(7,3)"), 1);
+eq("MOD takes divisor sign", run("MOD(-7,3)"), 2);
+eq("MOD fraction of a date-time", run("MOD(41031.75,1)"), 0.75);
+eq("MOD by zero", run("MOD(1,0)"), "#DIV/0!");
+eq("CHOOSE", run('CHOOSE(2,"a","b","c")'), "b");
+eq("CHOOSE out of range", run('CHOOSE(4,"a","b","c")'), "#VALUE!");
+eq("CHOOSE only evaluates its pick", run('CHOOSE(1,"ok",1/0)'), "ok");
+eq("DATE", run("DATE(2012,5,2)"), 41031);
+eq("DATE rolls months over", run("DATE(2012,13,1)"), run("DATE(2013,1,1)"));
+eq("YEAR", run("YEAR(41031.6)"), 2012);
+eq("MONTH", run("MONTH(41031.6)"), 5);
+eq("DAY", run("DAY(41031.6)"), 2);
+eq("WEEKDAY default (Wed=4)", run("WEEKDAY(41031.6)"), 4);
+eq("WEEKDAY type 2 (Wed=3)", run("WEEKDAY(41031,2)"), 3);
+eq("WEEKDAY type 3 (Wed=2)", run("WEEKDAY(41031,3)"), 2);
+eq("WEEKDAY type 12 (Tue=1, Wed=2)", run("WEEKDAY(41031,12)"), 2);
+eq("WEEKDAY type 17 (Sun=1, Wed=4)", run("WEEKDAY(41031,17)"), 4);
+eq("HOUR", run("HOUR(41031.632638888892)"), 15);
+eq("MINUTE", run("MINUTE(41031.632638888892)"), 11);
+eq("SECOND", run("SECOND(0.5+1/86400*7)"), 7);
+
+/* arrays: SUMPRODUCT and array expressions */
+eq("SUMPRODUCT two ranges", run("SUMPRODUCT(A1:A2,B1:B2)"), 10 * 20 + 30 * 40);
+eq("SUMPRODUCT of a condition", run('SUMPRODUCT((F2:F5>"B")*(G2:G5))'), 15 + 9 + 5);
+eq("SUMPRODUCT boolean-only counts nothing", run('SUMPRODUCT(F2:F5="Lemon")'), 0);
+eq("SUMPRODUCT double negation", run('SUMPRODUCT(--(F2:F5="Lemon"))'), 1);
+eq("SUMPRODUCT divided by a scalar", run("SUMPRODUCT((G2:G5>6)*G2:G5/IF(A1>0,2,1))"), (11 + 15 + 9) / 2);
+eq("SUMPRODUCT size mismatch", run("SUMPRODUCT(A1:A2,B1:B3)"), "#VALUE!");
+eq("SUMPRODUCT text counts as 0", run("SUMPRODUCT(F2:F5,G2:G5)"), 0);
+eq("SUMPRODUCT error element", run("SUMPRODUCT((G2:G5)/(G2:G5-9))"), "#DIV/0!");
+eq("SUM over an array expression", run("SUM((G2:G5>9)*H2:H5)"), 1.5 + 2.03);
+eq("IF over an array", run("SUMPRODUCT(IF(G2:G5>9,G2:G5,0))"), 26);
+eq("range outside array context", run("A1:A2*2"), "#VALUE!");
+
+/* cross-sheet references: a two-sheet workbook */
+var book = [
+    { name: "Data", cells: { "0,0": "5", "0,1": "7", "1,0": "x", "1,1": "y", "2,0": "=A1*2" } },
+    { name: "Closed Tickets", cells: { "0,0": "=Data!A1+1", "1,0": "=A2", "0,1": "3" } }
+];
+var bookActive = 0;
+var bcalc = F.createCalculator(function (c, r, s) { return book[s].cells[c + "," + r]; }, {
+    activeSheet: function () { return bookActive; },
+    sheetIndex: function (name) {
+        for (var i = 0; i < book.length; i++) if (book[i].name.toLowerCase() === name.toLowerCase()) return i;
+        return -1;
+    }
+});
+function brun(f, active) {
+    bookActive = active || 0;
+    bcalc.reset();
+    return F.evaluate(F.parse(f), bcalc.ctx);
+}
+eq("sheet ref", brun("Data!A2"), 7);
+eq("quoted sheet ref", brun("'Closed Tickets'!A2"), 3);
+eq("sheet names are case-insensitive", brun("data!A1"), 5);
+eq("formula on another sheet uses its own sheet", brun("'Closed Tickets'!B1"), 3);
+eq("chain across sheets", brun("'Closed Tickets'!A1"), 6);
+eq("unknown sheet", brun("Nope!A1"), "#REF!");
+eq("sheet range in SUM", brun("SUM(Data!A1:A2)"), 12);
+eq("sheet range in SUMPRODUCT", brun('SUMPRODUCT((Data!B1:B2="y")*Data!A1:A2)', 1), 7);
+eq("unqualified ref follows active sheet", brun("A2", 1), 3);
+eq("value() takes a sheet index", bcalc.value(2, 0, 0), 10);
+eq("VLOOKUP on another sheet", brun('VLOOKUP("y",Data!A1:B2,1,FALSE)', 1), "#N/A");
+eq("VLOOKUP key column on another sheet", brun("VLOOKUP(7,Data!A1:B2,2,FALSE)", 1), "y");
+eq("quote in sheet name", F.parse("'Bob''s'!A1").sheet, "Bob's");
+
+/* rewriting keeps sheet prefixes */
+eq("rewrite keeps sheet prefix", F.rewriteRelative("='My Sheet'!A1+B2", 1, 0), "='My Sheet'!B1+C2");
+eq("rewrite absolute sheet ref untouched", F.rewriteRelative("=Data!$A$1", 3, 3), "=Data!$A$1");
+eq("insert row on target sheet only",
+    F.adjustInsertDelete("=A5+Data!A5+'Other'!A5", "row", 2, 1, { target: "Data", home: "Other" }),
+    "=A5+Data!A6+'Other'!A5");
+eq("insert row shifts both ends of a sheet range",
+    F.adjustInsertDelete("=SUM(Data!$C$3:$C$5000)+SUM(C3:C9)", "row", 0, 1, { target: "Data", home: "Other" }),
+    "=SUM(Data!$C$4:$C$5001)+SUM(C3:C9)");
+eq("rename keeps range end unprefixed", F.renameSheetRefs("=SUM(Data!A1:A3)", "Data", "D x"), "=SUM('D x'!A1:A3)");
+eq("insert row: unqualified ref on the target sheet",
+    F.adjustInsertDelete("=A5+Other!A5", "row", 2, 1, { target: "Data", home: "Data" }), "=A6+Other!A5");
+eq("move honours sheet", F.rewriteMovedRange("=A1+Data!A1", mv, 1, 0, { target: "Data", home: "Sheet1" }),
+    "=A1+Data!B1");
+eq("rename sheet refs", F.renameSheetRefs("=Data!A1+'data'!B2+Other!A1", "Data", "Raw data"),
+    "='Raw data'!A1+'Raw data'!B2+Other!A1");
+eq("rename leaves strings alone", F.renameSheetRefs('="Data!A1"&Data!A1', "Data", "D2"), "=\"Data!A1\"&'D2'!A1");
+eq("quoteSheetName plain", F.quoteSheetName("Analysis"), "Analysis");
 
 /* helpers */
 eq("colToName", F.colToName(0), "A");

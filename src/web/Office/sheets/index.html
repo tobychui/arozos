@@ -6,11 +6,11 @@
     <title>Sheets</title>
     <link rel="icon" type="image/png" href="sheets.png">
     <!-- fetched first: the start-up splash shows it -->
-    <link rel="preload" href="../img/sheets.svg" as="image">
+    <link rel="preload" href="../img/splash/sheets.svg" as="image">
 </head>
 <body data-officeapp="sheets">
     <!-- start-up splash: first, so it covers the page before anything draws -->
-    <script src="../common/splash.js" data-app="Sheets" data-icon="../img/sheets.svg" data-size="1180x720"></script>
+    <script src="../common/splash.js" data-app="Sheets" data-size="1180x720"></script>
     <!-- the app's stylesheets and scripts come after the splash, so it can
          paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
@@ -43,7 +43,11 @@
             <div id="shColHead"><div id="shColHeadIn"></div></div>
             <div id="shRowHead"><div id="shRowHeadIn"></div></div>
             <div id="shGrid">
-                <div id="shSpacer"></div>
+                <div id="shSpacer">
+                    <div id="shFrozenCols" class="sh-frozen-layer"></div>
+                    <div id="shFrozenRows" class="sh-frozen-layer"></div>
+                    <div id="shFrozenCorner" class="sh-frozen-layer"></div>
+                </div>
                 <div id="shCells"></div>
                 <div id="shRangeBox"></div>
                 <div id="shFillHandle" title="Drag to fill"></div>

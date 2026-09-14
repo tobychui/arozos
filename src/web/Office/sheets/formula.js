@@ -10,27 +10,32 @@
         cellName(col,row)                        -> "A1" (0-based in, 1-based out)
         parseCellKey("A1")                       -> {col,row} or null
         tokenize(src) / parse(src)               tokens / AST ("src" WITHOUT "=")
-        evaluate(ast, ctx)                       ctx.cell(col,row) -> value
-        createCalculator(getRaw)                 memoized calc w/ cycle detection
-            .value(col,row) -> number|string|boolean|null|FErr
+        evaluate(ast, ctx)                       ctx.cell(col,row,sheetName) -> value
+        createCalculator(getRaw, opts)           memoized workbook calc w/ cycle detection
+            .value(col,row,[sheetIdx]) -> number|string|boolean|null|FErr
             .reset()
         literalValue(raw)                        raw typed text -> value
         rewriteRelative(formula, dCol, dRow)     shift relative refs (copy/fill)
-        adjustInsertDelete(formula, axis, index, count)
+        adjustInsertDelete(formula, axis, index, count, [sheet])
                                                  axis "row"|"col", count<0 = delete
+        renameSheetRefs(formula, oldName, newName)
         isErr(v), FErr, ERR                      error values
         dateToSerial(date) / serialToDate(n)     Excel-style 1900 date serials
 
     Values: number | string | boolean | null (empty) | FErr.
     Errors: #DIV/0! #NAME? #REF! #VALUE! #CYCLE! #NUM! #N/A.
 
+    References: A1, $A$1, A1:B9, Sheet2!A1, 'Closed Tickets'!$C$3:$C$5000.
+    Ranges inside SUMPRODUCT (and array expressions handed to SUM & co.)
+    evaluate as arrays, with operators applied element by element.
+
     Functions:
         logical    IF IFS IFERROR IFNA AND OR NOT
-        lookup     VLOOKUP HLOOKUP
-        aggregate  SUM AVERAGE MIN MAX COUNT COUNTA
-        math       ROUND ABS INT
+        lookup     VLOOKUP HLOOKUP CHOOSE
+        aggregate  SUM AVERAGE MIN MAX COUNT COUNTA SUMPRODUCT
+        math       ROUND ABS INT MOD
         text       CONCAT (=CONCATENATE) LEN UPPER LOWER TRIM
-        date       TODAY NOW
+        date       TODAY NOW DATE YEAR MONTH DAY WEEKDAY HOUR MINUTE SECOND
 
     IF / IFS / IFERROR evaluate only the branch they return, so
     IF(A1=0,"",1/A1) never divides by zero. IF's value_if_false is optional
@@ -115,7 +120,25 @@ var SheetFormula = (function () {
     }
 
     /* ---------- tokenizer ---------- */
-    /* token: {t:"num"|"str"|"err"|"ref"|"name"|"op", v, pos, len, [col,row,absC,absR]} */
+    /* token: {t:"num"|"str"|"err"|"ref"|"name"|"op", v, pos, len,
+               [col,row,absC,absR, sheet, prefix]}
+       A sheet-qualified ref carries sheet (the unquoted name) and prefix
+       (the source text up to and including "!"); pos/len cover both. */
+    var REF_RE = /^(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![\w.(!])/;
+    // an unquoted sheet name must be followed by "!" and a cell address
+    var SHEET_PREFIX_RE = /^([A-Za-z_][A-Za-z0-9_.]*)!(?=\$?[A-Za-z]{1,3}\$?\d)/;
+    var PLAIN_SHEET_RE = /^[A-Za-z_][A-Za-z0-9_.]*$/;
+
+    // how a sheet name is written in front of "!": quoted unless it is a
+    // plain identifier that cannot be mistaken for a cell address
+    function quoteSheetName(name) {
+        name = String(name);
+        if (PLAIN_SHEET_RE.test(name) && !/^[A-Za-z]{1,3}\d+$/.test(name)) return name;
+        return "'" + name.replace(/'/g, "''") + "'";
+    }
+    function sameSheetName(a, b) {
+        return String(a).toLowerCase() === String(b).toLowerCase();
+    }
     function tokenize(src) {
         var toks = [], i = 0, n = src.length, m;
         while (i < n) {
@@ -153,18 +176,49 @@ var SheetFormula = (function () {
                 i += m[0].length;
                 continue;
             }
+            // sheet-qualified reference: 'Closed Tickets'!$C$3 or Analysis!H2.
+            // The prefix is kept in the token so reference rewriting can put
+            // it back in front of the shifted address.
+            var sheetName = null, prefixLen = 0;
+            if (ch === "'") {
+                var q = i + 1, qname = "";
+                while (q < n) {
+                    if (src.charAt(q) === "'") {
+                        if (src.charAt(q + 1) === "'") { qname += "'"; q += 2; continue; }
+                        break;
+                    }
+                    qname += src.charAt(q);
+                    q++;
+                }
+                if (q >= n || src.charAt(q + 1) !== "!") throw new FErr(ERR.REF, "Malformed sheet name");
+                sheetName = qname;
+                prefixLen = q + 2 - i;
+            } else {
+                m = SHEET_PREFIX_RE.exec(src.slice(i));
+                if (m) { sheetName = m[1]; prefixLen = m[0].length; }
+            }
             // cell reference (possibly $-anchored); a trailing "(" means function name instead
-            m = /^(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?![\w.(])/.exec(src.slice(i));
+            m = REF_RE.exec(src.slice(i + prefixLen));
             if (m) {
-                toks.push({
+                var tok = {
                     t: "ref",
                     absC: m[1] === "$", col: nameToCol(m[2]),
                     absR: m[3] === "$", row: parseInt(m[4], 10) - 1,
-                    pos: i, len: m[0].length
-                });
-                i += m[0].length;
+                    pos: i, len: prefixLen + m[0].length
+                };
+                if (sheetName !== null) {
+                    tok.sheet = sheetName;
+                    tok.prefix = src.substr(i, prefixLen);
+                } else if (toks.length >= 2 && toks[toks.length - 1].t === "op" && toks[toks.length - 1].v === ":" &&
+                    toks[toks.length - 2].t === "ref" && toks[toks.length - 2].sheet !== undefined) {
+                    // the end of Sheet!A1:B2 is on Sheet too (no prefix to rewrite)
+                    tok.sheet = toks[toks.length - 2].sheet;
+                }
+                toks.push(tok);
+                i += tok.len;
                 continue;
             }
+            if (sheetName !== null) throw new FErr(ERR.REF, "Expected a cell reference after " + sheetName + "!");
             m = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(src.slice(i));
             if (m) {
                 toks.push({ t: "name", v: m[0].toUpperCase(), pos: i, len: m[0].length });
@@ -267,9 +321,14 @@ var SheetFormula = (function () {
                     var t2 = peek();
                     if (!t2 || t2.t !== "ref") throw new FErr(ERR.VALUE, "Malformed range");
                     p++;
-                    return { t: "range", a: t, b: t2 };
+                    // Sheet!A1:B2 names the sheet once; Sheet!A1:Sheet!B2 is also legal
+                    var rs = t.sheet !== undefined ? t.sheet : t2.sheet;
+                    if (t.sheet !== undefined && t2.sheet !== undefined && !sameSheetName(t.sheet, t2.sheet)) {
+                        throw new FErr(ERR.REF, "A range cannot span two sheets");
+                    }
+                    return { t: "range", a: t, b: t2, sheet: rs };
                 }
-                return { t: "ref", col: t.col, row: t.row, absC: t.absC, absR: t.absR };
+                return { t: "ref", col: t.col, row: t.row, absC: t.absC, absR: t.absR, sheet: t.sheet };
             }
             if (t.t === "name") {
                 p++;
@@ -346,6 +405,24 @@ var SheetFormula = (function () {
         return new FErr(ERR.VALUE, "Expected a logical value");
     }
 
+    /* An array value: what a range (or an operator applied to ranges)
+       yields inside an array context such as SUMPRODUCT's arguments.
+       data is row-major, rows x cols long. */
+    function Arr(rows, cols, data) {
+        this.rows = rows;
+        this.cols = cols;
+        this.data = data;
+    }
+    function isArr(v) { return v instanceof Arr; }
+
+    /*
+        Evaluate an AST. ctx.cell(col, row, sheet) returns a cell's value;
+        sheet is the name written in the formula, or undefined for the
+        formula's own sheet. ctx.range(c1, r1, c2, r2, sheet), when present,
+        returns the values of a whole range as an Arr (the calculator caches
+        these, which is what keeps thousands of SUMPRODUCTs over the same
+        column affordable); without it ranges are read cell by cell.
+    */
     function evaluate(ast, ctx) {
 
         function ev(n) {
@@ -355,58 +432,219 @@ var SheetFormula = (function () {
                 case "bool": return n.v;
                 case "errlit": return new FErr(n.v, "Error value");
                 case "empty": return null;
-                case "ref": return ctx.cell(n.col, n.row);
+                case "ref": return ctx.cell(n.col, n.row, n.sheet);
                 case "range": return new FErr(ERR.VALUE, "A range cannot be used as a single value");
                 case "pct": {
                     var pv = toNum(ev(n.e));
                     return isErr(pv) ? pv : pv / 100;
                 }
-                case "un": {
-                    var uv = toNum(ev(n.e));
-                    if (isErr(uv)) return uv;
-                    return n.op === "-" ? -uv : uv;
-                }
-                case "bin": return binop(n);
-                case "call": return call(n);
+                case "un": return unValue(n.op, ev(n.e));
+                case "bin":
+                    // comparisons and arithmetic need both sides anyway
+                    return binValue(n.op, ev(n.l), ev(n.r));
+                case "call": return call(n, false);
                 default: return new FErr(ERR.VALUE, "Bad expression");
             }
         }
 
-        function binop(n) {
-            var op = n.op;
+        /* Array-context evaluation: ranges become Arr values and operators
+           apply element by element (Excel's array semantics), so
+           ('Data'!A2:A99="x")*('Data'!B2:B99) is an array of numbers. */
+        function evA(n) {
+            switch (n.t) {
+                case "range": return rangeArr(n);
+                case "pct": return lift1(evA(n.e), function (v) {
+                    v = toNum(v);
+                    return isErr(v) ? v : v / 100;
+                });
+                case "un": {
+                    var op = n.op;
+                    return lift1(evA(n.e), function (v) { return unValue(op, v); });
+                }
+                case "bin": {
+                    var bop = n.op, l = evA(n.l), r = evA(n.r);
+                    if (!isArr(l) && !isArr(r)) return binValue(bop, l, r);
+                    return binArr(bop, l, r);
+                }
+                case "call": return call(n, true);
+                default: return ev(n);
+            }
+        }
+
+        function rangeArr(node) {
+            var b = rangeBox(node);
+            if ((b.c2 - b.c1 + 1) * (b.r2 - b.r1 + 1) > MAX_RANGE_CELLS) {
+                return new FErr(ERR.VALUE, "Range too large");
+            }
+            if (ctx.range) return ctx.range(b.c1, b.r1, b.c2, b.r2, node.sheet);
+            var data = [];
+            for (var r = b.r1; r <= b.r2; r++) {
+                for (var c = b.c1; c <= b.c2; c++) data.push(ctx.cell(c, r, node.sheet));
+            }
+            return new Arr(b.r2 - b.r1 + 1, b.c2 - b.c1 + 1, data);
+        }
+
+        function lift1(v, fn) {
+            if (!isArr(v)) return fn(v);
+            var out = new Array(v.data.length);
+            for (var i = 0; i < out.length; i++) out[i] = fn(v.data[i]);
+            return new Arr(v.rows, v.cols, out);
+        }
+        /* Element-wise over two values with Excel broadcasting: a scalar or a
+           single row / column stretches to fit; cells that exist in neither
+           operand (mismatched sizes) are #N/A. */
+        function lift2(a, b, fn) {
+            var A = isArr(a) ? a : new Arr(1, 1, [a]);
+            var B = isArr(b) ? b : new Arr(1, 1, [b]);
+            var rows = Math.max(A.rows, B.rows), cols = Math.max(A.cols, B.cols);
+            var out = new Array(rows * cols);
+            if (A.rows === B.rows && A.cols === B.cols) {
+                for (var i = 0; i < out.length; i++) out[i] = fn(A.data[i], B.data[i]);
+            } else {
+                for (var r = 0; r < rows; r++) {
+                    for (var c = 0; c < cols; c++) {
+                        var av = pick(A, r, c), bv = pick(B, r, c);
+                        out[r * cols + c] = (av === undefined || bv === undefined) ?
+                            new FErr(ERR.NA, "Array sizes do not match") : fn(av, bv);
+                    }
+                }
+            }
+            return new Arr(rows, cols, out);
+        }
+        /*
+            An operator over arrays. Same-size arrays and array-with-scalar
+            (the shapes SUMPRODUCT criteria produce) run a tight loop that
+            handles number/number, text/text and logical arithmetic inline;
+            anything else falls back to binValue, so results are identical.
+            Text is compared through a lower-cased copy that is cached on the
+            array, and cached ranges keep it across formulas.
+        */
+        function binArr(op, l, r) {
+            var A = isArr(l) ? l : new Arr(1, 1, [l]);
+            var B = isArr(r) ? r : new Arr(1, 1, [r]);
+            var la = A.data.length, lb = B.data.length;
+            var same = A.rows === B.rows && A.cols === B.cols;
+            if (!same && la !== 1 && lb !== 1) {
+                return lift2(A, B, function (a, b) { return binValue(op, a, b); });
+            }
+            var rows = la === 1 ? B.rows : A.rows, cols = la === 1 ? B.cols : A.cols;
+            var len = Math.max(la, lb), out = new Array(len);
+            var sa = la === 1, sb = lb === 1;
+            var ad = A.data, bd = B.data, i, x, y, d, res;
+            var cmp = op === "=" || op === "<>" || op === "<" || op === ">" || op === "<=" || op === ">=";
+            // a cached range against a constant: the same criterion shows up
+            // in every formula of a report, so compute it once per recalc
+            var memoArr = null, memoKey = null;
+            if (cmp && (A.shared ? sb && !isErr(bd[0]) : B.shared && sa && !isErr(ad[0]))) {
+                memoArr = A.shared ? A : B;
+                var other = A.shared ? bd[0] : ad[0];
+                memoKey = (A.shared ? "L" : "R") + op + typeof other + ":" + other;
+                if (!memoArr.cmp) memoArr.cmp = {};
+                if (Object.prototype.hasOwnProperty.call(memoArr.cmp, memoKey)) return memoArr.cmp[memoKey];
+            }
+            if (cmp) {
+                var ax = lowered(A), bx = lowered(B);
+                for (i = 0; i < len; i++) {
+                    x = ax[sa ? 0 : i];
+                    y = bx[sb ? 0 : i];
+                    var tx = typeof x, ty = typeof y;
+                    if (tx === "number" && ty === "number") d = x - y;
+                    else if (tx === "string" && ty === "string") d = x < y ? -1 : (x > y ? 1 : 0);
+                    else { out[i] = compare(op, ad[sa ? 0 : i], bd[sb ? 0 : i]); continue; }
+                    switch (op) {
+                        case "=": out[i] = d === 0; break;
+                        case "<>": out[i] = d !== 0; break;
+                        case "<": out[i] = d < 0; break;
+                        case ">": out[i] = d > 0; break;
+                        case "<=": out[i] = d <= 0; break;
+                        default: out[i] = d >= 0;
+                    }
+                }
+            } else if (op === "+" || op === "-" || op === "*" || op === "/") {
+                for (i = 0; i < len; i++) {
+                    x = ad[sa ? 0 : i];
+                    y = bd[sb ? 0 : i];
+                    if (typeof x === "boolean") x = x ? 1 : 0;
+                    else if (x === null) x = 0;
+                    if (typeof y === "boolean") y = y ? 1 : 0;
+                    else if (y === null) y = 0;
+                    if (typeof x !== "number" || typeof y !== "number" || (op === "/" && y === 0)) {
+                        out[i] = binValue(op, ad[sa ? 0 : i], bd[sb ? 0 : i]);
+                        continue;
+                    }
+                    res = op === "*" ? x * y : op === "+" ? x + y : op === "-" ? x - y : x / y;
+                    out[i] = isFinite(res) ? res : new FErr(ERR.NUM, "Numeric overflow");
+                }
+            } else {
+                for (i = 0; i < len; i++) out[i] = binValue(op, ad[sa ? 0 : i], bd[sb ? 0 : i]);
+            }
+            var result = new Arr(rows, cols, out);
+            // results are never mutated, so handing the same one out is safe
+            if (memoArr) memoArr.cmp[memoKey] = result;
+            return result;
+        }
+        // the array's values with text lower-cased (compare() is case-insensitive)
+        function lowered(A) {
+            if (A.lower) return A.lower;
+            var src = A.data, out = new Array(src.length), any = false;
+            for (var i = 0; i < src.length; i++) {
+                var v = src[i];
+                if (typeof v === "string") { out[i] = v.toLowerCase(); any = true; }
+                else out[i] = v;
+            }
+            A.lower = any ? out : src;
+            return A.lower;
+        }
+        function pick(A, r, c) {
+            var rr = A.rows === 1 ? 0 : r, cc = A.cols === 1 ? 0 : c;
+            if (rr >= A.rows || cc >= A.cols) return undefined;
+            return A.data[rr * A.cols + cc];
+        }
+
+        function unValue(op, v) {
+            v = toNum(v);
+            if (isErr(v)) return v;
+            return op === "-" ? -v : v;
+        }
+
+        function binValue(op, l, r) {
             if (op === "&") {
-                var ls = toStr(ev(n.l));
+                var ls = toStr(l);
                 if (isErr(ls)) return ls;
-                var rs = toStr(ev(n.r));
+                var rs = toStr(r);
                 if (isErr(rs)) return rs;
                 return ls + rs;
             }
             if (op === "=" || op === "<>" || op === "<" || op === ">" || op === "<=" || op === ">=") {
-                return compare(op, ev(n.l), ev(n.r));
+                return compare(op, l, r);
             }
-            var a = toNum(ev(n.l));
+            var a = toNum(l);
             if (isErr(a)) return a;
-            var b = toNum(ev(n.r));
+            var b = toNum(r);
             if (isErr(b)) return b;
-            var r;
+            var res;
             switch (op) {
-                case "+": r = a + b; break;
-                case "-": r = a - b; break;
-                case "*": r = a * b; break;
+                case "+": res = a + b; break;
+                case "-": res = a - b; break;
+                case "*": res = a * b; break;
                 case "/":
                     if (b === 0) return new FErr(ERR.DIV0, "Division by zero");
-                    r = a / b;
+                    res = a / b;
                     break;
-                case "^": r = Math.pow(a, b); break;
+                case "^": res = Math.pow(a, b); break;
                 default: return new FErr(ERR.VALUE, "Bad operator " + op);
             }
-            if (typeof r !== "number" || !isFinite(r)) return new FErr(ERR.NUM, "Numeric overflow");
-            return r;
+            if (typeof res !== "number" || !isFinite(res)) return new FErr(ERR.NUM, "Numeric overflow");
+            return res;
         }
 
         function compare(op, l, r) {
             if (isErr(l)) return l;
             if (isErr(r)) return r;
+            // a blank cell compares as "" against text (so =A1="" is TRUE)
+            // and as 0 against numbers
+            if (l === null && typeof r === "string") l = "";
+            if (r === null && typeof l === "string") r = "";
             if (typeof l === "boolean") l = l ? 1 : 0;
             if (typeof r === "boolean") r = r ? 1 : 0;
             var d;
@@ -440,39 +678,44 @@ var SheetFormula = (function () {
             };
         }
         function eachRangeCell(node, fn) {
-            var c1 = Math.min(node.a.col, node.b.col), c2 = Math.max(node.a.col, node.b.col);
-            var r1 = Math.min(node.a.row, node.b.row), r2 = Math.max(node.a.row, node.b.row);
-            if ((c2 - c1 + 1) * (r2 - r1 + 1) > MAX_RANGE_CELLS) {
-                return new FErr(ERR.VALUE, "Range too large");
-            }
-            for (var r = r1; r <= r2; r++) {
-                for (var c = c1; c <= c2; c++) {
-                    var stop = fn(ctx.cell(c, r));
-                    if (stop !== undefined) return stop;
-                }
+            return eachArrCell(rangeArr(node), fn);
+        }
+        function eachArrCell(arr, fn) {
+            if (isErr(arr)) return arr;
+            for (var i = 0; i < arr.data.length; i++) {
+                var stop = fn(arr.data[i]);
+                if (stop !== undefined) return stop;
             }
             return undefined;
         }
 
         /* Collect numeric/count statistics over the argument list.
            Range cells: numbers counted, strings/booleans only for COUNTA.
+           Array expressions (=SUM((A1:A9>0)*B1:B9)) count like ranges.
            Direct scalars: numbers/booleans/numeric strings are numeric;
            non-numeric strings poison SUM-style aggregates (#VALUE!). */
         function collect(args) {
             var st = { nums: [], count: 0, counta: 0, badString: false, err: null };
+            function fromCells(v) {
+                if (isErr(v)) return v;
+                if (v === null || v === undefined) return undefined;
+                st.counta++;
+                if (typeof v === "number") { st.nums.push(v); st.count++; }
+                return undefined;
+            }
             for (var i = 0; i < args.length; i++) {
                 var a = args[i];
+                var stop;
                 if (a.t === "range") {
-                    var stop = eachRangeCell(a, function (v) {
-                        if (isErr(v)) return v;
-                        if (v === null || v === undefined) return undefined;
-                        st.counta++;
-                        if (typeof v === "number") { st.nums.push(v); st.count++; }
-                        return undefined;
-                    });
+                    stop = eachRangeCell(a, fromCells);
                     if (stop !== undefined) { st.err = stop; return st; }
                 } else {
-                    var v = ev(a);
+                    var v = (a.t === "bin" || a.t === "un" || a.t === "call") ? evA(a) : ev(a);
+                    if (isArr(v)) {
+                        stop = eachArrCell(v, fromCells);
+                        if (stop !== undefined) { st.err = stop; return st; }
+                        continue;
+                    }
                     if (isErr(v)) { st.err = v; return st; }
                     if (v === null || v === undefined) continue;
                     st.counta++;
@@ -541,12 +784,13 @@ var SheetFormula = (function () {
             if (span * depth > MAX_RANGE_CELLS) {
                 return new FErr(ERR.VALUE, "Range too large");
             }
+            var sh = args[1].sheet;
             var keyAt = vertical ?
-                function (i) { return ctx.cell(box.c1, box.r1 + i); } :
-                function (i) { return ctx.cell(box.c1 + i, box.r1); };
+                function (i) { return ctx.cell(box.c1, box.r1 + i, sh); } :
+                function (i) { return ctx.cell(box.c1 + i, box.r1, sh); };
             var resultAt = vertical ?
-                function (i) { return ctx.cell(box.c1 + idx - 1, box.r1 + i); } :
-                function (i) { return ctx.cell(box.c1 + i, box.r1 + idx - 1); };
+                function (i) { return ctx.cell(box.c1 + idx - 1, box.r1 + i, sh); } :
+                function (i) { return ctx.cell(box.c1 + i, box.r1 + idx - 1, sh); };
 
             var best = -1, bestVal = null, i, cv, cmp;
             for (i = 0; i < span; i++) {
@@ -565,7 +809,56 @@ var SheetFormula = (function () {
             return new FErr(ERR.NA, name + " found no match for " + toStr(keyv));
         }
 
-        function call(n) {
+        // whole days of a date serial, as a UTC Date (see serialToDate)
+        function serialDate(args) {
+            var sv = oneNum(args, 0);
+            if (isErr(sv)) return sv;
+            if (sv < 0) return new FErr(ERR.NUM, "Dates cannot be negative");
+            return serialToDate(Math.floor(sv));
+        }
+        // seconds into the day of a date/time serial, rounded like Excel
+        function serialSeconds(args) {
+            var sv = oneNum(args, 0);
+            if (isErr(sv)) return sv;
+            if (sv < 0) return new FErr(ERR.NUM, "Times cannot be negative");
+            return Math.round((sv - Math.floor(sv)) * 86400) % 86400;
+        }
+
+        /*
+            SUMPRODUCT(array1, [array2, ...]): every argument is evaluated in
+            array context, all must be the same size, and the element-wise
+            products are summed. Text, blanks and logicals count as 0 (hence
+            the usual (A1:A9="x")*(B1:B9) idiom, where the multiplication has
+            already turned the logicals into numbers); an error anywhere is
+            the result.
+        */
+        function sumproduct(args) {
+            if (!args.length) return new FErr(ERR.VALUE, "SUMPRODUCT needs an argument");
+            var arrs = [];
+            for (var i = 0; i < args.length; i++) {
+                var v = evA(args[i]);
+                if (isErr(v)) return v;
+                if (!isArr(v)) v = new Arr(1, 1, [v]);
+                if (arrs.length && (v.rows !== arrs[0].rows || v.cols !== arrs[0].cols)) {
+                    return new FErr(ERR.VALUE, "SUMPRODUCT arrays must be the same size");
+                }
+                arrs.push(v);
+            }
+            var total = 0, len = arrs[0].data.length;
+            for (var k = 0; k < len; k++) {
+                var prod = 1;
+                for (var j = 0; j < arrs.length; j++) {
+                    var x = arrs[j].data[k];
+                    if (typeof x === "number") prod *= x;
+                    else if (isErr(x)) return x;
+                    else prod = 0;
+                }
+                total += prod;
+            }
+            return total;
+        }
+
+        function call(n, arrayCtx) {
             var name = n.name === "CONCATENATE" ? "CONCAT" : n.name;
             var args = n.args;
             var st, v, d;
@@ -573,6 +866,23 @@ var SheetFormula = (function () {
                 case "IF": {
                     if (args.length < 2 || args.length > 3) {
                         return new FErr(ERR.VALUE, "IF expects 2 or 3 arguments");
+                    }
+                    if (arrayCtx) {
+                        // IF over an array condition picks element by element
+                        var ac = evA(args[0]);
+                        if (isArr(ac)) {
+                            var at = evA(args[1]);
+                            var af = args.length > 2 ? evA(args[2]) : null;
+                            return lift2(lift2(ac, at, function (c, t) { return [c, t]; }), af, function (ct, f) {
+                                var cb = boolify(ct[0]);
+                                if (isErr(cb)) return cb;
+                                return cb ? ct[1] : f;
+                            });
+                        }
+                        var acb = boolify(ac);
+                        if (isErr(acb)) return acb;
+                        if (acb) return evA(args[1]);
+                        return args.length > 2 ? evA(args[2]) : null;
                     }
                     var cond = boolify(ev(args[0]));
                     if (isErr(cond)) return cond;
@@ -611,11 +921,13 @@ var SheetFormula = (function () {
                 case "AND":
                 case "OR": {
                     if (!args.length) return new FErr(ERR.VALUE, name + " needs an argument");
-                    // blanks are skipped, the way a spreadsheet ignores empty
-                    // cells inside a range handed to AND/OR
+                    // blanks are skipped, and so is text that comes from a
+                    // referenced cell or range (Excel's rule); only text
+                    // typed straight into the call is an error
                     var seen = 0, acc = name === "AND";
                     for (var lI = 0; lI < args.length; lI++) {
                         var vals = [];
+                        var fromRef = args[lI].t === "range" || args[lI].t === "ref";
                         if (args[lI].t === "range") {
                             var lStop = eachRangeCell(args[lI], function (cv) {
                                 if (isErr(cv)) return cv;
@@ -630,6 +942,7 @@ var SheetFormula = (function () {
                         }
                         for (var vI = 0; vI < vals.length; vI++) {
                             if (vals[vI] === null || vals[vI] === undefined) continue;
+                            if (fromRef && typeof vals[vI] === "string") continue;
                             var b = boolify(vals[vI]);
                             if (isErr(b)) return b;
                             seen++;
@@ -733,6 +1046,66 @@ var SheetFormula = (function () {
                     v = oneStr(args, 0);
                     return isErr(v) ? v : v.replace(/ +/g, " ").replace(/^ | $/g, "");
                 }
+                case "SUMPRODUCT":
+                    return sumproduct(args);
+                case "CHOOSE": {
+                    // CHOOSE(index, value1, value2, ...) - only the chosen one is evaluated
+                    if (args.length < 2) return new FErr(ERR.VALUE, "CHOOSE expects an index and values");
+                    v = oneNum(args, 0);
+                    if (isErr(v)) return v;
+                    v = Math.trunc(v);
+                    if (v < 1 || v >= args.length) return new FErr(ERR.VALUE, "CHOOSE index " + v + " is out of range");
+                    return arrayCtx ? evA(args[v]) : ev(args[v]);
+                }
+                case "MOD": {
+                    v = oneNum(args, 0);
+                    if (isErr(v)) return v;
+                    d = oneNum(args, 1);
+                    if (isErr(d)) return d;
+                    if (d === 0) return new FErr(ERR.DIV0, "MOD by zero");
+                    // the result takes the divisor's sign, as in Excel
+                    return v - d * Math.floor(v / d);
+                }
+                case "YEAR": case "MONTH": case "DAY": {
+                    var dt = serialDate(args);
+                    if (isErr(dt)) return dt;
+                    if (name === "YEAR") return dt.getUTCFullYear();
+                    return name === "MONTH" ? dt.getUTCMonth() + 1 : dt.getUTCDate();
+                }
+                case "WEEKDAY": {
+                    // return_type 1 (default): Sunday=1 .. Saturday=7;
+                    // 2: Monday=1 .. Sunday=7; 3: Monday=0 .. Sunday=6;
+                    // 11-17: 1 on Monday .. Sunday respectively
+                    var wd = serialDate(args);
+                    if (isErr(wd)) return wd;
+                    var wt = oneNum(args, 1, 1);
+                    if (isErr(wt)) return wt;
+                    var dow = wd.getUTCDay();   // 0 = Sunday
+                    wt = Math.trunc(wt);
+                    if (wt === 1) return dow + 1;
+                    if (wt === 2) return (dow + 6) % 7 + 1;
+                    if (wt === 3) return (dow + 6) % 7;
+                    // 11 starts the week on Monday (getUTCDay 1) .. 17 on Sunday (0)
+                    if (wt >= 11 && wt <= 17) return (dow - (wt - 10) % 7 + 7) % 7 + 1;
+                    return new FErr(ERR.NUM, "WEEKDAY return type " + wt + " is not supported");
+                }
+                case "HOUR": case "MINUTE": case "SECOND": {
+                    var secs = serialSeconds(args);
+                    if (isErr(secs)) return secs;
+                    if (name === "HOUR") return Math.floor(secs / 3600);
+                    return name === "MINUTE" ? Math.floor(secs / 60) % 60 : secs % 60;
+                }
+                case "DATE": {
+                    var y = oneNum(args, 0), mo = oneNum(args, 1), dd = oneNum(args, 2);
+                    if (isErr(y)) return y;
+                    if (isErr(mo)) return mo;
+                    if (isErr(dd)) return dd;
+                    y = Math.trunc(y);
+                    if (y >= 0 && y < 1900) y += 1900;     // Excel: DATE(12,1,1) is 1912
+                    if (y < 0 || y > 9999) return new FErr(ERR.NUM, "DATE year out of range");
+                    var ser = (Date.UTC(y, Math.trunc(mo) - 1, Math.trunc(dd)) - EPOCH) / DAY_MS;
+                    return ser < 0 ? new FErr(ERR.NUM, "DATE before 1900") : ser;
+                }
                 case "TODAY":
                     return Math.floor(dateToSerial(new Date()));
                 case "NOW":
@@ -746,18 +1119,71 @@ var SheetFormula = (function () {
     }
 
     /* ---------- memoized calculator with cycle detection ---------- */
-    function createCalculator(getRaw) {
-        var memo = {};
-        var inStack = {};
-        var ctx = { cell: cellValue };
+    /*
+        createCalculator(getRaw, [opts])
+            getRaw(col, row, sheetIdx) -> the raw text of a cell
+            opts.sheetIndex(name) -> index of the sheet called name, or -1
+            opts.activeSheet()    -> index unqualified lookups default to (0)
+        Without opts there is one anonymous sheet and Sheet!A1 is #REF!.
 
-        function cellValue(col, row) {
-            var k = col + "," + row;
+        Values are memoized per sheet + cell, and whole ranges are cached
+        as arrays, until reset(). Every formula evaluates its unqualified
+        references against its own sheet. ctx always follows the active
+        sheet, so callers can keep a reference to it across tab switches.
+    */
+    function createCalculator(getRaw, opts) {
+        opts = opts || {};
+        var memo = {};
+        var ranges = {};
+        var inStack = {};
+        var astCache = {};
+        var ctxs = {};
+
+        function active() { return opts.activeSheet ? opts.activeSheet() : 0; }
+        function resolve(home, name) {
+            if (name === undefined || name === null) return home;
+            return opts.sheetIndex ? opts.sheetIndex(name) : -1;
+        }
+        function refErr(name) {
+            return new FErr(ERR.REF, "There is no sheet called " + name);
+        }
+        function ctxFor(s) {
+            if (!ctxs[s]) {
+                ctxs[s] = {
+                    cell: function (c, r, name) {
+                        var si = resolve(s, name);
+                        return si < 0 ? refErr(name) : cellValue(c, r, si);
+                    },
+                    range: function (c1, r1, c2, r2, name) {
+                        var si = resolve(s, name);
+                        return si < 0 ? refErr(name) : rangeValues(c1, r1, c2, r2, si);
+                    }
+                };
+            }
+            return ctxs[s];
+        }
+
+        function rangeValues(c1, r1, c2, r2, s) {
+            var k = s + "!" + c1 + "," + r1 + ":" + c2 + "," + r2;
+            if (Object.prototype.hasOwnProperty.call(ranges, k)) return ranges[k];
+            var data = new Array((c2 - c1 + 1) * (r2 - r1 + 1)), i = 0;
+            for (var r = r1; r <= r2; r++) {
+                for (var c = c1; c <= c2; c++) data[i++] = cellValue(c, r, s);
+            }
+            var arr = new Arr(r2 - r1 + 1, c2 - c1 + 1, data);
+            arr.shared = true;      // lives until reset(): binArr may memoize on it
+            ranges[k] = arr;
+            return arr;
+        }
+
+        function cellValue(col, row, s) {
+            if (s === undefined || s === null) s = active();
+            var k = s + "!" + col + "," + row;
             if (Object.prototype.hasOwnProperty.call(memo, k)) return memo[k];
             if (inStack[k]) {
                 return new FErr(ERR.CYCLE, "Circular reference through " + cellName(col, row));
             }
-            var raw = getRaw(col, row);
+            var raw = getRaw(col, row, s);
             var v;
             if (raw === undefined || raw === null || raw === "") {
                 v = null;
@@ -766,7 +1192,14 @@ var SheetFormula = (function () {
                 if (raw.charAt(0) === "=") {
                     inStack[k] = true;
                     try {
-                        v = evaluate(parse(raw.slice(1)), ctx);
+                        // identical formula text (fill-down columns) parses once
+                        var body = raw.slice(1);
+                        var ast = Object.prototype.hasOwnProperty.call(astCache, body) ? astCache[body] : null;
+                        if (!ast) {
+                            ast = parse(body);
+                            astCache[body] = ast;
+                        }
+                        v = evaluate(ast, ctxFor(s));
                     } catch (e) {
                         v = isErr(e) ? e : new FErr(ERR.VALUE, e && e.message ? e.message : "Formula error");
                     }
@@ -781,8 +1214,11 @@ var SheetFormula = (function () {
 
         return {
             value: cellValue,
-            ctx: ctx,
-            reset: function () { memo = {}; inStack = {}; }
+            ctx: {
+                cell: function (c, r, name) { return ctxFor(active()).cell(c, r, name); },
+                range: function (c1, r1, c2, r2, name) { return ctxFor(active()).range(c1, r1, c2, r2, name); }
+            },
+            reset: function () { memo = {}; ranges = {}; inStack = {}; }
         };
     }
 
@@ -799,6 +1235,8 @@ var SheetFormula = (function () {
             if (t.t !== "ref") continue;
             var rep = fn(t);
             if (rep === null || rep === undefined) continue;
+            // the fn rewrites the address; a sheet prefix stays in front of it
+            if (t.prefix && rep !== ERR.REF) rep = t.prefix + rep;
             out += body.slice(last, t.pos) + rep;
             last = t.pos + t.len;
         }
@@ -807,6 +1245,14 @@ var SheetFormula = (function () {
     }
     function refText(absC, col, absR, row) {
         return (absC ? "$" : "") + colToName(col) + (absR ? "$" : "") + (row + 1);
+    }
+    /* true when a ref token points at sheet `target` from a formula living
+       on sheet `home`; with no target given every ref qualifies (the
+       single-sheet behaviour) */
+    function refOnSheet(t, target, home) {
+        if (target === undefined || target === null) return true;
+        var s = t.sheet !== undefined ? t.sheet : home;
+        return s !== undefined && s !== null && sameSheetName(s, target);
     }
     function rewriteRelative(formula, dCol, dRow) {
         return transformRefs(formula, function (t) {
@@ -820,9 +1266,11 @@ var SheetFormula = (function () {
     /* Excel "move cells" semantics: every reference (absolute ones too)
        that points INSIDE the moved source range follows it to the new
        location; references outside the range are untouched. rg is
-       {c1,r1,c2,r2} inclusive, 0-based. */
-    function rewriteMovedRange(formula, rg, dCol, dRow) {
+       {c1,r1,c2,r2} inclusive, 0-based. Optional sheet {target, home}:
+       only refs to sheet target count, for a formula on sheet home. */
+    function rewriteMovedRange(formula, rg, dCol, dRow, sheet) {
         return transformRefs(formula, function (t) {
+            if (sheet && !refOnSheet(t, sheet.target, sheet.home)) return null;
             if (t.col < rg.c1 || t.col > rg.c2 || t.row < rg.r1 || t.row > rg.r2) return null;
             var c = t.col + dCol;
             var r = t.row + dRow;
@@ -830,8 +1278,29 @@ var SheetFormula = (function () {
             return refText(t.absC, c, t.absR, r);
         });
     }
-    function adjustInsertDelete(formula, axis, index, count) {
+    /* After renaming a sheet, point Old!A1 / 'Old'!A1 at the new name */
+    function renameSheetRefs(formula, oldName, newName) {
+        var src = String(formula);
+        var hasEq = src.charAt(0) === "=";
+        var body = hasEq ? src.slice(1) : src;
+        var toks;
+        try { toks = tokenize(body); } catch (e) { return src; }
+        var out = "", last = 0;
+        for (var i = 0; i < toks.length; i++) {
+            var t = toks[i];
+            if (t.t !== "ref" || !t.prefix || !sameSheetName(t.sheet, oldName)) continue;
+            out += body.slice(last, t.pos) + quoteSheetName(newName) + "!";
+            last = t.pos + t.prefix.length;
+        }
+        if (!last) return src;
+        out += body.slice(last);
+        return (hasEq ? "=" : "") + out;
+    }
+    /* Optional sheet {target, home} as for rewriteMovedRange: rows/cols are
+       inserted on sheet target, the formula lives on sheet home. */
+    function adjustInsertDelete(formula, axis, index, count, sheet) {
         return transformRefs(formula, function (t) {
+            if (sheet && !refOnSheet(t, sheet.target, sheet.home)) return null;
             var v = axis === "col" ? t.col : t.row;
             var nv;
             if (count > 0) {
@@ -865,6 +1334,8 @@ var SheetFormula = (function () {
         rewriteRelative: rewriteRelative,
         rewriteMovedRange: rewriteMovedRange,
         adjustInsertDelete: adjustInsertDelete,
+        renameSheetRefs: renameSheetRefs,
+        quoteSheetName: quoteSheetName,
         dateToSerial: dateToSerial,
         serialToDate: serialToDate
     };

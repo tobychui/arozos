@@ -740,13 +740,15 @@ downstream has to know about them.
 ## Start-up splash (common/splash.js)
 
 An app can show a splash while it starts and opens its document (all three do):
-`<script src="../common/splash.js" data-app="Docs" data-icon="../img/docs.svg"
-data-size="1080x700"></script>` as the **first element of `<body>`**, with the
+`<script src="../common/splash.js" data-app="Docs" data-size="1080x700"></script>` as the **first element of `<body>`**, with the
 app's stylesheets and scripts after it rather than in `<head>` (they would hold
 the first paint back). Inside a web desktop float window it is a coloured card
 in a small window that grows to `data-size` when ready, both centred on the desktop
-(register the app with an `InitFWSize` of 400x240 so the window opens at that
-size); in a full tab it is a plain page with the icon and a status line. It
+(register the app with an `InitFWSize` of 480x320 so the window opens at that
+size); in a full tab the same card fills the page. Its artwork comes from
+`img/splash/` (`<app>.svg`, `arozos.svg`, and the `shape_top` / `shape_bottom`
+masks); `data-icon` overrides the icon. Apps other than docs/sheets/slides get
+the suite card (ArozOS mark and a progress bar). It
 styles itself. `OfficeApp` drives it: `setStatus` / `showBusy` text becomes its
 status line, and it goes away when the opened document is on screen, a dialog
 opens, or an error is reported. An app with an asynchronous importer calls

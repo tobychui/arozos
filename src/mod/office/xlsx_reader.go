@@ -4,7 +4,8 @@ package office
 	xlsx_reader.go - Parse an Excel (.xlsx) file into a Workbook.
 
 	Handles the common SpreadsheetML subset: shared + inline strings,
-	numbers, booleans, formulas, cell styles (bold/italic/underline, font
+	numbers, booleans, formulas (shared formulas expanded per cell,
+	xlsx_formula.go), cell styles (bold/italic/underline, font
 	color/size, fill, alignment, wrap), number formats (mapped back to the
 	webapp's fmt names), column widths, row heights, merged cells and
 	frozen panes. Bar/line/pie charts are mapped back to the webapp chart
@@ -333,7 +334,7 @@ func decimalsInCode(code string) int {
 
 /* ---------- worksheet ---------- */
 
-func parseWorksheet(tree *xnode, shared []string, styleMap []xlsxXfInfo) *WorkSheet {
+func parseWorksheet(tree *xnode, sharedStr []string, styleMap []xlsxXfInfo) *WorkSheet {
 	ws := &WorkSheet{
 		Cells: map[string]*WorkCell{},
 		ColW:  map[string]float64{},
@@ -373,6 +374,7 @@ func parseWorksheet(tree *xnode, shared []string, styleMap []xlsxXfInfo) *WorkSh
 	}
 
 	maxCol, maxRow := 0, 0
+	shared := map[string]sharedFormula{} // si -> master of a shared formula
 	if sd := tree.first("sheetData"); sd != nil {
 		for _, row := range sd.all("row") {
 			rIdx, err := strconv.Atoi(row.attr("r"))
@@ -382,13 +384,28 @@ func parseWorksheet(tree *xnode, shared []string, styleMap []xlsxXfInfo) *WorkSh
 			if ht, err := strconv.ParseFloat(row.attr("ht"), 64); err == nil && row.attr("customHeight") == "1" {
 				ws.RowH[strconv.Itoa(rIdx-1)] = float64(int(rowPtToPx(ht)))
 			}
+			if hd := row.attr("hidden"); hd == "1" || hd == "true" {
+				ws.HiddenRows = append(ws.HiddenRows, rIdx-1)
+				if rIdx-1 > maxRow {
+					maxRow = rIdx - 1
+				}
+			}
 			for _, c := range row.all("c") {
 				ref := c.attr("r")
 				col, rw, ok := parseCellRef(ref)
 				if !ok {
 					continue
 				}
-				cell := parseXlsxCell(c, shared)
+				cell := parseXlsxCell(c, sharedStr)
+				if f := c.first("f"); f != nil && f.attr("t") == "shared" {
+					si := f.attr("si")
+					if text := strings.TrimSpace(f.Text); text != "" {
+						shared[si] = sharedFormula{text: f.Text, col: col, row: rw}
+					} else if m, ok := shared[si]; ok {
+						// a follower: the master's formula moved to this cell
+						cell = "=" + shiftFormulaRefs(m.text, col-m.col, rw-m.row)
+					}
+				}
 				var st *CellStyle
 				if sIdx, err := strconv.Atoi(c.attr("s")); err == nil && sIdx >= 0 && sIdx < len(styleMap) {
 					st = styleMap[sIdx].style

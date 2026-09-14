@@ -151,7 +151,10 @@ Go structs are the source of truth — they mirror the JS exactly:
     it) — one made in the editor has none and keeps docs.css's 8pt.
 - **Sheets** (`spreadsheet`): [`xlsx.go`](../../mod/office/xlsx.go) —
   `{sheets[{name, cells{"A1":{v,s,n}}, colW, rowH, merges, freeze,
-  charts, filter, cf}], active}`. Cell `v` is the raw input (`=`-prefix =
+  hiddenRows, charts, filter, cf}], active}`. `hiddenRows` is the sorted list
+  of 0-based rows the user hid (row-number context menu, Ctrl+Alt+9 /
+  Ctrl+Shift+9, click the marker to show); it round-trips as
+  `<row hidden="1">` in xlsx. Rows a filter hides are computed, not stored. Cell `v` is the raw input (`=`-prefix =
   formula, evaluated client-side in [`sheets/formula.js`](sheets/formula.js)).
   `cf` is the sheet's conditional-format rules (below) — client-side only,
   so the Go structs do not model it.
@@ -510,9 +513,38 @@ evaluator that also runs under Node, so it is unit-tested directly:
 node web/Office/sheets/test_formula.js    # exits 1 on failure
 ```
 
-Functions: `IF IFS IFERROR IFNA AND OR NOT` · `VLOOKUP HLOOKUP` ·
-`SUM AVERAGE MIN MAX COUNT COUNTA` · `ROUND ABS INT` ·
-`CONCAT LEN UPPER LOWER TRIM` · `TODAY NOW`.
+Functions: `IF IFS IFERROR IFNA AND OR NOT` · `VLOOKUP HLOOKUP CHOOSE` ·
+`SUM AVERAGE MIN MAX COUNT COUNTA SUMPRODUCT` · `ROUND ABS INT MOD` ·
+`CONCAT LEN UPPER LOWER TRIM` ·
+`TODAY NOW DATE YEAR MONTH DAY WEEKDAY HOUR MINUTE SECOND`.
+
+**Cross-sheet references** (`Data!A1`, `'Closed Tickets'!$C$3:$C$5000`) are
+resolved by one workbook-wide calculator: `createCalculator(getRaw, opts)`
+memoizes per sheet + cell, so switching tabs does not recompute anything, and
+every formula reads its unqualified refs from its own sheet. Renaming a sheet
+rewrites the formulas that name it (`renameSheetRefs`); inserting/deleting
+rows or moving a range adjusts refs to that sheet from every sheet.
+
+**Arrays.** Inside `SUMPRODUCT` (and array expressions handed to `SUM` & co.)
+a range evaluates to an array and operators work element by element with
+Excel's broadcasting, which is what report-style workbooks built on
+`SUMPRODUCT((Data!A2:A5000="x")*(Data!B2:B5000))` need. Ranges are cached as
+arrays for the life of a recalc, and so is "cached range compared with a
+constant", because such reports repeat the same criteria in every cell. The
+reference workbook (1,150 SUMPRODUCT-heavy cells over a 5,000-row sheet of
+51k formulas) recalculates in ~1 s cold and matches Excel's cached values in
+every cell. A bare range outside an array context is still `#VALUE!` (no
+spilling).
+
+`AND`/`OR` follow Excel for text: text inside a referenced cell or range is
+skipped, text typed straight into the call is `#VALUE!`. A blank cell equals
+`""`.
+
+**Shared formulas.** Excel writes a filled-down formula once
+(`<f t="shared" ref="K3:K66" si="0">B3-C3</f>`) and leaves the other cells
+as `<f t="shared" si="0"/>`. The Go reader expands every follower by moving
+the master's relative refs (`mod/office/xlsx_formula.go`), so they stay live
+formulas instead of frozen cached values.
 
 Two deliberate departures from Excel, both matching Sheets:
 
@@ -528,8 +560,10 @@ this scans and keeps the best match at or below the key instead — identical
 on sorted data, merely imperfect rather than arbitrary on unsorted. `FALSE`
 means exact match, and a miss is `#N/A` so `IFERROR`/`IFNA` can catch it.
 
-Not implemented: `COUNTIF`/`SUMIF`/`AVERAGEIF`, `INDEX`/`MATCH`, and
-cross-sheet references. Add new functions to the `call()` switch in
+Not implemented: `COUNTIF`/`SUMIF`/`AVERAGEIF`, `INDEX`/`MATCH`, defined
+names, whole-column refs (`A:A`), and dependency tracking (any edit resets
+the memo, so a very heavy workbook recomputes what is on screen after every
+change). Add new functions to the `call()` switch in
 `formula.js` and pin them with a case in `test_formula.js`.
 
 ### Sheets conditional formatting
@@ -641,10 +675,15 @@ Opening a large document takes a moment (fetching and unpacking it, a server
 or WebAssembly conversion for `.docx` / `.xlsx` / `.pptx`, laying out every
 page), so Docs, Sheets and Slides start behind a splash that says what is
 happening — [`common/splash.js`](common/splash.js),
-contract in `CONTRACT.md`. In a desktop float window it is the classic office
-splash (the window opens small, `InitFWSize` 400x240, and grows to 1080x700,
-both centred on the desktop, once the document is on screen); in a browser tab it is a
-white page with the app's icon and the status under it. Sheets grows to
+contract in `CONTRACT.md`. It is a softly tinted card in the app's colour
+with the app icon, "ArozOS Docs/Sheets/Slides", a tagline, loading dots and
+the status in the bottom-left corner (any other app gets the suite card: the
+ArozOS mark and a progress bar). Its artwork is SVG in
+[`img/splash/`](img/splash/) - the icons, the mark, and two corner shapes used
+as CSS masks so one file serves every app colour. In a desktop float window
+the window opens small (`InitFWSize` 480x320) and grows to 1080x700, both
+centred on the desktop, once the document is on screen; in a browser tab the
+same card fills the page and scales with it. Sheets grows to
 1180x720 and Slides to 1220x740. Each `index.html` loads its stylesheets and
 scripts in `<body>`, after the splash, so the splash paints while they arrive.
 
