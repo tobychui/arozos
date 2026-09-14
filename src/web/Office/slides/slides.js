@@ -3467,15 +3467,18 @@ var SlidesApp = (function () {
                 OfficeApp.toast("Import failed: unexpected response", "error");
                 return;
             }
-            body = normalizeBody(b);
-            cur = 0;
-            sel = [];
-            editingId = null;
-            renderAll();
-            undo.init(snap());
-            // the framework kept us attached to the source file, so Save
-            // writes straight back to it in its own format
-            OfficeApp.setStatus("Opened " + fn);
+            OfficeApp.splashStep("Preparing the slides...", function () {
+                body = normalizeBody(b);
+                cur = 0;
+                sel = [];
+                editingId = null;
+                renderAll();
+                undo.init(snap());
+                // the framework kept us attached to the source file, so Save
+                // writes straight back to it in its own format
+                OfficeApp.setStatus("Opened " + fn);
+                OfficeApp.documentLoaded();
+            });
         }, function (msg) {
             OfficeApp.hideBusy();
             OfficeApp.toast("Import failed: " + msg, "error");

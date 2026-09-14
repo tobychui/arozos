@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sheets</title>
     <link rel="icon" type="image/png" href="sheets.png">
+    <!-- fetched first: the start-up splash shows it -->
+    <link rel="preload" href="../img/sheets.svg" as="image">
+</head>
+<body data-officeapp="sheets">
+    <!-- start-up splash: first, so it covers the page before anything draws -->
+    <script src="../common/splash.js" data-app="Sheets" data-icon="../img/sheets.svg" data-size="1180x720"></script>
+    <!-- the app's stylesheets and scripts come after the splash, so it can
+         paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <link rel="stylesheet" href="../common/office.css">
     <link rel="stylesheet" href="../common/fonts/fonts.css">
@@ -23,8 +31,6 @@
     <script src="../common/clipboard.js"></script>
     <script src="../common/charts.js"></script>
     <script src="formula.js"></script>
-</head>
-<body data-officeapp="sheets">
     <div class="of-toolbar of-noprint" id="toolbar"></div>
     <div id="shFxBar" class="of-noprint">
         <input id="shNameBox" spellcheck="false" title="Cell reference (type a ref and press Enter to jump)">

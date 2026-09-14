@@ -523,10 +523,13 @@ var SheetsIO = (function () {
                 OfficeApp.toast("Import failed: unexpected response", "error");
                 return;
             }
-            Core.setBody(b);
-            // the framework kept us attached to the source file, so Save
-            // writes straight back to it in its own format
-            OfficeApp.setStatus("Opened " + fn);
+            OfficeApp.splashStep("Preparing the sheets...", function () {
+                Core.setBody(b);
+                // the framework kept us attached to the source file, so Save
+                // writes straight back to it in its own format
+                OfficeApp.setStatus("Opened " + fn);
+                OfficeApp.documentLoaded();
+            });
         }, function (msg) {
             OfficeApp.hideBusy();
             OfficeApp.toast("Import failed: " + msg, "error");

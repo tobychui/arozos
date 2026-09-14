@@ -739,12 +739,12 @@ downstream has to know about them.
 
 ## Start-up splash (common/splash.js)
 
-An app can show a splash while it starts and opens its document (Docs does):
+An app can show a splash while it starts and opens its document (all three do):
 `<script src="../common/splash.js" data-app="Docs" data-icon="../img/docs.svg"
 data-size="1080x700"></script>` as the **first element of `<body>`**, with the
 app's stylesheets and scripts after it rather than in `<head>` (they would hold
 the first paint back). Inside a web desktop float window it is a coloured card
-in a small window that grows to `data-size` about its own centre when ready
+in a small window that grows to `data-size` when ready, both centred on the desktop
 (register the app with an `InitFWSize` of 400x240 so the window opens at that
 size); in a full tab it is a plain page with the icon and a status line. It
 styles itself. `OfficeApp` drives it: `setStatus` / `showBusy` text becomes its

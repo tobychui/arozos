@@ -7,10 +7,11 @@
 
     Two looks, chosen by where the app runs:
 
-      window    inside a web desktop float window: the window starts small,
-                a coloured card with the app name, moving dots and the
-                status line in the corner - and grows to its working size,
-                about its own centre, once the document is ready
+      window    inside a web desktop float window: the window starts small
+                in the middle of the desktop, a coloured card with the app
+                name, moving dots and the status line in the corner - and
+                grows to its working size, still centred on the desktop,
+                once the document is ready
       page      a full browser tab (or the mobile desktop, whose windows
                 fill the screen): a plain page with the app icon in the
                 middle and the status under it
@@ -272,10 +273,11 @@ var OfficeSplash = (function () {
             root.appendChild(mid);
             statusEl = el("div", "of-splash-status", "Loading...");
             root.appendChild(statusEl);
-            // start small, like a splash; grown back in done()
+            // start small, like a splash, in the middle of the desktop;
+            // grown back in done()
             try {
                 setResizable(fw, false);
-                setWindowSize(fw, SPLASH_W, SPLASH_H);
+                placeCentred(fw, SPLASH_W, SPLASH_H);
             } catch (e) { }
         } else {
             var center = el("div", "of-splash-center");
@@ -313,15 +315,42 @@ var OfficeSplash = (function () {
             return;
         }
         try {
-            var pw = window.parent.innerWidth, ph = window.parent.innerHeight;
-            var w = Math.min(workW, pw), h = Math.min(workH, ph);
-            var left = parseFloat(fw.style.left) || 0, top = parseFloat(fw.style.top) || 0;
-            var cx = left + fw.offsetWidth / 2, cy = top + fw.offsetHeight / 2;
-            fw.style.left = Math.max(0, Math.min(pw - w, Math.round(cx - w / 2))) + "px";
-            fw.style.top = Math.max(0, Math.min(ph - h, Math.round(cy - h / 2))) + "px";
-            setWindowSize(fw, w, h);
+            placeCentred(fw, workW, workH);
             setResizable(fw, true);
         } catch (e) { }
+    }
+
+    /* placeCentred sizes the window and puts its centre on the centre of the
+       desktop. A window of the same app opened a moment earlier sits exactly
+       there already, so like the desktop's own placement this one steps
+       30px down and right until the spot is free. */
+    function placeCentred(fw, width, height) {
+        var pw = window.parent.innerWidth, ph = window.parent.innerHeight;
+        var w = Math.min(width, pw), h = Math.min(height, ph);
+        var left = Math.max(0, Math.round((pw - w) / 2));
+        var top = Math.max(0, Math.round((ph - h) / 2));
+        var others = [];
+        try {
+            var all = window.parent.document.querySelectorAll(".floatWindow");
+            for (var i = 0; i < all.length; i++) {
+                if (all[i] !== fw) others.push(all[i]);
+            }
+        } catch (e) { }
+        var taken = function (x, y) {
+            for (var i = 0; i < others.length; i++) {
+                if (Math.abs((parseFloat(others[i].style.left) || 0) - x) < 3 &&
+                        Math.abs((parseFloat(others[i].style.top) || 0) - y) < 3) return true;
+            }
+            return false;
+        };
+        for (var step = 0; step < 20 && taken(left, top); step++) {
+            if (left + 30 + w > pw || top + 30 + h > ph) break;
+            left += 30;
+            top += 30;
+        }
+        fw.style.left = left + "px";
+        fw.style.top = top + "px";
+        setWindowSize(fw, w, h);
     }
 
     function done() {

@@ -43,8 +43,9 @@ registerModule(JSON.stringify({
     LaunchFWDir: "Office/sheets/index.html",
     SupportEmb: true,
     LaunchEmb: "Office/sheets/index.html",
-    InitFWSize: [1180, 720],
-    InitEmbSize: [1180, 720],
+    // splash-sized, grows to 1180x720 when ready (common/splash.js)
+    InitFWSize: [400, 240],
+    InitEmbSize: [400, 240],
     SupportedExt: [".xlsa", ".csv", ".tsv", ".xlsx"]
 }));
 
@@ -61,8 +62,9 @@ registerModule(JSON.stringify({
     LaunchFWDir: "Office/slides/index.html",
     SupportEmb: true,
     LaunchEmb: "Office/slides/index.html",
-    InitFWSize: [1220, 740],
-    InitEmbSize: [1220, 740],
+    // splash-sized, grows to 1220x740 when ready (common/splash.js)
+    InitFWSize: [400, 240],
+    InitEmbSize: [400, 240],
     SupportedExt: [".ppta", ".pptx"]
 }));
 

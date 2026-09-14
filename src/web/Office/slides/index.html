@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Slides</title>
     <link rel="icon" type="image/png" href="slides.png">
+    <!-- fetched first: the start-up splash shows it -->
+    <link rel="preload" href="../img/slides.svg" as="image">
+</head>
+<body data-officeapp="slides">
+    <!-- start-up splash: first, so it covers the page before anything draws -->
+    <script src="../common/splash.js" data-app="Slides" data-icon="../img/slides.svg" data-size="1220x740"></script>
+    <!-- the app's stylesheets and scripts come after the splash, so it can
+         paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <link rel="stylesheet" href="../common/office.css">
     <link rel="stylesheet" href="../common/fonts/fonts.css">
@@ -25,8 +33,6 @@
     <script src="../common/charts.js"></script>
     <script src="../common/lib/html2canvas.min.js"></script>
     <script src="../common/lib/pdf-lib.min.js"></script>
-</head>
-<body data-officeapp="slides">
     <div class="of-toolbar of-noprint" id="toolbar"></div>
     <div class="of-workspace" id="workspace">
         <div id="slRail" class="of-noprint">

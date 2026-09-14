@@ -635,17 +635,18 @@ payload to `user:/.appdata/Office/tmp/` through the system upload endpoint
 low-memory boards) and passes `dataFile` to the backend script, which reads
 and deletes it. Raising the server-side form limit is *not* an option here.
 
-### Docs: start-up splash
+### Start-up splash
 
 Opening a large document takes a moment (fetching and unpacking it, a server
-or WebAssembly conversion for `.docx`, laying out every page), so Docs starts
-behind a splash that says what is happening — [`common/splash.js`](common/splash.js),
+or WebAssembly conversion for `.docx` / `.xlsx` / `.pptx`, laying out every
+page), so Docs, Sheets and Slides start behind a splash that says what is
+happening — [`common/splash.js`](common/splash.js),
 contract in `CONTRACT.md`. In a desktop float window it is the classic office
-splash (the window opens small, `InitFWSize` 400x240, and grows to 1080x700
-around its centre once the document is on screen); in a browser tab it is a
-white page with the Docs icon and the status under it. `docs/index.html` loads
-its stylesheets and scripts in `<body>`, after the splash, so the splash paints
-while they arrive.
+splash (the window opens small, `InitFWSize` 400x240, and grows to 1080x700,
+both centred on the desktop, once the document is on screen); in a browser tab it is a
+white page with the app's icon and the status under it. Sheets grows to
+1180x720 and Slides to 1220x740. Each `index.html` loads its stylesheets and
+scripts in `<body>`, after the splash, so the splash paints while they arrive.
 
 ### Header / footer
 
