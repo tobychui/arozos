@@ -1387,6 +1387,47 @@ var OfficeApp = (function () {
     }
     function hideBusy() { $(".of-busy-overlay").remove(); }
 
+    /*
+        beginDrag(e, {move(ev), end(ev, cancelled), cursor})
+        Call from a pointerdown to own the rest of the gesture. A transparent
+        full-window layer goes over everything and takes pointer capture, so
+        every move and the release reach the drag however fast the pointer
+        travels - even when the dragged element is re-rendered (which drops
+        a capture set on the element itself) or the cursor crosses iframes,
+        charts or other widgets. The layer is removed on release, cancel, or
+        when the window loses focus. Returns a function that ends the drag.
+    */
+    function beginDrag(e, opts) {
+        opts = opts || {};
+        var ov = document.createElement("div");
+        ov.className = "of-drag-overlay";
+        if (opts.cursor) ov.style.cursor = opts.cursor;
+        document.body.appendChild(ov);
+        var done = false;
+        try { ov.setPointerCapture(e.pointerId); } catch (err) { }
+        function onMove(ev) {
+            ev.preventDefault();
+            if (opts.move) opts.move(ev);
+        }
+        function finish(ev, cancelled) {
+            if (done) return;
+            done = true;
+            ov.removeEventListener("pointermove", onMove);
+            ov.removeEventListener("pointerup", onUp);
+            ov.removeEventListener("pointercancel", onCancel);
+            window.removeEventListener("blur", onCancel);
+            if (ov.parentNode) ov.parentNode.removeChild(ov);
+            if (opts.end) opts.end(ev || null, !!cancelled);
+        }
+        function onUp(ev) { finish(ev, false); }
+        function onCancel(ev) { finish(ev && ev.type === "pointercancel" ? ev : null, true); }
+        ov.addEventListener("pointermove", onMove);
+        ov.addEventListener("pointerup", onUp);
+        ov.addEventListener("pointercancel", onCancel);
+        window.addEventListener("blur", onCancel);
+        return function () { finish(null, true); };
+    }
+
     /* showProgress is showBusy's opposite number: a small panel in the
        corner of the editing area for work that takes a while but has no
        reason to hold the document hostage. Exporting is the case it was
@@ -1666,6 +1707,7 @@ var OfficeApp = (function () {
         documentLoaded: documentLoaded,
         splashStep: splashStep,
         showProgress: showProgress,
+        beginDrag: beginDrag,
         closeAllMenus: closeAllMenus,
         updateMenus: updateMenus,
         // features

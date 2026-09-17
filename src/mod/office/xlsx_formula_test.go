@@ -61,3 +61,48 @@ func TestParseWorksheetSharedFormulas(t *testing.T) {
 		}
 	}
 }
+
+func TestXlPrefixes(t *testing.T) {
+	strip := []struct{ in, want string }{
+		{"_xlfn.IFS(A1>1,\"a\",TRUE,\"b\")", "IFS(A1>1,\"a\",TRUE,\"b\")"},
+		{"_xlfn._xlws.FILTER(A1:A9,B1:B9>0)", "FILTER(A1:A9,B1:B9>0)"},
+		{"_xlfn.LAMBDA(_xlpm.x,_xlpm.x+1)", "LAMBDA(x,x+1)"},
+		{"SUM(A1:A3)", "SUM(A1:A3)"},
+		{"\"_xlfn.IFS\"&'_xlfn.sheet'!A1", "\"_xlfn.IFS\"&'_xlfn.sheet'!A1"},
+	}
+	for _, c := range strip {
+		if got := stripXlPrefixes(c.in); got != c.want {
+			t.Errorf("stripXlPrefixes(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	add := []struct{ in, want string }{
+		{"IFS(A1>1,\"a\",TRUE,\"b\")", "_xlfn.IFS(A1>1,\"a\",TRUE,\"b\")"},
+		{"stdev.s(A1:A3)+SUM(A1)", "_xlfn.stdev.s(A1:A3)+SUM(A1)"},
+		{"_xlfn.IFS(TRUE,1)", "_xlfn.IFS(TRUE,1)"},
+		{"\"IFS(\"&XOR(TRUE)", "\"IFS(\"&_xlfn.XOR(TRUE)"},
+		{"Days!A1+DAYS(B1,C1)", "Days!A1+_xlfn.DAYS(B1,C1)"},
+	}
+	for _, c := range add {
+		if got := addXlPrefixes(c.in); got != c.want {
+			t.Errorf("addXlPrefixes(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	// round trip through a real workbook
+	wb := &Workbook{Sheets: []*WorkSheet{{Name: "S", Cells: map[string]*WorkCell{
+		"A1": {V: "=IFS(TRUE,1)"}, "A2": {V: "=_xlfn.XLOOKUP(1,B1:B2,C1:C2)"},
+	}}}}
+	data, err := BuildXlsx(wb)
+	if err != nil {
+		t.Fatalf("BuildXlsx: %v", err)
+	}
+	back, err := ParseXlsx(data)
+	if err != nil {
+		t.Fatalf("ParseXlsx: %v", err)
+	}
+	if got := back.Sheets[0].Cells["A1"].V; got != "=IFS(TRUE,1)" {
+		t.Errorf("A1 round trip = %q", got)
+	}
+	if got := back.Sheets[0].Cells["A2"].V; got != "=XLOOKUP(1,B1:B2,C1:C2)" {
+		t.Errorf("A2 round trip = %q", got)
+	}
+}

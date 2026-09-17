@@ -151,7 +151,8 @@ Go structs are the source of truth — they mirror the JS exactly:
     it) — one made in the editor has none and keeps docs.css's 8pt.
 - **Sheets** (`spreadsheet`): [`xlsx.go`](../../mod/office/xlsx.go) —
   `{sheets[{name, cells{"A1":{v,s,n}}, colW, rowH, merges, freeze,
-  hiddenRows, charts, filter, cf}], active}`. `hiddenRows` is the sorted list
+  hiddenRows, charts, filter, cf}], active, names[{name, formula, sheet?}]}`. `names` are the workbook defined names (`sheet` = the index of the sheet a
+  sheet-local name belongs to). `hiddenRows` is the sorted list
   of 0-based rows the user hid (row-number context menu, Ctrl+Alt+9 /
   Ctrl+Shift+9, click the marker to show); it round-trips as
   `<row hidden="1">` in xlsx. Rows a filter hides are computed, not stored. Cell `v` is the raw input (`=`-prefix =
@@ -506,17 +507,137 @@ brightness and contrast. The one preset with no DrawingML equivalent is
 
 ### Sheets formula engine
 
-[`sheets/formula.js`](sheets/formula.js) is a DOM-free tokenizer, parser and
-evaluator that also runs under Node, so it is unit-tested directly:
+[`sheets/formula.js`](sheets/formula.js) is a DOM-free tokenizer, parser,
+evaluator and calculator that also runs under Node. The functions themselves
+(377 of them) live in modules that register into it and load after it, in
+this order, from `sheets/index.html`:
+
+| File | Functions |
+|---|---|
+| [`formula_fn_logic.js`](sheets/formula_fn_logic.js) | logical, `IS*`/info, operator functions (`ADD`, `EQ`, …) |
+| [`formula_fn_math.js`](sheets/formula_fn_math.js) | rounding, powers/logs, trig, integers, number bases, bits, `CONVERT` |
+| [`formula_fn_stats.js`](sheets/formula_fn_stats.js) | aggregates, `*IF`/`*IFS`, `SUBTOTAL`, `D*`, descriptive stats, regression |
+| [`formula_fn_text.js`](sheets/formula_fn_text.js) | text, `TEXT` (via [`numfmt.js`](sheets/numfmt.js)), regex, `ROMAN`, double-byte (`LENB` …) |
+| [`formula_fn_date.js`](sheets/formula_fn_date.js) | dates, times, working days, `YEARFRAC`, `DAYS360` |
+| [`formula_fn_lookup.js`](sheets/formula_fn_lookup.js) | `VLOOKUP` `MATCH` `XMATCH` `XLOOKUP` `INDEX` `LOOKUP` `ROW` … |
+| [`formula_fn_ref.js`](sheets/formula_fn_ref.js) | `OFFSET` `INDIRECT` `ADDRESS` `CELL` `SHEET(S)` `HYPERLINK` `TO_*` |
+| [`formula_fn_array.js`](sheets/formula_fn_array.js) | `FILTER` `SORT` `UNIQUE` `SEQUENCE` `SPLIT` stacking, `MMULT`, `LINEST` … |
+| [`formula_fn_finance.js`](sheets/formula_fn_finance.js) | loans, NPV/IRR/XIRR, depreciation |
+
+[`formula_node.js`](sheets/formula_node.js) loads the same set under Node.
+[`FUNCTION_PLAN.md`](sheets/FUNCTION_PLAN.md) tracks what is done and what is
+next.
 
 ```bash
-node web/Office/sheets/test_formula.js    # exits 1 on failure
+node web/Office/sheets/test_formula.js      # engine: parser, refs, arrays, rewriting
+node web/Office/sheets/test_formula_fns.js  # every function, against Excel's documented examples
 ```
 
-Functions: `IF IFS IFERROR IFNA AND OR NOT` · `VLOOKUP HLOOKUP CHOOSE` ·
-`SUM AVERAGE MIN MAX COUNT COUNTA SUMPRODUCT` · `ROUND ABS INT MOD` ·
-`CONCAT LEN UPPER LOWER TRIM` ·
-`TODAY NOW DATE YEAR MONTH DAY WEEKDAY HOUR MINUTE SECOND`.
+`test_formula_fns.js` fails when a registered function has no test, so a new
+function always comes with one.
+
+**Adding a function.** Register it in the matching module:
+
+```js
+def("NAME", minArgs, maxArgs, function (args, E, arrayCtx) { ... },
+    { elem: true, syntax: "NAME(value)" });
+```
+
+`args` are AST nodes, evaluated through the helper object `E`: `E.num`,
+`E.int`, `E.str`, `E.bool`, `E.val` (scalars with defaults for omitted
+arguments), `E.arr`/`E.flat` (ranges and arrays), `E.numbers(args, mode)`
+(the spreadsheet rules for "all the numbers in these arguments": `"sum"`
+skips text in cells but rejects typed text, `"a"` counts text as 0),
+`E.criteria(value)` (the `COUNTIF` matcher: `">5"`, `"a*"`, `"<>"`, dates),
+`E.self` (the cell being evaluated), `E.raw` / `E.rowState` / `E.format`
+(source text, hidden/filtered rows, number format). Return a value, an
+`F.Arr`, or an `FErr`. `elem: true` marks a scalar function, which the engine
+then applies element by element inside `SUMPRODUCT`, `SUM(...)` and other
+array contexts (`SUMPRODUCT(LEN(A1:A9))`). Excel's `_xlfn.` / `_xlws.` name
+prefixes are ignored when calling, stripped by the xlsx reader and written
+back for functions listed in `xlFutureFunctions`
+([`mod/office/xlsx_formula.go`](../../mod/office/xlsx_formula.go)) — add new
+post-2007 Excel functions there too.
+
+Date text (`"2024-05-01"`, `"5/1/2024"`, `"1 May 2024"`, `"13:30"`) is read as
+a date serial wherever a number is expected, as in Excel.
+
+**References as values.** `OFFSET`, `INDIRECT` and `INDEX` answer with a
+reference (`F.Ref`), not just a value, so they can be used wherever a range
+can: `SUM(OFFSET(A1,0,0,10,1))`, and `:` joins them
+(`A1:INDEX(B1:B9,3)`, `SUM(A1:INDIRECT("B5"))`). Take one with `E.ref(node)`
+and build one with `E.makeRef(...)`; a reference covering one cell reads as
+that cell's value.
+
+**Whole columns and rows.** `A:B`, `2:5` and the Sheets-style `A2:A` fill the
+missing coordinate from the sheet's used range (`opts.bounds`, cached per
+recalculation in `sheets.js`), so they cost what the data costs, not what the
+grid could hold.
+
+**Array literals.** `{1,2;3,4}` is two rows of two, usable anywhere an array
+is: `SUM({1,2,3})`, `VLOOKUP(2,{1,"a";2,"b"},2,FALSE)`.
+
+**Defined names.** `body.names` is `[{name, formula, sheet?}]` (`sheet` = the
+index a sheet-local name belongs to). The calculator resolves a name once per
+recalculation, in the scope of the sheet that defines it, and usually to a
+reference - so `SUM(Sales)` works like `SUM(Data!B2:B99)`. Data > Named
+ranges manages them, renaming a sheet rewrites them, and they round-trip
+through xlsx `<definedNames>` (Excel's own `_xlnm.*` entries are skipped:
+print areas and filter ranges belong to features modelled elsewhere).
+
+**Spilling (dynamic arrays).** A formula whose result is several cells
+(`=FILTER(...)`, `=SORT(A2:C9)`, `=B2:B9*2`, `=SEQUENCE(10)`) fills the cells
+to its right and below. Those cells stay empty in the model: the calculator
+answers their values from the anchor. Rules and machinery:
+
+- *Which formulas can spill* is decided before evaluating (`maySpill`):
+  ranges, array literals and names produce arrays; operators and `elem`
+  functions pass them through; a function is `array: true` (or a function of
+  its argument nodes, as `INDEX`/`XLOOKUP`/`ROW` do), or `passthrough: true`
+  when it returns one of its arguments (`IF`, `CHOOSE`, `IFERROR` ...).
+  Only those formulas are evaluated in array context, so everything else
+  keeps its exact old behaviour (the Helpdesk golden file is unchanged).
+  A cheap text pre-filter (a `:` `{` `@`, an array function name or a
+  defined name) keeps the check off plain formulas.
+- *Empty cells look for a covering spill*: the first empty cell read on a
+  sheet evaluates every spill anchor there (`opts.formulaCells`) and records
+  what each covers, so later reads are a map lookup.
+- *A blocked spill* (a non-empty cell, or another spill, in the way) makes
+  the anchor `#SPILL!` with a message naming the cell; typing into a spilled
+  cell does exactly that. Spilled cells wear the anchor hint (dates stay
+  dates).
+- `calc.spillAt(col,row,sheet)` gives the spill a cell belongs to (the grid
+  draws a dashed outline and shows the anchor formula greyed in the formula
+  bar); `calc.spillList(sheet)` lists them (the grid grows to fit).
+- `@A1:A9` / `SINGLE(...)` is implicit intersection; `ARRAYFORMULA(x)`
+  evaluates `x` as an array.
+- xlsx: `Core.exportBody()` tags each anchor with `a` = the range it fills,
+  and the writer emits `<f t="array" ref="...">` with `cm="1"` plus the
+  `xl/metadata.xml` dynamic-array part, so Excel sees real dynamic arrays
+  (`ARRAYFORMULA(x)` is written as a dynamic-array `x`). On import, the
+  cached results inside an array formula's range are dropped so they do not
+  block the spill. `FILTER`/`SORT` get Excel's `_xlfn._xlws.` prefix.
+- Not done: Excel's spill-range operator (`A1#`), and whole-column refs do
+  not see spilled rows past the last typed cell.
+
+**Result hints.** A function may ask for the number format its cell should
+wear (`spec.hint`, or `E.hint("date")`) or mark the result as a link
+(`E.link(url)`, `HYPERLINK`). The grid applies a hint only when the cell has
+no format of its own, so `=TODAY()` reads as a date while an explicit format
+always wins; `calc.hintAt(col,row,sheet)` reads it back. **Evaluate the cell
+before asking for its hint** - it is recorded while the formula runs.
+
+**Golden tests against real files.** Save a workbook from Excel or Google
+Sheets (it stores each formula's computed value), then:
+
+```bash
+OFFICE_GOLDEN_DIR=/path/to/xlsx go test ./mod/office/ -run TestGoldenDump
+node web/Office/sheets/test_golden.js /path/to/xlsx
+```
+
+Every formula is recalculated and compared with the stored value (volatile
+`TODAY`/`NOW`/`RAND` are skipped). The Helpdesk reference workbook checks
+52,111 formulas with no differences.
 
 **Cross-sheet references** (`Data!A1`, `'Closed Tickets'!$C$3:$C$5000`) are
 resolved by one workbook-wide calculator: `createCalculator(getRaw, opts)`
@@ -560,11 +681,13 @@ this scans and keeps the best match at or below the key instead — identical
 on sorted data, merely imperfect rather than arbitrary on unsorted. `FALSE`
 means exact match, and a miss is `#N/A` so `IFERROR`/`IFNA` can catch it.
 
-Not implemented: `COUNTIF`/`SUMIF`/`AVERAGEIF`, `INDEX`/`MATCH`, defined
-names, whole-column refs (`A:A`), and dependency tracking (any edit resets
-the memo, so a very heavy workbook recomputes what is on screen after every
-change). Add new functions to the `call()` switch in
-`formula.js` and pin them with a case in `test_formula.js`.
+`REGEX*` use JavaScript regular expressions (Google uses RE2; JavaScript
+accepts a superset, e.g. lookbehind). `(?i)` at the start is honoured.
+
+Not implemented yet (see the plan): `LET`/`LAMBDA` and the `MAP`/`REDUCE`
+family, probability distributions, bond maths, complex numbers, and
+dependency tracking (any edit resets the memo, so a very heavy workbook
+recomputes what is on screen after every change).
 
 ### Sheets conditional formatting
 
@@ -883,6 +1006,7 @@ go vet ./mod/office/ ./wasm/office/
 gofmt -l mod/office/ wasm/office/      # must print nothing
 node --check web/Office/docs/docs.js   # etc. for each edited JS file
 node web/Office/sheets/test_formula.js    # formula engine
+node web/Office/sheets/test_formula_fns.js  # formula functions (vs. Excel examples)
 node web/Office/common/test_container.js  # native container (vs. packed.go)
 sh ../scripts/check-conventions.sh --diff origin/master
 ```

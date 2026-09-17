@@ -424,14 +424,30 @@
     function applyFontFamily(name) {
         if (inHeaderFooter()) return;
         restoreSel();
+        var stack = OfficeFonts.stack(name);
         try {
+            // styleWithCSS is on for the editor, which would make this a
+            // span whose font-family is the marker instead of a <font face>
+            document.execCommand("styleWithCSS", false, false);
             document.execCommand("fontName", false, FONT_MARK);
-            var tagged = editor.querySelectorAll('font[face="' + FONT_MARK + '"]');
-            for (var i = 0; i < tagged.length; i++) {
-                tagged[i].removeAttribute("face");
-                tagged[i].style.fontFamily = OfficeFonts.stack(name);
-            }
         } catch (e) { }
+        try { document.execCommand("styleWithCSS", false, true); } catch (e) { }
+        var tagged = editor.querySelectorAll("font[face], [style*='font-family']");
+        for (var i = 0; i < tagged.length; i++) {
+            var el = tagged[i];
+            var isMark = el.getAttribute("face") === FONT_MARK ||
+                (el.style.fontFamily || "").indexOf(FONT_MARK) >= 0;
+            if (!isMark) continue;
+            el.removeAttribute("face");
+            el.style.fontFamily = stack;
+            // runs inside that name their own font (imported text) would win
+            var inner = el.querySelectorAll("font[face], [style*='font-family']");
+            for (var j = 0; j < inner.length; j++) {
+                inner[j].removeAttribute("face");
+                inner[j].style.removeProperty("font-family");
+                if (!inner[j].getAttribute("style")) inner[j].removeAttribute("style");
+            }
+        }
         afterEdit(true);
     }
     function applyFontSize(pt) {

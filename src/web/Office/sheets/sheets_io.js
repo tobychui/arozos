@@ -117,6 +117,10 @@ var SheetsIO = (function () {
             var ch = chartById(id);
             if (!ch) return;
             Core.selectChart(id);
+            if (e.button !== 0) {               // right-click: select only, the menu follows
+                e.stopPropagation();
+                return;
+            }
             var isRz = e.target.classList.contains("sh-chart-rz");
             chDrag = {
                 id: id, rz: isRz,
@@ -124,15 +128,26 @@ var SheetsIO = (function () {
                 g: { x: ch.x, y: ch.y, w: ch.w, h: ch.h },
                 moved: false
             };
-            try { el.setPointerCapture(e.pointerId); } catch (err) { }
             e.preventDefault();
             e.stopPropagation();
+            // renderCharts() rebuilds the layer on every move, which would
+            // drop a pointer capture held by the chart element; the overlay
+            // keeps receiving events however far the cursor runs ahead
+            OfficeApp.beginDrag(e, {
+                cursor: isRz ? "nwse-resize" : "move",
+                move: moveChartDrag,
+                end: function () {
+                    if (!chDrag) return;
+                    var moved = chDrag.moved;
+                    chDrag = null;
+                    if (moved) Core.markDirtyUndo();
+                }
+            });
         });
-        layer.addEventListener("pointermove", function (e) {
+        function moveChartDrag(e) {
             if (!chDrag) return;
             var ch = chartById(chDrag.id);
             if (!ch) return;
-            var z = Core.zoomFactor() || 1;
             var dx = (e.clientX - chDrag.startX), dy = (e.clientY - chDrag.startY);
             if (Math.abs(dx) + Math.abs(dy) > 2) chDrag.moved = true;
             if (chDrag.rz) {
@@ -143,15 +158,7 @@ var SheetsIO = (function () {
                 ch.y = Math.max(0, Math.round(chDrag.g.y + dy));
             }
             renderCharts();
-        });
-        function up() {
-            if (!chDrag) return;
-            var moved = chDrag.moved;
-            chDrag = null;
-            if (moved) Core.markDirtyUndo();
         }
-        layer.addEventListener("pointerup", up);
-        layer.addEventListener("pointercancel", up);
         layer.addEventListener("dblclick", function (e) {
             var el = e.target.closest ? e.target.closest(".sh-chart") : null;
             if (!el) return;
@@ -455,7 +462,7 @@ var SheetsIO = (function () {
     /* converter-backed writers, shared with the Export menu but reporting
        through the framework's save callbacks instead of a toast */
     function saveViaConverter(action, fp, done, fail) {
-        OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.getBody()),
+        OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.exportBody()),
             function () { done(); }, fail);
     }
     function savePdf(fp, fn, done, fail) {
@@ -554,7 +561,7 @@ var SheetsIO = (function () {
             // in ArozOS this posts through agirunLarge (workbooks with
             // inlined images blow past the 10MB POST form limit); in the web
             // edition it runs in the wasm module and downloads
-            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.getBody()), function () {
+            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.exportBody()), function () {
                 OfficeApp.hideBusy();
                 OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
                 OfficeApp.toast("Exported " + OfficeApp.basename(fp));

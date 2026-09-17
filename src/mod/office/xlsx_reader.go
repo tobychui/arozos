@@ -60,6 +60,7 @@ func ParseXlsx(data []byte) (*Workbook, error) {
 	}
 
 	rels := parseRels(files["xl/_rels/workbook.xml.rels"])
+	wb0 := parseDefinedNames(wbTree)
 	shared := parseSharedStrings(files["xl/sharedStrings.xml"])
 	styleMap := parseXlsxStyles(files["xl/styles.xml"])
 
@@ -108,7 +109,47 @@ func ParseXlsx(data []byte) (*Workbook, error) {
 	if wb.Active < 0 || wb.Active >= len(wb.Sheets) {
 		wb.Active = 0
 	}
+	for _, n := range wb0 {
+		if n.Sheet != nil && (*n.Sheet < 0 || *n.Sheet >= len(wb.Sheets)) {
+			continue
+		}
+		wb.Names = append(wb.Names, n)
+	}
 	return wb, nil
+}
+
+/* ---------- defined names ---------- */
+
+/*
+parseDefinedNames reads <definedNames> from workbook.xml. Excel keeps its
+own bookkeeping there too (print areas, the autofilter range) under
+_xlnm.* names; those belong to features the webapp models separately, so
+they are skipped.
+*/
+func parseDefinedNames(wbTree *xnode) []*DefinedName {
+	node := wbTree.first("definedNames")
+	if node == nil {
+		return nil
+	}
+	var out []*DefinedName
+	for _, dn := range node.all("definedName") {
+		name := strings.TrimSpace(dn.attr("name"))
+		formula := strings.TrimSpace(dn.Text)
+		if name == "" || formula == "" || strings.HasPrefix(name, "_xlnm") {
+			continue
+		}
+		if dn.attr("hidden") == "1" || dn.attr("function") == "1" {
+			continue
+		}
+		d := &DefinedName{Name: name, Formula: "=" + stripXlPrefixes(formula)}
+		if ls := dn.attr("localSheetId"); ls != "" {
+			if idx, err := strconv.Atoi(ls); err == nil {
+				d.Sheet = &idx
+			}
+		}
+		out = append(out, d)
+	}
+	return out
 }
 
 /* ---------- shared strings ---------- */
@@ -375,6 +416,7 @@ func parseWorksheet(tree *xnode, sharedStr []string, styleMap []xlsxXfInfo) *Wor
 
 	maxCol, maxRow := 0, 0
 	shared := map[string]sharedFormula{} // si -> master of a shared formula
+	var arrayRanges []string             // ref of every array formula (legacy or dynamic)
 	if sd := tree.first("sheetData"); sd != nil {
 		for _, row := range sd.all("row") {
 			rIdx, err := strconv.Atoi(row.attr("r"))
@@ -397,10 +439,13 @@ func parseWorksheet(tree *xnode, sharedStr []string, styleMap []xlsxXfInfo) *Wor
 					continue
 				}
 				cell := parseXlsxCell(c, sharedStr)
+				if f := c.first("f"); f != nil && f.attr("t") == "array" && f.attr("ref") != "" {
+					arrayRanges = append(arrayRanges, f.attr("ref"))
+				}
 				if f := c.first("f"); f != nil && f.attr("t") == "shared" {
 					si := f.attr("si")
 					if text := strings.TrimSpace(f.Text); text != "" {
-						shared[si] = sharedFormula{text: f.Text, col: col, row: rw}
+						shared[si] = sharedFormula{text: stripXlPrefixes(f.Text), col: col, row: rw}
 					} else if m, ok := shared[si]; ok {
 						// a follower: the master's formula moved to this cell
 						cell = "=" + shiftFormulaRefs(m.text, col-m.col, rw-m.row)
@@ -424,6 +469,38 @@ func parseWorksheet(tree *xnode, sharedStr []string, styleMap []xlsxXfInfo) *Wor
 				}
 				if rw > maxRow {
 					maxRow = rw
+				}
+			}
+		}
+	}
+	/*
+		An array formula stores its result in every cell of its range, but
+		only the first cell holds the formula. The engine spills that formula
+		itself, so the other cells must be empty (styles stay) or they would
+		block the spill.
+	*/
+	for _, ar := range arrayRanges {
+		parts := strings.SplitN(ar, ":", 2)
+		c1, r1, ok1 := parseCellRef(parts[0])
+		if !ok1 || len(parts) < 2 {
+			continue
+		}
+		c2, r2, ok2 := parseCellRef(parts[1])
+		if !ok2 {
+			continue
+		}
+		for r := r1; r <= r2; r++ {
+			for c := c1; c <= c2; c++ {
+				if c == c1 && r == r1 {
+					continue
+				}
+				key := cellRef(c, r)
+				if wc, ok := ws.Cells[key]; ok && !strings.HasPrefix(wc.V, "=") {
+					if wc.S == nil && wc.N == "" {
+						delete(ws.Cells, key)
+					} else {
+						wc.V = ""
+					}
 				}
 			}
 		}
@@ -452,7 +529,7 @@ func parseWorksheet(tree *xnode, sharedStr []string, styleMap []xlsxXfInfo) *Wor
 func parseXlsxCell(c *xnode, shared []string) string {
 	// formulas win: the webapp recalculates them
 	if f := c.first("f"); f != nil && strings.TrimSpace(f.Text) != "" {
-		return "=" + f.Text
+		return "=" + stripXlPrefixes(f.Text)
 	}
 	t := c.attr("t")
 	switch t {

@@ -2,7 +2,7 @@
     ArozOS Office Sheets - formula engine unit tests
     Run with: node test_formula.js   (exits 1 on failure)
 */
-var F = require("./formula.js");
+var F = require("./formula_node.js");
 
 var failures = 0, passes = 0;
 function eq(name, got, want) {
@@ -130,7 +130,7 @@ eq("VLOOKUP miss", run('VLOOKUP("Kiwi",F1:H5,3,FALSE)'), "#N/A");
 eq("VLOOKUP wrapped in IFERROR", run('IFERROR(VLOOKUP("Kiwi",F1:H5,3,FALSE),"none")'), "none");
 eq("VLOOKUP index past range", run('VLOOKUP("Lemon",F1:H5,9,FALSE)'), "#REF!");
 eq("VLOOKUP index below 1", run('VLOOKUP("Lemon",F1:H5,0,FALSE)'), "#VALUE!");
-eq("VLOOKUP needs a range", run('VLOOKUP("Lemon",F1,2,FALSE)'), "#VALUE!");
+eq("VLOOKUP single-cell table, index past it (Excel)", run('VLOOKUP("Lemon",F1,2,FALSE)'), "#REF!");
 eq("VLOOKUP approximate", run("VLOOKUP(85,I1:J5,2)"), "B");
 eq("VLOOKUP approximate exact hit", run("VLOOKUP(90,I1:J5,2)"), "A");
 eq("VLOOKUP approximate below all", run("VLOOKUP(-5,I1:J5,2)"), "#N/A");

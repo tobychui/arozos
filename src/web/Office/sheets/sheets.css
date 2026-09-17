@@ -229,6 +229,18 @@ body.dark {
 .sh-cell.i { font-style: italic; }
 .sh-cell.u { text-decoration: underline; }
 
+/* the outline of the spilled array the active cell belongs to */
+#shSpillBox {
+    position: absolute;
+    border: 1px dashed var(--of-accent);
+    pointer-events: none;
+    box-sizing: border-box;
+    display: none;
+    z-index: 15;
+}
+/* formula bar showing the anchor formula of a spilled cell */
+#shFxInput.sh-fx-ghost { color: var(--of-fg-soft); }
+
 /* active cell + range border + fill handle */
 #shRangeBox {
     position: absolute;
@@ -501,3 +513,29 @@ body.dark {
     border-top-color: #e8a13c;
     border-right-color: #e8a13c;
 }
+
+/* a HYPERLINK() result: Ctrl+click opens it (renderCellHtml adds data-link) */
+.sh-cell.sh-link {
+    color: var(--of-accent);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Data > Named ranges */
+.sh-names { min-width: 520px; }
+.sh-name-list { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+.sh-name-list td { padding: 3px 6px 3px 0; vertical-align: middle; }
+.sh-name-list td:first-child { font-weight: 600; white-space: nowrap; }
+.sh-name-list input, .sh-name-add input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-size: 13px;
+}
+.sh-name-add { display: flex; gap: 6px; align-items: center; }
+.sh-name-add input:first-child { width: 160px; flex: 0 0 auto; }
+.sh-name-add button { flex: 0 0 auto; }

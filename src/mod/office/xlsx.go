@@ -18,8 +18,21 @@ import (
 
 // Workbook is the Sheets document body
 type Workbook struct {
-	Sheets []*WorkSheet `json:"sheets"`
-	Active int          `json:"active"`
+	Sheets []*WorkSheet   `json:"sheets"`
+	Active int            `json:"active"`
+	Names  []*DefinedName `json:"names,omitempty"`
+}
+
+/*
+DefinedName is a workbook label for a range or value (SUM(Sales) instead
+of SUM(Data!B2:B99)). Formula is the text it stands for, with a leading
+"=" as the webapp stores it; Sheet is the index a sheet-local name
+belongs to, or nil for a workbook-wide one.
+*/
+type DefinedName struct {
+	Name    string `json:"name"`
+	Formula string `json:"formula"`
+	Sheet   *int   `json:"sheet,omitempty"`
 }
 
 // WorkSheet is one sheet tab
@@ -48,6 +61,9 @@ type WorkCell struct {
 	V string     `json:"v"`
 	S *CellStyle `json:"s,omitempty"`
 	N string     `json:"n,omitempty"`
+	// A is the range a spilling (dynamic array) formula fills, e.g. "B2:B9".
+	// The webapp sets it on export only; it marks the formula for Excel.
+	A string `json:"a,omitempty"`
 }
 
 // CellStyle mirrors the "s" style object of sheets.js

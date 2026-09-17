@@ -169,6 +169,13 @@ top-right of `anchor` and leaves the document usable. Use the second one for
 work the user has no reason to wait on - but then the work must run from a
 snapshot, or editing on will change what it produces.
 
+`beginDrag(pointerdownEvent, {move(ev), end(ev, cancelled), cursor})` ->
+`cancel()`. Call it from a pointerdown to own the rest of a drag: a
+transparent full-window `.of-drag-overlay` takes pointer capture, so moves
+and the release keep arriving when the cursor outruns the dragged element or
+the element is re-rendered mid-drag (which silently drops a capture held by
+the element itself). Removed on release, pointercancel or window blur.
+
 Features: `registerShortcut("Ctrl+B", fn)` (Cmd normalized to Ctrl),
 `print()`, `setZoom(pct) getZoom() zoomIn() zoomOut()`, `toggleTheme() isDark()`.
 

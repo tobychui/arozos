@@ -263,6 +263,16 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 	sheetCharts := make([][]*xlsxChart, len(wb.Sheets))
 	sheetNoteList := make([][]xlsxNote, len(wb.Sheets))
 	totalCharts := 0
+	anyDynamic := false
+	for _, ws := range wb.Sheets {
+		for _, c := range ws.Cells {
+			if c != nil && strings.HasPrefix(c.V, "=") {
+				if _, ref := arrayFormula(c.V[1:], c.A, "A1"); ref != "" {
+					anyDynamic = true
+				}
+			}
+		}
+	}
 	anyNotes := false
 	for i, ws := range wb.Sheets {
 		sheetCharts[i] = parseSheetCharts(ws.Charts)
@@ -321,6 +331,9 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 		}
 	}
 	ct.WriteString(`<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`)
+	if anyDynamic {
+		ct.WriteString(`<Override PartName="/xl/metadata.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml"/>`)
+	}
 	ct.WriteString(`</Types>`)
 	if err := addFile("[Content_Types].xml", ct.String()); err != nil {
 		return nil, err
@@ -349,8 +362,31 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 		wbXML.WriteString(fmt.Sprintf(`<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, xmlEscape(sheetNames[i]), i+1, i+1))
 		wbRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, i+1, i+1))
 	}
-	wbXML.WriteString(`</sheets></workbook>`)
+	wbXML.WriteString(`</sheets>`)
+	// defined names, after <sheets> as the schema requires
+	var names []string
+	for _, n := range wb.Names {
+		if n == nil || strings.TrimSpace(n.Name) == "" || strings.TrimSpace(n.Formula) == "" {
+			continue
+		}
+		scope := ""
+		if n.Sheet != nil && *n.Sheet >= 0 && *n.Sheet < len(wb.Sheets) {
+			scope = fmt.Sprintf(` localSheetId="%d"`, *n.Sheet)
+		}
+		names = append(names, fmt.Sprintf(`<definedName name="%s"%s>%s</definedName>`,
+			xmlEscape(n.Name), scope, xmlEscape(addXlPrefixes(strings.TrimPrefix(n.Formula, "=")))))
+	}
+	if len(names) > 0 {
+		wbXML.WriteString(`<definedNames>` + strings.Join(names, "") + `</definedNames>`)
+	}
+	wbXML.WriteString(`</workbook>`)
 	wbRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`, len(wb.Sheets)+1))
+	if anyDynamic {
+		wbRels.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata" Target="metadata.xml"/>`, len(wb.Sheets)+2))
+		if err := addFile("xl/metadata.xml", dynamicArrayMetadata); err != nil {
+			return nil, err
+		}
+	}
 	wbRels.WriteString(`</Relationships>`)
 	if err := addFile("xl/workbook.xml", wbXML.String()); err != nil {
 		return nil, err
@@ -609,7 +645,12 @@ func buildCellXML(col, row int, cell *WorkCell, styles *xlsxStyleTable) string {
 		return fmt.Sprintf(`<c r="%s"%s/>`, ref, sAttr)
 	}
 	if strings.HasPrefix(v, "=") {
-		return fmt.Sprintf(`<c r="%s"%s><f>%s</f></c>`, ref, sAttr, xmlEscape(v[1:]))
+		if body, arrayRef := arrayFormula(v[1:], cell.A, ref); arrayRef != "" {
+			// cm="1" points at the dynamic-array cell metadata (xl/metadata.xml)
+			return fmt.Sprintf(`<c r="%s"%s cm="1"><f t="array" ref="%s">%s</f></c>`,
+				ref, sAttr, xmlEscape(arrayRef), xmlEscape(addXlPrefixes(body)))
+		}
+		return fmt.Sprintf(`<c r="%s"%s><f>%s</f></c>`, ref, sAttr, xmlEscape(addXlPrefixes(v[1:])))
 	}
 	if strings.HasPrefix(v, "'") {
 		// forced text

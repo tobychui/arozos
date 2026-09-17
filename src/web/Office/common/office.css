@@ -764,6 +764,15 @@ body.of-app {
 }
 
 /* ============ Busy overlay ============ */
+/* OfficeApp.beginDrag: invisible, catches every pointer event of a drag */
+.of-drag-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: transparent;
+    touch-action: none;
+    user-select: none;
+}
 .of-busy-overlay {
     position: fixed;
     inset: 0;

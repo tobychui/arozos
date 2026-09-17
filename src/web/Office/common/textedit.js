@@ -179,16 +179,36 @@ var OfficeTextEditBar = (function () {
        fallbacks), which is what every other font-family in a document
        carries too. */
     var FONT_MARK = "__oftefont__";
+    /* a host editor may have styleWithCSS on, which turns <font face/size>
+       into spans the sentinel lookups below would never find */
+    function execPlainTag(cmd, val) {
+        var wasCSS = false;
+        try { wasCSS = document.queryCommandState("styleWithCSS"); } catch (e) { }
+        try { document.execCommand("styleWithCSS", false, false); } catch (e) { }
+        try { document.execCommand(cmd, false, val); } catch (e) { }
+        if (wasCSS) {
+            try { document.execCommand("styleWithCSS", false, true); } catch (e) { }
+        }
+    }
     function applyFontFamily(name) {
         restoreSelection();
-        try {
-            document.execCommand("fontName", false, FONT_MARK);
-            var tagged = anchorEl.querySelectorAll('font[face="' + FONT_MARK + '"]');
-            for (var i = 0; i < tagged.length; i++) {
-                tagged[i].removeAttribute("face");
-                tagged[i].style.fontFamily = fontStack(name);
+        execPlainTag("fontName", FONT_MARK);
+        var stack = fontStack(name);
+        var tagged = anchorEl.querySelectorAll("font[face], [style*='font-family']");
+        for (var i = 0; i < tagged.length; i++) {
+            var el = tagged[i];
+            if (el.getAttribute("face") !== FONT_MARK &&
+                (el.style.fontFamily || "").indexOf(FONT_MARK) < 0) continue;
+            el.removeAttribute("face");
+            el.style.fontFamily = stack;
+            // runs inside that name their own font (imported text) would win
+            var inner = el.querySelectorAll("font[face], [style*='font-family']");
+            for (var j = 0; j < inner.length; j++) {
+                inner[j].removeAttribute("face");
+                inner[j].style.removeProperty("font-family");
+                if (!inner[j].getAttribute("style")) inner[j].removeAttribute("style");
             }
-        } catch (e) { }
+        }
         saveSelection();
     }
 
@@ -201,14 +221,17 @@ var OfficeTextEditBar = (function () {
             return;
         }
         restoreSelection();
-        try {
-            document.execCommand("fontSize", false, "7");
-            var fonts = anchorEl.querySelectorAll('font[size="7"]');
-            for (var i = 0; i < fonts.length; i++) {
-                fonts[i].removeAttribute("size");
-                fonts[i].style.fontSize = px + "px";
+        execPlainTag("fontSize", "7");
+        var fonts = anchorEl.querySelectorAll('font[size="7"]');
+        for (var i = 0; i < fonts.length; i++) {
+            fonts[i].removeAttribute("size");
+            fonts[i].style.fontSize = px + "px";
+            var inner = fonts[i].querySelectorAll("[style*='font-size']");
+            for (var j = 0; j < inner.length; j++) {
+                inner[j].style.removeProperty("font-size");
+                if (!inner[j].getAttribute("style")) inner[j].removeAttribute("style");
             }
-        } catch (e) { }
+        }
         saveSelection();
     }
 
