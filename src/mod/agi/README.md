@@ -2466,6 +2466,46 @@ The host a remote URL maps to, i.e. the key credentials are stored under. Both
 
 ---
 
+## Cluster Library
+
+`requirelib("cluster")` exposes the ArozOS cluster to scripts. Ordinary file
+access on `cluster:/` needs nothing special: `filelib` and every other
+library see the mounted drive. Hook scripts read the event with `postPara("event")`
+(JSON with `id`, `type`, `node`, `path`, `fileId`, `user`,
+`time`, `data`). Event types: `file.created`, `file.removed`, `file.renamed`,
+`replica.verified`, `replica.stale`, `node.joined`, `node.left`,
+`node.online`, `node.offline`, `app.*` (custom).
+
+### `cluster.inCluster()` → bool
+### `cluster.self()` → object
+This node's membership record (id, name, state, capabilities, health).
+### `cluster.nodes()` → array
+Every member with computed state, platform and load.
+### `cluster.status()` → object
+Cluster info, identity origin, metadata leader, volumes, storage and replication status.
+### `cluster.stat(path)` → object
+Namespace record of a `cluster:/` path with size, checksum and every copy (`locations[].nodeId`, `.state`). Requires read permission on the path.
+### `cluster.list(path)` → array
+Records of a directory's children.
+### `cluster.setReplicas(path, n)` → bool
+Admin only. Desired copies for one file; 0 falls back to the folder policy.
+### `cluster.policy(folder, n)` → bool
+Admin only. Desired copies for a top-level folder such as `/photos`.
+### `cluster.on(types, scriptVpath)` → string
+Register a hook script (run as you) for one or more event types; `types` is a string or array and supports `file.*` wildcards. Returns the hook id.
+### `cluster.off(hookId)` → bool
+### `cluster.hooks()` → array
+### `cluster.emit(type, data)` → bool
+Publish a custom event (`app.` prefix added) with a JSON-serialisable payload under 64 KB to every node.
+
+```javascript
+requirelib("cluster");
+if (cluster.inCluster()) {
+    var rec = cluster.stat("cluster:/photos/a.jpg");
+    sendResp(rec.locations.length + " copies on " + cluster.nodes().length + " nodes");
+}
+```
+
 ## Examples
 
 ### Background Scheduler (webapp backend)

@@ -72,6 +72,18 @@ type Manager struct {
 	//OnClusterChange fires (outside the lock) whenever the replicated
 	//cluster-wide settings change, locally or through gossip.
 	OnClusterChange func()
+	//OnMembershipChange fires (outside the lock) when this node enters or
+	//leaves a cluster, so sibling services can mount / unmount resources.
+	OnMembershipChange func(inCluster bool)
+}
+
+func (m *Manager) fireMembershipChange(inCluster bool) {
+	m.mu.RLock()
+	cb := m.OnMembershipChange
+	m.mu.RUnlock()
+	if cb != nil {
+		cb(inCluster)
+	}
 }
 
 var (
@@ -531,6 +543,7 @@ func (m *Manager) CreateCluster(name string) (*ClusterInfo, error) {
 
 	logger.PrintAndLog("Cluster", "Created cluster "+name+" ("+info.ID+")", nil)
 	m.startLoops()
+	m.fireMembershipChange(true)
 	c := *info
 	return &c, nil
 }
@@ -601,6 +614,7 @@ func (m *Manager) JoinCluster(tokenString string) (*ClusterInfo, error) {
 
 	logger.PrintAndLog("Cluster", "Joined cluster "+info.Name+" ("+info.ID+") through "+payload.URL, nil)
 	m.startLoops()
+	m.fireMembershipChange(true)
 	return &info, nil
 }
 
@@ -634,6 +648,7 @@ func (m *Manager) wipeLocalState() {
 	m.reachable = map[string]bool{}
 	m.refreshLocalRecordLocked()
 	m.mu.Unlock()
+	m.fireMembershipChange(false)
 }
 
 // RemoveNode evicts another member.

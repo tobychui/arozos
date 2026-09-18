@@ -283,6 +283,95 @@
         </div>
     </div>
 
+    <!-- Storage -->
+    <div class="cl-card" id="card-storage" style="display:none">
+        <div class="cl-card-head">
+            <span><span id="lbl-storage">Storage</span><span class="cl-sub" id="storage-summary"></span></span>
+            <button class="cl-btn small" onclick="rescanStorage()"><span id="lbl-rescan">Rescan this node</span></button>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-field">
+                <label id="lbl-addvol">Contribute a folder from this node</label>
+                <div class="cl-row">
+                    <select id="vol-fsh" class="cl-fixed" style="flex:0 0 auto; width:auto"></select>
+                    <input type="text" id="vol-path" placeholder="/cluster" value="/cluster">
+                    <input type="text" id="vol-name" placeholder="Name (optional)" style="max-width:220px">
+                    <button class="cl-btn primary cl-fixed" onclick="addVolume()"><span id="lbl-addvolbtn">Add volume</span></button>
+                </div>
+                <div class="cl-hint" id="hint-vol">Files written to cluster:/ are stored as ordinary files inside contributed folders. Files already in the folder are adopted into the namespace on the next rescan.</div>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="cl-table">
+                    <thead><tr>
+                        <th id="th-vol">Volume</th><th id="th-volnode">Node</th><th id="th-volspace">Free / total</th><th id="th-volfiles">Files</th><th></th>
+                    </tr></thead>
+                    <tbody id="vol-body"></tbody>
+                </table>
+            </div>
+            <div class="cl-msg" id="msg-storage"></div>
+        </div>
+    </div>
+
+    <!-- Replication -->
+    <div class="cl-card" id="card-repl" style="display:none">
+        <div class="cl-card-head">
+            <span><span id="lbl-repl">Replication</span><span class="cl-sub" id="repl-summary"></span></span>
+            <span>
+                <button class="cl-btn small" onclick="verifyCopies()"><span id="lbl-verify">Verify this node</span></button>
+                <button class="cl-btn small" onclick="planNow()"><span id="lbl-plan">Repair now</span></button>
+            </span>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-grid">
+                <dl class="cl-kv" id="repl-kv"></dl>
+                <div>
+                    <div class="cl-field">
+                        <label id="lbl-inspect">Inspect a file</label>
+                        <div class="cl-row">
+                            <input type="text" id="inspect-path" placeholder="cluster:/photos/a.jpg">
+                            <button class="cl-btn cl-fixed" onclick="inspectFile()"><span id="lbl-inspectbtn">Show copies</span></button>
+                        </div>
+                    </div>
+                    <ul class="cl-inline-list" id="inspect-list"></ul>
+                </div>
+            </div>
+            <div style="overflow-x:auto; margin-top:12px">
+                <table class="cl-table">
+                    <thead><tr><th id="th-task">Task</th><th id="th-taskroute">From / to</th><th id="th-taskstate">State</th><th id="th-taskwhen">When</th></tr></thead>
+                    <tbody id="repl-tasks"></tbody>
+                </table>
+            </div>
+            <div class="cl-msg" id="msg-repl"></div>
+        </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="cl-card" id="card-meta" style="display:none">
+        <div class="cl-card-head">
+            <span><span id="lbl-meta">Namespace</span><span class="cl-sub" id="meta-summary"></span></span>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-grid">
+                <dl class="cl-kv" id="meta-kv"></dl>
+                <div>
+                    <div class="cl-field">
+                        <label id="lbl-policy">Replica policy per top-level folder</label>
+                        <div class="cl-row">
+                            <input type="text" id="pol-folder" placeholder="/photos">
+                            <select id="pol-replicas" class="cl-fixed" style="flex:0 0 auto; width:auto">
+                                <option value="1">1 copy</option><option value="2" selected>2 copies</option><option value="3">3 copies</option><option value="4">4 copies</option>
+                            </select>
+                            <button class="cl-btn cl-fixed" onclick="setPolicy()"><span id="lbl-polset">Set</span></button>
+                        </div>
+                        <div class="cl-hint" id="hint-policy">Folders without a policy keep one copy. Extra copies are created by the replication service.</div>
+                    </div>
+                    <ul class="cl-inline-list" id="pol-list"></ul>
+                </div>
+            </div>
+            <div class="cl-msg" id="msg-meta"></div>
+        </div>
+    </div>
+
     <!-- Members -->
     <div class="cl-card" id="card-nodes" style="display:none">
         <div class="cl-card-head"><span id="lbl-nodes">Nodes</span></div>
@@ -567,13 +656,196 @@
         });
     }
 
+    /* Storage */
+    var storageDirty = false;
+    function loadStorage() {
+        $.getJSON(API + 'storage/status', function(st) {
+            if (apiResult(st)) return;
+            document.getElementById('card-storage').style.display = '';
+            var sel = document.getElementById('vol-fsh');
+            var prev = storageDirty ? sel.value : sel.value;
+            var html = '';
+            (st.localRoots || []).forEach(function(r) {
+                html += '<option value="' + esc(r.uuid) + '"' + (r.uuid === prev ? ' selected' : '') + '>' + esc(r.uuid) + ':/ (' + esc(r.path) + ')</option>';
+            });
+            sel.innerHTML = html;
+            if (prev) sel.value = prev;
+            var rows = '';
+            var localCount = 0, totalFree = 0;
+            (st.volumes || []).forEach(function(v) {
+                if (v.local) localCount++;
+                totalFree += v.free || 0;
+                var actions = '';
+                if (v.local && v.evacuating) {
+                    actions += '<span class="cl-badge DRAINING">' + t('cluster/vol/evacuating', 'EVACUATING') + '</span> ';
+                    actions += '<button class="cl-btn small" onclick="cancelEvacuate(\'' + esc(v.id) + '\')">' + t('cluster/cancel', 'Cancel') + '</button>';
+                } else if (v.local) {
+                    actions += '<button class="cl-btn small" onclick="setVolumeRO(\'' + esc(v.id) + '\',' + (v.readOnly ? 'false' : 'true') + ')">' + (v.readOnly ? t('cluster/vol/writable', 'Make writable') : t('cluster/vol/readonly', 'Read only')) + '</button> ';
+                    actions += '<button class="cl-btn small" onclick="evacuateVolume(\'' + esc(v.id) + '\',\'' + esc(v.name) + '\')">' + t('cluster/vol/evacuate', 'Evacuate') + '</button> ';
+                    actions += '<button class="cl-btn small danger" onclick="removeVolume(\'' + esc(v.id) + '\',\'' + esc(v.name) + '\')">' + t('cluster/remove', 'Remove') + '</button>';
+                }
+                var pct = v.capacity > 0 ? (v.capacity - v.free) / v.capacity * 100 : 0;
+                rows += '<tr><td><div class="cl-node-name">' + esc(v.name) + (v.readOnly ? ' <span class="cl-chip">' + t('cluster/vol/ro', 'read only') + '</span>' : '') + '</div><div class="cl-node-meta cl-mono">' + esc(v.fshUuid) + ':' + esc(v.subpath) + '</div></td>' +
+                    '<td>' + esc(v.nodeName) + (v.local ? ' <span class="cl-chip">' + t('cluster/you', 'you') + '</span>' : '') + '<div class="cl-node-meta"><span class="cl-badge ' + (v.online ? 'ONLINE' : 'OFFLINE') + '">' + (v.online ? 'ONLINE' : 'OFFLINE') + '</span></div></td>' +
+                    '<td>' + fmtBytes(v.free) + ' / ' + fmtBytes(v.capacity) + bar(pct) + '</td>' +
+                    '<td>' + v.files + '<div class="cl-node-meta">' + fmtBytes(v.bytes) + '</div></td>' +
+                    '<td><div class="cl-actions">' + actions + '</div></td></tr>';
+            });
+            document.getElementById('vol-body').innerHTML = rows || '<tr><td colspan="5" class="cl-empty">' + t('cluster/vol/none', 'No volumes yet. Add a folder from this node to start storing files in cluster:/') + '</td></tr>';
+            document.getElementById('storage-summary').textContent = ' ' + (st.volumes || []).length + ' ' + t('cluster/vol/volumes', 'volumes') + ', ' + fmtBytes(totalFree) + ' ' + t('cluster/free', 'free');
+        });
+    }
+    function addVolume() {
+        apiPost('storage/volume/add', { fsh: document.getElementById('vol-fsh').value, path: document.getElementById('vol-path').value, name: document.getElementById('vol-name').value }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-storage', e, false); return; }
+            showMsg('msg-storage', t('cluster/vol/added', 'Volume added'), true);
+            loadStorage();
+        });
+    }
+    function removeVolume(id, name) {
+        if (!confirm(t('cluster/vol/confirmremove', 'Stop contributing') + ' "' + name + '"? ' + t('cluster/vol/keepfiles', 'Files stay on disk but copies only held there become unavailable.'))) return;
+        apiPost('storage/volume/remove', { id: id }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-storage', e, false); return; }
+            loadStorage();
+        });
+    }
+    function setVolumeRO(id, ro) {
+        apiPost('storage/volume/readonly', { id: id, readonly: ro }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-storage', e, false); return; }
+            loadStorage();
+        });
+    }
+    function rescanStorage() {
+        apiPost('storage/rescan', {}, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-storage', e, false); return; }
+            var adopted = 0, stale = 0;
+            (r || []).forEach(function(x) { adopted += x.adopted; stale += x.stale; });
+            showMsg('msg-storage', t('cluster/vol/rescanned', 'Rescan done:') + ' ' + adopted + ' ' + t('cluster/vol/adopted', 'adopted') + ', ' + stale + ' ' + t('cluster/vol/stale', 'stale'), true);
+            loadStorage();
+            loadMeta();
+        });
+    }
+
+    /* Replication */
+    function loadRepl() {
+        $.getJSON(API + 'repl/status', function(st) {
+            if (apiResult(st)) return;
+            document.getElementById('card-repl').style.display = '';
+            var problems = st.underReplicated + st.noHealthyCopy + st.staleCopies;
+            document.getElementById('repl-summary').textContent = ' ' + (problems === 0 ? t('cluster/repl/healthy', 'all files at policy') : problems + ' ' + t('cluster/repl/issues', 'issues'));
+            var rows = '<dt>' + t('cluster/repl/planner', 'Planner') + '</dt><dd>' + (st.isLeader ? '<span class="cl-badge ONLINE">' + t('cluster/thisnode', 'This node').toUpperCase() + '</span>' : (st.leader ? esc(st.leaderName) : '<span class="cl-badge UNKNOWN">' + t('cluster/meta/noleader', 'ELECTING') + '</span>')) + (st.lastPlan ? ' <span class="cl-node-meta">' + t('cluster/repl/lastrun', 'last run') + ' ' + fmtAgo(st.lastPlan) + '</span>' : '') + '</dd>' +
+                '<dt>' + t('cluster/repl/files', 'Files') + '</dt><dd>' + st.files + '</dd>' +
+                '<dt>' + t('cluster/repl/under', 'Under-replicated') + '</dt><dd>' + (st.underReplicated ? '<span style="color:var(--cl-warn)">' + st.underReplicated + '</span>' : '0') + '</dd>' +
+                '<dt>' + t('cluster/repl/nocopy', 'No healthy copy') + '</dt><dd>' + (st.noHealthyCopy ? '<span style="color:var(--cl-danger)">' + st.noHealthyCopy + '</span>' : '0') + '</dd>' +
+                '<dt>' + t('cluster/repl/stale', 'Stale copies') + '</dt><dd>' + st.staleCopies + '</dd>' +
+                '<dt>' + t('cluster/repl/over', 'Extra copies') + '</dt><dd>' + st.overReplicated + '</dd>' +
+                '<dt>' + t('cluster/repl/inflight', 'In flight') + '</dt><dd>' + st.running + ' ' + t('cluster/repl/running', 'running') + ', ' + st.queued + ' ' + t('cluster/repl/queued', 'queued') + (st.evacuating ? ', ' + st.evacuating + ' ' + t('cluster/repl/evacuating', 'volume(s) evacuating') : '') + '</dd>';
+            document.getElementById('repl-kv').innerHTML = rows;
+            var tasks = (st.tasks || []).concat((st.history || []).slice(0, 10));
+            var html = '';
+            tasks.forEach(function(tk) {
+                var badge = tk.state === 'done' ? 'ONLINE' : (tk.state === 'failed' ? 'OFFLINE' : (tk.state === 'running' ? 'DEGRADED' : 'UNKNOWN'));
+                html += '<tr><td><div class="cl-node-name">' + esc(tk.path) + '</div><div class="cl-node-meta">' + esc(tk.reason) + ' · ' + fmtBytes(tk.size) + (tk.error ? ' · <span style="color:var(--cl-danger)">' + esc(tk.error) + '</span>' : '') + '</div></td>' +
+                    '<td>' + esc(nodeName(tk.sourceNode)) + ' <span class="cl-node-meta">to</span> ' + esc(nodeName(tk.targetNode)) + '</td>' +
+                    '<td><span class="cl-badge ' + badge + '">' + esc(tk.state).toUpperCase() + '</span>' + (tk.attempts > 1 ? ' <span class="cl-node-meta">x' + tk.attempts + '</span>' : '') + '</td>' +
+                    '<td>' + fmtAgo(tk.updated || tk.created) + '</td></tr>';
+            });
+            document.getElementById('repl-tasks').innerHTML = html || '<tr><td colspan="4" class="cl-empty">' + t('cluster/repl/notasks', 'No replication tasks') + '</td></tr>';
+        });
+    }
+    function planNow() {
+        apiPost('repl/plan', {}, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-repl', e, false); return; }
+            showMsg('msg-repl', t('cluster/repl/planned', 'Planner ran:') + ' ' + r.queued + ' ' + t('cluster/repl/queued', 'queued') + ', ' + r.dropped + ' ' + t('cluster/repl/dropped', 'dropped') + ', ' + r.markedStale + ' ' + t('cluster/repl/stale', 'stale copies').toLowerCase(), true);
+            loadRepl();
+        });
+    }
+    function verifyCopies() {
+        apiPost('repl/verify', { budget: 512 }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-repl', e, false); return; }
+            showMsg('msg-repl', t('cluster/repl/verified', 'Verified') + ' ' + r.checked + ' ' + t('cluster/repl/copies', 'copies') + ' (' + fmtBytes(r.bytes) + '), ' + r.stale + ' ' + t('cluster/repl/stale', 'stale copies').toLowerCase(), r.stale === 0);
+            loadRepl();
+        });
+    }
+    function inspectFile() {
+        var p = document.getElementById('inspect-path').value.trim();
+        if (!p) return;
+        $.getJSON(API + 'meta/stat?path=' + encodeURIComponent(p), function(rec) {
+            var e = apiResult(rec);
+            if (e) { showMsg('msg-repl', e, false); return; }
+            var html = '<li><span>' + esc(rec.path) + '</span><span class="cl-node-meta">' + (rec.isDir ? t('cluster/folder', 'folder') : fmtBytes(rec.size) + ' · ' + (rec.checksum || '').substring(0, 12)) + '</span></li>';
+            (rec.locations || []).forEach(function(l) {
+                var badge = l.state === 'verified' || l.state === 'committed' ? 'ONLINE' : (l.state === 'stale' || l.state === 'failed' ? 'OFFLINE' : 'DEGRADED');
+                html += '<li><span>' + esc(nodeName(l.nodeId)) + (l.volumeId === rec.primary ? ' <span class="cl-chip">' + t('cluster/repl/primary', 'primary') + '</span>' : '') + '</span><span><span class="cl-badge ' + badge + '">' + esc(l.state).toUpperCase() + '</span> <span class="cl-node-meta">' + fmtAgo(l.updated) + '</span></span></li>';
+            });
+            if (!rec.isDir && (rec.locations || []).length === 0) html += '<li class="cl-empty">' + t('cluster/repl/nolocations', 'No copies recorded') + '</li>';
+            document.getElementById('inspect-list').innerHTML = html;
+        }).fail(function() { showMsg('msg-repl', t('cluster/repl/notfound', 'Path not found in the namespace'), false); });
+    }
+    function evacuateVolume(id, name) {
+        if (!confirm(t('cluster/vol/confirmevac', 'Move every file off') + ' "' + name + '"? ' + t('cluster/vol/evacwhy', 'The volume becomes read only and is retired once all copies exist elsewhere.'))) return;
+        apiPost('storage/volume/evacuate', { id: id }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-storage', e, false); return; }
+            showMsg('msg-storage', t('cluster/vol/evacstarted', 'Evacuation started:') + ' ' + r.remaining + ' ' + t('cluster/vol/filesremain', 'files to move'), true);
+            loadStorage(); loadRepl();
+        });
+    }
+    function cancelEvacuate(id) {
+        apiPost('storage/volume/evacuate/cancel', { id: id }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-storage', e, false); return; }
+            loadStorage();
+        });
+    }
+
+    /* Metadata */
+    function loadMeta() {
+        $.getJSON(API + 'meta/status', function(st) {
+            if (apiResult(st)) return;
+            document.getElementById('card-meta').style.display = '';
+            var rows = '<dt>' + t('cluster/meta/leader', 'Leader') + '</dt><dd>' + (st.leader ? esc(st.leaderName) + (st.isLeader ? ' <span class="cl-chip">' + t('cluster/thisnode', 'This node') + '</span>' : '') + ' <span class="cl-node-meta">' + t('cluster/meta/term', 'term') + ' ' + st.term + '</span>' : '<span class="cl-badge UNKNOWN">' + t('cluster/meta/noleader', 'ELECTING') + '</span>') + '</dd>' +
+                '<dt>' + t('cluster/meta/entries', 'Entries') + '</dt><dd>' + st.files + ' ' + t('cluster/meta/files', 'files') + ', ' + st.dirs + ' ' + t('cluster/meta/dirs', 'folders') + ', ' + st.volumes + ' ' + t('cluster/vol/volumes', 'volumes') + '</dd>' +
+                '<dt>' + t('cluster/meta/log', 'Log') + '</dt><dd>' + st.applied + ' / ' + st.lastSeq + (st.pending ? ' <span style="color:var(--cl-warn)">' + st.pending + ' ' + t('cluster/meta/pending', 'pending') + '</span>' : '') + '</dd>';
+            document.getElementById('meta-kv').innerHTML = rows;
+            document.getElementById('meta-summary').textContent = ' ' + st.files + ' ' + t('cluster/meta/files', 'files');
+        });
+        $.getJSON(API + 'meta/policy/list', function(list) {
+            if (apiResult(list)) return;
+            var html = '';
+            (list || []).forEach(function(p) {
+                html += '<li><span class="cl-mono">' + esc(p.folder) + '</span><span>' + p.replicas + ' ' + t('cluster/meta/copies', 'copies') + '</span></li>';
+            });
+            document.getElementById('pol-list').innerHTML = html;
+        });
+    }
+    function setPolicy() {
+        apiPost('meta/policy/set', { folder: document.getElementById('pol-folder').value, replicas: document.getElementById('pol-replicas').value }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-meta', e, false); return; }
+            showMsg('msg-meta', t('cluster/saved', 'Saved'), true);
+            loadMeta();
+        });
+    }
+
     /* Actions */
     function loadStatus() {
         $.getJSON(API + 'status', function(data) {
             if (apiResult(data)) return;
             clusterStatus = data;
             render();
-            if (data.inCluster) loadIdentity();
+            if (data.inCluster) { loadIdentity(); loadStorage(); loadMeta(); loadRepl(); }
+            else {
+                document.getElementById('card-storage').style.display = 'none';
+                document.getElementById('card-meta').style.display = 'none';
+                document.getElementById('card-repl').style.display = 'none';
+            }
         });
     }
     function saveConfig() {
@@ -692,6 +964,7 @@
         document.getElementById(id).addEventListener('change', function() { configDirty = true; toggleTunnelField(); });
     });
     document.getElementById('id-origin').addEventListener('change', function() { identityDirty = true; });
+    document.getElementById('vol-fsh').addEventListener('change', function() { storageDirty = true; });
     loadStatus();
     setInterval(loadStatus, 10000);
 </script>

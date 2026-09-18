@@ -1,14 +1,27 @@
 package main
 
 import (
+	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"encoding/json"
+	"errors"
+	"strings"
+
 	"imuslab.com/arozos/mod/cluster/capability"
+	"imuslab.com/arozos/mod/cluster/events"
 	"imuslab.com/arozos/mod/cluster/identity"
 	"imuslab.com/arozos/mod/cluster/membership"
+	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/cluster/replication"
+	"imuslab.com/arozos/mod/cluster/storage"
+	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/abstractions/clusterfs"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/neighbour"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -30,7 +43,230 @@ var (
 	NeighbourDiscoverer *neighbour.Discoverer
 	clusterManager      *membership.Manager
 	clusterIdentity     *identity.Manager
+	clusterMetadata     *metadata.Manager
+	clusterStorage      *storage.Service
+	clusterReplication  *replication.Manager
+	clusterEvents       *events.Bus
+	clusterMountMu      sync.Mutex
 )
+
+// clusterRunHook executes an event hook script as its owner with the event
+// readable through postPara("event") (JSON).
+func clusterRunHook(h events.Hook, ev events.Event) error {
+	if AGIGateway == nil {
+		return errors.New("AGI gateway not ready")
+	}
+	u, err := userHandler.GetUserInfoFromUsername(h.Owner)
+	if err != nil {
+		return err
+	}
+	fsh, err := u.GetFileSystemHandlerFromVirtualPath(h.Script)
+	if err != nil {
+		return err
+	}
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(h.Script, u.Username)
+	if err != nil {
+		return err
+	}
+	if !fsh.FileSystemAbstraction.FileExists(rpath) {
+		return errors.New("hook script not found: " + h.Script)
+	}
+	js, _ := json.Marshal(ev)
+	form := "event=" + url.QueryEscape(string(js))
+	req, _ := http.NewRequest(http.MethodPost, "/system/cluster/events/hook", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	_, _, err = AGIGateway.ExecuteAGIScriptAsUser(fsh, rpath, u, nil, req)
+	return err
+}
+
+// clusterProvider adapts the cluster services to the AGI cluster library.
+type clusterProvider struct{}
+
+func (c *clusterProvider) InCluster() bool {
+	return clusterManager != nil && clusterManager.InCluster()
+}
+func (c *clusterProvider) Self() interface{} {
+	for _, n := range clusterManager.NodeViews() {
+		if n.Local {
+			return n
+		}
+	}
+	return nil
+}
+func (c *clusterProvider) Nodes() interface{} { return clusterManager.NodeViews() }
+func (c *clusterProvider) Status() interface{} {
+	out := map[string]interface{}{"cluster": clusterManager.Cluster(), "identityOrigin": clusterManager.IdentityOrigin()}
+	if clusterMetadata != nil {
+		out["metadata"] = clusterMetadata.Status()
+		out["volumes"] = clusterMetadata.Volumes()
+	}
+	if clusterStorage != nil {
+		out["storage"] = clusterStorage.Status()
+	}
+	if clusterReplication != nil {
+		out["replication"] = clusterReplication.Status()
+	}
+	return out
+}
+func (c *clusterProvider) Stat(path string) (interface{}, error) {
+	if clusterMetadata == nil {
+		return nil, errors.New("metadata store not available")
+	}
+	return clusterMetadata.Stat(path)
+}
+func (c *clusterProvider) List(path string) (interface{}, error) {
+	if clusterMetadata == nil {
+		return nil, errors.New("metadata store not available")
+	}
+	return clusterMetadata.ListDir(path)
+}
+func (c *clusterProvider) SetReplicas(path string, n int) error {
+	if clusterMetadata == nil {
+		return errors.New("metadata store not available")
+	}
+	if n < 0 || n > 16 {
+		return errors.New("replicas must be between 0 and 16")
+	}
+	rec, err := clusterMetadata.Stat(path)
+	if err != nil {
+		return err
+	}
+	rec.Replicas = n
+	return clusterMetadata.Submit(metadata.KindFile, rec)
+}
+func (c *clusterProvider) SetPolicy(folder string, n int) error {
+	if clusterMetadata == nil {
+		return errors.New("metadata store not available")
+	}
+	if n < 1 || n > 16 {
+		return errors.New("replicas must be between 1 and 16")
+	}
+	return clusterMetadata.Submit(metadata.KindPolicy, &metadata.Policy{Folder: folder, Replicas: n})
+}
+func (c *clusterProvider) AddHook(owner string, types []string, script string) (interface{}, error) {
+	if clusterEvents == nil {
+		return nil, errors.New("event bus not available")
+	}
+	return clusterEvents.AddHook(owner, types, script)
+}
+func (c *clusterProvider) RemoveHook(id string, owner string) error {
+	if clusterEvents == nil {
+		return errors.New("event bus not available")
+	}
+	return clusterEvents.RemoveHook(id, owner)
+}
+func (c *clusterProvider) Hooks(owner string) interface{} {
+	if clusterEvents == nil {
+		return []events.Hook{}
+	}
+	return clusterEvents.Hooks(owner)
+}
+func (c *clusterProvider) Emit(user string, evType string, data []byte) error {
+	if clusterEvents == nil {
+		return errors.New("event bus not available")
+	}
+	evType = strings.ToLower(strings.TrimSpace(evType))
+	if evType == "" {
+		return errors.New("event type required")
+	}
+	if !strings.HasPrefix(evType, "app.") {
+		evType = "app." + evType
+	}
+	if len(data) > 64<<10 {
+		return errors.New("event data too large (64 KB max)")
+	}
+	clusterEvents.Publish(events.Event{Type: evType, User: user, Data: json.RawMessage(data)})
+	return nil
+}
+
+// clusterLocalRoots lists the local, non-buffered drives a volume may live on.
+func clusterLocalRoots() map[string]string {
+	roots := map[string]string{}
+	for _, fsh := range GetAllLoadedFsh() {
+		if fsh == nil || fsh.Closed || fsh.RequireBuffer || fsh.UUID == "tmp" || fsh.UUID == "cluster" {
+			continue
+		}
+		if arozfs.IsNetworkDrive(fsh.Filesystem) {
+			continue
+		}
+		roots[fsh.UUID] = filepath.Clean(fsh.Path)
+	}
+	return roots
+}
+
+// clusterBackend adapts the storage service to the clusterfs backend interface.
+type clusterBackend struct{ s *storage.Service }
+
+func toInfo(i storage.Info) clusterfs.Info {
+	return clusterfs.Info{Path: i.Path, IsDir: i.IsDir, Size: i.Size, ModTime: i.ModTime}
+}
+func (b *clusterBackend) Stat(p string) (clusterfs.Info, error) {
+	i, err := b.s.Stat(p)
+	return toInfo(i), err
+}
+func (b *clusterBackend) List(p string) ([]clusterfs.Info, error) {
+	items, err := b.s.List(p)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]clusterfs.Info, 0, len(items))
+	for _, i := range items {
+		out = append(out, toInfo(i))
+	}
+	return out, nil
+}
+func (b *clusterBackend) Mkdir(p string, owner string) error       { return b.s.Mkdir(p, owner) }
+func (b *clusterBackend) Remove(p string, recursive bool) error    { return b.s.Remove(p, recursive) }
+func (b *clusterBackend) Rename(o string, n string) error          { return b.s.Rename(o, n) }
+func (b *clusterBackend) OpenRead(p string) (io.ReadCloser, error) { return b.s.OpenRead(p) }
+func (b *clusterBackend) Write(p string, r io.Reader, owner string) error {
+	return b.s.Write(p, r, owner)
+}
+func (b *clusterBackend) Ready() bool { return b.s.Ready() }
+
+// clusterMountDrive attaches the cluster:/ drive to the base storage pool so
+// every user sees it, and clusterUnmountDrive removes it again.
+func clusterMountDrive() {
+	clusterMountMu.Lock()
+	defer clusterMountMu.Unlock()
+	if clusterStorage == nil || baseStoragePool == nil || !clusterManager.InCluster() {
+		return
+	}
+	if baseStoragePool.ContainDiskID("cluster") {
+		return
+	}
+	handler := &fs.FileSystemHandler{
+		Name:                  "Cluster",
+		UUID:                  "cluster",
+		Path:                  "cluster:/",
+		Hierarchy:             "public",
+		HierarchyConfig:       fs.DefaultEmptyHierarchySpecificConfig,
+		ReadOnly:              false,
+		RequireBuffer:         true,
+		InitiationTime:        time.Now().Unix(),
+		FileSystemAbstraction: clusterfs.New("cluster", &clusterBackend{s: clusterStorage}),
+		Filesystem:            "cluster",
+		StartOptions:          fs.FileSystemOption{Name: "Cluster", Uuid: "cluster", Path: "cluster:/", Hierarchy: "public", Filesystem: "cluster"},
+		RuntimePersistenceConfig: fs.RuntimePersistenceConfig{
+			LocalBufferPath: *tmp_directory,
+		},
+	}
+	if err := baseStoragePool.AttachFsHandler(handler); err != nil {
+		systemWideLogger.PrintAndLog("Cluster", "Unable to mount cluster drive: "+err.Error(), err)
+		return
+	}
+	systemWideLogger.PrintAndLog("Cluster", "cluster:/ mounted for all users", nil)
+}
+
+func clusterUnmountDrive() {
+	clusterMountMu.Lock()
+	defer clusterMountMu.Unlock()
+	if baseStoragePool == nil || !baseStoragePool.ContainDiskID("cluster") {
+		return
+	}
+	baseStoragePool.DetachFsHandler("cluster")
+	systemWideLogger.PrintAndLog("Cluster", "cluster:/ unmounted", nil)
+}
 
 // clusterAccountStore adapts the auth agent and permission handler to the
 // identity service's AccountStore interface.
@@ -139,6 +375,115 @@ func ClusterInit() {
 			clusterIdentity.RegisterAdminRoutes(registerAdmin)
 		}
 
+		//Metadata store: replicated namespace index + leader lease
+		mdm, err := metadata.New(metadata.Option{Membership: clusterManager})
+		if err != nil {
+			systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster metadata store: "+err.Error(), err)
+		} else {
+			clusterMetadata = mdm
+			clusterMetadata.RegisterAdminRoutes(registerAdmin)
+
+			//Storage: volumes, chunked transfer and the cluster:/ drive
+			sto, err := storage.New(storage.Option{
+				Membership: clusterManager,
+				Metadata:   clusterMetadata,
+				TmpDir:     *tmp_directory,
+				LocalRoots: clusterLocalRoots,
+			})
+			if err != nil {
+				systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster storage: "+err.Error(), err)
+			} else {
+				clusterStorage = sto
+				clusterStorage.RegisterAdminRoutes(registerAdmin)
+				prevChange := clusterManager.OnMembershipChange
+				clusterManager.OnMembershipChange = func(in bool) {
+					if prevChange != nil {
+						prevChange(in)
+					}
+					if in {
+						clusterMountDrive()
+					} else {
+						clusterUnmountDrive()
+					}
+				}
+				clusterMountDrive()
+
+				//Event bus: file / replica / node events, script hooks, web feed
+				bus, err := events.New(clusterManager, clusterRunHook)
+				if err != nil {
+					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster event bus: "+err.Error(), err)
+				} else {
+					clusterEvents = bus
+					clusterStorage.OnFileWritten = func(rec metadata.FileRecord) {
+						bus.Publish(events.Event{Type: "file.created", Path: rec.Path, FileID: rec.ID, User: rec.Owner})
+					}
+					clusterStorage.OnFileRemoved = func(rec metadata.FileRecord) {
+						bus.Publish(events.Event{Type: "file.removed", Path: rec.Path, FileID: rec.ID, User: rec.Owner})
+					}
+					clusterStorage.OnFileRenamed = func(oldPath string, rec metadata.FileRecord) {
+						data, _ := json.Marshal(map[string]string{"from": oldPath})
+						bus.Publish(events.Event{Type: "file.renamed", Path: rec.Path, FileID: rec.ID, User: rec.Owner, Data: data})
+					}
+					clusterStorage.OnReplicaVerified = func(rec metadata.FileRecord, volumeID string) {
+						data, _ := json.Marshal(map[string]string{"volume": volumeID})
+						bus.Publish(events.Event{Type: "replica.verified", Path: rec.Path, FileID: rec.ID, Data: data})
+					}
+					clusterStorage.OnReplicaStale = func(rec metadata.FileRecord, volumeID string) {
+						data, _ := json.Marshal(map[string]string{"volume": volumeID})
+						bus.Publish(events.Event{Type: "replica.stale", Path: rec.Path, FileID: rec.ID, Data: data})
+					}
+					userRouter := prout.NewModuleRouter(prout.RouterOption{
+						ModuleName:  "System Setting",
+						AdminOnly:   false,
+						UserHandler: userHandler,
+						DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+							errorHandlePermissionDenied(w, r)
+						},
+					})
+					userRouter.HandleFunc("/system/cluster/events/ws", bus.HandleWebSocket)
+					userRouter.HandleFunc("/system/cluster/events/hooks", func(w http.ResponseWriter, r *http.Request) {
+						u, err := userHandler.GetUserInfoFromRequest(w, r)
+						if err != nil {
+							errorHandlePermissionDenied(w, r)
+							return
+						}
+						owner := u.Username
+						if u.IsAdmin() {
+							owner = ""
+						}
+						js, _ := json.Marshal(bus.Hooks(owner))
+						w.Header().Set("Content-Type", "application/json")
+						w.Write(js)
+					})
+				}
+
+				//AGI "cluster" library
+				if AGIGateway != nil {
+					AGIGateway.Option.ClusterProvider = &clusterProvider{}
+					AGIGateway.ClusterLibRegister()
+				}
+
+				//Replication: keep every file at its policy's copy count
+				rep, err := replication.New(replication.Option{
+					Membership: clusterManager,
+					Metadata:   clusterMetadata,
+					Storage:    clusterStorage,
+				})
+				if err != nil {
+					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster replication: "+err.Error(), err)
+				} else {
+					clusterReplication = rep
+					clusterReplication.RegisterAdminRoutes(registerAdmin)
+					//Nightly integrity pass over this node's copies (1 GB budget)
+					nightlyManager.RegisterNightlyTask(func() {
+						if clusterStorage != nil && clusterManager.InCluster() {
+							clusterStorage.VerifyLocalCopies(1 << 30)
+						}
+					})
+				}
+			}
+		}
+
 		registerSetting(settingModule{
 			Name:         "Cluster",
 			Desc:         "Create or join an ArozOS cluster",
@@ -191,6 +536,18 @@ func ClusterInit() {
 
 // ClusterShutdown stops heartbeats and tunnels before the process exits.
 func ClusterShutdown() {
+	if clusterEvents != nil {
+		clusterEvents.Close()
+	}
+	if clusterReplication != nil {
+		clusterReplication.Close()
+	}
+	if clusterStorage != nil {
+		clusterStorage.Close()
+	}
+	if clusterMetadata != nil {
+		clusterMetadata.Close()
+	}
 	if clusterIdentity != nil {
 		clusterIdentity.Close()
 	}

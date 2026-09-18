@@ -249,6 +249,12 @@ logical computer (namespace, identity, compute) while each node keeps its own
 hardware, OS and storage and keeps working standalone when the cluster is away.
 The runtime lives in [`src/mod/cluster/`](src/mod/cluster/) and is documented in
 [`src/mod/cluster/README.md`](src/mod/cluster/README.md) — read that first.
+Phases 1 (membership) and 2 (identity) are done; the exact work order for the
+remaining phases (metadata store, `cluster:/` drive, replication, AGI library
+and events, jobs, map/reduce, scheduling) is
+[`src/mod/cluster/TASKS.md`](src/mod/cluster/TASKS.md). When asked to continue
+the cluster, pick the next unfinished task from that file and follow its
+instructions and ground rules literally.
 
 - **ACN** ([`src/mod/cluster/acn/`](src/mod/cluster/acn/)) is the node-to-node
   protocol: Ed25519 node keys, signed requests with replay protection, and a
@@ -273,6 +279,28 @@ The runtime lives in [`src/mod/cluster/`](src/mod/cluster/) and is documented in
   origin is unreachable, and write password changes back. Cross-node requests
   carry signed user assertions (`X-Aroz-User`). Password changes in core code
   must call `clusterNotifyPasswordChanged` after writing the hash.
+- **Metadata store** ([`src/mod/cluster/metadata/`](src/mod/cluster/metadata/)):
+  the replicated namespace index (file records with their copies, volumes,
+  folder replica policies). Records merge last-writer-wins by version; a
+  quorum-free leader lease (first joiner) serialises decisions and drives a
+  replicated log with catch-up and snapshots. Write through
+  `Submit(kind, record)`, read through `Stat` / `ListDir` / `Volumes` /
+  `PolicyFor`; new cluster tables go through `membership.RegisterClusterTable`.
+- **Storage and the `cluster:/` drive**
+  ([`src/mod/cluster/storage/`](src/mod/cluster/storage/),
+  [`src/mod/filesystem/abstractions/clusterfs/`](src/mod/filesystem/abstractions/clusterfs/)):
+  admins contribute folders (volumes); files stay whole files inside them.
+  Writes spool and hash locally, get placed by the leader, are copied
+  (locally or by the 4 MiB chunked, SHA-256 verified `store/*` protocol) and
+  only then published. The core mounts the drive into the base storage pool
+  whenever the node is in a cluster (`clusterMountDrive` in `src/cluster.go`),
+  so every app, WebDAV and the AGI `filelib` see `cluster:/` unchanged.
+- **Replication** ([`src/mod/cluster/replication/`](src/mod/cluster/replication/)):
+  a planner on the metadata leader keeps every file at its folder policy's
+  copy count (pull tasks to nodes without a copy, in-place repair of stale
+  copies, drop of extras, evacuation of retiring volumes, stale marking for
+  nodes offline over 10 minutes); workers pull with `storage.Service.PullCopy`
+  and report back under a task lease. A nightly pass re-checksums local copies.
 - **State** lives in its own key-value file `system/cluster.db` (never `ao.db`)
   and the node key in `system/cluster/node.key`.
 - **Design rules:** whole files, never chunked storage; cross-node transfers in

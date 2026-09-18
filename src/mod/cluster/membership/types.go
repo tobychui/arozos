@@ -34,7 +34,10 @@ const (
 	AdminStateDraining    = "draining"
 )
 
-const (
+// Timing parameters. They are variables (not constants) so tests of the
+// packages built on membership can shorten them; production code never
+// changes them.
+var (
 	// HeartbeatInterval is how often each node reports to every peer.
 	HeartbeatInterval = 15 * time.Second
 	// OnlineWindow is the maximum silence before a node stops being ONLINE.
@@ -204,6 +207,9 @@ type SyncRequest struct {
 type NodeIDRequest struct {
 	NodeID string `json:"nodeId"`
 }
+
+// NextVersion is the exported form of nextVersion for sibling cluster packages.
+func NextVersion(prev int64) int64 { return nextVersion(prev) }
 
 // nextVersion returns a record version stamp that is strictly greater than
 // prev, so a change made in the same millisecond as the previous one still

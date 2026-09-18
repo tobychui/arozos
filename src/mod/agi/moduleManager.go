@@ -74,6 +74,9 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	if g.Option.GitManager != nil {
 		g.GitLibRegister()
 	}
+	if g.Option.ClusterProvider != nil {
+		g.ClusterLibRegister()
+	}
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")

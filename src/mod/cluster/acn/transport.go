@@ -75,12 +75,17 @@ func JoinURL(baseURL string, path string) string {
 	return strings.TrimRight(baseURL, "/") + path
 }
 
-// signedHeaders returns only the headers a relayed or tunnelled request must carry.
+// signedHeaders returns the headers a relayed or tunnelled request must
+// carry: the signature headers, the content type and every X-Aroz-* header
+// (higher layers use those for per-chunk metadata).
 func signedHeaders(req *http.Request) http.Header {
 	h := http.Header{}
-	for _, k := range []string{HeaderNode, HeaderCluster, HeaderTimestamp, HeaderNonce, HeaderSignature, "Content-Type"} {
-		if v := req.Header.Get(k); v != "" {
-			h.Set(k, v)
+	for k, vals := range req.Header {
+		ck := http.CanonicalHeaderKey(k)
+		if ck == "Content-Type" || strings.HasPrefix(ck, "X-Aroz-") {
+			for _, v := range vals {
+				h.Add(ck, v)
+			}
 		}
 	}
 	return h
@@ -125,19 +130,38 @@ func (t *Transport) DoURL(ctx context.Context, baseURL string, method string, pa
 // Do sends a signed request to the named cluster node. path is the ACN path
 // including any query string.
 func (t *Transport) Do(ctx context.Context, nodeID string, method string, path string, body []byte) (*Response, error) {
+	return t.DoWithHeaders(ctx, nodeID, method, path, body, nil)
+}
+
+func applyExtra(req *http.Request, extra http.Header) {
+	for k, vals := range extra {
+		for _, v := range vals {
+			req.Header.Add(k, v)
+		}
+	}
+}
+
+// DoWithHeaders is Do with additional request headers (only X-Aroz-* and
+// Content-Type survive tunnel and relay hops).
+func (t *Transport) DoWithHeaders(ctx context.Context, nodeID string, method string, path string, body []byte, extra http.Header) (*Response, error) {
 	if body == nil {
 		body = []byte{}
 	}
 	if t.Signer == nil {
 		return nil, errors.New("transport has no signer")
 	}
+	contentType := "application/json"
+	if extra != nil && extra.Get("Content-Type") != "" {
+		contentType = extra.Get("Content-Type")
+	}
 
 	//Route 1: tunnelled to this node
 	if t.Hub != nil && t.Hub.Connected(nodeID) {
 		req, _ := http.NewRequest(method, path, nil)
 		if len(body) > 0 {
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Content-Type", contentType)
 		}
+		applyExtra(req, extra)
 		t.Signer.Sign(req, path, body)
 		return t.Hub.Do(ctx, nodeID, method, path, signedHeaders(req), body)
 	}
@@ -149,7 +173,20 @@ func (t *Transport) Do(ctx context.Context, nodeID string, method string, path s
 
 	//Route 2: direct
 	if peer.AdvertiseURL != "" {
-		return t.DoURL(ctx, peer.AdvertiseURL, method, path, body, true)
+		req, err := http.NewRequestWithContext(ctx, method, JoinURL(peer.AdvertiseURL, path), bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		if len(body) > 0 {
+			req.Header.Set("Content-Type", contentType)
+		}
+		applyExtra(req, extra)
+		t.Signer.Sign(req, path, body)
+		resp, err := t.Client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		return readResponse(resp)
 	}
 
 	//Route 3: relay through the node terminating the peer's tunnel
@@ -163,8 +200,9 @@ func (t *Transport) Do(ctx context.Context, nodeID string, method string, path s
 			return nil, err
 		}
 		if len(body) > 0 {
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Content-Type", contentType)
 		}
+		applyExtra(req, extra)
 		t.Signer.Sign(req, path, body) //signed over the ORIGINAL path
 		resp, err := t.Client.Do(req)
 		if err != nil {
@@ -177,6 +215,20 @@ func (t *Transport) Do(ctx context.Context, nodeID string, method string, path s
 		return nil, ErrTunnelNotConnected
 	}
 	return nil, ErrPeerNoEndpoint
+}
+
+// DoJSON2 sends in as JSON and returns the raw response, leaving status
+// interpretation to the caller (for endpoints that use 409 as a signal).
+func (t *Transport) DoJSON2(ctx context.Context, nodeID string, method string, path string, in interface{}) (*Response, error) {
+	var body []byte
+	if in != nil {
+		js, err := json.Marshal(in)
+		if err != nil {
+			return nil, err
+		}
+		body = js
+	}
+	return t.Do(ctx, nodeID, method, path, body)
 }
 
 // DoJSON posts in as JSON to a node and decodes the JSON reply into out

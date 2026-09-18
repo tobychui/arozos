@@ -43,7 +43,7 @@ func ValidateOption(options *FileSystemOption) error {
 	}
 
 	//Check if uuid is reserved by system
-	if inSlice([]string{"user", "tmp", "network"}, options.Uuid) {
+	if inSlice([]string{"user", "tmp", "network", "cluster"}, options.Uuid) {
 		return errors.New("This File System Handler UUID is reserved by the system")
 	}
 

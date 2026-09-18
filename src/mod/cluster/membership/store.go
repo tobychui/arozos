@@ -15,6 +15,7 @@ package membership
 
 import (
 	"encoding/json"
+	"sync"
 
 	"imuslab.com/arozos/mod/database"
 )
@@ -29,6 +30,36 @@ const (
 	// its cluster-scoped records; it is wiped together with the membership.
 	TableIdentity = "identity"
 )
+
+var (
+	extraTablesMu      sync.Mutex
+	extraClusterTables = []string{}
+	currentStore       *store
+)
+
+// RegisterClusterTable declares a cluster.db table owned by a sibling cluster
+// service. It is created when the store opens (or right away when a store is
+// already open) and dropped together with the membership when the node
+// leaves the cluster.
+func RegisterClusterTable(name string) {
+	extraTablesMu.Lock()
+	defer extraTablesMu.Unlock()
+	for _, t := range extraClusterTables {
+		if t == name {
+			return
+		}
+	}
+	extraClusterTables = append(extraClusterTables, name)
+	if currentStore != nil {
+		currentStore.db.NewTable(name)
+	}
+}
+
+func registeredClusterTables() []string {
+	extraTablesMu.Lock()
+	defer extraTablesMu.Unlock()
+	return append([]string{}, extraClusterTables...)
+}
 
 // store wraps the key-value database with typed accessors.
 type store struct {
@@ -49,16 +80,26 @@ func newStore(dbfile string) (*store, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, table := range []string{tableCluster, tableNodes, tableJoinTokens, tableConfig, TableIdentity} {
+	tables := append([]string{tableCluster, tableNodes, tableJoinTokens, tableConfig, TableIdentity}, registeredClusterTables()...)
+	for _, table := range tables {
 		if err := db.NewTable(table); err != nil {
 			db.Close()
 			return nil, err
 		}
 	}
-	return &store{db: db}, nil
+	st := &store{db: db}
+	extraTablesMu.Lock()
+	currentStore = st
+	extraTablesMu.Unlock()
+	return st, nil
 }
 
 func (s *store) close() {
+	extraTablesMu.Lock()
+	if currentStore == s {
+		currentStore = nil
+	}
+	extraTablesMu.Unlock()
 	s.db.Close()
 }
 
@@ -139,7 +180,8 @@ func (s *store) deleteJoinToken(id string) error {
 
 // wipeCluster removes every cluster-scoped record but keeps the local config.
 func (s *store) wipeCluster() error {
-	for _, table := range []string{tableCluster, tableNodes, tableJoinTokens, TableIdentity} {
+	tables := append([]string{tableCluster, tableNodes, tableJoinTokens, TableIdentity}, registeredClusterTables()...)
+	for _, table := range tables {
 		if err := s.db.DropTable(table); err != nil {
 			return err
 		}

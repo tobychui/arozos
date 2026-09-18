@@ -118,6 +118,12 @@ func (d *Database) ListTable(tableName string) ([][][]byte, error) {
 	return d.listTable(tableName)
 }
 
+// ListTableWithPrefix returns only the key/value pairs whose key starts with
+// prefix. Backends use a cursor seek so large tables are not scanned fully.
+func (d *Database) ListTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
+	return d.listTableWithPrefix(tableName, prefix)
+}
+
 func (d *Database) Close() {
 	d.close()
 }

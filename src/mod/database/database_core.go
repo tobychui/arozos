@@ -4,6 +4,7 @@
 package database
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -186,4 +187,24 @@ func (d *Database) listTable(tableName string) ([][][]byte, error) {
 
 func (d *Database) close() {
 	d.Db.(*bolt.DB).Close()
+}
+
+// listTableWithPrefix seeks the cursor to prefix and reads while keys match.
+func (d *Database) listTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
+	var results [][][]byte = [][][]byte{}
+	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(tableName))
+		if b == nil {
+			return errors.New("table not exists")
+		}
+		c := b.Cursor()
+		p := []byte(prefix)
+		for k, v := c.Seek(p); k != nil && bytes.HasPrefix(k, p); k, v = c.Next() {
+			key := append([]byte{}, k...)
+			val := append([]byte{}, v...)
+			results = append(results, [][]byte{key, val})
+		}
+		return nil
+	})
+	return results, err
 }

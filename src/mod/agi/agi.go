@@ -77,6 +77,7 @@ type AgiSysInfo struct {
 	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)
 	SharedSpaceManager    *sharedspace.Manager //Shared collaboration spaces for the sharedspace lib (nil disables the lib)
 	GitManager            *git.Manager         //Version control backend for the git lib (nil disables the lib)
+	ClusterProvider       ClusterProvider      //Cluster namespace / events for the cluster lib (nil disables the lib)
 
 	//NotificationSender routes a notification raised by an AGI script into the
 	//ArozOS core notification system (nil disables the notification lib).

@@ -16,6 +16,10 @@ the end lists what exists today.
 | `capability/` | Portable detection of what a node offers (OS, arch, cores, RAM, tools such as ffmpeg/docker/nvidia, CPU feature flags) plus `Requirements` matching for the scheduler, and a cross-platform `DiskUsage`. |
 | `membership/` | The cluster agent: create / join / leave, replicated membership records, join tokens, heartbeats, health, node states, tunnel host selection, cluster-wide settings, and the admin (System Settings) endpoints. |
 | `identity/` | **ArozOS Identity** – forward authentication to the cluster's identity origin, replicated account directory as fallback, password write-back, and signed user assertions for cross-node requests. |
+| `metadata/` | **ArozOS Cluster Metadata Store** – replicated namespace index (file records, copies, volumes, folder policies), leader lease and replicated log with catch-up and snapshots. |
+| `storage/` | **ArozOS Cluster Storage** – contributed volumes, chunked SHA-256 verified transfers, placement, reads/writes for the drive, reconcile of real files, and the copy primitives (pull, drop, verify, evacuate). The drive itself is `mod/filesystem/abstractions/clusterfs`. |
+| `events/` | **ArozOS Event Bus** – publish/subscribe with cluster-wide fan-out and de-duplication, `node.*` events from membership, persistent AGI script hooks, and a WebSocket feed for web clients (`/system/cluster/events/ws`). The AGI `cluster` library lives in `mod/agi/agi.cluster.go`. |
+| `replication/` | Leader-side planner and per-node worker that keep every file at its policy's copy count, repair stale copies, mark offline nodes' copies stale and evacuate volumes. |
 | `wakeonlan/` | Wake-on-LAN packets for offline LAN neighbours. |
 
 Core wiring lives in [`src/cluster.go`](../../cluster.go); the ACN endpoints
@@ -159,6 +163,87 @@ Admin API: `/system/cluster/identity/{status,origin,sync}`.
 Note: the directory carries password hashes, so put node URLs behind HTTPS
 (Cloudflare or your own certificates) in production.
 
+## Metadata store (ACMS)
+
+Package `metadata/`. The replicated index of the namespace: `FileRecord`
+(logical path, size, checksum, owner, copies as `Location`s with a state),
+`Volume` (a folder a node contributes) and `Policy` (replica count per
+top-level folder). Records carry a `Version` from `membership.NextVersion`
+and merge last-writer-wins on every node, so the store converges without a
+master and can always be rebuilt from the real files (storage reconcile).
+
+- **Leader lease** (`lease.go`): the eligible member that joined first
+  (ties by ID) claims a 30 s lease with a higher term when no live lease
+  exists and renews it every 10 s; every member accepts a lease with a
+  higher term. No quorum, so two-node clusters fail over. `IsLeader()` /
+  `Leader()` are what other services use to serialise decisions (placement,
+  replication, scheduling).
+- **Replicated log** (`log.go`): `Submit(kind, record)` applies locally at
+  once, then the leader assigns a sequence number and pushes the entry to
+  online peers (`meta/append`). Followers submit through the leader
+  (`meta/submit`) or queue in `meta_pending` until one is reachable. Gaps
+  are filled by `meta/log?after=N`; a compacted range or a new term triggers
+  a full `meta/snapshot`.
+- Tables (`meta_*`) are registered with `membership.RegisterClusterTable`
+  and wiped when the node leaves.
+
+Admin API: `/system/cluster/meta/{status,ls,stat,policy/list,policy/set}`.
+
+## Storage (ACS) and the `cluster:/` drive
+
+Package `storage/` plus the file-system backend
+`mod/filesystem/abstractions/clusterfs`. When a node is in a cluster the core
+mounts a `Cluster` drive (`cluster:/`, public hierarchy, buffered) into the
+base storage pool, so File Manager, WebDAV, media serving and the AGI
+`filelib` use it like any other drive.
+
+- **Volumes**: an admin contributes a folder of a local drive
+  (`storage/volume/add`, e.g. `user:/cluster`). Files in the namespace are
+  ordinary files inside those folders; a rescan (`storage/rescan`, also
+  every 30 min) adopts files placed there by other means and flags copies
+  that vanished or changed as `stale`.
+- **Writes** spool locally while hashing, ask the leader for placement
+  (local volume first, then the existing primary, then most free space),
+  copy the bytes (local rename-in-place or a chunked upload), and only then
+  publish the record: the namespace never shows a half-written file.
+- **Reads** open a local copy when there is one, otherwise stream from an
+  online node through the chunked protocol while verifying the checksum.
+- **Chunked transfer** (`store/begin`, `store/chunk`, `store/commit`,
+  `store/read`, …): 4 MiB signed requests with per-chunk SHA-256 and a
+  whole-file SHA-256 at commit, resumable, `.part-<session>` files renamed
+  into place, sized for Cloudflare's request limits.
+
+Admin API: `/system/cluster/storage/{status,volume/add,volume/remove,volume/readonly,rescan}`.
+
+## Replication
+
+Package `replication/`. Keeps every file at the copy count its folder policy
+(or the record's own `Replicas`) asks for, on different nodes.
+
+- **Planner** runs on the metadata leader every 60 s (and on demand). Per
+  file: fewer healthy copies than wanted → one pull task to a node without a
+  copy (an existing stale copy is repaired in place); more than wanted → the
+  copy on the fullest non-primary volume is dropped; copies on an
+  *evacuating* volume are re-created elsewhere and then dropped; healthy
+  copies on a node that has been OFFLINE for more than 10 minutes are marked
+  `stale` (never deleted; reconcile restores them when the node returns).
+  Limits: 4 tasks in flight per node, 16 in total; failed files back off
+  exponentially and give up for an hour after 5 attempts.
+- **Worker** on the target node pulls the bytes with the chunked protocol
+  (`storage.Service.PullCopy`), verifies the checksum, publishes a
+  `verified` location and reports to the leader, renewing a 30 s task lease
+  every 10 s. Tasks are ephemeral: a new leader simply plans again.
+- **Verification**: a nightly pass re-checksums up to 1 GB of this node's
+  copies (least recently checked first) and downgrades mismatches to
+  `stale`; `Verify this node` runs it on demand.
+- **Evacuation**: `storage/volume/evacuate` marks a volume read only, the
+  planner moves everything off it, and the volume is retired when nothing
+  references it. `Remove` refuses volumes that hold the only copy of a file.
+
+Endpoints: signed `repl/{pull,lease,done,plan}`; admin
+`/system/cluster/repl/{status,plan,verify}` and
+`/system/cluster/storage/volume/evacuate{,/cancel,/status}`.
+
 ## Admin API (`/system/cluster/*`, admin only)
 
 `status`, `create`, `join`, `leave`, `config`, `testurl`, `token/new`,
@@ -168,14 +253,17 @@ Note: the directory carries password hashes, so put node URLs behind HTTPS
 
 ## Roadmap
 
+The detailed, task-by-task work order for everything still open is in
+[TASKS.md](TASKS.md). Read it before touching Phases 3 to 9.
+
 | Phase | Status |
 |---|---|
 | 1 Membership (keys, ACN, tunnel/relay, join/leave, heartbeat, capabilities, health, settings UI) | done |
 | 2 Identity (forward-auth to an origin node, replicated accounts as fallback, signed user assertions) | done |
-| 3 Metadata store (leader lease + replicated log, file records, locations, checksums) | planned |
-| 4 Unified namespace (`cluster:/` file system abstraction) | planned |
-| 5 Replication (whole files, 4 MB chunked transfer, checksum verified) | planned |
-| 6 AGI `cluster` library | planned |
+| 3 Metadata store (leader lease + replicated log, file records, locations, checksums) | done |
+| 4 Unified namespace (`cluster:/` file system abstraction, volumes, chunked transfer, reconcile) | done |
+| 5 Replication (planner, worker, verification, offline stale marking, evacuation) | done |
+| 6 AGI `cluster` library and event bus (file / replica / node events, script hooks, WebSocket feed) | done |
 | 7 Job runtime (`run`, capability + locality aware scheduling) | planned |
 | 8 Map/Reduce | planned |
 | 9 Intelligent scheduling | planned |

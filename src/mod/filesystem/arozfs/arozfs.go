@@ -78,7 +78,7 @@ func NewRedirectionError(targetVpath string) error {
 
 // Check if a file system is network drive
 func IsNetworkDrive(fstype string) bool {
-	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" {
+	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" || fstype == "cluster" {
 		return true
 	}
 
@@ -87,7 +87,7 @@ func IsNetworkDrive(fstype string) bool {
 
 // Get a list of supported file system types for mounting via arozos
 func GetSupportedFileSystemTypes() []string {
-	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp", "s3"}
+	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp", "s3", "cluster"}
 }
 
 /*

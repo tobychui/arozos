@@ -207,3 +207,18 @@ func fileExists(name string) bool {
 	}
 	return false
 }
+
+// listTableWithPrefix filters the full listing; the file backend has no cursor.
+func (d *Database) listTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
+	all, err := d.listTable(tableName)
+	if err != nil {
+		return all, err
+	}
+	var results [][][]byte = [][][]byte{}
+	for _, kv := range all {
+		if strings.HasPrefix(string(kv[0]), prefix) {
+			results = append(results, kv)
+		}
+	}
+	return results, nil
+}
