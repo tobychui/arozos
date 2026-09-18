@@ -16,6 +16,7 @@ package membership
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -27,6 +28,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/cluster/acn"
 	"imuslab.com/arozos/mod/cluster/capability"
+	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/info/logger"
 )
 
@@ -66,6 +68,10 @@ type Manager struct {
 	loopWG    sync.WaitGroup
 	reachable map[string]bool //last known reachability per peer, for log de-duplication
 	started   time.Time
+
+	//OnClusterChange fires (outside the lock) whenever the replicated
+	//cluster-wide settings change, locally or through gossip.
+	OnClusterChange func()
 }
 
 var (
@@ -169,6 +175,104 @@ func (m *Manager) Server() *acn.Server {
 // NodeID returns the ID of this node.
 func (m *Manager) NodeID() string {
 	return m.opt.NodeID
+}
+
+// Sign signs an arbitrary message with this node's key so higher layers can
+// issue verifiable statements (e.g. user assertions).
+func (m *Manager) Sign(message []byte) []byte {
+	return ed25519.Sign(m.key.Private, message)
+}
+
+// DB exposes the cluster database so sibling cluster services can keep their
+// cluster-scoped state in it (use the TableIdentity table, wiped on leave).
+func (m *Manager) DB() *database.Database {
+	return m.store.db
+}
+
+// NodeName returns the display name of a member, or the ID when unknown.
+func (m *Manager) NodeName(nodeID string) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if rec, ok := m.nodes[nodeID]; ok && rec.Name != "" {
+		return rec.Name
+	}
+	return nodeID
+}
+
+// IdentityOrigin returns the node that verifies logins for the cluster,
+// empty when unset or when not in a cluster.
+func (m *Manager) IdentityOrigin() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.cluster == nil {
+		return ""
+	}
+	return m.cluster.IdentityOrigin
+}
+
+// SetIdentityOrigin makes nodeID the login authority of the cluster (empty
+// disables forward authentication) and replicates the setting.
+func (m *Manager) SetIdentityOrigin(nodeID string) error {
+	m.mu.Lock()
+	if m.cluster == nil {
+		m.mu.Unlock()
+		return ErrNotInCluster
+	}
+	if nodeID != "" {
+		rec, ok := m.nodes[nodeID]
+		if !ok || rec.Removed {
+			m.mu.Unlock()
+			return ErrNodeNotFound
+		}
+	}
+	m.cluster.IdentityOrigin = nodeID
+	m.cluster.SettingsVersion = nextVersion(m.cluster.SettingsVersion)
+	if err := m.store.saveCluster(m.cluster); err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	peers := m.peerIDsLocked()
+	cb := m.OnClusterChange
+	m.mu.Unlock()
+
+	if cb != nil {
+		cb()
+	}
+	go m.broadcast(peers, acn.BasePath+"/members/sync", m.syncPayload(), 15*time.Second)
+	return nil
+}
+
+// mergeClusterLocked adopts newer replicated cluster settings.
+func (m *Manager) mergeClusterLocked(in *ClusterInfo) bool {
+	if in == nil || m.cluster == nil || in.ID != m.cluster.ID {
+		return false
+	}
+	if in.SettingsVersion <= m.cluster.SettingsVersion {
+		return false
+	}
+	m.cluster.IdentityOrigin = in.IdentityOrigin
+	m.cluster.SettingsVersion = in.SettingsVersion
+	if in.Name != "" {
+		m.cluster.Name = in.Name
+	}
+	m.store.saveCluster(m.cluster)
+	return true
+}
+
+// clusterCopyLocked returns a copy of the cluster info for gossip payloads.
+func (m *Manager) clusterCopyLocked() *ClusterInfo {
+	if m.cluster == nil {
+		return nil
+	}
+	c := *m.cluster
+	return &c
+}
+
+// syncPayload builds the full gossip payload (settings plus every record).
+func (m *Manager) syncPayload() SyncRequest {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return SyncRequest{Cluster: m.clusterCopyLocked(), Nodes: m.allRecordsLocked()}
 }
 
 // InCluster reports whether this node is currently a cluster member.
@@ -351,11 +455,17 @@ func (m *Manager) mergeRecordLocked(in NodeRecord) (changed bool, evicted bool) 
 
 // mergeNodes applies a batch of records, persists changes and handles eviction.
 func (m *Manager) mergeNodes(records []NodeRecord) {
+	m.mergeGossip(nil, records)
+}
+
+// mergeGossip applies replicated cluster settings and a batch of records.
+func (m *Manager) mergeGossip(cluster *ClusterInfo, records []NodeRecord) {
 	m.mu.Lock()
 	if m.cluster == nil {
 		m.mu.Unlock()
 		return
 	}
+	settingsChanged := m.mergeClusterLocked(cluster)
 	evicted := false
 	for _, in := range records {
 		changed, ev := m.mergeRecordLocked(in)
@@ -367,8 +477,12 @@ func (m *Manager) mergeNodes(records []NodeRecord) {
 		}
 	}
 	m.gcTombstonesLocked()
+	cb := m.OnClusterChange
 	m.mu.Unlock()
 
+	if settingsChanged && cb != nil {
+		cb()
+	}
 	if evicted {
 		logger.PrintAndLog("Cluster", "This node has been removed from the cluster by another member", nil)
 		m.wipeLocalState()
@@ -553,7 +667,7 @@ func (m *Manager) RemoveNode(nodeID string) error {
 		if target != nil {
 			m.notifyEvicted(ctx, target)
 		}
-		m.broadcast(peers, acn.BasePath+"/members/sync", SyncRequest{Nodes: m.snapshotRecords()}, 15*time.Second)
+		m.broadcast(peers, acn.BasePath+"/members/sync", m.syncPayload(), 15*time.Second)
 	}()
 	logger.PrintAndLog("Cluster", "Removed node "+nodeID+" from the cluster", nil)
 	return nil
@@ -598,7 +712,7 @@ func (m *Manager) SetNodeAdminState(nodeID string, state string) error {
 	m.store.saveNode(rec)
 	peers := m.peerIDsLocked()
 	m.mu.Unlock()
-	go m.broadcast(peers, acn.BasePath+"/members/sync", SyncRequest{Nodes: m.snapshotRecords()}, 15*time.Second)
+	go m.broadcast(peers, acn.BasePath+"/members/sync", m.syncPayload(), 15*time.Second)
 	return nil
 }
 
@@ -652,7 +766,7 @@ func (m *Manager) UpdateConfig(cfg LocalConfig) error {
 		case cfg.AdvertiseURL == "" && old.TunnelVia != cfg.TunnelVia:
 			m.tunnel.Reconnect()
 		}
-		go m.broadcast(peers, acn.BasePath+"/members/sync", SyncRequest{Nodes: m.snapshotRecords()}, 15*time.Second)
+		go m.broadcast(peers, acn.BasePath+"/members/sync", m.syncPayload(), 15*time.Second)
 	}
 	return nil
 }
@@ -908,6 +1022,7 @@ func (m *Manager) heartbeatAll() {
 		return
 	}
 	local := m.localSnapshotLocked()
+	cluster := m.clusterCopyLocked()
 	peers := m.peerIDsLocked()
 	m.mu.RUnlock()
 
@@ -919,13 +1034,13 @@ func (m *Manager) heartbeatAll() {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 			var resp HeartbeatResponse
-			err := m.transport.DoJSON(ctx, peerID, http.MethodPost, acn.BasePath+"/heartbeat", HeartbeatRequest{Node: local}, &resp)
+			err := m.transport.DoJSON(ctx, peerID, http.MethodPost, acn.BasePath+"/heartbeat", HeartbeatRequest{Node: local, Cluster: cluster}, &resp)
 			m.noteReachability(peerID, err)
 			if err != nil {
 				return
 			}
 			m.markSeen(peerID)
-			m.mergeNodes(resp.Nodes)
+			m.mergeGossip(resp.Cluster, resp.Nodes)
 		}(id)
 	}
 	wg.Wait()
@@ -1028,7 +1143,7 @@ func (m *Manager) onTunnelState(connected bool, host acn.TunnelHost) {
 	}
 	peers := m.peerIDsLocked()
 	m.mu.Unlock()
-	go m.broadcast(peers, acn.BasePath+"/members/sync", SyncRequest{Nodes: m.snapshotRecords()}, 15*time.Second)
+	go m.broadcast(peers, acn.BasePath+"/members/sync", m.syncPayload(), 15*time.Second)
 }
 
 // onTunnelConnect runs on the host side when a NAT-only node attaches.

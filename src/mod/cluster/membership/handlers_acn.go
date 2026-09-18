@@ -116,7 +116,7 @@ func (m *Manager) handleJoin(w http.ResponseWriter, r *http.Request) {
 			others = append(others, id)
 		}
 	}
-	go m.broadcast(others, acn.BasePath+"/members/sync", SyncRequest{Nodes: m.snapshotRecords()}, 15*time.Second)
+	go m.broadcast(others, acn.BasePath+"/members/sync", m.syncPayload(), 15*time.Second)
 }
 
 func (m *Manager) handleHeartbeat(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
@@ -126,14 +126,15 @@ func (m *Manager) handleHeartbeat(w http.ResponseWriter, r *http.Request, sender
 		return
 	}
 	req.Node.LastSeen = time.Now().Unix()
-	m.mergeNodes([]NodeRecord{req.Node})
+	m.mergeGossip(req.Cluster, []NodeRecord{req.Node})
 	m.markSeen(sender.NodeID)
-	acn.WriteJSON(w, HeartbeatResponse{Nodes: m.snapshotRecords(), Time: time.Now().Unix()})
+	payload := m.syncPayload()
+	acn.WriteJSON(w, HeartbeatResponse{Nodes: payload.Nodes, Cluster: payload.Cluster, Time: time.Now().Unix()})
 }
 
 func (m *Manager) handleMembers(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
 	m.markSeen(sender.NodeID)
-	acn.WriteJSON(w, SyncRequest{Nodes: m.snapshotRecords()})
+	acn.WriteJSON(w, m.syncPayload())
 }
 
 func (m *Manager) handleSync(w http.ResponseWriter, r *http.Request, sender *acn.SignedIdentity, body []byte) {
@@ -143,7 +144,7 @@ func (m *Manager) handleSync(w http.ResponseWriter, r *http.Request, sender *acn
 		return
 	}
 	m.markSeen(sender.NodeID)
-	m.mergeNodes(req.Nodes)
+	m.mergeGossip(req.Cluster, req.Nodes)
 	acn.WriteJSON(w, map[string]bool{"ok": true})
 }
 

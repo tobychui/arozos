@@ -69,6 +69,9 @@ type AuthAgent struct {
 	//Account Switcher
 	SwitchableAccountManager *SwitchableAccountPoolManager
 
+	//Optional external login decision (cluster identity), consulted before the local table
+	ForwardAuth ForwardAuthHandler
+
 	//Logger
 	Logger *authlogger.Logger
 }
@@ -211,8 +214,8 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Check the database and see if this user is in the database
-	passwordCorrect, rejectionReason := a.ValidateUsernameAndPasswordWithReason(username, password)
+	//Decide the login: forward auth hook (cluster identity) first, then the local database
+	passwordCorrect, rejectionReason := a.validateLogin(username, password)
 	//The database contain this user information. Check its password if it is correct
 	if passwordCorrect {
 		//Password correct

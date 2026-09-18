@@ -266,6 +266,13 @@ The runtime lives in [`src/mod/cluster/`](src/mod/cluster/) and is documented in
   Admin API `/system/cluster/*` and the System Settings page
   [`src/web/SystemAO/cluster/cluster.html`](src/web/SystemAO/cluster/cluster.html);
   wiring in [`src/cluster.go`](src/cluster.go).
+- **Identity** ([`src/mod/cluster/identity/`](src/mod/cluster/identity/)):
+  one member is the *identity origin*; other members forward logins to it
+  through the auth agent's `ForwardAuth` hook (password hash only), mirror the
+  account locally, pull the origin's account directory as a fallback when the
+  origin is unreachable, and write password changes back. Cross-node requests
+  carry signed user assertions (`X-Aroz-User`). Password changes in core code
+  must call `clusterNotifyPasswordChanged` after writing the hash.
 - **State** lives in its own key-value file `system/cluster.db` (never `ao.db`)
   and the node key in `system/cluster/node.key`.
 - **Design rules:** whole files, never chunked storage; cross-node transfers in

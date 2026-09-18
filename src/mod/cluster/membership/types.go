@@ -140,11 +140,17 @@ type NodeView struct {
 	Tunnel bool      `json:"tunnel"` //true when this node currently terminates the peer's tunnel
 }
 
-// ClusterInfo identifies the cluster itself.
+// ClusterInfo identifies the cluster itself plus the cluster-wide settings
+// that are replicated to every member (last-writer-wins on SettingsVersion).
 type ClusterInfo struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Created int64  `json:"created"`
+
+	//IdentityOrigin is the node that verifies logins for the whole cluster
+	//(the SSO owner). Empty means every node authenticates on its own.
+	IdentityOrigin  string `json:"identityOrigin"`
+	SettingsVersion int64  `json:"settingsVersion"`
 }
 
 // LocalConfig is the operator-set configuration of this node.
@@ -180,16 +186,19 @@ type JoinResponse struct {
 }
 
 type HeartbeatRequest struct {
-	Node NodeRecord `json:"node"`
+	Node    NodeRecord   `json:"node"`
+	Cluster *ClusterInfo `json:"cluster,omitempty"`
 }
 
 type HeartbeatResponse struct {
-	Nodes []NodeRecord `json:"nodes"`
-	Time  int64        `json:"time"`
+	Nodes   []NodeRecord `json:"nodes"`
+	Cluster *ClusterInfo `json:"cluster,omitempty"`
+	Time    int64        `json:"time"`
 }
 
 type SyncRequest struct {
-	Nodes []NodeRecord `json:"nodes"`
+	Nodes   []NodeRecord `json:"nodes"`
+	Cluster *ClusterInfo `json:"cluster,omitempty"`
 }
 
 type NodeIDRequest struct {

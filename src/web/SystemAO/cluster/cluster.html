@@ -266,6 +266,17 @@
                         </div>
                     </div>
                     <ul class="cl-inline-list" id="token-list"></ul>
+                    <div class="cl-sep"></div>
+                    <div class="cl-field">
+                        <label id="lbl-identity">Identity (single sign-on)</label>
+                        <div class="cl-row">
+                            <select id="id-origin"><option value="">Disabled (each node checks its own accounts)</option></select>
+                            <button class="cl-btn cl-fixed" onclick="setIdentityOrigin()"><span id="lbl-idapply">Apply</span></button>
+                            <button class="cl-btn cl-fixed" id="btn-idsync" onclick="syncIdentity()"><span id="lbl-idsync">Sync now</span></button>
+                        </div>
+                        <div class="cl-hint" id="hint-identity">The identity origin verifies every login in the cluster. Accounts are copied to the other nodes so they still work when the origin is unreachable. Groups are matched by name, so create the same permission groups on every node.</div>
+                        <dl class="cl-kv" id="id-details" style="margin-top:10px"></dl>
+                    </div>
                     <div class="cl-msg" id="msg-member"></div>
                 </div>
             </div>
@@ -493,12 +504,76 @@
         document.getElementById('nodes-body').innerHTML = html || '<tr><td colspan="7" class="cl-empty">' + t('cluster/nonodes', 'No nodes') + '</td></tr>';
     }
 
+    /* Identity */
+    var identityStatus = null;
+    var identityDirty = false;
+    function loadIdentity() {
+        $.getJSON(API + 'identity/status', function(data) {
+            if (apiResult(data)) return;
+            identityStatus = data;
+            renderIdentity();
+        });
+    }
+    function renderIdentity() {
+        if (!clusterStatus || !clusterStatus.inCluster || !identityStatus) return;
+        var st = identityStatus;
+        var sel = document.getElementById('id-origin');
+        var prev = identityDirty ? sel.value : (st.origin || '');
+        var html = '<option value="">' + t('cluster/id/disabled', 'Disabled (each node checks its own accounts)') + '</option>';
+        (clusterStatus.nodes || []).forEach(function(n) {
+            html += '<option value="' + esc(n.id) + '"' + (n.id === prev ? ' selected' : '') + '>' + esc(n.name) + (n.local ? ' (' + t('cluster/thisnode', 'This node') + ')' : '') + '</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = prev;
+        document.getElementById('btn-idsync').disabled = !st.enabled || st.isOrigin;
+
+        var rows = '';
+        if (!st.enabled) {
+            rows += '<dt>' + t('cluster/id/mode', 'Mode') + '</dt><dd>' + t('cluster/id/local', 'Each node verifies logins against its own accounts') + '</dd>';
+        } else if (st.isOrigin) {
+            rows += '<dt>' + t('cluster/id/mode', 'Mode') + '</dt><dd><span class="cl-badge ONLINE">' + t('cluster/id/origin', 'ORIGIN') + '</span> ' + t('cluster/id/originhere', 'This node verifies logins for the whole cluster') + '</dd>';
+            rows += '<dt>' + t('cluster/id/accounts', 'Accounts') + '</dt><dd>' + st.localAccounts + ' ' + t('cluster/id/published', 'published to members') + '</dd>';
+        } else {
+            rows += '<dt>' + t('cluster/id/mode', 'Mode') + '</dt><dd><span class="cl-badge ' + (st.lastForwardError ? 'DEGRADED' : 'ONLINE') + '">' + t('cluster/id/forward', 'FORWARD') + '</span> ' + t('cluster/id/verifiedby', 'Logins verified by') + ' ' + esc(st.originName) + '</dd>';
+            rows += '<dt>' + t('cluster/id/replicated', 'Replicated') + '</dt><dd>' + st.managedAccounts + ' ' + t('cluster/id/ofaccounts', 'of') + ' ' + st.localAccounts + ' ' + t('cluster/id/localaccounts', 'local accounts mirror the origin') + '</dd>';
+            rows += '<dt>' + t('cluster/id/lastsync', 'Last sync') + '</dt><dd>' + (st.lastSync ? fmtAgo(st.lastSync) : t('cluster/never', 'never')) + (st.lastSyncError ? ' <span style="color:var(--cl-danger)">' + esc(st.lastSyncError) + '</span>' : '') + '</dd>';
+            if (st.lastForwardError) {
+                rows += '<dt>' + t('cluster/id/lastlogin', 'Last login check') + '</dt><dd><span style="color:var(--cl-warn)">' + t('cluster/id/fallback', 'origin unreachable, local accounts used') + '</span><div class="cl-node-meta">' + esc(st.lastForwardError) + '</div></dd>';
+            }
+            if (st.skipped && st.skipped.length) {
+                rows += '<dt>' + t('cluster/id/skipped', 'Skipped') + '</dt><dd>' + esc(st.skipped.join(', ')) + '<div class="cl-node-meta">' + t('cluster/id/skippedwhy', 'none of their groups exist on this node') + '</div></dd>';
+            }
+            if (st.conflicts && st.conflicts.length) {
+                rows += '<dt>' + t('cluster/id/conflicts', 'Local only') + '</dt><dd>' + esc(st.conflicts.join(', ')) + '<div class="cl-node-meta">' + t('cluster/id/conflictswhy', 'a local account with the same name is kept as is') + '</div></dd>';
+            }
+        }
+        document.getElementById('id-details').innerHTML = rows;
+    }
+    function setIdentityOrigin() {
+        apiPost('identity/origin', { id: document.getElementById('id-origin').value }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            identityDirty = false;
+            showMsg('msg-member', t('cluster/saved', 'Saved'), true);
+            loadStatus();
+        });
+    }
+    function syncIdentity() {
+        apiPost('identity/sync', {}, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            showMsg('msg-member', t('cluster/id/synced', 'Accounts synchronised'), true);
+            loadStatus();
+        });
+    }
+
     /* Actions */
     function loadStatus() {
         $.getJSON(API + 'status', function(data) {
             if (apiResult(data)) return;
             clusterStatus = data;
             render();
+            if (data.inCluster) loadIdentity();
         });
     }
     function saveConfig() {
@@ -616,6 +691,7 @@
         document.getElementById(id).addEventListener('input', function() { configDirty = true; toggleTunnelField(); });
         document.getElementById(id).addEventListener('change', function() { configDirty = true; toggleTunnelField(); });
     });
+    document.getElementById('id-origin').addEventListener('change', function() { identityDirty = true; });
     loadStatus();
     setInterval(loadStatus, 10000);
 </script>

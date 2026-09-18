@@ -24,6 +24,10 @@ const (
 	tableNodes      = "nodes"
 	tableJoinTokens = "jointokens"
 	tableConfig     = "config"
+
+	// TableIdentity is the cluster.db table used by the identity service for
+	// its cluster-scoped records; it is wiped together with the membership.
+	TableIdentity = "identity"
 )
 
 // store wraps the key-value database with typed accessors.
@@ -45,7 +49,7 @@ func newStore(dbfile string) (*store, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, table := range []string{tableCluster, tableNodes, tableJoinTokens, tableConfig} {
+	for _, table := range []string{tableCluster, tableNodes, tableJoinTokens, tableConfig, TableIdentity} {
 		if err := db.NewTable(table); err != nil {
 			db.Close()
 			return nil, err
@@ -135,7 +139,7 @@ func (s *store) deleteJoinToken(id string) error {
 
 // wipeCluster removes every cluster-scoped record but keeps the local config.
 func (s *store) wipeCluster() error {
-	for _, table := range []string{tableCluster, tableNodes, tableJoinTokens} {
+	for _, table := range []string{tableCluster, tableNodes, tableJoinTokens, TableIdentity} {
 		if err := s.db.DropTable(table); err != nil {
 			return err
 		}

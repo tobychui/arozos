@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/capability"
+	"imuslab.com/arozos/mod/cluster/identity"
 	"imuslab.com/arozos/mod/cluster/membership"
 	"imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/neighbour"
@@ -28,7 +29,41 @@ import (
 var (
 	NeighbourDiscoverer *neighbour.Discoverer
 	clusterManager      *membership.Manager
+	clusterIdentity     *identity.Manager
 )
+
+// clusterAccountStore adapts the auth agent and permission handler to the
+// identity service's AccountStore interface.
+type clusterAccountStore struct{}
+
+func (s *clusterAccountStore) UserExists(username string) bool { return authAgent.UserExists(username) }
+func (s *clusterAccountStore) PasswordHash(username string) (string, error) {
+	return authAgent.GetPasswordHash(username)
+}
+func (s *clusterAccountStore) SetPasswordHash(username string, hash string) error {
+	return authAgent.SetPasswordHash(username, hash)
+}
+func (s *clusterAccountStore) Groups(username string) ([]string, error) {
+	return authAgent.GetUserGroups(username)
+}
+func (s *clusterAccountStore) SetGroups(username string, groups []string) error {
+	return authAgent.SetUserGroups(username, groups)
+}
+func (s *clusterAccountStore) ListUsers() []string { return authAgent.ListUsers() }
+func (s *clusterAccountStore) DeleteUser(username string) error {
+	return authAgent.UnregisterUser(username)
+}
+func (s *clusterAccountStore) GroupExists(group string) bool {
+	return permissionHandler.GroupExists(group)
+}
+
+// clusterNotifyPasswordChanged forwards a password change of a replicated
+// account to the identity origin. Safe to call when clustering is off.
+func clusterNotifyPasswordChanged(username string, passwordHash string) {
+	if clusterIdentity != nil {
+		clusterIdentity.NotifyPasswordChanged(username, passwordHash)
+	}
+}
 
 // clusterHealthProvider builds the load snapshot shipped with each heartbeat.
 // RAM figures are cached because reading them shells out on some platforms.
@@ -85,9 +120,24 @@ func ClusterInit() {
 				errorHandlePermissionDenied(w, r)
 			},
 		})
-		clusterManager.RegisterAdminRoutes(func(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+		registerAdmin := func(pattern string, handler func(http.ResponseWriter, *http.Request)) {
 			adminRouter.HandleFunc(pattern, handler)
+		}
+		clusterManager.RegisterAdminRoutes(registerAdmin)
+
+		//Identity service: forward auth to the cluster's identity origin with
+		//replicated accounts as fallback, plus signed user assertions
+		idm, err := identity.New(identity.Option{
+			Membership: clusterManager,
+			Accounts:   &clusterAccountStore{},
 		})
+		if err != nil {
+			systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster identity service: "+err.Error(), err)
+		} else {
+			clusterIdentity = idm
+			authAgent.ForwardAuth = clusterIdentity.ForwardAuth
+			clusterIdentity.RegisterAdminRoutes(registerAdmin)
+		}
 
 		registerSetting(settingModule{
 			Name:         "Cluster",
@@ -141,6 +191,9 @@ func ClusterInit() {
 
 // ClusterShutdown stops heartbeats and tunnels before the process exits.
 func ClusterShutdown() {
+	if clusterIdentity != nil {
+		clusterIdentity.Close()
+	}
 	if clusterManager != nil {
 		clusterManager.Close()
 	}

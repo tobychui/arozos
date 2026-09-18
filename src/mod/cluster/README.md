@@ -14,7 +14,8 @@ the end lists what exists today.
 |---|---|
 | `acn/` | **ArozOS Cluster Node protocol** – the node-to-node transport. Ed25519 node keys, signed HTTP requests with replay protection, direct / tunnel / relay routing, and the WebSocket reverse tunnel for NAT-only nodes. |
 | `capability/` | Portable detection of what a node offers (OS, arch, cores, RAM, tools such as ffmpeg/docker/nvidia, CPU feature flags) plus `Requirements` matching for the scheduler, and a cross-platform `DiskUsage`. |
-| `membership/` | The cluster agent: create / join / leave, replicated membership records, join tokens, heartbeats, health, node states, tunnel host selection, and the admin (System Settings) endpoints. |
+| `membership/` | The cluster agent: create / join / leave, replicated membership records, join tokens, heartbeats, health, node states, tunnel host selection, cluster-wide settings, and the admin (System Settings) endpoints. |
+| `identity/` | **ArozOS Identity** – forward authentication to the cluster's identity origin, replicated account directory as fallback, password write-back, and signed user assertions for cross-node requests. |
 | `wakeonlan/` | Wake-on-LAN packets for offline LAN neighbours. |
 
 Core wiring lives in [`src/cluster.go`](../../cluster.go); the ACN endpoints
@@ -114,6 +115,50 @@ learns its `LastSeen` and gossips it.
    has no URL it immediately tunnels to the issuer.
 3. The issuer pushes the new member list to everyone else.
 
+## Identity (AID)
+
+Package `identity/`. One member can be made the **identity origin** (the
+SSO owner) in System Settings › Cluster › Identity; the choice is a
+cluster-wide setting replicated by gossip (`ClusterInfo.IdentityOrigin`,
+last-writer-wins on `SettingsVersion`).
+
+On every other member the auth agent's `ForwardAuth` hook runs before the
+local password table:
+
+1. **Forward auth** – the member sends the username and the SHA-512 hash of
+   the typed password to the origin (`POST /cluster/acn/auth/verify`, signed).
+   The origin compares hashes in constant time and answers with the user's
+   group names. Never the clear-text password.
+2. **Mirror** – on success the member creates or updates the account locally
+   (hash + the groups that exist on that node, matched by name) and opens a
+   normal local session. Group settings stay node-specific, so create the
+   same permission groups on every node.
+3. **Fallback** – if the origin is *unreachable* the hook has no opinion and
+   the local table decides, which works because members pull the origin's
+   account directory (`GET /cluster/acn/auth/directory`) at boot, every 5
+   minutes and whenever the origin setting changes. If the origin is
+   reachable and says "wrong password", the login is rejected (no fallback).
+4. **Write-back** – password changes of mirrored accounts on a member are
+   forwarded to the origin (`POST /cluster/acn/auth/setpassword`) so the next
+   sync does not revert them.
+
+Rules: only accounts the member mirrored are ever touched; a pre-existing
+local account with the same name is left as is (listed as "local only").
+Accounts whose groups do not exist on the member are skipped and listed.
+The origin itself always authenticates locally.
+
+**Signed user assertions** (`identity.Assertion`) let node A act on node B
+for a logged-in user: `Issue(username)` produces
+`base64url(payload).base64url(Ed25519 signature)`, carried in the
+`X-Aroz-User` header, and `Verify` checks it against the issuer's published
+node key from the membership list, with a 5 minute lifetime. No node needs to
+contact the origin to trust a cross-node request.
+
+Admin API: `/system/cluster/identity/{status,origin,sync}`.
+
+Note: the directory carries password hashes, so put node URLs behind HTTPS
+(Cloudflare or your own certificates) in production.
+
 ## Admin API (`/system/cluster/*`, admin only)
 
 `status`, `create`, `join`, `leave`, `config`, `testurl`, `token/new`,
@@ -126,7 +171,7 @@ learns its `LastSeen` and gossips it.
 | Phase | Status |
 |---|---|
 | 1 Membership (keys, ACN, tunnel/relay, join/leave, heartbeat, capabilities, health, settings UI) | done |
-| 2 Identity (forward-auth to an origin node, replicated accounts as fallback, signed user assertions) | planned |
+| 2 Identity (forward-auth to an origin node, replicated accounts as fallback, signed user assertions) | done |
 | 3 Metadata store (leader lease + replicated log, file records, locations, checksums) | planned |
 | 4 Unified namespace (`cluster:/` file system abstraction) | planned |
 | 5 Replication (whole files, 4 MB chunked transfer, checksum verified) | planned |
