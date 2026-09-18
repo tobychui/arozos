@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>Cluster</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        #cl-root {
+            --cl-bg:        #f5f5f7;
+            --cl-card:      #ffffff;
+            --cl-card-head: #fafafa;
+            --cl-border:    rgba(0,0,0,0.08);
+            --cl-text:      #1d1d1f;
+            --cl-dim:       #6e6e73;
+            --cl-muted:     #98989d;
+            --cl-accent:    #0071e3;
+            --cl-success:   #34c759;
+            --cl-warn:      #ff9f0a;
+            --cl-danger:    #ff3b30;
+            --cl-hover:     rgba(0,0,0,0.04);
+            --cl-input:     #ffffff;
+            --cl-chip:      rgba(0,113,227,0.10);
+            --cl-shadow:    0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            color: var(--cl-text);
+            background: var(--cl-bg);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        #cl-root.dark {
+            --cl-bg:        #1f1f1f;
+            --cl-card:      #2c2c2e;
+            --cl-card-head: #232325;
+            --cl-border:    rgba(255,255,255,0.09);
+            --cl-text:      #f2f2f7;
+            --cl-dim:       #aeaeb2;
+            --cl-muted:     #636366;
+            --cl-accent:    #2997ff;
+            --cl-success:   #30d158;
+            --cl-warn:      #ffd60a;
+            --cl-danger:    #ff453a;
+            --cl-hover:     rgba(255,255,255,0.05);
+            --cl-input:     #1c1c1e;
+            --cl-chip:      rgba(41,151,255,0.18);
+            --cl-shadow:    0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
+        }
+
+        #cl-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+        #cl-header img { width: 40px; height: 40px; border-radius: 9px; }
+        #cl-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+        #cl-header p  { font-size: 13px; color: var(--cl-dim); margin-top: 2px; }
+
+        .cl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 900px) { .cl-grid { grid-template-columns: 1fr; } }
+
+        .cl-card {
+            background: var(--cl-card); border-radius: 12px; box-shadow: var(--cl-shadow);
+            overflow: hidden; margin-bottom: 16px;
+        }
+        .cl-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; background: var(--cl-card-head); border-bottom: 1px solid var(--cl-border);
+            font-weight: 600; font-size: 14px;
+        }
+        .cl-card-head .cl-sub { font-weight: 400; color: var(--cl-dim); font-size: 12px; margin-left: 8px; }
+        .cl-card-body { padding: 16px; }
+
+        .cl-field { margin-bottom: 12px; }
+        .cl-field label { display: block; font-size: 12px; color: var(--cl-dim); margin-bottom: 4px; }
+        .cl-field input[type=text], .cl-field textarea, .cl-field select {
+            width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--cl-border);
+            background: var(--cl-input); color: var(--cl-text); font: inherit; font-size: 13px;
+        }
+        .cl-field textarea { min-height: 72px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+        .cl-field .cl-hint { font-size: 11px; color: var(--cl-muted); margin-top: 4px; }
+        .cl-row { display: flex; gap: 8px; align-items: center; }
+        .cl-row > * { flex: 1; }
+        .cl-row > .cl-fixed { flex: 0 0 auto; }
+        .cl-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cl-text); cursor: pointer; }
+
+        .cl-btn {
+            display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
+            border: 1px solid var(--cl-border); background: var(--cl-card); color: var(--cl-text);
+            font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+        }
+        .cl-btn:hover { background: var(--cl-hover); }
+        .cl-btn.primary { background: var(--cl-accent); border-color: transparent; color: #fff; }
+        .cl-btn.primary:hover { filter: brightness(1.08); }
+        .cl-btn.danger { color: var(--cl-danger); }
+        .cl-btn.small { padding: 4px 9px; font-size: 12px; }
+        .cl-btn:disabled { opacity: 0.5; cursor: default; }
+        .cl-btn svg { width: 13px; height: 13px; }
+
+        .cl-kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 13px; }
+        .cl-kv dt { color: var(--cl-dim); }
+        .cl-kv dd { word-break: break-all; }
+        .cl-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+        .cl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .cl-chip { background: var(--cl-chip); color: var(--cl-accent); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 500; }
+
+        .cl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; color: #fff; }
+        .cl-badge.ONLINE      { background: var(--cl-success); }
+        .cl-badge.DEGRADED    { background: var(--cl-warn); color: #1d1d1f; }
+        .cl-badge.UNKNOWN     { background: var(--cl-muted); }
+        .cl-badge.OFFLINE     { background: var(--cl-danger); }
+        .cl-badge.MAINTENANCE { background: #5e5ce6; }
+        .cl-badge.DRAINING    { background: #ff9f0a; color: #1d1d1f; }
+
+        .cl-bar { height: 6px; border-radius: 3px; background: var(--cl-border); overflow: hidden; margin-top: 4px; }
+        .cl-bar > div { height: 100%; background: var(--cl-accent); }
+        .cl-bar.warn > div { background: var(--cl-warn); }
+        .cl-bar.bad > div { background: var(--cl-danger); }
+
+        table.cl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.cl-table th { text-align: left; font-weight: 600; color: var(--cl-dim); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--cl-border); }
+        table.cl-table td { padding: 10px; border-bottom: 1px solid var(--cl-border); vertical-align: top; }
+        table.cl-table tr:last-child td { border-bottom: none; }
+        table.cl-table tr:hover td { background: var(--cl-hover); }
+        .cl-node-name { font-weight: 600; }
+        .cl-node-meta { color: var(--cl-dim); font-size: 12px; margin-top: 2px; }
+        .cl-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+        .cl-empty { text-align: center; color: var(--cl-muted); padding: 24px 0; font-size: 13px; }
+        .cl-msg { padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px; display: none; }
+        .cl-msg.ok { display: block; background: rgba(52,199,89,0.14); color: var(--cl-success); }
+        .cl-msg.err { display: block; background: rgba(255,59,48,0.12); color: var(--cl-danger); }
+        .cl-sep { height: 1px; background: var(--cl-border); margin: 14px 0; }
+        .cl-token-box {
+            background: var(--cl-input); border: 1px dashed var(--cl-border); border-radius: 8px; padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; margin-top: 8px;
+        }
+        .cl-inline-list { list-style: none; }
+        .cl-inline-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--cl-border); font-size: 12px; }
+        .cl-inline-list li:last-child { border-bottom: none; }
+        #cl-refresh { color: var(--cl-muted); font-size: 11px; }
+    </style>
+</head>
+<body>
+<div id="cl-root">
+    <div id="cl-header">
+        <img src="img/small_icon.png" alt="">
+        <div style="flex:1">
+            <h1 id="cl-title">Cluster</h1>
+            <p id="cl-tagline">Several ArozOS hosts working as one logical computer</p>
+        </div>
+        <span id="cl-refresh"></span>
+    </div>
+
+    <div class="cl-grid">
+        <!-- This node -->
+        <div>
+            <div class="cl-card">
+                <div class="cl-card-head">
+                    <span><span id="lbl-thisnode">This node</span><span class="cl-sub cl-mono" id="cl-nodeid"></span></span>
+                    <button class="cl-btn small" onclick="refreshCapabilities()" title="Re-detect capabilities">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M13 8a5 5 0 1 1-1.5-3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 2v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span id="lbl-redetect">Re-detect</span>
+                    </button>
+                </div>
+                <div class="cl-card-body">
+                    <div class="cl-field">
+                        <label id="lbl-name">Node name</label>
+                        <input type="text" id="cfg-name" maxlength="64">
+                    </div>
+                    <div class="cl-field">
+                        <label id="lbl-url">Advertised URL (how other nodes reach this one)</label>
+                        <div class="cl-row">
+                            <input type="text" id="cfg-url" placeholder="https://node-a.example.com">
+                            <button class="cl-btn cl-fixed" onclick="testUrl()"><span id="lbl-test">Test</span></button>
+                        </div>
+                        <div class="cl-hint" id="hint-url">Leave empty if this node has no public address. It will then keep a tunnel open to a reachable member, which also works through Cloudflare.</div>
+                    </div>
+                    <div class="cl-field" id="field-tunnel" style="display:none">
+                        <label id="lbl-tunnel">Tunnel through</label>
+                        <select id="cfg-tunnelvia"><option value="">Automatic (any reachable member)</option></select>
+                    </div>
+                    <div class="cl-field">
+                        <label class="cl-check"><input type="checkbox" id="cfg-insecure"> <span id="lbl-insecure">Accept self-signed certificates from other nodes (LAN only)</span></label>
+                    </div>
+                    <div class="cl-row">
+                        <div></div>
+                        <button class="cl-btn primary cl-fixed" onclick="saveConfig()"><span id="lbl-save">Save</span></button>
+                    </div>
+                    <div class="cl-msg" id="msg-config"></div>
+
+                    <div class="cl-sep"></div>
+                    <dl class="cl-kv">
+                        <dt id="lbl-reach">Reachability</dt><dd id="v-reach">-</dd>
+                        <dt id="lbl-version">Version</dt><dd id="v-version">-</dd>
+                        <dt id="lbl-platform">Platform</dt><dd id="v-platform">-</dd>
+                        <dt id="lbl-key">Node key</dt><dd class="cl-mono" id="v-key">-</dd>
+                        <dt id="lbl-caps">Capabilities</dt><dd><div class="cl-chips" id="v-caps"></div></dd>
+                    </dl>
+                    <div class="cl-sep"></div>
+                    <dl class="cl-kv" id="v-health"></dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cluster -->
+        <div>
+            <div class="cl-card" id="card-standalone" style="display:none">
+                <div class="cl-card-head"><span id="lbl-notmember">Not part of a cluster</span></div>
+                <div class="cl-card-body">
+                    <div class="cl-field">
+                        <label id="lbl-create">Create a new cluster</label>
+                        <div class="cl-row">
+                            <input type="text" id="create-name" placeholder="Home Lab" maxlength="64">
+                            <button class="cl-btn primary cl-fixed" onclick="createCluster()"><span id="lbl-createbtn">Create</span></button>
+                        </div>
+                        <div class="cl-hint" id="hint-create">This node becomes the first member. Generate join tokens here afterwards to add more nodes.</div>
+                    </div>
+                    <div class="cl-sep"></div>
+                    <div class="cl-field">
+                        <label id="lbl-join">Join an existing cluster</label>
+                        <textarea id="join-token" placeholder="aroz-join:..."></textarea>
+                        <div class="cl-hint" id="hint-join">Paste a join token generated on a reachable member of the cluster.</div>
+                    </div>
+                    <div class="cl-row">
+                        <div></div>
+                        <button class="cl-btn primary cl-fixed" onclick="joinCluster()"><span id="lbl-joinbtn">Join</span></button>
+                    </div>
+                    <div class="cl-msg" id="msg-cluster"></div>
+                </div>
+            </div>
+
+            <div class="cl-card" id="card-member" style="display:none">
+                <div class="cl-card-head">
+                    <span id="v-clustername">Cluster</span>
+                    <button class="cl-btn small danger" onclick="leaveCluster()"><span id="lbl-leave">Leave cluster</span></button>
+                </div>
+                <div class="cl-card-body">
+                    <dl class="cl-kv">
+                        <dt id="lbl-clusterid">Cluster ID</dt><dd class="cl-mono" id="v-clusterid">-</dd>
+                        <dt id="lbl-created">Created</dt><dd id="v-created">-</dd>
+                        <dt id="lbl-members">Members</dt><dd id="v-membercount">-</dd>
+                    </dl>
+                    <div class="cl-sep"></div>
+                    <div class="cl-field">
+                        <label id="lbl-invite">Add a node</label>
+                        <div class="cl-row">
+                            <select id="token-ttl" class="cl-fixed" style="flex:0 0 auto; width:auto">
+                                <option value="1">1 hour</option>
+                                <option value="24" selected>24 hours</option>
+                                <option value="168">7 days</option>
+                            </select>
+                            <button class="cl-btn primary" onclick="newToken()" id="btn-token"><span id="lbl-gentoken">Generate join token</span></button>
+                        </div>
+                        <div class="cl-hint" id="hint-token">Tokens can only be generated on a node with an advertised URL. Paste the token into the other node's Cluster settings.</div>
+                        <div id="token-out" style="display:none">
+                            <div class="cl-token-box" id="token-text"></div>
+                            <div class="cl-row" style="margin-top:6px">
+                                <div class="cl-hint" id="token-exp"></div>
+                                <button class="cl-btn small cl-fixed" onclick="copyToken()"><span id="lbl-copy">Copy</span></button>
+                            </div>
+                        </div>
+                    </div>
+                    <ul class="cl-inline-list" id="token-list"></ul>
+                    <div class="cl-msg" id="msg-member"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Members -->
+    <div class="cl-card" id="card-nodes" style="display:none">
+        <div class="cl-card-head"><span id="lbl-nodes">Nodes</span></div>
+        <div class="cl-card-body" style="padding:0; overflow-x:auto">
+            <table class="cl-table">
+                <thead>
+                    <tr>
+                        <th id="th-node">Node</th>
+                        <th id="th-state">State</th>
+                        <th id="th-route">Route</th>
+                        <th id="th-platform">Platform</th>
+                        <th id="th-load">Load</th>
+                        <th id="th-seen">Last seen</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="nodes-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* i18n */
+    var clLocale = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) { return clLocale ? clLocale.getString(key, fallback) : fallback; }
+
+    /* Theme */
+    function clApplyTheme(isDark) { document.getElementById('cl-root').classList.toggle('dark', isDark); }
+    (function() {
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) { clApplyTheme(c !== 'whiteTheme'); });
+                return;
+            }
+        } catch(e) {}
+        try {
+            var theme = null;
+            if (typeof preferredTheme !== 'undefined') theme = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') theme = parent.preferredTheme;
+            if (theme) clApplyTheme(theme === 'dark' || theme === 'darkTheme');
+        } catch(e) {}
+    })();
+    window.detailPageThemeCallback = function(isDark) { clApplyTheme(isDark); };
+
+    /* Helpers */
+    var API = '../../system/cluster/';
+    var clusterStatus = null;
+    var configDirty = false;
+
+    function esc(s) {
+        return String(s === undefined || s === null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function fmtBytes(b) {
+        if (!b || b <= 0) return '-';
+        var u = ['B','KB','MB','GB','TB','PB'], i = 0;
+        while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+        return (i === 0 ? b : b.toFixed(1)) + ' ' + u[i];
+    }
+    function fmtAgo(unix) {
+        if (!unix) return t('cluster/never', 'never');
+        var d = Math.max(0, Math.floor(Date.now()/1000 - unix));
+        if (d < 5) return t('cluster/justnow', 'just now');
+        if (d < 60) return d + 's ' + t('cluster/ago', 'ago');
+        if (d < 3600) return Math.floor(d/60) + 'm ' + t('cluster/ago', 'ago');
+        if (d < 86400) return Math.floor(d/3600) + 'h ' + t('cluster/ago', 'ago');
+        return Math.floor(d/86400) + 'd ' + t('cluster/ago', 'ago');
+    }
+    function fmtDate(unix) { return unix ? new Date(unix * 1000).toLocaleString() : '-'; }
+    function showMsg(id, text, ok) {
+        var el = document.getElementById(id);
+        el.textContent = text;
+        el.className = 'cl-msg ' + (ok ? 'ok' : 'err');
+        clearTimeout(el._t);
+        el._t = setTimeout(function() { el.className = 'cl-msg'; }, ok ? 4000 : 8000);
+    }
+    function apiPost(path, data, cb) {
+        $.ajax({ url: API + path, method: 'POST', data: data, dataType: 'json' })
+            .done(function(r) { cb(null, r); })
+            .fail(function(xhr) {
+                var msg = xhr.responseText || 'request failed';
+                try { var j = JSON.parse(xhr.responseText); if (j.error) msg = j.error; } catch(e) {}
+                cb(msg, null);
+            });
+    }
+    function apiResult(r) { return (r && typeof r === 'object' && r.error) ? r.error : null; }
+
+    /* Rendering */
+    function bar(pct) {
+        var cls = pct >= 95 ? 'bad' : (pct >= 80 ? 'warn' : '');
+        return '<div class="cl-bar ' + cls + '"><div style="width:' + Math.min(100, Math.max(0, pct)).toFixed(0) + '%"></div></div>';
+    }
+    function healthRows(h) {
+        if (!h || !h.timestamp) return '<dt>' + t('cluster/load', 'Load') + '</dt><dd style="color:var(--cl-muted)">' + t('cluster/noreport', 'no report yet') + '</dd>';
+        var ramPct = h.ramTotal > 0 ? h.ramUsed / h.ramTotal * 100 : 0;
+        var diskPct = h.diskTotal > 0 ? (h.diskTotal - h.diskFree) / h.diskTotal * 100 : 0;
+        return '<dt>CPU</dt><dd>' + h.cpuUsage.toFixed(0) + '%' + bar(h.cpuUsage) + '</dd>' +
+               '<dt>RAM</dt><dd>' + (h.ramTotal > 0 ? fmtBytes(h.ramUsed) + ' / ' + fmtBytes(h.ramTotal) + bar(ramPct) : '-') + '</dd>' +
+               '<dt>' + t('cluster/disk', 'Disk') + '</dt><dd>' + (h.diskTotal > 0 ? fmtBytes(h.diskFree) + ' ' + t('cluster/free', 'free') + ' / ' + fmtBytes(h.diskTotal) + bar(diskPct) : '-') + '</dd>' +
+               '<dt>' + t('cluster/uptime', 'Uptime') + '</dt><dd>' + Math.floor(h.uptime / 3600) + 'h ' + Math.floor((h.uptime % 3600) / 60) + 'm</dd>';
+    }
+    function routeOf(n) {
+        if (n.local) return t('cluster/thisnode', 'This node');
+        if (n.tunnel) return t('cluster/tunnelhere', 'Tunnel to this node');
+        if (n.advertiseUrl) return '<a href="' + esc(n.advertiseUrl) + '" target="_blank" style="color:var(--cl-accent)">' + esc(n.advertiseUrl.replace(/^https?:\/\//, '')) + '</a>';
+        if (n.tunnelVia) return t('cluster/tunnelvia', 'Tunnel via') + ' ' + esc(nodeName(n.tunnelVia));
+        return '<span style="color:var(--cl-muted)">' + t('cluster/noroute', 'No route') + '</span>';
+    }
+    function nodeName(id) {
+        if (!clusterStatus) return id;
+        for (var i = 0; i < clusterStatus.nodes.length; i++) if (clusterStatus.nodes[i].id === id) return clusterStatus.nodes[i].name;
+        return id.substring(0, 8);
+    }
+
+    function render() {
+        var s = clusterStatus;
+        var local = s.local;
+        document.getElementById('cl-nodeid').textContent = ' ' + local.nodeId;
+        if (!configDirty) {
+            document.getElementById('cfg-name').value = local.config.name || '';
+            document.getElementById('cfg-url').value = local.config.advertiseUrl || '';
+            document.getElementById('cfg-insecure').checked = !!local.config.insecureTls;
+        }
+        renderTunnelSelect(local.config.tunnelVia || '');
+        toggleTunnelField();
+
+        var reach;
+        if (local.reachable) {
+            reach = '<span class="cl-badge ONLINE">' + t('cluster/direct', 'DIRECT') + '</span> ' + esc(local.config.advertiseUrl);
+        } else if (local.tunnelConnected) {
+            reach = '<span class="cl-badge ONLINE">' + t('cluster/tunnel', 'TUNNEL') + '</span> ' + t('cluster/via', 'via') + ' ' + esc(nodeName(local.tunnelHost));
+        } else if (s.inCluster) {
+            reach = '<span class="cl-badge OFFLINE">' + t('cluster/notunnel', 'NO TUNNEL') + '</span> ' + t('cluster/waitinghost', 'waiting for a reachable member');
+        } else {
+            reach = '<span class="cl-badge UNKNOWN">' + t('cluster/natonly', 'NO URL') + '</span> ' + t('cluster/willtunnel', 'will tunnel through a member once in a cluster');
+        }
+        document.getElementById('v-reach').innerHTML = reach;
+        document.getElementById('v-version').textContent = local.version;
+        var c = local.capabilities || {};
+        document.getElementById('v-platform').textContent = (c.os || '?') + ' / ' + (c.arch || '?') + ', ' + (c.cpuCores || '?') + ' ' + t('cluster/cores', 'cores') + (c.totalRam > 0 ? ', ' + fmtBytes(c.totalRam) + ' RAM' : '') + (c.hostname ? ' (' + c.hostname + ')' : '');
+        document.getElementById('v-key').textContent = (local.publicKey || '').substring(0, 20) + '...';
+        var chips = '';
+        var feats = Object.keys(c.features || {}).filter(function(k) { return c.features[k]; }).sort();
+        feats.forEach(function(f) { chips += '<span class="cl-chip">' + esc(f) + '</span>'; });
+        document.getElementById('v-caps').innerHTML = chips || '<span style="color:var(--cl-muted)">-</span>';
+        document.getElementById('v-health').innerHTML = healthRows(local.health);
+
+        document.getElementById('card-standalone').style.display = s.inCluster ? 'none' : '';
+        document.getElementById('card-member').style.display = s.inCluster ? '' : 'none';
+        document.getElementById('card-nodes').style.display = s.inCluster ? '' : 'none';
+
+        if (s.inCluster) {
+            document.getElementById('v-clustername').textContent = s.cluster.name;
+            document.getElementById('v-clusterid').textContent = s.cluster.id;
+            document.getElementById('v-created').textContent = fmtDate(s.cluster.created);
+            document.getElementById('v-membercount').textContent = s.nodes.length;
+            document.getElementById('btn-token').disabled = !local.reachable;
+            renderTokens(s.tokens || []);
+            renderNodes(s.nodes || []);
+        }
+        document.getElementById('cl-refresh').textContent = t('cluster/updated', 'Updated') + ' ' + new Date().toLocaleTimeString();
+    }
+
+    function renderTunnelSelect(current) {
+        var sel = document.getElementById('cfg-tunnelvia');
+        var prev = configDirty ? sel.value : current;
+        var html = '<option value="">' + t('cluster/auto', 'Automatic (any reachable member)') + '</option>';
+        (clusterStatus.nodes || []).forEach(function(n) {
+            if (n.local || !n.advertiseUrl) return;
+            html += '<option value="' + esc(n.id) + '"' + (n.id === prev ? ' selected' : '') + '>' + esc(n.name) + ' (' + esc(n.advertiseUrl) + ')</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = prev;
+    }
+    function toggleTunnelField() {
+        var url = document.getElementById('cfg-url').value.trim();
+        document.getElementById('field-tunnel').style.display = (url === '' && clusterStatus && clusterStatus.inCluster) ? '' : 'none';
+    }
+
+    function renderTokens(tokens) {
+        var html = '';
+        tokens.forEach(function(tk) {
+            html += '<li><span class="cl-mono">' + esc(tk.id) + '</span><span style="color:var(--cl-dim)">' +
+                    t('cluster/expires', 'expires') + ' ' + fmtDate(tk.expires) + ' · ' + tk.uses + ' ' + t('cluster/uses', 'uses') + '</span>' +
+                    '<button class="cl-btn small danger" onclick="revokeToken(\'' + esc(tk.id) + '\')">' + t('cluster/revoke', 'Revoke') + '</button></li>';
+        });
+        document.getElementById('token-list').innerHTML = html;
+    }
+
+    function renderNodes(nodes) {
+        var html = '';
+        nodes.forEach(function(n) {
+            var c = n.capabilities || {};
+            var h = n.health || {};
+            var load = h.timestamp
+                ? 'CPU ' + h.cpuUsage.toFixed(0) + '%' + (h.ramTotal > 0 ? ' · RAM ' + (h.ramUsed / h.ramTotal * 100).toFixed(0) + '%' : '') + (h.diskTotal > 0 ? ' · ' + fmtBytes(h.diskFree) + ' ' + t('cluster/free', 'free') : '')
+                : '<span style="color:var(--cl-muted)">-</span>';
+            var feats = Object.keys(c.features || {}).filter(function(k) { return c.features[k] && ['ffmpeg','docker','cuda','gpu','git'].indexOf(k) >= 0; });
+            var actions = '';
+            if (!n.local) {
+                actions += '<button class="cl-btn small" onclick="probeNode(\'' + esc(n.id) + '\', this)">' + t('cluster/probe', 'Probe') + '</button>';
+            }
+            var isMaint = n.adminState === 'maintenance';
+            actions += '<button class="cl-btn small" onclick="setNodeState(\'' + esc(n.id) + '\', \'' + (isMaint ? 'normal' : 'maintenance') + '\')">' + (isMaint ? t('cluster/resume', 'Resume') : t('cluster/maintenance', 'Maintenance')) + '</button>';
+            if (!n.local) {
+                actions += '<button class="cl-btn small danger" onclick="removeNode(\'' + esc(n.id) + '\', \'' + esc(n.name) + '\')">' + t('cluster/remove', 'Remove') + '</button>';
+            }
+            html += '<tr>' +
+                '<td><div class="cl-node-name">' + esc(n.name) + (n.local ? ' <span class="cl-chip">' + t('cluster/you', 'you') + '</span>' : '') + '</div><div class="cl-node-meta cl-mono">' + esc(n.id) + '</div></td>' +
+                '<td><span class="cl-badge ' + esc(n.state) + '">' + esc(n.state) + '</span></td>' +
+                '<td>' + routeOf(n) + '</td>' +
+                '<td>' + esc(c.os || '?') + '/' + esc(c.arch || '?') + '<div class="cl-node-meta">' + (c.cpuCores || '?') + ' ' + t('cluster/cores', 'cores') + (c.totalRam > 0 ? ', ' + fmtBytes(c.totalRam) : '') + (feats.length ? ' · ' + feats.join(', ') : '') + '</div></td>' +
+                '<td>' + load + '</td>' +
+                '<td>' + (n.local ? t('cluster/now', 'now') : fmtAgo(n.lastSeen)) + '<div class="cl-node-meta">' + esc(n.version) + '</div></td>' +
+                '<td><div class="cl-actions">' + actions + '</div></td>' +
+                '</tr>';
+        });
+        document.getElementById('nodes-body').innerHTML = html || '<tr><td colspan="7" class="cl-empty">' + t('cluster/nonodes', 'No nodes') + '</td></tr>';
+    }
+
+    /* Actions */
+    function loadStatus() {
+        $.getJSON(API + 'status', function(data) {
+            if (apiResult(data)) return;
+            clusterStatus = data;
+            render();
+        });
+    }
+    function saveConfig() {
+        apiPost('config', {
+            name: document.getElementById('cfg-name').value,
+            url: document.getElementById('cfg-url').value,
+            tunnelvia: document.getElementById('cfg-tunnelvia').value,
+            insecure: document.getElementById('cfg-insecure').checked
+        }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-config', e, false); return; }
+            configDirty = false;
+            showMsg('msg-config', t('cluster/saved', 'Saved'), true);
+            loadStatus();
+        });
+    }
+    function testUrl() {
+        var url = document.getElementById('cfg-url').value.trim();
+        if (!url) { showMsg('msg-config', t('cluster/enterurl', 'Enter a URL to test'), false); return; }
+        showMsg('msg-config', t('cluster/testing', 'Testing...'), true);
+        apiPost('testurl', { url: url }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-config', e, false); return; }
+            showMsg('msg-config', t('cluster/reachableok', 'Reachable, round trip') + ' ' + r.latencyMs + ' ms', true);
+        });
+    }
+    function refreshCapabilities() {
+        $.getJSON(API + 'capabilities?refresh=true', function() { loadStatus(); });
+    }
+    function createCluster() {
+        var name = document.getElementById('create-name').value.trim();
+        if (!name) { showMsg('msg-cluster', t('cluster/entername', 'Enter a cluster name'), false); return; }
+        apiPost('create', { name: name }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-cluster', e, false); return; }
+            loadStatus();
+        });
+    }
+    function joinCluster() {
+        var token = document.getElementById('join-token').value.trim();
+        if (!token) { showMsg('msg-cluster', t('cluster/entertoken', 'Paste a join token'), false); return; }
+        showMsg('msg-cluster', t('cluster/joining', 'Joining...'), true);
+        apiPost('join', { token: token }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-cluster', e, false); return; }
+            document.getElementById('join-token').value = '';
+            loadStatus();
+        });
+    }
+    function leaveCluster() {
+        if (!confirm(t('cluster/confirmleave', 'Leave the cluster? Files and jobs on other nodes will no longer be reachable from here.'))) return;
+        apiPost('leave', {}, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            document.getElementById('token-out').style.display = 'none';
+            loadStatus();
+        });
+    }
+    function newToken() {
+        apiPost('token/new', { ttl: document.getElementById('token-ttl').value }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            document.getElementById('token-text').textContent = r.token;
+            document.getElementById('token-exp').textContent = t('cluster/expires', 'expires') + ' ' + fmtDate(r.expires);
+            document.getElementById('token-out').style.display = '';
+            loadStatus();
+        });
+    }
+    function copyToken() {
+        var text = document.getElementById('token-text').textContent;
+        var done = function() { showMsg('msg-member', t('cluster/copied', 'Token copied to clipboard'), true); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function() { fallbackCopy(text); done(); });
+        } else { fallbackCopy(text); done(); }
+    }
+    function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+    }
+    function revokeToken(id) {
+        apiPost('token/revoke', { id: id }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            loadStatus();
+        });
+    }
+    function probeNode(id, btn) {
+        btn.disabled = true;
+        $.getJSON(API + 'node/probe?id=' + encodeURIComponent(id), function(r) {
+            btn.disabled = false;
+            if (r.ok) showMsg('msg-member', nodeName(id) + ': ' + r.latencyMs + ' ms (' + r.route + ')', true);
+            else showMsg('msg-member', nodeName(id) + ': ' + (r.error || 'unreachable') + ' (' + r.route + ')', false);
+        }).fail(function() { btn.disabled = false; });
+    }
+    function setNodeState(id, state) {
+        apiPost('node/state', { id: id, state: state }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            loadStatus();
+        });
+    }
+    function removeNode(id, name) {
+        if (!confirm(t('cluster/confirmremove', 'Remove node') + ' "' + name + '"?')) return;
+        apiPost('node/remove', { id: id }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-member', e, false); return; }
+            loadStatus();
+        });
+    }
+
+    /* Wire up */
+    ['cfg-name', 'cfg-url', 'cfg-tunnelvia', 'cfg-insecure'].forEach(function(id) {
+        document.getElementById(id).addEventListener('input', function() { configDirty = true; toggleTunnelField(); });
+        document.getElementById(id).addEventListener('change', function() { configDirty = true; toggleTunnelField(); });
+    });
+    loadStatus();
+    setInterval(loadStatus, 10000);
+</script>
+</body>
+</html>

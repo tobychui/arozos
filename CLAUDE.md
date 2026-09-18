@@ -242,6 +242,38 @@ through AGI, while a **subservice** is an *external* program ArozOS launches,
 supervises and reverse-proxies. Use a webapp by default; reach for a subservice
 when the work doesn't fit the in-core JavaScript sandbox.
 
+## What the Cluster is
+
+Several independent ArozOS installations can form a **cluster** that exposes one
+logical computer (namespace, identity, compute) while each node keeps its own
+hardware, OS and storage and keeps working standalone when the cluster is away.
+The runtime lives in [`src/mod/cluster/`](src/mod/cluster/) and is documented in
+[`src/mod/cluster/README.md`](src/mod/cluster/README.md) — read that first.
+
+- **ACN** ([`src/mod/cluster/acn/`](src/mod/cluster/acn/)) is the node-to-node
+  protocol: Ed25519 node keys, signed requests with replay protection, and a
+  transport that routes **direct** (advertised URL, Cloudflare-friendly),
+  over a **tunnel** (a NAT-only node keeps one WebSocket open to a reachable
+  member) or by **relay** through the tunnel host. It is mounted at
+  `/cluster/acn/*` in [`src/main.router.go`](src/main.router.go) *before* the
+  user-session check; `cluster` is a reserved subservice path. Register new
+  signed endpoints with `acn.Server.HandleFunc` and call peers with
+  `acn.Transport.DoJSON` — never talk to node addresses directly.
+- **Membership** ([`src/mod/cluster/membership/`](src/mod/cluster/membership/))
+  is the cluster agent: create / join (pasteable join tokens) / leave, records
+  merged last-writer-wins by gossip, heartbeats, computed node states, health
+  and capability manifests ([`src/mod/cluster/capability/`](src/mod/cluster/capability/)).
+  Admin API `/system/cluster/*` and the System Settings page
+  [`src/web/SystemAO/cluster/cluster.html`](src/web/SystemAO/cluster/cluster.html);
+  wiring in [`src/cluster.go`](src/cluster.go).
+- **State** lives in its own key-value file `system/cluster.db` (never `ao.db`)
+  and the node key in `system/cluster/node.key`.
+- **Design rules:** whole files, never chunked storage; cross-node transfers in
+  ≤4 MB hash-verified chunks (Cloudflare limits); metadata consistency by
+  leader lease + replicated log (no Raft, 2-node clusters must work); jobs are
+  `.agi` scripts because nodes differ in architecture; keep everything portable
+  (build-tagged files for syscalls, see `capability/diskusage_*.go`).
+
 ## Build, run and test
 
 All Go commands run from `src/`:

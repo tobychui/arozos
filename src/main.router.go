@@ -64,6 +64,14 @@ func mrouter(h http.Handler) http.Handler {
 			}
 			h.ServeHTTP(w, r)
 
+		} else if len(r.URL.Path) >= len("/cluster/acn") && r.URL.Path[:12] == "/cluster/acn" {
+			//Cluster node-to-node protocol (ACN). Requests are authenticated by
+			//node signatures, not user sessions, see mod/cluster/acn
+			if clusterManager == nil {
+				errorHandleInternalServerError(w, r)
+				return
+			}
+			clusterManager.ACNHandler().ServeHTTP(w, r)
 		} else if len(r.URL.Path) >= len("/caldav") && r.URL.Path[:7] == "/caldav" {
 			//CalDAV sub-router (bidirectional calendar sync for iOS)
 			if CalDAVHandler == nil {
