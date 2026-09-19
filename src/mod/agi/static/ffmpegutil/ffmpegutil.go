@@ -3,6 +3,7 @@ package ffmpegutil
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
@@ -232,13 +233,40 @@ func CancelConversion(progressFile string) bool {
 func runFFmpeg(args []string, cancelKey string) error {
 	cmd := exec.Command("ffmpeg", args...)
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	tail := &stderrTail{}
+	cmd.Stderr = io.MultiWriter(os.Stderr, tail)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	registerConversion(cancelKey, cmd)
 	defer unregisterConversion(cancelKey)
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		if msg := tail.String(); msg != "" {
+			return fmt.Errorf("%v: %s", err, msg)
+		}
+		return err
+	}
+	return nil
+}
+
+// stderrTail keeps the last few hundred bytes ffmpeg wrote to stderr, so a
+// failed job can report why ffmpeg gave up instead of only its exit status.
+type stderrTail struct {
+	buf []byte
+}
+
+const stderrTailSize = 400
+
+func (t *stderrTail) Write(p []byte) (int, error) {
+	t.buf = append(t.buf, p...)
+	if len(t.buf) > stderrTailSize {
+		t.buf = t.buf[len(t.buf)-stderrTailSize:]
+	}
+	return len(p), nil
+}
+
+func (t *stderrTail) String() string {
+	return strings.TrimSpace(string(t.buf))
 }
 
 // --- Progress helpers ---
@@ -448,6 +476,21 @@ func MediaDurationMs(input string) int64 {
 		return 0
 	}
 	return ms
+}
+
+// HasAudioStream reports whether a media file carries at least one audio
+// stream (screen recordings, animations and silent footage do not). When
+// ffprobe cannot tell, for instance because it is missing or the file is
+// unreadable, the error is returned together with true so that callers keep
+// treating the file as it was before they asked.
+func HasAudioStream(input string) (bool, error) {
+	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "a",
+		"-show_entries", "stream=index", "-of", "csv=p=0", input)
+	out, err := cmd.Output()
+	if err != nil {
+		return true, err
+	}
+	return strings.TrimSpace(string(out)) != "", nil
 }
 
 // RunWithProgress runs ffmpeg with the given arguments (everything except

@@ -1,11 +1,13 @@
 package agi
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/media/render"
 )
 
 /*
@@ -130,5 +132,47 @@ func TestStartFFmpegJobValidation(t *testing.T) {
 func TestRenderEncoderSoftwareByDefault(t *testing.T) {
 	if renderEncoder(false) != nil {
 		t.Error("software rendering must not pick a hardware encoder")
+	}
+}
+
+func TestDropSilentAudio(t *testing.T) {
+	clips := []render.AudioClip{
+		{ID: "a", Src: "/m/with.mp4"},
+		{ID: "b", Src: "/m/silent.mkv"},
+		{ID: "c", Src: "/m/with.mp4"},
+		{ID: "d", Src: "/m/unknown.mov"},
+		{ID: "e", Src: "/m/silent.mkv"},
+	}
+	calls := map[string]int{}
+	hasAudio := func(src string) (bool, error) {
+		calls[src]++
+		switch src {
+		case "/m/silent.mkv":
+			return false, nil
+		case "/m/unknown.mov":
+			return true, errors.New("ffprobe unavailable")
+		}
+		return true, nil
+	}
+
+	got := dropSilentAudio(clips, hasAudio)
+
+	ids := ""
+	for _, c := range got {
+		ids += c.ID
+	}
+	if ids != "acd" {
+		t.Errorf("kept clips %q, want %q (silent files dropped, unjudgeable file kept, order preserved)", ids, "acd")
+	}
+	for src, n := range calls {
+		if n != 1 {
+			t.Errorf("%s probed %d times, want once per file", src, n)
+		}
+	}
+	if len(clips) != 5 {
+		t.Errorf("input slice was modified: %d entries", len(clips))
+	}
+	if out := dropSilentAudio(nil, hasAudio); len(out) != 0 {
+		t.Errorf("no clips in, got %d out", len(out))
 	}
 }

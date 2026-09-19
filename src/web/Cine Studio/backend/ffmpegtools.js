@@ -137,27 +137,29 @@ function main() {
 		//Same source, same modification time, same size, same height: same proxy
 		var key = hashString(src) + hashString(filelib.mtime(src, true) + "|" + filelib.filesize(src));
 		var name = "proxy_" + key + "_" + h + exts[kind];
-		var dst = CACHE_ROOT + "/" + name;
+		//Not "dst": a var here is hoisted over the whole of main() and would shadow
+		//the dst POST parameter that the render action reads
+		var proxyDst = CACHE_ROOT + "/" + name;
 		var progressFile = "tmp:/cinestudio_" + name.replace(/\./g, "_") + ".progress.json";
 
-		if (filelib.fileExists(dst)) {
-			reply({ ok: true, ready: true, vpath: dst, progress: progressFile });
+		if (filelib.fileExists(proxyDst)) {
+			reply({ ok: true, ready: true, vpath: proxyDst, progress: progressFile });
 			return;
 		}
 		if (jobInFlight(progressFile)) {
 			//Another tab or an earlier import already asked for it
-			reply({ ok: true, ready: false, vpath: dst, progress: progressFile });
+			reply({ ok: true, ready: false, vpath: proxyDst, progress: progressFile });
 			return;
 		}
 		var started = false;
 		var errMsg = "";
 		try {
-			started = ffmpeg.makeProxy(src, dst, kind, h, progressFile);
+			started = ffmpeg.makeProxy(src, proxyDst, kind, h, progressFile);
 		} catch (e) {
 			errMsg = e.toString();
 		}
 		if (!started) { fail(errMsg || "unable to start the proxy conversion"); return; }
-		reply({ ok: true, ready: false, vpath: dst, progress: progressFile });
+		reply({ ok: true, ready: false, vpath: proxyDst, progress: progressFile });
 		return;
 	}
 

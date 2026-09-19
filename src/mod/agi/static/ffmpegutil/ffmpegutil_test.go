@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -314,6 +315,92 @@ func TestProgressStageLifecycle(t *testing.T) {
 func TestMediaDurationMsUnprobeable(t *testing.T) {
 	if got := MediaDurationMs(filepath.Join(t.TempDir(), "missing.mp4")); got != 0 {
 		t.Fatalf("MediaDurationMs on a missing file = %d, want 0", got)
+	}
+}
+
+// TestStderrTail keeps only the end of a long ffmpeg message.
+func TestStderrTail(t *testing.T) {
+	tail := &stderrTail{}
+	if tail.String() != "" {
+		t.Fatalf("empty tail = %q", tail.String())
+	}
+	tail.Write([]byte("first line\n"))
+	tail.Write([]byte(strings.Repeat("x", stderrTailSize)))
+	tail.Write([]byte("\nStream specifier ':a' matches no streams\n"))
+	got := tail.String()
+	if len(got) > stderrTailSize {
+		t.Errorf("tail is %d bytes, want at most %d", len(got), stderrTailSize)
+	}
+	if !strings.HasSuffix(got, "matches no streams") {
+		t.Errorf("tail lost the end of the message: %q", got)
+	}
+	if strings.Contains(got, "first line") {
+		t.Errorf("tail kept the start of the message: %q", got)
+	}
+}
+
+// TestRunWithProgressReportsFFmpegMessage makes ffmpeg fail and checks that
+// the returned error says why, not only that it exited non-zero.
+func TestRunWithProgressReportsFFmpegMessage(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "no_such_input.mp4")
+	args := []string{"-hide_banner", "-loglevel", "error", "-i", missing}
+	err := RunWithProgress(args, filepath.Join(dir, "out.mp4"), 0, filepath.Join(dir, "job.progress.json"))
+	if err == nil {
+		t.Fatal("expected ffmpeg to fail on a missing input")
+	}
+	if !strings.Contains(err.Error(), "no_such_input.mp4") {
+		t.Errorf("error should carry ffmpeg's own message, got: %v", err)
+	}
+}
+
+// TestHasAudioStream checks the audio probe against real files: a clip with
+// a sound track, a silent one, and a file ffprobe cannot read at all (which
+// must fall back to "has audio" so existing behaviour is kept).
+func TestHasAudioStream(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not installed")
+	}
+	dir := t.TempDir()
+	withAudio := filepath.Join(dir, "with_audio.mp4")
+	silent := filepath.Join(dir, "silent.mp4")
+	gen := func(out string, extra ...string) {
+		args := []string{"-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration=1"}
+		args = append(args, extra...)
+		args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-shortest", out)
+		if err := exec.Command("ffmpeg", args...).Run(); err != nil {
+			t.Fatalf("could not generate %s: %v", out, err)
+		}
+	}
+	gen(withAudio, "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-c:a", "aac")
+	gen(silent)
+
+	tests := []struct {
+		name    string
+		file    string
+		want    bool
+		wantErr bool
+	}{
+		{name: "video with sound", file: withAudio, want: true},
+		{name: "silent video", file: silent, want: false},
+		{name: "unreadable file keeps audio", file: filepath.Join(dir, "missing.mp4"), want: true, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := HasAudioStream(tc.file)
+			if got != tc.want {
+				t.Errorf("HasAudioStream(%s) = %v, want %v", tc.name, got, tc.want)
+			}
+			if (err != nil) != tc.wantErr {
+				t.Errorf("HasAudioStream(%s) error = %v, wantErr %v", tc.name, err, tc.wantErr)
+			}
+		})
 	}
 }
 

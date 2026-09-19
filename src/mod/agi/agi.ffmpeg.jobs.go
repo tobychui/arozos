@@ -95,6 +95,31 @@ func resolveJobProgressFile(scriptFsh *filesystem.FileSystemHandler, vm *otto.Ot
 	return rprogress, nil
 }
 
+// dropSilentAudio removes the audio entries whose source file has no audio
+// stream. The editor lists an audio entry for every video clip, but a screen
+// recording or an animation has none, and ffmpeg refuses a filter graph that
+// selects a stream which is not there. hasAudio is asked once per file; a file
+// it cannot judge keeps its entries.
+func dropSilentAudio(clips []render.AudioClip, hasAudio func(string) (bool, error)) []render.AudioClip {
+	verdict := map[string]bool{}
+	kept := make([]render.AudioClip, 0, len(clips))
+	for _, clip := range clips {
+		ok, seen := verdict[clip.Src]
+		if !seen {
+			var err error
+			ok, err = hasAudio(clip.Src)
+			if err != nil {
+				ok = true
+			}
+			verdict[clip.Src] = ok
+		}
+		if ok {
+			kept = append(kept, clip)
+		}
+	}
+	return kept
+}
+
 // startFFmpegJob validates a job synchronously (so the script hears about a
 // missing file or a bad path right away) and then runs it in the background.
 func startFFmpegJob(job *ffmpegJob) error {
@@ -308,6 +333,7 @@ func (g *Gateway) injectFFmpegJobFunctions(payload *static.AgiLibInjectionPayloa
 				for i := range spec.Audio {
 					spec.Audio[i].Src = local[index[spec.Audio[i].Src]]
 				}
+				spec.Audio = dropSilentAudio(spec.Audio, ffmpegutil.HasAudioStream)
 				res, err := render.BuildArgs(&spec, enc)
 				if err != nil {
 					return nil, 0, err
