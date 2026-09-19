@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -191,10 +192,10 @@ func TestPickVolumeOrdering(t *testing.T) {
 	if v, _ := a.svc.pickVolume(1<<30, "solo", "v-small", nil); v.ID != "v-big" {
 		t.Errorf("preferred volume without space must be skipped, got %s", v.ID)
 	}
-	if _, err := a.svc.pickVolume(100<<30, "solo", "", nil); err != ErrNoVolume {
+	if _, err := a.svc.pickVolume(100<<30, "solo", "", nil); !errors.Is(err, ErrNoVolume) {
 		t.Errorf("oversized request should fail, got %v", err)
 	}
-	if _, err := a.svc.pickVolume(1<<20, "solo", "", []string{"v-big", "v-small"}); err != ErrNoVolume {
+	if _, err := a.svc.pickVolume(1<<20, "solo", "", []string{"v-big", "v-small"}); !errors.Is(err, ErrNoVolume) {
 		t.Errorf("excluded volumes must not be chosen")
 	}
 }
@@ -441,7 +442,36 @@ func TestReadFailsWhenOnlyCopyIsOffline(t *testing.T) {
 	if _, err := b.svc.OpenRead("/x.txt"); err != ErrNoHealthyCopy {
 		t.Errorf("expected ErrNoHealthyCopy while a is down, got %v", err)
 	}
-	if err := b.svc.Write("/y.txt", bytes.NewReader([]byte("y")), ""); err != ErrNoVolume {
+	if err := b.svc.Write("/y.txt", bytes.NewReader([]byte("y")), ""); !errors.Is(err, ErrNoVolume) {
 		t.Errorf("write with no usable volume should fail with ErrNoVolume, got %v", err)
+	}
+}
+
+func TestSpaceStateHysteresis(t *testing.T) {
+	const total = 1000
+	tests := []struct {
+		name          string
+		free          int64
+		total         int64
+		wasFull       bool
+		wantFull      bool
+		wantRecovered bool
+	}{
+		{"plenty of room", 500, total, false, false, false},
+		{"just above the limit", 60, total, false, false, false},
+		{"below the limit stops writes", 40, total, false, true, false},
+		{"still full between the marks", 60, total, true, true, false},
+		{"above the recover mark starts again", 80, total, true, true, true},
+		{"unknown capacity is never full", 0, 0, false, false, false},
+		{"no free space at all", 0, total, false, true, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			full, recovered := spaceState(tc.free, tc.total, tc.wasFull)
+			if full != tc.wantFull || recovered != tc.wantRecovered {
+				t.Errorf("spaceState(%d, %d, %v) = %v, %v; want %v, %v",
+					tc.free, tc.total, tc.wasFull, full, recovered, tc.wantFull, tc.wantRecovered)
+			}
+		})
 	}
 }

@@ -15,6 +15,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/cluster/capability"
 	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/info/logger"
+)
+
+const (
+	//diskFullFraction is the free space below which a volume stops taking
+	//new files; it starts again above diskRecoverFraction.
+	diskFullFraction    = 0.05
+	diskRecoverFraction = 0.07
 )
 
 // LocalVolumes lists this node's volumes that are not removed.
@@ -196,11 +204,40 @@ func (s *Service) refreshVolumes() {
 		if delta < 0 {
 			delta = -delta
 		}
-		if total != v.Capacity || (total > 0 && delta*100 > total) {
+		//A volume under the low water mark stops taking new files until it
+		//recovers, so a node never fills its own disk.
+		isFull, recovered := spaceState(free, total, v.ReadOnly && v.LowSpace)
+		wasFull := v.ReadOnly && v.LowSpace
+		changed := total != v.Capacity || (total > 0 && delta*100 > total)
+		if isFull && !wasFull {
+			v.ReadOnly, v.LowSpace, changed = true, true, true
+			logger.PrintAndLog("Cluster", "Volume "+v.Name+" is nearly full and stops taking new files", nil)
+			if s.OnDiskFull != nil {
+				s.OnDiskFull(v)
+			}
+		} else if recovered {
+			v.ReadOnly, v.LowSpace, changed = false, false, true
+			logger.PrintAndLog("Cluster", "Volume "+v.Name+" has room again and takes new files", nil)
+		}
+		if changed {
 			v.Free, v.Capacity = free, total
 			s.meta.Submit(metadata.KindVolume, &v)
 		}
 	}
+}
+
+// spaceState decides whether a volume is too full to take new files. The two
+// thresholds differ so a volume hovering at the limit does not flap: it stops
+// below diskFullFraction and only starts again above diskRecoverFraction.
+func spaceState(free int64, total int64, wasFull bool) (full bool, recovered bool) {
+	if total <= 0 {
+		return false, false
+	}
+	frac := float64(free) / float64(total)
+	if wasFull {
+		return true, frac > diskRecoverFraction
+	}
+	return frac < diskFullFraction, false
 }
 
 // VolumeStats counts files held on a local volume (for the UI).

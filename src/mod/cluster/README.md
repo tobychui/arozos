@@ -19,6 +19,8 @@ the end lists what exists today.
 | `metadata/` | **ArozOS Cluster Metadata Store** – replicated namespace index (file records, copies, volumes, folder policies), leader lease and replicated log with catch-up and snapshots. |
 | `storage/` | **ArozOS Cluster Storage** – contributed volumes, chunked SHA-256 verified transfers, placement, reads/writes for the drive, reconcile of real files, and the copy primitives (pull, drop, verify, evacuate). The drive itself is `mod/filesystem/abstractions/clusterfs`. |
 | `events/` | **ArozOS Event Bus** – publish/subscribe with cluster-wide fan-out and de-duplication, `node.*` events from membership, persistent AGI script hooks, and a WebSocket feed for web clients (`/system/cluster/events/ws`). The AGI `cluster` library lives in `mod/agi/agi.cluster.go`. |
+| `jobs/` | **ArozOS Job Runtime and Scheduler** – replicated job records, a leader-side scheduler that matches node capabilities and input locality, per-node execution of AGI job scripts with progress, logs, leases, timeouts and cancellation. |
+| `scheduling/` | **ArozOS Cluster Scheduling** – the one placement scorer used by jobs, write placement and replication. Cluster-wide tunable weights, per-factor explanations, node ranking with reasons. |
 | `replication/` | Leader-side planner and per-node worker that keep every file at its policy's copy count, repair stale copies, mark offline nodes' copies stale and evacuate volumes. |
 | `wakeonlan/` | Wake-on-LAN packets for offline LAN neighbours. |
 
@@ -85,6 +87,7 @@ well under Cloudflare's 100 MB request limit.
 | `POST /cluster/acn/members/sync` | signed | push membership changes |
 | `POST /cluster/acn/leave` | signed | sender leaves |
 | `POST /cluster/acn/evict` | signed | sender removed the receiver |
+| `GET /cluster/acn/latency` | signed | sender's round trips to its own peers |
 
 ## Membership
 
@@ -244,11 +247,120 @@ Endpoints: signed `repl/{pull,lease,done,plan}`; admin
 `/system/cluster/repl/{status,plan,verify}` and
 `/system/cluster/storage/volume/evacuate{,/cancel,/status}`.
 
+## Jobs (AJR / AJS)
+
+Package `jobs/`. A job is an AGI script that defines `run(job)`; the source is
+captured at submit time, so nodes of different OS and architecture can run it.
+Each job is one replicated record (`metadata.KindJob`), so any node answers
+status queries locally and a new leader resumes scheduling.
+
+- **Scheduling** runs on the metadata leader every 3 s. Candidates are nodes
+  that are ONLINE or DEGRADED and whose capability manifest satisfies the
+  job's requirements; they are ranked by the shared scorer in `scheduling/`
+  (see [Scheduling](#scheduling)), whose locality input is the share of the
+  job's input bytes that already have a healthy copy on that node. A node that
+  refuses a job (no account for the owner, cannot execute) is remembered and
+  not offered it again. `jobs.Explain(id)` re-runs the ranking for a finished
+  or waiting job and returns every candidate with its factors.
+- **Pinning**: a job may carry `Nodes`, a list of node ids it is allowed to
+  run on (AGI `nodes`, HTTP form field `nodes`). Other nodes are ineligible
+  with the reason "job is limited to other nodes", and map and reduce children
+  inherit the list. Sending one pinned job per member is how a script runs
+  something on every node; see `examples/clusters_jobs/hello_world`.
+- **Execution**: the chosen node wraps the script with a prelude that provides
+  `job.log()`, `job.progress()`, `job.cancelled()` and `job.abortIfCancelled()`,
+  runs it as the owner through the AGI gateway, and publishes the return value
+  as the job output. At most `NumCPU()` jobs run per node; the rest wait.
+- **Leases**: a running node refreshes the job lease every 10 s. If it goes
+  silent the leader requeues the job, and fails it after `MaxAttempts`.
+  Cancellation marks the record; the running node interrupts its VM.
+- Finished records are kept for 72 hours; `job.completed` and `job.failed`
+  events are published on the event bus.
+
+### Map / reduce
+
+A job with a `Dataset` glob becomes a map/reduce parent, coordinated by the
+leader and never assigned to a node. The leader expands the glob over the
+namespace (`metadata.Glob`, supporting `*`, `**` and `?`), groups the files by
+the node that already holds a healthy copy, splits each group into partitions
+of `PartitionMax` files (default 50) and submits one map child per partition,
+so map work runs where the bytes are. When every map child has succeeded the
+emitted pairs are grouped by key and a single reduce child is submitted; its
+output becomes the parent's. A failed child fails the parent and cancels the
+rest. A dataset with an unreachable file fails the job and names it; a dataset
+matching nothing succeeds with an empty result.
+
+APIs: signed `jobs/{run,done,submit}`; user-facing
+`/system/cluster/jobs/{submit,status,get,cancel}` (own jobs; admins see all);
+AGI `cluster.jobs.*`. UI: `web/SystemAO/cluster/jobs.html` ("Cluster Jobs" in
+System Settings).
+
+## Scheduling
+
+Package `scheduling/`. Three layers have to answer the same question – the job
+scheduler, write placement in `storage/` and the replication planner – so they
+all call one scorer. Every candidate is scored in the range 0 to 1:
+
+| Factor | Default weight | Measured as |
+|---|---|---|
+| data locality | 0.45 | share of the input bytes already on the node |
+| free CPU | 0.20 | `1 - cpuUsage` from the node's health report |
+| free memory | 0.10 | `1 - ramUsed/ramTotal` |
+| free disk | 0.05 | largest free fraction among the node's volumes |
+| queue depth | 0.10 | penalty, saturating at 8 queued items |
+| network distance | 0.05 | penalty, from the heartbeat round trip, saturating at 1000 ms |
+| health | 0.05 | penalty when the node is DEGRADED |
+| wanted features | 0.10 | optional capabilities a job prefers but does not require |
+| site diversity | 0.05 | how far a new copy would sit from the copies that already exist |
+
+The weights are a replicated cluster setting (`metadata.KindSetting`, key
+`scheduling.weights`), so every node scores identically and a new leader keeps
+the admin's tuning. Each weight is between 0 and 1; `reset=true` restores the
+shipped defaults.
+
+`Rank` also decides eligibility. A caller supplies the hard rule (capability
+match, usable state, a volume with room), and the scorer holds DEGRADED nodes
+back whenever a healthy eligible node exists, sorts ineligible nodes last and
+keeps their reason, so `Best` can explain an empty result instead of failing
+silently. Every score carries its `Factors`, which is what the admin page and
+`sched/explain` show.
+
+Round-trip latency is measured by `membership` on every heartbeat and smoothed
+with an exponential moving average (alpha 0.3); the local node reports 0 and a
+peer never heard from reports -1.
+
+**Site diversity.** A second copy is worth more on a node far from the first,
+because distance usually means a different site. Each node only measures its
+own round trips, and those vectors are not gossiped: they change constantly and
+would churn the membership records. Instead the replication planner asks the
+members for their vector over the signed `GET /cluster/acn/latency` endpoint and
+caches the resulting matrix for two minutes (`membership.LatencyMatrix`,
+`membership.PairLatency`). A candidate's diversity is its distance to the
+*nearest* node that already holds the file, as a fraction of one second. It is
+only computed when the cluster has three or more nodes and there is more than
+one place the copy could go; otherwise the factor is left out of the score
+entirely, which is also what jobs and plain writes do.
+
+Two guards use the same data. `storage` marks a volume read-only and
+`LowSpace` once it drops below 5 % free, publishes a `node.diskfull` event and
+clears the flag again at 7 %, so a filling node stops taking writes before it
+breaks. Nodes an admin set to DRAINING keep serving reads but take no new
+copies, and the replication planner moves their copies away like an evacuating
+volume.
+
+Endpoints: `/system/cluster/sched/status` (weights, a per-node score preview
+and the latency matrix), `sched/weights` (GET / POST, any subset of the fields
+or `reset=true`) and `sched/explain?job=<id>`. UI: the Scheduling card on the
+Cluster page, with the weight sliders, the score preview and the matrix.
+
+Weights are read back through the defaults, so a record written by an older
+version keeps the shipped value for a weight it never knew about.
+
 ## Admin API (`/system/cluster/*`, admin only)
 
 `status`, `create`, `join`, `leave`, `config`, `testurl`, `token/new`,
 `token/list`, `token/revoke`, `node/remove`, `node/state`, `node/probe`,
-`nodes`, `capabilities`. The UI is
+`nodes`, `capabilities`, `sched/{status,weights,explain}`. The UI is
 [`web/SystemAO/cluster/cluster.html`](../../web/SystemAO/cluster/cluster.html).
 
 ## Roadmap
@@ -264,6 +376,9 @@ The detailed, task-by-task work order for everything still open is in
 | 4 Unified namespace (`cluster:/` file system abstraction, volumes, chunked transfer, reconcile) | done |
 | 5 Replication (planner, worker, verification, offline stale marking, evacuation) | done |
 | 6 AGI `cluster` library and event bus (file / replica / node events, script hooks, WebSocket feed) | done |
-| 7 Job runtime (`run`, capability + locality aware scheduling) | planned |
-| 8 Map/Reduce | planned |
-| 9 Intelligent scheduling | planned |
+| 7 Job runtime and scheduler (AGI job scripts, capability + locality scheduling, leases, cancellation, UI) | done |
+| 8 Map/reduce (dataset globbing, locality partitioning, map and reduce children) | done |
+| 9 Intelligent scheduling (shared weighted scorer, latency tracking, site diversity, disk-full guard, explanations) | done |
+
+All nine phases are complete. New work on the cluster starts from the packages
+above rather than from TASKS.md, which is kept as the design record.

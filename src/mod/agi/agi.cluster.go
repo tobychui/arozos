@@ -51,6 +51,11 @@ type ClusterProvider interface {
 	RemoveHook(id string, owner string) error
 	Hooks(owner string) interface{}
 	Emit(user string, evType string, data []byte) error
+	SubmitJob(owner string, name string, scriptVpath string, args []byte, inputs []string, features []string, nodes []string, timeoutSec int, dataset string, partitionMax int) (interface{}, error)
+	JobStatus(id string, requester string, isAdmin bool) (interface{}, error)
+	JobList(owner string) interface{}
+	CancelJob(id string, requester string, isAdmin bool) error
+	WaitJob(id string, timeoutSec int, requester string, isAdmin bool) (interface{}, error)
 }
 
 func (g *Gateway) ClusterLibRegister() {
@@ -187,6 +192,66 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		return otto.TrueValue()
 	})
 
+	vm.Set("_cluster_jobSubmit", func(call otto.FunctionCall) otto.Value {
+		raw, _ := call.Argument(0).ToString()
+		var req struct {
+			Name         string          `json:"name"`
+			Script       string          `json:"script"`
+			Args         json.RawMessage `json:"args"`
+			Inputs       []string        `json:"inputs"`
+			Features     []string        `json:"features"`
+			Nodes        []string        `json:"nodes"`
+			Timeout      int             `json:"timeout"`
+			Dataset      string          `json:"dataset"`
+			PartitionMax int             `json:"partitionMax"`
+		}
+		if err := json.Unmarshal([]byte(raw), &req); err != nil {
+			return fail(err)
+		}
+		if payload.ScriptFsh != nil && u != nil {
+			req.Script = static.RelativeVpathRewrite(payload.ScriptFsh, req.Script, vm, u)
+		}
+		if u != nil && !u.CanRead(req.Script) {
+			return fail(errors.New("script access denied: " + req.Script))
+		}
+		rec, err := p.SubmitJob(username, req.Name, req.Script, req.Args, req.Inputs, req.Features, req.Nodes, req.Timeout, req.Dataset, req.PartitionMax)
+		if err != nil {
+			return fail(err)
+		}
+		return toJSON(rec)
+	})
+	vm.Set("_cluster_jobStatus", func(call otto.FunctionCall) otto.Value {
+		id, _ := call.Argument(0).ToString()
+		rec, err := p.JobStatus(id, username, isAdmin())
+		if err != nil {
+			return fail(err)
+		}
+		return toJSON(rec)
+	})
+	vm.Set("_cluster_jobList", func(call otto.FunctionCall) otto.Value {
+		owner := username
+		if isAdmin() {
+			owner = ""
+		}
+		return toJSON(p.JobList(owner))
+	})
+	vm.Set("_cluster_jobCancel", func(call otto.FunctionCall) otto.Value {
+		id, _ := call.Argument(0).ToString()
+		if err := p.CancelJob(id, username, isAdmin()); err != nil {
+			return fail(err)
+		}
+		return otto.TrueValue()
+	})
+	vm.Set("_cluster_jobWait", func(call otto.FunctionCall) otto.Value {
+		id, _ := call.Argument(0).ToString()
+		secs, _ := call.Argument(1).ToInteger()
+		rec, err := p.WaitJob(id, int(secs), username, isAdmin())
+		if err != nil {
+			return fail(err)
+		}
+		return toJSON(rec)
+	})
+
 	vm.Run(`
 		var cluster = {};
 		cluster.inCluster = function() { return _cluster_inCluster(); };
@@ -201,5 +266,12 @@ func (g *Gateway) injectClusterLibFunctions(payload *static.AgiLibInjectionPaylo
 		cluster.off = function(id) { return _cluster_off(id); };
 		cluster.hooks = function() { return JSON.parse(_cluster_hooks()); };
 		cluster.emit = function(type, data) { return _cluster_emit(type, JSON.stringify(data === undefined ? {} : data)); };
+		cluster.jobs = {};
+		cluster.jobs.submit = function(spec) { return JSON.parse(_cluster_jobSubmit(JSON.stringify(spec))).spec.id; };
+		cluster.jobs.status = function(id) { return JSON.parse(_cluster_jobStatus(id)); };
+		cluster.jobs.list = function() { return JSON.parse(_cluster_jobList()); };
+		cluster.jobs.cancel = function(id) { return _cluster_jobCancel(id); };
+		cluster.jobs.wait = function(id, timeoutSec) { return JSON.parse(_cluster_jobWait(id, timeoutSec === undefined ? 300 : timeoutSec)); };
+		cluster.jobs.mapreduce = function(spec) { spec = spec || {}; if (!spec.dataset) { throw new Error("a map/reduce job needs a dataset pattern"); } return cluster.jobs.submit(spec); };
 	`)
 }

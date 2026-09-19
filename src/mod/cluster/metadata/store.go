@@ -28,6 +28,8 @@ const (
 	tablePaths    = "meta_paths"
 	tableVolumes  = "meta_volumes"
 	tablePolicy   = "meta_policy"
+	tableJobs     = "meta_jobs"
+	tableSettings = "meta_settings"
 	tableLog      = "meta_log"
 	tablePending  = "meta_pending"
 	tableState    = "meta_state"
@@ -38,7 +40,7 @@ const (
 )
 
 // Tables lists every cluster.db table used by the metadata store.
-var Tables = []string{tableFiles, tablePaths, tableVolumes, tablePolicy, tableLog, tablePending, tableState}
+var Tables = []string{tableFiles, tablePaths, tableVolumes, tablePolicy, tableJobs, tableSettings, tableLog, tablePending, tableState}
 
 type store struct {
 	db *database.Database
@@ -48,6 +50,8 @@ type store struct {
 	paths    map[string]string
 	volumes  map[string]*Volume
 	policies map[string]*Policy
+	jobs     map[string]*Job
+	settings map[string]*Setting
 	pending  map[string]Entry
 
 	lastSeq uint64
@@ -65,6 +69,8 @@ func newStore(db *database.Database) *store {
 		paths:    map[string]string{},
 		volumes:  map[string]*Volume{},
 		policies: map[string]*Policy{},
+		jobs:     map[string]*Job{},
+		settings: map[string]*Setting{},
 		pending:  map[string]Entry{},
 	}
 	for _, t := range Tables {
@@ -99,6 +105,22 @@ func (s *store) load() {
 			var p Policy
 			if json.Unmarshal(kv[1], &p) == nil && p.Folder != "" {
 				s.policies[p.Folder] = &p
+			}
+		}
+	}
+	if entries, err := s.db.ListTable(tableJobs); err == nil {
+		for _, kv := range entries {
+			var j Job
+			if json.Unmarshal(kv[1], &j) == nil && j.ID != "" {
+				s.jobs[j.ID] = &j
+			}
+		}
+	}
+	if entries, err := s.db.ListTable(tableSettings); err == nil {
+		for _, kv := range entries {
+			var st Setting
+			if json.Unmarshal(kv[1], &st) == nil && st.Key != "" {
+				s.settings[st.Key] = &st
 			}
 		}
 	}
@@ -342,6 +364,88 @@ func (s *store) policyFor(p string) Policy {
 }
 
 /*
+	Jobs
+*/
+
+func (s *store) putJob(in *Job) bool {
+	if in == nil || in.ID == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existing, ok := s.jobs[in.ID]; ok && in.Version <= existing.Version {
+		return false
+	}
+	j := *in
+	s.jobs[j.ID] = &j
+	s.db.Write(tableJobs, j.ID, j)
+	return true
+}
+
+func (s *store) getJob(id string) (*Job, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	j, ok := s.jobs[id]
+	if !ok {
+		return nil, false
+	}
+	c := *j
+	return &c, true
+}
+
+func (s *store) allJobs() []Job {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Job, 0, len(s.jobs))
+	for _, j := range s.jobs {
+		out = append(out, *j)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Created > out[j].Created })
+	return out
+}
+
+// gcJobs drops finished job records older than cutoff.
+func (s *store) gcJobs(cutoff int64, keepStatus map[string]bool) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for id, j := range s.jobs {
+		if j.Created < cutoff && !keepStatus[j.Status] {
+			delete(s.jobs, id)
+			s.db.Delete(tableJobs, id)
+			n++
+		}
+	}
+	return n
+}
+
+func (s *store) putSetting(in *Setting) bool {
+	if in == nil || in.Key == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existing, ok := s.settings[in.Key]; ok && in.Version <= existing.Version {
+		return false
+	}
+	st := *in
+	s.settings[st.Key] = &st
+	s.db.Write(tableSettings, st.Key, st)
+	return true
+}
+
+func (s *store) getSetting(key string) (*Setting, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	st, ok := s.settings[key]
+	if !ok {
+		return nil, false
+	}
+	c := *st
+	return &c, true
+}
+
+/*
 	Log and state
 */
 
@@ -470,7 +574,7 @@ func (s *store) pendingEntries() map[string]Entry {
 func (s *store) snapshot() Snapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	snap := Snapshot{LastSeq: s.lastSeq, Term: s.term, Files: []FileRecord{}, Volumes: []Volume{}, Policies: []Policy{}}
+	snap := Snapshot{LastSeq: s.lastSeq, Term: s.term, Files: []FileRecord{}, Volumes: []Volume{}, Policies: []Policy{}, Jobs: []Job{}, Settings: []Setting{}}
 	for _, rec := range s.files {
 		snap.Files = append(snap.Files, *rec.Clone())
 	}
@@ -479,6 +583,12 @@ func (s *store) snapshot() Snapshot {
 	}
 	for _, p := range s.policies {
 		snap.Policies = append(snap.Policies, *p)
+	}
+	for _, j := range s.jobs {
+		snap.Jobs = append(snap.Jobs, *j)
+	}
+	for _, st := range s.settings {
+		snap.Settings = append(snap.Settings, *st)
 	}
 	return snap
 }

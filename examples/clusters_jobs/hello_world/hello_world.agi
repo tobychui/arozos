@@ -1,0 +1,80 @@
+/*
+    Hello World - the launcher
+
+    Run this script (for example with the Serverless tool, or from Code
+    Studio). It sends hello_world.job.agi to every usable node of the
+    cluster, pinning one copy to each node with the "nodes" option, waits
+    for the replies and returns them as one JSON document:
+
+        {
+            "cluster": "Home Lab",
+            "replies": [ {message, node: {...}, health: {...}}, ... ],
+            "skipped": [ {node, reason}, ... ]
+        }
+
+    Keep hello_world.job.agi in the same folder as this file; the script
+    path below is relative to this launcher.
+*/
+
+requirelib("cluster");
+
+//How long to wait for each node before giving up on it, in seconds
+var WAIT_SECONDS = 60;
+
+function main() {
+    if (!cluster.inCluster()) {
+        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster." };
+    }
+
+    var submitted = [];
+    var skipped = [];
+
+    //Send one job to each node that can take work right now
+    var nodes = cluster.nodes();
+    for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (n.state !== "ONLINE" && n.state !== "DEGRADED") {
+            skipped.push({ node: n.name, reason: "node is " + n.state.toLowerCase() });
+            continue;
+        }
+        try {
+            var id = cluster.jobs.submit({
+                name: "Hello World on " + n.name,
+                script: "hello_world.job.agi",
+                nodes: [n.id],      //run on this node and nowhere else
+                timeout: WAIT_SECONDS
+            });
+            submitted.push({ node: n.name, id: id });
+        } catch (e) {
+            skipped.push({ node: n.name, reason: String(e) });
+        }
+    }
+
+    //The jobs run in parallel; collect the answers one by one
+    var replies = [];
+    for (var j = 0; j < submitted.length; j++) {
+        var rec;
+        try {
+            rec = cluster.jobs.wait(submitted[j].id, WAIT_SECONDS);
+        } catch (e) {
+            //wait() throws when the job is still not finished
+            rec = cluster.jobs.status(submitted[j].id);
+        }
+        if (rec.state.status === "succeeded") {
+            replies.push(rec.state.output);
+        } else {
+            skipped.push({
+                node: submitted[j].node,
+                reason: "job " + rec.state.status + (rec.state.error ? ": " + rec.state.error : (rec.state.reason ? ": " + rec.state.reason : ""))
+            });
+        }
+    }
+
+    return {
+        cluster: cluster.status().cluster.name,
+        replies: replies,
+        skipped: skipped
+    };
+}
+
+sendJSONResp(JSON.stringify(main()));

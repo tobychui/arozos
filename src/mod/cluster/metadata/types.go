@@ -35,9 +35,12 @@ type Volume struct {
 	ReadOnly bool   `json:"readOnly"`
 	//Evacuating volumes accept no new copies and have their existing copies
 	//moved elsewhere by the replication service before they are removed.
-	Evacuating bool  `json:"evacuating"`
-	Removed    bool  `json:"removed"`
-	Version    int64 `json:"version"`
+	Evacuating bool `json:"evacuating"`
+	//LowSpace marks a volume the system itself set read only because it ran
+	//out of room; it clears when space comes back.
+	LowSpace bool  `json:"lowSpace"`
+	Removed  bool  `json:"removed"`
+	Version  int64 `json:"version"`
 }
 
 // Location states of one physical copy.
@@ -140,10 +143,33 @@ type Policy struct {
 
 // Record kinds carried by the log.
 const (
-	KindFile   = "file"
-	KindVolume = "volume"
-	KindPolicy = "policy"
+	KindFile    = "file"
+	KindVolume  = "volume"
+	KindPolicy  = "policy"
+	KindJob     = "job"
+	KindSetting = "setting"
 )
+
+// Setting is a small cluster-wide value replicated like any other record
+// (used for scheduling weights and similar knobs).
+type Setting struct {
+	Key     string          `json:"key"`
+	Value   json.RawMessage `json:"value"`
+	Version int64           `json:"version"`
+}
+
+// Job is one replicated cluster job. The metadata store only carries it;
+// its meaning (script, scheduling, results) belongs to mod/cluster/jobs.
+type Job struct {
+	ID      string          `json:"id"`
+	Owner   string          `json:"owner"`
+	Node    string          `json:"node"`
+	Status  string          `json:"status"`
+	Created int64           `json:"created"`
+	Body    json.RawMessage `json:"body"` // the jobs package's full record
+	Removed bool            `json:"removed"`
+	Version int64           `json:"version"`
+}
 
 // Entry is one replicated change.
 type Entry struct {
@@ -177,6 +203,8 @@ type Snapshot struct {
 	Files    []FileRecord `json:"files"`
 	Volumes  []Volume     `json:"volumes"`
 	Policies []Policy     `json:"policies"`
+	Jobs     []Job        `json:"jobs"`
+	Settings []Setting    `json:"settings"`
 	LastSeq  uint64       `json:"lastSeq"`
 	Term     uint64       `json:"term"`
 }

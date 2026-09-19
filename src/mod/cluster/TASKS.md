@@ -7,7 +7,48 @@ having to re-derive the design. **Read [README.md](README.md) and
 [`CLAUDE.md`](../../../CLAUDE.md) first**, then read this file top to bottom
 before starting any task. Do not skip the "Ground rules" section.
 
-**Status (2026-09-19): Phases 3 to 6 are implemented and verified.**
+**Status (2026-09-19): Phases 3 to 9 are implemented and verified. The
+cluster is feature complete; what follows is kept as the design record.**
+- 9.1: the scorer is its own package (`scheduling/`) rather than helpers
+  inside `jobs`, because write placement and the replication planner needed
+  the same ranking. `jobs`, `storage` and `replication` take a
+  `*scheduling.Manager` and create their own when the host passes none.
+- 9.2: the weights are one replicated `metadata.KindSetting` record
+  (`scheduling.weights`), not a membership setting, so they follow the same
+  log as the rest of the namespace state.
+- 9.3: latency is the heartbeat round trip smoothed with an EWMA in
+  `membership` (`NodeView.LatencyMs`), not a separate probe.
+- 9.4: the disk-full guard sets `Volume.ReadOnly` and `Volume.LowSpace` at
+  5 % free and clears at 7 %, and fires `OnDiskFull` which the core publishes
+  as a `node.diskfull` event.
+- 9.3: site diversity is implemented, but the pairwise matrix is collected on
+  demand rather than gossiped: latency vectors change constantly and would
+  churn the membership records, so the planner pulls them from the members
+  over the signed `GET /cluster/acn/latency` endpoint and caches the matrix
+  for two minutes (`membership.LatencyMatrix`). Diversity is the distance to
+  the nearest existing copy and only applies from three nodes up.
+- 9.5: `sched/explain` takes a job id and is served by the core
+  (`clusterSchedExplain` in `src/cluster.jobs.go`), because the scheduling
+  package has no access to job records.
+- 8.1: no separate `MapReduceSpec`; `Spec` gained `Dataset` and
+  `PartitionMax`, and `Kind: "mapreduce"` marks the parent. Submitting with a
+  dataset selects that kind automatically.
+- 8.2: map outputs stay in the replicated record (capped at 8 MB of grouped
+  values, which fails the job with a clear message) instead of being written
+  to `cluster:/.jobs/`. Parents are guarded against re-entrant expansion,
+  because submitting a child re-enters the scheduler.
+- 8.2: locality scoring falls back to the metadata records when the host
+  supplies no `LocalityBytes`, so the jobs package places map tasks correctly
+  on its own.
+- 7.1: spec and state live in ONE replicated record (`jobs.Record`,
+  `metadata.KindJob`) instead of two parallel tables, so a merge can never
+  leave them inconsistent. `State.Blocked` lists nodes that refused a job.
+- 7.3: execution goes through `agi.Gateway.ExecuteJobScript` (new), which
+  injects the `_job_*` functions and hands back a stopper for timeout and
+  cancellation. The core adapter is `src/cluster.jobs.go`.
+- 7.5: submit takes form fields (name, script, args, inputs, features,
+  timeout, priority, cores); the script source is read from the submitter's
+  file system. `jobs/get` replaces `status?id=` and `output?id=`.
 - 6.1: node events are computed locally on every node (no fan-out needed);
   hooks read the event with `postPara("event")`; the web feed is served by
   the user router (any logged-in user); hooks listing at

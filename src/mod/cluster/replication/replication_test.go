@@ -347,3 +347,38 @@ func TestPlanNowForwardsToLeader(t *testing.T) {
 		t.Errorf("follower status: %+v", st)
 	}
 }
+
+func TestSiteDiversity(t *testing.T) {
+	//Two sites: a and b are next to each other, c is far away
+	matrix := map[string]map[string]float64{
+		"a": {"b": 2, "c": 400},
+		"b": {"a": 2, "c": 200},
+		"c": {"a": 400, "b": 200},
+	}
+	tests := []struct {
+		name      string
+		candidate string
+		holders   []string
+		want      float64
+	}{
+		{"same site as the copy", "b", []string{"a"}, 0.002},
+		{"other site", "c", []string{"a"}, 0.4},
+		{"nearest holder wins", "c", []string{"a", "b"}, 0.2},
+		{"holder is itself", "a", []string{"a"}, 0},
+		{"nothing measured", "d", []string{"a"}, -1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := siteDiversity(matrix, tc.candidate, tc.holders)
+			if diff := got - tc.want; diff > 0.0001 || diff < -0.0001 {
+				t.Errorf("siteDiversity(%s, %v) = %v; want %v", tc.candidate, tc.holders, got, tc.want)
+			}
+		})
+	}
+
+	//A round trip over a second is as diverse as it gets
+	far := map[string]map[string]float64{"x": {"y": 5000}}
+	if got := siteDiversity(far, "x", []string{"y"}); got != 1 {
+		t.Errorf("a very distant node should saturate at 1, got %v", got)
+	}
+}

@@ -21,17 +21,20 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/cluster/membership"
 	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/cluster/scheduling"
 	"imuslab.com/arozos/mod/info/logger"
 )
 
@@ -61,7 +64,9 @@ var (
 type Option struct {
 	Membership *membership.Manager
 	Metadata   *metadata.Manager
-	TmpDir     string
+	//Scheduler scores the nodes when choosing where a new file goes.
+	Scheduler *scheduling.Manager
+	TmpDir    string
 	// LocalRoots maps local (non network, non buffered) file system handler
 	// UUIDs to their real root paths. Provided by the core.
 	LocalRoots        func() map[string]string
@@ -74,6 +79,7 @@ type Service struct {
 	m      *membership.Manager
 	meta   *metadata.Manager
 	client *Client
+	sched  *scheduling.Manager
 	opt    Option
 
 	sessMu   sync.Mutex
@@ -90,6 +96,8 @@ type Service struct {
 	//Replica hooks fired by PullCopy / VerifyLocalCopies
 	OnReplicaVerified func(rec metadata.FileRecord, volumeID string)
 	OnReplicaStale    func(rec metadata.FileRecord, volumeID string)
+	//OnDiskFull fires when a volume drops under the low water mark.
+	OnDiskFull func(vol metadata.Volume)
 }
 
 // New creates the service and registers its node endpoints.
@@ -107,9 +115,17 @@ func New(opt Option) (*Service, error) {
 		opt.ReconcileInterval = 30 * time.Minute
 	}
 	os.MkdirAll(filepath.Join(opt.TmpDir, "cluster"), 0755)
+	if opt.Scheduler == nil {
+		sc, err := scheduling.New(opt.Membership, opt.Metadata)
+		if err != nil {
+			return nil, err
+		}
+		opt.Scheduler = sc
+	}
 	s := &Service{
 		m:        opt.Membership,
 		meta:     opt.Metadata,
+		sched:    opt.Scheduler,
 		client:   &Client{Transport: opt.Membership.Transport()},
 		opt:      opt,
 		sessions: map[string]*session{},
@@ -177,44 +193,72 @@ func usable(state membership.NodeState) bool {
 }
 
 // pickVolume chooses the volume that should receive a new copy of size
-// bytes. preferNode gets first choice, then an existing primary, then the
-// most free space. exclude lists volume IDs that must not be chosen.
+// bytes. Nodes are ranked by the cluster scorer (so a busy, distant or
+// nearly full node loses), preferNode and preferVolume win ties, and the
+// roomiest writable volume of the winning node is used.
 func (s *Service) pickVolume(size int64, preferNode string, preferVolume string, exclude []string) (*metadata.Volume, error) {
 	need := size + size/10 + placementHeadroom
-	var candidates []metadata.Volume
-	for _, v := range s.meta.Volumes() {
-		if v.Removed || v.ReadOnly || v.Evacuating || v.Free < need {
-			continue
-		}
-		skip := false
-		for _, ex := range exclude {
-			if ex == v.ID {
-				skip = true
-				break
-			}
-		}
-		if skip || !usable(s.nodeState(v.NodeID)) {
-			continue
-		}
-		candidates = append(candidates, v)
+	excluded := map[string]bool{}
+	for _, id := range exclude {
+		excluded[id] = true
 	}
-	if len(candidates) == 0 {
+	//Group the usable volumes by node
+	byNode := map[string][]metadata.Volume{}
+	for _, v := range s.meta.Volumes() {
+		if v.Removed || v.ReadOnly || v.Evacuating || v.Free < need || excluded[v.ID] {
+			continue
+		}
+		byNode[v.NodeID] = append(byNode[v.NodeID], v)
+	}
+	if len(byNode) == 0 {
 		return nil, ErrNoVolume
 	}
-	sort.Slice(candidates, func(i, j int) bool {
-		a, b := candidates[i], candidates[j]
-		if (a.ID == preferVolume) != (b.ID == preferVolume) {
-			return a.ID == preferVolume
+	candidates := []scheduling.Candidate{}
+	for _, n := range s.m.NodeViews() {
+		vols, ok := byNode[n.ID]
+		if !ok {
+			continue
 		}
-		if (a.NodeID == preferNode) != (b.NodeID == preferNode) {
-			return a.NodeID == preferNode
+		best := 0.0
+		for _, v := range vols {
+			if v.Capacity > 0 {
+				if f := float64(v.Free) / float64(v.Capacity); f > best {
+					best = f
+				}
+			}
 		}
-		if a.Free != b.Free {
-			return a.Free > b.Free
+		c := scheduling.Candidate{Node: n, FreeDisk: best, LatencyToData: -1, Diversity: -1}
+		if n.ID == preferNode {
+			c.Locality = 1 //writing where the bytes already are costs nothing
 		}
-		return a.ID < b.ID
+		candidates = append(candidates, c)
+	}
+	ranked := s.sched.Rank(candidates, func(c scheduling.Candidate) (bool, string) {
+		if !usable(c.Node.State) {
+			return false, "node is " + strings.ToLower(string(c.Node.State))
+		}
+		return true, ""
 	})
-	v := candidates[0]
+	nodeID, why := scheduling.Best(ranked)
+	if nodeID == "" {
+		if why != "" {
+			//Keep the sentinel so callers can still test for it, but say
+			//why the only candidate was turned down
+			return nil, fmt.Errorf("%w (%s)", ErrNoVolume, why)
+		}
+		return nil, ErrNoVolume
+	}
+	vols := byNode[nodeID]
+	sort.Slice(vols, func(i, j int) bool {
+		if (vols[i].ID == preferVolume) != (vols[j].ID == preferVolume) {
+			return vols[i].ID == preferVolume
+		}
+		if vols[i].Free != vols[j].Free {
+			return vols[i].Free > vols[j].Free
+		}
+		return vols[i].ID < vols[j].ID
+	})
+	v := vols[0]
 	return &v, nil
 }
 

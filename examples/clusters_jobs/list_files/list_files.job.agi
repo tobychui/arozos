@@ -1,0 +1,91 @@
+/*
+    List cluster files - the job half
+
+    Walks the whole cluster:/ drive and returns every file with its size and
+    extension, plus a total per extension. It can run on any node: cluster:/
+    looks the same everywhere, so the scheduler is free to pick the least
+    busy one.
+
+    args (all optional):
+        root   folder to list, default "cluster:/"
+        limit  how many files to put in the list, default 5000. The totals
+               always cover every file; the limit only keeps the reply small
+               on a very large drive.
+*/
+
+requirelib("filelib");
+
+function humanSize(bytes) {
+    var units = ["B", "KB", "MB", "GB", "TB"];
+    var i = 0;
+    var v = bytes;
+    while (v >= 1024 && i < units.length - 1) {
+        v = v / 1024;
+        i++;
+    }
+    return (i === 0 ? v : v.toFixed(1)) + " " + units[i];
+}
+
+function extensionOf(name) {
+    var dot = name.lastIndexOf(".");
+    if (dot <= 0 || dot === name.length - 1) {
+        return "";     //no extension, or a dot file such as .gitignore
+    }
+    return name.substring(dot + 1).toLowerCase();
+}
+
+function run(job) {
+    var args = job.args || {};
+    var root = args.root || "cluster:/";
+    var limit = args.limit > 0 ? args.limit : 5000;
+
+    job.log("Walking " + root);
+    var paths = filelib.walk(root, "file");
+    if (!paths) {
+        throw new Error("cannot read " + root);
+    }
+
+    var files = [];
+    var byExtension = {};
+    var totalBytes = 0;
+
+    for (var i = 0; i < paths.length; i++) {
+        job.abortIfCancelled();
+
+        var path = paths[i];
+        var name = path.split("/").pop();
+        var ext = extensionOf(name);
+        var size = filelib.filesize(path);
+
+        totalBytes += size;
+        var key = ext === "" ? "(none)" : ext;
+        if (!byExtension[key]) {
+            byExtension[key] = { files: 0, bytes: 0 };
+        }
+        byExtension[key].files++;
+        byExtension[key].bytes += size;
+
+        if (files.length < limit) {
+            files.push({ path: path, name: name, extension: ext, size: size, sizeText: humanSize(size) });
+        }
+
+        if (i % 200 === 0) {
+            job.progress(i / paths.length);
+        }
+    }
+
+    for (var k in byExtension) {
+        byExtension[k].sizeText = humanSize(byExtension[k].bytes);
+    }
+
+    return {
+        root: root,
+        listedOn: job.node,
+        totalFiles: paths.length,
+        totalBytes: totalBytes,
+        totalSizeText: humanSize(totalBytes),
+        truncated: paths.length > files.length,
+        byExtension: byExtension,
+        files: files
+    };
+}

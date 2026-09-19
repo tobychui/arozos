@@ -48,6 +48,9 @@ var (
 	TombstoneTTL = 7 * 24 * time.Hour
 )
 
+// latencyAlpha is the weight of the newest measurement in the moving average.
+const latencyAlpha = 0.3
+
 // Health is the transient load snapshot a node ships with each heartbeat.
 type Health struct {
 	CPUUsage  float64 `json:"cpuUsage"` //percent
@@ -141,6 +144,9 @@ type NodeView struct {
 	State  NodeState `json:"state"`
 	Local  bool      `json:"local"`
 	Tunnel bool      `json:"tunnel"` //true when this node currently terminates the peer's tunnel
+	//LatencyMs is this node's moving average round trip to the member,
+	//-1 when it has never been measured.
+	LatencyMs float64 `json:"latencyMs"`
 }
 
 // ClusterInfo identifies the cluster itself plus the cluster-wide settings

@@ -60,6 +60,16 @@ func (mgr *Manager) apply(e Entry) bool {
 		if json.Unmarshal(e.Payload, &p) == nil {
 			changed = mgr.st.putPolicy(&p)
 		}
+	case KindJob:
+		var j Job
+		if json.Unmarshal(e.Payload, &j) == nil {
+			changed = mgr.st.putJob(&j)
+		}
+	case KindSetting:
+		var st Setting
+		if json.Unmarshal(e.Payload, &st) == nil {
+			changed = mgr.st.putSetting(&st)
+		}
 	}
 	if changed && mgr.OnChange != nil {
 		mgr.OnChange(e.Kind, e.Payload)
@@ -230,6 +240,18 @@ func (mgr *Manager) applySnapshot(snap Snapshot) {
 	}
 	for i := range snap.Policies {
 		mgr.st.putPolicy(&snap.Policies[i])
+	}
+	for i := range snap.Jobs {
+		if mgr.st.putJob(&snap.Jobs[i]) && mgr.OnChange != nil {
+			js, _ := json.Marshal(snap.Jobs[i])
+			mgr.OnChange(KindJob, js)
+		}
+	}
+	for i := range snap.Settings {
+		if mgr.st.putSetting(&snap.Settings[i]) && mgr.OnChange != nil {
+			js, _ := json.Marshal(snap.Settings[i])
+			mgr.OnChange(KindSetting, js)
+		}
 	}
 	mgr.st.setApplied(snap.LastSeq, snap.Term)
 	mgr.st.setLastSeq(snap.LastSeq)

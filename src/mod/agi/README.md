@@ -2498,6 +2498,51 @@ Register a hook script (run as you) for one or more event types; `types` is a st
 ### `cluster.emit(type, data)` → bool
 Publish a custom event (`app.` prefix added) with a JSON-serialisable payload under 64 KB to every node.
 
+### `cluster.jobs.submit(spec)` → string
+Queue a job on the cluster. `spec` is `{name, script, args, inputs, features, nodes, timeout}`;
+`script` is the vpath of an `.agi` file that defines `run(job)`. The source is
+captured at submit time and runs as you on whichever node satisfies `features`
+and holds most of `inputs`. `nodes` is an optional list of node ids (from
+`cluster.nodes()`) that limits where the job may run; pass one id to send a
+job to a specific node, for example to run something on every member. A job
+whose nodes are all unavailable stays queued. Returns the job id. Worked
+examples live in `examples/clusters_jobs/`.
+### `cluster.jobs.status(id)` → object
+The job record: `spec` and `state` (status, node, progress, log, output, error).
+### `cluster.jobs.list()` → array
+### `cluster.jobs.cancel(id)` → bool
+### `cluster.jobs.wait(id, timeoutSec)` → object
+Blocks (in Go, not in JavaScript) until the job reaches a terminal state.
+
+### `cluster.jobs.mapreduce(spec)` → string
+Queue a map/reduce job: `{name, script, dataset, partitionMax, features, timeout}`.
+`dataset` is a glob over the cluster namespace (`*` within a folder, `**`
+across folders, `?` one character). The matching files are grouped by the node
+that already holds them, split into partitions of `partitionMax` files
+(default 50) and mapped there; the emitted pairs are then grouped by key and
+handed to one reduce task. The parent job's output is the reducer result.
+
+A map/reduce script defines both halves:
+
+```javascript
+function mapper(files, emit) {   // files = the paths of this partition
+    files.forEach(function(f){ emit(f.split(".").pop(), 1); });
+}
+function reducer(key, values) { return values.length; }
+```
+
+A job script looks like this:
+
+```javascript
+function run(job) {              // job = {id, name, kind, args, inputs, node, owner}
+    job.log("starting on " + job.node);
+    job.progress(0.5);
+    job.abortIfCancelled();
+    requirelib("filelib");
+    return {files: filelib.aglob(job.inputs[0] + "/*").length};
+}
+```
+
 ```javascript
 requirelib("cluster");
 if (cluster.inCluster()) {

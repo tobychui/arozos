@@ -66,7 +66,9 @@ type Manager struct {
 	loopMu    sync.Mutex
 	loopStop  chan struct{}
 	loopWG    sync.WaitGroup
-	reachable map[string]bool //last known reachability per peer, for log de-duplication
+	reachable map[string]bool    //last known reachability per peer, for log de-duplication
+	latency   map[string]float64 //EWMA round trip to each peer, milliseconds
+	latencyMx latencyCache       //cached pairwise matrix collected from peers
 	started   time.Time
 
 	//OnClusterChange fires (outside the lock) whenever the replicated
@@ -121,6 +123,7 @@ func NewManager(opt Option) (*Manager, error) {
 		nodes:     map[string]*NodeRecord{},
 		tokens:    map[string]*JoinToken{},
 		reachable: map[string]bool{},
+		latency:   map[string]float64{},
 		started:   time.Now(),
 	}
 	m.caps = opt.Capabilities()
@@ -646,6 +649,8 @@ func (m *Manager) wipeLocalState() {
 	m.nodes = map[string]*NodeRecord{}
 	m.tokens = map[string]*JoinToken{}
 	m.reachable = map[string]bool{}
+	m.latency = map[string]float64{}
+	m.latencyMx.reset()
 	m.refreshLocalRecordLocked()
 	m.mu.Unlock()
 	m.fireMembershipChange(false)
@@ -865,11 +870,18 @@ func (m *Manager) NodeViews() []NodeView {
 			continue
 		}
 		local := rec.ID == m.opt.NodeID
+		lat := -1.0
+		if local {
+			lat = 0
+		} else if v, ok := m.latency[rec.ID]; ok {
+			lat = v
+		}
 		out = append(out, NodeView{
 			NodeRecord: rec,
 			State:      rec.ComputeState(now, local),
 			Local:      local,
 			Tunnel:     m.hub.Connected(rec.ID),
+			LatencyMs:  lat,
 		})
 	}
 	return out
@@ -1049,11 +1061,13 @@ func (m *Manager) heartbeatAll() {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 			var resp HeartbeatResponse
+			start := time.Now()
 			err := m.transport.DoJSON(ctx, peerID, http.MethodPost, acn.BasePath+"/heartbeat", HeartbeatRequest{Node: local, Cluster: cluster}, &resp)
 			m.noteReachability(peerID, err)
 			if err != nil {
 				return
 			}
+			m.noteLatency(peerID, float64(time.Since(start).Microseconds())/1000)
 			m.markSeen(peerID)
 			m.mergeGossip(resp.Cluster, resp.Nodes)
 		}(id)
@@ -1067,6 +1081,43 @@ func (m *Manager) markSeen(nodeID string) {
 	if rec, ok := m.nodes[nodeID]; ok {
 		rec.LastSeen = time.Now().Unix()
 	}
+}
+
+// noteLatency folds a round trip measurement into the peer's moving average.
+func (m *Manager) noteLatency(peerID string, ms float64) {
+	if ms < 0 {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if prev, ok := m.latency[peerID]; ok {
+		m.latency[peerID] = prev*(1-latencyAlpha) + ms*latencyAlpha
+	} else {
+		m.latency[peerID] = ms
+	}
+}
+
+// Latency returns the moving average round trip to a peer in milliseconds.
+// known is false when this node has never measured it (0 for the local node).
+func (m *Manager) Latency(nodeID string) (ms float64, known bool) {
+	if nodeID == m.opt.NodeID {
+		return 0, true
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	v, ok := m.latency[nodeID]
+	return v, ok
+}
+
+// Latencies returns a copy of every measured round trip.
+func (m *Manager) Latencies() map[string]float64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := map[string]float64{}
+	for k, v := range m.latency {
+		out[k] = v
+	}
+	return out
 }
 
 // noteReachability logs only when a peer flips between reachable and not.

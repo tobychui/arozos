@@ -1,0 +1,60 @@
+/*
+    FFmpeg convert - the launcher
+
+    Converts cluster:/demo.mp4 into cluster:/demo.webm as a cluster job.
+    You never choose the node: the job asks for the "ffmpeg" capability and
+    names its input file, and the scheduler picks a node that has ffmpeg,
+    preferring one that already stores demo.mp4.
+
+    Optional GET/POST parameters:
+        input   default cluster:/demo.mp4
+        output  default cluster:/demo.webm
+
+    A conversion can take a while, so this waits up to 30 seconds and then
+    returns the job id. Watch the rest on System Settings > Cluster Jobs, or
+    call cluster.jobs.status(id) later.
+
+    Keep ffmpeg_convert.job.agi in the same folder as this file.
+*/
+
+requirelib("cluster");
+
+function main() {
+    if (!cluster.inCluster()) {
+        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster." };
+    }
+
+    var src = (typeof input !== "undefined" && input !== "") ? input : "cluster:/demo.mp4";
+    var dst = (typeof output !== "undefined" && output !== "") ? output : "cluster:/demo.webm";
+
+    var id = cluster.jobs.submit({
+        name: "Convert " + src.split("/").pop() + " to " + dst.split(".").pop().toUpperCase(),
+        script: "ffmpeg_convert.job.agi",
+        args: { input: src, output: dst },
+        inputs: [src],          //prefer a node that already holds the video
+        features: ["ffmpeg"],   //only nodes with ffmpeg may take this job
+        timeout: 3600
+    });
+
+    var rec;
+    try {
+        rec = cluster.jobs.wait(id, 30);
+    } catch (e) {
+        rec = cluster.jobs.status(id);
+        return {
+            job: id,
+            status: rec.state.status,
+            node: rec.state.node || "",
+            //When nothing can take the job, reason says why (for example no node has ffmpeg)
+            reason: rec.state.reason || "",
+            note: "Still working. Follow it on System Settings > Cluster Jobs."
+        };
+    }
+
+    if (rec.state.status !== "succeeded") {
+        return { job: id, status: rec.state.status, error: rec.state.error || rec.state.reason || "" };
+    }
+    return rec.state.output;
+}
+
+sendJSONResp(JSON.stringify(main()));

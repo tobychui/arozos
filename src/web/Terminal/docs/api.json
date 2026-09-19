@@ -1548,6 +1548,48 @@
           "desc": "Publish a custom event (type is prefixed with \"app.\") to every node; data must be JSON serialisable and under 64 KB.",
           "ret": "bool",
           "example": "cluster.emit(\"gallery.rebuilt\", {album: \"2026\"});"
+        },
+        {
+          "name": "cluster.jobs.submit",
+          "sig": "cluster.jobs.submit({name, script, args, inputs, features, nodes, timeout})",
+          "desc": "Queue a job. script is the vpath of an .agi file that defines run(job); it is captured at submit time and runs as you on whichever node fits. inputs are cluster:/ paths used to run near the data; features are required node capabilities; nodes is an optional list of node ids the job may run on.",
+          "ret": "string (job id)",
+          "example": "var id = cluster.jobs.submit({name: \"Index\", script: \"user:/jobs/index.agi\", inputs: [\"cluster:/photos\"], features: [\"ffmpeg\"]});"
+        },
+        {
+          "name": "cluster.jobs.status",
+          "sig": "cluster.jobs.status(id)",
+          "desc": "Job record with spec and state (status, node, progress, log, output).",
+          "ret": "object",
+          "example": "var s = cluster.jobs.status(id); sendResp(s.state.status);"
+        },
+        {
+          "name": "cluster.jobs.list",
+          "sig": "cluster.jobs.list()",
+          "desc": "Your jobs, newest first (all jobs for administrators).",
+          "ret": "array",
+          "example": "sendJSONResp(cluster.jobs.list());"
+        },
+        {
+          "name": "cluster.jobs.cancel",
+          "sig": "cluster.jobs.cancel(id)",
+          "desc": "Cancel a queued or running job.",
+          "ret": "bool",
+          "example": "cluster.jobs.cancel(id);"
+        },
+        {
+          "name": "cluster.jobs.wait",
+          "sig": "cluster.jobs.wait(id, timeoutSec)",
+          "desc": "Block until the job finishes (default 300 s) and return its record.",
+          "ret": "object",
+          "example": "var done = cluster.jobs.wait(id, 120); sendJSONResp(done.state.output);"
+        },
+        {
+          "name": "cluster.jobs.mapreduce",
+          "sig": "cluster.jobs.mapreduce({name, script, dataset, partitionMax, features, timeout})",
+          "desc": "Queue a map/reduce job. The script must define mapper(files, emit) and reducer(key, values). dataset is a glob over the cluster namespace (* within a folder, ** across folders, ?); its files are grouped by the node that holds them and processed there, then the emitted pairs are grouped by key and reduced. Returns the parent job id; its output is the reducer result.",
+          "ret": "string (job id)",
+          "example": "var id = cluster.jobs.mapreduce({name: \"Count types\", script: \"user:/jobs/count.agi\", dataset: \"cluster:/photos/**/*.jpg\", partitionMax: 50});"
         }
       ]
     }

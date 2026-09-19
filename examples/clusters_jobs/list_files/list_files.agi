@@ -1,0 +1,51 @@
+/*
+    List cluster files - the launcher
+
+    Submits list_files.job.agi as one cluster job, waits for it and returns
+    its output: every file under cluster:/ with its size and extension, and
+    a size total per extension.
+
+    Optional GET/POST parameters:
+        root   folder to list, default cluster:/
+        limit  maximum files in the list, default 5000
+
+    Keep list_files.job.agi in the same folder as this file.
+*/
+
+requirelib("cluster");
+
+function main() {
+    if (!cluster.inCluster()) {
+        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster." };
+    }
+
+    var args = {};
+    if (typeof root !== "undefined" && root !== "") {
+        args.root = root;
+    }
+    if (typeof limit !== "undefined" && parseInt(limit) > 0) {
+        args.limit = parseInt(limit);
+    }
+
+    var id = cluster.jobs.submit({
+        name: "List cluster files",
+        script: "list_files.job.agi",
+        args: args,
+        timeout: 600
+    });
+
+    var rec;
+    try {
+        rec = cluster.jobs.wait(id, 120);
+    } catch (e) {
+        rec = cluster.jobs.status(id);
+        return { job: id, status: rec.state.status, note: "Still running. Follow it on System Settings > Cluster Jobs." };
+    }
+
+    if (rec.state.status !== "succeeded") {
+        return { job: id, status: rec.state.status, error: rec.state.error || rec.state.reason || "" };
+    }
+    return rec.state.output;
+}
+
+sendJSONResp(JSON.stringify(main()));

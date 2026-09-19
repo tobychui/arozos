@@ -435,3 +435,78 @@ func TestUpdateConfigValidation(t *testing.T) {
 		t.Errorf("tunnel via self should be cleared, got %q (%v)", m.Config().TunnelVia, err)
 	}
 }
+
+func TestPairLatency(t *testing.T) {
+	matrix := map[string]map[string]float64{
+		"a": {"b": 10, "c": 50},
+		"b": {"a": 20},
+	}
+	tests := []struct {
+		name  string
+		a, b  string
+		want  float64
+		known bool
+	}{
+		{"both directions are averaged", "a", "b", 15, true},
+		{"one direction is enough", "a", "c", 50, true},
+		{"reverse direction is enough", "c", "a", 50, true},
+		{"a node is zero from itself", "a", "a", 0, true},
+		{"never measured", "b", "c", 0, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, known := PairLatency(matrix, tc.a, tc.b)
+			if known != tc.known || got != tc.want {
+				t.Errorf("PairLatency(%s, %s) = %v, %v; want %v, %v", tc.a, tc.b, got, known, tc.want, tc.known)
+			}
+		})
+	}
+}
+
+func TestLatencyMatrixCollectsFromPeers(t *testing.T) {
+	a, _ := newTestManager(t, "node-a", true)
+	b, _ := newTestManager(t, "node-b", true)
+	if _, err := a.CreateCluster("Matrix"); err != nil {
+		t.Fatalf("CreateCluster: %v", err)
+	}
+	token, _, err := a.NewJoinToken(time.Hour)
+	if err != nil {
+		t.Fatalf("NewJoinToken: %v", err)
+	}
+	if _, err := b.JoinCluster(token); err != nil {
+		t.Fatalf("JoinCluster: %v", err)
+	}
+	//Drive one heartbeat round on each side instead of waiting out the
+	//interval; that is what records the round trips
+	a.heartbeatAll()
+	b.heartbeatAll()
+	if _, ok := a.Latency("node-b"); !ok {
+		t.Fatalf("a did not measure b")
+	}
+	if _, ok := b.Latency("node-a"); !ok {
+		t.Fatalf("b did not measure a")
+	}
+
+	a.ResetLatencyMatrix()
+	m := a.LatencyMatrix()
+	if _, ok := m["node-a"]["node-b"]; !ok {
+		t.Errorf("the local row is missing: %+v", m)
+	}
+	if _, ok := m["node-b"]["node-a"]; !ok {
+		t.Errorf("the peer row was not collected: %+v", m)
+	}
+	if _, known := PairLatency(m, "node-a", "node-b"); !known {
+		t.Errorf("the pair should be known once both rows are in")
+	}
+
+	//The matrix is cached, so a second call does not go out again; the local
+	//row stays current either way
+	before := time.Now()
+	m2 := a.LatencyMatrix()
+	if time.Since(before) > time.Second {
+		t.Errorf("a cached matrix should return immediately")
+	}
+	if len(m2) != len(m) {
+		t.Errorf("cached matrix lost rows: %+v", m2)
+	}
+}

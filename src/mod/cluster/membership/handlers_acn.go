@@ -9,6 +9,7 @@ package membership
 	POST /cluster/acn/members/sync   signed, push of membership changes
 	POST /cluster/acn/leave          signed, sender leaves
 	POST /cluster/acn/evict          signed, sender removed this node
+	GET  /cluster/acn/latency        signed, this node's round trips to its peers
 */
 
 import (
@@ -28,6 +29,7 @@ func (m *Manager) registerACNHandlers() {
 	m.server.HandleFunc(acn.BasePath+"/members/sync", m.handleSync)
 	m.server.HandleFunc(acn.BasePath+"/leave", m.handleLeave)
 	m.server.HandleFunc(acn.BasePath+"/evict", m.handleEvict)
+	m.server.HandleFunc(acn.BasePath+"/latency", m.handleLatency)
 }
 
 func sanitizeName(name string) string {

@@ -372,6 +372,50 @@
         </div>
     </div>
 
+    <!-- Scheduling -->
+    <div class="cl-card" id="card-sched" style="display:none">
+        <div class="cl-card-head">
+            <span><span id="lbl-sched">Scheduling</span><span class="cl-sub" id="sched-summary"></span></span>
+            <span>
+                <button class="cl-btn small" onclick="resetWeights()"><span id="lbl-schedreset">Restore defaults</span></button>
+                <button class="cl-btn small" onclick="saveWeights()"><span id="lbl-schedsave">Save weights</span></button>
+            </span>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-hint" id="hint-sched">Jobs, new files and extra copies go to the node with the highest score. Raise a weight to make that quality matter more.</div>
+            <div class="cl-grid" style="margin-top:10px">
+                <div id="sched-weights"></div>
+                <div>
+                    <div class="cl-field">
+                        <label id="lbl-schedexplain">Why did a job land there?</label>
+                        <div class="cl-row">
+                            <input type="text" id="sched-job" placeholder="job id">
+                            <button class="cl-btn cl-fixed" onclick="explainJob()"><span id="lbl-schedexplainbtn">Explain</span></button>
+                        </div>
+                        <div class="cl-hint" id="hint-schedexplain">Copy a job id from the Cluster Jobs page to see the ranking it was placed with.</div>
+                    </div>
+                    <ul class="cl-inline-list" id="sched-explain"></ul>
+                </div>
+            </div>
+            <div style="overflow-x:auto; margin-top:12px">
+                <table class="cl-table">
+                    <thead><tr>
+                        <th id="th-schednode">Node</th><th id="th-schedcpu">CPU free</th><th id="th-schedmem">RAM free</th>
+                        <th id="th-scheddisk">Disk free</th><th id="th-schedping">Round trip</th><th id="th-schedscore">Score</th>
+                    </tr></thead>
+                    <tbody id="sched-body"></tbody>
+                </table>
+            </div>
+            <div id="sched-matrix-wrap" style="display:none; margin-top:12px">
+                <div class="cl-hint" id="hint-schedmatrix">Round trip between each pair of nodes, in milliseconds. Copies of a file are spread over the slowest pairs, because distance usually means a different site.</div>
+                <div style="overflow-x:auto; margin-top:6px">
+                    <table class="cl-table" id="sched-matrix"></table>
+                </div>
+            </div>
+            <div class="cl-msg" id="msg-sched"></div>
+        </div>
+    </div>
+
     <!-- Members -->
     <div class="cl-card" id="card-nodes" style="display:none">
         <div class="cl-card-head"><span id="lbl-nodes">Nodes</span></div>
@@ -834,17 +878,139 @@
         });
     }
 
+    /* Scheduling */
+    var WEIGHT_FIELDS = [
+        ['locality', 'Data locality', 'Prefer a node that already holds the data'],
+        ['cpu', 'Free CPU', 'Prefer an idle processor'],
+        ['memory', 'Free memory', 'Prefer a node with spare RAM'],
+        ['disk', 'Free disk', 'Prefer a node with room to grow'],
+        ['queue', 'Queue depth', 'Avoid a node that is already busy'],
+        ['latency', 'Network distance', 'Avoid a node far from the data'],
+        ['degraded', 'Health', 'Avoid a node that is struggling'],
+        ['preferred', 'Wanted features', 'Prefer a node with the optional features a job asks for'],
+        ['diversity', 'Site diversity', 'Put a second copy far from the first, so one site going down loses nothing']
+    ];
+    var schedDirty = false;
+
+    function renderWeights(w) {
+        var html = '';
+        WEIGHT_FIELDS.forEach(function(f) {
+            var key = f[0], val = (w[key] === undefined ? 0 : w[key]);
+            html += '<div class="cl-field" style="margin-bottom:8px">' +
+                '<label>' + t('cluster/sched/' + key, f[1]) + ' <span class="cl-node-meta" id="wv-' + key + '">' + val.toFixed(2) + '</span></label>' +
+                '<input type="range" min="0" max="1" step="0.05" id="w-' + key + '" value="' + val + '" style="width:100%">' +
+                '<div class="cl-hint">' + t('cluster/sched/' + key + '/hint', f[2]) + '</div></div>';
+        });
+        document.getElementById('sched-weights').innerHTML = html;
+        WEIGHT_FIELDS.forEach(function(f) {
+            var el = document.getElementById('w-' + f[0]);
+            el.addEventListener('input', function() {
+                schedDirty = true;
+                document.getElementById('wv-' + f[0]).textContent = parseFloat(el.value).toFixed(2);
+            });
+        });
+    }
+    function loadSched() {
+        $.getJSON(API + 'sched/status', function(st) {
+            if (apiResult(st)) return;
+            document.getElementById('card-sched').style.display = '';
+            if (!schedDirty) renderWeights(st.weights || {});
+            var rows = '';
+            (st.nodes || []).forEach(function(n) {
+                var pct = Math.round(n.score * 100);
+                rows += '<tr><td><div class="cl-node-name">' + esc(n.name) + (n.local ? ' <span class="cl-chip">' + t('cluster/thisnode', 'This node') + '</span>' : '') + '</div>' +
+                    '<div class="cl-node-meta"><span class="cl-badge ' + esc(n.state).toUpperCase() + '">' + esc(n.state).toUpperCase() + '</span> ' +
+                    (n.features ? n.features + ' ' + t('cluster/sched/features', 'features') : '') + '</div></td>' +
+                    '<td>' + Math.round(n.cpuFree * 100) + '%</td>' +
+                    '<td>' + Math.round(n.memFree * 100) + '%</td>' +
+                    '<td>' + Math.round(n.diskFree * 100) + '%</td>' +
+                    '<td>' + (n.local ? t('cluster/sched/here', 'local') : (n.latencyMs < 0 ? '-' : Math.round(n.latencyMs) + ' ms')) + '</td>' +
+                    '<td>' + pct + '%' + bar(pct) + '</td></tr>';
+            });
+            document.getElementById('sched-body').innerHTML = rows || '<tr><td colspan="6" class="cl-empty">' + t('cluster/sched/nonodes', 'No nodes to score') + '</td></tr>';
+            var top = (st.nodes || [])[0];
+            document.getElementById('sched-summary').textContent = top ? ' ' + t('cluster/sched/next', 'next job would run on') + ' ' + top.name : '';
+            renderMatrix(st);
+        });
+    }
+    function renderMatrix(st) {
+        var wrap = document.getElementById('sched-matrix-wrap');
+        var nodes = st.nodes || [];
+        var matrix = st.matrix || {};
+        if (nodes.length < 2 || Object.keys(matrix).length === 0) { wrap.style.display = 'none'; return; }
+        var head = '<thead><tr><th>' + t('cluster/sched/from', 'From / to') + '</th>';
+        nodes.forEach(function(n) { head += '<th>' + esc(n.name) + '</th>'; });
+        head += '</tr></thead>';
+        var body = '<tbody>';
+        nodes.forEach(function(from) {
+            body += '<tr><td><div class="cl-node-name">' + esc(from.name) + '</div></td>';
+            nodes.forEach(function(to) {
+                var cell;
+                if (from.id === to.id) cell = '<span class="cl-node-meta">-</span>';
+                else {
+                    var row = matrix[from.id] || {};
+                    var v = row[to.id];
+                    cell = (v === undefined) ? '<span class="cl-node-meta">' + t('cluster/sched/unmeasured', 'not measured') + '</span>' : (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ms';
+                }
+                body += '<td>' + cell + '</td>';
+            });
+            body += '</tr>';
+        });
+        document.getElementById('sched-matrix').innerHTML = head + body + '</tbody>';
+        wrap.style.display = '';
+    }
+    function collectWeights() {
+        var out = {};
+        WEIGHT_FIELDS.forEach(function(f) { out[f[0]] = document.getElementById('w-' + f[0]).value; });
+        return out;
+    }
+    function saveWeights() {
+        apiPost('sched/weights', collectWeights(), function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-sched', e, false); return; }
+            schedDirty = false;
+            showMsg('msg-sched', t('cluster/sched/saved', 'Weights saved for the whole cluster'), true);
+            loadSched();
+        });
+    }
+    function resetWeights() {
+        apiPost('sched/weights', { reset: true }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-sched', e, false); return; }
+            schedDirty = false;
+            loadSched();
+        });
+    }
+    function explainJob() {
+        var id = document.getElementById('sched-job').value.trim();
+        if (!id) return;
+        $.getJSON(API + 'sched/explain?job=' + encodeURIComponent(id), function(res) {
+            var e = apiResult(res);
+            if (e) { showMsg('msg-sched', e, false); return; }
+            var html = '<li><span>' + esc(res.job || id) + '</span><span class="cl-node-meta">' + esc(res.status || '') + (res.node ? ' \u00b7 ' + esc(nodeName(res.node)) : '') + '</span></li>';
+            (res.ranking || []).forEach(function(r) {
+                var detail = r.eligible ? (r.factors || []).map(function(f) {
+                    return esc(f.name) + ' ' + (f.points >= 0 ? '+' : '') + f.points.toFixed(2);
+                }).join(', ') : esc(r.reason);
+                html += '<li><span>' + esc(r.nodeName) + ' <span class="cl-node-meta">' + detail + '</span></span>' +
+                    '<span>' + (r.eligible ? (r.score * 100).toFixed(0) + '%' : '<span class="cl-badge OFFLINE">' + t('cluster/sched/skipped', 'SKIPPED') + '</span>') + '</span></li>';
+            });
+            document.getElementById('sched-explain').innerHTML = html;
+        }).fail(function() { showMsg('msg-sched', t('cluster/sched/nojob', 'No such job on this cluster'), false); });
+    }
+
     /* Actions */
     function loadStatus() {
         $.getJSON(API + 'status', function(data) {
             if (apiResult(data)) return;
             clusterStatus = data;
             render();
-            if (data.inCluster) { loadIdentity(); loadStorage(); loadMeta(); loadRepl(); }
+            if (data.inCluster) { loadIdentity(); loadStorage(); loadMeta(); loadRepl(); loadSched(); }
             else {
                 document.getElementById('card-storage').style.display = 'none';
                 document.getElementById('card-meta').style.display = 'none';
                 document.getElementById('card-repl').style.display = 'none';
+                document.getElementById('card-sched').style.display = 'none';
             }
         });
     }

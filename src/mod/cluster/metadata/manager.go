@@ -148,6 +148,28 @@ func (mgr *Manager) Submit(kind string, rec interface{}) error {
 			version = nextVersion(0)
 		}
 		v.Version = version
+	case KindJob:
+		j, ok := rec.(*Job)
+		if !ok || j.ID == "" {
+			return errors.New("invalid job record")
+		}
+		if old, ok := mgr.st.getJob(j.ID); ok {
+			version = nextVersion(old.Version)
+		} else {
+			version = nextVersion(0)
+		}
+		j.Version = version
+	case KindSetting:
+		st, ok := rec.(*Setting)
+		if !ok || st.Key == "" {
+			return errors.New("invalid setting record")
+		}
+		if old, ok := mgr.st.getSetting(st.Key); ok {
+			version = nextVersion(old.Version)
+		} else {
+			version = nextVersion(0)
+		}
+		st.Version = version
 	case KindPolicy:
 		p, ok := rec.(*Policy)
 		if !ok || p.Folder == "" {
@@ -229,6 +251,26 @@ func (mgr *Manager) Volumes() []Volume {
 // Volume returns one volume.
 func (mgr *Manager) Volume(id string) (*Volume, bool) {
 	return mgr.st.getVolume(id)
+}
+
+// Job returns one replicated job record.
+func (mgr *Manager) Job(id string) (*Job, bool) {
+	return mgr.st.getJob(id)
+}
+
+// Jobs lists every replicated job record, newest first.
+func (mgr *Manager) Jobs() []Job {
+	return mgr.st.allJobs()
+}
+
+// GCJobs removes finished job records created before cutoff.
+func (mgr *Manager) GCJobs(cutoff int64, keepStatus map[string]bool) int {
+	return mgr.st.gcJobs(cutoff, keepStatus)
+}
+
+// Setting returns a cluster-wide setting.
+func (mgr *Manager) Setting(key string) (*Setting, bool) {
+	return mgr.st.getSetting(key)
 }
 
 // Policies lists the folder policies.

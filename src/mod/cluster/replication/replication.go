@@ -28,6 +28,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/cluster/membership"
 	"imuslab.com/arozos/mod/cluster/metadata"
+	"imuslab.com/arozos/mod/cluster/scheduling"
 	"imuslab.com/arozos/mod/cluster/storage"
 	"imuslab.com/arozos/mod/info/logger"
 )
@@ -68,6 +69,8 @@ type Option struct {
 	Membership *membership.Manager
 	Metadata   *metadata.Manager
 	Storage    *storage.Service
+	//Scheduler scores the nodes when choosing where a replica goes.
+	Scheduler *scheduling.Manager
 
 	PlanInterval       time.Duration
 	TaskLease          time.Duration
@@ -81,10 +84,11 @@ type Option struct {
 
 // Manager is the replication service of this node.
 type Manager struct {
-	m    *membership.Manager
-	meta *metadata.Manager
-	st   *storage.Service
-	opt  Option
+	m     *membership.Manager
+	meta  *metadata.Manager
+	st    *storage.Service
+	sched *scheduling.Manager
+	opt   Option
 
 	mu       sync.Mutex
 	tasks    map[string]*Task //leader side, by task ID
@@ -144,10 +148,18 @@ func New(opt Option) (*Manager, error) {
 	if opt.MaxWorkers <= 0 {
 		opt.MaxWorkers = 4
 	}
+	if opt.Scheduler == nil {
+		sc, err := scheduling.New(opt.Membership, opt.Metadata)
+		if err != nil {
+			return nil, err
+		}
+		opt.Scheduler = sc
+	}
 	r := &Manager{
 		m:       opt.Membership,
 		meta:    opt.Metadata,
 		st:      opt.Storage,
+		sched:   opt.Scheduler,
 		opt:     opt,
 		tasks:   map[string]*Task{},
 		byFile:  map[string]string{},
@@ -269,10 +281,17 @@ func (r *Manager) plan() PlanResult {
 					continue
 				}
 			}
-			if !loc.Healthy() || !nodeUsable(loc.NodeID) {
+			draining := false
+			if n, ok := nodes[loc.NodeID]; ok && n.State == membership.StateDraining {
+				draining = true
+			}
+			//A draining node still serves reads, so its copies count as a
+			//source even though nothing new may be placed there.
+			if !loc.Healthy() || (!nodeUsable(loc.NodeID) && !draining) {
 				continue
 			}
-			if vol.Evacuating {
+			if vol.Evacuating || draining {
+				//A draining node is being emptied, like an evacuating volume
 				evac = append(evac, loc)
 			} else {
 				healthy = append(healthy, loc)
@@ -389,8 +408,38 @@ func pickSource(healthy []metadata.Location, evac []metadata.Location, nodes map
 	return all[0]
 }
 
-// pickTarget chooses where the next copy goes: a node without a healthy copy,
-// preferring an existing stale location (in-place repair), then most free.
+// siteDiversity rates how far a candidate node sits from the nodes that
+// already hold the file: 0 when it is right next to the nearest one, 1 when
+// it is a second or more away. Distance is a decent stand-in for "different
+// site", so spreading copies over it survives one site going down. It needs
+// at least three nodes to be worth anything; below that there is no choice to
+// make and the caller passes -1 (the factor is then left out of the score).
+func siteDiversity(matrix map[string]map[string]float64, candidate string, holders []string) float64 {
+	nearest := -1.0
+	for _, h := range holders {
+		ms, known := membership.PairLatency(matrix, candidate, h)
+		if !known {
+			continue
+		}
+		if nearest < 0 || ms < nearest {
+			nearest = ms
+		}
+	}
+	if nearest < 0 {
+		return -1 //nothing measured, do not guess
+	}
+	d := nearest / 1000
+	if d > 1 {
+		d = 1
+	}
+	return d
+}
+
+// pickTarget chooses where the next copy goes: a node without a healthy
+// copy, ranked by the cluster scorer so copies land on a healthy, roomy and
+// nearby node, and - once the cluster is big enough to have a choice - as far
+// as possible from the copies that already exist. An existing stale copy is
+// repaired in place.
 func (r *Manager) pickTarget(rec *metadata.FileRecord, volumes map[string]metadata.Volume, nodes map[string]membership.NodeView, perNode map[string]int) *metadata.Volume {
 	need := rec.Size + rec.Size/10 + placementHeadroom
 	nodesWithHealthy := map[string]bool{}
@@ -403,37 +452,81 @@ func (r *Manager) pickTarget(rec *metadata.FileRecord, volumes map[string]metada
 			staleVolumes[loc.VolumeID] = true
 		}
 	}
-	var candidates []metadata.Volume
+	byNode := map[string][]metadata.Volume{}
 	for _, v := range volumes {
 		if v.Removed || v.ReadOnly || v.Evacuating || nodesWithHealthy[v.NodeID] {
-			continue
-		}
-		n, ok := nodes[v.NodeID]
-		if !ok || !usableState(n.State) || perNode[v.NodeID] >= r.opt.MaxInFlightPerNode {
 			continue
 		}
 		if v.Free < need && !staleVolumes[v.ID] {
 			continue
 		}
-		candidates = append(candidates, v)
+		byNode[v.NodeID] = append(byNode[v.NodeID], v)
 	}
-	if len(candidates) == 0 {
+	if len(byNode) == 0 {
 		return nil
 	}
-	sort.Slice(candidates, func(i, j int) bool {
-		a, b := candidates[i], candidates[j]
-		if staleVolumes[a.ID] != staleVolumes[b.ID] {
-			return staleVolumes[a.ID]
+	//Site diversity only makes sense once there is a real choice of node
+	var matrix map[string]map[string]float64
+	holders := []string{}
+	if len(nodes) >= 3 && len(nodesWithHealthy) > 0 && len(byNode) > 1 {
+		for id := range nodesWithHealthy {
+			holders = append(holders, id)
 		}
-		if (nodes[a.NodeID].State == membership.StateOnline) != (nodes[b.NodeID].State == membership.StateOnline) {
-			return nodes[a.NodeID].State == membership.StateOnline
+		sort.Strings(holders)
+		matrix = r.m.LatencyMatrix()
+	}
+	candidates := []scheduling.Candidate{}
+	for id, vols := range byNode {
+		n, ok := nodes[id]
+		if !ok {
+			continue
 		}
-		if a.Free != b.Free {
-			return a.Free > b.Free
+		best := 0.0
+		hasStale := false
+		for _, v := range vols {
+			if v.Capacity > 0 {
+				if f := float64(v.Free) / float64(v.Capacity); f > best {
+					best = f
+				}
+			}
+			if staleVolumes[v.ID] {
+				hasStale = true
+			}
 		}
-		return a.ID < b.ID
+		c := scheduling.Candidate{Node: n, Queue: perNode[id], FreeDisk: best, LatencyToData: -1, Diversity: -1}
+		if hasStale {
+			c.Locality = 1 //repairing in place moves no bytes between folders
+		}
+		if matrix != nil {
+			c.Diversity = siteDiversity(matrix, id, holders)
+		}
+		candidates = append(candidates, c)
+	}
+	ranked := r.sched.Rank(candidates, func(c scheduling.Candidate) (bool, string) {
+		if !usableState(c.Node.State) {
+			return false, "node is not available"
+		}
+		if perNode[c.Node.ID] >= r.opt.MaxInFlightPerNode {
+			return false, "node already has enough copies in flight"
+		}
+		return true, ""
 	})
-	return &candidates[0]
+	nodeID, _ := scheduling.Best(ranked)
+	if nodeID == "" {
+		return nil
+	}
+	vols := byNode[nodeID]
+	sort.Slice(vols, func(i, j int) bool {
+		if staleVolumes[vols[i].ID] != staleVolumes[vols[j].ID] {
+			return staleVolumes[vols[i].ID]
+		}
+		if vols[i].Free != vols[j].Free {
+			return vols[i].Free > vols[j].Free
+		}
+		return vols[i].ID < vols[j].ID
+	})
+	v := vols[0]
+	return &v
 }
 
 /*

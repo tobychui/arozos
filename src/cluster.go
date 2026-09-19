@@ -15,9 +15,11 @@ import (
 	"imuslab.com/arozos/mod/cluster/capability"
 	"imuslab.com/arozos/mod/cluster/events"
 	"imuslab.com/arozos/mod/cluster/identity"
+	"imuslab.com/arozos/mod/cluster/jobs"
 	"imuslab.com/arozos/mod/cluster/membership"
 	"imuslab.com/arozos/mod/cluster/metadata"
 	"imuslab.com/arozos/mod/cluster/replication"
+	"imuslab.com/arozos/mod/cluster/scheduling"
 	"imuslab.com/arozos/mod/cluster/storage"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/abstractions/clusterfs"
@@ -47,6 +49,8 @@ var (
 	clusterStorage      *storage.Service
 	clusterReplication  *replication.Manager
 	clusterEvents       *events.Bus
+	clusterJobs         *jobs.Manager
+	clusterScheduling   *scheduling.Manager
 	clusterMountMu      sync.Mutex
 )
 
@@ -160,6 +164,56 @@ func (c *clusterProvider) Hooks(owner string) interface{} {
 		return []events.Hook{}
 	}
 	return clusterEvents.Hooks(owner)
+}
+func (c *clusterProvider) SubmitJob(owner string, name string, scriptVpath string, args []byte, inputs []string, features []string, nodes []string, timeoutSec int, dataset string, partitionMax int) (interface{}, error) {
+	if clusterJobs == nil {
+		return nil, errors.New("cluster jobs not available")
+	}
+	source, err := clusterReadScript(owner, scriptVpath)
+	if err != nil {
+		return nil, err
+	}
+	req := jobs.SubmitRequest{
+		Name: name, ScriptVpath: scriptVpath, Script: source,
+		Inputs: inputs, Features: features, Nodes: nodes, TimeoutSec: timeoutSec,
+		Dataset: dataset, PartitionMax: partitionMax,
+	}
+	if len(args) > 0 && json.Valid(args) {
+		req.Args = json.RawMessage(args)
+	}
+	return clusterJobs.Submit(jobs.SpecFrom(req, owner))
+}
+func (c *clusterProvider) JobStatus(id string, requester string, isAdmin bool) (interface{}, error) {
+	if clusterJobs == nil {
+		return nil, errors.New("cluster jobs not available")
+	}
+	rec, ok := clusterJobs.Get(id)
+	if !ok || (!isAdmin && rec.Spec.Owner != requester) {
+		return nil, errors.New("job not found")
+	}
+	return rec, nil
+}
+func (c *clusterProvider) JobList(owner string) interface{} {
+	if clusterJobs == nil {
+		return []jobs.Record{}
+	}
+	return clusterJobs.List(owner)
+}
+func (c *clusterProvider) CancelJob(id string, requester string, isAdmin bool) error {
+	if clusterJobs == nil {
+		return errors.New("cluster jobs not available")
+	}
+	return clusterJobs.Cancel(id, requester, isAdmin)
+}
+func (c *clusterProvider) WaitJob(id string, timeoutSec int, requester string, isAdmin bool) (interface{}, error) {
+	if clusterJobs == nil {
+		return nil, errors.New("cluster jobs not available")
+	}
+	rec, ok := clusterJobs.Get(id)
+	if !ok || (!isAdmin && rec.Spec.Owner != requester) {
+		return nil, errors.New("job not found")
+	}
+	return clusterJobs.WaitFor(id, timeoutSec)
 }
 func (c *clusterProvider) Emit(user string, evType string, data []byte) error {
 	if clusterEvents == nil {
@@ -383,10 +437,19 @@ func ClusterInit() {
 			clusterMetadata = mdm
 			clusterMetadata.RegisterAdminRoutes(registerAdmin)
 
+			//Placement scoring shared by jobs, writes and replication
+			if sch, err := scheduling.New(clusterManager, clusterMetadata); err != nil {
+				systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster scheduling: "+err.Error(), err)
+			} else {
+				clusterScheduling = sch
+				clusterScheduling.RegisterAdminRoutes(registerAdmin, clusterSchedExplain)
+			}
+
 			//Storage: volumes, chunked transfer and the cluster:/ drive
 			sto, err := storage.New(storage.Option{
 				Membership: clusterManager,
 				Metadata:   clusterMetadata,
+				Scheduler:  clusterScheduling,
 				TmpDir:     *tmp_directory,
 				LocalRoots: clusterLocalRoots,
 			})
@@ -432,6 +495,10 @@ func ClusterInit() {
 						data, _ := json.Marshal(map[string]string{"volume": volumeID})
 						bus.Publish(events.Event{Type: "replica.stale", Path: rec.Path, FileID: rec.ID, Data: data})
 					}
+					clusterStorage.OnDiskFull = func(vol metadata.Volume) {
+						data, _ := json.Marshal(map[string]interface{}{"volume": vol.ID, "name": vol.Name, "free": vol.Free, "capacity": vol.Capacity})
+						bus.Publish(events.Event{Type: "node.diskfull", Node: vol.NodeID, Data: data})
+					}
 					userRouter := prout.NewModuleRouter(prout.RouterOption{
 						ModuleName:  "System Setting",
 						AdminOnly:   false,
@@ -457,6 +524,49 @@ func ClusterInit() {
 					})
 				}
 
+				//Job runtime and scheduler
+				jm, err := jobs.New(jobs.Option{
+					Membership:    clusterManager,
+					Metadata:      clusterMetadata,
+					Executor:      &clusterJobExecutor{},
+					Scheduler:     clusterScheduling,
+					LocalityBytes: clusterJobLocality,
+				})
+				if err != nil {
+					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster jobs: "+err.Error(), err)
+				} else {
+					clusterJobs = jm
+					if clusterEvents != nil {
+						clusterJobs.OnFinished = func(rec jobs.Record) {
+							evType := "job.completed"
+							if rec.State.Status != jobs.StatusSucceeded {
+								evType = "job.failed"
+							}
+							data, _ := json.Marshal(map[string]string{"name": rec.Spec.Name, "status": rec.State.Status, "error": rec.State.Error})
+							clusterEvents.Publish(events.Event{Type: evType, FileID: rec.Spec.ID, User: rec.Spec.Owner, Node: rec.State.Node, Data: data})
+						}
+					}
+					jobRouter := prout.NewModuleRouter(prout.RouterOption{
+						ModuleName:  "Tasks Scheduler",
+						AdminOnly:   false,
+						UserHandler: userHandler,
+						DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+							errorHandlePermissionDenied(w, r)
+						},
+					})
+					clusterJobs.RegisterUserRoutes(func(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+						jobRouter.HandleFunc(pattern, handler)
+					}, clusterJobCaller, clusterJobSubmit)
+					registerSetting(settingModule{
+						Name:         "Cluster Jobs",
+						Desc:         "Run scripts on any node of the cluster",
+						IconPath:     "SystemAO/cluster/img/small_icon.png",
+						Group:        "Cluster",
+						StartDir:     "SystemAO/cluster/jobs.html",
+						RequireAdmin: false,
+					})
+				}
+
 				//AGI "cluster" library
 				if AGIGateway != nil {
 					AGIGateway.Option.ClusterProvider = &clusterProvider{}
@@ -468,6 +578,7 @@ func ClusterInit() {
 					Membership: clusterManager,
 					Metadata:   clusterMetadata,
 					Storage:    clusterStorage,
+					Scheduler:  clusterScheduling,
 				})
 				if err != nil {
 					systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster replication: "+err.Error(), err)
@@ -536,6 +647,9 @@ func ClusterInit() {
 
 // ClusterShutdown stops heartbeats and tunnels before the process exits.
 func ClusterShutdown() {
+	if clusterJobs != nil {
+		clusterJobs.Close()
+	}
 	if clusterEvents != nil {
 		clusterEvents.Close()
 	}

@@ -249,12 +249,12 @@ logical computer (namespace, identity, compute) while each node keeps its own
 hardware, OS and storage and keeps working standalone when the cluster is away.
 The runtime lives in [`src/mod/cluster/`](src/mod/cluster/) and is documented in
 [`src/mod/cluster/README.md`](src/mod/cluster/README.md) — read that first.
-Phases 1 (membership) and 2 (identity) are done; the exact work order for the
-remaining phases (metadata store, `cluster:/` drive, replication, AGI library
-and events, jobs, map/reduce, scheduling) is
-[`src/mod/cluster/TASKS.md`](src/mod/cluster/TASKS.md). When asked to continue
-the cluster, pick the next unfinished task from that file and follow its
-instructions and ground rules literally.
+All nine phases are built and verified: membership, identity, metadata store,
+the `cluster:/` drive, replication, the AGI library and event bus, jobs,
+map/reduce and scheduling.
+[`src/mod/cluster/TASKS.md`](src/mod/cluster/TASKS.md) is kept as the design
+record, with every deviation from the original plan listed at the top; read it
+before changing how a phase works, but start new work from the packages below.
 
 - **ACN** ([`src/mod/cluster/acn/`](src/mod/cluster/acn/)) is the node-to-node
   protocol: Ed25519 node keys, signed requests with replay protection, and a
@@ -301,6 +301,22 @@ instructions and ground rules literally.
   copies, drop of extras, evacuation of retiring volumes, stale marking for
   nodes offline over 10 minutes); workers pull with `storage.Service.PullCopy`
   and report back under a task lease. A nightly pass re-checksums local copies.
+- **Jobs** ([`src/mod/cluster/jobs/`](src/mod/cluster/jobs/)): AGI job scripts
+  defining `run(job)` are captured at submit time, scheduled by the metadata
+  leader on capability match and input locality, executed per node through
+  `agi.Gateway.ExecuteJobScript` (core adapter `src/cluster.jobs.go`) with
+  progress, logs, leases, timeouts and cancellation. AGI: `cluster.jobs.*`.
+- **Scheduling** ([`src/mod/cluster/scheduling/`](src/mod/cluster/scheduling/)):
+  one weighted scorer answers "which node?" for jobs, write placement and
+  replication. Weights (locality, free CPU/RAM/disk, queue depth, network
+  distance, health, wanted features) are a replicated cluster setting edited
+  on the Cluster page; every score carries its factors, so
+  `/system/cluster/sched/explain?job=<id>` can show why a node won. Heartbeat
+  round trips feed `NodeView.LatencyMs`, and a volume under 5 % free goes
+  read only with a `node.diskfull` event. For a second copy the planner also
+  scores site diversity, using a pairwise latency matrix collected on demand
+  from the members (`GET /cluster/acn/latency`, cached two minutes) instead of
+  gossiping latency vectors.
 - **State** lives in its own key-value file `system/cluster.db` (never `ao.db`)
   and the node key in `system/cluster/node.key`.
 - **Design rules:** whole files, never chunked storage; cross-node transfers in
