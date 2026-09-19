@@ -186,19 +186,34 @@ master and can always be rebuilt from the real files (storage reconcile).
   online peers (`meta/append`). Followers submit through the leader
   (`meta/submit`) or queue in `meta_pending` until one is reachable. Gaps
   are filled by `meta/log?after=N`; a compacted range or a new term triggers
-  a full `meta/snapshot`.
+  a full `meta/snapshot`. Only one goroutine drains the pending queue at a
+  time; other callers ask it for another round.
+- **Persistence** (`persist.go`): the store serves everything from memory
+  and writes its disk copy behind. A change updates memory under the store
+  lock and queues its disk write; queued writes are coalesced per key and
+  committed in one `database.WriteBatch` transaction every 50 ms, and
+  `Close` commits the rest. No disk sync ever happens under the store lock,
+  and the lease has its own lock, so a burst of writes cannot starve lease
+  renewal. A crash loses at most the last flush interval of this node's disk
+  copy, which catch-up or a snapshot restores like any other gap. Reading
+  the log back (`meta/log`, compaction) flushes first.
 - Tables (`meta_*`) are registered with `membership.RegisterClusterTable`
-  and wiped when the node leaves.
+  and wiped when the node leaves; the old store's queued writes are dropped
+  then, so they cannot bring wiped records back.
 
 Admin API: `/system/cluster/meta/{status,ls,stat,policy/list,policy/set}`.
 
 ## Storage (ACS) and the `cluster:/` drive
 
 Package `storage/` plus the file-system backend
-`mod/filesystem/abstractions/clusterfs`. When a node is in a cluster the core
-mounts a `Cluster` drive (`cluster:/`, public hierarchy, buffered) into the
-base storage pool, so File Manager, WebDAV, media serving and the AGI
-`filelib` use it like any other drive.
+`mod/filesystem/abstractions/clusterfs`. When a node is in a cluster **and
+the cluster has at least one volume**, the core mounts a `Cluster` drive
+(`cluster:/`, public hierarchy, buffered) into the base storage pool, so File
+Manager, WebDAV, media serving and the AGI `filelib` use it like any other
+drive. Without a cluster or without a volume the drive is unmounted, so it is
+missing from File Manager and from everything that walks the mounted drives
+(nightly tasks included). `clusterSyncDrive` in `src/cluster.go` re-checks on
+every membership change and every volume record change.
 
 - **Volumes**: an admin contributes a folder of a local drive
   (`storage/volume/add`, e.g. `user:/cluster`). Files in the namespace are
@@ -216,7 +231,14 @@ base storage pool, so File Manager, WebDAV, media serving and the AGI
   whole-file SHA-256 at commit, resumable, `.part-<session>` files renamed
   into place, sized for Cloudflare's request limits.
 
-Admin API: `/system/cluster/storage/{status,volume/add,volume/remove,volume/readonly,rescan}`.
+- **Nearly full volumes**: below 5 % free a volume goes read only
+  (`LowSpace`) and stops taking new files, and it recovers above 7 %. The
+  cluster-wide setting `storage.autoReadOnly` (Cluster Settings > Storage)
+  turns this off; volumes the guard had locked become writable again at
+  each node's next volume refresh (within a minute). Read only set by an
+  admin is never touched.
+
+Admin API: `/system/cluster/storage/{status,volume/add,volume/remove,volume/readonly,rescan,autoreadonly}`.
 
 ## Replication
 
@@ -271,6 +293,12 @@ status queries locally and a new leader resumes scheduling.
   `job.log()`, `job.progress()`, `job.cancelled()` and `job.abortIfCancelled()`,
   runs it as the owner through the AGI gateway, and publishes the return value
   as the job output. At most `NumCPU()` jobs run per node; the rest wait.
+- **Dispatch once**: scheduling passes are serialised, so two passes never
+  both see a job as queued and hand it out twice, and a node accepts each
+  job once even if a hand-over is repeated. A node that answers a hand-over
+  with a temporary error (a tunnel still connecting after a restart, not
+  yet knowing the leader) is retried; only "the owner has no account here"
+  or "this node cannot run jobs" keeps it away from that job for good.
 - **Leases**: a running node refreshes the job lease every 10 s. If it goes
   silent the leader requeues the job, and fails it after `MaxAttempts`.
   Cancellation marks the record; the running node interrupts its VM.
@@ -351,7 +379,8 @@ volume.
 Endpoints: `/system/cluster/sched/status` (weights, a per-node score preview
 and the latency matrix), `sched/weights` (GET / POST, any subset of the fields
 or `reset=true`) and `sched/explain?job=<id>`. UI: the Scheduling card on the
-Cluster page, with the weight sliders, the score preview and the matrix.
+Cluster Settings page (weight sliders) and the Cluster Info page (score
+preview, latency matrix and the explain box).
 
 Weights are read back through the defaults, so a record written by an older
 version keeps the shipped value for a weight it never knew about.
@@ -360,8 +389,29 @@ version keeps the shipped value for a weight it never knew about.
 
 `status`, `create`, `join`, `leave`, `config`, `testurl`, `token/new`,
 `token/list`, `token/revoke`, `node/remove`, `node/state`, `node/probe`,
-`nodes`, `capabilities`, `sched/{status,weights,explain}`. The UI is
-[`web/SystemAO/cluster/cluster.html`](../../web/SystemAO/cluster/cluster.html).
+`nodes`, `capabilities`, `sched/{status,weights,explain}`.
+
+The UI is three System Settings tabs in the Cluster group:
+
+| Tab | Page | What it holds |
+|---|---|---|
+| Cluster Settings | [`cluster.html`](../../web/SystemAO/cluster/cluster.html) | this node's name and URL, create / join / leave, join tokens, identity origin, volumes and the nearly-full toggle, replica policies, member maintenance and draining, scheduling weights |
+| Cluster Info | [`clusterinfo.html`](../../web/SystemAO/cluster/clusterinfo.html) | this node's reachability, platform and health, the cluster summary and namespace state, the node table with probes, replication health and tools, scheduling scores, the latency matrix and the job explainer |
+| Cluster Jobs | [`jobs.html`](../../web/SystemAO/cluster/jobs.html) | submit, follow and cancel jobs |
+
+They share `cluster.css` and `cluster.common.js`. Every string is localized
+through [`web/SystemAO/locale/cluster.json`](../../web/SystemAO/locale/cluster.json)
+(en-us, zh-tw, zh-hk, zh-cn, ja-jp, ko-kr): static labels carry a `locale`
+attribute, scripts call `CL.t(key, fallback)`, and messages that come back
+from the server go through `CL.tr(message)`, which matches `msg/<text>`
+entries exactly and `msgp/<template>` entries with `{0}`-style parts (each
+part translated again). When you add a server message that reaches these
+pages, add it to the locale file too; untranslated messages simply stay in
+English.
+
+Start ArozOS with `-disable_cluster` to leave the whole feature off: no
+cluster agent, no `cluster:/` drive, no cluster tabs, and `/cluster/acn/*`
+answers 404.
 
 ## Roadmap
 

@@ -5,6 +5,7 @@ package storage
 */
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -191,6 +192,7 @@ func (s *Service) SetVolumeReadOnly(id string, ro bool) error {
 
 // refreshVolumes republishes free space when it moved by more than 1 %.
 func (s *Service) refreshVolumes() {
+	auto := s.AutoReadOnly()
 	for _, v := range s.LocalVolumes() {
 		root, err := s.volumeRoot(&v)
 		if err != nil {
@@ -205,25 +207,79 @@ func (s *Service) refreshVolumes() {
 			delta = -delta
 		}
 		//A volume under the low water mark stops taking new files until it
-		//recovers, so a node never fills its own disk.
-		isFull, recovered := spaceState(free, total, v.ReadOnly && v.LowSpace)
+		//recovers, so a node never fills its own disk (unless an admin turned
+		//that off for the cluster).
 		wasFull := v.ReadOnly && v.LowSpace
+		mark, clear := lowSpaceAction(free, total, wasFull, auto)
 		changed := total != v.Capacity || (total > 0 && delta*100 > total)
-		if isFull && !wasFull {
+		if mark {
 			v.ReadOnly, v.LowSpace, changed = true, true, true
 			logger.PrintAndLog("Cluster", "Volume "+v.Name+" is nearly full and stops taking new files", nil)
 			if s.OnDiskFull != nil {
 				s.OnDiskFull(v)
 			}
-		} else if recovered {
+		} else if clear {
 			v.ReadOnly, v.LowSpace, changed = false, false, true
-			logger.PrintAndLog("Cluster", "Volume "+v.Name+" has room again and takes new files", nil)
+			if auto {
+				logger.PrintAndLog("Cluster", "Volume "+v.Name+" has room again and takes new files", nil)
+			} else {
+				logger.PrintAndLog("Cluster", "Volume "+v.Name+" takes new files again: automatic read-only is turned off", nil)
+			}
 		}
 		if changed {
 			v.Free, v.Capacity = free, total
 			s.meta.Submit(metadata.KindVolume, &v)
 		}
 	}
+}
+
+// AutoReadOnlyKey is the replicated setting that turns the nearly-full guard
+// on or off for the whole cluster.
+const AutoReadOnlyKey = "storage.autoReadOnly"
+
+type autoReadOnlySetting struct {
+	Enabled bool `json:"enabled"`
+}
+
+// AutoReadOnly reports whether volumes that are nearly full are made read
+// only automatically. It is on unless an admin turned it off.
+func (s *Service) AutoReadOnly() bool {
+	st, ok := s.meta.Setting(AutoReadOnlyKey)
+	if !ok {
+		return true
+	}
+	var v autoReadOnlySetting
+	if json.Unmarshal(st.Value, &v) != nil {
+		return true
+	}
+	return v.Enabled
+}
+
+// SetAutoReadOnly turns the nearly-full guard on or off for every node. This
+// node applies it at once; the others at their next volume refresh.
+func (s *Service) SetAutoReadOnly(enabled bool) error {
+	js, err := json.Marshal(autoReadOnlySetting{Enabled: enabled})
+	if err != nil {
+		return err
+	}
+	if err := s.meta.Submit(metadata.KindSetting, &metadata.Setting{Key: AutoReadOnlyKey, Value: js}); err != nil {
+		return err
+	}
+	go s.refreshVolumes()
+	return nil
+}
+
+// lowSpaceAction decides what the guard does to one volume. wasFull says the
+// guard itself made the volume read only earlier. With the guard on, a volume
+// is marked below the low water mark and released above the recover mark;
+// with it off, nothing is marked and anything the guard had marked is
+// released, while read-only set by an admin is never touched.
+func lowSpaceAction(free int64, total int64, wasFull bool, auto bool) (mark bool, clear bool) {
+	if !auto {
+		return false, wasFull
+	}
+	full, recovered := spaceState(free, total, wasFull)
+	return full && !wasFull, recovered
 }
 
 // spaceState decides whether a volume is too full to take new files. The two

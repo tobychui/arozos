@@ -13,7 +13,7 @@ pair of files:
 
 Keep both files of a pair in the same folder: the launcher refers to its job
 by a relative path. The node you run the launcher on must be a member of a
-cluster (System Settings > Cluster).
+cluster (System Settings > Cluster Settings).
 
 | Example | What it shows |
 |---|---|
@@ -61,7 +61,7 @@ var rec = cluster.jobs.wait(id, 60);   // throws if it is still running after 60
 `cluster.jobs.status(id)`, `cluster.jobs.list()` and `cluster.jobs.cancel(id)`
 work on jobs you submitted. Every job also appears on System Settings >
 Cluster Jobs, and an administrator can see why a job landed where it did on
-the Scheduling card of the Cluster page.
+the Scheduling card of the Cluster Info page.
 
 A job that no node can take yet stays queued, and `rec.state.reason` says
 why, for example that no online node has ffmpeg.

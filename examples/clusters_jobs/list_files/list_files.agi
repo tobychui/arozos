@@ -5,7 +5,7 @@
     its output: every file under cluster:/ with its size and extension, and
     a size total per extension.
 
-    Optional GET/POST parameters:
+    Optional parameters, in the URL query or a form body:
         root   folder to list, default cluster:/
         limit  maximum files in the list, default 5000
 
@@ -14,17 +14,35 @@
 
 requirelib("cluster");
 
+//Read a request parameter. A script run as a Serverless endpoint gets the
+//request through getPara() (URL query) and postPara() (form body); a WebApp
+//backend script gets its POST fields as global variables instead.
+function requestParam(name) {
+    var v = null;
+    if (typeof getPara === "function") {
+        v = getPara(name);
+    }
+    if ((v === null || v === "") && typeof postPara === "function") {
+        v = postPara(name);
+    }
+    if (v === null || v === "") {
+        var globalScope = (function () { return this; })();
+        v = (typeof globalScope[name] === "string") ? globalScope[name] : "";
+    }
+    return v === null ? "" : String(v);
+}
+
 function main() {
     if (!cluster.inCluster()) {
-        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster." };
+        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster Settings." };
     }
 
     var args = {};
-    if (typeof root !== "undefined" && root !== "") {
-        args.root = root;
+    if (requestParam("root") !== "") {
+        args.root = requestParam("root");
     }
-    if (typeof limit !== "undefined" && parseInt(limit) > 0) {
-        args.limit = parseInt(limit);
+    if (parseInt(requestParam("limit")) > 0) {
+        args.limit = parseInt(requestParam("limit"));
     }
 
     var id = cluster.jobs.submit({

@@ -23,7 +23,7 @@ var WAIT_SECONDS = 60;
 
 function main() {
     if (!cluster.inCluster()) {
-        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster." };
+        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster Settings." };
     }
 
     var submitted = [];

@@ -6,7 +6,7 @@
     names its input file, and the scheduler picks a node that has ffmpeg,
     preferring one that already stores demo.mp4.
 
-    Optional GET/POST parameters:
+    Optional parameters, in the URL query or a form body:
         input   default cluster:/demo.mp4
         output  default cluster:/demo.webm
 
@@ -19,13 +19,31 @@
 
 requirelib("cluster");
 
+//Read a request parameter. A script run as a Serverless endpoint gets the
+//request through getPara() (URL query) and postPara() (form body); a WebApp
+//backend script gets its POST fields as global variables instead.
+function requestParam(name) {
+    var v = null;
+    if (typeof getPara === "function") {
+        v = getPara(name);
+    }
+    if ((v === null || v === "") && typeof postPara === "function") {
+        v = postPara(name);
+    }
+    if (v === null || v === "") {
+        var globalScope = (function () { return this; })();
+        v = (typeof globalScope[name] === "string") ? globalScope[name] : "";
+    }
+    return v === null ? "" : String(v);
+}
+
 function main() {
     if (!cluster.inCluster()) {
-        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster." };
+        return { error: "This node is not part of a cluster. Create or join one in System Settings > Cluster Settings." };
     }
 
-    var src = (typeof input !== "undefined" && input !== "") ? input : "cluster:/demo.mp4";
-    var dst = (typeof output !== "undefined" && output !== "") ? output : "cluster:/demo.webm";
+    var src = requestParam("input") || "cluster:/demo.mp4";
+    var dst = requestParam("output") || "cluster:/demo.webm";
 
     var id = cluster.jobs.submit({
         name: "Convert " + src.split("/").pop() + " to " + dst.split(".").pop().toUpperCase(),

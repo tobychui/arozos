@@ -269,9 +269,14 @@ before changing how a phase works, but start new work from the packages below.
   is the cluster agent: create / join (pasteable join tokens) / leave, records
   merged last-writer-wins by gossip, heartbeats, computed node states, health
   and capability manifests ([`src/mod/cluster/capability/`](src/mod/cluster/capability/)).
-  Admin API `/system/cluster/*` and the System Settings page
-  [`src/web/SystemAO/cluster/cluster.html`](src/web/SystemAO/cluster/cluster.html);
-  wiring in [`src/cluster.go`](src/cluster.go).
+  Admin API `/system/cluster/*` and the System Settings tabs Cluster
+  Settings ([`cluster.html`](src/web/SystemAO/cluster/cluster.html)), Cluster
+  Info ([`clusterinfo.html`](src/web/SystemAO/cluster/clusterinfo.html)) and
+  Cluster Jobs; all three are localized through
+  [`src/web/SystemAO/locale/cluster.json`](src/web/SystemAO/locale/cluster.json)
+  (server messages included, via `CL.tr`), so add new user-facing strings and
+  server messages there. Wiring in [`src/cluster.go`](src/cluster.go);
+  `-disable_cluster` turns the whole feature off.
 - **Identity** ([`src/mod/cluster/identity/`](src/mod/cluster/identity/)):
   one member is the *identity origin*; other members forward logins to it
   through the auth agent's `ForwardAuth` hook (password hash only), mirror the
@@ -286,10 +291,15 @@ before changing how a phase works, but start new work from the packages below.
   replicated log with catch-up and snapshots. Write through
   `Submit(kind, record)`, read through `Stat` / `ListDir` / `Volumes` /
   `PolicyFor`; new cluster tables go through `membership.RegisterClusterTable`.
+  The disk copy is written behind (`persist.go`, batched through
+  `database.WriteBatch`): never add a synced disk write inside the store
+  lock, or a write burst starves lease renewal and the leader loses its lease.
 - **Storage and the `cluster:/` drive**
   ([`src/mod/cluster/storage/`](src/mod/cluster/storage/),
   [`src/mod/filesystem/abstractions/clusterfs/`](src/mod/filesystem/abstractions/clusterfs/)):
   admins contribute folders (volumes); files stay whole files inside them.
+  The drive is only mounted while the node is in a cluster that has at least
+  one volume (`clusterSyncDrive`), so otherwise nothing sees or scans it.
   Writes spool and hash locally, get placed by the leader, are copied
   (locally or by the 4 MiB chunked, SHA-256 verified `store/*` protocol) and
   only then published. The core mounts the drive into the base storage pool
@@ -310,7 +320,7 @@ before changing how a phase works, but start new work from the packages below.
   one weighted scorer answers "which node?" for jobs, write placement and
   replication. Weights (locality, free CPU/RAM/disk, queue depth, network
   distance, health, wanted features) are a replicated cluster setting edited
-  on the Cluster page; every score carries its factors, so
+  on the Cluster Settings page; every score carries its factors, so
   `/system/cluster/sched/explain?job=<id>` can show why a node won. Heartbeat
   round trips feed `NodeView.LatencyMs`, and a volume under 5 % free goes
   read only with a `node.diskfull` event. For a second copy the planner also

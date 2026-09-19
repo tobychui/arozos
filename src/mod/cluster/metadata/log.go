@@ -236,10 +236,16 @@ func (mgr *Manager) applySnapshot(snap Snapshot) {
 		}
 	}
 	for i := range snap.Volumes {
-		mgr.st.putVolume(&snap.Volumes[i])
+		if mgr.st.putVolume(&snap.Volumes[i]) && mgr.OnChange != nil {
+			js, _ := json.Marshal(snap.Volumes[i])
+			mgr.OnChange(KindVolume, js)
+		}
 	}
 	for i := range snap.Policies {
-		mgr.st.putPolicy(&snap.Policies[i])
+		if mgr.st.putPolicy(&snap.Policies[i]) && mgr.OnChange != nil {
+			js, _ := json.Marshal(snap.Policies[i])
+			mgr.OnChange(KindPolicy, js)
+		}
 	}
 	for i := range snap.Jobs {
 		if mgr.st.putJob(&snap.Jobs[i]) && mgr.OnChange != nil {
@@ -274,7 +280,30 @@ func (mgr *Manager) pendingLoop() {
 
 // flushPending hands queued entries to the leader (or accepts them locally
 // when this node became the leader meanwhile).
+// flushPending drains the pending queue. It is called after every local
+// write, so only one call does the work at a time: a second call just asks
+// the running one for another round. Many concurrent drains each walking the
+// whole queue made the work grow with the square of the backlog.
 func (mgr *Manager) flushPending() {
+	mgr.flushAgain.Store(true)
+	for {
+		if !mgr.flushing.CompareAndSwap(false, true) {
+			return //the active drain will see flushAgain
+		}
+		for mgr.flushAgain.Swap(false) {
+			mgr.drainPending()
+		}
+		mgr.flushing.Store(false)
+		//A request that arrived as we were finishing gets its round now
+		if !mgr.flushAgain.Load() {
+			return
+		}
+	}
+}
+
+// drainPending sends every queued change to the leader, or accepts it when
+// this node is the leader.
+func (mgr *Manager) drainPending() {
 	pending := mgr.st.pendingEntries()
 	if len(pending) == 0 {
 		return

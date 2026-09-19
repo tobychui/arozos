@@ -1825,8 +1825,32 @@ body.fmResizing *{
     */
     pointer-events: none;
 }
+/* A failed row uses the "Retry" text link in the status line instead of the button */
 #uploadTab .uploadTask.failed .uploadTaskAction{
-    color: var(--upload_progress_failed);
+    display: none;
+}
+#uploadTab .uploadTaskRetry{
+    display: none;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    color: var(--upload_progressbar);
+    cursor: pointer;
+}
+#uploadTab .uploadTask.failed .uploadTaskRetry{
+    display: inline-block;
+    margin-left: -2px;
+}
+#uploadTab .uploadTask.failed .uploadTaskRetry::before{
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    margin-right: 10px;
+    vertical-align: -2px;
+    background-color: var(--fs-line);
+}
+#uploadTab .uploadTaskRetry:hover{
+    text-decoration: underline;
 }
 #uploadTab .uploadTaskAction:hover{
     background-color: var(--fs-fill-hover);

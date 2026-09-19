@@ -43,8 +43,9 @@ const (
 var Tables = []string{tableFiles, tablePaths, tableVolumes, tablePolicy, tableJobs, tableSettings, tableLog, tablePending, tableState}
 
 type store struct {
-	db *database.Database
-	mu sync.RWMutex
+	db      *database.Database
+	persist *persister //disk writes happen here, never under mu
+	mu      sync.RWMutex
 
 	files    map[string]*FileRecord
 	paths    map[string]string
@@ -57,6 +58,10 @@ type store struct {
 	lastSeq uint64
 	applied uint64
 	term    uint64
+
+	//The lease has its own lock: renewing it must never wait behind the
+	//namespace, or a busy leader loses its lease.
+	leaseMu sync.RWMutex
 	lease   Lease
 }
 
@@ -77,7 +82,18 @@ func newStore(db *database.Database) *store {
 		db.NewTable(t)
 	}
 	s.load()
+	s.persist = newPersister(db)
 	return s
+}
+
+// close commits pending disk writes and stops the writer.
+func (s *store) close() {
+	s.persist.close()
+}
+
+// discard drops pending disk writes; used when the tables were wiped.
+func (s *store) discard() {
+	s.persist.discard()
 }
 
 func (s *store) load() {
@@ -162,25 +178,25 @@ func (s *store) putFile(in *FileRecord) bool {
 	}
 	if ok && existing.Path != rec.Path && s.paths[existing.Path] == rec.ID {
 		delete(s.paths, existing.Path)
-		s.db.Delete(tablePaths, existing.Path)
+		s.persist.del(tablePaths, existing.Path)
 	}
 	s.files[rec.ID] = rec
-	s.db.Write(tableFiles, rec.ID, rec)
+	s.persist.put(tableFiles, rec.ID, rec)
 	if rec.Removed {
 		if s.paths[rec.Path] == rec.ID {
 			delete(s.paths, rec.Path)
-			s.db.Delete(tablePaths, rec.Path)
+			s.persist.del(tablePaths, rec.Path)
 		}
 	} else {
 		//A newer record for the same path replaces an older one's claim
 		if otherID, taken := s.paths[rec.Path]; taken && otherID != rec.ID {
 			if other, ok := s.files[otherID]; ok && other.Version < rec.Version {
 				s.paths[rec.Path] = rec.ID
-				s.db.Write(tablePaths, rec.Path, rec.ID)
+				s.persist.put(tablePaths, rec.Path, rec.ID)
 			}
 		} else {
 			s.paths[rec.Path] = rec.ID
-			s.db.Write(tablePaths, rec.Path, rec.ID)
+			s.persist.put(tablePaths, rec.Path, rec.ID)
 		}
 	}
 	return true
@@ -300,7 +316,7 @@ func (s *store) putVolume(in *Volume) bool {
 	}
 	v := *in
 	s.volumes[v.ID] = &v
-	s.db.Write(tableVolumes, v.ID, v)
+	s.persist.put(tableVolumes, v.ID, v)
 	return true
 }
 
@@ -338,7 +354,7 @@ func (s *store) putPolicy(in *Policy) bool {
 		return false
 	}
 	s.policies[p.Folder] = &p
-	s.db.Write(tablePolicy, p.Folder, p)
+	s.persist.put(tablePolicy, p.Folder, p)
 	return true
 }
 
@@ -378,7 +394,7 @@ func (s *store) putJob(in *Job) bool {
 	}
 	j := *in
 	s.jobs[j.ID] = &j
-	s.db.Write(tableJobs, j.ID, j)
+	s.persist.put(tableJobs, j.ID, j)
 	return true
 }
 
@@ -412,7 +428,7 @@ func (s *store) gcJobs(cutoff int64, keepStatus map[string]bool) int {
 	for id, j := range s.jobs {
 		if j.Created < cutoff && !keepStatus[j.Status] {
 			delete(s.jobs, id)
-			s.db.Delete(tableJobs, id)
+			s.persist.del(tableJobs, id)
 			n++
 		}
 	}
@@ -430,7 +446,7 @@ func (s *store) putSetting(in *Setting) bool {
 	}
 	st := *in
 	s.settings[st.Key] = &st
-	s.db.Write(tableSettings, st.Key, st)
+	s.persist.put(tableSettings, st.Key, st)
 	return true
 }
 
@@ -456,15 +472,16 @@ func (s *store) appendLog(e Entry, term uint64) Entry {
 	s.lastSeq++
 	e.Seq = s.lastSeq
 	e.Term = term
-	s.db.Write(tableLog, logKey(e.Seq), e)
+	s.persist.put(tableLog, logKey(e.Seq), e)
 	return e
 }
 
 // logAfter returns up to max entries with Seq > after. ok is false when the
 // requested range was compacted away.
 func (s *store) logAfter(after uint64, max int) ([]Entry, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	//The log is read back from disk, so commit what is still queued first
+	s.persist.flush()
+	lastSeq := s.getLastSeq()
 	entries, err := s.db.ListTableWithPrefix(tableLog, "")
 	if err != nil {
 		return nil, false
@@ -486,7 +503,7 @@ func (s *store) logAfter(after uint64, max int) ([]Entry, bool) {
 			}
 		}
 	}
-	if after > 0 && (first > after+1 || (len(entries) == 0 && s.lastSeq > after)) {
+	if after > 0 && (first > after+1 || (len(entries) == 0 && lastSeq > after)) {
 		return nil, false
 	}
 	return out, true
@@ -494,14 +511,13 @@ func (s *store) logAfter(after uint64, max int) ([]Entry, bool) {
 
 // compactLog keeps only the newest keepLast entries.
 func (s *store) compactLog(keepLast int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.persist.flush()
 	entries, err := s.db.ListTableWithPrefix(tableLog, "")
 	if err != nil || len(entries) <= keepLast {
 		return
 	}
 	for _, kv := range entries[:len(entries)-keepLast] {
-		s.db.Delete(tableLog, string(kv[0]))
+		s.persist.del(tableLog, string(kv[0]))
 	}
 }
 
@@ -530,35 +546,35 @@ func (s *store) setApplied(seq uint64, term uint64) {
 	defer s.mu.Unlock()
 	s.applied = seq
 	s.term = term
-	s.db.Write(tableState, stateApplied, seq)
-	s.db.Write(tableState, stateTerm, term)
+	s.persist.put(tableState, stateApplied, seq)
+	s.persist.put(tableState, stateTerm, term)
 }
 
 func (s *store) getLease() Lease {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.leaseMu.RLock()
+	defer s.leaseMu.RUnlock()
 	return s.lease
 }
 
 func (s *store) setLease(l Lease) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.leaseMu.Lock()
 	s.lease = l
-	s.db.Write(tableState, stateLease, l)
+	s.leaseMu.Unlock()
+	s.persist.put(tableState, stateLease, l)
 }
 
 func (s *store) addPending(id string, e Entry) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pending[id] = e
-	s.db.Write(tablePending, id, e)
+	s.persist.put(tablePending, id, e)
 }
 
 func (s *store) removePending(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.pending, id)
-	s.db.Delete(tablePending, id)
+	s.persist.del(tablePending, id)
 }
 
 func (s *store) pendingEntries() map[string]Entry {

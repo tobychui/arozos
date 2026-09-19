@@ -68,7 +68,8 @@ func mrouter(h http.Handler) http.Handler {
 			//Cluster node-to-node protocol (ACN). Requests are authenticated by
 			//node signatures, not user sessions, see mod/cluster/acn
 			if clusterManager == nil {
-				errorHandleInternalServerError(w, r)
+				//Cluster disabled (-disable_cluster) or its agent failed to start
+				http.NotFound(w, r)
 				return
 			}
 			clusterManager.ACNHandler().ServeHTTP(w, r)

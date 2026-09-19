@@ -12,6 +12,7 @@ package metadata
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"imuslab.com/arozos/mod/cluster/membership"
@@ -40,6 +41,11 @@ type Manager struct {
 	once      sync.Once
 	catchupCh chan struct{}
 	appends   int
+
+	//flushing is set while one goroutine drains the pending queue; the
+	//others only raise flushAgain so the active one does another round.
+	flushing   atomic.Bool
+	flushAgain atomic.Bool
 
 	//OnChange fires after a record changed locally or by replication.
 	OnChange func(kind string, payload []byte)
@@ -104,12 +110,20 @@ func New(opt Option) (*Manager, error) {
 func (mgr *Manager) Close() {
 	mgr.once.Do(func() { close(mgr.stop) })
 	mgr.wg.Wait()
+	mgr.st.close()
 }
 
 // resetLocal forgets everything after the node left the cluster (the tables
 // were already wiped by membership; the in-memory maps must follow).
 func (mgr *Manager) resetLocal() {
-	mgr.st = newStore(mgr.m.DB())
+	//Drop the old store's queued disk writes, then wipe the tables again in
+	//case one of them landed between membership's wipe and this call
+	mgr.st.discard()
+	db := mgr.m.DB()
+	for _, t := range Tables {
+		db.DropTable(t)
+	}
+	mgr.st = newStore(db)
 }
 
 /*

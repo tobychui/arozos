@@ -475,3 +475,55 @@ func TestSpaceStateHysteresis(t *testing.T) {
 		})
 	}
 }
+
+func TestLowSpaceAction(t *testing.T) {
+	const total = 1000
+	tests := []struct {
+		name      string
+		free      int64
+		wasFull   bool
+		auto      bool
+		wantMark  bool
+		wantClear bool
+	}{
+		{"guard on, plenty of room", 500, false, true, false, false},
+		{"guard on, nearly full is marked", 40, false, true, true, false},
+		{"guard on, already marked stays", 60, true, true, false, false},
+		{"guard on, recovered is released", 80, true, true, false, true},
+		{"guard off, nearly full is left alone", 40, false, false, false, false},
+		{"guard off, earlier mark is released", 40, true, false, false, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mark, clear := lowSpaceAction(tc.free, total, tc.wasFull, tc.auto)
+			if mark != tc.wantMark || clear != tc.wantClear {
+				t.Errorf("lowSpaceAction(%d, %d, %v, %v) = %v, %v; want %v, %v",
+					tc.free, total, tc.wasFull, tc.auto, mark, clear, tc.wantMark, tc.wantClear)
+			}
+		})
+	}
+}
+
+func TestAutoReadOnlySetting(t *testing.T) {
+	a := newTestNode(t, "solo")
+	a.m.CreateCluster("Solo")
+	waitFor(t, "lead", 5*time.Second, func() bool { return a.meta.IsLeader() })
+	if !a.svc.AutoReadOnly() {
+		t.Fatalf("the guard must be on by default")
+	}
+	if err := a.svc.SetAutoReadOnly(false); err != nil {
+		t.Fatalf("SetAutoReadOnly(false): %v", err)
+	}
+	if a.svc.AutoReadOnly() {
+		t.Errorf("the guard should be off")
+	}
+	if a.svc.Status().AutoReadOnly != a.svc.AutoReadOnly() {
+		t.Errorf("status must report the setting")
+	}
+	if err := a.svc.SetAutoReadOnly(true); err != nil {
+		t.Fatalf("SetAutoReadOnly(true): %v", err)
+	}
+	if !a.svc.AutoReadOnly() {
+		t.Errorf("the guard should be back on")
+	}
+}

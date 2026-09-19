@@ -158,6 +158,42 @@ func (d *Database) keyExists(tableName string, key string) bool {
 	}
 }
 
+func (d *Database) writeBatch(ops []BatchOp) error {
+	if d.ReadOnly {
+		return errors.New("Operation rejected in ReadOnly mode")
+	}
+	//Marshal first so a bad value fails the batch before anything is written
+	values := make([][]byte, len(ops))
+	for i, op := range ops {
+		if op.Delete {
+			continue
+		}
+		js, err := json.Marshal(op.Value)
+		if err != nil {
+			return err
+		}
+		values[i] = js
+	}
+	return d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+		for i, op := range ops {
+			b, err := tx.CreateBucketIfNotExists([]byte(op.Table))
+			if err != nil {
+				return err
+			}
+			if op.Delete {
+				if err := b.Delete([]byte(op.Key)); err != nil {
+					return err
+				}
+				continue
+			}
+			if err := b.Put([]byte(op.Key), values[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (d *Database) delete(tableName string, key string) error {
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")

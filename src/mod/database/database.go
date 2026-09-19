@@ -97,6 +97,34 @@ func (d *Database) Delete(tableName string, key string) error {
 	return d.delete(tableName, key)
 }
 
+// BatchOp is one change inside a WriteBatch: a Put of Value under Key, or a
+// removal of Key when Delete is true. Value is marshalled to JSON like Write
+// does; a json.RawMessage is stored as it is.
+type BatchOp struct {
+	Table  string
+	Key    string
+	Value  interface{}
+	Delete bool
+}
+
+/*
+WriteBatch applies many changes at once. On the bolt backend they share one
+transaction, so they cost a single disk sync instead of one each, and either
+all of them land or none do. Tables are created when missing. Operations run
+in the order given.
+
+	err := sysdb.WriteBatch([]database.BatchOp{
+		{Table: "MyTable", Key: "a", Value: 1},
+		{Table: "MyTable", Key: "b", Delete: true},
+	})
+*/
+func (d *Database) WriteBatch(ops []BatchOp) error {
+	if len(ops) == 0 {
+		return nil
+	}
+	return d.writeBatch(ops)
+}
+
 /*
 	//List table example usage
 	//Assume the value is stored as a struct named "groupstruct"

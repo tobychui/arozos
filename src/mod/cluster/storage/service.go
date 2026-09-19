@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	ErrNoVolume       = errors.New("no cluster volume available; add one in System Settings > Cluster > Storage")
+	ErrNoVolume       = errors.New("no cluster volume available; add one in System Settings > Cluster Settings > Storage")
 	ErrNoHealthyCopy  = errors.New("no healthy copy of this file is reachable right now")
 	ErrNotLocalVolume = errors.New("volume is not on this node")
 	ErrPathEscape     = errors.New("path escapes the volume")

@@ -67,6 +67,7 @@ function appendUploadFileItem(filename, filesize){
             <span class="uploadTaskSize"></span>
             <span class="uploadTaskDoneLink" onclick="onUploadTaskDoneLink('${newuuid}');"></span>
             <span class="uploadTaskStatus"></span>
+            <span class="uploadTaskRetry" onclick="onUploadTaskButton('${newuuid}');"></span>
         </div>
         <div class="uploadTaskActions">
             <div class="uploadTaskCancel" onclick="cancelUploadTask('${newuuid}');">${FSIcons.closeCircle}</div>
@@ -341,6 +342,13 @@ function renderUploadTask(taskUUID){
         statusText = formatUploadEta((info.size - info.loaded) / info.speed);
     }
     row.find(".uploadTaskStatus").text(statusText);
+
+    //A failed row offers a "Retry" text link after the status instead of a round button
+    let retryEl = row.find(".uploadTaskRetry");
+    let retryText = info.state == "failed" ? applocale.getString("upload/retry", "Retry") : "";
+    if (retryEl.text() != retryText){
+        retryEl.text(retryText);
+    }
 
     //The other half of that line: the download link of a finished download.
     //Written only when it changes, for the same reason the glyph below is.

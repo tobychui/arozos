@@ -280,6 +280,36 @@ func (b *clusterBackend) Ready() bool { return b.s.Ready() }
 
 // clusterMountDrive attaches the cluster:/ drive to the base storage pool so
 // every user sees it, and clusterUnmountDrive removes it again.
+// clusterDriveWanted reports whether cluster:/ should be visible: this node
+// is in a cluster and the cluster has at least one volume to keep files in.
+// Without either, the drive is left out of File Manager and every other part
+// of the system, nightly tasks included.
+func clusterDriveWanted() bool {
+	if clusterManager == nil || clusterStorage == nil || clusterMetadata == nil || !clusterManager.InCluster() {
+		return false
+	}
+	return clusterHasVolume(clusterMetadata.Volumes())
+}
+
+// clusterHasVolume reports whether any volume is still part of the cluster.
+func clusterHasVolume(vols []metadata.Volume) bool {
+	for _, v := range vols {
+		if !v.Removed {
+			return true
+		}
+	}
+	return false
+}
+
+// clusterSyncDrive mounts or unmounts cluster:/ to match clusterDriveWanted.
+func clusterSyncDrive() {
+	if clusterDriveWanted() {
+		clusterMountDrive()
+	} else {
+		clusterUnmountDrive()
+	}
+}
+
 func clusterMountDrive() {
 	clusterMountMu.Lock()
 	defer clusterMountMu.Unlock()
@@ -386,8 +416,19 @@ func (p *clusterHealthProvider) snapshot() membership.Health {
 }
 
 func ClusterInit() {
-	//Cluster agent: always available so a node can create or join a cluster
-	//from System Settings regardless of the LAN discovery features
+	if *disable_cluster {
+		systemWideLogger.PrintAndLog("Cluster", "Cluster features are disabled by the -disable_cluster flag", nil)
+	} else {
+		clusterStartAgent()
+	}
+	clusterStartNeighbourhood()
+}
+
+// clusterStartAgent starts the cluster agent and every cluster service on
+// top of it. It is always available unless -disable_cluster is set, so a node
+// can create or join a cluster from System Settings regardless of the LAN
+// discovery features.
+func clusterStartAgent() {
 	health := &clusterHealthProvider{}
 	manager, err := membership.NewManager(membership.Option{
 		NodeID:      deviceUUID,
@@ -401,6 +442,23 @@ func ClusterInit() {
 		systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster agent: "+err.Error(), err)
 	} else {
 		clusterManager = manager
+		//Settings first, then Info; Cluster Jobs is added once the job runtime starts
+		registerSetting(settingModule{
+			Name:         "Cluster Settings",
+			Desc:         "Create or join a cluster and set up its storage and scheduling",
+			IconPath:     "SystemAO/cluster/img/small_icon.png",
+			Group:        "Cluster",
+			StartDir:     "SystemAO/cluster/cluster.html",
+			RequireAdmin: true,
+		})
+		registerSetting(settingModule{
+			Name:         "Cluster Info",
+			Desc:         "Health of this node, its peers, replication and scheduling",
+			IconPath:     "SystemAO/cluster/img/small_icon.png",
+			Group:        "Cluster",
+			StartDir:     "SystemAO/cluster/clusterinfo.html",
+			RequireAdmin: true,
+		})
 
 		adminRouter := prout.NewModuleRouter(prout.RouterOption{
 			ModuleName:  "System Setting",
@@ -463,13 +521,15 @@ func ClusterInit() {
 					if prevChange != nil {
 						prevChange(in)
 					}
-					if in {
-						clusterMountDrive()
-					} else {
-						clusterUnmountDrive()
+					clusterSyncDrive()
+				}
+				//Show or hide cluster:/ as volumes come and go
+				clusterMetadata.OnChange = func(kind string, payload []byte) {
+					if kind == metadata.KindVolume {
+						go clusterSyncDrive()
 					}
 				}
-				clusterMountDrive()
+				clusterSyncDrive()
 
 				//Event bus: file / replica / node events, script hooks, web feed
 				bus, err := events.New(clusterManager, clusterRunHook)
@@ -595,16 +655,13 @@ func ClusterInit() {
 			}
 		}
 
-		registerSetting(settingModule{
-			Name:         "Cluster",
-			Desc:         "Create or join an ArozOS cluster",
-			IconPath:     "SystemAO/cluster/img/small_icon.png",
-			Group:        "Cluster",
-			StartDir:     "SystemAO/cluster/cluster.html",
-			RequireAdmin: true,
-		})
 	}
 
+}
+
+// clusterStartNeighbourhood runs the older mDNS neighbour discovery, which is
+// separate from the cluster and governed by -allow_mdns.
+func clusterStartNeighbourhood() {
 	//Only enable neighbourhood scanning on mdns enabled mode
 	if *allow_mdns && MDNS != nil {
 		//Start the network discovery

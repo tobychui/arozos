@@ -195,6 +195,8 @@ The following startup parameters are supported (v2.016)
         Enable directory listing (default true)
   -disable_http
         Disable HTTP server, require tls=true
+  -disable_cluster
+        Disable the cluster features (joining, the cluster:/ drive, cluster jobs and their settings pages)
   -disable_ip_resolver
         Disable IP resolving if the system is running under reverse proxy environment
   -disable_subservice

@@ -8,8 +8,9 @@
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="../../script/applocale.js"></script>
+    <script src="../cluster/cluster.common.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :where(#cj-root, #cj-root *) { box-sizing: border-box; margin: 0; padding: 0; }
         #cj-root {
             --cj-bg:#f5f5f7; --cj-card:#ffffff; --cj-head:#fafafa; --cj-border:rgba(0,0,0,0.08);
             --cj-text:#1d1d1f; --cj-dim:#6e6e73; --cj-muted:#98989d; --cj-accent:#0071e3;
@@ -31,6 +32,9 @@
         #cj-header img { width:40px; height:40px; border-radius:9px; }
         #cj-header h1 { font-size:20px; font-weight:600; letter-spacing:-0.2px; }
         #cj-header p { font-size:13px; color:var(--cj-dim); margin-top:2px; }
+        #cj-header .cj-links { display:flex; gap:6px; }
+        #cj-header .cj-links a { font-size:12px; color:var(--cj-accent); text-decoration:none; padding:5px 10px; border-radius:8px; border:1px solid var(--cj-border); background:var(--cj-card); }
+        #cj-header .cj-links a:hover { background:var(--cj-hover); }
         .cj-card { background:var(--cj-card); border-radius:12px; box-shadow:var(--cj-shadow); overflow:hidden; margin-bottom:16px; }
         .cj-head { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
             background:var(--cj-head); border-bottom:1px solid var(--cj-border); font-weight:600; font-size:14px; }
@@ -89,59 +93,63 @@
 <body>
 <div id="cj-root">
     <div id="cj-header">
-        <img src="img/small_icon.png" alt="">
+        <img src="../cluster/img/small_icon.png" alt="">
         <div style="flex:1">
-            <h1 id="lbl-title">Cluster Jobs</h1>
-            <p id="lbl-tagline">Run a script on whichever node fits best</p>
+            <h1 id="lbl-title" locale="cluster/jobs/title">Cluster Jobs</h1>
+            <p id="lbl-tagline" locale="cluster/jobs/tagline">Run a script on whichever node fits best</p>
         </div>
         <span id="cj-refresh" style="color:var(--cj-muted); font-size:11px"></span>
+        <div class="cj-links">
+            <a href="../cluster/cluster.html" onclick="return CL.openPage('Cluster Settings', this.href)" locale="cluster/link/settings">Cluster Settings</a>
+            <a href="../cluster/clusterinfo.html" onclick="return CL.openPage('Cluster Info', this.href)" locale="cluster/link/info">Cluster Info</a>
+        </div>
     </div>
 
     <div class="cj-grid">
         <div class="cj-card">
-            <div class="cj-head"><span id="lbl-submit">Submit a job</span></div>
+            <div class="cj-head"><span id="lbl-submit" locale="cluster/jobs/submit">Submit a job</span></div>
             <div class="cj-body">
                 <div class="cj-field">
-                    <label id="lbl-name">Name</label>
+                    <label id="lbl-name" locale="cluster/jobs/name">Name</label>
                     <input type="text" id="job-name" placeholder="Nightly index">
                 </div>
                 <div class="cj-field">
-                    <label id="lbl-script">Script (a .agi file that defines run(job))</label>
+                    <label id="lbl-script" locale="cluster/jobs/scriptlabel">Script (a .agi file that defines run(job))</label>
                     <div class="cj-row">
                         <input type="text" id="job-script" placeholder="user:/jobs/index.agi">
-                        <button class="cj-btn cj-fixed" onclick="pickScript()"><span id="lbl-browse">Browse</span></button>
+                        <button class="cj-btn cj-fixed" onclick="pickScript()"><span id="lbl-browse" locale="cluster/jobs/browse">Browse</span></button>
                     </div>
                 </div>
                 <div class="cj-field">
-                    <label id="lbl-args">Arguments (JSON, optional)</label>
+                    <label id="lbl-args" locale="cluster/jobs/args">Arguments (JSON, optional)</label>
                     <textarea id="job-args" placeholder='{"album": "2026"}'></textarea>
                 </div>
                 <div class="cj-field">
-                    <label id="lbl-inputs">Input paths (comma separated, used to run near the data)</label>
+                    <label id="lbl-inputs" locale="cluster/jobs/inputs">Input paths (comma separated, used to run near the data)</label>
                     <input type="text" id="job-inputs" placeholder="cluster:/photos/2026">
                 </div>
                 <div class="cj-field">
-                    <label id="lbl-dataset">Map/reduce dataset (optional glob; turns this into a map/reduce job)</label>
+                    <label id="lbl-dataset" locale="cluster/jobs/datasetlabel">Map/reduce dataset (optional glob; turns this into a map/reduce job)</label>
                     <div class="cj-row">
                         <input type="text" id="job-dataset" placeholder="cluster:/photos/**/*.jpg">
                         <input type="text" id="job-partition" class="cj-fixed" style="width:120px" placeholder="50 per task">
                     </div>
-                    <div class="cj-hint" id="hint-dataset">With a dataset the script must define mapper(files, emit) and reducer(key, values); the files are processed on the nodes that hold them.</div>
+                    <div class="cj-hint" id="hint-dataset" locale="cluster/jobs/datasethint">With a dataset the script must define mapper(files, emit) and reducer(key, values); the files are processed on the nodes that hold them.</div>
                 </div>
                 <div class="cj-row">
                     <div class="cj-field" style="margin:0">
-                        <label id="lbl-features">Required features</label>
+                        <label id="lbl-features" locale="cluster/jobs/features">Required features</label>
                         <input type="text" id="job-features" placeholder="ffmpeg, cuda">
                     </div>
                     <div class="cj-field" style="margin:0; max-width:140px">
-                        <label id="lbl-timeout">Timeout (s)</label>
+                        <label id="lbl-timeout" locale="cluster/jobs/timeout">Timeout (s)</label>
                         <input type="text" id="job-timeout" value="3600">
                     </div>
                 </div>
-                <div class="cj-hint" id="hint-submit">The script runs with your permissions on the chosen node. cluster:/ paths work as usual.</div>
+                <div class="cj-hint" id="hint-submit" locale="cluster/jobs/submithint">The script runs with your permissions on the chosen node. cluster:/ paths work as usual.</div>
                 <div class="cj-row" style="margin-top:10px">
                     <div></div>
-                    <button class="cj-btn primary cj-fixed" onclick="submitJob()"><span id="lbl-run">Run job</span></button>
+                    <button class="cj-btn primary cj-fixed" onclick="submitJob()"><span id="lbl-run" locale="cluster/jobs/run">Run job</span></button>
                 </div>
                 <div class="cj-msg" id="msg-submit"></div>
             </div>
@@ -149,17 +157,17 @@
 
         <div class="cj-card">
             <div class="cj-head">
-                <span><span id="lbl-detail">Job detail</span><span class="cj-sub" id="detail-id"></span></span>
-                <button class="cj-btn small danger" id="btn-cancel" style="display:none" onclick="cancelSelected()"><span id="lbl-cancel">Cancel</span></button>
+                <span><span id="lbl-detail" locale="cluster/jobs/detail">Job detail</span><span class="cj-sub" id="detail-id"></span></span>
+                <button class="cj-btn small danger" id="btn-cancel" style="display:none" onclick="cancelSelected()"><span id="lbl-cancel" locale="cluster/cancel">Cancel</span></button>
             </div>
             <div class="cj-body">
-                <dl class="cj-kv" id="detail-kv"><dd class="cj-empty" style="grid-column:1/3" id="lbl-nodetail">Select a job to see its log and output</dd></dl>
+                <dl class="cj-kv" id="detail-kv"><dd class="cj-empty" style="grid-column:1/3" id="lbl-nodetail" locale="cluster/jobs/nodetail">Select a job to see its log and output</dd></dl>
                 <div id="detail-log-wrap" style="display:none">
-                    <div class="cj-hint" id="lbl-log">Log</div>
+                    <div class="cj-hint" id="lbl-log" locale="cluster/jobs/log">Log</div>
                     <pre class="cj-pre" id="detail-log"></pre>
                 </div>
                 <div id="detail-out-wrap" style="display:none">
-                    <div class="cj-hint" id="lbl-output">Output</div>
+                    <div class="cj-hint" id="lbl-output" locale="cluster/jobs/output">Output</div>
                     <pre class="cj-pre" id="detail-out"></pre>
                 </div>
             </div>
@@ -167,12 +175,12 @@
     </div>
 
     <div class="cj-card">
-        <div class="cj-head"><span><span id="lbl-jobs">Jobs</span><span class="cj-sub" id="jobs-summary"></span></span></div>
+        <div class="cj-head"><span><span id="lbl-jobs" locale="cluster/jobs/jobs">Jobs</span><span class="cj-sub" id="jobs-summary"></span></span></div>
         <div class="cj-body" style="padding:0; overflow-x:auto">
             <table class="cj-table">
                 <thead><tr>
-                    <th id="th-job">Job</th><th id="th-status">Status</th><th id="th-node">Node</th>
-                    <th id="th-progress">Progress</th><th id="th-when">When</th><th></th>
+                    <th id="th-job" locale="cluster/jobs/job">Job</th><th id="th-status" locale="cluster/jobs/status">Status</th><th id="th-node" locale="cluster/node">Node</th>
+                    <th id="th-progress" locale="cluster/jobs/progress">Progress</th><th id="th-when" locale="cluster/when">When</th><th></th>
                 </tr></thead>
                 <tbody id="jobs-body"></tbody>
             </table>
@@ -181,24 +189,7 @@
 </div>
 
 <script>
-    var cjLocale = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
-    function t(key, fallback) { return cjLocale ? cjLocale.getString(key, fallback) : fallback; }
-    function cjTheme(isDark) { document.getElementById('cj-root').classList.toggle('dark', isDark); }
-    (function() {
-        try {
-            if (typeof ao_module_getSystemThemeColor === 'function') {
-                ao_module_getSystemThemeColor(function(c) { cjTheme(c !== 'whiteTheme'); });
-                return;
-            }
-        } catch(e) {}
-        try {
-            var theme = null;
-            if (typeof preferredTheme !== 'undefined') theme = preferredTheme;
-            else if (parent && typeof parent.preferredTheme !== 'undefined') theme = parent.preferredTheme;
-            if (theme) cjTheme(theme === 'dark' || theme === 'darkTheme');
-        } catch(e) {}
-    })();
-    window.detailPageThemeCallback = function(isDark) { cjTheme(isDark); };
+    var t = CL.t, fmt = CL.fmt;
 
     var API = '../../system/cluster/jobs/';
     var selected = null;
@@ -208,34 +199,21 @@
         return String(s === undefined || s === null ? '' : s)
             .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
-    function fmtAgo(unix) {
-        if (!unix) return '-';
-        var d = Math.max(0, Math.floor(Date.now()/1000 - unix));
-        if (d < 5) return t('cluster/justnow', 'just now');
-        if (d < 60) return d + 's ' + t('cluster/ago', 'ago');
-        if (d < 3600) return Math.floor(d/60) + 'm ' + t('cluster/ago', 'ago');
-        if (d < 86400) return Math.floor(d/3600) + 'h ' + t('cluster/ago', 'ago');
-        return Math.floor(d/86400) + 'd ' + t('cluster/ago', 'ago');
-    }
+    function fmtAgo(unix) { return unix ? CL.fmtAgo(unix) : '-'; }
     function duration(rec) {
         if (!rec.state.started) return '-';
         var end = rec.state.finished || Math.floor(Date.now()/1000);
         var s = Math.max(0, end - rec.state.started);
-        if (s < 60) return s + 's';
-        return Math.floor(s/60) + 'm ' + (s%60) + 's';
+        if (s < 60) return fmt(t('cluster/jobs/secs', '{0}s'), s);
+        return fmt(t('cluster/jobs/minsecs', '{0}m {1}s'), Math.floor(s/60), s%60);
     }
-    function showMsg(id, text, ok) {
-        var el = document.getElementById(id);
-        el.textContent = text;
-        el.className = 'cj-msg ' + (ok ? 'ok' : 'err');
-        clearTimeout(el._t);
-        el._t = setTimeout(function() { el.className = 'cj-msg'; }, ok ? 5000 : 9000);
-    }
+    //Errors from the server are translated by CL.showMsg
+    function showMsg(id, text, ok) { CL.showMsg(id, text, ok, 'cj-msg'); }
     function apiPost(path, data, cb) {
         $.ajax({ url: API + path, method: 'POST', data: data, dataType: 'json' })
             .done(function(r) { cb(null, r); })
             .fail(function(xhr) {
-                var msg = xhr.responseText || 'request failed';
+                var msg = xhr.responseText || t('cluster/requestfailed', 'Request failed');
                 try { var j = JSON.parse(xhr.responseText); if (j.error) msg = j.error; } catch(e) {}
                 cb(msg, null);
             });
@@ -301,19 +279,19 @@
         document.getElementById('btn-cancel').style.display = running ? '' : 'none';
         var kids = lastJobs.filter(function(j) { return j.spec.parentId === rec.spec.id; });
         var rows = '<dt>' + t('cluster/jobs/name', 'Name') + '</dt><dd>' + esc(rec.spec.name) +
-            (rec.spec.kind && rec.spec.kind !== 'run' ? ' <span class="cj-chip">' + esc(rec.spec.kind) + '</span>' : '') + '</dd>' +
-            '<dt>' + t('cluster/jobs/status', 'Status') + '</dt><dd><span class="cj-badge ' + esc(rec.state.status) + '">' + esc(rec.state.status).toUpperCase() + '</span>' +
-            (rec.state.error ? ' <span style="color:var(--cj-danger)">' + esc(rec.state.error) + '</span>' : '') + '</dd>' +
+            (rec.spec.kind && rec.spec.kind !== 'run' ? ' <span class="cj-chip">' + esc(t('cluster/jobs/kind/' + rec.spec.kind, rec.spec.kind)) + '</span>' : '') + '</dd>' +
+            '<dt>' + t('cluster/jobs/status', 'Status') + '</dt><dd><span class="cj-badge ' + esc(rec.state.status) + '">' + esc(CL.state(rec.state.status)) + '</span>' +
+            (rec.state.error ? ' <span style="color:var(--cj-danger)">' + esc(CL.tr(rec.state.error)) + '</span>' : '') + '</dd>' +
             '<dt>' + t('cluster/jobs/node', 'Node') + '</dt><dd>' + (rec.state.node ? esc(rec.state.node) : '-') + '</dd>' +
             '<dt>' + t('cluster/jobs/script', 'Script') + '</dt><dd class="cj-mono">' + esc(rec.spec.scriptName) + '</dd>' +
             '<dt>' + t('cluster/jobs/owner', 'Owner') + '</dt><dd>' + esc(rec.spec.owner) + '</dd>' +
-            '<dt>' + t('cluster/jobs/duration', 'Duration') + '</dt><dd>' + duration(rec) + ' <span class="cj-meta">' + t('cluster/jobs/attempts', 'attempt') + ' ' + rec.state.attempts + '</span></dd>';
+            '<dt>' + t('cluster/jobs/duration', 'Duration') + '</dt><dd>' + duration(rec) + ' <span class="cj-meta">' + esc(fmt(t('cluster/jobs/attemptn', 'attempt {0}'), rec.state.attempts)) + '</span></dd>';
         if (rec.spec.dataset) rows += '<dt>' + t('cluster/jobs/dataset', 'Dataset') + '</dt><dd class="cj-mono">' + esc(rec.spec.dataset) + '</dd>';
         if (kids.length) {
             var doneKids = kids.filter(function(k) { return k.state.status === 'succeeded'; }).length;
-            rows += '<dt>' + t('cluster/jobs/tasks', 'Tasks') + '</dt><dd>' + doneKids + ' / ' + kids.length + ' ' + t('cluster/jobs/complete', 'complete') + '</dd>';
+            rows += '<dt>' + t('cluster/jobs/tasks', 'Tasks') + '</dt><dd>' + esc(fmt(t('cluster/jobs/complete', '{0} / {1} complete'), doneKids, kids.length)) + '</dd>';
         }
-        if (rec.state.reason) rows += '<dt>' + t('cluster/jobs/waiting', 'Waiting') + '</dt><dd style="color:var(--cj-warn)">' + esc(rec.state.reason) + '</dd>';
+        if (rec.state.reason) rows += '<dt>' + t('cluster/jobs/waiting', 'Waiting') + '</dt><dd style="color:var(--cj-warn)">' + esc(CL.tr(rec.state.reason)) + '</dd>';
         kv.innerHTML = rows;
         var logs = rec.state.log || [];
         document.getElementById('detail-log-wrap').style.display = logs.length ? '' : 'none';
@@ -336,15 +314,15 @@
                 var pct = Math.round((rec.state.progress || 0) * 100);
                 html += '<tr class="' + (rec.spec.id === selected ? 'selected' : '') + '" onclick="selectJob(\'' + esc(rec.spec.id) + '\')">' +
                     '<td><div class="cj-name">' + esc(rec.spec.name || rec.spec.scriptName) + '</div><div class="cj-meta cj-mono">' + esc(rec.spec.id.substring(0, 8)) + ' · ' + esc(rec.spec.owner) + '</div></td>' +
-                    '<td><span class="cj-badge ' + esc(rec.state.status) + '">' + esc(rec.state.status).toUpperCase() + '</span></td>' +
+                    '<td><span class="cj-badge ' + esc(rec.state.status) + '">' + esc(CL.state(rec.state.status)) + '</span></td>' +
                     '<td>' + (rec.state.node ? esc(rec.state.node) : '<span style="color:var(--cj-muted)">-</span>') + '</td>' +
                     '<td>' + pct + '%<div class="cj-bar"><div style="width:' + pct + '%"></div></div></td>' +
                     '<td>' + fmtAgo(rec.state.finished || rec.state.started || rec.spec.created) + '<div class="cj-meta">' + duration(rec) + '</div></td>' +
                     '<td>' + (running ? '<button class="cj-btn small danger" onclick="event.stopPropagation(); cancelJob(\'' + esc(rec.spec.id) + '\')">' + t('cluster/jobs/cancel', 'Cancel') + '</button>' : '') + '</td></tr>';
             });
             document.getElementById('jobs-body').innerHTML = html || '<tr><td colspan="6" class="cj-empty">' + t('cluster/jobs/none', 'No jobs yet') + '</td></tr>';
-            document.getElementById('jobs-summary').textContent = ' ' + st.running + ' ' + t('cluster/jobs/running', 'running') + ', ' + st.queued + ' ' + t('cluster/jobs/queued2', 'queued') + ', ' + st.succeeded + ' ' + t('cluster/jobs/done', 'done') + (st.failed ? ', ' + st.failed + ' ' + t('cluster/jobs/failed', 'failed') : '');
-            document.getElementById('cj-refresh').textContent = (st.leaderName ? t('cluster/jobs/scheduler', 'Scheduler') + ': ' + st.leaderName + ' · ' : '') + st.localBusy + '/' + st.localSlots + ' ' + t('cluster/jobs/slots', 'slots busy here');
+            document.getElementById('jobs-summary').textContent = ' ' + fmt(t('cluster/jobs/summary', '{0} running, {1} queued, {2} done'), st.running, st.queued, st.succeeded) + (st.failed ? ', ' + fmt(t('cluster/jobs/failedn', '{0} failed'), st.failed) : '');
+            document.getElementById('cj-refresh').textContent = (st.leaderName ? fmt(t('cluster/jobs/scheduler', 'Scheduler: {0}'), st.leaderName) + ' · ' : '') + fmt(t('cluster/jobs/slots', '{0}/{1} slots busy here'), st.localBusy, st.localSlots);
             renderDetail();
         });
     }
@@ -357,8 +335,11 @@
         });
     }
 
-    loadJobs();
-    setInterval(loadJobs, 3000);
+    CL.applyTheme('cj-root');
+    CL.init(function() {
+        loadJobs();
+        CL.every(loadJobs, 3000, 'cj-root');
+    });
 </script>
 </body>
 </html>

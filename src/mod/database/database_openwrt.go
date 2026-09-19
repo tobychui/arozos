@@ -138,6 +138,40 @@ func (d *Database) keyExists(tableName string, key string) bool {
 	return fileExists(entryPath)
 }
 
+// writeBatch has no transactions on this backend; it applies the operations
+// one after another and stops at the first failure.
+func (d *Database) writeBatch(ops []BatchOp) error {
+	if d.ReadOnly {
+		return errors.New("Operation rejected in ReadOnly mode")
+	}
+	//Reject a value that cannot be stored before writing anything
+	for _, op := range ops {
+		if op.Delete {
+			continue
+		}
+		if _, err := json.Marshal(op.Value); err != nil {
+			return err
+		}
+	}
+	for _, op := range ops {
+		if !d.tableExists(op.Table) {
+			if err := d.newTable(op.Table); err != nil {
+				return err
+			}
+		}
+		var err error
+		if op.Delete {
+			err = d.delete(op.Table, op.Key)
+		} else {
+			err = d.write(op.Table, op.Key, op.Value)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *Database) delete(tableName string, key string) error {
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")

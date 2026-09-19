@@ -30,10 +30,11 @@ type VolumeView struct {
 
 // StatusView is the storage picture for the settings page.
 type StatusView struct {
-	Ready      bool         `json:"ready"`
-	Volumes    []VolumeView `json:"volumes"`
-	LocalRoots []RootView   `json:"localRoots"`
-	Sessions   int          `json:"sessions"`
+	Ready        bool         `json:"ready"`
+	AutoReadOnly bool         `json:"autoReadOnly"` //nearly full volumes become read only
+	Volumes      []VolumeView `json:"volumes"`
+	LocalRoots   []RootView   `json:"localRoots"`
+	Sessions     int          `json:"sessions"`
 }
 
 // RootView is a local drive the admin may contribute a folder from.
@@ -44,7 +45,7 @@ type RootView struct {
 
 // Status builds the storage status.
 func (s *Service) Status() StatusView {
-	st := StatusView{Ready: s.Ready(), Volumes: []VolumeView{}, LocalRoots: []RootView{}}
+	st := StatusView{Ready: s.Ready(), AutoReadOnly: s.AutoReadOnly(), Volumes: []VolumeView{}, LocalRoots: []RootView{}}
 	me := s.m.NodeID()
 	for _, v := range s.meta.Volumes() {
 		if v.Removed {
@@ -137,4 +138,22 @@ func (s *Service) RegisterAdminRoutes(register func(pattern string, handler func
 	register("/system/cluster/storage/volume/remove", s.HandleVolumeRemove)
 	register("/system/cluster/storage/volume/readonly", s.HandleVolumeReadOnly)
 	register("/system/cluster/storage/rescan", s.HandleRescan)
+	register("/system/cluster/storage/autoreadonly", s.HandleAutoReadOnly)
+}
+
+// HandleAutoReadOnly reads (GET) or sets (POST enabled=true|false) whether
+// nearly full volumes are made read only automatically.
+func (s *Service) HandleAutoReadOnly(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		raw, err := utils.PostPara(r, "enabled")
+		if err != nil || (raw != "true" && raw != "false") {
+			utils.SendErrorResponse(w, "enabled must be true or false")
+			return
+		}
+		if err := s.SetAutoReadOnly(raw == "true"); err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+	}
+	sendJSON(w, map[string]bool{"enabled": s.AutoReadOnly()})
 }

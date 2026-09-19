@@ -1103,7 +1103,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Loop through all files are see if there are duplication during copy and paste
 	sourceFiles := []string{}
-	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
+	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
 	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
 	if err != nil {
 		utils.SendErrorResponse(w, "Source file JSON parse error.")
@@ -1947,7 +1947,7 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 
 	//Decode the source file list
 	var sourceFiles []string
-	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
+	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
 	err := json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "File operation source file JSON parse error", err)
@@ -1967,7 +1967,7 @@ func parseFileOperationRequest(operation string, vsrcFiles string, vdestFile str
 	vdestFile = strings.ReplaceAll(vdestFile, "{{plug_sign}}", "+")
 
 	//Decode the target position
-	escapedVdest, _ := url.QueryUnescape(vdestFile)
+	escapedVdest := system_fs_specialURIDecode(vdestFile)
 	vdestFile = escapedVdest
 
 	if vdestFile == "" {
