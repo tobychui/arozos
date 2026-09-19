@@ -54,6 +54,10 @@ const (
 // a running conversion without needing any extra bookkeeping.
 var runningConversions sync.Map // string -> *exec.Cmd
 
+// cancelledConversions remembers the jobs stopped through CancelConversion, so
+// the code that reports a job's end can tell a user's cancel from a failure.
+var cancelledConversions sync.Map // string -> struct{}
+
 // resolutionHeightMap maps common resolution names to their vertical pixel count.
 var resolutionHeightMap = map[string]int{
 	"144p":  144,
@@ -180,6 +184,7 @@ func registerConversion(progressFile string, cmd *exec.Cmd) {
 	if key == "" || cmd == nil {
 		return
 	}
+	cancelledConversions.Delete(key)
 	runningConversions.Store(key, cmd)
 }
 
@@ -224,7 +229,20 @@ func CancelConversion(progressFile string) bool {
 	if err := cmd.Process.Kill(); err != nil {
 		return false
 	}
+	cancelledConversions.Store(key, struct{}{})
 	return true
+}
+
+// WasCancelled reports whether the job registered under progressFile was
+// stopped through CancelConversion, and forgets the mark, so it answers true
+// once per cancelled job.
+func WasCancelled(progressFile string) bool {
+	key := conversionJobKey(progressFile)
+	if key == "" {
+		return false
+	}
+	_, ok := cancelledConversions.LoadAndDelete(key)
+	return ok
 }
 
 // runFFmpeg runs ffmpeg with the given arguments, registering the process under

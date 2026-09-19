@@ -1539,7 +1539,7 @@ written at its final path, so a poller may use the file the moment it sees
 it. At most two background jobs encode at once; further ones wait as
 `queued`. `ffmpeg.cancel(progressFile)` stops a running job.
 
-### `ffmpeg.renderTimeline(specJSON, output, progressFile)`
+### `ffmpeg.renderTimeline(specJSON, output, progressFile[, options])`
 Renders an edited timeline (clips, transforms, crops, colour, effects,
 keyframed motion / opacity / volume, chroma key, adjustment layers,
 transitions, blend modes, reversed clips, panned and cross-faded audio) with
@@ -1557,6 +1557,20 @@ var spec = {
   audio:  [{ id: "c1", src: "user:/clip.mkv", start: 0, duration: 8, in: 2, speed: 1, volume: 1 }]
 };
 ffmpeg.renderTimeline(JSON.stringify(spec), "user:/Exports/cut.mp4", "tmp:/cut.progress.json");
+```
+
+The optional `options` (an object or a JSON string) hands the end of the job to
+the server, so the script, or the browser tab behind it, does not have to be
+around when the render ends:
+
+| Option | Meaning |
+|---|---|
+| `cleanup` | Virtual path of a scratch folder to delete once the job has ended, however it ended. It must be a folder the user can write, not a file system root and not a folder holding `output`. |
+| `notify` | `true` sends the user a notification (through the user's own notification preferences) when the render finishes or fails. A render stopped with `ffmpeg.cancel` stays quiet. |
+
+```javascript
+ffmpeg.renderTimeline(JSON.stringify(spec), "user:/Exports/cut.mp4", "tmp:/cut.progress.json",
+                      { cleanup: "user:/Cache/render_42", notify: true });
 ```
 
 ### `ffmpeg.makeProxy(input, output, kind, height, progressFile)`

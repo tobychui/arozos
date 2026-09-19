@@ -228,7 +228,9 @@ CS.exporter = {
             .then(function (spec) {
                 if (job.cancelled) { throw new Error("cancelled"); }
                 CS.exporter.setStage("Starting render...", 0);
-                return CS.exporter.agi({ action: "render", spec: JSON.stringify(spec), dst: job.output });
+                //From here on the render belongs to the server: it deletes the scratch
+                //folder and notifies the user when it ends, so this tab may close
+                return CS.exporter.agi({ action: "render", spec: JSON.stringify(spec), dst: job.output, scratch: job.dir });
             })
             .then(function (data) {
                 if (!data.ok || !data.progress) { throw new Error(data.error || "could not start the render"); }
@@ -240,6 +242,39 @@ CS.exporter = {
                 if (job.cancelled || (err && err.message === "cancelled")) { return; }
                 CS.exporter.finishServer(job, false, err && err.message ? err.message : String(err));
             });
+    },
+
+    //Renders the server started earlier: running ones get their progress
+    //dialog back, finished or failed ones are reported once and forgotten.
+    //This is what a tab that was closed mid-render finds when it is reopened.
+    resumeJobs: function () {
+        if (!CS.exporter.useServer()) { return; }
+        CS.exporter.agi({ action: "jobs" }).then(function (data) {
+            (data.jobs || []).forEach(function (j) {
+                if (CS.exporter.job && CS.exporter.job.progress === j.progress) { return; }
+                var dir = CS.dirOf(j.output);
+                if (j.stage === "failed") {
+                    CS.toast("Export of " + j.name + " failed: " + (j.error || "render failed"), true);
+                    CS.exporter.agi({ action: "cleanup", target: j.progress }).catch(function () {});
+                } else if (j.completed && j.exists) {
+                    CS.exporter.finished(dir, j.name);
+                    CS.exporter.agi({ action: "cleanup", target: j.progress }).catch(function () {});
+                } else if (!CS.exporter.job) {
+                    var dot = j.name.lastIndexOf(".");
+                    var job = {
+                        settings: { base: dot > 0 ? j.name.substr(0, dot) : j.name, format: dot > 0 ? j.name.substr(dot + 1) : "", destDir: dir },
+                        dir: "", progress: j.progress, output: j.output, cancelled: false, uploads: 0
+                    };
+                    CS.exporter.job = job;
+                    CS.exporter.showServerProgress(job);
+                    CS.exporter.setStage("Rendering " + Math.round(j.percentage || 0) + "%", j.percentage || 0);
+                    CS.toast("Export of " + j.name + " is still rendering on the server");
+                    CS.exporter.pollServer(job);
+                } else {
+                    CS.toast("Export of " + j.name + " is also still rendering on the server");
+                }
+            });
+        }, function () { /* no backend answer: nothing to resume */ });
     },
 
     showServerProgress: function (job) {
@@ -258,7 +293,9 @@ CS.exporter = {
                 body.appendChild(stage);
                 label = document.createElement("div");
                 label.className = "modal-note";
-                label.textContent = "Rendering on the server from the original media. You can keep editing meanwhile.";
+                label.textContent = "Rendering on the server from the original media. Once it says Rendering you can " +
+                    "keep editing or close this tab: the render carries on, saves to " + job.settings.destDir +
+                    " and sends you a notification when it is done.";
                 body.appendChild(label);
             },
             buttons: [
@@ -897,3 +934,14 @@ CS.exporter = {
         ], window.innerWidth / 2 - 100, 80);
     }
 };
+
+//Until the server has accepted the render, this tab still has work to do
+//(rasterising titles and uploading them), so leaving would lose the export.
+//After that the render no longer needs the tab, and leaving is fine.
+window.addEventListener("beforeunload", function (ev) {
+    var job = CS.exporter.job;
+    if (job && !job.progress && !job.cancelled) {
+        ev.preventDefault();
+        ev.returnValue = "";
+    }
+});

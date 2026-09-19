@@ -168,6 +168,47 @@ func TestCancelConversionKillsRunningJob(t *testing.T) {
 	}
 }
 
+// TestWasCancelled tells a user's cancel from a job that failed on its own.
+func TestWasCancelled(t *testing.T) {
+	key := filepath.Join(t.TempDir(), "cancelled.progress.json")
+
+	if WasCancelled(key) {
+		t.Fatal("a job nobody cancelled must not report as cancelled")
+	}
+	if WasCancelled("") {
+		t.Fatal("an empty progress file has no jobs")
+	}
+
+	cmd := startHelperProcess(t)
+	registerConversion(key, cmd)
+	go cmd.Wait()
+	if !CancelConversion(key) {
+		t.Fatal("CancelConversion returned false for a running job")
+	}
+	unregisterConversion(key)
+
+	if !WasCancelled(key) {
+		t.Error("a cancelled job must report as cancelled")
+	}
+	if WasCancelled(key) {
+		t.Error("the cancelled mark must be consumed by the first answer")
+	}
+
+	// A new run under the same progress file starts clean, even if the mark of
+	// an earlier cancel was never read
+	cancelledConversions.Store(conversionJobKey(key), struct{}{})
+	again := startHelperProcess(t)
+	registerConversion(key, again)
+	defer func() {
+		again.Process.Kill()
+		again.Wait()
+		unregisterConversion(key)
+	}()
+	if WasCancelled(key) {
+		t.Error("registering a new job must clear a stale cancelled mark")
+	}
+}
+
 func TestRequiresEvenDimensions(t *testing.T) {
 	tests := []struct {
 		name   string

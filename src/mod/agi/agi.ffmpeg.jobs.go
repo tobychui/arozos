@@ -61,6 +61,94 @@ type ffmpegJob struct {
 	output       string   // virtual path
 	progressFile string   // real path
 	build        func(localInputs []string) (args []string, totalDurationMs int64, err error)
+	onFinish     func(err error) // optional: runs once the job has ended, whatever the outcome
+}
+
+// renderOptions are the optional settings of ffmpeg.renderTimeline. They let
+// a script hand over everything a render needs once it is running, so nothing
+// depends on the caller (a browser tab, say) still being around at the end.
+type renderOptions struct {
+	Cleanup string `json:"cleanup"` // virtual folder to delete once the job has ended
+	Notify  bool   `json:"notify"`  // tell the user through the notification system when it has ended
+}
+
+// parseRenderOptions reads the options argument: undefined, a JSON string or
+// a plain object.
+func parseRenderOptions(v otto.Value) (renderOptions, error) {
+	var opts renderOptions
+	if v.IsUndefined() || v.IsNull() {
+		return opts, nil
+	}
+	var raw []byte
+	if v.IsString() {
+		str, _ := v.ToString()
+		if strings.TrimSpace(str) == "" {
+			return opts, nil
+		}
+		raw = []byte(str)
+	} else {
+		exported, err := v.Export()
+		if err != nil {
+			return opts, fmt.Errorf("invalid render options: %v", err)
+		}
+		if raw, err = json.Marshal(exported); err != nil {
+			return opts, fmt.Errorf("invalid render options: %v", err)
+		}
+	}
+	if err := json.Unmarshal(raw, &opts); err != nil {
+		return opts, fmt.Errorf("invalid render options: %v", err)
+	}
+	return opts, nil
+}
+
+// checkScratchDir refuses folders a render must never delete on its own: the
+// root of a file system, or a folder that holds the output the job writes.
+func checkScratchDir(dir string, output string) error {
+	clean := strings.TrimRight(strings.TrimSpace(dir), "/")
+	colon := strings.Index(clean, ":")
+	if colon < 0 || strings.Trim(clean[colon+1:], "/") == "" {
+		return errors.New("cleanup must be a folder inside a file system, not its root: " + dir)
+	}
+	if output == clean || strings.HasPrefix(output, clean+"/") {
+		return errors.New("cleanup folder " + dir + " contains the output file")
+	}
+	return nil
+}
+
+// removeScratchDir deletes a job's scratch folder with the user's own rights,
+// releasing the quota of the files in it the way a normal delete does.
+func removeScratchDir(u *user.User, vdir string) error {
+	if !u.CanWrite(vdir) {
+		return errors.New("path access denied: " + vdir)
+	}
+	fsh, rpath, err := static.VirtualPathToRealPath(vdir, u)
+	if err != nil {
+		return err
+	}
+	abs := fsh.FileSystemAbstraction
+	if !abs.FileExists(rpath) {
+		return nil
+	}
+	if entries, err := abs.ReadDir(rpath); err == nil {
+		for _, entry := range entries {
+			child := strings.TrimRight(vdir, "/") + "/" + entry.Name()
+			if u.IsOwnerOfFile(fsh, child) {
+				u.RemoveOwnershipFromFile(fsh, child)
+			}
+		}
+	}
+	return abs.RemoveAll(rpath)
+}
+
+// finishFFmpegJob records how a job ended and runs its finish hook.
+func finishFFmpegJob(job *ffmpegJob, err error) {
+	if err != nil {
+		logger.PrintAndLog("Agi", "[AGI] ffmpeg "+job.title+" failed for "+job.user.Username, err)
+		ffmpegutil.MarkProgressFailed(job.progressFile, err)
+	}
+	if job.onFinish != nil {
+		job.onFinish(err)
+	}
 }
 
 // renderEncoder picks the encoder for a job: the hardware profile when asked
@@ -120,6 +208,26 @@ func dropSilentAudio(clips []render.AudioClip, hasAudio func(string) (bool, erro
 	return kept
 }
 
+// notifyRenderEnded tells a user, through their own notification preferences,
+// that a background render has ended. A render the user cancelled themselves
+// is not worth a message.
+func (g *Gateway) notifyRenderEnded(sender string, username string, output string, jobErr error, cancelled bool) {
+	if cancelled {
+		return
+	}
+	name := output[strings.LastIndex(output, "/")+1:]
+	folder := strings.TrimRight(output[:len(output)-len(name)], "/")
+	title := "Export finished: " + name
+	message := "Saved to " + folder
+	if jobErr != nil {
+		title = "Export failed: " + name
+		message = jobErr.Error()
+	}
+	if err := g.buildAndSendNotification(sender, []string{username}, title, message, "medium"); err != nil {
+		logger.PrintAndLog("Agi", "[AGI] could not send the render notification to "+username, err)
+	}
+}
+
 // startFFmpegJob validates a job synchronously (so the script hears about a
 // missing file or a bad path right away) and then runs it in the background.
 func startFFmpegJob(job *ffmpegJob) error {
@@ -158,12 +266,7 @@ func runFFmpegJob(job *ffmpegJob) {
 	ffmpegJobSlots <- struct{}{}
 	defer func() { <-ffmpegJobSlots }()
 
-	err := executeFFmpegJob(job)
-	if err != nil {
-		logger.PrintAndLog("Agi", "[AGI] ffmpeg "+job.title+" failed for "+job.user.Username, err)
-		ffmpegutil.MarkProgressFailed(job.progressFile, err)
-		return
-	}
+	finishFFmpegJob(job, executeFFmpegJob(job))
 }
 
 func executeFFmpegJob(job *ffmpegJob) error {
@@ -245,6 +348,13 @@ func (g *Gateway) injectFFmpegJobFunctions(payload *static.AgiLibInjectionPayloa
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
 
+	//The notification sender label is the script's module root, as in the
+	//notification library
+	senderLabel := "AGI Script"
+	if payload.ScriptPath != "" {
+		senderLabel = static.GetScriptRoot(payload.ScriptPath, "./web/")
+	}
+
 	// _ffmpeg_hw_encoder() -> name of the hardware encoder, "" for software only
 	vm.Set("_ffmpeg_hw_encoder", func(call otto.FunctionCall) otto.Value {
 		hw := transcoder.HWEncoder()
@@ -275,6 +385,11 @@ func (g *Gateway) injectFFmpegJobFunctions(payload *static.AgiLibInjectionPayloa
 			g.RaiseError(errors.New("renderTimeline needs a user scope"))
 			return otto.FalseValue()
 		}
+		opts, err := parseRenderOptions(call.Argument(3))
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
 
 		var project render.Project
 		if err := json.Unmarshal([]byte(specJSON), &project); err != nil {
@@ -290,12 +405,24 @@ func (g *Gateway) injectFFmpegJobFunctions(payload *static.AgiLibInjectionPayloa
 			return otto.FalseValue()
 		}
 
+		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
+		if opts.Cleanup != "" {
+			opts.Cleanup = strings.TrimRight(static.RelativeVpathRewrite(scriptFsh, opts.Cleanup, vm, u), "/")
+			if err := checkScratchDir(opts.Cleanup, voutput); err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			if !u.CanWrite(opts.Cleanup) {
+				g.RaiseError(errors.New("path access denied: " + opts.Cleanup))
+				return otto.FalseValue()
+			}
+		}
+
 		rprogress, err := resolveJobProgressFile(scriptFsh, vm, u, vprogress)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
-		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
 
 		// Distinct sources, in first-seen order; the local path of each is
 		// substituted back into the spec before the graph is built
@@ -323,6 +450,16 @@ func (g *Gateway) injectFFmpegJobFunctions(payload *static.AgiLibInjectionPayloa
 			inputs:       inputs,
 			output:       voutput,
 			progressFile: rprogress,
+			onFinish: func(jobErr error) {
+				if opts.Cleanup != "" {
+					if err := removeScratchDir(u, opts.Cleanup); err != nil {
+						logger.PrintAndLog("Agi", "[AGI] could not remove render scratch folder "+opts.Cleanup, err)
+					}
+				}
+				if opts.Notify {
+					g.notifyRenderEnded(senderLabel, u.Username, voutput, jobErr, ffmpegutil.WasCancelled(rprogress))
+				}
+			},
 			build: func(local []string) ([]string, int64, error) {
 				spec := project
 				spec.Layers = append([]render.Layer{}, project.Layers...)

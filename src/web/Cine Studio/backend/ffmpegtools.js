@@ -19,9 +19,19 @@
 	                                           -> { ok, ready, vpath, progress }
 	  action = "jobdir"                      - create a scratch folder for a render
 	                                           -> { ok, vpath }
-	  action = "render", spec, dst           - start rendering the timeline spec
-	                                           (JSON, see mod/media/render) into dst
+	  action = "render", spec, dst[, scratch] - start rendering the timeline spec
+	                                           (JSON, see mod/media/render) into dst.
+	                                           The render then belongs to the server: it
+	                                           deletes the scratch folder when it ends
+	                                           and sends the user a notification, so the
+	                                           browser can be closed.
 	                                           -> { ok, progress }
+	  action = "jobs"                        - the user's renders that are running or
+	                                           ended unseen (a job record is kept next to
+	                                           each progress file until "cleanup" of the
+	                                           progress file acknowledges it)
+	                                           -> { ok, jobs: [{ name, output, progress,
+	                                           stage, percentage, completed, error, exists }] }
 	  action = "progress", progress, target  - { percentage, completed, stage, error, exists }
 	  action = "cancel", progress            - stop a running job -> { ok, stopped }
 	  action = "cleanup", target             - delete a scratch file / folder or a
@@ -90,6 +100,18 @@ function readProgress(progressFile) {
 		return null;
 	}
 }
+
+//The job record that sits next to a render's progress file
+function jobRecordOf(progressFile) {
+	return progressFile.replace(/\.progress\.json$/, ".meta.json");
+}
+
+function baseNameOf(vpath) {
+	return vpath.substr(vpath.lastIndexOf("/") + 1);
+}
+
+//Records older than this are dropped even if nobody ever looked at them
+var JOB_RECORD_TTL_SECONDS = 7 * 24 * 3600;
 
 //A job is in flight when its progress file is fresh: running jobs rewrite
 //it twice a second, queued ones wait for an encoder slot
@@ -178,17 +200,60 @@ function main() {
 			return;
 		}
 		if (dst.indexOf("..") >= 0) { fail("invalid destination"); return; }
+		var renderOptions = { notify: true };
+		if (typeof(scratch) != "undefined" && scratch != "") {
+			//The server deletes the scratch folder itself once the render has ended
+			if (!isInsideCache(scratch)) { fail("scratch is not inside the Cine Studio cache"); return; }
+			renderOptions.cleanup = scratch;
+		}
 		var renderProgress = "tmp:/cinestudio_render_" + Date.now().toString(36) + "_" +
 			Math.floor(Math.random() * 1e6).toString(36) + ".progress.json";
 		var ok = false;
 		var renderErr = "";
 		try {
-			ok = ffmpeg.renderTimeline(spec, dst, renderProgress);
+			ok = ffmpeg.renderTimeline(spec, dst, renderProgress, JSON.stringify(renderOptions));
 		} catch (e) {
 			renderErr = e.toString();
 		}
 		if (!ok) { fail(renderErr || "unable to start the render"); return; }
+		//Leave a record so a browser that comes back later can find the render
+		filelib.writeFile(jobRecordOf(renderProgress), JSON.stringify({
+			name: baseNameOf(dst), output: dst, progress: renderProgress, started: Date.now()
+		}));
 		reply({ ok: true, progress: renderProgress, output: dst });
+		return;
+	}
+
+	if (action == "jobs") {
+		var records = filelib.glob("tmp:/cinestudio_render_*.meta.json") || [];
+		var jobList = [];
+		for (var r = 0; r < records.length; r++) {
+			var rec = null;
+			try { rec = JSON.parse(filelib.readFile(records[r])); } catch (e) { rec = null; }
+			if (!rec || !rec.progress || !isProgressFile(rec.progress)) {
+				filelib.deleteFile(records[r]);
+				continue;
+			}
+			if (Math.floor(Date.now() / 1000) - filelib.mtime(records[r], true) > JOB_RECORD_TTL_SECONDS) {
+				//Abandoned: forget it together with its progress file
+				if (filelib.fileExists(rec.progress)) { filelib.deleteFile(rec.progress); }
+				filelib.deleteFile(records[r]);
+				continue;
+			}
+			var state = readProgress(rec.progress) || { percentage: 0, completed: false, stage: "" };
+			var present = filelib.fileExists(rec.output);
+			if (!state.completed && state.stage != "failed" && !jobInFlight(rec.progress)) {
+				//Neither running nor finished: the server stopped in the middle of it
+				state.stage = "failed";
+				state.error = "the render was interrupted";
+			}
+			jobList.push({
+				name: rec.name, output: rec.output, progress: rec.progress,
+				stage: state.stage || "", percentage: state.percentage || 0,
+				completed: !!state.completed, error: state.error || "", exists: present
+			});
+		}
+		reply({ ok: true, jobs: jobList });
 		return;
 	}
 
@@ -227,6 +292,9 @@ function main() {
 				}
 			}
 			filelib.deleteFile(target);
+		}
+		if (isProgressFile(target) && filelib.fileExists(jobRecordOf(target))) {
+			filelib.deleteFile(jobRecordOf(target));
 		}
 		reply({ ok: true, deleted: existed && !filelib.fileExists(target) });
 		return;

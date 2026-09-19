@@ -1143,8 +1143,8 @@
     },
     {
      "name": "ffmpeg.renderTimeline",
-     "sig": "ffmpeg.renderTimeline(specJSON, output, progressFile)",
-     "desc": "Render an edited timeline (a render.Project JSON spec of clips, transforms, effects, transitions and audio) into output in one ffmpeg run, in the background. Returns true once the job is accepted; follow it through the progress file (stage: queued / running / uploading / done / failed; completed turns true only when the output is fully written). Output extension must match the spec format: mp4, mov, mkv, webm, gif or m4a.",
+     "sig": "ffmpeg.renderTimeline(specJSON, output, progressFile, options)",
+     "desc": "Render an edited timeline (a render.Project JSON spec of clips, transforms, effects, transitions and audio) into output in one ffmpeg run, in the background. Returns true once the job is accepted; follow it through the progress file (stage: queued / running / uploading / done / failed; completed turns true only when the output is fully written). Output extension must match the spec format: mp4, mov, mkv, webm, gif or m4a. Optional options object: {cleanup: folder to delete when the job ends, notify: true to notify the user when it ends}, so the render needs nothing from the caller once accepted.",
      "ret": "bool",
      "example": "requirelib(\"ffmpeg\");\nffmpeg.renderTimeline(JSON.stringify(spec), \"user:/Exports/cut.mp4\", \"tmp:/cut.progress.json\");"
     },

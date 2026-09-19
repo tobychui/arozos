@@ -212,6 +212,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     CS.ensureAppFolders();
     CS.checkServerFFmpeg();
+    //A render started before this tab was (re)opened may still be running or have ended
+    CS.whenFFmpegKnown(function () { CS.exporter.resumeJobs(); });
 
     /* ---------- initial paint ---------- */
 
