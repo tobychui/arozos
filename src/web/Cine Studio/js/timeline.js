@@ -2,8 +2,21 @@
     Cine Studio - timeline
 
     Renders the ruler, track headers, track lanes and clips; handles
-    scrubbing, drag-move, trim handles, blade splitting, drops from the
-    media bin, snapping and zoom.
+    scrubbing, the editing tools (select, track select, ripple, rolling,
+    razor, slip, slide, rate stretch), drops from the media bin, snapping,
+    zoom, sequence in / out points and gap handling.
+
+    Tool semantics follow Premiere Pro:
+      select        move clips, trim edges (gaps stay)
+      trackselect   click selects every clip from there to the end of the
+                    track (shift: on every track)
+      ripple        trimming an edge shifts everything after it
+      rolling       dragging an edit point trims both neighbours at once
+      razor         click splits a clip
+      slip          drag inside a clip changes what part of the source it
+                    shows, position and length stay
+      slide         drag moves the clip, the neighbours give / take the room
+      ratestretch   dragging an edge changes the speed, not the content
 */
 "use strict";
 
@@ -14,6 +27,17 @@ CS.timeline = {
     TRACK_H_AUDIO: 52,
     MIN_CLIP_DUR: 0.1,
     TAIL_SECONDS: 30,   //empty space kept after the last clip
+
+    TOOLS: [
+        { id: "select", label: "Selection", key: "V", icon: "cursor" },
+        { id: "trackselect", label: "Track Select Forward", key: "A", icon: "track-select" },
+        { id: "ripple", label: "Ripple Edit", key: "B", icon: "ripple" },
+        { id: "rolling", label: "Rolling Edit", key: "N", icon: "rolling" },
+        { id: "ratestretch", label: "Rate Stretch", key: "R", icon: "stretch" },
+        { id: "blade", label: "Razor", key: "C", icon: "blade" },
+        { id: "slip", label: "Slip", key: "Y", icon: "slip" },
+        { id: "slide", label: "Slide", key: "U", icon: "slide" }
+    ],
 
     _drag: null,
 
@@ -27,7 +51,8 @@ CS.timeline = {
             CS.timeline.drawRuler();
         });
 
-        //Scrub by pressing / dragging on the ruler
+        //Scrub by pressing / dragging on the ruler; double-click a marker flag
+        //to name and colour it
         var ruler = document.getElementById("tl-ruler");
         ruler.addEventListener("pointerdown", function (ev) {
             ruler.setPointerCapture(ev.pointerId);
@@ -35,6 +60,11 @@ CS.timeline = {
             CS.timeline.scrubTo(ev);
             ruler.onpointermove = function (mv) { CS.timeline.scrubTo(mv); };
             ruler.onpointerup = function () { ruler.onpointermove = null; ruler.onpointerup = null; };
+        });
+        ruler.addEventListener("dblclick", function (ev) {
+            var t = CS.timeline.timeAtClientX(ev.clientX);
+            var m = CS.markerNear(t, 6 / CS.state.zoom);
+            if (m) { CS.editMarkerDialog(m); }
         });
 
         //Zoom controls
@@ -48,11 +78,16 @@ CS.timeline = {
         document.getElementById("btn-zoom-out").addEventListener("click", function () {
             CS.timeline.setZoom(CS.state.zoom / 1.35);
         });
+        document.getElementById("btn-zoom-fit").addEventListener("click", CS.timeline.zoomToSequence);
         CS.paintSlider(zoom);
 
-        //Toolbar
-        document.getElementById("tool-select").addEventListener("click", function () { CS.timeline.setTool("select"); });
-        document.getElementById("tool-blade").addEventListener("click", function () { CS.timeline.setTool("blade"); });
+        //Toolbar: one button per tool
+        CS.timeline.TOOLS.forEach(function (tool) {
+            var btn = document.getElementById("tool-" + tool.id);
+            if (!btn) { return; }
+            btn.title = tool.label + " (" + tool.key + ")";
+            btn.addEventListener("click", function () { CS.timeline.setTool(tool.id); });
+        });
         document.getElementById("tool-crop").addEventListener("click", function () {
             //Jump to the Crop controls in the inspector
             document.getElementById("inspector").classList.remove("hidden");
@@ -77,7 +112,14 @@ CS.timeline = {
             this.classList.toggle("active", CS.state.snap);
             CS.toast("Snapping " + (CS.state.snap ? "on" : "off"));
         });
+        document.getElementById("btn-linked").addEventListener("click", function () {
+            CS.state.linked = !CS.state.linked;
+            this.classList.toggle("active", CS.state.linked);
+            CS.toast("Linked selection " + (CS.state.linked ? "on" : "off"));
+        });
         document.getElementById("btn-marker").addEventListener("click", CS.toggleMarkerAtPlayhead);
+        document.getElementById("btn-mark-in").addEventListener("click", function () { CS.setInPoint(CS.state.playhead); });
+        document.getElementById("btn-mark-out").addEventListener("click", function () { CS.setOutPoint(CS.state.playhead); });
         document.getElementById("btn-undo").addEventListener("click", CS.undo);
         document.getElementById("btn-redo").addEventListener("click", CS.redo);
         document.getElementById("btn-delete-clip").addEventListener("click", CS.deleteSelectedClip);
@@ -104,9 +146,7 @@ CS.timeline = {
             if (media.offline) { CS.toast("Cannot use offline media", true); return; }
             var kind = media.type === "audio" ? "audio" : "video";
             var trackId = CS.createTrack(kind);
-            var s = document.getElementById("tl-scroll");
-            var rect = s.getBoundingClientRect();
-            var t = Math.max(0, (ev.clientX - rect.left + s.scrollLeft) / CS.state.zoom);
+            var t = Math.max(0, CS.timeline.timeAtClientX(ev.clientX));
             var clip = CS.addClipToTimeline(media, trackId, t);
             if (clip) {
                 CS.state.selectedClipId = clip.id;
@@ -116,15 +156,21 @@ CS.timeline = {
     },
 
     setTool: function (tool) {
+        var known = CS.timeline.TOOLS.some(function (t) { return t.id === tool; });
+        if (!known) { return; }
         CS.state.tool = tool;
-        document.getElementById("tool-select").classList.toggle("active", tool === "select");
-        document.getElementById("tool-blade").classList.toggle("active", tool === "blade");
+        CS.timeline.TOOLS.forEach(function (t) {
+            var btn = document.getElementById("tool-" + t.id);
+            if (btn) { btn.classList.toggle("active", t.id === tool); }
+        });
+        var lanes = document.getElementById("tl-tracks");
+        if (lanes) { lanes.setAttribute("data-tool", tool); }
     },
 
     setZoom: function (z) {
         var scroll = document.getElementById("tl-scroll");
         var anchorTime = (scroll.scrollLeft + scroll.clientWidth / 2) / CS.state.zoom;
-        CS.state.zoom = CS.clamp(z, 4, 200);
+        CS.state.zoom = CS.clamp(z, 2, 400);
         var slider = document.getElementById("tl-zoom");
         slider.value = CS.state.zoom;
         CS.paintSlider(slider);
@@ -132,11 +178,22 @@ CS.timeline = {
         scroll.scrollLeft = anchorTime * CS.state.zoom - scroll.clientWidth / 2;
     },
 
-    scrubTo: function (ev) {
+    //Fit the whole sequence into the visible timeline width
+    zoomToSequence: function () {
+        var scroll = document.getElementById("tl-scroll");
+        var dur = Math.max(1, CS.timelineDuration());
+        CS.timeline.setZoom((scroll.clientWidth - 40) / dur);
+        scroll.scrollLeft = 0;
+    },
+
+    timeAtClientX: function (clientX) {
         var scroll = document.getElementById("tl-scroll");
         var rect = scroll.getBoundingClientRect();
-        var x = ev.clientX - rect.left + scroll.scrollLeft;
-        CS.player.seek(x / CS.state.zoom);
+        return (clientX - rect.left + scroll.scrollLeft) / CS.state.zoom;
+    },
+
+    scrubTo: function (ev) {
+        CS.player.seek(CS.timeline.timeAtClientX(ev.clientX));
     },
 
     contentWidth: function () {
@@ -146,7 +203,8 @@ CS.timeline = {
     },
 
     trackHeight: function (track) {
-        return track.kind === "video" ? CS.timeline.TRACK_H_VIDEO : CS.timeline.TRACK_H_AUDIO;
+        var base = track.kind === "video" ? CS.timeline.TRACK_H_VIDEO : CS.timeline.TRACK_H_AUDIO;
+        return Math.round(base * (track.height || 1));
     },
 
     /* ---------- full render ---------- */
@@ -156,6 +214,7 @@ CS.timeline = {
         CS.timeline.renderTracks();
         CS.timeline.drawRuler();
         CS.timeline.updatePlayhead();
+        CS.timeline.updateRange();
         CS.player.updateTransportUI();
     },
 
@@ -164,37 +223,84 @@ CS.timeline = {
         holder.innerHTML = "";
         CS.tracksInDisplayOrder().forEach(function (track) {
             var h = document.createElement("div");
-            h.className = "track-header" + (track.solo ? " solo" : "");
+            h.className = "track-header" + (track.solo ? " solo" : "") + (track.locked ? " locked" : "");
             h.style.height = CS.timeline.trackHeight(track) + "px";
+            h.dataset.trackId = track.id;
 
-            var icon = document.createElement("span");
-            icon.className = "th-icon";
-            icon.innerHTML = CS.iconSVG(track.kind === "video" ? "film" : "speaker");
+            //Source patching: which tracks insert / overwrite edits land on
+            var target = document.createElement("button");
+            target.className = "th-target" + (track.target === false ? " off" : "");
+            target.textContent = track.id;
+            target.title = "Target track for insert / overwrite (source patching)";
+            target.addEventListener("click", function () {
+                track.target = (track.target === false);
+                CS.timeline.renderHeaders();
+            });
 
             var name = document.createElement("span");
             name.className = "th-name";
             name.textContent = track.name;
+            name.title = "Double-click to rename";
+            name.addEventListener("dblclick", function () { CS.timeline.renameTrack(track); });
+
+            var lock = document.createElement("button");
+            lock.className = "th-lock" + (track.locked ? " on" : "");
+            lock.innerHTML = CS.iconSVG(track.locked ? "lock" : "unlock");
+            lock.title = track.locked ? "Unlock track" : "Lock track (no edits, no drops)";
+            lock.addEventListener("click", function () {
+                track.locked = !track.locked;
+                CS.commit(track.locked ? "Lock Track" : "Unlock Track");
+            });
 
             var toggle = document.createElement("button");
             toggle.className = "th-toggle";
             var on = track.kind === "video" ? track.visible : !track.muted;
             toggle.classList.toggle("off", !on);
             toggle.innerHTML = CS.iconSVG(on ? "eye" : "eye-off");
-            toggle.title = track.kind === "video" ? "Toggle track visibility" : "Toggle track audio";
+            toggle.title = track.kind === "video" ? "Toggle track visibility" : "Mute track";
             toggle.addEventListener("click", function () {
                 if (track.kind === "video") { track.visible = !track.visible; }
                 else { track.muted = !track.muted; }
                 CS.commit("Toggle Track");
             });
 
-            h.appendChild(icon);
+            h.appendChild(target);
             h.appendChild(name);
+            if (track.kind === "audio") {
+                var solo = document.createElement("button");
+                solo.className = "th-solo" + (track.solo ? " on" : "");
+                solo.textContent = "S";
+                solo.title = "Solo track";
+                solo.addEventListener("click", function () {
+                    track.solo = !track.solo;
+                    CS.commit(track.solo ? "Solo Track" : "Unsolo Track");
+                });
+                h.appendChild(solo);
+            }
+            h.appendChild(lock);
             h.appendChild(toggle);
             h.addEventListener("contextmenu", function (ev) {
                 ev.preventDefault();
                 CS.timeline.trackMenu(track, ev.clientX, ev.clientY);
             });
             holder.appendChild(h);
+        });
+    },
+
+    renameTrack: function (track) {
+        var nameIn;
+        CS.modal({
+            title: "Rename Track",
+            build: function (body) {
+                nameIn = CS.modalRow(body, "Name", CS.textInput(track.name));
+            },
+            buttons: [
+                { label: "Cancel" },
+                { label: "Rename", primary: true, action: function () {
+                    var v = nameIn.value.trim();
+                    if (v) { track.name = v; CS.commit("Rename Track"); }
+                } }
+            ]
         });
     },
 
@@ -210,8 +316,23 @@ CS.timeline = {
                     CS.commit(track.solo ? "Solo Track" : "Unsolo Track");
                 }
             });
-            items.push({ sep: true });
         }
+        items.push({
+            label: track.locked ? "Unlock track" : "Lock track", icon: "lock",
+            action: function () {
+                track.locked = !track.locked;
+                CS.commit(track.locked ? "Lock Track" : "Unlock Track");
+            }
+        });
+        items.push({ label: "Rename...", icon: "nav-text", action: function () { CS.timeline.renameTrack(track); } });
+        items.push({ sep: true });
+        [{ v: 0.7, l: "Small" }, { v: 1, l: "Normal" }, { v: 1.6, l: "Large" }].forEach(function (h) {
+            items.push({
+                label: "Track height: " + h.l, checked: (track.height || 1) === h.v,
+                action: function () { track.height = h.v; CS.timeline.render(); }
+            });
+        });
+        items.push({ sep: true });
         items.push({
             label: "Delete track", icon: "trash", disabled: !empty || sameKind <= 1,
             action: function () {
@@ -225,19 +346,30 @@ CS.timeline = {
     renderTracks: function () {
         var holder = document.getElementById("tl-tracks");
         holder.innerHTML = "";
+        holder.setAttribute("data-tool", CS.state.tool);
         var width = CS.timeline.contentWidth();
         document.getElementById("tl-content").style.width = width + "px";
 
         CS.tracksInDisplayOrder().forEach(function (track) {
             var lane = document.createElement("div");
-            lane.className = "tl-track";
+            lane.className = "tl-track" + (track.locked ? " locked" : "");
             lane.style.height = CS.timeline.trackHeight(track) + "px";
             lane.style.width = width + "px";
             lane.dataset.trackId = track.id;
 
             CS.timeline.bindLaneDrop(lane, track);
             lane.addEventListener("pointerdown", function (ev) {
-                if (ev.target === lane) { CS.selectClip(null); }
+                if (ev.target !== lane) { return; }
+                if (CS.state.tool === "trackselect") {
+                    CS.timeline.selectForward(track, CS.timeline.timeAtClientX(ev.clientX), ev.shiftKey);
+                    return;
+                }
+                CS.selectClip(null);
+            });
+            lane.addEventListener("contextmenu", function (ev) {
+                if (ev.target !== lane) { return; }
+                ev.preventDefault();
+                CS.timeline.gapMenu(track, CS.timeline.timeAtClientX(ev.clientX), ev.clientX, ev.clientY);
             });
 
             CS.clipsOnTrack(track.id).forEach(function (clip) {
@@ -246,6 +378,34 @@ CS.timeline = {
 
             holder.appendChild(lane);
         });
+    },
+
+    //Track select forward: everything on the track starting at or after t
+    selectForward: function (track, t, allTracks) {
+        var ids = [];
+        CS.project.clips.forEach(function (c) {
+            if (!allTracks && c.trackId !== track.id) { return; }
+            if (CS.clipEnd(c) > t + 0.0001) { ids.push(c.id); }
+        });
+        CS.state.selectedClipIds = ids;
+        CS.state.selectedClipId = ids.length ? ids[0] : null;
+        CS.timeline.refreshSelection();
+        CS.inspector.render();
+        CS.toast(ids.length + " clip" + (ids.length === 1 ? "" : "s") + " selected");
+    },
+
+    //Context menu on empty lane space: close the gap under the pointer
+    gapMenu: function (track, t, x, y) {
+        var gap = CS.gapAt(track.id, t);
+        CS.showMenu([
+            {
+                label: "Close gap (ripple delete)", icon: "trash", disabled: !gap || track.locked,
+                action: function () { CS.closeGap(track.id, gap); }
+            },
+            {
+                label: "Paste at playhead", icon: "copy", disabled: !CS.clipClipboard, action: CS.pasteClipsAtPlayhead
+            }
+        ], x, y);
     },
 
     /* ---------- clip elements ---------- */
@@ -259,7 +419,7 @@ CS.timeline = {
         var w = Math.max(4, CS.clipDuration(clip) * CS.state.zoom);
         el.style.left = x + "px";
         el.style.width = w + "px";
-        if (clip.id === CS.state.selectedClipId) { el.classList.add("selected"); }
+        if ((CS.state.selectedClipIds || []).indexOf(clip.id) >= 0) { el.classList.add("selected"); }
 
         if (clip.kind === "title") {
             el.classList.add("title-clip");
@@ -277,6 +437,12 @@ CS.timeline = {
             clbl.className = "clip-label";
             clbl.textContent = "Color";
             el.appendChild(clbl);
+        } else if (clip.kind === "adjust") {
+            el.classList.add("adjust-clip");
+            var albl = document.createElement("span");
+            albl.className = "clip-label";
+            albl.textContent = "Adjustment Layer";
+            el.appendChild(albl);
         } else if (!media || media.offline) {
             el.classList.add("offline");
             var lbl = document.createElement("span");
@@ -306,7 +472,7 @@ CS.timeline = {
             el.appendChild(strip);
         }
 
-        //Markers: effect stack + transition-in
+        //Badges: effect stack, transition-in, speed, link, keyframes
         if (clip.props.effects && clip.props.effects.length) {
             var fxBadge = document.createElement("span");
             fxBadge.className = "clip-fx";
@@ -318,27 +484,58 @@ CS.timeline = {
             trMark.className = "clip-tr";
             el.appendChild(trMark);
         }
+        if (clip.props.audioTransition && clip.props.audioTransition.type !== "none") {
+            var atMark = document.createElement("span");
+            atMark.className = "clip-tr audio";
+            el.appendChild(atMark);
+        }
+        var speed = CS.clipSpeed(clip);
+        if (speed !== 1 || clip.props.reverse) {
+            var spBadge = document.createElement("span");
+            spBadge.className = "clip-speed";
+            spBadge.textContent = (clip.props.reverse ? "-" : "") + Math.round(speed * 100) + "%";
+            el.appendChild(spBadge);
+        }
+        if (clip.props.link) {
+            var lnk = document.createElement("span");
+            lnk.className = "clip-link";
+            lnk.innerHTML = CS.iconSVG("link");
+            lnk.title = "Linked clip";
+            el.appendChild(lnk);
+        }
+        if (CS.keyframes) { CS.keyframes.decorateClip(el, clip); }
 
         //Trim handles
         ["left", "right"].forEach(function (side) {
             var handle = document.createElement("div");
             handle.className = "trim-handle " + side;
             handle.addEventListener("pointerdown", function (ev) {
+                if (ev.button !== 0) { return; }
                 ev.stopPropagation();
-                CS.timeline.beginDrag(ev, clip, el, side === "left" ? "trim-l" : "trim-r");
+                if (track.locked) { CS.toast("Track is locked", true); return; }
+                var mode = side === "left" ? "trim-l" : "trim-r";
+                if (CS.state.tool === "ratestretch") { mode = side === "left" ? "rate-l" : "rate-r"; }
+                else if (CS.state.tool === "rolling") { mode = side === "left" ? "roll-l" : "roll-r"; }
+                else if (CS.state.tool === "ripple") { mode = side === "left" ? "ripple-l" : "ripple-r"; }
+                CS.timeline.beginDrag(ev, clip, el, mode);
             });
             el.appendChild(handle);
         });
 
         el.addEventListener("pointerdown", function (ev) {
             if (ev.button !== 0) { return; }
-            if (CS.state.tool === "blade") {
-                var rect = el.getBoundingClientRect();
-                var t = clip.start + (ev.clientX - rect.left) / CS.state.zoom;
+            var tool = CS.state.tool;
+            if (tool === "blade") {
+                if (track.locked) { CS.toast("Track is locked", true); return; }
+                var t = clip.start + (ev.clientX - el.getBoundingClientRect().left) / CS.state.zoom;
                 if (t > clip.start + 0.05 && t < CS.clipEnd(clip) - 0.05) {
-                    CS.splitClip(clip, t);
+                    CS.splitClipLinked(clip, t);
                     CS.commit("Split Clip");
                 }
+                return;
+            }
+            if (tool === "trackselect") {
+                CS.timeline.selectForward(track, clip.start, ev.shiftKey);
                 return;
             }
             if (ev.shiftKey) {
@@ -354,7 +551,11 @@ CS.timeline = {
                 CS.timeline.refreshSelection();
                 CS.inspector.render();
             }
-            CS.timeline.beginDrag(ev, clip, el, "move");
+            if (track.locked) { return; }
+            var mode = "move";
+            if (tool === "slip") { mode = "slip"; }
+            else if (tool === "slide") { mode = "slide"; }
+            CS.timeline.beginDrag(ev, clip, el, mode);
         });
 
         el.addEventListener("contextmenu", function (ev) {
@@ -362,28 +563,42 @@ CS.timeline = {
             if ((CS.state.selectedClipIds || []).indexOf(clip.id) < 0) {
                 CS.selectClip(clip.id);
             }
-            var canDetach = media && media.type === "video" && track.kind === "video" &&
-                !clip.props.audioDetached;
-            CS.showMenu([
-                { label: "Copy", icon: "copy", action: CS.copySelectedClips },
-                { label: "Paste at playhead", icon: "copy", disabled: !CS.clipClipboard, action: CS.pasteClipsAtPlayhead },
-                { label: "Duplicate", icon: "plus-square", action: CS.duplicateSelectedClips },
-                { sep: true },
-                { label: "Split at playhead", icon: "scissors", action: CS.splitAtPlayhead },
-                { label: "Detach audio", icon: "detach", disabled: !canDetach, action: function () {
-                    CS.detachAudio(clip);
-                } },
-                { label: "Reset properties", icon: "rotate-ccw", action: function () {
-                    clip.props = CS.defaultClipProps();
-                    CS.commit("Reset Clip");
-                } },
-                { sep: true },
-                { label: "Ripple delete", icon: "trash", action: CS.rippleDeleteSelected },
-                { label: "Delete", icon: "trash", action: CS.deleteSelectedClip }
-            ], ev.clientX, ev.clientY);
+            CS.timeline.clipMenu(clip, track, media, ev.clientX, ev.clientY);
         });
 
         return el;
+    },
+
+    clipMenu: function (clip, track, media, x, y) {
+        var canDetach = media && media.type === "video" && track.kind === "video" &&
+            !clip.props.audioDetached;
+        var canHold = media && media.type === "video" && track.kind === "video";
+        CS.showMenu([
+            { label: "Copy", icon: "copy", action: CS.copySelectedClips },
+            { label: "Paste at playhead", icon: "copy", disabled: !CS.clipClipboard, action: CS.pasteClipsAtPlayhead },
+            { label: "Duplicate", icon: "plus-square", action: CS.duplicateSelectedClips },
+            { sep: true },
+            { label: "Split at playhead", icon: "scissors", action: CS.splitAtPlayhead },
+            { label: "Detach audio", icon: "detach", disabled: !canDetach, action: function () {
+                CS.detachAudio(clip);
+            } },
+            { label: (clip.props.link ? "Unlink" : "Link selected clips"), icon: "link", action: function () {
+                if (clip.props.link) { CS.unlinkClips(); } else { CS.linkSelectedClips(); }
+            } },
+            { label: "Add frame hold", icon: "camera", disabled: !canHold, action: function () {
+                CS.addFrameHold(clip);
+            } },
+            { label: "Speed / Duration...", icon: "stretch", disabled: !media || media.type === "image", action: function () {
+                CS.speedDialog(clip);
+            } },
+            { label: "Reset properties", icon: "rotate-ccw", action: function () {
+                clip.props = CS.defaultClipProps();
+                CS.commit("Reset Clip");
+            } },
+            { sep: true },
+            { label: "Ripple delete", icon: "trash", action: CS.rippleDeleteSelected },
+            { label: "Delete", icon: "trash", action: CS.deleteSelectedClip }
+        ], x, y);
     },
 
     fillFilmstrip: function (strip, media, clipW, clipH) {
@@ -434,7 +649,55 @@ CS.timeline = {
         }
     },
 
-    /* ---------- drag: move + trim ---------- */
+    //Repaint one clip element in place after a drag changed its geometry
+    repaintClipEl: function (clip) {
+        var el = document.querySelector('.tl-clip[data-clip-id="' + clip.id + '"]');
+        if (!el) { return; }
+        var track = CS.getTrack(clip.trackId);
+        var media = CS.getMedia(clip.mediaId);
+        el.style.left = (clip.start * CS.state.zoom) + "px";
+        var w = Math.max(4, CS.clipDuration(clip) * CS.state.zoom);
+        el.style.width = w + "px";
+        var wave = el.querySelector(".clip-wave");
+        if (wave && media) {
+            CS.timeline.drawClipWave(wave, clip, media, w, CS.timeline.trackHeight(track) - 10);
+        }
+        var strip = el.querySelector(".clip-strip");
+        if (strip && media) {
+            CS.timeline.fillFilmstrip(strip, media, w, CS.timeline.trackHeight(track) - 10);
+        }
+    },
+
+    /* ---------- neighbours ---------- */
+
+    prevOnTrack: function (clip) {
+        var best = null;
+        CS.clipsOnTrack(clip.trackId).forEach(function (c) {
+            if (c.id !== clip.id && CS.clipEnd(c) <= clip.start + 0.0001) {
+                if (!best || CS.clipEnd(c) > CS.clipEnd(best)) { best = c; }
+            }
+        });
+        return best;
+    },
+
+    nextOnTrack: function (clip) {
+        var best = null;
+        CS.clipsOnTrack(clip.trackId).forEach(function (c) {
+            if (c.id !== clip.id && c.start >= CS.clipEnd(clip) - 0.0001) {
+                if (!best || c.start < best.start) { best = c; }
+            }
+        });
+        return best;
+    },
+
+    //Source length available to a clip (Infinity for free-duration clips)
+    sourceLength: function (clip) {
+        var media = CS.getMedia(clip.mediaId);
+        if (!media || media.type === "image") { return Infinity; }
+        return media.duration || clip.out;
+    },
+
+    /* ---------- drag: move, trim, ripple, roll, slip, slide, rate ---------- */
 
     beginDrag: function (ev, clip, el, mode) {
         if (CS.state.tool === "blade") { return; }
@@ -446,21 +709,32 @@ CS.timeline = {
             if (ids.indexOf(clip.id) >= 0 && ids.length > 1) {
                 group = ids.map(function (id) {
                     var c = CS.getClip(id);
-                    return c ? { clip: c, origStart: c.start } : null;
+                    return c && !CS.trackLocked(c.trackId) ? { clip: c, origStart: c.start } : null;
                 }).filter(function (g) { return !!g; });
             }
         }
+        var prev = CS.timeline.prevOnTrack(clip);
+        var next = CS.timeline.nextOnTrack(clip);
+        //Later clips on the track, for ripple edits
+        var later = CS.clipsOnTrack(clip.trackId).filter(function (c) {
+            return c.id !== clip.id && c.start >= CS.clipEnd(clip) - 0.0001;
+        }).map(function (c) { return { clip: c, origStart: c.start }; });
+
         CS.timeline._drag = {
             mode: mode,
             clip: clip,
             el: el,
             group: group,
+            later: later,
+            prev: prev ? { clip: prev, origOut: prev.out, origIn: prev.in, origStart: prev.start } : null,
+            next: next ? { clip: next, origOut: next.out, origIn: next.in, origStart: next.start } : null,
             pointerId: ev.pointerId,
             startX: ev.clientX,
             startY: ev.clientY,
             origStart: clip.start,
             origIn: clip.in,
             origOut: clip.out,
+            origSpeed: CS.clipSpeed(clip),
             origTrackId: clip.trackId,
             moved: false
         };
@@ -482,92 +756,213 @@ CS.timeline = {
         var media = CS.getMedia(clip.mediaId);
         //Images, titles and color boards have no intrinsic duration
         var isImage = !media || media.type === "image";
+        var minDur = CS.timeline.MIN_CLIP_DUR;
+        var v = isImage ? 1 : d.origSpeed;
 
-        if (d.mode === "move") {
-            var target = Math.max(0, d.origStart + dt);
-            target = CS.timeline.applySnap(target, clip, "start");
-            //If no snap on the left edge, try snapping the right edge
-            clip.start = target;
+        switch (d.mode) {
+        case "move":
+            CS.timeline.dragMove(d, ev, dt, media);
+            break;
 
-            //Group move: apply the (snapped) primary delta to every member
-            var appliedDt = clip.start - d.origStart;
-            d.group.forEach(function (g) {
-                if (g.clip.id === clip.id) { return; }
-                g.clip.start = Math.max(0, g.origStart + appliedDt);
-                var gel = document.querySelector('.tl-clip[data-clip-id="' + g.clip.id + '"]');
-                if (gel) { gel.style.left = (g.clip.start * CS.state.zoom) + "px"; }
-            });
-
-            //Vertical: move across compatible tracks (single-clip drags only)
-            var isAudioClip = media && media.type === "audio";
-            var lane = CS.timeline.laneUnderPointer(ev.clientY);
-            d.newTrackKind = null;
-            if (d.group.length > 1) {
-                //group drags stay on their own tracks
-            } else if (lane) {
-                var track = CS.getTrack(lane.dataset.trackId);
-                var kindOk = track && ((track.kind === "audio") === isAudioClip);
-                if (kindOk && track.id !== clip.trackId) {
-                    clip.trackId = track.id;
-                    lane.appendChild(d.el);
-                }
+        case "trim-l":
+        case "ripple-l": {
+            var newStart = d.origStart + dt;
+            var maxStart = d.origStart + (d.origOut - d.origIn) / v - minDur;
+            newStart = CS.clamp(newStart, isImage ? 0 : d.origStart - d.origIn / v, maxStart);
+            newStart = Math.max(0, CS.timeline.applySnap(newStart, clip, "trim"));
+            var delta = newStart - d.origStart;
+            clip.start = newStart;
+            if (isImage) {
+                //Free-duration clips renormalize to in = 0
+                clip.in = 0;
+                clip.out = (d.origOut - d.origIn) - delta;
             } else {
-                //Dragged past the outermost lanes: offer a brand-new track
-                //(video above the top lane, audio below the bottom lane)
-                var lanesRect = document.getElementById("tl-tracks").getBoundingClientRect();
-                if (isAudioClip && ev.clientY > lanesRect.bottom) {
-                    d.newTrackKind = "audio";
-                } else if (!isAudioClip && ev.clientY < lanesRect.top) {
-                    d.newTrackKind = "video";
-                } else if (!isAudioClip && ev.clientY > lanesRect.bottom) {
-                    //below everything also works for video: stack a new track on top
-                    d.newTrackKind = "video";
-                }
+                clip.in = d.origIn + delta * v;
             }
-            d.el.style.left = (clip.start * CS.state.zoom) + "px";
-        } else {
-            var minDur = CS.timeline.MIN_CLIP_DUR;
-            //Timeline deltas convert to source-time deltas via the clip speed
-            var v = isImage ? 1 : CS.clipSpeed(clip);
-            if (d.mode === "trim-l") {
-                var newStart = d.origStart + dt;
-                var maxStart = d.origStart + (d.origOut - d.origIn) / v - minDur;
-                newStart = CS.clamp(newStart, isImage ? 0 : d.origStart - d.origIn / v, maxStart);
-                newStart = Math.max(0, CS.timeline.applySnap(newStart, clip, "trim"));
-                var delta = newStart - d.origStart;
-                clip.start = newStart;
-                if (isImage) {
-                    //Free-duration clips renormalize to in = 0
-                    clip.in = 0;
-                    clip.out = (d.origOut - d.origIn) - delta;
-                } else {
-                    clip.in = d.origIn + delta * v;
-                }
-            } else {
-                var newOut = d.origOut + dt * v;
-                var maxOut = isImage ? 1e9 : (media && media.duration ? media.duration : d.origOut);
-                newOut = CS.clamp(newOut, d.origIn + minDur * v, maxOut);
-                var endTime = clip.start + (newOut - clip.in) / v;
-                endTime = CS.timeline.applySnap(endTime, clip, "end");
-                newOut = CS.clamp((endTime - clip.start) * v + clip.in, d.origIn + minDur * v, maxOut);
-                clip.out = newOut;
+            if (d.mode === "ripple-l") {
+                //The head stays put and everything after closes up
+                clip.start = d.origStart;
+                CS.timeline.shiftLater(d, -delta);
             }
-            d.el.style.left = (clip.start * CS.state.zoom) + "px";
-            d.el.style.width = Math.max(4, CS.clipDuration(clip) * CS.state.zoom) + "px";
-            //Live-update strip/wave while trimming
-            var track = CS.getTrack(clip.trackId);
-            var wave = d.el.querySelector(".clip-wave");
-            if (wave && media) {
-                CS.timeline.drawClipWave(wave, clip, media, CS.clipDuration(clip) * CS.state.zoom, CS.timeline.trackHeight(track) - 10);
-            }
-            var strip = d.el.querySelector(".clip-strip");
-            if (strip && media) {
-                CS.timeline.fillFilmstrip(strip, media, CS.clipDuration(clip) * CS.state.zoom, CS.timeline.trackHeight(track) - 10);
-            }
+            break;
         }
+
+        case "trim-r":
+        case "ripple-r": {
+            var newOut = d.origOut + dt * v;
+            var maxOut = isImage ? 1e9 : CS.timeline.sourceLength(clip);
+            newOut = CS.clamp(newOut, d.origIn + minDur * v, maxOut);
+            var endTime = clip.start + (newOut - clip.in) / v;
+            endTime = CS.timeline.applySnap(endTime, clip, "end");
+            newOut = CS.clamp((endTime - clip.start) * v + clip.in, d.origIn + minDur * v, maxOut);
+            clip.out = newOut;
+            if (d.mode === "ripple-r") {
+                CS.timeline.shiftLater(d, CS.clipEnd(clip) - (d.origStart + (d.origOut - d.origIn) / v));
+            }
+            break;
+        }
+
+        case "roll-r":
+        case "roll-l": {
+            //Rolling edit: the edit point moves, the outgoing clip grows or
+            //shrinks by exactly what the incoming clip loses or gains
+            var out = d.mode === "roll-r" ? { clip: clip, origOut: d.origOut, origIn: d.origIn } : d.prev;
+            var inc = d.mode === "roll-r" ? d.next : { clip: clip, origIn: d.origIn, origOut: d.origOut, origStart: d.origStart };
+            if (!out || !inc) {
+                //No neighbour on that side: behaves like a plain trim
+                d.mode = d.mode === "roll-r" ? "trim-r" : "trim-l";
+                CS.timeline.onDragMove(ev);
+                return;
+            }
+            var vo = CS.clipSpeed(out.clip), vi = CS.clipSpeed(inc.clip);
+            var outIsImage = CS.timeline.sourceLength(out.clip) === Infinity;
+            var incIsImage = CS.timeline.sourceLength(inc.clip) === Infinity;
+            var minDt = -((out.origOut - out.origIn) / vo - minDur);
+            var maxDt = (inc.origOut - inc.origIn) / vi - minDur;
+            if (!outIsImage) { maxDt = Math.min(maxDt, (CS.timeline.sourceLength(out.clip) - out.origOut) / vo); }
+            if (!incIsImage) { minDt = Math.max(minDt, -inc.origIn / vi); }
+            var rdt = CS.clamp(dt, minDt, maxDt);
+            var cut = CS.timeline.applySnap(inc.origStart + rdt, clip, "trim");
+            rdt = CS.clamp(cut - inc.origStart, minDt, maxDt);
+            out.clip.out = out.origOut + rdt * vo;
+            inc.clip.start = inc.origStart + rdt;
+            if (incIsImage) {
+                inc.clip.in = 0;
+                inc.clip.out = (inc.origOut - inc.origIn) - rdt;
+            } else {
+                inc.clip.in = inc.origIn + rdt * vi;
+            }
+            CS.timeline.repaintClipEl(out.clip);
+            CS.timeline.repaintClipEl(inc.clip);
+            break;
+        }
+
+        case "slip": {
+            //Same place, same length, different part of the source
+            if (isImage) { return; }
+            var len = d.origOut - d.origIn;
+            var maxIn = Math.max(0, CS.timeline.sourceLength(clip) - len);
+            clip.in = CS.clamp(d.origIn - dt * v, 0, maxIn);
+            clip.out = clip.in + len;
+            CS.timeline.repaintClipEl(clip);
+            CS.player.syncElements();
+            CS.player.render();
+            return;
+        }
+
+        case "slide": {
+            //The clip moves; the previous clip's tail and the next clip's
+            //head absorb the change so the sequence length is unchanged
+            var lo = d.prev ? -((d.prev.origOut - d.prev.origIn) / CS.clipSpeed(d.prev.clip) - minDur) : -d.origStart;
+            var hi = d.next ? (d.next.origOut - d.next.origIn) / CS.clipSpeed(d.next.clip) - minDur : 1e9;
+            if (d.prev && CS.timeline.sourceLength(d.prev.clip) !== Infinity) {
+                hi = Math.min(hi, (CS.timeline.sourceLength(d.prev.clip) - d.prev.origOut) / CS.clipSpeed(d.prev.clip));
+            }
+            if (d.next && CS.timeline.sourceLength(d.next.clip) !== Infinity) {
+                lo = Math.max(lo, -d.next.origIn / CS.clipSpeed(d.next.clip));
+            }
+            //Without an adjacent neighbour the clip may only travel inside the gap
+            if (!d.prev || CS.clipEnd(d.prev.clip) < d.origStart - 0.0001) {
+                var prevEnd = d.prev ? CS.clipEnd(d.prev.clip) : 0;
+                lo = Math.max(lo, prevEnd - d.origStart);
+            }
+            if (!d.next || d.next.origStart > d.origStart + (d.origOut - d.origIn) / v + 0.0001) {
+                var nextStart = d.next ? d.next.origStart : 1e9;
+                hi = Math.min(hi, nextStart - (d.origStart + (d.origOut - d.origIn) / v));
+            }
+            var sdt = CS.clamp(dt, lo, hi);
+            clip.start = d.origStart + sdt;
+            if (d.prev && Math.abs(CS.clipEnd({ start: d.prev.origStart, in: d.prev.origIn, out: d.prev.origOut, props: d.prev.clip.props }) - d.origStart) < 0.0001) {
+                d.prev.clip.out = d.prev.origOut + sdt * CS.clipSpeed(d.prev.clip);
+                CS.timeline.repaintClipEl(d.prev.clip);
+            }
+            if (d.next && Math.abs(d.next.origStart - (d.origStart + (d.origOut - d.origIn) / v)) < 0.0001) {
+                var vn = CS.clipSpeed(d.next.clip);
+                d.next.clip.start = d.next.origStart + sdt;
+                if (CS.timeline.sourceLength(d.next.clip) === Infinity) {
+                    d.next.clip.in = 0;
+                    d.next.clip.out = (d.next.origOut - d.next.origIn) - sdt;
+                } else {
+                    d.next.clip.in = d.next.origIn + sdt * vn;
+                }
+                CS.timeline.repaintClipEl(d.next.clip);
+            }
+            break;
+        }
+
+        case "rate-r":
+        case "rate-l": {
+            //Rate stretch: the content stays, the duration changes the speed
+            if (isImage) { return; }
+            var srcLen = d.origOut - d.origIn;
+            var origDur = srcLen / d.origSpeed;
+            var newDur = d.mode === "rate-r" ? origDur + dt : origDur - dt;
+            var limit = d.mode === "rate-r"
+                ? (d.next ? d.next.origStart - d.origStart : 1e9)
+                : (d.origStart + origDur) - (d.prev ? CS.clipEnd(d.prev.clip) : 0);
+            newDur = CS.clamp(newDur, Math.max(minDur, srcLen / 8), Math.min(limit, srcLen / 0.1));
+            clip.props.speed = srcLen / newDur;
+            if (d.mode === "rate-l") { clip.start = d.origStart + origDur - newDur; }
+            break;
+        }
+        }
+
+        CS.timeline.repaintClipEl(clip);
     },
 
-    onDragEnd: function (ev) {
+    //Move every clip after the dragged one on its track by dt (ripple)
+    shiftLater: function (d, dt) {
+        d.later.forEach(function (l) {
+            l.clip.start = Math.max(0, l.origStart + dt);
+            CS.timeline.repaintClipEl(l.clip);
+        });
+    },
+
+    dragMove: function (d, ev, dt, media) {
+        var clip = d.clip;
+        var target = Math.max(0, d.origStart + dt);
+        target = CS.timeline.applySnap(target, clip, "start");
+        clip.start = target;
+
+        //Group move: apply the (snapped) primary delta to every member
+        var appliedDt = clip.start - d.origStart;
+        d.group.forEach(function (g) {
+            if (g.clip.id === clip.id) { return; }
+            g.clip.start = Math.max(0, g.origStart + appliedDt);
+            var gel = document.querySelector('.tl-clip[data-clip-id="' + g.clip.id + '"]');
+            if (gel) { gel.style.left = (g.clip.start * CS.state.zoom) + "px"; }
+        });
+
+        //Vertical: move across compatible tracks (single-clip drags only)
+        var isAudioClip = media && media.type === "audio";
+        var lane = CS.timeline.laneUnderPointer(ev.clientY);
+        d.newTrackKind = null;
+        if (d.group.length > 1) {
+            //group drags stay on their own tracks
+        } else if (lane) {
+            var track = CS.getTrack(lane.dataset.trackId);
+            var kindOk = track && ((track.kind === "audio") === isAudioClip) && !track.locked;
+            if (kindOk && track.id !== clip.trackId) {
+                clip.trackId = track.id;
+                lane.appendChild(d.el);
+            }
+        } else {
+            //Dragged past the outermost lanes: offer a brand-new track
+            //(video above the top lane, audio below the bottom lane)
+            var lanesRect = document.getElementById("tl-tracks").getBoundingClientRect();
+            if (isAudioClip && ev.clientY > lanesRect.bottom) {
+                d.newTrackKind = "audio";
+            } else if (!isAudioClip && ev.clientY < lanesRect.top) {
+                d.newTrackKind = "video";
+            } else if (!isAudioClip && ev.clientY > lanesRect.bottom) {
+                //below everything also works for video: stack a new track on top
+                d.newTrackKind = "video";
+            }
+        }
+        d.el.style.left = (clip.start * CS.state.zoom) + "px";
+    },
+
+    onDragEnd: function () {
         var d = CS.timeline._drag;
         if (!d) { return; }
         window.removeEventListener("pointermove", CS.timeline.onDragMove);
@@ -581,6 +976,12 @@ CS.timeline = {
         }
 
         var clip = d.clip;
+        var labels = {
+            move: "Move Clip", "trim-l": "Trim Clip", "trim-r": "Trim Clip",
+            "ripple-l": "Ripple Trim", "ripple-r": "Ripple Trim",
+            "roll-l": "Rolling Edit", "roll-r": "Rolling Edit",
+            slip: "Slip Clip", slide: "Slide Clip", "rate-l": "Rate Stretch", "rate-r": "Rate Stretch"
+        };
         if (d.mode === "move") {
             if (d.newTrackKind && d.group.length === 1) {
                 clip.trackId = CS.createTrack(d.newTrackKind);
@@ -590,11 +991,11 @@ CS.timeline = {
                 .forEach(function (g) {
                     g.clip.start = CS.timeline.resolveOverlap(g.clip, g.clip.trackId, g.clip.start);
                 });
-        } else {
+        } else if (d.mode === "trim-l" || d.mode === "trim-r" || d.mode === "rate-l" || d.mode === "rate-r") {
             //Trimming may have created an overlap with the next clip: clamp
             CS.timeline.clampTrimOverlap(clip);
         }
-        CS.commit(d.mode === "move" ? "Move Clip" : "Trim Clip");
+        CS.commit(labels[d.mode] || "Edit Clip");
     },
 
     laneUnderPointer: function (clientY) {
@@ -610,6 +1011,8 @@ CS.timeline = {
 
     snapTargets: function (excludeClip) {
         var pts = [0, CS.state.playhead];
+        if (CS.state.inPoint !== null && CS.state.inPoint !== undefined) { pts.push(CS.state.inPoint); }
+        if (CS.state.outPoint !== null && CS.state.outPoint !== undefined) { pts.push(CS.state.outPoint); }
         CS.project.clips.forEach(function (c) {
             if (excludeClip && c.id === excludeClip.id) { return; }
             pts.push(c.start);
@@ -728,10 +1131,9 @@ CS.timeline = {
         lane.addEventListener("drop", function (ev) {
             ev.preventDefault();
             lane.classList.remove("drop-target");
+            if (track.locked) { CS.toast("Track is locked", true); return; }
             var mediaId = ev.dataTransfer.getData("cinestudio/media");
-            var scroll = document.getElementById("tl-scroll");
-            var rect = scroll.getBoundingClientRect();
-            var t = (ev.clientX - rect.left + scroll.scrollLeft) / CS.state.zoom;
+            var t = CS.timeline.timeAtClientX(ev.clientX);
 
             if (mediaId) {
                 var media = CS.getMedia(mediaId);
@@ -762,7 +1164,7 @@ CS.timeline = {
         });
     },
 
-    /* ---------- ruler + playhead ---------- */
+    /* ---------- ruler, in / out range, playhead ---------- */
 
     drawRuler: function () {
         var canvas = document.getElementById("tl-ruler");
@@ -783,6 +1185,18 @@ CS.timeline = {
 
         var zoom = CS.state.zoom;
         var scrollLeft = scroll.scrollLeft;
+
+        //In / out range: shaded band along the ruler
+        var inP = CS.state.inPoint, outP = CS.state.outPoint;
+        if (inP !== null && inP !== undefined || outP !== null && outP !== undefined) {
+            var x0 = (inP === null || inP === undefined) ? 0 : inP * zoom - scrollLeft;
+            var x1 = (outP === null || outP === undefined) ? w : outP * zoom - scrollLeft;
+            ctx.fillStyle = "rgba(46, 124, 246, 0.22)";
+            ctx.fillRect(x0, 0, Math.max(0, x1 - x0), h - 1);
+            ctx.fillStyle = "#2e7cf6";
+            if (inP !== null && inP !== undefined) { ctx.fillRect(x0, 0, 2, h - 1); }
+            if (outP !== null && outP !== undefined) { ctx.fillRect(x1 - 2, 0, 2, h - 1); }
+        }
 
         //Pick a label step that keeps labels at least ~90px apart
         var steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800];
@@ -810,22 +1224,53 @@ CS.timeline = {
                 ctx.fillRect(x, h - 6, 1, 6);
             }
         }
-        //timeline markers: small flags pinned to the bottom of the ruler
+        //timeline markers: coloured flags pinned to the bottom of the ruler;
+        //a marker with a duration shows as a bar
         (CS.project.markers || []).forEach(function (m) {
             var mx = m.time * zoom - scrollLeft;
             if (mx < -8 || mx > w + 8) { return; }
-            ctx.fillStyle = "#f6c945";
+            ctx.fillStyle = m.color || "#f6c945";
+            if (m.duration) {
+                ctx.globalAlpha = 0.45;
+                ctx.fillRect(mx, h - 9, m.duration * zoom, 8);
+                ctx.globalAlpha = 1;
+            }
             ctx.beginPath();
             ctx.moveTo(mx, h - 1);
             ctx.lineTo(mx - 5, h - 9);
             ctx.lineTo(mx + 5, h - 9);
             ctx.closePath();
             ctx.fill();
+            if (m.name) {
+                ctx.fillStyle = m.color || "#f6c945";
+                ctx.font = "9.5px system-ui, sans-serif";
+                ctx.fillText(m.name, mx + 8, h - 5);
+                ctx.font = "10.5px ui-monospace, SFMono-Regular, Menlo, monospace";
+            }
         });
 
         //bottom hairline
         ctx.fillStyle = "#1c1c22";
         ctx.fillRect(0, h - 1, w, 1);
+    },
+
+    //Shade the in / out range over the lanes as well
+    updateRange: function () {
+        var band = document.getElementById("tl-range");
+        if (!band) {
+            band = document.createElement("div");
+            band.id = "tl-range";
+            band.className = "tl-range";
+            document.getElementById("tl-content").appendChild(band);
+        }
+        var inP = CS.state.inPoint, outP = CS.state.outPoint;
+        var has = (inP !== null && inP !== undefined) || (outP !== null && outP !== undefined);
+        if (!has) { band.style.display = "none"; return; }
+        var x0 = (inP === null || inP === undefined) ? 0 : inP * CS.state.zoom;
+        var x1 = (outP === null || outP === undefined) ? CS.timeline.contentWidth() : outP * CS.state.zoom;
+        band.style.display = "block";
+        band.style.left = x0 + "px";
+        band.style.width = Math.max(0, x1 - x0) + "px";
     },
 
     updatePlayhead: function () {

@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.7` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.8` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -1526,6 +1526,52 @@ ffmpeg.videoConvert("user:/in.mp4", "user:/out.mkv", "", 38, "tmp:/job42.progres
 // in a later request, to stop it
 var stopped = ffmpeg.cancel("tmp:/job42.progress.json");
 ```
+
+### Background jobs
+
+Timeline renders and proxy conversions can outlast the script execution
+limit, so they run in the background: the call returns `true` as soon as the
+job is accepted (or raises an error for a bad spec / missing file) and the
+script follows it through the progress file, which these jobs extend with a
+`stage` (`queued`, `running`, `uploading`, `done`, `failed`) and, on failure,
+an `error` message. `completed` only turns `true` once the output is fully
+written at its final path, so a poller may use the file the moment it sees
+it. At most two background jobs encode at once; further ones wait as
+`queued`. `ffmpeg.cancel(progressFile)` stops a running job.
+
+### `ffmpeg.renderTimeline(specJSON, output, progressFile)`
+Renders an edited timeline (clips, transforms, crops, colour, effects,
+keyframed motion / opacity / volume, chroma key, adjustment layers,
+transitions, blend modes, reversed clips, panned and cross-faded audio) with
+a single ffmpeg run, from the original media files. `specJSON` is a
+`render.Project` document (see `mod/media/render/spec.go`); every `src` in it
+is a virtual path the calling user can read, and the output extension must
+match the spec's `format` (`mp4`, `mov`, `mkv`, `webm`, `gif` or `m4a`). Cine
+Studio is the reference producer of these specs.
+
+```javascript
+var spec = {
+  width: 1920, height: 1080, fps: 30, duration: 8, scale: 1, format: "mp4", quality: "high",
+  layers: [{ id: "c1", kind: "video", src: "user:/clip.mkv", start: 0, duration: 8, in: 2, speed: 1,
+             props: { x: 0, y: 0, scale: 100, rotation: 0, opacity: 100, crop: "fit", effects: [] } }],
+  audio:  [{ id: "c1", src: "user:/clip.mkv", start: 0, duration: 8, in: 2, speed: 1, volume: 1 }]
+};
+ffmpeg.renderTimeline(JSON.stringify(spec), "user:/Exports/cut.mp4", "tmp:/cut.progress.json");
+```
+
+### `ffmpeg.makeProxy(input, output, kind, height, progressFile)`
+Converts footage into something a browser can play: `kind` is `"video"`
+(H.264 / AAC MP4, at most `height` pixels tall, `0` keeps the source size,
+never upscaled), `"audio"` (AAC M4A) or `"image"` (PNG). The output extension
+must match the kind. Uses the host's hardware encoder when there is one.
+
+```javascript
+ffmpeg.makeProxy("user:/footage/A001.mxf", "user:/Cache/A001_540.mp4", "video", 540, "tmp:/A001.progress.json");
+```
+
+### `ffmpeg.hwEncoder()`
+Name of the hardware H.264 encoder the host can use (`"NVIDIA NVENC"`,
+`"Intel/AMD VAAPI"`, ...) or `""` when only software encoding is available.
 
 ## websocket API
 

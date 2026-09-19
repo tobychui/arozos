@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     CS.media.init();
     CS.player.init();
+    CS.source.init();
     CS.previewctl.init();
     CS.timeline.init();
     CS.inspector.init();
@@ -126,7 +127,25 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (ev.shiftKey) { CS.rippleDeleteSelected(); }
                 else { CS.deleteSelectedClip(); }
             }
-        } else if (ev.key.toLowerCase() === "m" && !ev.ctrlKey && !ev.metaKey) {
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+            //Premiere: Ctrl+K adds an edit (cut) at the playhead
+            ev.preventDefault();
+            CS.splitAtPlayhead();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && ev.key.toLowerCase() === "i") {
+            ev.preventDefault();
+            CS.clearInOut("in");
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && ev.key.toLowerCase() === "o") {
+            ev.preventDefault();
+            CS.clearInOut("out");
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && ev.key.toLowerCase() === "x") {
+            ev.preventDefault();
+            CS.clearInOut();
+        } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "l") {
+            ev.preventDefault();
+            if (CS.selectedClips().length > 1) { CS.linkSelectedClips(); } else { CS.unlinkClips(); }
+        } else if (ev.ctrlKey || ev.metaKey) {
+            return; //other browser / OS chords stay untouched
+        } else if (ev.key.toLowerCase() === "m") {
             if (ev.shiftKey) { CS.gotoMarker(1); }
             else { CS.toggleMarkerAtPlayhead(); }
         } else if (ev.key.toLowerCase() === "j") {
@@ -135,20 +154,51 @@ document.addEventListener("DOMContentLoaded", function () {
             CS.player.pause();
         } else if (ev.key.toLowerCase() === "l") {
             CS.player.shuttle(1);
-        } else if (ev.key.toLowerCase() === "v") {
-            CS.timeline.setTool("select");
-        } else if (ev.key.toLowerCase() === "b") {
-            CS.timeline.setTool("blade");
-        } else if (ev.key.toLowerCase() === "s" && !ev.ctrlKey && !ev.metaKey) {
-            CS.splitAtPlayhead();
-        } else if (ev.key.toLowerCase() === "t" && !ev.ctrlKey && !ev.metaKey) {
+        } else if (ev.key.toLowerCase() === "i" && !ev.shiftKey) {
+            if (CS.source.active) { CS.source.markIn(); } else { CS.setInPoint(CS.state.playhead); }
+        } else if (ev.key.toLowerCase() === "o" && !ev.shiftKey) {
+            if (CS.source.active) { CS.source.markOut(); } else { CS.setOutPoint(CS.state.playhead); }
+        } else if (ev.key === ";") {
+            CS.rangeLift();
+        } else if (ev.key === "'") {
+            CS.rangeExtract();
+        } else if (ev.key === ",") {
+            if (CS.source) { CS.source.insert(); }
+        } else if (ev.key === ".") {
+            if (CS.source) { CS.source.overwrite(); }
+        } else if (ev.key === "\\") {
+            CS.timeline.zoomToSequence();
+        } else if (ev.key === "=" || ev.key === "+") {
+            CS.timeline.setZoom(CS.state.zoom * 1.35);
+        } else if (ev.key === "-") {
+            CS.timeline.setZoom(CS.state.zoom / 1.35);
+        } else if (ev.key.toLowerCase() === "s" && ev.shiftKey) {
+            document.getElementById("btn-snap").click();
+        } else if (!ev.shiftKey && CS.timeline.TOOLS.some(function (t) { return t.key.toLowerCase() === ev.key.toLowerCase(); })) {
+            //Tool shortcuts follow Premiere: V A B N R C Y U
+            var toolKey = ev.key.toLowerCase();
+            CS.timeline.TOOLS.forEach(function (t) {
+                if (t.key.toLowerCase() === toolKey) { CS.timeline.setTool(t.id); }
+            });
+        } else if (ev.key.toLowerCase() === "t") {
             CS.titles.insertPreset("title");
+        } else if (ev.key === "ArrowLeft" && ev.altKey) {
+            ev.preventDefault();
+            CS.nudgeSelected(ev.shiftKey ? -5 : -1);
+        } else if (ev.key === "ArrowRight" && ev.altKey) {
+            ev.preventDefault();
+            CS.nudgeSelected(ev.shiftKey ? 5 : 1);
         } else if (ev.key === "ArrowLeft") {
             ev.preventDefault();
-            CS.player.seek(CS.state.playhead - (ev.shiftKey ? 10 : 1) / fps);
+            var stepL = (ev.shiftKey ? 10 : 1) / fps;
+            if (CS.source.active) { CS.source.seek(CS.source.time - stepL); } else { CS.player.seek(CS.state.playhead - stepL); }
         } else if (ev.key === "ArrowRight") {
             ev.preventDefault();
-            CS.player.seek(CS.state.playhead + (ev.shiftKey ? 10 : 1) / fps);
+            var stepR = (ev.shiftKey ? 10 : 1) / fps;
+            if (CS.source.active) { CS.source.seek(CS.source.time + stepR); } else { CS.player.seek(CS.state.playhead + stepR); }
+        } else if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
+            ev.preventDefault();
+            CS.player.gotoEditPoint(ev.key === "ArrowUp" ? -1 : 1);
         } else if (ev.key === "Home") {
             ev.preventDefault();
             CS.player.seek(0);

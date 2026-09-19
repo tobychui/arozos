@@ -52,6 +52,23 @@ CS.player = {
             this.classList.toggle("active", CS.state.loop);
         });
 
+        //Playback resolution: Full / 1/2 / 1/4 of the project size
+        var qualityBtn = document.getElementById("btn-preview-quality");
+        qualityBtn.addEventListener("click", function () {
+            CS.showMenuUnder(qualityBtn, CS.PREVIEW_QUALITIES.map(function (q) {
+                return {
+                    label: q.l,
+                    checked: CS.previewQuality() === q.v,
+                    action: function () {
+                        if (CS.previewQuality() === q.v) { return; }
+                        CS.setPreviewQuality(q.v);
+                        CS.toast("Playback resolution: " + q.l);
+                    }
+                };
+            }));
+        });
+        CS.setPreviewQuality(CS.previewQuality());
+
         var zoomBtn = document.getElementById("btn-preview-zoom");
         zoomBtn.addEventListener("click", function () {
             var levels = [
@@ -74,9 +91,12 @@ CS.player = {
         });
     },
 
+    //The canvas backing store follows the playback resolution; the CSS size
+    //(and everything that measures the canvas box) stays at project size
     applyProjectSize: function () {
-        CS.player.canvas.width = CS.project.settings.width;
-        CS.player.canvas.height = CS.project.settings.height;
+        var q = CS.previewQuality();
+        CS.player.canvas.width = Math.max(2, Math.round(CS.project.settings.width * q));
+        CS.player.canvas.height = Math.max(2, Math.round(CS.project.settings.height * q));
         CS.player.applyPreviewZoom();
         CS.player.render();
     },
@@ -140,6 +160,23 @@ CS.player = {
         return img;
     },
 
+    //Forget every element playing a given media item, so the next sync
+    //re-creates them from its current URL (a proxy that just became ready,
+    //or the original after the proxy was dropped)
+    dropMedia: function (mediaId) {
+        CS.project.clips.forEach(function (clip) {
+            if (clip.mediaId !== mediaId) { return; }
+            var el = CS.player.pool[clip.id];
+            if (el) {
+                el.pause();
+                el.removeAttribute("src");
+                el.remove();
+                delete CS.player.pool[clip.id];
+            }
+        });
+        delete CS.player.images[mediaId];
+    },
+
     //Drop pool entries whose clip no longer exists
     prunePool: function () {
         Object.keys(CS.player.pool).forEach(function (clipId) {
@@ -170,6 +207,12 @@ CS.player = {
             CS.player.monitorGain.gain.value = CS.player.monitorMuted ? 0 : 1;
             CS.player.masterGain.connect(CS.player.monitorGain);
             CS.player.monitorGain.connect(CS.player.audioCtx.destination);
+            //The meter taps the master bus ahead of the monitor mute
+            try {
+                CS.player.analyser = CS.player.audioCtx.createAnalyser();
+                CS.player.analyser.fftSize = 512;
+                CS.player.masterGain.connect(CS.player.analyser);
+            } catch (e) { CS.player.analyser = null; }
             //Route the already-created elements through the bus
             Object.keys(CS.player.pool).forEach(function (clipId) {
                 CS.player.attachToMixBus(CS.player.pool[clipId]);
@@ -183,9 +226,29 @@ CS.player = {
         if (!CS.player.audioCtx || el._csRouted) { return; }
         try {
             var src = CS.player.audioCtx.createMediaElementSource(el);
-            src.connect(CS.player.masterGain);
+            //A panner per element gives every clip its own stereo balance
+            var panner = null;
+            if (CS.player.audioCtx.createStereoPanner) {
+                panner = CS.player.audioCtx.createStereoPanner();
+                src.connect(panner);
+                panner.connect(CS.player.masterGain);
+            } else {
+                src.connect(CS.player.masterGain);
+            }
+            el._csPanner = panner;
             el._csRouted = true;
         } catch (e) { /* element stays on direct output */ }
+    },
+
+    //Stereo balance of a clip (-100 left .. 100 right), keyframe aware
+    applyPan: function (el, clip, t) {
+        if (!el._csPanner) { return; }
+        var pan = clip.props.pan || 0;
+        if (CS.keyframes) { pan = CS.keyframes.value(clip, "pan", t, pan); }
+        var v = CS.clamp(pan / 100, -1, 1);
+        if (Math.abs(el._csPanner.pan.value - v) > 0.001) {
+            try { el._csPanner.pan.value = v; } catch (e) {}
+        }
     },
 
     //Turn the local speakers on / off without affecting what is recorded
@@ -216,6 +279,7 @@ CS.player = {
     /* ---------- transport ---------- */
 
     toggle: function () {
+        if (CS.source && CS.source.active) { CS.source.toggle(); return; }
         if (CS.state.playing) { CS.player.pause(); } else { CS.player.setRate(1); CS.player.play(); }
     },
 
@@ -271,6 +335,9 @@ CS.player = {
         CS.player.render();
         CS.player.updateTransportUI();
         CS.timeline.updatePlayhead();
+        //Animated properties show their value under the playhead
+        if (CS.keyframes && CS.keyframes.anyAnimated(CS.selectedClip())) { CS.inspector.render(); }
+        if (CS.source && CS.source.onSeek) { CS.source.onSeek(); }
     },
 
     gotoEditPoint: function (dir) {
@@ -322,13 +389,42 @@ CS.player = {
         CS.player.syncElements();
         CS.player.render();
         CS.player.updateTransportUI();
+        CS.player.updateMeter();
         CS.timeline.updatePlayhead();
         CS.player.rafId = requestAnimationFrame(CS.player.tick);
     },
 
     updateTransportUI: function () {
+        if (CS.source && CS.source.active) {
+            document.getElementById("tc-current").textContent = CS.timecode(CS.source.time);
+            document.getElementById("tc-total").textContent = CS.timecode(CS.source.duration());
+            return;
+        }
         document.getElementById("tc-current").textContent = CS.timecode(CS.state.playhead);
         document.getElementById("tc-total").textContent = CS.timecode(CS.timelineDuration());
+    },
+
+    /* ---------- master meter ---------- */
+
+    //Level of the mix bus, drawn on the two bars next to the monitor tabs
+    updateMeter: function () {
+        var an = CS.player.analyser;
+        var meter = document.getElementById("audio-meter");
+        if (!an || !meter) { return; }
+        if (!CS.player._meterBuf) { CS.player._meterBuf = new Uint8Array(an.fftSize); }
+        an.getByteTimeDomainData(CS.player._meterBuf);
+        var peak = 0;
+        for (var i = 0; i < CS.player._meterBuf.length; i += 4) {
+            var v = Math.abs(CS.player._meterBuf[i] - 128) / 128;
+            if (v > peak) { peak = v; }
+        }
+        //Show in dB-ish terms: -40 dB .. 0 dB across the bar
+        var db = peak > 0 ? 20 * Math.log10(peak) : -60;
+        var pct = CS.clamp((db + 40) / 40, 0, 1) * 100;
+        var bars = meter.querySelectorAll("span");
+        for (var j = 0; j < bars.length; j++) {
+            bars[j].style.clipPath = "inset(0 " + (100 - pct).toFixed(0) + "% 0 0)";
+        }
     },
 
     /* ---------- element time sync ---------- */
@@ -353,19 +449,27 @@ CS.player = {
             var el = CS.player.ensureElement(clip, media);
             var active = CS.player.activeAt(clip, t) && track && track.visible;
             var speed = CS.clipSpeed(clip);
-            var target = clip.in + (t - clip.start) * speed;
+            //Reversed clips read their source backwards from the out point
+            var target = clip.props.reverse
+                ? clip.out - (t - clip.start) * speed
+                : clip.in + (t - clip.start) * speed;
+            var clipReverse = reverse || !!clip.props.reverse;
 
-            //Volume: clip setting shaped by the fade / Fade To ramps
+            //Volume: clip setting shaped by the fade / Fade To ramps and any
+            //volume keyframes
             var vol = (clip.props.volume === undefined ? 100 : clip.props.volume) / 100;
+            if (CS.keyframes) { vol = CS.keyframes.value(clip, "volume", t, vol * 100) / 100; }
             vol *= CS.effects.audioGain(clip, t);
+            vol *= CS.transitions.audioGain(clip, t);
             el.volume = CS.clamp(vol, 0, 1);
+            CS.player.applyPan(el, clip, t);
             var soloMuted = anySolo && track && track.kind === "audio" && !track.solo;
             //Unrouted elements bypass the mix bus, so monitor muting must
             //silence them on the element itself
             el.muted = !!(track && track.muted) || soloMuted ||
                 (CS.player.monitorMuted && !el._csRouted);
 
-            if (CS.state.playing && active && !reverse) {
+            if (CS.state.playing && active && !clipReverse) {
                 try { el.playbackRate = CS.clamp(speed * Math.max(rate, 0.0625), 0.0625, 16); } catch (e) {}
                 if (el.paused) {
                     try { el.currentTime = target; } catch (e) {}
@@ -374,7 +478,7 @@ CS.player = {
                 } else if (Math.abs(el.currentTime - target) > 0.14 * Math.max(1, Math.abs(rate))) {
                     try { el.currentTime = target; } catch (e) {}
                 }
-            } else if (CS.state.playing && active && reverse) {
+            } else if (CS.state.playing && active && clipReverse) {
                 //Media elements cannot play backwards: step frames by seeking
                 if (!el.paused) { el.pause(); }
                 if (Math.abs(el.currentTime - target) > 0.05) {
@@ -438,9 +542,23 @@ CS.player = {
     render: function () {
         var ctx = CS.player.ctx;
         if (!ctx) { return; }
+        if (CS.source && CS.source.active) { CS.source.render(); return; }
+        //Composite in project coordinates onto the (possibly smaller) canvas
+        var q = CS.player.canvas.width / CS.project.settings.width;
+        ctx.setTransform(q, 0, 0, q, 0, 0);
         CS.player.renderFrame(ctx, CS.state.playhead);
         if (CS.state.safeArea) { CS.player.drawSafeArea(ctx); }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         if (CS.previewctl && CS.previewctl.overlay) { CS.previewctl.redraw(); }
+    },
+
+    //Render the frame at time t at full project resolution (stills, thumbnails)
+    renderFullFrame: function (t) {
+        var c = document.createElement("canvas");
+        c.width = CS.project.settings.width;
+        c.height = CS.project.settings.height;
+        CS.player.renderFrame(c.getContext("2d"), t);
+        return c;
     },
 
     //Composite the frame at time t onto the given 2d context
@@ -456,6 +574,10 @@ CS.player = {
             if (!track.visible) { return; }
             CS.clipsOnTrack(track.id).forEach(function (clip) {
                 if (!CS.player.activeAt(clip, t)) { return; }
+                if (clip.kind === "adjust") {
+                    CS.effects.applyAdjustment(ctx, clip, W, H, t);
+                    return;
+                }
                 var win = CS.transitions.windowAt(clip, t);
                 if (win) {
                     CS.transitions.draw(ctx, clip, t, W, H, win);
@@ -473,7 +595,9 @@ CS.player = {
         opts = opts || {};
         var src, sw, sh;
 
-        if (clip.kind === "title" || clip.kind === "color") {
+        if (clip.kind === "adjust") {
+            return; //adjustment layers are applied by renderFrame
+        } else if (clip.kind === "title" || clip.kind === "color") {
             src = CS.titles.renderSource(clip, W, H);
             sw = src.width;
             sh = src.height;
@@ -497,8 +621,13 @@ CS.player = {
         if (!sw || !sh) { return; }
 
         var p = clip.props;
-        var fx = CS.effects.analyze(clip, t === undefined ? CS.state.playhead : t, W);
+        var now = (t === undefined) ? CS.state.playhead : t;
+        var fx = CS.effects.analyze(clip, now, W);
         if (fx.alpha <= 0) { return; }
+        //Animated transform values at this frame (static props otherwise)
+        var kv = function (key, fallback) {
+            return CS.keyframes ? CS.keyframes.value(clip, key, now, fallback) : fallback;
+        };
 
         //Only the cropped region of the source takes part in the composite
         var rect = CS.player.cropRect(p, sw, sh);
@@ -520,20 +649,27 @@ CS.player = {
             dw = sw * s;
             dh = sh * s;
         }
-        var userScale = (p.scale === undefined ? 100 : p.scale) / 100;
+        var userScale = kv("scale", p.scale === undefined ? 100 : p.scale) / 100;
         dw *= userScale;
         dh *= userScale;
+
+        //Chroma key: knock the key colour out of the source before drawing
+        if (fx.chroma) {
+            src = CS.effects.chromaKeySource(src, rect, fx.chroma, dw, dh);
+            rect = { x: 0, y: 0, w: src.width, h: src.height };
+        }
 
         ctx.save();
         if (p.blend && p.blend !== "normal") {
             ctx.globalCompositeOperation = p.blend;
         }
-        ctx.translate(W / 2 + (p.x || 0), H / 2 + (p.y || 0));
-        if (p.rotation) { ctx.rotate(p.rotation * Math.PI / 180); }
+        ctx.translate(W / 2 + kv("x", p.x || 0), H / 2 + kv("y", p.y || 0));
+        var rotation = kv("rotation", p.rotation || 0);
+        if (rotation) { ctx.rotate(rotation * Math.PI / 180); }
         var flipX = (fx.mirror ? -1 : 1) * (p.flipH ? -1 : 1);
         var flipY = p.flipV ? -1 : 1;
         if (flipX !== 1 || flipY !== 1) { ctx.scale(flipX, flipY); }
-        var alpha = CS.clamp((p.opacity === undefined ? 100 : p.opacity) / 100, 0, 1) * fx.alpha;
+        var alpha = CS.clamp(kv("opacity", p.opacity === undefined ? 100 : p.opacity) / 100, 0, 1) * fx.alpha;
         if (opts.alphaMul !== undefined) { alpha *= CS.clamp(opts.alphaMul, 0, 1); }
         ctx.globalAlpha = alpha;
         var baseFilter = CS.player.buildFilter(p);

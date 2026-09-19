@@ -73,7 +73,28 @@ CS.iconPaths = {
     "upload":        '<path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
     "server":        '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01"/><path d="M7 16.5h.01"/>',
     "file":          '<path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v5h5"/>',
-    "scissors":      '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.2 7.6L20 19"/><path d="M20 5L8.2 16.4"/>'
+    "scissors":      '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.2 7.6L20 19"/><path d="M20 5L8.2 16.4"/>',
+    //editing tools
+    "track-select":  '<path d="M4 8h9"/><path d="M4 16h9"/><path d="M13 4l8 8-8 8"/>',
+    "ripple":        '<path d="M3 12h6"/><path d="M11 6v12"/><path d="M14 12h7"/><path d="M18 9l3 3-3 3"/>',
+    "rolling":       '<path d="M12 5v14"/><path d="M4 12h5"/><path d="M15 12h5"/><path d="M7 9l-3 3 3 3"/><path d="M17 9l3 3-3 3"/>',
+    "stretch":       '<rect x="4" y="8" width="16" height="8" rx="1.5"/><path d="M1.5 12h2.5"/><path d="M20 12h2.5"/><path d="M8 12h8" stroke-dasharray="2 2"/>',
+    "slip":          '<rect x="4" y="7" width="16" height="10" rx="1.5"/><path d="M8 12h8"/><path d="M14 9.5l2.5 2.5-2.5 2.5"/><path d="M10 9.5L7.5 12l2.5 2.5"/>',
+    "slide":         '<rect x="8" y="7" width="8" height="10" rx="1.5"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4 9.5L1.5 12 4 14.5"/><path d="M20 9.5l2.5 2.5-2.5 2.5"/>',
+    "unlock":        '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
+    "link":          '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.5 1.5"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5"/>',
+    "zoom-fit":      '<path d="M3 9V5a2 2 0 0 1 2-2h4"/><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M21 15v4a2 2 0 0 1-2 2h-4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M8 12h8"/>',
+    "mark-in":       '<path d="M5 4v16"/><path d="M5 12h12"/><path d="M13 8l4 4-4 4"/>',
+    "mark-out":      '<path d="M19 4v16"/><path d="M7 12h12"/><path d="M11 8l-4 4 4 4"/>',
+    "keyframe":      '<path d="M12 3l9 9-9 9-9-9 9-9z"/>',
+    "stopwatch":     '<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5v3"/>',
+    "chroma":        '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16"/><path d="M4 12h16"/>',
+    "adjust":        '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10"/><path d="M7 15h6"/><circle cx="10" cy="9" r="1.6"/><circle cx="15" cy="15" r="1.6"/>',
+    "monitor":       '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/>',
+    "insert":        '<path d="M4 12h6"/><path d="M14 12h6"/><path d="M12 6v12"/><path d="M9 9l3-3 3 3"/>',
+    "overwrite":     '<rect x="4" y="9" width="16" height="6" rx="1"/><path d="M12 3v6"/><path d="M9 6l3 3 3-3"/>',
+    "captions":      '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 12h4"/><path d="M13 12h4"/><path d="M7 15h10"/>',
+    "meter":         '<rect x="5" y="3" width="4" height="18" rx="1"/><rect x="15" y="3" width="4" height="18" rx="1"/><path d="M5 9h4"/><path d="M15 9h4"/><path d="M5 15h4"/><path d="M15 15h4"/>'
 };
 
 CS.iconSVG = function (name, extraClass) {

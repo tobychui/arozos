@@ -260,3 +260,91 @@ func TestGetVideoDimensionsInvalidFile(t *testing.T) {
 		t.Errorf("getVideoDimensions(%q) = (%d, %d), want an error", missing, w, h)
 	}
 }
+
+/* ---------- asynchronous job helpers ---------- */
+
+func TestRunWithProgressRequiresProgressFile(t *testing.T) {
+	if err := RunWithProgress([]string{"-i", "x"}, "y", 0, ""); err == nil {
+		t.Fatal("RunWithProgress must refuse to run without a progress file")
+	}
+}
+
+func TestProgressStageLifecycle(t *testing.T) {
+	dir := t.TempDir()
+	progress := filepath.Join(dir, "job.progress.json")
+	output := filepath.Join(dir, "out.bin")
+
+	// Nothing written yet: an empty snapshot, never an error
+	if got := ReadProgress(progress); got.Stage != "" || got.Completed {
+		t.Fatalf("empty progress file should read as zero value, got %+v", got)
+	}
+
+	WriteProgressStage(progress, StageQueued)
+	if got := ReadProgress(progress); got.Stage != StageQueued {
+		t.Fatalf("stage not recorded: %+v", got)
+	}
+
+	// A periodic monitor write keeps the stage
+	writeProgressJSON(progress, 10, output, time.Now(), 42, false)
+	got := ReadProgress(progress)
+	if got.Stage != StageQueued || got.Percentage != 42 {
+		t.Fatalf("monitor write must keep the stage and record the percentage: %+v", got)
+	}
+
+	if err := os.WriteFile(output, []byte("0123456789"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	MarkProgressCompleted(progress, output)
+	got = ReadProgress(progress)
+	if !got.Completed || got.Percentage != 100 || got.Stage != StageDone || got.OutputSize != 10 {
+		t.Fatalf("completion not recorded: %+v", got)
+	}
+
+	MarkProgressFailed(progress, os.ErrNotExist)
+	got = ReadProgress(progress)
+	if got.Completed || got.Stage != StageFailed || got.Error == "" {
+		t.Fatalf("failure not recorded: %+v", got)
+	}
+	MarkProgressFailed(progress, nil)
+	if got := ReadProgress(progress); got.Error != "unknown error" {
+		t.Fatalf("nil error should still leave a message: %+v", got)
+	}
+}
+
+func TestMediaDurationMsUnprobeable(t *testing.T) {
+	if got := MediaDurationMs(filepath.Join(t.TempDir(), "missing.mp4")); got != 0 {
+		t.Fatalf("MediaDurationMs on a missing file = %d, want 0", got)
+	}
+}
+
+// TestRunWithProgressWithFFmpeg encodes a synthetic clip through the generic
+// runner and checks that the job is registered while it runs and that the
+// caller stays in charge of the completion flag.
+func TestRunWithProgressWithFFmpeg(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	dir := t.TempDir()
+	progress := filepath.Join(dir, "job.progress.json")
+	output := filepath.Join(dir, "out.mp4")
+	args := []string{"-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration=1",
+		"-c:v", "libx264", "-pix_fmt", "yuv420p"}
+	if err := RunWithProgress(args, output, 1000, progress); err != nil {
+		t.Fatalf("RunWithProgress failed: %v", err)
+	}
+	if st, err := os.Stat(output); err != nil || st.Size() == 0 {
+		t.Fatalf("output not written: %v", err)
+	}
+	if ConversionIsRunning(progress) {
+		t.Fatal("job must be unregistered once ffmpeg exits")
+	}
+	if got := ReadProgress(progress); got.Completed {
+		t.Fatalf("runner must not mark the job completed by itself: %+v", got)
+	}
+	if _, err := os.Stat(progress + ".ffprog"); !os.IsNotExist(err) {
+		t.Fatal("ffmpeg pipe file should be removed")
+	}
+	if err := RunWithProgress([]string{"-i", filepath.Join(dir, "missing.mp4")}, output, 0, progress); err == nil {
+		t.Fatal("a failing ffmpeg run must be reported")
+	}
+}

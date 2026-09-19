@@ -30,7 +30,22 @@ type ConversionProgress struct {
 	ConversionTime float64 `json:"conversion_time"`
 	Percentage     float64 `json:"percentage"`
 	Completed      bool    `json:"completed"`
+
+	// Stage and Error are written by the asynchronous jobs (timeline renders
+	// and proxies) whose caller only ever sees this file: a job that failed
+	// after its request returned has nowhere else to report the reason.
+	Stage string `json:"stage,omitempty"`
+	Error string `json:"error,omitempty"`
 }
+
+// Job stages reported through ConversionProgress.Stage by asynchronous jobs.
+const (
+	StageQueued    = "queued"
+	StageRunning   = "running"
+	StageUploading = "uploading"
+	StageDone      = "done"
+	StageFailed    = "failed"
+)
 
 // runningConversions maps a conversion job key to the ffmpeg process currently
 // handling that job. The key is the progress file path supplied by the caller,
@@ -345,11 +360,12 @@ func writeProgressJSON(progressFile string, inputSize int64, outputFile string, 
 		Percentage:     percentage,
 		Completed:      completed,
 	}
-	data, err := json.Marshal(progress)
-	if err != nil {
-		return
+	// The periodic monitor writes must not wipe the stage an asynchronous
+	// job recorded; synchronous conversions never set one
+	if prev := readProgress(progressFile); prev.Stage != "" {
+		progress.Stage = prev.Stage
 	}
-	os.WriteFile(progressFile, data, 0644) //nolint:errcheck
+	writeProgress(progressFile, progress)
 }
 
 // monitorFFmpegProgress reads the ffmpeg -progress pipe file every 500 ms and writes
@@ -408,12 +424,140 @@ func startProgressMonitor(ffmpegPipeFile, userProgressFile, outputFile string, i
 // stopProgressMonitor signals the goroutine to stop, waits for it, and removes the
 // internal ffmpeg pipe file.  If convErr is nil it also writes the final 100 % entry.
 func stopProgressMonitor(doneCh chan struct{}, wg *sync.WaitGroup, ffmpegPipeFile, userProgressFile, outputFile string, inputSize int64, startTime time.Time, convErr error) {
-	close(doneCh)
-	wg.Wait()
-	os.Remove(ffmpegPipeFile)
+	haltProgressMonitor(doneCh, wg, ffmpegPipeFile)
 	if convErr == nil {
 		writeProgressJSON(userProgressFile, inputSize, outputFile, startTime, 100.0, true)
 	}
+}
+
+// haltProgressMonitor stops the monitor goroutine and removes the ffmpeg
+// pipe file without writing a final entry.
+func haltProgressMonitor(doneCh chan struct{}, wg *sync.WaitGroup, ffmpegPipeFile string) {
+	close(doneCh)
+	wg.Wait()
+	os.Remove(ffmpegPipeFile)
+}
+
+// --- Generic runner for callers that build their own argument list ---
+
+// MediaDurationMs returns the duration of a media file in milliseconds, or
+// 0 when ffprobe cannot tell (progress then stays at 0 % until completion).
+func MediaDurationMs(input string) int64 {
+	ms, err := getMediaDurationMs(input)
+	if err != nil || ms < 0 {
+		return 0
+	}
+	return ms
+}
+
+// RunWithProgress runs ffmpeg with the given arguments (everything except
+// the output file), writing the output to output and JSON progress updates
+// to progressFile. totalDurationMs is the expected output length used for
+// the percentage; pass 0 when unknown. The job is registered under
+// progressFile so CancelConversion can stop it.
+//
+// Unlike the FFmpeg_* conversions, the progress file is left at its last
+// intermediate value when ffmpeg exits: the caller decides when the job is
+// really finished (for instance after the result has been copied to its
+// final location) and records that with MarkProgressCompleted or
+// MarkProgressFailed.
+func RunWithProgress(args []string, output string, totalDurationMs int64, progressFile string) error {
+	if progressFile == "" {
+		return fmt.Errorf("a progress file is required")
+	}
+	startTime := time.Now()
+	ffmpegPipeFile := progressFile + ".ffprog"
+	fullArgs := append([]string{}, args...)
+	fullArgs = append(fullArgs, "-y", "-progress", ffmpegPipeFile, output)
+
+	doneCh, wg := startProgressMonitor(ffmpegPipeFile, progressFile, output, 0, totalDurationMs, startTime)
+	writeProgressStage(progressFile, 0, output, startTime, 0.0, StageRunning, "")
+	err := runFFmpeg(fullArgs, progressFile)
+	haltProgressMonitor(doneCh, wg, ffmpegPipeFile)
+	if err != nil {
+		return fmt.Errorf("ffmpeg failed: %v", err)
+	}
+	return nil
+}
+
+// WriteProgressStage records a stage change (queued, uploading, ...) for a
+// job without touching its percentage.
+func WriteProgressStage(progressFile string, stage string) {
+	if progressFile == "" {
+		return
+	}
+	current := readProgress(progressFile)
+	current.Stage = stage
+	writeProgress(progressFile, current)
+}
+
+// MarkProgressCompleted writes the final 100 % entry for a job whose output
+// is fully in place at outputFile.
+func MarkProgressCompleted(progressFile string, outputFile string) {
+	if progressFile == "" {
+		return
+	}
+	current := readProgress(progressFile)
+	current.OutputSize = fileSize(outputFile)
+	current.Percentage = 100
+	current.Completed = true
+	current.Stage = StageDone
+	current.Error = ""
+	writeProgress(progressFile, current)
+}
+
+// MarkProgressFailed records why a job stopped so a caller polling the
+// progress file learns about it.
+func MarkProgressFailed(progressFile string, jobErr error) {
+	if progressFile == "" {
+		return
+	}
+	current := readProgress(progressFile)
+	current.Completed = false
+	current.Stage = StageFailed
+	if jobErr != nil {
+		current.Error = jobErr.Error()
+	} else {
+		current.Error = "unknown error"
+	}
+	writeProgress(progressFile, current)
+}
+
+// ReadProgress returns the last progress snapshot of a job, or an empty
+// snapshot when the file does not exist yet.
+func ReadProgress(progressFile string) ConversionProgress {
+	return readProgress(progressFile)
+}
+
+func readProgress(progressFile string) ConversionProgress {
+	var p ConversionProgress
+	data, err := os.ReadFile(progressFile)
+	if err != nil {
+		return p
+	}
+	json.Unmarshal(data, &p) //nolint:errcheck
+	return p
+}
+
+func writeProgress(progressFile string, p ConversionProgress) {
+	data, err := json.Marshal(p)
+	if err != nil {
+		return
+	}
+	os.WriteFile(progressFile, data, 0644) //nolint:errcheck
+}
+
+// writeProgressStage is writeProgressJSON with the asynchronous job fields.
+func writeProgressStage(progressFile string, inputSize int64, outputFile string, startTime time.Time, percentage float64, stage string, errMsg string) {
+	writeProgress(progressFile, ConversionProgress{
+		InputSize:      inputSize,
+		OutputSize:     fileSize(outputFile),
+		ConversionTime: time.Since(startTime).Seconds(),
+		Percentage:     percentage,
+		Completed:      false,
+		Stage:          stage,
+		Error:          errMsg,
+	})
 }
 
 // --- New conversion functions ---

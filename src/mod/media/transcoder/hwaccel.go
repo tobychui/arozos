@@ -67,6 +67,33 @@ func getHWEncoderProfile() *hwEncoderProfile {
 	return hwProfile
 }
 
+// HWEncoderInfo is the public view of the cached hardware profile, for
+// callers outside the streaming transcoder (offline renders, proxies) that
+// build their own ffmpeg command lines.
+type HWEncoderInfo struct {
+	Name        string   // human-readable label, e.g. "NVIDIA NVENC"
+	Codec       string   // ffmpeg -c:v value
+	PreInput    []string // global args to place before the inputs
+	FinalFilter string   // filter to append to the video chain (pixel format / upload)
+	EncodeArgs  []string // encoder-specific args
+}
+
+// HWEncoder reports the hardware H.264 encoder the host can use, probing
+// once on first use, or nil when only software encoding is available.
+func HWEncoder() *HWEncoderInfo {
+	hw := getHWEncoderProfile()
+	if hw == nil {
+		return nil
+	}
+	return &HWEncoderInfo{
+		Name:        hw.Name,
+		Codec:       hw.Codec,
+		PreInput:    append([]string{}, hw.PreInput...),
+		FinalFilter: hw.ScaleFilter(""),
+		EncodeArgs:  append([]string{}, hw.EncodeArgs...),
+	}
+}
+
 // probeHWEncoders tries each platform candidate in order and returns the
 // first one that can actually complete a throwaway encode, since an encoder
 // can be compiled into ffmpeg yet still fail when no compatible GPU/driver

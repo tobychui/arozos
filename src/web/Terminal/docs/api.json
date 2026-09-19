@@ -1140,6 +1140,27 @@
      "desc": "Stop a running conversion, identified by the progress file it was started with. Returns true if a running conversion was terminated, false if it already finished. Call it from a separate request while the conversion request is still open.",
      "ret": "bool",
      "example": "requirelib(\"ffmpeg\");\nvar stopped = ffmpeg.cancel(\"tmp:/job42.progress.json\");"
+    },
+    {
+     "name": "ffmpeg.renderTimeline",
+     "sig": "ffmpeg.renderTimeline(specJSON, output, progressFile)",
+     "desc": "Render an edited timeline (a render.Project JSON spec of clips, transforms, effects, transitions and audio) into output in one ffmpeg run, in the background. Returns true once the job is accepted; follow it through the progress file (stage: queued / running / uploading / done / failed; completed turns true only when the output is fully written). Output extension must match the spec format: mp4, mov, mkv, webm, gif or m4a.",
+     "ret": "bool",
+     "example": "requirelib(\"ffmpeg\");\nffmpeg.renderTimeline(JSON.stringify(spec), \"user:/Exports/cut.mp4\", \"tmp:/cut.progress.json\");"
+    },
+    {
+     "name": "ffmpeg.makeProxy",
+     "sig": "ffmpeg.makeProxy(input, output, kind, height, progressFile)",
+     "desc": "Convert footage into a browser-playable proxy in the background: kind \"video\" (H.264/AAC MP4, at most height px tall, 0 = source size), \"audio\" (AAC M4A) or \"image\" (PNG). Output extension must match the kind. Returns true once the job is accepted; follow it through the progress file like renderTimeline.",
+     "ret": "bool",
+     "example": "requirelib(\"ffmpeg\");\nffmpeg.makeProxy(\"user:/footage/A001.mxf\", \"user:/Cache/A001_540.mp4\", \"video\", 540, \"tmp:/A001.progress.json\");"
+    },
+    {
+     "name": "ffmpeg.hwEncoder",
+     "sig": "ffmpeg.hwEncoder()",
+     "desc": "Name of the hardware H.264 encoder the host can use (e.g. \"NVIDIA NVENC\", \"Intel/AMD VAAPI\"), or an empty string when only software encoding is available.",
+     "ret": "string",
+     "example": "requirelib(\"ffmpeg\");\nvar hw = ffmpeg.hwEncoder();"
     }
    ]
   },
