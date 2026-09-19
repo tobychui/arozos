@@ -39,6 +39,13 @@ CS.effects = {
         { type: "mirror",   name: "Mirror", kind: "mirror", noParam: true },
         { type: "vignette", name: "Vignette", kind: "vignette", min: 0, max: 100, def: 60, unit: "%", step: 1 },
         { type: "grain",    name: "Film Grain", kind: "grain", min: 0, max: 100, def: 40, unit: "%", step: 1 },
+        { type: "chromakey", name: "Ultra Key (Chroma)", kind: "chroma",
+          params: [
+              { key: "color", name: "Key Color", type: "color", def: "#00ff00" },
+              { key: "similarity", name: "Tolerance", min: 1, max: 100, def: 30, unit: "%", step: 1 },
+              { key: "blend", name: "Softness", min: 0, max: 100, def: 10, unit: "%", step: 1 }
+          ] },
+        { type: "sharpen",  name: "Sharpen", kind: "sharpen", min: 0, max: 100, def: 40, unit: "%", step: 1 },
         { type: "fadein",   name: "Fade In", kind: "fade", min: 0.1, max: 5, def: 1, unit: "s", step: 0.1, audioOk: true },
         { type: "fadeout",  name: "Fade Out", kind: "fade", min: 0.1, max: 5, def: 1, unit: "s", step: 0.1, audioOk: true },
         { type: "fadeto",   name: "Fade To", kind: "audiogain", audioOk: true, audioOnly: true,
@@ -94,6 +101,10 @@ CS.effects = {
         var track = CS.getTrack(clip.trackId);
         if (track && track.kind === "audio" && !def.audioOk) {
             CS.toast("Only fades apply to audio clips", true);
+            return;
+        }
+        if (clip.kind === "adjust" && (def.kind === "chroma" || def.kind === "mirror")) {
+            CS.toast(def.name + " cannot go on an adjustment layer", true);
             return;
         }
         if (def.audioOnly && !CS.effects.clipHasAudio(clip)) {
@@ -171,7 +182,7 @@ CS.effects = {
 
     //Summarize the effect stack for the compositor
     analyze: function (clip, t, W) {
-        var res = { filter: "", alpha: 1, mirror: false, pixelate: 0, vignette: 0, grain: 0 };
+        var res = { filter: "", alpha: 1, mirror: false, pixelate: 0, vignette: 0, grain: 0, chroma: null, sharpen: 0 };
         var list = (clip.props && clip.props.effects) || [];
         if (!list.length) { return res; }
         var scale = (W || 1920) / 1920;
@@ -189,10 +200,110 @@ CS.effects = {
                 res.vignette = e.amount / 100;
             } else if (def.kind === "grain") {
                 res.grain = e.amount / 100;
+            } else if (def.kind === "chroma") {
+                res.chroma = {
+                    color: e.color || "#00ff00",
+                    similarity: CS.effects.paramValue(e, def.params[1]) / 100,
+                    blend: CS.effects.paramValue(e, def.params[2]) / 100
+                };
+            } else if (def.kind === "sharpen") {
+                //Canvas has no sharpen primitive: a contrast lift stands in
+                //for the preview, the render uses a real unsharp mask
+                res.sharpen = e.amount / 100;
+                res.filter += " contrast(" + (1 + res.sharpen * 0.25).toFixed(3) + ")";
             }
         }
         res.alpha = CS.effects.fadeAlpha(clip, t);
         return res;
+    },
+
+    /* ---------- chroma key ---------- */
+
+    _keyScratch: null,
+    //Knock the key colour out of the (cropped) source and return a canvas
+    //holding the keyed pixels; the result is drawn at the destination size,
+    //so keying happens at that size (cheap at reduced playback quality)
+    chromaKeySource: function (src, rect, chroma, dw, dh) {
+        if (!CS.effects._keyScratch) { CS.effects._keyScratch = document.createElement("canvas"); }
+        var c = CS.effects._keyScratch;
+        var w = Math.max(1, Math.round(Math.min(rect.w, Math.abs(dw))));
+        var h = Math.max(1, Math.round(Math.min(rect.h, Math.abs(dh))));
+        if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+        var ctx = c.getContext("2d", { willReadFrequently: true });
+        ctx.clearRect(0, 0, w, h);
+        try {
+            ctx.drawImage(src, rect.x, rect.y, rect.w, rect.h, 0, 0, w, h);
+            var img = ctx.getImageData(0, 0, w, h);
+            var d = img.data;
+            var key = CS.effects.parseColor(chroma.color);
+            //Compare in YUV so lighting changes on the screen matter less
+            var ky = 0.299 * key[0] + 0.587 * key[1] + 0.114 * key[2];
+            var ku = -0.147 * key[0] - 0.289 * key[1] + 0.436 * key[2];
+            var kvv = 0.615 * key[0] - 0.515 * key[1] - 0.100 * key[2];
+            var sim = Math.max(0.001, chroma.similarity) * 255;
+            var soft = Math.max(0.001, chroma.blend) * 255;
+            for (var i = 0; i < d.length; i += 4) {
+                var r = d[i], g = d[i + 1], b = d[i + 2];
+                var y = 0.299 * r + 0.587 * g + 0.114 * b;
+                var u = -0.147 * r - 0.289 * g + 0.436 * b;
+                var v = 0.615 * r - 0.515 * g - 0.100 * b;
+                var dist = Math.sqrt((u - ku) * (u - ku) + (v - kvv) * (v - kvv) + 0.25 * (y - ky) * (y - ky));
+                if (dist < sim) {
+                    d[i + 3] = 0;
+                } else if (dist < sim + soft) {
+                    d[i + 3] = Math.round(d[i + 3] * (dist - sim) / soft);
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+        } catch (e) { /* tainted source: leave it unkeyed */ }
+        return c;
+    },
+
+    parseColor: function (hex) {
+        var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+        if (!m) { return [0, 255, 0]; }
+        var n = parseInt(m[1], 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    },
+
+    /* ---------- adjustment layers ---------- */
+
+    _adjustScratch: null,
+    //Apply the clip's colour controls and effects to everything painted so
+    //far (Premiere's adjustment layer): the frame is copied out, cleared and
+    //drawn back through the filter with the layer's opacity
+    applyAdjustment: function (ctx, clip, W, H, t) {
+        var canvas = ctx.canvas;
+        if (!CS.effects._adjustScratch) { CS.effects._adjustScratch = document.createElement("canvas"); }
+        var s = CS.effects._adjustScratch;
+        if (s.width !== canvas.width || s.height !== canvas.height) { s.width = canvas.width; s.height = canvas.height; }
+        var sctx = s.getContext("2d");
+        sctx.clearRect(0, 0, s.width, s.height);
+        sctx.drawImage(canvas, 0, 0);
+
+        var fx = CS.effects.analyze(clip, t, W);
+        var p = clip.props;
+        var baseFilter = CS.player.buildFilter(p);
+        var filterStr = ((baseFilter === "none" ? "" : baseFilter) + fx.filter).trim();
+        var opacity = CS.clamp((CS.keyframes ? CS.keyframes.value(clip, "opacity", t, p.opacity === undefined ? 100 : p.opacity) : p.opacity) / 100, 0, 1) * fx.alpha;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        if (opacity >= 1) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.globalAlpha = opacity;
+        ctx.filter = filterStr || "none";
+        if (fx.pixelate > 1) {
+            var small = CS.effects.pixelateSource(s, s.width, s.height, fx.pixelate, null);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(small, 0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.drawImage(s, 0, 0);
+        }
+        ctx.restore();
+        if (fx.vignette > 0) { CS.effects.drawVignette(ctx, W, H, fx.vignette * opacity); }
+        if (fx.grain > 0) { CS.effects.drawGrain(ctx, W, H, fx.grain); }
     },
 
     //Downscale the source into a reusable scratch canvas for pixelation
