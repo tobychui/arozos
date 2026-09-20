@@ -46,7 +46,16 @@ type Backend interface {
 	Ready() bool
 }
 
+// InfoBackend is an optional Backend extension: a backend that implements it
+// can explain where a file physically lives (which nodes hold a copy of it
+// and in what state), which the File Manager properties dialog shows.
+type InfoBackend interface {
+	StorageInfo(logical string) (arozfs.StorageInfo, error)
+}
+
 var errUnsupported = errors.New("filesystem type not supported")
+
+var errNoStorageInfo = errors.New("storage info not available")
 
 // ClusterFileSystem is the abstraction.
 type ClusterFileSystem struct {
@@ -279,6 +288,16 @@ func (c *ClusterFileSystem) walk(p string, info Info, walkFn filepath.WalkFunc) 
 		}
 	}
 	return nil
+}
+
+// StorageInfo resolves the replicas of one namespace path through the
+// backend. It is what makes cluster:/ files show where their copies are.
+func (c *ClusterFileSystem) StorageInfo(p string) (arozfs.StorageInfo, error) {
+	backend, ok := c.backend.(InfoBackend)
+	if !ok {
+		return arozfs.StorageInfo{}, errNoStorageInfo
+	}
+	return backend.StorageInfo(normalize(p))
 }
 
 func (c *ClusterFileSystem) Heartbeat() error {

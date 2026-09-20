@@ -300,6 +300,13 @@ before changing how a phase works, but start new work from the packages below.
   admins contribute folders (volumes); files stay whole files inside them.
   The drive is only mounted while the node is in a cluster that has at least
   one volume (`clusterSyncDrive`), so otherwise nothing sees or scans it.
+  Nightly maintenance of a drive shared by the cluster belongs to the master
+  node (the metadata leader) alone, through
+  `nightly.TaskOption{MasterNodeOnly: true}` and `nightlyShouldMaintainFsh`,
+  so expired trash and old version history are not swept once per member.
+  The abstraction also answers `arozfs.StorageInfoProvider`, which is what
+  puts the copies of a file, their nodes, volumes and states in the File
+  Manager properties dialog (`src/cluster.fsinfo.go`).
   Writes spool and hash locally, get placed by the leader, are copied
   (locally or by the 4 MiB chunked, SHA-256 verified `store/*` protocol) and
   only then published. The core mounts the drive into the base storage pool

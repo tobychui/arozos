@@ -27,6 +27,7 @@ import (
 	"imuslab.com/arozos/mod/info/usageinfo"
 	"imuslab.com/arozos/mod/network/neighbour"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/time/nightly"
 )
 
 /*
@@ -301,6 +302,42 @@ func clusterHasVolume(vols []metadata.Volume) bool {
 	return false
 }
 
+/*
+	Master node
+
+	Nightly maintenance of cluster:/ (expired trash, old version history)
+	acts on files every member can see, so letting every node run it means
+	doing the same scan, and the same deletions, once per node. The master
+	node is the node holding the metadata leader lease, which is also the
+	node that hands out placement and replication decisions.
+*/
+
+// clusterIsMasterNode reports whether this node maintains the storage shared
+// by the cluster. A node with no cluster is the only node there is, so it is
+// its own master.
+func clusterIsMasterNode() bool {
+	if *disable_cluster || clusterManager == nil || clusterMetadata == nil || !clusterManager.InCluster() {
+		return true
+	}
+	return clusterMetadata.IsLeader()
+}
+
+// nightlyFshOption returns how nightly maintenance of one file system handler
+// should be run: a drive shared by the whole cluster is maintained by the
+// master node only, every other drive by the host it belongs to.
+func nightlyFshOption(fsh *fs.FileSystemHandler) nightly.TaskOption {
+	if fsh != nil && fsh.Filesystem == "cluster" {
+		return nightly.TaskOption{Name: "cluster:/ maintenance", MasterNodeOnly: true}
+	}
+	return nightly.TaskOption{}
+}
+
+// nightlyShouldMaintainFsh reports whether tonight's maintenance of this file
+// system handler belongs to this host.
+func nightlyShouldMaintainFsh(fsh *fs.FileSystemHandler) bool {
+	return nightlyManager.ShouldRun(nightlyFshOption(fsh))
+}
+
 // clusterSyncDrive mounts or unmounts cluster:/ to match clusterDriveWanted.
 func clusterSyncDrive() {
 	if clusterDriveWanted() {
@@ -422,6 +459,9 @@ func ClusterInit() {
 		clusterStartAgent()
 	}
 	clusterStartNeighbourhood()
+
+	//Let the nightly tasks know which node maintains the shared storage
+	nightlyManager.SetMasterNodeResolver(clusterIsMasterNode)
 }
 
 // clusterStartAgent starts the cluster agent and every cluster service on

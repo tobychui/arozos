@@ -2,6 +2,7 @@ package clusterfs
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 )
 
 // fakeBackend is an in-memory namespace.
@@ -233,5 +236,74 @@ func TestClusterFileSystemRoundTrip(t *testing.T) {
 	fb.ready = false
 	if c.Heartbeat() == nil {
 		t.Errorf("Heartbeat should fail when backend not ready")
+	}
+}
+
+/*
+	Storage info
+
+	A backend that can explain where a file is kept answers through the
+	abstraction, so the File Manager properties dialog does not need to know
+	that the cluster is involved. A backend that cannot say anything must
+	fail cleanly instead of pretending the file is nowhere.
+*/
+
+// infoBackend is a fakeBackend that also reports where a file is kept.
+type infoBackend struct {
+	*fakeBackend
+	info arozfs.StorageInfo
+	err  error
+	last string
+}
+
+func (i *infoBackend) StorageInfo(logical string) (arozfs.StorageInfo, error) {
+	i.last = logical
+	if i.err != nil {
+		return arozfs.StorageInfo{}, i.err
+	}
+	return i.info, nil
+}
+
+func TestStorageInfoFromBackend(t *testing.T) {
+	backend := &infoBackend{fakeBackend: newFake(), info: arozfs.StorageInfo{
+		Type:  "cluster",
+		Title: "Cluster",
+		Items: []arozfs.StorageInfoItem{{Title: "NodeA", State: arozfs.StorageStateOK}},
+	}}
+	c := New("cluster", backend)
+
+	//Any path form the file system accepts has to reach the backend as a
+	//plain namespace path
+	testcases := []struct{ given, wanted string }{
+		{"cluster:/photos/a.jpg", "/photos/a.jpg"},
+		{"/photos/a.jpg", "/photos/a.jpg"},
+		{"photos/a.jpg", "/photos/a.jpg"},
+		{"cluster:/", "/"},
+	}
+	for _, tc := range testcases {
+		info, err := c.StorageInfo(tc.given)
+		if err != nil {
+			t.Fatalf("StorageInfo(%q) returned an error: %v", tc.given, err)
+		}
+		if backend.last != tc.wanted {
+			t.Errorf("StorageInfo(%q) asked the backend for %q, wanted %q", tc.given, backend.last, tc.wanted)
+		}
+		if info.Type != "cluster" || len(info.Items) != 1 {
+			t.Errorf("StorageInfo(%q) did not pass the backend answer through: %+v", tc.given, info)
+		}
+	}
+}
+
+func TestStorageInfoErrors(t *testing.T) {
+	//A backend that cannot resolve the file passes its error on
+	failing := &infoBackend{fakeBackend: newFake(), err: errors.New("no such record")}
+	if _, err := New("cluster", failing).StorageInfo("/photos/a.jpg"); err == nil {
+		t.Error("Expected the backend error to be returned")
+	}
+
+	//A backend with no idea where files are kept is not an error case worth
+	//guessing at: it simply has nothing to report
+	if _, err := New("cluster", newFake()).StorageInfo("/photos/a.jpg"); err == nil {
+		t.Error("Expected an error from a backend that does not report storage info")
 	}
 }

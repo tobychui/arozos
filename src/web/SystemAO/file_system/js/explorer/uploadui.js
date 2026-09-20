@@ -311,6 +311,13 @@ function renderUploadTask(taskUUID){
         (showDoneLink ? " withDoneLink" : ""));
     row.find(".uploadTaskBarFill").css("width", indeterminate ? "" : percentage + "%");
 
+    //Keep the list ordered: finished rows on top, in progress next, queued last
+    let rank = uploadRowRank(info.state);
+    if (row.attr("data-rank") != String(rank)){
+        row.attr("data-rank", rank);
+        placeUploadRow(row[0], rank);
+    }
+
     //Byte counter. Without a known total there is nothing meaningful to divide by.
     let sizeHTML = "";
     if (knownSize){
@@ -399,6 +406,43 @@ function renderUploadTask(taskUUID){
     }
     if (actionBtn.attr("title") != btnTitle){
         actionBtn.attr("title", btnTitle);
+    }
+}
+
+/*
+    Row ordering: 0 finished (done / failed), 1 in progress, 2 queued.
+
+    Only the row whose group changed is moved, to the end of its new group, so
+    a state change costs one scan rather than a re-sort of the whole list.
+*/
+function uploadRowRank(state){
+    if (state == "done" || state == "failed"){
+        return 0;
+    }
+    return state == "pending" ? 2 : 1;
+}
+
+function placeUploadRow(rowEl, rank){
+    let list = document.getElementById("uploadProgressList");
+    if (list == null || rowEl.parentNode !== list){
+        return;
+    }
+    //Insert before the first row of a later group
+    let before = null;
+    if (rank < 2){
+        for (var el = list.firstElementChild; el !== null; el = el.nextElementSibling){
+            if (el !== rowEl && Number(el.getAttribute("data-rank")) > rank){
+                before = el;
+                break;
+            }
+        }
+    }
+    if (before === null){
+        if (list.lastElementChild !== rowEl){
+            list.appendChild(rowEl);
+        }
+    }else if (before !== rowEl.nextElementSibling){
+        list.insertBefore(rowEl, before);
     }
 }
 
@@ -702,15 +746,10 @@ function scrollActiveUploadIntoView(){
         return;
     }
 
-    let listBox = list.getBoundingClientRect();
-    let rowBox = active.getBoundingClientRect();
-    let delta = 0;
-    if (rowBox.top < listBox.top || rowBox.height > listBox.height){
-        delta = rowBox.top - listBox.top;
-    }else if (rowBox.bottom > listBox.bottom){
-        delta = rowBox.bottom - listBox.bottom;
-    }
-    if (delta == 0){
+    //Rows are kept in finished / in progress / queued order, so this row is the
+    //first in-progress one: line its top edge up with the top of the list
+    let delta = active.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    if (Math.abs(delta) < 1){
         return;
     }
 

@@ -156,6 +156,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/restoreTrash", system_fs_restoreFile)
 	router.HandleFunc("/system/file_system/zipHandler", system_fs_zipHandler)
 	router.HandleFunc("/system/file_system/getProperties", system_fs_getFileProperties)
+	router.HandleFunc("/system/file_system/getStorageInfo", system_fs_getStorageInfo)
 	router.HandleFunc("/system/file_system/versionHistory", system_fs_FileVersionHistory)
 
 	router.HandleFunc("/system/file_system/handleFilePermission", system_fs_handleFilePermission)
@@ -1292,6 +1293,12 @@ func system_fs_clearExpiredTrash() {
 
 		removed := 0
 		for c, file := range files {
+			if !nightlyShouldMaintainFsh(fshs[c]) {
+				//Trash inside a drive shared by the cluster is emptied by the
+				//master node, so it is not purged once per member
+				continue
+			}
+
 			/*
 				The removal time is stored as the file extension when the file
 				was recycled. Anything without a parsable timestamp is left
@@ -3021,6 +3028,65 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
+	Storage info
+
+	Where the file actually is. Most drives have nothing to add beyond the
+	storage path already in the properties dialog, but a drive that spreads
+	its files over several hosts does: cluster:/ answers with the nodes and
+	volumes holding a copy of the file. The abstraction resolves it
+	(arozfs.StorageInfoProvider), so this handler stays the same whatever
+	kind of drive the file is on.
+*/
+
+func system_fs_getStorageInfo(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	vpath, err := utils.PostPara(r, "path")
+	if err != nil {
+		utils.SendErrorResponse(w, "path not defined")
+		return
+	}
+
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath(vpath)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Reading a file the user has no access to must not leak where it is kept
+	if !userinfo.CanRead(vpath) {
+		utils.SendErrorResponse(w, "Permission denied")
+		return
+	}
+
+	provider, ok := fsh.FileSystemAbstraction.(arozfs.StorageInfoProvider)
+	if !ok {
+		//Nothing to add for this kind of drive
+		utils.SendErrorResponse(w, "Storage info not supported by this drive")
+		return
+	}
+
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	info, err := provider.StorageInfo(rpath)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	js, _ := json.Marshal(info)
+	utils.SendJSONResponse(w, string(js))
+}
+
+/*
 	List directory in the given path
 
 	Usage: Pass in dir like the following examples:
@@ -3540,10 +3606,14 @@ func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
 func system_fs_clearVersionHistories() {
 	allFsh := GetAllLoadedFsh()
 	for _, fsh := range allFsh {
-		if !fsh.ReadOnly {
-			localversion.CleanExpiredVersionBackups(fsh, fsh.Path, 30*86400)
+		if fsh.ReadOnly {
+			continue
 		}
-
+		if !nightlyShouldMaintainFsh(fsh) {
+			//A drive shared by the cluster is cleaned by the master node
+			continue
+		}
+		localversion.CleanExpiredVersionBackups(fsh, fsh.Path, 30*86400)
 	}
 }
 

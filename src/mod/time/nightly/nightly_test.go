@@ -78,3 +78,83 @@ func TestRegisterAndRunMultipleTimes(t *testing.T) {
 		t.Errorf("Expected callCount to be 3, got %d", callCount)
 	}
 }
+
+/*
+	Master node only tasks
+
+	A nightly task marked MasterNodeOnly belongs to whichever node maintains
+	the storage shared by the whole cluster, so that a cluster wide scan runs
+	once per night instead of once per node per night.
+*/
+
+func TestShouldRunWithoutResolver(t *testing.T) {
+	tm := NewNightlyTaskManager(23)
+
+	//A host outside a cluster maintains its own storage
+	if !tm.IsMasterNode() {
+		t.Error("Expected a host with no resolver to count as the master node")
+	}
+	if !tm.ShouldRun(TaskOption{MasterNodeOnly: true}) {
+		t.Error("Expected a master node only task to run where there is no cluster")
+	}
+}
+
+func TestShouldRunOnMasterNodeOnly(t *testing.T) {
+	tm := NewNightlyTaskManager(23)
+
+	testcases := []struct {
+		name     string
+		isMaster bool
+		option   TaskOption
+		expected bool
+	}{
+		{"plain task on the master", true, TaskOption{}, true},
+		{"plain task on a follower", false, TaskOption{}, true},
+		{"master only task on the master", true, TaskOption{MasterNodeOnly: true}, true},
+		{"master only task on a follower", false, TaskOption{MasterNodeOnly: true}, false},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			isMaster := tc.isMaster
+			tm.SetMasterNodeResolver(func() bool { return isMaster })
+			if got := tm.ShouldRun(tc.option); got != tc.expected {
+				t.Errorf("Expected ShouldRun to be %v, got %v", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestRegisterNightlyTaskWithOption(t *testing.T) {
+	tm := NewNightlyTaskManager(23)
+
+	var masterOnlyRuns int32
+	var everyNodeRuns int32
+	tm.RegisterNightlyTaskWithOption(TaskOption{Name: "cluster scan", MasterNodeOnly: true},
+		func() { atomic.AddInt32(&masterOnlyRuns, 1) })
+	tm.RegisterNightlyTask(func() { atomic.AddInt32(&everyNodeRuns, 1) })
+
+	if len(tm.NightlTasks) != 2 {
+		t.Fatalf("Expected 2 tasks after registration, got %d", len(tm.NightlTasks))
+	}
+
+	//Registration happens before the cluster starts, so the decision has to
+	//be taken when the task runs and not when it is registered
+	tm.SetMasterNodeResolver(func() bool { return false })
+	tm.NightlyTaskRun()
+	if atomic.LoadInt32(&masterOnlyRuns) != 0 {
+		t.Errorf("Expected the master only task to be skipped on a follower, ran %d time(s)", masterOnlyRuns)
+	}
+	if atomic.LoadInt32(&everyNodeRuns) != 1 {
+		t.Errorf("Expected the plain task to run on a follower, ran %d time(s)", everyNodeRuns)
+	}
+
+	tm.SetMasterNodeResolver(func() bool { return true })
+	tm.NightlyTaskRun()
+	if atomic.LoadInt32(&masterOnlyRuns) != 1 {
+		t.Errorf("Expected the master only task to run once this node is the master, ran %d time(s)", masterOnlyRuns)
+	}
+	if atomic.LoadInt32(&everyNodeRuns) != 2 {
+		t.Errorf("Expected the plain task to run again, ran %d time(s)", everyNodeRuns)
+	}
+}

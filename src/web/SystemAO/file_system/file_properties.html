@@ -17,6 +17,7 @@
                 <div class="dlgTab active" tab="basic" onclick="switchTab('basic');" locale="tab/basic">Basic</div>
                 <div class="dlgTab" tab="permission" onclick="switchTab('permission');" locale="tab/permission">Permissions</div>
                 <div class="dlgTab" tab="versions" onclick="switchTab('versions');" locale="tab/versions">Versions</div>
+                <div class="dlgTab" tab="storage" id="storageTab" style="display:none;" onclick="switchTab('storage');" locale="tab/storage">Storage</div>
             </div>
             <div class="dialogBody">
                 <!-- Basic -->
@@ -118,6 +119,15 @@
                         <div class="dlgList" id="versionList"></div>
                     </div>
                 </div>
+
+                <!-- Storage: where the file physically is, for drives that know -->
+                <div class="dlgPage" id="page_storage">
+                    <div id="storageFields"></div>
+                    <div id="storageCopiesSection" style="display:none;">
+                        <div class="dlgSectionLabel" id="storageCopiesLabel" locale="storage/copies">File Copies</div>
+                        <div id="storageCopies"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="dialogFooter">
@@ -126,7 +136,7 @@
                     <i class="trash icon"></i> <span locale="versions/removeAll">Delete All Versions</span>
                 </button>
                 <div class="spacer"></div>
-                <button class="dlgBtn footerBasic footerVersions" onclick="ao_module_close();" locale="button/close">Close</button>
+                <button class="dlgBtn footerBasic footerVersions footerStorage" onclick="ao_module_close();" locale="button/close">Close</button>
                 <button class="dlgBtn footerPermission" style="display:none;" onclick="ao_module_close();" locale="button/cancel">Cancel</button>
                 <button id="permApplyBtn" class="dlgBtn primary footerPermission" style="display:none;" onclick="applyPermission();" locale="button/confirm">OK</button>
             </div>
@@ -170,6 +180,9 @@
             var permissionLoaded = false;
             var currentTab = "basic";
 
+            //Storage tab state, filled in only by a drive that reports one
+            var storageInfo = null;
+
             //Version manager state
             var versionsLoaded = false;
             var versionList = [];
@@ -199,6 +212,7 @@
                 dlgInitTheme();
                 loadHostInfo();
                 initFileProperties();
+                loadStorageInfo();
             });
 
             /* ---------------------------------------------------------------
@@ -211,12 +225,14 @@
                 $(".dlgPage").removeClass("active");
                 $("#page_" + tabName).addClass("active");
 
-                $(".footerBasic, .footerVersions, .footerPermission").hide();
+                $(".footerBasic, .footerVersions, .footerPermission, .footerStorage").hide();
                 if (tabName == "permission"){
                     $(".footerPermission").show();
                     if (!permissionLoaded){
                         loadPermission();
                     }
+                }else if (tabName == "storage"){
+                    $(".footerStorage").show();
                 }else if (tabName == "versions"){
                     $(".footerVersions").show();
                     if (!versionsSupported()){
@@ -767,6 +783,120 @@
 
             function hideLoader(){
                 $("#dlgLoader").hide();
+            }
+
+            /* ---------------------------------------------------------------
+                Storage tab
+
+                Most drives have nothing to add: the storage path on the Basic
+                tab is the whole answer. A drive whose files live somewhere
+                else - cluster:/ keeps every file on one or more other nodes -
+                reports where through its file system abstraction, and this
+                tab appears to show it. Nothing here is cluster specific: the
+                server sends rows and locations, whatever kind of drive
+                resolved them.
+            --------------------------------------------------------------- */
+            function loadStorageInfo(){
+                if (files.length != 1){
+                    //A selection has no single place to point at
+                    return;
+                }
+                $.ajax({
+                    url: "../../system/file_system/getStorageInfo",
+                    data: {path: files[0]},
+                    method: "POST",
+                    success: function(data){
+                        if (data == undefined || data.error !== undefined){
+                            //This drive does not report one. Leave the tab out
+                            return;
+                        }
+                        storageInfo = data;
+                        renderStorageTab(data);
+                        $("#storageTab").show();
+                    }
+                });
+            }
+
+            //Keys and the wordy half of values are translated where the locale
+            //file has them and shown as they came otherwise, so a drive can
+            //report a node name or a hash that no locale can know about
+            function storageKey(key){
+                return applocale.getString("storage/key/" + key, key);
+            }
+
+            function storageValue(value, args){
+                var text = applocale.getString("storage/value/" + value, value);
+                if (args != undefined){
+                    for (var i = 0; i < args.length; i++){
+                        text = text.split("{" + i + "}").join(
+                            applocale.getString("storage/value/" + args[i], args[i]));
+                    }
+                }
+                return text;
+            }
+
+            function storageFieldRows(fields){
+                var rows = [];
+                for (var i = 0; i < fields.length; i++){
+                    if (fields[i].value == ""){
+                        continue;
+                    }
+                    rows.push(propRow(storageKey(fields[i].key),
+                        dlgEscape(storageValue(fields[i].value, fields[i].args))));
+                }
+                return rows;
+            }
+
+            function renderStorageTab(data){
+                //The tab is named after whatever answered, e.g. Cluster
+                $("#storageTab").text(applocale.getString("storage/title/" + data.type, data.title));
+
+                $("#storageFields").html(propGroup(storageFieldRows(data.fields || [])));
+
+                var items = data.items || [];
+                if (items.length == 0){
+                    //A folder has no copies of its own, and a file that has
+                    //just been written may not have one recorded yet
+                    $("#storageCopiesSection").hide();
+                    return;
+                }
+
+                var html = "";
+                for (var i = 0; i < items.length; i++){
+                    html += storageCopyHTML(items[i]);
+                }
+                $("#storageCopies").html(html);
+                $("#storageCopiesSection").show();
+            }
+
+            function storageCopyHTML(item){
+                var state = item.state;
+                if (state != "ok" && state != "pending" && state != "stale" && state != "error"){
+                    state = "unknown";
+                }
+
+                var head = '<div class="copyHead">' +
+                    '<span class="copyDot ' + state + '"></span>' +
+                    '<span class="copyName">' + dlgEscape(item.title) + "</span>";
+                if (item.local){
+                    //Whether the file is on the host being used right now is
+                    //the first thing anyone opening this tab wants to know
+                    head += '<span class="copyBadge">' +
+                        dlgEscape(applocale.getString("storage/thisNode", "This node")) + "</span>";
+                }
+                if (item.status != undefined && item.status != ""){
+                    head += '<span class="copyStatus ' + state + '">' +
+                        dlgEscape(storageValue(item.status)) + "</span>";
+                }
+                head += "</div>";
+
+                var sub = "";
+                if (item.subtitle != undefined && item.subtitle != ""){
+                    sub = '<div class="copySub">' + dlgEscape(item.subtitle) + "</div>";
+                }
+
+                return '<div class="dlgCopy">' + head + sub +
+                    storageFieldRows(item.fields || []).join("") + "</div>";
             }
 
             /* ---------------------------------------------------------------

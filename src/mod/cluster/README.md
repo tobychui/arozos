@@ -237,6 +237,22 @@ every membership change and every volume record change.
   turns this off; volumes the guard had locked become writable again at
   each node's next volume refresh (within a minute). Read only set by an
   admin is never touched.
+- **Nightly maintenance**: every member sees the same files on `cluster:/`,
+  so a nightly pass that walks it from each node deletes the same expired
+  trash and the same old version history once per node. Work on a drive
+  shared by the cluster is therefore left to the **master node**, the
+  holder of the metadata leader lease: `nightly.TaskOption{MasterNodeOnly:
+  true}` marks it, `nightlyShouldMaintainFsh` in `src/cluster.go` answers it
+  per file system handler, and a host outside a cluster is its own master so
+  nothing changes for a single node. Each node still maintains its own local
+  drives every night.
+- **Where a file is**: the abstraction implements
+  `arozfs.StorageInfoProvider`, so the File Manager properties dialog gains a
+  Cluster tab listing the copies of the file with the node and volume holding
+  each one, its state, the replica policy and the checksum
+  (`/system/file_system/getStorageInfo` → `src/cluster.fsinfo.go`). The shape
+  is generic: any abstraction that can explain where its files live gets the
+  same tab.
 
 Admin API: `/system/cluster/storage/{status,volume/add,volume/remove,volume/readonly,rescan,autoreadonly}`.
 
