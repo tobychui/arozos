@@ -339,7 +339,9 @@
             var html = '<li><span>' + esc(rec.path) + '</span><span class="cl-node-meta">' + (rec.isDir ? esc(t('cluster/folder', 'folder')) : CL.fmtBytes(rec.size) + ' · ' + esc((rec.checksum || '').substring(0, 12))) + '</span></li>';
             (rec.locations || []).forEach(function (l) {
                 var cls = l.state === 'verified' || l.state === 'committed' ? 'ONLINE' : (l.state === 'stale' || l.state === 'failed' ? 'OFFLINE' : 'DEGRADED');
-                html += '<li><span>' + esc(nodeName(l.nodeId)) + (l.volumeId === rec.primary ? ' <span class="cl-chip">' + esc(t('cluster/repl/primary', 'primary')) + '</span>' : '') + '</span><span>' + badge(cls, CL.state(l.state)) + ' <span class="cl-node-meta">' + esc(CL.fmtAgo(l.updated)) + '</span></span></li>';
+                //Named by ID as well: two nodes may answer to the same name
+                html += '<li><span>' + esc(nodeName(l.nodeId)) + (l.volumeId === rec.primary ? ' <span class="cl-chip">' + esc(t('cluster/repl/primary', 'primary')) + '</span>' : '') +
+                    '<div class="cl-node-meta cl-mono">' + esc(l.nodeId) + '</div></span><span>' + badge(cls, CL.state(l.state)) + ' <span class="cl-node-meta">' + esc(CL.fmtAgo(l.updated)) + '</span></span></li>';
             });
             if (!rec.isDir && (rec.locations || []).length === 0) html += '<li class="cl-empty">' + esc(t('cluster/repl/nolocations', 'No copies recorded')) + '</li>';
             document.getElementById('inspect-list').innerHTML = html;

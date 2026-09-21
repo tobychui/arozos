@@ -135,16 +135,31 @@ func TestClusterCopyCountField(t *testing.T) {
 	}
 }
 
+// A node name is operator set and defaults to the same "My ArOZ" on every
+// host, so a path is only an answer when it names the node by its UUID:
+// <node uuid>:<drive uuid>/<path on that drive>.
 func TestClusterVolumePathText(t *testing.T) {
-	vol := metadata.Volume{FshUUID: "user", Subpath: "/cluster"}
-	if got := clusterVolumePathText(vol, "/docs/a.txt"); got != "user:/cluster/docs/a.txt" {
+	vol := metadata.Volume{NodeID: "node-a-test", FshUUID: "user", Subpath: "/cluster"}
+	if got := clusterVolumePathText(vol, "/docs/a.txt"); got != "node-a-test:user/cluster/docs/a.txt" {
 		t.Errorf("Expected the path on the holding node, got %q", got)
+	}
+	if got := clusterVolumeRootText(vol); got != "node-a-test:user/cluster" {
+		t.Errorf("Expected the volume root, got %q", got)
 	}
 
 	//A volume contributed at the root of its drive
-	root := metadata.Volume{FshUUID: "s1", Subpath: ""}
-	if got := clusterVolumePathText(root, "/a.txt"); got != "s1:/a.txt" {
+	root := metadata.Volume{NodeID: "node-b-test", FshUUID: "s1", Subpath: ""}
+	if got := clusterVolumePathText(root, "/a.txt"); got != "node-b-test:s1/a.txt" {
 		t.Errorf("Expected a root volume path, got %q", got)
+	}
+	if got := clusterVolumeRootText(root); got != "node-b-test:s1/" {
+		t.Errorf("Expected the root of a whole drive, got %q", got)
+	}
+
+	//Two nodes of the same name contributing the same folder stay apart
+	twin := metadata.Volume{NodeID: "node-c-test", FshUUID: "user", Subpath: "/cluster"}
+	if clusterVolumePathText(vol, "/docs/a.txt") == clusterVolumePathText(twin, "/docs/a.txt") {
+		t.Error("Expected the same folder on two nodes to give two different paths")
 	}
 }
 

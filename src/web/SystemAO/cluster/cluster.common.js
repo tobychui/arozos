@@ -155,6 +155,21 @@ var CL = (function () {
         var cls = pct >= 95 ? 'bad' : (pct >= 80 ? 'warn' : '');
         return '<div class="cl-bar ' + cls + '"><div style="width:' + Math.min(100, Math.max(0, pct)).toFixed(0) + '%"></div></div>';
     }
+    /*
+        Where something is, across the cluster.
+
+        Only the node UUID identifies a node: names are operator set and every
+        fresh install answers to the same one, so a path that names the node
+        by name cannot be acted on. Paths are written
+
+            <node uuid>:<drive uuid>/<path on that drive>
+    */
+    function nodePath(nodeId, fshUuid, subpath) {
+        var tail = String(subpath || '');
+        if (tail.charAt(0) != '/') { tail = '/' + tail; }
+        return String(nodeId) + ':' + String(fshUuid) + tail;
+    }
+
     //Fill {0}, {1}, ... in a translated string
     function fmt(template) {
         var args = Array.prototype.slice.call(arguments, 1);
@@ -221,6 +236,7 @@ var CL = (function () {
         openPage: openPage, every: every,
         init: init, t: t, tr: tr, state: state, fmt: fmt,
         applyTheme: applyTheme, esc: esc, fmtBytes: fmtBytes, fmtAgo: fmtAgo, fmtDate: fmtDate, bar: bar,
+        nodePath: nodePath,
         apiPost: apiPost, apiResult: apiResult, showMsg: showMsg
     };
 })();

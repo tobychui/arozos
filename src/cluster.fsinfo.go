@@ -95,7 +95,7 @@ func (b *clusterBackend) StorageInfo(logical string) (arozfs.StorageInfo, error)
 	)
 	if master := clusterMetadata.Leader(); master != "" {
 		info.Fields = append(info.Fields,
-			arozfs.StorageInfoField{Key: "Master Node", Value: clusterNodeLabel(master)})
+			arozfs.StorageInfoField{Key: "Master Node", Value: clusterNodeLabelWithID(master)})
 	}
 
 	//One entry per physical copy, this node first so the reader sees at a
@@ -170,9 +170,10 @@ func clusterCopyItem(rec *metadata.FileRecord, loc metadata.Location, localNode 
 
 	//The volume it landed on, and where that volume sits on the holding node
 	if vol, ok := clusterMetadata.Volume(loc.VolumeID); ok {
-		item.Subtitle = vol.Name
+		item.Subtitle = clusterVolumeRootText(*vol)
 		item.Fields = append(item.Fields,
 			arozfs.StorageInfoField{Key: "Volume", Value: vol.Name},
+			arozfs.StorageInfoField{Key: "Volume ID", Value: vol.ID},
 			arozfs.StorageInfoField{Key: "Volume Path", Value: clusterVolumePathText(*vol, rec.Path)},
 		)
 		if vol.Capacity > 0 {
@@ -188,7 +189,10 @@ func clusterCopyItem(rec *metadata.FileRecord, loc metadata.Location, localNode 
 				arozfs.StorageInfoField{Key: "Volume Access", Value: "Read only"})
 		}
 	} else {
-		item.Subtitle = loc.VolumeID
+		//The volume record is gone, so name the copy by the ids it still has
+		item.Subtitle = loc.NodeID + ":" + loc.VolumeID
+		item.Fields = append(item.Fields,
+			arozfs.StorageInfoField{Key: "Volume ID", Value: loc.VolumeID})
 	}
 
 	if loc.VolumeID == rec.Primary {
@@ -229,11 +233,38 @@ func clusterNodeLabel(nodeID string) string {
 	return name
 }
 
-// clusterVolumePathText is where the copy sits on the node holding it, in the
-// virtual path form that node uses.
+// clusterNodeLabelWithID names a node and states its ID. Node names are
+// operator set and default to the same "My ArOZ" on every host, so a name on
+// its own cannot say which node is meant.
+func clusterNodeLabelWithID(nodeID string) string {
+	name := clusterManager.NodeName(nodeID)
+	if strings.TrimSpace(name) == "" || name == nodeID {
+		return nodeID
+	}
+	return name + " (" + nodeID + ")"
+}
+
+/*
+	Paths across the cluster
+
+	A path is only an answer if it says which node it is on, and the only
+	thing that identifies a node is its UUID: names repeat, and the default
+	name is the same on every fresh install. So every path this report shows
+	is written <node uuid>:<drive uuid>/<path on that drive>, e.g.
+
+		3f7a...c1:user/cluster/photos/a.jpg
+
+	which reads as: on node 3f7a…c1, drive user, at /cluster/photos/a.jpg.
+*/
+
+// clusterVolumeRootText is the folder a volume contributes, node included.
+func clusterVolumeRootText(vol metadata.Volume) string {
+	return vol.NodeID + ":" + vol.FshUUID + path.Join("/", vol.Subpath)
+}
+
+// clusterVolumePathText is where one copy of a file sits, node included.
 func clusterVolumePathText(vol metadata.Volume, logical string) string {
-	root := vol.FshUUID + ":" + path.Join("/", vol.Subpath)
-	return path.Join(root, logical)
+	return vol.NodeID + ":" + vol.FshUUID + path.Join("/", vol.Subpath, logical)
 }
 
 // clusterReplicaPolicyField reports how many copies of each file the folder

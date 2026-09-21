@@ -103,7 +103,11 @@ func (s *Service) AddVolume(fshUUID string, subpath string, name string) (*metad
 		return nil, err
 	}
 	if strings.TrimSpace(name) == "" {
-		name = s.m.NodeName(s.m.NodeID()) + " " + fshUUID + ":" + subpath
+		//The node is named by its ID wherever a volume is pointed at, so the
+		//default name says nothing about which node it is on: node names are
+		//operator set and every fresh install answers to "My ArOZ", which
+		//would make two volumes of the same folder indistinguishable.
+		name = fshUUID + ":" + subpath
 	}
 	vol := &metadata.Volume{
 		ID:      uuid.NewV4().String(),

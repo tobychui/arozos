@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -163,6 +164,17 @@ func FilterIllegalCharInFilename(filename string, replacement string) string {
 
 func ToSlash(filename string) string {
 	return strings.ReplaceAll(filename, "\\", "/")
+}
+
+// Clean is the virtual path counterpart of filepath.Clean.
+//
+// A virtual path is always slash separated and starts with a "vdID:" prefix,
+// which filepath.Clean cannot be trusted with: on Windows it reads "user:" as
+// a volume name and guards the result with a "./" prefix, so the same path
+// normalises differently there than on Linux. Going through path.Clean keeps
+// the result identical on every platform.
+func Clean(filename string) string {
+	return path.Clean(ToSlash(filename))
 }
 
 func Base(filename string) string {

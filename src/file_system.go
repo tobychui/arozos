@@ -17,6 +17,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -2886,6 +2887,19 @@ func system_fs_specialURIEncode(inputPath string) string {
 }
 */
 
+/*
+The parent folder of a virtual path, as shown in the properties dialog.
+
+A virtual path is always slash separated and carries a "vdID:" prefix, so
+filepath.Dir must not be used here: on Windows it reads "user:" as a volume
+name and Clean guards the result with a "./" prefix, turning
+"user:/cluster/a.agi" into "./user:/cluster". GetIDFromVirtualPath strips
+that prefix back off for the same reason.
+*/
+func virtualDirname(vpath string) string {
+	return path.Dir(vpath)
+}
+
 // Handle file properties request
 func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 	type fileProperties struct {
@@ -3008,7 +3022,7 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		VirtualPath:    vpath,
 		StoragePath:    filepath.ToSlash(filepath.Clean(rpath)),
 		Basename:       filepath.Base(rpath),
-		VirtualDirname: filepath.ToSlash(filepath.Dir(vpath)),
+		VirtualDirname: virtualDirname(vpath),
 		StorageDirname: filepath.ToSlash(filepath.Dir(rpath)),
 		Ext:            filepath.Ext(rpath),
 		MimeType:       fileMime,
@@ -3635,7 +3649,7 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 
 	//Get folder sort mode
 	sortMode := "default"
-	folder := filepath.ToSlash(filepath.Clean(vpath))
+	folder := arozfs.Clean(vpath)
 	if sysdb.KeyExists("fs-sortpref", userinfo.Username+"/"+folder) {
 		sysdb.Read("fs-sortpref", userinfo.Username+"/"+folder, &sortMode)
 	}
@@ -3729,7 +3743,7 @@ func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Req
 
 	opr, _ := utils.PostPara(r, "opr")
 
-	folder = filepath.ToSlash(filepath.Clean(folder))
+	folder = arozfs.Clean(folder)
 
 	if opr == "" || opr == "get" {
 		sortMode := "default"

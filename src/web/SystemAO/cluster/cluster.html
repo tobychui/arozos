@@ -400,7 +400,9 @@
                 if (v.lowSpace) flags += ' <span class="cl-chip">' + esc(t('cluster/vol/full', 'nearly full')) + '</span>';
                 else if (v.readOnly) flags += ' <span class="cl-chip">' + esc(t('cluster/vol/ro', 'read only')) + '</span>';
                 var pct = v.capacity > 0 ? (v.capacity - v.free) / v.capacity * 100 : 0;
-                rows += '<tr><td><div class="cl-node-name">' + esc(v.name) + flags + '</div><div class="cl-node-meta cl-mono">' + esc(v.fshUuid) + ':' + esc(v.subpath) + '</div></td>' +
+                //The node is named by its ID here: node names are operator set
+                //and default to the same one on every host
+                rows += '<tr><td><div class="cl-node-name">' + esc(v.name) + flags + '</div><div class="cl-node-meta cl-mono">' + esc(CL.nodePath(v.nodeId, v.fshUuid, v.subpath)) + '</div></td>' +
                     '<td>' + esc(v.nodeName) + (v.local ? ' <span class="cl-chip">' + esc(t('cluster/you', 'you')) + '</span>' : '') + '<div class="cl-node-meta"><span class="cl-badge ' + (v.online ? 'ONLINE' : 'OFFLINE') + '">' + esc(CL.state(v.online ? 'online' : 'offline')) + '</span></div></td>' +
                     '<td>' + CL.fmtBytes(v.free) + ' / ' + CL.fmtBytes(v.capacity) + CL.bar(pct) + '</td>' +
                     '<td>' + v.files + '<div class="cl-node-meta">' + CL.fmtBytes(v.bytes) + '</div></td>' +

@@ -89,6 +89,46 @@ well under Cloudflare's 100 MB request limit.
 | `POST /cluster/acn/evict` | signed | sender removed the receiver |
 | `GET /cluster/acn/latency` | signed | sender's round trips to its own peers |
 
+## Identifiers
+
+Nothing in the cluster is addressed by a name. Names are operator set and
+every fresh install answers to the same `My ArOZ`, so two members can carry
+the same name and the same volume name at once; only the IDs below are
+unique, and they are what records, paths and the UI point at.
+
+| Thing | Identifier | Where it comes from | Unique within | Notes |
+|---|---|---|---|---|
+| Cluster | `ClusterInfo.ID` (UUID v4) | `CreateCluster`, carried in join tokens | everywhere | `Name` is a label only |
+| Node | `NodeRecord.ID` = the host's device UUID | `system/dev.uuid`, or the `-uuid` start flag | the cluster | the key of every node record, volume and file copy |
+| Node identity | Ed25519 key pair | `system/cluster/node.key` (`acn.LoadOrCreateNodeKey`) | everywhere | signs every ACN request; the public key rides in the node record |
+| Node name | `NodeRecord.Name` | `-hostname`, default `My ArOZ` | **not unique** | display only, never an address |
+| Drive on a node | `FileSystemHandler.UUID`, e.g. `user`, `s1` | that node's storage config | **that node only** | every node has a `user` drive |
+| Volume | `Volume.ID` (UUID v4) | `AddVolume` | everywhere | what a file copy points at |
+| Volume location | `NodeID` + `FshUUID` + `Subpath` | `AddVolume` (refuses a duplicate) | everywhere | the folder actually holding the files |
+| Volume name | `Volume.Name`, default `<drive>:<subpath>` | `AddVolume` | **not unique** | display only |
+| File | `FileRecord.ID` (UUID v4), keyed by `Path` | first write of that path | the cluster | the path is the namespace key, the ID survives a rename |
+| Copy | `VolumeID` (+ its `NodeID`) inside the record | placement / replication | per file | one entry per physical copy |
+| Job | `Job.ID` (UUID v4) | job submit | the cluster | |
+
+Because a drive UUID only means something on one node, **every path the
+cluster shows is written node first**:
+
+```
+<node uuid>:<drive uuid>/<path on that drive>
+3f7a…c1:user/cluster/photos/a.jpg
+```
+
+That is the form used by the copy list in the File Manager properties dialog
+(`clusterVolumePathText` in `src/cluster.fsinfo.go`), by the volume list on
+the Cluster Settings page (`CL.nodePath`) and by anything else that has to
+say where a file physically is. Two nodes contributing `user:/cluster` are
+therefore still told apart, whatever they are called.
+
+A cloned installation is the one way to break this: copying `system/dev.uuid`
+to a second host gives two members the same node ID, and the membership
+records, which are keyed by it, will merge into one. Delete `system/dev.uuid`
+(and `system/cluster/`) on the clone before it joins.
+
 ## Membership
 
 Each node owns one `NodeRecord` (ID, name, public key, advertised URL, tunnel
