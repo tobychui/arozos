@@ -53,6 +53,14 @@ type InfoBackend interface {
 	StorageInfo(logical string) (arozfs.StorageInfo, error)
 }
 
+// ThumbnailBackend is an optional Backend extension: a backend that
+// implements it has thumbnails rendered by a node holding a copy of the file,
+// which makes the abstraction an arozfs.ThumbnailRenderer.
+type ThumbnailBackend interface {
+	ThumbnailKey(logical string) (string, error)
+	RenderThumbnail(logical string) ([]byte, error)
+}
+
 var errUnsupported = errors.New("filesystem type not supported")
 
 var errNoStorageInfo = errors.New("storage info not available")
@@ -298,6 +306,24 @@ func (c *ClusterFileSystem) StorageInfo(p string) (arozfs.StorageInfo, error) {
 		return arozfs.StorageInfo{}, errNoStorageInfo
 	}
 	return backend.StorageInfo(normalize(p))
+}
+
+// ThumbnailKey identifies the content of a file for the thumbnail cache.
+func (c *ClusterFileSystem) ThumbnailKey(p string) (string, error) {
+	backend, ok := c.backend.(ThumbnailBackend)
+	if !ok {
+		return "", arozfs.ErrNoThumbnail
+	}
+	return backend.ThumbnailKey(normalize(p))
+}
+
+// RenderThumbnail has a node holding a copy of the file render its thumbnail.
+func (c *ClusterFileSystem) RenderThumbnail(p string) ([]byte, error) {
+	backend, ok := c.backend.(ThumbnailBackend)
+	if !ok {
+		return nil, arozfs.ErrNoThumbnail
+	}
+	return backend.RenderThumbnail(normalize(p))
 }
 
 func (c *ClusterFileSystem) Heartbeat() error {

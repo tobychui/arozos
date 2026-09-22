@@ -39,6 +39,10 @@ func IsRawImageFile(filePath string) bool {
 type RenderHandler struct {
 	renderingFiles  sync.Map
 	renderingFolder sync.Map
+
+	//Drives that render thumbnails where the file is stored (external.go)
+	externalFlights  sync.Map //content key -> *renderFlight
+	externalFailures sync.Map //content key -> time until it is tried again
 }
 
 // Create a new RenderHandler
@@ -64,6 +68,11 @@ func (rh *RenderHandler) BuildCacheForFolder(fsh *filesystem.FileSystemHandler, 
 		rh.LoadCache(fsh, filepath.Join(rpath, fi.Name()), true)
 	}
 
+	if _, ok := thumbnailRendererOf(fsh); ok {
+		//This drive has no cache folder of its own
+		return nil
+	}
+
 	//Check if the cache folder has file. If not, remove it
 	cachedFiles, _ := fshAbs.ReadDir(filepath.ToSlash(filepath.Join(filepath.Clean(rpath), "/.metadata/.cache/")))
 	if len(cachedFiles) == 0 {
@@ -86,6 +95,11 @@ func (rh *RenderHandler) LoadCacheAsBytes(fsh *filesystem.FileSystemHandler, vpa
 
 // Try to load a cache from file. If not exists, generate it now
 func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath string, generateOnly bool) (string, error) {
+	if r, ok := thumbnailRendererOf(fsh); ok {
+		//Rendered where the file is stored and cached on this host
+		return rh.loadExternalCache(r, rpath, generateOnly)
+	}
+
 	//Create a cache folder
 	fshAbs := fsh.FileSystemAbstraction
 	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(rpath)), "/.metadata/.cache/") + "/")
@@ -148,81 +162,82 @@ func (rh *RenderHandler) checkCacheNeeded(fsh *filesystem.FileSystemHandler, rpa
 	return true, "", nil
 }
 
+// Formats with a thumbnail renderer, by the extension of the file
+var (
+	//Audio formats that might contains id4 thumbnail
+	audioThumbnailFormats = []string{".mp3", ".ogg", ".flac"}
+	imageThumbnailFormats = []string{".png", ".jpeg", ".jpg", ".webp"}
+	//Video formats, extract from the 5 sec mark
+	videoThumbnailFormats = []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
+	modelThumbnailFormats = []string{".stl", ".obj"}
+	//Sliced G-code, which carries a slicer generated preview in its header
+	gcodeThumbnailFormats = []string{".gcode", ".gco"}
+)
+
+// ThumbnailSupported reports whether a file of this name has a thumbnail
+// renderer. Folders are not covered: their preview is built from the
+// thumbnails of the files inside them.
+func ThumbnailSupported(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	for _, formats := range [][]string{audioThumbnailFormats, imageThumbnailFormats,
+		videoThumbnailFormats, modelThumbnailFormats, gcodeThumbnailFormats} {
+		if utils.StringInArray(formats, ext) {
+			return true
+		}
+	}
+	return IsRawImageFile(filename) || ext == ".psd" || ext == ".svg"
+}
+
+// ThumbnailFeature names the host tool a thumbnail of this file needs, or ""
+// when the built in renderers are enough. It uses the feature names of the
+// cluster capability manifests.
+func ThumbnailFeature(filename string) string {
+	if utils.StringInArray(videoThumbnailFormats, strings.ToLower(filepath.Ext(filename))) {
+		return "ffmpeg"
+	}
+	return ""
+}
+
 func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheFolder string, rpath string, generateOnly bool) (string, error) {
 	//Cache image not exists. Set this file to busy
 	rh.renderingFiles.Store(rpath, "busy")
+	defer rh.renderingFiles.Delete(rpath)
+	return renderThumbnail(fsh, cacheFolder, rpath, generateOnly)
+}
 
-	//That object not exists. Generate cache image
-	//Audio formats that might contains id4 thumbnail
-	id4Formats := []string{".mp3", ".ogg", ".flac"}
-	if utils.StringInArray(id4Formats, strings.ToLower(filepath.Ext(rpath))) {
-		img, err := generateThumbnailForAudio(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//Generate resized image for images
-	imageFormats := []string{".png", ".jpeg", ".jpg", ".webp"}
-	if utils.StringInArray(imageFormats, strings.ToLower(filepath.Ext(rpath))) {
-		img, err := generateThumbnailForImage(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//RAW image formats (Sony, Canon, Nikon, etc.)
-	if IsRawImageFile(rpath) {
-		img, err := generateThumbnailForRAW(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//Video formats, extract from the 5 sec mark
-	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
-	if utils.StringInArray(vidFormats, strings.ToLower(filepath.Ext(rpath))) {
-		img, err := generateThumbnailForVideo(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//3D Model Formats
-	modelFormats := []string{".stl", ".obj"}
-	if utils.StringInArray(modelFormats, strings.ToLower(filepath.Ext(rpath))) {
-		img, err := generateThumbnailForModel(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//Sliced G-code, which carries a slicer generated preview in its header
-	gcodeFormats := []string{".gcode", ".gco"}
-	if utils.StringInArray(gcodeFormats, strings.ToLower(filepath.Ext(rpath))) {
-		img, err := generateThumbnailForGcode(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//Photoshop file
-	if strings.ToLower(filepath.Ext(rpath)) == ".psd" {
-		img, err := generateThumbnailForPSD(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
-	}
-
-	//SVG file
-	if strings.ToLower(filepath.Ext(rpath)) == ".svg" {
-		img, err := generateThumbnailForSVG(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
+// renderThumbnail picks the renderer for a file and writes its thumbnail into
+// cacheFolder, which ends with a slash.
+func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpath string, generateOnly bool) (string, error) {
+	ext := strings.ToLower(filepath.Ext(rpath))
+	switch {
+	case utils.StringInArray(audioThumbnailFormats, ext):
+		return generateThumbnailForAudio(fsh, cacheFolder, rpath, generateOnly)
+	case utils.StringInArray(imageThumbnailFormats, ext):
+		//Generate resized image for images
+		return generateThumbnailForImage(fsh, cacheFolder, rpath, generateOnly)
+	case IsRawImageFile(rpath):
+		//RAW image formats (Sony, Canon, Nikon, etc.)
+		return generateThumbnailForRAW(fsh, cacheFolder, rpath, generateOnly)
+	case utils.StringInArray(videoThumbnailFormats, ext):
+		return generateThumbnailForVideo(fsh, cacheFolder, rpath, generateOnly)
+	case utils.StringInArray(modelThumbnailFormats, ext):
+		//3D Model Formats
+		return generateThumbnailForModel(fsh, cacheFolder, rpath, generateOnly)
+	case utils.StringInArray(gcodeThumbnailFormats, ext):
+		return generateThumbnailForGcode(fsh, cacheFolder, rpath, generateOnly)
+	case ext == ".psd":
+		//Photoshop file
+		return generateThumbnailForPSD(fsh, cacheFolder, rpath, generateOnly)
+	case ext == ".svg":
+		return generateThumbnailForSVG(fsh, cacheFolder, rpath, generateOnly)
 	}
 
 	//Folder preview renderer
 	if fsh.FileSystemAbstraction.IsDir(rpath) && len(filepath.Base(rpath)) > 0 && filepath.Base(rpath)[:1] != "." {
-		img, err := generateThumbnailForFolder(fsh, cacheFolder, rpath, generateOnly)
-		rh.renderingFiles.Delete(rpath)
-		return img, err
+		return generateThumbnailForFolder(fsh, cacheFolder, rpath, generateOnly)
 	}
 
 	//Other filters
-	rh.renderingFiles.Delete(rpath)
 	return "", errors.New("no supported format")
 }
 
@@ -380,12 +395,20 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 
 // Check if the cache for a file exists
 func CacheExists(fsh *filesystem.FileSystemHandler, file string) bool {
+	if r, ok := thumbnailRendererOf(fsh); ok {
+		_, found := externalCacheFile(r, file)
+		return found
+	}
 	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
 	return fsh.FileSystemAbstraction.FileExists(cacheFolder+filepath.Base(file)+".jpg") || fsh.FileSystemAbstraction.FileExists(cacheFolder+filepath.Base(file)+".png")
 }
 
 // Get cache path for this file, given realpath
 func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, error) {
+	if _, ok := thumbnailRendererOf(fsh); ok {
+		//The path is on this host, not on the drive, so no fsh can read it
+		return "", errors.New("thumbnail of this drive is not kept on the drive")
+	}
 	if CacheExists(fsh, file) {
 		fshAbs := fsh.FileSystemAbstraction
 		cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
@@ -403,6 +426,11 @@ func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, e
 
 // Remove cache if exists, given realpath
 func RemoveCache(fsh *filesystem.FileSystemHandler, file string) error {
+	if _, ok := thumbnailRendererOf(fsh); ok {
+		//Cached by content, so a moved or changed file never finds a stale
+		//thumbnail; unused ones are pruned instead
+		return nil
+	}
 	if CacheExists(fsh, file) {
 		cachePath, err := GetCacheFilePath(fsh, file)
 		if err != nil {

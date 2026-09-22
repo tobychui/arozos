@@ -69,7 +69,10 @@ type Option struct {
 	TmpDir    string
 	// LocalRoots maps local (non network, non buffered) file system handler
 	// UUIDs to their real root paths. Provided by the core.
-	LocalRoots        func() map[string]string
+	LocalRoots func() map[string]string
+	// Thumbnailer renders the thumbnail of a file on one of this node's
+	// volumes, given its OS path (thumbnail.go). Nil: this node renders none.
+	Thumbnailer       func(osPath string) ([]byte, error)
 	RefreshInterval   time.Duration
 	ReconcileInterval time.Duration
 }
@@ -84,6 +87,9 @@ type Service struct {
 
 	sessMu   sync.Mutex
 	sessions map[string]*session
+
+	//thumbSem bounds the thumbnails rendered at once
+	thumbSem chan struct{}
 
 	stop chan struct{}
 	wg   sync.WaitGroup
@@ -129,6 +135,7 @@ func New(opt Option) (*Service, error) {
 		client:   &Client{Transport: opt.Membership.Transport()},
 		opt:      opt,
 		sessions: map[string]*session{},
+		thumbSem: make(chan struct{}, ThumbnailConcurrency),
 		stop:     make(chan struct{}),
 	}
 	s.registerACNHandlers()

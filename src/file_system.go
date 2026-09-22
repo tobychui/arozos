@@ -235,6 +235,14 @@ func FileSystemInit() {
 	//Create a RenderHandler for caching thumbnails
 	thumbRenderHandler = metadata.NewRenderHandler()
 
+	//Thumbnails of drives that render them where the file is stored (e.g.
+	//cluster:/) are kept on this host, outside the drive and outside tmp:/
+	//(whose files are cleared after a day)
+	metadata.SetExternalCacheDir(filepath.Join("system", "cache", "thumbnails"))
+	nightlyManager.RegisterNightlyTask(func() {
+		metadata.PruneExternalCache(thumbnailCacheMaxAge)
+	})
+
 	/*
 		Share Related Registering
 

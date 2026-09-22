@@ -53,3 +53,4 @@ src/system/telegram_conf.json
 src/system/git/
 /.kilo
 /reference
+/src/system/cache

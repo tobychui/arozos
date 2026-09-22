@@ -14,6 +14,7 @@ package storage
 		GET  store/list?volume=&path=
 		POST store/checksum   {VolumeID, Path}
 		POST store/place      {Size, Path, PreferNode, PreferVolume} (leader only)
+		POST store/thumbnail  {VolumeID, Path} -> {Image}   (thumbnail.go)
 */
 
 import (
@@ -128,6 +129,7 @@ func (s *Service) registerACNHandlers() {
 	srv.HandleFunc(pathList, s.handleList)
 	srv.HandleFunc(pathChecksum, s.handleChecksum)
 	srv.HandleFunc(pathPlace, s.handlePlace)
+	srv.HandleFunc(pathThumbnail, s.handleThumbnail)
 }
 
 // localVolumePath resolves a request onto a local volume path.

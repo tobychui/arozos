@@ -377,6 +377,7 @@ func clusterMountDrive() {
 		return
 	}
 	systemWideLogger.PrintAndLog("Cluster", "cluster:/ mounted for all users", nil)
+	go clusterRemoveThumbnailFolders()
 }
 
 func clusterUnmountDrive() {
@@ -545,17 +546,20 @@ func clusterStartAgent() {
 
 			//Storage: volumes, chunked transfer and the cluster:/ drive
 			sto, err := storage.New(storage.Option{
-				Membership: clusterManager,
-				Metadata:   clusterMetadata,
-				Scheduler:  clusterScheduling,
-				TmpDir:     *tmp_directory,
-				LocalRoots: clusterLocalRoots,
+				Membership:  clusterManager,
+				Metadata:    clusterMetadata,
+				Scheduler:   clusterScheduling,
+				TmpDir:      *tmp_directory,
+				LocalRoots:  clusterLocalRoots,
+				Thumbnailer: clusterRenderThumbnail,
 			})
 			if err != nil {
 				systemWideLogger.PrintAndLog("Cluster", "Unable to start cluster storage: "+err.Error(), err)
 			} else {
 				clusterStorage = sto
 				clusterStorage.RegisterAdminRoutes(registerAdmin)
+				//Empty thumbnail folders earlier builds left in cluster:/
+				nightlyManager.RegisterNightlyTask(func() { clusterRemoveThumbnailFolders() })
 				prevChange := clusterManager.OnMembershipChange
 				clusterManager.OnMembershipChange = func(in bool) {
 					if prevChange != nil {

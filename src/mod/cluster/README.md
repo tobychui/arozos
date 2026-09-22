@@ -293,6 +293,15 @@ every membership change and every volume record change.
   (`/system/file_system/getStorageInfo` → `src/cluster.fsinfo.go`). The shape
   is generic: any abstraction that can explain where its files live gets the
   same tab.
+- **Thumbnails**: the abstraction implements `arozfs.ThumbnailRenderer`. A
+  thumbnail is rendered by a node holding a copy (this node first, then the
+  nearest online holder whose capability manifest has the tool the format
+  needs, e.g. ffmpeg for video) through the signed `store/thumbnail`
+  endpoint (`storage/thumbnail.go`), which runs `metadata.RenderLocalFile`
+  on that node's own copy, so only the image crosses the network. The asking
+  host keeps it in `system/cache/thumbnails`, keyed by the file's SHA-256, so
+  no `.metadata/.cache` folder is ever written into the namespace; unused
+  thumbnails are pruned after 30 days (`src/cluster.thumbnail.go`).
 
 Admin API: `/system/cluster/storage/{status,volume/add,volume/remove,volume/readonly,rescan,autoreadonly}`.
 

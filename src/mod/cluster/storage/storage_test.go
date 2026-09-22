@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,6 +32,9 @@ type testNode struct {
 	svc  *Service
 	srv  *httptest.Server
 	root string //local drive root exposed as fsh "disk"
+	//thumb holds the func(osPath string) ([]byte, error) the node renders
+	//thumbnails with; empty means the node has no renderer
+	thumb *atomic.Value
 }
 
 func newTestNode(t *testing.T, id string) *testNode {
@@ -52,9 +56,17 @@ func newTestNode(t *testing.T, id string) *testNode {
 	}
 	root := filepath.Join(dir, "disk")
 	os.MkdirAll(root, 0755)
+	thumb := &atomic.Value{}
 	svc, err := New(Option{
 		Membership: m, Metadata: meta, TmpDir: filepath.Join(dir, "tmp"),
-		LocalRoots:      func() map[string]string { return map[string]string{"disk": root} },
+		LocalRoots: func() map[string]string { return map[string]string{"disk": root} },
+		Thumbnailer: func(osPath string) ([]byte, error) {
+			render, ok := thumb.Load().(func(string) ([]byte, error))
+			if !ok {
+				return nil, ErrNoThumbnailer
+			}
+			return render(osPath)
+		},
 		RefreshInterval: time.Hour, ReconcileInterval: time.Hour,
 	})
 	if err != nil {
@@ -64,7 +76,7 @@ func newTestNode(t *testing.T, id string) *testNode {
 	cfg := m.Config()
 	cfg.AdvertiseURL = srv.URL
 	m.UpdateConfig(cfg)
-	n := &testNode{id: id, m: m, meta: meta, svc: svc, srv: srv, root: root}
+	n := &testNode{id: id, m: m, meta: meta, svc: svc, srv: srv, root: root, thumb: thumb}
 	t.Cleanup(func() {
 		svc.Close()
 		meta.Close()

@@ -307,3 +307,76 @@ func TestStorageInfoErrors(t *testing.T) {
 		t.Error("Expected an error from a backend that does not report storage info")
 	}
 }
+
+// thumbBackend is a fakeBackend whose files have thumbnails.
+type thumbBackend struct {
+	*fakeBackend
+	keys map[string]string
+	last string
+}
+
+func (b *thumbBackend) ThumbnailKey(logical string) (string, error) {
+	b.last = logical
+	key, ok := b.keys[logical]
+	if !ok {
+		return "", errors.New("no such record")
+	}
+	return key, nil
+}
+
+func (b *thumbBackend) RenderThumbnail(logical string) ([]byte, error) {
+	b.last = logical
+	if _, ok := b.keys[logical]; !ok {
+		return nil, arozfs.ErrNoThumbnail
+	}
+	return []byte("image of " + logical), nil
+}
+
+func TestThumbnailFromBackend(t *testing.T) {
+	backend := &thumbBackend{fakeBackend: newFake(), keys: map[string]string{"/v/a.mp4": "sha-a"}}
+	var c interface{} = New("cluster", backend)
+	r, ok := c.(arozfs.ThumbnailRenderer)
+	if !ok {
+		t.Fatal("ClusterFileSystem should be an arozfs.ThumbnailRenderer")
+	}
+
+	testcases := []struct {
+		given   string
+		wantKey string
+		wantErr bool
+	}{
+		{"cluster:/v/a.mp4", "sha-a", false},
+		{"/v/a.mp4", "sha-a", false},
+		{"v/a.mp4", "sha-a", false},
+		{"/v/missing.mp4", "", true},
+	}
+	for _, tc := range testcases {
+		key, err := r.ThumbnailKey(tc.given)
+		if (err != nil) != tc.wantErr || key != tc.wantKey {
+			t.Errorf("ThumbnailKey(%q) = %q, %v; wanted %q (error %v)", tc.given, key, err, tc.wantKey, tc.wantErr)
+		}
+		data, err := r.RenderThumbnail(tc.given)
+		if tc.wantErr {
+			if !errors.Is(err, arozfs.ErrNoThumbnail) {
+				t.Errorf("RenderThumbnail(%q) should report ErrNoThumbnail, got %v", tc.given, err)
+			}
+			continue
+		}
+		if err != nil || string(data) != "image of /v/a.mp4" {
+			t.Errorf("RenderThumbnail(%q) = %q, %v", tc.given, data, err)
+		}
+		if backend.last != "/v/a.mp4" {
+			t.Errorf("RenderThumbnail(%q) asked the backend for %q", tc.given, backend.last)
+		}
+	}
+}
+
+func TestThumbnailWithoutBackendSupport(t *testing.T) {
+	c := New("cluster", newFake())
+	if _, err := c.ThumbnailKey("/v/a.mp4"); !errors.Is(err, arozfs.ErrNoThumbnail) {
+		t.Errorf("ThumbnailKey on a plain backend should report ErrNoThumbnail, got %v", err)
+	}
+	if _, err := c.RenderThumbnail("/v/a.mp4"); !errors.Is(err, arozfs.ErrNoThumbnail) {
+		t.Errorf("RenderThumbnail on a plain backend should report ErrNoThumbnail, got %v", err)
+	}
+}
