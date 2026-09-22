@@ -18,9 +18,27 @@ import (
 
 const query_cpuproc_command = "ps -eo pcpu,pid,user,args | sort -k 1 -r | head -10"
 const query_freemem_command = "top -d1 | sed '4q;d' | awk '{print $(NF-1)}'"
+// Sum of per-process %mem (0–100+), not a 0–1 fraction and not free memory.
 const query_freemem_command_darwin = "ps -A -o %mem | awk '{mem += $1} END {print mem}'"
 const query_phymem_command = "sysctl hw.physmem | awk '{print $NF}'"
 const query_phymem_command_darwin = "sysctl hw.memsize | awk '{print $NF}'"
+
+// darwinUsedBytesFromMemPercentSum converts a ps %mem sum into used bytes.
+// The historical formula treated the sum as a 0–1 fraction
+// (phyMem - phyMem*sum), which goes hugely negative when sum ≈ 80.
+func darwinUsedBytesFromMemPercentSum(phyMem int64, sumMemPercent float64) int64 {
+	if phyMem <= 0 {
+		return 0
+	}
+	used := int64(float64(phyMem) * (sumMemPercent / 100.0))
+	if used < 0 {
+		used = 0
+	}
+	if used > phyMem {
+		used = phyMem
+	}
+	return used
+}
 
 // Get CPU Usage in percentage
 func GetCPUUsage() float64 {
@@ -248,7 +266,7 @@ func GetNumericRAMUsage() (int64, int64) {
 			return usedRam, totalRam
 		}
 		totalRam = phyMem
-		usedRam = int64(float64(phyMem) - float64(phyMem)*freeMem)
+		usedRam = darwinUsedBytesFromMemPercentSum(phyMem, freeMem)
 		return usedRam, totalRam
 	}
 	return -1, -1
@@ -375,11 +393,20 @@ func GetRAMUsage() (string, string, float64) {
 		phyMemSizeFloat = math.Floor(phyMemSizeFloat)
 		totalRam = strconv.FormatFloat(phyMemSizeFloat, 'f', -1, 64) + "MB"
 
-		usedRAMSizeFloat := float64(phyMemSizeFloat) - float64(phyMemSizeFloat)*(1-(freeMemSizeFloat/100))
-		usedRAMSizeFloat = math.Floor(usedRAMSizeFloat)
+		// freeMemSizeFloat is the sum of %mem, not free memory. Convert via
+		// the shared helper (bytes), then express used in MB.
+		phyBytes := int64(phyMemSizeFloat * 1048576)
+		usedBytes := darwinUsedBytesFromMemPercentSum(phyBytes, freeMemSizeFloat)
+		usedRAMSizeFloat := math.Floor(float64(usedBytes) / 1048576)
 		usedRam = strconv.FormatFloat(usedRAMSizeFloat, 'f', -1, 64) + "MB"
 
-		usedPercentage = freeMemSizeFloat
+		usedPercentage = float64(usedBytes) / float64(phyBytes) * 100
+		if usedPercentage < 0 {
+			usedPercentage = 0
+		}
+		if usedPercentage > 100 {
+			usedPercentage = 100
+		}
 		return usedRam, totalRam, usedPercentage
 	}
 
