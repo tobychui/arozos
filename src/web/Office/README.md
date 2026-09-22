@@ -536,6 +536,26 @@ node web/Office/sheets/test_formula_fns.js  # every function, against Excel's do
 `test_formula_fns.js` fails when a registered function has no test, so a new
 function always comes with one.
 
+**Copy and paste between sheets.** A copy of Sheets cells remembers its
+source sheet and the computed value of every cell. Ctrl+V onto another sheet
+defaults to *Keep source links*: formulas get their plain references pinned
+to the source sheet (`F.qualifyRefs`: `=E13*B2` becomes
+`=SheetA!E13*SheetA!B2`), so they still show the source results. On the same
+sheet, formulas shift relative to where they land, as before. A cut moves the
+cells, so their formulas keep pointing where they did. The other modes
+(values, values with formatting, formatting only, paste link, transpose) are
+listed in the paste-options button at the corner of the pasted block, in Edit
+and in the right-click menu (> Paste special), and values only is also on
+Ctrl+Shift+V (`PASTE_MODES` / `pasteInternal(mode)` in `sheets.js`).
+
+**Function suggestions.** Typing a function name in a formula (`=AVE`) opens
+a popup ([`sheets_suggest.js`](sheets/sheets_suggest.js), `SheetFnSuggest`)
+on the cell editor and the formula bar; the highlighted entry shows a
+description, the usage line (`spec.syntax`) and an example. Descriptions and
+examples live in [`formula_help.js`](sheets/formula_help.js)
+(`SheetFormulaHelp`), and `test_formula.js` fails when a function has no
+entry there or its example does not parse.
+
 **Adding a function.** Register it in the matching module:
 
 ```js

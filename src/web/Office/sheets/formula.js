@@ -19,6 +19,7 @@
         adjustInsertDelete(formula, axis, index, count, [sheet])
                                                  axis "row"|"col", count<0 = delete
         renameSheetRefs(formula, oldName, newName)
+        qualifyRefs(formula, sheetName)          pin unqualified refs to a sheet
         isErr(v), FErr, ERR                      error values
         dateToSerial(date) / serialToDate(n)     Excel-style 1900 date serials
 
@@ -1761,6 +1762,38 @@ var SheetFormula = (function () {
         out += body.slice(last);
         return (hasEq ? "=" : "") + out;
     }
+    /* Pin a formula to the sheet it was written on: every reference that
+       names no sheet (A1, $B$2, A1:B9, A:B, 2:5) gets "sheetName!" in front,
+       so the formula keeps reading the same cells after it is pasted onto
+       another sheet. References that already name a sheet, the second half
+       of a range (Sheet!A1:B2 names its sheet once) and defined names are
+       left alone. */
+    function qualifyRefs(formula, sheetName) {
+        var src = String(formula);
+        var hasEq = src.charAt(0) === "=";
+        var body = hasEq ? src.slice(1) : src;
+        var toks;
+        try { toks = tokenize(body); } catch (e) { return src; }
+        var prefix = quoteSheetName(sheetName) + "!";
+        var out = "", last = 0;
+        for (var i = 0; i < toks.length; i++) {
+            var t = toks[i];
+            // a bare row range (2:5) tokenizes as two numbers around ":"
+            var rowPair = t.t === "num" && /^\d+$/.test(body.substr(t.pos, t.len)) &&
+                toks[i + 1] && toks[i + 1].t === "op" && toks[i + 1].v === ":" &&
+                toks[i + 2] && (toks[i + 2].t === "num" || toks[i + 2].t === "rowref");
+            if (t.t !== "ref" && t.t !== "colref" && t.t !== "rowref" && !rowPair) continue;
+            if (t.prefix || t.sheet !== undefined) continue;
+            var prev = toks[i - 1], head = toks[i - 2];
+            if (prev && prev.t === "op" && prev.v === ":" && head &&
+                (head.t === "ref" || head.t === "colref" || head.t === "rowref")) continue;
+            out += body.slice(last, t.pos) + prefix;
+            last = t.pos;
+        }
+        if (!out) return src;
+        out += body.slice(last);
+        return (hasEq ? "=" : "") + out;
+    }
     /* Optional sheet {target, home} as for rewriteMovedRange: rows/cols are
        inserted on sheet target, the formula lives on sheet home. */
     function adjustInsertDelete(formula, axis, index, count, sheet) {
@@ -1800,6 +1833,7 @@ var SheetFormula = (function () {
         rewriteMovedRange: rewriteMovedRange,
         adjustInsertDelete: adjustInsertDelete,
         renameSheetRefs: renameSheetRefs,
+        qualifyRefs: qualifyRefs,
         quoteSheetName: quoteSheetName,
         dateToSerial: dateToSerial,
         serialToDate: serialToDate,

@@ -336,7 +336,24 @@ body.dark {
 }
 #shAddSheet:hover { background: var(--of-hover); color: var(--of-fg); }
 #shAddSheet i.icon { margin: 0 !important; }
-#shTabList { display: flex; gap: 2px; }
+#shTabList { display: flex; gap: 2px; position: relative; }
+.sh-tab.dragging {
+    position: relative;
+    z-index: 2;
+    opacity: 0.85;
+    background: var(--of-chrome-bg2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    cursor: grabbing;
+}
+.sh-tab-drop {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    background: var(--of-accent, #4c9be8);
+    border-radius: 1px;
+    pointer-events: none;
+}
 .sh-tab {
     display: flex;
     align-items: center;
@@ -539,3 +556,110 @@ body.dark {
 .sh-name-add { display: flex; gap: 6px; align-items: center; }
 .sh-name-add input:first-child { width: 160px; flex: 0 0 auto; }
 .sh-name-add button { flex: 0 0 auto; }
+
+/* ============ formula function suggestions (sheets_suggest.js) ============ */
+.sh-fns {
+    position: fixed;
+    z-index: 1500;
+    width: 340px;
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px var(--of-shadow);
+    font-size: 13px;
+    user-select: none;
+}
+.sh-fns-close {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--of-fg-soft);
+    color: var(--of-chrome-bg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sh-fns-close:hover { background: var(--of-fg); }
+.sh-fns-close i.icon { margin: 0 !important; font-size: 11px; height: auto; width: auto; }
+.sh-fns-list {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.sh-fns-item {
+    padding: 6px 12px;
+    cursor: pointer;
+}
+.sh-fns-item.active { background: var(--of-hover); }
+.sh-fns-name {
+    font-family: Consolas, "Courier New", monospace;
+    letter-spacing: 0.3px;
+}
+.sh-fns-name b { font-weight: 700; }
+.sh-fns-detail {
+    margin-top: 4px;
+    color: var(--of-fg-soft);
+    white-space: normal;
+    line-height: 1.45;
+}
+.sh-fns-desc { margin-bottom: 4px; }
+.sh-fns-usage {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    margin-top: 2px;
+    font-size: 12px;
+}
+.sh-fns-usage span {
+    flex: 0 0 52px;
+    font-weight: 600;
+}
+.sh-fns-usage code {
+    font-family: Consolas, "Courier New", monospace;
+    color: var(--of-fg);
+    word-break: break-word;
+}
+.sh-fns-foot {
+    border-top: 1px solid var(--of-border);
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--of-fg-soft);
+}
+.sh-fns-foot kbd {
+    display: inline-block;
+    padding: 0 5px;
+    margin: 0 1px;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg2);
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 16px;
+}
+
+/* "Paste options" button at the corner of a pasted block */
+.sh-paste-chip {
+    position: absolute;
+    z-index: 17;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    height: 22px;
+    padding: 0 3px 0 5px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    box-shadow: 0 1px 4px var(--of-shadow);
+    cursor: pointer;
+}
+.sh-paste-chip:hover { background: var(--of-hover); border-color: var(--of-accent); }
+.sh-paste-chip i.icon { margin: 0 !important; height: auto; font-size: 12px; }
+.sh-paste-chip i.caret.icon { width: 10px; font-size: 10px; color: var(--of-fg-soft); }

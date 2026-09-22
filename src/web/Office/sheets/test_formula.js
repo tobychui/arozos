@@ -266,12 +266,32 @@ eq("rename sheet refs", F.renameSheetRefs("=Data!A1+'data'!B2+Other!A1", "Data",
     "='Raw data'!A1+'Raw data'!B2+Other!A1");
 eq("rename leaves strings alone", F.renameSheetRefs('="Data!A1"&Data!A1', "Data", "D2"), "=\"Data!A1\"&'D2'!A1");
 eq("quoteSheetName plain", F.quoteSheetName("Analysis"), "Analysis");
+eq("qualify refs", F.qualifyRefs("=E13*B2", "SheetA"), "=SheetA!E13*SheetA!B2");
+eq("qualify range + abs", F.qualifyRefs("=SUM($A$1:B9)+C1", "Data"), "=SUM(Data!$A$1:B9)+Data!C1");
+eq("qualify quoted name", F.qualifyRefs("=A1", "Closed Tickets"), "='Closed Tickets'!A1");
+eq("qualify keeps other sheets", F.qualifyRefs("=Other!A1+'X y'!B2:C3+A2", "S"), "=Other!A1+'X y'!B2:C3+S!A2");
+eq("qualify whole cols/rows", F.qualifyRefs("=SUM(A:B)+SUM(2:5)", "S"), "=SUM(S!A:B)+SUM(S!2:5)");
+eq("qualify skips strings/functions", F.qualifyRefs('="A1"&LOG10(A1)', "S"), '="A1"&LOG10(S!A1)');
+eq("qualify no refs", F.qualifyRefs("=1+2", "S"), "=1+2");
 
 /* helpers */
 eq("colToName", F.colToName(0), "A");
 eq("colToName AA", F.colToName(26), "AA");
 eq("nameToCol", F.nameToCol("AB"), 27);
 eq("cellName", F.cellName(2, 4), "C5");
+
+/* function help (formula_help.js): every function has an entry, every
+   entry names a real function and every example parses */
+var HELP = require("./formula_help.js");
+F.functionNames().forEach(function (n) {
+    eq("help entry for " + n, !!HELP[n], true);
+});
+Object.keys(HELP).forEach(function (n) {
+    eq("help names a function: " + n, !!F.lookupFunction(n), true);
+    var h = HELP[n], ok = false;
+    try { F.parse(h[1]); ok = h[1].toUpperCase().indexOf(n + "(") === 0; } catch (e) { ok = false; }
+    eq("help example parses: " + n, ok, true);
+});
 
 console.log(passes + " passed, " + failures + " failed");
 process.exit(failures ? 1 : 0);

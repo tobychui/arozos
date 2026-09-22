@@ -822,7 +822,11 @@ var SheetsApp = (function () {
             var $tab = $('<div class="sh-tab' + (i === body.active ? " active" : "") + '"></div>');
             if (s.color) $tab.append('<span class="sh-tab-color" style="background:' + esc(s.color) + ';"></span>');
             $tab.append($("<span></span>").text(s.name));
-            $tab.on("click", function () { switchSheet(i); });
+            $tab.on("pointerdown", function (e) { startTabDrag(e, i); });
+            $tab.on("click", function () {
+                if (tabDragJustEnded) { tabDragJustEnded = false; return; }
+                switchSheet(i);
+            });
             $tab.on("dblclick", function () { renameSheetDialog(i); });
             $tab.on("contextmenu", function (e) {
                 e.preventDefault();
@@ -832,8 +836,70 @@ var SheetsApp = (function () {
             $t.append($tab);
         });
     }
+    // drag a tab along the bar to reorder: past a small threshold the tab
+    // follows the pointer and a marker shows where it will land
+    var tabDragJustEnded = false;
+    function startTabDrag(e, from) {
+        if (e.button !== 0 || body.sheets.length < 2) return;
+        var $bar = $("#shTabs"), $tabs = $("#shTabList .sh-tab");
+        var $tab = $tabs.eq(from), startX = e.clientX, dragging = false, slot = from;
+        var $marker = null, scrollTimer = null, lastX = startX;
+        function computeSlot(x) {
+            var n = $tabs.length;
+            for (var k = 0; k < n; k++) {
+                if (k === from) continue;
+                var r = $tabs[k].getBoundingClientRect();
+                if (x < r.left + r.width / 2) return k;
+            }
+            return n;
+        }
+        function placeMarker() {
+            var listRect = $("#shTabList")[0].getBoundingClientRect();
+            var ref = slot < $tabs.length ? $tabs[slot].getBoundingClientRect() : $tabs[$tabs.length - 1].getBoundingClientRect();
+            var left = (slot < $tabs.length ? ref.left - 2 : ref.right) - listRect.left;
+            $marker.css({ left: left + "px" });
+        }
+        function update(x) {
+            lastX = x;
+            $tab.css("transform", "translateX(" + (x - startX + ($bar.scrollLeft() - startScroll)) + "px)");
+            slot = computeSlot(x);
+            placeMarker();
+        }
+        var startScroll = $bar.scrollLeft();
+        function autoScroll() {
+            var r = $bar[0].getBoundingClientRect(), d = 0;
+            if (lastX < r.left + 30) d = -8;
+            else if (lastX > r.right - 30) d = 8;
+            if (d) { $bar.scrollLeft($bar.scrollLeft() + d); update(lastX); }
+        }
+        $(document).on("pointermove.shtabdrag", function (ev) {
+            if (!dragging) {
+                if (Math.abs(ev.clientX - startX) < 5) return;
+                dragging = true;
+                $tab.addClass("dragging");
+                $marker = $('<div class="sh-tab-drop"></div>').appendTo("#shTabList");
+                scrollTimer = setInterval(autoScroll, 30);
+            }
+            ev.preventDefault();
+            update(ev.clientX);
+        });
+        $(document).on("pointerup.shtabdrag pointercancel.shtabdrag", function (ev) {
+            $(document).off(".shtabdrag");
+            if (!dragging) return;
+            clearInterval(scrollTimer);
+            $tab.removeClass("dragging").css("transform", "");
+            if ($marker) $marker.remove();
+            // the click that follows a drag must not switch sheets
+            tabDragJustEnded = true;
+            setTimeout(function () { tabDragJustEnded = false; }, 0);
+            if (ev.type === "pointercancel") return;
+            var to = slot > from ? slot - 1 : slot;
+            if (to !== from) moveSheet(from, to);
+        });
+    }
     function switchSheet(i) {
         if (i === body.active) return;
+        hidePasteChip();
         commitEdit(true);
         body.active = clamp(i, 0, body.sheets.length - 1);
         anchor = { c: 0, r: 0 };
@@ -968,15 +1034,18 @@ var SheetsApp = (function () {
         ]);
     }
     function moveSheet(from, to) {
+        // the active sheet stays active wherever it ends up
+        var active = body.sheets[body.active];
         var s = body.sheets.splice(from, 1)[0];
         body.sheets.splice(to, 0, s);
-        body.active = to;
+        body.active = body.sheets.indexOf(active);
         commit();
         renderTabs();
     }
 
     /* ================= commit / undo ================= */
     function commit() {
+        hidePasteChip();
         recalc();
         rebuildMerges();
         rebuildFilter();
@@ -988,6 +1057,7 @@ var SheetsApp = (function () {
     }
     function applyUndoState(state) {
         try { body = normalizeBody(JSON.parse(state)); } catch (e) { return; }
+        hidePasteChip();
         var s = sheet();
         anchor.c = clamp(anchor.c, 0, s.cols - 1);
         anchor.r = clamp(anchor.r, 0, s.rows - 1);
@@ -1002,8 +1072,10 @@ var SheetsApp = (function () {
     function doRedo() { commitEdit(false); undo.redo(); }
 
     /* ================= editing ================= */
+    var fnSuggest = null;    // SheetFnSuggest popup, created in init
     function startEdit(initial, viaFx) {
         if (editing) return;
+        hidePasteChip();
         var c = head.c, r = head.r;
         editing = { c: c, r: r, viaFx: !!viaFx };
         var rect = cellRect(c, r);
@@ -1026,6 +1098,7 @@ var SheetsApp = (function () {
     }
     function commitEdit(keepFocus) {
         if (!editing) return;
+        if (fnSuggest) fnSuggest.hide();
         var c = editing.c, r = editing.r;
         var val = editing.viaFx ? $("#shFxInput").val() : inputEl.value;
         editing = null;
@@ -1042,6 +1115,7 @@ var SheetsApp = (function () {
     }
     function cancelEdit() {
         if (!editing) return;
+        if (fnSuggest) fnSuggest.hide();
         editing = null;
         refPick = null;
         inputEl.style.display = "none";
@@ -1815,16 +1889,36 @@ var SheetsApp = (function () {
         }
         return lines.join("\n");
     }
+    /* A computed value written back as raw cell text that re-reads as the
+       same value: text that would parse as a number, boolean, error or
+       formula is forced to text with a leading apostrophe. */
+    function valueToRaw(v) {
+        if (v === null || v === undefined) return "";
+        if (F.isErr(v)) return v.code;
+        if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+        if (typeof v === "number") return F.numToText(v);
+        var t = String(v);
+        if (t === "") return "";
+        if (t.charAt(0) === "=" || t.charAt(0) === "'" || F.literalValue(t) !== t) return "'" + t;
+        return t;
+    }
     function buildInternalClip(rg) {
-        var rows = [];
+        var rows = [], vals = [], fmts = [];
         var s = sheet();
         for (var r = rg.r1; r <= rg.r2; r++) {
-            var row = [];
+            var row = [], vrow = [], frow = [];
             for (var c = rg.c1; c <= rg.c2; c++) {
                 var cell = s.cells[key(c, r)];
                 row.push(cell ? deep(cell) : null);
+                // what the cell shows now, for the value paste modes (a
+                // formula or spilled cell pastes as its result there)
+                vrow.push(valueToRaw(valueAt(c, r)));
+                var ef = effFormat(c, r);
+                frow.push(ef.fmt && !(cell && cell.s && cell.s.fmt) ? ef.fmt : null);
             }
             rows.push(row);
+            vals.push(vrow);
+            fmts.push(frow);
         }
         // the cells carry rule ids; the bodies must ride along too, or a
         // paste onto another sheet would land ids that resolve to nothing
@@ -1838,7 +1932,11 @@ var SheetsApp = (function () {
         });
         return {
             w: rg.c2 - rg.c1 + 1, h: rg.r2 - rg.r1 + 1,
-            src: { c: rg.c1, r: rg.r1 }, cells: rows, rg: rg, defs: defs
+            src: { c: rg.c1, r: rg.r1 }, cells: rows, rg: rg, defs: defs,
+            vals: vals, fmts: fmts,
+            // the sheet object survives renames and reordering; the name is
+            // the fallback once an undo has rebuilt the workbook objects
+            srcSheet: s, srcName: s.name
         };
     }
     /* charts ride the system clipboard as marker JSON, like cells ride
@@ -1965,41 +2063,124 @@ var SheetsApp = (function () {
         };
         commit();
     }
-    function pasteInternal() {
+    /* ---------- paste modes (Excel's Paste Options) ----------
+        link       formulas keep reading their source cells: pasted onto
+                   another sheet, their references are pinned to the source
+                   sheet (=E13*B2 -> =SheetA!E13*SheetA!B2); formatting kept.
+                   The default for a paste onto another sheet, and what a
+                   cut always does (moved cells keep pointing where they did).
+        formulas   formulas shift relative to where they land (=A1 one row
+                   down becomes =A2); formatting kept. Default on one sheet.
+        values     the results only, in the target cells' own formatting
+        valuesfmt  the results with the source formatting
+        format     the source formatting only, target values kept
+        pastelink  every cell becomes a link to the copied cell (=SheetA!C3)
+        transpose  rows become columns; formulas shift, formatting kept */
+    var PASTE_MODES = [
+        { id: "link", label: "Keep source links", icon: "linkify" },
+        { id: "formulas", label: "Formulas (relative)", icon: "calculator" },
+        { id: "values", label: "Values only", icon: "hashtag", key: "Ctrl+Shift+V" },
+        { id: "valuesfmt", label: "Values and formatting", icon: "font" },
+        { id: "format", label: "Formatting only", icon: "paint brush" },
+        { id: "pastelink", label: "Paste link", icon: "external alternate" },
+        { id: "transpose", label: "Transpose", icon: "exchange" }
+    ];
+    var lastPaste = null;    // {mode, anchor, sheet, state} of the paste the chip can redo
+    function clipSourceIndex() {
+        if (!clipInternal) return -1;
+        var i = body.sheets.indexOf(clipInternal.srcSheet);
+        return i >= 0 ? i : sheetIndexByName(clipInternal.srcName);
+    }
+    function clipSourceName() {
+        var i = clipSourceIndex();
+        return i >= 0 ? body.sheets[i].name : clipInternal.srcName;
+    }
+    function clipIsCrossSheet() {
+        var i = clipSourceIndex();
+        return i >= 0 ? i !== body.active : clipInternal.srcName !== sheet().name;
+    }
+    function pasteInternal(mode) {
+        if (!clipInternal) return;
+        var cut = clipCut;
+        if (cut) mode = "link";
+        mode = mode || (clipIsCrossSheet() ? "link" : "formulas");
         var s = sheet();
-        var w = clipInternal.w, h = clipInternal.h;
+        var clip = clipInternal;
+        var cross = clipIsCrossSheet(), srcName = clipSourceName();
+        var tr = mode === "transpose";
+        var w = tr ? clip.h : clip.w, h = tr ? clip.w : clip.h;
         // bring any rule bodies the copied cells refer to onto this sheet
-        if (clipInternal.defs) {
+        if (mode !== "values" && mode !== "pastelink" && clip.defs) {
             if (!s.cfDefs) s.cfDefs = {};
-            Object.keys(clipInternal.defs).forEach(function (id) {
-                if (!s.cfDefs[id]) s.cfDefs[id] = deep(clipInternal.defs[id]);
+            Object.keys(clip.defs).forEach(function (id) {
+                if (!s.cfDefs[id]) s.cfDefs[id] = deep(clip.defs[id]);
             });
         }
-        var dC = anchor.c - clipInternal.src.c;
-        var dR = anchor.r - clipInternal.src.r;
-        for (var r = 0; r < h; r++) {
-            for (var c = 0; c < w; c++) {
-                var cell = clipInternal.cells[r][c];
-                var tc = anchor.c + c, tr = anchor.r + r;
-                if (tc >= MAX_COLS || tr >= MAX_ROWS) continue;
-                growTo(tc + 1, tr + 1);
-                var k = key(tc, tr);
-                if (!cell) { delete s.cells[k]; continue; }
-                var nc = deep(cell);
-                if (nc.v && String(nc.v).charAt(0) === "=") {
-                    nc.v = F.rewriteRelative(nc.v, dC, dR);
+        for (var r = 0; r < clip.h; r++) {
+            for (var c = 0; c < clip.w; c++) {
+                var cell = clip.cells[r][c];
+                var tc = anchor.c + (tr ? r : c), trow = anchor.r + (tr ? c : r);
+                if (tc >= MAX_COLS || trow >= MAX_ROWS) continue;
+                growTo(tc + 1, trow + 1);
+                var k = key(tc, trow);
+                var old = s.cells[k];
+                var srcC = clip.src.c + c, srcR = clip.src.r + r;
+                var val = clip.vals[r][c];
+                var isFormula = cell && cell.v && String(cell.v).charAt(0) === "=";
+                var nc;
+                switch (mode) {
+                    case "link":
+                        nc = cell ? deep(cell) : null;
+                        if (isFormula && cross) nc.v = F.qualifyRefs(nc.v, srcName);
+                        break;
+                    case "formulas":
+                    case "transpose":
+                        nc = cell ? deep(cell) : null;
+                        if (isFormula) nc.v = F.rewriteRelative(nc.v, tc - srcC, trow - srcR);
+                        break;
+                    case "values":
+                        nc = old ? deep(old) : { v: "" };
+                        nc.v = val;
+                        break;
+                    case "valuesfmt":
+                        nc = cell ? deep(cell) : { v: "" };
+                        nc.v = val;
+                        // a formula's own number format (TODAY, TO_PERCENT ...)
+                        // would leave with the formula - keep it on the value
+                        if (clip.fmts[r][c]) {
+                            if (!nc.s) nc.s = {};
+                            nc.s.fmt = clip.fmts[r][c];
+                        }
+                        break;
+                    case "format":
+                        nc = old ? deep(old) : { v: "" };
+                        if (cell && cell.s) nc.s = deep(cell.s); else delete nc.s;
+                        if (cell && cell.cf) nc.cf = deep(cell.cf); else delete nc.cf;
+                        break;
+                    case "pastelink":
+                        nc = old ? deep(old) : { v: "" };
+                        // blank sources stay blank rather than showing 0
+                        nc.v = val === "" ? "" :
+                            "=" + (cross ? F.quoteSheetName(srcName) + "!" : "") + key(srcC, srcR);
+                        break;
                 }
-                s.cells[k] = nc;
+                if (cellIsBare(nc)) delete s.cells[k];
+                else s.cells[k] = nc;
             }
         }
-        if (clipCut) {
-            var rg = clipInternal.rg;
-            for (var rr = rg.r1; rr <= rg.r2; rr++) {
-                for (var cc = rg.c1; cc <= rg.c2; cc++) {
-                    // don't wipe overlap of the paste target
-                    if (cc >= anchor.c && cc < anchor.c + w &&
-                        rr >= anchor.r && rr < anchor.r + h) continue;
-                    delete s.cells[key(cc, rr)];
+        if (cut) {
+            // clear the cut cells on the sheet they came from
+            var si = clipSourceIndex();
+            var from = si >= 0 ? body.sheets[si] : null;
+            var rg = clip.rg;
+            if (from) {
+                for (var rr = rg.r1; rr <= rg.r2; rr++) {
+                    for (var cc = rg.c1; cc <= rg.c2; cc++) {
+                        // don't wipe overlap of the paste target
+                        if (from === s && cc >= anchor.c && cc < anchor.c + w &&
+                            rr >= anchor.r && rr < anchor.r + h) continue;
+                        delete from.cells[key(cc, rr)];
+                    }
                 }
             }
             clipCut = false;
@@ -2007,11 +2188,102 @@ var SheetsApp = (function () {
             clipTsv = "";
         }
         // reselect the pasted block
+        var at = { c: anchor.c, r: anchor.r };
         head = {
             c: clamp(anchor.c + w - 1, 0, sheet().cols - 1),
             r: clamp(anchor.r + h - 1, 0, sheet().rows - 1)
         };
         commit();
+        if (!cut) {
+            lastPaste = { mode: mode, anchor: at, sheet: body.active, state: undo.stack[undo.pos] };
+            placePasteChip();
+        }
+        var n = clip.w * clip.h;
+        var label = PASTE_MODES.filter(function (m) { return m.id === mode; })[0];
+        OfficeApp.setStatus(cut ? "Moved " + n + " cell(s)" :
+            "Pasted " + n + " cell(s) - " + (label ? label.label.toLowerCase() : mode));
+    }
+    /* Paste special from a menu or Ctrl+Shift+V. Only Sheets' own copied
+       cells carry formulas and formatting; anything else pastes as text,
+       which already is a values paste. */
+    function pasteSpecial(mode) {
+        if (editing) return;
+        if (clipInternal) { pasteInternal(mode); return; }
+        if (mode === "values" && navigator.clipboard && navigator.clipboard.readText) {
+            navigator.clipboard.readText().then(function (t) { if (t) pasteText(t); }).catch(function () {
+                OfficeApp.setStatus("Use Ctrl+V to paste here", "error");
+            });
+            return;
+        }
+        OfficeApp.setStatus("Paste special needs cells copied from Sheets", "error");
+    }
+    function pasteSpecialItems() {
+        return PASTE_MODES.map(function (m) {
+            return {
+                label: m.label, icon: m.icon, key: m.key,
+                enabled: function () { return !!clipInternal || m.id === "values"; },
+                action: function () { pasteSpecial(m.id); }
+            };
+        });
+    }
+    /* Paste again in another mode: while nothing changed since the paste,
+       step back over it first, so the switch replaces the paste in the undo
+       history instead of stacking on it. */
+    function repasteAs(mode) {
+        if (!lastPaste || !clipInternal) return;
+        var lp = lastPaste;
+        if (undo.stack[undo.pos] === lp.state && undo.canUndo()) undo.undo();
+        if (lp.sheet !== body.active && lp.sheet < body.sheets.length) {
+            body.active = lp.sheet;
+            renderAll();
+        }
+        anchor = { c: lp.anchor.c, r: lp.anchor.r };
+        head = { c: lp.anchor.c, r: lp.anchor.r };
+        selCols = selRows = null;
+        pasteInternal(mode);
+    }
+    /* The "Paste options" button at the bottom-right corner of the pasted
+       block (Excel's Ctrl button); any later change removes it. */
+    var pasteChipEl = null;
+    function hidePasteChip() {
+        lastPaste = null;
+        if (pasteChipEl) { pasteChipEl.parentNode.removeChild(pasteChipEl); pasteChipEl = null; }
+    }
+    function placePasteChip() {
+        if (!lastPaste) return;
+        if (!pasteChipEl) {
+            pasteChipEl = document.createElement("button");
+            pasteChipEl.type = "button";
+            pasteChipEl.className = "sh-paste-chip";
+            pasteChipEl.title = "Paste options";
+            pasteChipEl.innerHTML = '<i class="paste icon"></i><i class="caret down icon"></i>';
+            // the button sits inside the grid, whose pointer handlers would
+            // take the press as a cell selection and swallow the click
+            ["pointerdown", "pointermove", "pointerup", "mousedown", "dblclick", "contextmenu"].forEach(function (t) {
+                pasteChipEl.addEventListener(t, function (e) {
+                    e.stopPropagation();
+                    if (t === "mousedown" || t === "contextmenu") e.preventDefault();
+                });
+            });
+            pasteChipEl.addEventListener("click", function (e) {
+                e.stopPropagation();
+                if (!lastPaste) return;
+                var r = pasteChipEl.getBoundingClientRect();
+                var cur = lastPaste.mode;
+                OfficeApp.showContextMenu(r.left, r.bottom + 2, PASTE_MODES.map(function (m) {
+                    return {
+                        label: m.label, icon: m.icon,
+                        checked: function () { return m.id === cur; },
+                        action: function () { repasteAs(m.id); }
+                    };
+                }));
+            });
+            gridEl.appendChild(pasteChipEl);
+        }
+        var rg = selRange();
+        var b = cellRect(rg.c2, rg.r2);
+        pasteChipEl.style.left = (b.x + b.w + 2) + "px";
+        pasteChipEl.style.top = (b.y + b.h + 2) + "px";
     }
     function pasteText(text) {
         var rows = text.replace(/\r/g, "").split("\n");
@@ -2469,6 +2741,7 @@ var SheetsApp = (function () {
             { label: "Cut", icon: "cut", key: "Ctrl+X", action: function () { execClipboard("cut"); } },
             { label: "Copy", icon: "copy", key: "Ctrl+C", action: function () { execClipboard("copy"); } },
             { label: "Paste", icon: "paste", key: "Ctrl+V", action: function () { execClipboard("paste"); } },
+            { label: "Paste special", icon: "clipboard outline", sub: pasteSpecialItems() },
             { sep: true },
             {
                 label: "Insert " + (selRows ? (selRows.r2 - selRows.r1 + 1) + " row(s)" : "row above"),
@@ -2789,6 +3062,18 @@ var SheetsApp = (function () {
         });
 
         inputEl.addEventListener("keydown", onInputKeyDown);
+        // function-name suggestions while typing a formula, in both editors
+        fnSuggest = SheetFnSuggest.create({
+            names: F.functionNames,
+            syntax: function (n) { var sp = F.lookupFunction(n); return sp && sp.syntax; },
+            help: window.SheetFormulaHelp,
+            onApply: function (el) {
+                if (el === inputEl) $("#shFxInput").val(el.value);
+                else inputEl.value = el.value;
+            }
+        });
+        fnSuggest.attach(inputEl);
+        fnSuggest.attach(document.getElementById("shFxInput"));
         inputEl.addEventListener("blur", function () {
             setTimeout(function () {
                 if (editing && !editing.viaFx && document.activeElement !== inputEl &&
@@ -2900,6 +3185,7 @@ var SheetsApp = (function () {
             onCut: function () { execClipboard("cut"); },
             onCopy: function () { execClipboard("copy"); },
             onPaste: function () { execClipboard("paste"); },
+            editMenuExtras: [{ label: "Paste special", icon: "clipboard outline", sub: pasteSpecialItems() }],
 
             menus: [
                 { title: "Insert", items: insertMenuItems },
@@ -2945,6 +3231,10 @@ var SheetsApp = (function () {
         });
 
         OfficeApp.registerShortcut("Ctrl+B", function () { toggleStyleFlag("b"); });
+        OfficeApp.registerShortcut("Ctrl+Shift+V", function () {
+            if (editing) return false;
+            pasteSpecial("values");
+        }, { description: "Paste values only", group: "Edit", allowInInput: false, inDialogs: false });
         OfficeApp.registerShortcut("Ctrl+I", function () { toggleStyleFlag("i"); });
         OfficeApp.registerShortcut("Ctrl+U", function () { toggleStyleFlag("u"); });
         // Google Sheets' keys (Excel's Ctrl+9 is taken by the browser's tab switch)
