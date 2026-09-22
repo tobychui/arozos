@@ -578,10 +578,9 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 
-					//Validate the absolute path to prevent path escape
-					reqPath := filepath.ToSlash(filepath.Clean(targetFilepath))
+					//Validate the absolute path to prevent path escape.
 					rootPath, _ := targetFshAbs.VirtualPathToRealPath(shareOption.FileVirtualPath, shareOption.Owner)
-					if !strings.HasPrefix(arozfs.ToSlash(reqPath), arozfs.ToSlash(rootPath)) {
+					if !pathIsWithinRoot(rootPath, targetFilepath) {
 						//Directory escape detected
 						w.WriteHeader(http.StatusBadRequest)
 						w.Write([]byte("400 - Bad Request: Invalid relative path"))
@@ -1355,6 +1354,25 @@ func ServePermissionDeniedPage(w http.ResponseWriter) {
 		}
 	}
 	w.Write([]byte(pageContent))
+}
+
+/*
+pathIsWithinRoot reports whether target is root itself or a descendant of root.
+
+A bare strings.HasPrefix(target, root) check, which is what this used to be, is
+wrong: it also accepts a sibling directory whose name happens to start with
+root's name (root "shared_folder" wrongly admits "shared_folder_evil", since
+the latter's path starts with the former's as a string, without a separator
+between them). filepath.Rel plus a ".." check is the actual containment test,
+the same pattern used in agi.git.go's git-root resolution.
+*/
+func pathIsWithinRoot(root, target string) bool {
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(target))
+	if err != nil {
+		return false
+	}
+	rel = filepath.ToSlash(rel)
+	return rel != ".." && !strings.HasPrefix(rel, "../")
 }
 
 /*
