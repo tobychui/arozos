@@ -13,6 +13,12 @@
         setUploadTaskState(uuid, state)    -> pending|uploading|processing|
                                               paused|done|failed
         setUploadTaskStatusText(uuid, s)   -> override the right hand label
+        setUploadTaskPercentage(uuid, p)   -> progress of a task that reports a
+                                              percentage rather than bytes
+                                              (server side zipping)
+        setUploadTaskDoneLink(uuid, ...)   -> put a text link on the finished
+                                              row, for a download the browser
+                                              may have blocked
 
     Part of the ArozOS File Manager. Loaded as a plain script from
     file_explorer.html - see the <script> block at the end of that file.
@@ -48,25 +54,39 @@ function appendUploadFileItem(filename, filesize){
         speed: 0,
         lastLoaded: 0,
         lastTime: Date.now(),
-        statusOverride: null
+        statusOverride: null,
+        //Set instead of size/loaded by a task the server reports in percent
+        percent: null,
+        //{label, url, filename} shown in place of the completed tick
+        doneLink: null
     });
 
     $("#uploadProgressList").append(`<div class="uploadTask pending" taskID="${newuuid}">
         <div class="uploadTaskName"></div>
         <div class="uploadTaskMeta">
             <span class="uploadTaskSize"></span>
+            <span class="uploadTaskDoneLink" onclick="onUploadTaskDoneLink('${newuuid}');"></span>
             <span class="uploadTaskStatus"></span>
+            <span class="uploadTaskRetry" onclick="onUploadTaskButton('${newuuid}');"></span>
         </div>
-        <div class="uploadTaskAction" onclick="onUploadTaskButton('${newuuid}');"></div>
+        <div class="uploadTaskActions">
+            <div class="uploadTaskCancel" onclick="cancelUploadTask('${newuuid}');">${FSIcons.closeCircle}</div>
+            <div class="uploadTaskAction" onclick="onUploadTaskButton('${newuuid}');"></div>
+        </div>
         <div class="uploadTaskBar"><div class="uploadTaskBarFill"></div></div>
     </div>`);
 
     //Set as text, not html: a filename may legitimately contain angle brackets
     let row = getUploadTaskByID(newuuid);
     row.find(".uploadTaskName").text(filename).attr("title", filename);
+    //Visibility is driven purely by the row's state class in CSS, so this
+    //button never needs touching again - no per-tick DOM writes on it
+    row.find(".uploadTaskCancel").attr("title", applocale.getString("upload/cancel", "Cancel"));
 
-    //A new task always brings the panel back, even if it was collapsed
-    uploadPanelCollapsed = false;
+    //A new task brings the panel back, unless a dialog is holding that corner
+    if (!$(".popup").is(":visible")){
+        uploadPanelCollapsed = false;
+    }
     renderUploadTask(newuuid);
     updateUploadFileCount();
     return newuuid;
@@ -152,6 +172,52 @@ function setUploadTaskStatusText(taskUUID, text){
 }
 
 /*
+    Progress of a task whose total is not counted in bytes.
+
+    Server side zipping reports how far it is as a percentage of the files it
+    has packed, with no byte figure that would mean anything to the panel, so
+    such a task carries a percentage instead of a loaded/total pair.
+*/
+function setUploadTaskPercentage(taskUUID, percent){
+    let info = uploadTaskInfo.get(taskUUID);
+    if (info === undefined){
+        return;
+    }
+    if (!isFinite(percent)){
+        return;
+    }
+    info.percent = Math.max(0, Math.min(100, percent));
+    renderUploadTask(taskUUID);
+    updateUploadSummary();
+}
+
+/*
+    Put a text link on a completed task, in place of its tick.
+
+    A download that starts on its own is exactly what pop-up blockers stop, and
+    when they do the row would otherwise only say "Completed" with no way to get
+    at the file. The link is that way out - it runs from a real click, which no
+    browser blocks. It sits at the left of the status line, opposite the label,
+    rather than in the button column where it would read as a stray word.
+*/
+function setUploadTaskDoneLink(taskUUID, label, url, filename){
+    let info = uploadTaskInfo.get(taskUUID);
+    if (info === undefined){
+        return;
+    }
+    info.doneLink = {label: label, url: url, filename: filename};
+    renderUploadTask(taskUUID);
+}
+
+function onUploadTaskDoneLink(taskUUID){
+    let info = uploadTaskInfo.get(taskUUID);
+    if (info === undefined || !info.doneLink){
+        return;
+    }
+    generateDownloadFromURL(info.doneLink.url, info.doneLink.filename);
+}
+
+/*
     Rendering
 */
 
@@ -205,6 +271,26 @@ function formatUploadEta(seconds){
     return applocale.getString("upload/eta/hours", "%d hr left").replace("%d", Math.round(seconds / 3600));
 }
 
+/*
+    How far along a task is, in percent.
+
+    Bytes where they are known, the server reported percentage otherwise, and a
+    finished task is always a full bar - a zip whose last file was packed after
+    the final progress report would otherwise stop just short of the end.
+*/
+function uploadTaskPercentage(info){
+    if (info.state == "done"){
+        return 100;
+    }
+    if (info.size > 0){
+        return Math.min(100, info.loaded / info.size * 100);
+    }
+    if (info.percent !== null && info.percent !== undefined){
+        return info.percent;
+    }
+    return 0;
+}
+
 function renderUploadTask(taskUUID){
     let info = uploadTaskInfo.get(taskUUID);
     let row = getUploadTaskByID(taskUUID);
@@ -213,18 +299,24 @@ function renderUploadTask(taskUUID){
     }
 
     let knownSize = info.size > 0;
-    let percentage = 0;
-    if (info.state == "done"){
-        percentage = 100;
-    }else if (knownSize){
-        percentage = Math.min(100, info.loaded / info.size * 100);
-    }
+    let hasPercent = info.percent !== null && info.percent !== undefined;
+    let percentage = uploadTaskPercentage(info);
 
-    //A task with no announced total (zip preparation) has no percentage to
-    //show, so its bar sweeps instead of filling
-    let indeterminate = !knownSize && info.state != "done" && info.state != "failed";
-    row.attr("class", "uploadTask " + info.state + (indeterminate ? " indeterminate" : ""));
+    //Only a task that reports neither bytes nor a percentage has nothing to
+    //fill a bar with, and it sweeps instead
+    let indeterminate = !knownSize && !hasPercent && info.state != "done" && info.state != "failed";
+    let showDoneLink = info.state == "done" && info.doneLink != null;
+    row.attr("class", "uploadTask " + info.state +
+        (indeterminate ? " indeterminate" : "") +
+        (showDoneLink ? " withDoneLink" : ""));
     row.find(".uploadTaskBarFill").css("width", indeterminate ? "" : percentage + "%");
+
+    //Keep the list ordered: finished rows on top, in progress next, queued last
+    let rank = uploadRowRank(info.state);
+    if (row.attr("data-rank") != String(rank)){
+        row.attr("data-rank", rank);
+        placeUploadRow(row[0], rank);
+    }
 
     //Byte counter. Without a known total there is nothing meaningful to divide by.
     let sizeHTML = "";
@@ -250,21 +342,43 @@ function renderUploadTask(taskUUID){
     }else if (info.state == "pending"){
         statusText = applocale.getString("upload/waiting", "Waiting");
     }else if (info.state == "processing"){
-        statusText = applocale.getString("upload/processing", "Processing");
+        //"45%" says more than "Processing" once the server reports progress
+        statusText = hasPercent ? Math.round(info.percent) + "%" :
+                     applocale.getString("upload/processing", "Processing");
     }else if (knownSize && info.speed > 0){
         statusText = formatUploadEta((info.size - info.loaded) / info.speed);
     }
     row.find(".uploadTaskStatus").text(statusText);
 
-    //Round button on the right. Completed rows show a status glyph instead of
-    //a control, which is why the icon is chosen from the state, not the handle.
+    //A failed row offers a "Retry" text link after the status instead of a round button
+    let retryEl = row.find(".uploadTaskRetry");
+    let retryText = info.state == "failed" ? applocale.getString("upload/retry", "Retry") : "";
+    if (retryEl.text() != retryText){
+        retryEl.text(retryText);
+    }
+
+    //The other half of that line: the download link of a finished download.
+    //Written only when it changes, for the same reason the glyph below is.
+    let linkEl = row.find(".uploadTaskDoneLink");
+    if (showDoneLink && linkEl.text() != info.doneLink.label){
+        linkEl.text(info.doneLink.label);
+    }
+
+    /*
+        Round button on the right, chosen from the state rather than the handle.
+
+        A finished row has no control left to offer, and the tick that used to
+        stand there said nothing the row's own label does not already say, so
+        CSS hides the button on .done and nothing is drawn into it.
+    */
+    if (info.state == "done"){
+        return;
+    }
+
     let handle = uploadTransferMap.get(taskUUID);
     let iconName = "closeCircle";
     let btnTitle = applocale.getString("upload/cancel", "Cancel");
-    if (info.state == "done"){
-        iconName = "checkCircle";
-        btnTitle = applocale.getString("upload/completed", "Completed");
-    }else if (info.state == "failed"){
+    if (info.state == "failed"){
         iconName = "refresh";
         btnTitle = applocale.getString("upload/retry", "Retry");
     }else if (info.state == "paused"){
@@ -274,7 +388,62 @@ function renderUploadTask(taskUUID){
         iconName = "pauseCircle";
         btnTitle = applocale.getString("upload/pause", "Pause");
     }
-    row.find(".uploadTaskAction").html(FSIcons[iconName]).attr("title", btnTitle);
+    /*
+        Only touch the button when the glyph actually changes.
+
+        This runs on every progress update - many times a second during a real
+        upload - and rewriting the innerHTML destroys the <svg> the pointer is
+        currently pressing. A click is only synthesised when mousedown and
+        mouseup share a target, so a press that spans one of these rewrites is
+        silently swallowed: the button appeared to work only every few clicks.
+
+        The icon depends on state, not on bytes moved, so this is nearly always
+        a no-op.
+    */
+    let actionBtn = row.find(".uploadTaskAction");
+    if (actionBtn.attr("data-icon") != iconName){
+        actionBtn.attr("data-icon", iconName).html(FSIcons[iconName]);
+    }
+    if (actionBtn.attr("title") != btnTitle){
+        actionBtn.attr("title", btnTitle);
+    }
+}
+
+/*
+    Row ordering: 0 finished (done / failed), 1 in progress, 2 queued.
+
+    Only the row whose group changed is moved, to the end of its new group, so
+    a state change costs one scan rather than a re-sort of the whole list.
+*/
+function uploadRowRank(state){
+    if (state == "done" || state == "failed"){
+        return 0;
+    }
+    return state == "pending" ? 2 : 1;
+}
+
+function placeUploadRow(rowEl, rank){
+    let list = document.getElementById("uploadProgressList");
+    if (list == null || rowEl.parentNode !== list){
+        return;
+    }
+    //Insert before the first row of a later group
+    let before = null;
+    if (rank < 2){
+        for (var el = list.firstElementChild; el !== null; el = el.nextElementSibling){
+            if (el !== rowEl && Number(el.getAttribute("data-rank")) > rank){
+                before = el;
+                break;
+            }
+        }
+    }
+    if (before === null){
+        if (list.lastElementChild !== rowEl){
+            list.appendChild(rowEl);
+        }
+    }else if (before !== rowEl.nextElementSibling){
+        list.insertBefore(rowEl, before);
+    }
 }
 
 /*
@@ -285,6 +454,8 @@ function updateUploadSummary(){
     let loaded = 0;
     let total = 0;
     let hasUnknown = false;
+    let percentSum = 0;
+    let taskCount = 0;
     uploadTaskInfo.forEach(function(info){
         loaded += info.loaded;
         if (info.size > 0){
@@ -292,7 +463,14 @@ function updateUploadSummary(){
         }else{
             hasUnknown = true;
         }
+        percentSum += uploadTaskPercentage(info);
+        taskCount++;
     });
+
+    //Every task counts the same towards the ring. Weighting them by size would
+    //need a size for each, which is exactly what a zip task cannot give.
+    let overall = taskCount > 0 ? percentSum / taskCount : 0;
+    setUploadSummaryRing(overall);
 
     //The %s slots get the same boxed number markup as the rows. The literal
     //text around them comes from the locale file and never changes width.
@@ -303,8 +481,30 @@ function updateUploadSummary(){
                 .replace("%s", formatUploadBytesHTML(total));
     }else if (loaded > 0){
         html = formatUploadBytesHTML(loaded);
+    }else if (taskCount > 0){
+        //Nothing to count in bytes - a zip task only ever reports a percentage
+        html = Math.round(overall) + "%";
     }
     $("#uploadSummaryText").html(html);
+}
+
+/*
+    The ring in the summary row.
+
+    It replaces what used to be a cloud upload glyph: the panel carries server
+    side tasks as well as uploads now, so the icon says how far the work is
+    rather than what kind of work it is. The arc is the second circle of the
+    taskProgress icon in shared/fsicons.js, drawn from its 12 o'clock position.
+*/
+function setUploadSummaryRing(percent){
+    let arc = document.querySelector("#uploadSummaryIcon .taskProgressArc");
+    if (arc == null){
+        return;
+    }
+    //Circumference of the icon's r=9 circle in its 24x24 box
+    let circumference = 56.5;
+    let filled = Math.max(0, Math.min(100, percent)) / 100 * circumference;
+    arc.setAttribute("stroke-dasharray", filled.toFixed(1) + " " + circumference);
 }
 
 function updateUploadFileCount(){
@@ -315,11 +515,13 @@ function updateUploadFileCount(){
         }
     });
 
+    //Uploads are not the only thing that rides this panel - a folder download
+    //zips server side first - so the title names tasks rather than uploads
     let title = "";
     if (active > 0){
-        title = applocale.getString("upload/title", "Uploading %d items").replace("%d", active);
+        title = applocale.getString("upload/title", "%d tasks in progress").replace("%d", active);
     }else{
-        title = applocale.getString("upload/titleDone", "%d items completed").replace("%d", $(".uploadTask").length);
+        title = applocale.getString("upload/titleDone", "%d tasks completed").replace("%d", $(".uploadTask").length);
     }
     $("#uploadHeaderTitle").text(title);
 
@@ -343,9 +545,15 @@ function updateUploadFileCount(){
 */
 function applyUploadPanelVisibility(){
     let taskCount = $(".uploadTask").length;
+    /*
+        Paused counts as unfinished, not as idle: the tray button is the only
+        reminder that a transfer is still open once the panel is collapsed, and
+        an upload someone paused is exactly the one worth being reminded about.
+    */
     let transferring = false;
     uploadTaskInfo.forEach(function(info){
-        if (info.state == "uploading" || info.state == "processing" || info.state == "pending"){
+        if (info.state == "uploading" || info.state == "processing" ||
+            info.state == "pending" || info.state == "paused"){
             transferring = true;
         }
     });
@@ -375,7 +583,7 @@ function trimFinishedUploadRows(){
     let excess = finished.length - MAX_FINISHED_UPLOAD_ROWS;
     for (var i = 0; i < excess; i++){
         let row = $(finished[i]);
-        uploadTaskInfo.delete(row.attr("taskid"));
+        forgetUploadTask(row.attr("taskid"));
         row.remove();
     }
 }
@@ -420,8 +628,7 @@ function cancelUploadTask(taskUUID){
         }
     }
 
-    uploadRetryMap.delete(taskUUID);
-    uploadTaskInfo.delete(taskUUID);
+    forgetUploadTask(taskUUID);
     let row = getUploadTaskByID(taskUUID);
     if (row !== undefined){
         row.fadeOut("fast", function(){
@@ -453,9 +660,23 @@ function retryUploadFile(taskUUID){
     uploadFile(retryInfo.file, taskUUID, retryInfo.targetDir);
 }
 
+/*
+    Drop every trace of a task.
+
+    A row is not the only thing a task owns: uploadTransferMap holds a closure
+    over its socket and File, and uploadRetryMap holds the File itself so retry
+    can work. Removing the row without these leaves both alive with nothing left
+    that can reach them.
+*/
+function forgetUploadTask(taskUUID){
+    uploadTaskInfo.delete(taskUUID);
+    uploadTransferMap.delete(taskUUID);
+    uploadRetryMap.delete(taskUUID);
+}
+
 function clearCompletedUploads(){
     $("#uploadProgressList").find(".uploadTask.done, .uploadTask.failed").each(function(){
-        uploadTaskInfo.delete($(this).attr("taskid"));
+        forgetUploadTask($(this).attr("taskid"));
         $(this).remove();
     });
     updateUploadFileCount();
@@ -525,15 +746,10 @@ function scrollActiveUploadIntoView(){
         return;
     }
 
-    let listBox = list.getBoundingClientRect();
-    let rowBox = active.getBoundingClientRect();
-    let delta = 0;
-    if (rowBox.top < listBox.top || rowBox.height > listBox.height){
-        delta = rowBox.top - listBox.top;
-    }else if (rowBox.bottom > listBox.bottom){
-        delta = rowBox.bottom - listBox.bottom;
-    }
-    if (delta == 0){
+    //Rows are kept in finished / in progress / queued order, so this row is the
+    //first in-progress one: line its top edge up with the top of the list
+    let delta = active.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    if (Math.abs(delta) < 1){
         return;
     }
 
@@ -544,6 +760,21 @@ function scrollActiveUploadIntoView(){
     list.scrollTop += delta;
     //Read back rather than reusing the requested value - the browser clamps it
     uploadListAutoScrollTop = list.scrollTop;
+}
+
+/*
+    Park the panel in the tray while a dialog is open.
+
+    A file operation dialog occupies the same bottom right corner, so the two
+    would otherwise sit on top of each other. The transfers keep running and the
+    status bar button keeps pulsing, so progress is still visible.
+*/
+function collapseUploadPanelForDialog(){
+    if ($(".uploadTask").length == 0){
+        return;
+    }
+    uploadPanelCollapsed = true;
+    applyUploadPanelVisibility();
 }
 
 //Collapse the panel down to #fmUploadListBtn. The tasks keep running.
@@ -586,7 +817,10 @@ window.removeThisTask = removeThisTask;
 window.retryUploadFile = retryUploadFile;
 window.toggleUploadMinimize = toggleUploadMinimize;
 window.toggleUploadPanel = toggleUploadPanel;   // the status bar button
+window.collapseUploadPanelForDialog = collapseUploadPanelForDialog;
 window.closeUploadTab = closeUploadTab;
 window.clearCompletedUploads = clearCompletedUploads;
 window.cancelAllUploads = cancelAllUploads;
 window.onUploadTaskButton = onUploadTaskButton;
+window.onUploadTaskDoneLink = onUploadTaskDoneLink;   // the "Download again" link
+window.cancelUploadTask = cancelUploadTask;   // the paused row's cancel button

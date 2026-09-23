@@ -87,24 +87,28 @@ func TestDocxRoundtrip(t *testing.T) {
 	}{
 		{"title", "doc-title"},
 		{"title text", "My Report"},
-		{"heading", "<h2>Section &amp; Chapter</h2>"},
-		{"bold", "<b>bold</b>"},
-		{"italic", "<i>italic</i>"},
-		{"color+size", "color:#cc0000"},
-		{"font size", "font-size:20px"},
+		{"heading", ">Section &amp; Chapter</h2>"},
+		{"heading size", "font-size:16pt;font-weight:700"},
+		{"bold", `<span style="font-weight:700;">bold</span>`},
+		{"italic", `<span style="font-style:italic;">italic</span>`},
+		{"color+size", "font-size:15pt;color:#cc0000;"},
 		{"center align", "text-align:center"},
 		{"link", `href="https://example.com/x?a=1"`},
-		{"line break", "<br>"},
-		{"bullet list", "<ul><li>alpha</li><li>beta</li></ul>"},
-		{"numbered list", "<ol><li>one</li><li>two</li></ol>"},
-		{"blockquote", "<blockquote>"},
+		{"line break", "here<br>second line"},
+		{"bullet list", `data-fmt="bullet"`},
+		{"bullet items", "<li>alpha</li><li>beta</li></ul>"},
+		{"numbered list", `data-fmt="decimal" data-lvltext="%1."`},
+		{"numbered items", "<li>one</li><li>two</li></ol>"},
+		{"blockquote rule", "border-left:2.25pt solid #c3c7cc"},
 		{"quote text", "quoted wisdom"},
-		{"code text", "code line 1"},
-		{"table cell", "<td>a</td>"},
-		{"table header bold", "<b>H1</b>"},
+		{"code text", "code line 1<br>code line 2"},
+		{"editor table keeps its spacing", `<table class="of-table" style="width:346.4pt;table-layout:fixed;">`},
+		{"table cell", "<p>a</p></td>"},
+		{"table header bold, centred", `<p style="text-align:center;font-weight:700;">H1</p>`},
+		{"rule", "<hr>"},
 		{"image", `<img src="data:image/png;base64,`},
-		{"image width", "width:200px"},
-		{"end text", "end"},
+		{"image size", "width:150pt;height:75pt;"},
+		{"end text", "<p>end</p>"},
 	}
 	for _, c := range checks {
 		if !strings.Contains(h, c.want) {
@@ -141,6 +145,14 @@ func TestDocxRoundtrip(t *testing.T) {
 	}
 	if !got.PageNumbers {
 		t.Errorf("pageNumbers flag lost")
+	}
+	// the page number the export adds comes back as the switch, not text
+	if strings.Contains(got.FooterHTML, "doc-field") || strings.Contains(got.Footer, "1") {
+		t.Errorf("automatic page number imported as footer content: %q / %q", got.Footer, got.FooterHTML)
+	}
+	// a table in a two-column page is one column wide
+	if i := strings.Index(h, "<table"); i < 0 || !strings.Contains(h[i:], "width:346.4pt;table-layout:fixed") {
+		t.Errorf("table not sized to the column: %.600s", h)
 	}
 }
 

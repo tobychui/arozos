@@ -47,16 +47,19 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 
-	var DeviceID []string = wmicGetinfo("logicaldisk", "DeviceID")
-	var FileSystem []string = wmicGetinfo("logicaldisk", "FileSystem")
-	var FreeSpace []string = wmicGetinfo("logicaldisk", "FreeSpace")
-
+	//Query all three properties in one go, otherwise a drive appearing or
+	//disappearing (e.g. an USB drive being unplugged) in between the queries
+	//would misalign the results
 	var arr []LogicalDisk
-	for i, info := range DeviceID {
+	for _, disk := range wmicGetinfoRows("logicaldisk", "DeviceID", "FileSystem", "FreeSpace") {
+		if disk[0] == "" {
+			//Drive without a device id, skip it
+			continue
+		}
 		LogicalDisk := LogicalDisk{
-			DriveLetter: info,
-			FileSystem:  FileSystem[i],
-			FreeSpace:   FreeSpace[i],
+			DriveLetter: disk[0],
+			FileSystem:  disk[1],
+			FreeSpace:   disk[2],
 		}
 		arr = append(arr, LogicalDisk)
 	}

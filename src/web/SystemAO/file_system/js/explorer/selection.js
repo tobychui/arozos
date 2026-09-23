@@ -22,6 +22,25 @@ function bindFileObjectEvents(){
             evt.stopImmediatePropagation();
         }
 
+        /*
+            Double tap on a phone.
+
+            Two taps land as two independent clicks, so the gesture is timed
+            here. In multi-select the two taps select and deselect again, which
+            leaves the selection exactly as it was - so the pair can simply be
+            treated as "open" once the second one arrives.
+        */
+        let isSecondTap = false;
+        if (isMobile){
+            let thisFileID = $(this).attr("fileid");
+            let now = Date.now();
+            isSecondTap = (lastTapFileID === thisFileID &&
+                           (now - lastTapTime) < MOBILE_DOUBLE_TAP_MS);
+            lastTapFileID = thisFileID;
+            //Reset rather than extend, so a triple tap is not two double taps
+            lastTapTime = isSecondTap ? 0 : now;
+        }
+
         if (ctrlHold == true){
             if ($(this).hasClass("selected")){
                 $(this).removeClass("selected");
@@ -41,6 +60,18 @@ function bindFileObjectEvents(){
             }
             
             lastClickedFileID = parseInt($(this).attr("fileid"));
+
+            /*
+                Tapping twice opens the file even while multi-select is on -
+                otherwise there is no way to open anything without first leaving
+                the mode. Folders keep tap-to-select here: navigating away would
+                throw away the selection the user is building.
+            */
+            if (isSecondTap && isMobile && $(this).attr("type") == "file"){
+                updateSelectedObjectsCount();
+                openthis(this, evt);
+                return;
+            }
         }else if (shiftHold == true){
             //Select everything in range lastClicked to this
             var thisFileID = $(this).attr("fileid");
@@ -62,6 +93,13 @@ function bindFileObjectEvents(){
             //If on mobile, click means open (only on not muilti selection mode)
             evt.preventDefault();
             evt.stopImmediatePropagation();
+
+            //A single tap already opened this on the first of the two taps;
+            //acting again would launch the app a second time
+            if (isSecondTap){
+                return;
+            }
+
             openthis(this,evt);
 
             //Deselect everything if in multi-select mode
@@ -96,51 +134,54 @@ function bindFileObjectEvents(){
         }
     });
 
-    //This function calculate and offset the context menu to not go out of the window area
+    /*
+        Place the context menu next to the cursor, keeping the whole menu
+        inside the window.
+    */
+    const contextMenuMargin = 8;
+
     function calculateContextMenuOffsets(evt){
-        var defaultLeftPost = evt.pageX + "px";
-        var defaultTopPost =evt.pageY + "px";
-        
-        if (evt.pageX > window.innerWidth / 2){
-            defaultLeftPost = evt.pageX - $("#contextmenu").width();
-            
-            if (defaultLeftPost < 0){
-                //over the left boundary
-                defaultLeftPost = 0;
-            }
-            defaultLeftPost = defaultLeftPost + "px";
-        }else{
+        let menu = $("#contextmenu");
+        let menuWidth = menu.outerWidth();
+        let menuHeight = menu.outerHeight();
+        let viewWidth = window.innerWidth;
+        let viewHeight = window.innerHeight;
 
-            if (evt.pageX + $("#contextmenu").width() > window.innerWidth){
-                //Over the right boundary
-                defaultLeftPost = window.innerWidth - $("#contextmenu").width();
-                defaultLeftPost = defaultLeftPost + "px";
-            }
+        //Viewport coordinates of the click, with a fallback for synthetic events
+        let clickX = (evt.clientX == undefined)?evt.pageX:evt.clientX;
+        let clickY = (evt.clientY == undefined)?evt.pageY:evt.clientY;
+
+        //Open towards the side of the cursor with more room
+        let left = clickX;
+        if (clickX > viewWidth / 2){
+            left = clickX - menuWidth;
         }
 
-        if (evt.pageY > window.innerHeight / 2){
-            defaultTopPost = evt.pageY - $("#contextmenu").height();
-
-            if (defaultTopPost < 0){
-                //over the top boundary
-                defaultTopPost = 0;
-            }
-            defaultTopPost = defaultTopPost + "px"
-            
-        }else{
-            if (evt.pageY + $("#contextmenu").height() > window.innerHeight){
-                //Over the lower boundary
-                defaultTopPost =  window.innerHeight - $("#contextmenu").height();
-                defaultTopPost = defaultTopPost + "px"
-            }
+        let top = clickY;
+        if (clickY > viewHeight / 2){
+            top = clickY - menuHeight;
         }
-        
-        $("#contextmenu").css({
-            left: defaultLeftPost,
-            top: defaultTopPost
+
+        //Pull the menu back inside the window if it still overflows any edge
+        if (left + menuWidth > viewWidth - contextMenuMargin){
+            left = viewWidth - menuWidth - contextMenuMargin;
+        }
+        if (left < contextMenuMargin){
+            left = contextMenuMargin;
+        }
+
+        if (top + menuHeight > viewHeight - contextMenuMargin){
+            top = viewHeight - menuHeight - contextMenuMargin;
+        }
+        if (top < contextMenuMargin){
+            top = contextMenuMargin;
+        }
+
+        menu.css({
+            left: left + "px",
+            top: top + "px"
         });
-
-    }  
+    }
 
     //Rightclick on a file object
     $(".fileObject").off("contextmenu").on("contextmenu", function(evt){
@@ -186,6 +227,9 @@ function bindFileObjectEvents(){
         $("#contextmenu").find(".vroothide").show();
         $("#contextmenu").find(".noSelectionOnly").hide();
         $("#contextmenu").find(".vrootonly").hide();
+        //Belongs to the sidebar's special views, not to a file or folder - and
+        //a folder already has its own "create shortcut" entry above
+        $("#contextmenu").find(".specialviewonly").hide();
         $("#contextmenu").find(".zipFileOnly").hide();
 
         //Hide general menu options for single / multiple
@@ -219,12 +263,6 @@ function bindFileObjectEvents(){
         }
 
         $("#contextmenu").addClass("visible");
-        //Handle CSS offset of the contextmenu
-        if ($("#contextmenu").offset().top < 0){
-            $("#contextmenu").css("top","0px");
-        }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-            $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-        }
 
         if (isMobile){
             $("#contextmenu").find(".mobileonly").show();
@@ -246,7 +284,17 @@ function bindFileObjectEvents(){
 
     //Right click on empty space of the file selector
     $("#folderView").off("contextmenu").on("contextmenu", function(e){
-        if ($(e.target).attr("id") == "folderView" || $(e.target).attr("id") == "fileList" || $(e.target).attr("id") == "folderList" || $(e.target).is("table") || $(e.target).is("th")){
+        /*
+            A special view is not a directory: there is nothing to paste into,
+            create a file in, or upload to. Its own table counts as "empty
+            space" by the test below - right clicking the column header was
+            enough to open the menu - so it is refused up front.
+        */
+        if (isSpecialViewPath(currentPath)){
+            return;
+        }
+
+        if ($(e.target).closest(".fileObject").length == 0){
             //Context menu on the empty space of the folder / file list
             e.preventDefault();
             $("#contextmenu").find(".item").hide();
@@ -255,17 +303,9 @@ function bindFileObjectEvents(){
             $("#contextmenu").find(".vroothide").show();
             $("#contextmenu").find(".zipFileOnly").hide();
 
-            //Calculate the position of the context menu
-            calculateContextMenuOffsets(e);
-
-            //Show context menu
+            //Show context menu, then place it (it must be rendered to be measured)
             $("#contextmenu").addClass("visible");
-            //Handle CSS offset of the contextmenu
-            if ($("#contextmenu").offset().top < 0){
-                $("#contextmenu").css("top","0px");
-            }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-                $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-            }
+            calculateContextMenuOffsets(e);
         }
     });
 
@@ -289,6 +329,29 @@ function bindFileObjectEvents(){
             }
         });
 
+        /*
+            The special view rows are not storage roots, so the vroot entries
+            below mean nothing for them. They get one entry of their own: put
+            this view on the desktop.
+        */
+        if ($(e.target).hasClass("fmSpecialSideItem")){
+            e.preventDefault();
+            contextMenuSpecialView = $(e.target).attr("filepath");
+            $(e.target).addClass("active");
+            $("#contextmenu").find(".item").hide();
+            /*
+                The separators are their own elements, not .item, so hiding the
+                entries leaves them stacked on top of each other above the one
+                entry this menu has.
+            */
+            $("#contextmenu").find(".divider").hide();
+            $("#contextmenu").find(".specialviewonly").show();
+
+            $("#contextmenu").addClass("visible");
+            calculateContextMenuOffsets(e);
+            return;
+        }
+
         if ($(e.target).attr("rootname") != undefined){
             //Correct one. Show vroot functions
             e.preventDefault();
@@ -296,18 +359,12 @@ function bindFileObjectEvents(){
             $(e.target).addClass("active");
             $("#contextmenu").find(".item").hide();
             $("#contextmenu").find(".vroothide").hide();
+            $("#contextmenu").find(".specialviewonly").hide();
             $("#contextmenu").find(".vrootonly").show();
 
-            //Show context menu
-            calculateContextMenuOffsets(e);
-
+            //Show context menu, then place it (it must be rendered to be measured)
             $("#contextmenu").addClass("visible");
-            //Handle CSS offset of the contextmenu
-            if ($("#contextmenu").offset().top < 0){
-                $("#contextmenu").css("top","0px");
-            }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
-                $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
-            }
+            calculateContextMenuOffsets(e);
         }
     });
 
@@ -456,6 +513,20 @@ function bindFileListDelegates(){
 
     view.on("drop", ".fileObject[type='folder']", function(event){
         dropToFolder(event.originalEvent || event);
+    });
+
+    /*
+        The sidebar's special views accept drops too - dragging onto the trash
+        bin is how every other desktop deletes something. The rows are redrawn
+        whenever the roots reload, so this is delegated from #storageroot
+        rather than bound to them.
+    */
+    $("#storageroot").off("dragover.specialview").on("dragover.specialview", ".fmSpecialSideItem", function(event){
+        allowDrop(event.originalEvent || event);
+    });
+
+    $("#storageroot").off("drop.specialview").on("drop.specialview", ".fmSpecialSideItem", function(event){
+        dropToSpecialView(event.originalEvent || event, $(this).attr("filepath"));
     });
 
     //Sortable column headers in details view

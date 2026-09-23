@@ -120,3 +120,48 @@ func pdfTr(pdf *fpdf.Fpdf) func(string) string {
 		return tr(pdfNbsp.Replace(s))
 	}
 }
+
+// pdfFitText trims s to what fits in maxW at the CURRENT font, ending it with
+// an ellipsis when anything was cut, and returns it translated ready to draw.
+//
+// fpdf's CellFormat does not clip: a string wider than its cell is drawn
+// straight across the neighbouring ones. A spreadsheet column is exactly as
+// wide as the sheet says it is, so overlong cells have to be shortened here
+// the way the on-screen grid hides them with overflow:hidden.
+//
+// Widths are measured on the translated text (that is what actually gets
+// drawn) while the cut is made on runes of the original, so a multi-byte
+// character is never split in half.
+func pdfFitText(pdf *fpdf.Fpdf, tr func(string) string, s string, maxW float64) string {
+	if s == "" || maxW <= 0 {
+		return ""
+	}
+	full := tr(s)
+	if pdf.GetStringWidth(full) <= maxW {
+		return full
+	}
+	ell := tr("…")
+	if pdf.GetStringWidth(ell) <= 0 {
+		ell = tr("...") // cp1252 has an ellipsis, but never depend on it
+	}
+	ellW := pdf.GetStringWidth(ell)
+	if ellW > maxW {
+		return "" // column too narrow even for the marker: draw nothing
+	}
+	// longest prefix that still leaves room for the ellipsis; prefix width
+	// grows with length, so a binary search finds it directly
+	runes := []rune(s)
+	lo, hi := 0, len(runes)
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if pdf.GetStringWidth(tr(string(runes[:mid])))+ellW <= maxW {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	if lo == 0 {
+		return ell // not even one character fits alongside it
+	}
+	return tr(string(runes[:lo])) + ell
+}

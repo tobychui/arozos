@@ -81,12 +81,23 @@
         chevronDown: S + '<path d="M6 9.5l6 6 6-6"/></svg>',
         chevronUp:   S + '<path d="M6 14.5l6-6 6 6"/></svg>',
         cloudUpload: S + '<path d="M6.5 19a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.7 9.2 3.9 3.9 0 0 1 17.5 19z"/><path d="M12 18v-7M9.2 13.3L12 10.5l2.8 2.8"/></svg>',
+        /*
+            Generic progress ring for the transfer panel summary, which carries
+            server side tasks as well as uploads. The second circle is the arc:
+            uploadui.js sets its stroke-dasharray to fill it, and it is rotated
+            so the fill starts at 12 o'clock. r=9, circumference 56.5.
+        */
+        taskProgress: S + '<circle cx="12" cy="12" r="9" opacity="0.3"/><circle class="taskProgressArc" cx="12" cy="12" r="9" stroke-dasharray="0 56.5" transform="rotate(-90 12 12)"/></svg>',
         pause:       S + '<path d="M9.5 5.5v13M14.5 5.5v13"/></svg>',
         play:        S + '<path d="M8 5.4l10 6.6-10 6.6z"/></svg>',
         pauseCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M10.1 9.2v5.6M13.9 9.2v5.6"/></svg>',
         playCircle:  S + '<circle cx="12" cy="12" r="9"/><path d="M10.2 8.6l5.2 3.4-5.2 3.4z"/></svg>',
         checkCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.7"/></svg>',
-        closeCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>'
+        closeCircle: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>',
+
+        /* Trash bin view */
+        restore:     S + '<path d="M3 12a9 9 0 1 0 3.2-6.9"/><path d="M3 4v5h5"/></svg>',
+        trashBig:    S + '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>'
     };
 
     //Fill every element carrying data-fsicon="<name>" with its glyph

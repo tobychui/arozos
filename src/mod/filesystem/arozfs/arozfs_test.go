@@ -1,6 +1,8 @@
 package arozfs
 
 import (
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -303,6 +305,43 @@ func TestBase_MultipleTrailingSlashes(t *testing.T) {
 	}
 }
 
+func TestResolvePathWithinRootAllowsNestedFile(t *testing.T) {
+	root := filepath.Join("root", "shared")
+	resolved, err := ResolvePathWithinRoot(root, "docs/report.txt")
+	if err != nil {
+		t.Fatalf("ResolvePathWithinRoot returned unexpected error: %v", err)
+	}
+
+	expected := filepath.Join(root, "docs", "report.txt")
+	if resolved != expected {
+		t.Fatalf("ResolvePathWithinRoot = %q, want %q", resolved, expected)
+	}
+}
+
+func TestResolvePathWithinRootRejectsTraversal(t *testing.T) {
+	root := filepath.Join("root", "shared")
+	inputs := []string{
+		"../secret.txt",
+		"..%2fsecret.txt",
+		"..\\secret.txt",
+		"nested/../../secret.txt",
+		"..%5csecret.txt",
+	}
+
+	for _, input := range inputs {
+		if _, err := ResolvePathWithinRoot(root, input); !errors.Is(err, ErrPathEscapesRoot) {
+			t.Fatalf("ResolvePathWithinRoot(%q) error = %v, want %v", input, err, ErrPathEscapesRoot)
+		}
+	}
+}
+
+func TestResolvePathWithinRootRejectsSiblingPrefixBypass(t *testing.T) {
+	root := filepath.Join("root", "share")
+	if _, err := ResolvePathWithinRoot(root, "../share-other/file.txt"); !errors.Is(err, ErrPathEscapesRoot) {
+		t.Fatalf("ResolvePathWithinRoot error = %v, want %v", err, ErrPathEscapesRoot)
+	}
+}
+
 // --- GenericVirtualPathToRealPathTranslator ---
 
 func TestGenericVirtualPathToRealPathTranslator_UserHierarchy(t *testing.T) {
@@ -361,5 +400,66 @@ func TestGenericRealPathToVirtualPathTranslator_PublicHierarchy(t *testing.T) {
 	}
 	if !strings.HasPrefix(result, "S1:") {
 		t.Errorf("expected result to start with UUID prefix, got %q", result)
+	}
+}
+
+// --- Clean ---
+
+/*
+Clean normalises a virtual path identically on every platform.
+
+filepath.Clean cannot be used on a vpath: on Windows it reads the "user:"
+vdID as a volume name and guards the result with a "./" prefix, so the same
+path would key differently there than on Linux.
+*/
+func TestClean_VirtualPathCases(t *testing.T) {
+	tests := []struct {
+		name  string
+		given string
+		want  string
+	}{
+		{"already clean", "user:/cluster", "user:/cluster"},
+		{"nested file", "user:/cluster/hello_world.job.agi", "user:/cluster/hello_world.job.agi"},
+		{"trailing slash", "user:/Desktop/", "user:/Desktop"},
+		{"duplicated slashes", "user://Desktop///Photos", "user:/Desktop/Photos"},
+		{"dot segment", "user:/Desktop/./Photos", "user:/Desktop/Photos"},
+		{"backslashes converted", "user:\\Desktop\\Photos", "user:/Desktop/Photos"},
+		{"other vroot id", "cluster:/shared/report.pdf", "cluster:/shared/report.pdf"},
+		{"name with plus", "user:/My +Stuff/a b.mkv", "user:/My +Stuff/a b.mkv"},
+		{"vroot only", "user:/", "user:"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Clean(tt.given)
+			if got != tt.want {
+				t.Errorf("Clean(%q) = %q, want %q", tt.given, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClean_NeverAddsDotSlashPrefix(t *testing.T) {
+	for _, vpath := range []string{
+		"user:/cluster/a.agi",
+		"tmp:/x/y.txt",
+		"cluster:/shared",
+	} {
+		if got := Clean(vpath); strings.HasPrefix(got, "./") {
+			t.Errorf("Clean(%q) = %q, must not carry a \"./\" prefix", vpath, got)
+		}
+	}
+}
+
+func TestClean_NeverReturnsBackslash(t *testing.T) {
+	got := Clean("user:\\Desktop\\Photos\\a.png")
+	if strings.Contains(got, "\\") {
+		t.Errorf("Clean returned %q, must stay slash separated", got)
+	}
+}
+
+func TestClean_Empty(t *testing.T) {
+	if got := Clean(""); got != "." {
+		t.Errorf("Clean(\"\") = %q, want %q", got, ".")
 	}
 }

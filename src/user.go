@@ -330,6 +330,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
+		clusterNotifyPasswordChanged(username, hashedPassword)
 		//Finish. Send back the reseted password
 		utils.SendJSONResponse(w, "\""+tmppassword+"\"")
 
@@ -473,6 +474,7 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		//OK! Change user password
 		newHashedPassword := auth.Hash(newpw)
 		sysdb.Write("auth", "passhash/"+username, newHashedPassword)
+		clusterNotifyPasswordChanged(username, newHashedPassword)
 		utils.SendOK(w)
 	} else if opr == "changeprofilepic" {
 		picdata, _ := utils.PostPara(r, "picdata")

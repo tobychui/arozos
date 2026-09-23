@@ -106,6 +106,7 @@
                 "account/switch/signoutAll": "登出其他已儲存的帳戶",
                 "upload/message/uploading": "上載中…",
                 "upload/message/failed": "上載失敗",
+                "fileOperation/title": "檔案操作",
                 "": ""
             },
             "placeholder": {
@@ -214,9 +215,10 @@
                 "account/switch/signoutAll": "登出其他已儲存的帳戶",
                 "upload/message/uploading": "上載中…",
                 "upload/message/failed": "上載失敗",
-                "": "",
                 "error/connlost/readonly": "[唯讀] 帳戶",
-                "error/connlost/readonl/infoy": "由於此帳戶被鎖定在唯讀狀態，因此你無法在桌面進行任何檔案操作。"
+                "error/connlost/readonl/infoy": "由於此帳戶被鎖定在唯讀狀態，因此你無法在桌面進行任何檔案操作。",
+                "fileOperation/title": "檔案操作",
+                "": ""
             },
             "placeholder": {
                 "Search": "搜尋"
@@ -324,9 +326,10 @@
                 "account/switch/signoutAll": "登出其他已储存的帐户",
                 "upload/message/uploading": "上传中…",
                 "upload/message/failed": "上传失败",
-                "": "",
                 "error/connlost/readonly": "[只读] 账户",
-                "error/connlost/readonl/infoy": "由于此账户被锁定在只读状态，因此您无法在桌面进行任何文件操作。"
+                "error/connlost/readonl/infoy": "由于此账户被锁定在只读状态，因此您无法在桌面进行任何文件操作。",
+                "fileOperation/title": "文件操作",
+                "": ""
             },
             "placeholder": {
                 "Search": "搜索"
@@ -436,8 +439,9 @@
                 "account/switch/addAccount": "Add another account",
                 "account/switch/signoutAll": "Sign-out all accounts",
                 "upload/message/uploading": "Uploading...",
-                "": "",
-                "upload/message/failed": "Upload Failed"
+                "upload/message/failed": "Upload Failed",
+                "fileOperation/title": "File Operation",
+                "": ""
             },
             "placeholder": {
                 "Search": "Search"
@@ -547,8 +551,9 @@
                 "account/switch/addAccount": "別のアカウントを追加",
                 "account/switch/signoutAll": "すべてのアカウントからサインアウト",
                 "upload/message/uploading": "アップロード中...",
-                "": "",
-                "upload/message/failed": "アップロード失敗"
+                "upload/message/failed": "アップロード失敗",
+                "fileOperation/title": "ファイル操作",
+                "": ""
             },
             "placeholder": {
                 "Search": "検索"
@@ -659,6 +664,7 @@
                 "account/switch/signoutAll": "저장된 다른 모든 계정 로그아웃",
                 "upload/message/uploading": "업로드 중...",
                 "upload/message/failed": "업로드 실패",
+                "fileOperation/title": "파일 작업",
                 "": ""
             },
             "placeholder": {

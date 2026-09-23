@@ -14,6 +14,7 @@ import (
 	"github.com/robertkrimen/otto"
 
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/fssort"
 	"imuslab.com/arozos/mod/filesystem/hidden"
 	"imuslab.com/arozos/mod/info/logger"
@@ -275,8 +276,9 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 			//Rewrite and validate the sort mode
 			if userSortMode == "user" {
 				//Use user sorting mode.
-				if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", u.Username+"/"+filepath.ToSlash(filepath.Clean(vrootPath))) {
-					g.Option.UserHandler.GetDatabase().Read("fs-sortpref", u.Username+"/"+filepath.ToSlash(filepath.Clean(vrootPath)), &userSortMode)
+				sortPrefKey := u.Username + "/" + arozfs.Clean(vrootPath)
+				if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", sortPrefKey) {
+					g.Option.UserHandler.GetDatabase().Read("fs-sortpref", sortPrefKey, &userSortMode)
 				} else {
 					userSortMode = "default"
 				}
@@ -353,8 +355,9 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Rewrite and validate the sort mode
 		if userSortMode == "user" {
 			//Use user sorting mode.
-			if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", u.Username+"/"+filepath.ToSlash(filepath.Clean(vrootPath))) {
-				g.Option.UserHandler.GetDatabase().Read("fs-sortpref", u.Username+"/"+filepath.ToSlash(filepath.Clean(vrootPath)), &userSortMode)
+			sortPrefKey := u.Username + "/" + arozfs.Clean(vrootPath)
+			if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", sortPrefKey) {
+				g.Option.UserHandler.GetDatabase().Read("fs-sortpref", sortPrefKey, &userSortMode)
 			} else {
 				userSortMode = "default"
 			}
@@ -430,8 +433,9 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Rewrite and validate the sort mode
 		if userSortMode == "user" {
 			//Use user sorting mode.
-			if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", u.Username+"/"+filepath.ToSlash(filepath.Clean(vpath))) {
-				g.Option.UserHandler.GetDatabase().Read("fs-sortpref", u.Username+"/"+filepath.ToSlash(filepath.Clean(vpath)), &userSortMode)
+			sortPrefKey := u.Username + "/" + arozfs.Clean(vpath)
+			if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", sortPrefKey) {
+				g.Option.UserHandler.GetDatabase().Read("fs-sortpref", sortPrefKey, &userSortMode)
 			} else {
 				userSortMode = "default"
 			}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Start-up splash decoration, top-right corner. Used as a CSS mask:
+       only the alpha counts, each app paints its own colour through it. -->
+  <circle cx="250" cy="-20" r="200" fill="#000" fill-opacity="0.62"/>
+  <circle cx="240" cy="-50" r="150" fill="#000" fill-opacity="0.55"/>
+</svg>

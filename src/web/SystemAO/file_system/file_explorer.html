@@ -141,6 +141,7 @@
                     <div class="fsMenuSep"></div>
                     <div class="fsMenuItem" onclick="runFileOpr(toggleDarkTheme);"><span class="fsMenuIcon" data-fsicon="moon"></span><span locale="fileopr/Dark Theme">Dark Theme</span></div>
                     <div class="fsMenuSep fmDupSep"></div>
+                    <div class="fsMenuItem" id="fmHiddenToggle" onclick="toggleHiddenFiles();"><span locale="fileopr/Hidden Files">Show Hidden Files</span><span class="fsMenuCheck" data-fsicon="check"></span></div>
                     <div class="fsMenuItem" id="fmToolbarToggle" onclick="toggleFileOprBar();"><span locale="fileopr/Toolbar">Operation Toolbar</span><span class="fsMenuCheck" data-fsicon="check"></span></div>
                 </div>
             </div>
@@ -154,6 +155,9 @@
                 <div class="fsSideTitle" locale="sidebar/devices">Devices</div>
                 <div id="storageroot" class="fmSideGroup"></div>
             </div>
+            <!-- Drag handles between the three panes. Desktop only; splitter.js
+                 leaves them hidden on the touch layout. -->
+            <div class="fmSplitter" id="fmSidebarSplitter" title="Resize"></div>
             <div id="folderView" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <!--
                     Sortable column header for the details view. It lives outside
@@ -169,6 +173,7 @@
                 </div>
                 <br>
             </div>
+            <div class="fmSplitter" id="fmPropsSplitter" title="Resize" style="display:none;"></div>
             <div id="propertiesView" class="small" style="display:none;">
                 <div class="preview" style="margin-top: 0.4em;">
                     <img class="ui fluid image" >
@@ -221,7 +226,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <small style="font-size:80%;"><span locale="opr/overwrite/copying">Copying</span> <span class="owm-fc"></span> <span locale="opr/overwrite/files">files from</span> <span class="owm-srcdir"></span> <span locale="opr/overwrite/to">to</span> <span class="owm-destdir"></span></small>
                 <p><span locale="opr/overwrite/dest">The destination has </span><span class="owm-fc"></span> <span locale="opr/overwrite/samename">files with the same names.</span></p>
 
@@ -244,12 +249,12 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/pre-remove/questions">Are you sure you want to remove these files <u>permanently?</u><br>This action is <u>irreversible</u>.</p>
                 <div class="ui list deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
-                <div class="popupbuttons allowHover" style="background-color: #eb4034 !important;" onclick="forceDelete(true);";>
+                <div class="popupbuttons allowHover negative" onclick="forceDelete(true);">
                 <i class="trash icon"></i> <span locale="opr/pre-remove/confirm">Confirm</span>
                 </div>
                 <div class="popupbuttons allowHover" onclick="cancelForceDelete();">
@@ -267,15 +272,15 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/remove/question">Are you sure you want to move these files to trash bin?</p>
                 <div class="ui list deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
-                <div class="popupbuttons allowHover" style="color: #2bbbdf !important;" onclick="deleteFile(true);";>
+                <div class="popupbuttons allowHover primary" onclick="deleteFile(true);">
                     <i class="recycle icon"></i> <span locale="opr/remove/confirm">Move to Trash</span>
                 </div>
-                <div class="popupbuttons allowHover" style="background-color: #ff7a7a !important;" onclick="hideAllPopupWindows(); forceDelete();">
+                <div class="popupbuttons allowHover negative" onclick="hideAllPopupWindows(); forceDelete();">
                     <i class="trash icon"></i> <span locale="opr/pre-remove/title">Delete Permanently</span>
                 </div>
                 <div class="popupbuttons allowHover" onclick="cancelDelete(); ">
@@ -292,7 +297,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/rename/instruction">Enter the new filename for renaming. </p>
                 <p class="multifileWarning"><i class="notice icon"></i> Other files will be named as file(#)</p>
                 <div class="ui left icon small fluid input" style="margin-bottom:12px;">
@@ -321,7 +326,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/newfile/instruction">Select a type of file to be created.</p>
                 <div class="newfilelist" style="max-height:18em; overflow-y:scroll">
                     <div class="item newFileFormat" ext="php">No Item</div>
@@ -349,7 +354,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/newfolder/desc">Enter the new folder name to be created.</p>
                 <div class="ui left icon small fluid input" style="margin-bottom:12px;">
                     <input id="createNewFolder" type="text" placeholder="New Folder Name" onkeydown="handleEnterKeyDown(event, function(){newFolder(true);});">
@@ -393,18 +398,26 @@
         <div id="openWith" class="popup" style="display:none;">
             <div class="popupheader">
                 <i class="external icon"></i> <span locale="opr/openwith/title">Open File With</span>
-                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                <div class="popupcloser desktopOnly" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                <p locale="opr/openwith/desc">Select a module from the list below:</p>
-                <div id="openWithModuleList" class="ui segment" style="padding:0px;">
-                    <div class="item selectable">
-                        <div class="content" style="padding-left:12px;">
-                            <div class="header" locale="opr/openwith/loading">Loading...</div>
+                <div id="openWithModuleList">
+                    <div class="openWithSectionLabel" id="openWithSuggestedLabel" locale="opr/openwith/suggested">Suggested WebApps</div>
+                    <div id="openWithSuggestedList">
+                        <div class="item">
+                            <div class="content">
+                                <div class="header" locale="opr/openwith/loading">Loading...</div>
+                            </div>
                         </div>
                     </div>
+                    <div class="openWithToggleRow" id="openWithToggleRow" style="display:none;" onclick="toggleOpenWithOtherModules();">
+                        <i class="caret right icon" id="openWithToggleIcon"></i>
+                        <span id="openWithToggleLabel" locale="opr/openwith/showAll">Other WebApps...</span>
+                    </div>
+                    <div id="openWithOtherList" style="display:none;"></div>
                 </div>
                 <div class="openWithModule popupbuttons allowHover primary" onclick="openWithSelectedModule(this);";>
                     <i class="external icon"></i> <span locale="opr/openwith/openWithWebApp">Open with Selected Module</span>
@@ -415,7 +428,7 @@
                 <div class="popupbuttons allowHover vdonly" onclick="openRawFileInFloatWindow(this);">
                     <i class="window restore outline icon"></i> <span locale="opr/openwith/openInNewWindow">Open File directly in floatWindow</span>
                 </div>
-                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                <div class="popupbuttons allowHover mobileOnly" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i> <span locale="opr/openwith/cancel">Cancel</span>
                 </div>
             </div>
@@ -424,85 +437,88 @@
         <!-- Context Menu -->
         <div id="contextmenu" class="contextmenu" style="min-width:250px;">
             <div class="item" onclick="openViaButton();">
-                <i class="folder open icon"></i> <span locale="contextmenu/open">Open</span>
+                <span locale="contextmenu/open">Open</span>
             </div>
             <div class="item fileonly" onclick="openWith();">
-                <i class="external icon"></i> <span locale="contextmenu/openWith">Open With</span>
+                <span locale="contextmenu/openWith">Open With</span> <i class="external icon"></i>
             </div>
             <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
-                <i class="external icon"></i> <span locale="contextmenu/openNewWindow">Open In New Window</span>
+                <span locale="contextmenu/openNewWindow">Open In New Window</span> <i class="external icon"></i>
             </div>
             <!-- This is the vroot alternative new windows-->
             <div class="item vrootonly" onclick="openSelectedVroot();">
-                <i class="external icon"></i> <span locale="contextmenu/openNewWindowVroot">Open In New Window</span>
+                <span locale="contextmenu/openNewWindowVroot">Open In New Window</span> <i class="external icon"></i>
             </div>
             <div class="item shareonly" onclick="openFileLocation();">
-                <i class="folder outline icon"></i> <span locale="contextmenu/openFileLocation">Open File Location</span>
+                <span locale="contextmenu/openFileLocation">Open File Location</span> <i class="folder outline icon"></i>
             </div>
             <div class="item singleObjectOnlyHide" onclick="shareFile();">
-                <i class="share alternate icon"></i> <span locale="contextmenu/Share">Share</span>
+                <span locale="contextmenu/Share">Share</span> <i class="share alternate icon"></i>
             </div>
             <div class="item mobileonly" onclick="toggleCtrl();">
-                <i class="mouse pointer icon"></i> <span locale="contextmenu/MuitSelect">Multi-select</span>
+                <span locale="contextmenu/MuitSelect">Multi-select</span> <i class="mouse pointer icon"></i>
             </div>
-            <div class="item" onclick="copy();">
-                <i class="copy icon"></i> <span locale="contextmenu/copy">Copy</span>
-                <span class="description">Ctrl + C</span>
+            <div class="item hasHotkey" onclick="copy();">
+                <span locale="contextmenu/copy">Copy</span> <span class="description">Ctrl + C</span>
             </div>
-            <div class="item allowNoSelection" onclick="paste();">
-                <i class="paste icon"></i> <span locale="contextmenu/paste">Paste</span>
-                <span class="description">Ctrl + V</span>
+            <div class="item allowNoSelection hasHotkey" onclick="paste();">
+                <span locale="contextmenu/paste">Paste</span> <span class="description">Ctrl + V</span>
             </div>
-            <div class="item" onclick="cut();">
-                <i class="cut icon"></i> <span locale="contextmenu/cut">Cut</span>
-                <span class="description">Ctrl + X</span>
+            <div class="item hasHotkey" onclick="cut();">
+                <span locale="contextmenu/cut">Cut</span> <span class="description">Ctrl + X</span>
             </div>
             <div class="divider vroothide noSelectionOnly"></div>
             <div class="item noSelectionOnly" onclick="newfile();">
-                <i class="file outline icon"></i>  <span locale="contextmenu/newFile">New File</span>
+                <span locale="contextmenu/newFile">New File</span> <i class="file outline icon"></i>
             </div>
             <div class="item noSelectionOnly" onclick="newFolder();">
-                <i class="folder outline icon"></i> <span locale="contextmenu/newFolder">New Folder</span>
+                <span locale="contextmenu/newFolder">New Folder</span> <i class="folder outline icon"></i>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="upload();">
-                <i class="upload icon"></i>  <span locale="contextmenu/upload">Upload</span>
+                <span locale="contextmenu/upload">Upload</span> <i class="upload icon"></i>
             </div>
             <div class="item" onclick="zipFile();">
-                <i class="zip file icon"></i> <span locale="contextmenu/zip">Create Zip</span>
+                <span locale="contextmenu/zip">Create Zip</span>
             </div>
             <div class="item zipFileOnly" onclick="unzipHere();">
-                <i class="inbox icon"></i> <span locale="contextmenu/unzip">Unzip Here</span>
+                <span locale="contextmenu/unzip">Unzip Here</span> <i class="inbox icon"></i>
             </div>
             <div class="item" onclick="rename();">
-                <i class="i cursor icon"></i> <span locale="contextmenu/rename">Rename</span>
+                <span locale="contextmenu/rename">Rename</span>
             </div>
             <div class="item" onclick="deleteFile();">
-                <i class="trash icon"></i> <span locale="contextmenu/delete">Delete</span>
+                <span locale="contextmenu/delete">Delete</span> <i class="trash icon"></i>
             </div>
             <div class="item folderonly singleObjectOnlyHide" onclick="createDesktopShortcut();">
-                <i class="external square icon"></i> <span locale="opr/shortcut/title">Create Shortcut on Desktop</span>
+                <span locale="opr/shortcut/title">Create Shortcut on Desktop</span> <i class="external square icon"></i>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="refreshList();">
-                <i class="refresh icon"></i> <span locale="contextmenu/refresh">Refresh</span>
+                <span locale="contextmenu/refresh">Refresh</span> <i class="refresh icon"></i>
             </div>
             <div class="item" onclick="downloadFile();">
-                <i class="download icon"></i> <span locale="contextmenu/download">Download</span>
+                <span locale="contextmenu/download">Download</span> <i class="download icon"></i>
             </div>
             <div class="item" onclick="showFileProperties();">
-                <i class="info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
+                <span locale="contextmenu/properties">Properties</span>
             </div>
             <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
             <div class="item noSelectionOnly" onclick="showCurrentDirectoryProperties();">
-                <i class="ui info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
+                <span locale="contextmenu/properties">Properties</span>
             </div>
             <div class="item vrootonly" onclick="showSharesManager();">
-                <i class="share alternate icon"></i> <span locale="contextmenu/sharemanager">Open Shares Manager</span>
+                <span locale="contextmenu/sharemanager">Open Shares Manager</span> <i class="share alternate icon"></i>
             </div>
             <!-- This properties show the vroot properties -->
+            <div class="item specialviewonly" onclick="createSpecialViewShortcut();">
+                <span locale="opr/shortcut/create">Create Desktop Shortcut</span> <i class="external icon"></i>
+            </div>
+            <div class="item vrootonly" onclick="createVrootShortcut();">
+                <span locale="opr/shortcut/create">Create Desktop Shortcut</span> <i class="external icon"></i>
+            </div>
             <div class="item vrootonly" onclick="showVrootProperties();">
-                <i class="ui info circle icon"></i> <span locale="contextmenu/properties">Properties</span>
+                <span locale="contextmenu/properties">Properties</span>
             </div>
         </div>
 
@@ -517,13 +533,14 @@
         </div>
 
         <!--
-            Transfer panel. Shows one row per upload (and per zip-preparation
-            task started from download.js). Rendering lives in
-            js/explorer/uploadui.js - the markup below is only the shell.
+            Transfer panel. Shows one row per task - an upload, or the server
+            side zipping a folder download starts in download.js - so its title
+            and summary icon are deliberately generic. Rendering lives in
+            js/explorer/uploadui.js; the markup below is only the shell.
         -->
         <div id="uploadTab" style="display:none;">
             <div class="uploadHeader">
-                <span class="uploadHeaderTitle" id="uploadHeaderTitle">Uploading</span>
+                <span class="uploadHeaderTitle" id="uploadHeaderTitle">Tasks</span>
                 <div class="uploadHeaderBtn" onclick="toggleUploadMinimize();" title="Minimize">
                     <span data-fsicon="minus"></span>
                 </div>
@@ -535,7 +552,7 @@
 
             </div>
             <div class="uploadSummary">
-                <span class="uploadSummaryIcon" data-fsicon="cloudUpload"></span>
+                <span class="uploadSummaryIcon" id="uploadSummaryIcon" data-fsicon="taskProgress"></span>
                 <span class="uploadSummaryText" id="uploadSummaryText"></span>
             </div>
             <div class="uploadActions">
@@ -549,6 +566,71 @@
             </div>
         </div>
 
+        <!-- Permanent delete confirmation. The one action in the trash bin with
+             nothing behind it - the bin is already the safety net - so it is the
+             one that asks first. Raised by confirmTrashDelete() and
+             confirmEmptyTrashBin() in js/explorer/trash.js. -->
+        <div id="trashDeleteConfirmBox" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="trash icon"></i> <span locale="trash/confirm/title">Delete Permanently?</span>
+                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div class="popupcontent">
+                <p><span class="trashConfirmDesc"></span></p>
+                <div class="popupbuttons allowHover negative" onclick="trashDeleteConfirmed();">
+                    <i class="trash icon"></i> <span locale="trash/confirm/confirm">Delete Permanently</span>
+                </div>
+                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i> <span locale="trash/confirm/cancel">Cancel</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trash bin full. Raised when the server refuses a recycle because the
+             user's trash size limit would be exceeded; nothing has moved yet. -->
+        <div id="trashFullBox" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="trash icon"></i> <span locale="trash/full/title">Trash Bin Full</span>
+                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div class="popupcontent">
+                <p><span locale="trash/full/desc">The trash bin has reached its size limit, so these files cannot be moved into it.</span></p>
+                <div class="popupbuttons allowHover primary" onclick="trashFullClearAndRecycle();">
+                    <i class="recycle icon"></i> <span locale="trash/full/clearfirst">Empty the trash bin and move them there</span>
+                </div>
+                <div class="popupbuttons allowHover negative" onclick="trashFullDeleteDirectly();">
+                    <i class="trash icon"></i> <span locale="trash/full/deletenow">Delete them permanently instead</span>
+                </div>
+                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i> <span locale="trash/full/cancel">Do nothing</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trashed item details. Filled by js/explorer/trash.js; this is how
+             the columns the narrow layout drops stay reachable. -->
+        <div id="trashDetailsBox" class="popup" style="display:none;">
+            <div class="popupheader">
+                <i class="trash icon"></i> <span locale="trash/details">Details</span>
+                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i>
+                </div>
+            </div>
+            <div class="popupcontent">
+                <table class="fmTrashDetailTable"></table>
+                <div class="popupbuttons allowHover primary fmTrashDetailRestore">
+                    <i class="checkmark icon"></i> <span locale="trash/restore">Restore</span>
+                </div>
+                <div class="popupbuttons allowHover" onclick="hideAllPopupWindows();">
+                    <i class="remove icon"></i> <span locale="opr/rename/cancel">Cancel</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Confirm Exit -->
          <!-- Open With Dialog-->
          <div id="confirmExit" class="popup" style="display:none;">
@@ -558,7 +640,7 @@
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div class="popupcontent" style="padding:12px;">
+            <div class="popupcontent">
                 <p locale="opr/confirmclose/desc">This file manager instance is currently uploading file to server. Closing this instance will cancel the upload tasks. <br>
                     <b>Confirm Exit?</b></p>
                 <div class="popupbuttons negative allowHover" onclick="ao_module_closeHandler(); hideAllPopupWindows();">
@@ -572,6 +654,7 @@
 
            
         <!-- Shared with file_selector.html: file icons, thumbnails, opener lookup -->
+        <script type="text/javascript" src="shared/specialpaths.js"></script>
         <script type="text/javascript" src="shared/fsicons.js"></script>
         <script type="text/javascript" src="shared/filethumb.js"></script>
         
@@ -591,6 +674,9 @@
         <script type="text/javascript" src="js/explorer/pathbar.js"></script>
         <script type="text/javascript" src="js/explorer/sidebar.js"></script>
         <script type="text/javascript" src="js/explorer/viewmode.js"></script>
+        <script type="text/javascript" src="js/explorer/splitter.js"></script>
+        <script type="text/javascript" src="js/explorer/specialview.js"></script>
+        <script type="text/javascript" src="js/explorer/trash.js"></script>
         <script type="text/javascript" src="js/explorer/search.js"></script>
         <script type="text/javascript" src="js/explorer/uploadui.js"></script>
         <script type="text/javascript" src="js/explorer/upload.js"></script>

@@ -1,0 +1,149 @@
+/*
+    Cluster Settings / Cluster Info shared styles
+*/
+/* Scoped with :where() so it neither leaks into the System Settings page
+   this is injected into nor outranks the class rules below */
+:where(#cl-root, #cl-root *) { box-sizing: border-box; margin: 0; padding: 0; }
+
+#cl-root {
+    --cl-bg:        #f5f5f7;
+    --cl-card:      #ffffff;
+    --cl-card-head: #fafafa;
+    --cl-border:    rgba(0,0,0,0.08);
+    --cl-text:      #1d1d1f;
+    --cl-dim:       #6e6e73;
+    --cl-muted:     #98989d;
+    --cl-accent:    #0071e3;
+    --cl-success:   #34c759;
+    --cl-warn:      #ff9f0a;
+    --cl-danger:    #ff3b30;
+    --cl-hover:     rgba(0,0,0,0.04);
+    --cl-input:     #ffffff;
+    --cl-chip:      rgba(0,113,227,0.10);
+    --cl-shadow:    0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--cl-text);
+    background: var(--cl-bg);
+    padding: 20px;
+    min-height: 100vh;
+}
+#cl-root.dark {
+    --cl-bg:        #1f1f1f;
+    --cl-card:      #2c2c2e;
+    --cl-card-head: #232325;
+    --cl-border:    rgba(255,255,255,0.09);
+    --cl-text:      #f2f2f7;
+    --cl-dim:       #aeaeb2;
+    --cl-muted:     #636366;
+    --cl-accent:    #2997ff;
+    --cl-success:   #30d158;
+    --cl-warn:      #ffd60a;
+    --cl-danger:    #ff453a;
+    --cl-hover:     rgba(255,255,255,0.05);
+    --cl-input:     #1c1c1e;
+    --cl-chip:      rgba(41,151,255,0.18);
+    --cl-shadow:    0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
+}
+
+#cl-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+#cl-header img { width: 40px; height: 40px; border-radius: 9px; }
+#cl-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+#cl-header p  { font-size: 13px; color: var(--cl-dim); margin-top: 2px; }
+
+.cl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .cl-grid { grid-template-columns: 1fr; } }
+
+.cl-card {
+    background: var(--cl-card); border-radius: 12px; box-shadow: var(--cl-shadow);
+    overflow: hidden; margin-bottom: 16px;
+}
+.cl-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: var(--cl-card-head); border-bottom: 1px solid var(--cl-border);
+    font-weight: 600; font-size: 14px;
+}
+.cl-card-head .cl-sub { font-weight: 400; color: var(--cl-dim); font-size: 12px; margin-left: 8px; }
+.cl-card-body { padding: 16px; }
+
+.cl-field { margin-bottom: 12px; }
+.cl-field label { display: block; font-size: 12px; color: var(--cl-dim); margin-bottom: 4px; }
+.cl-field input[type=text], .cl-field textarea, .cl-field select {
+    width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--cl-border);
+    background: var(--cl-input); color: var(--cl-text); font: inherit; font-size: 13px;
+}
+.cl-field textarea { min-height: 72px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.cl-hint { font-size: 11px; color: var(--cl-muted); margin-top: 4px; }
+.cl-row { display: flex; gap: 8px; align-items: center; }
+.cl-row > * { flex: 1; }
+.cl-row > .cl-fixed { flex: 0 0 auto; }
+.cl-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cl-text); cursor: pointer; }
+
+.cl-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--cl-border); background: var(--cl-card); color: var(--cl-text);
+    font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.cl-btn:hover { background: var(--cl-hover); }
+.cl-btn.primary { background: var(--cl-accent); border-color: transparent; color: #fff; }
+.cl-btn.primary:hover { filter: brightness(1.08); }
+.cl-btn.danger { color: var(--cl-danger); }
+.cl-btn.small { padding: 4px 9px; font-size: 12px; }
+.cl-btn:disabled { opacity: 0.5; cursor: default; }
+.cl-btn svg { width: 13px; height: 13px; }
+
+.cl-kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 12px; font-size: 13px; }
+.cl-kv dt { color: var(--cl-dim); }
+.cl-kv dd { word-break: break-all; }
+.cl-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+.cl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cl-chip { background: var(--cl-chip); color: var(--cl-accent); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 500; }
+
+.cl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; color: #fff; }
+.cl-badge.ONLINE      { background: var(--cl-success); }
+.cl-badge.DEGRADED    { background: var(--cl-warn); color: #1d1d1f; }
+.cl-badge.UNKNOWN     { background: var(--cl-muted); }
+.cl-badge.OFFLINE     { background: var(--cl-danger); }
+.cl-badge.MAINTENANCE { background: #5e5ce6; }
+.cl-badge.DRAINING    { background: #ff9f0a; color: #1d1d1f; }
+
+.cl-bar { height: 6px; border-radius: 3px; background: var(--cl-border); overflow: hidden; margin-top: 4px; }
+.cl-bar > div { height: 100%; background: var(--cl-accent); }
+.cl-bar.warn > div { background: var(--cl-warn); }
+.cl-bar.bad > div { background: var(--cl-danger); }
+
+table.cl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.cl-table th { text-align: left; font-weight: 600; color: var(--cl-dim); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--cl-border); }
+table.cl-table td { padding: 10px; border-bottom: 1px solid var(--cl-border); vertical-align: top; }
+table.cl-table tr:last-child td { border-bottom: none; }
+table.cl-table tr:hover td { background: var(--cl-hover); }
+.cl-node-name { font-weight: 600; }
+.cl-node-meta { color: var(--cl-dim); font-size: 12px; margin-top: 2px; }
+.cl-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.cl-empty { text-align: center; color: var(--cl-muted); padding: 24px 0; font-size: 13px; }
+.cl-msg { padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px; display: none; }
+.cl-msg.ok { display: block; background: rgba(52,199,89,0.14); color: var(--cl-success); }
+.cl-msg.err { display: block; background: rgba(255,59,48,0.12); color: var(--cl-danger); }
+.cl-sep { height: 1px; background: var(--cl-border); margin: 14px 0; }
+.cl-token-box {
+    background: var(--cl-input); border: 1px dashed var(--cl-border); border-radius: 8px; padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; margin-top: 8px;
+}
+.cl-inline-list { list-style: none; }
+.cl-inline-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--cl-border); font-size: 12px; }
+.cl-inline-list li:last-child { border-bottom: none; }
+#cl-refresh { color: var(--cl-muted); font-size: 11px; }
+
+/* Shared by Cluster Settings and Cluster Info */
+#cl-header .cl-links { display: flex; gap: 6px; }
+#cl-header .cl-links a { font-size: 12px; color: var(--cl-accent); text-decoration: none; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--cl-border); background: var(--cl-card); }
+#cl-header .cl-links a:hover { background: var(--cl-hover); }
+.cl-notice { background: var(--cl-card); border-radius: 12px; box-shadow: var(--cl-shadow); padding: 18px 20px; margin-bottom: 16px; font-size: 13px; color: var(--cl-dim); }
+.cl-notice b { color: var(--cl-text); }
+.cl-toggle { display: flex; align-items: flex-start; gap: 10px; }
+.cl-toggle input { margin-top: 3px; }
+.cl-toggle .cl-hint { margin-top: 2px; }

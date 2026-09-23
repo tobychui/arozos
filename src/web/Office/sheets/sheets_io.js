@@ -15,6 +15,19 @@ var SheetsIO = (function () {
     var Core = SheetsApp;
     var F = SheetFormula;
     var XLSX_BACKEND = "Office/sheets/backend/xlsx.agi";
+    /* The same Go converters either way: the office AGI library in ArozOS,
+       the WebAssembly build of it (src/wasm/office) in the standalone web
+       edition. One descriptor names both; OfficePlatform picks. A null wasm
+       name marks a conversion that is still server-only. */
+    var CONVERT = {
+        "import": { agi: XLSX_BACKEND, action: "import", wasm: "xlsxToWorkbook" },
+        "import-odf": { agi: XLSX_BACKEND, action: "import-odf", wasm: "odsToWorkbook" },
+        "export": { agi: XLSX_BACKEND, action: "export", wasm: "workbookToXlsx" },
+        "export-odf": { agi: XLSX_BACKEND, action: "export-odf", wasm: "workbookToOds" },
+        // the real-text PDF renderer stays server side; the web edition
+        // offers File > Print / PDF instead
+        "export-pdf": { agi: XLSX_BACKEND, action: "export-pdf", wasm: null }
+    };
 
     function esc(t) { return OfficeApp.escapeHtml(t); }
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -104,6 +117,10 @@ var SheetsIO = (function () {
             var ch = chartById(id);
             if (!ch) return;
             Core.selectChart(id);
+            if (e.button !== 0) {               // right-click: select only, the menu follows
+                e.stopPropagation();
+                return;
+            }
             var isRz = e.target.classList.contains("sh-chart-rz");
             chDrag = {
                 id: id, rz: isRz,
@@ -111,15 +128,26 @@ var SheetsIO = (function () {
                 g: { x: ch.x, y: ch.y, w: ch.w, h: ch.h },
                 moved: false
             };
-            try { el.setPointerCapture(e.pointerId); } catch (err) { }
             e.preventDefault();
             e.stopPropagation();
+            // renderCharts() rebuilds the layer on every move, which would
+            // drop a pointer capture held by the chart element; the overlay
+            // keeps receiving events however far the cursor runs ahead
+            OfficeApp.beginDrag(e, {
+                cursor: isRz ? "nwse-resize" : "move",
+                move: moveChartDrag,
+                end: function () {
+                    if (!chDrag) return;
+                    var moved = chDrag.moved;
+                    chDrag = null;
+                    if (moved) Core.markDirtyUndo();
+                }
+            });
         });
-        layer.addEventListener("pointermove", function (e) {
+        function moveChartDrag(e) {
             if (!chDrag) return;
             var ch = chartById(chDrag.id);
             if (!ch) return;
-            var z = Core.zoomFactor() || 1;
             var dx = (e.clientX - chDrag.startX), dy = (e.clientY - chDrag.startY);
             if (Math.abs(dx) + Math.abs(dy) > 2) chDrag.moved = true;
             if (chDrag.rz) {
@@ -130,15 +158,7 @@ var SheetsIO = (function () {
                 ch.y = Math.max(0, Math.round(chDrag.g.y + dy));
             }
             renderCharts();
-        });
-        function up() {
-            if (!chDrag) return;
-            var moved = chDrag.moved;
-            chDrag = null;
-            if (moved) Core.markDirtyUndo();
         }
-        layer.addEventListener("pointerup", up);
-        layer.addEventListener("pointercancel", up);
         layer.addEventListener("dblclick", function (e) {
             var el = e.target.closest ? e.target.closest(".sh-chart") : null;
             if (!el) return;
@@ -355,7 +375,9 @@ var SheetsIO = (function () {
         if (t.indexOf(delim) >= 0 || t.indexOf("\n") >= 0 || t.indexOf("\r") >= 0) return '"' + t + '"';
         return t;
     }
-    function exportDelimited(delim) {
+    // the active sheet's used range as delimited text (values, not formulas),
+    // with the BOM Excel needs to read it back as UTF-8
+    function delimitedText(delim) {
         var ur = Core.usedRange();
         var lines = [];
         for (var r = ur.r1; r <= ur.r2; r++) {
@@ -371,9 +393,12 @@ var SheetsIO = (function () {
             }
             lines.push(row.join(delim));
         }
+        return "﻿" + lines.join("\r\n");
+    }
+    function exportDelimited(delim) {
         var ext = delim === "\t" ? ".tsv" : ".csv";
         var name = OfficeApp.stripExt(OfficeApp.getFileName() || "spreadsheet") + ext;
-        var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+        var blob = new Blob([delimitedText(delim)], { type: "text/csv;charset=utf-8" });
         var a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = name;
@@ -382,19 +407,122 @@ var SheetsIO = (function () {
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
         OfficeApp.setStatus("Exported " + name);
     }
+    // Save As / save-back target: writes into the ArozOS file system rather
+    // than downloading, so the document can go on living in that file
+    function saveDelimited(delim, fp, fn, done, fail) {
+        OfficeApp.vfsSave(fp, delimitedText(delim), done, fail);
+    }
+
+    /* ========== what each foreign format cannot hold ==========
+       Returned to OfficeApp as plain-string reasons: a non-empty list makes
+       it refuse the save and steer the user to .xlsa instead of quietly
+       shipping a file that has lost content. Purely visual formatting (fonts,
+       colors, number formats, column widths) is NOT counted - it never
+       survived a text grid and blocking on it would nag on every edit. */
+    function countCells(s, pred) {
+        var n = 0;
+        Object.keys(s.cells || {}).forEach(function (k) {
+            if (pred(s.cells[k])) n++;
+        });
+        return n;
+    }
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+    // .csv / .tsv: one sheet of plain values, nothing else
+    function delimitedUnsupported() {
+        var body = Core.getBody();
+        var s = Core.sheet();
+        var out = [];
+        if (body.sheets.length > 1) {
+            out.push(plural(body.sheets.length, "sheet", "sheets") +
+                " - a delimited text file holds only one");
+        }
+        var formulas = countCells(s, function (cell) {
+            return cell && typeof cell.v === "string" && cell.v.charAt(0) === "=";
+        });
+        if (formulas) {
+            out.push(plural(formulas, "formula", "formulas") + " - only " +
+                (formulas === 1 ? "its current value" : "their current values") + " would be kept");
+        }
+        var notes = countCells(s, function (cell) { return cell && cell.n; });
+        if (notes) out.push(plural(notes, "cell note", "cell notes"));
+        if (s.charts && s.charts.length) out.push(plural(s.charts.length, "chart", "charts"));
+        if (s.merges && s.merges.length) {
+            out.push(plural(s.merges.length, "merged cell range", "merged cell ranges"));
+        }
+        return out;
+    }
+    // .ods: everything but charts round-trips (mod/office/ods_writer.go)
+    function odsUnsupported() {
+        var n = 0;
+        Core.getBody().sheets.forEach(function (s) { n += (s.charts || []).length; });
+        return n ? [plural(n, "chart", "charts") +
+            " - the OpenDocument spreadsheet writer cannot store charts"] : [];
+    }
+
+    /* converter-backed writers, shared with the Export menu but reporting
+       through the framework's save callbacks instead of a toast */
+    function saveViaConverter(action, fp, done, fail) {
+        OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.exportBody()),
+            function () { done(); }, fail);
+    }
+    function savePdf(fp, fn, done, fail) {
+        var model;
+        try { model = Core.buildPrintModel(); }
+        catch (e) { fail(e.message); return; }
+        OfficeApp.agirunLarge(XLSX_BACKEND, {
+            action: "export-pdf",
+            dest: fp,
+            data: JSON.stringify(model)
+        }, "data", function () { done(); }, fail, 180000);
+    }
+    /*
+        The formats File > Save as offers besides .xlsa, and the ones a
+        document opened from .xlsx/.ods/.csv/.tsv is saved back into.
+        PDF is oneWay: it is a rendering, so saving one leaves the document
+        itself still pointing at its own file.
+    */
+    /* needsConvert marks the writers that go through the Office format
+       converters, needsBackend the ones that need a server outright (the
+       real-text PDF renderer). OfficeApp drops whichever the running host
+       cannot do from Save as / save-back / autosave, leaving the delimited
+       writers - built right here in the browser - always available. */
+    var SAVE_FORMATS = [
+        {
+            ext: ".xlsx", label: "Excel workbook (.xlsx)", icon: "file excel outline",
+            needsConvert: true,
+            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
+        },
+        {
+            ext: ".ods", label: "OpenDocument spreadsheet (.ods)", icon: "file alternate outline",
+            needsConvert: true,
+            unsupported: odsUnsupported,
+            save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
+        },
+        {
+            ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
+            needsBackend: true,
+            oneWay: true, save: savePdf
+        },
+        {
+            ext: ".csv", label: "CSV (.csv)", icon: "file alternate outline",
+            unsupported: delimitedUnsupported,
+            save: function (fp, fn, done, fail) { saveDelimited(",", fp, fn, done, fail); }
+        },
+        {
+            ext: ".tsv", label: "TSV (.tsv)", icon: "file alternate outline",
+            unsupported: delimitedUnsupported,
+            save: function (fp, fn, done, fail) { saveDelimited("\t", fp, fn, done, fail); }
+        }
+    ];
 
     /* ================= XLSX (server-side via the office AGI lib) ================= */
     // shared by .xlsx ("import") and .ods ("import-odf")
     function importXlsx(fp, fn, action) {
         action = action || "import";
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(XLSX_BACKEND, { action: action, src: fp }, function (data) {
+        OfficePlatform.convertIn(CONVERT[action], fp, function (body) {
             OfficeApp.hideBusy();
-            if (!data || data.error) {
-                OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
-                return;
-            }
-            var b = data.body;
+            var b = body;
             if (typeof b === "string") {
                 try { b = JSON.parse(b); } catch (e) { b = null; }
             }
@@ -402,58 +530,46 @@ var SheetsIO = (function () {
                 OfficeApp.toast("Import failed: unexpected response", "error");
                 return;
             }
-            Core.setBody(b);
-            OfficeApp.markDirty();
-            OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .xlsa");
-        }, function () {
+            OfficeApp.splashStep("Preparing the sheets...", function () {
+                Core.setBody(b);
+                // the framework kept us attached to the source file, so Save
+                // writes straight back to it in its own format
+                OfficeApp.setStatus("Opened " + fn);
+                OfficeApp.documentLoaded();
+            });
+        }, function (msg) {
             OfficeApp.hideBusy();
-            OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
-        }, 120000);
+            OfficeApp.toast("Import failed: " + msg, "error");
+        });
     }
     function importOds(fp, fn) { importXlsx(fp, fn, "import-odf"); }
     function importXlsxDialog() {
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    var fp = files[0].filepath, fn = files[0].filename;
-                    if (/\.ods$/i.test(fn)) importOds(fp, fn);
-                    else importXlsx(fp, fn);
-                }
-            }, "user:/Desktop", "file", false, { filter: ["xlsx", "ods"] });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        if (!OfficePlatform.requireConvert("Excel / OpenDocument import")) return;
+        OfficePlatform.pickOpen({ filter: ["xlsx", "ods"], memoryKey: "import" }, function (files) {
+            var fp = files[0].filepath, fn = files[0].filename;
+            if (/\.ods$/i.test(fn)) importOds(fp, fn);
+            else importXlsx(fp, fn);
+        });
     }
     // shared by .xlsx ("export") and .ods ("export-odf")
     function exportSheetFile(ext, action, busyLabel) {
+        if (!OfficePlatform.requireConvert("Exporting " + ext)) return;
         var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ext;
-        var extRe = new RegExp("\\" + ext + "$", "i");
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                var fp = files[0].filepath;
-                if (!extRe.test(fp)) fp += ext;
-                OfficeApp.showBusy(busyLabel);
-                ao_module_agirun(XLSX_BACKEND, {
-                    action: action,
-                    dest: fp,
-                    data: JSON.stringify(Core.getBody())
-                }, function (data) {
-                    OfficeApp.hideBusy();
-                    if (data && data.error) {
-                        OfficeApp.toast("Export failed: " + data.error, "error");
-                    } else {
-                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                    }
-                }, function () {
-                    OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
-                }, 180000);
-            }, "user:/Desktop", "new", false, { defaultName: defName });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            OfficeApp.showBusy(busyLabel);
+            // in ArozOS this posts through agirunLarge (workbooks with
+            // inlined images blow past the 10MB POST form limit); in the web
+            // edition it runs in the wasm module and downloads
+            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.exportBody()), function () {
+                OfficeApp.hideBusy();
+                OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+            }, function (errmsg) {
+                OfficeApp.hideBusy();
+                OfficeApp.toast("Export failed: " + errmsg, "error");
+            });
+        });
     }
     function exportXlsx() { exportSheetFile(".xlsx", "export", "Exporting Excel file..."); }
     function exportOds() { exportSheetFile(".ods", "export-odf", "Exporting OpenDocument file..."); }
@@ -461,41 +577,32 @@ var SheetsIO = (function () {
     // (formatted display strings + styles) instead of the raw workbook,
     // since formula evaluation lives in this client
     function exportPdf() {
+        if (!OfficePlatform.requireBackend("PDF export")) return;
         var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ".pdf";
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                var fp = files[0].filepath;
-                if (!/\.pdf$/i.test(fp)) fp += ".pdf";
-                OfficeApp.showBusy("Exporting PDF...");
-                var model;
-                try {
-                    model = Core.buildPrintModel();
-                } catch (e) {
-                    OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: " + e.message, "error");
-                    return;
-                }
-                ao_module_agirun(XLSX_BACKEND, {
-                    action: "export-pdf",
-                    dest: fp,
-                    data: JSON.stringify(model)
-                }, function (data) {
-                    OfficeApp.hideBusy();
-                    if (data && data.error) {
-                        OfficeApp.toast("Export failed: " + data.error, "error");
-                    } else {
-                        OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                    }
-                }, function () {
-                    OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
-                }, 180000);
-            }, "user:/Desktop", "new", false, { defaultName: defName });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        OfficePlatform.pickSave({ defaultName: defName, ext: ".pdf", memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            OfficeApp.showBusy("Exporting PDF...");
+            var model;
+            try {
+                model = Core.buildPrintModel();
+            } catch (e) {
+                OfficeApp.hideBusy();
+                OfficeApp.toast("Export failed: " + e.message, "error");
+                return;
+            }
+            OfficeApp.agirunLarge(XLSX_BACKEND, {
+                action: "export-pdf",
+                dest: fp,
+                data: JSON.stringify(model)
+            }, "data", function () {
+                OfficeApp.hideBusy();
+                OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+            }, function (errmsg) {
+                OfficeApp.hideBusy();
+                OfficeApp.toast("Export failed: " + errmsg, "error");
+            }, 180000);
+        });
     }
 
     /* ================= print ================= */
@@ -732,6 +839,7 @@ var SheetsIO = (function () {
         parseDelimited: parseDelimited,
         importDelimited: importDelimited,
         exportDelimited: exportDelimited,
+        saveFormats: SAVE_FORMATS,
         importXlsx: importXlsx,
         importOds: importOds,
         importXlsxDialog: importXlsxDialog,

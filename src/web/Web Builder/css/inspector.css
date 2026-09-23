@@ -1,0 +1,216 @@
+/*
+    inspector.css
+
+    Right dock: the element inspector (Content / Design / Advanced tabs),
+    its header with the element identity + quick actions, and the collapsible
+    property groups (Spacing, Responsive, Effects ...).
+*/
+
+#wb-inspector {
+    width: var(--wb-inspector-w);
+    flex-shrink: 0;
+    background: var(--wb-surface);
+    border-left: 1px solid var(--wb-border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    z-index: 20;
+}
+
+/* breadcrumb at the very top of the inspector */
+/* The chain can be longer than the dock; clip the far ancestors so the
+   element you are actually editing stays visible at the end. */
+#wb-insp-path {
+    display: flex; align-items: center; gap: 3px;
+    justify-content: flex-end;
+    padding: 10px 14px 0;
+    font-size: 11.5px;
+    color: var(--wb-text-dim);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+#wb-insp-path .wb-crumb { flex-shrink: 0; }
+#wb-insp-path .wb-crumb { padding: 1px 3px; }
+
+#wb-insp-head {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 14px 12px;
+    border-bottom: 1px solid var(--wb-border);
+    flex-shrink: 0;
+}
+#wb-insp-title { flex: 1; min-width: 0; }
+#wb-insp-name {
+    font-size: 14.5px; font-weight: 650;
+    letter-spacing: -0.2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#wb-insp-id {
+    font-size: 11.5px; color: var(--wb-text-dim);
+    font-family: var(--wb-mono);
+    margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#wb-insp-actions { display: flex; gap: 1px; flex-shrink: 0; }
+
+/* tabs */
+#wb-insp-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--wb-border);
+    padding: 0 8px;
+    flex-shrink: 0;
+}
+.wb-tab {
+    flex: 1;
+    background: transparent; border: 0;
+    padding: 9px 4px 8px;
+    font-size: 12.5px; font-weight: 500;
+    color: var(--wb-text-dim);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.wb-tab:hover { color: var(--wb-text); }
+.wb-tab.active { color: var(--wb-accent); border-bottom-color: var(--wb-accent); font-weight: 600; }
+
+#wb-insp-body { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+.wb-insp-tabpage { display: none; padding: 14px; }
+.wb-insp-tabpage.active { display: block; }
+
+/* breakpoint editing hint */
+#wb-bp-hint {
+    display: none;
+    align-items: center; gap: 7px;
+    margin: 12px 14px 0;
+    flex-shrink: 0;
+    padding: 8px 10px;
+    border-radius: 7px;
+    background: var(--wb-accent-soft);
+    border: 1px solid var(--wb-accent-line);
+    color: var(--wb-accent-text);
+    font-size: 11px; line-height: 1.45;
+}
+body.dark #wb-bp-hint { color: var(--wb-accent); }
+#wb-bp-hint.show { display: flex; }
+#wb-bp-hint svg { flex-shrink: 0; }
+
+/* property groups */
+.wb-prop-group { border-top: 1px solid var(--wb-border); }
+.wb-prop-group:first-child { border-top: 0; }
+.wb-prop-group-hd {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    padding: 11px 0 10px;
+    background: transparent; border: 0;
+    font-size: 12.5px; font-weight: 600;
+    color: var(--wb-text);
+    text-align: left;
+}
+.wb-prop-group-hd .wb-caret { margin-left: auto; color: var(--wb-text-dim); transition: transform 0.14s; }
+.wb-prop-group.open .wb-prop-group-hd .wb-caret { transform: rotate(180deg); }
+.wb-prop-group-bd { display: none; padding-bottom: 14px; }
+.wb-prop-group.open .wb-prop-group-bd { display: block; }
+.wb-prop-group-hd .wb-mod-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--wb-accent);
+    display: none;
+}
+.wb-prop-group.modified .wb-prop-group-hd .wb-mod-dot { display: block; }
+
+/* plain section (always open) */
+.wb-insp-block { padding-bottom: 14px; border-bottom: 1px solid var(--wb-border); margin-bottom: 14px; }
+.wb-insp-block:last-child { border-bottom: 0; margin-bottom: 0; }
+.wb-insp-block-title {
+    font-size: 12.5px; font-weight: 600;
+    margin: 0 0 10px;
+}
+
+/* two / four column grids for spacing style boxes */
+.wb-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wb-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wb-grid-2 .wb-field, .wb-grid-4 .wb-field { margin-bottom: 0; }
+.wb-mini-label {
+    font-size: 10px; color: var(--wb-text-mute);
+    text-align: center; margin-top: 3px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+}
+.wb-box-input {
+    width: 100%;
+    border: 1px solid var(--wb-border-strong);
+    border-radius: 6px;
+    background: var(--wb-surface);
+    padding: 5px 4px;
+    font-size: 11.5px; text-align: center;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+}
+.wb-box-input:focus { border-color: var(--wb-accent); box-shadow: 0 0 0 3px var(--wb-accent-soft); }
+.wb-box-input::-webkit-outer-spin-button,
+.wb-box-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* spacing visualiser */
+.wb-spacing-box {
+    border: 1px dashed var(--wb-border-strong);
+    border-radius: 8px;
+    padding: 8px;
+    background: var(--wb-surface-2);
+}
+.wb-spacing-box + .wb-spacing-box { margin-top: 10px; }
+.wb-spacing-tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--wb-text-mute); margin-bottom: 7px;
+}
+
+/* link / list editors */
+.wb-list-editor { display: flex; flex-direction: column; gap: 6px; }
+.wb-list-row {
+    display: flex; align-items: center; gap: 6px;
+}
+.wb-list-row .wb-input { flex: 1; min-width: 0; }
+.wb-list-row .wb-drag { color: var(--wb-text-mute); cursor: grab; display: flex; flex-shrink: 0; }
+
+/* attribute editor */
+.wb-attr-row { display: grid; grid-template-columns: 1fr 1fr 22px; gap: 6px; align-items: center; }
+
+/* miniature of the post-submission page, which has no other preview */
+.wb-reply-preview {
+    border: 1px solid var(--wb-border);
+    border-radius: var(--wb-radius);
+    padding: 18px 14px;
+    margin-bottom: 14px;
+    text-align: center;
+    overflow: hidden;
+}
+.wb-reply-mark {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px;
+}
+.wb-reply-title { font-size: 14px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 5px; }
+.wb-reply-body { font-size: 11px; line-height: 1.5; opacity: 0.72; margin-bottom: 12px; }
+.wb-reply-btn {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11px; font-weight: 600;
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* nothing selected state */
+#wb-insp-empty {
+    padding: 40px 22px;
+    text-align: center;
+    color: var(--wb-text-mute);
+}
+#wb-insp-empty .wb-empty-icon {
+    width: 42px; height: 42px;
+    margin: 0 auto 12px;
+    border-radius: 12px;
+    background: var(--wb-surface-3);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--wb-text-mute);
+}
+#wb-insp-empty h4 { margin: 0 0 5px; font-size: 13px; font-weight: 600; color: var(--wb-text); }
+#wb-insp-empty p { margin: 0; font-size: 11.5px; line-height: 1.6; }

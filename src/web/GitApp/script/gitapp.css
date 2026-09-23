@@ -543,6 +543,22 @@ button i.icon {
     text-overflow: ellipsis;
 }
 
+/*
+    Middle column of the History tab: the files a commit touched.
+
+    They used to be chips along the diff header, which overflowed as soon as a
+    commit touched more than a handful of files; a column of their own scrolls
+    instead. Its width is the second splitter's to control.
+*/
+.commitfilepane {
+    flex: 0 0 260px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--sidebar-bg);
+}
+
 /* ── Content pane ────────────────────────────────────────────────────── */
 
 .content {

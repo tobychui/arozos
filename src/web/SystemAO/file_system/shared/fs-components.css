@@ -93,7 +93,7 @@ body.darkTheme .fsBigIcon svg path[fill="#ffffff"] { fill: #e4e6ea; }
     border: 1px solid var(--fs-line);
     border-radius: 10px;
     box-shadow: 0 8px 28px var(--fs-shadow);
-    padding: 6px;
+    padding: 4px;
     display: none;
 }
 .fsMenu.open { display: block; }
@@ -101,8 +101,8 @@ body.darkTheme .fsBigIcon svg path[fill="#ffffff"] { fill: #e4e6ea; }
 .fsMenuItem {
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 6px 9px;
+    gap: 6px;
+    padding: 4px 6px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 13.5px;
@@ -136,7 +136,7 @@ body.darkTheme .fsBigIcon svg path[fill="#ffffff"] { fill: #e4e6ea; }
 /* Right-aligned keyboard shortcut hint */
 .fsMenuShortcut {
     margin-left: auto;
-    padding-left: 18px;
+    padding-left: 12px;
     color: var(--fs-text-faint);
     font-size: 12px;
 }
@@ -144,7 +144,7 @@ body.darkTheme .fsBigIcon svg path[fill="#ffffff"] { fill: #e4e6ea; }
 .fsMenuSep {
     height: 1px;
     background: var(--fs-line-soft);
-    margin: 5px 4px;
+    margin: 3px;
 }
 
 /* A menu positioned against the viewport rather than an offset parent */

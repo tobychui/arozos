@@ -28,6 +28,7 @@ var (
 		"STDERR",
 		"COM",
 		"ws",
+		"cluster",
 	}
 )
 

@@ -135,7 +135,18 @@
         var label = ext.substring(0, 4).toUpperCase();
         var badgeWidth = 9 + label.length * 4.6;
         var fontSize = label.length >= 4 ? 5.4 : 6.4;
-        return '<div class="fsBigIcon"><svg viewBox="0 0 48 60">' +
+        /*
+            The viewBox starts at -1.6, not 0, so the glyph sits centred.
+
+            The sheet spans x 5.2..41.8 (its stroke included) but the extension
+            badge deliberately overhangs its left edge down to x=3, with nothing
+            balancing it on the right - so the drawn content's centre is 22.4,
+            not the 24 a 0..48 window would assume. Shifting the window rather
+            than the paths keeps every coordinate below unchanged, and the
+            badge's width does not affect it: the sheet always defines the right
+            edge and the badge always the left.
+        */
+        return '<div class="fsBigIcon"><svg viewBox="-1.6 0 48 60">' +
             '<path d="M8 3.5h20.5L41 16v39a2.5 2.5 0 0 1-2.5 2.5h-30A2.5 2.5 0 0 1 6 55V6a2.5 2.5 0 0 1 2-2.5z" fill="#ffffff" stroke="#d3d7dd" stroke-width="1.6"/>' +
             '<path d="M28.5 3.5V16H41" fill="none" stroke="#d3d7dd" stroke-width="1.6"/>' +
             '<path d="M13 25h21M13 31h21M13 37h14" stroke="#dfe3e8" stroke-width="2.2" stroke-linecap="round"/>' +
@@ -146,10 +157,36 @@
     }
 
     /*
+        Icon envelope
+
+        A drawn glyph has to sit in the same envelope as the themed PNG icons in
+        img/desktop/files_icon/, or a folder holding both shows one file type
+        noticeably larger than its neighbours. Those PNGs put their artwork in
+        68x82 of a 128x128 canvas, which is the ratio below.
+
+        The content boxes are the glyphs' painted bounds in their own viewBox
+        units, stroke widths included - measured, not read off the path data,
+        because the sheet's 1.6 stroke and the badge's overhang both extend past
+        the coordinates written in the markup. They do not depend on the badge
+        label: the sheet always defines the right edge and the badge the left.
+    */
+    var GLYPH_ENVELOPE_W = 68 / 128;
+    var GLYPH_ENVELOPE_H = 82 / 128;
+    var GLYPH_CONTENT = {
+        file:   { x0: 2.90, y0: 2.63, x1: 41.77, y1: 58.25 },
+        folder: { x0: 2.00, y0: 4.00, x1: 45.88, y1: 35.88 }
+    };
+
+    /*
         Same drawn glyph as largeGlyph(), but as a data: URI so it can be used as
         an <img src>. The File Manager renders its grid tiles with a single <img>
         whose src is later swapped for a real thumbnail, so it needs the fallback
         icon in that form rather than as inline markup.
+
+        The viewBox is replaced with a square one padded so the artwork lands in
+        the envelope above. Only this data: URI form is adjusted - largeGlyph()
+        is also used inline by the File Selector, where the surrounding CSS box
+        already sets the size.
     */
     function glyphDataURL(filename, isDir) {
         var markup = isDir ? folderGlyph() : largeGlyph(filename, isDir);
@@ -157,7 +194,18 @@
         var start = markup.indexOf('<svg');
         var end = markup.lastIndexOf('</svg>');
         var svg = (start >= 0 && end > start) ? markup.substring(start, end + 6) : markup;
+
+        //Square window sized by whichever axis reaches its limit first
+        var box = isDir ? GLYPH_CONTENT.folder : GLYPH_CONTENT.file;
+        var contentW = box.x1 - box.x0;
+        var contentH = box.y1 - box.y0;
+        var side = Math.max(contentW / GLYPH_ENVELOPE_W, contentH / GLYPH_ENVELOPE_H);
+        var minX = (box.x0 + box.x1) / 2 - side / 2;
+        var minY = (box.y0 + box.y1) / 2 - side / 2;
+        var viewBox = minX.toFixed(3) + ' ' + minY.toFixed(3) + ' ' + side.toFixed(3) + ' ' + side.toFixed(3);
+
         //An <img> needs an explicit size and namespace on a standalone SVG
+        svg = svg.replace(/viewBox="[^"]*"/, 'viewBox="' + viewBox + '"');
         svg = svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" preserveAspectRatio="xMidYMid meet" ');
         return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     }

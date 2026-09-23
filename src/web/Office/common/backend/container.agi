@@ -14,6 +14,9 @@
     Working directory: user:/.appdata/Office/
         uploads/   media dropped in from the device (via the system
                    upload endpoint, streamed as multipart)
+        tmp/       oversized POST payloads uploaded by the front end
+                   (OfficeApp.agirunLarge) - consumed and deleted by the
+                   backend script that receives them; swept on "prepare"
         cache/     assets extracted from opened containers
         session/   rolling per-app snapshots for "Restore from previous
                    session"
@@ -23,6 +26,9 @@
                  "session-load" | "session-delete"
 
         save:           filepath, content(envelope JSON)     -> "OK"
+                        contentFile may replace content: vpath of an uploaded
+                        temp file holding the same JSON, used when the payload
+                        is too big for a POST form body (deleted after reading)
         load:           filepath                             -> {"envelope": {...}}
         prepare:        (none)                               -> "OK" (workdir exists)
         session-save:   app, content(envelope JSON)          -> "OK"
@@ -46,7 +52,8 @@ function ensureWorkdir(){
         WORKDIR,
         WORKDIR + "/uploads",
         WORKDIR + "/cache",
-        WORKDIR + "/session"
+        WORKDIR + "/session",
+        WORKDIR + "/tmp"
     ];
     for (var i = 0; i < dirs.length; i++){
         if (!filelib.fileExists(dirs[i])){
@@ -56,8 +63,48 @@ function ensureWorkdir(){
     return true;
 }
 
+/*
+    Drop leftover agirunLarge payloads (see OfficeApp.agirunLarge): the
+    receiving script deletes its own temp file, so anything still here is
+    from an export that was interrupted before the backend ran.
+*/
+function sweepTmp(){
+    var maxAgeMs = 24 * 60 * 60 * 1000;
+    var now = new Date().getTime();
+    try {
+        var leftovers = filelib.glob(WORKDIR + "/tmp/*.json");
+        for (var i = 0; i < leftovers.length; i++){
+            var ts = filelib.mtime(leftovers[i], true);
+            if (!ts || (now - ts * 1000) > maxAgeMs){
+                filelib.deleteFile(leftovers[i]);
+            }
+        }
+    } catch (e) {
+        //non-fatal: a failed sweep must never block the workdir setup
+    }
+}
+
 function safeAppName(name){
     return String(name || "app").replace(/[^a-zA-Z0-9_-]/g, "").substring(0, 32);
+}
+
+/*
+    The front end streams an oversized payload to a temp file instead of
+    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
+    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
+    10MB. Read it back from contentFile when that path was taken, and remove
+    the temp file once it is in.
+*/
+function resolveContent(){
+    if (typeof contentFile !== "undefined" && contentFile){
+        if (!requirelib("filelib")){
+            return "";
+        }
+        var loaded = filelib.readFile(contentFile);
+        filelib.deleteFile(contentFile);
+        return loaded;
+    }
+    return (typeof content === "undefined" || !content) ? "" : content;
 }
 
 function main(){
@@ -73,6 +120,7 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "filelib unavailable" }));
             return;
         }
+        sweepTmp();
         sendResp("OK");
         return;
     }
@@ -82,19 +130,20 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "filepath is required" }));
             return;
         }
-        if (typeof content === "undefined" || content === ""){
+        var payload = resolveContent();
+        if (!payload){
             sendJSONResp(JSON.stringify({ error: "content is required" }));
             return;
         }
         try {
             if (hasOffice){
-                if (!office.packToFile(content, filepath)){
+                if (!office.packToFile(payload, filepath)){
                     sendJSONResp(JSON.stringify({ error: "unable to write the document container" }));
                     return;
                 }
             } else {
                 //fallback: plain JSON (not packed, but nothing is lost)
-                if (!requirelib("filelib") || !filelib.writeFile(filepath, content)){
+                if (!requirelib("filelib") || !filelib.writeFile(filepath, payload)){
                     sendJSONResp(JSON.stringify({ error: "unable to write file" }));
                     return;
                 }
@@ -131,7 +180,8 @@ function main(){
     }
 
     if (action == "session-save"){
-        if (typeof app === "undefined" || typeof content === "undefined" || !content){
+        var payload = resolveContent();
+        if (typeof app === "undefined" || !payload){
             sendJSONResp(JSON.stringify({ error: "app and content are required" }));
             return;
         }
@@ -142,7 +192,7 @@ function main(){
         try {
             ensureWorkdir();
             var dest = WORKDIR + "/session/" + safeAppName(app) + ".osession";
-            if (!office.packToFile(content, dest)){
+            if (!office.packToFile(payload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the session snapshot" }));
                 return;
             }

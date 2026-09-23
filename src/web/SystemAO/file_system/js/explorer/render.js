@@ -146,7 +146,14 @@ function applyShortcutOverrides(d, shortcut){
             d.icon = "blue external";
     }
 
-    if (shortcut.Icon != undefined && shortcut.Icon != ""){
+    /*
+        A shortcut pointing at a sentinel path shows that view's icon, matching
+        what the desktop draws for the same file.
+    */
+    let specialIcon = specialPathIconFrom(shortcut.Path, "../../");
+    if (specialIcon != null){
+        d.imagePath = specialIcon;
+    }else if (shortcut.Icon != undefined && shortcut.Icon != ""){
         d.imagePath = (shortcut.Icon.includes("http://") || shortcut.Icon.includes("https://"))
             ? shortcut.Icon
             : "../../" + shortcut.Icon;
@@ -177,8 +184,19 @@ function fileObjectAttributes(d){
     let modAttr = ` modtime="${d.modTime}"`;
     //dragstart / drop / dragover / dblclick are delegated on #folderView by
     //bindFileListDelegates(), so rows carry no inline handlers.
+    /*
+        Dotfiles are dimmed so they read as "shown because you asked", not as
+        ordinary content. Decided from the name rather than a server flag: the
+        listing carries no hidden field, and a leading dot is the same rule the
+        server filters on.
+
+        A data attribute rather than a class: every caller below already writes
+        its own class attribute, and a second one on the same element is
+        discarded by the parser rather than merged.
+    */
+    let hiddenAttr = d.filename.charAt(0) == "." ? ` data-hidden="true"` : "";
     return `draggable="true" fileID="${d.fileID}" filename="${d.filename}"` +
-           ` filepath="${d.filepath}" type="${d.type}"${sizeAttrs}${modAttr}`;
+           ` filepath="${d.filepath}" type="${d.type}"${sizeAttrs}${modAttr}${hiddenAttr}`;
 }
 
 function renderListItem(d){
@@ -414,4 +432,18 @@ function updateListDensity(){
     let width = $("#folderView").width();
     $("#folderView").toggleClass("fmNarrow", width < 620)
                     .toggleClass("fmVeryNarrow", width < 460);
+    /*
+        The trash bin's own thresholds. Its rows carry a full original path,
+        which is the widest thing in the table and the first thing worth
+        dropping - at the default window size the table already overflows with
+        it, so it only earns its place once the pane is dragged wider.
+
+        Narrower still and the table stops working at all, and the card layout
+        in trash.js takes over.
+    */
+    $("#folderView").toggleClass("fmTrashHideOrigin", width < FM_TRASH_ORIGIN_MIN_WIDTH)
+                    .toggleClass("fmTrashCardMode", isTrashCardWidth(width));
+
+    //Crossing the card threshold changes the markup, not just which parts show
+    refreshTrashLayoutOnResize();
 }

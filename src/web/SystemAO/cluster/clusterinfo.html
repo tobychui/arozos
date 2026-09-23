@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>Cluster Info</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../cluster/cluster.common.js"></script>
+    <link rel="stylesheet" href="../cluster/cluster.css">
+</head>
+<body>
+<div id="cl-root">
+    <div id="cl-header">
+        <img src="../cluster/img/small_icon.png" alt="">
+        <div style="flex:1">
+            <h1 locale="cluster/info/title">Cluster Info</h1>
+            <p locale="cluster/info/tagline">Health of this node, its peers, the namespace and the scheduler</p>
+        </div>
+        <span id="cl-refresh"></span>
+        <div class="cl-links">
+            <a href="../cluster/cluster.html" onclick="return CL.openPage('Cluster Settings', this.href)" locale="cluster/link/settings">Cluster Settings</a>
+            <a href="../cluster/jobs.html" onclick="return CL.openPage('Cluster Jobs', this.href)" locale="cluster/link/jobs">Cluster Jobs</a>
+        </div>
+    </div>
+
+    <div class="cl-notice" id="notice-standalone" style="display:none">
+        <b locale="cluster/info/standalone">This node is not part of a cluster.</b>
+        <span locale="cluster/info/standalonehint">Create or join one in Cluster Settings. Until then the cluster:/ drive stays hidden.</span>
+    </div>
+    <div class="cl-notice" id="notice-novolume" style="display:none">
+        <b locale="cluster/info/novolume">The cluster has no storage yet.</b>
+        <span locale="cluster/info/novolumehint">Add a volume in Cluster Settings to make the cluster:/ drive appear in File Manager.</span>
+    </div>
+
+    <div class="cl-grid">
+        <!-- This node -->
+        <div class="cl-card">
+            <div class="cl-card-head">
+                <span><span locale="cluster/thisnode">This node</span><span class="cl-sub cl-mono" id="cl-nodeid"></span></span>
+                <button class="cl-btn small" onclick="refreshCapabilities()" title="Re-detect capabilities">
+                    <svg viewBox="0 0 16 16" fill="none"><path d="M13 8a5 5 0 1 1-1.5-3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 2v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span locale="cluster/redetect">Re-detect</span>
+                </button>
+            </div>
+            <div class="cl-card-body">
+                <dl class="cl-kv">
+                    <dt locale="cluster/reach">Reachability</dt><dd id="v-reach">-</dd>
+                    <dt locale="cluster/version">Version</dt><dd id="v-version">-</dd>
+                    <dt locale="cluster/platform">Platform</dt><dd id="v-platform">-</dd>
+                    <dt locale="cluster/key">Node key</dt><dd class="cl-mono" id="v-key">-</dd>
+                    <dt locale="cluster/caps">Capabilities</dt><dd><div class="cl-chips" id="v-caps"></div></dd>
+                </dl>
+                <div class="cl-sep"></div>
+                <dl class="cl-kv" id="v-health"></dl>
+            </div>
+        </div>
+
+        <!-- Cluster summary -->
+        <div class="cl-card" id="card-summary" style="display:none">
+            <div class="cl-card-head"><span id="v-clustername">Cluster</span></div>
+            <div class="cl-card-body">
+                <dl class="cl-kv">
+                    <dt locale="cluster/clusterid">Cluster ID</dt><dd class="cl-mono" id="v-clusterid">-</dd>
+                    <dt locale="cluster/created">Created</dt><dd id="v-created">-</dd>
+                    <dt locale="cluster/members">Members</dt><dd id="v-membercount">-</dd>
+                </dl>
+                <div class="cl-sep"></div>
+                <dl class="cl-kv" id="meta-kv"></dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nodes -->
+    <div class="cl-card" id="card-nodes" style="display:none">
+        <div class="cl-card-head"><span locale="cluster/nodes">Nodes</span></div>
+        <div class="cl-card-body" style="padding:0; overflow-x:auto">
+            <table class="cl-table">
+                <thead><tr>
+                    <th locale="cluster/node">Node</th>
+                    <th locale="cluster/state">State</th>
+                    <th locale="cluster/route">Route</th>
+                    <th locale="cluster/platform">Platform</th>
+                    <th locale="cluster/load">Load</th>
+                    <th locale="cluster/lastseen">Last seen</th>
+                    <th></th>
+                </tr></thead>
+                <tbody id="nodes-body"></tbody>
+            </table>
+        </div>
+        <div class="cl-card-body" style="padding-top:0"><div class="cl-msg" id="msg-nodes"></div></div>
+    </div>
+
+    <!-- Replication -->
+    <div class="cl-card" id="card-repl" style="display:none">
+        <div class="cl-card-head">
+            <span><span locale="cluster/repl/title">Replication</span><span class="cl-sub" id="repl-summary"></span></span>
+            <span>
+                <button class="cl-btn small" onclick="verifyCopies()"><span locale="cluster/repl/verify">Verify this node</span></button>
+                <button class="cl-btn small" onclick="planNow()"><span locale="cluster/repl/plan">Repair now</span></button>
+            </span>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-grid">
+                <dl class="cl-kv" id="repl-kv"></dl>
+                <div>
+                    <div class="cl-field">
+                        <label locale="cluster/repl/inspect">Inspect a file</label>
+                        <div class="cl-row">
+                            <input type="text" id="inspect-path" placeholder="cluster:/photos/a.jpg">
+                            <button class="cl-btn cl-fixed" onclick="inspectFile()"><span locale="cluster/repl/inspectbtn">Show copies</span></button>
+                        </div>
+                    </div>
+                    <ul class="cl-inline-list" id="inspect-list"></ul>
+                </div>
+            </div>
+            <div style="overflow-x:auto; margin-top:12px">
+                <table class="cl-table">
+                    <thead><tr><th locale="cluster/repl/task">Task</th><th locale="cluster/repl/route">From / to</th><th locale="cluster/state">State</th><th locale="cluster/when">When</th></tr></thead>
+                    <tbody id="repl-tasks"></tbody>
+                </table>
+            </div>
+            <div class="cl-msg" id="msg-repl"></div>
+        </div>
+    </div>
+
+    <!-- Scheduling -->
+    <div class="cl-card" id="card-sched" style="display:none">
+        <div class="cl-card-head">
+            <span><span locale="cluster/sched/title">Scheduling</span><span class="cl-sub" id="sched-summary"></span></span>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-hint" locale="cluster/sched/infohint">How each node scores right now with the weights set in Cluster Settings. Jobs, new files and extra copies go to the highest score.</div>
+            <div style="overflow-x:auto; margin-top:10px">
+                <table class="cl-table">
+                    <thead><tr>
+                        <th locale="cluster/node">Node</th><th locale="cluster/sched/cpu">CPU free</th><th locale="cluster/sched/mem">RAM free</th>
+                        <th locale="cluster/sched/diskfree">Disk free</th><th locale="cluster/sched/ping">Round trip</th><th locale="cluster/sched/score">Score</th>
+                    </tr></thead>
+                    <tbody id="sched-body"></tbody>
+                </table>
+            </div>
+            <div id="sched-matrix-wrap" style="display:none; margin-top:12px">
+                <div class="cl-hint" locale="cluster/sched/matrixhint">Round trip between each pair of nodes, in milliseconds. Copies of a file are spread over the slowest pairs, because distance usually means a different site.</div>
+                <div style="overflow-x:auto; margin-top:6px">
+                    <table class="cl-table" id="sched-matrix"></table>
+                </div>
+            </div>
+            <div class="cl-sep"></div>
+            <div class="cl-field">
+                <label locale="cluster/sched/explain">Why did a job land there?</label>
+                <div class="cl-row">
+                    <input type="text" id="sched-job" placeholder="job id">
+                    <button class="cl-btn cl-fixed" onclick="explainJob()"><span locale="cluster/sched/explainbtn">Explain</span></button>
+                </div>
+                <div class="cl-hint" locale="cluster/sched/explainhint">Copy a job id from the Cluster Jobs page to see the ranking it was placed with.</div>
+            </div>
+            <ul class="cl-inline-list" id="sched-explain"></ul>
+            <div class="cl-msg" id="msg-sched"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var t = CL.t, fmt = CL.fmt, esc = CL.esc;
+    var API = '../../system/cluster/';
+    var clusterStatus = null;
+    CL.applyTheme('cl-root');
+
+    function post(path, data, cb) { CL.apiPost(API + path, data, cb); }
+    function fail(box, err, r) {
+        var e = err || CL.apiResult(r);
+        if (e) { CL.showMsg(box, e, false); return true; }
+        return false;
+    }
+    function nodeName(id) {
+        if (!clusterStatus) return id;
+        for (var i = 0; i < clusterStatus.nodes.length; i++) if (clusterStatus.nodes[i].id === id) return clusterStatus.nodes[i].name;
+        return String(id || '').substring(0, 8);
+    }
+    function badge(state, label) { return '<span class="cl-badge ' + esc(state) + '">' + esc(label || CL.state(state)) + '</span>'; }
+
+    /* This node */
+    function healthRows(h) {
+        if (!h || !h.timestamp) return '<dt>' + esc(t('cluster/load', 'Load')) + '</dt><dd style="color:var(--cl-muted)">' + esc(t('cluster/noreport', 'no report yet')) + '</dd>';
+        var ramPct = h.ramTotal > 0 ? h.ramUsed / h.ramTotal * 100 : 0;
+        var diskPct = h.diskTotal > 0 ? (h.diskTotal - h.diskFree) / h.diskTotal * 100 : 0;
+        return '<dt>CPU</dt><dd>' + h.cpuUsage.toFixed(0) + '%' + CL.bar(h.cpuUsage) + '</dd>' +
+            '<dt>RAM</dt><dd>' + (h.ramTotal > 0 ? CL.fmtBytes(h.ramUsed) + ' / ' + CL.fmtBytes(h.ramTotal) + CL.bar(ramPct) : '-') + '</dd>' +
+            '<dt>' + esc(t('cluster/disk', 'Disk')) + '</dt><dd>' + (h.diskTotal > 0 ? esc(fmt(t('cluster/diskfree', '{0} free of {1}'), CL.fmtBytes(h.diskFree), CL.fmtBytes(h.diskTotal))) + CL.bar(diskPct) : '-') + '</dd>' +
+            '<dt>' + esc(t('cluster/uptime', 'Uptime')) + '</dt><dd>' + esc(fmt(t('cluster/uptimevalue', '{0}h {1}m'), Math.floor(h.uptime / 3600), Math.floor((h.uptime % 3600) / 60))) + '</dd>';
+    }
+    function routeOf(n) {
+        if (n.local) return esc(t('cluster/thisnode', 'This node'));
+        if (n.tunnel) return esc(t('cluster/tunnelhere', 'Tunnel to this node'));
+        if (n.advertiseUrl) return '<a href="' + esc(n.advertiseUrl) + '" target="_blank" style="color:var(--cl-accent)">' + esc(n.advertiseUrl.replace(/^https?:\/\//, '')) + '</a>';
+        if (n.tunnelVia) return esc(fmt(t('cluster/tunnelvia', 'Tunnel via {0}'), nodeName(n.tunnelVia)));
+        return '<span style="color:var(--cl-muted)">' + esc(t('cluster/noroute', 'No route')) + '</span>';
+    }
+    function render() {
+        var s = clusterStatus, local = s.local;
+        document.getElementById('cl-nodeid').textContent = ' ' + local.nodeId;
+        var reach;
+        if (local.reachable) {
+            reach = badge('ONLINE', t('cluster/direct', 'DIRECT')) + ' ' + esc(local.config.advertiseUrl);
+        } else if (local.tunnelConnected) {
+            reach = badge('ONLINE', t('cluster/tunnel', 'TUNNEL')) + ' ' + esc(fmt(t('cluster/via', 'via {0}'), nodeName(local.tunnelHost)));
+        } else if (s.inCluster) {
+            reach = badge('OFFLINE', t('cluster/notunnel', 'NO TUNNEL')) + ' ' + esc(t('cluster/waitinghost', 'waiting for a reachable member'));
+        } else {
+            reach = badge('UNKNOWN', t('cluster/natonly', 'NO URL')) + ' ' + esc(t('cluster/willtunnel', 'will tunnel through a member once in a cluster'));
+        }
+        document.getElementById('v-reach').innerHTML = reach;
+        document.getElementById('v-version').textContent = local.version;
+        var c = local.capabilities || {};
+        document.getElementById('v-platform').textContent = fmt(t('cluster/platformline', '{0} / {1}, {2} cores'), c.os || '?', c.arch || '?', c.cpuCores || '?') + (c.totalRam > 0 ? ', ' + CL.fmtBytes(c.totalRam) + ' RAM' : '') + (c.hostname ? ' (' + c.hostname + ')' : '');
+        document.getElementById('v-key').textContent = (local.publicKey || '').substring(0, 20) + '...';
+        var chips = '';
+        Object.keys(c.features || {}).filter(function (k) { return c.features[k]; }).sort().forEach(function (f) { chips += '<span class="cl-chip">' + esc(f) + '</span>'; });
+        document.getElementById('v-caps').innerHTML = chips || '<span style="color:var(--cl-muted)">-</span>';
+        document.getElementById('v-health').innerHTML = healthRows(local.health);
+
+        document.getElementById('notice-standalone').style.display = s.inCluster ? 'none' : '';
+        ['card-summary', 'card-nodes', 'card-repl', 'card-sched'].forEach(function (id) {
+            document.getElementById(id).style.display = s.inCluster ? '' : 'none';
+        });
+        if (s.inCluster) {
+            document.getElementById('v-clustername').textContent = s.cluster.name;
+            document.getElementById('v-clusterid').textContent = s.cluster.id;
+            document.getElementById('v-created').textContent = CL.fmtDate(s.cluster.created);
+            document.getElementById('v-membercount').textContent = s.nodes.length;
+            renderNodes(s.nodes || []);
+        } else {
+            document.getElementById('notice-novolume').style.display = 'none';
+        }
+        document.getElementById('cl-refresh').textContent = fmt(t('cluster/updated', 'Updated {0}'), new Date().toLocaleTimeString());
+    }
+    function renderNodes(nodes) {
+        var html = '';
+        nodes.forEach(function (n) {
+            var c = n.capabilities || {}, h = n.health || {};
+            var load = h.timestamp
+                ? 'CPU ' + h.cpuUsage.toFixed(0) + '%' + (h.ramTotal > 0 ? ' · RAM ' + (h.ramUsed / h.ramTotal * 100).toFixed(0) + '%' : '') + (h.diskTotal > 0 ? ' · ' + esc(fmt(t('cluster/freeamount', '{0} free'), CL.fmtBytes(h.diskFree))) : '')
+                : '<span style="color:var(--cl-muted)">-</span>';
+            var feats = Object.keys(c.features || {}).filter(function (k) { return c.features[k] && ['ffmpeg', 'docker', 'cuda', 'gpu', 'git'].indexOf(k) >= 0; });
+            var probe = n.local ? '' : '<button class="cl-btn small" onclick="probeNode(\'' + esc(n.id) + '\', this)">' + esc(t('cluster/probe', 'Probe')) + '</button>';
+            html += '<tr>' +
+                '<td><div class="cl-node-name">' + esc(n.name) + (n.local ? ' <span class="cl-chip">' + esc(t('cluster/you', 'you')) + '</span>' : '') + '</div><div class="cl-node-meta cl-mono">' + esc(n.id) + '</div></td>' +
+                '<td>' + badge(n.state) + '</td>' +
+                '<td>' + routeOf(n) + '</td>' +
+                '<td>' + esc(c.os || '?') + '/' + esc(c.arch || '?') + '<div class="cl-node-meta">' + esc(fmt(t('cluster/coresvalue', '{0} cores'), c.cpuCores || '?')) + (c.totalRam > 0 ? ', ' + CL.fmtBytes(c.totalRam) : '') + (feats.length ? ' · ' + esc(feats.join(', ')) : '') + '</div></td>' +
+                '<td>' + load + '</td>' +
+                '<td>' + esc(n.local ? t('cluster/now', 'now') : CL.fmtAgo(n.lastSeen)) + '<div class="cl-node-meta">' + esc(n.version) + '</div></td>' +
+                '<td>' + probe + '</td></tr>';
+        });
+        document.getElementById('nodes-body').innerHTML = html || '<tr><td colspan="7" class="cl-empty">' + esc(t('cluster/nonodes', 'No nodes')) + '</td></tr>';
+    }
+    function refreshCapabilities() {
+        $.getJSON(API + 'capabilities?refresh=true', function () { loadStatus(); });
+    }
+    function probeNode(id, btn) {
+        btn.disabled = true;
+        $.getJSON(API + 'node/probe?id=' + encodeURIComponent(id), function (r) {
+            btn.disabled = false;
+            var route = String(r.route || '');
+            route = route.indexOf('relay via ') === 0
+                ? fmt(t('cluster/route/relay', 'relay via {0}'), nodeName(route.substring(10)))
+                : t('cluster/route/' + route, route);
+            if (r.ok) CL.showMsg('msg-nodes', fmt(t('cluster/probeok', '{0}: {1} ms ({2})'), nodeName(id), r.latencyMs, route), true);
+            else CL.showMsg('msg-nodes', fmt(t('cluster/probefail', '{0}: {1} ({2})'), nodeName(id), CL.tr(r.error || t('cluster/unreachable', 'unreachable')), route), false);
+        }).fail(function () { btn.disabled = false; });
+    }
+
+    /* Namespace */
+    function loadMeta() {
+        $.getJSON(API + 'meta/status', function (st) {
+            if (CL.apiResult(st)) return;
+            var leader = st.leader
+                ? esc(st.leaderName) + (st.isLeader ? ' <span class="cl-chip">' + esc(t('cluster/thisnode', 'This node')) + '</span>' : '') + ' <span class="cl-node-meta">' + esc(fmt(t('cluster/meta/term', 'term {0}'), st.term)) + '</span>'
+                : badge('UNKNOWN', t('cluster/meta/noleader', 'ELECTING'));
+            document.getElementById('meta-kv').innerHTML =
+                '<dt>' + esc(t('cluster/meta/leader', 'Leader')) + '</dt><dd>' + leader + '</dd>' +
+                '<dt>' + esc(t('cluster/meta/entries', 'Entries')) + '</dt><dd>' + esc(fmt(t('cluster/meta/entriesvalue', '{0} files, {1} folders, {2} volumes'), st.files, st.dirs, st.volumes)) + '</dd>' +
+                '<dt>' + esc(t('cluster/meta/log', 'Log')) + '</dt><dd>' + st.applied + ' / ' + st.lastSeq + (st.pending ? ' <span style="color:var(--cl-warn)">' + esc(fmt(t('cluster/meta/pending', '{0} pending'), st.pending)) + '</span>' : '') + '</dd>';
+            document.getElementById('notice-novolume').style.display = (clusterStatus && clusterStatus.inCluster && st.volumes === 0) ? '' : 'none';
+        });
+    }
+
+    /* Replication */
+    function loadRepl() {
+        $.getJSON(API + 'repl/status', function (st) {
+            if (CL.apiResult(st)) return;
+            var problems = st.underReplicated + st.noHealthyCopy + st.staleCopies;
+            document.getElementById('repl-summary').textContent = ' ' + (problems === 0 ? t('cluster/repl/healthy', 'all files at policy') : fmt(t('cluster/repl/issues', '{0} issues'), problems));
+            var planner = st.isLeader ? badge('ONLINE', t('cluster/thisnode', 'This node')) : (st.leader ? esc(st.leaderName) : badge('UNKNOWN', t('cluster/meta/noleader', 'ELECTING')));
+            if (st.lastPlan) planner += ' <span class="cl-node-meta">' + esc(fmt(t('cluster/repl/lastrun', 'last run {0}'), CL.fmtAgo(st.lastPlan))) + '</span>';
+            var inflight = fmt(t('cluster/repl/inflightvalue', '{0} running, {1} queued'), st.running, st.queued) + (st.evacuating ? ', ' + fmt(t('cluster/repl/evacuating', '{0} volume(s) evacuating'), st.evacuating) : '');
+            document.getElementById('repl-kv').innerHTML =
+                '<dt>' + esc(t('cluster/repl/planner', 'Planner')) + '</dt><dd>' + planner + '</dd>' +
+                '<dt>' + esc(t('cluster/repl/files', 'Files')) + '</dt><dd>' + st.files + '</dd>' +
+                '<dt>' + esc(t('cluster/repl/under', 'Under-replicated')) + '</dt><dd>' + (st.underReplicated ? '<span style="color:var(--cl-warn)">' + st.underReplicated + '</span>' : '0') + '</dd>' +
+                '<dt>' + esc(t('cluster/repl/nocopy', 'No healthy copy')) + '</dt><dd>' + (st.noHealthyCopy ? '<span style="color:var(--cl-danger)">' + st.noHealthyCopy + '</span>' : '0') + '</dd>' +
+                '<dt>' + esc(t('cluster/repl/stale', 'Stale copies')) + '</dt><dd>' + st.staleCopies + '</dd>' +
+                '<dt>' + esc(t('cluster/repl/over', 'Extra copies')) + '</dt><dd>' + st.overReplicated + '</dd>' +
+                '<dt>' + esc(t('cluster/repl/inflight', 'In flight')) + '</dt><dd>' + esc(inflight) + '</dd>';
+            var tasks = (st.tasks || []).concat((st.history || []).slice(0, 10));
+            var html = '';
+            tasks.forEach(function (tk) {
+                var cls = tk.state === 'done' ? 'ONLINE' : (tk.state === 'failed' ? 'OFFLINE' : (tk.state === 'running' ? 'DEGRADED' : 'UNKNOWN'));
+                html += '<tr><td><div class="cl-node-name">' + esc(tk.path) + '</div><div class="cl-node-meta">' + esc(t('cluster/repl/reason/' + tk.reason, tk.reason)) + ' · ' + CL.fmtBytes(tk.size) + (tk.error ? ' · <span style="color:var(--cl-danger)">' + esc(CL.tr(tk.error)) + '</span>' : '') + '</div></td>' +
+                    '<td>' + esc(fmt(t('cluster/repl/fromto', '{0} to {1}'), nodeName(tk.sourceNode), nodeName(tk.targetNode))) + '</td>' +
+                    '<td>' + badge(cls, CL.state(tk.state)) + (tk.attempts > 1 ? ' <span class="cl-node-meta">x' + tk.attempts + '</span>' : '') + '</td>' +
+                    '<td>' + esc(CL.fmtAgo(tk.updated || tk.created)) + '</td></tr>';
+            });
+            document.getElementById('repl-tasks').innerHTML = html || '<tr><td colspan="4" class="cl-empty">' + esc(t('cluster/repl/notasks', 'No replication tasks')) + '</td></tr>';
+        });
+    }
+    function planNow() {
+        post('repl/plan', {}, function (err, r) {
+            if (fail('msg-repl', err, r)) return;
+            CL.showMsg('msg-repl', fmt(t('cluster/repl/planned', 'Planner ran: {0} queued, {1} dropped, {2} marked stale'), r.queued, r.dropped, r.markedStale), true);
+            loadRepl();
+        });
+    }
+    function verifyCopies() {
+        post('repl/verify', { budget: 512 }, function (err, r) {
+            if (fail('msg-repl', err, r)) return;
+            CL.showMsg('msg-repl', fmt(t('cluster/repl/verified', 'Verified {0} copies ({1}), {2} stale'), r.checked, CL.fmtBytes(r.bytes), r.stale), r.stale === 0);
+            loadRepl();
+        });
+    }
+    function inspectFile() {
+        var p = document.getElementById('inspect-path').value.trim();
+        if (!p) return;
+        $.getJSON(API + 'meta/stat?path=' + encodeURIComponent(p), function (rec) {
+            if (fail('msg-repl', null, rec)) return;
+            var html = '<li><span>' + esc(rec.path) + '</span><span class="cl-node-meta">' + (rec.isDir ? esc(t('cluster/folder', 'folder')) : CL.fmtBytes(rec.size) + ' · ' + esc((rec.checksum || '').substring(0, 12))) + '</span></li>';
+            (rec.locations || []).forEach(function (l) {
+                var cls = l.state === 'verified' || l.state === 'committed' ? 'ONLINE' : (l.state === 'stale' || l.state === 'failed' ? 'OFFLINE' : 'DEGRADED');
+                //Named by ID as well: two nodes may answer to the same name
+                html += '<li><span>' + esc(nodeName(l.nodeId)) + (l.volumeId === rec.primary ? ' <span class="cl-chip">' + esc(t('cluster/repl/primary', 'primary')) + '</span>' : '') +
+                    '<div class="cl-node-meta cl-mono">' + esc(l.nodeId) + '</div></span><span>' + badge(cls, CL.state(l.state)) + ' <span class="cl-node-meta">' + esc(CL.fmtAgo(l.updated)) + '</span></span></li>';
+            });
+            if (!rec.isDir && (rec.locations || []).length === 0) html += '<li class="cl-empty">' + esc(t('cluster/repl/nolocations', 'No copies recorded')) + '</li>';
+            document.getElementById('inspect-list').innerHTML = html;
+        }).fail(function () { CL.showMsg('msg-repl', t('cluster/repl/notfound', 'Path not found in the namespace'), false); });
+    }
+
+    /* Scheduling */
+    function loadSched() {
+        $.getJSON(API + 'sched/status', function (st) {
+            if (CL.apiResult(st)) return;
+            var rows = '';
+            (st.nodes || []).forEach(function (n) {
+                var pct = Math.round(n.score * 100);
+                rows += '<tr><td><div class="cl-node-name">' + esc(n.name) + (n.local ? ' <span class="cl-chip">' + esc(t('cluster/thisnode', 'This node')) + '</span>' : '') + '</div>' +
+                    '<div class="cl-node-meta">' + badge(String(n.state).toUpperCase()) + ' ' + (n.features ? esc(fmt(t('cluster/sched/features', '{0} features'), n.features)) : '') + '</div></td>' +
+                    '<td>' + Math.round(n.cpuFree * 100) + '%</td>' +
+                    '<td>' + Math.round(n.memFree * 100) + '%</td>' +
+                    '<td>' + Math.round(n.diskFree * 100) + '%</td>' +
+                    '<td>' + (n.local ? esc(t('cluster/sched/here', 'local')) : (n.latencyMs < 0 ? '-' : Math.round(n.latencyMs) + ' ms')) + '</td>' +
+                    '<td>' + pct + '%' + CL.bar(pct) + '</td></tr>';
+            });
+            document.getElementById('sched-body').innerHTML = rows || '<tr><td colspan="6" class="cl-empty">' + esc(t('cluster/sched/nonodes', 'No nodes to score')) + '</td></tr>';
+            var top = (st.nodes || [])[0];
+            document.getElementById('sched-summary').textContent = top ? ' ' + fmt(t('cluster/sched/next', 'next job would run on {0}'), top.name) : '';
+            renderMatrix(st);
+        });
+    }
+    function renderMatrix(st) {
+        var wrap = document.getElementById('sched-matrix-wrap');
+        var nodes = st.nodes || [], matrix = st.matrix || {};
+        if (nodes.length < 2 || Object.keys(matrix).length === 0) { wrap.style.display = 'none'; return; }
+        var head = '<thead><tr><th>' + esc(t('cluster/sched/from', 'From / to')) + '</th>';
+        nodes.forEach(function (n) { head += '<th>' + esc(n.name) + '</th>'; });
+        var body = '</tr></thead><tbody>';
+        nodes.forEach(function (from) {
+            body += '<tr><td><div class="cl-node-name">' + esc(from.name) + '</div></td>';
+            nodes.forEach(function (to) {
+                var cell;
+                if (from.id === to.id) cell = '<span class="cl-node-meta">-</span>';
+                else {
+                    var v = (matrix[from.id] || {})[to.id];
+                    cell = (v === undefined) ? '<span class="cl-node-meta">' + esc(t('cluster/sched/unmeasured', 'not measured')) + '</span>' : (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ms';
+                }
+                body += '<td>' + cell + '</td>';
+            });
+            body += '</tr>';
+        });
+        document.getElementById('sched-matrix').innerHTML = head + body + '</tbody>';
+        wrap.style.display = '';
+    }
+    function explainJob() {
+        var id = document.getElementById('sched-job').value.trim();
+        if (!id) return;
+        $.getJSON(API + 'sched/explain?job=' + encodeURIComponent(id), function (res) {
+            if (fail('msg-sched', null, res)) return;
+            var html = '<li><span>' + esc(res.job || id) + '</span><span class="cl-node-meta">' + esc(CL.state(res.status)) + (res.node ? ' · ' + esc(nodeName(res.node)) : '') + '</span></li>';
+            (res.ranking || []).forEach(function (r) {
+                var detail = r.eligible ? (r.factors || []).map(function (f) {
+                    return esc(t('cluster/sched/factor/' + f.name, f.name)) + ' ' + (f.points >= 0 ? '+' : '') + f.points.toFixed(2);
+                }).join(', ') : esc(CL.tr(r.reason));
+                html += '<li><span>' + esc(r.nodeName) + ' <span class="cl-node-meta">' + detail + '</span></span>' +
+                    '<span>' + (r.eligible ? (r.score * 100).toFixed(0) + '%' : badge('OFFLINE', t('cluster/sched/skipped', 'SKIPPED'))) + '</span></li>';
+            });
+            document.getElementById('sched-explain').innerHTML = html;
+        }).fail(function () { CL.showMsg('msg-sched', t('cluster/sched/nojob', 'No such job on this cluster'), false); });
+    }
+
+    function loadStatus() {
+        $.getJSON(API + 'status', function (data) {
+            if (CL.apiResult(data)) return;
+            clusterStatus = data;
+            render();
+            if (data.inCluster) { loadMeta(); loadRepl(); loadSched(); }
+        });
+    }
+    CL.init(function () {
+        loadStatus();
+        CL.every(loadStatus, 10000, 'cl-root');
+    });
+</script>
+</body>
+</html>

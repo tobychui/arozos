@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/hidden"
 	"imuslab.com/arozos/mod/info/logger"
@@ -752,7 +753,15 @@ func ViewZipFile(filepath string) ([]string, error) {
 	return filelist, err
 }
 
+// FileCopy copies a file or folder, reporting its progress as a percentage.
+// Prefer FileCopyWithProgress for a progress report counted in bytes.
 func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressUpdate func(int, string) int) error {
+	return FileCopyWithProgress(srcFsh, src, destFsh, dest, mode, legacyProgressAdapter(progressUpdate))
+}
+
+// FileCopyWithProgress copies a file or folder and reports how many of its bytes
+// are already done, see FileOperationProgressHandler.
+func FileCopyWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressHandler FileOperationProgressHandler) error {
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	if srcFshAbs.IsDir(src) && strings.HasPrefix(dest, src) {
@@ -807,7 +816,7 @@ func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 	if srcFshAbs.IsDir(src) {
 		//Source file is directory. CopyFolder
 		realDest := filepath.Join(dest, copiedFilename)
-		err := dirCopy(srcFsh, src, destFsh, realDest, progressUpdate)
+		err := dirCopy(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
 			return err
 		}
@@ -815,34 +824,84 @@ func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 	} else {
 		//Source is file only. Copy file.
 		realDest := filepath.Join(dest, copiedFilename)
-		f, err := srcFshAbs.ReadStream(src)
+		err := streamFileWithProgress(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
 			return err
-		}
-		defer f.Close()
-		err = destFshAbs.WriteStream(realDest, f, 0775)
-		if err != nil {
-			return err
-		}
-
-		if progressUpdate != nil {
-			//Set progress to 100, leave it to upper level abstraction to handle
-			statusCode := progressUpdate(100, arozfs.Base(realDest))
-			for statusCode == 1 {
-				//Wait for the task to be resumed
-				time.Sleep(1 * time.Second)
-				statusCode = progressUpdate(100, arozfs.Base(realDest))
-			}
-			if statusCode == 2 {
-				//Cancel
-				return errors.New("Operation cancelled by user")
-			}
 		}
 	}
 	return nil
 }
 
+/*
+streamFileWithProgress copies one file from one file system to another, counting
+the bytes as they go past so the caller can follow a large file while it is still
+being written. A cancelled transfer takes its half written destination file with
+it on the way out.
+*/
+func streamFileWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressHandler FileOperationProgressHandler) error {
+	srcFshAbs := srcFsh.FileSystemAbstraction
+	destFshAbs := destFsh.FileSystemAbstraction
+
+	reporter := newProgressReporter(progressHandler, srcFshAbs.GetFileSize(src))
+	reporter.currentFile = arozfs.Base(realDest)
+	if err := reporter.report(0, true); err != nil {
+		return err
+	}
+
+	f, err := srcFshAbs.ReadStream(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = destFshAbs.WriteStream(realDest, newProgressReader(f, reporter, 0), 0775)
+	if err != nil {
+		if reporter.cancelled {
+			//Do not leave a truncated file behind at the destination
+			destFshAbs.Remove(realDest)
+		}
+		return err
+	}
+
+	//Report the file as done, the reader stops one report short of the end
+	return reporter.report(reporter.totalBytes, true)
+}
+
+/*
+SameFileSystem reports whether two handlers point at the same storage.
+
+A move between two paths of one storage can be handed to that storage as a
+rename, which is instant no matter how large the file is, instead of being
+streamed out and back through ArozOS.
+*/
+func SameFileSystem(srcFsh *FileSystemHandler, destFsh *FileSystemHandler) bool {
+	if srcFsh == nil || destFsh == nil {
+		return false
+	}
+	if srcFsh == destFsh {
+		return true
+	}
+	return srcFsh.UUID != "" && srcFsh.UUID == destFsh.UUID
+}
+
+// isLocalFileSystem reports whether a handler is backed by a disk of this machine
+func isLocalFileSystem(fsh *FileSystemHandler) bool {
+	if fsh == nil {
+		return false
+	}
+	_, isLocal := fsh.FileSystemAbstraction.(localfs.LocalFileSystemAbstraction)
+	return isLocal
+}
+
+// FileMove moves a file or folder, reporting its progress as a percentage.
+// Prefer FileMoveWithProgress for a progress report counted in bytes.
 func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressUpdate func(int, string) int) error {
+	return FileMoveWithProgress(srcFsh, src, destFsh, dest, mode, fastMove, legacyProgressAdapter(progressUpdate))
+}
+
+// FileMoveWithProgress moves a file or folder and reports how many of its bytes
+// are already done, see FileOperationProgressHandler.
+func FileMoveWithProgress(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressHandler FileOperationProgressHandler) error {
 	srcAbst := srcFsh.FileSystemAbstraction
 	destAbst := destFsh.FileSystemAbstraction
 
@@ -858,7 +917,8 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 			//User pass in the whole path for the folder. Report error usecase.
 			return errors.New("Dest location should be an existing folder instead of the full path of the moved file.")
 		}
-		os.MkdirAll(dest, 0775)
+		//Create it on the destination storage, not on whatever disk ArozOS runs on
+		destAbst.MkdirAll(dest, 0775)
 	}
 
 	//Check if the target file already exists.
@@ -899,16 +959,38 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 		}
 	}
 
-	if fastMove {
-		//Ready to move with the quick rename method
-		realDest := filepath.Join(dest, movedFilename)
-		err := os.Rename(src, realDest)
-		if err == nil {
-			//Fast move success
-			return nil
-		}
+	/*
+		Both ends of this move sit on the same storage, so ask the storage to do
+		the move itself instead of streaming every byte out to ArozOS and back
+		in again. That is a rename on a local disk, a server side move on SMB and
+		WebDAV, and a server side copy on S3.
 
-		//Fast move failed. Back to the original copy and move method
+		Anything the storage cannot do on its own falls through to the copy and
+		delete path below, which is also what happens for a move that crosses two
+		different storages.
+	*/
+	if fastMove && !srcFsh.ReadOnly && !destFsh.ReadOnly {
+		realDest := filepath.Join(dest, movedFilename)
+
+		if SameFileSystem(srcFsh, destFsh) {
+			//One storage, both ends. Let it move the file on its own.
+			if err := srcAbst.Rename(src, realDest); err == nil {
+				//Moved by the storage itself, nothing was streamed
+				return nil
+			}
+			//The storage could not do it. Back to the copy and delete method.
+			logger.PrintAndLog("Filesystem", "Storage side move unavailable for "+src+", falling back to copy and delete", nil)
+
+		} else if isLocalFileSystem(srcFsh) && isLocalFileSystem(destFsh) {
+			/*
+				Two different storages that both live on disks of this machine.
+				A rename still finishes instantly whenever the two happen to sit
+				on the same volume, and simply fails when they do not.
+			*/
+			if err := os.Rename(src, realDest); err == nil {
+				return nil
+			}
+		}
 	}
 
 	//Ready to move. Check if both folder are located in the same root devices. If not, use copy and delete method.
@@ -917,7 +999,7 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 		realDest := filepath.Join(dest, movedFilename)
 		//err := dircpy.Copy(src, realDest)
 
-		err := dirCopy(srcFsh, src, destFsh, realDest, progressUpdate)
+		err := dirCopy(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
 			return err
 		} else {
@@ -927,37 +1009,10 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 		}
 
 	} else {
-		//Source is file only. Copy file.
+		//Source is file only. Copy file, then remove the source.
 		realDest := filepath.Join(dest, movedFilename)
-		/*
-			Updates 20-10-2020, replaced io.Copy to BufferedLargeFileCopy
-			Legacy code removed.
-		*/
-
-		//Update the progress
-		if progressUpdate != nil {
-			statusCode := progressUpdate(100, arozfs.Base(src))
-			for statusCode == 1 {
-				//Wait for the task to be resumed
-				time.Sleep(1 * time.Second)
-				statusCode = progressUpdate(100, arozfs.Base(realDest))
-			}
-			if statusCode == 2 {
-				//Cancel
-				return errors.New("Operation cancelled by user")
-			}
-		}
-
-		f, err := srcAbst.ReadStream(src)
+		err := streamFileWithProgress(srcFsh, src, destFsh, realDest, progressHandler)
 		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-		defer f.Close()
-
-		err = destAbst.WriteStream(realDest, f, 0755)
-		if err != nil {
-			fmt.Println(err)
 			return err
 		}
 
@@ -967,9 +1022,12 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 		for err != nil {
 			//Sometime Windows need this to prevent windows caching bring problems to file remove
 			time.Sleep(1 * time.Second)
-			os.Remove(src)
 			counter++
 			logger.PrintAndLog("Filesystem", "Retrying to remove file: "+src, nil)
+			err = srcAbst.Remove(src)
+			if err == nil {
+				break
+			}
 			if counter > 10 {
 				return errors.New("Source file remove failed.")
 			}
@@ -982,20 +1040,19 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 
 // Copy a given directory, with no progress udpate
 func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string) error {
-	return dirCopy(srcFsh, src, destFsh, dest, func(progress int, name string) int { return 0 })
+	return dirCopy(srcFsh, src, destFsh, dest, nil)
 }
 
 // Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
-func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressUpdate func(int, string) int) error {
+func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressHandler FileOperationProgressHandler) error {
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
-	//Get the total file counts
-	totalFileCounts := int64(0)
+	//Get the total size of this folder. Progress is counted in bytes so a folder
+	//holding one large file does not jump straight from nothing to done.
+	totalBytes := int64(0)
 	srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
-			//Updates 22 April 2021, chnaged from file count to file size for progress update
-			//totalFileCounts++
-			totalFileCounts += info.Size()
+			totalBytes += info.Size()
 		}
 		return nil
 	})
@@ -1005,8 +1062,10 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 		destFshAbs.Mkdir(realDest, 0755)
 	}
 
+	reporter := newProgressReporter(progressHandler, totalBytes)
+
 	//Start moving
-	fileCounter := int64(0)
+	copiedBytes := int64(0)
 	src = filepath.ToSlash(src)
 	err := srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
 		path = filepath.ToSlash(path)
@@ -1019,27 +1078,17 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 			//Mkdir base on relative path
 			return destFshAbs.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
 		} else {
-			//fileCounter++
-			fileCounter += info.Size()
 			//Move file base on relative path
 			fileSrc := filepath.ToSlash(filepath.Join(filepath.Clean(src), folderRootRelative))
 			fileDest := filepath.ToSlash(filepath.Join(filepath.Clean(realDest), folderRootRelative))
 
-			//Update move progress
-			if progressUpdate != nil {
-				statusCode := progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), arozfs.Base(fileSrc))
-				for statusCode == 1 {
-					//Wait for the task to be resumed
-					time.Sleep(1 * time.Second)
-					statusCode = progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), arozfs.Base(fileSrc))
-				}
-				if statusCode == 2 {
-					//Cancel
-					return errors.New("Operation cancelled by user")
-				}
+			//Report where this folder actually is before starting on this file,
+			//the bytes of this one are only counted once they are written
+			reporter.currentFile = arozfs.Base(fileSrc)
+			if err := reporter.report(copiedBytes, true); err != nil {
+				return err
 			}
 
-			//Move the file using BLFC
 			f, err := srcFshAbs.ReadStream(fileSrc)
 			if err != nil {
 				logger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
@@ -1047,12 +1096,20 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 			}
 			defer f.Close()
 
-			err = destFshAbs.WriteStream(fileDest, f, 0755)
+			err = destFshAbs.WriteStream(fileDest, newProgressReader(f, reporter, copiedBytes), 0755)
 			if err != nil {
-				fmt.Println(err)
+				if reporter.cancelled {
+					//Do not leave a truncated file behind at the destination
+					destFshAbs.Remove(fileDest)
+				}
+				logger.PrintAndLog("Filesystem", fmt.Sprint(err), err)
 				return err
 			}
 
+			copiedBytes += info.Size()
+			if err := reporter.report(copiedBytes, true); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

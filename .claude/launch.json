@@ -4,26 +4,64 @@
     {
       "name": "webroot-static",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "src/web"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8123",
+        "--directory",
+        "src/web"
+      ],
       "port": 8123
     },
     {
       "name": "webroot-static-alt",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8126", "--directory", "src/web"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8126",
+        "--directory",
+        "src/web"
+      ],
       "port": 8126
     },
     {
       "name": "framework-static",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8124", "--directory", "src/framework"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8124",
+        "--directory",
+        "src/framework"
+      ],
       "port": 8124
     },
     {
       "name": "desktop-app",
       "runtimeExecutable": "go",
-      "runtimeArgs": ["run", "./apps/desktop", "-noui", "-port", "8765", "-store", "./apps/desktop/.preview-servers.json"],
+      "runtimeArgs": [
+        "run",
+        "./apps/desktop",
+        "-noui",
+        "-port",
+        "8765",
+        "-store",
+        "./apps/desktop/.preview-servers.json"
+      ],
       "port": 8765
+    },
+    {
+      "name": "office-web-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8127",
+        "--directory",
+        "apps/ArozOS Office Web/dist"
+      ],
+      "port": 8127
     }
   ]
 }

@@ -8,7 +8,9 @@
 	Parameters:
 	  action = "check"                    - report whether ffmpeg is available
 	  action = "convert", src, dst        - convert virtual path src into dst
-	  action = "cleanup", target          - delete a temporary file owned by the export
+	  action = "cleanup", target          - delete a temporary export render file
+	                                      (a *.render.webm intermediate, or any
+	                                      file inside the Cine Studio folder)
 
 	All paths are ArozOS virtual paths (e.g. user:/Cine Studio/Exports/out.webm)
 */
@@ -75,15 +77,25 @@ function main() {
 			return;
 		}
 		requirelib("filelib");
-		//Only allow deleting temporary export artifacts inside the app folder
-		if (target.indexOf("user:/Cine Studio/") != 0) {
-			sendJSONResp(JSON.stringify({ error: "target outside of Cine Studio folder" }));
+		//Deletable artifacts are the intermediate renders the exporter itself
+		//writes (*.render.webm, which may sit in any folder the user picked as
+		//the export destination) and anything inside the app folder
+		var inAppFolder = (target.indexOf("user:/Cine Studio/") == 0);
+		var isRenderTemp = (target.length > 12 &&
+			target.substr(target.length - 12) == ".render.webm");
+		if (!inAppFolder && !isRenderTemp) {
+			sendJSONResp(JSON.stringify({ error: "target is not a Cine Studio export artifact" }));
 			return;
 		}
-		if (filelib.fileExists(target)) {
+		if (target.indexOf("..") >= 0) {
+			sendJSONResp(JSON.stringify({ error: "invalid target path" }));
+			return;
+		}
+		var existed = filelib.fileExists(target);
+		if (existed) {
 			filelib.deleteFile(target);
 		}
-		sendJSONResp(JSON.stringify({ ok: true }));
+		sendJSONResp(JSON.stringify({ ok: true, deleted: existed && !filelib.fileExists(target) }));
 		return;
 	}
 

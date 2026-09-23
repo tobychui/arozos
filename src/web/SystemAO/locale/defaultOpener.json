@@ -3,92 +3,152 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fwtitle": "選擇預設網頁應用程式",
+            "fwtitle": "選擇開啟應用程式",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
-                "message/select": "請選擇用作開啟 ",
+                "message/select": "請選擇用於開啟「",
                 "message/files": " 檔案的預設網頁應用程式",
-                "button/showAll": "顯示全部應用程式",
+                "button/showAll": "其他應用程式...",
                 "button/showRelevent": "顯示相關應用程式",
                 "button/cancel": "取消",
-                "button/confirm": "確認",
+                "button/confirm": "開啟",
+                "title/title": "選擇開啟應用程式",
+                "message/selectSuffix": "」檔案的應用程式",
+                "section/suggested": "建議應用程式",
+                "button/showLess": "隱藏其他應用程式",
+                "button/settings": "預設應用程式設定",
+                "message/nofile": "沒有指定檔案",
+                "message/nosuggestion": "沒有應用程式登記支援此檔案類型",
+                "message/failed": "無法儲存預設應用程式",
                 "": ""
             },
-            "titles": {},
+            "titles": {
+                "Default application settings": "預設應用程式設定"
+            },
             "placeholder": {}
         },
         "zh-hk": {
-            "fwtitle": "選擇預設網頁應用程式",
+            "fwtitle": "選擇開啟應用程式",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
-                "message/select": "請選擇用作開啟 ",
+                "message/select": "請選擇用於開啟「",
                 "message/files": " 檔案的預設網頁應用程式",
-                "button/showAll": "顯示全部應用程式",
+                "button/showAll": "其他應用程式...",
                 "button/showRelevent": "顯示相關應用程式",
                 "button/cancel": "取消",
-                "button/confirm": "確認",
+                "button/confirm": "開啟",
+                "title/title": "選擇開啟應用程式",
+                "message/selectSuffix": "」檔案的應用程式",
+                "section/suggested": "建議應用程式",
+                "button/showLess": "隱藏其他應用程式",
+                "button/settings": "預設應用程式設定",
+                "message/nofile": "沒有指定檔案",
+                "message/nosuggestion": "沒有應用程式登記支援此檔案類型",
+                "message/failed": "無法儲存預設應用程式",
                 "": ""
             },
-            "titles": {},
+            "titles": {
+                "Default application settings": "預設應用程式設定"
+            },
             "placeholder": {}
         },
         "zh-cn": {
-            "fwtitle": "选择预设网页应用程序",
+            "fwtitle": "选择打开应用程序",
             "strings": {
-                "message/select": "请选择用于打开 ",
+                "message/select": "请选择用于打开「",
                 "message/files": " 文件的预设网页应用程序",
-                "button/showAll": "显示全部应用程序",
+                "button/showAll": "其他应用程序...",
                 "button/showRelevent": "显示相关应用程序",
                 "button/cancel": "取消",
-                "button/confirm": "确定",
+                "button/confirm": "打开",
+                "title/title": "选择打开应用程序",
+                "message/selectSuffix": "」文件的应用程序",
+                "section/suggested": "建议应用程序",
+                "button/showLess": "隐藏其他应用程序",
+                "button/settings": "预设应用程序设置",
+                "message/nofile": "没有指定文件",
+                "message/nosuggestion": "没有应用程序登记支持此文件类型",
+                "message/failed": "无法保存预设应用程序",
                 "": ""
             },
-            "titles": {},
+            "titles": {
+                "Default application settings": "预设应用程序设置"
+            },
             "placeholder": {}
         },
         "en-us": {
-            "fwtitle": "Default Opening WebApp",
+            "fwtitle": "Select an Application",
             "fontFamily": "",
             "strings": {
-                "message/select": "Please select the default WebApp to use for opening ",
+                "message/select": "Choose an application to open",
                 "message/files": " files.",
-                "button/showAll": "Show All Applications",
+                "button/showAll": "Other applications...",
                 "button/showRelevent": "Show Relevant Applications",
                 "button/cancel": "Cancel",
-                "button/confirm": "Confirm",
+                "button/confirm": "Open",
+                "title/title": "Select an Application",
+                "message/selectSuffix": "",
+                "section/suggested": "Suggested Applications",
+                "button/showLess": "Hide other applications",
+                "button/settings": "Default app settings",
+                "message/nofile": "No file given",
+                "message/nosuggestion": "No application registered for this file type",
+                "message/failed": "Unable to save the default application",
                 "": ""
             },
-            "titles": {},
+            "titles": {
+                "Default application settings": "Default application settings"
+            },
             "placeholder": {}
         },
         "ja-jp": {
-            "fwtitle": "デフォルトのウェブアプリケーションを選択",
+            "fwtitle": "アプリケーションの選択",
             "fontFamily": "\"Yu Gothic\", Meiryo, sans-serif",
             "strings": {
-                "message/select": "開くためのデフォルトのウェブアプリケーションを選択してください ",
+                "message/select": "次のファイルを開くアプリケーションを選択してください:",
                 "message/files": " ファイル。",
-                "button/showAll": "すべてのアプリケーションを表示",
+                "button/showAll": "その他のアプリケーション...",
                 "button/showRelevent": "関連するアプリケーションを表示",
                 "button/cancel": "キャンセル",
-                "button/confirm": "確認",
+                "button/confirm": "開く",
+                "title/title": "アプリケーションの選択",
+                "message/selectSuffix": "",
+                "section/suggested": "推奨アプリケーション",
+                "button/showLess": "その他のアプリケーションを隠す",
+                "button/settings": "デフォルトアプリの設定",
+                "message/nofile": "ファイルが指定されていません",
+                "message/nosuggestion": "このファイル形式に対応するアプリケーションはありません",
+                "message/failed": "デフォルトのアプリケーションを保存できません",
                 "": ""
             },
-            "titles": {},
+            "titles": {
+                "Default application settings": "デフォルトアプリの設定"
+            },
             "placeholder": {}
         },
         "ko-kr": {
-            "fwtitle": "기본 웹 애플리케이션 선택",
+            "fwtitle": "애플리케이션 선택",
             "fontFamily": "",
             "strings": {
-                "message/select": "열기로 사용할 웹 페이지 애플리케이션을 선택하세요",
+                "message/select": "다음 파일을 열 애플리케이션을 선택하세요:",
                 "message/files": " 파일의 기본 웹 애플리케이션",
-                "button/showAll": "모든 애플리케이션 표시",
+                "button/showAll": "다른 애플리케이션...",
                 "button/showRelevent": "관련 애플리케이션 표시",
                 "button/cancel": "취소",
-                "button/confirm": "확인",
+                "button/confirm": "열기",
+                "title/title": "애플리케이션 선택",
+                "message/selectSuffix": "",
+                "section/suggested": "추천 애플리케이션",
+                "button/showLess": "다른 애플리케이션 숨기기",
+                "button/settings": "기본 앱 설정",
+                "message/nofile": "지정된 파일이 없습니다",
+                "message/nosuggestion": "이 파일 형식을 지원하는 애플리케이션이 없습니다",
+                "message/failed": "기본 애플리케이션을 저장할 수 없습니다",
                 "": ""
             },
-            "titles": {},
+            "titles": {
+                "Default application settings": "기본 앱 설정"
+            },
             "placeholder": {}
         }
     }

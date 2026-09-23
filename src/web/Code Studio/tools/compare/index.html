@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Compare</title>
+    <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="css/compare.css">
+    <script src="../../../script/jquery.min.js"></script>
+    <script src="../../../script/ao_module.js"></script>
+</head>
+<body>
+    <div id="appRoot">
+
+        <!-- Toolbar, rebuilt by app.js for whichever view is active -->
+        <div id="toolbar"></div>
+
+        <!-- Open comparisons, so the folder session and any file pairs
+             opened from it are one click apart -->
+        <div id="tabbar"></div>
+
+        <!-- Base folder / file paths for the active session -->
+        <div id="pathbar">
+            <div class="pathside">
+                <input type="text" id="leftPath" spellcheck="false" placeholder="Left path">
+                <button class="minibtn" id="leftBrowse" title="Browse for the left side">
+                    <i class="folder open icon"></i>
+                </button>
+            </div>
+            <div class="pathside">
+                <input type="text" id="rightPath" spellcheck="false" placeholder="Right path">
+                <button class="minibtn" id="rightBrowse" title="Browse for the right side">
+                    <i class="folder open icon"></i>
+                </button>
+                <button class="minibtn" id="pathGo" title="Reload the comparison with these paths">Go</button>
+            </div>
+        </div>
+
+        <div id="filterbar">
+            <label>Filters:</label>
+            <input type="text" id="nameFilterInput" spellcheck="false" placeholder="*.*">
+            <span class="note" style="margin:0;">Semicolon separated masks, for example <b>*.php;*.txt</b></span>
+        </div>
+
+        <div id="viewhost">
+
+            <!-- ------------------------- Home ------------------------- -->
+            <div class="view" id="homeView">
+                <div id="sessionSidebar">
+                    <div class="grouphead"><i class="caret down icon"></i> New session</div>
+                    <div class="sessiontype selected" data-type="folder">
+                        <i class="folder open icon"></i> Folder Compare
+                    </div>
+                    <div class="sessiontype" data-type="sync">
+                        <i class="sync icon"></i> Folder Sync
+                    </div>
+                    <div class="sessiontype" data-type="text">
+                        <i class="file alternate outline icon"></i> Text Compare
+                    </div>
+                    <div class="sessiontype" data-type="hex">
+                        <i class="hdd outline icon"></i> Hex Compare
+                    </div>
+                    <div class="sessiontype" data-type="picture">
+                        <i class="image outline icon"></i> Picture Compare
+                    </div>
+                </div>
+
+                <div id="homeMain">
+                    <div class="hint">Pick a session type, then choose what to compare</div>
+
+                    <div id="homeTiles">
+                        <div class="hometile" data-type="folder">
+                            <svg class="tileart" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 16h16l4 5h14v26a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z" fill="#e8b44a" stroke="#a97d1c" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M27 16h16l4 5h14v26a3 3 0 0 1-3 3H30a3 3 0 0 1-3-3z" fill="#f2cd7c" stroke="#a97d1c" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M22 34h9M27 30l4 4-4 4" fill="none" stroke="#1a5fb4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <div>Folder Compare</div>
+                        </div>
+
+                        <div class="hometile" data-type="sync">
+                            <svg class="tileart" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2 20h14l4 5h12v22a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z" fill="#e8b44a" stroke="#a97d1c" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M35 20h14l4 5h9v22a3 3 0 0 1-3 3H38a3 3 0 0 1-3-3z" fill="#f2cd7c" stroke="#a97d1c" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M25 28a8 8 0 0 1 14-3" fill="none" stroke="#1a5fb4" stroke-width="2.5" stroke-linecap="round"/>
+                                <path d="M39 40a8 8 0 0 1-14 3" fill="none" stroke="#1a5fb4" stroke-width="2.5" stroke-linecap="round"/>
+                                <path d="M39 19v7h-7M25 49v-7h7" fill="none" stroke="#1a5fb4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <div>Folder Sync</div>
+                        </div>
+
+                        <div class="hometile" data-type="text">
+                            <svg class="tileart" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 6h16l7 7v45H5z" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M21 6v7h7" fill="none" stroke="#8a8a8a" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M36 6h16l7 7v45H36z" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M52 6v7h7" fill="none" stroke="#8a8a8a" stroke-width="1.5" stroke-linejoin="round"/>
+                                <path d="M9 21h14M9 27h14M9 33h10M9 39h14" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M40 21h14M40 27h14M40 39h14" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M40 33h14" stroke="#cc0000" stroke-width="2.5" stroke-linecap="round"/>
+                                <path d="M9 45h10" stroke="#cc0000" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                            <div>Text Compare</div>
+                        </div>
+
+                        <div class="hometile" data-type="hex">
+                            <svg class="tileart" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="4" y="12" width="24" height="40" rx="3" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.5"/>
+                                <rect x="36" y="12" width="24" height="40" rx="3" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.5"/>
+                                <path d="M8 20h16M8 26h16M8 32h16M8 38h10M8 44h16" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M40 20h16M40 26h16M40 38h16M40 44h16" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M40 32h16" stroke="#cc0000" stroke-width="2.5" stroke-linecap="round"/>
+                                <path d="M18 38h6" stroke="#cc0000" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                            <div>Hex Compare</div>
+                        </div>
+
+                        <div class="hometile" data-type="picture">
+                            <svg class="tileart" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="14" width="27" height="36" rx="2" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.5"/>
+                                <rect x="34" y="14" width="27" height="36" rx="2" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.5"/>
+                                <path d="M6 43l7-9 5 6 4-5 5 8z" fill="#8fc27a"/>
+                                <circle cx="22" cy="23" r="3" fill="#e8b44a"/>
+                                <path d="M37 43l7-9 5 6 4-5 5 8z" fill="#8fc27a"/>
+                                <circle cx="53" cy="23" r="3" fill="#cc4a4a"/>
+                            </svg>
+                            <div>Picture Compare</div>
+                        </div>
+                    </div>
+
+                    <div id="homeForm">
+                        <div style="font-weight:600;margin-bottom:8px;" id="homeFormTitle">Choose two folders to compare</div>
+                        <div class="frow">
+                            <span class="flabel">Left</span>
+                            <input type="text" id="homeLeftPath" spellcheck="false" placeholder="user:/Desktop/site-old">
+                            <button class="minibtn" id="homeLeftBrowse"><i class="folder open icon"></i></button>
+                        </div>
+                        <div class="frow">
+                            <span class="flabel">Right</span>
+                            <input type="text" id="homeRightPath" spellcheck="false" placeholder="user:/Desktop/site-new">
+                            <button class="minibtn" id="homeRightBrowse"><i class="folder open icon"></i></button>
+                        </div>
+                        <div class="factions">
+                            <button class="btn" id="homeSettings">Settings</button>
+                            <button class="btn primary" id="homeStart">Compare</button>
+                        </div>
+                    </div>
+
+                    <div id="recentList"></div>
+                </div>
+            </div>
+
+            <!-- --------------------- Folder compare -------------------- -->
+            <div class="view" id="folderView">
+                <div id="folderGrid">
+                    <div class="gridhead" id="folderHead">
+                        <div class="side">
+                            <div class="cell name">Name</div>
+                            <div class="cell size">Size</div>
+                            <div class="cell mtime">Modified</div>
+                        </div>
+                        <div class="side">
+                            <div class="cell name">Name</div>
+                            <div class="cell size">Size</div>
+                            <div class="cell mtime">Modified</div>
+                        </div>
+                    </div>
+                    <div class="gridbody" id="folderBody"></div>
+                </div>
+            </div>
+
+            <!-- ---------------------- Text compare --------------------- -->
+            <div class="view" id="textView">
+                <div id="textBody">
+                    <div class="diffmap" id="textMap" title="Difference map, click to jump"></div>
+                    <div class="tpane" id="textLeftPane">
+                        <div class="tpanerows" id="textLeftRows"></div>
+                    </div>
+                    <div class="tsplit" id="textSplitter"
+                         title="Drag to resize the panes, double click to centre them"></div>
+                    <div class="tpane" id="textRightPane">
+                        <div class="tpanerows" id="textRightRows"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ----------------------- Hex compare --------------------- -->
+            <div class="view" id="hexView">
+                <div id="hexScroller">
+                    <div id="hexRows"></div>
+                </div>
+            </div>
+
+            <!-- --------------------- Picture compare ------------------- -->
+            <div class="view" id="pictureView">
+                <div id="pictureBody">
+                    <div id="picSidePanes" style="display:flex;flex:1 1 auto;min-width:0;">
+                        <div class="picpane"><img id="picLeft" alt="Left image"></div>
+                        <div class="picpane"><img id="picRight" alt="Right image"></div>
+                    </div>
+                    <div id="picOverlayPane"><canvas id="picCanvas"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Progress overlay -->
+            <div id="busyOverlay">
+                <div id="busyBox">
+                    <div id="busyText">Working</div>
+                    <div id="busyBar"><div id="busyFill"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity log -->
+        <div id="logpane">
+            <div id="logIconCol"><i class="info circle icon"></i></div>
+            <div id="logLines"></div>
+        </div>
+
+        <div id="statusbar"></div>
+    </div>
+
+    <!-- Shared dropdown for the Sessions and Select toolbar buttons -->
+    <div id="popMenu" class="popmenu"></div>
+
+    <!-- Session settings -->
+    <div class="dlgmask" id="settingsMask">
+        <div class="dlg" id="settingsDialog">
+            <div class="dlghead">
+                <span>Session Settings - Comparison</span>
+                <span class="closex" id="settingsClose"><i class="close icon"></i></span>
+            </div>
+            <div class="dlgtabs">
+                <div class="tab" data-tab="specs">Specs</div>
+                <div class="tab active" data-tab="comparison">Comparison</div>
+                <div class="tab" data-tab="handling">Handling</div>
+                <div class="tab" data-tab="namefilters">Name Filters</div>
+                <div class="tab" data-tab="otherfilters">Other Filters</div>
+            </div>
+            <div class="dlgbody" id="settingsBody"></div>
+            <div class="dlgfoot">
+                <select id="settingsScope" class="btn" style="min-width:190px;text-align:left;">
+                    <option value="view">Use for this view only</option>
+                    <option value="default">Use as the default for new sessions</option>
+                </select>
+                <div style="flex:1 1 auto;"></div>
+                <button class="btn" id="settingsCancel">Cancel</button>
+                <button class="btn primary" id="settingsOK">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/util.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/diff.js"></script>
+    <script src="js/folder.js"></script>
+    <script src="js/text.js"></script>
+    <script src="js/hex.js"></script>
+    <script src="js/picture.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

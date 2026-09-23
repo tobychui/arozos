@@ -30,6 +30,10 @@ CS.defaultClipProps = function () {
         rotation: 0,
         opacity: 100,
         crop: "fit",
+        cropTop: 0,
+        cropBottom: 0,
+        cropLeft: 0,
+        cropRight: 0,
         preset: "default",
         exposure: 0,
         contrast: 0,
@@ -236,8 +240,7 @@ CS.markClean = function () {
 };
 
 CS.updateSaveState = function () {
-    var el = document.getElementById("save-state-icon");
-    if (el) { CS.setIcon(el, CS.state.dirty ? "dot-circle" : "check-circle"); }
+    //The window title is the single indicator of the saved / edited state
     var nameEl = document.getElementById("project-name");
     if (nameEl) { nameEl.textContent = CS.project.name; }
     var title = CS.project.name + (CS.state.dirty ? " (edited)" : "") + " - Cine Studio";

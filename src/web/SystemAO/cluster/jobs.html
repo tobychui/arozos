@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>Cluster Jobs</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../cluster/cluster.common.js"></script>
+    <style>
+        :where(#cj-root, #cj-root *) { box-sizing: border-box; margin: 0; padding: 0; }
+        #cj-root {
+            --cj-bg:#f5f5f7; --cj-card:#ffffff; --cj-head:#fafafa; --cj-border:rgba(0,0,0,0.08);
+            --cj-text:#1d1d1f; --cj-dim:#6e6e73; --cj-muted:#98989d; --cj-accent:#0071e3;
+            --cj-success:#34c759; --cj-warn:#ff9f0a; --cj-danger:#ff3b30; --cj-hover:rgba(0,0,0,0.04);
+            --cj-input:#ffffff; --cj-chip:rgba(0,113,227,0.10);
+            --cj-shadow:0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+            font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size:14px; -webkit-font-smoothing:antialiased; color:var(--cj-text);
+            background:var(--cj-bg); padding:20px; min-height:100vh;
+        }
+        #cj-root.dark {
+            --cj-bg:#1f1f1f; --cj-card:#2c2c2e; --cj-head:#232325; --cj-border:rgba(255,255,255,0.09);
+            --cj-text:#f2f2f7; --cj-dim:#aeaeb2; --cj-muted:#636366; --cj-accent:#2997ff;
+            --cj-success:#30d158; --cj-warn:#ffd60a; --cj-danger:#ff453a; --cj-hover:rgba(255,255,255,0.05);
+            --cj-input:#1c1c1e; --cj-chip:rgba(41,151,255,0.18);
+            --cj-shadow:0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
+        }
+        #cj-header { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+        #cj-header img { width:40px; height:40px; border-radius:9px; }
+        #cj-header h1 { font-size:20px; font-weight:600; letter-spacing:-0.2px; }
+        #cj-header p { font-size:13px; color:var(--cj-dim); margin-top:2px; }
+        #cj-header .cj-links { display:flex; gap:6px; }
+        #cj-header .cj-links a { font-size:12px; color:var(--cj-accent); text-decoration:none; padding:5px 10px; border-radius:8px; border:1px solid var(--cj-border); background:var(--cj-card); }
+        #cj-header .cj-links a:hover { background:var(--cj-hover); }
+        .cj-card { background:var(--cj-card); border-radius:12px; box-shadow:var(--cj-shadow); overflow:hidden; margin-bottom:16px; }
+        .cj-head { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
+            background:var(--cj-head); border-bottom:1px solid var(--cj-border); font-weight:600; font-size:14px; }
+        .cj-head .cj-sub { font-weight:400; color:var(--cj-dim); font-size:12px; margin-left:8px; }
+        .cj-body { padding:16px; }
+        .cj-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        @media (max-width:900px) { .cj-grid { grid-template-columns:1fr; } }
+        .cj-field { margin-bottom:12px; }
+        .cj-field label { display:block; font-size:12px; color:var(--cj-dim); margin-bottom:4px; }
+        .cj-field input[type=text], .cj-field textarea, .cj-field select {
+            width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--cj-border);
+            background:var(--cj-input); color:var(--cj-text); font:inherit; font-size:13px; }
+        .cj-field textarea { min-height:60px; resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+        .cj-hint { font-size:11px; color:var(--cj-muted); margin-top:4px; }
+        .cj-row { display:flex; gap:8px; align-items:center; }
+        .cj-row > * { flex:1; }
+        .cj-row > .cj-fixed { flex:0 0 auto; }
+        .cj-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px;
+            border:1px solid var(--cj-border); background:var(--cj-card); color:var(--cj-text);
+            font:inherit; font-size:13px; cursor:pointer; white-space:nowrap; }
+        .cj-btn:hover { background:var(--cj-hover); }
+        .cj-btn.primary { background:var(--cj-accent); border-color:transparent; color:#fff; }
+        .cj-btn.danger { color:var(--cj-danger); }
+        .cj-btn.small { padding:4px 9px; font-size:12px; }
+        .cj-kv { display:grid; grid-template-columns:120px 1fr; gap:6px 12px; font-size:13px; }
+        .cj-kv dt { color:var(--cj-dim); }
+        .cj-kv dd { word-break:break-all; }
+        .cj-mono { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+        .cj-chip { background:var(--cj-chip); color:var(--cj-accent); border-radius:999px; padding:2px 9px; font-size:11px; font-weight:500; }
+        .cj-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; color:#fff; }
+        .cj-badge.succeeded { background:var(--cj-success); }
+        .cj-badge.running { background:var(--cj-accent); }
+        .cj-badge.scheduled { background:#5e5ce6; }
+        .cj-badge.queued { background:var(--cj-muted); }
+        .cj-badge.failed { background:var(--cj-danger); }
+        .cj-badge.cancelled { background:var(--cj-warn); color:#1d1d1f; }
+        .cj-bar { height:6px; border-radius:3px; background:var(--cj-border); overflow:hidden; margin-top:4px; }
+        .cj-bar > div { height:100%; background:var(--cj-accent); }
+        table.cj-table { width:100%; border-collapse:collapse; font-size:13px; }
+        table.cj-table th { text-align:left; font-weight:600; color:var(--cj-dim); font-size:12px; padding:8px 10px; border-bottom:1px solid var(--cj-border); }
+        table.cj-table td { padding:10px; border-bottom:1px solid var(--cj-border); vertical-align:top; }
+        table.cj-table tr:last-child td { border-bottom:none; }
+        table.cj-table tr:hover td { background:var(--cj-hover); }
+        table.cj-table tr.selected td { background:var(--cj-hover); }
+        .cj-name { font-weight:600; cursor:pointer; }
+        .cj-meta { color:var(--cj-dim); font-size:12px; margin-top:2px; }
+        .cj-empty { text-align:center; color:var(--cj-muted); padding:24px 0; font-size:13px; }
+        .cj-msg { padding:8px 12px; border-radius:8px; font-size:13px; margin-top:10px; display:none; }
+        .cj-msg.ok { display:block; background:rgba(52,199,89,0.14); color:var(--cj-success); }
+        .cj-msg.err { display:block; background:rgba(255,59,48,0.12); color:var(--cj-danger); }
+        pre.cj-pre { background:var(--cj-input); border:1px solid var(--cj-border); border-radius:8px; padding:10px;
+            font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:11px;
+            white-space:pre-wrap; word-break:break-all; max-height:220px; overflow:auto; margin-top:6px; }
+    </style>
+</head>
+<body>
+<div id="cj-root">
+    <div id="cj-header">
+        <img src="../cluster/img/small_icon.png" alt="">
+        <div style="flex:1">
+            <h1 id="lbl-title" locale="cluster/jobs/title">Cluster Jobs</h1>
+            <p id="lbl-tagline" locale="cluster/jobs/tagline">Run a script on whichever node fits best</p>
+        </div>
+        <span id="cj-refresh" style="color:var(--cj-muted); font-size:11px"></span>
+        <div class="cj-links">
+            <a href="../cluster/cluster.html" onclick="return CL.openPage('Cluster Settings', this.href)" locale="cluster/link/settings">Cluster Settings</a>
+            <a href="../cluster/clusterinfo.html" onclick="return CL.openPage('Cluster Info', this.href)" locale="cluster/link/info">Cluster Info</a>
+        </div>
+    </div>
+
+    <div class="cj-grid">
+        <div class="cj-card">
+            <div class="cj-head"><span id="lbl-submit" locale="cluster/jobs/submit">Submit a job</span></div>
+            <div class="cj-body">
+                <div class="cj-field">
+                    <label id="lbl-name" locale="cluster/jobs/name">Name</label>
+                    <input type="text" id="job-name" placeholder="Nightly index">
+                </div>
+                <div class="cj-field">
+                    <label id="lbl-script" locale="cluster/jobs/scriptlabel">Script (a .agi file that defines run(job))</label>
+                    <div class="cj-row">
+                        <input type="text" id="job-script" placeholder="user:/jobs/index.agi">
+                        <button class="cj-btn cj-fixed" onclick="pickScript()"><span id="lbl-browse" locale="cluster/jobs/browse">Browse</span></button>
+                    </div>
+                </div>
+                <div class="cj-field">
+                    <label id="lbl-args" locale="cluster/jobs/args">Arguments (JSON, optional)</label>
+                    <textarea id="job-args" placeholder='{"album": "2026"}'></textarea>
+                </div>
+                <div class="cj-field">
+                    <label id="lbl-inputs" locale="cluster/jobs/inputs">Input paths (comma separated, used to run near the data)</label>
+                    <input type="text" id="job-inputs" placeholder="cluster:/photos/2026">
+                </div>
+                <div class="cj-field">
+                    <label id="lbl-dataset" locale="cluster/jobs/datasetlabel">Map/reduce dataset (optional glob; turns this into a map/reduce job)</label>
+                    <div class="cj-row">
+                        <input type="text" id="job-dataset" placeholder="cluster:/photos/**/*.jpg">
+                        <input type="text" id="job-partition" class="cj-fixed" style="width:120px" placeholder="50 per task">
+                    </div>
+                    <div class="cj-hint" id="hint-dataset" locale="cluster/jobs/datasethint">With a dataset the script must define mapper(files, emit) and reducer(key, values); the files are processed on the nodes that hold them.</div>
+                </div>
+                <div class="cj-row">
+                    <div class="cj-field" style="margin:0">
+                        <label id="lbl-features" locale="cluster/jobs/features">Required features</label>
+                        <input type="text" id="job-features" placeholder="ffmpeg, cuda">
+                    </div>
+                    <div class="cj-field" style="margin:0; max-width:140px">
+                        <label id="lbl-timeout" locale="cluster/jobs/timeout">Timeout (s)</label>
+                        <input type="text" id="job-timeout" value="3600">
+                    </div>
+                </div>
+                <div class="cj-hint" id="hint-submit" locale="cluster/jobs/submithint">The script runs with your permissions on the chosen node. cluster:/ paths work as usual.</div>
+                <div class="cj-row" style="margin-top:10px">
+                    <div></div>
+                    <button class="cj-btn primary cj-fixed" onclick="submitJob()"><span id="lbl-run" locale="cluster/jobs/run">Run job</span></button>
+                </div>
+                <div class="cj-msg" id="msg-submit"></div>
+            </div>
+        </div>
+
+        <div class="cj-card">
+            <div class="cj-head">
+                <span><span id="lbl-detail" locale="cluster/jobs/detail">Job detail</span><span class="cj-sub" id="detail-id"></span></span>
+                <button class="cj-btn small danger" id="btn-cancel" style="display:none" onclick="cancelSelected()"><span id="lbl-cancel" locale="cluster/cancel">Cancel</span></button>
+            </div>
+            <div class="cj-body">
+                <dl class="cj-kv" id="detail-kv"><dd class="cj-empty" style="grid-column:1/3" id="lbl-nodetail" locale="cluster/jobs/nodetail">Select a job to see its log and output</dd></dl>
+                <div id="detail-log-wrap" style="display:none">
+                    <div class="cj-hint" id="lbl-log" locale="cluster/jobs/log">Log</div>
+                    <pre class="cj-pre" id="detail-log"></pre>
+                </div>
+                <div id="detail-out-wrap" style="display:none">
+                    <div class="cj-hint" id="lbl-output" locale="cluster/jobs/output">Output</div>
+                    <pre class="cj-pre" id="detail-out"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cj-card">
+        <div class="cj-head"><span><span id="lbl-jobs" locale="cluster/jobs/jobs">Jobs</span><span class="cj-sub" id="jobs-summary"></span></span></div>
+        <div class="cj-body" style="padding:0; overflow-x:auto">
+            <table class="cj-table">
+                <thead><tr>
+                    <th id="th-job" locale="cluster/jobs/job">Job</th><th id="th-status" locale="cluster/jobs/status">Status</th><th id="th-node" locale="cluster/node">Node</th>
+                    <th id="th-progress" locale="cluster/jobs/progress">Progress</th><th id="th-when" locale="cluster/when">When</th><th></th>
+                </tr></thead>
+                <tbody id="jobs-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    var t = CL.t, fmt = CL.fmt;
+
+    var API = '../../system/cluster/jobs/';
+    var selected = null;
+    var lastJobs = [];
+
+    function esc(s) {
+        return String(s === undefined || s === null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function fmtAgo(unix) { return unix ? CL.fmtAgo(unix) : '-'; }
+    function duration(rec) {
+        if (!rec.state.started) return '-';
+        var end = rec.state.finished || Math.floor(Date.now()/1000);
+        var s = Math.max(0, end - rec.state.started);
+        if (s < 60) return fmt(t('cluster/jobs/secs', '{0}s'), s);
+        return fmt(t('cluster/jobs/minsecs', '{0}m {1}s'), Math.floor(s/60), s%60);
+    }
+    //Errors from the server are translated by CL.showMsg
+    function showMsg(id, text, ok) { CL.showMsg(id, text, ok, 'cj-msg'); }
+    function apiPost(path, data, cb) {
+        $.ajax({ url: API + path, method: 'POST', data: data, dataType: 'json' })
+            .done(function(r) { cb(null, r); })
+            .fail(function(xhr) {
+                var msg = xhr.responseText || t('cluster/requestfailed', 'Request failed');
+                try { var j = JSON.parse(xhr.responseText); if (j.error) msg = j.error; } catch(e) {}
+                cb(msg, null);
+            });
+    }
+    function apiResult(r) { return (r && typeof r === 'object' && r.error) ? r.error : null; }
+
+    function pickScript() {
+        if (typeof ao_module_openFileSelector !== 'function') {
+            showMsg('msg-submit', t('cluster/jobs/typepath', 'Type the script path, for example user:/jobs/index.agi'), false);
+            return;
+        }
+        ao_module_openFileSelector(function(files) {
+            if (files && files.length > 0) document.getElementById('job-script').value = files[0].filepath;
+        }, 'user:/', 'file', false);
+    }
+
+    function submitJob() {
+        var script = document.getElementById('job-script').value.trim();
+        if (!script) { showMsg('msg-submit', t('cluster/jobs/needscript', 'A script path is required'), false); return; }
+        apiPost('submit', {
+            name: document.getElementById('job-name').value,
+            script: script,
+            args: document.getElementById('job-args').value,
+            inputs: JSON.stringify(document.getElementById('job-inputs').value.split(',').map(function(x){return x.trim();}).filter(function(x){return x;})),
+            features: document.getElementById('job-features').value,
+            timeout: document.getElementById('job-timeout').value,
+            dataset: document.getElementById('job-dataset').value,
+            partition: document.getElementById('job-partition').value
+        }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-submit', e, false); return; }
+            selected = r.spec.id;
+            showMsg('msg-submit', t('cluster/jobs/queued', 'Job queued'), true);
+            loadJobs();
+        });
+    }
+
+    function cancelSelected() {
+        if (!selected) return;
+        apiPost('cancel', { id: selected }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-submit', e, false); return; }
+            loadJobs();
+        });
+    }
+
+    function selectJob(id) { selected = id; renderDetail(); }
+
+    function renderDetail() {
+        var rec = null;
+        lastJobs.forEach(function(j) { if (j.spec.id === selected) rec = j; });
+        var kv = document.getElementById('detail-kv');
+        if (!rec) {
+            kv.innerHTML = '<dd class="cj-empty" style="grid-column:1/3">' + t('cluster/jobs/nodetail', 'Select a job to see its log and output') + '</dd>';
+            document.getElementById('detail-id').textContent = '';
+            document.getElementById('btn-cancel').style.display = 'none';
+            document.getElementById('detail-log-wrap').style.display = 'none';
+            document.getElementById('detail-out-wrap').style.display = 'none';
+            return;
+        }
+        document.getElementById('detail-id').textContent = ' ' + rec.spec.id.substring(0, 8);
+        var running = rec.state.status === 'queued' || rec.state.status === 'scheduled' || rec.state.status === 'running';
+        document.getElementById('btn-cancel').style.display = running ? '' : 'none';
+        var kids = lastJobs.filter(function(j) { return j.spec.parentId === rec.spec.id; });
+        var rows = '<dt>' + t('cluster/jobs/name', 'Name') + '</dt><dd>' + esc(rec.spec.name) +
+            (rec.spec.kind && rec.spec.kind !== 'run' ? ' <span class="cj-chip">' + esc(t('cluster/jobs/kind/' + rec.spec.kind, rec.spec.kind)) + '</span>' : '') + '</dd>' +
+            '<dt>' + t('cluster/jobs/status', 'Status') + '</dt><dd><span class="cj-badge ' + esc(rec.state.status) + '">' + esc(CL.state(rec.state.status)) + '</span>' +
+            (rec.state.error ? ' <span style="color:var(--cj-danger)">' + esc(CL.tr(rec.state.error)) + '</span>' : '') + '</dd>' +
+            '<dt>' + t('cluster/jobs/node', 'Node') + '</dt><dd>' + (rec.state.node ? esc(rec.state.node) : '-') + '</dd>' +
+            '<dt>' + t('cluster/jobs/script', 'Script') + '</dt><dd class="cj-mono">' + esc(rec.spec.scriptName) + '</dd>' +
+            '<dt>' + t('cluster/jobs/owner', 'Owner') + '</dt><dd>' + esc(rec.spec.owner) + '</dd>' +
+            '<dt>' + t('cluster/jobs/duration', 'Duration') + '</dt><dd>' + duration(rec) + ' <span class="cj-meta">' + esc(fmt(t('cluster/jobs/attemptn', 'attempt {0}'), rec.state.attempts)) + '</span></dd>';
+        if (rec.spec.dataset) rows += '<dt>' + t('cluster/jobs/dataset', 'Dataset') + '</dt><dd class="cj-mono">' + esc(rec.spec.dataset) + '</dd>';
+        if (kids.length) {
+            var doneKids = kids.filter(function(k) { return k.state.status === 'succeeded'; }).length;
+            rows += '<dt>' + t('cluster/jobs/tasks', 'Tasks') + '</dt><dd>' + esc(fmt(t('cluster/jobs/complete', '{0} / {1} complete'), doneKids, kids.length)) + '</dd>';
+        }
+        if (rec.state.reason) rows += '<dt>' + t('cluster/jobs/waiting', 'Waiting') + '</dt><dd style="color:var(--cj-warn)">' + esc(CL.tr(rec.state.reason)) + '</dd>';
+        kv.innerHTML = rows;
+        var logs = rec.state.log || [];
+        document.getElementById('detail-log-wrap').style.display = logs.length ? '' : 'none';
+        document.getElementById('detail-log').textContent = logs.join('\n');
+        var hasOut = rec.state.output !== undefined && rec.state.output !== null;
+        document.getElementById('detail-out-wrap').style.display = hasOut ? '' : 'none';
+        if (hasOut) {
+            try { document.getElementById('detail-out').textContent = JSON.stringify(rec.state.output, null, 2); }
+            catch(e) { document.getElementById('detail-out').textContent = String(rec.state.output); }
+        }
+    }
+
+    function loadJobs() {
+        $.getJSON(API + 'status', function(st) {
+            if (apiResult(st)) return;
+            lastJobs = st.jobs || [];
+            var html = '';
+            lastJobs.forEach(function(rec) {
+                var running = rec.state.status === 'queued' || rec.state.status === 'scheduled' || rec.state.status === 'running';
+                var pct = Math.round((rec.state.progress || 0) * 100);
+                html += '<tr class="' + (rec.spec.id === selected ? 'selected' : '') + '" onclick="selectJob(\'' + esc(rec.spec.id) + '\')">' +
+                    '<td><div class="cj-name">' + esc(rec.spec.name || rec.spec.scriptName) + '</div><div class="cj-meta cj-mono">' + esc(rec.spec.id.substring(0, 8)) + ' · ' + esc(rec.spec.owner) + '</div></td>' +
+                    '<td><span class="cj-badge ' + esc(rec.state.status) + '">' + esc(CL.state(rec.state.status)) + '</span></td>' +
+                    '<td>' + (rec.state.node ? esc(rec.state.node) : '<span style="color:var(--cj-muted)">-</span>') + '</td>' +
+                    '<td>' + pct + '%<div class="cj-bar"><div style="width:' + pct + '%"></div></div></td>' +
+                    '<td>' + fmtAgo(rec.state.finished || rec.state.started || rec.spec.created) + '<div class="cj-meta">' + duration(rec) + '</div></td>' +
+                    '<td>' + (running ? '<button class="cj-btn small danger" onclick="event.stopPropagation(); cancelJob(\'' + esc(rec.spec.id) + '\')">' + t('cluster/jobs/cancel', 'Cancel') + '</button>' : '') + '</td></tr>';
+            });
+            document.getElementById('jobs-body').innerHTML = html || '<tr><td colspan="6" class="cj-empty">' + t('cluster/jobs/none', 'No jobs yet') + '</td></tr>';
+            document.getElementById('jobs-summary').textContent = ' ' + fmt(t('cluster/jobs/summary', '{0} running, {1} queued, {2} done'), st.running, st.queued, st.succeeded) + (st.failed ? ', ' + fmt(t('cluster/jobs/failedn', '{0} failed'), st.failed) : '');
+            document.getElementById('cj-refresh').textContent = (st.leaderName ? fmt(t('cluster/jobs/scheduler', 'Scheduler: {0}'), st.leaderName) + ' · ' : '') + fmt(t('cluster/jobs/slots', '{0}/{1} slots busy here'), st.localBusy, st.localSlots);
+            renderDetail();
+        });
+    }
+
+    function cancelJob(id) {
+        apiPost('cancel', { id: id }, function(err, r) {
+            var e = err || apiResult(r);
+            if (e) { showMsg('msg-submit', e, false); return; }
+            loadJobs();
+        });
+    }
+
+    CL.applyTheme('cj-root');
+    CL.init(function() {
+        loadJobs();
+        CL.every(loadJobs, 3000, 'cj-root');
+    });
+</script>
+</body>
+</html>

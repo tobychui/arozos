@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>Cluster Settings</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../cluster/cluster.common.js"></script>
+    <link rel="stylesheet" href="../cluster/cluster.css">
+</head>
+<body>
+<div id="cl-root">
+    <div id="cl-header">
+        <img src="../cluster/img/small_icon.png" alt="">
+        <div style="flex:1">
+            <h1 locale="cluster/settings/title">Cluster Settings</h1>
+            <p locale="cluster/settings/tagline">Set up this node and how the cluster stores files and runs work</p>
+        </div>
+        <span id="cl-refresh"></span>
+        <div class="cl-links">
+            <a href="../cluster/clusterinfo.html" onclick="return CL.openPage('Cluster Info', this.href)" locale="cluster/link/info">Cluster Info</a>
+            <a href="../cluster/jobs.html" onclick="return CL.openPage('Cluster Jobs', this.href)" locale="cluster/link/jobs">Cluster Jobs</a>
+        </div>
+    </div>
+
+    <div class="cl-grid">
+        <!-- This node -->
+        <div>
+            <div class="cl-card">
+                <div class="cl-card-head">
+                    <span><span locale="cluster/thisnode">This node</span><span class="cl-sub cl-mono" id="cl-nodeid"></span></span>
+                </div>
+                <div class="cl-card-body">
+                    <div class="cl-field">
+                        <label locale="cluster/cfg/name">Node name</label>
+                        <input type="text" id="cfg-name" maxlength="64">
+                    </div>
+                    <div class="cl-field">
+                        <label locale="cluster/cfg/url">Advertised URL (how other nodes reach this one)</label>
+                        <div class="cl-row">
+                            <input type="text" id="cfg-url" placeholder="https://node-a.example.com">
+                            <button class="cl-btn cl-fixed" onclick="testUrl()"><span locale="cluster/cfg/test">Test</span></button>
+                        </div>
+                        <div class="cl-hint" locale="cluster/cfg/urlhint">Leave empty if this node has no public address. It will then keep a tunnel open to a reachable member, which also works through Cloudflare.</div>
+                    </div>
+                    <div class="cl-field" id="field-tunnel" style="display:none">
+                        <label locale="cluster/cfg/tunnel">Tunnel through</label>
+                        <select id="cfg-tunnelvia"><option value="" locale="cluster/auto">Automatic (any reachable member)</option></select>
+                    </div>
+                    <div class="cl-field">
+                        <label class="cl-check"><input type="checkbox" id="cfg-insecure"> <span locale="cluster/cfg/insecure">Accept self-signed certificates from other nodes (LAN only)</span></label>
+                    </div>
+                    <div class="cl-row">
+                        <div></div>
+                        <button class="cl-btn primary cl-fixed" onclick="saveConfig()"><span locale="cluster/save">Save</span></button>
+                    </div>
+                    <div class="cl-msg" id="msg-config"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cluster membership -->
+        <div>
+            <div class="cl-card" id="card-standalone" style="display:none">
+                <div class="cl-card-head"><span locale="cluster/notmember">Not part of a cluster</span></div>
+                <div class="cl-card-body">
+                    <div class="cl-field">
+                        <label locale="cluster/create">Create a new cluster</label>
+                        <div class="cl-row">
+                            <input type="text" id="create-name" placeholder="Home Lab" maxlength="64">
+                            <button class="cl-btn primary cl-fixed" onclick="createCluster()"><span locale="cluster/createbtn">Create</span></button>
+                        </div>
+                        <div class="cl-hint" locale="cluster/createhint">This node becomes the first member. Generate join tokens here afterwards to add more nodes.</div>
+                    </div>
+                    <div class="cl-sep"></div>
+                    <div class="cl-field">
+                        <label locale="cluster/join">Join an existing cluster</label>
+                        <textarea id="join-token" placeholder="aroz-join:..."></textarea>
+                        <div class="cl-hint" locale="cluster/joinhint">Paste a join token generated on a reachable member of the cluster.</div>
+                    </div>
+                    <div class="cl-row">
+                        <div></div>
+                        <button class="cl-btn primary cl-fixed" onclick="joinCluster()"><span locale="cluster/joinbtn">Join</span></button>
+                    </div>
+                    <div class="cl-msg" id="msg-cluster"></div>
+                </div>
+            </div>
+
+            <div class="cl-card" id="card-member" style="display:none">
+                <div class="cl-card-head">
+                    <span id="v-clustername">Cluster</span>
+                    <button class="cl-btn small danger" onclick="leaveCluster()"><span locale="cluster/leave">Leave cluster</span></button>
+                </div>
+                <div class="cl-card-body">
+                    <div class="cl-field">
+                        <label locale="cluster/invite">Add a node</label>
+                        <div class="cl-row">
+                            <select id="token-ttl" class="cl-fixed" style="flex:0 0 auto; width:auto">
+                                <option value="1" locale="cluster/ttl/1h">1 hour</option>
+                                <option value="24" selected locale="cluster/ttl/24h">24 hours</option>
+                                <option value="168" locale="cluster/ttl/7d">7 days</option>
+                            </select>
+                            <button class="cl-btn primary" onclick="newToken()" id="btn-token"><span locale="cluster/gentoken">Generate join token</span></button>
+                        </div>
+                        <div class="cl-hint" locale="cluster/tokenhint">Tokens can only be generated on a node with an advertised URL. Paste the token into the other node's Cluster Settings.</div>
+                        <div id="token-out" style="display:none">
+                            <div class="cl-token-box" id="token-text"></div>
+                            <div class="cl-row" style="margin-top:6px">
+                                <div class="cl-hint" id="token-exp"></div>
+                                <button class="cl-btn small cl-fixed" onclick="copyToken()"><span locale="cluster/copy">Copy</span></button>
+                            </div>
+                        </div>
+                    </div>
+                    <ul class="cl-inline-list" id="token-list"></ul>
+                    <div class="cl-sep"></div>
+                    <div class="cl-field">
+                        <label locale="cluster/id/title">Identity (single sign-on)</label>
+                        <div class="cl-row">
+                            <select id="id-origin"><option value="" locale="cluster/id/disabled">Disabled (each node checks its own accounts)</option></select>
+                            <button class="cl-btn cl-fixed" onclick="setIdentityOrigin()"><span locale="cluster/id/apply">Apply</span></button>
+                            <button class="cl-btn cl-fixed" id="btn-idsync" onclick="syncIdentity()"><span locale="cluster/id/sync">Sync now</span></button>
+                        </div>
+                        <div class="cl-hint" locale="cluster/id/hint">The identity origin verifies every login in the cluster. Accounts are copied to the other nodes so they still work when the origin is unreachable. Groups are matched by name, so create the same permission groups on every node.</div>
+                        <dl class="cl-kv" id="id-details" style="margin-top:10px"></dl>
+                    </div>
+                    <div class="cl-msg" id="msg-member"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage -->
+    <div class="cl-card" id="card-storage" style="display:none">
+        <div class="cl-card-head">
+            <span><span locale="cluster/storage">Storage</span><span class="cl-sub" id="storage-summary"></span></span>
+            <button class="cl-btn small" onclick="rescanStorage()"><span locale="cluster/vol/rescan">Rescan this node</span></button>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-field">
+                <label locale="cluster/vol/add">Contribute a folder from this node</label>
+                <div class="cl-row">
+                    <select id="vol-fsh" class="cl-fixed" style="flex:0 0 auto; width:auto"></select>
+                    <input type="text" id="vol-path" placeholder="/cluster" value="/cluster">
+                    <input type="text" id="vol-name" placeholder="Name (optional)" style="max-width:220px">
+                    <button class="cl-btn primary cl-fixed" onclick="addVolume()"><span locale="cluster/vol/addbtn">Add volume</span></button>
+                </div>
+                <div class="cl-hint" locale="cluster/vol/hint">Files written to cluster:/ are stored as ordinary files inside contributed folders. Files already in the folder are adopted into the namespace on the next rescan. The cluster:/ drive appears in File Manager once the cluster has at least one volume.</div>
+            </div>
+            <div class="cl-field cl-toggle">
+                <input type="checkbox" id="auto-ro">
+                <div>
+                    <label for="auto-ro" class="cl-check" style="display:inline" locale="cluster/vol/autoro">Make nearly full volumes read only automatically</label>
+                    <div class="cl-hint" locale="cluster/vol/autorohint">Applies to every node. A volume under 5% free stops taking new files and takes them again above 7%. Turn this off to let volumes fill up; volumes it had locked become writable again within a minute.</div>
+                </div>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="cl-table">
+                    <thead><tr>
+                        <th locale="cluster/vol/volume">Volume</th><th locale="cluster/node">Node</th><th locale="cluster/vol/space">Free / total</th><th locale="cluster/vol/files">Files</th><th></th>
+                    </tr></thead>
+                    <tbody id="vol-body"></tbody>
+                </table>
+            </div>
+            <div class="cl-msg" id="msg-storage"></div>
+        </div>
+    </div>
+
+    <div class="cl-grid">
+        <!-- Replica policies -->
+        <div class="cl-card" id="card-policy" style="display:none">
+            <div class="cl-card-head"><span locale="cluster/pol/title">Replica policies</span></div>
+            <div class="cl-card-body">
+                <div class="cl-field">
+                    <label locale="cluster/pol/label">Copies per top-level folder</label>
+                    <div class="cl-row">
+                        <input type="text" id="pol-folder" placeholder="/photos">
+                        <select id="pol-replicas" class="cl-fixed" style="flex:0 0 auto; width:auto">
+                            <option value="1" locale="cluster/pol/1">1 copy</option>
+                            <option value="2" selected locale="cluster/pol/2">2 copies</option>
+                            <option value="3" locale="cluster/pol/3">3 copies</option>
+                            <option value="4" locale="cluster/pol/4">4 copies</option>
+                        </select>
+                        <button class="cl-btn cl-fixed" onclick="setPolicy()"><span locale="cluster/pol/set">Set</span></button>
+                    </div>
+                    <div class="cl-hint" locale="cluster/pol/hint">Folders without a policy keep one copy. Extra copies are created by the replication service.</div>
+                </div>
+                <ul class="cl-inline-list" id="pol-list"></ul>
+                <div class="cl-msg" id="msg-meta"></div>
+            </div>
+        </div>
+
+        <!-- Members -->
+        <div class="cl-card" id="card-nodes" style="display:none">
+            <div class="cl-card-head"><span locale="cluster/members">Members</span></div>
+            <div class="cl-card-body">
+                <div class="cl-hint" style="margin:0 0 8px 0" locale="cluster/membershint">Maintenance takes a node out of scheduling. Draining also moves its copies to other nodes so it can be switched off safely.</div>
+                <ul class="cl-inline-list" id="node-list"></ul>
+                <div class="cl-msg" id="msg-nodes"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scheduling weights -->
+    <div class="cl-card" id="card-sched" style="display:none">
+        <div class="cl-card-head">
+            <span locale="cluster/sched/title">Scheduling</span>
+            <span>
+                <button class="cl-btn small" onclick="resetWeights()"><span locale="cluster/sched/reset">Restore defaults</span></button>
+                <button class="cl-btn small" onclick="saveWeights()"><span locale="cluster/sched/save">Save weights</span></button>
+            </span>
+        </div>
+        <div class="cl-card-body">
+            <div class="cl-hint" locale="cluster/sched/hint">Jobs, new files and extra copies go to the node with the highest score. Raise a weight to make that quality matter more. The resulting scores are shown on Cluster Info.</div>
+            <div class="cl-grid" style="margin-top:10px" id="sched-weights"></div>
+            <div class="cl-msg" id="msg-sched"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var t = CL.t, fmt = CL.fmt, esc = CL.esc;
+    var API = '../../system/cluster/';
+    var clusterStatus = null;
+    var configDirty = false, identityDirty = false, schedDirty = false;
+    CL.applyTheme('cl-root');
+
+    function post(path, data, cb) { CL.apiPost(API + path, data, cb); }
+    function fail(box, err, r) {
+        var e = err || CL.apiResult(r);
+        if (e) { CL.showMsg(box, e, false); return true; }
+        return false;
+    }
+    function nodeName(id) {
+        if (!clusterStatus) return id;
+        for (var i = 0; i < clusterStatus.nodes.length; i++) if (clusterStatus.nodes[i].id === id) return clusterStatus.nodes[i].name;
+        return String(id).substring(0, 8);
+    }
+
+    /* Node and membership */
+    function render() {
+        var s = clusterStatus, local = s.local;
+        document.getElementById('cl-nodeid').textContent = ' ' + local.nodeId;
+        if (!configDirty) {
+            document.getElementById('cfg-name').value = local.config.name || '';
+            document.getElementById('cfg-url').value = local.config.advertiseUrl || '';
+            document.getElementById('cfg-insecure').checked = !!local.config.insecureTls;
+        }
+        renderTunnelSelect(local.config.tunnelVia || '');
+        toggleTunnelField();
+
+        document.getElementById('card-standalone').style.display = s.inCluster ? 'none' : '';
+        document.getElementById('card-member').style.display = s.inCluster ? '' : 'none';
+        ['card-storage', 'card-policy', 'card-nodes', 'card-sched'].forEach(function (id) {
+            document.getElementById(id).style.display = s.inCluster ? '' : 'none';
+        });
+        if (s.inCluster) {
+            document.getElementById('v-clustername').textContent = s.cluster.name;
+            document.getElementById('btn-token').disabled = !local.reachable;
+            renderTokens(s.tokens || []);
+            renderNodes(s.nodes || []);
+        }
+        document.getElementById('cl-refresh').textContent = fmt(t('cluster/updated', 'Updated {0}'), new Date().toLocaleTimeString());
+    }
+    function renderTunnelSelect(current) {
+        var sel = document.getElementById('cfg-tunnelvia');
+        var prev = configDirty ? sel.value : current;
+        var html = '<option value="">' + esc(t('cluster/auto', 'Automatic (any reachable member)')) + '</option>';
+        (clusterStatus.nodes || []).forEach(function (n) {
+            if (n.local || !n.advertiseUrl) return;
+            html += '<option value="' + esc(n.id) + '"' + (n.id === prev ? ' selected' : '') + '>' + esc(n.name) + ' (' + esc(n.advertiseUrl) + ')</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = prev;
+    }
+    function toggleTunnelField() {
+        var url = document.getElementById('cfg-url').value.trim();
+        document.getElementById('field-tunnel').style.display = (url === '' && clusterStatus && clusterStatus.inCluster) ? '' : 'none';
+    }
+    function renderTokens(tokens) {
+        var html = '';
+        tokens.forEach(function (tk) {
+            html += '<li><span class="cl-mono">' + esc(tk.id) + '</span><span style="color:var(--cl-dim)">' +
+                esc(fmt(t('cluster/tokenline', 'expires {0} · {1} uses'), CL.fmtDate(tk.expires), tk.uses)) + '</span>' +
+                '<button class="cl-btn small danger" onclick="revokeToken(\'' + esc(tk.id) + '\')">' + esc(t('cluster/revoke', 'Revoke')) + '</button></li>';
+        });
+        document.getElementById('token-list').innerHTML = html;
+    }
+    function renderNodes(nodes) {
+        var html = '';
+        nodes.forEach(function (n) {
+            var actions = '';
+            if (n.adminState === 'maintenance' || n.adminState === 'draining') {
+                actions += '<button class="cl-btn small" onclick="setNodeState(\'' + esc(n.id) + '\', \'normal\')">' + esc(t('cluster/resume', 'Resume')) + '</button>';
+            } else {
+                actions += '<button class="cl-btn small" onclick="setNodeState(\'' + esc(n.id) + '\', \'maintenance\')">' + esc(t('cluster/maintenance', 'Maintenance')) + '</button>';
+                actions += '<button class="cl-btn small" onclick="setNodeState(\'' + esc(n.id) + '\', \'draining\')">' + esc(t('cluster/drain', 'Drain')) + '</button>';
+            }
+            if (!n.local) {
+                actions += '<button class="cl-btn small danger" onclick="removeNode(\'' + esc(n.id) + '\', \'' + esc(n.name) + '\')">' + esc(t('cluster/remove', 'Remove')) + '</button>';
+            }
+            html += '<li><span><span class="cl-node-name">' + esc(n.name) + '</span>' + (n.local ? ' <span class="cl-chip">' + esc(t('cluster/you', 'you')) + '</span>' : '') +
+                ' <span class="cl-badge ' + esc(n.state) + '">' + esc(CL.state(n.state)) + '</span></span>' +
+                '<span class="cl-actions">' + actions + '</span></li>';
+        });
+        document.getElementById('node-list').innerHTML = html || '<li class="cl-empty">' + esc(t('cluster/nonodes', 'No nodes')) + '</li>';
+    }
+
+    /* Identity */
+    var identityStatus = null;
+    function loadIdentity() {
+        $.getJSON(API + 'identity/status', function (data) {
+            if (CL.apiResult(data)) return;
+            identityStatus = data;
+            renderIdentity();
+        });
+    }
+    function renderIdentity() {
+        if (!clusterStatus || !clusterStatus.inCluster || !identityStatus) return;
+        var st = identityStatus;
+        var sel = document.getElementById('id-origin');
+        var prev = identityDirty ? sel.value : (st.origin || '');
+        var html = '<option value="">' + esc(t('cluster/id/disabled', 'Disabled (each node checks its own accounts)')) + '</option>';
+        (clusterStatus.nodes || []).forEach(function (n) {
+            html += '<option value="' + esc(n.id) + '"' + (n.id === prev ? ' selected' : '') + '>' + esc(n.name) + (n.local ? ' (' + esc(t('cluster/thisnode', 'This node')) + ')' : '') + '</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = prev;
+        document.getElementById('btn-idsync').disabled = !st.enabled || st.isOrigin;
+
+        var rows = '';
+        var row = function (k, fb, v) { rows += '<dt>' + esc(t(k, fb)) + '</dt><dd>' + v + '</dd>'; };
+        if (!st.enabled) {
+            row('cluster/id/mode', 'Mode', esc(t('cluster/id/local', 'Each node verifies logins against its own accounts')));
+        } else if (st.isOrigin) {
+            row('cluster/id/mode', 'Mode', '<span class="cl-badge ONLINE">' + esc(t('cluster/id/origin', 'ORIGIN')) + '</span> ' + esc(t('cluster/id/originhere', 'This node verifies logins for the whole cluster')));
+            row('cluster/id/accounts', 'Accounts', esc(fmt(t('cluster/id/published', '{0} published to members'), st.localAccounts)));
+        } else {
+            row('cluster/id/mode', 'Mode', '<span class="cl-badge ' + (st.lastForwardError ? 'DEGRADED' : 'ONLINE') + '">' + esc(t('cluster/id/forward', 'FORWARD')) + '</span> ' + esc(fmt(t('cluster/id/verifiedby', 'Logins verified by {0}'), st.originName)));
+            row('cluster/id/replicated', 'Replicated', esc(fmt(t('cluster/id/mirrors', '{0} of {1} local accounts mirror the origin'), st.managedAccounts, st.localAccounts)));
+            row('cluster/id/lastsync', 'Last sync', (st.lastSync ? esc(CL.fmtAgo(st.lastSync)) : esc(t('cluster/never', 'never'))) + (st.lastSyncError ? ' <span style="color:var(--cl-danger)">' + esc(CL.tr(st.lastSyncError)) + '</span>' : ''));
+            if (st.lastForwardError) {
+                row('cluster/id/lastlogin', 'Last login check', '<span style="color:var(--cl-warn)">' + esc(t('cluster/id/fallback', 'origin unreachable, local accounts used')) + '</span><div class="cl-node-meta">' + esc(CL.tr(st.lastForwardError)) + '</div>');
+            }
+            if (st.skipped && st.skipped.length) {
+                row('cluster/id/skipped', 'Skipped', esc(st.skipped.join(', ')) + '<div class="cl-node-meta">' + esc(t('cluster/id/skippedwhy', 'none of their groups exist on this node')) + '</div>');
+            }
+            if (st.conflicts && st.conflicts.length) {
+                row('cluster/id/conflicts', 'Local only', esc(st.conflicts.join(', ')) + '<div class="cl-node-meta">' + esc(t('cluster/id/conflictswhy', 'a local account with the same name is kept as is')) + '</div>');
+            }
+        }
+        document.getElementById('id-details').innerHTML = rows;
+    }
+    function setIdentityOrigin() {
+        post('identity/origin', { id: document.getElementById('id-origin').value }, function (err, r) {
+            if (fail('msg-member', err, r)) return;
+            identityDirty = false;
+            CL.showMsg('msg-member', t('cluster/saved', 'Saved'), true);
+            loadStatus();
+        });
+    }
+    function syncIdentity() {
+        post('identity/sync', {}, function (err, r) {
+            if (fail('msg-member', err, r)) return;
+            CL.showMsg('msg-member', t('cluster/id/synced', 'Accounts synchronised'), true);
+            loadStatus();
+        });
+    }
+
+    /* Storage */
+    var storageDirty = false;
+    function loadStorage() {
+        $.getJSON(API + 'storage/status', function (st) {
+            if (CL.apiResult(st)) return;
+            var sel = document.getElementById('vol-fsh');
+            var prev = sel.value;
+            var html = '';
+            (st.localRoots || []).forEach(function (r) {
+                html += '<option value="' + esc(r.uuid) + '"' + (r.uuid === prev ? ' selected' : '') + '>' + esc(r.uuid) + ':/ (' + esc(r.path) + ')</option>';
+            });
+            sel.innerHTML = html;
+            if (prev) sel.value = prev;
+            document.getElementById('auto-ro').checked = st.autoReadOnly !== false;
+
+            var rows = '', totalFree = 0;
+            (st.volumes || []).forEach(function (v) {
+                totalFree += v.free || 0;
+                var actions = '';
+                if (v.local && v.evacuating) {
+                    actions += '<span class="cl-badge DRAINING">' + esc(t('cluster/vol/evacuating', 'EVACUATING')) + '</span> ';
+                    actions += '<button class="cl-btn small" onclick="cancelEvacuate(\'' + esc(v.id) + '\')">' + esc(t('cluster/cancel', 'Cancel')) + '</button>';
+                } else if (v.local) {
+                    actions += '<button class="cl-btn small" onclick="setVolumeRO(\'' + esc(v.id) + '\',' + (v.readOnly ? 'false' : 'true') + ')">' + esc(v.readOnly ? t('cluster/vol/writable', 'Make writable') : t('cluster/vol/readonly', 'Read only')) + '</button> ';
+                    actions += '<button class="cl-btn small" onclick="evacuateVolume(\'' + esc(v.id) + '\',\'' + esc(v.name) + '\')">' + esc(t('cluster/vol/evacuate', 'Evacuate')) + '</button> ';
+                    actions += '<button class="cl-btn small danger" onclick="removeVolume(\'' + esc(v.id) + '\',\'' + esc(v.name) + '\')">' + esc(t('cluster/remove', 'Remove')) + '</button>';
+                }
+                var flags = '';
+                if (v.lowSpace) flags += ' <span class="cl-chip">' + esc(t('cluster/vol/full', 'nearly full')) + '</span>';
+                else if (v.readOnly) flags += ' <span class="cl-chip">' + esc(t('cluster/vol/ro', 'read only')) + '</span>';
+                var pct = v.capacity > 0 ? (v.capacity - v.free) / v.capacity * 100 : 0;
+                //The node is named by its ID here: node names are operator set
+                //and default to the same one on every host
+                rows += '<tr><td><div class="cl-node-name">' + esc(v.name) + flags + '</div><div class="cl-node-meta cl-mono">' + esc(CL.nodePath(v.nodeId, v.fshUuid, v.subpath)) + '</div></td>' +
+                    '<td>' + esc(v.nodeName) + (v.local ? ' <span class="cl-chip">' + esc(t('cluster/you', 'you')) + '</span>' : '') + '<div class="cl-node-meta"><span class="cl-badge ' + (v.online ? 'ONLINE' : 'OFFLINE') + '">' + esc(CL.state(v.online ? 'online' : 'offline')) + '</span></div></td>' +
+                    '<td>' + CL.fmtBytes(v.free) + ' / ' + CL.fmtBytes(v.capacity) + CL.bar(pct) + '</td>' +
+                    '<td>' + v.files + '<div class="cl-node-meta">' + CL.fmtBytes(v.bytes) + '</div></td>' +
+                    '<td><div class="cl-actions">' + actions + '</div></td></tr>';
+            });
+            document.getElementById('vol-body').innerHTML = rows || '<tr><td colspan="5" class="cl-empty">' + esc(t('cluster/vol/none', 'No volumes yet. Add a folder from this node to start storing files in cluster:/')) + '</td></tr>';
+            document.getElementById('storage-summary').textContent = ' ' + fmt(t('cluster/vol/summary', '{0} volumes, {1} free'), (st.volumes || []).length, CL.fmtBytes(totalFree));
+        });
+    }
+    function addVolume() {
+        post('storage/volume/add', { fsh: document.getElementById('vol-fsh').value, path: document.getElementById('vol-path').value, name: document.getElementById('vol-name').value }, function (err, r) {
+            if (fail('msg-storage', err, r)) return;
+            CL.showMsg('msg-storage', t('cluster/vol/added', 'Volume added'), true);
+            loadStorage();
+        });
+    }
+    function removeVolume(id, name) {
+        if (!confirm(fmt(t('cluster/vol/confirmremove', 'Stop contributing "{0}"? Files stay on disk but copies only held there become unavailable.'), name))) return;
+        post('storage/volume/remove', { id: id }, function (err, r) {
+            if (fail('msg-storage', err, r)) return;
+            loadStorage();
+        });
+    }
+    function setVolumeRO(id, ro) {
+        post('storage/volume/readonly', { id: id, readonly: ro }, function (err, r) {
+            if (fail('msg-storage', err, r)) return;
+            loadStorage();
+        });
+    }
+    function setAutoReadOnly() {
+        var on = document.getElementById('auto-ro').checked;
+        post('storage/autoreadonly', { enabled: on ? 'true' : 'false' }, function (err, r) {
+            if (fail('msg-storage', err, r)) { loadStorage(); return; }
+            CL.showMsg('msg-storage', on ? t('cluster/vol/autoroon', 'Nearly full volumes will be made read only') : t('cluster/vol/autorooff', 'Volumes may now fill up completely'), true);
+            loadStorage();
+        });
+    }
+    function rescanStorage() {
+        post('storage/rescan', {}, function (err, r) {
+            if (fail('msg-storage', err, r)) return;
+            var adopted = 0, stale = 0;
+            (r || []).forEach(function (x) { adopted += x.adopted; stale += x.stale; });
+            CL.showMsg('msg-storage', fmt(t('cluster/vol/rescanned', 'Rescan done: {0} adopted, {1} stale'), adopted, stale), true);
+            loadStorage();
+        });
+    }
+    function evacuateVolume(id, name) {
+        if (!confirm(fmt(t('cluster/vol/confirmevac', 'Move every file off "{0}"? The volume becomes read only and is retired once all copies exist elsewhere.'), name))) return;
+        post('storage/volume/evacuate', { id: id }, function (err, r) {
+            if (fail('msg-storage', err, r)) return;
+            CL.showMsg('msg-storage', fmt(t('cluster/vol/evacstarted', 'Evacuation started: {0} files to move'), r.remaining), true);
+            loadStorage();
+        });
+    }
+    function cancelEvacuate(id) {
+        post('storage/volume/evacuate/cancel', { id: id }, function (err, r) {
+            if (fail('msg-storage', err, r)) return;
+            loadStorage();
+        });
+    }
+
+    /* Replica policies */
+    function loadPolicies() {
+        $.getJSON(API + 'meta/policy/list', function (list) {
+            if (CL.apiResult(list)) return;
+            var html = '';
+            (list || []).forEach(function (p) {
+                html += '<li><span class="cl-mono">' + esc(p.folder) + '</span><span>' + esc(fmt(t('cluster/pol/copies', '{0} copies'), p.replicas)) + '</span></li>';
+            });
+            document.getElementById('pol-list').innerHTML = html;
+        });
+    }
+    function setPolicy() {
+        post('meta/policy/set', { folder: document.getElementById('pol-folder').value, replicas: document.getElementById('pol-replicas').value }, function (err, r) {
+            if (fail('msg-meta', err, r)) return;
+            CL.showMsg('msg-meta', t('cluster/saved', 'Saved'), true);
+            loadPolicies();
+        });
+    }
+
+    /* Scheduling weights */
+    var WEIGHT_FIELDS = [
+        ['locality', 'Data locality', 'Prefer a node that already holds the data'],
+        ['cpu', 'Free CPU', 'Prefer an idle processor'],
+        ['memory', 'Free memory', 'Prefer a node with spare RAM'],
+        ['disk', 'Free disk', 'Prefer a node with room to grow'],
+        ['queue', 'Queue depth', 'Avoid a node that is already busy'],
+        ['latency', 'Network distance', 'Avoid a node far from the data'],
+        ['degraded', 'Health', 'Avoid a node that is struggling'],
+        ['preferred', 'Wanted features', 'Prefer a node with the optional features a job asks for'],
+        ['diversity', 'Site diversity', 'Put a second copy far from the first, so one site going down loses nothing']
+    ];
+    function renderWeights(w) {
+        var html = '';
+        WEIGHT_FIELDS.forEach(function (f) {
+            var key = f[0], val = (w[key] === undefined ? 0 : w[key]);
+            html += '<div class="cl-field" style="margin-bottom:8px">' +
+                '<label>' + esc(t('cluster/sched/' + key, f[1])) + ' <span class="cl-node-meta" id="wv-' + key + '">' + val.toFixed(2) + '</span></label>' +
+                '<input type="range" min="0" max="1" step="0.05" id="w-' + key + '" value="' + val + '" style="width:100%">' +
+                '<div class="cl-hint">' + esc(t('cluster/sched/' + key + '/hint', f[2])) + '</div></div>';
+        });
+        document.getElementById('sched-weights').innerHTML = html;
+        WEIGHT_FIELDS.forEach(function (f) {
+            var el = document.getElementById('w-' + f[0]);
+            el.addEventListener('input', function () {
+                schedDirty = true;
+                document.getElementById('wv-' + f[0]).textContent = parseFloat(el.value).toFixed(2);
+            });
+        });
+    }
+    function loadWeights() {
+        if (schedDirty) return;
+        $.getJSON(API + 'sched/weights', function (w) {
+            if (CL.apiResult(w) || schedDirty) return;
+            renderWeights(w || {});
+        });
+    }
+    function saveWeights() {
+        var out = {};
+        WEIGHT_FIELDS.forEach(function (f) { out[f[0]] = document.getElementById('w-' + f[0]).value; });
+        post('sched/weights', out, function (err, r) {
+            if (fail('msg-sched', err, r)) return;
+            schedDirty = false;
+            CL.showMsg('msg-sched', t('cluster/sched/saved', 'Weights saved for the whole cluster'), true);
+            loadWeights();
+        });
+    }
+    function resetWeights() {
+        post('sched/weights', { reset: true }, function (err, r) {
+            if (fail('msg-sched', err, r)) return;
+            schedDirty = false;
+            CL.showMsg('msg-sched', t('cluster/sched/restored', 'Default weights restored'), true);
+            loadWeights();
+        });
+    }
+
+    /* Actions */
+    function loadStatus() {
+        $.getJSON(API + 'status', function (data) {
+            if (CL.apiResult(data)) return;
+            clusterStatus = data;
+            render();
+            if (data.inCluster) { loadIdentity(); loadStorage(); loadPolicies(); loadWeights(); }
+        });
+    }
+    function saveConfig() {
+        post('config', {
+            name: document.getElementById('cfg-name').value,
+            url: document.getElementById('cfg-url').value,
+            tunnelvia: document.getElementById('cfg-tunnelvia').value,
+            insecure: document.getElementById('cfg-insecure').checked
+        }, function (err, r) {
+            if (fail('msg-config', err, r)) return;
+            configDirty = false;
+            CL.showMsg('msg-config', t('cluster/saved', 'Saved'), true);
+            loadStatus();
+        });
+    }
+    function testUrl() {
+        var url = document.getElementById('cfg-url').value.trim();
+        if (!url) { CL.showMsg('msg-config', t('cluster/enterurl', 'Enter a URL to test'), false); return; }
+        CL.showMsg('msg-config', t('cluster/testing', 'Testing...'), true);
+        post('testurl', { url: url }, function (err, r) {
+            if (fail('msg-config', err, r)) return;
+            CL.showMsg('msg-config', fmt(t('cluster/reachableok', 'Reachable, round trip {0} ms'), r.latencyMs), true);
+        });
+    }
+    function createCluster() {
+        var name = document.getElementById('create-name').value.trim();
+        if (!name) { CL.showMsg('msg-cluster', t('cluster/entername', 'Enter a cluster name'), false); return; }
+        post('create', { name: name }, function (err, r) {
+            if (fail('msg-cluster', err, r)) return;
+            loadStatus();
+        });
+    }
+    function joinCluster() {
+        var token = document.getElementById('join-token').value.trim();
+        if (!token) { CL.showMsg('msg-cluster', t('cluster/entertoken', 'Paste a join token'), false); return; }
+        CL.showMsg('msg-cluster', t('cluster/joining', 'Joining...'), true);
+        post('join', { token: token }, function (err, r) {
+            if (fail('msg-cluster', err, r)) return;
+            document.getElementById('join-token').value = '';
+            loadStatus();
+        });
+    }
+    function leaveCluster() {
+        if (!confirm(t('cluster/confirmleave', 'Leave the cluster? Files and jobs on other nodes will no longer be reachable from here.'))) return;
+        post('leave', {}, function (err, r) {
+            if (fail('msg-member', err, r)) return;
+            document.getElementById('token-out').style.display = 'none';
+            loadStatus();
+        });
+    }
+    function newToken() {
+        post('token/new', { ttl: document.getElementById('token-ttl').value }, function (err, r) {
+            if (fail('msg-member', err, r)) return;
+            document.getElementById('token-text').textContent = r.token;
+            document.getElementById('token-exp').textContent = fmt(t('cluster/expiresat', 'expires {0}'), CL.fmtDate(r.expires));
+            document.getElementById('token-out').style.display = '';
+            loadStatus();
+        });
+    }
+    function copyToken() {
+        var text = document.getElementById('token-text').textContent;
+        var done = function () { CL.showMsg('msg-member', t('cluster/copied', 'Token copied to clipboard'), true); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+        } else { fallbackCopy(text); done(); }
+    }
+    function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+    }
+    function revokeToken(id) {
+        post('token/revoke', { id: id }, function (err, r) {
+            if (fail('msg-member', err, r)) return;
+            loadStatus();
+        });
+    }
+    function setNodeState(id, state) {
+        post('node/state', { id: id, state: state }, function (err, r) {
+            if (fail('msg-nodes', err, r)) return;
+            loadStatus();
+        });
+    }
+    function removeNode(id, name) {
+        if (!confirm(fmt(t('cluster/confirmremove', 'Remove node "{0}"?'), name))) return;
+        post('node/remove', { id: id }, function (err, r) {
+            if (fail('msg-nodes', err, r)) return;
+            loadStatus();
+        });
+    }
+
+    /* Wire up */
+    ['cfg-name', 'cfg-url', 'cfg-tunnelvia', 'cfg-insecure'].forEach(function (id) {
+        document.getElementById(id).addEventListener('input', function () { configDirty = true; toggleTunnelField(); });
+        document.getElementById(id).addEventListener('change', function () { configDirty = true; toggleTunnelField(); });
+    });
+    document.getElementById('id-origin').addEventListener('change', function () { identityDirty = true; });
+    document.getElementById('vol-fsh').addEventListener('change', function () { storageDirty = true; });
+    document.getElementById('auto-ro').addEventListener('change', setAutoReadOnly);
+    CL.init(function () {
+        loadStatus();
+        CL.every(loadStatus, 10000, 'cl-root');
+    });
+</script>
+</body>
+</html>

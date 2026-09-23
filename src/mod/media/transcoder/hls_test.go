@@ -2,9 +2,11 @@ package transcoder
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Source-file fixtures. These are never opened - the functions under test only
@@ -373,5 +375,237 @@ func TestSegmentBaseURL(t *testing.T) {
 	want := "/media/hls/segment?sid=deadbeef&name="
 	if got != want {
 		t.Errorf("segmentBaseURL = %q, want %q", got, want)
+	}
+}
+
+// TestTailBufferKeepsTail verifies the stderr capture keeps the end of the
+// stream and stays bounded, since ffmpeg's final message is the only
+// explanation available when a transcode produces nothing.
+func TestTailBufferKeepsTail(t *testing.T) {
+	tests := []struct {
+		name   string
+		writes []string
+		want   string
+	}{
+		{name: "empty", writes: nil, want: ""},
+		{name: "single write", writes: []string{"boom"}, want: "boom"},
+		{name: "appends in order", writes: []string{"a", "b", "c"}, want: "abc"},
+		{
+			name:   "keeps only the tail",
+			writes: []string{strings.Repeat("x", hlsStderrTailBytes), "tail"},
+			want:   strings.Repeat("x", hlsStderrTailBytes-4) + "tail",
+		},
+		{
+			name:   "single oversized write is trimmed",
+			writes: []string{strings.Repeat("y", hlsStderrTailBytes+10)},
+			want:   strings.Repeat("y", hlsStderrTailBytes),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &tailBuffer{}
+			for _, chunk := range tt.writes {
+				n, err := buf.Write([]byte(chunk))
+				if err != nil {
+					t.Fatalf("Write returned error: %v", err)
+				}
+				if n != len(chunk) {
+					t.Errorf("Write returned n = %d, want %d", n, len(chunk))
+				}
+			}
+			if got := buf.String(); got != tt.want {
+				t.Errorf("String() length %d, want %d (content mismatch)", len(got), len(tt.want))
+			}
+		})
+	}
+}
+
+// TestStderrTailWithoutBuffer verifies a session carrying no capture buffer
+// reports no diagnostics rather than panicking.
+func TestStderrTailWithoutBuffer(t *testing.T) {
+	session := &HLSSession{}
+	if got := session.StderrTail(); got != "" {
+		t.Errorf("StderrTail() = %q, want empty", got)
+	}
+
+	session.stderr = &tailBuffer{}
+	session.stderr.Write([]byte("  ffmpeg said this  \n"))
+	if got := session.StderrTail(); got != "ffmpeg said this" {
+		t.Errorf("StderrTail() = %q, want trimmed message", got)
+	}
+}
+
+// TestCollectSuperseded verifies which running transcodes a newly created
+// session retires. A seek arrives as a request for the same file at another
+// offset, and without this the transcode it replaces would keep running.
+func TestCollectSuperseded(t *testing.T) {
+	newSession := func(id, owner, client, source string) *HLSSession {
+		return &HLSSession{ID: id, Owner: owner, Client: client, Source: source}
+	}
+
+	tests := []struct {
+		name     string
+		existing map[string]*HLSSession
+		created  *HLSSession
+		want     []string
+	}{
+		{
+			name:     "same player seeking retires its earlier offset",
+			existing: map[string]*HLSSession{"old": newSession("old", "alice", "tab1", srcA)},
+			created:  newSession("new", "alice", "tab1", srcA),
+			want:     []string{"old"},
+		},
+		{
+			name:     "same player switching file retires the previous one",
+			existing: map[string]*HLSSession{"old": newSession("old", "alice", "tab1", srcA)},
+			created:  newSession("new", "alice", "tab1", srcB),
+			want:     []string{"old"},
+		},
+		{
+			name:     "another tab of the same user is left alone",
+			existing: map[string]*HLSSession{"old": newSession("old", "alice", "tab2", srcA)},
+			created:  newSession("new", "alice", "tab1", srcA),
+			want:     nil,
+		},
+		{
+			name:     "another user is left alone",
+			existing: map[string]*HLSSession{"old": newSession("old", "bob", "tab1", srcA)},
+			created:  newSession("new", "alice", "tab1", srcA),
+			want:     nil,
+		},
+		{
+			name:     "unidentified player retires its own file only",
+			existing: map[string]*HLSSession{"old": newSession("old", "alice", "", srcA)},
+			created:  newSession("new", "alice", "", srcA),
+			want:     []string{"old"},
+		},
+		{
+			name:     "unidentified player leaves another file alone",
+			existing: map[string]*HLSSession{"old": newSession("old", "alice", "", srcB)},
+			created:  newSession("new", "alice", "", srcA),
+			want:     nil,
+		},
+		{
+			name:     "unidentified player never retires an identified one",
+			existing: map[string]*HLSSession{"old": newSession("old", "alice", "tab1", srcA)},
+			created:  newSession("new", "alice", "", srcA),
+			want:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &HLSManager{sessions: map[string]*HLSSession{}}
+			for key, session := range tt.existing {
+				m.sessions[key] = session
+			}
+			m.sessions["new"] = tt.created
+
+			got := m.collectSuperseded("new", tt.created)
+			var gotIDs []string
+			for _, session := range got {
+				gotIDs = append(gotIDs, session.ID)
+			}
+			if strings.Join(gotIDs, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("collectSuperseded returned %v, want %v", gotIDs, tt.want)
+			}
+			if _, stillThere := m.sessions["new"]; !stillThere {
+				t.Error("collectSuperseded removed the session that was just created")
+			}
+			for _, id := range gotIDs {
+				if _, stillThere := m.sessions[id]; stillThere {
+					t.Errorf("superseded session %q was returned but not removed from the map", id)
+				}
+			}
+			if len(m.sessions) != len(tt.existing)+1-len(tt.want) {
+				t.Errorf("session map holds %d entries after superseding, want %d",
+					len(m.sessions), len(tt.existing)+1-len(tt.want))
+			}
+		})
+	}
+}
+
+// TestGetOrCreateSupersedesOnSeek runs the real thing: a session is started,
+// then the same player asks for a later offset the way a seek does. The first
+// transcode must be gone by the time the second playlist is ready, since two
+// ffmpeg processes racing through the same film is what starves the host and
+// leaves the player waiting on a segment that never arrives.
+//
+// Skipped where ffmpeg is not installed, which is also where the HLS endpoints
+// are not registered at all.
+func TestGetOrCreateSupersedesOnSeek(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed on this host")
+	}
+
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "source.mp4")
+	generateTestVideo(t, source)
+
+	m, err := NewHLSManager(tmp, "/media/hls/segment")
+	if err != nil {
+		t.Fatalf("NewHLSManager returned error: %v", err)
+	}
+	defer m.Close()
+
+	first, err := m.GetOrCreate("alice", "tab1", source, TranscodeResolution_original, 0)
+	if err != nil {
+		t.Fatalf("starting the first session: %v", err)
+	}
+	if err := first.WaitForPlaylist(HLSPlaylistWaitTimeout); err != nil {
+		t.Fatalf("first session produced no segment: %v (ffmpeg: %s)", err, first.StderrTail())
+	}
+
+	//The seek: same player, same file, later offset
+	second, err := m.GetOrCreate("alice", "tab1", source, TranscodeResolution_original, 6)
+	if err != nil {
+		t.Fatalf("starting the session for the seek: %v", err)
+	}
+	if second.ID == first.ID {
+		t.Fatal("a seek to another offset reused the session it should have replaced")
+	}
+	if err := second.WaitForPlaylist(HLSPlaylistWaitTimeout); err != nil {
+		t.Fatalf("seek session produced no segment: %v (ffmpeg: %s)", err, second.StderrTail())
+	}
+
+	if got := m.Session(first.ID); got != nil {
+		t.Error("the superseded session is still being served")
+	}
+	select {
+	case <-first.exited:
+	case <-time.After(10 * time.Second):
+		t.Error("the superseded transcode is still running")
+	}
+	if _, err := os.Stat(first.Dir); !os.IsNotExist(err) {
+		t.Errorf("the superseded session's directory survived (err=%v)", err)
+	}
+
+	//The replacement has to be intact and still serving
+	if m.Session(second.ID) == nil {
+		t.Fatal("the session started by the seek is not being served")
+	}
+	playlist, err := m.ReadPlaylist(second)
+	if err != nil {
+		t.Fatalf("reading the playlist of the seek session: %v", err)
+	}
+	if !strings.Contains(string(playlist), m.segmentBaseURL(second.ID)+HLSInitSegmentName) {
+		t.Error("the playlist does not point its init segment at the segment endpoint")
+	}
+	if !strings.Contains(string(playlist), hlsSegmentSuffix) {
+		t.Error("the playlist lists no media segment")
+	}
+}
+
+// generateTestVideo writes a short, deterministic clip with ffmpeg for the
+// tests that need a real file to transcode.
+func generateTestVideo(t *testing.T, path string) {
+	t.Helper()
+	cmd := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+		"-f", "lavfi", "-i", "testsrc=size=192x108:rate=15:duration=12",
+		"-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+		"-an", path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Skipf("could not generate a test clip with ffmpeg: %v (%s)", err, string(output))
 	}
 }

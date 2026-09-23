@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minesweeper - ArozOS</title>
+    <link rel="stylesheet" href="css/arcade.css">
+    <style>
+        /* Page-local tweaks; everything else comes from css/arcade.css. */
+        .ms-boardwrap {
+            padding: calc(var(--px) * 3);
+            overflow: auto;
+            max-width: 100%;
+        }
+
+        .ms-face {
+            --frame: var(--gold-lo);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 44px;
+            padding: 0;
+        }
+
+        .ms-face .px-sprite {
+            width: 26px;
+            height: 26px;
+        }
+
+        .px-statusbar {
+            max-width: 100%;
+        }
+
+        .cell-art {
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            display: block;
+        }
+
+        .face-art {
+            width: 26px;
+            height: 26px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            display: block;
+        }
+    </style>
+</head>
+<body class="arcade">
+    <div class="px-screen">
+
+        <div class="top-bar">
+            <button id="backBtn" onclick="goBack()">
+                <span class="px-sprite" data-icon="ui/back" data-icon-label="Back"></span>
+                Back
+            </button>
+            <button id="resetBtn" onclick="initGame()" title="New game">
+                <span class="px-sprite" data-icon="ui/reset" data-icon-label="New game"></span>
+            </button>
+            <div class="game-info">
+                <span id="mineCount">Mines: 0</span>
+                <span id="timer">Time: 0s</span>
+            </div>
+        </div>
+
+        <div class="difficulty-bar">
+            <button class="diff-btn active" onclick="setDifficulty(0)">Beginner</button>
+            <button class="diff-btn" onclick="setDifficulty(1)">Intermediate</button>
+            <button class="diff-btn" onclick="setDifficulty(2)">Expert</button>
+        </div>
+
+        <div class="ms-boardwrap board-wrap">
+            <div id="board"></div>
+        </div>
+
+        <div class="px-frame px-panel px-statusbar">
+            <div class="px-statusbar__slot">
+                <img src="img/sprites/mines/bomb.png" alt="Flags placed" class="face-art">
+                <span class="px-text" id="flagStat" data-px="0" data-px-scale="2"></span>
+            </div>
+            <button class="px-btn ms-face" id="faceBtn" onclick="initGame()" title="New game">
+                <span id="faceSprite"><img src="img/sprites/mines/face_ok.png" alt="New game" class="face-art"></span>
+            </button>
+            <div class="px-statusbar__slot">
+                <span class="px-sprite" data-icon="ui/trophy" data-icon-label="Best time"></span>
+                <span class="px-text" id="bestStat" data-px="--" data-px-scale="2"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2 id="modalTitle"></h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script>
+        const DIFFICULTIES = [
+            { rows: 9, cols: 9, mines: 10, key: 'beginner' },
+            { rows: 16, cols: 16, mines: 40, key: 'intermediate' },
+            { rows: 16, cols: 30, mines: 99, key: 'expert' }
+        ];
+
+        const BEST_TIME_KEY = 'arozos.games.minesweeper.best';
+
+        let currentDiff = 0;
+        let board = [];
+        let rows, cols, totalMines;
+        let revealed = [];
+        let flagged = [];
+        let gameOver = false;
+        let firstClick = true;
+        let timerInterval = null;
+        let seconds = 0;
+        let flagCount = 0;
+
+        /*
+            Cell art comes from the cropped sprite sheet. The markup is built
+            once and reused -- it goes into hundreds of cells per board.
+        */
+        function cellArt(file, label) {
+            return '<img src="img/sprites/' + file + '" alt="' + label + '" class="cell-art">';
+        }
+
+        const FLAG_SVG = cellArt('mines/flag.png', 'Flag');
+        const BOMB_SVG = cellArt('mines/bomb.png', 'Mine');
+        const MISS_SVG = cellArt('mines/boom.png', 'Wrong flag');
+
+        function setDifficulty(idx) {
+            currentDiff = idx;
+            document.querySelectorAll('.diff-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === idx);
+            });
+            initGame();
+        }
+
+        /* setChipText draws a read-out chip's label with the pixel font. */
+        function setChipText(id, value) {
+            const el = document.getElementById(id);
+            el.innerHTML = pxTextSVG(value, { scale: 2, shadow: null });
+            el.setAttribute('aria-label', value);
+        }
+
+        /* setPxText re-renders one of the pixel-font read-outs in place. */
+        function setPxText(id, value) {
+            const el = document.getElementById(id);
+            el.innerHTML = pxTextSVG(String(value), { scale: 3, shadow: null });
+            el.setAttribute('aria-label', String(value));
+            el.setAttribute('data-px-done', '1');
+        }
+
+        function setFace(file) {
+            const el = document.getElementById('faceSprite');
+            el.innerHTML = '<img src="img/sprites/mines/' + file + '" alt="New game" class="face-art">';
+        }
+
+        function initGame() {
+            const diff = DIFFICULTIES[currentDiff];
+            rows = diff.rows;
+            cols = diff.cols;
+            totalMines = diff.mines;
+
+            board = [];
+            revealed = [];
+            flagged = [];
+            gameOver = false;
+            firstClick = true;
+            flagCount = 0;
+            seconds = 0;
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+
+            for (let r = 0; r < rows; r++) {
+                board[r] = [];
+                revealed[r] = [];
+                flagged[r] = [];
+                for (let c = 0; c < cols; c++) {
+                    board[r][c] = 0;
+                    revealed[r][c] = false;
+                    flagged[r][c] = false;
+                }
+            }
+
+            setFace('face_ok.png');
+            updateUI();
+            renderBoard();
+            hideOverlay();
+        }
+
+        function placeMines(safeR, safeC) {
+            let placed = 0;
+            while (placed < totalMines) {
+                const r = Math.floor(Math.random() * rows);
+                const c = Math.floor(Math.random() * cols);
+                if (board[r][c] === -1) continue;
+                if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
+                board[r][c] = -1;
+                placed++;
+            }
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c] === -1) continue;
+                    let count = 0;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            const nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] === -1) {
+                                count++;
+                            }
+                        }
+                    }
+                    board[r][c] = count;
+                }
+            }
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.style.gridTemplateColumns = `repeat(${cols}, 30px)`;
+            boardEl.innerHTML = '';
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell hidden';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+
+                    cell.addEventListener('click', () => handleClick(r, c));
+                    cell.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        handleRightClick(r, c);
+                    });
+
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function getCell(r, c) {
+            return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+        }
+
+        function handleClick(r, c) {
+            if (gameOver || flagged[r][c] || revealed[r][c]) return;
+
+            if (firstClick) {
+                firstClick = false;
+                placeMines(r, c);
+                startTimer();
+            }
+
+            if (board[r][c] === -1) {
+                loseGame(r, c);
+                return;
+            }
+
+            revealCell(r, c);
+            checkWin();
+        }
+
+        function revealCell(r, c) {
+            if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+            if (revealed[r][c] || flagged[r][c]) return;
+
+            revealed[r][c] = true;
+            const cell = getCell(r, c);
+            cell.classList.remove('hidden');
+            cell.classList.add('revealed');
+
+            if (board[r][c] > 0) {
+                cell.classList.add('n' + board[r][c]);
+                /* The digit is drawn with the pixel font so it matches the shell. */
+                cell.innerHTML = pxTextSVG(String(board[r][c]), { scale: 3, shadow: null });
+            } else if (board[r][c] === 0) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        revealCell(r + dr, c + dc);
+                    }
+                }
+            }
+        }
+
+        function handleRightClick(r, c) {
+            if (gameOver || revealed[r][c]) return;
+
+            const cell = getCell(r, c);
+            if (flagged[r][c]) {
+                flagged[r][c] = false;
+                flagCount--;
+                cell.classList.remove('flagged');
+                cell.innerHTML = '';
+            } else {
+                flagged[r][c] = true;
+                flagCount++;
+                cell.classList.add('flagged');
+                cell.innerHTML = FLAG_SVG;
+            }
+
+            setChipText('mineCount', 'Mines: ' + (totalMines - flagCount));
+            setPxText('flagStat', flagCount);
+        }
+
+        function loseGame(explodedR, explodedC) {
+            gameOver = true;
+            if (timerInterval) clearInterval(timerInterval);
+            setFace('face_dead.png');
+
+            const cell = getCell(explodedR, explodedC);
+            cell.classList.remove('hidden');
+            cell.classList.add('mine-exploded');
+            cell.innerHTML = BOMB_SVG;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c] === -1 && !(r === explodedR && c === explodedC)) {
+                        const mc = getCell(r, c);
+                        mc.classList.remove('hidden');
+                        mc.classList.add('mine-shown');
+                        if (!flagged[r][c]) {
+                            mc.innerHTML = BOMB_SVG;
+                        }
+                    }
+                    if (flagged[r][c] && board[r][c] !== -1) {
+                        const mc = getCell(r, c);
+                        mc.innerHTML = MISS_SVG;
+                    }
+                }
+            }
+
+            setTimeout(() => showModal(false), 500);
+        }
+
+        function checkWin() {
+            let unrevealedSafe = 0;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c] !== -1 && !revealed[r][c]) {
+                        unrevealedSafe++;
+                    }
+                }
+            }
+
+            if (unrevealedSafe !== 0) return;
+
+            gameOver = true;
+            if (timerInterval) clearInterval(timerInterval);
+            setFace('face_cool.png');
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c] === -1) {
+                        flagged[r][c] = true;
+                        const mc = getCell(r, c);
+                        mc.innerHTML = FLAG_SVG;
+                        mc.classList.add('flagged');
+                    }
+                }
+            }
+
+            flagCount = totalMines;
+            setChipText('mineCount', 'Mines: 0');
+            setPxText('flagStat', flagCount);
+            recordBestTime(seconds);
+            setTimeout(() => showModal(true), 300);
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                setChipText('timer', 'Time: ' + seconds + 's');
+            }, 1000);
+        }
+
+        /* Best times are stored per difficulty, keyed by DIFFICULTIES[i].key. */
+        function loadBestTimes() {
+            try {
+                return JSON.parse(localStorage.getItem(BEST_TIME_KEY)) || {};
+            } catch (err) {
+                return {};
+            }
+        }
+
+        function recordBestTime(time) {
+            const key = DIFFICULTIES[currentDiff].key;
+            const best = loadBestTimes();
+            if (best[key] === undefined || time < best[key]) {
+                best[key] = time;
+                try {
+                    localStorage.setItem(BEST_TIME_KEY, JSON.stringify(best));
+                } catch (err) {
+                    /* Storage unavailable -- the best time is a nicety, not state. */
+                }
+            }
+            showBestTime();
+        }
+
+        function showBestTime() {
+            const best = loadBestTimes()[DIFFICULTIES[currentDiff].key];
+            setPxText('bestStat', best === undefined ? '--' : best + 'S');
+        }
+
+        function updateUI() {
+            setChipText('mineCount', 'Mines: ' + totalMines);
+            setChipText('timer', 'Time: 0s');
+            setPxText('flagStat', 0);
+            showBestTime();
+        }
+
+        function showModal(isWin) {
+            const overlay = document.getElementById('overlay');
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modalTitle');
+            const msg = document.getElementById('modalMsg');
+
+            modal.className = 'modal ' + (isWin ? 'win' : 'lose');
+            title.textContent = isWin ? 'You Win!' : 'Game Over';
+            msg.textContent = isWin ? 'Congratulations! Time: ' + seconds + 's' : 'Better luck next time!';
+
+            overlay.classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

@@ -4,19 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sheets</title>
+    <link rel="icon" type="image/png" href="sheets.png">
+    <!-- fetched first: the start-up splash shows it -->
+    <link rel="preload" href="../img/splash/sheets.svg" as="image">
+</head>
+<body data-officeapp="sheets">
+    <!-- start-up splash: first, so it covers the page before anything draws -->
+    <script src="../common/splash.js" data-app="Sheets" data-size="1180x720"></script>
+    <!-- the app's stylesheets and scripts come after the splash, so it can
+         paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <link rel="stylesheet" href="../common/office.css">
+    <link rel="stylesheet" href="../common/fonts/fonts.css">
     <link rel="stylesheet" href="sheets.css">
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <script src="../common/mode.js"></script>
+    <script src="../common/container.js"></script>
+    <script src="../common/recents.js"></script>
+    <script src="../common/wasm.js"></script>
+    <script src="../common/platform.js"></script>
+    <script src="../common/fonts.js"></script>
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
     <script src="../common/clipboard.js"></script>
     <script src="../common/charts.js"></script>
     <script src="formula.js"></script>
-</head>
-<body data-officeapp="sheets">
+    <script src="numfmt.js"></script>
+    <script src="formula_fn_logic.js"></script>
+    <script src="formula_fn_math.js"></script>
+    <script src="formula_fn_stats.js"></script>
+    <script src="formula_fn_text.js"></script>
+    <script src="formula_fn_date.js"></script>
+    <script src="formula_fn_lookup.js"></script>
+    <script src="formula_fn_ref.js"></script>
+    <script src="formula_fn_array.js"></script>
+    <script src="formula_fn_finance.js"></script>
+    <script src="formula_help.js"></script>
     <div class="of-toolbar of-noprint" id="toolbar"></div>
     <div id="shFxBar" class="of-noprint">
         <input id="shNameBox" spellcheck="false" title="Cell reference (type a ref and press Enter to jump)">
@@ -29,8 +54,13 @@
             <div id="shColHead"><div id="shColHeadIn"></div></div>
             <div id="shRowHead"><div id="shRowHeadIn"></div></div>
             <div id="shGrid">
-                <div id="shSpacer"></div>
+                <div id="shSpacer">
+                    <div id="shFrozenCols" class="sh-frozen-layer"></div>
+                    <div id="shFrozenRows" class="sh-frozen-layer"></div>
+                    <div id="shFrozenCorner" class="sh-frozen-layer"></div>
+                </div>
                 <div id="shCells"></div>
+                <div id="shSpillBox"></div>
                 <div id="shRangeBox"></div>
                 <div id="shFillHandle" title="Drag to fill"></div>
                 <div id="shChartLayer"></div>
@@ -43,7 +73,9 @@
         <div id="shTabList"></div>
     </div>
     <div id="shPrintArea"></div>
+    <script src="sheets_suggest.js"></script>
     <script src="sheets.js"></script>
     <script src="sheets_io.js"></script>
+    <script src="sheets_cf.js"></script>
 </body>
 </html>

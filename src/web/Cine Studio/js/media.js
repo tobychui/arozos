@@ -65,7 +65,8 @@ CS.media = {
             });
         };
         ao_module_openFileSelector(window.csImportCallback, "user:/Desktop", "file", true, {
-            filter: CS.media.acceptedExts()
+            filter: CS.media.acceptedExts(),
+            path_memory_key: "import"
         });
     },
 

@@ -1,0 +1,33 @@
+{
+ "type": "arozos/office",
+ "app": "document",
+ "version": 1,
+ "meta": {
+  "title": "Meeting Notes",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "html": "<h1 class=\"doc-title\">Meeting Notes</h1><table><tbody><tr><td><b>Date</b></td><td>&nbsp;</td></tr><tr><td><b>Attendees</b></td><td>&nbsp;</td></tr><tr><td><b>Apologies</b></td><td>&nbsp;</td></tr></tbody></table><h2>Agenda</h2><ol><li>First item</li><li>Second item</li><li>Any other business</li></ol><h2>Discussion</h2><p>What was said, grouped by agenda item. Record decisions, not transcripts.</p><h2>Decisions</h2><ul><li>What was decided, and by whom.</li></ul><h2>Actions</h2><table><tbody><tr><td><b>Action</b></td><td><b>Owner</b></td><td><b>Due</b></td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table>",
+  "page": {
+   "size": "A4",
+   "orientation": "portrait",
+   "margins": {
+    "top": 25.4,
+    "right": 25.4,
+    "bottom": 25.4,
+    "left": 25.4
+   },
+   "columns": 1,
+   "colGap": 10
+  },
+  "header": "",
+  "footer": "Meeting notes",
+  "hfMode": "all",
+  "pageNumbers": true,
+  "comments": [],
+  "trackChanges": false
+ }
+}

@@ -10,6 +10,11 @@
 // ============================== PATH SHORTCUT RESOLUTION ====================
 var pathShortcuts = {
     "%appdata%": "user:/.appdata/",
+    /*
+        Not a real path. listDirectory() recognises this sentinel and renders
+        the trash view instead of listing it - see js/explorer/trash.js.
+    */
+    "%trashbin%": "%trashbin%",
 };
 
 function resolvePathShortcut(path){
@@ -85,13 +90,9 @@ function showEditCurrentPathInput(e){
     pathInputMode = true;
     $("#pathInputField").find("input").val(currentPath);
     $("#editPathBtn").hide();
-    if (isMobile){
-        $("#mobilePathDisplay").hide();
-        $(".mobilePathDisplayWrapper").append($("#pathInputField"));
-    }else{
-        //Desktop
-        $("#pathDisplayField").hide();
-    }
+    //Same element on both layouts - the mobile branch used to hide an id that
+    //no longer exists, which left the breadcrumb sitting beside the input
+    $("#pathDisplayField").hide();
     $("#pathInputField").show();
     $("#pathInputField").find("input").focus();
     
@@ -116,12 +117,8 @@ function openEnteredPath(object){
 function hideManualOpenPathInput(){
     $("#pathInputField").hide();
     pathInputMode = false;
-    if (isMobile){
-        $("#mobilePathDisplay").show();
-    }else{
-        $("#pathDisplayField").show();
-    }
-    
+    $("#pathDisplayField").show();
+
     //Restore the edit btn
     $("#editPathBtn").show();
 }
@@ -147,6 +144,23 @@ function openHomeDir(){
 }
 
 function updatePathDisplay(path){
+    /*
+        A special view has no directory tree to walk. Its sentinel (%trashbin%)
+        exists so the address bar can navigate to it, but showing that raw
+        keyword back once the view has loaded is noise - the registered icon and
+        localised name are what the user should read.
+    */
+    let specialView = getSpecialView(path);
+    if (specialView != null){
+        $(".pathDisplay").html("");
+        $(".pathDisplay").append('<div class="section fmSpecialRoot"><span class="fmSpecialRootIcon">' +
+            (FSIcons[specialView.icon] || "") + '</span><span>' +
+            applocale.getString(specialView.labelKey, specialView.labelFallback) + '</span></div>');
+        //The input keeps the sentinel, since that is what you would type
+        $("#pathInputField").find("input").val(path);
+        return;
+    }
+
     var pathInfo = path.split("/");
     var vdID = pathInfo[0];
     //As path always end with /, pop the empty pathinfo from array
@@ -169,10 +183,13 @@ function updatePathDisplay(path){
     }
 
     let fullpath = domPathChunks.join(`<div class="divider">/</div>`);
+    /*
+        One breadcrumb element serves both layouts. There used to be a separate
+        #mobilePathDisplay; appending to it after it was removed silently did
+        nothing, so on a phone every segment below the root vanished while the
+        root chip - appended by class above - still showed.
+    */
     let targetDisplayDOM = $("#pathDisplayField");
-    if (isMobile){
-        targetDisplayDOM = $("#mobilePathDisplay");
-    }
     $(targetDisplayDOM).append(`<div id="pre-render" class="measure">${fullpath}</div>`);
     let pathWidth = $("#pre-render").width();
     let pathFieldWidth = $(targetDisplayDOM).width();

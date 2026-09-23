@@ -79,13 +79,16 @@ func TestDocxHeaderFooterNotCentered(t *testing.T) {
 		if !strings.Contains(raw, tc.want) {
 			t.Errorf("%s missing its text: %s", tc.part, raw)
 		}
-		// the editor renders header/footer left aligned - the export must match
-		if strings.Contains(raw, `<w:jc w:val="center"/>`) {
-			t.Errorf("%s is centred but the editor left aligns it: %s", tc.part, raw)
+		// the editor renders header/footer text left aligned - the export
+		// must match (only the page number line below is centred)
+		text := raw[:strings.Index(raw, tc.want)]
+		if strings.Contains(text[strings.LastIndex(text, "<w:p>"):], `<w:jc w:val="center"/>`) {
+			t.Errorf("%s text is centred but the editor left aligns it: %s", tc.part, raw)
 		}
 	}
-	// the PAGE field must survive the alignment fix
-	if !strings.Contains(string(zipPart(t, data, "word/footer1.xml")), "PAGE") {
-		t.Error("footer lost its page number field")
+	// the page number the editor centres under the text survives
+	footer := string(zipPart(t, data, "word/footer1.xml"))
+	if !strings.Contains(footer, `<w:pStyle w:val="ArozPageNumber"/><w:jc w:val="center"/></w:pPr><w:fldSimple w:instr=" PAGE ">`) {
+		t.Errorf("footer lost its page number field: %s", footer)
 	}
 }

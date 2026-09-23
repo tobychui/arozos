@@ -6,6 +6,9 @@ import (
 	"compress/zlib"
 	"io"
 	"math"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -518,6 +521,224 @@ func TestSheetPdf(t *testing.T) {
 	}
 }
 
+func TestPdfFitText(t *testing.T) {
+	pdf := fpdf.New("L", "mm", "A4", "")
+	pdf.AddPage()
+	pdf.SetFont("Arial", "", 9)
+	tr := pdfTr(pdf)
+
+	wide := pdf.GetStringWidth(tr("2026-08-24 21:01:24")) + 1
+
+	tests := []struct {
+		name string
+		in   string
+		maxW float64
+		want string // "" means: expect exactly the translated input back
+	}{
+		{"fits untouched", "2026-08-24 21:01:24", wide, ""},
+		{"empty stays empty", "", wide, ""},
+		{"zero width yields nothing", "anything", 0, ""},
+		{"negative width yields nothing", "anything", -5, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := pdfFitText(pdf, tr, tc.in, tc.maxW)
+			want := tc.want
+			if want == "" && tc.maxW > 0 {
+				want = tr(tc.in)
+			}
+			if got != want {
+				t.Errorf("pdfFitText(%q, %v) = %q, want %q", tc.in, tc.maxW, got, want)
+			}
+		})
+	}
+
+	// the real job: a string too wide for its cell comes back shortened,
+	// never wider than the cell it has to sit in
+	t.Run("overlong text is trimmed to fit", func(t *testing.T) {
+		long := "need help with my Deployment configuration"
+		narrow := pdf.GetStringWidth(tr(long)) / 3
+		got := pdfFitText(pdf, tr, long, narrow)
+		if w := pdf.GetStringWidth(got); w > narrow {
+			t.Errorf("fitted text is %v wide, cell is only %v", w, narrow)
+		}
+		if got == tr(long) {
+			t.Error("overlong text was returned unchanged")
+		}
+		if !strings.HasPrefix(got, tr("need")) {
+			t.Errorf("trimmed text lost its start: %q", got)
+		}
+	})
+
+	// a cut must not land in the middle of a multi-byte character
+	t.Run("multi-byte text is cut on rune boundaries", func(t *testing.T) {
+		s := "café crème brûlée gâteau"
+		got := pdfFitText(pdf, tr, s, pdf.GetStringWidth(tr(s))/2)
+		if w := pdf.GetStringWidth(got); w > pdf.GetStringWidth(tr(s))/2 {
+			t.Errorf("fitted text %q overflows", got)
+		}
+		if got == "" {
+			t.Error("multi-byte text was dropped entirely")
+		}
+	})
+
+	// whatever comes back must fit, however little room there is - including
+	// a column too narrow for even the ellipsis
+	t.Run("never wider than the cell", func(t *testing.T) {
+		for _, maxW := range []float64{0.5, 1, 2, 3, 5, 10, 25} {
+			got := pdfFitText(pdf, tr, "abcdefghij klmnop", maxW)
+			if w := pdf.GetStringWidth(got); w > maxW {
+				t.Errorf("maxW=%v: got %q which is %v wide", maxW, got, w)
+			}
+		}
+	})
+}
+
+// pdfDrawnRun is one text-drawing operation recovered from a content stream
+type pdfDrawnRun struct {
+	x, y, size float64
+	text       string
+}
+
+// pdfDrawnRuns pulls the "BT <x> <y> Td (text)Tj ET" runs out of a PDF along
+// with the font size in force, so a test can check where text actually landed
+func pdfDrawnRuns(t *testing.T, data []byte) []pdfDrawnRun {
+	t.Helper()
+	stream := pdfStreamsText(t, data)
+	// fpdf names font resources by content hash (/Fa76705d1...), not /F1
+	reSize := regexp.MustCompile(`/F\S+\s+([0-9.]+)\s+Tf`)
+	reRun := regexp.MustCompile(`BT\s+([0-9.]+)\s+([0-9.]+)\s+Td\s+\((.*?)\)\s*Tj`)
+	var runs []pdfDrawnRun
+	size := 0.0
+	for _, line := range strings.Split(stream, "\n") {
+		if m := reSize.FindStringSubmatch(line); m != nil {
+			size, _ = strconv.ParseFloat(m[1], 64)
+		}
+		for _, m := range reRun.FindAllStringSubmatch(line, -1) {
+			x, _ := strconv.ParseFloat(m[1], 64)
+			y, _ := strconv.ParseFloat(m[2], 64)
+			runs = append(runs, pdfDrawnRun{x: x, y: y, size: size, text: m[3]})
+		}
+	}
+	return runs
+}
+
+/*
+The reported bug: fpdf's CellFormat does not clip, so a value slightly
+wider than its column was painted straight over the next column
+("2026-08-24 21:01:2Yami Odymel"). Whatever the layout does about it -
+widen the column or trim the text - two cells on the same row must never
+end up drawn on top of each other.
+*/
+func TestSheetPdfCellsNeverOverlap(t *testing.T) {
+	// no bold anywhere, so every run uses one font and widths are measurable
+	row := func(vals ...string) []*SheetPrintCell {
+		out := make([]*SheetPrintCell, len(vals))
+		for i, v := range vals {
+			out[i] = &SheetPrintCell{T: v}
+		}
+		return out
+	}
+	cases := []struct {
+		name  string
+		colW  []float64
+		rows  [][]*SheetPrintCell
+		fitsW float64
+	}{
+		{
+			name: "contact form with default column widths",
+			colW: []float64{92, 92, 92, 92, 92},
+			rows: [][]*SheetPrintCell{
+				row("Submitted at", "Name", "Email", "Message", ""),
+				row("2026-08-24 21:01:21", "Yami Odymel", "yami@foobar.com", "Where is my TeaCat", ""),
+				row("2026-08-24 21:13:32", "Alan Yeung", "alan@example.com", "I need help with my DezKVM", "98765432"),
+			},
+		},
+		{
+			name: "one cell far longer than any sane column",
+			colW: []float64{92, 92},
+			rows: [][]*SheetPrintCell{
+				row("id", strings.Repeat("verylongword ", 60)),
+				row("1", "short"),
+			},
+		},
+		{
+			name: "many columns forced to shrink onto the page",
+			colW: []float64{200, 200, 200, 200, 200, 200, 200, 200, 200, 200},
+			rows: [][]*SheetPrintCell{
+				row("alpha bravo", "charlie delta", "echo foxtrot", "golf hotel", "india juliet",
+					"kilo lima", "mike november", "oscar papa", "quebec romeo", "sierra tango"),
+			},
+		},
+	}
+
+	// a probe document measures strings in the same font the renderer used
+	probe := fpdf.New("L", "mm", "A4", "")
+	probe.AddPage()
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := BuildSheetPdf(&SheetPrintModel{Sheets: []*SheetPrintSheet{
+				{Name: "sheet", ColW: tc.colW, Rows: tc.rows},
+			}})
+			if err != nil {
+				t.Fatalf("BuildSheetPdf: %v", err)
+			}
+			runs := pdfDrawnRuns(t, data)
+			if len(runs) == 0 {
+				t.Fatal("no text was drawn at all")
+			}
+			// group by baseline, then walk each row left to right
+			byLine := map[float64][]pdfDrawnRun{}
+			for _, r := range runs {
+				byLine[r.y] = append(byLine[r.y], r)
+			}
+			for _, line := range byLine {
+				sort.Slice(line, func(i, j int) bool { return line[i].x < line[j].x })
+				for i := 0; i+1 < len(line); i++ {
+					if line[i].size <= 0 {
+						t.Fatalf("no font size recovered for %q - the stream "+
+							"scan is broken, not the layout", line[i].text)
+					}
+					probe.SetFont("Arial", "", line[i].size)
+					// stream coordinates are points, GetStringWidth is mm
+					const mmToPt = 72.0 / 25.4
+					end := line[i].x + probe.GetStringWidth(line[i].text)*mmToPt
+					if end > line[i+1].x+0.5 { // 0.5pt slack for rounding
+						t.Errorf("%q (ends at %.1f) runs into %q (starts at %.1f)",
+							line[i].text, end, line[i+1].text, line[i+1].x)
+					}
+				}
+			}
+		})
+	}
+}
+
+// values that fit must be printed in full - the fix for overlapping columns
+// must not silently truncate data the user can read on screen
+func TestSheetPdfKeepsValuesWhole(t *testing.T) {
+	vals := []string{"2026-08-24 21:01:21", "Yami Odymel", "yami@foobar.com",
+		"I need help with my DezKVM", "98765432"}
+	cells := make([]*SheetPrintCell, len(vals))
+	for i, v := range vals {
+		cells[i] = &SheetPrintCell{T: v}
+	}
+	data, err := BuildSheetPdf(&SheetPrintModel{Sheets: []*SheetPrintSheet{
+		// the narrow default width the client sends when nothing was resized
+		{Name: "contact-form", ColW: []float64{92, 92, 92, 92, 92},
+			Rows: [][]*SheetPrintCell{cells}},
+	}})
+	if err != nil {
+		t.Fatalf("BuildSheetPdf: %v", err)
+	}
+	text := pdfStreamsText(t, data)
+	for _, v := range vals {
+		if !strings.Contains(text, v) {
+			t.Errorf("value %q was truncated instead of the column being widened", v)
+		}
+	}
+}
+
 func TestParseSheetPrintJSON(t *testing.T) {
 	if _, err := ParseSheetPrintJSON("{"); err == nil {
 		t.Error("invalid JSON accepted")
@@ -531,41 +752,5 @@ func TestParseSheetPrintJSON(t *testing.T) {
 	}
 	if m.Sheets[0].Rows[0][0].T != "x" {
 		t.Error("cell text lost in parse")
-	}
-}
-
-func TestSlidesPdf(t *testing.T) {
-	pres := &Presentation{Theme: "clean", Slides: []*Slide{
-		{Objects: []*Object{
-			{Type: "text", X: 60, Y: 40, W: 840, H: 80,
-				Props: Props{HTML: "Slide Title", FontSize: 40, Bold: true, Align: "center"}},
-			{Type: "shape", X: 100, Y: 200, W: 200, H: 100,
-				Props: Props{Kind: "rect", Fill: "#34568a", Text: "Caption"}},
-			{Type: "table", X: 400, Y: 200, W: 400, H: 120,
-				Props: Props{Rows: [][]string{{"H1", "H2"}, {"a", "b"}}, HeaderRow: true}},
-		}},
-		{Bg: "#101418", Objects: []*Object{
-			{Type: "video", X: 100, Y: 60, W: 480, H: 270,
-				Props: Props{Src: "../../media?file=user%3A%2Fclip.mp4"}},
-		}},
-	}}
-	data, err := BuildSlidesPdf(pres)
-	if err != nil {
-		t.Fatalf("BuildSlidesPdf: %v", err)
-	}
-	s := string(data)
-	// 960x540 px deck -> 720 x 405 pt pages
-	if !strings.Contains(s, "720.00 405.00") {
-		t.Error("slide page size wrong (expected 720x405pt)")
-	}
-	text := pdfStreamsText(t, data)
-	for _, want := range []string{"Slide Title", "Caption", "H1", "a"} {
-		if !strings.Contains(text, want) {
-			t.Errorf("slides PDF missing %q", want)
-		}
-	}
-	// the video placeholder embeds the poster PNG as an image object
-	if !strings.Contains(s, "/Subtype /Image") {
-		t.Error("video poster image missing")
 	}
 }

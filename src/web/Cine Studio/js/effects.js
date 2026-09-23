@@ -11,6 +11,12 @@
       - vignette/grain: full-frame overlays drawn after the clip
       - fade:          time-based alpha ramp (also drives audio volume
                        ramps for clips on audio tracks)
+      - audiogain:     time-based volume ramp only (Fade To); shapes the
+                       clip volume and never touches the picture
+
+    Most effects carry a single "amount". A definition may instead declare a
+    `params` list, in which case the instance stores one value per parameter
+    key (Fade To keeps {from, to}).
 */
 "use strict";
 
@@ -34,7 +40,12 @@ CS.effects = {
         { type: "vignette", name: "Vignette", kind: "vignette", min: 0, max: 100, def: 60, unit: "%", step: 1 },
         { type: "grain",    name: "Film Grain", kind: "grain", min: 0, max: 100, def: 40, unit: "%", step: 1 },
         { type: "fadein",   name: "Fade In", kind: "fade", min: 0.1, max: 5, def: 1, unit: "s", step: 0.1, audioOk: true },
-        { type: "fadeout",  name: "Fade Out", kind: "fade", min: 0.1, max: 5, def: 1, unit: "s", step: 0.1, audioOk: true }
+        { type: "fadeout",  name: "Fade Out", kind: "fade", min: 0.1, max: 5, def: 1, unit: "s", step: 0.1, audioOk: true },
+        { type: "fadeto",   name: "Fade To", kind: "audiogain", audioOk: true, audioOnly: true,
+          params: [
+              { key: "from", name: "Start", min: 0, max: 200, def: 100, unit: "%", step: 1 },
+              { key: "to",   name: "End",   min: 0, max: 200, def: 0,   unit: "%", step: 1 }
+          ] }
     ],
 
     get: function (type) {
@@ -42,6 +53,23 @@ CS.effects = {
             if (CS.effects.registry[i].type === type) { return CS.effects.registry[i]; }
         }
         return null;
+    },
+
+    //Default instance payload for a definition: {amount} or one key per param
+    defaultInstance: function (def) {
+        var inst = { type: def.type };
+        if (def.params) {
+            def.params.forEach(function (prm) { inst[prm.key] = prm.def; });
+        } else {
+            inst.amount = def.noParam ? undefined : def.def;
+        }
+        return inst;
+    },
+
+    //Value of one parameter of an effect instance, falling back to its default
+    paramValue: function (inst, prm) {
+        var v = inst[prm.key];
+        return (v === undefined || v === null || isNaN(v)) ? prm.def : v;
     },
 
     clipHas: function (clip, type) {
@@ -68,14 +96,21 @@ CS.effects = {
             CS.toast("Only fades apply to audio clips", true);
             return;
         }
+        if (def.audioOnly && !CS.effects.clipHasAudio(clip)) {
+            CS.toast(def.name + " needs a clip that carries audio", true);
+            return;
+        }
         if (!clip.props.effects) { clip.props.effects = []; }
+        var fresh = CS.effects.defaultInstance(def);
         var existing = CS.effects.clipHas(clip, type);
         if (existing) {
-            existing.amount = def.noParam ? undefined : def.def;
+            Object.keys(fresh).forEach(function (k) {
+                if (k !== "type") { existing[k] = fresh[k]; }
+            });
             CS.commit("Update Effect");
             CS.toast(def.name + " updated");
         } else {
-            clip.props.effects.push({ type: type, amount: def.noParam ? undefined : def.def });
+            clip.props.effects.push(fresh);
             CS.commit("Add Effect");
             CS.toast(def.name + " applied");
         }
@@ -90,6 +125,13 @@ CS.effects = {
 
     /* ---------- render-time evaluation ---------- */
 
+    //Whether the clip carries audio at all (titles, colors and stills do not)
+    clipHasAudio: function (clip) {
+        if (clip.kind === "title" || clip.kind === "color") { return false; }
+        var media = CS.getMedia(clip.mediaId);
+        return !!(media && (media.type === "audio" || media.type === "video"));
+    },
+
     //Product of the fade-in / fade-out ramps at time t (1 when no fades)
     fadeAlpha: function (clip, t) {
         var a = 1;
@@ -103,6 +145,28 @@ CS.effects = {
             }
         }
         return a;
+    },
+
+    //Volume multiplier of the Fade To ramps at time t: the level travels
+    //linearly from the start volume to the end volume across the whole clip
+    fadeToGain: function (clip, t) {
+        var g = 1;
+        var list = (clip.props && clip.props.effects) || [];
+        var def = CS.effects.get("fadeto");
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].type !== "fadeto") { continue; }
+            var from = CS.effects.paramValue(list[i], def.params[0]) / 100;
+            var to = CS.effects.paramValue(list[i], def.params[1]) / 100;
+            var dur = Math.max(0.05, CS.clipDuration(clip));
+            var k = CS.clamp((t - clip.start) / dur, 0, 1);
+            g *= from + (to - from) * k;
+        }
+        return Math.max(0, g);
+    },
+
+    //Everything that shapes the clip volume at time t: fades plus Fade To
+    audioGain: function (clip, t) {
+        return CS.effects.fadeAlpha(clip, t) * CS.effects.fadeToGain(clip, t);
     },
 
     //Summarize the effect stack for the compositor
@@ -133,16 +197,19 @@ CS.effects = {
 
     //Downscale the source into a reusable scratch canvas for pixelation
     _scratch: null,
-    pixelateSource: function (src, sw, sh, block) {
+    //rect (optional) limits the pixelation to a sub-rectangle of the source, so
+    //an edge-cropped clip only pixelates the part that is actually drawn
+    pixelateSource: function (src, sw, sh, block, rect) {
+        rect = rect || { x: 0, y: 0, w: sw, h: sh };
         if (!CS.effects._scratch) { CS.effects._scratch = document.createElement("canvas"); }
         var c = CS.effects._scratch;
-        var tw = Math.max(1, Math.round(sw / block));
-        var th = Math.max(1, Math.round(sh / block));
+        var tw = Math.max(1, Math.round(rect.w / block));
+        var th = Math.max(1, Math.round(rect.h / block));
         if (c.width !== tw || c.height !== th) { c.width = tw; c.height = th; }
         var ctx = c.getContext("2d");
         ctx.imageSmoothingEnabled = true;
         ctx.clearRect(0, 0, tw, th);
-        ctx.drawImage(src, 0, 0, tw, th);
+        ctx.drawImage(src, rect.x, rect.y, rect.w, rect.h, 0, 0, tw, th);
         return c;
     },
 
@@ -265,6 +332,16 @@ CS.effects = {
 
         if (def.kind === "vignette") { CS.effects.drawVignette(ctx, 150, 94, 0.85); CS.effects._vigCache = null; }
         if (def.kind === "grain") { CS.effects.drawGrain(ctx, 150, 94, 1); }
+        if (def.kind === "audiogain") {
+            //Level ramp drawn as a wedge: loud on the left, quiet on the right
+            ctx.fillStyle = "rgba(46, 124, 246, 0.65)";
+            ctx.beginPath();
+            ctx.moveTo(6, 88);
+            ctx.lineTo(144, 88);
+            ctx.lineTo(6, 14);
+            ctx.closePath();
+            ctx.fill();
+        }
         if (def.kind === "fade") {
             var g = ctx.createLinearGradient(0, 0, 150, 0);
             if (def.type === "fadein") {

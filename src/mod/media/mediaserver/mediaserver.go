@@ -102,10 +102,9 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	targetfile, _ := utils.GetPara(r, "file")
-	targetfile, err = url.QueryUnescape(targetfile)
-	if err != nil {
-		return nil, "", "", err
-	}
+	//GetPara has already decoded the query once. Decode again for clients that
+	//double encode, but keep a literal "+" (QueryUnescape would turn it into a space)
+	targetfile = filesystem.DecodeURI(targetfile)
 	if targetfile == "" {
 		return nil, "", "", errors.New("Missing paramter 'file'")
 	}

@@ -242,6 +242,106 @@ through AGI, while a **subservice** is an *external* program ArozOS launches,
 supervises and reverse-proxies. Use a webapp by default; reach for a subservice
 when the work doesn't fit the in-core JavaScript sandbox.
 
+## What the Cluster is
+
+Several independent ArozOS installations can form a **cluster** that exposes one
+logical computer (namespace, identity, compute) while each node keeps its own
+hardware, OS and storage and keeps working standalone when the cluster is away.
+The runtime lives in [`src/mod/cluster/`](src/mod/cluster/) and is documented in
+[`src/mod/cluster/README.md`](src/mod/cluster/README.md) — read that first.
+All nine phases are built and verified: membership, identity, metadata store,
+the `cluster:/` drive, replication, the AGI library and event bus, jobs,
+map/reduce and scheduling.
+[`src/mod/cluster/TASKS.md`](src/mod/cluster/TASKS.md) is kept as the design
+record, with every deviation from the original plan listed at the top; read it
+before changing how a phase works, but start new work from the packages below.
+
+- **ACN** ([`src/mod/cluster/acn/`](src/mod/cluster/acn/)) is the node-to-node
+  protocol: Ed25519 node keys, signed requests with replay protection, and a
+  transport that routes **direct** (advertised URL, Cloudflare-friendly),
+  over a **tunnel** (a NAT-only node keeps one WebSocket open to a reachable
+  member) or by **relay** through the tunnel host. It is mounted at
+  `/cluster/acn/*` in [`src/main.router.go`](src/main.router.go) *before* the
+  user-session check; `cluster` is a reserved subservice path. Register new
+  signed endpoints with `acn.Server.HandleFunc` and call peers with
+  `acn.Transport.DoJSON` — never talk to node addresses directly.
+- **Membership** ([`src/mod/cluster/membership/`](src/mod/cluster/membership/))
+  is the cluster agent: create / join (pasteable join tokens) / leave, records
+  merged last-writer-wins by gossip, heartbeats, computed node states, health
+  and capability manifests ([`src/mod/cluster/capability/`](src/mod/cluster/capability/)).
+  Admin API `/system/cluster/*` and the System Settings tabs Cluster
+  Settings ([`cluster.html`](src/web/SystemAO/cluster/cluster.html)), Cluster
+  Info ([`clusterinfo.html`](src/web/SystemAO/cluster/clusterinfo.html)) and
+  Cluster Jobs; all three are localized through
+  [`src/web/SystemAO/locale/cluster.json`](src/web/SystemAO/locale/cluster.json)
+  (server messages included, via `CL.tr`), so add new user-facing strings and
+  server messages there. Wiring in [`src/cluster.go`](src/cluster.go);
+  `-disable_cluster` turns the whole feature off.
+- **Identity** ([`src/mod/cluster/identity/`](src/mod/cluster/identity/)):
+  one member is the *identity origin*; other members forward logins to it
+  through the auth agent's `ForwardAuth` hook (password hash only), mirror the
+  account locally, pull the origin's account directory as a fallback when the
+  origin is unreachable, and write password changes back. Cross-node requests
+  carry signed user assertions (`X-Aroz-User`). Password changes in core code
+  must call `clusterNotifyPasswordChanged` after writing the hash.
+- **Metadata store** ([`src/mod/cluster/metadata/`](src/mod/cluster/metadata/)):
+  the replicated namespace index (file records with their copies, volumes,
+  folder replica policies). Records merge last-writer-wins by version; a
+  quorum-free leader lease (first joiner) serialises decisions and drives a
+  replicated log with catch-up and snapshots. Write through
+  `Submit(kind, record)`, read through `Stat` / `ListDir` / `Volumes` /
+  `PolicyFor`; new cluster tables go through `membership.RegisterClusterTable`.
+  The disk copy is written behind (`persist.go`, batched through
+  `database.WriteBatch`): never add a synced disk write inside the store
+  lock, or a write burst starves lease renewal and the leader loses its lease.
+- **Storage and the `cluster:/` drive**
+  ([`src/mod/cluster/storage/`](src/mod/cluster/storage/),
+  [`src/mod/filesystem/abstractions/clusterfs/`](src/mod/filesystem/abstractions/clusterfs/)):
+  admins contribute folders (volumes); files stay whole files inside them.
+  The drive is only mounted while the node is in a cluster that has at least
+  one volume (`clusterSyncDrive`), so otherwise nothing sees or scans it.
+  Nightly maintenance of a drive shared by the cluster belongs to the master
+  node (the metadata leader) alone, through
+  `nightly.TaskOption{MasterNodeOnly: true}` and `nightlyShouldMaintainFsh`,
+  so expired trash and old version history are not swept once per member.
+  The abstraction also answers `arozfs.StorageInfoProvider`, which is what
+  puts the copies of a file, their nodes, volumes and states in the File
+  Manager properties dialog (`src/cluster.fsinfo.go`).
+  Writes spool and hash locally, get placed by the leader, are copied
+  (locally or by the 4 MiB chunked, SHA-256 verified `store/*` protocol) and
+  only then published. The core mounts the drive into the base storage pool
+  whenever the node is in a cluster (`clusterMountDrive` in `src/cluster.go`),
+  so every app, WebDAV and the AGI `filelib` see `cluster:/` unchanged.
+- **Replication** ([`src/mod/cluster/replication/`](src/mod/cluster/replication/)):
+  a planner on the metadata leader keeps every file at its folder policy's
+  copy count (pull tasks to nodes without a copy, in-place repair of stale
+  copies, drop of extras, evacuation of retiring volumes, stale marking for
+  nodes offline over 10 minutes); workers pull with `storage.Service.PullCopy`
+  and report back under a task lease. A nightly pass re-checksums local copies.
+- **Jobs** ([`src/mod/cluster/jobs/`](src/mod/cluster/jobs/)): AGI job scripts
+  defining `run(job)` are captured at submit time, scheduled by the metadata
+  leader on capability match and input locality, executed per node through
+  `agi.Gateway.ExecuteJobScript` (core adapter `src/cluster.jobs.go`) with
+  progress, logs, leases, timeouts and cancellation. AGI: `cluster.jobs.*`.
+- **Scheduling** ([`src/mod/cluster/scheduling/`](src/mod/cluster/scheduling/)):
+  one weighted scorer answers "which node?" for jobs, write placement and
+  replication. Weights (locality, free CPU/RAM/disk, queue depth, network
+  distance, health, wanted features) are a replicated cluster setting edited
+  on the Cluster Settings page; every score carries its factors, so
+  `/system/cluster/sched/explain?job=<id>` can show why a node won. Heartbeat
+  round trips feed `NodeView.LatencyMs`, and a volume under 5 % free goes
+  read only with a `node.diskfull` event. For a second copy the planner also
+  scores site diversity, using a pairwise latency matrix collected on demand
+  from the members (`GET /cluster/acn/latency`, cached two minutes) instead of
+  gossiping latency vectors.
+- **State** lives in its own key-value file `system/cluster.db` (never `ao.db`)
+  and the node key in `system/cluster/node.key`.
+- **Design rules:** whole files, never chunked storage; cross-node transfers in
+  ≤4 MB hash-verified chunks (Cloudflare limits); metadata consistency by
+  leader lease + replicated log (no Raft, 2-node clusters must work); jobs are
+  `.agi` scripts because nodes differ in architecture; keep everything portable
+  (build-tagged files for syscalls, see `capability/diskusage_*.go`).
+
 ## Build, run and test
 
 All Go commands run from `src/`:

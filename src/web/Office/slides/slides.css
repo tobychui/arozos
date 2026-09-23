@@ -28,20 +28,6 @@
     overflow-x: hidden;
     padding: 10px 8px 4px 8px;
 }
-#slRailAdd {
-    flex: 0 0 auto;
-    margin: 6px 8px 8px 8px;
-    padding: 6px 8px;
-    border: 1px dashed var(--of-border);
-    border-radius: 5px;
-    background: transparent;
-    color: var(--of-fg-soft);
-    cursor: pointer;
-    font-size: 12px;
-    font-family: inherit;
-}
-#slRailAdd:hover { background: var(--of-hover); color: var(--of-fg); }
-#slRailAdd i.icon { margin: 0 2px 0 0 !important; font-size: 11px !important; }
 
 .sl-thumb {
     display: flex;
@@ -59,16 +45,27 @@
     color: var(--of-fg-soft);
     padding-top: 2px;
 }
+/* The preview takes whatever width the rail can spare - which is not a
+   number this stylesheet can know, because the scrollbar's width is the
+   platform's business and it eats into it. So the box is fluid and holds
+   the slide's shape, and the scale that fits a 960px slide inside it is
+   measured and set as --sl-thumb-scale (fitThumbs() in slides.js). A
+   hard-coded scale here is how the right edge of every preview came to be
+   clipped by the width of a scrollbar. */
 .sl-thumb-view {
     position: relative;
-    width: 136px;
-    height: 76.5px;
+    flex: 1 1 auto;
+    min-width: 0;
+    aspect-ratio: 960 / 540;
     overflow: hidden;
     border: 2px solid var(--of-border);
     border-radius: 4px;
     background: #fff;
     box-sizing: content-box;
 }
+/* focusing a thumbnail selects it, so the active border is already the
+   focus indicator - the browser's own outline would only double it up */
+.sl-thumb:focus { outline: none; }
 .sl-thumb.active .sl-thumb-view {
     border-color: var(--of-accent);
     box-shadow: 0 0 0 1px var(--of-accent);
@@ -79,7 +76,7 @@
     top: 0;
     width: 960px;
     height: 540px;
-    transform: scale(0.141667);
+    transform: scale(var(--sl-thumb-scale, 0.141667));
     transform-origin: 0 0;
     pointer-events: none;
 }
@@ -166,6 +163,29 @@
 #slNotes.collapsed #slNotesText { display: none; }
 
 /* ============ Slide surface & objects ============ */
+/* A slide carries a document font of its own rather than inheriting the
+   app's UI font. Two reasons, and they are the same reason: a deck must
+   not change shape depending on which OS the editor happens to run on,
+   and the PDF export can only put text in the PDF *as text* when the
+   font it was laid out in is one a PDF can show. Arial and Liberation
+   Sans are metrically identical to each other and to PDF's Helvetica, so
+   this stack resolves to the same metrics on Windows, macOS and Linux.
+
+   Behind them come the fonts the suite ships (common/fonts/fonts.css),
+   which is what carries everything Arial has no glyph for - CJK above
+   all. The browser picks per character, and because those files travel
+   with the app the exporter can embed the very bytes the screen was
+   drawn with. Without them CJK would fall to whatever the machine has,
+   and a system font cannot be embedded: the text could only reach the
+   PDF as a picture of itself.
+
+   Keep this list in step with OfficeFonts.FALLBACK (common/fonts.js).
+   Text that states its own font (anything imported) overrides this, and
+   goes through OfficeFonts.stack() so it gets the same tail. */
+.sl-slidebase, #slCanvas {
+    font-family: Arial, "Liberation Sans", Helvetica, "Noto Sans",
+        "Noto Sans TC", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", sans-serif;
+}
 .sl-slidebase {
     position: absolute;
     inset: 0;
@@ -183,10 +203,17 @@
 .sl-obj > svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .sl-obj img { display: block; width: 100%; height: 100%; pointer-events: none; }
 
+/* A column flex box so a text object can be anchored to the top, middle or
+   bottom of its frame the way PowerPoint anchors one - and so paragraph
+   margins add up instead of collapsing, which is also what PowerPoint does
+   with its space-before / space-after. */
 .sl-text-in {
     width: 100%;
     min-height: 100%;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     outline: none;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -195,12 +222,65 @@
     padding: 2px 4px;
     cursor: default;
 }
+/* imported paragraphs carry their own spacing; keep the browser from
+   adding any of its own on top */
+.sl-text-in > div { margin: 0; }
 .sl-text-in ul, .sl-text-in ol {
     margin: 0;
     padding-left: 1.3em;
     white-space: normal;
 }
 .sl-text-in li { text-align: left; }
+
+/* picture frame: the wrapper clips a cropped, rounded or masked image */
+.sl-img-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* ---- image crop tool ----
+   the whole picture is shown ghosted, with the part that will be kept
+   drawn over it at full strength inside the crop rectangle */
+#slCrop { position: absolute; inset: 0; }
+/* the picture being cropped is drawn by the tool, not by the slide */
+.sl-obj.sl-cropping { visibility: hidden; }
+.sl-crop-ghost {
+    position: absolute;
+    overflow: hidden;
+    opacity: 0.32;
+    pointer-events: auto;
+    cursor: move;
+}
+.sl-crop-ghost img { display: block; width: 100%; height: 100%; }
+/* no border here on purpose: it would sit inside the box and shift the
+   kept part of the picture out of line with the ghost behind it. The
+   black grips are what marks the edge, as in Slides/Docs. */
+.sl-crop-rect {
+    position: absolute;
+    overflow: hidden;
+    box-sizing: border-box;
+    pointer-events: auto;
+    cursor: move;
+}
+.sl-crop-rect > img { position: absolute; display: block; }
+.sl-croph {
+    position: absolute;
+    background: #202124;
+    box-sizing: border-box;
+    pointer-events: auto;
+    z-index: 620;
+}
+body.dark .sl-croph { background: #f1f3f4; }
+body.dark .sl-croph[data-ch="nw"], body.dark .sl-croph[data-ch="ne"],
+body.dark .sl-croph[data-ch="sw"], body.dark .sl-croph[data-ch="se"] {
+    border-color: #f1f3f4 !important;
+}
+.sl-croph[data-ch="n"], .sl-croph[data-ch="s"] { cursor: ns-resize; }
+.sl-croph[data-ch="e"], .sl-croph[data-ch="w"] { cursor: ew-resize; }
+.sl-croph[data-ch="nw"], .sl-croph[data-ch="se"] { cursor: nwse-resize; }
+.sl-croph[data-ch="ne"], .sl-croph[data-ch="sw"] { cursor: nesw-resize; }
 .sl-editing, .sl-editing * { user-select: text !important; }
 /* table column / row resize bars (only present in table edit mode) */
 .sl-tbl-rz {
@@ -213,6 +293,14 @@
 .sl-tbl-rz:hover { background: var(--of-accent-soft); }
 .sl-editing .sl-text-in, .sl-editing .sl-shape-text { cursor: text; }
 .sl-obj.sl-editing { outline: 1px dashed var(--of-accent); }
+
+.sl-shape-rich {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: inherit;
+}
+.sl-shape-rich > div { margin: 0; }
 
 .sl-shape-text {
     position: absolute;
@@ -282,7 +370,16 @@ body.dark .sl-h { background: #2b2d31; }
 .sl-h[data-h="e"], .sl-h[data-h="w"] { cursor: ew-resize; }
 .sl-h[data-h="nw"], .sl-h[data-h="se"] { cursor: nwse-resize; }
 .sl-h[data-h="ne"], .sl-h[data-h="sw"] { cursor: nesw-resize; }
-.sl-h[data-h="rot"] { cursor: grab; }
+/* The rotate knob gets a cursor that says rotate. There is no keyword for
+   it, so it is drawn here - a circular arrow with a white halo so it reads
+   on a dark picture as well as on the page, with grab as the fallback for
+   anything that will not take a custom cursor. .sl-rotating keeps it while
+   the drag runs, because the pointer leaves the knob almost immediately. */
+.sl-h[data-h="rot"],
+#slCanvas.sl-rotating,
+#slCanvas.sl-rotating * {
+    cursor: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='4'%20stroke-linejoin='round'%20stroke-linecap='round'%3E%3Cpath%20d='M7.05%2016.95A7%207%200%201%201%2016.95%2016.95'/%3E%3Cpath%20d='M13.98%2019.92L18.93%2018.93L14.97%2014.97Z'/%3E%3C/g%3E%3Cpath%20d='M7.05%2016.95A7%207%200%201%201%2016.95%2016.95'%20fill='none'%20stroke='%23000'%20stroke-width='1.9'%20stroke-linecap='round'/%3E%3Cpath%20d='M13.98%2019.92L18.93%2018.93L14.97%2014.97Z'%20fill='%23000'/%3E%3C/svg%3E") 12 12, grab;
+}
 .sl-h[data-h="p1"], .sl-h[data-h="p2"] { cursor: move; }
 .sl-rot-stem {
     position: absolute;
@@ -520,6 +617,343 @@ body.dark .sl-h { background: #2b2d31; }
 /* ============ Small screens ============ */
 @media (max-width: 700px) {
     #slRail { flex: 0 0 120px; width: 120px; }
-    .sl-thumb-view { width: 88px; height: 49.5px; }
-    .sl-thumb-mini { transform: scale(0.091667); }
 }
+
+/* ============ Picture tools (slides_image.js) ============ */
+
+/* the floating picture bar reuses the text bar's chrome so the two feel
+   like one family; only the label and the split crop control differ */
+.sl-imagebar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px 0 2px;
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    white-space: nowrap;
+}
+.sl-imagebar-label i.icon { margin: 0 !important; font-size: 12px !important; }
+.sl-imagebar .of-te-btn.active { background: var(--of-accent-soft); color: var(--of-accent); }
+/* crop + caret read as one split button */
+.sl-imagebar-crop { border-radius: 4px 0 0 4px !important; }
+.sl-imagebar-caret { width: 16px !important; border-radius: 0 4px 4px 0 !important; }
+.sl-imagebar-caret i.icon { font-size: 10px !important; }
+
+/* ---- crop shape grid ---- */
+/* ---- New slide layout picker ---- */
+/* Every layout as a preview of itself, at the scale the rail uses. The
+   previews are real slides, rendered by renderSlideContent. */
+.sl-layoutpick {
+    position: fixed;
+    z-index: 1500;
+    display: grid;
+    grid-template-columns: repeat(3, 140px);
+    gap: 4px;
+    padding: 8px;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    user-select: none;
+}
+.sl-layoutpick-cell {
+    display: block;
+    padding: 6px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 11.5px;
+    text-align: center;
+    cursor: pointer;
+}
+.sl-layoutpick-cell:hover { background: var(--of-hover); }
+.sl-layoutpick-view {
+    position: relative;
+    width: 128px;
+    height: 72px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: #fff;
+    box-sizing: content-box;
+}
+.sl-layoutpick-cell:hover .sl-layoutpick-view { border-color: var(--of-accent); }
+.sl-layoutpick-mini {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 960px;
+    height: 540px;
+    transform: scale(0.13333);
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+.sl-layoutpick-label {
+    margin-top: 5px;
+    color: var(--of-fg-soft);
+    line-height: 1.25;
+}
+/* Outline every box in a preview, or the layout is a few grey smudges and
+   you cannot tell one from the next. The mini is the whole 960px slide
+   scaled to 128, so the outline has to be stated at slide scale: 7px lands
+   at about one. A mid grey rather than a theme colour, because what is
+   behind it is the deck's own background, which may be light or dark. */
+.sl-layoutpick-mini .sl-obj {
+    outline: 7px solid #b7bcc2;
+    outline-offset: -3px;
+}
+
+/* ---- Insert > Shape picker ---- */
+/* Categories down the left, the shapes of the one in hand as icons on the
+   right. Same chrome as the crop-shape grid above it, because they are the
+   same act of choosing an outline. */
+.sl-shapepick {
+    position: fixed;
+    z-index: 1500;
+    display: flex;
+    align-items: stretch;
+    padding: 5px;
+    gap: 5px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    user-select: none;
+}
+.sl-shapepick-cats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 5px;
+    border-right: 1px solid var(--of-border);
+}
+.sl-shapepick-cat {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 132px;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+.sl-shapepick-cat i.icon { margin: 0 !important; font-size: 12px !important; opacity: 0.75; }
+.sl-shapepick-cat span { flex: 1 1 auto; }
+.sl-shapepick-cat .sl-shapepick-more { opacity: 0.4; }
+.sl-shapepick-cat:hover { background: var(--of-hover); }
+.sl-shapepick-cat.active { background: var(--of-accent-soft); color: var(--of-accent); }
+.sl-shapepick-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 30px);
+    grid-auto-rows: 30px;
+    gap: 1px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.sl-shapepick-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-shapepick-cell:hover { background: var(--of-hover); color: var(--of-accent); }
+
+.sl-shapegrid {
+    position: fixed;
+    z-index: 1500;
+    padding: 6px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 22px var(--of-shadow);
+    user-select: none;
+}
+.sl-shapegrid-none {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+.sl-shapegrid-cells {
+    display: grid;
+    grid-template-columns: repeat(6, 32px);
+    gap: 2px;
+    border-top: 1px solid var(--of-border);
+    padding-top: 5px;
+}
+.sl-shapegrid-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-shapegrid-none:hover, .sl-shapegrid-cell:hover { background: var(--of-hover); }
+.sl-shapegrid-none.active, .sl-shapegrid-cell.active {
+    background: var(--of-accent-soft);
+    color: var(--of-accent);
+}
+
+/* ---- format side panel ---- */
+#slFormatPanel {
+    flex: 0 0 268px;
+    width: 268px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--of-chrome-bg);
+    border-left: 1px solid var(--of-border);
+    user-select: none;
+}
+.sl-fp-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 12px 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--of-fg);
+}
+.sl-fp-title i.icon { margin: 0 !important; color: var(--of-accent); }
+.sl-fp-title span { flex: 1 1 auto; }
+.sl-fp-close {
+    border: none;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+}
+.sl-fp-close:hover { background: var(--of-hover); color: var(--of-fg); }
+.sl-fp-close i.icon { margin: 0 !important; }
+.sl-fp-empty { padding: 10px 14px; color: var(--of-fg-soft); font-size: 12px; }
+
+.sl-fp-section { border-top: 1px solid var(--of-border); }
+.sl-fp-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-fp-head:hover { background: var(--of-hover); }
+.sl-fp-head i.icon { margin: 0 !important; font-size: 11px !important; transition: transform 0.15s ease; }
+.sl-fp-section.closed .sl-fp-head i.icon { transform: rotate(-90deg); }
+.sl-fp-body { padding: 0 14px 12px 14px; }
+.sl-fp-section.closed .sl-fp-body { display: none; }
+
+.sl-fp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sl-fp-field { margin-bottom: 8px; min-width: 0; }
+.sl-fp-field label {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 11px;
+    color: var(--of-fg-soft);
+}
+.sl-fp-inputrow { display: flex; align-items: center; gap: 4px; }
+.sl-fp-num {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+}
+.sl-fp-num:focus { border-color: var(--of-accent); }
+.sl-fp-unit { flex: 0 0 auto; font-size: 11px; color: var(--of-fg-soft); min-width: 26px; }
+.sl-fp-range { flex: 1 1 auto; min-width: 0; accent-color: var(--of-accent); }
+.sl-fp-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 10px;
+    font-size: 12px;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-fp-iconbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-fp-iconbtn:hover { background: var(--of-hover); }
+.sl-fp-iconbtn.active { background: var(--of-accent-soft); color: var(--of-accent); border-color: var(--of-accent); }
+.sl-fp-iconbtn i.icon { margin: 0 !important; font-size: 12px !important; }
+
+/* re-colour swatches: the picture itself seen through each filter, so the
+   preview is literally the result */
+.sl-fp-swatches { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.sl-fp-swatch {
+    display: block;
+    padding: 0;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    overflow: hidden;
+}
+.sl-fp-swatch img {
+    display: block;
+    width: 100%;
+    height: 42px;
+    object-fit: cover;
+    background: var(--of-chrome-bg2);
+}
+.sl-fp-swatch span {
+    display: block;
+    padding: 2px 3px 3px;
+    font-size: 9px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sl-fp-swatch:hover { border-color: var(--of-accent); }
+.sl-fp-swatch.active { border-color: var(--of-accent); box-shadow: 0 0 0 1px var(--of-accent); color: var(--of-accent); }

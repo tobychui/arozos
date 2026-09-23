@@ -145,15 +145,45 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
         let paused = false;
         let resumeWaiting = false;
         let aborted = false;
+        let completed = false;
+        let pausePingTimer = null;
 
         // Mark an upload task as failed and reveal the retry button
         function markUploadFailed(tUUID) {
             clearTimeout(chunkTimeoutTimer);
+            stopPausePing();
             if (aborted) {
                 return;
             }
             unregisterUploadTransfer(tUUID);
             setUploadTaskState(tUUID, "failed");
+        }
+
+        /*
+            Keep-alive while paused
+
+            A paused upload sends nothing at all, and neither an idle-timeout on
+            our own server nor a reverse proxy in front of it will keep such a
+            connection open. So the client keeps a slow heartbeat going for as
+            long as the pause lasts; the server answers each one, which puts
+            traffic on the wire in both directions.
+        */
+        function startPausePing() {
+            stopPausePing();
+            pausePingTimer = setInterval(function () {
+                if (socket.readyState != WebSocket.OPEN) {
+                    stopPausePing();
+                    return;
+                }
+                socket.send(JSON.stringify({ping: true}));
+            }, UPLOAD_PAUSE_PING_MS);
+        }
+
+        function stopPausePing() {
+            if (pausePingTimer != null) {
+                clearInterval(pausePingTimer);
+                pausePingTimer = null;
+            }
         }
 
         // Send a specific chunk by index.
@@ -230,10 +260,16 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             pausable: true,
             pause: function(){
                 paused = true;
+                //The chunk clock must stop too, or the outstanding chunk would
+                //"time out" while the upload is legitimately sitting idle
                 clearTimeout(chunkTimeoutTimer);
+                try { socket.send(JSON.stringify({pause: true})); } catch(e) {}
+                startPausePing();
             },
             resume: function(){
                 paused = false;
+                stopPausePing();
+                try { socket.send(JSON.stringify({resume: true})); } catch(e) {}
                 if (resumeWaiting){
                     resumeWaiting = false;
                     sendNext();
@@ -242,6 +278,7 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             abort: function(){
                 aborted = true;
                 clearTimeout(chunkTimeoutTimer);
+                stopPausePing();
                 try { socket.close(); } catch(e) {}
             }
         });
@@ -252,12 +289,29 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
 
         //Start sending
         socket.onopen = async function(e) {
+            /*
+                The pause button is live from the moment the row appears, which
+                can be before this socket finished connecting. A pause raised in
+                that window could not be sent, so replay it here - otherwise the
+                server never learns the upload is paused and reaps it as idle.
+            */
+            if (paused){
+                try { socket.send(JSON.stringify({pause: true})); } catch(e) {}
+                startPausePing();
+                return;
+            }
             currentSendingIndex = 0;
             await sendNext();
         };
 
         socket.onmessage = async function(event) {
             var incomingValue = event.data;
+
+            if (incomingValue == `{"pong":true}`){
+                //Heartbeat reply while paused - nothing to do, the point is
+                //that a frame crossed the connection in each direction
+                return;
+            }
 
             if (incomingValue == "next"){
                 // Server acknowledged the last chunk; clear timeout and reset retry counter
@@ -269,6 +323,7 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
                 //Merge completed successfully
                 uploadRetryMap.delete(taskUUID);
                 unregisterUploadTransfer(taskUUID);
+                completed = true;
                 setUploadTaskState(taskUUID, "done");
             }else{
                 //Try to parse it as JSON
@@ -305,7 +360,24 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
 
         socket.onclose = function(event) {
             clearTimeout(chunkTimeoutTimer);
+            stopPausePing();
             unregisterUploadTransfer(taskUUID);
+
+            /*
+                Any close that is not the end of a finished upload and not the
+                user cancelling leaves the task stranded mid-transfer, so offer
+                retry rather than a row frozen at whatever percentage it reached.
+                The server closes with uploadPauseCloseCode when a pause has been
+                left running for too long, which is the case worth naming.
+            */
+            if (!completed && !aborted){
+                if (event.code == UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE){
+                    msgbox("caution", applocale.getString("upload/pauseExpired",
+                        "Upload cancelled: paused for too long"));
+                }
+                setUploadTaskState(taskUUID, "failed");
+            }
+
             uploadingFileCount--;
             updateUploadFileCount();
             //After the previous file has uploaded / errored, check if there are another file needed to be uploaded

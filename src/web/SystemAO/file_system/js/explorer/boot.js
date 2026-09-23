@@ -29,10 +29,19 @@ $(document).ready(function(){
         //Lets the transfer panel tell a manual scroll from its own
         bindUploadListScroll();
 
+        //Drag handles between the sidebar, file list and properties panes
+        initPaneSplitters();
+
         //Restore the operation toolbar preference (shown unless turned off)
         loadPreference("file_explorer/oprbar", function(value){
             showOprBar = (value !== "false");
             applyOprBarVisibility();
+        });
+
+        //Hidden files stay hidden unless the user asked for them
+        loadPreference("file_explorer/showHidden", function(value){
+            showHiddenFiles = (value === "true" || value === true);
+            updateHiddenFilesToggle();
         });
 
         //Restore the saved grid tile size
@@ -69,10 +78,19 @@ $(document).ready(function(){
                     toggleDarkTheme();
                 }else{
                     //White theme
-                
+
                 }
             }
         });
+
+        //Live sync: the desktop's start-menu toggle (window.desktopThemeChanged,
+        //broadcast from desktop.html to every floatWindow iframe) or another
+        //standalone tab flipping the theme (via localStorage) both arrive here.
+        if (typeof ao_module_onThemeChanged == "function"){
+            ao_module_onThemeChanged(function(theme){
+                applyTheme(theme);
+            });
+        }
 
         //Initialize properties view
         if (localStorage.getItem("file_explorer/viewProperties") == "true"){

@@ -54,9 +54,8 @@ body.whiteTheme {
 
     --popup_bg: white;
     --popup_border: rgb(226, 226, 226);
-    --popup_header_bg: #171719;
-    --popup_header_txt: white;
-    --popup_header_bottom: #34b7eb;
+    --popup_header_bg: #ffffff;
+    --popup_header_txt: #1f2328;
     --popup_btn_border: #dedede;
     --popup_btn_hover: rgba(238, 238, 238, 0.932);
     --popup_btn_primary_bg: #51aded;
@@ -67,6 +66,7 @@ body.whiteTheme {
     --popup_btn_negative_bg_hover: #f57676;
 
     --modulelist_bg: white;
+    --modulelist_hover: rgba(35, 35, 35, 0.06);
 
     --contextmenu_background: #ffffff;
     --contextmenu_hover: #f9f9f9;
@@ -78,12 +78,13 @@ body.whiteTheme {
     --upload_progresstext: rgb(255, 255, 255);
     --upload_progress_succ: #1e8e3e;
     --upload_progress_failed: #d93025;
+    --fs-danger-soft: #fce8e6;
 
     --open_with_selected: #51aded;
     --open_with_selected_text: white;
     --open_with_item_hover_background:rgba(35,35,35,0.14); 
 
-    --popup_wrapper_background: rgba(27,27,27,0.5);
+    --popup_wrapper_background: rgba(15, 20, 30, 0.18);
     --code_bg: #f7f7f9;
     --code_txt: #bd4147;
 
@@ -149,9 +150,8 @@ body.darkTheme{
 
     --popup_bg: #1c2129;
     --popup_border: #272c34;
-    --popup_header_bg: #12161b;
+    --popup_header_bg: #1c2129;
     --popup_header_txt: #e6e9ee;
-    --popup_header_bottom: #4a9eff;
     --popup_btn_border: #323945;
     --popup_btn_hover: #2a3039;
     --popup_btn_primary_bg: #4a9eff;
@@ -172,12 +172,13 @@ body.darkTheme{
     --upload_progresstext: #0d1014;
     --upload_progress_succ: #3ecf6d;
     --upload_progress_failed: #e5484d;
+    --fs-danger-soft: #3a2224;
 
     --open_with_selected: #1e3450;
     --open_with_selected_text: #e6e9ee;
     --open_with_item_hover_background: rgba(122, 138, 160, 0.16);
 
-    --popup_wrapper_background: rgba(8, 10, 13, 0.62);
+    --popup_wrapper_background: rgba(0, 0, 0, 0.38);
     --code_bg: #12161b;
     --code_txt: #ff8f93;
 
@@ -494,8 +495,8 @@ body.darkTheme .ui.icon.button{
 
 .addressText{
     padding:5px;
-    border-radius: 0.4em;
-    border: 1px solid var(--address_text_border);
+    border-radius: 0.5em;
+    /* border: 1px solid var(--address_text_border); */
     flex-grow: 1;
     background-color: var(--address_text_background);
 }
@@ -605,8 +606,14 @@ body.darkTheme .ui.icon.button{
     border-right:2px solid var(--dir_border);
     background-color:var(--dir_bg);
     color:var(--dir_txt);
+    /*
+        Starting size only. splitter.js rewrites width and min-width together as
+        the handle is dragged - min-width is what stops flexbox from shrinking
+        the pane, so it has to follow width down rather than pin it.
+    */
     width: 250px;
     min-width: 250px;
+    flex: 0 0 auto;
     scrollbar-width: thin;
 }
 
@@ -641,16 +648,6 @@ body.darkTheme .ui.icon.button{
     color: var(--text_color_secondary);
 }
 
-.mobilePathDisplayWrapper{
-    width:100%;
-    margin-bottom:5px;
-    
-}
-
-#mobilePathDisplay .divider{
-    color: var(--text_color_secondary) !important;
-}
-
 .pathDisplay{
     cursor: text;
     overflow:hidden;
@@ -668,11 +665,57 @@ body.darkTheme .ui.icon.button{
 /*
     Folder Viewer (Main viewer)
 */
+/*
+    Pane splitters
+
+    A 7px grab strip that straddles the border between two panes. The negative
+    side margins pull its own width back out of the flex line, so adding the
+    handle does not shift the layout by a pixel - it sits on top of the border
+    that was already there.
+
+    Hidden on the touch layout: splitter.js does not bind them there, and a
+    7px target is not a sensible touch affordance anyway.
+*/
+.fmSplitter{
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 7px;
+    margin-left: -3px;
+    margin-right: -4px;
+    position: relative;
+    z-index: 6;
+    cursor: col-resize;
+    background-color: transparent;
+    transition: background-color 0.12s ease;
+}
+
+.fmSplitter:hover,
+.fmSplitter.dragging{
+    background-color: var(--fs-accent);
+    opacity: 0.55;
+}
+
+/*
+    While a handle is being dragged the pointer regularly ends up over the panes
+    either side of it. Without this the cursor flickers back to the default and
+    stray text gets selected on the way past.
+*/
+body.fmResizing{
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+}
+body.fmResizing *{
+    cursor: col-resize !important;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 #folderView{
     flex-grow:1;
     padding-left:2em;
     padding-right:2em;
-    padding-top:2em;
+    padding-top:1.4em;
     overflow-y:auto;
     background-color: var(--folder_view_background);
     scrollbar-width: thin;
@@ -694,6 +737,20 @@ body.darkTheme .ui.icon.button{
     overflow-wrap: break-word !important;
     user-select: none;
     border: 1px solid var(--divider);
+}
+
+/*
+    Hidden entries, shown only when the user turns them on. Dimmed so they stay
+    distinguishable from ordinary content at a glance; they lift to full
+    strength on hover and while selected so they are still readable to work
+    with.
+*/
+.fileObject[data-hidden="true"]{
+    opacity: 0.45;
+}
+.fileObject[data-hidden="true"]:hover,
+.fileObject[data-hidden="true"].selected{
+    opacity: 1;
 }
 
 .fileviewList .fileObject.item:hover,.fileviewList .fileObject.card:hover{
@@ -882,14 +939,52 @@ body.darkTheme .ui.icon.button{
 */
 
 #propertiesView{
+    /* Starting size only - see the note on #directorySidebar */
     width: 300px;
     min-width: 300px;
+    flex: 0 0 auto;
     padding: 1em;
     overflow-y: auto;
     scrollbar-width: thin;
     color: var(--text_color);
     border-left: 1px solid var(--divider);
     background-color: var(--folder_view_background);
+}
+
+/*
+    Permission grid in the properties panel. Compact enough to sit inside the
+    properties table cell without stretching the panel.
+*/
+#propertiesView .fmPermTable{
+    border-collapse: collapse;
+    width: auto;
+    font-size: 12px;
+    line-height: 1.3;
+}
+#propertiesView .fmPermTable th{
+    padding: 1px 7px 3px 7px;
+    font-weight: 400;
+    color: var(--fs-text-dim) !important;
+    text-align: center;
+    white-space: nowrap;
+}
+#propertiesView .fmPermTable td{
+    padding: 1px 7px;
+    text-align: center;
+}
+#propertiesView .fmPermTable td.fmPermWho{
+    padding-left: 0px;
+    padding-right: 10px;
+    text-align: left;
+    color: var(--fs-text-dim) !important;
+    white-space: nowrap;
+}
+/* Granted reads as present, denied as a quiet dash rather than a red cross */
+#propertiesView .fmPermTable td.fmPermOn{
+    color: var(--upload_progress_succ) !important;
+}
+#propertiesView .fmPermTable td.fmPermOff{
+    color: var(--fs-text-faint) !important;
 }
 
 #propertiesView td, #propertiesView span, #propertiesView div{
@@ -915,7 +1010,7 @@ body.darkTheme .ui.icon.button{
     position: fixed;
     display: none;
     width: 200px;
-    padding: 6px;
+    padding: 4px;
     background-color: var(--contextmenu_background);
     border: 1px solid var(--divider);
     border-radius: 10px;
@@ -923,6 +1018,8 @@ body.darkTheme .ui.icon.button{
     -moz-box-shadow: 0px 8px 28px var(--fs-shadow);
     box-shadow: 0px 8px 28px var(--fs-shadow);
     z-index: 999;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
 }
 
 .contextmenu.visible{
@@ -932,8 +1029,8 @@ body.darkTheme .ui.icon.button{
 .contextmenu .item{
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
+    gap: 7px;
+    padding: 5px 7px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 13.5px;
@@ -945,9 +1042,15 @@ body.darkTheme .ui.icon.button{
     background-color: var(--contextmenu_hover);
 }
 
+/* Label expands to fill the row so the trailing element is always right-aligned */
+.contextmenu .item > span:not(.description){
+    flex-grow: 1;
+}
+
 /*
-    The rows carry semantic-ui font icons. Their default em based width and
-    right margin fight the flex gap, so pin them to a fixed box instead.
+    The rows carry semantic-ui font icons. Pin to a fixed box and push to the
+    trailing edge with margin-left: auto.  Items that carry a .description
+    (Copy / Paste / Cut) hide their icon — the hotkey text is the indicator.
 
     The colour needs !important: ao.css styles every <i> and <span> under a
     themed body with a blanket rule whose :not() chain scores higher than any
@@ -958,17 +1061,21 @@ body.darkTheme .ui.icon.button{
     width: 16px;
     min-width: 16px;
     height: auto;
-    margin: 0px;
+    margin-left: auto;
     font-size: 14px;
     text-align: center;
     color: var(--fs-icon) !important;
-    opacity: 1;
+    opacity: 0.6;
+}
+
+/* Items that already show a hotkey — no icon needed */
+.contextmenu .item.hasHotkey > i.icon {
+    display: none;
 }
 
 /* Keyboard hint, pushed to the trailing edge */
 .contextmenu .description{
     margin-left: auto;
-    padding-left: 18px;
     color: var(--fs-text-faint) !important;
     font-size: 12px;
 }
@@ -976,7 +1083,7 @@ body.darkTheme .ui.icon.button{
 .contextmenu .divider{
     width: auto;
     height: 1px;
-    margin: 5px 4px;
+    margin: 3px;
     background-color: var(--fs-line-soft);
     border-bottom: 0px;
 }
@@ -1079,67 +1186,172 @@ body.darkTheme .ui.icon.button{
     height: 15px;
     display: block;
 }
+/*
+    File operation dialogs
+
+    The embedded dialogs (overwrite, delete, rename, new file/folder, share,
+    open with). Drawn as a rounded card docked to the right edge rather than a
+    full bleed panel with a dark title bar.
+
+    The progress dialog that runs in a floatWindow over a websocket is a
+    separate page and is deliberately not restyled here.
+*/
 .popup{
-    position:fixed;
-    top:0;
-    z-index:200;
-    right:0;
-    bottom:30px;
-    padding-bottom:24px;
-    border: 0px solid transparent !important;
-    width: 30em;
-    height: 100%;
-    max-width: 100%;
+    position: fixed;
+    /*
+        Anchored to the bottom right and only as tall as its content: top is
+        deliberately auto, because pinning both top and bottom is what used to
+        stretch a three line confirmation over the full window height. The cap
+        keeps a long file list inside the viewport, and .popupcontent scrolls
+        once that cap is reached.
+    */
+    top: auto;
+    right: 10px;
+    bottom: 10px;
+    /* Above the transfer panel (500), below the toast and context menu (999) */
+    z-index: 601;
+    width: 23em;
+    max-width: calc(100% - 20px);
+    max-height: calc(100% - 20px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: 1px solid var(--popup_border);
-    background-color:var(--popup_bg);
+    border-radius: 12px;
+    background-color: var(--popup_bg);
+    box-shadow: 0px 8px 28px var(--fs-shadow);
 }
 
 .popup.wide{
-    width: 60em;
+    width: 44em;
 }
 
+/*
+    The header carries the card's own surface now. It used to be a dark bar with
+    an accent underline, which read as a separate title bar sitting on top of
+    the panel rather than part of one card.
+*/
 .popupheader{
-    width:100%;
-    padding:3px;
-    padding-left:12px;
-    border-bottom:2px solid var(--popup_header_bottom);
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: auto;
+    padding: 12px 10px 12px 16px;
+    border-bottom: 1px solid var(--divider);
     background-color: var(--popup_header_bg);
     color: var(--popup_header_txt);
-    height:29px;
+    font-size: 14px;
+}
+
+/*
+    The title is a bare text node between the icon and the closer, so it cannot
+    be targeted directly - pushing the closer instead is what right aligns it.
+*/
+.popupheader > span{
+    flex: 1 1 auto;
+    min-width: 0px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.popupheader > i.icon{
+    flex: 0 0 auto;
+    width: 16px;
+    margin: 0px;
+    font-size: 15px;
+    text-align: center;
+    opacity: 0.85;
 }
 
 .popupcontent{
-    height: calc(100% - 29px);
-    overflow:auto;
+    /*
+        Grows to its content and only shrinks when the card hits its cap.
+        min-height:0 is what lets it actually scroll then - a flex item's
+        default min-height:auto refuses to shrink below its content.
+    */
+    flex: 0 1 auto;
+    min-height: 0;
+    height: auto;
+    padding: 14px 16px 16px 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    color: var(--normal_object_txt);
+}
+
+.popupcontent p,
+.popupcontent small{
+    color: var(--fs-text-dim) !important;
+    line-height: 1.5;
 }
 
 .popupcloser{
-    position:absolute;
-    top:5px;
-    right:0px;
-    font-size: 120%;
-    cursor:pointer;
+    position: static;
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 100%;
+    cursor: pointer;
+    opacity: 0.75;
+}
+.popupcloser:hover{
+    background-color: var(--popup_btn_hover);
+    opacity: 1;
+}
+.popupcloser i.icon{
+    margin: 0px;
 }
 
+/* ---------- Option rows ---------- */
 .popupbuttons{
-    cursor:pointer;
-    padding:5px;
-    padding-left:12px;
-    margin-bottom:4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 10px 13px;
+    margin-bottom: 7px;
     border: 1px solid var(--popup_btn_border);
-    border-radius: 4px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--normal_object_txt);
+}
+
+.popupbuttons > i.icon{
+    flex: 0 0 auto;
+    width: 16px;
+    height: auto;
+    margin: 0px;
+    font-size: 14px;
+    text-align: center;
+    opacity: 0.75;
 }
 
 .popupbuttons.primary{
-    background-color:var(--popup_btn_primary_bg);
+    background-color: var(--popup_btn_primary_bg);
     border: 1px solid transparent;
-    color:var(--popup_btn_primary_txt);
+    color: var(--popup_btn_primary_txt) !important;
+}
+.popupbuttons.primary > i.icon{
+    color: var(--popup_btn_primary_txt) !important;
+    opacity: 1;
 }
 
 .popupbuttons.negative{
-    background-color:var(--popup_btn_negative_bg);
+    background-color: var(--popup_btn_negative_bg);
     border: 1px solid transparent;
-    color:var(--popup_btn_negative_txt);
+    color: var(--popup_btn_negative_txt) !important;
+}
+.popupbuttons.negative > i.icon{
+    color: var(--popup_btn_negative_txt) !important;
+    opacity: 1;
 }
 
 .popupbuttons.disabled{
@@ -1190,34 +1402,85 @@ body.darkTheme .ui.icon.button{
     left:0px;
     width:100%;
     height:100%;
-    z-index:199;
+    /* Directly under .popup, so the scrim covers the transfer panel too */
+    z-index:600;
     background-color: var(--popup_wrapper_background);
     display:none;
 }
-@supports (backdrop-filter: none) {
-    .popupWrapper {
-        backdrop-filter: blur(5px);
-    }
-}
+/*
+    The scrim is much lighter than it used to be, and no longer blurs: the
+    mockup shows the file list plainly behind the card. Some dimming is kept
+    rather than none, because the wrapper still swallows clicks - an invisible
+    overlay that silently eats them would be worse than a faint one that
+    explains itself.
+*/
 
+/*
+    The Open With picker. Laid out like the standalone opener dialog
+    (SystemAO/file_system/defaultOpener.html): the WebApps that registered the
+    selected file's extension are listed first and everything else stays folded
+    behind the toggle row, so a long module list no longer buries the two apps
+    that can actually open the file.
+
+    The box grows with its content up to a cap rather than always standing 50vh
+    tall - a two app suggestion list used to leave most of the card empty.
+*/
 #openWithModuleList{
-    height:50vh;
+    max-height:42vh;
     overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width: thin;
+    padding: 4px;
     background-color: var(--modulelist_bg);
     border: 1px solid var(--divider);
-    border-radius: 0;
+    border-radius: 8px;
 }
 
 #openWithModuleList .ui.avatar.image, #openWithModuleList .ui.avatar.image img, #openWithModuleList .ui.avatar.image svg, #openWithModuleList .ui.avatar.images .image, #openWithModuleList .ui.avatar.images img, #openWithModuleList .ui.avatar.images svg{
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    margin: 0px;
     border-radius: 0;
+    object-fit: contain;
+}
+
+.openWithSectionLabel{
+    padding: 6px 8px 4px 8px;
+    color: var(--fs-text-dim);
+    font-size: 12.5px;
 }
 
 #openWithModuleList .item{
-    padding:8px;
-    padding-left:22px;
-    border-radius: 2px;
+    padding: 8px 10px;
+    border-radius: 6px;
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+#openWithModuleList .item .content{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+
+#openWithModuleList .item .header{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hidden until the row is picked, so the list does not look pre-ticked */
+#openWithModuleList .item .tick{
+    flex: 0 0 auto;
+    width: 20px;
+    text-align: center;
+    color: inherit;
+    visibility: hidden;
+}
+
+#openWithModuleList .item.selected .tick{
+    visibility: visible;
 }
 
 #openWithModuleList .item:hover{
@@ -1231,6 +1494,38 @@ body.darkTheme .ui.icon.button{
 
 #openWithModuleList .item.selectable:hover{
     background-color:var(--open_with_item_hover_background);
+}
+
+/* The one row that unfolds the WebApps which did not register this file type */
+.openWithToggleRow{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--divider);
+    border-radius: 6px;
+    color: var(--fs-text-dim);
+    cursor: pointer;
+    user-select: none;
+}
+
+.openWithToggleRow:hover{
+    background-color: var(--open_with_item_hover_background);
+}
+
+.openWithToggleRow i.icon{
+    flex: 0 0 auto;
+    width: 20px;
+    margin: 0px;
+    text-align: center;
+}
+
+.openWithEmptyNote{
+    padding: 14px 10px;
+    text-align: center;
+    color: var(--fs-text-dim);
+    font-size: 13px;
 }
 
 /*
@@ -1366,6 +1661,15 @@ body.darkTheme .ui.icon.button{
 }
 
 /*
+    A row with no byte counter has an empty size cell, and the flex gap after it
+    would indent whatever comes next - which is what the download link on a
+    finished download would otherwise be, sitting a notch right of the task name
+*/
+#uploadTab .uploadTaskSize:empty{
+    display: none;
+}
+
+/*
     Byte counters update several times a second, so every glyph has to keep its
     x position or the text is unreadable. Two things are needed: tabular figures
     so "1" occupies the same advance as "8", and a fixed cell per part so a
@@ -1410,15 +1714,95 @@ body.darkTheme .ui.icon.button{
     text-align: center;
 }
 
+/*
+    Always the right hand end of the status line, whatever is to its left: a
+    byte counter, the download link of a finished download, or nothing at all.
+    An auto margin rather than the row's space-between, which only reaches the
+    edge when there happen to be two items on the line.
+*/
 #uploadTab .uploadTaskStatus{
     flex: 0 0 auto;
+    margin-left: auto;
     white-space: nowrap;
 }
 
-#uploadTab .uploadTaskAction{
+/*
+    The action column holds up to two controls: cancel, which only appears once
+    the transfer is paused, and the main pause/resume/retry button. Cancel is
+    deliberately hidden while uploading - the pause button is the one to reach
+    for, and putting a destructive control next to it invites misclicks.
+*/
+#uploadTab .uploadTaskActions{
     grid-column: 2;
     grid-row: 1 / span 2;
-    align-self: center;
+    /*
+        Bottom rather than centre: the column spans the name and the status
+        line, and centring it hung the buttons between the two with a gap under
+        them. Ending the column lines their base up with the status text.
+    */
+    align-self: end;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+#uploadTab .uploadTaskCancel{
+    display: none;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--fs-text-faint);
+}
+#uploadTab .uploadTask.paused .uploadTaskCancel{
+    /*
+        Shown by state class alone, so nothing has to rewrite this button on a
+        progress tick - which is what used to swallow clicks on its neighbour.
+    */
+    display: flex;
+}
+#uploadTab .uploadTaskCancel:hover{
+    background-color: var(--fs-fill-hover);
+    color: var(--upload_progress_failed);
+}
+#uploadTab .uploadTaskCancel svg{
+    width: 22px;
+    height: 22px;
+    display: block;
+    pointer-events: none;
+}
+
+/*
+    The "Download again" link on a finished download.
+
+    A completed download row shows this instead of the tick: the browser may
+    have blocked the download that started on its own, and a tick would then be
+    the only thing on screen while nothing had actually been saved.
+
+    It lives in the status line rather than the button column, so it reads as
+    one row with the label opposite it - the link at the left of the line, and
+    "Completed" pinned to its right hand end.
+*/
+#uploadTab .uploadTaskDoneLink{
+    display: none;
+    white-space: nowrap;
+    color: var(--upload_progressbar);
+    cursor: pointer;
+}
+#uploadTab .uploadTask.withDoneLink .uploadTaskDoneLink{
+    display: inline-block;
+}
+#uploadTab .uploadTaskDoneLink:hover{
+    text-decoration: underline;
+}
+/* No control on a finished row - see renderUploadTask() */
+#uploadTab .uploadTask.done .uploadTaskAction{
+    display: none;
+}
+
+#uploadTab .uploadTaskAction{
     width: 30px;
     height: 30px;
     display: flex;
@@ -1432,19 +1816,44 @@ body.darkTheme .ui.icon.button{
     width: 26px;
     height: 26px;
     display: block;
+    /*
+        The glyph must not be the event target. It is swapped out whenever the
+        task changes state, and a press that spans the swap would leave mousedown
+        and mouseup on two different elements - which produces no click at all.
+        Letting the pointer fall through to the button itself makes the whole
+        30px control clickable regardless of what the icon does underneath.
+    */
+    pointer-events: none;
 }
-#uploadTab .uploadTask.done .uploadTaskAction{
-    color: var(--upload_progress_succ);
-    cursor: default;
-}
+/* A failed row uses the "Retry" text link in the status line instead of the button */
 #uploadTab .uploadTask.failed .uploadTaskAction{
-    color: var(--upload_progress_failed);
+    display: none;
+}
+#uploadTab .uploadTaskRetry{
+    display: none;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    color: var(--upload_progressbar);
+    cursor: pointer;
+}
+#uploadTab .uploadTask.failed .uploadTaskRetry{
+    display: inline-block;
+    margin-left: -2px;
+}
+#uploadTab .uploadTask.failed .uploadTaskRetry::before{
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    margin-right: 10px;
+    vertical-align: -2px;
+    background-color: var(--fs-line);
+}
+#uploadTab .uploadTaskRetry:hover{
+    text-decoration: underline;
 }
 #uploadTab .uploadTaskAction:hover{
     background-color: var(--fs-fill-hover);
-}
-#uploadTab .uploadTask.done .uploadTaskAction:hover{
-    background-color: transparent;
 }
 
 /* ---------- Progress bar ---------- */
@@ -1505,6 +1914,12 @@ body.darkTheme .ui.icon.button{
     width: 19px;
     height: 19px;
     display: block;
+}
+
+/* The filled part of the ring, sized by setUploadSummaryRing() */
+#uploadTab .uploadSummaryIcon .taskProgressArc{
+    color: var(--upload_progressbar);
+    transition: stroke-dasharray 0.25s linear;
 }
 
 #uploadTab .uploadSummaryText{
@@ -1707,6 +2122,31 @@ i.blue{
         max-width: 148px;
     }
     
+    /*
+        Dialogs centre in the viewport instead of hugging a corner.
+
+        Centred with inset:0 + margin:auto rather than a translate(-50%,-50%),
+        because these are shown with semantic's transition("slide left in") -
+        its keyframes set transform themselves, so a centring transform would be
+        dropped for the length of the animation and the card would visibly jump
+        into place at the end. Auto margins are untouched by the animation.
+
+        The auto margins need a definite height to resolve against, which is
+        what height:fit-content provides - plain auto height would stretch to
+        fill the insets instead.
+    */
+    .popup{
+        right: 0;
+        bottom: 2em;
+        left: 0;
+        margin: auto;
+        width: calc(100% - 28px);
+        max-width: 420px;
+        height: -webkit-fit-content;
+        height: fit-content;
+        max-height: calc(100% - 40px);
+    }
+
     /* Properties view, disable function in small display size*/
     #propertiesView{
         display:none !important;
@@ -1716,12 +2156,9 @@ i.blue{
         display:none !important;
     }
 
-    /* popups */
-    .popup{
-        top: 5em;
-        bottom: 5em;
-        width:100%;
-        height: auto;
+    /* ...and with no pane to resize, neither does its handle */
+    #fmPropsSplitter{
+        display:none !important;
     }
 
 }
@@ -1771,6 +2208,7 @@ i.blue{
     min-width: 0;
     cursor: text;
     padding-left: 4px;
+    padding-right: 0px;
 }
 
 .fmPathHome {
@@ -1978,6 +2416,17 @@ i.blue{
     text-overflow: ellipsis;
 }
 
+/*
+    Separates the mounted storage devices above from the special views below
+    them - the trash bin and anything that joins it later. Without it the two
+    kinds run together and the bin reads as another drive.
+*/
+#directorySidebar .fsSideDivider {
+    height: 1px;
+    background: var(--fs-line);
+    margin: 7px 8px;
+}
+
 #selectInfo {
     font-size: 12px;
     color: var(--fs-text-faint);
@@ -2025,6 +2474,11 @@ i.blue{
 }
 
 /* ---------- Details view: the mockup's columned list ---------- */
+#folderView.fmDetailsView {
+    padding-top: 0px;
+    border-top: 10px solid var(--folder_view_background);
+}
+
 #fmListHeader {
     position: sticky;
     top: 0;
@@ -2167,6 +2621,618 @@ i.blue{
 }
 .fmGroup { display: block; }
 
+/* ======================================================================
+   Trash bin view
+
+   Rendered into #folderList by js/explorer/trash.js when the path is the
+   %trashbin% sentinel. It replaces the file listing entirely, so it owns the
+   full width of the file area rather than sitting alongside file objects.
+   ====================================================================== */
+.fmTrashLoading{
+    padding: 28px 4px;
+    color: var(--fs-text-dim);
+}
+
+.fmTrashHeader{
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 4px 4px 20px 4px;
+}
+
+.fmTrashIcon{
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--fs-fill);
+    color: var(--fs-text-dim);
+}
+.fmTrashIcon svg{
+    width: 28px;
+    height: 28px;
+    display: block;
+}
+
+.fmTrashHeadText{
+    flex: 1 1 auto;
+    min-width: 0px;
+}
+.fmTrashTitle{
+    font-size: 20px;
+    color: var(--fs-text);
+    margin-bottom: 3px;
+}
+.fmTrashDesc{
+    font-size: 12.5px;
+    color: var(--fs-text-dim);
+    line-height: 1.5;
+}
+
+/* Usage readout. Its numbers are placeholders until retention lands. */
+.fmTrashUsage{
+    flex: 0 0 auto;
+    width: 190px;
+}
+.fmTrashUsageLabel{
+    font-size: 12px;
+    color: var(--fs-text-dim);
+}
+.fmTrashUsageValue{
+    font-size: 19px;
+    color: var(--fs-accent);
+    margin: 2px 0px 6px 0px;
+}
+.fmTrashUsageBar{
+    height: 6px;
+    border-radius: 999px;
+    background: var(--fs-line);
+    overflow: hidden;
+}
+.fmTrashUsageFill{
+    height: 100%;
+    border-radius: 999px;
+    background: var(--fs-accent);
+}
+.fmTrashUsageTotal{
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--fs-text-dim);
+}
+
+.fmTrashEmptyBtn{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13.5px;
+    white-space: nowrap;
+    background: var(--upload_progress_failed);
+    color: #ffffff;
+}
+.fmTrashEmptyBtn:hover{
+    opacity: 0.9;
+}
+.fmTrashBtnIcon svg{
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.fmTrashMoreBtn{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+.fmTrashMoreBtn:hover{ background: var(--fs-fill); }
+.fmTrashMoreBtn svg{ width: 100%; height: 100%; display: block; }
+
+.fmTrashBulkMenu{
+    position: absolute;
+    top: 44px;
+    right: 0px;
+    min-width: 220px;
+}
+
+/* ---------- Listing ---------- */
+.fmTrashTable{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.fmTrashTable th{
+    padding: 10px 10px;
+    text-align: left;
+    font-weight: 400;
+    color: var(--fs-text-dim) !important;
+    border-top: 1px solid var(--fs-line);
+    border-bottom: 1px solid var(--fs-line);
+    white-space: nowrap;
+}
+.fmTrashTable td{
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--fs-line-soft);
+    color: var(--fs-text) !important;
+    vertical-align: middle;
+}
+.fmTrashRow:hover{ background: var(--fs-row-hover); }
+.fmTrashRow.selected{ background: var(--fs-selected); }
+
+.fmTrashDim{ color: var(--fs-text-dim) !important; white-space: nowrap; }
+
+/*
+    The flex row lives on a span inside the cell, never on the <td> itself.
+    display:flex on a table cell drops it out of the table formatting context,
+    which collapses the column and leaves its bottom border out of line with
+    every other cell in the row.
+*/
+.fmTrashName{
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0px;
+}
+.fmTrashNameText{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- Sortable headers ---------- */
+.fmTrashSortable{ cursor: pointer; }
+.fmTrashSortable:hover{ background: var(--fs-fill); }
+.fmTrashTable th.sorted{ color: var(--fs-text) !important; }
+.fmTrashSortMark{
+    display: inline-block;
+    width: 12px;
+    margin-left: 3px;
+    font-size: 11px;
+}
+
+/* ---------- Details dialog ---------- */
+.fmTrashDetailTable{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 14px;
+}
+.fmTrashDetailTable td{
+    padding: 7px 0px;
+    border-bottom: 1px solid var(--fs-line-soft);
+    word-break: break-all;
+    color: var(--normal_object_txt) !important;
+}
+.fmTrashDetailKey{
+    width: 38%;
+    color: var(--fs-text-dim) !important;
+    white-space: nowrap;
+}
+
+/* ---------- Special view root chip in the address bar ---------- */
+.fmSpecialRoot{
+    display: inline-flex !important;
+    align-items: center;
+    gap: 7px;
+}
+.fmSpecialRootIcon{
+    width: 16px;
+    height: 16px;
+    color: var(--fs-icon);
+}
+.fmSpecialRootIcon svg{ width: 100%; height: 100%; display: block; }
+.fmTrashRowIcon{
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    color: var(--fs-icon);
+}
+.fmTrashRowIcon svg{ width: 100%; height: 100%; display: block; }
+
+.fmTrashColCheck{ width: 34px; }
+
+/* Drawn rather than an <input>, to match the check styling used elsewhere */
+.fmTrashCheck{
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--fs-line);
+    border-radius: 4px;
+    background: var(--fs-surface);
+    cursor: pointer;
+    position: relative;
+    vertical-align: middle;
+}
+.fmTrashCheck.checked{
+    background: var(--fs-accent);
+    border-color: var(--fs-accent);
+}
+.fmTrashCheck.checked::after{
+    content: "";
+    position: absolute;
+    left: 4.5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--fs-primary-fg);
+    border-width: 0px 2px 2px 0px;
+    transform: rotate(45deg);
+}
+
+.fmTrashActionCell{ width: 1%; white-space: nowrap; text-align: right; }
+
+.fmTrashRestoreBtn{
+    padding: 6px 14px;
+    border: 1px solid var(--popup_btn_border);
+    border-radius: 7px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--fs-text);
+}
+.fmTrashRestoreBtn:hover{ background: var(--fs-fill-hover); }
+
+.fmTrashRowMore{
+    width: 26px;
+    height: 26px;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+.fmTrashRowMore:hover{ background: var(--fs-fill); }
+.fmTrashRowMore svg{ width: 100%; height: 100%; display: block; }
+
+.fmTrashRowMenu{
+    position: fixed;
+    min-width: 210px;
+    z-index: 610;
+}
+
+.fmTrashEmpty{
+    padding: 40px 10px !important;
+    text-align: center;
+    color: var(--fs-text-dim) !important;
+}
+
+/*
+    Sits at the end of the table while the server is still walking the file
+    system, with rows appearing above it as they are found.
+*/
+.fmTrashScanning{
+    padding: 14px 10px !important;
+    color: var(--fs-text-dim) !important;
+}
+
+/*
+    The flex box is an inner element rather than the cell itself: display:flex
+    on a <td> takes it out of the table's formatting context, which drops the
+    colspan and squeezes the row into the width of the first column.
+*/
+.fmTrashScanInner{
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.fmTrashSpinner{
+    width: 13px;
+    height: 13px;
+    min-width: 13px;
+    border: 2px solid var(--fs-line);
+    border-top-color: var(--fs-accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: fmTrashSpin 0.7s linear infinite;
+}
+
+@keyframes fmTrashSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* A spinning ring is exactly what this setting asks to be spared */
+@media (prefers-reduced-motion: reduce) {
+    .fmTrashSpinner{ animation: none; }
+}
+
+.fmTrashFootnote{
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 9px;
+    background: var(--fs-fill);
+    font-size: 12.5px;
+    color: var(--fs-text-dim);
+}
+.fmTrashFootIcon{
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+    color: var(--fs-accent);
+}
+.fmTrashFootIcon svg{ width: 100%; height: 100%; display: block; }
+
+/*
+    The original path is the widest column in the table and the one the layout
+    can most afford to lose. Driven by a class from updateListDensity() rather
+    than a media query, because the file area is bounded by two draggable panes
+    and the viewport width says nothing useful about it.
+*/
+#folderView.fmTrashHideOrigin .fmTrashColOrigin{ display: none !important; }
+
+@media only screen and (max-width: 720px) {
+    /* The usage readout is the first thing to go when space is tight */
+    .fmTrashHeader{ flex-wrap: wrap; }
+    .fmTrashUsage{ display: none; }
+    .fmTrashTable th:nth-child(4), .fmTrashTable td:nth-child(4){ display: none; }
+}
+
+/* ---------- Trash bin: card layout (phones and very narrow panes) ---------- */
+/*
+    Drawn instead of the table below FM_TRASH_CARD_MAX_WIDTH - see
+    useTrashCardLayout() in js/explorer/trash.js. The same rows, restacked:
+    one line per item, with restore and delete moved to a bar along the bottom
+    where they act on the selection.
+*/
+.fmTrashCardHead{
+    background: var(--fs-surface);
+    border: 1px solid var(--fs-line);
+    border-radius: 14px;
+    padding: 16px;
+    margin: 10px 10px 12px 10px;
+}
+.fmTrashCardTop{
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+.fmTrashCardHead .fmTrashIcon{
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--fs-fill);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fs-icon);
+}
+.fmTrashCardHead .fmTrashIcon svg{ width: 24px; height: 24px; display: block; }
+.fmTrashCardHead .fmTrashTitle{
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--fs-text) !important;
+}
+.fmTrashCardHead .fmTrashDesc{
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--fs-text-dim) !important;
+    margin-top: 2px;
+}
+
+.fmTrashCardUsage{ margin-top: 15px; }
+.fmTrashCardUsage .fmTrashUsageLabel{
+    font-size: 12px;
+    color: var(--fs-text-dim) !important;
+}
+.fmTrashUsageRow{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 2px;
+}
+.fmTrashCardUsage .fmTrashUsageValue{
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--fs-accent) !important;
+}
+.fmTrashCardUsage .fmTrashUsageTotal{
+    font-size: 12px;
+    color: var(--fs-text-dim) !important;
+}
+.fmTrashCardUsage .fmTrashUsageBar{
+    margin-top: 8px;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--fs-fill);
+    overflow: hidden;
+}
+.fmTrashCardUsage .fmTrashUsageFill{
+    height: 100%;
+    border-radius: 3px;
+    background: var(--fs-accent);
+}
+
+.fmTrashCardEmptyBtn{
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--upload_progress_failed);
+}
+.fmTrashCardEmptyBtn .fmTrashBtnIcon{ width: 16px; height: 16px; }
+.fmTrashCardEmptyBtn .fmTrashBtnIcon svg{ width: 100%; height: 100%; display: block; }
+
+/* Kind filter chips, standing in for the table's sortable headers */
+.fmTrashChips{
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px 10px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.fmTrashChips::-webkit-scrollbar{ display: none; }
+.fmTrashChip{
+    flex: 0 0 auto;
+    padding: 6px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--fs-line);
+    background: var(--fs-bg);
+    color: var(--fs-text-dim);
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fmTrashChip.active{
+    background: var(--fs-accent-soft);
+    border-color: transparent;
+    color: var(--fs-accent-strong);
+    font-weight: 500;
+}
+.fmTrashChipSpacer{ flex: 1 1 auto; }
+.fmTrashChipMore{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+    color: var(--fs-icon);
+}
+.fmTrashChipMore svg{ width: 100%; height: 100%; display: block; }
+.fmTrashChips .fmTrashBulkMenu{ right: 10px; top: 38px; }
+
+/* The rows themselves */
+.fmTrashCards{ padding: 0px; }
+.fmTrashCardRow{
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--fs-line-soft);
+}
+.fmTrashCardRow .fmTrashCheck{ flex: 0 0 auto; }
+.fmTrashCardIcon{
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fmTrashCardIcon svg,
+.fmTrashCardIcon img{ width: 100%; height: 100%; display: block; object-fit: contain; }
+.fmTrashCardText{
+    flex: 1 1 auto;
+    min-width: 0;      /* lets the name ellipsis instead of stretching the row */
+}
+.fmTrashCardName{
+    font-size: 13.5px;
+    color: var(--fs-text) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fmTrashCardMeta{
+    font-size: 11.5px;
+    color: var(--fs-text-dim) !important;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fmTrashCardDays{
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    color: var(--fs-text-dim) !important;
+    white-space: nowrap;
+}
+.fmTrashCardRow .fmTrashRowMore{
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+}
+.fmTrashCards .fmTrashEmpty{ padding: 40px 10px !important; }
+.fmTrashCards .fmTrashScanRow{ padding: 14px 4px; }
+
+/*
+    Action bar. In normal flow rather than fixed: the file area is the thing
+    that scrolls, and a fixed bar would sit over the desktop chrome outside it.
+*/
+.fmTrashActionBar{
+    /*
+        Sticky to the foot of the file area: the list can run well past one
+        screen, and the two buttons are the whole point of selecting anything,
+        so they follow the scroll instead of sitting at the very bottom.
+    */
+    position: sticky;
+    bottom: 8px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 10px 14px 10px;
+    padding: 11px 12px;
+    border: 1px solid var(--fs-line);
+    border-radius: 12px;
+    background: var(--fs-surface);
+}
+.fmTrashBarCount{
+    flex: 1 1 auto;
+    font-size: 12px;
+    color: var(--fs-text-dim) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fmTrashBarBtn{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--fs-line);
+    border-radius: 9px;
+    background: var(--fs-bg);
+    color: var(--fs-text);
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.fmTrashBarBtn.danger{
+    border-color: transparent;
+    background: var(--fs-danger-soft);
+    color: var(--upload_progress_failed);
+    font-weight: 500;
+}
+.fmTrashBarBtn .fmTrashBtnIcon{ width: 14px; height: 14px; }
+.fmTrashBarBtn .fmTrashBtnIcon svg{ width: 100%; height: 100%; display: block; }
+/* Nothing selected yet: the buttons are still there, just visibly inert */
+.fmTrashActionBar:not(.hasSelection) .fmTrashBarBtn{ opacity: 0.5; }
+
 /* ---------- Status bar ---------- */
 #fmStatusBar {
     display: flex;
@@ -2188,6 +3254,14 @@ i.blue{
     gap: 6px;
 }
 .fmZoomIcon {
+    /*
+        inline-block, because width and height do not apply to a non-replaced
+        inline element. As a bare <span> this box silently loses its size the
+        moment anything stops #fmZoom being a flex container, and the SVG inside
+        then renders at its 300px intrinsic size.
+    */
+    display: inline-block;
+    flex-shrink: 0;
     width: 14px;
     height: 14px;
     color: var(--fs-text-faint);
@@ -2397,7 +3471,7 @@ i.blue{
 
 /* Greyed section label above the options */
 .fsMenuHeader {
-    padding: 4px 9px 6px 9px;
+    padding: 3px 6px 4px 6px;
     font-size: 12px;
     color: var(--fs-text-faint);
     cursor: default;
@@ -2465,6 +3539,20 @@ i.blue{
 /* Menu entries that cannot act on the current selection are hidden outright
    rather than greyed - the menu is long enough already. */
 .fsMenuItem.fmOprUnusable { display: none !important; }
+
+/*
+    An operation the current special view does not support. Dimmed rather than
+    removed from the toolbar: the bar keeps its shape as the user moves in and
+    out of the trash bin, and a button that has visibly gone grey explains
+    itself better than one that has vanished.
+*/
+.fileOprBar .fmOprBlocked,
+.fileOprBar .fmOprBlocked:hover {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: default;
+    background: none;
+}
 
 
 /* Menu entries that only make sense on a touch device */

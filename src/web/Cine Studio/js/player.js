@@ -18,6 +18,8 @@ CS.player = {
     images: {},      // mediaId -> HTMLImageElement
     audioCtx: null,
     masterGain: null,
+    monitorGain: null,
+    monitorMuted: false,   //speakers off (used while exporting) - capture unaffected
     exportDest: null,
     lastTick: 0,
     rafId: 0,
@@ -96,6 +98,9 @@ CS.player = {
             c.style.height = Math.round(CS.project.settings.height * z) + "px";
             stage.style.overflow = "auto";
         }
+        //The selection overlay is positioned from the canvas box, so it has to
+        //be re-anchored whenever that box changes
+        if (CS.previewctl && CS.previewctl.overlay) { CS.previewctl.redraw(); }
     },
 
     reset: function () {
@@ -158,7 +163,13 @@ CS.player = {
             var AC = window.AudioContext || window.webkitAudioContext;
             CS.player.audioCtx = new AC();
             CS.player.masterGain = CS.player.audioCtx.createGain();
-            CS.player.masterGain.connect(CS.player.audioCtx.destination);
+            //The speakers hang off a separate monitor leg so that muting the
+            //monitoring during an export does not silence the recorded mix,
+            //which is tapped straight from masterGain by the exporter.
+            CS.player.monitorGain = CS.player.audioCtx.createGain();
+            CS.player.monitorGain.gain.value = CS.player.monitorMuted ? 0 : 1;
+            CS.player.masterGain.connect(CS.player.monitorGain);
+            CS.player.monitorGain.connect(CS.player.audioCtx.destination);
             //Route the already-created elements through the bus
             Object.keys(CS.player.pool).forEach(function (clipId) {
                 CS.player.attachToMixBus(CS.player.pool[clipId]);
@@ -175,6 +186,31 @@ CS.player = {
             src.connect(CS.player.masterGain);
             el._csRouted = true;
         } catch (e) { /* element stays on direct output */ }
+    },
+
+    //Turn the local speakers on / off without affecting what is recorded
+    setMonitorMuted: function (muted) {
+        CS.player.monitorMuted = !!muted;
+        var gain = CS.player.monitorGain && CS.player.monitorGain.gain;
+        if (gain && CS.player.audioCtx) {
+            var target = CS.player.monitorMuted ? 0 : 1;
+            try {
+                if (CS.player.audioCtx.state === "running") {
+                    //Short ramp so toggling mid-render does not click
+                    var now = CS.player.audioCtx.currentTime;
+                    gain.cancelScheduledValues(now);
+                    gain.setValueAtTime(gain.value, now);
+                    gain.linearRampToValueAtTime(target, now + 0.02);
+                } else {
+                    //A suspended clock never runs the ramp - jump instead
+                    gain.value = target;
+                }
+            } catch (e) {
+                gain.value = target;
+            }
+        }
+        //Elements that never joined the bus feed the speakers directly
+        CS.player.syncElements();
     },
 
     /* ---------- transport ---------- */
@@ -319,12 +355,15 @@ CS.player = {
             var speed = CS.clipSpeed(clip);
             var target = clip.in + (t - clip.start) * speed;
 
-            //Volume: clip setting shaped by any fade in/out effects
+            //Volume: clip setting shaped by the fade / Fade To ramps
             var vol = (clip.props.volume === undefined ? 100 : clip.props.volume) / 100;
-            vol *= CS.effects.fadeAlpha(clip, t);
+            vol *= CS.effects.audioGain(clip, t);
             el.volume = CS.clamp(vol, 0, 1);
             var soloMuted = anySolo && track && track.kind === "audio" && !track.solo;
-            el.muted = !!(track && track.muted) || soloMuted;
+            //Unrouted elements bypass the mix bus, so monitor muting must
+            //silence them on the element itself
+            el.muted = !!(track && track.muted) || soloMuted ||
+                (CS.player.monitorMuted && !el._csRouted);
 
             if (CS.state.playing && active && !reverse) {
                 try { el.playbackRate = CS.clamp(speed * Math.max(rate, 0.0625), 0.0625, 16); } catch (e) {}
@@ -364,6 +403,23 @@ CS.player = {
         CS.player.updateTransportUI();
         var empty = document.getElementById("preview-empty");
         empty.style.display = CS.project.clips.length ? "none" : "flex";
+    },
+
+    //Source sub-rectangle left after the per-edge crop (props.cropTop /
+    //cropBottom / cropLeft / cropRight, in source pixels). Values are clamped
+    //so that at least a 2 x 2 px sliver of the frame always survives.
+    cropRect: function (props, sw, sh) {
+        if (sw < 2 || sh < 2) { return { x: 0, y: 0, w: sw, h: sh }; }
+        var left = CS.clamp(Math.round(props.cropLeft || 0), 0, sw - 2);
+        var right = CS.clamp(Math.round(props.cropRight || 0), 0, sw - 2 - left);
+        var top = CS.clamp(Math.round(props.cropTop || 0), 0, sh - 2);
+        var bottom = CS.clamp(Math.round(props.cropBottom || 0), 0, sh - 2 - top);
+        return {
+            x: left,
+            y: top,
+            w: sw - left - right,
+            h: sh - top - bottom
+        };
     },
 
     buildFilter: function (props) {
@@ -444,11 +500,16 @@ CS.player = {
         var fx = CS.effects.analyze(clip, t === undefined ? CS.state.playhead : t, W);
         if (fx.alpha <= 0) { return; }
 
+        //Only the cropped region of the source takes part in the composite
+        var rect = CS.player.cropRect(p, sw, sh);
+
         if (fx.pixelate > 1) {
-            src = CS.effects.pixelateSource(src, sw, sh, fx.pixelate);
-            sw = src.width;
-            sh = src.height;
+            src = CS.effects.pixelateSource(src, sw, sh, fx.pixelate, rect);
+            //the scratch canvas already holds just the cropped region
+            rect = { x: 0, y: 0, w: src.width, h: src.height };
         }
+        sw = rect.w;
+        sh = rect.h;
 
         var dw, dh;
         if (p.crop === "stretch") {
@@ -480,7 +541,7 @@ CS.player = {
         ctx.filter = filterStr || "none";
         if (fx.pixelate > 1) { ctx.imageSmoothingEnabled = false; }
         try {
-            ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
+            ctx.drawImage(src, rect.x, rect.y, rect.w, rect.h, -dw / 2, -dh / 2, dw, dh);
         } catch (e) { /* frame not decodable yet */ }
         ctx.restore();
 

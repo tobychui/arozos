@@ -71,9 +71,15 @@ func FFmpeg_conv(input string, output string, compression int) error {
 	case isVideo(input) && isVideo(output):
 		// Video to video with resolution compression
 		if compression == 0 {
-			cmd = exec.Command("ffmpeg", "-i", input, output)
+			// Round odd frame sizes so even-only encoders (libx264 / libx265) do not fail
+			scaleFilter, _ := videoScaleFilter(input, output, "")
+			if scaleFilter != "" {
+				cmd = exec.Command("ffmpeg", "-i", input, "-vf", scaleFilter, output)
+			} else {
+				cmd = exec.Command("ffmpeg", "-i", input, output)
+			}
 		} else {
-			cmd = exec.Command("ffmpeg", "-i", input, "-vf", fmt.Sprintf("scale=-1:%d", compression), output)
+			cmd = exec.Command("ffmpeg", "-i", input, "-vf", fmt.Sprintf("scale=-2:%d", compression), output)
 		}
 
 	case (isAudio(input) || isVideo(input)) && isAudio(output):
@@ -251,6 +257,82 @@ func getMediaDurationMs(input string) (int64, error) {
 		return 0, err
 	}
 	return int64(duration * 1000), nil
+}
+
+// getVideoDimensions returns the width and height of the first video stream of
+// input by invoking ffprobe. It returns an error if ffprobe is unavailable or
+// the file carries no video stream.
+func getVideoDimensions(input string) (int, int, error) {
+	cmd := exec.Command("ffprobe", "-v", "quiet", "-print_format", "json",
+		"-select_streams", "v:0", "-show_entries", "stream=width,height", input)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, 0, err
+	}
+	var result struct {
+		Streams []struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil {
+		return 0, 0, err
+	}
+	if len(result.Streams) == 0 || result.Streams[0].Width <= 0 || result.Streams[0].Height <= 0 {
+		return 0, 0, fmt.Errorf("no video stream found in %s", input)
+	}
+	return result.Streams[0].Width, result.Streams[0].Height, nil
+}
+
+// requiresEvenDimensions reports whether the container of output is normally
+// encoded with a codec that only accepts even frame dimensions (libx264 /
+// libx265 with yuv420p chroma subsampling). Sources such as browser screen
+// recordings frequently carry odd sizes (e.g. 1643x1042), which makes those
+// encoders fail with "width not divisible by 2".
+func requiresEvenDimensions(output string) bool {
+	evenOnlyFormats := []string{".mp4", ".m4v", ".mkv", ".mov", ".flv", ".ts", ".avi", ".webm"}
+	return utils.StringInArray(evenOnlyFormats, strings.ToLower(filepath.Ext(output)))
+}
+
+// evenDimensionFilter is the ffmpeg scale filter that rounds both dimensions
+// down to the nearest even number. It is a no-op for already-even inputs.
+const evenDimensionFilter = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+
+// videoScaleFilter builds the -vf scale filter for a video conversion.
+//
+//   - When resolution is given, the frame is scaled to that height with the width
+//     derived from the aspect ratio and rounded to an even number (-2).
+//   - When no resolution is given, the source is measured with ffprobe and an
+//     even-rounding filter is added only if it is needed, so that conversions of
+//     odd-sized sources (screen recordings, cropped clips) do not abort with
+//     "width not divisible by 2". If the source cannot be measured, the filter is
+//     added defensively for even-only output containers; it changes nothing when
+//     the dimensions already are even.
+//
+// It returns an empty string when no scaling is required.
+func videoScaleFilter(input, output, resolution string) (string, error) {
+	if resolution != "" {
+		resHeight, ok := resolutionHeightMap[strings.ToLower(resolution)]
+		if !ok {
+			return "", fmt.Errorf("unsupported resolution %q (supported: 144p 240p 360p 480p 576p 720p 1080p 1440p 2160p 4k 8k)", resolution)
+		}
+		// -2 ensures the width is adjusted to maintain aspect ratio with an even number
+		return fmt.Sprintf("scale=-2:%d", resHeight), nil
+	}
+
+	if !requiresEvenDimensions(output) {
+		return "", nil
+	}
+
+	width, height, err := getVideoDimensions(input)
+	if err != nil {
+		// Source could not be measured, let ffmpeg round the frame itself
+		return evenDimensionFilter, nil
+	}
+	if width%2 == 0 && height%2 == 0 {
+		return "", nil
+	}
+	return evenDimensionFilter, nil
 }
 
 // writeProgressJSON writes a ConversionProgress snapshot as JSON to progressFile.
@@ -439,13 +521,12 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 
 	args := []string{"-i", input, "-y"}
 
-	if resolution != "" {
-		resHeight, ok := resolutionHeightMap[strings.ToLower(resolution)]
-		if !ok {
-			return fmt.Errorf("unsupported resolution %q (supported: 144p 240p 360p 480p 576p 720p 1080p 1440p 2160p 4k 8k)", resolution)
-		}
-		// -2 ensures the width is adjusted to maintain aspect ratio with an even number
-		args = append(args, "-vf", fmt.Sprintf("scale=-2:%d", resHeight))
+	scaleFilter, err := videoScaleFilter(input, output, resolution)
+	if err != nil {
+		return err
+	}
+	if scaleFilter != "" {
+		args = append(args, "-vf", scaleFilter)
 	}
 
 	if compressionRate > 0 {
@@ -466,7 +547,7 @@ func FFmpeg_video_conv(input, output, resolution string, compressionRate int, pr
 	}
 
 	args = append(args, output)
-	err := runFFmpeg(args, progressFile)
+	err = runFFmpeg(args, progressFile)
 
 	if progressFile != "" {
 		stopProgressMonitor(doneCh, wg, ffmpegPipeFile, progressFile, output, inputSize, startTime, err)
@@ -489,6 +570,13 @@ func FFmpeg_conv_with_progress(input, output, progressFile string) error {
 	inputSize := fileSize(input)
 
 	args := []string{"-i", input, "-y"}
+
+	if isVideo(input) {
+		// Round odd frame sizes so even-only encoders (libx264 / libx265) do not fail
+		if scaleFilter, err := videoScaleFilter(input, output, ""); err == nil && scaleFilter != "" {
+			args = append(args, "-vf", scaleFilter)
+		}
+	}
 
 	var doneCh chan struct{}
 	var wg *sync.WaitGroup

@@ -35,7 +35,7 @@ var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "3.0.1"                         //Internal build version, [fork_id].[major_release_no].[minor_release_no]
+var internal_version = "3.0.4"                         //Internal build version, [fork_id].[major_release_no].[minor_release_no]
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
@@ -59,6 +59,7 @@ var show_version = flag.Bool("version", false, "Show system build version")
 var host_name = flag.String("hostname", "My ArOZ", "Default name for this host")
 var system_uuid = flag.String("uuid", "", "System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.")
 var disable_subservices = flag.Bool("disable_subservice", false, "Disable subservices completely")
+var disable_cluster = flag.Bool("disable_cluster", false, "Disable the cluster features (joining, the cluster:/ drive, cluster jobs and their settings pages)")
 
 // Flags related to Networking
 var allow_upnp = flag.Bool("allow_upnp", false, "Enable uPNP service, recommended for host under NAT router")

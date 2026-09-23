@@ -1,0 +1,56 @@
+/*
+    Hello World - the job half
+
+    The cluster runs this file once on every node it is sent to (see
+    hello_world.agi). The runtime calls run(job) and publishes whatever it
+    returns as the job output, so the reply is just a plain object.
+
+    job = {id, name, args, inputs, node, owner} plus the helpers
+    job.log(text), job.progress(0..1), job.cancelled() and
+    job.abortIfCancelled().
+*/
+
+requirelib("cluster");
+
+function run(job) {
+    //cluster.self() is the view of the node this job is running on
+    var me = cluster.self();
+    var caps = me.capabilities || {};
+    var health = me.health || {};
+
+    //Only list the features this node actually has
+    var features = [];
+    for (var name in (caps.features || {})) {
+        if (caps.features[name]) {
+            features.push(name);
+        }
+    }
+    features.sort();
+
+    job.log("Hello World from " + me.name);
+
+    return {
+        message: "Hello World from " + me.name,
+        node: {
+            id: me.id,
+            name: me.name,
+            state: me.state,
+            version: me.version,
+            os: caps.os,
+            arch: caps.arch,
+            hostname: caps.hostname,
+            cpuCores: caps.cpuCores,
+            totalRamBytes: caps.totalRam,
+            features: features
+        },
+        health: {
+            cpuUsagePercent: health.cpuUsage,
+            ramUsedBytes: health.ramUsed,
+            diskFreeBytes: health.diskFree,
+            uptimeSeconds: health.uptime
+        },
+        runAs: job.owner,
+        jobId: job.id,
+        answeredAt: new Date().toISOString()
+    };
+}

@@ -41,6 +41,18 @@ function toggleSearch(){
 }
 
 function hideSearchBar(skipFilelistRefresh = false){
+    /*
+        Nothing to undo when a search was never open.
+
+        Several places call this defensively on navigation - the Home button
+        among them - and the restore below would then apply
+        viewModeBeforeSearch's initial "list" value, silently dropping the user
+        out of grid or details view. It also saves a redundant re-listing.
+    */
+    if (!searchMode){
+        return;
+    }
+
     $(".searchbar").hide();
     initWindowSizes(true);
     $("#searchInput").val("");
@@ -107,6 +119,20 @@ function handleHotSearch(starting, offset){
 
 function handleSearch(){
     var keyword = $("#searchInput").val();
+
+    /*
+        A special view holds its own rows - the trash bin's come from the trash
+        API rather than from a directory listing, so /system/file_system/search
+        knows nothing about them. Views that can be searched register a handler
+        and we hand the keyword over; filtering, drawing and the empty state
+        are all theirs to deal with.
+    */
+    let specialView = (typeof getSpecialView === "function") ? getSpecialView(currentPath) : null;
+    if (specialView != null && typeof specialView.search === "function"){
+        specialView.search(keyword, searchCaseSensitive);
+        return;
+    }
+
     $("#folderList").html(`<div class="ui basic segment">
         <i class="loading spinner icon"></i> <span>Searching</span>
     </div>`);

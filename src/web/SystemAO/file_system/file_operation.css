@@ -1,0 +1,495 @@
+/*
+    file_operation.css
+
+    Styling for the unified ArozOS file operation dialog. One dialog shows
+    every ongoing file operation of the current user, see file_operation.html
+    and js/file_operation/dialog.js.
+*/
+
+:root {
+    --fo-bg: #ffffff;
+    --fo-header-bg: #ffffff;
+    --fo-footer-bg: #f7f9fb;
+    --fo-border: #e4e9ef;
+    --fo-fg: #1f2429;
+    --fo-muted: #78838f;
+    --fo-accent: #2f7fd1;
+    --fo-accent-fg: #ffffff;
+    --fo-track: #e6ebf1;
+    --fo-bar: #2f80ed;
+    --fo-bar-done: #21ba45;
+    --fo-bar-error: #db2828;
+    --fo-bar-paused: #b0b8c1;
+    --fo-hover: rgba(0, 0, 0, 0.045);
+    --fo-btn-border: #d6dce4;
+    --fo-warn: #a5720b;
+    --fo-warn-bg: rgba(240, 173, 27, 0.12);
+}
+
+[data-theme="dark"] {
+    --fo-bg: #1b2027;
+    --fo-header-bg: #161b21;
+    --fo-footer-bg: #161b21;
+    --fo-border: #2a313a;
+    --fo-fg: #e7edf3;
+    --fo-muted: #8b97a5;
+    --fo-accent: #4a92e0;
+    --fo-accent-fg: #ffffff;
+    --fo-track: #2c333c;
+    --fo-bar: #4a92e0;
+    --fo-bar-done: #2fbe52;
+    --fo-bar-error: #e05252;
+    --fo-bar-paused: #57616d;
+    --fo-hover: rgba(255, 255, 255, 0.06);
+    --fo-btn-border: #39424e;
+    --fo-warn: #e0b445;
+    --fo-warn-bg: rgba(224, 180, 69, 0.12);
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    /* Semantic UI floors the body at 320px, which would push this dialog wider
+       than the window it sits in on a narrow screen */
+    min-width: 0;
+    overflow: hidden;
+    background: var(--fo-bg);
+    color: var(--fo-fg);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+}
+
+.fodialog {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--fo-bg);
+}
+
+/* Header */
+.foheader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    padding: 14px 12px 10px 18px;
+    background: var(--fo-header-bg);
+}
+
+.fotitle {
+    flex: 1 1 auto;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--fo-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.foheaderbtns {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.foiconbtn {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--fo-muted);
+    transition: background-color 0.15s ease;
+}
+
+.foiconbtn:hover {
+    background: var(--fo-hover);
+}
+
+.foiconbtn i.icon {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1;
+    height: auto;
+    width: auto;
+}
+
+/* Collapsed summary: the combined progress of every operation in one line */
+.fosummary {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 18px 14px 18px;
+    background: var(--fo-header-bg);
+}
+
+.fodialog.collapsed .fosummary {
+    display: flex;
+}
+
+.fosummary .foprogress {
+    flex: 1 1 auto;
+    margin-top: 0;
+    height: 6px;
+    border-radius: 3px;
+}
+
+.fosummary .foprogress .bar {
+    border-radius: 3px;
+}
+
+.fosummarypercent {
+    flex: 0 0 auto;
+    min-width: 42px;
+    text-align: right;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--fo-muted);
+}
+
+/* Body */
+.fobody {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 6px 6px 6px;
+}
+
+.fodialog.collapsed .fobody {
+    display: none;
+}
+
+.fobody::-webkit-scrollbar {
+    width: 8px;
+}
+
+.fobody::-webkit-scrollbar-thumb {
+    background: var(--fo-track);
+    border-radius: 4px;
+}
+
+/* One operation group */
+.fooperation {
+    padding: 0 12px 6px 12px;
+}
+
+.foopinfo {
+    font-size: 12.5px;
+    color: var(--fo-accent);
+    line-height: 1.55;
+    padding: 0 0 8px 0;
+    word-break: break-word;
+}
+
+.foopnote {
+    display: block;
+    color: var(--fo-accent);
+    opacity: 0.85;
+}
+
+/* Inline overwrite decision prompt */
+.fodupask {
+    background: var(--fo-warn-bg);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+
+.fodupask .foduptext {
+    display: block;
+    font-size: 12.5px;
+    color: var(--fo-warn);
+    margin-bottom: 7px;
+}
+
+.fodupbtns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* One file row inside an operation */
+.forow {
+    display: flex;
+    align-items: flex-start;
+    padding: 7px 0 9px 0;
+}
+
+.forowicon {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    margin-right: 11px;
+    margin-top: 2px;
+}
+
+.forowicon svg {
+    display: block;
+    width: 30px;
+    height: 30px;
+}
+
+.forowmain {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.forowname {
+    font-size: 13px;
+    color: var(--fo-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.45;
+}
+
+.forowmeta {
+    font-size: 11.5px;
+    color: var(--fo-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.forowmeta.error {
+    color: var(--fo-bar-error);
+}
+
+.foprogress {
+    margin-top: 7px;
+    height: 4px;
+    width: 100%;
+    background: var(--fo-track);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.foprogress .bar {
+    height: 100%;
+    width: 0%;
+    background: var(--fo-bar);
+    border-radius: 2px;
+    transition: width 0.25s linear;
+}
+
+.foprogress .bar.done {
+    background: var(--fo-bar-done);
+}
+
+.foprogress .bar.error {
+    background: var(--fo-bar-error);
+}
+
+.foprogress .bar.paused {
+    background: var(--fo-bar-paused);
+}
+
+.forowctrl {
+    flex: 0 0 auto;
+    width: 66px;
+    margin-left: 10px;
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    align-items: flex-start;
+}
+
+.forowbtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--fo-btn-border);
+    background: transparent;
+    color: var(--fo-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.forowbtn:hover {
+    background: var(--fo-hover);
+    border-color: var(--fo-accent);
+    color: var(--fo-accent);
+}
+
+.forowbtn.cancel:hover {
+    border-color: var(--fo-bar-error);
+    color: var(--fo-bar-error);
+}
+
+.forowbtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.forowbtn i.icon {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1;
+    height: auto;
+    width: auto;
+}
+
+/* Empty state */
+.foempty {
+    text-align: center;
+    color: var(--fo-muted);
+    font-size: 13px;
+    padding: 34px 12px;
+}
+
+.foempty i.icon {
+    display: block;
+    margin: 0 auto 8px auto;
+    font-size: 26px;
+    height: auto;
+    width: auto;
+    color: var(--fo-bar-done);
+}
+
+/* Footer */
+.fofooter {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--fo-footer-bg);
+    border-top: 1px solid var(--fo-border);
+}
+
+.fototal {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--fo-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fototal i.icon {
+    margin-right: 6px;
+    height: auto;
+    width: auto;
+    opacity: 0.8;
+}
+
+.fofooterbtns {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fobtn {
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1;
+    padding: 8px 11px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--fo-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fobtn:hover {
+    background: var(--fo-hover);
+    color: var(--fo-fg);
+}
+
+.fobtn.primary {
+    background: var(--fo-accent);
+    color: var(--fo-accent-fg);
+}
+
+.fobtn.primary:hover {
+    background: var(--fo-accent);
+    color: var(--fo-accent-fg);
+    filter: brightness(1.08);
+}
+
+.fobtn.outline {
+    border-color: var(--fo-btn-border);
+    color: var(--fo-fg);
+}
+
+.fobtn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.fobtn:disabled:hover {
+    background: transparent;
+    filter: none;
+}
+
+.fobtn.primary:disabled:hover {
+    background: var(--fo-accent);
+}
+
+.fobtn i.icon {
+    margin: 0 5px 0 0;
+    height: auto;
+    width: auto;
+    font-size: 11px;
+}
+
+/*
+    Narrow windows give up the parts that matter least, in order, so the controls
+    always keep fitting instead of pushing the dialog wider than the window it
+    sits in: first the running total, then the labels of the footer buttons.
+*/
+@media (max-width: 420px) {
+    .fototal {
+        display: none;
+    }
+
+    .fofooterbtns {
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 340px) {
+    /* Footer buttons go icon only, they carry their label as a tooltip */
+    .fofooterbtns .fobtn span {
+        display: none;
+    }
+
+    .fofooterbtns .fobtn i.icon {
+        margin-right: 0;
+    }
+
+    .fofooterbtns .fobtn {
+        padding: 8px 10px;
+    }
+
+    .fooperation {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .forowicon {
+        margin-right: 8px;
+    }
+
+    .forowctrl {
+        margin-left: 6px;
+    }
+}

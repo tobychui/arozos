@@ -12,7 +12,16 @@
     Requires (include before this file):
         ../../script/jquery.min.js
         ../../script/ao_module.js
+        ../common/mode.js
+        ../common/container.js
+        ../common/platform.js
         ../common/office.css
+
+    Everything that reaches outside the browser tab - file dialogs, reading
+    and writing documents, the native container, session snapshots, AGI
+    calls - goes through OfficePlatform (common/platform.js), which is what
+    lets the same source run both as an ArozOS webapp and as the standalone
+    static-hosting build.
 
     Usage: see Office/common/CONTRACT.md for the full API reference.
 */
@@ -133,6 +142,12 @@ var OfficeApp = (function () {
         return i < 0 ? String(p) : String(p).substring(0, i);
     }
     function now() { return new Date().getTime(); }
+    // "meeting-notes" -> "Meeting Notes": template file names become the
+    // suggested document name, so they should read like one
+    function titleCase(s) {
+        return String(s || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim()
+            .replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); });
+    }
 
     function lsKey(k) { return "office_" + (cfg ? cfg.appType : "generic") + "_" + k; }
     function getSetting(k, def) {
@@ -145,84 +160,18 @@ var OfficeApp = (function () {
         try { localStorage.setItem(lsKey(k), JSON.stringify(v)); } catch (e) { }
     }
 
-    /* ---------- VFS helpers ---------- */
-    function vfsLoad(path, cb, errcb) {
-        $.ajax({
-            url: ao_root + "media?file=" + encodeURIComponent(path) + "&nocache=" + now(),
-            dataType: "text",
-            success: function (data) { cb(data); },
-            error: function (xhr) { if (errcb) errcb(xhr); }
-        });
-    }
-    function vfsSave(path, content, cb, errcb) {
-        ao_module_agirun("Office/common/backend/filesaver.agi", {
-            filepath: path,
-            content: content
-        }, function (data) {
-            if (data && data.error) { if (errcb) errcb(data.error); }
-            else { if (cb) cb(); }
-        }, function () {
-            if (errcb) errcb("connection error");
-        });
-    }
-
-    /* ---------- media (working-directory based, no base64 megabytes) ---------- */
-    var WORKDIR = "user:/.appdata/Office";
-    var DATAURL_MAX = 1024 * 1024;   // blobs under 1 MB may stay inline
-    var workdirReady = false;
-    function mediaUrl(vpath) {
-        // page-relative form matching what the server-side unpacker writes;
-        // the packer recognizes it and embeds the file at save time
-        return "../../media?file=" + encodeURIComponent(vpath);
-    }
-    function prepareWorkdir(cb, errcb) {
-        if (workdirReady) { cb(); return; }
-        ao_module_agirun(CONTAINER_BACKEND, { action: "prepare" }, function (data) {
-            if (data && data.error) { if (errcb) errcb(data.error); return; }
-            workdirReady = true;
-            cb();
-        }, function () {
-            if (errcb) errcb("connection error");
-        });
-    }
-    /* Turn a Blob/File into a document-storable src string. Small images
-       stay inline data URLs; anything bigger is streamed to the Office
-       working directory through the system upload endpoint and referenced
-       by a media?file= link (packToFile embeds it into the container). */
+    /* ---------- host bridge (see common/platform.js) ----------
+       These stay on OfficeApp because the whole suite already calls them
+       through it; the implementation - ArozOS virtual file system and AGI
+       gateway, or the visitor's own device - lives in OfficePlatform. */
+    function vfsLoad(path, cb, errcb) { OfficePlatform.readText(path, cb, errcb); }
+    function vfsSave(path, content, cb, errcb) { OfficePlatform.writeText(path, content, cb, errcb); }
+    function mediaUrl(vpath) { return OfficePlatform.mediaUrl(vpath); }
     function blobToSrc(blob, filename, cb, errcb) {
-        errcb = errcb || function (msg) { setStatus(msg, "error"); };
-        var asDataURL = function (failMsg) {
-            // inline fallback only for small payloads - big base64 blobs
-            // would break the save POST again
-            if (blob.size > 8 * 1024 * 1024) {
-                errcb(failMsg || "File is too large to embed without an ArozOS backend");
-                return;
-            }
-            var reader = new FileReader();
-            reader.onload = function () { cb(reader.result); };
-            reader.onerror = function () { errcb("Could not read the file"); };
-            reader.readAsDataURL(blob);
-        };
-        if (blob.size <= DATAURL_MAX) { asDataURL(); return; }
-        if (typeof ao_module_uploadFile !== "function") { asDataURL(); return; }
-        prepareWorkdir(function () {
-            var safe = String(filename || "media").replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 80);
-            var name = Date.now().toString(36) + "-" + safe;
-            var file;
-            try {
-                file = new File([blob], name, { type: blob.type || "application/octet-stream" });
-            } catch (e) { asDataURL(); return; }
-            ao_module_uploadFile(file, WORKDIR + "/uploads",
-                function (resp) {
-                    if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
-                        errcb("Upload failed: " + resp);
-                        return;
-                    }
-                    cb(mediaUrl(WORKDIR + "/uploads/" + name));
-                },
-                undefined,
-                function () { asDataURL("Upload failed and the file is too large to embed"); });
-        }, function () { asDataURL(); });
+        OfficePlatform.blobToSrc(blob, filename, cb, errcb);
+    }
+    function agirunLarge(script, params, field, cb, errcb, timeout) {
+        OfficePlatform.agirunLarge(script, params, field, cb, errcb, timeout);
     }
 
     /* ---------- session snapshots ("Restore from previous session") ---------- */
@@ -237,26 +186,16 @@ var OfficeApp = (function () {
         m._sessionAt = now();
         m._origin = filepath ? { fp: filepath, fn: filename } : null;
         env.meta = m;
-        ao_module_agirun(CONTAINER_BACKEND, {
-            action: "session-save",
-            app: cfg.appType,
-            content: JSON.stringify(env)
-        }, function () { }, function () { }, 60000);
+        OfficePlatform.sessionSave(cfg.appType, JSON.stringify(env));
     }
     // drop the saved session snapshot so it stops prompting on next launch
     function deleteSession() {
         if (!cfg || !cfg.packed) return;
-        ao_module_agirun(CONTAINER_BACKEND, {
-            action: "session-delete",
-            app: cfg.appType
-        }, function () { }, function () { }, 60000);
+        OfficePlatform.sessionDelete(cfg.appType);
     }
     function trySessionRestore() {
-        ao_module_agirun(CONTAINER_BACKEND, {
-            action: "session-load",
-            app: cfg.appType
-        }, function (data) {
-            var env = data && data.envelope;
+        OfficePlatform.sessionLoad(cfg.appType, function (envelope) {
+            var env = envelope;
             if (typeof env === "string") {
                 try { env = JSON.parse(env); } catch (e) { env = null; }
             }
@@ -300,10 +239,7 @@ var OfficeApp = (function () {
                     }
                 ]
             });
-        }, function () {
-            // backend unreachable (standalone preview): fall back to drafts
-            checkDraft();
-        }, 60000);
+        });
     }
 
     /* ---------- envelope ---------- */
@@ -335,11 +271,67 @@ var OfficeApp = (function () {
     function updateTitle() {
         var name = filename || (cfg.defaultFileName + cfg.extension);
         var t = name + (dirty ? " •" : "") + " - " + cfg.appName;
-        try { ao_module_setWindowTitle(t); } catch (e) { document.title = t; }
+        OfficePlatform.setWindowTitle(t);
         var $dn = $(".of-docname");
         $dn.html((dirty ? '<span class="of-dirty-dot">• </span>' : "") + escapeHtml(name));
+        // the document's identity only ever changes alongside its title
+        updateForeignBanner();
     }
+    /* ---------- start-up splash (common/splash.js, when the app has one) ----------
+       While it shows, status messages and busy messages are what it says;
+       it goes away when the document is on screen (documentLoaded), when
+       something needs the person (a dialog), or when something failed. */
+    function splashActive() {
+        return !!(window.OfficeSplash && OfficeSplash.active());
+    }
+    function splashDone() {
+        if (!splashActive()) return;
+        OfficeSplash.done();
+        showFromTop();
+    }
+    /* The document comes out from behind the splash at its beginning. The
+       window grows and the layout settles for a moment after that (a float
+       window resizing, pictures and fonts arriving), and any of it can
+       leave the view scrolled part-way down the first page - so the top is
+       asked for again until it has settled, unless the person has started
+       scrolling themselves. */
+    function showFromTop() {
+        var $ws = $(".of-workspace");
+        if (!$ws.length) return;
+        var touched = false;
+        var mark = function () { touched = true; };
+        $ws.one("wheel touchstart keydown mousedown", mark);
+        var top = function () {
+            if (touched) return;
+            $ws.scrollTop(0).scrollLeft(0);
+        };
+        top();
+        requestAnimationFrame(top);
+        [120, 350, 800].forEach(function (ms) { setTimeout(top, ms); });
+        setTimeout(function () { $ws.off("wheel touchstart keydown mousedown", mark); }, 900);
+    }
+    // the document an app was asked to open is on screen
+    function documentLoaded() {
+        splashDone();
+    }
+    // say msg on the splash and let it paint before fn does synchronous work
+    // (laying out a long document); without a splash fn just runs
+    function splashStep(msg, fn) {
+        if (!splashActive()) { fn(); return; }
+        OfficeSplash.status(msg);
+        // a frame to paint it in - or a moment, where frames do not come (a
+        // tab or window in the background)
+        var ran = false;
+        var go = function () { if (!ran) { ran = true; fn(); } };
+        requestAnimationFrame(function () { setTimeout(go, 0); });
+        setTimeout(go, 150);
+    }
+
     function setStatus(msg, type, timeout) {
+        if (splashActive()) {
+            if (type === "error") splashDone();
+            else OfficeSplash.status(msg);
+        }
         var $m = $(".of-status-msg");
         $m.text(msg || "").removeClass("error");
         if (type === "error") $m.addClass("error");
@@ -430,91 +422,150 @@ var OfficeApp = (function () {
     }
 
     /* ---------- recent documents ---------- */
-    function getRecents() { return getSetting("recent", []); }
+    /* A recent entry is only useful where the path survives the page: the
+       standalone build opens File objects the visitor picked, which are gone
+       on reload, so it keeps no list rather than offering dead entries. */
+    function getRecents() {
+        if (!OfficePlatform.tracksRecents()) return [];
+        return getSetting("recent", []);
+    }
     function addRecent(fp, fn) {
+        if (!OfficePlatform.tracksRecents()) return;
         var list = getRecents().filter(function (r) { return r.fp !== fp; });
         list.unshift({ fp: fp, fn: fn, t: now() });
         setSetting("recent", list.slice(0, RECENT_MAX));
     }
 
     /* ---------- document lifecycle ---------- */
-    var CONTAINER_BACKEND = "Office/common/backend/container.agi";
-    function loadNativeEnvelope(env, fp, fn) {
+    /*
+        Foreign binary formats (.docx / .xlsx / .pptx / ODF) go through the Go
+        converters - server side in ArozOS, in the WebAssembly module in a
+        standalone build made with them. Reading the list through here rather
+        than off cfg keeps one decision in one place: with no converters they
+        are neither offered in the Open dialog's filter nor accepted by
+        openPath.
+    */
+    function binaryImporters() {
+        if (!OfficePlatform.canConvert()) return {};
+        return cfg.binaryImporters || {};
+    }
+    function loadNativeEnvelope(env, fp, fn, opts) {
         if (!env || env.type !== ENVELOPE_TYPE || env.app !== cfg.appType) {
             throw new Error("Not a valid " + cfg.fileTypeName + " file");
         }
         meta = env.meta || {};
-        filepath = fp; filename = fn;
         loadedFromImport = false;
+        /*
+            A template is a starting point, not a file the person is editing:
+            the content loads but the document stays unattached, so Ctrl+S
+            asks where to put it instead of writing back over the template.
+            The name is kept as a suggestion for that dialog.
+        */
+        if (opts && opts.asTemplate) {
+            var pretty = titleCase(stripExt(fn));
+            filepath = null;
+            filename = pretty + cfg.extension;
+            meta = { createdAt: now(), revision: 0 };
+            cfg.deserialize(env.body);
+            markClean();
+            setStatus("New " + cfg.fileTypeName.toLowerCase() +
+                " from the " + pretty + " template");
+            documentLoaded();
+            return;
+        }
+        filepath = fp; filename = fn;
         cfg.deserialize(env.body);
         markClean();
         addRecent(fp, fn);
         setStatus("Opened " + fn);
+        documentLoaded();
         checkDraft();
     }
-    function loadNativeText(text, fp, fn) {
-        loadNativeEnvelope(parseEnvelope(text), fp, fn);
+    function loadNativeText(text, fp, fn, opts) {
+        loadNativeEnvelope(parseEnvelope(text), fp, fn, opts);
+    }
+    /*
+        A file opened from a foreign format stays attached to that file when
+        the app declared a writer for its extension (cfg.saveFormats): Save
+        then writes back in the original format, and only steps up to the
+        native container once the document outgrows it (see doSaveForeign).
+        With no writer the import is read-only and Save has to become Save As
+        - which is what every app did before saveFormats existed.
+    */
+    function adoptImportedPath(fp, fn) {
+        loadedFromImport = true;
+        if (saveFormatFor(extOf(fn))) {
+            filepath = fp;
+            filename = fn;
+        } else {
+            filepath = null;   // read-only import: force Save As on save
+            filename = stripExt(fn) + cfg.extension;
+        }
+    }
+    function importedStatus(fn) {
+        return filepath ? ("Opened " + fn) :
+            ("Imported " + fn + " - use Save to store it as " + cfg.extension);
     }
     function loadImportText(text, fp, fn) {
         var ext = extOf(fn);
         var importer = (cfg.importers || {})[ext];
         if (!importer) { setStatus("Unsupported file type " + ext, "error"); return; }
         meta = { createdAt: now(), revision: 0 };
-        filepath = null;   // imported: force Save As on save
-        filename = stripExt(fn) + cfg.extension;
-        loadedFromImport = true;
+        adoptImportedPath(fp, fn);
         importer(text, fn);
         dirty = false; updateTitle();
-        setStatus("Imported " + fn + " - use Save to store it as " + cfg.extension);
+        if (filepath) addRecent(filepath, filename);
+        setStatus(importedStatus(fn));
+        documentLoaded();
     }
-    function openPath(fp, fn) {
+    function openPath(fp, fn, opts) {
         fn = fn || basename(fp);
         // binary foreign formats (e.g. .pptx) are handled by the app itself,
         // usually through a server-side AGI conversion - no text fetch here
-        var bi = (cfg.binaryImporters || {})[extOf(fn)];
+        var bi = binaryImporters()[extOf(fn)];
         if (bi) {
             meta = { createdAt: now(), revision: 0 };
-            filepath = null;   // imported: force Save As on save
-            filename = stripExt(fn) + cfg.extension;
-            loadedFromImport = true;
+            adoptImportedPath(fp, fn);
             dirty = false;
             updateTitle();
+            if (filepath) addRecent(filepath, filename);
             bi(fp, fn);
             return;
         }
         setStatus("Opening " + fn + "...", "info", 0);
         // packed apps store native files as zip containers with embedded
-        // assets - those must be unpacked server-side, not fetched as text
+        // assets, so they are unpacked rather than fetched as text - server
+        // side in ArozOS, by OfficeContainer in the standalone build
         if (cfg.packed && extOf(fn) === cfg.extension) {
-            ao_module_agirun(CONTAINER_BACKEND, { action: "load", filepath: fp }, function (data) {
-                if (!data || data.error) {
-                    setStatus("Failed to open " + fn + ": " + ((data && data.error) || "no response"), "error");
-                    return;
-                }
-                var env = data.envelope;
-                if (typeof env === "string") {
-                    try { env = JSON.parse(env); } catch (e) { env = null; }
-                }
-                try {
-                    loadNativeEnvelope(env, fp, fn);
-                } catch (err) {
-                    setStatus("Cannot open " + fn + ": " + err.message, "error");
-                }
-            }, function () {
-                setStatus("Failed to load " + fn, "error");
-            }, 120000);
+            OfficePlatform.containerLoad(fp, function (envelope) {
+                splashStep("Preparing " + fn + "...", function () {
+                    var env = envelope;
+                    if (typeof env === "string") {
+                        try { env = JSON.parse(env); } catch (e) { env = null; }
+                    }
+                    try {
+                        loadNativeEnvelope(env, fp, fn, opts);
+                    } catch (err) {
+                        setStatus("Cannot open " + fn + ": " + err.message, "error");
+                    }
+                });
+            }, function (msg) {
+                setStatus("Failed to open " + fn + ": " + (msg || "unknown error"), "error");
+            });
             return;
         }
         vfsLoad(fp, function (text) {
-            try {
-                if (extOf(fn) === cfg.extension) {
-                    loadNativeText(text, fp, fn);
-                } else {
-                    loadImportText(text, fp, fn);
+            splashStep("Preparing " + fn + "...", function () {
+                try {
+                    if (extOf(fn) === cfg.extension) {
+                        loadNativeText(text, fp, fn, opts);
+                    } else {
+                        loadImportText(text, fp, fn);
+                    }
+                } catch (err) {
+                    setStatus("Cannot open " + fn + ": " + err.message, "error");
                 }
-            } catch (err) {
-                setStatus("Cannot open " + fn + ": " + err.message, "error");
-            }
+            });
         }, function () {
             setStatus("Failed to load " + fn, "error");
         });
@@ -541,14 +592,12 @@ var OfficeApp = (function () {
             (Object.keys(cfg.importers || {})).forEach(function (e) {
                 filter.push(e.substring(1));
             });
-            (Object.keys(cfg.binaryImporters || {})).forEach(function (e) {
+            (Object.keys(binaryImporters())).forEach(function (e) {
                 filter.push(e.substring(1));
             });
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    openPath(files[0].filepath, files[0].filename);
-                }
-            }, "user:/Desktop", "file", false, { filter: filter });
+            OfficePlatform.pickOpen({ filter: filter, memoryKey: "document" }, function (files) {
+                openPath(files[0].filepath, files[0].filename);
+            });
         };
         if (dirty) {
             confirmDialog("Discard unsaved changes?",
@@ -556,33 +605,180 @@ var OfficeApp = (function () {
                 "Discard", "Cancel", function (yes) { if (yes) go(); });
         } else { go(); }
     }
+    /* ---------- foreign save formats (cfg.saveFormats) ---------- */
+    /*
+        An app may declare formats it can write besides its native container:
+
+            saveFormats: [{
+                ext: ".csv", label: "CSV (.csv)", icon: "file alternate outline",
+                oneWay: true,                        // a rendering (PDF):
+                                                     // never becomes the file
+                                                     // the document lives in
+                unsupported: fn -> null | [reason, ...],
+                save: fn(fp, fn, done, fail(msg))
+            }]
+
+        They drive both Save As (a format picker) and Save (a document opened
+        from one of these formats writes straight back to it). Apps that
+        declare none keep the native-format-only behaviour unchanged.
+    */
+    /*
+        Two flags mark a writer that cannot exist everywhere:
+
+          needsConvert  goes through the Office format converters (.xlsx,
+                        .ods, ...) - present in ArozOS, and in a standalone
+                        build shipped with the WebAssembly module
+          needsBackend  needs a server outright (the real-text PDF renderer)
+
+        Filtering here rather than in each app keeps Save As, the
+        save-back-into-a-foreign-format path and autosave consistent.
+    */
+    function saveFormats() {
+        var list = (cfg && cfg.saveFormats) || [];
+        return list.filter(function (f) {
+            if (f.needsBackend && !OfficePlatform.hasBackend()) return false;
+            if (f.needsConvert && !OfficePlatform.canConvert()) return false;
+            return true;
+        });
+    }
+    function findSaveFormat(ext, adoptableOnly) {
+        var list = saveFormats();
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].ext !== ext) continue;
+            return (adoptableOnly && list[i].oneWay) ? null : list[i];
+        }
+        return null;
+    }
+    // a writer whose output the document can go on living in (excludes PDF)
+    function saveFormatFor(ext) { return findSaveFormat(ext, true); }
+    function formatLabel(fmt) { return (fmt && (fmt.label || fmt.ext)) || cfg.extension; }
+    function formatReasons(fmt) {
+        if (!fmt || !fmt.unsupported) return null;
+        var r;
+        try { r = fmt.unsupported(); } catch (e) { return null; }
+        return (r && r.length) ? r : null;
+    }
+    /*
+        A foreign format holds less than the native container does, so it may
+        refuse a document outright instead of silently dropping content. The
+        reasons come from the app as plain strings - escaped here, never
+        trusted as markup.
+    */
+    function formatBlockedDialog(fmt, reasons) {
+        var label = formatLabel(fmt);
+        var list = reasons.map(function (t) {
+            return "<li>" + escapeHtml(t) + "</li>";
+        }).join("");
+        setStatus("Cannot save in " + label + " format", "error");
+        dialog({
+            title: "Cannot save as " + label,
+            body: "<p>This " + escapeHtml(cfg.fileTypeName.toLowerCase()) +
+                " uses features that " + escapeHtml(label) + " cannot store:</p>" +
+                "<ul>" + list + "</ul>" +
+                "<p>Save it as " + escapeHtml(cfg.extension) +
+                " to keep them, or use File &gt; Export for a lossy copy.</p>",
+            buttons: [
+                { label: "Cancel" },
+                {
+                    label: "Save as " + cfg.extension + "...", primary: true,
+                    action: function (close) { close(); saveAsFormat(null); }
+                }
+            ]
+        });
+    }
+    function doSaveForeign(fp, fn, fmt, cb, silent) {
+        var reasons = formatReasons(fmt);
+        if (reasons) {
+            // autosave must never interrupt with a dialog: it skips the write
+            // and lets the session snapshot be the safety net instead
+            if (!silent) formatBlockedDialog(fmt, reasons);
+            return false;
+        }
+        if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+        setStatus("Saving...", "info", 0);
+        fmt.save(fp, fn, function () {
+            setStatus("Saved " + fn);
+            // a one-way rendering is a copy, not the document's own file - the
+            // editor keeps its path and stays dirty
+            if (!fmt.oneWay) {
+                filepath = fp; filename = fn;
+                loadedFromImport = false;
+                markClean();
+                addRecent(fp, fn);
+                saveSession();
+            }
+            if (cb) cb();
+        }, function (err) {
+            setStatus("Save failed: " + err, "error");
+        });
+        return true;
+    }
+
     function save(cb) {
         if (!filepath) { saveAs(cb); return; }
         doSaveTo(filepath, filename, cb);
     }
-    function saveAs(cb) {
-        var defName = filename || (cfg.defaultFileName + cfg.extension);
-        if (extOf(defName) !== cfg.extension) defName = stripExt(defName) + cfg.extension;
-        ao_module_openFileSelector(function (files) {
-            if (files && files.length > 0) {
-                var fp = files[0].filepath;
-                var fn = files[0].filename;
-                if (extOf(fn) !== cfg.extension) {
-                    fp += cfg.extension;
-                    fn += cfg.extension;
-                }
-                doSaveTo(fp, fn, cb);
-            }
-        }, "user:/Desktop", "new", false, { defaultName: defName });
+    function saveAs(cb) { saveAsFormat(null, cb); }
+    /*
+        `fmt` is a cfg.saveFormats entry, or null for the native format. The
+        format fixes the extension, so the picker only supplies the name.
+    */
+    function saveAsFormat(fmt, cb) {
+        var ext = fmt ? fmt.ext : cfg.extension;
+        // ask before making the user pick a filename, not after
+        var reasons = formatReasons(fmt);
+        if (reasons) { formatBlockedDialog(fmt, reasons); return; }
+        var defName = stripExt(filename || cfg.defaultFileName) + ext;
+        OfficePlatform.pickSave({
+            defaultName: defName,
+            ext: ext,
+            memoryKey: "document",
+            //A document that has never been saved has no folder of its own, so start
+            //from wherever this app was last used rather than the hardcoded Desktop
+            forceOverwrite: !filepath
+        }, function (file) {
+            doSaveTo(file.filepath, file.filename, cb);
+        });
     }
-    function doSaveTo(fp, fn, cb) {
-        if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
-        setStatus("Saving...", "info", 0);
+    /*
+        Write the document into the app's own container at fp. Shared by Save
+        / Save As and by the convert-to-native action, which writes a copy
+        without moving the open document onto it - so this deliberately
+        touches nothing but the file. Returns false when the envelope could
+        not even be built.
+    */
+    function writeNative(fp, done, fail) {
         var env;
         try { env = buildEnvelope(); }
-        catch (e) { setStatus("Save failed: " + e.message, "error"); return; }
+        catch (e) { fail(e.message); return false; }
         var payload = JSON.stringify(env);
-        var done = function () {
+        if (cfg.packed) {
+            // native zip container: media data URLs become embedded assets
+            OfficePlatform.containerSave(fp, payload, done, fail);
+        } else {
+            vfsSave(fp, payload, done, fail);
+        }
+        return true;
+    }
+    // returns false when the write was declined (format cannot hold the doc)
+    function doSaveTo(fp, fn, cb, silent) {
+        var ext = extOf(fn);
+        if (ext !== cfg.extension) {
+            // one of the app's own foreign formats - including a document
+            // opened from one and saved straight back with Ctrl+S
+            var fmt = findSaveFormat(ext, false);
+            if (fmt) {
+                // a writer too expensive to run on a timer (rasterizing
+                // charts, seeking videos for a poster frame, refetching every
+                // image) stays out of autosave; the caller falls back to the
+                // session snapshot, which is what that safety net is for
+                if (silent && fmt.noAutosave) return false;
+                return doSaveForeign(fp, fn, fmt, cb, silent);
+            }
+        }
+        if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+        setStatus("Saving...", "info", 0);
+        return writeNative(fp, function () {
             filepath = fp; filename = fn;
             loadedFromImport = false;
             markClean();
@@ -590,30 +786,107 @@ var OfficeApp = (function () {
             setStatus("Saved " + fn);
             saveSession();   // keep the session snapshot in step with the file
             if (cb) cb();
-        };
-        var fail = function (err) {
+        }, function (err) {
             setStatus("Save failed: " + err, "error");
-        };
-        if (cfg.packed) {
-            // native zip container: media data URLs become embedded assets
-            ao_module_agirun(CONTAINER_BACKEND, {
-                action: "save", filepath: fp, content: payload
-            }, function (data) {
-                if (data && data.error) fail(data.error);
-                else done();
-            }, function () {
-                fail("connection error");
-            }, 120000);
-        } else {
-            vfsSave(fp, payload, done, fail);
-        }
+        });
+    }
+
+    /* ---------- foreign-format banner ---------- */
+    /*
+        A document opened from .docx / .pptx / .csv / ... goes on living in
+        that file: Save rewrites it in its own format rather than quietly
+        turning it into a native container (see doSaveTo). That is the right
+        default - somebody who opened a .docx wants a .docx back - but it
+        also means every ArozOS Office feature the foreign format cannot hold
+        is being dropped on each save, which is worth saying out loud once
+        rather than only at the moment content is lost.
+
+        So the editor carries a banner under the toolbar for as long as the
+        open file is not native, offering the one-click way out: convert to
+        the app's own format. Native documents never see any of this.
+    */
+    var bannerDismissed = null;   // filepath the banner was dismissed for
+
+    // the format the open document currently lives in, or null when that is
+    // the app's own container (or nothing on disk yet)
+    function foreignFormat() {
+        if (!filepath || !filename) return null;
+        var ext = extOf(filename);
+        if (!ext || ext === cfg.extension) return null;
+        return { ext: ext, fmt: findSaveFormat(ext, true) };
+    }
+    function buildForeignBanner() {
+        var $b = $('<div class="of-fmtbanner of-noprint" style="display:none;"></div>');
+        $b.append('<i class="exclamation triangle icon"></i>');
+        $b.append('<span class="of-fmtbanner-msg"></span>');
+        $b.append($('<button type="button" class="of-fmtbanner-btn"></button>')
+            .html('<i class="exchange icon"></i>Convert to ' + escapeHtml(cfg.extension))
+            .attr("title", "Save a copy as an ArozOS Office " + cfg.fileTypeName.toLowerCase() +
+                " and open it")
+            .on("click", convertToNative));
+        $b.append($('<button type="button" class="of-fmtbanner-x" title="Dismiss">×</button>')
+            .on("click", function () {
+                bannerDismissed = filepath;
+                $(".of-fmtbanner").hide();
+            }));
+        return $b;
+    }
+    function updateForeignBanner() {
+        var $b = $(".of-fmtbanner");
+        if (!$b.length) return;
+        var f = foreignFormat();
+        if (!f || bannerDismissed === filepath) { $b.hide(); return; }
+        var what = f.fmt ? formatLabel(f.fmt) : (f.ext + " file");
+        $b.find(".of-fmtbanner-msg").html(
+            "This is a <b>" + escapeHtml(what) + "</b>, not an ArozOS Office " +
+            escapeHtml(cfg.fileTypeName.toLowerCase()) + ". " +
+            "Anything " + escapeHtml(f.ext) + " cannot store is lost on save.");
+        $b.css("display", "");
+    }
+    /*
+        Write the document out as a native container and open that copy in a
+        window of its own. The editor stays on the original foreign file: the
+        converted document is a new file, and which of the two to go on
+        working in is the person's call, not ours.
+    */
+    function convertToNative() {
+        var defName = stripExt(filename || cfg.defaultFileName) + cfg.extension;
+        OfficePlatform.pickSave({
+            defaultName: defName,
+            ext: cfg.extension,
+            memoryKey: "document"
+        }, function (file) {
+            if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
+            setStatus("Converting to " + cfg.extension + "...", "info", 0);
+            writeNative(file.filepath, function () {
+                setStatus("Converted to " + file.filename);
+                addRecent(file.filepath, file.filename);
+                // the question has been answered for this file either way
+                bannerDismissed = filepath;
+                updateForeignBanner();
+                var opened = OfficePlatform.openDocument(file.filepath, file.filename,
+                    { appIcon: cfg.appIcon });
+                toast(opened ? ("Converted - " + file.filename + " opened in a new window")
+                    : ("Converted - saved as " + file.filename));
+            }, function (err) {
+                setStatus("Convert failed: " + err, "error");
+                toast("Convert failed: " + err, "error");
+            });
+        });
     }
 
     /* ---------- autosave ---------- */
     function autosaveEnabled() { return getSetting("autosave", true); }
     function autosaveTick() {
-        if (dirty && filepath && autosaveEnabled()) {
-            save();
+        // a host with no file system to write back to (the standalone build
+        // saves by downloading) must never autosave: the snapshot below is
+        // the whole safety net there
+        if (dirty && filepath && autosaveEnabled() && OfficePlatform.autosavesToFile()) {
+            // a document living in a foreign format is autosaved only while
+            // that format can still hold it; when it cannot, doSaveTo's silent
+            // mode declines the write rather than interrupting with a dialog,
+            // and the session snapshot below protects the work instead
+            if (!doSaveTo(filepath, filename, null, true)) saveSession();
         } else if (dirty) {
             // unsaved (or autosave-off) documents still get a session
             // snapshot so "Restore from previous session" can recover them
@@ -628,7 +901,7 @@ var OfficeApp = (function () {
     function applyTheme() {
         var dark = isDark();
         $("body").toggleClass("dark", dark);
-        try { ao_module_setWindowTheme(dark ? "dark" : "white"); } catch (e) { }
+        OfficePlatform.setWindowTheme(dark);
         if (cfg && cfg.onThemeChanged) { try { cfg.onThemeChanged(dark); } catch (e) { } }
     }
     function toggleTheme() {
@@ -650,6 +923,30 @@ var OfficeApp = (function () {
     function setZoom(z) {
         zoom = Math.max(25, Math.min(400, Math.round(z)));
         applyZoom();
+    }
+    /*
+        Ctrl/Cmd + wheel zooms the document, not the whole ArozOS desktop.
+        The browser's own page zoom owns that gesture, so the listener has to
+        be non-passive to be allowed to preventDefault it.
+
+        Deltas are accumulated rather than stepped per event: one mouse notch
+        is ~100, but a trackpad pinch arrives as a stream of small deltas
+        (Chrome reports those as wheel events with ctrlKey set) and stepping
+        on each one would rocket through the zoom levels.
+    */
+    var WHEEL_ZOOM_STEP = 40;
+    var wheelAccum = 0;
+    function onWheelZoom(e) {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        // reversing direction should respond at once rather than first
+        // having to work off the leftover from the other direction
+        if (wheelAccum !== 0 && (wheelAccum < 0) !== (e.deltaY < 0)) wheelAccum = 0;
+        wheelAccum += e.deltaY;
+        // at most one level per event, so a single wheel notch (~100) is one
+        // step while a stream of small pinch deltas still adds up to one
+        if (wheelAccum <= -WHEEL_ZOOM_STEP) { wheelAccum = 0; zoomStep(1); }
+        else if (wheelAccum >= WHEEL_ZOOM_STEP) { wheelAccum = 0; zoomStep(-1); }
     }
     function zoomStep(dir) {
         var i;
@@ -756,6 +1053,38 @@ var OfficeApp = (function () {
         if (x + w > window.innerWidth) x = Math.max(4, r.left - w - 2);
         positionFloatMenu($sm, x, r.top - 4);
     }
+    /*
+        With foreign writers declared, "Save as" becomes a format picker whose
+        first entry is the native container; without them it stays the plain
+        Save As command it has always been.
+    */
+    function saveAsMenuItem() {
+        var list = saveFormats();
+        if (!list.length) {
+            return {
+                label: "Save as...", icon: "copy outline", key: "Ctrl+Shift+S",
+                action: function () { saveAs(); }
+            };
+        }
+        var sub = [
+            {
+                label: cfg.fileTypeName + " (" + cfg.extension + ")",
+                icon: "save", key: "Ctrl+Shift+S",
+                action: function () { saveAsFormat(null); }
+            },
+            { sep: true }
+        ];
+        list.forEach(function (f) {
+            // hidden: a writer that only exists to save a document back into
+            // the file it came from (a second extension for the same format)
+            if (f.hidden) return;
+            sub.push({
+                label: formatLabel(f), icon: f.icon || "file outline",
+                action: function () { saveAsFormat(f); }
+            });
+        });
+        return { label: "Save as", icon: "copy outline", sub: sub };
+    }
     function renderMenuItems($drop, items, depth) {
         depth = depth || 0;
         $drop.empty();
@@ -852,7 +1181,7 @@ var OfficeApp = (function () {
             var items = [
                 { label: "New", icon: "file outline", key: "Ctrl+Alt+N", action: newDocument },
                 { label: "Open...", icon: "folder open", key: "Ctrl+O", action: openDialog },
-                {
+                !OfficePlatform.tracksRecents() ? null : {
                     label: "Open recent", icon: "history", sub: function () {
                         return getRecents().map(function (r) {
                             return {
@@ -870,7 +1199,7 @@ var OfficeApp = (function () {
                 },
                 { sep: true },
                 { label: "Save", icon: "save", key: "Ctrl+S", action: function () { save(); } },
-                { label: "Save as...", icon: "copy outline", key: "Ctrl+Shift+S", action: function () { saveAs(); } },
+                saveAsMenuItem(),
                 { label: "Auto-save", checked: autosaveEnabled, action: function () { setSetting("autosave", !autosaveEnabled()); } }
             ];
             if (cfg.fileMenuExtras && cfg.fileMenuExtras.length) {
@@ -959,6 +1288,7 @@ var OfficeApp = (function () {
 
     /* ---------- dialogs / toasts / context menu ---------- */
     function dialog(opt) {
+        splashDone();   // a question for the person: nothing may cover it
         var $ov = $('<div class="of-dialog-overlay"></div>');
         var $dl = $('<div class="of-dialog"></div>');
         if (opt.wide) $dl.addClass("wide");
@@ -1024,6 +1354,7 @@ var OfficeApp = (function () {
         return d;
     }
     function toast(msg, type, ms) {
+        if (type === "error") splashDone();
         var $h = $(".of-toast-holder");
         if (!$h.length) { $h = $('<div class="of-toast-holder"></div>'); $("body").append($h); }
         var $t = $('<div class="of-toast"></div>').text(msg);
@@ -1045,11 +1376,111 @@ var OfficeApp = (function () {
     }
     function showBusy(msg) {
         hideBusy();
+        // the splash already covers the app and says what is happening
+        if (splashActive()) {
+            OfficeSplash.status(msg || "Working...");
+            return;
+        }
         var $o = $('<div class="of-busy-overlay"><div class="of-spinner"></div><div class="of-busy-msg"></div></div>');
         $o.find(".of-busy-msg").text(msg || "Working...");
         $("body").append($o);
     }
     function hideBusy() { $(".of-busy-overlay").remove(); }
+
+    /*
+        beginDrag(e, {move(ev), end(ev, cancelled), cursor})
+        Call from a pointerdown to own the rest of the gesture. A transparent
+        full-window layer goes over everything and takes pointer capture, so
+        every move and the release reach the drag however fast the pointer
+        travels - even when the dragged element is re-rendered (which drops
+        a capture set on the element itself) or the cursor crosses iframes,
+        charts or other widgets. The layer is removed on release, cancel, or
+        when the window loses focus. Returns a function that ends the drag.
+    */
+    function beginDrag(e, opts) {
+        opts = opts || {};
+        var ov = document.createElement("div");
+        ov.className = "of-drag-overlay";
+        if (opts.cursor) ov.style.cursor = opts.cursor;
+        document.body.appendChild(ov);
+        var done = false;
+        try { ov.setPointerCapture(e.pointerId); } catch (err) { }
+        function onMove(ev) {
+            ev.preventDefault();
+            if (opts.move) opts.move(ev);
+        }
+        function finish(ev, cancelled) {
+            if (done) return;
+            done = true;
+            ov.removeEventListener("pointermove", onMove);
+            ov.removeEventListener("pointerup", onUp);
+            ov.removeEventListener("pointercancel", onCancel);
+            window.removeEventListener("blur", onCancel);
+            if (ov.parentNode) ov.parentNode.removeChild(ov);
+            if (opts.end) opts.end(ev || null, !!cancelled);
+        }
+        function onUp(ev) { finish(ev, false); }
+        function onCancel(ev) { finish(ev && ev.type === "pointercancel" ? ev : null, true); }
+        ov.addEventListener("pointermove", onMove);
+        ov.addEventListener("pointerup", onUp);
+        ov.addEventListener("pointercancel", onCancel);
+        window.addEventListener("blur", onCancel);
+        return function () { finish(null, true); };
+    }
+
+    /* showProgress is showBusy's opposite number: a small panel in the
+       corner of the editing area for work that takes a while but has no
+       reason to hold the document hostage. Exporting is the case it was
+       written for - the deck is snapshotted when the export starts, so
+       carrying on editing while it runs changes nothing about the file
+       that comes out.
+
+           var p = OfficeApp.showProgress({ title: "Exporting PDF",
+                                            anchor: "#slCanvasArea" });
+           p.set(done, total, "Exporting 3 of 6 pages");
+           p.close();
+
+       anchor is the element to sit in the top-right of; the panel is
+       positioned from its box rather than placed inside it, so it does not
+       have to care how that element is laid out. */
+    function showProgress(o) {
+        o = o || {};
+        var $p = $('<div class="of-progress-panel of-noprint">' +
+            '<div class="of-pp-title"></div>' +
+            '<div class="of-pp-msg"></div>' +
+            '<div class="of-pp-bar"><div class="of-pp-fill"></div></div>' +
+            '</div>');
+        $p.find(".of-pp-title").text(o.title || "Working...");
+        $("body").append($p);
+
+        function place() {
+            var $a = o.anchor ? $(o.anchor) : $();
+            var el = $a.length ? $a[0] : null;
+            var r = el ? el.getBoundingClientRect() : null;
+            if (r && r.width > 0) {
+                $p.css({ top: (r.top + 12) + "px", right: (window.innerWidth - r.right + 12) + "px" });
+            } else {
+                $p.css({ top: "64px", right: "16px" });
+            }
+        }
+        place();
+        $(window).on("resize.ofprogress", place);
+
+        var handle = {
+            set: function (done, total, msg) {
+                var pct = total > 0 ? Math.max(0, Math.min(100, done * 100 / total)) : 0;
+                $p.find(".of-pp-fill").css("width", pct + "%");
+                if (msg !== undefined) $p.find(".of-pp-msg").text(msg);
+                place();
+            },
+            message: function (msg) { $p.find(".of-pp-msg").text(msg); },
+            close: function () {
+                $(window).off("resize.ofprogress", place);
+                $p.remove();
+            }
+        };
+        return handle;
+    }
 
     /* ---------- statusbar ---------- */
     function buildStatusbar() {
@@ -1083,6 +1514,12 @@ var OfficeApp = (function () {
         var $menubar = buildMenubar(standardMenus());
         $("body").prepend($menubar);
         $("body").append(buildStatusbar());
+        // the foreign-format banner sits under the whole toolbar strip, so
+        // it reads as a note about the document rather than part of the
+        // chrome; apps with no toolbar get it straight under the menubar
+        var $banner = buildForeignBanner();
+        var $tb = $("body > .of-toolbar").last();
+        if ($tb.length) $tb.after($banner); else $menubar.after($banner);
 
         // shortcuts (standard)
         registerShortcut("Ctrl+S", function () { save(); }, { description: "Save" });
@@ -1094,6 +1531,8 @@ var OfficeApp = (function () {
         registerShortcut("Ctrl++", function () { zoomStep(1); });
         registerShortcut("Ctrl+-", function () { zoomStep(-1); }, { description: "Zoom out" });
         registerShortcut("Ctrl+0", function () { setZoom(100); }, { description: "Reset zoom" });
+        // non-passive so the browser's own page zoom can be preventDefault-ed
+        window.addEventListener("wheel", onWheelZoom, { passive: false });
         if (cfg.onUndo) registerShortcut("Ctrl+Z", function () { cfg.onUndo(); }, { description: "Undo" });
         if (cfg.onRedo) {
             registerShortcut("Ctrl+Y", function () { cfg.onRedo(); }, { description: "Redo" });
@@ -1122,14 +1561,15 @@ var OfficeApp = (function () {
 
         // load input file (embedded / open-with) or start blank
         meta = { createdAt: now(), revision: 0 };
-        var inputs = null;
-        try { inputs = ao_module_loadInputFiles(); } catch (e) { }
+        var inputs = OfficePlatform.loadInputFiles();
         if (inputs && inputs.length > 0) {
             cfg.create();
-            openPath(inputs[0].filepath, inputs[0].filename);
+            openPath(inputs[0].filepath, inputs[0].filename,
+                { asTemplate: !!inputs[0].asTemplate });
         } else {
             cfg.create();
             markClean();
+            splashDone();
             if (cfg.packed) {
                 trySessionRestore();   // falls back to checkDraft() itself
             } else {
@@ -1147,8 +1587,58 @@ var OfficeApp = (function () {
             }
         });
         installFloatWindowCloseGuard();
+        installStandaloneDropOpen();
 
         updateTitle();
+
+        // the standalone build has no storage behind it - say so once, so
+        // "Save downloads a copy" is not a surprise the first time
+        if (OfficePlatform.isStandalone() && (!inputs || !inputs.length)) {
+            setStatus("Web edition - open a " + cfg.extension +
+                " from this device, and Save downloads it back", "info", 9000);
+        }
+    }
+
+    /*
+        Standalone build: dropping a document on the window opens it.
+        This is the whole point of the web edition - somebody was sent a
+        .doca and wants to look at it - so it is worth a drop target even
+        though the apps already handle drops of their own.
+
+        It listens in the capture phase but only claims the event when every
+        dropped file is one this app can open; anything else (an image being
+        dropped into the page, say) falls straight through to the app's own
+        handler untouched.
+    */
+    function installStandaloneDropOpen() {
+        if (!OfficePlatform.isStandalone()) return;
+        var openable = function (name) {
+            var e = extOf(name);
+            return e === cfg.extension || !!(cfg.importers || {})[e];
+        };
+        var claims = function (e) {
+            var dt = e.dataTransfer;
+            if (!dt || !dt.files || dt.files.length !== 1) return false;
+            return openable(dt.files[0].name);
+        };
+        document.addEventListener("dragover", function (e) {
+            if (!claims(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "copy";
+        }, true);
+        document.addEventListener("drop", function (e) {
+            if (!claims(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var file = e.dataTransfer.files[0];
+            var go = function () { OfficePlatform.adoptDroppedFile(file, openPath); };
+            if (dirty) {
+                confirmDialog("Discard unsaved changes?",
+                    "The current document has unsaved changes that will be lost.",
+                    "Discard", "Cancel", function (yes) { if (yes) go(); });
+            } else { go(); }
+        }, true);
     }
 
     /* The desktop routes a floatWindow's X button through the iframe's
@@ -1214,6 +1704,10 @@ var OfficeApp = (function () {
         showContextMenu: showContextMenu,
         showBusy: showBusy,
         hideBusy: hideBusy,
+        documentLoaded: documentLoaded,
+        splashStep: splashStep,
+        showProgress: showProgress,
+        beginDrag: beginDrag,
         closeAllMenus: closeAllMenus,
         updateMenus: updateMenus,
         // features
@@ -1229,11 +1723,15 @@ var OfficeApp = (function () {
         getSetting: getSetting,
         setSetting: setSetting,
         getRecents: getRecents,
+        // host (see common/platform.js)
+        hasBackend: function () { return OfficePlatform.hasBackend(); },
+        isStandalone: function () { return OfficePlatform.isStandalone(); },
         // vfs / media
         vfsLoad: vfsLoad,
         vfsSave: vfsSave,
         blobToSrc: blobToSrc,
         mediaUrl: mediaUrl,
+        agirunLarge: agirunLarge,
         // utils
         escapeHtml: escapeHtml,
         basename: basename,

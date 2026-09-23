@@ -1,1464 +1,1597 @@
 {
- "_note": "This file is the source for the Terminal in-app documentation panel. It is derived from mod/agi/README.md. Whenever README.md is updated, this file MUST also be updated to keep the in-app help in sync.",
- "_version": "3.0",
- "sections": [
-  {
-   "id": "core",
-   "name": "Core",
-   "desc": "Built-in functions always available without requirelib()",
-   "functions": [
+  "_note": "This file is the source for the Terminal in-app documentation panel. It is derived from mod/agi/README.md. Whenever README.md is updated, this file MUST also be updated to keep the in-app help in sync.",
+  "_version": "3.0",
+  "sections": [
     {
-     "name": "sendResp",
-     "sig": "sendResp(content)",
-     "desc": "Set the HTTP response body.",
-     "ret": "void",
-     "example": "sendResp(\"Hello from AGI\");"
+      "id": "core",
+      "name": "Core",
+      "desc": "Built-in functions always available without requirelib()",
+      "functions": [
+        {
+          "name": "sendResp",
+          "sig": "sendResp(content)",
+          "desc": "Set the HTTP response body.",
+          "ret": "void",
+          "example": "sendResp(\"Hello from AGI\");"
+        },
+        {
+          "name": "sendJSONResp",
+          "sig": "sendJSONResp(objectOrJsonString)",
+          "desc": "Set Content-Type to application/json and write a JSON response.",
+          "ret": "void",
+          "example": "sendJSONResp({ ok: true, items: [1, 2, 3] });"
+        },
+        {
+          "name": "echo",
+          "sig": "echo(content)",
+          "desc": "Append text to the current HTTP_RESP.",
+          "ret": "void",
+          "example": "echo(\"Hello \");\necho(\"World\");"
+        },
+        {
+          "name": "sendOK",
+          "sig": "sendOK()",
+          "desc": "Set response to the string \"ok\".",
+          "ret": "void",
+          "example": "sendOK();"
+        },
+        {
+          "name": "requirelib",
+          "sig": "requirelib(libname)",
+          "desc": "Load an AGI library into the current VM. Returns true on success.",
+          "ret": "bool",
+          "example": "if (!requirelib(\"filelib\")) {\n    sendResp(\"filelib not available\");\n}"
+        },
+        {
+          "name": "includes",
+          "sig": "includes(scriptName)",
+          "desc": "Load and execute another script relative to the current script's directory.",
+          "ret": "void",
+          "example": "includes(\"helpers.js\");"
+        },
+        {
+          "name": "delay",
+          "sig": "delay(ms)",
+          "desc": "Sleep for the given number of milliseconds. After websocket.upgrade(), also pumps incoming WebSocket messages.",
+          "ret": "void",
+          "example": "delay(500);"
+        },
+        {
+          "name": "exit",
+          "sig": "exit()",
+          "desc": "Stop script execution immediately.",
+          "ret": "void",
+          "example": "if (!userIsAdmin()) exit();"
+        },
+        {
+          "name": "execd",
+          "sig": "execd(scriptName, payload)",
+          "desc": "Execute another AGI script asynchronously as a detached process.",
+          "ret": "void",
+          "example": "execd(\"worker.agi\", JSON.stringify({ job: \"thumbs\" }));"
+        },
+        {
+          "name": "console.log",
+          "sig": "console.log(...args)",
+          "desc": "Write a line to the server log. In Terminal sessions, output is captured and shown in yellow.",
+          "ret": "void",
+          "example": "console.log(\"Debug:\", someVariable);"
+        }
+      ]
     },
     {
-     "name": "sendJSONResp",
-     "sig": "sendJSONResp(objectOrJsonString)",
-     "desc": "Set Content-Type to application/json and write a JSON response.",
-     "ret": "void",
-     "example": "sendJSONResp({ ok: true, items: [1, 2, 3] });"
+      "id": "db",
+      "name": "DB",
+      "desc": "Key-value database functions, always available.",
+      "functions": [
+        {
+          "name": "newDBTableIfNotExists",
+          "sig": "newDBTableIfNotExists(tableName)",
+          "desc": "Create a database table if it does not already exist.",
+          "ret": "bool",
+          "example": "newDBTableIfNotExists(\"my_table\");"
+        },
+        {
+          "name": "DBTableExists",
+          "sig": "DBTableExists(tableName)",
+          "desc": "Return true if the table exists.",
+          "ret": "bool",
+          "example": "if (DBTableExists(\"my_table\")) sendOK();"
+        },
+        {
+          "name": "writeDBItem",
+          "sig": "writeDBItem(tableName, key, value)",
+          "desc": "Write a string value to the given key.",
+          "ret": "bool",
+          "example": "writeDBItem(\"my_table\", \"theme\", \"dark\");"
+        },
+        {
+          "name": "readDBItem",
+          "sig": "readDBItem(tableName, key)",
+          "desc": "Read a string value from the given key.",
+          "ret": "string",
+          "example": "var theme = readDBItem(\"my_table\", \"theme\");"
+        },
+        {
+          "name": "listDBTable",
+          "sig": "listDBTable(tableName)",
+          "desc": "Return all key-value pairs in the table as an object.",
+          "ret": "object",
+          "example": "var kv = listDBTable(\"my_table\");\nsendJSONResp(kv);"
+        },
+        {
+          "name": "deleteDBItem",
+          "sig": "deleteDBItem(tableName, key)",
+          "desc": "Delete a single key from the table.",
+          "ret": "bool",
+          "example": "deleteDBItem(\"my_table\", \"theme\");"
+        },
+        {
+          "name": "dropDBTable",
+          "sig": "dropDBTable(tableName)",
+          "desc": "Delete the entire table.",
+          "ret": "bool",
+          "example": "dropDBTable(\"my_table\");"
+        }
+      ]
     },
     {
-     "name": "echo",
-     "sig": "echo(content)",
-     "desc": "Append text to the current HTTP_RESP.",
-     "ret": "void",
-     "example": "echo(\"Hello \");\necho(\"World\");"
+      "id": "user",
+      "name": "User",
+      "desc": "User management and permission functions.",
+      "functions": [
+        {
+          "name": "pathCanWrite",
+          "sig": "pathCanWrite(vpath)",
+          "desc": "Return true if the current user can write to the virtual path.",
+          "ret": "bool",
+          "example": "if (pathCanWrite(\"user:/Documents\")) sendOK();"
+        },
+        {
+          "name": "getUserPermissionGroup",
+          "sig": "getUserPermissionGroup()",
+          "desc": "Return a JSON string describing the current user's permission group.",
+          "ret": "string (JSON)",
+          "example": "var group = JSON.parse(getUserPermissionGroup());"
+        },
+        {
+          "name": "userIsAdmin",
+          "sig": "userIsAdmin()",
+          "desc": "Return true if the current user is an administrator.",
+          "ret": "bool",
+          "example": "if (!userIsAdmin()) {\n    sendResp(\"Admin only\");\n    exit();\n}"
+        },
+        {
+          "name": "userExists",
+          "sig": "userExists(username)",
+          "desc": "(Admin only) Return true if the username exists.",
+          "ret": "bool",
+          "example": "if (userExists(\"alice\")) echo(\"exists\");"
+        },
+        {
+          "name": "createUser",
+          "sig": "createUser(username, password, defaultGroup)",
+          "desc": "(Admin only) Create a new user account.",
+          "ret": "bool",
+          "example": "createUser(\"alice\", \"StrongPass\", \"default\");"
+        },
+        {
+          "name": "removeUser",
+          "sig": "removeUser(username)",
+          "desc": "(Admin only) Delete a user account.",
+          "ret": "bool",
+          "example": "removeUser(\"alice\");"
+        }
+      ]
     },
     {
-     "name": "sendOK",
-     "sig": "sendOK()",
-     "desc": "Set response to the string \"ok\".",
-     "ret": "void",
-     "example": "sendOK();"
+      "id": "filelib",
+      "name": "filelib",
+      "desc": "Virtual filesystem read, write, and metadata operations.",
+      "load": "requirelib(\"filelib\");",
+      "functions": [
+        {
+          "name": "filelib.writeFile",
+          "sig": "filelib.writeFile(vpath, content)",
+          "desc": "Write text content to a virtual path. Creates the file if it does not exist.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.writeFile(\"user:/notes.txt\", \"Hello World\");"
+        },
+        {
+          "name": "filelib.readFile",
+          "sig": "filelib.readFile(vpath)",
+          "desc": "Read text content from a virtual path.",
+          "ret": "string | false",
+          "example": "requirelib(\"filelib\");\nvar text = filelib.readFile(\"user:/notes.txt\");"
+        },
+        {
+          "name": "filelib.deleteFile",
+          "sig": "filelib.deleteFile(vpath)",
+          "desc": "Delete a file at the virtual path.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.deleteFile(\"user:/notes.txt\");"
+        },
+        {
+          "name": "filelib.walk",
+          "sig": "filelib.walk(vpath, mode)",
+          "desc": "Recursively list entries. mode: \"all\", \"file\", or \"folder\".",
+          "ret": "string[]",
+          "example": "requirelib(\"filelib\");\nvar files = filelib.walk(\"user:/\", \"file\");"
+        },
+        {
+          "name": "filelib.glob",
+          "sig": "filelib.glob(pattern, sortMode)",
+          "desc": "Glob match files. sortMode: \"default\" or user-defined sort. Does not support ** patterns.",
+          "ret": "string[]",
+          "example": "requirelib(\"filelib\");\nvar jpgs = filelib.glob(\"user:/Desktop/*.jpg\", \"default\");"
+        },
+        {
+          "name": "filelib.aglob",
+          "sig": "filelib.aglob(pattern, sortMode)",
+          "desc": "Advanced glob supporting ** recursive patterns. Cannot scan bare root dirs.",
+          "ret": "string[]",
+          "example": "requirelib(\"filelib\");\nvar pngs = filelib.aglob(\"user:/Desktop/**/*.png\", \"default\");"
+        },
+        {
+          "name": "filelib.readdir",
+          "sig": "filelib.readdir(vpath, sortMode)",
+          "desc": "List directory entries. Returns array of {Filename, Filepath, Ext, Filesize, Modtime, IsDir}.",
+          "ret": "object[]",
+          "example": "requirelib(\"filelib\");\nvar entries = filelib.readdir(\"user:/Desktop\", \"default\");\nsendJSONResp(entries);"
+        },
+        {
+          "name": "filelib.filesize",
+          "sig": "filelib.filesize(vpath)",
+          "desc": "Return file size in bytes.",
+          "ret": "number",
+          "example": "requirelib(\"filelib\");\nvar sz = filelib.filesize(\"user:/movie.mp4\");"
+        },
+        {
+          "name": "filelib.fileExists",
+          "sig": "filelib.fileExists(vpath)",
+          "desc": "Return true if the path exists as a file.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nif (filelib.fileExists(\"user:/a.txt\")) sendOK();"
+        },
+        {
+          "name": "filelib.isDir",
+          "sig": "filelib.isDir(vpath)",
+          "desc": "Return true if the path is a directory.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nif (filelib.isDir(\"user:/Desktop\")) sendOK();"
+        },
+        {
+          "name": "filelib.mkdir",
+          "sig": "filelib.mkdir(vpath)",
+          "desc": "Create a directory (and parents) at the virtual path.",
+          "ret": "bool",
+          "example": "requirelib(\"filelib\");\nfilelib.mkdir(\"user:/newfolder\");"
+        },
+        {
+          "name": "filelib.md5",
+          "sig": "filelib.md5(vpath)",
+          "desc": "Return the MD5 hash string of a file.",
+          "ret": "string",
+          "example": "requirelib(\"filelib\");\nvar hash = filelib.md5(\"user:/a.txt\");"
+        },
+        {
+          "name": "filelib.mtime",
+          "sig": "filelib.mtime(vpath, parseToUnix)",
+          "desc": "Return file modification time. parseToUnix=true returns a Unix timestamp; otherwise a formatted string.",
+          "ret": "number | string",
+          "example": "requirelib(\"filelib\");\nvar ts = filelib.mtime(\"user:/a.txt\", true);"
+        },
+        {
+          "name": "filelib.rootName",
+          "sig": "filelib.rootName(vpath)",
+          "desc": "Return the display name of the storage root that owns this path.",
+          "ret": "string",
+          "example": "requirelib(\"filelib\");\nvar root = filelib.rootName(\"user:/Desktop/a.txt\");"
+        }
+      ]
     },
     {
-     "name": "requirelib",
-     "sig": "requirelib(libname)",
-     "desc": "Load an AGI library into the current VM. Returns true on success.",
-     "ret": "bool",
-     "example": "if (!requirelib(\"filelib\")) {\n    sendResp(\"filelib not available\");\n}"
+      "id": "imagelib",
+      "name": "imagelib",
+      "desc": "Image dimension, resize, crop, and EXIF operations.",
+      "load": "requirelib(\"imagelib\");",
+      "functions": [
+        {
+          "name": "imagelib.getImageDimension",
+          "sig": "imagelib.getImageDimension(vpath)",
+          "desc": "Return [width, height] of the image.",
+          "ret": "[number, number]",
+          "example": "requirelib(\"imagelib\");\nvar dim = imagelib.getImageDimension(\"user:/img.jpg\");"
+        },
+        {
+          "name": "imagelib.resizeImage",
+          "sig": "imagelib.resizeImage(src, dest, width, height)",
+          "desc": "Resize an image and save to dest.",
+          "ret": "bool",
+          "example": "requirelib(\"imagelib\");\nimagelib.resizeImage(\"user:/img.jpg\", \"user:/img_small.jpg\", 800, 600);"
+        },
+        {
+          "name": "imagelib.resizeImageBase64",
+          "sig": "imagelib.resizeImageBase64(src, width, height, format)",
+          "desc": "Resize an image and return it as a base64 data URL. format: \"jpeg\", \"png\".",
+          "ret": "string (data URL)",
+          "example": "requirelib(\"imagelib\");\nvar b64 = imagelib.resizeImageBase64(\"user:/img.jpg\", 320, 240, \"jpeg\");"
+        },
+        {
+          "name": "imagelib.cropImage",
+          "sig": "imagelib.cropImage(src, dest, x, y, width, height)",
+          "desc": "Crop a region from an image and save to dest.",
+          "ret": "bool",
+          "example": "requirelib(\"imagelib\");\nimagelib.cropImage(\"user:/img.jpg\", \"user:/crop.jpg\", 10, 10, 200, 200);"
+        },
+        {
+          "name": "imagelib.loadThumbString",
+          "sig": "imagelib.loadThumbString(vpath)",
+          "desc": "Return the cached thumbnail as a base64 string.",
+          "ret": "string",
+          "example": "requirelib(\"imagelib\");\nvar thumb = imagelib.loadThumbString(\"user:/img.jpg\");"
+        },
+        {
+          "name": "imagelib.hasExif",
+          "sig": "imagelib.hasExif(vpath)",
+          "desc": "Return true if the image has EXIF metadata.",
+          "ret": "bool",
+          "example": "requirelib(\"imagelib\");\nif (imagelib.hasExif(\"user:/img.jpg\")) echo(\"has exif\");"
+        },
+        {
+          "name": "imagelib.getExif",
+          "sig": "imagelib.getExif(vpath)",
+          "desc": "Return EXIF data as a JSON string.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"imagelib\");\nvar exif = JSON.parse(imagelib.getExif(\"user:/img.jpg\"));"
+        }
+      ]
     },
     {
-     "name": "includes",
-     "sig": "includes(scriptName)",
-     "desc": "Load and execute another script relative to the current script's directory.",
-     "ret": "void",
-     "example": "includes(\"helpers.js\");"
+      "id": "http",
+      "name": "http",
+      "desc": "Outbound HTTP request helpers.",
+      "load": "requirelib(\"http\");",
+      "functions": [
+        {
+          "name": "http.request",
+          "sig": "http.request(options)",
+          "desc": "Curl-like request. options: {url, method, headers, body, json, form, bodyBase64, contentType, username, password, timeout, followRedirect, responseType}. Returns a response object {ok, status, statusText, headers, body, error}. Body precedence: bodyBase64 > form > json > body; responseType 'base64' returns a binary body base64 encoded.",
+          "ret": "object",
+          "example": "requirelib(\"http\");\nvar resp = http.request({url:\"https://example.com/api\", method:\"POST\", headers:{\"Authorization\":\"Bearer x\"}, json:{a:1}});\nif (resp.ok){ console.log(resp.status, resp.body); }"
+        },
+        {
+          "name": "http.get",
+          "sig": "http.get(url, headers)",
+          "desc": "Perform an HTTP GET and return the response body as a string. headers is optional.",
+          "ret": "string",
+          "example": "requirelib(\"http\");\nvar body = http.get(\"https://example.com/api\");"
+        },
+        {
+          "name": "http.post",
+          "sig": "http.post(url, body, headers, contentType)",
+          "desc": "Perform an HTTP POST and return the response body. Without headers/contentType the body is sent as JSON (backward compatible).",
+          "ret": "string",
+          "example": "requirelib(\"http\");\nvar resp = http.post(\"https://example.com/api\", JSON.stringify({a:1}));"
+        },
+        {
+          "name": "http.put / http.patch / http.delete",
+          "sig": "http.put(url, body, headers, contentType)",
+          "desc": "Method helpers built on http.request; each returns the response object. http.delete(url, headers) sends no body.",
+          "ret": "object",
+          "example": "requirelib(\"http\");\nvar resp = http.put(\"https://example.com/api/1\", JSON.stringify({a:1}), {\"Content-Type\":\"application/json\"});"
+        },
+        {
+          "name": "http.postForm / http.postJSON",
+          "sig": "http.postForm(url, formObject, headers)",
+          "desc": "POST helpers built on http.request. postForm sends application/x-www-form-urlencoded; postJSON sends a JSON body. Both return the response object.",
+          "ret": "object",
+          "example": "requirelib(\"http\");\nvar resp = http.postForm(\"https://example.com/api\", {a:1, b:2});"
+        },
+        {
+          "name": "http.head",
+          "sig": "http.head(url, headerKey)",
+          "desc": "Fetch response headers. Without headerKey returns all headers as JSON; with headerKey returns just that header.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"http\");\nvar headers = JSON.parse(http.head(\"https://example.com\"));"
+        },
+        {
+          "name": "http.getCode",
+          "sig": "http.getCode(url)",
+          "desc": "Return the HTTP status code for the URL.",
+          "ret": "number",
+          "example": "requirelib(\"http\");\nvar code = http.getCode(\"https://example.com\");"
+        },
+        {
+          "name": "http.download",
+          "sig": "http.download(url, destDirVpath, filenameOptional)",
+          "desc": "Download a URL into the destination virtual directory.",
+          "ret": "bool",
+          "example": "requirelib(\"http\");\nhttp.download(\"https://example.com/a.zip\", \"user:/Downloads\", \"a.zip\");"
+        },
+        {
+          "name": "http.getb64",
+          "sig": "http.getb64(url)",
+          "desc": "Fetch a URL and return the raw bytes as a base64 string.",
+          "ret": "string",
+          "example": "requirelib(\"http\");\nvar raw = http.getb64(\"https://example.com/logo.png\");"
+        },
+        {
+          "name": "http.redirect",
+          "sig": "http.redirect(targetUrl, statusCode)",
+          "desc": "Redirect the client. Default statusCode is 307.",
+          "ret": "void",
+          "example": "requirelib(\"http\");\nhttp.redirect(\"https://example.com/new\", 302);"
+        }
+      ]
     },
     {
-     "name": "delay",
-     "sig": "delay(ms)",
-     "desc": "Sleep for the given number of milliseconds. After websocket.upgrade(), also pumps incoming WebSocket messages.",
-     "ret": "void",
-     "example": "delay(500);"
+      "id": "share",
+      "name": "share",
+      "desc": "Create and manage public file share links.",
+      "load": "requirelib(\"share\");",
+      "functions": [
+        {
+          "name": "share.shareFile",
+          "sig": "share.shareFile(vpath, timeoutSec)",
+          "desc": "Create a public share link. timeoutSec=0 means no expiry. Returns the share UUID.",
+          "ret": "string (uuid)",
+          "example": "requirelib(\"share\");\nvar uuid = share.shareFile(\"user:/report.pdf\", 3600);"
+        },
+        {
+          "name": "share.removeShare",
+          "sig": "share.removeShare(shareUUID)",
+          "desc": "Remove an existing share link.",
+          "ret": "bool",
+          "example": "requirelib(\"share\");\nshare.removeShare(uuid);"
+        },
+        {
+          "name": "share.checkShareExists",
+          "sig": "share.checkShareExists(shareUUID)",
+          "desc": "Return true if the share UUID is still valid.",
+          "ret": "bool",
+          "example": "requirelib(\"share\");\nif (share.checkShareExists(uuid)) sendOK();"
+        },
+        {
+          "name": "share.fileIsShared",
+          "sig": "share.fileIsShared(vpath)",
+          "desc": "Return true if the file already has an active share link.",
+          "ret": "bool",
+          "example": "requirelib(\"share\");\nif (share.fileIsShared(\"user:/report.pdf\")) sendOK();"
+        },
+        {
+          "name": "share.getFileShareUUID",
+          "sig": "share.getFileShareUUID(vpath)",
+          "desc": "Return the share UUID for the given file, or false if not shared.",
+          "ret": "string | false",
+          "example": "requirelib(\"share\");\nvar sid = share.getFileShareUUID(\"user:/report.pdf\");"
+        }
+      ]
     },
     {
-     "name": "exit",
-     "sig": "exit()",
-     "desc": "Stop script execution immediately.",
-     "ret": "void",
-     "example": "if (!userIsAdmin()) exit();"
+      "id": "appdata",
+      "name": "appdata",
+      "desc": "Read-only access to web-root application data files.",
+      "load": "requirelib(\"appdata\");",
+      "functions": [
+        {
+          "name": "appdata.readFile",
+          "sig": "appdata.readFile(relativePathFromWebRoot)",
+          "desc": "Read a file relative to ./web/. Returns false on error.",
+          "ret": "string | false",
+          "example": "requirelib(\"appdata\");\nvar conf = appdata.readFile(\"MyApp/config.json\");"
+        },
+        {
+          "name": "appdata.listDir",
+          "sig": "appdata.listDir(relativeDirFromWebRoot)",
+          "desc": "List files in a directory relative to ./web/. Returns an array of relative paths.",
+          "ret": "string[]",
+          "example": "requirelib(\"appdata\");\nvar files = appdata.listDir(\"MyApp\");\nsendJSONResp(files);"
+        },
+        {
+          "name": "appdata.getModuleList",
+          "sig": "appdata.getModuleList()",
+          "desc": "Return an array of registered module objects.",
+          "ret": "object[]",
+          "example": "requirelib(\"appdata\");\nvar mods = appdata.getModuleList();"
+        }
+      ]
     },
     {
-     "name": "execd",
-     "sig": "execd(scriptName, payload)",
-     "desc": "Execute another AGI script asynchronously as a detached process.",
-     "ret": "void",
-     "example": "execd(\"worker.agi\", JSON.stringify({ job: \"thumbs\" }));"
+      "id": "sysinfo",
+      "name": "sysinfo",
+      "desc": "Real-time system resource information.",
+      "load": "requirelib(\"sysinfo\");",
+      "functions": [
+        {
+          "name": "sysinfo.getCPUUsage",
+          "sig": "sysinfo.getCPUUsage()",
+          "desc": "Return CPU usage as a percentage (0–100).",
+          "ret": "number",
+          "example": "requirelib(\"sysinfo\");\nvar cpu = sysinfo.getCPUUsage();"
+        },
+        {
+          "name": "sysinfo.getRAMUsage",
+          "sig": "sysinfo.getRAMUsage()",
+          "desc": "Return {used, total, percent} memory statistics.",
+          "ret": "object",
+          "example": "requirelib(\"sysinfo\");\nvar ram = sysinfo.getRAMUsage();\nsendJSONResp(ram);"
+        },
+        {
+          "name": "sysinfo.getNetworkUsage",
+          "sig": "sysinfo.getNetworkUsage()",
+          "desc": "Return {rxRate, txRate, rxTotal, txTotal} in bytes/bytes-per-second.",
+          "ret": "object",
+          "example": "requirelib(\"sysinfo\");\nvar net = sysinfo.getNetworkUsage();"
+        },
+        {
+          "name": "sysinfo.getDiskInfo",
+          "sig": "sysinfo.getDiskInfo()",
+          "desc": "Return an array of logical disk info objects.",
+          "ret": "object[]",
+          "example": "requirelib(\"sysinfo\");\nvar disks = sysinfo.getDiskInfo();\nsendJSONResp(disks);"
+        }
+      ]
     },
     {
-     "name": "console.log",
-     "sig": "console.log(...args)",
-     "desc": "Write a line to the server log. In Terminal sessions, output is captured and shown in yellow.",
-     "ret": "void",
-     "example": "console.log(\"Debug:\", someVariable);"
+      "id": "ziplib",
+      "name": "ziplib",
+      "desc": "Archive creation and extraction (zip, tar, tar.gz, gz).",
+      "load": "requirelib(\"ziplib\");",
+      "functions": [
+        {
+          "name": "ziplib.extractZipFile",
+          "sig": "ziplib.extractZipFile(src, destDir)",
+          "desc": "Extract a ZIP archive into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractZipFile(\"user:/a.zip\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.createZipFile",
+          "sig": "ziplib.createZipFile(sourcesArrayOrString, outputZip)",
+          "desc": "Create a ZIP archive from one or more source paths.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.createZipFile([\"user:/a.txt\", \"user:/b.txt\"], \"user:/bundle.zip\");"
+        },
+        {
+          "name": "ziplib.extractAnyFile",
+          "sig": "ziplib.extractAnyFile(srcArchive, destDir)",
+          "desc": "Auto-detect archive format and extract into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractAnyFile(\"user:/archive.tar.gz\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.createAnyZipFile",
+          "sig": "ziplib.createAnyZipFile(sourcesArrayOrString, outputPath, format)",
+          "desc": "Create an archive in any supported format. format: \"zip\", \"tar\", \"tar.gz\", \"gz\".",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.createAnyZipFile([\"user:/folder\"], \"user:/bundle.tar.gz\", \"tar.gz\");"
+        },
+        {
+          "name": "ziplib.isValidZipFile",
+          "sig": "ziplib.isValidZipFile(vpath)",
+          "desc": "Return true if the file is a recognisable archive.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nvar ok = ziplib.isValidZipFile(\"user:/a.zip\");"
+        },
+        {
+          "name": "ziplib.listZipFileContents",
+          "sig": "ziplib.listZipFileContents(zipPath)",
+          "desc": "Return a JSON tree string of the archive's contents.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.listZipFileContents(\"user:/a.zip\"));"
+        },
+        {
+          "name": "ziplib.getFileFromZip",
+          "sig": "ziplib.getFileFromZip(zipPath, filePathInZip)",
+          "desc": "Extract one file to tmp:/ and return its virtual path.",
+          "ret": "string (vpath)",
+          "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFromZip(\"user:/a.zip\", \"docs/readme.txt\");"
+        },
+        {
+          "name": "ziplib.extract7zFile",
+          "sig": "ziplib.extract7zFile(src, destDir)",
+          "desc": "Extract all files from a 7z archive into destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extract7zFile(\"user:/archive.7z\", \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.list7zFileDir",
+          "sig": "ziplib.list7zFileDir(src, dirPathIn7z)",
+          "desc": "List immediate children of a directory inside a 7z archive. Directories are returned with a trailing /.",
+          "ret": "string[]",
+          "example": "requirelib(\"ziplib\");\nvar items = ziplib.list7zFileDir(\"user:/archive.7z\", \"docs\");"
+        },
+        {
+          "name": "ziplib.list7zFileContents",
+          "sig": "ziplib.list7zFileContents(src)",
+          "desc": "Return the full contents of a 7z archive as a JSON tree string (same schema as listZipFileContents).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.list7zFileContents(\"user:/archive.7z\"));"
+        },
+        {
+          "name": "ziplib.getFileFrom7z",
+          "sig": "ziplib.getFileFrom7z(src, filePathIn7z)",
+          "desc": "Extract a single file from a 7z archive to tmp:/ and return its virtual path.",
+          "ret": "string (vpath)",
+          "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFrom7z(\"user:/archive.7z\", \"docs/readme.txt\");"
+        },
+        {
+          "name": "ziplib.extractPartial7z",
+          "sig": "ziplib.extractPartial7z(src, paths, destDir)",
+          "desc": "Extract selected files/folders from a 7z archive. paths is a JS array or JSON array string. Folder paths strip their parent prefix; file paths are placed flat in destDir.",
+          "ret": "bool",
+          "example": "requirelib(\"ziplib\");\nziplib.extractPartial7z(\"user:/archive.7z\", [\"docs/\", \"README.md\"], \"user:/out/\");"
+        },
+        {
+          "name": "ziplib.get7zFileInfo",
+          "sig": "ziplib.get7zFileInfo(src)",
+          "desc": "Return metadata about a 7z archive: { fileCount, dirCount, totalUncompressedSize, totalCompressedSize }. totalCompressedSize is always 0 (solid compression).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"ziplib\");\nvar info = JSON.parse(ziplib.get7zFileInfo(\"user:/archive.7z\"));\nconsole.log(info.fileCount + \" files\");"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "name": "sqlite",
+      "desc": "SQLite database access for scripts. Not available on linux/mipsle or windows/arm/386.",
+      "load": "requirelib(\"sqlite\");",
+      "functions": [
+        {
+          "name": "sqlite.open",
+          "sig": "sqlite.open(vpath)",
+          "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, transaction, and close methods. Throws SQLiteError on failure. Databases open in WAL mode with a 5s busy timeout, so concurrent requests queue for the write lock instead of failing. Any handle still open when the script ends (including on error or exit) is closed automatically.",
+          "ret": "object (db)",
+          "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
+        },
+        {
+          "name": "db.exec",
+          "sig": "db.exec(sql, params)",
+          "desc": "Execute a non-SELECT statement. params is an optional JS array of bound values. Returns { lastInsertId, rowsAffected }.",
+          "ret": "object",
+          "example": "db.exec(\"INSERT INTO t (name) VALUES (?)\", [\"Alice\"]);"
+        },
+        {
+          "name": "db.query",
+          "sig": "db.query(sql, params)",
+          "desc": "Execute a SELECT and return all matching rows as an array of plain objects.",
+          "ret": "object[]",
+          "example": "var rows = db.query(\"SELECT * FROM t WHERE id > ?\", [0]);\nrows.forEach(function(r) { console.log(r.id, r.name); });"
+        },
+        {
+          "name": "db.queryRow",
+          "sig": "db.queryRow(sql, params)",
+          "desc": "Like db.query() but returns only the first row object, or null if no rows matched.",
+          "ret": "object | null",
+          "example": "var row = db.queryRow(\"SELECT * FROM t WHERE id = ?\", [1]);\nif (row) sendJSONResp(row);"
+        },
+        {
+          "name": "db.tables",
+          "sig": "db.tables()",
+          "desc": "Return the names of all user-created tables in the database.",
+          "ret": "string[]",
+          "example": "var tables = db.tables();\nsendJSONResp(tables);"
+        },
+        {
+          "name": "db.schema",
+          "sig": "db.schema(tableName)",
+          "desc": "Return column metadata for a table as an array of { cid, name, type, notnull, dflt_value, pk } objects (from PRAGMA table_info).",
+          "ret": "object[]",
+          "example": "var cols = db.schema(\"t\");\nsendJSONResp(cols);"
+        },
+        {
+          "name": "db.transaction",
+          "sig": "db.transaction(fn)",
+          "desc": "Run fn inside a single write transaction, committing when it returns and rolling back if it throws. fn receives the connection object and its return value is passed through. Use this for bulk writes: it collapses N lock cycles and N fsyncs into one. Opens with BEGIN IMMEDIATE so the busy timeout applies to acquiring the lock. Cannot be nested.",
+          "ret": "any",
+          "example": "db.transaction(function(tx) {\n    for (var i = 0; i < items.length; i++) {\n        tx.exec(\"INSERT INTO t (name) VALUES (?)\", [items[i]]);\n    }\n});"
+        },
+        {
+          "name": "db.close",
+          "sig": "db.close()",
+          "desc": "Close the database connection and release the handle. Optional - handles are also closed automatically when the script ends.",
+          "ret": "bool",
+          "example": "db.close();"
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "name": "llm",
+      "desc": "Call any OpenAI-compatible or Anthropic LLM endpoint. Endpoint, API key, default model, pricing, and usage quota are configured in System Settings > AI Integration > AI Model.",
+      "load": "requirelib(\"llm\");",
+      "functions": [
+        {
+          "name": "llm.chat",
+          "sig": "llm.chat(prompt, options)",
+          "desc": "Send a single-turn text prompt and return the assistant reply string. options is optional (see llm options).",
+          "ret": "string",
+          "example": "requirelib(\"llm\");\nvar reply = llm.chat(\"What is 2 + 2?\");\nsendResp(reply);"
+        },
+        {
+          "name": "llm.chatWithFile",
+          "sig": "llm.chatWithFile(prompt, files, options)",
+          "desc": "Like llm.chat() but attaches virtual-path files. Images become vision parts; text files are inlined. files may be a single vpath string or an array.",
+          "ret": "string",
+          "example": "requirelib(\"llm\");\nvar reply = llm.chatWithFile(\n    \"Describe this image.\",\n    \"user:/Photos/holiday.jpg\"\n);\nsendResp(reply);"
+        },
+        {
+          "name": "llm.request",
+          "sig": "llm.request(messages, options)",
+          "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage. When the model exposes chain-of-thought, choices[0].message.reasoning_content holds its thinking text (DeepSeek reasoning_content, OpenRouter reasoning, or Anthropic thinking blocks).",
+          "ret": "object",
+          "example": "requirelib(\"llm\");\nvar resp = llm.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
+        },
+        {
+          "name": "llm.streamRequest",
+          "sig": "llm.streamRequest(messages, options, onDelta)",
+          "desc": "Streaming version of llm.request(). onDelta({content, reasoning}) fires for each incremental chunk as the model generates it (content = new answer text, reasoning = new thinking text); the assembled response with usage is returned when the stream ends. Safe to relay chunks straight to a browser via websocket.send().",
+          "ret": "object",
+          "example": "requirelib(\"llm\");\nrequirelib(\"websocket\");\nwebsocket.upgrade(300);\nvar resp = llm.streamRequest([{ role: \"user\", content: \"Explain gravity\" }], {}, function(d){\n    if (d.reasoning != \"\") websocket.send(JSON.stringify({ type: \"reasoning\", content: d.reasoning }));\n    if (d.content != \"\") websocket.send(JSON.stringify({ type: \"delta\", content: d.content }));\n});\nwebsocket.send(JSON.stringify({ type: \"done\", usage: resp.usage }));"
+        },
+        {
+          "name": "llm.usage",
+          "sig": "llm.usage()",
+          "desc": "Return accumulated token/cost metrics: { totalTokens, totalCost, totalRequests, perModel, currency, ... }.",
+          "ret": "object",
+          "example": "requirelib(\"llm\");\nvar u = llm.usage();\nsendJSONResp(u);"
+        },
+        {
+          "name": "llm.models",
+          "sig": "llm.models()",
+          "desc": "Return the configured default model and list of models with pricing entries: { default, models }.",
+          "ret": "object",
+          "example": "requirelib(\"llm\");\nvar m = llm.models();\nsendJSONResp(m);"
+        },
+        {
+          "name": "llm.listModels",
+          "sig": "llm.listModels()",
+          "desc": "Query the live endpoint for available models (no tokens consumed). Returns { models: [...] }.",
+          "ret": "object",
+          "example": "requirelib(\"llm\");\nvar m = llm.listModels();\nsendJSONResp(m.models);"
+        },
+        {
+          "name": "llm.fileParts",
+          "sig": "llm.fileParts(files)",
+          "desc": "Convert virtual-path file(s) into OpenAI-style content parts for use in llm.request(). Images → image_url data URIs; text files → text parts.",
+          "ret": "object[]",
+          "example": "requirelib(\"llm\");\nvar parts = llm.fileParts([\"user:/report.txt\"]);\nvar resp = llm.request([{ role: \"user\", content: parts }]);\nsendResp(resp.choices[0].message.content);"
+        }
+      ]
+    },
+    {
+      "id": "cnn",
+      "name": "cnn",
+      "desc": "Run image/face vision inference (classification, detection, segmentation, pose, oriented detection, face analysis) against an external CXNNAIO server. Endpoint, token and timeout are configured in System Settings > AI Integration > CNN Inference.",
+      "load": "requirelib(\"cnn\");",
+      "functions": [
+        {
+          "name": "cnn.classify",
+          "sig": "cnn.classify(file, options)",
+          "desc": "Classify an image (default model mobilenet-v2). file is a virtual path. Returns the server's image.classification envelope.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.classify(\"user:/cat.jpg\", { top_k: 3 });\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.detect",
+          "sig": "cnn.detect(file, options)",
+          "desc": "Run object detection (default model yolo11n). Returns the server's image.detection envelope; set options.render to also get an annotated PNG in rendered_image.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.detect(\"user:/street.jpg\", { score_threshold: 0.3 });\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.segment",
+          "sig": "cnn.segment(file, options)",
+          "desc": "Run instance segmentation (yolo11n-seg). Each item carries a per-instance, box-cropped base64 PNG mask.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.segment(\"user:/photo.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.pose",
+          "sig": "cnn.pose(file, options)",
+          "desc": "Run pose estimation (yolo11n-pose), 17 COCO keypoints per detected person.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.pose(\"user:/photo.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.oriented",
+          "sig": "cnn.oriented(file, options)",
+          "desc": "Run oriented/rotated-box detection (yolo11n-obb), intended for aerial/top-down imagery.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.oriented(\"user:/aerial.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceDetect",
+          "sig": "cnn.faceDetect(file, options)",
+          "desc": "Detect faces (default model ultraface-rfb-320). Returns the server's face.detection envelope.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceDetect(\"user:/group.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceLandmarks",
+          "sig": "cnn.faceLandmarks(file, options)",
+          "desc": "Detect 98-point facial landmarks (pfld). Set options.cropped to treat the whole input as one face crop instead of detecting faces first.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceLandmarks(\"user:/face.jpg\", { cropped: true });\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceEmbedding",
+          "sig": "cnn.faceEmbedding(file, options)",
+          "desc": "Return an L2-normalized 128-d embedding vector per face (mbv2facenet).",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceEmbedding(\"user:/face.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceAttributes",
+          "sig": "cnn.faceAttributes(file, options)",
+          "desc": "Return gender attributes per face (gender-mbv2-0.35). Calls the server's /v1/faces/gender route; response object is face.gender.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceAttributes(\"user:/face.jpg\", {});\nsendJSONResp(r.data);"
+        },
+        {
+          "name": "cnn.faceCompare",
+          "sig": "cnn.faceCompare(fileA, fileB, options)",
+          "desc": "Compare two face photos/crops and return their cosine similarity. options: { model, threshold, a_cropped, b_cropped }. No async variant.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.faceCompare(\"user:/a.jpg\", \"user:/b.jpg\", { threshold: 0.5 });\nsendResp(r.same ? \"same\" : \"different\");"
+        },
+        {
+          "name": "cnn.analyze",
+          "sig": "cnn.analyze(file, tasks, options)",
+          "desc": "Run several tasks over one image in a single round trip. tasks is an array (classify/detect/segment/pose/oriented/faces/landmarks/attributes); options carries top-level render/async plus per-task blocks keyed by task name.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar r = cnn.analyze(\"user:/group.jpg\", [\"detect\", \"faces\"], { render: true });\nsendJSONResp(r.results);"
+        },
+        {
+          "name": "cnn.job",
+          "sig": "cnn.job(id)",
+          "desc": "Poll an async job submitted with options.async = true. Returns { id, object, status, created, result, error }; status is queued, running, succeeded or failed.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nvar job = cnn.detect(\"user:/big.jpg\", { async: true });\nwhile (job.status === \"queued\" || job.status === \"running\") {\n    delay(500);\n    job = cnn.job(job.id);\n}\nsendJSONResp(job.result);"
+        },
+        {
+          "name": "cnn.models",
+          "sig": "cnn.models()",
+          "desc": "Return the live model registry from the configured server: { object, data: [{ id, object, task, classes, input }, ...] }.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nsendJSONResp(cnn.models());"
+        },
+        {
+          "name": "cnn.health",
+          "sig": "cnn.health()",
+          "desc": "Return live server health: { status, version, models_loaded, sessions, uptime_s }.",
+          "ret": "object",
+          "example": "requirelib(\"cnn\");\nsendJSONResp(cnn.health());"
+        }
+      ]
+    },
+    {
+      "id": "office",
+      "name": "office",
+      "desc": "ArozOS Office suite document converters (.pptx, .xlsx and .docx import/export). Backed by mod/office.",
+      "load": "requirelib(\"office\");",
+      "functions": [
+        {
+          "name": "office.pptxToPresentation",
+          "sig": "office.pptxToPresentation(srcVpath)",
+          "desc": "Parse a .pptx file into the Slides document body schema (see Office/common/CONTRACT.md). Returns the body as a JSON string; embedded pictures are inlined as data: URLs. Throws on failure.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.pptxToPresentation(\"user:/Desktop/deck.pptx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.presentationToPptx",
+          "sig": "office.presentationToPptx(bodyJson, destVpath)",
+          "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Video/audio are not embedded: each renders as its poster frame and the media files are packed into a sidecar zip next to the pptx. Returns true, or the sidecar zip vpath (string) when one was written.",
+          "ret": "bool | string",
+          "example": "requirelib(\"office\");\nvar r = office.presentationToPptx(data, \"user:/Desktop/out.pptx\");\nif (r){ sendResp(\"OK\"); }"
+        },
+        {
+          "name": "office.xlsxToWorkbook",
+          "sig": "office.xlsxToWorkbook(srcVpath)",
+          "desc": "Parse a .xlsx file into the Sheets document body schema. Returns the body as a JSON string. Values, formulas, styles, number formats, merges and frozen panes are converted; charts are skipped. Legacy binary .xls is rejected.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.xlsxToWorkbook(\"user:/Desktop/report.xlsx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.workbookToXlsx",
+          "sig": "office.workbookToXlsx(bodyJson, destVpath)",
+          "desc": "Build a .xlsx from a serialized Sheets body JSON string and write it to destVpath. Formulas are written natively so Excel recalculates them. Returns true on success.",
+          "ret": "bool",
+          "example": "requirelib(\"office\");\nif (office.workbookToXlsx(data, \"user:/Desktop/out.xlsx\")){\n    sendResp(\"OK\");\n}"
+        },
+        {
+          "name": "office.docxToDocument",
+          "sig": "office.docxToDocument(srcVpath)",
+          "desc": "Parse a .docx file into the Docs document body schema. Returns the body as a JSON string. Paragraphs, headings, inline formatting, links, lists, tables, images, header/footer and page setup are converted. Legacy binary .doc is rejected.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.docxToDocument(\"user:/Desktop/report.docx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.documentToDocx",
+          "sig": "office.documentToDocx(bodyJson, destVpath)",
+          "desc": "Build a .docx from a serialized Docs body JSON string and write it to destVpath. Images must be data: URLs. Returns true on success.",
+          "ret": "bool",
+          "example": "requirelib(\"office\");\nif (office.documentToDocx(data, \"user:/Desktop/out.docx\")){\n    sendResp(\"OK\");\n}"
+        },
+        {
+          "name": "office.packToFile",
+          "sig": "office.packToFile(envelopeJson, destVpath)",
+          "desc": "Write an Office suite native file (.doca/.xlsa/.ppta) as a zip container: document.json plus deduplicated binary assets. Media data URLs and legacy media?file= links inside the envelope become embedded assets, making the file portable. Returns true on success.",
+          "ret": "bool",
+          "example": "requirelib(\"office\");\nif (office.packToFile(content, \"user:/Documents/report.doca\")){\n    sendResp(\"OK\");\n}"
+        },
+        {
+          "name": "office.unpackFromFile",
+          "sig": "office.unpackFromFile(srcVpath)",
+          "desc": "Read a native Office suite file and return its envelope JSON string with embedded assets re-inlined as data URLs. Legacy plain-JSON documents pass through unchanged.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar envelope = office.unpackFromFile(\"user:/Documents/report.doca\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
+        },
+        {
+          "name": "office.unpackToWorkdir",
+          "sig": "office.unpackToWorkdir(srcVpath, workdirBase)",
+          "desc": "Read a native Office suite container and return its envelope JSON with binary assets extracted into <workdirBase>/<doc-hash>/ and referenced by media?file= links (keeps the JSON small even for video-heavy documents). Legacy plain-JSON files pass through unchanged.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar envelope = office.unpackToWorkdir(\"user:/Documents/deck.ppta\", \"user:/.appdata/Office/cache\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
+        },
+        {
+          "name": "office.odtToDocument",
+          "sig": "office.odtToDocument(srcVpath)",
+          "desc": "Read an OpenDocument Text (.odt) file and return the Docs body schema as a JSON string (formatting, links, lists, tables, pictures as data URLs, page geometry, header/footer, page breaks).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.odtToDocument(\"user:/Documents/notes.odt\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.documentToOdt",
+          "sig": "office.documentToOdt(jsonStr, destVpath)",
+          "desc": "Build an OpenDocument Text (.odt) file from a serialized Docs body JSON and write it to destVpath. Same subset as the docx exporter.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\nvar ok = office.documentToOdt(data, \"user:/Documents/notes.odt\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        },
+        {
+          "name": "office.odsToWorkbook",
+          "sig": "office.odsToWorkbook(srcVpath)",
+          "desc": "Read an OpenDocument Spreadsheet (.ods) and return the Sheets body schema as a JSON string. ODF of:= formulas are translated back to plain A1 references; styles, widths, merges and cell notes are kept.",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.odsToWorkbook(\"user:/Documents/report.ods\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.workbookToOds",
+          "sig": "office.workbookToOds(jsonStr, destVpath)",
+          "desc": "Build an OpenDocument Spreadsheet (.ods) from a serialized Sheets body JSON and write it to destVpath (formulas rewritten to ODF of:= syntax).",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\nvar ok = office.workbookToOds(data, \"user:/Documents/report.ods\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        },
+        {
+          "name": "office.odpToPresentation",
+          "sig": "office.odpToPresentation(srcVpath)",
+          "desc": "Read an OpenDocument Presentation (.odp) and return the Slides body schema as a JSON string, scaled into the 960x540 editor space (text, images, shapes, lines, tables, backgrounds, notes).",
+          "ret": "string (JSON)",
+          "example": "requirelib(\"office\");\nvar bodyJson = office.odpToPresentation(\"user:/Documents/deck.odp\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
+        },
+        {
+          "name": "office.presentationToOdp",
+          "sig": "office.presentationToOdp(jsonStr, destVpath)",
+          "desc": "Build an OpenDocument Presentation (.odp) from a serialized Slides body JSON and write it to destVpath. Charts use their client-side PNG raster; video/audio objects are skipped.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\nvar ok = office.presentationToOdp(data, \"user:/Documents/deck.odp\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        },
+        {
+          "name": "office.documentToPdf",
+          "sig": "office.documentToPdf(jsonStr, destVpath)",
+          "desc": "Build a PDF with real selectable text from a serialized Docs body JSON and write it to destVpath. Renders headings, inline styles, links, lists, tables, inline images, page breaks, page geometry and header/footer with page numbers. Latin-1 core fonts; other characters are transliterated.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\nvar ok = office.documentToPdf(data, \"user:/Desktop/report.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        },
+        {
+          "name": "office.workbookPrintToPdf",
+          "sig": "office.workbookPrintToPdf(printJson, destVpath)",
+          "desc": "Build a real-text PDF from a Sheets print model ({sheets:[{name,colW,rowH,rows:[[{t,b,i,u,fc,bg,al}]]}]}) - formatted display strings plus styles computed by the web client. One A4-landscape section per sheet, columns scaled to fit the page.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\nvar ok = office.workbookPrintToPdf(printModelJson, \"user:/Desktop/sheet.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        },
+        {
+          "name": "office.writeBinaryFile",
+          "sig": "office.writeBinaryFile(base64, destVpath)",
+          "desc": "Write a file the web client produced: the payload is the file's bytes, base64 encoded, and destVpath gets the same write permission check as every exporter. Used by exports that can only be rendered in the browser, such as the Slides PDF.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\nvar ok = office.writeBinaryFile(base64Payload, \"user:/Desktop/deck.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
+        }
+      ]
+    },
+    {
+      "id": "websocket",
+      "name": "websocket",
+      "desc": "Upgrade the HTTP connection to a persistent WebSocket session.",
+      "load": "requirelib(\"websocket\");",
+      "functions": [
+        {
+          "name": "websocket.upgrade",
+          "sig": "websocket.upgrade(timeoutSec)",
+          "desc": "Upgrade to WebSocket. Also overrides delay() with a message-pumping version. Returns false on failure.",
+          "ret": "bool",
+          "example": "requirelib(\"websocket\");\nif (!websocket.upgrade(120)) exit();\nwebsocket.send(\"Connected!\");"
+        },
+        {
+          "name": "websocket.send",
+          "sig": "websocket.send(text)",
+          "desc": "Send a text frame to the client. Returns false if the connection is closed.",
+          "ret": "bool",
+          "example": "websocket.send(\"Hello client\");"
+        },
+        {
+          "name": "websocket.read",
+          "sig": "websocket.read(timeoutMs)",
+          "desc": "Read next message. Returns string on message, null on timeout (still open), false if closed. Omit timeoutMs to block.",
+          "ret": "string | null | false",
+          "example": "var msg = websocket.read(5000);\nif (msg === false) { /* closed */ }\nif (msg === null)  { /* timeout  */ }"
+        },
+        {
+          "name": "websocket.available",
+          "sig": "websocket.available()",
+          "desc": "Return count of buffered unread messages. Non-blocking.",
+          "ret": "number",
+          "example": "if (websocket.available() > 0) {\n    var msg = websocket.read();\n}"
+        },
+        {
+          "name": "websocket.isClosed",
+          "sig": "websocket.isClosed()",
+          "desc": "Return true when the connection is no longer active.",
+          "ret": "bool",
+          "example": "while (!websocket.isClosed()) {\n    websocket.send(\"tick\");\n    delay(1000);\n}"
+        },
+        {
+          "name": "websocket.onMessage",
+          "sig": "websocket.onMessage = function(msg) { ... }",
+          "desc": "Assign a callback fired inside delay(). msg = { data, timestamp, type }. Set to null to stop and leave messages in buffer.",
+          "ret": "void",
+          "example": "var last = \"\";\nwebsocket.onMessage = function(msg) {\n    last = msg.data;\n};\nwhile (!websocket.isClosed()) {\n    if (last !== \"\") {\n        websocket.send(\"Echo: \" + last);\n        last = \"\";\n    }\n    delay(100);\n}"
+        },
+        {
+          "name": "websocket.close",
+          "sig": "websocket.close()",
+          "desc": "Send a normal-closure frame and close the connection.",
+          "ret": "bool",
+          "example": "websocket.close();"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "name": "scheduler",
+      "desc": "Register and manage recurring background tasks for a webapp.",
+      "load": "requirelib(\"scheduler\");",
+      "functions": [
+        {
+          "name": "scheduler.hasPermission",
+          "sig": "scheduler.hasPermission()",
+          "desc": "Return true if the current user is allowed to create scheduled tasks.",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nif (!scheduler.hasPermission()) sendResp(\"no_permission\");"
+        },
+        {
+          "name": "scheduler.registered",
+          "sig": "scheduler.registered(taskName, appName)",
+          "desc": "Return true if the task is already registered for this user+app.",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nif (scheduler.registered(\"MyApp_Sync\", \"MyApp\")) sendResp(\"already_registered\");"
+        },
+        {
+          "name": "scheduler.register",
+          "sig": "scheduler.register(taskName, appName, intervalSecs, description, scriptName)",
+          "desc": "Register a new background task. scriptName defaults to \"cron.agi\".",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nvar ok = scheduler.register(\"MyApp_Sync\", \"MyApp\", 3600, \"Hourly sync\", \"cron.agi\");"
+        },
+        {
+          "name": "scheduler.unregister",
+          "sig": "scheduler.unregister(taskName)",
+          "desc": "Remove a registered task.",
+          "ret": "bool",
+          "example": "requirelib(\"scheduler\");\nscheduler.unregister(\"MyApp_Sync\");"
+        }
+      ]
+    },
+    {
+      "id": "ffmpeg",
+      "name": "ffmpeg",
+      "desc": "Media conversion via ffmpeg. Only available when ffmpeg is installed on the host.",
+      "load": "requirelib(\"ffmpeg\");",
+      "functions": [
+        {
+          "name": "ffmpeg.convert",
+          "sig": "ffmpeg.convert(input, output, compression)",
+          "desc": "Generic media conversion.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.convert(\"user:/in.mov\", \"user:/out.mp4\", 0);"
+        },
+        {
+          "name": "ffmpeg.videoConvert",
+          "sig": "ffmpeg.videoConvert(input, output, resolution, compressionRate, progressFile)",
+          "desc": "Convert video to the given resolution. progressFile is a virtual path for JSON progress updates.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.videoConvert(\"user:/in.mp4\", \"user:/out.mp4\", \"720p\", 55, \"tmp:/progress.json\");"
+        },
+        {
+          "name": "ffmpeg.audioConvert",
+          "sig": "ffmpeg.audioConvert(input, output, sampleRate, progressFile)",
+          "desc": "Convert audio to the given sample rate.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.audioConvert(\"user:/in.wav\", \"user:/out.mp3\", 44100, \"tmp:/audio_progress.json\");"
+        },
+        {
+          "name": "ffmpeg.imageConvert",
+          "sig": "ffmpeg.imageConvert(input, output, scaleFactor, compressionRate, progressFile)",
+          "desc": "Convert/resize an image. scaleFactor 0.5 = 50% size. progressFile is optional; it only reports 0% and 100% but makes the job cancellable.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80, \"tmp:/image_progress.json\");"
+        },
+        {
+          "name": "ffmpeg.convertWithProgress",
+          "sig": "ffmpeg.convertWithProgress(input, output, progressFile)",
+          "desc": "Convert between media types without format detection (e.g. mp4 to gif), writing JSON progress updates to progressFile.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nffmpeg.convertWithProgress(\"user:/in.mp4\", \"user:/out.gif\", \"tmp:/conv_progress.json\");"
+        },
+        {
+          "name": "ffmpeg.cancel",
+          "sig": "ffmpeg.cancel(progressFile)",
+          "desc": "Stop a running conversion, identified by the progress file it was started with. Returns true if a running conversion was terminated, false if it already finished. Call it from a separate request while the conversion request is still open.",
+          "ret": "bool",
+          "example": "requirelib(\"ffmpeg\");\nvar stopped = ffmpeg.cancel(\"tmp:/job42.progress.json\");"
+        }
+      ]
+    },
+    {
+      "id": "notification",
+      "name": "notification",
+      "desc": "Raise notifications to ArozOS users through the core notification system. The delivery channel (Telegram, desktop, email, custom webhook) is chosen by each receiving user's own notification preferences; the script only sets the priority (low / medium / high). Available when the host wired the notification system in.",
+      "load": "requirelib(\"notification\");",
+      "functions": [
+        {
+          "name": "notification.send",
+          "sig": "notification.send(title, message, priority)",
+          "desc": "Send a notification to the current user. priority is optional and one of \"low\", \"medium\" (default) or \"high\". Returns true on success.",
+          "ret": "bool",
+          "example": "requirelib(\"notification\");\nnotification.send(\"Backup done\", \"Your nightly backup finished\");\nnotification.send(\"Disk failing\", \"SMART error on /dev/sda\", notification.PRIORITY_HIGH);"
+        },
+        {
+          "name": "notification.sendToUser",
+          "sig": "notification.sendToUser(username, title, message, priority)",
+          "desc": "Send a notification to another user. Requires admin permission. priority is optional (low / medium / high). Returns true on success.",
+          "ret": "bool",
+          "example": "requirelib(\"notification\");\nnotification.sendToUser(\"bob\", \"Hi Bob\", \"A message for you\", \"low\");"
+        },
+        {
+          "name": "notification.PRIORITY_LOW / PRIORITY_MEDIUM / PRIORITY_HIGH",
+          "sig": "notification.PRIORITY_HIGH",
+          "desc": "Convenience string constants (\"low\", \"medium\", \"high\") for the priority argument.",
+          "ret": "string",
+          "example": "requirelib(\"notification\");\nnotification.send(\"Urgent\", \"Something needs attention\", notification.PRIORITY_HIGH);"
+        }
+      ]
+    },
+    {
+      "id": "git",
+      "name": "git",
+      "desc": "Version control for folders in the user's virtual file system, backed by go-git (no git binary needed on the host). Query calls return their payload directly or an object with an error field; mutating calls return {success, error, message}, plus authRequired:true when a remote rejects the credentials. HTTPS credentials are stored per user, encrypted, and keyed by remote host. Repositories must live on a local storage pool. Available when the host wired the git manager in.",
+      "load": "requirelib(\"git\");",
+      "functions": [
+        {
+          "name": "git.isRepo",
+          "sig": "git.isRepo(vpath)",
+          "desc": "Check whether vpath is inside a git working tree.",
+          "ret": "bool",
+          "example": "requirelib(\"git\");\nif (git.isRepo(\"user:/Desktop/myproject\")) {\n    console.log(\"tracked by git\");\n}"
+        },
+        {
+          "name": "git.repoRoot",
+          "sig": "git.repoRoot(vpath)",
+          "desc": "Virtual path of the working tree root containing vpath. Returns false when vpath is not in a repository.",
+          "ret": "string | false",
+          "example": "var root = git.repoRoot(\"user:/Desktop/myproject/src\");"
+        },
+        {
+          "name": "git.init",
+          "sig": "git.init(vpath)",
+          "desc": "Create an empty repository at vpath, creating the folder when it does not exist.",
+          "ret": "object",
+          "example": "var result = git.init(\"user:/Desktop/newproject\");"
+        },
+        {
+          "name": "git.clone",
+          "sig": "git.clone(url, vpath, options)",
+          "desc": "Clone a remote into vpath, which must be empty or absent. Options: username, token, remember, branch, depth.",
+          "ret": "object",
+          "example": "var result = git.clone(\"https://github.com/tobychui/arozos.git\", \"user:/Desktop/arozos\", {\n    username: \"tobychui\",\n    token: \"ghp_...\",\n    remember: true,\n    depth: 1\n});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
+        },
+        {
+          "name": "git.status",
+          "sig": "git.status(vpath)",
+          "desc": "Full repository snapshot: branch, detached, head, upstream, ahead, behind, clean, changes[], remotes[], conflicted. Each change carries path, status, staging, worktree, staged, binary, size and preview (image/pdf/video/audio, absent when the browser cannot render it).",
+          "ret": "object",
+          "example": "var status = git.status(\"user:/Desktop/myproject\");\nconsole.log(status.branch + \": \" + status.changes.length + \" changed files\");"
+        },
+        {
+          "name": "git.log",
+          "sig": "git.log(vpath, limit)",
+          "desc": "Commits reachable from HEAD, newest first (default limit 50). Each has hash, shortHash, subject, message, authorName, authorEmail, timestamp and parents. Each commit also carries a tags array of tag names pointing at it.",
+          "ret": "array",
+          "example": "var commits = git.log(\"user:/Desktop/myproject\", 10);\ncommits.forEach(function(c) {\n    console.log(c.shortHash + \" \" + c.subject);\n});"
+        },
+        {
+          "name": "git.checkoutCommit",
+          "sig": "git.checkoutCommit(vpath, hash)",
+          "desc": "Check a commit out in detached HEAD state. Refuses when the working tree has uncommitted changes.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.checkoutCommit(\"user:/Desktop/myproject\", commitHash);"
+        },
+        {
+          "name": "git.resetToCommit",
+          "sig": "git.resetToCommit(vpath, hash, mode)",
+          "desc": "Move the current branch to a commit. mode is \"soft\" (HEAD only), \"mixed\" (also the index, the default) or \"hard\" (also the working tree). A hard reset refuses when there are uncommitted changes.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.resetToCommit(\"user:/Desktop/myproject\", commitHash, \"soft\");"
+        },
+        {
+          "name": "git.createBranchAt",
+          "sig": "git.createBranchAt(vpath, branch, hash)",
+          "desc": "Create a branch pointing at a commit and check it out.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.createBranchAt(\"user:/Desktop/myproject\", \"hotfix\", commitHash);"
+        },
+        {
+          "name": "git.createTag",
+          "sig": "git.createTag(vpath, tag, hash, message)",
+          "desc": "Tag a commit. A non-empty message produces an annotated tag, otherwise a lightweight one.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.createTag(\"user:/Desktop/myproject\", \"v1.0\", commitHash, \"First release\");"
+        },
+        {
+          "name": "git.revertCommit",
+          "sig": "git.revertCommit(vpath, hash, options)",
+          "desc": "Create a new commit undoing a commit's changes. Uses a clean-or-refuse strategy: since go-git has no merge engine, the revert is applied only when the affected files still match the reverted commit, otherwise it is refused rather than producing a wrong result. options may carry name and email.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\nvar result = git.revertCommit(\"user:/Desktop/myproject\", commitHash, {});\nif (!result.success) { console.log(result.error); }"
+        },
+        {
+          "name": "git.cherryPickCommit",
+          "sig": "git.cherryPickCommit(vpath, hash, options)",
+          "desc": "Apply a commit's changes onto the current HEAD, preserving the original author. Uses the same clean-or-refuse strategy as revert. options may carry name and email for the committer.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.cherryPickCommit(\"user:/Desktop/myproject\", commitHash, {});"
+        },
+        {
+          "name": "git.amendMessage",
+          "sig": "git.amendMessage(vpath, message, options)",
+          "desc": "Rewrite the message of the HEAD commit, keeping its tree, parents and author. Only a branch tip can be amended.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.amendMessage(\"user:/Desktop/myproject\", \"Corrected commit message\", {});"
+        },
+        {
+          "name": "git.branches",
+          "sig": "git.branches(vpath)",
+          "desc": "Local and remote-tracking branches: name, fullRef, hash, isRemote, isCurrent, plus remote and short — for origin/feature/login those are \"origin\" and \"feature/login\", which is what the branch management calls expect. For a local branch short equals name and remote is empty.",
+          "ret": "array",
+          "example": "var branches = git.branches(\"user:/Desktop/myproject\");"
+        },
+        {
+          "name": "git.checkout",
+          "sig": "git.checkout(vpath, branch, create)",
+          "desc": "Switch to a branch, creating it from HEAD when create is true. Checking out a remote name such as \"origin/feature\" creates the matching local branch.",
+          "ret": "object",
+          "example": "git.checkout(\"user:/Desktop/myproject\", \"feature/login\", true);"
+        },
+        {
+          "name": "git.deleteBranch",
+          "sig": "git.deleteBranch(vpath, branch, force)",
+          "desc": "Delete a local branch. The checked-out branch is never deleted. A branch holding commits unreachable from HEAD is refused with unmerged:true unless force is set, mirroring git branch -d versus -D.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\nvar result = git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", false);\nif (result.unmerged) {\n    //confirm with the user, then force\n    git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", true);\n}"
+        },
+        {
+          "name": "git.renameBranch",
+          "sig": "git.renameBranch(vpath, oldName, newName)",
+          "desc": "Rename a local branch. Its upstream configuration moves with it, and HEAD follows when the renamed branch is the checked-out one.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.renameBranch(\"user:/Desktop/myproject\", \"feature\", \"feature-v2\");"
+        },
+        {
+          "name": "git.deleteRemoteBranch",
+          "sig": "git.deleteRemoteBranch(vpath, remote, branch, options)",
+          "desc": "Delete a branch on the remote — a network push with an empty source refspec. The local remote-tracking ref is pruned too, so the branch stops appearing in git.branches(); any local branch of the same name is left alone. Options: username, token, remember.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\nvar result = git.deleteRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"stale\", {});\nif (!result.success && result.authRequired) { /* prompt and retry */ }"
+        },
+        {
+          "name": "git.renameRemoteBranch",
+          "sig": "git.renameRemoteBranch(vpath, remote, oldName, newName, options)",
+          "desc": "Rename a branch on the remote. Git cannot rename a remote ref, so this pushes the new name then deletes the old one — in that order, so an interrupted rename leaves the branch under both names rather than losing it. Options: username, token, remember.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.renameRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"feature\", \"feature-v2\", {});"
+        },
+        {
+          "name": "git.remotes",
+          "sig": "git.remotes(vpath)",
+          "desc": "Configured remotes, each with name and urls.",
+          "ret": "array",
+          "example": "var remotes = git.remotes(\"user:/Desktop/myproject\");"
+        },
+        {
+          "name": "git.addRemote",
+          "sig": "git.addRemote(vpath, name, url)",
+          "desc": "Add a remote. Passing an existing name replaces its URL.",
+          "ret": "object",
+          "example": "git.addRemote(\"user:/Desktop/myproject\", \"origin\", \"https://github.com/owner/repo.git\");"
+        },
+        {
+          "name": "git.removeRemote",
+          "sig": "git.removeRemote(vpath, name)",
+          "desc": "Delete a remote by name.",
+          "ret": "object",
+          "example": "git.removeRemote(\"user:/Desktop/myproject\", \"upstream\");"
+        },
+        {
+          "name": "git.add",
+          "sig": "git.add(vpath, files)",
+          "desc": "Stage the given repository-relative paths. A deleted path is removed from the index.",
+          "ret": "object",
+          "example": "git.add(\"user:/Desktop/myproject\", [\"src/main.go\", \"README.md\"]);"
+        },
+        {
+          "name": "git.addAll",
+          "sig": "git.addAll(vpath)",
+          "desc": "Stage every change in the working tree, like git add -A.",
+          "ret": "object",
+          "example": "git.addAll(\"user:/Desktop/myproject\");"
+        },
+        {
+          "name": "git.unstage",
+          "sig": "git.unstage(vpath, files)",
+          "desc": "Remove paths from the index while leaving the working tree untouched.",
+          "ret": "object",
+          "example": "git.unstage(\"user:/Desktop/myproject\", [\"src/main.go\"]);"
+        },
+        {
+          "name": "git.discard",
+          "sig": "git.discard(vpath, files)",
+          "desc": "Throw away working tree changes. Untracked files are deleted, since there is nothing to restore them from.",
+          "ret": "object",
+          "example": "git.discard(\"user:/Desktop/myproject\", [\"src/broken.go\"]);"
+        },
+        {
+          "name": "git.commit",
+          "sig": "git.commit(vpath, message, files, options)",
+          "desc": "Stage files and commit them in one step. Options: name, email, all. The author defaults to the calling user, then to the repository git config. Returns {success, hash, message}.",
+          "ret": "object",
+          "example": "var result = git.commit(\"user:/Desktop/myproject\", \"Fix the parser\", [\"src/parser.go\"], {\n    name: \"Toby Chui\",\n    email: \"toby@example.com\"\n});\nconsole.log(result.hash);"
+        },
+        {
+          "name": "git.ignore",
+          "sig": "git.ignore(vpath, patterns)",
+          "desc": "Append rules to the repository's .gitignore, creating the file when absent. Rules that are already present are skipped and the existing content is never rewritten, so repeating the call is harmless. The returned message names the rules actually added.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\ngit.ignore(\"user:/Desktop/myproject\", [\"/build\", \"*.log\"]);"
+        },
+        {
+          "name": "git.diff",
+          "sig": "git.diff(vpath, file)",
+          "desc": "Diff of one path between HEAD and the working tree: additions, deletions, binary, tooLarge, isNew, isDeleted and hunks[]. Each hunk has header, oldStart/oldLines, newStart/newLines and lines[], where each line is {type, oldLine, newLine, content} and type is \"context\", \"add\" or \"del\".",
+          "ret": "object",
+          "example": "var diff = git.diff(\"user:/Desktop/myproject\", \"src/main.go\");\nconsole.log(\"+\" + diff.additions + \" -\" + diff.deletions);"
+        },
+        {
+          "name": "git.diffCommit",
+          "sig": "git.diffCommit(vpath, hash, file)",
+          "desc": "Same shape as git.diff, comparing a commit against its first parent.",
+          "ret": "object",
+          "example": "var diff = git.diffCommit(\"user:/Desktop/myproject\", commitHash, \"src/main.go\");"
+        },
+        {
+          "name": "git.commitFiles",
+          "sig": "git.commitFiles(vpath, hash)",
+          "desc": "The paths a commit touched, each with a status of added, modified or deleted, and a preview kind.",
+          "ret": "array",
+          "example": "var files = git.commitFiles(\"user:/Desktop/myproject\", commitHash);"
+        },
+        {
+          "name": "git.fileBlob",
+          "sig": "git.fileBlob(vpath, file, revision)",
+          "desc": "Read a file's content at a revision, returning {success, exists, base64, mime, kind, size}. revision is \"HEAD\" (the default) or a full 40 character commit hash; branch names and short hashes are rejected. This is the only way to obtain a committed binary file, which lives in the object database rather than on disk. exists is false without an error when the path was not part of that revision. Files above 8 MB are refused.",
+          "ret": "object",
+          "example": "requirelib(\"git\");\nvar blob = git.fileBlob(\"user:/Desktop/myproject\", \"img/logo.png\", \"HEAD\");\nif (blob.exists) {\n    //blob.base64 holds the committed image, blob.mime is \"image/png\"\n}"
+        },
+        {
+          "name": "git.fetch",
+          "sig": "git.fetch(vpath, options)",
+          "desc": "Update remote-tracking refs without touching the working tree. Options: remote, username, token, remember.",
+          "ret": "object",
+          "example": "git.fetch(\"user:/Desktop/myproject\", { remote: \"origin\" });"
+        },
+        {
+          "name": "git.pull",
+          "sig": "git.pull(vpath, options)",
+          "desc": "Fetch and fast-forward the current branch. A diverged branch is reported as an error rather than merged. Options: remote, branch, username, token, remember.",
+          "ret": "object",
+          "example": "var result = git.pull(\"user:/Desktop/myproject\", {});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
+        },
+        {
+          "name": "git.push",
+          "sig": "git.push(vpath, options)",
+          "desc": "Push a branch to a remote. Options: remote, branch, username, token, remember, force, setUpstream.",
+          "ret": "object",
+          "example": "var result = git.push(\"user:/Desktop/myproject\", { setUpstream: true });\nconsole.log(result.message);"
+        },
+        {
+          "name": "git.saveCredential",
+          "sig": "git.saveCredential(host, username, token)",
+          "desc": "Store an HTTPS credential for a host, encrypted, for the calling user only. host may be a bare host name or a full remote URL.",
+          "ret": "object",
+          "example": "git.saveCredential(\"github.com\", \"tobychui\", \"ghp_...\");"
+        },
+        {
+          "name": "git.listCredentials",
+          "sig": "git.listCredentials()",
+          "desc": "Stored credentials as {host, username}. Tokens are never returned.",
+          "ret": "array",
+          "example": "var saved = git.listCredentials();"
+        },
+        {
+          "name": "git.hasCredential",
+          "sig": "git.hasCredential(host)",
+          "desc": "Check whether a credential is stored for a host.",
+          "ret": "bool",
+          "example": "if (!git.hasCredential(\"github.com\")) {\n    //prompt the user\n}"
+        },
+        {
+          "name": "git.removeCredential",
+          "sig": "git.removeCredential(host)",
+          "desc": "Delete the stored credential for a host.",
+          "ret": "object",
+          "example": "git.removeCredential(\"github.com\");"
+        },
+        {
+          "name": "git.remoteHost",
+          "sig": "git.remoteHost(url)",
+          "desc": "The host a remote URL maps to, i.e. the key credentials are stored under. Both https://github.com/a/b.git and git@github.com:a/b.git yield github.com.",
+          "ret": "string",
+          "example": "var host = git.remoteHost(\"https://github.com/owner/repo.git\");"
+        }
+      ]
+    },
+    {
+      "id": "cluster",
+      "name": "Cluster",
+      "desc": "ArozOS cluster: nodes, namespace metadata, replica policies and event hooks. requirelib(\"cluster\"). Ordinary file access on cluster:/ works through filelib.",
+      "functions": [
+        {
+          "name": "cluster.inCluster",
+          "sig": "cluster.inCluster()",
+          "desc": "Whether this node is a member of a cluster.",
+          "ret": "bool",
+          "example": "if (!cluster.inCluster()) { sendResp(\"standalone\"); }"
+        },
+        {
+          "name": "cluster.self",
+          "sig": "cluster.self()",
+          "desc": "This node's membership record (id, name, state, capabilities, health).",
+          "ret": "object",
+          "example": "var me = cluster.self(); sendResp(me.name + \" is \" + me.state);"
+        },
+        {
+          "name": "cluster.nodes",
+          "sig": "cluster.nodes()",
+          "desc": "Every member with its computed state, platform and load.",
+          "ret": "array",
+          "example": "cluster.nodes().forEach(function(n){ console.log(n.name, n.state); });"
+        },
+        {
+          "name": "cluster.status",
+          "sig": "cluster.status()",
+          "desc": "Cluster info, identity origin, metadata leader, volumes, storage and replication status.",
+          "ret": "object",
+          "example": "var s = cluster.status(); sendJSONResp(s.replication);"
+        },
+        {
+          "name": "cluster.stat",
+          "sig": "cluster.stat(path)",
+          "desc": "Namespace record of a cluster:/ path with size, checksum and every copy's node and state. Requires read permission.",
+          "ret": "object",
+          "example": "var r = cluster.stat(\"cluster:/photos/a.jpg\"); sendResp(r.locations.length + \" copies\");"
+        },
+        {
+          "name": "cluster.list",
+          "sig": "cluster.list(path)",
+          "desc": "Records of a cluster:/ directory's children.",
+          "ret": "array",
+          "example": "cluster.list(\"cluster:/photos\").forEach(function(r){ console.log(r.path); });"
+        },
+        {
+          "name": "cluster.setReplicas",
+          "sig": "cluster.setReplicas(path, n)",
+          "desc": "Admin only. Desired copy count for one file (0 = folder policy).",
+          "ret": "bool",
+          "example": "cluster.setReplicas(\"cluster:/docs/important.pdf\", 3);"
+        },
+        {
+          "name": "cluster.policy",
+          "sig": "cluster.policy(folder, n)",
+          "desc": "Admin only. Desired copy count for a top-level folder such as \"/photos\".",
+          "ret": "bool",
+          "example": "cluster.policy(\"/photos\", 2);"
+        },
+        {
+          "name": "cluster.on",
+          "sig": "cluster.on(types, scriptVpath)",
+          "desc": "Register an AGI script that runs (as you) whenever a matching event happens anywhere in the cluster. types is a string or array, e.g. \"file.created\" or [\"file.*\", \"node.offline\"]. The script reads the event JSON with postPara(\"event\").",
+          "ret": "string (hook id)",
+          "example": "var id = cluster.on(\"file.created\", \"user:/apps/indexer/hook.agi\");"
+        },
+        {
+          "name": "cluster.off",
+          "sig": "cluster.off(hookId)",
+          "desc": "Remove one of your hooks (admins may remove any).",
+          "ret": "bool",
+          "example": "cluster.off(id);"
+        },
+        {
+          "name": "cluster.hooks",
+          "sig": "cluster.hooks()",
+          "desc": "Your registered hooks with run counts and last error.",
+          "ret": "array",
+          "example": "sendJSONResp(cluster.hooks());"
+        },
+        {
+          "name": "cluster.emit",
+          "sig": "cluster.emit(type, data)",
+          "desc": "Publish a custom event (type is prefixed with \"app.\") to every node; data must be JSON serialisable and under 64 KB.",
+          "ret": "bool",
+          "example": "cluster.emit(\"gallery.rebuilt\", {album: \"2026\"});"
+        },
+        {
+          "name": "cluster.jobs.submit",
+          "sig": "cluster.jobs.submit({name, script, args, inputs, features, nodes, timeout})",
+          "desc": "Queue a job. script is the vpath of an .agi file that defines run(job); it is captured at submit time and runs as you on whichever node fits. inputs are cluster:/ paths used to run near the data; features are required node capabilities; nodes is an optional list of node ids the job may run on.",
+          "ret": "string (job id)",
+          "example": "var id = cluster.jobs.submit({name: \"Index\", script: \"user:/jobs/index.agi\", inputs: [\"cluster:/photos\"], features: [\"ffmpeg\"]});"
+        },
+        {
+          "name": "cluster.jobs.status",
+          "sig": "cluster.jobs.status(id)",
+          "desc": "Job record with spec and state (status, node, progress, log, output).",
+          "ret": "object",
+          "example": "var s = cluster.jobs.status(id); sendResp(s.state.status);"
+        },
+        {
+          "name": "cluster.jobs.list",
+          "sig": "cluster.jobs.list()",
+          "desc": "Your jobs, newest first (all jobs for administrators).",
+          "ret": "array",
+          "example": "sendJSONResp(cluster.jobs.list());"
+        },
+        {
+          "name": "cluster.jobs.cancel",
+          "sig": "cluster.jobs.cancel(id)",
+          "desc": "Cancel a queued or running job.",
+          "ret": "bool",
+          "example": "cluster.jobs.cancel(id);"
+        },
+        {
+          "name": "cluster.jobs.wait",
+          "sig": "cluster.jobs.wait(id, timeoutSec)",
+          "desc": "Block until the job finishes (default 300 s) and return its record.",
+          "ret": "object",
+          "example": "var done = cluster.jobs.wait(id, 120); sendJSONResp(done.state.output);"
+        },
+        {
+          "name": "cluster.jobs.mapreduce",
+          "sig": "cluster.jobs.mapreduce({name, script, dataset, partitionMax, features, timeout})",
+          "desc": "Queue a map/reduce job. The script must define mapper(files, emit) and reducer(key, values). dataset is a glob over the cluster namespace (* within a folder, ** across folders, ?); its files are grouped by the node that holds them and processed there, then the emitted pairs are grouped by key and reduced. Returns the parent job id; its output is the reducer result.",
+          "ret": "string (job id)",
+          "example": "var id = cluster.jobs.mapreduce({name: \"Count types\", script: \"user:/jobs/count.agi\", dataset: \"cluster:/photos/**/*.jpg\", partitionMax: 50});"
+        }
+      ]
     }
-   ]
-  },
-  {
-   "id": "db",
-   "name": "DB",
-   "desc": "Key-value database functions, always available.",
-   "functions": [
-    {
-     "name": "newDBTableIfNotExists",
-     "sig": "newDBTableIfNotExists(tableName)",
-     "desc": "Create a database table if it does not already exist.",
-     "ret": "bool",
-     "example": "newDBTableIfNotExists(\"my_table\");"
-    },
-    {
-     "name": "DBTableExists",
-     "sig": "DBTableExists(tableName)",
-     "desc": "Return true if the table exists.",
-     "ret": "bool",
-     "example": "if (DBTableExists(\"my_table\")) sendOK();"
-    },
-    {
-     "name": "writeDBItem",
-     "sig": "writeDBItem(tableName, key, value)",
-     "desc": "Write a string value to the given key.",
-     "ret": "bool",
-     "example": "writeDBItem(\"my_table\", \"theme\", \"dark\");"
-    },
-    {
-     "name": "readDBItem",
-     "sig": "readDBItem(tableName, key)",
-     "desc": "Read a string value from the given key.",
-     "ret": "string",
-     "example": "var theme = readDBItem(\"my_table\", \"theme\");"
-    },
-    {
-     "name": "listDBTable",
-     "sig": "listDBTable(tableName)",
-     "desc": "Return all key-value pairs in the table as an object.",
-     "ret": "object",
-     "example": "var kv = listDBTable(\"my_table\");\nsendJSONResp(kv);"
-    },
-    {
-     "name": "deleteDBItem",
-     "sig": "deleteDBItem(tableName, key)",
-     "desc": "Delete a single key from the table.",
-     "ret": "bool",
-     "example": "deleteDBItem(\"my_table\", \"theme\");"
-    },
-    {
-     "name": "dropDBTable",
-     "sig": "dropDBTable(tableName)",
-     "desc": "Delete the entire table.",
-     "ret": "bool",
-     "example": "dropDBTable(\"my_table\");"
-    }
-   ]
-  },
-  {
-   "id": "user",
-   "name": "User",
-   "desc": "User management and permission functions.",
-   "functions": [
-    {
-     "name": "pathCanWrite",
-     "sig": "pathCanWrite(vpath)",
-     "desc": "Return true if the current user can write to the virtual path.",
-     "ret": "bool",
-     "example": "if (pathCanWrite(\"user:/Documents\")) sendOK();"
-    },
-    {
-     "name": "getUserPermissionGroup",
-     "sig": "getUserPermissionGroup()",
-     "desc": "Return a JSON string describing the current user's permission group.",
-     "ret": "string (JSON)",
-     "example": "var group = JSON.parse(getUserPermissionGroup());"
-    },
-    {
-     "name": "userIsAdmin",
-     "sig": "userIsAdmin()",
-     "desc": "Return true if the current user is an administrator.",
-     "ret": "bool",
-     "example": "if (!userIsAdmin()) {\n    sendResp(\"Admin only\");\n    exit();\n}"
-    },
-    {
-     "name": "userExists",
-     "sig": "userExists(username)",
-     "desc": "(Admin only) Return true if the username exists.",
-     "ret": "bool",
-     "example": "if (userExists(\"alice\")) echo(\"exists\");"
-    },
-    {
-     "name": "createUser",
-     "sig": "createUser(username, password, defaultGroup)",
-     "desc": "(Admin only) Create a new user account.",
-     "ret": "bool",
-     "example": "createUser(\"alice\", \"StrongPass\", \"default\");"
-    },
-    {
-     "name": "removeUser",
-     "sig": "removeUser(username)",
-     "desc": "(Admin only) Delete a user account.",
-     "ret": "bool",
-     "example": "removeUser(\"alice\");"
-    }
-   ]
-  },
-  {
-   "id": "filelib",
-   "name": "filelib",
-   "desc": "Virtual filesystem read, write, and metadata operations.",
-   "load": "requirelib(\"filelib\");",
-   "functions": [
-    {
-     "name": "filelib.writeFile",
-     "sig": "filelib.writeFile(vpath, content)",
-     "desc": "Write text content to a virtual path. Creates the file if it does not exist.",
-     "ret": "bool",
-     "example": "requirelib(\"filelib\");\nfilelib.writeFile(\"user:/notes.txt\", \"Hello World\");"
-    },
-    {
-     "name": "filelib.readFile",
-     "sig": "filelib.readFile(vpath)",
-     "desc": "Read text content from a virtual path.",
-     "ret": "string | false",
-     "example": "requirelib(\"filelib\");\nvar text = filelib.readFile(\"user:/notes.txt\");"
-    },
-    {
-     "name": "filelib.deleteFile",
-     "sig": "filelib.deleteFile(vpath)",
-     "desc": "Delete a file at the virtual path.",
-     "ret": "bool",
-     "example": "requirelib(\"filelib\");\nfilelib.deleteFile(\"user:/notes.txt\");"
-    },
-    {
-     "name": "filelib.walk",
-     "sig": "filelib.walk(vpath, mode)",
-     "desc": "Recursively list entries. mode: \"all\", \"file\", or \"folder\".",
-     "ret": "string[]",
-     "example": "requirelib(\"filelib\");\nvar files = filelib.walk(\"user:/\", \"file\");"
-    },
-    {
-     "name": "filelib.glob",
-     "sig": "filelib.glob(pattern, sortMode)",
-     "desc": "Glob match files. sortMode: \"default\" or user-defined sort. Does not support ** patterns.",
-     "ret": "string[]",
-     "example": "requirelib(\"filelib\");\nvar jpgs = filelib.glob(\"user:/Desktop/*.jpg\", \"default\");"
-    },
-    {
-     "name": "filelib.aglob",
-     "sig": "filelib.aglob(pattern, sortMode)",
-     "desc": "Advanced glob supporting ** recursive patterns. Cannot scan bare root dirs.",
-     "ret": "string[]",
-     "example": "requirelib(\"filelib\");\nvar pngs = filelib.aglob(\"user:/Desktop/**/*.png\", \"default\");"
-    },
-    {
-     "name": "filelib.readdir",
-     "sig": "filelib.readdir(vpath, sortMode)",
-     "desc": "List directory entries. Returns array of {Filename, Filepath, Ext, Filesize, Modtime, IsDir}.",
-     "ret": "object[]",
-     "example": "requirelib(\"filelib\");\nvar entries = filelib.readdir(\"user:/Desktop\", \"default\");\nsendJSONResp(entries);"
-    },
-    {
-     "name": "filelib.filesize",
-     "sig": "filelib.filesize(vpath)",
-     "desc": "Return file size in bytes.",
-     "ret": "number",
-     "example": "requirelib(\"filelib\");\nvar sz = filelib.filesize(\"user:/movie.mp4\");"
-    },
-    {
-     "name": "filelib.fileExists",
-     "sig": "filelib.fileExists(vpath)",
-     "desc": "Return true if the path exists as a file.",
-     "ret": "bool",
-     "example": "requirelib(\"filelib\");\nif (filelib.fileExists(\"user:/a.txt\")) sendOK();"
-    },
-    {
-     "name": "filelib.isDir",
-     "sig": "filelib.isDir(vpath)",
-     "desc": "Return true if the path is a directory.",
-     "ret": "bool",
-     "example": "requirelib(\"filelib\");\nif (filelib.isDir(\"user:/Desktop\")) sendOK();"
-    },
-    {
-     "name": "filelib.mkdir",
-     "sig": "filelib.mkdir(vpath)",
-     "desc": "Create a directory (and parents) at the virtual path.",
-     "ret": "bool",
-     "example": "requirelib(\"filelib\");\nfilelib.mkdir(\"user:/newfolder\");"
-    },
-    {
-     "name": "filelib.md5",
-     "sig": "filelib.md5(vpath)",
-     "desc": "Return the MD5 hash string of a file.",
-     "ret": "string",
-     "example": "requirelib(\"filelib\");\nvar hash = filelib.md5(\"user:/a.txt\");"
-    },
-    {
-     "name": "filelib.mtime",
-     "sig": "filelib.mtime(vpath, parseToUnix)",
-     "desc": "Return file modification time. parseToUnix=true returns a Unix timestamp; otherwise a formatted string.",
-     "ret": "number | string",
-     "example": "requirelib(\"filelib\");\nvar ts = filelib.mtime(\"user:/a.txt\", true);"
-    },
-    {
-     "name": "filelib.rootName",
-     "sig": "filelib.rootName(vpath)",
-     "desc": "Return the display name of the storage root that owns this path.",
-     "ret": "string",
-     "example": "requirelib(\"filelib\");\nvar root = filelib.rootName(\"user:/Desktop/a.txt\");"
-    }
-   ]
-  },
-  {
-   "id": "imagelib",
-   "name": "imagelib",
-   "desc": "Image dimension, resize, crop, and EXIF operations.",
-   "load": "requirelib(\"imagelib\");",
-   "functions": [
-    {
-     "name": "imagelib.getImageDimension",
-     "sig": "imagelib.getImageDimension(vpath)",
-     "desc": "Return [width, height] of the image.",
-     "ret": "[number, number]",
-     "example": "requirelib(\"imagelib\");\nvar dim = imagelib.getImageDimension(\"user:/img.jpg\");"
-    },
-    {
-     "name": "imagelib.resizeImage",
-     "sig": "imagelib.resizeImage(src, dest, width, height)",
-     "desc": "Resize an image and save to dest.",
-     "ret": "bool",
-     "example": "requirelib(\"imagelib\");\nimagelib.resizeImage(\"user:/img.jpg\", \"user:/img_small.jpg\", 800, 600);"
-    },
-    {
-     "name": "imagelib.resizeImageBase64",
-     "sig": "imagelib.resizeImageBase64(src, width, height, format)",
-     "desc": "Resize an image and return it as a base64 data URL. format: \"jpeg\", \"png\".",
-     "ret": "string (data URL)",
-     "example": "requirelib(\"imagelib\");\nvar b64 = imagelib.resizeImageBase64(\"user:/img.jpg\", 320, 240, \"jpeg\");"
-    },
-    {
-     "name": "imagelib.cropImage",
-     "sig": "imagelib.cropImage(src, dest, x, y, width, height)",
-     "desc": "Crop a region from an image and save to dest.",
-     "ret": "bool",
-     "example": "requirelib(\"imagelib\");\nimagelib.cropImage(\"user:/img.jpg\", \"user:/crop.jpg\", 10, 10, 200, 200);"
-    },
-    {
-     "name": "imagelib.loadThumbString",
-     "sig": "imagelib.loadThumbString(vpath)",
-     "desc": "Return the cached thumbnail as a base64 string.",
-     "ret": "string",
-     "example": "requirelib(\"imagelib\");\nvar thumb = imagelib.loadThumbString(\"user:/img.jpg\");"
-    },
-    {
-     "name": "imagelib.hasExif",
-     "sig": "imagelib.hasExif(vpath)",
-     "desc": "Return true if the image has EXIF metadata.",
-     "ret": "bool",
-     "example": "requirelib(\"imagelib\");\nif (imagelib.hasExif(\"user:/img.jpg\")) echo(\"has exif\");"
-    },
-    {
-     "name": "imagelib.getExif",
-     "sig": "imagelib.getExif(vpath)",
-     "desc": "Return EXIF data as a JSON string.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"imagelib\");\nvar exif = JSON.parse(imagelib.getExif(\"user:/img.jpg\"));"
-    }
-   ]
-  },
-  {
-   "id": "http",
-   "name": "http",
-   "desc": "Outbound HTTP request helpers.",
-   "load": "requirelib(\"http\");",
-   "functions": [
-    {
-     "name": "http.request",
-     "sig": "http.request(options)",
-     "desc": "Curl-like request. options: {url, method, headers, body, json, form, bodyBase64, contentType, username, password, timeout, followRedirect, responseType}. Returns a response object {ok, status, statusText, headers, body, error}. Body precedence: bodyBase64 > form > json > body; responseType 'base64' returns a binary body base64 encoded.",
-     "ret": "object",
-     "example": "requirelib(\"http\");\nvar resp = http.request({url:\"https://example.com/api\", method:\"POST\", headers:{\"Authorization\":\"Bearer x\"}, json:{a:1}});\nif (resp.ok){ console.log(resp.status, resp.body); }"
-    },
-    {
-     "name": "http.get",
-     "sig": "http.get(url, headers)",
-     "desc": "Perform an HTTP GET and return the response body as a string. headers is optional.",
-     "ret": "string",
-     "example": "requirelib(\"http\");\nvar body = http.get(\"https://example.com/api\");"
-    },
-    {
-     "name": "http.post",
-     "sig": "http.post(url, body, headers, contentType)",
-     "desc": "Perform an HTTP POST and return the response body. Without headers/contentType the body is sent as JSON (backward compatible).",
-     "ret": "string",
-     "example": "requirelib(\"http\");\nvar resp = http.post(\"https://example.com/api\", JSON.stringify({a:1}));"
-    },
-    {
-     "name": "http.put / http.patch / http.delete",
-     "sig": "http.put(url, body, headers, contentType)",
-     "desc": "Method helpers built on http.request; each returns the response object. http.delete(url, headers) sends no body.",
-     "ret": "object",
-     "example": "requirelib(\"http\");\nvar resp = http.put(\"https://example.com/api/1\", JSON.stringify({a:1}), {\"Content-Type\":\"application/json\"});"
-    },
-    {
-     "name": "http.postForm / http.postJSON",
-     "sig": "http.postForm(url, formObject, headers)",
-     "desc": "POST helpers built on http.request. postForm sends application/x-www-form-urlencoded; postJSON sends a JSON body. Both return the response object.",
-     "ret": "object",
-     "example": "requirelib(\"http\");\nvar resp = http.postForm(\"https://example.com/api\", {a:1, b:2});"
-    },
-    {
-     "name": "http.head",
-     "sig": "http.head(url, headerKey)",
-     "desc": "Fetch response headers. Without headerKey returns all headers as JSON; with headerKey returns just that header.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"http\");\nvar headers = JSON.parse(http.head(\"https://example.com\"));"
-    },
-    {
-     "name": "http.getCode",
-     "sig": "http.getCode(url)",
-     "desc": "Return the HTTP status code for the URL.",
-     "ret": "number",
-     "example": "requirelib(\"http\");\nvar code = http.getCode(\"https://example.com\");"
-    },
-    {
-     "name": "http.download",
-     "sig": "http.download(url, destDirVpath, filenameOptional)",
-     "desc": "Download a URL into the destination virtual directory.",
-     "ret": "bool",
-     "example": "requirelib(\"http\");\nhttp.download(\"https://example.com/a.zip\", \"user:/Downloads\", \"a.zip\");"
-    },
-    {
-     "name": "http.getb64",
-     "sig": "http.getb64(url)",
-     "desc": "Fetch a URL and return the raw bytes as a base64 string.",
-     "ret": "string",
-     "example": "requirelib(\"http\");\nvar raw = http.getb64(\"https://example.com/logo.png\");"
-    },
-    {
-     "name": "http.redirect",
-     "sig": "http.redirect(targetUrl, statusCode)",
-     "desc": "Redirect the client. Default statusCode is 307.",
-     "ret": "void",
-     "example": "requirelib(\"http\");\nhttp.redirect(\"https://example.com/new\", 302);"
-    }
-   ]
-  },
-  {
-   "id": "share",
-   "name": "share",
-   "desc": "Create and manage public file share links.",
-   "load": "requirelib(\"share\");",
-   "functions": [
-    {
-     "name": "share.shareFile",
-     "sig": "share.shareFile(vpath, timeoutSec)",
-     "desc": "Create a public share link. timeoutSec=0 means no expiry. Returns the share UUID.",
-     "ret": "string (uuid)",
-     "example": "requirelib(\"share\");\nvar uuid = share.shareFile(\"user:/report.pdf\", 3600);"
-    },
-    {
-     "name": "share.removeShare",
-     "sig": "share.removeShare(shareUUID)",
-     "desc": "Remove an existing share link.",
-     "ret": "bool",
-     "example": "requirelib(\"share\");\nshare.removeShare(uuid);"
-    },
-    {
-     "name": "share.checkShareExists",
-     "sig": "share.checkShareExists(shareUUID)",
-     "desc": "Return true if the share UUID is still valid.",
-     "ret": "bool",
-     "example": "requirelib(\"share\");\nif (share.checkShareExists(uuid)) sendOK();"
-    },
-    {
-     "name": "share.fileIsShared",
-     "sig": "share.fileIsShared(vpath)",
-     "desc": "Return true if the file already has an active share link.",
-     "ret": "bool",
-     "example": "requirelib(\"share\");\nif (share.fileIsShared(\"user:/report.pdf\")) sendOK();"
-    },
-    {
-     "name": "share.getFileShareUUID",
-     "sig": "share.getFileShareUUID(vpath)",
-     "desc": "Return the share UUID for the given file, or false if not shared.",
-     "ret": "string | false",
-     "example": "requirelib(\"share\");\nvar sid = share.getFileShareUUID(\"user:/report.pdf\");"
-    }
-   ]
-  },
-  {
-   "id": "appdata",
-   "name": "appdata",
-   "desc": "Read-only access to web-root application data files.",
-   "load": "requirelib(\"appdata\");",
-   "functions": [
-    {
-     "name": "appdata.readFile",
-     "sig": "appdata.readFile(relativePathFromWebRoot)",
-     "desc": "Read a file relative to ./web/. Returns false on error.",
-     "ret": "string | false",
-     "example": "requirelib(\"appdata\");\nvar conf = appdata.readFile(\"MyApp/config.json\");"
-    },
-    {
-     "name": "appdata.listDir",
-     "sig": "appdata.listDir(relativeDirFromWebRoot)",
-     "desc": "List files in a directory relative to ./web/. Returns an array of relative paths.",
-     "ret": "string[]",
-     "example": "requirelib(\"appdata\");\nvar files = appdata.listDir(\"MyApp\");\nsendJSONResp(files);"
-    },
-    {
-     "name": "appdata.getModuleList",
-     "sig": "appdata.getModuleList()",
-     "desc": "Return an array of registered module objects.",
-     "ret": "object[]",
-     "example": "requirelib(\"appdata\");\nvar mods = appdata.getModuleList();"
-    }
-   ]
-  },
-  {
-   "id": "sysinfo",
-   "name": "sysinfo",
-   "desc": "Real-time system resource information.",
-   "load": "requirelib(\"sysinfo\");",
-   "functions": [
-    {
-     "name": "sysinfo.getCPUUsage",
-     "sig": "sysinfo.getCPUUsage()",
-     "desc": "Return CPU usage as a percentage (0–100).",
-     "ret": "number",
-     "example": "requirelib(\"sysinfo\");\nvar cpu = sysinfo.getCPUUsage();"
-    },
-    {
-     "name": "sysinfo.getRAMUsage",
-     "sig": "sysinfo.getRAMUsage()",
-     "desc": "Return {used, total, percent} memory statistics.",
-     "ret": "object",
-     "example": "requirelib(\"sysinfo\");\nvar ram = sysinfo.getRAMUsage();\nsendJSONResp(ram);"
-    },
-    {
-     "name": "sysinfo.getNetworkUsage",
-     "sig": "sysinfo.getNetworkUsage()",
-     "desc": "Return {rxRate, txRate, rxTotal, txTotal} in bytes/bytes-per-second.",
-     "ret": "object",
-     "example": "requirelib(\"sysinfo\");\nvar net = sysinfo.getNetworkUsage();"
-    },
-    {
-     "name": "sysinfo.getDiskInfo",
-     "sig": "sysinfo.getDiskInfo()",
-     "desc": "Return an array of logical disk info objects.",
-     "ret": "object[]",
-     "example": "requirelib(\"sysinfo\");\nvar disks = sysinfo.getDiskInfo();\nsendJSONResp(disks);"
-    }
-   ]
-  },
-  {
-   "id": "ziplib",
-   "name": "ziplib",
-   "desc": "Archive creation and extraction (zip, tar, tar.gz, gz).",
-   "load": "requirelib(\"ziplib\");",
-   "functions": [
-    {
-     "name": "ziplib.extractZipFile",
-     "sig": "ziplib.extractZipFile(src, destDir)",
-     "desc": "Extract a ZIP archive into destDir.",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nziplib.extractZipFile(\"user:/a.zip\", \"user:/out/\");"
-    },
-    {
-     "name": "ziplib.createZipFile",
-     "sig": "ziplib.createZipFile(sourcesArrayOrString, outputZip)",
-     "desc": "Create a ZIP archive from one or more source paths.",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nziplib.createZipFile([\"user:/a.txt\", \"user:/b.txt\"], \"user:/bundle.zip\");"
-    },
-    {
-     "name": "ziplib.extractAnyFile",
-     "sig": "ziplib.extractAnyFile(srcArchive, destDir)",
-     "desc": "Auto-detect archive format and extract into destDir.",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nziplib.extractAnyFile(\"user:/archive.tar.gz\", \"user:/out/\");"
-    },
-    {
-     "name": "ziplib.createAnyZipFile",
-     "sig": "ziplib.createAnyZipFile(sourcesArrayOrString, outputPath, format)",
-     "desc": "Create an archive in any supported format. format: \"zip\", \"tar\", \"tar.gz\", \"gz\".",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nziplib.createAnyZipFile([\"user:/folder\"], \"user:/bundle.tar.gz\", \"tar.gz\");"
-    },
-    {
-     "name": "ziplib.isValidZipFile",
-     "sig": "ziplib.isValidZipFile(vpath)",
-     "desc": "Return true if the file is a recognisable archive.",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nvar ok = ziplib.isValidZipFile(\"user:/a.zip\");"
-    },
-    {
-     "name": "ziplib.listZipFileContents",
-     "sig": "ziplib.listZipFileContents(zipPath)",
-     "desc": "Return a JSON tree string of the archive's contents.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.listZipFileContents(\"user:/a.zip\"));"
-    },
-    {
-     "name": "ziplib.getFileFromZip",
-     "sig": "ziplib.getFileFromZip(zipPath, filePathInZip)",
-     "desc": "Extract one file to tmp:/ and return its virtual path.",
-     "ret": "string (vpath)",
-     "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFromZip(\"user:/a.zip\", \"docs/readme.txt\");"
-    },
-    {
-     "name": "ziplib.extract7zFile",
-     "sig": "ziplib.extract7zFile(src, destDir)",
-     "desc": "Extract all files from a 7z archive into destDir.",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nziplib.extract7zFile(\"user:/archive.7z\", \"user:/out/\");"
-    },
-    {
-     "name": "ziplib.list7zFileDir",
-     "sig": "ziplib.list7zFileDir(src, dirPathIn7z)",
-     "desc": "List immediate children of a directory inside a 7z archive. Directories are returned with a trailing /.",
-     "ret": "string[]",
-     "example": "requirelib(\"ziplib\");\nvar items = ziplib.list7zFileDir(\"user:/archive.7z\", \"docs\");"
-    },
-    {
-     "name": "ziplib.list7zFileContents",
-     "sig": "ziplib.list7zFileContents(src)",
-     "desc": "Return the full contents of a 7z archive as a JSON tree string (same schema as listZipFileContents).",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"ziplib\");\nvar tree = JSON.parse(ziplib.list7zFileContents(\"user:/archive.7z\"));"
-    },
-    {
-     "name": "ziplib.getFileFrom7z",
-     "sig": "ziplib.getFileFrom7z(src, filePathIn7z)",
-     "desc": "Extract a single file from a 7z archive to tmp:/ and return its virtual path.",
-     "ret": "string (vpath)",
-     "example": "requirelib(\"ziplib\");\nvar tmp = ziplib.getFileFrom7z(\"user:/archive.7z\", \"docs/readme.txt\");"
-    },
-    {
-     "name": "ziplib.extractPartial7z",
-     "sig": "ziplib.extractPartial7z(src, paths, destDir)",
-     "desc": "Extract selected files/folders from a 7z archive. paths is a JS array or JSON array string. Folder paths strip their parent prefix; file paths are placed flat in destDir.",
-     "ret": "bool",
-     "example": "requirelib(\"ziplib\");\nziplib.extractPartial7z(\"user:/archive.7z\", [\"docs/\", \"README.md\"], \"user:/out/\");"
-    },
-    {
-     "name": "ziplib.get7zFileInfo",
-     "sig": "ziplib.get7zFileInfo(src)",
-     "desc": "Return metadata about a 7z archive: { fileCount, dirCount, totalUncompressedSize, totalCompressedSize }. totalCompressedSize is always 0 (solid compression).",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"ziplib\");\nvar info = JSON.parse(ziplib.get7zFileInfo(\"user:/archive.7z\"));\nconsole.log(info.fileCount + \" files\");"
-    }
-   ]
-  },
-  {
-   "id": "sqlite",
-   "name": "sqlite",
-   "desc": "SQLite database access for scripts. Not available on linux/mipsle or windows/arm/386.",
-   "load": "requirelib(\"sqlite\");",
-   "functions": [
-    {
-     "name": "sqlite.open",
-     "sig": "sqlite.open(vpath)",
-     "desc": "Open or create a SQLite database at the virtual path. Returns a connection object with exec, query, queryRow, tables, schema, transaction, and close methods. Throws SQLiteError on failure. Databases open in WAL mode with a 5s busy timeout, so concurrent requests queue for the write lock instead of failing. Any handle still open when the script ends (including on error or exit) is closed automatically.",
-     "ret": "object (db)",
-     "example": "requirelib(\"sqlite\");\nvar db = sqlite.open(\"user:/.appdata/myapp/data.sqlite\");\ndb.exec(\"CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, name TEXT)\");\ndb.close();"
-    },
-    {
-     "name": "db.exec",
-     "sig": "db.exec(sql, params)",
-     "desc": "Execute a non-SELECT statement. params is an optional JS array of bound values. Returns { lastInsertId, rowsAffected }.",
-     "ret": "object",
-     "example": "db.exec(\"INSERT INTO t (name) VALUES (?)\", [\"Alice\"]);"
-    },
-    {
-     "name": "db.query",
-     "sig": "db.query(sql, params)",
-     "desc": "Execute a SELECT and return all matching rows as an array of plain objects.",
-     "ret": "object[]",
-     "example": "var rows = db.query(\"SELECT * FROM t WHERE id > ?\", [0]);\nrows.forEach(function(r) { console.log(r.id, r.name); });"
-    },
-    {
-     "name": "db.queryRow",
-     "sig": "db.queryRow(sql, params)",
-     "desc": "Like db.query() but returns only the first row object, or null if no rows matched.",
-     "ret": "object | null",
-     "example": "var row = db.queryRow(\"SELECT * FROM t WHERE id = ?\", [1]);\nif (row) sendJSONResp(row);"
-    },
-    {
-     "name": "db.tables",
-     "sig": "db.tables()",
-     "desc": "Return the names of all user-created tables in the database.",
-     "ret": "string[]",
-     "example": "var tables = db.tables();\nsendJSONResp(tables);"
-    },
-    {
-     "name": "db.schema",
-     "sig": "db.schema(tableName)",
-     "desc": "Return column metadata for a table as an array of { cid, name, type, notnull, dflt_value, pk } objects (from PRAGMA table_info).",
-     "ret": "object[]",
-     "example": "var cols = db.schema(\"t\");\nsendJSONResp(cols);"
-    },
-    {
-     "name": "db.transaction",
-     "sig": "db.transaction(fn)",
-     "desc": "Run fn inside a single write transaction, committing when it returns and rolling back if it throws. fn receives the connection object and its return value is passed through. Use this for bulk writes: it collapses N lock cycles and N fsyncs into one. Opens with BEGIN IMMEDIATE so the busy timeout applies to acquiring the lock. Cannot be nested.",
-     "ret": "any",
-     "example": "db.transaction(function(tx) {\n    for (var i = 0; i < items.length; i++) {\n        tx.exec(\"INSERT INTO t (name) VALUES (?)\", [items[i]]);\n    }\n});"
-    },
-    {
-     "name": "db.close",
-     "sig": "db.close()",
-     "desc": "Close the database connection and release the handle. Optional - handles are also closed automatically when the script ends.",
-     "ret": "bool",
-     "example": "db.close();"
-    }
-   ]
-  },
-  {
-   "id": "llm",
-   "name": "llm",
-   "desc": "Call any OpenAI-compatible or Anthropic LLM endpoint. Endpoint, API key, default model, pricing, and usage quota are configured in System Settings > AI Integration > AI Model.",
-   "load": "requirelib(\"llm\");",
-   "functions": [
-    {
-     "name": "llm.chat",
-     "sig": "llm.chat(prompt, options)",
-     "desc": "Send a single-turn text prompt and return the assistant reply string. options is optional (see llm options).",
-     "ret": "string",
-     "example": "requirelib(\"llm\");\nvar reply = llm.chat(\"What is 2 + 2?\");\nsendResp(reply);"
-    },
-    {
-     "name": "llm.chatWithFile",
-     "sig": "llm.chatWithFile(prompt, files, options)",
-     "desc": "Like llm.chat() but attaches virtual-path files. Images become vision parts; text files are inlined. files may be a single vpath string or an array.",
-     "ret": "string",
-     "example": "requirelib(\"llm\");\nvar reply = llm.chatWithFile(\n    \"Describe this image.\",\n    \"user:/Photos/holiday.jpg\"\n);\nsendResp(reply);"
-    },
-    {
-     "name": "llm.request",
-     "sig": "llm.request(messages, options)",
-     "desc": "Low-level call with a full OpenAI-style messages array. Returns the raw response object including choices and usage. When the model exposes chain-of-thought, choices[0].message.reasoning_content holds its thinking text (DeepSeek reasoning_content, OpenRouter reasoning, or Anthropic thinking blocks).",
-     "ret": "object",
-     "example": "requirelib(\"llm\");\nvar resp = llm.request([\n    { role: \"system\", content: \"You are helpful.\" },\n    { role: \"user\",   content: \"Hi!\" }\n]);\nsendResp(resp.choices[0].message.content);"
-    },
-    {
-     "name": "llm.streamRequest",
-     "sig": "llm.streamRequest(messages, options, onDelta)",
-     "desc": "Streaming version of llm.request(). onDelta({content, reasoning}) fires for each incremental chunk as the model generates it (content = new answer text, reasoning = new thinking text); the assembled response with usage is returned when the stream ends. Safe to relay chunks straight to a browser via websocket.send().",
-     "ret": "object",
-     "example": "requirelib(\"llm\");\nrequirelib(\"websocket\");\nwebsocket.upgrade(300);\nvar resp = llm.streamRequest([{ role: \"user\", content: \"Explain gravity\" }], {}, function(d){\n    if (d.reasoning != \"\") websocket.send(JSON.stringify({ type: \"reasoning\", content: d.reasoning }));\n    if (d.content != \"\") websocket.send(JSON.stringify({ type: \"delta\", content: d.content }));\n});\nwebsocket.send(JSON.stringify({ type: \"done\", usage: resp.usage }));"
-    },
-    {
-     "name": "llm.usage",
-     "sig": "llm.usage()",
-     "desc": "Return accumulated token/cost metrics: { totalTokens, totalCost, totalRequests, perModel, currency, ... }.",
-     "ret": "object",
-     "example": "requirelib(\"llm\");\nvar u = llm.usage();\nsendJSONResp(u);"
-    },
-    {
-     "name": "llm.models",
-     "sig": "llm.models()",
-     "desc": "Return the configured default model and list of models with pricing entries: { default, models }.",
-     "ret": "object",
-     "example": "requirelib(\"llm\");\nvar m = llm.models();\nsendJSONResp(m);"
-    },
-    {
-     "name": "llm.listModels",
-     "sig": "llm.listModels()",
-     "desc": "Query the live endpoint for available models (no tokens consumed). Returns { models: [...] }.",
-     "ret": "object",
-     "example": "requirelib(\"llm\");\nvar m = llm.listModels();\nsendJSONResp(m.models);"
-    },
-    {
-     "name": "llm.fileParts",
-     "sig": "llm.fileParts(files)",
-     "desc": "Convert virtual-path file(s) into OpenAI-style content parts for use in llm.request(). Images → image_url data URIs; text files → text parts.",
-     "ret": "object[]",
-     "example": "requirelib(\"llm\");\nvar parts = llm.fileParts([\"user:/report.txt\"]);\nvar resp = llm.request([{ role: \"user\", content: parts }]);\nsendResp(resp.choices[0].message.content);"
-    }
-   ]
-  },
-  {
-   "id": "cnn",
-   "name": "cnn",
-   "desc": "Run image/face vision inference (classification, detection, segmentation, pose, oriented detection, face analysis) against an external CXNNAIO server. Endpoint, token and timeout are configured in System Settings > AI Integration > CNN Inference.",
-   "load": "requirelib(\"cnn\");",
-   "functions": [
-    {
-     "name": "cnn.classify",
-     "sig": "cnn.classify(file, options)",
-     "desc": "Classify an image (default model mobilenet-v2). file is a virtual path. Returns the server's image.classification envelope.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.classify(\"user:/cat.jpg\", { top_k: 3 });\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.detect",
-     "sig": "cnn.detect(file, options)",
-     "desc": "Run object detection (default model yolo11n). Returns the server's image.detection envelope; set options.render to also get an annotated PNG in rendered_image.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.detect(\"user:/street.jpg\", { score_threshold: 0.3 });\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.segment",
-     "sig": "cnn.segment(file, options)",
-     "desc": "Run instance segmentation (yolo11n-seg). Each item carries a per-instance, box-cropped base64 PNG mask.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.segment(\"user:/photo.jpg\", {});\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.pose",
-     "sig": "cnn.pose(file, options)",
-     "desc": "Run pose estimation (yolo11n-pose), 17 COCO keypoints per detected person.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.pose(\"user:/photo.jpg\", {});\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.oriented",
-     "sig": "cnn.oriented(file, options)",
-     "desc": "Run oriented/rotated-box detection (yolo11n-obb), intended for aerial/top-down imagery.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.oriented(\"user:/aerial.jpg\", {});\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.faceDetect",
-     "sig": "cnn.faceDetect(file, options)",
-     "desc": "Detect faces (default model ultraface-rfb-320). Returns the server's face.detection envelope.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.faceDetect(\"user:/group.jpg\", {});\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.faceLandmarks",
-     "sig": "cnn.faceLandmarks(file, options)",
-     "desc": "Detect 98-point facial landmarks (pfld). Set options.cropped to treat the whole input as one face crop instead of detecting faces first.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.faceLandmarks(\"user:/face.jpg\", { cropped: true });\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.faceEmbedding",
-     "sig": "cnn.faceEmbedding(file, options)",
-     "desc": "Return an L2-normalized 128-d embedding vector per face (mbv2facenet).",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.faceEmbedding(\"user:/face.jpg\", {});\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.faceAttributes",
-     "sig": "cnn.faceAttributes(file, options)",
-     "desc": "Return gender attributes per face (gender-mbv2-0.35). Calls the server's /v1/faces/gender route; response object is face.gender.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.faceAttributes(\"user:/face.jpg\", {});\nsendJSONResp(r.data);"
-    },
-    {
-     "name": "cnn.faceCompare",
-     "sig": "cnn.faceCompare(fileA, fileB, options)",
-     "desc": "Compare two face photos/crops and return their cosine similarity. options: { model, threshold, a_cropped, b_cropped }. No async variant.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.faceCompare(\"user:/a.jpg\", \"user:/b.jpg\", { threshold: 0.5 });\nsendResp(r.same ? \"same\" : \"different\");"
-    },
-    {
-     "name": "cnn.analyze",
-     "sig": "cnn.analyze(file, tasks, options)",
-     "desc": "Run several tasks over one image in a single round trip. tasks is an array (classify/detect/segment/pose/oriented/faces/landmarks/attributes); options carries top-level render/async plus per-task blocks keyed by task name.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar r = cnn.analyze(\"user:/group.jpg\", [\"detect\", \"faces\"], { render: true });\nsendJSONResp(r.results);"
-    },
-    {
-     "name": "cnn.job",
-     "sig": "cnn.job(id)",
-     "desc": "Poll an async job submitted with options.async = true. Returns { id, object, status, created, result, error }; status is queued, running, succeeded or failed.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nvar job = cnn.detect(\"user:/big.jpg\", { async: true });\nwhile (job.status === \"queued\" || job.status === \"running\") {\n    delay(500);\n    job = cnn.job(job.id);\n}\nsendJSONResp(job.result);"
-    },
-    {
-     "name": "cnn.models",
-     "sig": "cnn.models()",
-     "desc": "Return the live model registry from the configured server: { object, data: [{ id, object, task, classes, input }, ...] }.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nsendJSONResp(cnn.models());"
-    },
-    {
-     "name": "cnn.health",
-     "sig": "cnn.health()",
-     "desc": "Return live server health: { status, version, models_loaded, sessions, uptime_s }.",
-     "ret": "object",
-     "example": "requirelib(\"cnn\");\nsendJSONResp(cnn.health());"
-    }
-   ]
-  },
-  {
-   "id": "office",
-   "name": "office",
-   "desc": "ArozOS Office suite document converters (.pptx, .xlsx and .docx import/export). Backed by mod/office.",
-   "load": "requirelib(\"office\");",
-   "functions": [
-    {
-     "name": "office.pptxToPresentation",
-     "sig": "office.pptxToPresentation(srcVpath)",
-     "desc": "Parse a .pptx file into the Slides document body schema (see Office/common/CONTRACT.md). Returns the body as a JSON string; embedded pictures are inlined as data: URLs. Throws on failure.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar bodyJson = office.pptxToPresentation(\"user:/Desktop/deck.pptx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
-    },
-    {
-     "name": "office.presentationToPptx",
-     "sig": "office.presentationToPptx(bodyJson, destVpath)",
-     "desc": "Build a .pptx from a serialized Slides body JSON string and write it to destVpath. Image objects must be data: URLs; chart objects should carry a client-rendered PNG in props.png. Video/audio are not embedded: each renders as its poster frame and the media files are packed into a sidecar zip next to the pptx. Returns true, or the sidecar zip vpath (string) when one was written.",
-     "ret": "bool | string",
-     "example": "requirelib(\"office\");\nvar r = office.presentationToPptx(data, \"user:/Desktop/out.pptx\");\nif (r){ sendResp(\"OK\"); }"
-    },
-    {
-     "name": "office.xlsxToWorkbook",
-     "sig": "office.xlsxToWorkbook(srcVpath)",
-     "desc": "Parse a .xlsx file into the Sheets document body schema. Returns the body as a JSON string. Values, formulas, styles, number formats, merges and frozen panes are converted; charts are skipped. Legacy binary .xls is rejected.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar bodyJson = office.xlsxToWorkbook(\"user:/Desktop/report.xlsx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
-    },
-    {
-     "name": "office.workbookToXlsx",
-     "sig": "office.workbookToXlsx(bodyJson, destVpath)",
-     "desc": "Build a .xlsx from a serialized Sheets body JSON string and write it to destVpath. Formulas are written natively so Excel recalculates them. Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"office\");\nif (office.workbookToXlsx(data, \"user:/Desktop/out.xlsx\")){\n    sendResp(\"OK\");\n}"
-    },
-    {
-     "name": "office.docxToDocument",
-     "sig": "office.docxToDocument(srcVpath)",
-     "desc": "Parse a .docx file into the Docs document body schema. Returns the body as a JSON string. Paragraphs, headings, inline formatting, links, lists, tables, images, header/footer and page setup are converted. Legacy binary .doc is rejected.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar bodyJson = office.docxToDocument(\"user:/Desktop/report.docx\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
-    },
-    {
-     "name": "office.documentToDocx",
-     "sig": "office.documentToDocx(bodyJson, destVpath)",
-     "desc": "Build a .docx from a serialized Docs body JSON string and write it to destVpath. Images must be data: URLs. Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"office\");\nif (office.documentToDocx(data, \"user:/Desktop/out.docx\")){\n    sendResp(\"OK\");\n}"
-    },
-    {
-     "name": "office.packToFile",
-     "sig": "office.packToFile(envelopeJson, destVpath)",
-     "desc": "Write an Office suite native file (.doca/.xlsa/.ppta) as a zip container: document.json plus deduplicated binary assets. Media data URLs and legacy media?file= links inside the envelope become embedded assets, making the file portable. Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"office\");\nif (office.packToFile(content, \"user:/Documents/report.doca\")){\n    sendResp(\"OK\");\n}"
-    },
-    {
-     "name": "office.unpackFromFile",
-     "sig": "office.unpackFromFile(srcVpath)",
-     "desc": "Read a native Office suite file and return its envelope JSON string with embedded assets re-inlined as data URLs. Legacy plain-JSON documents pass through unchanged.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar envelope = office.unpackFromFile(\"user:/Documents/report.doca\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
-    },
-    {
-     "name": "office.unpackToWorkdir",
-     "sig": "office.unpackToWorkdir(srcVpath, workdirBase)",
-     "desc": "Read a native Office suite container and return its envelope JSON with binary assets extracted into <workdirBase>/<doc-hash>/ and referenced by media?file= links (keeps the JSON small even for video-heavy documents). Legacy plain-JSON files pass through unchanged.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar envelope = office.unpackToWorkdir(\"user:/Documents/deck.ppta\", \"user:/.appdata/Office/cache\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
-    },
-    {
-     "name": "office.odtToDocument",
-     "sig": "office.odtToDocument(srcVpath)",
-     "desc": "Read an OpenDocument Text (.odt) file and return the Docs body schema as a JSON string (formatting, links, lists, tables, pictures as data URLs, page geometry, header/footer, page breaks).",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar bodyJson = office.odtToDocument(\"user:/Documents/notes.odt\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
-    },
-    {
-     "name": "office.documentToOdt",
-     "sig": "office.documentToOdt(jsonStr, destVpath)",
-     "desc": "Build an OpenDocument Text (.odt) file from a serialized Docs body JSON and write it to destVpath. Same subset as the docx exporter.",
-     "ret": "boolean",
-     "example": "requirelib(\"office\");\nvar ok = office.documentToOdt(data, \"user:/Documents/notes.odt\");\nsendResp(ok ? \"OK\" : \"failed\");"
-    },
-    {
-     "name": "office.odsToWorkbook",
-     "sig": "office.odsToWorkbook(srcVpath)",
-     "desc": "Read an OpenDocument Spreadsheet (.ods) and return the Sheets body schema as a JSON string. ODF of:= formulas are translated back to plain A1 references; styles, widths, merges and cell notes are kept.",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar bodyJson = office.odsToWorkbook(\"user:/Documents/report.ods\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
-    },
-    {
-     "name": "office.workbookToOds",
-     "sig": "office.workbookToOds(jsonStr, destVpath)",
-     "desc": "Build an OpenDocument Spreadsheet (.ods) from a serialized Sheets body JSON and write it to destVpath (formulas rewritten to ODF of:= syntax).",
-     "ret": "boolean",
-     "example": "requirelib(\"office\");\nvar ok = office.workbookToOds(data, \"user:/Documents/report.ods\");\nsendResp(ok ? \"OK\" : \"failed\");"
-    },
-    {
-     "name": "office.odpToPresentation",
-     "sig": "office.odpToPresentation(srcVpath)",
-     "desc": "Read an OpenDocument Presentation (.odp) and return the Slides body schema as a JSON string, scaled into the 960x540 editor space (text, images, shapes, lines, tables, backgrounds, notes).",
-     "ret": "string (JSON)",
-     "example": "requirelib(\"office\");\nvar bodyJson = office.odpToPresentation(\"user:/Documents/deck.odp\");\nsendJSONResp('{\"body\":' + bodyJson + '}');"
-    },
-    {
-     "name": "office.presentationToOdp",
-     "sig": "office.presentationToOdp(jsonStr, destVpath)",
-     "desc": "Build an OpenDocument Presentation (.odp) from a serialized Slides body JSON and write it to destVpath. Charts use their client-side PNG raster; video/audio objects are skipped.",
-     "ret": "boolean",
-     "example": "requirelib(\"office\");\nvar ok = office.presentationToOdp(data, \"user:/Documents/deck.odp\");\nsendResp(ok ? \"OK\" : \"failed\");"
-    },
-    {
-     "name": "office.documentToPdf",
-     "sig": "office.documentToPdf(jsonStr, destVpath)",
-     "desc": "Build a PDF with real selectable text from a serialized Docs body JSON and write it to destVpath. Renders headings, inline styles, links, lists, tables, inline images, page breaks, page geometry and header/footer with page numbers. Latin-1 core fonts; other characters are transliterated.",
-     "ret": "boolean",
-     "example": "requirelib(\"office\");\nvar ok = office.documentToPdf(data, \"user:/Desktop/report.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
-    },
-    {
-     "name": "office.workbookPrintToPdf",
-     "sig": "office.workbookPrintToPdf(printJson, destVpath)",
-     "desc": "Build a real-text PDF from a Sheets print model ({sheets:[{name,colW,rowH,rows:[[{t,b,i,u,fc,bg,al}]]}]}) - formatted display strings plus styles computed by the web client. One A4-landscape section per sheet, columns scaled to fit the page.",
-     "ret": "boolean",
-     "example": "requirelib(\"office\");\nvar ok = office.workbookPrintToPdf(printModelJson, \"user:/Desktop/sheet.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
-    },
-    {
-     "name": "office.presentationToPdf",
-     "sig": "office.presentationToPdf(jsonStr, destVpath)",
-     "desc": "Build a real-text PDF from a serialized Slides body JSON: one page per slide at the deck canvas size. Text and tables stay selectable; images/charts embed from data URLs; video/audio render their captured poster frame (props.png) or a generic placeholder.",
-     "ret": "boolean",
-     "example": "requirelib(\"office\");\nvar ok = office.presentationToPdf(data, \"user:/Desktop/deck.pdf\");\nsendResp(ok ? \"OK\" : \"failed\");"
-    }
-   ]
-  },
-  {
-   "id": "websocket",
-   "name": "websocket",
-   "desc": "Upgrade the HTTP connection to a persistent WebSocket session.",
-   "load": "requirelib(\"websocket\");",
-   "functions": [
-    {
-     "name": "websocket.upgrade",
-     "sig": "websocket.upgrade(timeoutSec)",
-     "desc": "Upgrade to WebSocket. Also overrides delay() with a message-pumping version. Returns false on failure.",
-     "ret": "bool",
-     "example": "requirelib(\"websocket\");\nif (!websocket.upgrade(120)) exit();\nwebsocket.send(\"Connected!\");"
-    },
-    {
-     "name": "websocket.send",
-     "sig": "websocket.send(text)",
-     "desc": "Send a text frame to the client. Returns false if the connection is closed.",
-     "ret": "bool",
-     "example": "websocket.send(\"Hello client\");"
-    },
-    {
-     "name": "websocket.read",
-     "sig": "websocket.read(timeoutMs)",
-     "desc": "Read next message. Returns string on message, null on timeout (still open), false if closed. Omit timeoutMs to block.",
-     "ret": "string | null | false",
-     "example": "var msg = websocket.read(5000);\nif (msg === false) { /* closed */ }\nif (msg === null)  { /* timeout  */ }"
-    },
-    {
-     "name": "websocket.available",
-     "sig": "websocket.available()",
-     "desc": "Return count of buffered unread messages. Non-blocking.",
-     "ret": "number",
-     "example": "if (websocket.available() > 0) {\n    var msg = websocket.read();\n}"
-    },
-    {
-     "name": "websocket.isClosed",
-     "sig": "websocket.isClosed()",
-     "desc": "Return true when the connection is no longer active.",
-     "ret": "bool",
-     "example": "while (!websocket.isClosed()) {\n    websocket.send(\"tick\");\n    delay(1000);\n}"
-    },
-    {
-     "name": "websocket.onMessage",
-     "sig": "websocket.onMessage = function(msg) { ... }",
-     "desc": "Assign a callback fired inside delay(). msg = { data, timestamp, type }. Set to null to stop and leave messages in buffer.",
-     "ret": "void",
-     "example": "var last = \"\";\nwebsocket.onMessage = function(msg) {\n    last = msg.data;\n};\nwhile (!websocket.isClosed()) {\n    if (last !== \"\") {\n        websocket.send(\"Echo: \" + last);\n        last = \"\";\n    }\n    delay(100);\n}"
-    },
-    {
-     "name": "websocket.close",
-     "sig": "websocket.close()",
-     "desc": "Send a normal-closure frame and close the connection.",
-     "ret": "bool",
-     "example": "websocket.close();"
-    }
-   ]
-  },
-  {
-   "id": "scheduler",
-   "name": "scheduler",
-   "desc": "Register and manage recurring background tasks for a webapp.",
-   "load": "requirelib(\"scheduler\");",
-   "functions": [
-    {
-     "name": "scheduler.hasPermission",
-     "sig": "scheduler.hasPermission()",
-     "desc": "Return true if the current user is allowed to create scheduled tasks.",
-     "ret": "bool",
-     "example": "requirelib(\"scheduler\");\nif (!scheduler.hasPermission()) sendResp(\"no_permission\");"
-    },
-    {
-     "name": "scheduler.registered",
-     "sig": "scheduler.registered(taskName, appName)",
-     "desc": "Return true if the task is already registered for this user+app.",
-     "ret": "bool",
-     "example": "requirelib(\"scheduler\");\nif (scheduler.registered(\"MyApp_Sync\", \"MyApp\")) sendResp(\"already_registered\");"
-    },
-    {
-     "name": "scheduler.register",
-     "sig": "scheduler.register(taskName, appName, intervalSecs, description, scriptName)",
-     "desc": "Register a new background task. scriptName defaults to \"cron.agi\".",
-     "ret": "bool",
-     "example": "requirelib(\"scheduler\");\nvar ok = scheduler.register(\"MyApp_Sync\", \"MyApp\", 3600, \"Hourly sync\", \"cron.agi\");"
-    },
-    {
-     "name": "scheduler.unregister",
-     "sig": "scheduler.unregister(taskName)",
-     "desc": "Remove a registered task.",
-     "ret": "bool",
-     "example": "requirelib(\"scheduler\");\nscheduler.unregister(\"MyApp_Sync\");"
-    }
-   ]
-  },
-  {
-   "id": "ffmpeg",
-   "name": "ffmpeg",
-   "desc": "Media conversion via ffmpeg. Only available when ffmpeg is installed on the host.",
-   "load": "requirelib(\"ffmpeg\");",
-   "functions": [
-    {
-     "name": "ffmpeg.convert",
-     "sig": "ffmpeg.convert(input, output, compression)",
-     "desc": "Generic media conversion.",
-     "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nffmpeg.convert(\"user:/in.mov\", \"user:/out.mp4\", 0);"
-    },
-    {
-     "name": "ffmpeg.videoConvert",
-     "sig": "ffmpeg.videoConvert(input, output, resolution, compressionRate, progressFile)",
-     "desc": "Convert video to the given resolution. progressFile is a virtual path for JSON progress updates.",
-     "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nffmpeg.videoConvert(\"user:/in.mp4\", \"user:/out.mp4\", \"720p\", 55, \"tmp:/progress.json\");"
-    },
-    {
-     "name": "ffmpeg.audioConvert",
-     "sig": "ffmpeg.audioConvert(input, output, sampleRate, progressFile)",
-     "desc": "Convert audio to the given sample rate.",
-     "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nffmpeg.audioConvert(\"user:/in.wav\", \"user:/out.mp3\", 44100, \"tmp:/audio_progress.json\");"
-    },
-    {
-     "name": "ffmpeg.imageConvert",
-     "sig": "ffmpeg.imageConvert(input, output, scaleFactor, compressionRate, progressFile)",
-     "desc": "Convert/resize an image. scaleFactor 0.5 = 50% size. progressFile is optional; it only reports 0% and 100% but makes the job cancellable.",
-     "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nffmpeg.imageConvert(\"user:/in.png\", \"user:/out.jpg\", 0.5, 80, \"tmp:/image_progress.json\");"
-    },
-    {
-     "name": "ffmpeg.convertWithProgress",
-     "sig": "ffmpeg.convertWithProgress(input, output, progressFile)",
-     "desc": "Convert between media types without format detection (e.g. mp4 to gif), writing JSON progress updates to progressFile.",
-     "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nffmpeg.convertWithProgress(\"user:/in.mp4\", \"user:/out.gif\", \"tmp:/conv_progress.json\");"
-    },
-    {
-     "name": "ffmpeg.cancel",
-     "sig": "ffmpeg.cancel(progressFile)",
-     "desc": "Stop a running conversion, identified by the progress file it was started with. Returns true if a running conversion was terminated, false if it already finished. Call it from a separate request while the conversion request is still open.",
-     "ret": "bool",
-     "example": "requirelib(\"ffmpeg\");\nvar stopped = ffmpeg.cancel(\"tmp:/job42.progress.json\");"
-    }
-   ]
-  },
-  {
-   "id": "notification",
-   "name": "notification",
-   "desc": "Raise notifications to ArozOS users through the core notification system. The delivery channel (Telegram, desktop, email, custom webhook) is chosen by each receiving user's own notification preferences; the script only sets the priority (low / medium / high). Available when the host wired the notification system in.",
-   "load": "requirelib(\"notification\");",
-   "functions": [
-    {
-     "name": "notification.send",
-     "sig": "notification.send(title, message, priority)",
-     "desc": "Send a notification to the current user. priority is optional and one of \"low\", \"medium\" (default) or \"high\". Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"notification\");\nnotification.send(\"Backup done\", \"Your nightly backup finished\");\nnotification.send(\"Disk failing\", \"SMART error on /dev/sda\", notification.PRIORITY_HIGH);"
-    },
-    {
-     "name": "notification.sendToUser",
-     "sig": "notification.sendToUser(username, title, message, priority)",
-     "desc": "Send a notification to another user. Requires admin permission. priority is optional (low / medium / high). Returns true on success.",
-     "ret": "bool",
-     "example": "requirelib(\"notification\");\nnotification.sendToUser(\"bob\", \"Hi Bob\", \"A message for you\", \"low\");"
-    },
-    {
-     "name": "notification.PRIORITY_LOW / PRIORITY_MEDIUM / PRIORITY_HIGH",
-     "sig": "notification.PRIORITY_HIGH",
-     "desc": "Convenience string constants (\"low\", \"medium\", \"high\") for the priority argument.",
-     "ret": "string",
-     "example": "requirelib(\"notification\");\nnotification.send(\"Urgent\", \"Something needs attention\", notification.PRIORITY_HIGH);"
-    }
-   ]
-  },
-  {
-   "id": "git",
-   "name": "git",
-   "desc": "Version control for folders in the user's virtual file system, backed by go-git (no git binary needed on the host). Query calls return their payload directly or an object with an error field; mutating calls return {success, error, message}, plus authRequired:true when a remote rejects the credentials. HTTPS credentials are stored per user, encrypted, and keyed by remote host. Repositories must live on a local storage pool. Available when the host wired the git manager in.",
-   "load": "requirelib(\"git\");",
-   "functions": [
-    {
-     "name": "git.isRepo",
-     "sig": "git.isRepo(vpath)",
-     "desc": "Check whether vpath is inside a git working tree.",
-     "ret": "bool",
-     "example": "requirelib(\"git\");\nif (git.isRepo(\"user:/Desktop/myproject\")) {\n    console.log(\"tracked by git\");\n}"
-    },
-    {
-     "name": "git.repoRoot",
-     "sig": "git.repoRoot(vpath)",
-     "desc": "Virtual path of the working tree root containing vpath. Returns false when vpath is not in a repository.",
-     "ret": "string | false",
-     "example": "var root = git.repoRoot(\"user:/Desktop/myproject/src\");"
-    },
-    {
-     "name": "git.init",
-     "sig": "git.init(vpath)",
-     "desc": "Create an empty repository at vpath, creating the folder when it does not exist.",
-     "ret": "object",
-     "example": "var result = git.init(\"user:/Desktop/newproject\");"
-    },
-    {
-     "name": "git.clone",
-     "sig": "git.clone(url, vpath, options)",
-     "desc": "Clone a remote into vpath, which must be empty or absent. Options: username, token, remember, branch, depth.",
-     "ret": "object",
-     "example": "var result = git.clone(\"https://github.com/tobychui/arozos.git\", \"user:/Desktop/arozos\", {\n    username: \"tobychui\",\n    token: \"ghp_...\",\n    remember: true,\n    depth: 1\n});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
-    },
-    {
-     "name": "git.status",
-     "sig": "git.status(vpath)",
-     "desc": "Full repository snapshot: branch, detached, head, upstream, ahead, behind, clean, changes[], remotes[], conflicted. Each change carries path, status, staging, worktree, staged, binary, size and preview (image/pdf/video/audio, absent when the browser cannot render it).",
-     "ret": "object",
-     "example": "var status = git.status(\"user:/Desktop/myproject\");\nconsole.log(status.branch + \": \" + status.changes.length + \" changed files\");"
-    },
-    {
-     "name": "git.log",
-     "sig": "git.log(vpath, limit)",
-     "desc": "Commits reachable from HEAD, newest first (default limit 50). Each has hash, shortHash, subject, message, authorName, authorEmail, timestamp and parents. Each commit also carries a tags array of tag names pointing at it.",
-     "ret": "array",
-     "example": "var commits = git.log(\"user:/Desktop/myproject\", 10);\ncommits.forEach(function(c) {\n    console.log(c.shortHash + \" \" + c.subject);\n});"
-    },
-    {
-     "name": "git.checkoutCommit",
-     "sig": "git.checkoutCommit(vpath, hash)",
-     "desc": "Check a commit out in detached HEAD state. Refuses when the working tree has uncommitted changes.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.checkoutCommit(\"user:/Desktop/myproject\", commitHash);"
-    },
-    {
-     "name": "git.resetToCommit",
-     "sig": "git.resetToCommit(vpath, hash, mode)",
-     "desc": "Move the current branch to a commit. mode is \"soft\" (HEAD only), \"mixed\" (also the index, the default) or \"hard\" (also the working tree). A hard reset refuses when there are uncommitted changes.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.resetToCommit(\"user:/Desktop/myproject\", commitHash, \"soft\");"
-    },
-    {
-     "name": "git.createBranchAt",
-     "sig": "git.createBranchAt(vpath, branch, hash)",
-     "desc": "Create a branch pointing at a commit and check it out.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.createBranchAt(\"user:/Desktop/myproject\", \"hotfix\", commitHash);"
-    },
-    {
-     "name": "git.createTag",
-     "sig": "git.createTag(vpath, tag, hash, message)",
-     "desc": "Tag a commit. A non-empty message produces an annotated tag, otherwise a lightweight one.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.createTag(\"user:/Desktop/myproject\", \"v1.0\", commitHash, \"First release\");"
-    },
-    {
-     "name": "git.revertCommit",
-     "sig": "git.revertCommit(vpath, hash, options)",
-     "desc": "Create a new commit undoing a commit's changes. Uses a clean-or-refuse strategy: since go-git has no merge engine, the revert is applied only when the affected files still match the reverted commit, otherwise it is refused rather than producing a wrong result. options may carry name and email.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\nvar result = git.revertCommit(\"user:/Desktop/myproject\", commitHash, {});\nif (!result.success) { console.log(result.error); }"
-    },
-    {
-     "name": "git.cherryPickCommit",
-     "sig": "git.cherryPickCommit(vpath, hash, options)",
-     "desc": "Apply a commit's changes onto the current HEAD, preserving the original author. Uses the same clean-or-refuse strategy as revert. options may carry name and email for the committer.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.cherryPickCommit(\"user:/Desktop/myproject\", commitHash, {});"
-    },
-    {
-     "name": "git.amendMessage",
-     "sig": "git.amendMessage(vpath, message, options)",
-     "desc": "Rewrite the message of the HEAD commit, keeping its tree, parents and author. Only a branch tip can be amended.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.amendMessage(\"user:/Desktop/myproject\", \"Corrected commit message\", {});"
-    },
-    {
-     "name": "git.branches",
-     "sig": "git.branches(vpath)",
-     "desc": "Local and remote-tracking branches: name, fullRef, hash, isRemote, isCurrent, plus remote and short — for origin/feature/login those are \"origin\" and \"feature/login\", which is what the branch management calls expect. For a local branch short equals name and remote is empty.",
-     "ret": "array",
-     "example": "var branches = git.branches(\"user:/Desktop/myproject\");"
-    },
-    {
-     "name": "git.checkout",
-     "sig": "git.checkout(vpath, branch, create)",
-     "desc": "Switch to a branch, creating it from HEAD when create is true. Checking out a remote name such as \"origin/feature\" creates the matching local branch.",
-     "ret": "object",
-     "example": "git.checkout(\"user:/Desktop/myproject\", \"feature/login\", true);"
-    },
-    {
-     "name": "git.deleteBranch",
-     "sig": "git.deleteBranch(vpath, branch, force)",
-     "desc": "Delete a local branch. The checked-out branch is never deleted. A branch holding commits unreachable from HEAD is refused with unmerged:true unless force is set, mirroring git branch -d versus -D.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\nvar result = git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", false);\nif (result.unmerged) {\n    //confirm with the user, then force\n    git.deleteBranch(\"user:/Desktop/myproject\", \"old-feature\", true);\n}"
-    },
-    {
-     "name": "git.renameBranch",
-     "sig": "git.renameBranch(vpath, oldName, newName)",
-     "desc": "Rename a local branch. Its upstream configuration moves with it, and HEAD follows when the renamed branch is the checked-out one.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.renameBranch(\"user:/Desktop/myproject\", \"feature\", \"feature-v2\");"
-    },
-    {
-     "name": "git.deleteRemoteBranch",
-     "sig": "git.deleteRemoteBranch(vpath, remote, branch, options)",
-     "desc": "Delete a branch on the remote — a network push with an empty source refspec. The local remote-tracking ref is pruned too, so the branch stops appearing in git.branches(); any local branch of the same name is left alone. Options: username, token, remember.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\nvar result = git.deleteRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"stale\", {});\nif (!result.success && result.authRequired) { /* prompt and retry */ }"
-    },
-    {
-     "name": "git.renameRemoteBranch",
-     "sig": "git.renameRemoteBranch(vpath, remote, oldName, newName, options)",
-     "desc": "Rename a branch on the remote. Git cannot rename a remote ref, so this pushes the new name then deletes the old one — in that order, so an interrupted rename leaves the branch under both names rather than losing it. Options: username, token, remember.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.renameRemoteBranch(\"user:/Desktop/myproject\", \"origin\", \"feature\", \"feature-v2\", {});"
-    },
-    {
-     "name": "git.remotes",
-     "sig": "git.remotes(vpath)",
-     "desc": "Configured remotes, each with name and urls.",
-     "ret": "array",
-     "example": "var remotes = git.remotes(\"user:/Desktop/myproject\");"
-    },
-    {
-     "name": "git.addRemote",
-     "sig": "git.addRemote(vpath, name, url)",
-     "desc": "Add a remote. Passing an existing name replaces its URL.",
-     "ret": "object",
-     "example": "git.addRemote(\"user:/Desktop/myproject\", \"origin\", \"https://github.com/owner/repo.git\");"
-    },
-    {
-     "name": "git.removeRemote",
-     "sig": "git.removeRemote(vpath, name)",
-     "desc": "Delete a remote by name.",
-     "ret": "object",
-     "example": "git.removeRemote(\"user:/Desktop/myproject\", \"upstream\");"
-    },
-    {
-     "name": "git.add",
-     "sig": "git.add(vpath, files)",
-     "desc": "Stage the given repository-relative paths. A deleted path is removed from the index.",
-     "ret": "object",
-     "example": "git.add(\"user:/Desktop/myproject\", [\"src/main.go\", \"README.md\"]);"
-    },
-    {
-     "name": "git.addAll",
-     "sig": "git.addAll(vpath)",
-     "desc": "Stage every change in the working tree, like git add -A.",
-     "ret": "object",
-     "example": "git.addAll(\"user:/Desktop/myproject\");"
-    },
-    {
-     "name": "git.unstage",
-     "sig": "git.unstage(vpath, files)",
-     "desc": "Remove paths from the index while leaving the working tree untouched.",
-     "ret": "object",
-     "example": "git.unstage(\"user:/Desktop/myproject\", [\"src/main.go\"]);"
-    },
-    {
-     "name": "git.discard",
-     "sig": "git.discard(vpath, files)",
-     "desc": "Throw away working tree changes. Untracked files are deleted, since there is nothing to restore them from.",
-     "ret": "object",
-     "example": "git.discard(\"user:/Desktop/myproject\", [\"src/broken.go\"]);"
-    },
-    {
-     "name": "git.commit",
-     "sig": "git.commit(vpath, message, files, options)",
-     "desc": "Stage files and commit them in one step. Options: name, email, all. The author defaults to the calling user, then to the repository git config. Returns {success, hash, message}.",
-     "ret": "object",
-     "example": "var result = git.commit(\"user:/Desktop/myproject\", \"Fix the parser\", [\"src/parser.go\"], {\n    name: \"Toby Chui\",\n    email: \"toby@example.com\"\n});\nconsole.log(result.hash);"
-    },
-    {
-     "name": "git.ignore",
-     "sig": "git.ignore(vpath, patterns)",
-     "desc": "Append rules to the repository's .gitignore, creating the file when absent. Rules that are already present are skipped and the existing content is never rewritten, so repeating the call is harmless. The returned message names the rules actually added.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\ngit.ignore(\"user:/Desktop/myproject\", [\"/build\", \"*.log\"]);"
-    },
-    {
-     "name": "git.diff",
-     "sig": "git.diff(vpath, file)",
-     "desc": "Diff of one path between HEAD and the working tree: additions, deletions, binary, tooLarge, isNew, isDeleted and hunks[]. Each hunk has header, oldStart/oldLines, newStart/newLines and lines[], where each line is {type, oldLine, newLine, content} and type is \"context\", \"add\" or \"del\".",
-     "ret": "object",
-     "example": "var diff = git.diff(\"user:/Desktop/myproject\", \"src/main.go\");\nconsole.log(\"+\" + diff.additions + \" -\" + diff.deletions);"
-    },
-    {
-     "name": "git.diffCommit",
-     "sig": "git.diffCommit(vpath, hash, file)",
-     "desc": "Same shape as git.diff, comparing a commit against its first parent.",
-     "ret": "object",
-     "example": "var diff = git.diffCommit(\"user:/Desktop/myproject\", commitHash, \"src/main.go\");"
-    },
-    {
-     "name": "git.commitFiles",
-     "sig": "git.commitFiles(vpath, hash)",
-     "desc": "The paths a commit touched, each with a status of added, modified or deleted, and a preview kind.",
-     "ret": "array",
-     "example": "var files = git.commitFiles(\"user:/Desktop/myproject\", commitHash);"
-    },
-    {
-     "name": "git.fileBlob",
-     "sig": "git.fileBlob(vpath, file, revision)",
-     "desc": "Read a file's content at a revision, returning {success, exists, base64, mime, kind, size}. revision is \"HEAD\" (the default) or a full 40 character commit hash; branch names and short hashes are rejected. This is the only way to obtain a committed binary file, which lives in the object database rather than on disk. exists is false without an error when the path was not part of that revision. Files above 8 MB are refused.",
-     "ret": "object",
-     "example": "requirelib(\"git\");\nvar blob = git.fileBlob(\"user:/Desktop/myproject\", \"img/logo.png\", \"HEAD\");\nif (blob.exists) {\n    //blob.base64 holds the committed image, blob.mime is \"image/png\"\n}"
-    },
-    {
-     "name": "git.fetch",
-     "sig": "git.fetch(vpath, options)",
-     "desc": "Update remote-tracking refs without touching the working tree. Options: remote, username, token, remember.",
-     "ret": "object",
-     "example": "git.fetch(\"user:/Desktop/myproject\", { remote: \"origin\" });"
-    },
-    {
-     "name": "git.pull",
-     "sig": "git.pull(vpath, options)",
-     "desc": "Fetch and fast-forward the current branch. A diverged branch is reported as an error rather than merged. Options: remote, branch, username, token, remember.",
-     "ret": "object",
-     "example": "var result = git.pull(\"user:/Desktop/myproject\", {});\nif (!result.success && result.authRequired) {\n    //ask the user for credentials and retry\n}"
-    },
-    {
-     "name": "git.push",
-     "sig": "git.push(vpath, options)",
-     "desc": "Push a branch to a remote. Options: remote, branch, username, token, remember, force, setUpstream.",
-     "ret": "object",
-     "example": "var result = git.push(\"user:/Desktop/myproject\", { setUpstream: true });\nconsole.log(result.message);"
-    },
-    {
-     "name": "git.saveCredential",
-     "sig": "git.saveCredential(host, username, token)",
-     "desc": "Store an HTTPS credential for a host, encrypted, for the calling user only. host may be a bare host name or a full remote URL.",
-     "ret": "object",
-     "example": "git.saveCredential(\"github.com\", \"tobychui\", \"ghp_...\");"
-    },
-    {
-     "name": "git.listCredentials",
-     "sig": "git.listCredentials()",
-     "desc": "Stored credentials as {host, username}. Tokens are never returned.",
-     "ret": "array",
-     "example": "var saved = git.listCredentials();"
-    },
-    {
-     "name": "git.hasCredential",
-     "sig": "git.hasCredential(host)",
-     "desc": "Check whether a credential is stored for a host.",
-     "ret": "bool",
-     "example": "if (!git.hasCredential(\"github.com\")) {\n    //prompt the user\n}"
-    },
-    {
-     "name": "git.removeCredential",
-     "sig": "git.removeCredential(host)",
-     "desc": "Delete the stored credential for a host.",
-     "ret": "object",
-     "example": "git.removeCredential(\"github.com\");"
-    },
-    {
-     "name": "git.remoteHost",
-     "sig": "git.remoteHost(url)",
-     "desc": "The host a remote URL maps to, i.e. the key credentials are stored under. Both https://github.com/a/b.git and git@github.com:a/b.git yield github.com.",
-     "ret": "string",
-     "example": "var host = git.remoteHost(\"https://github.com/owner/repo.git\");"
-    }
-   ]
-  }
- ]
+  ]
 }

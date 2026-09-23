@@ -24,6 +24,9 @@ src/files
 src/system/logs 
 src/system/neuralnet/yolov3.weights
 src/system/ao.db.lock
+src/system/cluster.db
+src/system/cluster.db.lock
+src/system/cluster/
 src/system/auth/authlog.db.lock
 src/system/neuralnet/predictions.jpg
 src/system/auth/authlog.db
@@ -48,3 +51,6 @@ src/system/telegram_conf.json
 # AES key that encrypts the stored git credentials — generated per install,
 # must never be committed
 src/system/git/
+/.kilo
+/reference
+/src/system/cache

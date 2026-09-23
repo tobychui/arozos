@@ -6,9 +6,31 @@
     Required POST parameters:
         filepath  - virtual path to the target file (e.g. user:/Documents/report.doca)
         content   - serialized document content to write
+        contentFile - vpath of an uploaded temp file holding that content,
+                    used instead of content when the payload is too big for
+                    a POST form body (deleted after reading)
 
     Response: JSON {"error": "..."} on failure, "OK" on success
 */
+
+/*
+    The front end streams an oversized payload to a temp file instead of
+    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
+    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
+    10MB. Read it back from contentFile when that path was taken, and remove
+    the temp file once it is in.
+*/
+function resolveContent(){
+    if (typeof contentFile !== "undefined" && contentFile){
+        if (!requirelib("filelib")){
+            return "";
+        }
+        var loaded = filelib.readFile(contentFile);
+        filelib.deleteFile(contentFile);
+        return loaded;
+    }
+    return (typeof content === "undefined" || !content) ? "" : content;
+}
 
 function main(){
     if (!requirelib("filelib")){
@@ -21,7 +43,7 @@ function main(){
         return;
     }
 
-    var ok = filelib.writeFile(filepath, (typeof content === "undefined" ? "" : content));
+    var ok = filelib.writeFile(filepath, resolveContent());
     if (!ok){
         sendJSONResp(JSON.stringify({ error: "unable to write file" }));
         return;

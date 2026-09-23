@@ -17,35 +17,14 @@ function zipFile(){
 
 
     //Request to create a zip file, named with the parent dir name
-    var oprConfig = {
+    ao_module_startFileOperation({
         opr: "zip",
         src: zippingFiles,
         dest: currentPath,
         overwriteMode: "overwrite",
         callbackWindowID: ao_module_windowID,
         callbackFunction: `callRefresh("${currentPath}")`
-    }
-    var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-    var title = applocale.getString("opr/zip/zipping","Zipping ") +  zippingFiles.length;
-    if (fileList.length > 1){
-        title += applocale.getString("opr/zip/files", " files");
-    }else{
-        title += applocale.getString("opr/zip/file"," file");
-    }
-
-    if (!ao_module_virtualDesktop){
-        window.open("file_operation.html#" + configHash);
-    }else{
-        parent.newFloatWindow({
-            url: "SystemAO/file_system/file_operation.html#" + configHash,
-            width: 400,
-            height: 220,
-            appicon: "SystemAO/file_system/img/selector.png",
-            title: title
-        });
-    }
-
-    
+    });
 }
 
 function unzipHere(){
@@ -67,38 +46,15 @@ function unzipHere(){
 
     //Start unzip progress
 
-    //Unzip and open them to tmp:/
-    var oprConfig = {
+    //Extract the archives into the folder the user is looking at
+    ao_module_startFileOperation({
         opr: "unzip",
         src: unzippingFiles,
         dest: currentPath,
         overwriteMode: "overwrite",
         callbackWindowID: ao_module_windowID,
         callbackFunction: `callRefresh("${currentPath}")`
-    }
-
-    //Render the dialog title name
-    var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-    var title = applocale.getString("opr/zip/unzipping","Unzipping ") + unzippingFiles.length;
-    if (unzippingFiles.length > 1){
-        title += applocale.getString("opr/zip/files", " files");
-    }else{
-        title += applocale.getString("opr/zip/file"," file");
-    }
-
-
-    if (!ao_module_virtualDesktop){
-        window.open("file_operation.html#" + configHash);
-    }else{
-        parent.newFloatWindow({
-            url: "SystemAO/file_system/file_operation.html#" + configHash,
-            width: 400,
-            height: 220,
-            appicon: "SystemAO/file_system/img/selector.png",
-            title: title,
-        });
-    }
-
+    });
 }
 
 

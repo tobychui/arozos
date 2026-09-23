@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160">
+  <!-- Start-up splash decoration, bottom-left corner: two soft hills. Used
+       as a CSS mask: only the alpha counts, each app paints its own colour. -->
+  <path d="M0 18C88 20 176 78 222 160H0Z" fill="#000" fill-opacity="0.6"/>
+  <path d="M0 112C46 94 104 72 160 86C210 98 252 130 292 160H0Z" fill="#000" fill-opacity="0.55"/>
+</svg>

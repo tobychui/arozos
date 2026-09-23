@@ -1,0 +1,30 @@
+{
+ "type": "arozos/office",
+ "app": "spreadsheet",
+ "version": 1,
+ "meta": {
+  "title": "Blank Spreadsheet",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "sheets": [
+   {
+    "name": "Sheet1",
+    "cells": {},
+    "colW": {},
+    "rowH": {},
+    "merges": [],
+    "freeze": {
+     "r": 0,
+     "c": 0
+    },
+    "charts": [],
+    "filter": null
+   }
+  ],
+  "active": 0
+ }
+}

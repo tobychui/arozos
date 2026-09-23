@@ -106,8 +106,22 @@ body.dark {
     position: relative;
     background: var(--of-paper);
 }
-#shSpacer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; }
+/* #shSpacer is in flow and sized to the whole sheet (rebuildGeometry): it
+   gives the grid its scroll extent and is the box the frozen layers stick
+   within. The frozen panes are position:sticky, so the browser keeps them
+   pinned in the same frame it scrolls - redrawing them at scrollTop from
+   the scroll event lags a frame, and they visibly bounced. */
+#shSpacer { position: relative; width: 1px; height: 1px; }
 #shCells { position: absolute; left: 0; top: 0; }
+.sh-frozen-layer {
+    position: sticky;
+    width: 0;               /* zero-size, so they can travel the full sheet */
+    height: 0;
+    overflow: visible;
+}
+#shFrozenCols { left: 0; z-index: 12; }
+#shFrozenRows { top: 0; z-index: 13; }
+#shFrozenCorner { top: 0; left: 0; z-index: 14; }
 
 /* headers */
 .sh-colh, .sh-rowh {
@@ -124,11 +138,41 @@ body.dark {
     cursor: pointer;
     overflow: hidden;
 }
+/* the tints are translucent: layer them over an opaque base, or frozen
+   headers let the scrolled rows underneath show through */
 .sh-colh.sel, .sh-rowh.sel {
-    background: var(--of-accent-soft);
+    background: linear-gradient(var(--of-accent-soft), var(--of-accent-soft)), var(--sh-headbg);
     color: var(--of-accent);
     font-weight: 600;
 }
+/* where user-hidden rows collapsed: a small up/down chevron pill sitting on
+   the row boundary; clicking it shows the rows again */
+.sh-rowh-hidden {
+    position: absolute;
+    left: 2px;              /* clear of the centred row numbers */
+    width: 13px;
+    height: 12px;
+    margin-top: -6px;
+    box-sizing: border-box;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg);
+    cursor: pointer;
+    z-index: 7;             /* above the row resize handles (5) */
+}
+.sh-rowh-hidden::before, .sh-rowh-hidden::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    margin-left: -3px;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+}
+.sh-rowh-hidden::before { top: 1px; border-bottom: 3px solid var(--of-fg-soft); }
+.sh-rowh-hidden::after { bottom: 1px; border-top: 3px solid var(--of-fg-soft); }
+.sh-rowh-hidden:hover { border-color: var(--of-accent); }
+.sh-rowh-hidden:hover::before { border-bottom-color: var(--of-accent); }
+.sh-rowh-hidden:hover::after { border-top-color: var(--of-accent); }
 .sh-rz {
     position: absolute;
     z-index: 5;
@@ -177,13 +221,25 @@ body.dark {
 .sh-cell.rgt { justify-content: flex-end; }
 .sh-cell.lft { justify-content: flex-start; }
 .sh-cell.wrap { white-space: pre-wrap; word-break: break-word; align-items: flex-start; }
-.sh-cell.sel { background-color: var(--sh-sel-bg); }
+/* selection tint painted over the cell's own (opaque) fill, so frozen cells
+   stay solid and filled cells still show they are selected */
+.sh-cell.sel { background-image: linear-gradient(var(--sh-sel-bg), var(--sh-sel-bg)); }
 .sh-cell.err { color: var(--of-danger); }
 .sh-cell.b { font-weight: 700; }
 .sh-cell.i { font-style: italic; }
 .sh-cell.u { text-decoration: underline; }
-.sh-cell.frozen { z-index: 12; }
-.sh-cell.frozen-corner { z-index: 14; }
+
+/* the outline of the spilled array the active cell belongs to */
+#shSpillBox {
+    position: absolute;
+    border: 1px dashed var(--of-accent);
+    pointer-events: none;
+    box-sizing: border-box;
+    display: none;
+    z-index: 15;
+}
+/* formula bar showing the anchor formula of a spilled cell */
+#shFxInput.sh-fx-ghost { color: var(--of-fg-soft); }
 
 /* active cell + range border + fill handle */
 #shRangeBox {
@@ -206,6 +262,9 @@ body.dark {
     z-index: 16;
 }
 #shGrid.sh-filling, #shGrid.sh-filling .sh-cell { cursor: crosshair; }
+/* grabbing the selection border moves the block - the rule has to name
+   .sh-cell too, since each cell's own `cursor: cell` beats the container's */
+#shGrid.sh-movesel, #shGrid.sh-movesel .sh-cell { cursor: move; }
 
 /* floating cell editor */
 #shCellInput {
@@ -277,7 +336,24 @@ body.dark {
 }
 #shAddSheet:hover { background: var(--of-hover); color: var(--of-fg); }
 #shAddSheet i.icon { margin: 0 !important; }
-#shTabList { display: flex; gap: 2px; }
+#shTabList { display: flex; gap: 2px; position: relative; }
+.sh-tab.dragging {
+    position: relative;
+    z-index: 2;
+    opacity: 0.85;
+    background: var(--of-chrome-bg2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    cursor: grabbing;
+}
+.sh-tab-drop {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    background: var(--of-accent, #4c9be8);
+    border-radius: 1px;
+    pointer-events: none;
+}
 .sh-tab {
     display: flex;
     align-items: center;
@@ -321,6 +397,92 @@ body.dark {
     cursor: pointer;
 }
 .sh-filter-list input[type="checkbox"] { width: auto !important; }
+
+/* ============ conditional formatting dialog ============ */
+.sh-cf-scope {
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--of-border);
+}
+.sh-cf-empty {
+    color: var(--of-fg-soft);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+.sh-cf-list { max-height: 46vh; overflow-y: auto; }
+.sh-cf-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+.sh-cf-row:hover { background: var(--of-hover); }
+.sh-cf-swatch, .sh-cf-preview {
+    flex: 0 0 auto;
+    min-width: 46px;
+    padding: 6px 8px;
+    text-align: center;
+    font-size: 13px;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    color: var(--of-fg);
+}
+.sh-cf-info { flex: 1; min-width: 0; }
+.sh-cf-desc {
+    font-size: 13px;
+    color: var(--of-fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sh-cf-range { font-size: 12px; color: var(--of-fg-soft); }
+.sh-cf-del { flex: 0 0 auto; }
+.sh-cf-add { margin-top: 4px; }
+/* text box with the grid-picker crosshair tucked into its right edge */
+.sh-cf-refwrap { position: relative; }
+.sh-cf-refwrap input[type="text"] { padding-right: 32px !important; }
+.sh-cf-refpick {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+}
+.sh-cf-refpick:hover { background: var(--of-hover); color: var(--of-accent); }
+.sh-cf-refpick i.icon { margin: 0 !important; font-size: 13px !important; }
+.sh-cf-hint {
+    font-size: 12px;
+    color: var(--of-fg-soft);
+    line-height: 1.45;
+    margin-top: 6px;
+}
+.sh-cf-style { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.sh-cf-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--of-border);
+}
+.sh-cf-actions .of-btn.danger { margin-right: auto; }
 
 /* chart dialog data grid (shared look with slides) */
 .sh-grid-table { border-collapse: collapse; width: 100%; }
@@ -368,3 +530,136 @@ body.dark {
     border-top-color: #e8a13c;
     border-right-color: #e8a13c;
 }
+
+/* a HYPERLINK() result: Ctrl+click opens it (renderCellHtml adds data-link) */
+.sh-cell.sh-link {
+    color: var(--of-accent);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Data > Named ranges */
+.sh-names { min-width: 520px; }
+.sh-name-list { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+.sh-name-list td { padding: 3px 6px 3px 0; vertical-align: middle; }
+.sh-name-list td:first-child { font-weight: 600; white-space: nowrap; }
+.sh-name-list input, .sh-name-add input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font-size: 13px;
+}
+.sh-name-add { display: flex; gap: 6px; align-items: center; }
+.sh-name-add input:first-child { width: 160px; flex: 0 0 auto; }
+.sh-name-add button { flex: 0 0 auto; }
+
+/* ============ formula function suggestions (sheets_suggest.js) ============ */
+.sh-fns {
+    position: fixed;
+    z-index: 1500;
+    width: 340px;
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px var(--of-shadow);
+    font-size: 13px;
+    user-select: none;
+}
+.sh-fns-close {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--of-fg-soft);
+    color: var(--of-chrome-bg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sh-fns-close:hover { background: var(--of-fg); }
+.sh-fns-close i.icon { margin: 0 !important; font-size: 11px; height: auto; width: auto; }
+.sh-fns-list {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+.sh-fns-item {
+    padding: 6px 12px;
+    cursor: pointer;
+}
+.sh-fns-item.active { background: var(--of-hover); }
+.sh-fns-name {
+    font-family: Consolas, "Courier New", monospace;
+    letter-spacing: 0.3px;
+}
+.sh-fns-name b { font-weight: 700; }
+.sh-fns-detail {
+    margin-top: 4px;
+    color: var(--of-fg-soft);
+    white-space: normal;
+    line-height: 1.45;
+}
+.sh-fns-desc { margin-bottom: 4px; }
+.sh-fns-usage {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    margin-top: 2px;
+    font-size: 12px;
+}
+.sh-fns-usage span {
+    flex: 0 0 52px;
+    font-weight: 600;
+}
+.sh-fns-usage code {
+    font-family: Consolas, "Courier New", monospace;
+    color: var(--of-fg);
+    word-break: break-word;
+}
+.sh-fns-foot {
+    border-top: 1px solid var(--of-border);
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--of-fg-soft);
+}
+.sh-fns-foot kbd {
+    display: inline-block;
+    padding: 0 5px;
+    margin: 0 1px;
+    border: 1px solid var(--of-border);
+    border-radius: 3px;
+    background: var(--of-chrome-bg2);
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 16px;
+}
+
+/* "Paste options" button at the corner of a pasted block */
+.sh-paste-chip {
+    position: absolute;
+    z-index: 17;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    height: 22px;
+    padding: 0 3px 0 5px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    box-shadow: 0 1px 4px var(--of-shadow);
+    cursor: pointer;
+}
+.sh-paste-chip:hover { background: var(--of-hover); border-color: var(--of-accent); }
+.sh-paste-chip i.icon { margin: 0 !important; height: auto; font-size: 12px; }
+.sh-paste-chip i.caret.icon { width: 10px; font-size: 10px; color: var(--of-fg-soft); }

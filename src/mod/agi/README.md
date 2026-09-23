@@ -1449,17 +1449,23 @@ formula evaluation). One A4-landscape section per sheet, columns scaled
 down to fit when the sheet is wider than the page. Returns `true` on
 success.
 
-### `office.presentationToPdf(jsonStr, destVpath)`
-Build a real-text PDF from a serialized Slides body JSON: one page per
-slide at the deck's canvas size (960x540 default). Text boxes, shape
-captions and tables are selectable text; images and charts embed from
-their client-inlined data URLs; video/audio objects render their
-captured poster frame (`props.png`) or a generic placeholder. Returns
-`true` on success.
-
 ```javascript
 requirelib("office");
 var ok = office.documentToPdf(bodyJsonString, "user:/Desktop/report.pdf");
+if (ok) { sendResp("OK"); }
+```
+
+### `office.writeBinaryFile(base64, destVpath)`
+Write a file the web client produced. The payload is the file's bytes,
+base64 encoded; the same write permission check as every exporter above
+applies to `destVpath`. This exists because some exports can only be
+rendered in the browser - the Slides PDF is built there, since only the
+browser knows which font it resolved and where every line wrapped.
+Returns `true` on success.
+
+```javascript
+requirelib("office");
+var ok = office.writeBinaryFile(base64Payload, "user:/Desktop/deck.pdf");
 if (ok) { sendResp("OK"); }
 ```
 
@@ -2460,6 +2466,91 @@ The host a remote URL maps to, i.e. the key credentials are stored under. Both
 
 ---
 
+## Cluster Library
+
+`requirelib("cluster")` exposes the ArozOS cluster to scripts. Ordinary file
+access on `cluster:/` needs nothing special: `filelib` and every other
+library see the mounted drive. Hook scripts read the event with `postPara("event")`
+(JSON with `id`, `type`, `node`, `path`, `fileId`, `user`,
+`time`, `data`). Event types: `file.created`, `file.removed`, `file.renamed`,
+`replica.verified`, `replica.stale`, `node.joined`, `node.left`,
+`node.online`, `node.offline`, `app.*` (custom).
+
+### `cluster.inCluster()` → bool
+### `cluster.self()` → object
+This node's membership record (id, name, state, capabilities, health).
+### `cluster.nodes()` → array
+Every member with computed state, platform and load.
+### `cluster.status()` → object
+Cluster info, identity origin, metadata leader, volumes, storage and replication status.
+### `cluster.stat(path)` → object
+Namespace record of a `cluster:/` path with size, checksum and every copy (`locations[].nodeId`, `.state`). Requires read permission on the path.
+### `cluster.list(path)` → array
+Records of a directory's children.
+### `cluster.setReplicas(path, n)` → bool
+Admin only. Desired copies for one file; 0 falls back to the folder policy.
+### `cluster.policy(folder, n)` → bool
+Admin only. Desired copies for a top-level folder such as `/photos`.
+### `cluster.on(types, scriptVpath)` → string
+Register a hook script (run as you) for one or more event types; `types` is a string or array and supports `file.*` wildcards. Returns the hook id.
+### `cluster.off(hookId)` → bool
+### `cluster.hooks()` → array
+### `cluster.emit(type, data)` → bool
+Publish a custom event (`app.` prefix added) with a JSON-serialisable payload under 64 KB to every node.
+
+### `cluster.jobs.submit(spec)` → string
+Queue a job on the cluster. `spec` is `{name, script, args, inputs, features, nodes, timeout}`;
+`script` is the vpath of an `.agi` file that defines `run(job)`. The source is
+captured at submit time and runs as you on whichever node satisfies `features`
+and holds most of `inputs`. `nodes` is an optional list of node ids (from
+`cluster.nodes()`) that limits where the job may run; pass one id to send a
+job to a specific node, for example to run something on every member. A job
+whose nodes are all unavailable stays queued. Returns the job id. Worked
+examples live in `examples/clusters_jobs/`.
+### `cluster.jobs.status(id)` → object
+The job record: `spec` and `state` (status, node, progress, log, output, error).
+### `cluster.jobs.list()` → array
+### `cluster.jobs.cancel(id)` → bool
+### `cluster.jobs.wait(id, timeoutSec)` → object
+Blocks (in Go, not in JavaScript) until the job reaches a terminal state.
+
+### `cluster.jobs.mapreduce(spec)` → string
+Queue a map/reduce job: `{name, script, dataset, partitionMax, features, timeout}`.
+`dataset` is a glob over the cluster namespace (`*` within a folder, `**`
+across folders, `?` one character). The matching files are grouped by the node
+that already holds them, split into partitions of `partitionMax` files
+(default 50) and mapped there; the emitted pairs are then grouped by key and
+handed to one reduce task. The parent job's output is the reducer result.
+
+A map/reduce script defines both halves:
+
+```javascript
+function mapper(files, emit) {   // files = the paths of this partition
+    files.forEach(function(f){ emit(f.split(".").pop(), 1); });
+}
+function reducer(key, values) { return values.length; }
+```
+
+A job script looks like this:
+
+```javascript
+function run(job) {              // job = {id, name, kind, args, inputs, node, owner}
+    job.log("starting on " + job.node);
+    job.progress(0.5);
+    job.abortIfCancelled();
+    requirelib("filelib");
+    return {files: filelib.aglob(job.inputs[0] + "/*").length};
+}
+```
+
+```javascript
+requirelib("cluster");
+if (cluster.inCluster()) {
+    var rec = cluster.stat("cluster:/photos/a.jpg");
+    sendResp(rec.locations.length + " copies on " + cluster.nodes().length + " nodes");
+}
+```
+
 ## Examples
 
 ### Background Scheduler (webapp backend)
@@ -2569,6 +2660,6 @@ This documentation covers all available AGI APIs with practical examples. For mo
 ## Notes and Caveats
 
 - `requirelib("audio")` is registered in code but currently has no callable functions.
-- `filelib` currently does not expose `writeBinaryFile` / `readBinaryFile` on the public `filelib` object.
+- `filelib` currently does not expose `writeBinaryFile` / `readBinaryFile` on the public `filelib` object. `office.writeBinaryFile(base64, destVpath)` covers the write half for anything the web client renders itself.
 - Most APIs return `false` or `null` on failure; many also raise AGI runtime errors.
 - For admin-only APIs (`userExists`, `createUser`, `removeUser`), check `userIsAdmin()` first.

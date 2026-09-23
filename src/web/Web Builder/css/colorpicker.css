@@ -1,0 +1,282 @@
+/*
+    colorpicker.css
+
+    The embedded colour picker: the Photoshop Color Picker arrangement drawn
+    with the builder's own tokens, so it follows the light/dark theme instead of
+    looking like whatever the operating system's native colour dialog does.
+*/
+
+.wb-cp-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 40, 0.28);
+    z-index: 9400;
+}
+
+.wb-cp {
+    position: fixed;
+    z-index: 9450;
+    background: var(--wb-surface);
+    border: 1px solid var(--wb-border);
+    border-radius: var(--wb-radius-lg);
+    box-shadow: var(--wb-shadow-pop);
+    padding: 12px;
+    user-select: none;
+    font-size: 12px;
+    color: var(--wb-text);
+}
+
+.wb-cp-title {
+    font-size: 13px;
+    font-weight: 650;
+    margin: 0 2px 10px;
+}
+
+.wb-cp-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.wb-cp-col { display: flex; flex-direction: column; }
+.wb-cp-col-values { width: 132px; gap: 10px; }
+.wb-cp-col-actions { width: 158px; gap: 10px; }
+
+/* -------------------------  field  ------------------------- */
+
+.wb-cp-field-wrap {
+    position: relative;
+    width: 256px;
+    height: 256px;
+    border: 1px solid var(--wb-border-strong);
+    cursor: crosshair;
+    flex-shrink: 0;
+}
+.wb-cp-field { display: block; width: 100%; height: 100%; }
+
+.wb-cp-field-cursor {
+    position: absolute;
+    width: 12px; height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+}
+
+/* -------------------------  strip  ------------------------- */
+
+.wb-cp-strip-wrap {
+    position: relative;
+    width: 18px;
+    height: 256px;
+    margin: 0 8px;
+    border: 1px solid var(--wb-border-strong);
+    cursor: ns-resize;
+    flex-shrink: 0;
+}
+.wb-cp-strip { display: block; width: 100%; height: 100%; }
+
+.wb-cp-strip-cursor {
+    position: absolute;
+    left: 0; right: 0;
+    height: 0;
+    pointer-events: none;
+}
+/* the two triangles Photoshop puts either side of the strip */
+.wb-cp-arrow {
+    position: absolute;
+    top: -5px;
+    width: 0; height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+}
+.wb-cp-arrow.left {
+    left: -8px;
+    border-left: 7px solid var(--wb-text);
+}
+.wb-cp-arrow.right {
+    right: -8px;
+    border-right: 7px solid var(--wb-text);
+}
+
+/* -------------------------  new / current  ------------------------- */
+
+.wb-cp-preview { display: flex; flex-direction: column; }
+.wb-cp-preview-label {
+    font-size: 11px;
+    color: var(--wb-text-dim);
+    text-align: center;
+    padding: 2px 0;
+}
+.wb-cp-chip {
+    height: 34px;
+    border: 1px solid var(--wb-border-strong);
+    background-image:
+        linear-gradient(45deg, #d8d8d8 25%, transparent 25%, transparent 75%, #d8d8d8 75%),
+        linear-gradient(45deg, #d8d8d8 25%, transparent 25%, transparent 75%, #d8d8d8 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+}
+.wb-cp-chip.new { border-bottom: 0; }
+.wb-cp-chip.current { cursor: pointer; }
+
+/* -------------------------  numeric rows  ------------------------- */
+
+.wb-cp-group { display: flex; flex-direction: column; gap: 4px; }
+
+.wb-cp-row { display: flex; align-items: center; gap: 5px; }
+
+.wb-cp-radio {
+    width: 13px; height: 13px;
+    margin: 0;
+    accent-color: var(--wb-accent);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.wb-cp-radio-spacer { width: 13px; flex-shrink: 0; }
+
+.wb-cp-label {
+    font-size: 11.5px;
+    color: var(--wb-text);
+    width: 12px;
+    flex-shrink: 0;
+}
+
+.wb-cp-num {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--wb-border-strong);
+    border-radius: 4px;
+    background: var(--wb-surface);
+    color: var(--wb-text);
+    padding: 3px 5px;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+}
+.wb-cp-num:focus {
+    border-color: var(--wb-accent);
+    box-shadow: 0 0 0 2px var(--wb-accent-soft);
+}
+.wb-cp-unit {
+    font-size: 11px;
+    color: var(--wb-text-dim);
+    width: 10px;
+    flex-shrink: 0;
+}
+
+/* -------------------------  hex  ------------------------- */
+
+.wb-cp-hexrow { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+.wb-cp-hex {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--wb-border-strong);
+    border-radius: 4px;
+    background: var(--wb-surface);
+    color: var(--wb-text);
+    padding: 4px 6px;
+    font-family: var(--wb-mono);
+    font-size: 11.5px;
+    text-transform: lowercase;
+    outline: none;
+}
+.wb-cp-hex:focus {
+    border-color: var(--wb-accent);
+    box-shadow: 0 0 0 2px var(--wb-accent-soft);
+}
+
+/* -------------------------  buttons  ------------------------- */
+
+.wb-cp-buttons { display: flex; flex-direction: column; gap: 6px; }
+
+.wb-cp-btn {
+    height: 27px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid var(--wb-border-strong);
+    background: var(--wb-surface);
+    color: var(--wb-text);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.wb-cp-btn:hover { background: var(--wb-surface-3); }
+.wb-cp-btn.primary {
+    background: var(--wb-accent);
+    border-color: var(--wb-accent);
+    color: #fff;
+    font-weight: 600;
+}
+.wb-cp-btn.primary:hover { background: var(--wb-accent-hover); border-color: var(--wb-accent-hover); }
+
+/* -------------------------  only web colors  ------------------------- */
+
+.wb-cp-weblabel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 9px;
+    font-size: 11.5px;
+    color: var(--wb-text);
+    cursor: pointer;
+}
+.wb-cp-check { accent-color: var(--wb-accent); margin: 0; }
+
+/* -------------------------  library overlay  ------------------------- */
+
+.wb-cp-library {
+    display: none;
+    position: absolute;
+    inset: 34px 12px 12px;
+    background: var(--wb-surface);
+    border: 1px solid var(--wb-border);
+    border-radius: var(--wb-radius);
+    padding: 12px;
+    overflow-y: auto;
+    box-shadow: var(--wb-shadow-pop);
+}
+.wb-cp-library.show { display: block; }
+
+.wb-cp-lib-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    font-weight: 650;
+    margin-bottom: 10px;
+}
+.wb-cp-lib-close {
+    background: transparent;
+    border: 0;
+    color: var(--wb-text-dim);
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+}
+.wb-cp-lib-close:hover { background: var(--wb-surface-3); color: var(--wb-text); }
+
+.wb-cp-lib-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--wb-text-mute);
+    margin: 12px 0 6px;
+}
+.wb-cp-lib-title:first-of-type { margin-top: 0; }
+
+.wb-cp-lib-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 5px;
+}
+.wb-cp-lib-chip {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    border: 1px solid var(--wb-border);
+    padding: 0;
+    cursor: pointer;
+}
+.wb-cp-lib-chip:hover { box-shadow: 0 0 0 2px var(--wb-accent-soft); }

@@ -7,6 +7,64 @@
     file_explorer.html - see the <script> block at the end of that file.
 */
 
+/*
+    Write a shortcut onto the desktop.
+
+    Shared by the three things that can make one - a selected folder, a storage
+    device in the sidebar, and a special view - so the endpoint, the messages
+    and the desktop refresh are described once.
+*/
+function requestDesktopShortcut(name, path, icon){
+    if (name == undefined || name == "" || path == undefined || path == ""){
+        return;
+    }
+    $.ajax({
+        url: "../../system/desktop/createShortcut",
+        method: "POST",
+        data: {
+            stype: "folder",
+            stext: name,
+            spath: path,
+            sicon: icon,
+            sdest: "user:/Desktop/"
+        },
+        success: function(data){
+            if (data.error !== undefined){
+                console.log("[File Manager] Shortcut creation failed: ", data.error);
+                msgbox("red remove", applocale.getString("opr/shortcut/error",
+                    "Shortcut creation failed. See console for more information."), 3000);
+            }else{
+                msgbox("checkmark", applocale.getString("opr/shortcut/ok",
+                    "Shortcut created successfully"), 3000);
+                if (ao_module_virtualDesktop){
+                    parent.refresh();
+                }
+            }
+        },
+        error: function(){
+            msgbox("red remove", applocale.getString("opr/shortcut/error",
+                "Shortcut creation failed. See console for more information."), 3000);
+        }
+    });
+}
+
+/*
+    The storage device the sidebar context menu was opened on. Reads the row
+    marked active, the same way openSelectedVroot() finds its target.
+*/
+function createVrootShortcut(){
+    let row = $("#storageroot").find(".dir.item.active")[0];
+    if (row == undefined){
+        return;
+    }
+    let path = $(row).attr("filepath");
+    let name = $(row).attr("rootname");
+    if (name == undefined || name == ""){
+        name = path;
+    }
+    requestDesktopShortcut(name, path, "img/system/folder-shortcut.png");
+}
+
 function createDesktopShortcut(){
     let folders = [];
     let filenames = [];
@@ -22,30 +80,7 @@ function createDesktopShortcut(){
         }
     });
 
-    let targetFolder = folders[0];
-    let targetFilename = filenames[0];
-    $.ajax({
-        url: "../../system/desktop/createShortcut",
-        method: "POST",
-        data: {
-            stype: "folder",
-            stext: targetFilename,
-            spath: targetFolder,
-            sicon: "img/system/folder-shortcut.png",
-            sdest: "user:/Desktop/",
-        },
-        success: function(data){
-            if (data.error !== undefined){
-                console.log("[File Manager] Shortcut creation failed: ", data.error)
-                msgbox("red remove",applocale.getString("opr/shortcut/error", "Shortcut creation failed. See console for more information.") , 3000);
-            }else{
-                msgbox("checkmark", applocale.getString("opr/shortcut/ok", "Shortcut created successfully"),  3000);
-                if (ao_module_virtualDesktop){
-                    parent.refresh();
-                }
-            }
-        }
-    })
+    requestDesktopShortcut(filenames[0], folders[0], "img/system/folder-shortcut.png");
 }
 
 //Create a new file
@@ -210,5 +245,7 @@ function confirmNewFile(){
 */
 window.confirmNewFile = confirmNewFile;
 window.createDesktopShortcut = createDesktopShortcut;
+window.createVrootShortcut = createVrootShortcut;
+window.requestDesktopShortcut = requestDesktopShortcut;
 window.newFolder = newFolder;
 window.newfile = newfile;

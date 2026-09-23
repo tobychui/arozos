@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="128" height="128" shape-rendering="crispEdges" role="img" aria-label="Games">
+    <rect x="0" y="0" width="16" height="16" rx="2" fill="#140f26"/>
+    <g fill="#ffc61a">
+        <rect x="4" y="1" width="1" height="2"/>
+        <rect x="11" y="1" width="1" height="2"/>
+        <rect x="3" y="3" width="10" height="1"/>
+        <rect x="2" y="4" width="12" height="6"/>
+        <rect x="2" y="10" width="12" height="2"/>
+        <rect x="3" y="12" width="10" height="1"/>
+        <rect x="3" y="13" width="2" height="2"/>
+        <rect x="11" y="13" width="2" height="2"/>
+    </g>
+    <g fill="#241b42">
+        <rect x="4" y="6" width="2" height="2"/>
+        <rect x="10" y="6" width="2" height="2"/>
+        <rect x="5" y="10" width="6" height="1"/>
+    </g>
+    <g fill="#ffe98a">
+        <rect x="2" y="4" width="12" height="1"/>
+    </g>
+</svg>

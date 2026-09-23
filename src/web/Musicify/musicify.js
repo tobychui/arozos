@@ -28,6 +28,9 @@ function musicifyApp() {
         folderContents: { folders: [], songs: [] },
         musicLibraries: [],     // [ { label, root } ] from listRoots.js
 
+        // ── Favorite (pinned) folders ───────────────────────────────────────
+        favoriteFolders: [],    // [ { path, name, root } ] persisted per user
+
         // ── Artists ─────────────────────────────────────────────────────────
         artists: [],
         selectedArtist: null,   // full artist object for dedicated artist songs view
@@ -106,6 +109,8 @@ function musicifyApp() {
 
         // ── Internal playback guard ──────────────────────────────────────────
         _suppressEnded: false,  // true while a new track is loading (prevents double-skip)
+        _skipTimer: null,       // pending "skip after playback error" timeout
+        _skipTrack: null,       // the track that failed and armed _skipTimer
 
         // ── Helpers (accessible from Alpine template expressions) ─────────────
         // A "desktop" sidebar is a static, always-visible column. Mobile browsers
@@ -207,7 +212,7 @@ function musicifyApp() {
                 if (MUSICIFY_DEBUG) console.log('[Musicify] audio waiting – pos:', (self._audio.currentTime + self._transcodeSeekOffset).toFixed(2), '/ dur:', self.duration.toFixed(2), '| transcoded:', self._currentTrackTranscoded);
             });
             this._audio.addEventListener('play',  () => {
-                self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._updateMediaSession();
+                self.isPlaying = true; self._suppressEnded = false; self._fullBufferLoading = false; self._cancelErrorSkip(); self._updateMediaSession();
                 if (self._audioCtx && self._audioCtx.state === 'suspended') self._audioCtx.resume().catch(() => {});
             });
             this._audio.addEventListener('pause', () => { self.isPlaying = false; self._updateMediaSession(); });
@@ -277,6 +282,9 @@ function musicifyApp() {
 
             // Load playlists for sidebar
             this._loadPlaylists();
+
+            // Load pinned folders for the sidebar Favorites section
+            this._loadFavoriteFolders();
 
             // Pre-load available music library roots for the folder-view switcher
             this._loadMusicLibraries();
@@ -441,6 +449,87 @@ function musicifyApp() {
                 crumbs.push({ name: parts[i], path: acc });
             }
             return crumbs;
+        },
+
+        // ════════════════════════════════════════════════════════════════════
+        //  FAVORITE (PINNED) FOLDERS
+        // ════════════════════════════════════════════════════════════════════
+        _loadFavoriteFolders() {
+            const self = this;
+            ao_module_storage.loadStorage("Musicify", "favorites", function(val) {
+                if (!val) return;
+                try {
+                    var list = JSON.parse(val);
+                    if (Array.isArray(list)) {
+                        self.favoriteFolders = list.filter(f => f && f.path);
+                    }
+                } catch(e) {}
+            });
+        },
+
+        _saveFavoriteFolders() {
+            ao_module_storage.setStorage("Musicify", "favorites", JSON.stringify(this.favoriteFolders));
+        },
+
+        // The library root itself is always reachable from the Folders tab, so
+        // there is nothing to gain from pinning it.
+        canFavoriteCurrentFolder() {
+            return !!this.folderPath && this.folderPath !== this.folderRoot;
+        },
+
+        isFolderFavorited(path) {
+            var p = path || this.folderPath;
+            return this.favoriteFolders.some(f => f.path === p);
+        },
+
+        toggleFavoriteFolder() {
+            if (!this.canFavoriteCurrentFolder()) return;
+            var path = this.folderPath;
+            var name = path.split('/').filter(s => s !== '').pop() || path;
+            if (this.isFolderFavorited(path)) {
+                this.favoriteFolders = this.favoriteFolders.filter(f => f.path !== path);
+                this._saveFavoriteFolders();
+                this._showToast('Removed "' + name + '" from Favorites');
+            } else {
+                this.favoriteFolders.push({ path: path, name: name, root: this.folderRoot });
+                this._saveFavoriteFolders();
+                this._showToast('Added "' + name + '" to Favorites');
+            }
+        },
+
+        removeFavoriteFolder(path, event) {
+            if (event) event.stopPropagation();
+            var fav = this.favoriteFolders.find(f => f.path === path);
+            this.favoriteFolders = this.favoriteFolders.filter(f => f.path !== path);
+            this._saveFavoriteFolders();
+            this._showToast('Removed "' + ((fav && fav.name) || 'folder') + '" from Favorites');
+        },
+
+        // Open the Folders view straight at a pinned folder. The ancestor paths
+        // between the library root and the target are pushed onto the folder
+        // stack so the Back button still walks back up the tree.
+        openFavoriteFolder(fav) {
+            if (!fav || !fav.path) return;
+            this.view = 'folders';
+            this.searchQuery = '';
+            this.artistDetailOpen = false;
+            this.selectedArtist = null;
+            if (window.innerWidth <= 768) this.sidebarOpen = false;
+            if (this.showNowPlaying) this.closeNowPlaying();
+
+            var root = fav.root || this.folderRoot;
+            this.folderRoot = root;
+            this.folderStack = [];
+            if (fav.path.indexOf(root + '/') === 0) {
+                var rest = fav.path.substring(root.length + 1).split('/');
+                var acc = root;
+                this.folderStack.push(acc);
+                for (var i = 0; i < rest.length - 1; i++) {
+                    acc = acc + '/' + rest[i];
+                    this.folderStack.push(acc);
+                }
+            }
+            this.loadFolder(fav.path);
         },
 
         // ════════════════════════════════════════════════════════════════════
@@ -1004,6 +1093,7 @@ function musicifyApp() {
                 clearTimeout(this._transcodeEndFallbackTimer);
                 this._transcodeEndFallbackTimer = null;
             }
+            this._cancelErrorSkip();
             this.currentTrack = song;
             this._updateVizColor(song);
             this.coverError = false;
@@ -1406,8 +1496,38 @@ function musicifyApp() {
         },
 
         _onError() {
+            var err = this._audio.error;
+            // MEDIA_ERR_ABORTED is not a playback failure: swapping the source while a
+            // fetch is still in flight raises one on Safari, and acting on it would skip
+            // a track that never even got a chance to play.
+            if (err && err.code === 1) return;
+            if (!this._audio.getAttribute('src')) return;
+            // Only one skip may be queued at a time. A single unplayable file can emit
+            // more than one error event (Safari does this when the failed source is torn
+            // down as the next track loads); without this guard the extra event queues a
+            // second skip and two tracks get passed over instead of one.
+            if (this._skipTimer) return;
+            var self = this;
+            var failed = this.currentTrack;
+            this._skipTrack = failed;
             this._showToast('Playback error – skipping', 'error');
-            setTimeout(() => { this.nextTrack(); }, 1500);
+            this._skipTimer = setTimeout(function() {
+                self._skipTimer = null;
+                self._skipTrack = null;
+                // The user (or another code path) may have moved on during the countdown
+                if (failed && (!self.currentTrack || self.currentTrack.filepath !== failed.filepath)) return;
+                self.nextTrack();
+            }, 1500);
+        },
+
+        // Drop a queued error-skip — called whenever a new track starts loading or
+        // playback recovers, so a stale timer can't skip the track that follows.
+        _cancelErrorSkip() {
+            if (this._skipTimer) {
+                clearTimeout(this._skipTimer);
+                this._skipTimer = null;
+            }
+            this._skipTrack = null;
         },
 
         isCurrentTrack(song) {

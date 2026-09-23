@@ -1,0 +1,33 @@
+{
+ "type": "arozos/office",
+ "app": "document",
+ "version": 1,
+ "meta": {
+  "title": "Letter",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "html": "<p style=\"color:#5f6368;\">Your Name<br>Street Address<br>City, Postcode</p><p><br></p><p>Recipient Name<br>Company<br>Street Address<br>City, Postcode</p><p><br></p><p>Date</p><p><br></p><p>Dear Recipient,</p><p>Open with why you are writing, in one sentence.</p><p>Use the middle paragraphs for the detail: what you are asking for, what you are offering, and anything the reader needs in order to act.</p><p>Close by saying what should happen next and by when.</p><p><br></p><p>Yours sincerely,</p><p><br></p><p><br></p><p>Your Name</p>",
+  "page": {
+   "size": "A4",
+   "orientation": "portrait",
+   "margins": {
+    "top": 25.4,
+    "right": 25.4,
+    "bottom": 25.4,
+    "left": 25.4
+   },
+   "columns": 1,
+   "colGap": 10
+  },
+  "header": "",
+  "footer": "",
+  "hfMode": "all",
+  "pageNumbers": false,
+  "comments": [],
+  "trackChanges": false
+ }
+}

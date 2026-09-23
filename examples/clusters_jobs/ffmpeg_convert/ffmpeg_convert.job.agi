@@ -1,0 +1,53 @@
+/*
+    FFmpeg convert - the job half
+
+    Converts one video on whichever node the scheduler picked. The launcher
+    asks for the "ffmpeg" capability, so this only ever runs on a node that
+    has ffmpeg installed, and lists the input file, so a node that already
+    holds a copy of it is preferred and the video does not cross the network
+    twice.
+
+    The ffmpeg library reads the input and writes the output through the
+    cluster drive, so cluster:/ paths work here exactly like user:/ paths.
+
+    args:
+        input   default "cluster:/demo.mp4"
+        output  default "cluster:/demo.webm" (the extension picks the format)
+*/
+
+requirelib("filelib");
+
+function run(job) {
+    var args = job.args || {};
+    var input = args.input || "cluster:/demo.mp4";
+    var output = args.output || "cluster:/demo.webm";
+
+    //The scheduler already checked for ffmpeg, but a node can lose it
+    if (!requirelib("ffmpeg")) {
+        throw new Error("ffmpeg is not available on this node");
+    }
+    if (!filelib.fileExists(input)) {
+        throw new Error("input file not found: " + input);
+    }
+
+    job.log("Converting " + input + " to " + output + " on node " + job.node);
+    job.progress(0.05);
+
+    var started = Date.now();
+    var ok = ffmpeg.convert(input, output);
+    if (!ok) {
+        throw new Error("ffmpeg could not convert " + input);
+    }
+
+    job.progress(1);
+    job.log("Done");
+
+    return {
+        input: input,
+        inputBytes: filelib.filesize(input),
+        output: output,
+        outputBytes: filelib.filesize(output),
+        convertedOn: job.node,
+        seconds: Math.round((Date.now() - started) / 100) / 10
+    };
+}

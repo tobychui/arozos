@@ -4,23 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Docs</title>
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <link rel="stylesheet" href="../common/office.css">
-    <link rel="stylesheet" href="docs.css">
-    <script src="../../script/jquery.min.js"></script>
-    <script src="../../script/ao_module.js"></script>
-    <script src="../common/hotkeys.js"></script>
-    <script src="../common/office.js"></script>
-    <script src="../common/colorpicker.js"></script>
-    <script src="../common/clipboard.js"></script>
-    <script src="../common/textedit.js"></script>
-    <script src="../common/lib/marked.min.js"></script>
+    <link rel="icon" type="image/png" href="docs.png">
+    <!-- fetched first: the start-up splash shows it -->
+    <link rel="preload" href="../img/splash/docs.svg" as="image">
     <!-- Dynamic print stylesheet: docs.js writes the @page rule (size,
          orientation, margins, optional page-number margin box) in here
          whenever the page setup changes. Static print rules live in docs.css. -->
     <style id="pagePrintStyle"></style>
 </head>
 <body data-officeapp="docs">
+    <!-- start-up splash: first, so it covers the page before anything draws -->
+    <script src="../common/splash.js" data-app="Docs" data-size="1080x700"></script>
+    <!-- the app's stylesheets and scripts come after the splash, so it can
+         paint while they load -->
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../common/office.css">
+    <link rel="stylesheet" href="../common/fonts/fonts.css">
+    <link rel="stylesheet" href="docs.css">
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../common/mode.js"></script>
+    <script src="../common/container.js"></script>
+    <script src="../common/recents.js"></script>
+    <script src="../common/wasm.js"></script>
+    <script src="../common/platform.js"></script>
+    <script src="../common/fonts.js"></script>
+    <script src="../common/hotkeys.js"></script>
+    <script src="../common/office.js"></script>
+    <script src="../common/colorpicker.js"></script>
+    <script src="../common/clipboard.js"></script>
+    <script src="../common/textedit.js"></script>
+    <script src="../common/lib/marked.min.js"></script>
 
     <!-- Toolbar (buttons are built by docs.js) -->
     <div class="of-toolbar of-noprint" id="toolbar"></div>
@@ -61,6 +75,11 @@
     <!-- Hidden input for "Insert image from this device" -->
     <input type="file" id="deviceImageInput" accept="image/*" style="display:none;">
 
+    <script src="../common/lib/pdf-lib.min.js"></script>
+    <script src="../common/pdfcore.js"></script>
+    <script src="../common/pdfdraw.js"></script>
+    <script src="docs_layout.js"></script>
+    <script src="docs_pdf.js"></script>
     <script src="docs.js"></script>
 </body>
 </html>

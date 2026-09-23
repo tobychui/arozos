@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ArozOS mark for the suite-wide start-up splash (common/splash.js) -->
+  <defs>
+    <linearGradient id="arozosTile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#454b55"/>
+      <stop offset="1" stop-color="#1c2027"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="url(#arozosTile)"/>
+  <path d="M19.5 45L30 20.5Q32 16.5 34 20.5L44.5 45" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

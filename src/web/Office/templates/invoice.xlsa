@@ -1,0 +1,244 @@
+{
+ "type": "arozos/office",
+ "app": "spreadsheet",
+ "version": 1,
+ "meta": {
+  "title": "Invoice",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "sheets": [
+   {
+    "name": "Invoice",
+    "cells": {
+     "A1": {
+      "v": "INVOICE",
+      "s": {
+       "b": true,
+       "fs": 24,
+       "fc": "#e8710a"
+      }
+     },
+     "A3": {
+      "v": "From",
+      "s": {
+       "b": true
+      }
+     },
+     "A4": {
+      "v": "Your Name / Company"
+     },
+     "A5": {
+      "v": "Street Address"
+     },
+     "A6": {
+      "v": "City, Postcode"
+     },
+     "A7": {
+      "v": "you@example.com"
+     },
+     "C3": {
+      "v": "Invoice no.",
+      "s": {
+       "b": true
+      }
+     },
+     "D3": {
+      "v": "2026-001"
+     },
+     "C4": {
+      "v": "Date",
+      "s": {
+       "b": true
+      }
+     },
+     "D4": {
+      "v": "=TODAY()",
+      "s": {
+       "fmt": "date"
+      }
+     },
+     "C5": {
+      "v": "Due",
+      "s": {
+       "b": true
+      }
+     },
+     "D5": {
+      "v": "Net 30"
+     },
+     "A9": {
+      "v": "Bill to",
+      "s": {
+       "b": true
+      }
+     },
+     "A10": {
+      "v": "Client Name"
+     },
+     "A11": {
+      "v": "Client Address"
+     },
+     "A13": {
+      "v": "Description",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "B13": {
+      "v": "Qty",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "C13": {
+      "v": "Unit price",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "D13": {
+      "v": "Amount",
+      "s": {
+       "b": true,
+       "bg": "#f1f3f4",
+       "bd": 1
+      }
+     },
+     "A14": {
+      "v": "Design work"
+     },
+     "B14": {
+      "v": "12"
+     },
+     "C14": {
+      "v": "85",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D14": {
+      "v": "=B14*C14",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A15": {
+      "v": "Development"
+     },
+     "B15": {
+      "v": "30"
+     },
+     "C15": {
+      "v": "95",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D15": {
+      "v": "=B15*C15",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A16": {
+      "v": "Project management"
+     },
+     "B16": {
+      "v": "6"
+     },
+     "C16": {
+      "v": "75",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D16": {
+      "v": "=B16*C16",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C18": {
+      "v": "Subtotal",
+      "s": {
+       "b": true
+      }
+     },
+     "D18": {
+      "v": "=SUM(D14:D16)",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C19": {
+      "v": "Tax (10%)"
+     },
+     "D19": {
+      "v": "=D18*0.1",
+      "s": {
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "C20": {
+      "v": "Total due",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "D20": {
+      "v": "=D18+D19",
+      "s": {
+       "b": true,
+       "bd": 1,
+       "fmt": "currency",
+       "dec": 2
+      }
+     },
+     "A22": {
+      "v": "Payment within 30 days. Thank you.",
+      "s": {
+       "i": true,
+       "fc": "#5f6368"
+      }
+     }
+    },
+    "colW": {
+     "0": 220,
+     "1": 70,
+     "2": 110,
+     "3": 120
+    },
+    "rowH": {},
+    "merges": [],
+    "freeze": {
+     "r": 0,
+     "c": 0
+    },
+    "charts": [],
+    "filter": null
+   }
+  ],
+  "active": 0
+ }
+}

@@ -8,12 +8,43 @@
 */
 
 let directorySidebarWidth = 250; //Width of the sidebar
+
+//Which special view the sidebar context menu was opened on, if any
+let contextMenuSpecialView = "";
+
+/*
+    Trash bin layout thresholds, measured on the file area rather than on the
+    window: both panes beside it are draggable, so the viewport says little
+    about how much room the table actually has.
+*/
+const FM_TRASH_ORIGIN_MIN_WIDTH = 900;  //Below this the original path column goes
+const FM_TRASH_CARD_MAX_WIDTH = 560;    //Below this the table becomes cards
+
+/*
+    Pane splitter limits (see js/explorer/splitter.js)
+
+    The quick access sidebar opens at its widest and is only ever dragged
+    narrower, so its default and its maximum are the same number. Its floor is
+    expressed as a fraction of that maximum rather than as its own pixel value,
+    so changing the maximum keeps the two in proportion.
+
+    The properties pane is free to go either way between its own two bounds.
+    FM_MAIN_MIN_WIDTH is what stops either drag from squeezing the file list
+    itself down to nothing on a narrow window.
+*/
+const FM_SIDEBAR_MAX_WIDTH = 250;   //also the default width
+const FM_SIDEBAR_MIN_RATIO = 1 / 3; //narrowest the sidebar may be dragged
+const FM_PROPS_DEFAULT_WIDTH = 300;
+const FM_PROPS_MIN_WIDTH = 220;
+const FM_PROPS_MAX_WIDTH = 620;
+const FM_MAIN_MIN_WIDTH = 320;      //the file list never shrinks past this
 let sideBarShown = true; //Indicate if sidebar is shown
 let currentTheme = "whiteTheme"; //Default theme
 let viewMode = "list"; //Viewmode, support {list, grid, detail}
 let sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall, mostRecent, leastRecent}
 let currentPath = "user:/"
 let showOprBar = true;               //Classic file operation toolbar, persisted server side
+let showHiddenFiles = false;         //Dotfiles and .metadata folders, persisted server side
 let gridZoom = 170;                  //Grid tile width in px (100-170), driven by the status bar slider
 let viewHistory = [];
 let forwardHistory = [];             //Paths popped by Back, replayed by Forward. Cleared on any other navigation. //View history
@@ -46,6 +77,17 @@ let ctrlHold = false;
 let shiftHold = false;
 let lastClickedElement = undefined;
 
+/*
+    Mobile double tap tracking.
+
+    Touch browsers do not fire a reliable dblclick on these rows, so the gesture
+    is timed here instead. Kept per file id so two quick taps on different items
+    are never mistaken for a double tap on one.
+*/
+let lastTapFileID = null;
+let lastTapTime = 0;
+const MOBILE_DOUBLE_TAP_MS = 350;
+
 //Upload related
 let uploadingFileCount = 0;
 let maxConcurrentUpload = 4; //Maxmium number of oncurrent upload
@@ -56,6 +98,18 @@ let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size i
 let uploadFileChunkSize = 1024 * 512; //512KB, 4MB not working quite well on slow network
 let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
 const CHUNK_TIMEOUT_MS = 30000; //30s timeout waiting for server "next" ack before retrying a chunk
+
+/*
+    Heartbeat interval while an upload is paused. Comfortably under the 60s idle
+    timeout most reverse proxies default to, so a pause left running overnight
+    does not quietly lose its connection.
+
+    The matching server side limits are uploadPauseTimeout and
+    uploadPauseCloseCode in src/file_system.go - a pause left longer than the
+    server's timeout is cancelled there and closed with that code.
+*/
+const UPLOAD_PAUSE_PING_MS = 20000;
+const UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE = 4001;
 const MAX_CHUNK_RETRIES = 3;    //Maximum retries per individual chunk before failing the upload
 
 /*
@@ -94,6 +148,9 @@ const UPLOAD_FOLLOW_PAUSE_MS = 5000; //How long a manual scroll suspends followi
 
 //Pending auto-dismiss for the toast, so a new message replaces the old timer
 let msgboxTimer = null;
+
+//Deferred second layout pass after a resize / rotation (see applyResponsiveLayout)
+let responsiveLayoutTimer = null;
 
 //Module-registered extension icons (ext without dot → web-root-relative path)
 var extIconRegistry = {};

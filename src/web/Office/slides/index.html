@@ -4,11 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Slides</title>
+    <link rel="icon" type="image/png" href="slides.png">
+    <!-- fetched first: the start-up splash shows it -->
+    <link rel="preload" href="../img/splash/slides.svg" as="image">
+</head>
+<body data-officeapp="slides">
+    <!-- start-up splash: first, so it covers the page before anything draws -->
+    <script src="../common/splash.js" data-app="Slides" data-size="1220x740"></script>
+    <!-- the app's stylesheets and scripts come after the splash, so it can
+         paint while they load -->
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <link rel="stylesheet" href="../common/office.css">
+    <link rel="stylesheet" href="../common/fonts/fonts.css">
     <link rel="stylesheet" href="slides.css">
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <script src="../common/mode.js"></script>
+    <script src="../common/container.js"></script>
+    <script src="../common/recents.js"></script>
+    <script src="../common/wasm.js"></script>
+    <script src="../common/platform.js"></script>
+    <script src="../common/fonts.js"></script>
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
@@ -16,15 +32,11 @@
     <script src="../common/textedit.js"></script>
     <script src="../common/charts.js"></script>
     <script src="../common/lib/html2canvas.min.js"></script>
-</head>
-<body data-officeapp="slides">
+    <script src="../common/lib/pdf-lib.min.js"></script>
     <div class="of-toolbar of-noprint" id="toolbar"></div>
     <div class="of-workspace" id="workspace">
         <div id="slRail" class="of-noprint">
             <div id="slThumbs"></div>
-            <button id="slRailAdd" type="button" title="New slide">
-                <i class="plus icon"></i> New slide
-            </button>
         </div>
         <div id="slMain">
             <div id="slCanvasArea">
@@ -46,6 +58,11 @@
     </div>
     <div id="slPrintArea"></div>
     <input type="file" id="slDeviceImage" accept="image/*" multiple style="display:none;">
+    <script src="slides_shapes.js"></script>
+    <script src="slides_image.js"></script>
+    <script src="../common/pdfcore.js"></script>
+    <script src="../common/pdfdraw.js"></script>
+    <script src="slides_pdf.js"></script>
     <script src="slides.js"></script>
     <script src="present.js"></script>
 </body>

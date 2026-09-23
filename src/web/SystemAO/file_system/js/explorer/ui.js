@@ -25,8 +25,31 @@ function loadPreference(key, callback){
 }
 
 // ============================== WINDOW RESIZE FUNCTIONS =====================
-$(window).on("resize",function(){
+
+/*
+    Everything whose size is derived from the viewport, in one place.
+
+    This has to be re-runnable rather than something that only happens on the
+    first render: the file area's column density and the mobile sidebar width
+    are computed from measured widths, so after a rotation they are all still
+    describing the previous orientation.
+*/
+function applyResponsiveLayout(){
+    if (isMobile){
+        //Derived from the viewport at load time, so it is stale after a rotate
+        directorySidebarWidth = window.innerWidth;
+        $("#directorySidebar").css("width", window.innerWidth + "px");
+    }else{
+        //A pane width that was legal before can be over its ceiling now
+        reclampPaneWidths();
+    }
+
+    //Column dropping and tile density key off the file area's own width, which
+    //a rotation changes without anything re-rendering the list
+    updateListDensity();
+    updateZoomControlVisibility();
     initWindowSizes(false);
+
     if (!isMobile && window.innerWidth < 620 && sideBarShown == true){
         toggleSidebar(false);
     }else if (!isMobile && window.innerWidth > 650 && sideBarShown == false){
@@ -40,8 +63,31 @@ $(window).on("resize",function(){
     if (!pathInputMode){
         updatePathDisplay(currentPath);
     }
-    
-});
+}
+
+/*
+    Mobile browsers report the old innerWidth/innerHeight for a frame or two
+    after a rotation, so a single pass on the event lays the panes out against
+    the orientation that is going away. Run once immediately to keep the resize
+    responsive, then again once the metrics have settled.
+*/
+function scheduleResponsiveLayout(){
+    applyResponsiveLayout();
+    clearTimeout(responsiveLayoutTimer);
+    responsiveLayoutTimer = setTimeout(applyResponsiveLayout, 250);
+}
+
+$(window).on("resize", scheduleResponsiveLayout);
+
+/*
+    orientationchange fires on phones where a resize sometimes does not, and
+    visualViewport catches the browser chrome collapsing on scroll - which
+    changes the usable height without a window resize event.
+*/
+window.addEventListener("orientationchange", scheduleResponsiveLayout);
+if (window.visualViewport != undefined){
+    window.visualViewport.addEventListener("resize", scheduleResponsiveLayout);
+}
 
 function toggleMobileSidebar(show=undefined, callback=undefined){
     if(show == true){
@@ -79,6 +125,7 @@ function toggleSidebar(useAnimation=true){
     }
     
     sideBarShown = !sideBarShown;
+    updateSplitterVisibility();
     initWindowSizes(useAnimation);
 }
 
@@ -120,45 +167,46 @@ function initWindowSizes(animate=true){
     $("#propertiesView").css("height", windowHeight + "px");
 }
 
-function toggleDarkTheme(){
-    if ($(".darkTheme").length > 0){
-        //Set To whiteTheme
-        $("body").removeClass("darkTheme").addClass("whiteTheme");
-        currentTheme = "whiteTheme";
-        $("#darkthemebtn").attr("class","moon icon");
-        $("#darkthemebtn").parent().addClass("inverted");
-        $(".dropdown").removeClass("inverted");
-        setPreference("file_explorer/theme","whiteTheme");
-        $("#mobileNaviBar").removeClass("inverted");
-        $("#darkthemebtn").css("color", "#dadada");
-
-        //If in vdi mode, update desktop's listMenu as well
-        if (ao_module_virtualDesktop){
-            parent.initTheme("whiteTheme");
-        } else {
-            // Standalone: notify other open tabs via localStorage
-            try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: 'light', ts: Date.now()})); } catch(e) {}
-        }
-    }else{
-        //Set to DarkTheme
+/*
+    Paints the theme classes/icons only - no preference save, no broadcast.
+    Shared by the toolbar toggle button (below) and by the live-sync listener
+    in boot.js that reacts to the desktop's own theme switch, so a change
+    triggered from elsewhere doesn't loop back into another broadcast.
+*/
+function applyTheme(theme){
+    var isDark = (theme == "dark" || theme == "darkTheme");
+    if (isDark){
         $("body").removeClass("whiteTheme").addClass("darkTheme");
         currentTheme = "darkTheme";
         $("#darkthemebtn").attr("class","sun icon");
         $("#darkthemebtn").parent().removeClass("inverted");
         $("#darkthemebtn").css("color", "#3d3f47");
         $(".dropdown").addClass("inverted");
-        setPreference("file_explorer/theme","darkTheme");
         $("#mobileNaviBar").addClass("inverted");
-
-            //If in vdi mode, update desktop's listMenu as well
-            if (ao_module_virtualDesktop){
-            parent.initTheme("darkTheme");
-        } else {
-            // Standalone: notify other open tabs via localStorage
-            try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: 'dark', ts: Date.now()})); } catch(e) {}
-        }
+    }else{
+        $("body").removeClass("darkTheme").addClass("whiteTheme");
+        currentTheme = "whiteTheme";
+        $("#darkthemebtn").attr("class","moon icon");
+        $("#darkthemebtn").parent().addClass("inverted");
+        $(".dropdown").removeClass("inverted");
+        $("#mobileNaviBar").removeClass("inverted");
+        $("#darkthemebtn").css("color", "#dadada");
     }
+}
 
+function toggleDarkTheme(){
+    var goingWhite = $(".darkTheme").length > 0;
+    var newTheme = goingWhite ? "whiteTheme" : "darkTheme";
+    applyTheme(newTheme);
+    setPreference("file_explorer/theme", newTheme);
+
+    //If in vdi mode, update desktop's listMenu as well
+    if (ao_module_virtualDesktop){
+        parent.initTheme(newTheme);
+    } else {
+        // Standalone: notify other open tabs via localStorage
+        try { localStorage.setItem('ao_system_theme', JSON.stringify({theme: goingWhite ? 'light' : 'dark', ts: Date.now()})); } catch(e) {}
+    }
 }
 
 /*
@@ -218,6 +266,9 @@ function hideAllPopupWindows(){
 }
 
 function showPopupWrapper(){
+    //Every dialog goes through here, so this is the one place that has to know
+    //the transfer panel shares the corner it is about to cover
+    collapseUploadPanelForDialog();
     $(".popupWrapper").fadeIn('fast');
     $('body').css("overflow","hidden");
 }
@@ -231,6 +282,7 @@ function showPopupWrapper(){
 window.hideAllPopupWindows = hideAllPopupWindows;
 window.hideMsgBox = hideMsgBox;     // the toast's close button
 window.toggleDarkTheme = toggleDarkTheme;
+window.applyTheme = applyTheme;
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.toggleSidebar = toggleSidebar;
 
@@ -323,7 +375,8 @@ function syncOprMenuDuplicates(){
         let dup = offered[$(this).attr("data-opr")] === true;
         //An entry shows only if the toolbar is not already offering it AND it
         //can actually do something with the current selection / clipboard
-        let unusable = $(this).hasClass("fmOprUnusable");
+        //Blocked by the current special view, or unusable for the selection
+        let unusable = $(this).hasClass("fmOprUnusable") || $(this).hasClass("fmOprBlocked");
         $(this).toggle(!dup && !unusable);
     });
 
@@ -395,7 +448,8 @@ $(window).on("resize", function(){
 
 /*
     Hide menu entries that cannot act right now: most operations need a
-    selection, and Paste needs something on the clipboard.
+    selection, and Paste needs something on the clipboard - unless the large
+    toolbar is hidden, in which case Paste always stays.
 
     This applies to the overflow menu only. The large toolbar buttons keep their
     old behaviour of staying put and doing nothing, because a toolbar that
@@ -407,7 +461,15 @@ var OPR_NEEDS_SELECTION = ["open", "openwith", "copy", "cut", "rename", "delete"
 
 function updateOprMenuRelevance(){
     let hasSelection = $(".fileObject.selected").length > 0;
-    let hasClipboard = (typeof clipboard != "undefined") && clipboard.length > 0;
+    let hasClipboard = clipboardHasContent();
+
+    /*
+        With the large toolbar hidden this menu is the only place Paste could be
+        reached from, so it stays listed there whatever the clipboard looks like
+        - what this page knows about the clipboard is not the whole story, see
+        clipboardHasContent() in clipboard.js.
+    */
+    let oprBarHidden = !$("#fileOprBar").is(":visible");
 
     $("#fmMoreMenu [data-opr]").each(function(){
         let opr = $(this).attr("data-opr");
@@ -415,7 +477,7 @@ function updateOprMenuRelevance(){
         if (OPR_NEEDS_SELECTION.indexOf(opr) >= 0){
             usable = hasSelection;
         }else if (opr == "paste"){
-            usable = hasClipboard;
+            usable = hasClipboard || oprBarHidden;
         }
         $(this).toggleClass("fmOprUnusable", !usable);
     });

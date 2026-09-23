@@ -1,0 +1,39 @@
+/*
+    save.agi
+
+    Write the project JSON back to its .wbsite file.
+
+    POST parameters:
+        filepath   virtual path to write
+        content    the project JSON
+
+    Responds with { "ok": true } or an error.
+*/
+
+requirelib("filelib");
+
+function main() {
+    if (typeof (filepath) == "undefined" || filepath == "") {
+        sendJSONResp(JSON.stringify({ error: "Missing filepath" }));
+        return;
+    }
+    if (typeof (content) == "undefined") {
+        sendJSONResp(JSON.stringify({ error: "Missing content" }));
+        return;
+    }
+
+    if (filelib.fileExists(filepath) && filelib.isDir(filepath)) {
+        sendJSONResp(JSON.stringify({ error: "Target is a folder" }));
+        return;
+    }
+
+    var ok = filelib.writeFile(filepath, content);
+    if (ok === false) {
+        sendJSONResp(JSON.stringify({ error: "Write failed - check the folder permissions and your quota" }));
+        return;
+    }
+
+    sendJSONResp(JSON.stringify({ ok: true, path: filepath }));
+}
+
+main();

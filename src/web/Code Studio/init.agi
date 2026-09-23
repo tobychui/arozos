@@ -15,7 +15,7 @@ var moduleLaunchInfo = {
 	Desc: "The best code editor on ArozOS",
 	Group: "Office",
 	IconPath: _MODULE_ROOT_DIR + "/img/module_icon.png",
-	Version: "1.3",
+	Version: "2.0",
 	StartDir: _MODULE_ROOT_DIR + "/index.html",
 	SupportFW: true,
 	LaunchFWDir: _MODULE_ROOT_DIR + "/index.html",

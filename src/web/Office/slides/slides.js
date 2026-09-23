@@ -26,8 +26,9 @@
                         props: { ... } // per type:
                         //  text : { html, fontSize, color, align, bold, italic, underline }
                         //  image: { src, fit: "contain"|"cover"|"fill" }
-                        //  shape: { kind: "rect"|"round"|"ellipse"|"triangle"|"diamond"|
-                        //                 "arrow"|"star"|"chevron",
+                        //  shape: { kind: a SlidesShapes name, which is the
+                        //                 PresentationML preset name -
+                        //                 "rect"|"roundRect"|"ellipse"|"rightBrace"|...
                         //           fill, stroke, strokeW, text, textColor, fontSize, bold }
                         //  line : { stroke, strokeW, dash, arrowEnd }
                         //  table: { rows: [["a","b"],...], headerRow, colW?, rowH?, fontSize, color }
@@ -42,8 +43,32 @@
                     }
                 ]
             }
-        ]
+        ],
+        fonts: [                       // optional: font faces a .pptx/.odp
+            { family, weight, style, src }   // brought with it, installed as
+        ]                              // @font-face (see installEmbeddedFonts)
     }
+
+    Objects imported from a .pptx / .odp carry extra props that keep the
+    typography and geometry of the file they came from. All are optional -
+    an object made in the editor omits them and falls back to the
+    stylesheet. See "Imported-deck fidelity props" in common/CONTRACT.md:
+      text / shape : fontFamily, valign, pad[t,r,b,l], lineHeight,
+                     and on a shape, html (rich text in place of text)
+      image        : crop[l,t,r,b] fractions, radius, opacity
+      line         : points (a bent connector's polyline), arrowStart
+      table        : cellFill[][], cellPad[t,r,b,l]
+
+    An image also carries what the picture tools put on it:
+      crop[l,t,r,b] / mask / radius  the crop and the shaped crop
+      orig {x,y,w,h}                 the frame Reset image puts back
+      flipH / flipV                  mirrored horizontally / vertically
+      recolor / bright / contrast    the colour treatment (slides_image.js)
+      opacity                        1 - transparency
+    These are the same props the pptx reader writes, because a crop or a
+    tint made here and one made in PowerPoint mean the same thing. See the
+    "image crop tool" section below, slides_image.js for the tools that
+    edit them, and CONTRACT.md for the frame-vs-source identity they obey.
 */
 
 var SlidesApp = (function () {
@@ -82,16 +107,25 @@ var SlidesApp = (function () {
     ];
     var MEDIA_MAX_BYTES = 200 * 1024 * 1024;  // uploads stream to the workdir
 
-    var SHAPE_KINDS = [
-        { kind: "rect",     label: "Rectangle" },
-        { kind: "round",    label: "Rounded rectangle" },
-        { kind: "ellipse",  label: "Ellipse" },
-        { kind: "triangle", label: "Triangle" },
-        { kind: "diamond",  label: "Diamond" },
-        { kind: "arrow",    label: "Arrow" },
-        { kind: "star",     label: "Star" },
-        { kind: "chevron",  label: "Chevron" }
-    ];
+    /* What a picture can be masked to. Deliberately a short list and not
+       the whole catalogue, for two reasons. A mask reads as a silhouette,
+       so the outlines worth offering are the ones that still say something
+       at thumbnail size - and every one of these is a polygon, which is
+       what lets maskClipPath() state it in percentages so the clip follows
+       the frame while it is being dragged. A curved shape would have to be
+       restated in pixels at every size. Every shape the editor can draw
+       lives in SlidesShapes (slides_shapes.js) and is offered by the
+       Insert > Shape picker. */
+    var MASK_KINDS = [
+        "rect", "roundRect", "ellipse", "triangle", "rtTriangle", "diamond",
+        "pentagon", "hexagon", "heptagon", "octagon", "decagon", "dodecagon",
+        "parallelogram", "trapezoid", "plus", "star4", "star5", "star6",
+        "star8", "star12", "chevron", "homePlate", "rightArrow", "leftArrow",
+        "upArrow", "downArrow", "leftRightArrow", "upDownArrow",
+        "flowChartManualInput", "flowChartInputOutput", "irregularSeal1"
+    ].map(function (k) {
+        return { kind: k, label: SlidesShapes.label(k) };
+    });
 
     /* ================= state ================= */
     var body = null;          // document body (see schema above)
@@ -110,8 +144,16 @@ var SlidesApp = (function () {
     var lastPointerEvt = null;
     var thumbTimer = null;
     var snapGrid = false;
+    /* image crop mode: cropId is the picture being cropped, cropRect is the
+       part of it that will be kept and cropFull is where the whole picture
+       sits behind that (both in slide units), cropBefore is what to put
+       back if the crop is cancelled */
+    var cropId = null;
+    var cropRect = null;
+    var cropFull = null;
+    var cropBefore = null;
 
-    var canvasEl, layerEl, framesEl, guideVEl, guideHEl, marqueeEl;
+    var canvasEl, layerEl, framesEl, guideVEl, guideHEl, marqueeEl, cropEl;
 
     /* ================= small utils ================= */
     function esc(t) { return OfficeApp.escapeHtml(t); }
@@ -165,7 +207,21 @@ var SlidesApp = (function () {
             s.objects.push(newTextObj("Left content", 50, 130, 420, 360, 20, "left", textColor));
             s.objects.push(newTextObj("Right content", 490, 130, 420, 360, 20, "left", textColor));
         } else if (kind === "caption") {
-            s.objects.push(newTextObj("Caption", 80, 440, 800, 60, 20, "center", textColor));
+            s.objects.push(newTextObj("Title", 60, 60, 840, 300, 28, "left", textColor));
+            s.objects.push(newTextObj("Caption", 60, 400, 840, 60, 16, "left", textColor));
+        } else if (kind === "section") {
+            s.objects.push(newTextObj("Section header", 60, 230, 840, 80, 36, "left", textColor));
+        } else if (kind === "onecol") {
+            s.objects.push(newTextObj("Heading", 60, 60, 840, 60, 28, "left", textColor));
+            s.objects.push(newTextObj("Text", 60, 140, 840, 340, 18, "left", textColor));
+        } else if (kind === "mainpoint") {
+            s.objects.push(newTextObj("Main point", 80, 210, 800, 120, 44, "left", textColor));
+        } else if (kind === "sectiondesc") {
+            s.objects.push(newTextObj("Section title", 60, 120, 380, 90, 30, "left", textColor));
+            s.objects.push(newTextObj("Description", 60, 230, 380, 200, 16, "left", textColor));
+        } else if (kind === "bignumber") {
+            s.objects.push(newTextObj("100%", 80, 160, 800, 140, 88, "center", textColor));
+            s.objects.push(newTextObj("What it stands for", 80, 320, 800, 60, 18, "center", textColor));
         }
         s.objects.forEach(function (o, i) { o.z = i + 1; });
         return s;
@@ -197,12 +253,58 @@ var SlidesApp = (function () {
                 o.rot = Number(o.rot) || 0;
                 o.z = i + 1;
                 if (!o.props || typeof o.props !== "object") o.props = {};
+                // decks written before the shape catalogue carry three
+                // editor-invented names; rewrite them as they come in
+                if (o.props.kind) o.props.kind = SlidesShapes.canonical(o.props.kind);
+                if (o.props.mask) o.props.mask = SlidesShapes.canonical(o.props.mask);
             });
         });
+        if (!Array.isArray(b.fonts)) delete b.fonts;
+        installEmbeddedFonts(b.fonts);
         return b;
     }
 
+    /* A deck imported from a file may carry the font faces it was designed
+       in, so text renders in the right typeface on a machine that does not
+       have them installed. They go in one stylesheet for the whole page:
+       the editor, the thumbnails, present mode and print all share it. */
+    function installEmbeddedFonts(fonts) {
+        var el = document.getElementById("slEmbeddedFonts");
+        if (!fonts || !fonts.length) {
+            if (el) el.parentNode.removeChild(el);
+            return;
+        }
+        if (!el) {
+            el = document.createElement("style");
+            el.id = "slEmbeddedFonts";
+            document.head.appendChild(el);
+        }
+        var css = "";
+        fonts.forEach(function (f) {
+            if (!f || typeof f.src !== "string" || f.src.indexOf("data:") !== 0) return;
+            if (!f.family) return;
+            css += "@font-face{font-family:'" + String(f.family).replace(/['\\]/g, "") +
+                "';src:url(" + f.src + ");font-weight:" + (Number(f.weight) || 400) +
+                ";font-style:" + (f.style === "italic" ? "italic" : "normal") +
+                ";font-display:block;}\n";
+        });
+        el.textContent = css;
+    }
+
     /* ================= rendering: objects ================= */
+    /* Imported decks (pptx / odp) carry their own typography on the text
+       object: the CSS font stack the file asked for, the text-box insets,
+       the paragraph line height and the vertical anchor. Documents made in
+       the editor have none of those and fall back to the stylesheet. */
+    var VALIGN_JUSTIFY = { top: "flex-start", middle: "center", bottom: "flex-end" };
+
+    function padStyle(pad) {
+        if (!pad || pad.length !== 4) return "";
+        return "padding:" + pad.map(function (v) {
+            return (Number(v) || 0) + "px";
+        }).join(" ") + ";";
+    }
+
     function textStyle(p) {
         var s = "font-size:" + (Number(p.fontSize) || 24) + "px;";
         if (p.color) s += "color:" + esc(p.color) + ";";
@@ -210,59 +312,131 @@ var SlidesApp = (function () {
         if (p.bold) s += "font-weight:700;";
         if (p.italic) s += "font-style:italic;";
         if (p.underline) s += "text-decoration:underline;";
+        if (p.fontFamily) s += "font-family:" + esc(OfficeFonts.stack(p.fontFamily)) + ";";
+        if (p.lineHeight) s += "line-height:" + (Number(p.lineHeight) || 1.3) + ";";
+        s += padStyle(p.pad);
+        s += "justify-content:" + (VALIGN_JUSTIFY[p.valign] || "flex-start") + ";";
         return s;
     }
 
-    function shapePoints(kind, w, h) {
-        var pts;
-        switch (kind) {
-            case "triangle":
-                pts = [[w / 2, 0], [w, h], [0, h]]; break;
-            case "diamond":
-                pts = [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]]; break;
-            case "arrow":
-                pts = [[0, h * 0.3], [w * 0.62, h * 0.3], [w * 0.62, 0], [w, h / 2],
-                       [w * 0.62, h], [w * 0.62, h * 0.7], [0, h * 0.7]]; break;
-            case "chevron":
-                pts = [[0, 0], [w * 0.72, 0], [w, h / 2], [w * 0.72, h], [0, h], [w * 0.28, h / 2]]; break;
-            case "star":
-                pts = [];
-                var cx = w / 2, cy = h / 2, rx = w / 2, ry = h / 2, inner = 0.42;
-                for (var i = 0; i < 10; i++) {
-                    var ang = -Math.PI / 2 + i * Math.PI / 5;
-                    var f = (i % 2 === 0) ? 1 : inner;
-                    pts.push([cx + rx * f * Math.cos(ang), cy + ry * f * Math.sin(ang)]);
-                }
-                break;
-            default:
-                pts = null;
+    /* An imported picture may be cropped (pptx srcRect), have rounded
+       corners and be partly transparent. The crop is reproduced the way
+       PowerPoint defines it: the visible rectangle is scaled up to fill
+       the frame and the rest is clipped by the wrapper. */
+    function imageHtml(p) {
+        var imgS = "object-fit:" + esc(p.fit || "contain") + ";" + cropImgStyle(p.crop);
+        var wrapS = "";
+        if (p.radius) wrapS += "border-radius:" + (Number(p.radius) || 0) + "px;";
+        if (p.opacity) wrapS += "opacity:" + clamp(Number(p.opacity) || 1, 0, 1) + ";";
+        var clip = maskClipPath(p.mask);
+        if (clip) wrapS += "clip-path:" + clip + ";-webkit-clip-path:" + clip + ";";
+        // re-colour and the brightness / contrast adjustments are one CSS
+        // filter, built by the picture tools so the canvas, the thumbnails,
+        // present mode and the panel's own swatches all agree
+        if (window.SlidesImageTools) {
+            var f = SlidesImageTools.imageFilter(p);
+            if (f) imgS += "filter:" + f + ";";
         }
-        return pts;
+        var flip = (p.flipH ? "scaleX(-1) " : "") + (p.flipV ? "scaleY(-1)" : "");
+        if (flip) imgS += "transform:" + flip.trim() + ";";
+        return '<div class="sl-img-wrap" style="' + wrapS + '">' +
+            '<img draggable="false" src="' + esc(p.src || "") +
+            '" style="' + imgS + '" alt=""></div>';
     }
 
+    /* The visible rectangle is scaled up to fill the frame and the rest is
+       clipped by the wrapper - the same definition PowerPoint's srcRect
+       uses, so an imported crop and one made here mean the same thing. */
+    function cropImgStyle(c) {
+        if (!c || c.length !== 4) return "";
+        var l = Number(c[0]) || 0, t = Number(c[1]) || 0;
+        var kw = 1 - l - (Number(c[2]) || 0);
+        var kh = 1 - t - (Number(c[3]) || 0);
+        if (!(kw > 0.001) || !(kh > 0.001)) return "";
+        return "position:absolute;object-fit:fill;" +
+            "width:" + (100 / kw) + "%;height:" + (100 / kh) + "%;" +
+            "left:" + (-l / kw * 100) + "%;top:" + (-t / kh * 100) + "%;";
+    }
+
+    /* A shaped crop ("mask image"): the picture is clipped to one of the
+       editor's shape outlines. shapePoints() already defines every polygon
+       shape, so asking it for a 100x100 box yields percentages directly. */
+    function maskClipPath(kind) {
+        if (!kind || kind === "rect") return "";
+        if (kind === "ellipse") return "ellipse(50% 50% at 50% 50%)";
+        if (kind === "roundRect") return "";    // border-radius draws this one
+        var pts = shapePoints(kind, 100, 100);
+        if (!pts) return "";
+        return "polygon(" + pts.map(function (pt) {
+            return pt[0].toFixed(2) + "% " + pt[1].toFixed(2) + "%";
+        }).join(",") + ")";
+    }
+
+    /* shapePoints is the polygon form of a shape, for the one caller that
+       wants corners rather than a path: the CSS clip-path of a mask, which
+       states them as percentages so the clip follows the frame. A shape
+       with curves in it has none, and says so - which is why MASK_KINDS is
+       all polygons. */
+    function shapePoints(kind, w, h) {
+        return SlidesShapes.points(kind, w, h);
+    }
+
+    /* shapeSvg draws one shape. The geometry comes from SlidesShapes, so
+       the canvas, the icon in the picker, a shaped crop and the PDF export
+       are all working from the same outline.
+
+       Two shapes are still drawn as SVG primitives rather than as a path:
+       a rectangle and an ellipse, because a rounded rectangle's radius is
+       a property the user sets and `rx` follows the box as it is resized. */
     function shapeSvg(o) {
         var w = Math.max(4, o.w), h = Math.max(4, o.h);
         var p = o.props;
+        var kind = SlidesShapes.canonical(p.kind || "rect");
         var sw = Number(p.strokeW) || 0;
-        var attrs = 'fill="' + esc(p.fill || "#e07b1f") + '"' +
-            (sw > 0 ? ' stroke="' + esc(p.stroke || "#333333") + '" stroke-width="' + sw + '"' : ' stroke="none"') +
+        var stroke = p.stroke || "";
+        // an imported shape may legitimately have no fill (an outline-only
+        // box); only an editor-made shape with nothing set gets the default
+        var fill = p.fill || "#e07b1f";
+        // a bracket, a brace or an arc is a line and not an area: with no
+        // stroke there would be nothing on the slide at all
+        var open = SlidesShapes.isOpen(kind);
+        if (open) {
+            if (!stroke || stroke === "none") stroke = (fill && fill !== "none") ? fill : "#333333";
+            if (!sw) sw = 2;
+            fill = "none";
+        }
+        var hasStroke = sw > 0 && stroke && stroke !== "none";
+        var attrs = 'fill="' + esc(fill) + '"' +
+            (SlidesShapes.evenOdd(kind) ? ' fill-rule="evenodd"' : "") +
+            (hasStroke ? ' stroke="' + esc(stroke) + '" stroke-width="' + sw + '"' +
+                (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") : ' stroke="none"') +
             ' stroke-linejoin="round" vector-effect="non-scaling-stroke"';
         var inner;
-        var i = Math.max(1, sw / 2 + 0.5);
-        if (o.props.kind === "rect" || o.props.kind === "round" || !o.props.kind) {
-            var rx = o.props.kind === "round" ? Math.min(w, h) * 0.15 : 0;
+        var i = hasStroke ? Math.max(0.5, sw / 2) : 0;
+        if (kind === "rect" || kind === "roundRect") {
+            var rx = kind === "roundRect"
+                ? (p.radius !== undefined ? Number(p.radius) : Math.min(w, h) * 0.15) : 0;
             inner = '<rect x="' + i + '" y="' + i + '" width="' + (w - 2 * i) + '" height="' + (h - 2 * i) +
                 '" rx="' + rx + '" ' + attrs + "/>";
-        } else if (o.props.kind === "ellipse") {
+        } else if (kind === "ellipse") {
             inner = '<ellipse cx="' + (w / 2) + '" cy="' + (h / 2) + '" rx="' + (w / 2 - i) + '" ry="' + (h / 2 - i) + '" ' + attrs + "/>";
         } else {
-            var pts = shapePoints(o.props.kind, w, h) || [[0, 0], [w, 0], [w, h], [0, h]];
-            inner = '<polygon points="' + pts.map(function (pt) {
-                return pt[0].toFixed(1) + "," + pt[1].toFixed(1);
-            }).join(" ") + '" ' + attrs + "/>";
+            var d = SlidesShapes.path(kind, w, h);
+            if (!d) d = SlidesShapes.path("rect", w, h);
+            inner = '<path d="' + d + '" ' + attrs + "/>";
         }
+        // markings - the divider bars of a predefined process, the fold of a
+        // folded corner. They are drawn, never filled.
+        var det = SlidesShapes.detail(kind, w, h);
+        if (det) {
+            inner += '<path d="' + det + '" fill="none" stroke="' +
+                esc(hasStroke ? stroke : contrastText(fill)) + '" stroke-width="' +
+                (sw > 0 ? sw : 1) + '" vector-effect="non-scaling-stroke"/>';
+        }
+        // a stroke sits astride the outline, so half of it falls outside the
+        // box - which is what PowerPoint draws too
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + " " + h +
-            '" preserveAspectRatio="none">' + inner + "</svg>";
+            '" preserveAspectRatio="none" style="overflow:visible">' + inner + "</svg>";
     }
 
     function shapeTextDiv(o) {
@@ -270,16 +444,39 @@ var SlidesApp = (function () {
         var s = "font-size:" + (Number(p.fontSize) || 18) + "px;";
         s += "color:" + esc(p.textColor || contrastText(p.fill)) + ";";
         if (p.bold) s += "font-weight:700;";
+        if (p.italic) s += "font-style:italic;";
+        if (p.fontFamily) s += "font-family:" + esc(OfficeFonts.stack(p.fontFamily)) + ";";
+        if (p.lineHeight) s += "line-height:" + (Number(p.lineHeight) || 1.25) + ";";
+        // an imported shape carries the same rich paragraph HTML a text
+        // object does, plus the alignment and insets its source stated
+        if (p.html) {
+            s += "text-align:" + esc(p.align || "center") + ";";
+            s += "justify-content:" + (VALIGN_JUSTIFY[p.valign] || "center") + ";";
+            s += padStyle(p.pad);
+            return '<div class="sl-shape-text sl-shape-rich" style="' + s + '">' + p.html + "</div>";
+        }
         return '<div class="sl-shape-text" style="' + s + '">' + esc(p.text || "") + "</div>";
     }
 
+    /* A line is normally two points: its origin and the vector in o.w/o.h.
+       A connector imported from a pptx may bend, and then carries the whole
+       polyline in props.points (relative to o.x/o.y) with o.w/o.h still
+       spanning end to end, so selection and dragging keep working. */
+    function linePoints(o) {
+        var p = o.props && o.props.points;
+        if (p && p.length >= 2) {
+            return p.map(function (pt) { return [Number(pt[0]) || 0, Number(pt[1]) || 0]; });
+        }
+        return [[0, 0], [o.w, o.h]];
+    }
     function lineBBox(o) {
-        return {
-            x: o.x + Math.min(0, o.w),
-            y: o.y + Math.min(0, o.h),
-            w: Math.abs(o.w),
-            h: Math.abs(o.h)
-        };
+        var pts = linePoints(o);
+        var x0 = pts[0][0], y0 = pts[0][1], x1 = x0, y1 = y0;
+        pts.forEach(function (pt) {
+            x0 = Math.min(x0, pt[0]); x1 = Math.max(x1, pt[0]);
+            y0 = Math.min(y0, pt[1]); y1 = Math.max(y1, pt[1]);
+        });
+        return { x: o.x + x0, y: o.y + y0, w: x1 - x0, h: y1 - y0 };
     }
     function positionLineEl(el, o) {
         var bb = lineBBox(o);
@@ -292,28 +489,43 @@ var SlidesApp = (function () {
         var p = o.props;
         var sw = Number(p.strokeW) || 2;
         var stroke = p.stroke || "#202124";
-        var x1 = Math.max(0, -o.w), y1 = Math.max(0, -o.h);
-        var x2 = x1 + o.w, y2 = y1 + o.h;
-        var out = '<svg xmlns="http://www.w3.org/2000/svg" style="overflow:visible;" width="100%" height="100%">';
-        // generous transparent hit area
-        out += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 +
-            '" stroke="rgba(0,0,0,0)" stroke-width="' + Math.max(14, sw + 10) + '"/>';
-        var ex = x2, ey = y2;
+        // draw in the element's own box: shift the polyline so its
+        // top-left corner sits at 0,0
+        var pts = linePoints(o);
+        var ox = 0, oy = 0;
+        pts.forEach(function (pt) { ox = Math.min(ox, pt[0]); oy = Math.min(oy, pt[1]); });
+        pts = pts.map(function (pt) { return [pt[0] - ox, pt[1] - oy]; });
         var head = "";
-        if (p.arrowEnd) {
-            var ang = Math.atan2(y2 - y1, x2 - x1);
+        var first = pts[0], last = pts[pts.length - 1];
+        var trimmed = pts.slice();
+
+        function arrowAt(tip, from) {
+            var ang = Math.atan2(tip[1] - from[1], tip[0] - from[0]);
             var s = 6 + sw * 2.4;
-            var bx = x2 - s * Math.cos(ang), by = y2 - s * Math.sin(ang);
+            var bx = tip[0] - s * Math.cos(ang), by = tip[1] - s * Math.sin(ang);
             var px = s * 0.45 * -Math.sin(ang), py = s * 0.45 * Math.cos(ang);
-            head = '<polygon points="' + x2.toFixed(1) + "," + y2.toFixed(1) + " " +
+            head += '<polygon points="' + tip[0].toFixed(1) + "," + tip[1].toFixed(1) + " " +
                 (bx + px).toFixed(1) + "," + (by + py).toFixed(1) + " " +
                 (bx - px).toFixed(1) + "," + (by - py).toFixed(1) +
                 '" fill="' + esc(stroke) + '"/>';
-            ex = x2 - s * 0.6 * Math.cos(ang);
-            ey = y2 - s * 0.6 * Math.sin(ang);
+            // pull the stroke back so it does not poke through the head
+            return [tip[0] - s * 0.6 * Math.cos(ang), tip[1] - s * 0.6 * Math.sin(ang)];
         }
-        out += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + ex + '" y2="' + ey +
-            '" stroke="' + esc(stroke) + '" stroke-width="' + sw + '" stroke-linecap="round"' +
+        if (p.arrowEnd) trimmed[trimmed.length - 1] = arrowAt(last, pts[pts.length - 2]);
+        if (p.arrowStart) trimmed[0] = arrowAt(first, pts[1]);
+
+        function poly(list) {
+            return list.map(function (pt) {
+                return pt[0].toFixed(1) + "," + pt[1].toFixed(1);
+            }).join(" ");
+        }
+        var out = '<svg xmlns="http://www.w3.org/2000/svg" style="overflow:visible;" width="100%" height="100%">';
+        // generous transparent hit area
+        out += '<polyline points="' + poly(pts) + '" fill="none" ' +
+            'stroke="rgba(0,0,0,0)" stroke-width="' + Math.max(14, sw + 10) + '"/>';
+        out += '<polyline points="' + poly(trimmed) + '" fill="none"' +
+            ' stroke="' + esc(stroke) + '" stroke-width="' + sw +
+            '" stroke-linecap="round" stroke-linejoin="round"' +
             (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") + "/>";
         out += head + "</svg>";
         return out;
@@ -390,13 +602,18 @@ var SlidesApp = (function () {
             out += '<col style="width:' + wPct + '%">';
         }
         out += "</colgroup>";
+        // an imported table states its own cell shading and insets
+        var cellPad = padStyle(p.cellPad);
         rows.forEach(function (r, ri) {
             var isHead = p.headerRow && ri === 0;
             var trStyle = (p.rowH && p.rowH[ri] !== undefined) ? ' style="height:' + p.rowH[ri] + '%;"' : "";
             out += '<tr class="' + (isHead ? "sl-thead" : "") + '"' + trStyle + ">";
             r.forEach(function (cell, ci) {
+                var bg = (p.cellFill && p.cellFill[ri]) ? p.cellFill[ri][ci] : "";
+                if (!bg && isHead) bg = headBg;
+                var tdStyle = cellPad + (bg ? "background:" + esc(bg) + ";" : "");
                 out += '<td data-r="' + ri + '" data-c="' + ci + '"' +
-                    (isHead ? ' style="background:' + headBg + ';"' : "") + ">" +
+                    (tdStyle ? ' style="' + tdStyle + '"' : "") + ">" +
                     sanitizeCellHtml(cell) + "</td>";
             });
             out += "</tr>";
@@ -426,8 +643,7 @@ var SlidesApp = (function () {
                     (o.props.html || "") + "</div>";
                 break;
             case "image":
-                d.innerHTML = '<img draggable="false" src="' + esc(o.props.src || "") +
-                    '" style="object-fit:' + esc(o.props.fit || "contain") + ';" alt="">';
+                d.innerHTML = imageHtml(o.props);
                 break;
             case "shape":
                 d.innerHTML = shapeSvg(o) + shapeTextDiv(o);
@@ -490,6 +706,13 @@ var SlidesApp = (function () {
     function renderOverlay() {
         if (!framesEl) return;
         framesEl.innerHTML = "";
+        if (window.SlidesImageTools) SlidesImageTools.reposition();
+        if (cropId) {
+            // the crop tool replaces the selection frame while it is open
+            renderCropOverlay();
+            return;
+        }
+        if (cropEl) cropEl.innerHTML = "";
         var s = curScale() || 1;
         var hs = Math.max(7, 10 / s);
         var bw = Math.max(1, 1.6 / s);
@@ -506,9 +729,12 @@ var SlidesApp = (function () {
             if (sel.length === 1) {
                 if (o.type === "line") {
                     fr.className += " sl-frame-line";
-                    var x1 = Math.max(0, -o.w), y1 = Math.max(0, -o.h);
-                    fr.appendChild(mkHandle("p1", x1, y1, hs));
-                    fr.appendChild(mkHandle("p2", x1 + o.w, y1 + o.h, hs));
+                    // handles sit on the real endpoints, which for a bent
+                    // connector are the ends of its polyline
+                    var lp = linePoints(o);
+                    fr.appendChild(mkHandle("p1", lp[0][0] - (bb.x - o.x), lp[0][1] - (bb.y - o.y), hs));
+                    fr.appendChild(mkHandle("p2", lp[lp.length - 1][0] - (bb.x - o.x),
+                        lp[lp.length - 1][1] - (bb.y - o.y), hs));
                 } else {
                     var w = bb.w, hgt = bb.h;
                     [["nw", 0, 0], ["n", w / 2, 0], ["ne", w, 0], ["e", w, hgt / 2],
@@ -531,7 +757,220 @@ var SlidesApp = (function () {
         });
     }
 
+    /* ================= image crop tool =================
+       Cropping is a view onto the picture, never a change to its pixels:
+       the object frame states which part is visible and props.crop states
+       which part of the source that is. While the tool is open the whole
+       picture is shown ghosted, with the part that will be kept drawn at
+       full strength on top - so dragging a handle shrinks the visible
+       window and dragging the picture slides it behind that window. */
+
+    // fullImageRect returns where the whole picture sits, in slide units,
+    // given the frame and crop an object currently has
+    function fullImageRect(o) {
+        var c = o.props.crop;
+        var l = 0, t = 0, kw = 1, kh = 1;
+        if (c && c.length === 4) {
+            l = Number(c[0]) || 0;
+            t = Number(c[1]) || 0;
+            kw = 1 - l - (Number(c[2]) || 0);
+            kh = 1 - t - (Number(c[3]) || 0);
+        }
+        if (!(kw > 0.001) || !(kh > 0.001)) { l = 0; t = 0; kw = 1; kh = 1; }
+        var fw = o.w / kw, fh = o.h / kh;
+        return { x: o.x - l * fw, y: o.y - t * fh, w: fw, h: fh };
+    }
+
+    function startCrop(id) {
+        var o = objById(id);
+        if (!o || o.type !== "image") return;
+        if (editingId) endEdit(true);
+        if (cropId && cropId !== id) endCrop(true);
+        setSel([id]);
+        cropId = id;
+        cropBefore = { x: o.x, y: o.y, w: o.w, h: o.h,
+                       crop: o.props.crop ? o.props.crop.slice() : null };
+        cropFull = fullImageRect(o);
+        cropRect = { x: o.x, y: o.y, w: o.w, h: o.h };
+        renderOverlay();
+        syncToolbarFromSel();
+        OfficeApp.setStatus(
+            "Crop: drag the handles to trim, drag the picture to reposition, " +
+            "Enter to apply, Esc to cancel", "info", 6000);
+    }
+
+    function endCrop(apply) {
+        if (!cropId) return;
+        var o = objById(cropId);
+        cropId = null;
+        if (o) {
+            if (apply) {
+                var l = (cropRect.x - cropFull.x) / cropFull.w;
+                var t = (cropRect.y - cropFull.y) / cropFull.h;
+                var r = 1 - (cropRect.x + cropRect.w - cropFull.x) / cropFull.w;
+                var b = 1 - (cropRect.y + cropRect.h - cropFull.y) / cropFull.h;
+                var crop = [l, t, r, b].map(function (v) {
+                    return Math.round(clamp(v, 0, 0.99) * 10000) / 10000;
+                });
+                var cropped = crop.some(function (v) { return v > 0.0005; });
+                // the frame the whole picture would fill is what Reset image
+                // puts back, so it is stamped the first time one is trimmed
+                if (cropped && !o.props.orig) {
+                    o.props.orig = {
+                        x: Math.round(cropFull.x * 100) / 100,
+                        y: Math.round(cropFull.y * 100) / 100,
+                        w: Math.round(cropFull.w * 100) / 100,
+                        h: Math.round(cropFull.h * 100) / 100
+                    };
+                }
+                o.x = cropRect.x; o.y = cropRect.y;
+                o.w = cropRect.w; o.h = cropRect.h;
+                if (cropped) o.props.crop = crop; else delete o.props.crop;
+                commit();
+            } else {
+                o.x = cropBefore.x; o.y = cropBefore.y;
+                o.w = cropBefore.w; o.h = cropBefore.h;
+                if (cropBefore.crop) o.props.crop = cropBefore.crop;
+                else delete o.props.crop;
+                renderEditorSlide();
+            }
+        }
+        cropRect = cropFull = cropBefore = null;
+        renderOverlay();
+        syncToolbarFromSel();
+    }
+
+    var CROP_HANDLES = [
+        ["nw", 0, 0], ["n", 0.5, 0], ["ne", 1, 0], ["e", 1, 0.5],
+        ["se", 1, 1], ["s", 0.5, 1], ["sw", 0, 1], ["w", 0, 0.5]
+    ];
+
+    function renderCropOverlay() {
+        if (!cropEl) return;
+        var o = objById(cropId);
+        if (!o) { cropEl.innerHTML = ""; return; }
+        // the picture itself is hidden while the tool is open, so what is
+        // on screen is only the ghost and the part being kept
+        var srcEl = objEl(cropId);
+        if (srcEl) srcEl.classList.add("sl-cropping");
+        var s = curScale() || 1;
+        var src = esc(o.props.src || "");
+        var box = function (r) {
+            return "left:" + r.x + "px;top:" + r.y + "px;" +
+                "width:" + Math.max(1, r.w) + "px;height:" + Math.max(1, r.h) + "px;";
+        };
+        var html = '<div class="sl-crop-ghost" style="' + box(cropFull) + '">' +
+            '<img draggable="false" src="' + src + '" alt=""></div>';
+        // the kept part: the same picture, positioned so it lines up with
+        // the ghost behind it, clipped by the crop rectangle
+        html += '<div class="sl-crop-rect" style="' + box(cropRect) + '">' +
+            '<img draggable="false" src="' + src + '" alt="" style="' +
+            "left:" + (cropFull.x - cropRect.x) + "px;top:" + (cropFull.y - cropRect.y) + "px;" +
+            "width:" + cropFull.w + "px;height:" + cropFull.h + 'px;">';
+        // corner grips are drawn as an L hugging the corner, edge grips as
+        // a bar centred on the edge - the same language Slides/Docs use
+        var len = Math.min(Math.max(9, 14 / s), Math.min(cropRect.w, cropRect.h) / 2);
+        var th = Math.max(2.5, 4 / s);
+        CROP_HANDLES.forEach(function (h) {
+            var name = h[0];
+            var left, top, w, hgt, extra = "";
+            if (name === "n" || name === "s") {
+                w = len; hgt = th;
+                left = cropRect.w / 2 - len / 2;
+                top = name === "n" ? 0 : cropRect.h - th;
+            } else if (name === "e" || name === "w") {
+                w = th; hgt = len;
+                left = name === "w" ? 0 : cropRect.w - th;
+                top = cropRect.h / 2 - len / 2;
+            } else {
+                w = len; hgt = len;
+                left = name.indexOf("w") >= 0 ? 0 : cropRect.w - len;
+                top = name.indexOf("n") >= 0 ? 0 : cropRect.h - len;
+                extra = "background:transparent;" +
+                    "border-" + (name.indexOf("n") >= 0 ? "top" : "bottom") +
+                    ":" + th + "px solid #202124;" +
+                    "border-" + (name.indexOf("w") >= 0 ? "left" : "right") +
+                    ":" + th + "px solid #202124;";
+            }
+            html += '<div class="sl-croph" data-ch="' + name + '" style="' +
+                "left:" + left + "px;top:" + top + "px;" +
+                "width:" + w + "px;height:" + hgt + "px;" + extra + '"></div>';
+        });
+        html += "</div>";
+        cropEl.innerHTML = html;
+    }
+
+    /* Reset image: undo every crop and shaped crop and put the picture
+       back the way it came in. props.orig remembers the frame the whole
+       picture filled when it was first trimmed; without one (a picture
+       that was only masked) the frame stays where it is and only its
+       height is corrected to the source's own aspect ratio. */
+    function resetImage(o) {
+        if (!o || o.type !== "image") return;
+        if (cropId === o.id) endCrop(false);
+        var full = fullImageRect(o);
+        // everything the picture tools can put on a picture comes off: the
+        // crop, the shaped crop, the flips and the colour treatment
+        ["crop", "mask", "radius", "flipH", "flipV",
+         "recolor", "bright", "contrast", "opacity"].forEach(function (k) {
+            delete o.props[k];
+        });
+        if (o.props.orig) {
+            o.x = o.props.orig.x; o.y = o.props.orig.y;
+            o.w = o.props.orig.w; o.h = o.props.orig.h;
+            delete o.props.orig;
+        } else {
+            o.x = full.x; o.y = full.y; o.w = full.w; o.h = full.h;
+        }
+        var nat = naturalSizeOf(o);
+        if (nat && nat.w > 0 && nat.h > 0) {
+            // a picture stretched by dragging a corner is undistorted too
+            o.h = Math.max(8, o.w * nat.h / nat.w);
+        }
+        commit();
+        OfficeApp.setStatus("Image reset", "success", 2000);
+    }
+
+    // naturalSizeOf reads the source's own pixel size off the live <img>,
+    // which is already decoded because the object is on screen
+    function naturalSizeOf(o) {
+        var el = objEl(o.id);
+        var img = el ? el.querySelector("img") : null;
+        if (img && img.naturalWidth > 0) {
+            return { w: img.naturalWidth, h: img.naturalHeight };
+        }
+        return null;
+    }
+
+    function setImageMask(o, kind) {
+        if (!o || o.type !== "image") return;
+        if (cropId === o.id) endCrop(true);
+        if (!kind || kind === "rect") {
+            delete o.props.mask;
+            delete o.props.radius;
+        } else {
+            o.props.mask = kind;
+            if (kind === "roundRect") o.props.radius = Math.min(o.w, o.h) * 0.15;
+            else delete o.props.radius;
+        }
+        commit();
+    }
+
     /* ================= rendering: rail / thumbnails ================= */
+
+    /* A preview is the whole slide at 960x540, shrunk by a transform. The
+       box it has to fit inside is whatever the rail can spare once the
+       scrollbar has taken its cut, which varies by platform - so measure it
+       rather than assume it. Getting this wrong does not look like a wrong
+       scale, it looks like the right-hand edge of every slide is missing. */
+    function fitThumbs() {
+        var view = document.querySelector("#slThumbs .sl-thumb-view");
+        var thumbs = document.getElementById("slThumbs");
+        if (!view || !thumbs) return;
+        var w = view.clientWidth;
+        if (w > 0) thumbs.style.setProperty("--sl-thumb-scale", w / SLIDE_W);
+    }
+
     function renderThumb(i) {
         var $mini = $("#slThumbs .sl-thumb").eq(i).find(".sl-thumb-mini");
         if ($mini.length && body.slides[i]) renderSlideContent($mini[0], body.slides[i]);
@@ -545,16 +984,31 @@ var SlidesApp = (function () {
     }
 
     var dragSlideIdx = -1;
+
+    // railFocused answers whose Delete key it is: the rail's or the canvas's
+    function railFocused() {
+        var a = document.activeElement;
+        var rail = document.getElementById("slRail");
+        return !!(a && rail && rail.contains(a));
+    }
+
     function renderRail() {
+        // deleting a slide rebuilds the rail, and the keyboard should not
+        // have to be given back by hand to delete the next one
+        var refocus = railFocused();
         var $t = $("#slThumbs").empty();
         body.slides.forEach(function (s, i) {
-            var $th = $('<div class="sl-thumb" draggable="true"></div>');
+            var $th = $('<div class="sl-thumb" draggable="true" tabindex="0"></div>');
             if (i === cur) $th.addClass("active");
             $th.append('<div class="sl-thumb-num">' + (i + 1) + "</div>");
             var $view = $('<div class="sl-thumb-view"><div class="sl-thumb-mini sl-slidebase"></div></div>');
             $th.append($view);
             renderSlideContent($view.find(".sl-thumb-mini")[0], s);
-            $th.on("click", function () { selectSlide(i); });
+            // Taking focus is what lets Delete mean "this slide", and
+            // focusing selects - so the slide the keyboard is on and the
+            // slide being edited can never be two different slides.
+            $th.on("click", function () { $th.focus(); selectSlide(i); });
+            $th.on("focus", function () { selectSlide(i); });
             $th.on("contextmenu", function (e) {
                 e.preventDefault();
                 selectSlide(i);
@@ -591,6 +1045,8 @@ var SlidesApp = (function () {
             });
             $t.append($th);
         });
+        fitThumbs();
+        if (refocus) $("#slThumbs .sl-thumb").eq(cur).focus();
     }
     function updateRailActive() {
         $("#slThumbs .sl-thumb").each(function (i) {
@@ -720,6 +1176,8 @@ var SlidesApp = (function () {
         renderOverlay();
         renderThumb(cur);
         updateStatus();
+        // the picture bar is anchored to a DOM node the re-render replaced
+        if (window.SlidesImageTools) SlidesImageTools.sync();
         OfficeApp.markDirty();
         undo.push(snap());
     }
@@ -750,6 +1208,7 @@ var SlidesApp = (function () {
             updateRailActive();
             return;
         }
+        endCrop(true);
         endEdit(true);
         cur = clamp(i, 0, body.slides.length - 1);
         sel = [];
@@ -834,6 +1293,7 @@ var SlidesApp = (function () {
     }
     function deleteSelection() {
         if (!sel.length) return;
+        endCrop(false);
         endEdit(false);
         var slide = curSlide();
         slide.objects = slide.objects.filter(function (o) { return sel.indexOf(o.id) < 0; });
@@ -1130,12 +1590,66 @@ var SlidesApp = (function () {
             { x: 330, y: 240, w: 300, h: 60 });
         startEdit(o.id);
     }
+    /* showShapePicker is the Insert > Shape control: the categories on the
+       left, the shapes of the one in hand as icons on the right. Icons and
+       not a list of names, because the outline is the thing being chosen -
+       and they are drawn from the catalogue, so a picker entry cannot come
+       to disagree with what gets inserted. */
+    var $shapePicker = null;
+    function closeShapePicker() {
+        if ($shapePicker) { $shapePicker.remove(); $shapePicker = null; }
+        $(document).off("mousedown.slshapepick");
+    }
+    function showShapePicker(x, y) {
+        closeShapePicker();
+        var $m = $('<div class="sl-shapepick of-noprint"></div>');
+        var $cats = $('<div class="sl-shapepick-cats"></div>');
+        var $grid = $('<div class="sl-shapepick-grid"></div>');
+        SlidesShapes.CATEGORIES.forEach(function (c, idx) {
+            var $b = $('<button type="button" class="sl-shapepick-cat"></button>');
+            $b.append($('<i class="icon"></i>').addClass(c.icon));
+            $b.append($("<span></span>").text(c.label));
+            $b.append('<i class="caret right icon sl-shapepick-more"></i>');
+            function open() {
+                $cats.find(".sl-shapepick-cat").removeClass("active");
+                $b.addClass("active");
+                $grid.empty();
+                c.kinds.forEach(function (k) {
+                    var $cell = $('<button type="button" class="sl-shapepick-cell"></button>')
+                        .attr("title", SlidesShapes.label(k))
+                        .html(SlidesShapes.icon(k, 22));
+                    $cell.on("click", function () { closeShapePicker(); insertShape(k); });
+                    $grid.append($cell);
+                });
+            }
+            $b.on("mouseenter click", open);
+            if (idx === 0) open();
+            $cats.append($b);
+        });
+        $m.append($cats).append($grid);
+        $("body").append($m);
+        var mw = $m.outerWidth(), mh = $m.outerHeight();
+        $m.css({
+            left: Math.max(4, Math.min(x, window.innerWidth - mw - 6)) + "px",
+            top: Math.max(4, Math.min(y, window.innerHeight - mh - 6)) + "px"
+        });
+        $shapePicker = $m;
+        setTimeout(function () {
+            $(document).on("mousedown.slshapepick", function (e) {
+                if ($shapePicker && !$shapePicker[0].contains(e.target)) closeShapePicker();
+            });
+        }, 0);
+    }
+
     function insertShape(kind) {
         var th = themeOf();
+        // a brace or a bracket only reads as itself tall and narrow, so the
+        // catalogue gets to say what box its shapes want
+        var size = SlidesShapes.defaultSize(kind) || [200, 160];
         addObj("shape", {
             kind: kind, fill: /^#[0-9a-fA-F]{6}$/.test(th.accent) ? th.accent : "#e07b1f",
             stroke: "#333333", strokeW: 0, text: "", fontSize: 18
-        }, { x: 380, y: 190, w: 200, h: 160 });
+        }, { x: 480 - size[0] / 2, y: 270 - size[1] / 2, w: size[0], h: size[1] });
     }
     function armDraw(kind) {
         endEdit(true);
@@ -1168,18 +1682,24 @@ var SlidesApp = (function () {
         img.onerror = function () { place(480, 320); };
         img.src = src;
     }
+    /* ArozOS storage does not exist in the standalone web edition; the menu
+       drops the entry there rather than offering a picker that cannot open. */
+    function storageSourceItem(action) {
+        if (!OfficePlatform.hasBackend()) return null;
+        return { label: "From ArozOS storage...", icon: "folder open", action: action };
+    }
     function imageFromStorage() {
-        try {
-            ao_module_openFileSelector(function (files) {
-                (files || []).forEach(function (f) {
-                    // reference the storage file - packToFile embeds it into
-                    // the container at save time, keeping edits lightweight
-                    placeImage(OfficeApp.mediaUrl(f.filepath));
-                });
-            }, "user:/Desktop", "file", true, { filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"] });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        OfficePlatform.pickOpen({
+            filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
+            multiple: true,
+            memoryKey: "media"
+        }, function (files) {
+            files.forEach(function (f) {
+                // reference the storage file - packToFile embeds it into
+                // the container at save time, keeping edits lightweight
+                placeImage(OfficeApp.mediaUrl(f.filepath));
+            });
+        });
     }
     function imageFromDevice() {
         $("#slDeviceImage").trigger("click");
@@ -1218,15 +1738,10 @@ var SlidesApp = (function () {
         var filters = kind === "video"
             ? ["mp4", "webm", "ogv"]
             : ["mp3", "wav", "ogg", "flac", "aac"];
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                // just link it - packToFile embeds the file at save time
-                placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
-            }, "user:/Desktop", "file", false, { filter: filters });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        OfficePlatform.pickOpen({ filter: filters, memoryKey: "media" }, function (files) {
+            // just link it - packToFile embeds the file at save time
+            placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
+        });
     }
     function mediaFromDevice(kind) {
         var input = document.createElement("input");
@@ -1657,6 +2172,7 @@ var SlidesApp = (function () {
     function startEdit(id) {
         var o = objById(id);
         if (!o) return;
+        endCrop(true);
         if (editingId && editingId !== id) endEdit(true);
         var el = objEl(id);
         if (!el) return;
@@ -1825,6 +2341,34 @@ var SlidesApp = (function () {
         OfficeApp.closeAllMenus();
         var pt = toSlideXY(e);
 
+        // crop mode owns every press until it is closed
+        if (cropId) {
+            if (e.target.classList && e.target.classList.contains("sl-croph")) {
+                drag = {
+                    mode: "crophandle", h: e.target.getAttribute("data-ch"),
+                    start: pt, moved: false,
+                    g: { x: cropRect.x, y: cropRect.y, w: cropRect.w, h: cropRect.h }
+                };
+                try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
+                e.preventDefault();
+                return;
+            }
+            if (e.target.closest && e.target.closest(".sl-crop-rect, .sl-crop-ghost")) {
+                drag = {
+                    mode: "croppan", start: pt, moved: false,
+                    g: { x: cropFull.x, y: cropFull.y }
+                };
+                try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
+                e.preventDefault();
+                return;
+            }
+            // a press anywhere else closes the tool; the next click then
+            // does whatever it was going to do, against a settled DOM
+            endCrop(true);
+            e.preventDefault();
+            return;
+        }
+
         // table column/row resize bars (present in table edit mode)
         if (e.target.classList && e.target.classList.contains("sl-tbl-rz")) {
             var rzHost = e.target.closest(".sl-obj");
@@ -1887,6 +2431,9 @@ var SlidesApp = (function () {
                 h: hname, id: o.id, start: pt, moved: false,
                 g: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }
             };
+            // the pointer leaves the knob as soon as the object turns, so
+            // the rotate cursor has to be put on the canvas for the drag
+            if (drag.mode === "rotate") canvasEl.classList.add("sl-rotating");
             try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
             return;
         }
@@ -2031,10 +2578,46 @@ var SlidesApp = (function () {
                 renderOverlay();
                 break;
             }
+            case "crophandle": {
+                if (!cropRect || !cropFull) return;
+                g = drag.g;
+                var MINC = 8;
+                var nx = g.x, ny = g.y, nw = g.w, nh = g.h;
+                var name = drag.h;
+                if (name.indexOf("w") >= 0) {
+                    nx = clamp(g.x + dx, cropFull.x, g.x + g.w - MINC);
+                    nw = g.x + g.w - nx;
+                } else if (name.indexOf("e") >= 0) {
+                    nw = clamp(g.w + dx, MINC, cropFull.x + cropFull.w - g.x);
+                }
+                if (name.indexOf("n") >= 0) {
+                    ny = clamp(g.y + dy, cropFull.y, g.y + g.h - MINC);
+                    nh = g.y + g.h - ny;
+                } else if (name.indexOf("s") >= 0) {
+                    nh = clamp(g.h + dy, MINC, cropFull.y + cropFull.h - g.y);
+                }
+                cropRect = { x: nx, y: ny, w: nw, h: nh };
+                renderCropOverlay();
+                break;
+            }
+            case "croppan": {
+                if (!cropRect || !cropFull) return;
+                // the picture slides behind the window, so the window must
+                // stay inside the picture
+                cropFull.x = clamp(drag.g.x + dx,
+                    cropRect.x + cropRect.w - cropFull.w, cropRect.x);
+                cropFull.y = clamp(drag.g.y + dy,
+                    cropRect.y + cropRect.h - cropFull.h, cropRect.y);
+                renderCropOverlay();
+                break;
+            }
             case "lineend": {
                 o = objById(drag.id);
                 if (!o) return;
                 g = drag.g;
+                // dragging an endpoint straightens an imported bent
+                // connector - the editor only draws two-point lines
+                if (o.props && o.props.points) delete o.props.points;
                 if (drag.h === "p2") {
                     var e2x = g.x + g.w + dx, e2y = g.y + g.h + dy;
                     if (snapGrid) { e2x = Math.round(e2x / GRID) * GRID; e2y = Math.round(e2y / GRID) * GRID; }
@@ -2112,6 +2695,7 @@ var SlidesApp = (function () {
         var d = drag;
         drag = null;
         lastPointerEvt = null;
+        canvasEl.classList.remove("sl-rotating");
         hideGuides();
         try { canvasEl.releasePointerCapture(e.pointerId); } catch (err) { }
 
@@ -2136,6 +2720,10 @@ var SlidesApp = (function () {
         }
         if (d.mode === "tblcol" || d.mode === "tblrow") {
             if (d.moved) commit();
+            return;
+        }
+        if (d.mode === "crophandle" || d.mode === "croppan") {
+            // the crop tool stays open until it is applied or cancelled
             return;
         }
         if (d.mode === "move" && !d.moved) {
@@ -2163,6 +2751,7 @@ var SlidesApp = (function () {
         if (!o) return;
         if (o.type === "text" || o.type === "shape" || o.type === "table") startEdit(id);
         else if (o.type === "chart") chartDialog(o);
+        else if (o.type === "image") startCrop(id);
     }
 
     /* ================= context menus ================= */
@@ -2266,6 +2855,30 @@ var SlidesApp = (function () {
             if (o.type === "image") {
                 items.push({ sep: true });
                 items.push({
+                    label: "Crop image", icon: "crop",
+                    action: function () { startCrop(o.id); }
+                });
+                items.push({
+                    label: "Mask image", icon: "object ungroup outline",
+                    sub: [{
+                        label: "None (rectangle)",
+                        checked: function () { return !o.props.mask; },
+                        action: function () { setImageMask(o, ""); }
+                    }, { sep: true }].concat(MASK_KINDS.filter(function (s) {
+                        return s.kind !== "rect";
+                    }).map(function (s) {
+                        return {
+                            label: s.label,
+                            checked: function () { return o.props.mask === s.kind; },
+                            action: function () { setImageMask(o, s.kind); }
+                        };
+                    }))
+                });
+                items.push({
+                    label: "Reset image", icon: "history",
+                    action: function () { resetImage(o); }
+                });
+                items.push({
                     label: "Image fit", icon: "image outline", sub: ["contain", "cover", "fill"].map(function (f) {
                         return {
                             label: f.charAt(0).toUpperCase() + f.substring(1),
@@ -2321,7 +2934,7 @@ var SlidesApp = (function () {
         var HK = OfficeHotkeys;
         var GS = "Slides", GO = "Objects", GT = "Text editing";
         var notPresenting = function () { return !presActive(); };
-        var editorIdle = function () { return !presActive() && !editingId; };
+        var editorIdle = function () { return !presActive() && !editingId && !cropId; };
 
         HK.register("F5", function () { endEdit(true); startPresent(cur); },
             { id: "sl.present", description: "Start presentation", group: GS, allowInInput: true, when: notPresenting });
@@ -2350,12 +2963,28 @@ var SlidesApp = (function () {
             { id: "sl.delete", description: "Delete selection", group: GO, when: function () { return editorIdle() && sel.length > 0; } });
         HK.register("Backspace", function () { deleteSelection(); },
             { id: "sl.delete2", when: function () { return editorIdle() && sel.length > 0; } });
+        /* Delete means the slide when the rail has the keyboard and the
+           canvas when it does not. Registered after the object one so it
+           gets first look (the registry is LIFO), though the two guards are
+           mutually exclusive anyway - selecting a slide clears the object
+           selection. */
+        HK.register("Delete", function () { deleteSlide(cur); },
+            { id: "sl.deleteslide", description: "Delete slide", group: GS,
+                when: function () { return editorIdle() && railFocused(); } });
+        HK.register("Backspace", function () { deleteSlide(cur); },
+            { id: "sl.deleteslide2", when: function () { return editorIdle() && railFocused(); } });
         HK.register("Escape", function () {
+            if (cropId) { endCrop(false); return; }
             if (editingId) { endEdit(true); return; }
             if (pendingDraw) { disarmDraw(); return; }
             if (sel.length) { setSel([]); return; }
             return false;
         }, { id: "sl.escape", allowInInput: true, when: notPresenting });
+        HK.register("Enter", function () {
+            if (!cropId) return false;
+            endCrop(true);
+        }, { id: "sl.cropapply", description: "Apply crop", group: GO,
+             when: function () { return !presActive() && !!cropId; } });
 
         // arrows: nudge the selection (Shift = 10 px) or walk the deck
         ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].forEach(function (k) {
@@ -2542,14 +3171,21 @@ var SlidesApp = (function () {
         $tb.append(tbtn("undo", "Undo (Ctrl+Z)", function () { doUndo(); }));
         $tb.append(tbtn("redo", "Redo (Ctrl+Y)", function () { doRedo(); }));
         $tb.append('<div class="of-tsep"></div>');
+        // New slide is a split control: the button adds one, the caret
+        // beside it picks the layout to start from
         $tb.append(tbtn("plus square outline", "New slide (Ctrl+M)", function () { addSlideAfter(cur); }));
+        $tb.append(tbtn("caret down", "New slide with layout", function (e) {
+            var r = e.currentTarget.getBoundingClientRect();
+            OfficeApp.closeAllMenus();
+            showLayoutPicker(r.left - 60, r.bottom + 4);
+        }, "slBtnLayout"));
         $tb.append('<div class="of-tsep"></div>');
 
         $tb.append(tbtn("font", "Insert text box", insertText));
         var $imgBtn = tbtn("image outline", "Insert image", function (e) {
             var r = e.currentTarget.getBoundingClientRect();
             OfficeApp.showContextMenu(r.left, r.bottom + 4, [
-                { label: "From ArozOS storage...", icon: "folder open", action: imageFromStorage },
+                storageSourceItem(imageFromStorage),
                 { label: "From this device...", icon: "upload", action: imageFromDevice },
                 { label: "From URL...", icon: "linkify", action: imageFromUrl }
             ]);
@@ -2557,9 +3193,8 @@ var SlidesApp = (function () {
         $tb.append($imgBtn);
         var $shpBtn = tbtn("object group", "Insert shape", function (e) {
             var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, SHAPE_KINDS.map(function (s) {
-                return { label: s.label, action: function () { insertShape(s.kind); } };
-            }));
+            OfficeApp.closeAllMenus();
+            showShapePicker(r.left, r.bottom + 4);
         });
         $tb.append($shpBtn);
         $tb.append(tbtn("minus", "Draw line", function () {
@@ -2570,6 +3205,26 @@ var SlidesApp = (function () {
         }, "slBtnArrow"));
         $tb.append(tbtn("table", "Insert table", tableDialog));
         $tb.append(tbtn("chart bar", "Insert chart", function () { chartDialog(null); }));
+        // picture tools: only meaningful with an image selected, so they
+        // are hidden until there is one (syncToolbarFromSel). Crop and the
+        // crop shapes are one split control - the button crops, the caret
+        // beside it picks the outline to crop to.
+        $tb.append(tbtn("crop", "Crop image", function () {
+            var io = selectedImage();
+            if (io) { if (cropId === io.id) endCrop(true); else startCrop(io.id); }
+        }, "slBtnCrop"));
+        $tb.append(tbtn("caret down", "Crop to shape", function (e) {
+            if (selectedImage() && window.SlidesImageTools) {
+                SlidesImageTools.showShapeMenu(e.currentTarget);
+            }
+        }, "slBtnCropShape"));
+        $tb.append(tbtn("history", "Reset image", function () {
+            var io = selectedImage();
+            if (io) resetImage(io);
+        }, "slBtnResetImg"));
+        $tb.append(tbtn("sliders horizontal", "Image format options", function () {
+            if (window.SlidesImageTools) SlidesImageTools.togglePanel();
+        }, "slBtnImgFmt"));
         $tb.append('<div class="of-tsep"></div>');
 
         var $fs = $('<input type="number" class="of-tinput sl-num" id="slFontSize" min="6" max="200" step="1" title="Font size" value="24">');
@@ -2706,9 +3361,22 @@ var SlidesApp = (function () {
         $tb.append($present);
     }
 
+    // selectedImage returns the lone selected picture, or null
+    function selectedImage() {
+        var so = selObjs();
+        return (so.length === 1 && so[0].type === "image") ? so[0] : null;
+    }
+
     function syncToolbarFromSel() {
         var so = selObjs();
         var o = so.length ? so[0] : null;
+        var isImg = !!selectedImage();
+        $("#slBtnCrop, #slBtnCropShape, #slBtnResetImg, #slBtnImgFmt").toggle(isImg);
+        $("#slBtnCrop").toggleClass("active", !!cropId);
+        if (window.SlidesImageTools) {
+            $("#slBtnImgFmt").toggleClass("active", SlidesImageTools.panelOpen());
+            SlidesImageTools.sync();
+        }
         if (!o) return;
         var p = o.props;
         if (o.type === "text" || o.type === "shape" || o.type === "table") {
@@ -2772,21 +3440,26 @@ var SlidesApp = (function () {
     }
     function clearPrintArea() { $("#slPrintArea").empty(); }
 
-    /* ================= PPTX import / export ================= */
+    /* ================= PPTX / ODP import / export =================
+       The same Go converters either way: the office AGI library in ArozOS,
+       the WebAssembly build of it (src/wasm/office) in the standalone web
+       edition. One descriptor names both; OfficePlatform picks. A null wasm
+       name marks a conversion that is still server-only. */
     var PPTX_BACKEND = "Office/slides/backend/pptx.agi";
+    var CONVERT = {
+        "import": { agi: PPTX_BACKEND, action: "import", wasm: "pptxToPresentation" },
+        "import-odf": { agi: PPTX_BACKEND, action: "import-odf", wasm: "odpToPresentation" },
+        "export": { agi: PPTX_BACKEND, action: "export", wasm: "presentationToPptx" },
+        "export-odf": { agi: PPTX_BACKEND, action: "export-odf", wasm: "presentationToOdp" }
+    };
 
-    /* Load a .pptx ("import") or .odp ("import-odf") from ArozOS storage
-       through the "office" AGI lib. */
+    /* Load a .pptx ("import") or .odp ("import-odf"). */
     function importPptx(fp, fn, action) {
         action = action || "import";
         OfficeApp.showBusy("Importing " + fn + "...");
-        ao_module_agirun(PPTX_BACKEND, { action: action, src: fp }, function (data) {
+        OfficePlatform.convertIn(CONVERT[action], fp, function (data) {
             OfficeApp.hideBusy();
-            if (!data || data.error) {
-                OfficeApp.toast("Import failed: " + ((data && data.error) || "no response"), "error");
-                return;
-            }
-            var b = data.body;
+            var b = data;
             if (typeof b === "string") {
                 try { b = JSON.parse(b); } catch (e) { b = null; }
             }
@@ -2794,32 +3467,31 @@ var SlidesApp = (function () {
                 OfficeApp.toast("Import failed: unexpected response", "error");
                 return;
             }
-            body = normalizeBody(b);
-            cur = 0;
-            sel = [];
-            editingId = null;
-            renderAll();
-            undo.init(snap());
-            OfficeApp.markDirty();
-            OfficeApp.setStatus("Imported " + fn + " - use Save to store it as .ppta");
-        }, function () {
+            OfficeApp.splashStep("Preparing the slides...", function () {
+                body = normalizeBody(b);
+                cur = 0;
+                sel = [];
+                editingId = null;
+                renderAll();
+                undo.init(snap());
+                // the framework kept us attached to the source file, so Save
+                // writes straight back to it in its own format
+                OfficeApp.setStatus("Opened " + fn);
+                OfficeApp.documentLoaded();
+            });
+        }, function (msg) {
             OfficeApp.hideBusy();
-            OfficeApp.toast("Import failed: cannot reach the ArozOS backend", "error");
-        }, 120000);
+            OfficeApp.toast("Import failed: " + msg, "error");
+        });
     }
     function importOdp(fp, fn) { importPptx(fp, fn, "import-odf"); }
     function importPptxDialog() {
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (files && files.length > 0) {
-                    var fp = files[0].filepath, fn = files[0].filename;
-                    if (/\.odp$/i.test(fn)) importOdp(fp, fn);
-                    else importPptx(fp, fn);
-                }
-            }, "user:/Desktop", "file", false, { filter: ["pptx", "odp"] });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+        if (!OfficePlatform.requireConvert("PowerPoint / OpenDocument import")) return;
+        OfficePlatform.pickOpen({ filter: ["pptx", "odp"], memoryKey: "import" }, function (files) {
+            var fp = files[0].filepath, fn = files[0].filename;
+            if (/\.odp$/i.test(fn)) importOdp(fp, fn);
+            else importPptx(fp, fn);
+        });
     }
 
     /* Rasterize a chart spec to a PNG dataURL (charts export as pictures). */
@@ -2930,56 +3602,195 @@ var SlidesApp = (function () {
         return Promise.all(jobs).then(function () { return b; });
     }
 
-    // shared by .pptx ("export"), .odp ("export-odf") and .pdf
-    // ("export-pdf"): all need the prepared body (charts rastered to PNG,
-    // images inlined, video poster frames captured)
+    // shared by .pptx ("export") and .odp ("export-odf"): both need the
+    // prepared body (charts rastered to PNG, images inlined, video poster
+    // frames captured)
     function exportSlidesFile(ext, action, busyLabel) {
+        var spec = CONVERT[action];
+        // PDF is server-only; the rest run wherever there are converters
+        var allowed = spec.wasm ? OfficePlatform.requireConvert("Exporting " + ext)
+            : OfficePlatform.requireBackend("Exporting " + ext);
+        if (!allowed) return;
         endEdit(true);
         var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ext;
-        var extRe = new RegExp("\\" + ext + "$", "i");
-        try {
-            ao_module_openFileSelector(function (files) {
-                if (!files || !files.length) return;
-                var fp = files[0].filepath;
-                if (!extRe.test(fp)) fp += ext;
-                OfficeApp.showBusy(busyLabel);
-                prepareBodyForPptx().then(function (prepared) {
-                    ao_module_agirun(PPTX_BACKEND, {
-                        action: action,
-                        dest: fp,
-                        data: JSON.stringify(prepared)
-                    }, function (data) {
-                        OfficeApp.hideBusy();
-                        if (data && data.error) {
-                            OfficeApp.toast("Export failed: " + data.error, "error");
-                        } else {
-                            OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                            if (data && data.mediaZip) {
-                                // pptx export packs video/audio into a sidecar zip
-                                OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
-                                    " - video/audio files saved to " + OfficeApp.basename(data.mediaZip));
-                            } else {
-                                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                            }
-                        }
-                    }, function () {
-                        OfficeApp.hideBusy();
-                        OfficeApp.toast("Export failed: cannot reach the ArozOS backend", "error");
-                    }, 180000);
-                }).catch(function (err) {
+        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            OfficeApp.showBusy(busyLabel);
+            prepareBodyForPptx().then(function (prepared) {
+                // in ArozOS this posts through agirunLarge (decks with
+                // inlined images blow past the 10MB POST form limit); in the
+                // web edition it runs in the wasm module and downloads
+                OfficePlatform.convertOut(spec, fp, JSON.stringify(prepared), function (res) {
                     OfficeApp.hideBusy();
-                    OfficeApp.toast("Export failed: " + (err && err.message ? err.message : "prepare error"), "error");
+                    OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                    if (res && res.mediaZip) {
+                        // pptx export packs video/audio into a sidecar zip
+                        OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
+                            " - video/audio files saved to " + res.mediaZip);
+                    } else {
+                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+                    }
+                }, function (errmsg) {
+                    OfficeApp.hideBusy();
+                    OfficeApp.toast("Export failed: " + errmsg, "error");
                 });
-            }, "user:/Desktop", "new", false, { defaultName: defName });
-        } catch (e) {
-            OfficeApp.toast("File selector is not available here", "error");
-        }
+            }).catch(function (err) {
+                OfficeApp.hideBusy();
+                OfficeApp.toast("Export failed: " + (err && err.message ? err.message : "prepare error"), "error");
+            });
+        });
     }
     function exportPptx() { exportSlidesFile(".pptx", "export", "Exporting PowerPoint file..."); }
     function exportOdp() { exportSlidesFile(".odp", "export-odf", "Exporting OpenDocument file..."); }
-    // server-side real-text PDF (mod/office); video/audio render their
-    // captured poster frame (or a generic placeholder)
-    function exportPdf() { exportSlidesFile(".pdf", "export-pdf", "Exporting PDF..."); }
+    /* PDF is built in the browser (slides_pdf.js), not on the server: only
+       the browser knows which font it actually resolved and where every
+       line wrapped, and that is exactly what the export has to reproduce.
+       Each element goes in as the real PDF object it should be - text as
+       text, pictures as embedded images with real clip paths, shapes and
+       charts as vectors - and only an element the format genuinely cannot
+       express falls back to a raster of itself. */
+    function canExportPdf() {
+        return typeof PDFLib !== "undefined" && !!window.SlidesPdf;
+    }
+    function exportPdf() {
+        if (!canExportPdf()) {
+            OfficeApp.toast("The PDF library failed to load", "error");
+            return;
+        }
+        endEdit(true);
+        endCrop(true);
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ".pdf";
+        OfficePlatform.pickSave({ defaultName: defName, ext: ".pdf", memoryKey: "export" }, function (file) {
+            var fp = file.filepath;
+            // rendering a deck takes a moment, and there is no reason for
+            // the editor to be unusable while it happens - savePdfTo works
+            // from a snapshot, so editing on does not change what comes out
+            var prog = OfficeApp.showProgress({
+                title: "Exporting PDF", anchor: "#slCanvasArea"
+            });
+            prog.set(0, 1, "Preparing...");
+            savePdfTo(fp, function () {
+                prog.close();
+                OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
+                OfficeApp.toast("Exported " + OfficeApp.basename(fp));
+            }, function (msg) {
+                prog.close();
+                OfficeApp.toast("Export failed: " + msg, "error");
+            }, prog);
+        });
+    }
+
+    /* savePdfTo renders the deck and writes the bytes; shared by File >
+       Export and by the .pdf entry in SAVE_FORMATS. prog is optional - a
+       progress panel to report pages through.
+
+       The deck is copied before rendering. The export runs without blocking
+       the editor, so the document underneath can change while it is going;
+       taking a snapshot is what makes the file that lands on disk the deck
+       as it was when the export was asked for. */
+    function savePdfTo(fp, done, fail, prog) {
+        if (!canExportPdf()) { fail("the PDF library failed to load"); return; }
+        endEdit(true);
+        endCrop(true);
+        var snapshot;
+        try {
+            snapshot = JSON.parse(JSON.stringify(body));
+        } catch (e) {
+            fail("the presentation could not be read");
+            return;
+        }
+        SlidesPdf.build(snapshot, {
+            title: OfficeApp.stripExt(OfficeApp.getFileName() || "Presentation"),
+            onProgress: function (n, total, stage) {
+                // measuring the slides is the first half, writing the file
+                // (in a worker) the second
+                var f = total > 0 ? n / total : 0;
+                var pct, msg;
+                if (stage === "save") {
+                    pct = 97;
+                    msg = "Writing the file...";
+                } else if (stage === "page") {
+                    pct = 50 + 45 * f;
+                    msg = "Writing " + n + " / " + total + (total === 1 ? " page" : " pages");
+                } else {
+                    pct = 50 * f;
+                    msg = "Exporting " + n + " / " + total + (total === 1 ? " page" : " pages");
+                }
+                if (prog) prog.set(pct, 100, msg);
+                else OfficeApp.setStatus("Exporting PDF... " + msg);
+            }
+        }).then(function (bytes) {
+            if (prog) prog.message("Writing " + OfficeApp.basename(fp) + "...");
+            OfficePlatform.writeBytes(fp, bytes, done, fail);
+        }).catch(function (err) {
+            fail(err && err.message ? err.message : "render error");
+        });
+    }
+
+    /* ================= saving back into a foreign format =================
+       A deck opened from .pptx / .odp goes on living in that file: the
+       framework keeps filepath/filename pointing at it and Ctrl+S comes back
+       here instead of forcing a Save As to .ppta. These are the same
+       converters the Export menu uses, reporting through the framework's
+       save callbacks rather than a toast of their own. */
+    function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+    function saveViaConverter(action, fp, done, fail) {
+        endEdit(true);
+        prepareBodyForPptx().then(function (prepared) {
+            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(prepared),
+                function (res) {
+                    // .pptx keeps video and audio beside the file rather than
+                    // embedding them - say where they went
+                    if (res && res.mediaZip) {
+                        OfficeApp.toast("Video / audio files saved to " + res.mediaZip);
+                    }
+                    done();
+                }, fail);
+        }).catch(function (err) {
+            fail((err && err.message) ? err.message : "could not prepare the presentation");
+        });
+    }
+    /* .odp: the OpenDocument presentation writer emits text, images, charts,
+       shapes, lines and tables (mod/office/odp_writer.go) - a video or audio
+       object would simply vanish, so the save is refused instead. */
+    function odpUnsupported() {
+        var n = 0;
+        ((body && body.slides) || []).forEach(function (s) {
+            (s.objects || []).forEach(function (o) {
+                if (o.type === "video" || o.type === "audio") n++;
+            });
+        });
+        return n ? [plural(n, "video / audio object", "video / audio objects") +
+            " - the OpenDocument presentation writer cannot store them"] : [];
+    }
+    /*
+        The formats File > Save as offers besides .ppta, and the ones a deck
+        opened from .pptx / .odp is saved back into. needsConvert marks the
+        writers that go through the Office format converters and needsBackend
+        the ones that need a server outright (the real-text PDF renderer);
+        OfficeApp drops whichever the running host cannot do. PDF is oneWay -
+        it is a rendering, so writing one leaves the deck on its own file.
+    */
+    var SAVE_FORMATS = [
+        {
+            ext: ".pptx", label: "PowerPoint presentation (.pptx)", icon: "file powerpoint outline",
+            needsConvert: true, noAutosave: true,
+            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
+        },
+        {
+            ext: ".odp", label: "OpenDocument presentation (.odp)", icon: "file alternate outline",
+            needsConvert: true, noAutosave: true,
+            unsupported: odpUnsupported,
+            save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
+        },
+        {
+            // rendered in the browser, so it needs no backend - only the
+            // PDF library (see exportPdf)
+            ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
+            oneWay: true,
+            save: function (fp, fn, done, fail) { savePdfTo(fp, done, fail); }
+        }
+    ];
 
     /* ================= menus ================= */
     function insertMenuItems() {
@@ -2987,15 +3798,17 @@ var SlidesApp = (function () {
             { label: "Text box", icon: "font", action: insertText },
             {
                 label: "Image", icon: "image outline", sub: [
-                    { label: "From ArozOS storage...", icon: "folder open", action: imageFromStorage },
+                    storageSourceItem(imageFromStorage),
                     { label: "From this device...", icon: "upload", action: imageFromDevice },
                     { label: "From URL...", icon: "linkify", action: imageFromUrl }
                 ]
             },
             {
-                label: "Shape", icon: "object group", sub: SHAPE_KINDS.map(function (s) {
-                    return { label: s.label, action: function () { insertShape(s.kind); } };
-                })
+                label: "Shape...", icon: "object group",
+                action: function (e) {
+                    var r = document.getElementById("toolbar").getBoundingClientRect();
+                    showShapePicker(r.left + 120, r.bottom + 4);
+                }
             },
             { label: "Line", icon: "minus", action: function () { armDraw("line"); } },
             { label: "Arrow", icon: "long arrow alternate right", action: function () { armDraw("arrow"); } },
@@ -3004,13 +3817,13 @@ var SlidesApp = (function () {
             { sep: true },
             {
                 label: "Video", icon: "film", sub: [
-                    { label: "From ArozOS storage...", icon: "folder open", action: function () { mediaFromStorage("video"); } },
+                    storageSourceItem(function () { mediaFromStorage("video"); }),
                     { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("video"); } }
                 ]
             },
             {
                 label: "Audio", icon: "music", sub: [
-                    { label: "From ArozOS storage...", icon: "folder open", action: function () { mediaFromStorage("audio"); } },
+                    storageSourceItem(function () { mediaFromStorage("audio"); }),
                     { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("audio"); } }
                 ]
             },
@@ -3019,18 +3832,64 @@ var SlidesApp = (function () {
             { label: "New slide from layout", icon: "th large", sub: layoutMenuItems }
         ];
     }
+    /* The layouts a new slide can start from, in the order the picker
+       shows them. They are skeletons of real objects, not a placeholder
+       system - so what the preview draws is what the slide will be. */
     var LAYOUTS = [
-        { key: "blank", label: "Blank" },
         { key: "title", label: "Title slide" },
+        { key: "section", label: "Section header" },
+        { key: "content", label: "Title and body" },
+        { key: "two", label: "Title and two columns" },
         { key: "normal", label: "Title only" },
-        { key: "content", label: "Title and content" },
-        { key: "two", label: "Two content boxes" },
-        { key: "caption", label: "Caption (bottom text)" }
+        { key: "onecol", label: "One-column text" },
+        { key: "mainpoint", label: "Main point" },
+        { key: "sectiondesc", label: "Section title and description" },
+        { key: "caption", label: "Caption" },
+        { key: "bignumber", label: "Big number" },
+        { key: "blank", label: "Blank" }
     ];
     function layoutMenuItems() {
         return LAYOUTS.map(function (l) {
             return { label: l.label, action: function () { addSlideAfter(cur, l.key); } };
         });
+    }
+
+    /* showLayoutPicker is the caret beside New slide: every layout as a
+       preview of itself. The previews are built by the same newSlide() and
+       renderSlideContent() the document uses, at the scale the rail uses,
+       so a preview cannot come to disagree with the slide it makes. */
+    var $layoutPicker = null;
+    function closeLayoutPicker() {
+        if ($layoutPicker) { $layoutPicker.remove(); $layoutPicker = null; }
+        $(document).off("mousedown.sllayoutpick");
+    }
+    function showLayoutPicker(x, y) {
+        closeLayoutPicker();
+        var $m = $('<div class="sl-layoutpick of-noprint"></div>');
+        LAYOUTS.forEach(function (l) {
+            var $c = $('<button type="button" class="sl-layoutpick-cell"></button>');
+            var $v = $('<div class="sl-layoutpick-view"><div class="sl-layoutpick-mini sl-slidebase"></div></div>');
+            $c.append($v);
+            $c.append($('<div class="sl-layoutpick-label"></div>').text(l.label));
+            $m.append($c);
+            renderSlideContent($v.find(".sl-layoutpick-mini")[0], newSlide(l.key));
+            $c.on("click", function () {
+                closeLayoutPicker();
+                addSlideAfter(cur, l.key);
+            });
+        });
+        $("body").append($m);
+        var mw = $m.outerWidth(), mh = $m.outerHeight();
+        $m.css({
+            left: Math.max(4, Math.min(x, window.innerWidth - mw - 6)) + "px",
+            top: Math.max(4, Math.min(y, window.innerHeight - mh - 6)) + "px"
+        });
+        $layoutPicker = $m;
+        setTimeout(function () {
+            $(document).on("mousedown.sllayoutpick", function (e) {
+                if ($layoutPicker && !$layoutPicker[0].contains(e.target)) closeLayoutPicker();
+            });
+        }, 0);
     }
     function slideMenuItems() {
         return [
@@ -3155,10 +4014,12 @@ var SlidesApp = (function () {
         layerEl.className = "sl-slidebase";
         var overlay = document.getElementById("slOverlay");
         overlay.innerHTML = '<div id="slFrames"></div>' +
+            '<div id="slCrop"></div>' +
             '<div id="slGuideV" class="sl-guide"></div>' +
             '<div id="slGuideH" class="sl-guide"></div>' +
             '<div id="slMarquee"></div>';
         framesEl = document.getElementById("slFrames");
+        cropEl = document.getElementById("slCrop");
         guideVEl = document.getElementById("slGuideV");
         guideHEl = document.getElementById("slGuideH");
         marqueeEl = document.getElementById("slMarquee");
@@ -3196,7 +4057,6 @@ var SlidesApp = (function () {
             }
         });
 
-        $("#slRailAdd").on("click", function () { addSlideAfter(body.slides.length - 1); });
 
         $("#slDeviceImage").on("change", function () {
             var files = this.files;
@@ -3205,7 +4065,10 @@ var SlidesApp = (function () {
         });
 
         registerHotkeys();
-        window.addEventListener("resize", layoutCanvas);
+        window.addEventListener("resize", function () {
+            layoutCanvas();
+            fitThumbs();
+        });
         // live list-button state as the caret moves through the text box
         document.addEventListener("selectionchange", function () {
             if (editingId && editingKind === "text") syncListButtonState();
@@ -3213,6 +4076,23 @@ var SlidesApp = (function () {
     }
 
     function init() {
+        // the picture tools live in their own module and reach the document
+        // only through this host object
+        if (window.SlidesImageTools) {
+            SlidesImageTools.init({
+                getImage: selectedImage,
+                objEl: objEl,
+                commit: commit,
+                startCrop: startCrop,
+                endCrop: endCrop,
+                isCropping: function () { return !!cropId; },
+                resetImage: resetImage,
+                setMask: setImageMask,
+                shapeKinds: MASK_KINDS,
+                slideSize: [SLIDE_W, SLIDE_H],
+                relayout: layoutCanvas
+            });
+        }
         snapGrid = false;
         undo = new OfficeUndoStack({ limit: 100, apply: applyUndoState });
 
@@ -3315,31 +4195,46 @@ var SlidesApp = (function () {
                 ".pptx": function (fp, fn) { importPptx(fp, fn); },
                 ".odp": importOdp
             },
+            saveFormats: SAVE_FORMATS,
+            /*
+                .pptx / .odp need the Office converters - the AGI backend in
+                ArozOS, the WebAssembly module in the web edition. The .pdf
+                export is rendered here in the browser (slides_pdf.js), so it
+                needs no backend at all. The PNG exports are rendered by
+                html2canvas right here and are always available.
+            */
             fileMenuExtras: [
-                { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
+                !OfficePlatform.canConvert() ? null :
+                    { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
                 {
-                    label: "Export", icon: "external alternate", sub: [
-                        {
-                            label: "PowerPoint (.pptx)", icon: "file powerpoint outline",
-                            action: exportPptx
-                        },
-                        {
-                            label: "OpenDocument (.odp)", icon: "file alternate outline",
-                            action: exportOdp
-                        },
-                        {
-                            label: "PDF document (.pdf)", icon: "file pdf outline",
-                            action: exportPdf
-                        },
-                        {
+                    label: "Export", icon: "external alternate", sub: function () {
+                        var items = [];
+                        if (OfficePlatform.canConvert()) {
+                            items.push({
+                                label: "PowerPoint (.pptx)", icon: "file powerpoint outline",
+                                action: exportPptx
+                            });
+                            items.push({
+                                label: "OpenDocument (.odp)", icon: "file alternate outline",
+                                action: exportOdp
+                            });
+                        }
+                        if (canExportPdf()) {
+                            items.push({
+                                label: "PDF document (.pdf)", icon: "file pdf outline",
+                                action: exportPdf
+                            });
+                        }
+                        items.push({
                             label: "Current slide as PNG", icon: "file image outline",
                             action: function () { SlidesExport.exportPNG(false); }
-                        },
-                        {
+                        });
+                        items.push({
                             label: "All slides as PNGs", icon: "images outline",
                             action: function () { SlidesExport.exportPNG(true); }
-                        }
-                    ]
+                        });
+                        return items;
+                    }
                 }
             ],
             viewMenuExtras: [

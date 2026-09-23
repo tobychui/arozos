@@ -1,0 +1,102 @@
+/*
+    fonts.css - the document fonts the Office apps ship with themselves
+
+    Everything here is Noto Sans, under the SIL Open Font License (OFL.txt).
+    These files exist so that what you see on the page and what comes out of
+    a PDF export are the same thing: the exporter embeds these exact bytes,
+    subset to the glyphs the deck actually uses.
+
+    That is why they are shipped rather than taken from the system. A system
+    font cannot be embedded - the browser will not hand over its bytes - so
+    text set in one can only reach a PDF as a picture of itself.
+
+    The browser fetches a face only when a character actually needs it, so a
+    Latin-only document never pulls the CJK files (which are large: the CJK
+    faces carry tens of thousands of glyphs each).
+
+    Format: plain TrueType, on purpose. WOFF2 would be less than half the
+    size on disk, and the browser reads it happily - but the exporter has to
+    take the same file apart and build a subset of it, and a WOFF2 comes
+    back from that with no outlines at all. The same goes for the CFF
+    flavour of these faces (the .otf ones): they embed, and then draw the
+    wrong glyphs. TrueType is the format both sides handle correctly, and
+    being correct is the entire reason these files are here.
+
+    Weights: the Latin family ships all four styles. The CJK faces ship
+    Regular only and let bold be synthesized - the browser smears the outline
+    without changing the advance, and the PDF exporter does the same with a
+    stroked text rendering mode, so the two still agree. Shipping real bold
+    CJK would double an already large payload for a difference neither side
+    can see once it is on the page.
+*/
+
+@font-face {
+    font-family: "Noto Sans";
+    src: url("NotoSans-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Noto Sans";
+    src: url("NotoSans-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Noto Sans";
+    src: url("NotoSans-Italic.ttf") format("truetype");
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Noto Sans";
+    src: url("NotoSans-BoldItalic.ttf") format("truetype");
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
+
+/* Traditional Chinese, Simplified Chinese, Japanese, Korean. Each is the
+   language-specific subset of Noto Sans CJK: same design, the regional glyph
+   forms of that language. Which one a character gets depends on the order
+   they appear in the font stack, so a deck that is mostly Japanese should
+   pick "Noto Sans JP" from the font menu to get the Japanese forms of the
+   Han characters it shares with Chinese. */
+
+@font-face {
+    font-family: "Noto Sans TC";
+    src: url("NotoSansTC-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Noto Sans SC";
+    src: url("NotoSansSC-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Noto Sans JP";
+    src: url("NotoSansJP-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Noto Sans KR";
+    src: url("NotoSansKR-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}

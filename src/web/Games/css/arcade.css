@@ -1,0 +1,1133 @@
+/*
+    arcade.css
+
+    Shared retro / pixel-art theme for the ArozOS Games module.
+
+    Every page in this module links this file and sets <body class="arcade">,
+    so the class-scoped rules below win over each game's own inline styles
+    without those pages having to be gutted.
+
+    Layout language:
+      .px-frame   chunky "plus shaped" pixel border (no rounded corners --
+                  the corners are notched, the way a 4px sprite border is)
+      .px-panel   a framed panel
+      .px-btn     gold arcade button (+ --ghost / --icon / --danger variants)
+      .px-chip    read-out chip (MINES: 40, TIME: 7s, score, ...)
+      .px-tab     difficulty / mode selector with the little active pointer
+      .px-badge   small filled label (PLAYABLE)
+*/
+
+:root {
+    /* Backdrop */
+    --sky-0: #07050f;
+    --sky-1: #100b20;
+    --sky-2: #1a1030;
+
+    /* Surfaces */
+    --panel: #140f26;
+    --panel-2: #1b1433;
+    --panel-3: #241b42;
+    --sunken: #0d0918;
+
+    /* Gold -- the module's primary accent */
+    --gold: #ffc61a;
+    --gold-hi: #ffe98a;
+    --gold-lo: #a77400;
+    --gold-glow: rgba(255, 198, 26, 0.35);
+
+    /* Support colours, straight off the sprite sheet */
+    --blue: #4da3ff;
+    --blue-lo: #2b6fc9;
+    --green: #3fd16b;
+    --green-lo: #23884a;
+    --red: #ff4152;
+    --red-lo: #b3202f;
+    --purple: #a76bff;
+    --orange: #ff8a3d;
+    --cyan: #33d6d6;
+
+    /* Text */
+    --ink: #f4ecff;
+    --ink-dim: #9d93bb;
+    --ink-gold: #ffd75e;
+    --ink-shadow: #05030c;
+
+    /* Pixel grid unit -- one "pixel" of the UI */
+    --px: 4px;
+}
+
+/* ------------------------------------------------------------------ base */
+
+body.arcade {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    background-color: var(--sky-0);
+    background-image:
+        radial-gradient(ellipse 120% 80% at 50% 110%, #2a1450 0%, rgba(42, 20, 80, 0) 60%),
+        linear-gradient(180deg, var(--sky-1) 0%, var(--sky-0) 100%);
+    font-family: 'Courier New', 'DejaVu Sans Mono', monospace;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    -webkit-font-smoothing: none;
+    image-rendering: pixelated;
+    user-select: none;
+}
+
+body.arcade * {
+    box-sizing: border-box;
+}
+
+/* The star layer is painted by arcade.js into this canvas. */
+body.arcade > .px-stars {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    image-rendering: pixelated;
+    opacity: 0.9;
+}
+
+/* arcade.js moves the original page content in here. */
+.px-screen {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: calc(var(--px) * 6) calc(var(--px) * 5) calc(var(--px) * 10);
+}
+
+/* -------------------------------------------------------------- pixel text */
+
+.px-text {
+    display: inline-block;
+    max-width: 100%;
+    line-height: 0;
+    color: var(--gold);
+}
+
+/*
+    The wordmark is the one piece of pixel text long enough to overflow a phone,
+    so it becomes a block and shrinks with the header instead of pushing the
+    page sideways.
+*/
+.px-header__title > .px-text {
+    display: block;
+}
+
+/*
+    Pixel text is emitted at a fixed pixel scale; letting it shrink keeps long
+    headings such as the launcher wordmark inside narrow screens.
+*/
+.px-text svg {
+    display: block;
+    overflow: visible;
+    max-width: 100%;
+    height: auto;
+}
+
+/* Fallback wording while arcade.js has not upgraded the node yet. */
+.px-text[data-px]:not([data-px-done]) {
+    line-height: 1.4;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0 var(--ink-shadow);
+}
+
+/* ------------------------------------------------------------ pixel frames */
+
+.px-frame {
+    --frame: var(--gold);
+    --frame-glow: transparent;
+    position: relative;
+    background: var(--panel);
+    border: 0;
+    border-radius: 0;
+    margin: var(--px);
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame),
+        0 0 0 0 var(--frame-glow),
+        0 0 20px 1px var(--frame-glow);
+}
+
+/* Inner hairline, the darker second frame line seen in the mockup. */
+.px-frame::before {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border: 2px solid rgba(255, 255, 255, 0.05);
+    pointer-events: none;
+}
+
+.px-frame.px-glow {
+    --frame-glow: var(--gold-glow);
+}
+
+.px-panel {
+    padding: calc(var(--px) * 4);
+}
+
+.px-panel--sunken {
+    background: var(--sunken);
+}
+
+.px-frame--blue { --frame: var(--blue); }
+.px-frame--green { --frame: var(--green); }
+.px-frame--red { --frame: var(--red); }
+.px-frame--purple { --frame: var(--purple); }
+.px-frame--dim { --frame: #3a2f5c; }
+
+/* ----------------------------------------------------------------- buttons */
+
+.px-btn {
+    --frame: var(--gold-lo);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: var(--px);
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 0;
+    background: var(--gold);
+    color: #2a1c00;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame),
+        inset 0 3px 0 0 var(--gold-hi),
+        inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
+    transition: transform 0.08s steps(2, end), filter 0.12s;
+}
+
+.px-btn .px-text {
+    color: #2a1c00;
+}
+
+.px-btn:hover {
+    filter: brightness(1.12);
+}
+
+.px-btn:active {
+    transform: translateY(2px);
+}
+
+.px-btn svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+
+/* Outlined variant -- dark fill, gold frame + gold label. */
+.px-btn--ghost {
+    --frame: var(--gold);
+    background: var(--panel-2);
+    color: var(--ink-gold);
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+.px-btn--ghost .px-text {
+    color: var(--ink-gold);
+}
+
+.px-btn--ghost:hover {
+    background: var(--panel-3);
+}
+
+.px-btn--danger {
+    --frame: var(--red-lo);
+    background: var(--red);
+    color: #2a0007;
+}
+
+/* Square icon-only button. */
+.px-btn--icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+}
+
+.px-btn--icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* ------------------------------------------------------------------- chips */
+
+.px-chip {
+    --frame: var(--gold);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: var(--px);
+    padding: 9px 16px;
+    background: var(--panel-2);
+    color: var(--ink-gold);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+.px-chip svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.px-chip b {
+    color: var(--gold-hi);
+    font-weight: bold;
+}
+
+/* -------------------------------------------------------------------- tabs */
+
+.px-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.px-tab {
+    --frame: #3a2f5c;
+    position: relative;
+    margin: var(--px);
+    padding: 9px 20px;
+    border: 0;
+    background: var(--panel);
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+.px-tab:hover {
+    color: var(--ink-gold);
+    --frame: var(--gold-lo);
+}
+
+.px-tab.active {
+    --frame: var(--gold-lo);
+    background: var(--gold);
+    color: #2a1c00;
+}
+
+/* The small pointer under the selected tab, as in the mockup. */
+.px-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--px) * -2);
+    width: calc(var(--px) * 2);
+    height: var(--px);
+    margin-left: calc(var(--px) * -1);
+    background: var(--gold);
+}
+
+/* ------------------------------------------------------------------ badges */
+
+.px-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--gold);
+    color: #2a1c00;
+    font-size: 0.62rem;
+    font-weight: bold;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow:
+        0 -2px 0 0 var(--gold),
+        0 2px 0 0 var(--gold),
+        -2px 0 0 0 var(--gold),
+        2px 0 0 0 var(--gold);
+}
+
+.px-badge--soon {
+    background: #3a2f5c;
+    color: var(--ink-dim);
+    box-shadow:
+        0 -2px 0 0 #3a2f5c,
+        0 2px 0 0 #3a2f5c,
+        -2px 0 0 0 #3a2f5c,
+        2px 0 0 0 #3a2f5c;
+}
+
+/* ------------------------------------------------------------------ sprites */
+
+.px-sprite {
+    display: block;
+    flex: none;
+    line-height: 0;
+}
+
+.px-sprite svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/*
+    A .px-sprite fills its box, so the box is what gets sized -- the sprite's
+    own <svg> must never be sized directly or the 100% rule above wins.
+*/
+.px-btn .px-sprite { width: 18px; height: 18px; }
+.px-btn--icon .px-sprite { width: 22px; height: 22px; }
+.px-chip .px-sprite { width: 16px; height: 16px; }
+.px-statusbar__slot .px-sprite { width: 24px; height: 24px; }
+.px-hearts .px-sprite { width: 20px; height: 20px; }
+body.arcade .ctrl-btn .px-sprite { width: 24px; height: 24px; }
+body.arcade .cell .px-sprite { width: 20px; height: 20px; }
+
+.px-scene {
+    display: block;
+    image-rendering: pixelated;
+}
+
+/* ---------------------------------------------------- launcher: index.html */
+
+.px-header {
+    position: relative;
+    width: 100%;
+    padding: 0;
+    overflow: hidden;
+}
+
+.px-header__scene {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+.px-header__body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    padding: calc(var(--px) * 5) calc(var(--px) * 5) calc(var(--px) * 13);
+}
+
+.px-header__title {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.px-header__sub {
+    margin-top: 12px;
+    color: var(--ink-gold);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-shadow: 2px 2px 0 var(--ink-shadow);
+}
+
+.px-header__tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.px-logo-badge {
+    width: 56px;
+    height: 56px;
+    flex: none;
+}
+
+/* Decorative sprites floating in the header band. */
+.px-deco {
+    align-self: center;
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+}
+
+.px-deco--rocket {
+    width: 46px;
+    height: 46px;
+    animation: px-bob 2.2s steps(3, end) infinite alternate;
+}
+
+@keyframes px-bob {
+    from { transform: translateY(3px); }
+    to { transform: translateY(-5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .px-deco--rocket { animation: none; }
+}
+
+.px-footer__astro {
+    position: absolute;
+    right: 8%;
+    bottom: 10px;
+    width: 56px;
+    height: 56px;
+    z-index: 1;
+}
+
+.px-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: calc(var(--px) * 4);
+    width: 100%;
+}
+
+.px-card {
+    --frame: #3a2f5c;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: calc(var(--px) * 4) calc(var(--px) * 3);
+    background: var(--panel-2);
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.12s;
+}
+
+.px-card:hover,
+.px-card:focus-visible {
+    --frame: var(--gold);
+    --frame-glow: var(--gold-glow);
+    background: var(--panel-3);
+    outline: none;
+}
+
+/* The selection arrow that sits outside the highlighted card. */
+.px-card::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--px) * -5);
+    width: 0;
+    height: 0;
+    margin-top: -8px;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 10px solid var(--gold);
+    opacity: 0;
+    transition: opacity 0.12s, transform 0.12s steps(2, end);
+}
+
+.px-card:hover::after,
+.px-card:focus-visible::after {
+    opacity: 1;
+    transform: translateX(4px);
+}
+
+.px-card__icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.px-card__name {
+    color: var(--gold-hi);
+}
+
+.px-card__desc {
+    color: var(--ink-dim);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    min-height: 2em;
+}
+
+.px-footer {
+    position: relative;
+    width: 100%;
+    height: 96px;
+    margin-top: calc(var(--px) * -6);
+    pointer-events: none;
+}
+
+.px-footer canvas {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* ------------------------------------------------- in-game shell overrides */
+
+body.arcade .top-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    max-width: none;
+    padding: 0;
+}
+
+body.arcade #backBtn,
+body.arcade #resetBtn,
+body.arcade .modal button,
+body.arcade .ctrl-btn {
+    --frame: var(--gold-lo);
+    margin: var(--px);
+    border: 0;
+    border-radius: 0;
+    background: var(--gold);
+    color: #2a1c00;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame),
+        inset 0 3px 0 0 var(--gold-hi),
+        inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
+    transition: filter 0.12s;
+}
+
+body.arcade #backBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    width: auto;
+    height: auto;
+}
+
+body.arcade #resetBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+}
+
+body.arcade #backBtn svg,
+body.arcade #resetBtn svg {
+    width: 20px;
+    height: 20px;
+}
+
+body.arcade #backBtn svg path,
+body.arcade #resetBtn svg path {
+    stroke: #2a1c00;
+}
+
+body.arcade #backBtn:hover,
+body.arcade #resetBtn:hover,
+body.arcade .modal button:hover,
+body.arcade .ctrl-btn:hover {
+    filter: brightness(1.12);
+    transform: none;
+}
+
+body.arcade .game-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    font-family: inherit;
+}
+
+body.arcade .game-info span {
+    --frame: var(--gold);
+    display: inline-flex;
+    align-items: center;
+    margin: var(--px);
+    padding: 9px 16px;
+    min-width: 0;
+    background: var(--panel-2);
+    border: 0;
+    border-radius: 0;
+    color: var(--ink-gold);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+body.arcade .difficulty-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 0 calc(var(--px) * 3);
+}
+
+body.arcade .diff-btn {
+    --frame: #3a2f5c;
+    position: relative;
+    margin: var(--px);
+    padding: 9px 20px;
+    border: 0;
+    border-radius: 0;
+    background: var(--panel);
+    color: var(--ink-dim);
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+body.arcade .diff-btn:hover {
+    --frame: var(--gold-lo);
+    background: var(--panel);
+    color: var(--ink-gold);
+}
+
+body.arcade .diff-btn.active {
+    --frame: var(--gold-lo);
+    background: var(--gold);
+    color: #2a1c00;
+}
+
+body.arcade .diff-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--px) * -2);
+    width: calc(var(--px) * 2);
+    height: var(--px);
+    margin-left: calc(var(--px) * -1);
+    background: var(--gold);
+}
+
+body.arcade .game-layout {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: calc(var(--px) * 5);
+    flex-wrap: wrap;
+}
+
+/*
+    The canvas keeps its fixed backing resolution; GameKit.autoFit sets the CSS
+    size, so the art scales with the window without the game logic changing.
+*/
+body.arcade canvas#gameCanvas {
+    --frame: var(--gold);
+    display: block;
+    max-width: 100%;
+    margin: var(--px);
+    background: var(--sunken);
+    border: 0;
+    border-radius: 0;
+    image-rendering: pixelated;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame),
+        0 0 24px 1px var(--gold-glow);
+}
+
+body.arcade .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--px) * 3);
+    min-width: 190px;
+}
+
+body.arcade .panel-box {
+    --frame: var(--gold-lo);
+    margin: var(--px);
+    padding: calc(var(--px) * 3);
+    background: var(--panel);
+    border: 0;
+    border-radius: 0;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+body.arcade .panel-box h3 {
+    margin: 0 0 6px;
+    color: var(--ink-gold);
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+body.arcade .panel-box .stat {
+    color: var(--gold-hi);
+    font-family: inherit;
+    font-size: 1.3rem;
+    text-shadow: 2px 2px 0 var(--ink-shadow);
+}
+
+body.arcade .panel-box canvas {
+    background: var(--sunken);
+    box-shadow: 0 0 0 2px #3a2f5c;
+}
+
+body.arcade .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    color: var(--ink-dim);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+}
+
+body.arcade .panel-box .controls {
+    display: block;
+    text-align: left;
+}
+
+body.arcade .panel-box .controls > div {
+    margin-bottom: 4px;
+}
+
+body.arcade .key {
+    display: inline-block;
+    min-width: 22px;
+    padding: 2px 6px;
+    background: var(--panel-3);
+    border: 0;
+    border-radius: 0;
+    color: var(--ink-gold);
+    text-align: center;
+    box-shadow:
+        0 -2px 0 0 #3a2f5c,
+        0 2px 0 0 #3a2f5c,
+        -2px 0 0 0 #3a2f5c,
+        2px 0 0 0 #3a2f5c;
+}
+
+body.arcade .ctrl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 48px;
+}
+
+body.arcade .ctrl-btn svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+body.arcade .ctrl-btn.fire {
+    --frame: var(--red-lo);
+    background: var(--red);
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame),
+        inset 0 3px 0 0 rgba(255, 255, 255, 0.28),
+        inset 0 -3px 0 0 rgba(0, 0, 0, 0.22);
+}
+
+/* --------------------------------------------------------- board and tiles */
+
+/* Boards stay playable on small screens by scrolling inside their frame. */
+body.arcade .board-wrap {
+    max-width: 100%;
+    overflow: auto;
+}
+
+body.arcade #board {
+    --frame: var(--gold);
+    display: grid;
+    gap: 2px;
+    margin: var(--px);
+    padding: calc(var(--px) * 2);
+    background: var(--sunken);
+    border: 0;
+    border-radius: 0;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame);
+}
+
+body.arcade .cell {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 0;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    transition: none;
+}
+
+body.arcade .cell.hidden {
+    background: #2e2842;
+    box-shadow:
+        inset 3px 3px 0 0 #4b4270,
+        inset -3px -3px 0 0 #191428;
+}
+
+body.arcade .cell.hidden:not(.flagged):hover {
+    background: #3c3457;
+    box-shadow:
+        inset 3px 3px 0 0 #5e5288,
+        inset -3px -3px 0 0 #1f1932;
+}
+
+body.arcade .cell.revealed {
+    background: #1c1730;
+    box-shadow: inset 0 0 0 1px #100c1e;
+    text-shadow: 2px 2px 0 var(--ink-shadow);
+}
+
+body.arcade .cell.hidden.flagged,
+body.arcade .cell.flagged {
+    background: var(--gold);
+    box-shadow:
+        inset 3px 3px 0 0 var(--gold-hi),
+        inset -3px -3px 0 0 var(--gold-lo);
+}
+
+body.arcade .cell.mine-shown {
+    background: #3a2f5c;
+    box-shadow: inset 0 0 0 1px #100c1e;
+}
+
+body.arcade .cell.mine-exploded {
+    background: var(--red);
+    box-shadow:
+        inset 3px 3px 0 0 #ff8a95,
+        inset -3px -3px 0 0 var(--red-lo);
+}
+
+body.arcade .cell svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+body.arcade .n1 { color: var(--blue); }
+body.arcade .n2 { color: var(--green); }
+body.arcade .n3 { color: var(--red); }
+body.arcade .n4 { color: var(--purple); }
+body.arcade .n5 { color: var(--orange); }
+body.arcade .n6 { color: var(--cyan); }
+body.arcade .n7 { color: var(--gold); }
+body.arcade .n8 { color: var(--ink-dim); }
+
+/* Memory game cards reuse #board with .card children. */
+body.arcade .card {
+    border-radius: 0;
+}
+
+/* -------------------------------------------------------- status / hearts */
+
+.px-statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--px) * 6);
+    min-width: 360px;
+    padding: 10px 16px;
+}
+
+.px-statusbar__slot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.px-statusbar__slot svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+.px-hearts {
+    display: flex;
+    gap: 4px;
+}
+
+.px-hearts svg {
+    width: 20px;
+    height: 20px;
+}
+
+.px-hearts .is-empty {
+    opacity: 0.25;
+}
+
+/* ------------------------------------------------------- overlay and modal */
+
+body.arcade .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(7, 5, 15, 0.82);
+}
+
+body.arcade .overlay.hidden {
+    display: none;
+}
+
+body.arcade .modal {
+    --frame: var(--gold);
+    margin: var(--px);
+    padding: calc(var(--px) * 7) calc(var(--px) * 6);
+    max-width: 340px;
+    background: var(--panel);
+    border: 0;
+    border-radius: 0;
+    text-align: center;
+    box-shadow:
+        0 calc(var(--px) * -1) 0 0 var(--frame),
+        0 var(--px) 0 0 var(--frame),
+        calc(var(--px) * -1) 0 0 0 var(--frame),
+        var(--px) 0 0 0 var(--frame),
+        0 0 30px 2px var(--gold-glow);
+}
+
+body.arcade .modal h2 {
+    margin: 0 0 12px;
+    color: var(--gold-hi);
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-shadow: 3px 3px 0 var(--ink-shadow);
+}
+
+body.arcade .modal.win { --frame: var(--green); }
+body.arcade .modal.win h2 { color: var(--green); }
+body.arcade .modal.lose { --frame: var(--red); }
+body.arcade .modal.lose h2 { color: var(--red); }
+
+body.arcade .modal p {
+    margin: 0 0 20px;
+    color: var(--ink-dim);
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+}
+
+body.arcade .modal button {
+    padding: 10px 18px;
+}
+
+/*
+    The modal's actions stack on narrow modals; give the lower one real air so
+    "Back to Games" is never a mis-tap away from "Play Again".
+*/
+body.arcade .modal button + button {
+    margin-top: calc(var(--px) * 4);
+}
+
+/* ----------------------------------------------------------- small screens */
+
+@media (max-width: 720px) {
+    .px-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .px-header__body {
+        flex-wrap: wrap;
+        padding: calc(var(--px) * 4) calc(var(--px) * 3) calc(var(--px) * 9);
+    }
+
+    /* Give the wordmark the whole row so it can scale down instead of clipping. */
+    .px-header__title {
+        flex: 1 1 100%;
+        order: -1;
+    }
+
+    .px-logo-badge {
+        width: 40px;
+        height: 40px;
+    }
+
+    .px-deco {
+        width: 30px;
+        height: 30px;
+    }
+
+    .px-deco--rocket {
+        width: 34px;
+        height: 34px;
+    }
+
+    body.arcade .cell {
+        width: 26px;
+        height: 26px;
+    }
+
+    body.arcade .side-panel {
+        min-width: 0;
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 460px) {
+    .px-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

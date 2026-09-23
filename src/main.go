@@ -38,6 +38,10 @@ func SetupCloseHandler() {
 }
 
 func executeShutdownSequence() {
+	//Shutdown cluster agent so peers stop routing to this node
+	systemWideLogger.PrintAndLog("System", "<!> Shutting down cluster agent", nil)
+	ClusterShutdown()
+
 	//Shutdown authAgent
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down auth gateway", nil)
 	authAgent.Close()

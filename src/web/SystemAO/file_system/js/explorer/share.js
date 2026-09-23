@@ -11,19 +11,22 @@ function handleShareFilebuttonClick(event, object){
     event.preventDefault(); 
     event.stopImmediatePropagation();
     $(".fileObject.selected").removeClass("selected");
-    if (viewMode == "list"){
-        $(object).parent().parent().addClass("selected");
-    }else if (viewMode == "grid"){
-        $(object).parent().parent().parent().addClass("selected");
-    }else if (viewMode == "details"){
-        $(object).parent().parent().addClass("selected");
-    }
+    $(object).closest(".fileObject").addClass("selected");
     
     shareFile();
 }
 
+/*
+    Sized against the viewport, not against #shareFile.
+
+    The dialog is content-height now, so its height is whatever this iframe
+    reports - measuring the dialog here would feed that back into the iframe and
+    shave another 126px off on every resize until it collapsed.
+*/
 function resizeShareIframe(){
-    $("#shareFileEmbedded").css("height", $("#shareFile").height() - 126 + "px");
+    let available = window.innerHeight - 200;
+    let height = Math.max(260, Math.min(available, 560));
+    $("#shareFileEmbedded").css("height", height + "px");
 }
 
 function shareFile(){

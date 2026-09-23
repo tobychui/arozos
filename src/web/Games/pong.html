@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - ArozOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 560px;
+            padding: 16px 0;
+        }
+
+        #backBtn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #backBtn:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+
+        #backBtn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        #resetBtn {
+            background: none;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #resetBtn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 215, 0, 0.6);
+        }
+
+        #resetBtn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .game-layout {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+
+        #gameCanvas {
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            min-width: 140px;
+        }
+
+        .panel-box h3 {
+            font-size: 0.85rem;
+            color: #ffd700;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat {
+            font-size: 1.2rem;
+            font-family: 'Courier New', monospace;
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .controls {
+            font-size: 0.8rem;
+            color: #888888;
+            line-height: 1.8;
+        }
+
+        .controls .key {
+            display: inline-block;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: #141414;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+
+        .modal.win h2 {
+            color: #4caf50;
+        }
+
+        .modal.lose h2 {
+            color: #ff6432;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #888888;
+        }
+
+        .modal button {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #ffd700;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0 4px;
+            transition: background 0.2s;
+        }
+
+        .modal button:hover {
+            background: rgba(255, 215, 0, 0.3);
+        }
+    </style>
+    <link rel="stylesheet" href="css/arcade.css">
+</head>
+<body class="arcade">
+    <script src="js/sprites.js"></script>
+    <script src="js/arcade.js"></script>
+    <script src="js/gamekit.js"></script>
+    <div class="top-bar">
+        <button id="backBtn" onclick="goBack()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Back
+        </button>
+        <button id="resetBtn" onclick="initGame()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path d="M3 12C3 7.03 7.03 3 12 3C15.5 3 18.58 5 20 8" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M21 4V9H16" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12C21 16.97 16.97 21 12 21C8.5 21 5.42 19 4 16" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 20V15H8" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="game-info">
+            <span id="score">0</span>
+        </div>
+    </div>
+
+    <div class="game-layout">
+        <canvas id="gameCanvas" width="520" height="380"></canvas>
+        <div class="side-panel">
+            <div class="panel-box">
+                <h3>Score</h3>
+                <div class="stat" id="scoreDisplay">0</div>
+                <h3 style="margin-top:8px;">High Score</h3>
+                <div class="stat" id="highScore">0</div>
+            </div>
+            <div class="panel-box">
+                <h3>Controls</h3>
+                <div class="controls">
+                    <div><span class="key">↑</span> <span class="key">↓</span> Move paddle</div>
+                    <div>Mouse: Move paddle</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="startOverlay">
+        <div class="modal">
+            <h2 data-gate-title>Game</h2>
+            <p data-gate-hint></p>
+            <button data-gate-start type="button">Start Game</button>
+            <button type="button" onclick="goBack()">Back to Games</button>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+        <div class="modal" id="modal">
+            <h2 id="modalTitle"></h2>
+            <p id="modalMsg"></p>
+            <button onclick="initGame()">Play Again</button>
+            <button onclick="goBack(); hideOverlay();">Back to Games</button>
+        </div>
+    </div>
+
+    <script>
+        const CANVAS_WIDTH = 520;
+        const CANVAS_HEIGHT = 380;
+        const PADDLE_W = 14;
+        const PADDLE_H = 66;
+        const BALL_SIZE = 14;
+        const WIN_SCORE = 5;
+        const PADDLE_SPEED = 7;
+        const BALL_SPEED = 3.4;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const art = GameKit.load({
+            paddle: 'pong/paddle.png',
+            paddle_ai: 'pong/paddle_ai.png',
+            ball: 'pong/ball.png'
+        }, function () {
+            draw();
+        });
+
+        let playerY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+        let aiY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+        let ballX = 0;
+        let ballY = 0;
+        let ballDX = BALL_SPEED;
+        let ballDY = BALL_SPEED;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('pongHighScore') || '0', 10);
+        let gameOver = false;
+        let running = false;
+        let animationId = null;
+        const held = {};
+
+        document.getElementById('highScore').textContent = highScore;
+
+        function initGame() {
+            playerY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+            aiY = CANVAS_HEIGHT / 2 - PADDLE_H / 2;
+            resetBall();
+            score = 0;
+            gameOver = false;
+            running = true;
+
+            document.getElementById('scoreDisplay').textContent = '0';
+            document.getElementById('score').textContent = '0';
+            document.getElementById('overlay').classList.add('hidden');
+
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            initGame();
+        }
+
+        function resetBall() {
+            ballX = CANVAS_WIDTH / 2 - BALL_SIZE / 2;
+            ballY = CANVAS_HEIGHT / 2 - BALL_SIZE / 2;
+            ballDX = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+            ballDY = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1) * 0.6;
+        }
+
+        function gameLoop() {
+            if (gameOver) return;
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            if (!running) return;
+
+            if (held.up) playerY -= PADDLE_SPEED;
+            if (held.down) playerY += PADDLE_SPEED;
+            playerY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_H, playerY));
+
+            ballX += ballDX;
+            ballY += ballDY;
+
+            if (ballY <= 0) {
+                ballY = 0;
+                ballDY = Math.abs(ballDY);
+            } else if (ballY >= CANVAS_HEIGHT - BALL_SIZE) {
+                ballY = CANVAS_HEIGHT - BALL_SIZE;
+                ballDY = -Math.abs(ballDY);
+            }
+
+            const playerX = 16;
+            if (ballDX < 0 && ballX <= playerX + PADDLE_W && ballX + BALL_SIZE >= playerX &&
+                ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_H) {
+                ballX = playerX + PADDLE_W;
+                ballDX = Math.min(8, Math.abs(ballDX) + 0.35);
+                ballDY = ((ballY + BALL_SIZE / 2) - (playerY + PADDLE_H / 2)) / (PADDLE_H / 2) * 4;
+            }
+
+            const aiX = CANVAS_WIDTH - 16 - PADDLE_W;
+            if (ballDX > 0 && ballX + BALL_SIZE >= aiX && ballX <= aiX + PADDLE_W &&
+                ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_H) {
+                ballX = aiX - BALL_SIZE;
+                ballDX = -Math.abs(ballDX);
+                ballDY = ((ballY + BALL_SIZE / 2) - (aiY + PADDLE_H / 2)) / (PADDLE_H / 2) * 4;
+            }
+
+            if (ballX + BALL_SIZE < 0) {
+                endGame(false);
+                return;
+            }
+
+            if (ballX > CANVAS_WIDTH) {
+                score++;
+                document.getElementById('scoreDisplay').textContent = score;
+                document.getElementById('score').textContent = score;
+                if (score >= WIN_SCORE) {
+                    endGame(true);
+                    return;
+                }
+                resetBall();
+            }
+
+            const target = ballY + BALL_SIZE / 2 - PADDLE_H / 2;
+            const diff = target - aiY;
+            aiY += Math.sign(diff) * Math.min(Math.abs(diff), PADDLE_SPEED * 0.62);
+            aiY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_H, aiY));
+        }
+
+        function draw() {
+            GameKit.pixelate(ctx);
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            ctx.fillStyle = 'rgba(255, 198, 26, 0.25)';
+            for (let y = 6; y < CANVAS_HEIGHT; y += 22) {
+                ctx.fillRect(CANVAS_WIDTH / 2 - 2, y, 4, 12);
+            }
+
+            GameKit.draw(ctx, art.paddle, 16, playerY, PADDLE_W, PADDLE_H);
+            GameKit.draw(ctx, art.paddle_ai, CANVAS_WIDTH - 16 - PADDLE_W, aiY, PADDLE_W, PADDLE_H);
+            GameKit.draw(ctx, art.ball, ballX, ballY, BALL_SIZE, BALL_SIZE);
+        }
+
+        function endGame(isWin) {
+            gameOver = true;
+            running = false;
+
+            if (score > highScore) {
+                highScore = score;
+                try {
+                    localStorage.setItem('pongHighScore', String(highScore));
+                } catch (err) {
+                    /* Storage disabled -- the high score is cosmetic. */
+                }
+                document.getElementById('highScore').textContent = highScore;
+            }
+
+            const modal = document.getElementById('modal');
+            modal.className = 'modal ' + (isWin ? 'win' : 'lose');
+            document.getElementById('modalTitle').textContent = isWin ? 'You Win!' : 'Game Over';
+            document.getElementById('modalMsg').textContent = 'Score: ' + score + '  |  Best: ' + highScore;
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function hideOverlay() {
+            document.getElementById('overlay').classList.add('hidden');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        /* Pointer input goes through GameKit so it still lines up once the
+           canvas has been scaled to the window. */
+        function movePaddleTo(ev) {
+            if (!running) return;
+            const p = GameKit.pointer(canvas, ev);
+            playerY = Math.max(0, Math.min(CANVAS_HEIGHT - PADDLE_H, p.y - PADDLE_H / 2));
+        }
+
+        canvas.addEventListener('mousemove', movePaddleTo);
+        canvas.addEventListener('touchmove', function (ev) {
+            ev.preventDefault();
+            movePaddleTo(ev);
+        }, { passive: false });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowUp') { e.preventDefault(); held.up = true; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); held.down = true; }
+        });
+        document.addEventListener('keyup', function (e) {
+            if (e.key === 'ArrowUp') held.up = false;
+            if (e.key === 'ArrowDown') held.down = false;
+        });
+
+        GameKit.autoFit(canvas, { reserveH: 40 });
+        GameKit.gate({
+            title: 'Pong',
+            hint: 'Move with the mouse or the up and down arrows. First to ' + WIN_SCORE + ' points wins.',
+            onStart: startGame
+        });
+
+        draw();
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
     ArozOS Office Sheets - formula engine unit tests
     Run with: node test_formula.js   (exits 1 on failure)
 */
-var F = require("./formula.js");
+var F = require("./formula_node.js");
 
 var failures = 0, passes = 0;
 function eq(name, got, want) {
@@ -22,11 +22,28 @@ function eq(name, got, want) {
 
 /* grid fixture:
    A1=10 B1=20 C1=hello  A2=30 B2=40 C2==A1+B1
-   A3==C3 (self cycle)   B3="5" (numeric string)  A4=TRUE */
+   A3==C3 (self cycle)   B3="5" (numeric string)  A4=TRUE   D9 stays empty
+
+   F1:H5  lookup table, unsorted keys (exact-match VLOOKUP / HLOOKUP):
+          Fruit  Quantity Price
+          Apple  11       1.50
+          Banana 15       2.03
+          Lemon  9        3.10
+          Orange 5        1.01
+   I1:J5  ascending bands, for approximate VLOOKUP: 0/F 60/D 70/C 80/B 90/A */
 var grid = {
     "0,0": "10", "1,0": "20", "2,0": "hello",
     "0,1": "30", "1,1": "40", "2,1": "=A1+B1",
-    "0,2": "=A3", "1,2": "5", "0,3": "TRUE"
+    "0,2": "=A3", "1,2": "5", "0,3": "TRUE",
+
+    "5,0": "Fruit", "6,0": "Quantity", "7,0": "Price",
+    "5,1": "Apple", "6,1": "11", "7,1": "1.50",
+    "5,2": "Banana", "6,2": "15", "7,2": "2.03",
+    "5,3": "Lemon", "6,3": "9", "7,3": "3.10",
+    "5,4": "Orange", "6,4": "5", "7,4": "1.01",
+
+    "8,0": "0", "9,0": "F", "8,1": "60", "9,1": "D", "8,2": "70", "9,2": "C",
+    "8,3": "80", "9,3": "B", "8,4": "90", "9,4": "A"
 };
 var calc = F.createCalculator(function (c, r) { return grid[c + "," + r]; });
 function run(f) {
@@ -64,7 +81,15 @@ eq("numeric string coerced", run("B3+1"), 6);
 /* functions */
 eq("IF true", run('IF(A1>5,"big","small")'), "big");
 eq("IF false", run('IF(A1>50,"big","small")'), "small");
-eq("IF no else", run("IF(FALSE,1)"), false);
+// value_if_false is optional and blank by default, as in Sheets; answering
+// FALSE here is the Excel rule and put a stray "FALSE" in users' cells
+eq("IF no else is blank", run("IF(FALSE,1)"), null);
+eq("IF no else, blank cell", run('IF(D9 = "foo","D9 is foo")'), null);
+eq("IF empty branch", run('IF(TRUE, , "False")'), null);
+eq("IF text compare is case-insensitive", run('IF("Google"="google","Equal","Unequal")'), "Equal");
+eq("IF nested", run('IF(IF(1>0,TRUE,FALSE),"Reached","Unreached")'), "Reached");
+eq("IF non-logical text", run('IF(C1,"t","f")'), "#VALUE!");
+eq("IF short-circuits the untaken branch", run('IF(A1=0,"zero",A1/2)'), 5);
 eq("CONCAT", run('CONCAT("x",A1,"y")'), "x10y");
 eq("CONCATENATE alias", run('CONCATENATE(1,2)'), "12");
 eq("ROUND", run("ROUND(3.14159,2)"), 3.14);
@@ -75,6 +100,44 @@ eq("INT", run("INT(3.9)"), 3);
 eq("LEN", run('LEN("hello")'), 5);
 eq("UPPER", run('UPPER("aBc")'), "ABC");
 eq("TRIM", run('TRIM("  a   b  ")'), "a b");
+
+/* logical helpers */
+eq("AND both true", run("AND(1>0,2>1)"), true);
+eq("AND one false", run("AND(1>0,2>3)"), false);
+eq("OR one true", run("OR(1>2,2>1)"), true);
+eq("OR none true", run("OR(1>2,3>4)"), false);
+eq("NOT", run("NOT(1>2)"), true);
+eq("AND over a range of numbers", run("AND(A1:B2)"), true);   // non-zero = true
+eq("AND skips text in a range (Excel)", run("AND(A1:C1)"), true);
+eq("AND skips text in a ref (Excel)", run("AND(TRUE,C1)"), true);
+eq("AND over typed text is an error", run('AND(TRUE,"hello")'), "#VALUE!");
+eq("AND ignores blank cells", run("AND(TRUE,D9)"), true);
+eq("AND with no logicals", run("AND(D9)"), "#VALUE!");
+eq("IFERROR catches", run('IFERROR(1/0,"oops")'), "oops");
+eq("IFERROR passes good values", run("IFERROR(A1,0)"), 10);
+eq("IFERROR blank default", run("IFERROR(1/0)"), null);
+eq("IFNA ignores other errors", run('IFNA(1/0,"x")'), "#DIV/0!");
+eq("IFS first true wins", run('IFS(1>2,"a",2>1,"b")'), "b");
+eq("IFS none true", run('IFS(1>2,"a",3>4,"b")'), "#N/A");
+eq("IFS odd args", run('IFS(1>2,"a",2>1)'), "#VALUE!");
+
+/* lookups - the fruit table lives at F1:H5 in the fixture */
+eq("VLOOKUP exact", run('VLOOKUP("Orange",F1:H5,3,FALSE)'), 1.01);
+eq("VLOOKUP index 2", run('VLOOKUP("Orange",F1:H5,2,FALSE)'), 5);
+eq("VLOOKUP index 1 echoes the key", run('VLOOKUP("Lemon",F1:H5,1,FALSE)'), "Lemon");
+eq("VLOOKUP is case-insensitive", run('VLOOKUP("oRaNgE",F1:H5,3,FALSE)'), 1.01);
+eq("VLOOKUP miss", run('VLOOKUP("Kiwi",F1:H5,3,FALSE)'), "#N/A");
+eq("VLOOKUP wrapped in IFERROR", run('IFERROR(VLOOKUP("Kiwi",F1:H5,3,FALSE),"none")'), "none");
+eq("VLOOKUP index past range", run('VLOOKUP("Lemon",F1:H5,9,FALSE)'), "#REF!");
+eq("VLOOKUP index below 1", run('VLOOKUP("Lemon",F1:H5,0,FALSE)'), "#VALUE!");
+eq("VLOOKUP single-cell table, index past it (Excel)", run('VLOOKUP("Lemon",F1,2,FALSE)'), "#REF!");
+eq("VLOOKUP approximate", run("VLOOKUP(85,I1:J5,2)"), "B");
+eq("VLOOKUP approximate exact hit", run("VLOOKUP(90,I1:J5,2)"), "A");
+eq("VLOOKUP approximate below all", run("VLOOKUP(-5,I1:J5,2)"), "#N/A");
+eq("VLOOKUP defaults to approximate", run("VLOOKUP(75,I1:J5,2)"), "C");
+eq("VLOOKUP exact mode misses 75", run("VLOOKUP(75,I1:J5,2,FALSE)"), "#N/A");
+eq("HLOOKUP across a header row", run('HLOOKUP("Price",F1:H5,4,FALSE)'), 3.1);
+eq("VLOOKUP feeding IF", run('IF(VLOOKUP("Orange",F1:H5,2,FALSE)>3,"in stock","low")'), "in stock");
 
 /* errors */
 eq("div by zero", run("1/0"), "#DIV/0!");
@@ -114,11 +177,121 @@ eq("delete row -> #REF!", F.adjustInsertDelete("=A3", "row", 2, -1), "=#REF!");
 eq("delete row shifts up", F.adjustInsertDelete("=A5", "row", 2, -1), "=A4");
 eq("insert col shifts", F.adjustInsertDelete("=C1", "col", 1, 2), "=E1");
 
+/* blank vs text */
+eq("blank equals empty text", run('D9=""'), true);
+eq("blank is not text", run('D9="x"'), false);
+
+/* math / choose / dates */
+eq("MOD", run("MOD(7,3)"), 1);
+eq("MOD takes divisor sign", run("MOD(-7,3)"), 2);
+eq("MOD fraction of a date-time", run("MOD(41031.75,1)"), 0.75);
+eq("MOD by zero", run("MOD(1,0)"), "#DIV/0!");
+eq("CHOOSE", run('CHOOSE(2,"a","b","c")'), "b");
+eq("CHOOSE out of range", run('CHOOSE(4,"a","b","c")'), "#VALUE!");
+eq("CHOOSE only evaluates its pick", run('CHOOSE(1,"ok",1/0)'), "ok");
+eq("DATE", run("DATE(2012,5,2)"), 41031);
+eq("DATE rolls months over", run("DATE(2012,13,1)"), run("DATE(2013,1,1)"));
+eq("YEAR", run("YEAR(41031.6)"), 2012);
+eq("MONTH", run("MONTH(41031.6)"), 5);
+eq("DAY", run("DAY(41031.6)"), 2);
+eq("WEEKDAY default (Wed=4)", run("WEEKDAY(41031.6)"), 4);
+eq("WEEKDAY type 2 (Wed=3)", run("WEEKDAY(41031,2)"), 3);
+eq("WEEKDAY type 3 (Wed=2)", run("WEEKDAY(41031,3)"), 2);
+eq("WEEKDAY type 12 (Tue=1, Wed=2)", run("WEEKDAY(41031,12)"), 2);
+eq("WEEKDAY type 17 (Sun=1, Wed=4)", run("WEEKDAY(41031,17)"), 4);
+eq("HOUR", run("HOUR(41031.632638888892)"), 15);
+eq("MINUTE", run("MINUTE(41031.632638888892)"), 11);
+eq("SECOND", run("SECOND(0.5+1/86400*7)"), 7);
+
+/* arrays: SUMPRODUCT and array expressions */
+eq("SUMPRODUCT two ranges", run("SUMPRODUCT(A1:A2,B1:B2)"), 10 * 20 + 30 * 40);
+eq("SUMPRODUCT of a condition", run('SUMPRODUCT((F2:F5>"B")*(G2:G5))'), 15 + 9 + 5);
+eq("SUMPRODUCT boolean-only counts nothing", run('SUMPRODUCT(F2:F5="Lemon")'), 0);
+eq("SUMPRODUCT double negation", run('SUMPRODUCT(--(F2:F5="Lemon"))'), 1);
+eq("SUMPRODUCT divided by a scalar", run("SUMPRODUCT((G2:G5>6)*G2:G5/IF(A1>0,2,1))"), (11 + 15 + 9) / 2);
+eq("SUMPRODUCT size mismatch", run("SUMPRODUCT(A1:A2,B1:B3)"), "#VALUE!");
+eq("SUMPRODUCT text counts as 0", run("SUMPRODUCT(F2:F5,G2:G5)"), 0);
+eq("SUMPRODUCT error element", run("SUMPRODUCT((G2:G5)/(G2:G5-9))"), "#DIV/0!");
+eq("SUM over an array expression", run("SUM((G2:G5>9)*H2:H5)"), 1.5 + 2.03);
+eq("IF over an array", run("SUMPRODUCT(IF(G2:G5>9,G2:G5,0))"), 26);
+eq("range outside array context", run("A1:A2*2"), "#VALUE!");
+
+/* cross-sheet references: a two-sheet workbook */
+var book = [
+    { name: "Data", cells: { "0,0": "5", "0,1": "7", "1,0": "x", "1,1": "y", "2,0": "=A1*2" } },
+    { name: "Closed Tickets", cells: { "0,0": "=Data!A1+1", "1,0": "=A2", "0,1": "3" } }
+];
+var bookActive = 0;
+var bcalc = F.createCalculator(function (c, r, s) { return book[s].cells[c + "," + r]; }, {
+    activeSheet: function () { return bookActive; },
+    sheetIndex: function (name) {
+        for (var i = 0; i < book.length; i++) if (book[i].name.toLowerCase() === name.toLowerCase()) return i;
+        return -1;
+    }
+});
+function brun(f, active) {
+    bookActive = active || 0;
+    bcalc.reset();
+    return F.evaluate(F.parse(f), bcalc.ctx);
+}
+eq("sheet ref", brun("Data!A2"), 7);
+eq("quoted sheet ref", brun("'Closed Tickets'!A2"), 3);
+eq("sheet names are case-insensitive", brun("data!A1"), 5);
+eq("formula on another sheet uses its own sheet", brun("'Closed Tickets'!B1"), 3);
+eq("chain across sheets", brun("'Closed Tickets'!A1"), 6);
+eq("unknown sheet", brun("Nope!A1"), "#REF!");
+eq("sheet range in SUM", brun("SUM(Data!A1:A2)"), 12);
+eq("sheet range in SUMPRODUCT", brun('SUMPRODUCT((Data!B1:B2="y")*Data!A1:A2)', 1), 7);
+eq("unqualified ref follows active sheet", brun("A2", 1), 3);
+eq("value() takes a sheet index", bcalc.value(2, 0, 0), 10);
+eq("VLOOKUP on another sheet", brun('VLOOKUP("y",Data!A1:B2,1,FALSE)', 1), "#N/A");
+eq("VLOOKUP key column on another sheet", brun("VLOOKUP(7,Data!A1:B2,2,FALSE)", 1), "y");
+eq("quote in sheet name", F.parse("'Bob''s'!A1").sheet, "Bob's");
+
+/* rewriting keeps sheet prefixes */
+eq("rewrite keeps sheet prefix", F.rewriteRelative("='My Sheet'!A1+B2", 1, 0), "='My Sheet'!B1+C2");
+eq("rewrite absolute sheet ref untouched", F.rewriteRelative("=Data!$A$1", 3, 3), "=Data!$A$1");
+eq("insert row on target sheet only",
+    F.adjustInsertDelete("=A5+Data!A5+'Other'!A5", "row", 2, 1, { target: "Data", home: "Other" }),
+    "=A5+Data!A6+'Other'!A5");
+eq("insert row shifts both ends of a sheet range",
+    F.adjustInsertDelete("=SUM(Data!$C$3:$C$5000)+SUM(C3:C9)", "row", 0, 1, { target: "Data", home: "Other" }),
+    "=SUM(Data!$C$4:$C$5001)+SUM(C3:C9)");
+eq("rename keeps range end unprefixed", F.renameSheetRefs("=SUM(Data!A1:A3)", "Data", "D x"), "=SUM('D x'!A1:A3)");
+eq("insert row: unqualified ref on the target sheet",
+    F.adjustInsertDelete("=A5+Other!A5", "row", 2, 1, { target: "Data", home: "Data" }), "=A6+Other!A5");
+eq("move honours sheet", F.rewriteMovedRange("=A1+Data!A1", mv, 1, 0, { target: "Data", home: "Sheet1" }),
+    "=A1+Data!B1");
+eq("rename sheet refs", F.renameSheetRefs("=Data!A1+'data'!B2+Other!A1", "Data", "Raw data"),
+    "='Raw data'!A1+'Raw data'!B2+Other!A1");
+eq("rename leaves strings alone", F.renameSheetRefs('="Data!A1"&Data!A1', "Data", "D2"), "=\"Data!A1\"&'D2'!A1");
+eq("quoteSheetName plain", F.quoteSheetName("Analysis"), "Analysis");
+eq("qualify refs", F.qualifyRefs("=E13*B2", "SheetA"), "=SheetA!E13*SheetA!B2");
+eq("qualify range + abs", F.qualifyRefs("=SUM($A$1:B9)+C1", "Data"), "=SUM(Data!$A$1:B9)+Data!C1");
+eq("qualify quoted name", F.qualifyRefs("=A1", "Closed Tickets"), "='Closed Tickets'!A1");
+eq("qualify keeps other sheets", F.qualifyRefs("=Other!A1+'X y'!B2:C3+A2", "S"), "=Other!A1+'X y'!B2:C3+S!A2");
+eq("qualify whole cols/rows", F.qualifyRefs("=SUM(A:B)+SUM(2:5)", "S"), "=SUM(S!A:B)+SUM(S!2:5)");
+eq("qualify skips strings/functions", F.qualifyRefs('="A1"&LOG10(A1)', "S"), '="A1"&LOG10(S!A1)');
+eq("qualify no refs", F.qualifyRefs("=1+2", "S"), "=1+2");
+
 /* helpers */
 eq("colToName", F.colToName(0), "A");
 eq("colToName AA", F.colToName(26), "AA");
 eq("nameToCol", F.nameToCol("AB"), 27);
 eq("cellName", F.cellName(2, 4), "C5");
+
+/* function help (formula_help.js): every function has an entry, every
+   entry names a real function and every example parses */
+var HELP = require("./formula_help.js");
+F.functionNames().forEach(function (n) {
+    eq("help entry for " + n, !!HELP[n], true);
+});
+Object.keys(HELP).forEach(function (n) {
+    eq("help names a function: " + n, !!F.lookupFunction(n), true);
+    var h = HELP[n], ok = false;
+    try { F.parse(h[1]); ok = h[1].toUpperCase().indexOf(n + "(") === 0; } catch (e) { ok = false; }
+    eq("help example parses: " + n, ok, true);
+});
 
 console.log(passes + " passed, " + failures + " failed");
 process.exit(failures ? 1 : 0);

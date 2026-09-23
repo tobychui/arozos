@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#3b8ef0"/>
+            <stop offset="1" stop-color="#1e5fbd"/>
+        </linearGradient>
+        <linearGradient id="top" x1="0" y1="0" x2="0.6" y2="1">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="1" stop-color="#e6ecf5"/>
+        </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="60" height="60" rx="13" fill="url(#bg)"/>
+    <!-- isometric cube: top face -->
+    <path d="M32 13 L50 23 L32 33 L14 23 Z" fill="url(#top)"/>
+    <!-- left face -->
+    <path d="M14 23 L32 33 L32 52 L14 42 Z" fill="#bcd2ee"/>
+    <!-- right face -->
+    <path d="M50 23 L50 42 L32 52 L32 33 Z" fill="#8fb2df"/>
+    <!-- edge highlight -->
+    <path d="M32 13 L50 23 L32 33 L14 23 Z M14 23 L32 33 L32 52 L14 42 Z M50 23 L50 42 L32 52 L32 33 Z"
+          fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.2" stroke-linejoin="round"/>
+</svg>

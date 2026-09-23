@@ -4,6 +4,7 @@
 package database
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -157,6 +158,42 @@ func (d *Database) keyExists(tableName string, key string) bool {
 	}
 }
 
+func (d *Database) writeBatch(ops []BatchOp) error {
+	if d.ReadOnly {
+		return errors.New("Operation rejected in ReadOnly mode")
+	}
+	//Marshal first so a bad value fails the batch before anything is written
+	values := make([][]byte, len(ops))
+	for i, op := range ops {
+		if op.Delete {
+			continue
+		}
+		js, err := json.Marshal(op.Value)
+		if err != nil {
+			return err
+		}
+		values[i] = js
+	}
+	return d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+		for i, op := range ops {
+			b, err := tx.CreateBucketIfNotExists([]byte(op.Table))
+			if err != nil {
+				return err
+			}
+			if op.Delete {
+				if err := b.Delete([]byte(op.Key)); err != nil {
+					return err
+				}
+				continue
+			}
+			if err := b.Put([]byte(op.Key), values[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (d *Database) delete(tableName string, key string) error {
 	if d.ReadOnly {
 		return errors.New("Operation rejected in ReadOnly mode")
@@ -186,4 +223,24 @@ func (d *Database) listTable(tableName string) ([][][]byte, error) {
 
 func (d *Database) close() {
 	d.Db.(*bolt.DB).Close()
+}
+
+// listTableWithPrefix seeks the cursor to prefix and reads while keys match.
+func (d *Database) listTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
+	var results [][][]byte = [][][]byte{}
+	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(tableName))
+		if b == nil {
+			return errors.New("table not exists")
+		}
+		c := b.Cursor()
+		p := []byte(prefix)
+		for k, v := c.Seek(p); k != nil && bytes.HasPrefix(k, p); k, v = c.Next() {
+			key := append([]byte{}, k...)
+			val := append([]byte{}, v...)
+			results = append(results, [][]byte{key, val})
+		}
+		return nil
+	})
+	return results, err
 }

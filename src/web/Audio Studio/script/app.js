@@ -1580,7 +1580,7 @@
                     if (filedata && filedata.length > 0) {
                         importFromVirtualFS(filedata, cursor, false);
                     }
-                }, "user:/Music", "file", true);
+                }, "user:/Music", "file", true, { path_memory_key: "import" });
             }));
             pop.appendChild(menuItem("Upload from this device...", function () {
                 byId("importFileInput").click();
@@ -1647,7 +1647,10 @@
                 }, undefined, function (status) {
                     toast("Save failed (HTTP " + status + "): check folder permissions", true);
                 });
-            }, "user:/Music", "new", false, { defaultName: "AudioStudio_Mix.wav" });
+            }, "user:/Music", "new", false, {
+                defaultName: "AudioStudio_Mix.wav",
+                path_memory_key: "export"
+            });
         });
     }
 
@@ -1719,7 +1722,10 @@
                 }, undefined, fail);
             }
             next();
-        }, "user:/Music", "new", false, { defaultName: "MyProject.asproj" });
+        }, "user:/Music", "new", false, {
+            defaultName: "MyProject.asproj",
+            path_memory_key: "project"
+        });
     }
 
     //Standalone fallback: one self-contained .asproj download with the audio
@@ -1825,7 +1831,7 @@
                 return;
             }
             openProjectFromVpath(f.filepath);
-        }, "user:/Music", "file", false);
+        }, "user:/Music", "file", false, { path_memory_key: "project" });
     }
 
     /* ============ Shortcut & settings modals ============ */

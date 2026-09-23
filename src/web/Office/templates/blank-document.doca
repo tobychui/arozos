@@ -1,0 +1,33 @@
+{
+ "type": "arozos/office",
+ "app": "document",
+ "version": 1,
+ "meta": {
+  "title": "Blank Document",
+  "createdAt": 1788479669436,
+  "modifiedAt": 1788479669436,
+  "revision": 1,
+  "generator": "ArozOS Office/1.0"
+ },
+ "body": {
+  "html": "<p><br></p>",
+  "page": {
+   "size": "A4",
+   "orientation": "portrait",
+   "margins": {
+    "top": 25.4,
+    "right": 25.4,
+    "bottom": 25.4,
+    "left": 25.4
+   },
+   "columns": 1,
+   "colGap": 10
+  },
+  "header": "",
+  "footer": "",
+  "hfMode": "all",
+  "pageNumbers": false,
+  "comments": [],
+  "trackChanges": false
+ }
+}

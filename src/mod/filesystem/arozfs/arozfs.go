@@ -10,6 +10,8 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"net/url"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -41,6 +43,16 @@ type ShortcutData struct {
 	Name string //The name of the shortcut
 	Path string //The path of shortcut
 	Icon string //The icon of shortcut
+
+	//Optional launch options, stored as key=value lines after the first four.
+	//Only honoured for url shortcuts; module shortcuts take them from init.agi
+	WindowTitle  string //Custom floatWindow title, empty = shortcut name
+	OpenIn       string //"float" (default) or "tab"
+	WindowWidth  int    //Initial floatWindow width, 0 = default
+	WindowHeight int    //Initial floatWindow height, 0 = default
+
+	//Unknown key=value lines, kept so a rewrite does not drop them
+	Extra map[string]string `json:"-"`
 }
 
 var (
@@ -69,6 +81,7 @@ var (
 	//Operation errors
 	ErrOperationNotSupported = errors.New("FS_OPR_NOT_SUPPORTED")
 	ErrNullOperation         = errors.New("FS_NULL_OPR")
+	ErrPathEscapesRoot       = errors.New("FS_PATH_ESCAPES_ROOT")
 )
 
 // Generate a File Manager redirection error message
@@ -78,7 +91,7 @@ func NewRedirectionError(targetVpath string) error {
 
 // Check if a file system is network drive
 func IsNetworkDrive(fstype string) bool {
-	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" {
+	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" || fstype == "s3" || fstype == "cluster" {
 		return true
 	}
 
@@ -87,7 +100,7 @@ func IsNetworkDrive(fstype string) bool {
 
 // Get a list of supported file system types for mounting via arozos
 func GetSupportedFileSystemTypes() []string {
-	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp", "s3"}
+	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp", "s3", "cluster"}
 }
 
 /*
@@ -165,6 +178,17 @@ func ToSlash(filename string) string {
 	return strings.ReplaceAll(filename, "\\", "/")
 }
 
+// Clean is the virtual path counterpart of filepath.Clean.
+//
+// A virtual path is always slash separated and starts with a "vdID:" prefix,
+// which filepath.Clean cannot be trusted with: on Windows it reads "user:" as
+// a volume name and guards the result with a "./" prefix, so the same path
+// normalises differently there than on Linux. Going through path.Clean keeps
+// the result identical on every platform.
+func Clean(filename string) string {
+	return path.Clean(ToSlash(filename))
+}
+
 func Base(filename string) string {
 	filename = ToSlash(filename)
 	if filename == "" {
@@ -183,4 +207,29 @@ func Base(filename string) string {
 	} else {
 		return c[len(c)-1]
 	}
+}
+
+// ResolvePathWithinRoot decodes a relative path, normalizes separators, and
+// ensures the final path remains under rootPath.
+func ResolvePathWithinRoot(rootPath string, relativePath string) (string, error) {
+	decodedRelPath, err := url.PathUnescape(relativePath)
+	if err != nil {
+		return "", err
+	}
+
+	cleanRoot := filepath.Clean(rootPath)
+	normalizedRelPath := strings.ReplaceAll(decodedRelPath, "\\", "/")
+	targetPath := filepath.Join(cleanRoot, filepath.FromSlash(normalizedRelPath))
+
+	relToRoot, err := filepath.Rel(cleanRoot, targetPath)
+	if err != nil {
+		return "", err
+	}
+
+	cleanRelToRoot := filepath.ToSlash(relToRoot)
+	if cleanRelToRoot == ".." || strings.HasPrefix(cleanRelToRoot, "../") {
+		return "", ErrPathEscapesRoot
+	}
+
+	return targetPath, nil
 }

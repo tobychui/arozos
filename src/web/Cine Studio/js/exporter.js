@@ -6,7 +6,10 @@
     MediaStreamDestination, both recorded by a MediaRecorder into WebM.
     The result is uploaded to the ArozOS file system (or downloaded in
     standalone mode). When the host has ffmpeg, the WebM can be
-    converted to MP4 server side.
+    converted to MP4 server side; the intermediate WebM is deleted once
+    the MP4 is written. Speaker monitoring is muted while recording so
+    that the room stays quiet, with an unmute button on the progress
+    dialog for anyone who wants to listen along.
 */
 "use strict";
 
@@ -58,7 +61,9 @@ CS.exporter = {
                             dest.dir = filedata[0].filepath;
                             destBtn.textContent = filedata[0].filename || dest.dir;
                         };
-                        ao_module_openFileSelector(window.csExportDestCallback, CS.APP_ROOT + "/Exports", "folder", false);
+                        ao_module_openFileSelector(window.csExportDestCallback, CS.APP_ROOT + "/Exports", "folder", false, {
+                            path_memory_key: "export"
+                        });
                     });
                     destRow = CS.modalRow(body, "Save to", destBtn);
                 }
@@ -67,7 +72,8 @@ CS.exporter = {
                 note.className = "modal-note";
                 note.textContent = "The timeline is rendered in real time at "
                     + CS.project.settings.width + " x " + CS.project.settings.height
-                    + ". Keep this window visible during export.";
+                    + ". Keep this window visible during export. Preview audio is muted "
+                    + "while recording - the exported file keeps its sound.";
                 body.appendChild(note);
             },
             buttons: [
@@ -95,13 +101,11 @@ CS.exporter = {
         });
     },
 
+    //Export only: saving a project lives in the Open menu on the top bar
     quickMenu: function (anchorEl) {
         CS.showMenuUnder(anchorEl, [
             { label: "Export Video...", icon: "export-up", action: CS.exporter.dialog },
-            { label: "Export Current Frame (PNG)", icon: "camera", action: CS.exporter.exportFrame },
-            { sep: true },
-            { label: "Save Project", icon: "save", action: CS.fileio.saveProject },
-            { label: "Save Project As...", icon: "save", action: CS.fileio.saveProjectAs }
+            { label: "Export Current Frame (PNG)", icon: "camera", action: CS.exporter.exportFrame }
         ]);
     },
 
@@ -123,7 +127,8 @@ CS.exporter = {
                     });
                 };
                 ao_module_openFileSelector(window.csFrameCallback, CS.APP_ROOT + "/Exports", "new", false, {
-                    defaultName: defaultName
+                    defaultName: defaultName,
+                    path_memory_key: "export"
                 });
             } else {
                 CS.fileio.downloadBlob(blob, defaultName);
@@ -194,6 +199,10 @@ CS.exporter = {
         //Loop must not swallow the end-of-timeline stop that ends the export
         CS.exporter._loopWas = CS.state.loop;
         CS.state.loop = false;
+        //Silence the speakers for the duration of the render; the recorded mix
+        //is tapped before the monitor leg, so the file still has full audio
+        CS.exporter._monitorWas = CS.player.monitorMuted;
+        CS.player.setMonitorMuted(true);
         CS.exporter.showProgress();
 
         //Roll from the very beginning and let the player drive the frames
@@ -203,7 +212,7 @@ CS.exporter = {
     },
 
     showProgress: function () {
-        var fill, label;
+        var fill, label, monitorBtn;
         var ui = CS.modal({
             title: "Exporting...",
             build: function (body) {
@@ -217,6 +226,14 @@ CS.exporter = {
                 label.className = "modal-note";
                 label.textContent = "Rendering timeline in real time...";
                 body.appendChild(label);
+
+                monitorBtn = document.createElement("button");
+                monitorBtn.className = "modal-btn export-monitor-btn";
+                monitorBtn.addEventListener("click", function () {
+                    CS.player.setMonitorMuted(!CS.player.monitorMuted);
+                    CS.exporter.paintMonitorButton();
+                });
+                body.appendChild(monitorBtn);
             },
             buttons: [
                 {
@@ -226,13 +243,28 @@ CS.exporter = {
                 }
             ]
         });
-        CS.exporter.ui = { fill: fill, label: label };
+        CS.exporter.ui = { fill: fill, label: label, monitorBtn: monitorBtn };
+        CS.exporter.paintMonitorButton();
         CS.exporter.progressTimer = setInterval(function () {
             var dur = CS.timelineDuration();
             var pct = dur > 0 ? Math.min(100, (CS.state.playhead / dur) * 100) : 0;
             fill.style.width = pct.toFixed(1) + "%";
             label.textContent = "Rendering " + CS.timecode(CS.state.playhead) + " / " + CS.timecode(dur);
         }, 200);
+    },
+
+    //Reflect the current monitoring state on the progress dialog button
+    paintMonitorButton: function () {
+        var btn = CS.exporter.ui && CS.exporter.ui.monitorBtn;
+        if (!btn) { return; }
+        var muted = CS.player.monitorMuted;
+        btn.innerHTML = '<span data-icon="' + (muted ? "speaker-off" : "speaker") + '"></span>' +
+            "<span></span>";
+        btn.lastChild.textContent = muted ? "Unmute Preview Audio" : "Mute Preview Audio";
+        btn.title = muted
+            ? "Listen to the mix while it records"
+            : "Stop playing the mix through the speakers";
+        CS.applyIcons(btn);
     },
 
     //Player calls this whenever playback stops; only meaningful mid-export
@@ -273,6 +305,10 @@ CS.exporter = {
         if (CS.exporter._loopWas !== undefined) {
             CS.state.loop = CS.exporter._loopWas;
             CS.exporter._loopWas = undefined;
+        }
+        if (CS.exporter._monitorWas !== undefined) {
+            CS.player.setMonitorMuted(CS.exporter._monitorWas);
+            CS.exporter._monitorWas = undefined;
         }
         var wasCancelled = CS.exporter.cancelled;
         CS.exporter.cancelled = false;
@@ -329,23 +365,45 @@ CS.exporter = {
                 try { data = typeof resp === "string" ? JSON.parse(resp) : resp; }
                 catch (e) { data = { error: "bad response" }; }
 
-                //Remove the temporary webm regardless of the outcome
-                ao_module_agirun("Cine Studio/backend/ffmpegtools.js", {
-                    action: "cleanup",
-                    target: src
-                }, function () {}, function () {});
-
-                CS.closeModal();
                 if (data && data.success) {
-                    CS.exporter.finished(s.destDir, s.base + ".mp4");
+                    //The MP4 is written: the intermediate render is dead weight
+                    CS.exporter.removeTemp(src, function () {
+                        CS.closeModal();
+                        CS.exporter.finished(s.destDir, s.base + ".mp4");
+                    });
                 } else {
-                    CS.toast("MP4 conversion failed: " + ((data && data.error) || "unknown error"), true);
+                    //Keep the WebM so a failed conversion never loses the render
+                    CS.closeModal();
+                    CS.toast("MP4 conversion failed: " + ((data && data.error) || "unknown error")
+                        + " - the WebM render was kept as " + tempName, true);
                 }
             }, function () {
                 CS.closeModal();
-                CS.toast("MP4 conversion request failed", true);
+                CS.toast("MP4 conversion request failed - the WebM render was kept as "
+                    + tempName, true);
             }, 0);
         });
+    },
+
+    //Delete an intermediate render file; the export is finished either way, so
+    //a failed delete only warns instead of failing the export
+    removeTemp: function (target, done) {
+        if (CS.exporter.ui) { CS.exporter.ui.label.textContent = "Removing temporary file..."; }
+        ao_module_agirun("Cine Studio/backend/ffmpegtools.js", {
+            action: "cleanup",
+            target: target
+        }, function (resp) {
+            var data;
+            try { data = typeof resp === "string" ? JSON.parse(resp) : resp; }
+            catch (e) { data = null; }
+            if (!data || !data.ok) {
+                CS.toast("Could not remove the temporary render file", true);
+            }
+            done();
+        }, function () {
+            CS.toast("Could not remove the temporary render file", true);
+            done();
+        }, 0);
     },
 
     finished: function (destDir, filename) {

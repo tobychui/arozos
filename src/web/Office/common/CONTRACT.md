@@ -24,6 +24,9 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
    directly in the browser.
 4. Every page must work both inside an ArozOS FloatWindow **and** standalone in
    a plain browser tab (ao_module handles this; never call `parent.*` directly).
+5. **Never call `ao_module_*` or `ao_root` directly — go through
+   `OfficePlatform`** (see below). The suite ships in two hosts and that layer
+   is the only thing that knows which one it is running in.
 
 ## Standard page skeleton
 
@@ -39,13 +42,27 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <link rel="stylesheet" href="app.css">
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <!-- host layer: mode.js picks the host, container.js is the browser-side
+         .doca/.xlsa/.ppta packer, recents.js is the browser-side recent
+         document store, wasm.js lazily loads the Office format converters,
+         platform.js is the abstraction itself.
+         All five must load before office.js. -->
+    <script src="../common/mode.js"></script>
+    <script src="../common/container.js"></script>
+    <script src="../common/recents.js"></script>
+    <script src="../common/wasm.js"></script>
+    <script src="../common/platform.js"></script>
+    <script src="../common/fonts.js"></script>
     <script src="../common/hotkeys.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
     <script src="../common/clipboard.js"></script>
     <!-- optional: ../common/charts.js, ../common/textedit.js,
-         ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js,
+         ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js +
+         ../common/pdfcore.js,
          ../common/lib/html2canvas.min.js -->
+    <!-- with fonts.js: ../common/fonts/fonts.css declares the shipped
+         document faces; an app that lets the user pick a font needs it -->
 </head>
 <body data-officeapp="docs">   <!-- docs | sheets | slides -->
     <!-- app builds its own toolbar + workspace; framework injects
@@ -94,6 +111,9 @@ OfficeApp.init({
         ".pptx": function(filepath, filename){ … }
     },
 
+    // --- foreign-format saving (optional) — see "Save formats" below ---
+    saveFormats: [ { ext, label, icon, oneWay, unsupported, save }, … ],
+
     // --- undo/redo (recommended: use OfficeUndoStack) ---
     onUndo: function(){ undo.undo(); },
     onRedo: function(){ undo.redo(); },
@@ -140,7 +160,21 @@ UI: `setStatus(msg, "info"|"error", timeoutMs /*0=sticky*/)`,
 `dialog({title, body /*html or $el*/, wide, dismissable, buttons:[{label, primary,
 danger, action(close, $body)}]})`, `confirm(title, msgHtml, yesLabel, noLabel,
 cb(bool))`, `prompt(title, label, defVal, cb(value|null))`, `toast(msg, type)`,
-`showContextMenu(x, y, items)`, `showBusy(msg)` / `hideBusy()`.
+`showContextMenu(x, y, items)`, `showBusy(msg)` / `hideBusy()`,
+`showProgress({title, anchor})` -> `{set(done, total, msg), message(msg),
+close()}`.
+
+`showBusy` blocks the whole page; `showProgress` puts a small panel in the
+top-right of `anchor` and leaves the document usable. Use the second one for
+work the user has no reason to wait on - but then the work must run from a
+snapshot, or editing on will change what it produces.
+
+`beginDrag(pointerdownEvent, {move(ev), end(ev, cancelled), cursor})` ->
+`cancel()`. Call it from a pointerdown to own the rest of a drag: a
+transparent full-window `.of-drag-overlay` takes pointer capture, so moves
+and the release keep arriving when the cursor outruns the dragged element or
+the element is re-rendered mid-drag (which silently drops a capture held by
+the element itself). Removed on release, pointercancel or window blur.
 
 Features: `registerShortcut("Ctrl+B", fn)` (Cmd normalized to Ctrl),
 `print()`, `setZoom(pct) getZoom() zoomIn() zoomOut()`, `toggleTheme() isDark()`.
@@ -153,10 +187,149 @@ VFS: `vfsLoad(path, cb(text), errcb)` (GET `media?file=`),
 For other backend needs write an `.agi` script under your app folder and call
 `ao_module_agirun("Office/<app>/backend/x.agi", {…}, cb)`.
 
+**Big payloads must go through `OfficeApp.agirunLarge(script, params, field,
+cb(data), errcb(msg), timeout)`.** The AGI gateway parses POST parameters with
+Go's `r.ParseForm`, which caps a urlencoded body at **10 MB**; past that the
+parse fails, *every* parameter disappears and the still-uploading connection is
+reset (the browser just reports a network error). `agirunLarge` posts inline
+while `params[field]` stays under 4 MB, and otherwise uploads that field to
+`user:/.appdata/Office/tmp/` through the system upload endpoint (streamed to
+disk, so the payload never has to fit in the host's RAM) and passes the vpath as
+`<field>File` instead. Backend scripts must accept both — read `dataFile` with
+`filelib.readFile()` and `filelib.deleteFile()` it right after (see
+`slides/backend/pptx.agi`). It also unifies error handling: `errcb` fires for
+transport failures *and* for `{error: …}` replies. The framework already routes
+every document save, session snapshot and export of all three apps through it.
+
 Utils: `escapeHtml basename dirname extOf stripExt`.
 
 Reserved shortcuts (framework): Ctrl+S/Shift+S/O/Alt+N/P/=/-/0, Ctrl+Z/Y via
 your hooks, Ctrl+/ (shortcuts help). Register everything else yourself.
+
+## OfficePlatform (common/platform.js) — the host abstraction
+
+The suite runs in two hosts from one code base, and this is the seam:
+
+| host | where | file dialogs | documents | Office-format conversions |
+|---|---|---|---|---|
+| `arozos` | the ArozOS desktop | `ao_module_openFileSelector` | ArozOS virtual file system | the AGI backends → `mod/office` |
+| `standalone` | any static web server ("ArozOS Office Web") | `<input type=file>` / drag and drop / `?open=<relative path>` | the visitor's device; `Save` downloads the file back | the same `mod/office` code compiled to WebAssembly — **when the build shipped it** |
+
+The mode is one line in `common/mode.js` (`window.OFFICE_STANDALONE`, plus
+`window.OFFICE_WASM`), which `apps/ArozOS Office Web/generate.go` rewrites in
+its output tree. Never test those flags — ask `OfficePlatform`.
+
+### Two capability questions, deliberately separate
+
+```js
+OfficePlatform.hasBackend()   // is there an ArozOS server?
+                              // gate storage, AGI scripts, accounts,
+                              // and the real-text PDF renderer on this
+OfficePlatform.canConvert()   // can this build convert .docx/.xlsx/.pptx/ODF?
+                              // true in ArozOS; true in a standalone build
+                              // made with -wasm. Gate import/export on this.
+```
+
+They are not the same question and must not be conflated: a standalone build
+with the converters can write a .docx but still cannot render a server PDF.
+
+```js
+OfficePlatform.mode()               // "arozos" | "standalone"
+OfficePlatform.isStandalone()       // !hasBackend()
+OfficePlatform.requireBackend(what) // guards: toast + return false when the
+OfficePlatform.requireConvert(what) // capability is missing
+OfficePlatform.tracksRecents()      // false in standalone (paths do not outlive the page)
+OfficePlatform.autosavesToFile()    // false in standalone (autosave would download)
+
+// dialogs - cb gets [{filepath, filename}] / {filepath, filename}
+OfficePlatform.pickOpen({filter:["doca","txt"], multiple, memoryKey}, cb)
+OfficePlatform.pickSave({defaultName, ext, memoryKey, forceOverwrite}, cb)
+
+// Office interchange formats. One descriptor names both mechanisms; the
+// host picks. wasm:null marks a conversion that is still server-only.
+OfficePlatform.convertIn({agi, action, wasm}, srcPath, cb(bodyJson), errcb)
+OfficePlatform.convertOut({agi, action, wasm}, destPath, bodyJson,
+                          cb({mediaZip}), errcb)
+
+// io - OfficeApp.vfsLoad / vfsSave / blobToSrc / mediaUrl / agirunLarge all
+// forward to these, so app code normally keeps using OfficeApp
+readText writeText writeBytes containerLoad containerSave
+sessionSave sessionLoad sessionDelete
+agirun agirunLarge prepareWorkdir mediaUrl blobToSrc
+loadInputFiles adoptDroppedFile setWindowTitle setWindowTheme
+openDocument     // open a document in a second window of this app;
+                 // false = nowhere to open it from (standalone downloads)
+```
+
+`writeBytes(path, Uint8Array, cb, errcb)` is for a file the client
+rendered itself. In ArozOS it base64s the payload down the same
+oversized-payload path as every export and lands in
+`common/backend/binsaver.agi` -> `office.writeBinaryFile`; in the
+standalone edition it is a download. The Slides PDF export is the reason
+it exists (see the Office README).
+
+**Adding a format conversion:** add the converter to
+[`src/wasm/office/convert.go`](../../../wasm/office/convert.go) (and its
+pairing test), then call `OfficePlatform.convertIn/convertOut` with a
+descriptor naming the AGI action *and* the wasm converter. Gate the menu
+entry on `canConvert()` and guard the handler with `requireConvert()`.
+A `saveFormats` writer gets `needsConvert: true`.
+
+**Adding something that needs the server outright:** guard with
+`requireBackend()`, build the menu entry behind `hasBackend()`, and mark a
+writer `needsBackend: true`. The framework filters both flags out of Save As,
+save-back and autosave for you, and `cfg.binaryImporters` are dropped
+wholesale when `canConvert()` is false — nothing else is needed for an
+importer.
+
+`OfficeContainer` (`common/container.js`) is the browser-side twin of
+`mod/office/packed.go`: `pack(envelopeJson) -> Uint8Array` and
+`unpack(bytes) -> envelopeJson` for the native zip containers, with assets
+inlined as data URLs on the way in and re-extracted on the way out. It is
+what makes the standalone build able to open a file ArozOS wrote, and write
+one ArozOS can open. Only `platform.js` calls it.
+Tests: `node common/test_container.js`.
+
+`OfficeRecents` (`common/recents.js`) is the suite's *browser-side* recent
+document list, and the thing that makes the home page work. A file the visitor
+picked is a `File` that dies with the page, so a recent document here is a
+**copy of the document**, not a pointer to one: the index (name, app, size,
+time) lives in `localStorage` so it can be read synchronously, and the bytes
+live in IndexedDB. `OfficePlatform` writes to it on every open and save in the
+standalone host, and resolves `recent:/<id>` back out of it.
+
+```js
+OfficeRecents.supported()                          // is there anywhere to store?
+OfficeRecents.index()                              // newest first, synchronous
+OfficeRecents.remember({name, app, ext, bytes}, cb(id), errcb)
+OfficeRecents.load(id, cb(Uint8Array), errcb)
+OfficeRecents.touch(id) / forget(id, cb) / clear(cb)
+```
+
+Entries are keyed by name + app, so re-saving updates one entry rather than
+piling up copies, and both a count and a total-bytes cap evict the oldest.
+
+**Entry points.** Any page can point an app at something to load, in either
+host — this is how the home page opens templates and recent documents:
+
+| link | effect |
+|---|---|
+| `?open=<relative path>` | open a document published next to the app |
+| `?template=<relative path>` | load it as a **new unsaved document**, so Save asks for a name instead of writing back over the template |
+| `?recent=<id>` | reopen one of this browser's recent documents |
+
+Paths must be relative; `fetchRelative` refuses anything with a scheme, so
+`?open=` cannot be turned into a fetch of another site. A path that is not a
+vpath (`user:/`, `local:/`, `recent:/`, …) is read over HTTP and unpacked
+client-side **in both hosts**, which is what lets `templates/` work in ArozOS
+as well as in the web edition.
+
+`OfficeWasm` (`common/wasm.js`) loads the WebAssembly converters
+(`Office/common/wasm/office.wasm`, built from
+[`src/wasm/office`](../../../wasm/office)) the first time a conversion is
+actually asked for — never on page load, since the module is several MB and
+most visitors only ever read a `.doca`. Only `platform.js` calls it; the
+suite goes through `convertIn`/`convertOut`.
 
 ## OfficeHotkeys (common/hotkeys.js) — shared keyboard registry
 
@@ -219,6 +392,68 @@ undo.undo(); undo.redo(); undo.canUndo(); undo.canRedo();
 
 Your app owns only `body`. **Document your body schema in a comment at the top
 of your app.js** so the other apps / future importers can read it.
+
+## Save formats (`saveFormats`) — living in a foreign file
+
+By default a document can only be *saved* into the app's own container; a
+`.csv` or `.xlsx` you opened was an import, and Save became Save As. Declaring
+`saveFormats` lets an app write other formats too:
+
+```js
+saveFormats: [{
+    ext: ".csv",
+    label: "CSV (.csv)",              // shown in the Save as submenu
+    icon: "file alternate outline",   // semantic icon name
+    oneWay: true,                     // optional; a rendering such as PDF
+    hidden: true,                     // optional; save-back only, kept out of
+                                      // the Save as list (a second extension
+                                      // for a format already listed, .htm)
+    noAutosave: true,                 // optional; too expensive to run on a
+                                      // timer - autosave skips it and keeps
+                                      // the session snapshot instead
+    unsupported: function(){ return ["2 charts"]; },   // null/[] = fine
+    save: function(fp, fn, done, fail){ … }            // fail(msg) on error
+}]
+```
+
+What the framework then does:
+
+- **File > Save as** turns into a format picker — the native container first
+  (still `Ctrl+Shift+S`), then one entry per format. With no `saveFormats` it
+  stays the plain "Save as..." command it has always been.
+- **Opening one of these formats keeps the document attached to that file**:
+  `filepath`/`filename` stay the original (`sales.csv`, not `sales.xlsa`), so
+  `Ctrl+S` writes straight back in the same format. An imported format with
+  **no** matching entry is read-only as before — `filepath` is null and Save
+  falls through to Save As.
+- **`unsupported()` is a veto, not a warning.** A foreign format holds less
+  than the container does, so return a list of plain-string reasons ("2
+  charts", "3 sheets — a delimited text file holds only one") when the
+  document would lose content. The framework refuses the write and offers
+  "Save as `<native ext>`..." instead. Reasons are escaped, never treated as
+  markup. Return `null`/`[]` when the format fits. Keep purely cosmetic
+  losses (fonts, colors, column widths) *out* of the list — vetoing on those
+  nags on every save.
+- **`oneWay: true`** marks a rendering (PDF): it is written, but the document
+  keeps its own path and stays dirty, because you cannot reopen it.
+- **Autosave** writes a foreign format only while `unsupported()` passes, and
+  never writes one marked `noAutosave`; in either case it silently skips the
+  file and falls back to the session snapshot rather than popping a dialog.
+  `noAutosave` is for writers whose *preparation* is the expensive part —
+  Slides rasterizes every chart and seeks each video for a poster frame, Docs
+  refetches and re-rasterizes every image — which is fine once on Ctrl+S and
+  wrong every 25 seconds.
+- **A warning strip appears under the toolbar** for as long as the open file
+  is not the app's own container, because living in a foreign file means
+  everything that format cannot hold is dropped on every save. Its **Convert
+  to `<native ext>`** button asks where to put a native copy, writes it, and
+  opens it in a window of its own (`OfficePlatform.openDocument`) — this
+  editor stays on the original file. The framework owns all of it
+  (`updateForeignBanner` / `convertToNative`, `.of-fmtbanner` in
+  `office.css`); apps need do nothing, and a native document never sees it.
+
+All three apps declare `saveFormats`; Sheets is the reference implementation
+(`sheets/sheets_io.js`, `SAVE_FORMATS`).
 
 ## Packed native files (zip container)
 
@@ -331,6 +566,100 @@ lists via execCommand; htmlToLines (mod/office) flattens them to bullet/number
 prefixes for .pptx. present.js adds transitions, click-to-reveal animations,
 laser pointer (L), interactive links, and a presenter-view popup.
 
+## Imported-deck fidelity props (slides.js)
+
+A deck opened from a `.pptx` / `.odp` carries the typography and geometry of
+the file it came from, which the editor's own objects do not have. Every one
+of these is **optional** — a document made in the editor omits them and falls
+back to the stylesheet, so nothing here changes how a new deck looks.
+
+| prop | on | meaning |
+|---|---|---|
+| `fontFamily` | text, shape | CSS font stack (latin + east-asian face, then a generic) |
+| `valign` | text, shape | `top` / `middle` / `bottom` — the text box's vertical anchor |
+| `pad` | text, shape | text insets `[top, right, bottom, left]` in px |
+| `lineHeight` | text, shape | unitless line-height multiplier |
+| `crop` | image | `[left, top, right, bottom]` fractions clipped off the source |
+| `mask` | image | a shaped crop: a `SHAPE_KINDS` kind the picture is clipped to |
+| `orig` | image | `{x,y,w,h}` the frame before the first crop — Reset image |
+| `flipH` / `flipV` | image | mirrored horizontally / vertically |
+| `recolor` | image | a re-colour preset key (`RECOLORS` in `slides_image.js`) |
+| `bright` / `contrast` | image | adjustment offsets; 0 = leave alone, range ≈ -0.9..1 |
+| `radius` | image, shape | corner radius in px |
+| `opacity` | image | 0..1; 0 means fully opaque |
+| `points` | line | the polyline a bent connector follows, relative to `x`/`y` |
+| `arrowStart` | line | arrow head at the first point |
+| `cellFill` | table | per-cell background colours, `rows`-shaped |
+| `cellPad` | table | cell insets `[t, r, b, l]` in px |
+| `html` | shape | rich paragraph HTML, used in place of the plain `text` |
+
+`props.html` is the same restricted HTML text objects use: one `<div>` per
+paragraph carrying `text-align` / `line-height` / margins / `padding-left`,
+one `<span>` per run carrying font, size, weight and colour, and — for a
+bulleted paragraph — an absolutely positioned marker span that reproduces
+PowerPoint's hanging indent. `renderObjectEl` renders it as-is, so anything
+written into it must already be escaped.
+
+**Cropping is a view, never a change to the pixels.** The object frame says
+which part of the picture is visible; `props.crop` says which part of the
+source that is. The two are tied together by one identity, which the crop
+tool, the renderer and both format writers all rely on:
+
+```
+fullWidth = frame.w / (1 - crop.left - crop.right)      // and the same for h
+fullLeft  = frame.x - crop.left * fullWidth             // where the whole picture sits
+```
+
+While the crop tool is open (`startCrop`, double-click a picture or the
+toolbar's crop button) the object itself is hidden — `.sl-obj.sl-cropping` —
+and `#slCrop` draws the whole picture ghosted with the kept part at full
+strength on top. Dragging a grip moves the *frame*; dragging the picture
+moves the *source underneath it*. Enter or a click outside applies, Esc
+restores. **Reset image** clears `crop`, `mask` and `radius`, puts the frame
+back to `props.orig` (stamped the first time a picture is trimmed) and
+corrects the height to the source's own aspect ratio.
+
+`mask` maps onto a `prstGeom` on the `p:pic` in .pptx, so a shaped crop made
+here and one made in PowerPoint are the same thing; the renderer draws it as
+a `clip-path` built from `SlidesShapes.points()` - stated in percentages, so
+the clip follows the frame as it is dragged. That is why the crop shapes are
+the catalogue's polygons and not all of it: a curved outline would have to be
+restated in pixels at every size.
+
+## Picture tools (slides/slides_image.js)
+
+`SlidesImageTools` owns everything that acts on a selected picture, so
+`slides.js` stays about the document and the canvas. It never touches the
+model directly — `init()` takes a host object of callbacks (`getImage`,
+`commit`, `startCrop`, `setMask`, `resetImage`, …) and slides.js drives it
+with `sync()` / `reposition()` from `setSel`, `commit` and `renderOverlay`.
+**`init()` must run before `OfficeApp.init()`**: loading a document selects
+objects, and that syncs the tools.
+
+Three pieces:
+
+- the **floating picture bar** — the text-edit bar's chrome (`.of-textedit-bar`,
+  `.of-te-btn`) anchored under a selected image: crop, reset, format options.
+  Crop and the crop shapes are one split control, the caret opening the grid.
+- the **shape grid** — the crop shapes as icons rather than names, drawn by
+  `shapeIcon()` from the same `SlidesShapes` geometry the canvas uses, so an icon
+  cannot drift from the mask it applies.
+- the **format panel** — `#slFormatPanel`, docked to the right of `#slMain`
+  (it is a flex sibling, so the canvas re-fits itself via `relayout`): size,
+  rotation and flips, position and align-to-slide, re-colour and the
+  brightness / contrast / transparency adjustments.
+
+`imageFilter(props)` is the single place that turns `recolor` + `bright` +
+`contrast` into a CSS filter, so the canvas, the thumbnails, present mode and
+the panel's own swatches cannot disagree — the swatches are the picture
+itself seen through each filter, so the preview *is* the result.
+
+The presentation body may also carry `fonts`: `[{family, weight, style, src}]`
+where `src` is a font-file data URL taken from the source deck's embedded
+fonts. `normalizeBody` installs them as `@font-face` rules in a single
+page-level `<style id="slEmbeddedFonts">`, shared by the editor, the
+thumbnails, present mode and print.
+
 ## OfficeCharts (common/charts.js) — for Sheets and Slides
 
 ```js
@@ -342,11 +671,97 @@ OfficeCharts.render(containerEl, spec);                     // fit container
 ```
 Text inherits `currentColor` → theme-aware automatically.
 
+## Document fonts (common/fonts/, OFL)
+
+`OfficeFonts` (`common/fonts.js`) owns the families the suite ships with
+itself and the rules for falling back between them. Read
+[`fonts/README.md`](fonts/README.md) before touching the files.
+
+```js
+OfficeFonts.MENU                    // family names for a font picker
+OfficeFonts.stack("Arial")          // -> "Arial, Noto Sans, Noto Sans TC, …"
+OfficeFonts.isShipped("Noto Sans TC")
+OfficeFonts.faceFor(family, bold, italic)   // -> { url, synthBold, … } | null
+OfficeFonts.preload(["Noto Sans TC"])       // -> Promise
+```
+
+**Every font-family a document carries must go through `stack()`.** A bare
+family name sends any character it has no glyph for to whatever the machine
+happens to have — and a system font's bytes cannot be embedded, so that text
+can only reach a PDF as a picture. The tail `stack()` appends is what keeps
+it exportable. This applies on the Go side too: `fontStackFor`
+(`mod/office/pptx_text.go`) appends the same list to every stack an import
+writes, and the two lists have to stay in step.
+
+## Slides shape geometry (slides/slides_shapes.js)
+
+`SlidesShapes` owns every shape the Slides editor draws, named after the
+PresentationML preset it is. Paths use only `M`, `L`, `C` and `Z`, which is
+what lets the canvas, `clip-path: path()` and the PDF exporter share one
+geometry.
+
+```js
+SlidesShapes.path(kind, w, h)      // "M0 0L100 0..." ("" if unknown)
+SlidesShapes.detail(kind, w, h)    // markings to stroke, or ""
+SlidesShapes.points(kind, w, h)    // polygon corners, or null for a curved one
+SlidesShapes.icon(kind, size)      // the same outline as a small SVG
+SlidesShapes.canonical(kind)       // preset spelling -> catalogue name
+SlidesShapes.isOpen / evenOdd / label / defaultSize / CATEGORIES
+```
+
+Adding a shape means adding it here and nowhere else - the picker, the
+crop-shape grid, the canvas and the export all read from this one table.
+Keep the names in step with `prstToShapeKind` (`mod/office/pptx_reader.go`).
+
+`ALIASES` holds the three names the editor used before this file existed
+(`round`, `arrow`, `star`). They are not shapes any more - `normalizeBody()`
+rewrites them through `canonical()` as a document loads, so nothing
+downstream has to know about them.
+
 ## Vendored libs (common/lib/, all MIT)
 
 - `marked.min.js` — Markdown → HTML (Docs import)
-- `pdf-lib.min.js` — PDF generation (global `PDFLib`)
-- `html2canvas.min.js` — DOM → canvas (Slides PNG export)
+- `pdf-lib.min.js` — PDF generation (global `PDFLib`). Used by the Slides
+  and Docs PDF exports, which build the file in the browser out of real PDF
+  objects (`slides/slides_pdf.js`, `docs/docs_pdf.js`) on the shared
+  `common/pdfcore.js` (`OfficePdfCore`: font resolution against the shipped
+  faces, text runs, clip paths, raster fallback) — load it after pdf-lib.
+  Docs and Slides hand the actual PDF assembly to a Web Worker:
+  `common/pdfworker.js` (which `importScripts` pdf-lib, fontkit and
+  `common/pdfdraw.js`) turns a plain-data job into the file - Docs writes a
+  display list, Slides a recording of its pdf-lib calls
+  (`OfficePdfDraw.recorder()`). Load `pdfdraw.js` in the page too: it
+  starts the worker (`OfficePdfDraw.run`) and is the fallback when none
+  can start.
+- `fontkit.umd.min.js` — `@pdf-lib/fontkit`, which is what lets `pdf-lib`
+  embed a font of our own. **Loaded on demand, not from the page**: it is
+  the largest script here and only an export needs it (`loadFontkit` in
+  `common/pdfcore.js` injects the tag). Its subsetter has sharp edges that the
+  shipped fonts are built to avoid — see `fonts/README.md`.
+- `html2canvas.min.js` — DOM → canvas (Slides PNG export). **Not** the
+  first choice for the PDF export's raster fallback: it re-implements
+  layout over a clone and re-wraps mixed-script text. That path uses an
+  SVG `<foreignObject>` so the browser lays out its own content, and only
+  falls back here if that fails outright.
+
+## Start-up splash (common/splash.js)
+
+An app can show a splash while it starts and opens its document (all three do):
+`<script src="../common/splash.js" data-app="Docs" data-size="1080x700"></script>` as the **first element of `<body>`**, with the
+app's stylesheets and scripts after it rather than in `<head>` (they would hold
+the first paint back). Inside a web desktop float window it is a coloured card
+in a small window that grows to `data-size` when ready, both centred on the desktop
+(register the app with an `InitFWSize` of 480x320 so the window opens at that
+size); in a full tab the same card fills the page. Its artwork comes from
+`img/splash/` (`<app>.svg`, `arozos.svg`, and the `shape_top` / `shape_bottom`
+masks); `data-icon` overrides the icon. Apps other than docs/sheets/slides get
+the suite card (ArozOS mark and a progress bar). It
+styles itself. `OfficeApp` drives it: `setStatus` / `showBusy` text becomes its
+status line, and it goes away when the opened document is on screen, a dialog
+opens, or an error is reported. An app with an asynchronous importer calls
+`OfficeApp.documentLoaded()` when the document is in, and
+`OfficeApp.splashStep(msg, fn)` to show a step before synchronous work (it runs
+`fn` straight away when there is no splash).
 
 ## Testing without a full ArozOS server
 

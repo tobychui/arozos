@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 116">
+  <!-- Docs app icon for the start-up splash (common/splash.js) -->
+  <defs>
+    <linearGradient id="docsPage" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4593f7"/>
+      <stop offset="1" stop-color="#1f68dc"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 4H64L92 32V104A8 8 0 0 1 84 112H12A8 8 0 0 1 4 104V12A8 8 0 0 1 12 4Z" fill="url(#docsPage)"/>
+  <path d="M64 4V26A6 6 0 0 0 70 32H92Z" fill="#a9cbfb"/>
+  <g fill="#ffffff">
+    <rect x="23" y="50" width="50" height="5.5" rx="2.75"/>
+    <rect x="23" y="61" width="50" height="5.5" rx="2.75"/>
+    <rect x="23" y="72" width="50" height="5.5" rx="2.75"/>
+    <rect x="23" y="83" width="32" height="5.5" rx="2.75"/>
+  </g>
+</svg>
