@@ -570,21 +570,16 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			if directDownload {
 				if relpath != "" {
 					//User specified a specific file within the directory. Escape the relpath
-					targetFilepath := filepath.Join(fileRuntimeAbsPath, relpath)
+					targetFilepath, err := arozfs.ResolvePathWithinRoot(fileRuntimeAbsPath, relpath)
+					if err != nil {
+						w.WriteHeader(http.StatusBadRequest)
+						w.Write([]byte("400 - Bad Request: Invalid relative path"))
+						return
+					}
 
 					//Check if file exists
 					if !targetFshAbs.FileExists(targetFilepath) {
 						http.NotFound(w, r)
-						return
-					}
-
-					//Validate the absolute path to prevent path escape
-					reqPath := filepath.ToSlash(filepath.Clean(targetFilepath))
-					rootPath, _ := targetFshAbs.VirtualPathToRealPath(shareOption.FileVirtualPath, shareOption.Owner)
-					if !strings.HasPrefix(arozfs.ToSlash(reqPath), arozfs.ToSlash(rootPath)) {
-						//Directory escape detected
-						w.WriteHeader(http.StatusBadRequest)
-						w.Write([]byte("400 - Bad Request: Invalid relative path"))
 						return
 					}
 

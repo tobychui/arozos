@@ -1,6 +1,8 @@
 package arozfs
 
 import (
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -300,6 +302,43 @@ func TestBase_MultipleTrailingSlashes(t *testing.T) {
 	result := Base("/home/user///")
 	if result != "user" {
 		t.Errorf("got %q, want %q", result, "user")
+	}
+}
+
+func TestResolvePathWithinRootAllowsNestedFile(t *testing.T) {
+	root := filepath.Join("root", "shared")
+	resolved, err := ResolvePathWithinRoot(root, "docs/report.txt")
+	if err != nil {
+		t.Fatalf("ResolvePathWithinRoot returned unexpected error: %v", err)
+	}
+
+	expected := filepath.Join(root, "docs", "report.txt")
+	if resolved != expected {
+		t.Fatalf("ResolvePathWithinRoot = %q, want %q", resolved, expected)
+	}
+}
+
+func TestResolvePathWithinRootRejectsTraversal(t *testing.T) {
+	root := filepath.Join("root", "shared")
+	inputs := []string{
+		"../secret.txt",
+		"..%2fsecret.txt",
+		"..\\secret.txt",
+		"nested/../../secret.txt",
+		"..%5csecret.txt",
+	}
+
+	for _, input := range inputs {
+		if _, err := ResolvePathWithinRoot(root, input); !errors.Is(err, ErrPathEscapesRoot) {
+			t.Fatalf("ResolvePathWithinRoot(%q) error = %v, want %v", input, err, ErrPathEscapesRoot)
+		}
+	}
+}
+
+func TestResolvePathWithinRootRejectsSiblingPrefixBypass(t *testing.T) {
+	root := filepath.Join("root", "share")
+	if _, err := ResolvePathWithinRoot(root, "../share-other/file.txt"); !errors.Is(err, ErrPathEscapesRoot) {
+		t.Fatalf("ResolvePathWithinRoot error = %v, want %v", err, ErrPathEscapesRoot)
 	}
 }
 
