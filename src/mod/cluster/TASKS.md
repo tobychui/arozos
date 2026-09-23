@@ -113,9 +113,10 @@ cluster namespace; *record* = one entry in the metadata store.
 - **Line endings.** Several core files are checked out with CRLF. If an edit
   produces a whole-file diff in `git diff --stat`, run `sed -i 's/\r$//' <file>`
   on that file; the repository content is LF.
-- **Bolt cannot run under `-race`.** `go test -race` panics inside
-  `github.com/boltdb/bolt` (checkptr). Run cluster packages without `-race`;
-  the `acn` package has no Bolt and may use `-race`.
+- **`-race` works since the switch to `go.etcd.io/bbolt`.** The old
+  `github.com/boltdb/bolt` panicked under checkptr; bbolt does not. The first
+  `-race` run found a data race on the `metadata.Manager.st` swap in
+  `resetLocal` (`TestLeaveResetsStore`), which still needs fixing.
 - **Page scripts must not use `var status`**: it shadows `window.status` and
   silently stringifies objects. Name page state `clusterStatus` etc.
 - **`go mod tidy` pulls in modules imported by user files under `src/files/`.**

@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title locale="title/title">Edit Shortcut</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../file_system/dialog.css">
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../file_system/js/dialog.js"></script>
+    <style>
+        /*
+            Shortcut editor
+
+            Built on the File Manager dialog look (dialog.css) so it reads as a
+            sibling of the file properties window: tab strip on top, scrolling
+            page, sticky footer. Only what the shared sheet lacks lives here.
+        */
+        body.whiteTheme{
+            --sc_danger_soft: #fce8e6;
+            --sc_checker: #e9eaec;
+        }
+        body.darkTheme{
+            --sc_danger_soft: #3c2322;
+            --sc_checker: #34363a;
+        }
+
+        /* Labelled field: bold label over a full width control */
+        .scField{
+            margin-bottom: 10px;
+        }
+        .scField > label{
+            display: block;
+            font-weight: 600;
+            font-size: 12.5px;
+            margin-bottom: 4px;
+            color: var(--dlg_text);
+        }
+        .scField .hint{
+            margin-top: 3px;
+            font-size: 12px;
+            color: var(--dlg_text_dim);
+        }
+        .scField.disabled > label{
+            color: var(--dlg_text_dim);
+        }
+        .scInputRow{
+            display: flex;
+            gap: 6px;
+            align-items: stretch;
+        }
+        .scInputRow > .dlgField, .scInputRow > .dlgSelectWrap{
+            flex: 1 1 auto;
+            min-width: 0px;
+        }
+        .scSquareBtn{
+            flex: 0 0 auto;
+            width: 34px;
+            padding: 0px;
+        }
+        .scTwoCol{
+            display: flex;
+            gap: 10px;
+        }
+        .scTwoCol > .scField{
+            flex: 1 1 0px;
+            min-width: 0px;
+        }
+        .scSuffixInput{
+            position: relative;
+        }
+        .scSuffixInput .dlgField{
+            padding-right: 34px;
+        }
+        .scSuffixInput .suffix{
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--dlg_text_dim);
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        /* Page heading */
+        .scPageTitle{
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0px 0px 2px 0px;
+        }
+        .scPageDesc{
+            color: var(--dlg_text_dim);
+            font-size: 12.5px;
+            margin-bottom: 10px;
+        }
+
+        /* Shortcut heading on the Basic tab */
+        .scHeadIcon, .scBigIcon{
+            flex: 0 0 auto;
+            border-radius: 10px;
+            background-color: var(--dlg_bg_soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .scHeadIcon{
+            width: 48px;
+            height: 48px;
+        }
+        .scHeadIcon img{
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        .scHeadName{
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .scBadge{
+            display: inline-block;
+            font-size: 11.5px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            background-color: var(--dlg_accent_soft);
+            color: var(--dlg_accent);
+            margin-right: 6px;
+        }
+
+        /* Icon tab: current icon */
+        .scIconCurrent{
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .scBigIcon{
+            width: 64px;
+            height: 64px;
+            background-image:
+                linear-gradient(45deg, var(--sc_checker) 25%, transparent 25%),
+                linear-gradient(-45deg, var(--sc_checker) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, var(--sc_checker) 75%),
+                linear-gradient(-45deg, transparent 75%, var(--sc_checker) 75%);
+            background-size: 14px 14px;
+            background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+        }
+        .scBigIcon img{
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+        }
+        .scIconSource{
+            color: var(--dlg_text_dim);
+            font-size: 12.5px;
+            word-break: break-all;
+            margin: 1px 0px 6px 0px;
+        }
+        .scIconActions{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .scSectionLabel{
+            font-weight: 600;
+            font-size: 12.5px;
+            margin: 10px 0px 6px 0px;
+        }
+
+        /* Preset tiles */
+        .scPresetGrid{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+            gap: 5px;
+        }
+        .scPreset{
+            aspect-ratio: 1 / 1;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            background-color: var(--dlg_bg_soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 3px;
+            box-sizing: border-box;
+        }
+        .scPreset:hover{
+            border-color: var(--dlg_border_strong);
+        }
+        .scPreset.selected{
+            border-color: var(--dlg_accent);
+        }
+        .scPreset img{
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        /* A glyph preset previewed as the squircle it will be rendered to */
+        .scPreset .glyphPlate{
+            width: 76%;
+            height: 76%;
+            border-radius: 28%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .scPreset .glyphPlate i.icon{
+            margin: 0px;
+            color: #ffffff;
+            font-size: 15px;
+            height: auto;
+            width: auto;
+        }
+        .scSwatches{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .scSwatch{
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--dlg_bg);
+            box-shadow: 0px 0px 0px 1px var(--dlg_border_strong);
+        }
+        .scSwatch.selected{
+            box-shadow: 0px 0px 0px 2px var(--dlg_accent);
+        }
+        details.scAdvanced{
+            margin-top: 10px;
+        }
+        details.scAdvanced summary{
+            cursor: pointer;
+            color: var(--dlg_text_dim);
+            font-size: 12.5px;
+            margin-bottom: 6px;
+            user-select: none;
+        }
+
+        /* Square crop editor */
+        .scCropStage{
+            position: relative;
+            width: min(280px, 100%);
+            aspect-ratio: 1 / 1;
+            margin: 0px auto;
+            overflow: hidden;
+            border-radius: 10px;
+            background-color: var(--dlg_bg_soft);
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+        }
+        .scCropStage.dragging{
+            cursor: grabbing;
+        }
+        .scCropStage img{
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            max-width: none;
+            pointer-events: none;
+            -webkit-user-drag: none;
+        }
+        /* Rule of thirds guide over the crop */
+        .scCropGrid{
+            position: absolute;
+            inset: 0px;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            border-radius: 10px;
+            background:
+                linear-gradient(to right, transparent 33.1%, rgba(255,255,255,0.55) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255,255,255,0.55) 66.7%, transparent 66.9%),
+                linear-gradient(to bottom, transparent 33.1%, rgba(255,255,255,0.55) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255,255,255,0.55) 66.7%, transparent 66.9%);
+        }
+        .scZoomRow{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: min(280px, 100%);
+            margin: 14px auto 0px auto;
+            color: var(--dlg_text_dim);
+        }
+        .scZoomRow i.icon{
+            margin: 0px;
+        }
+        .scZoomRow input[type=range]{
+            flex: 1 1 auto;
+            accent-color: var(--dlg_accent);
+        }
+        .scCropOption{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: min(280px, 100%);
+            margin: 14px auto 0px auto;
+            font-size: 13px;
+        }
+        .scCropActions{
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        /* Error text in the footer */
+        .scError{
+            color: var(--dlg_danger);
+            font-size: 13px;
+            min-width: 0px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .hidden{
+            display: none !important;
+        }
+
+        /* Compact: tighter than the File Manager dialogs this page borrows from */
+        .dlgTabs .dlgTab{
+            padding: 8px 6px 6px 6px;
+            font-size: 13px;
+        }
+        .dialogBody{
+            padding: 10px 14px 4px 14px;
+        }
+        .dialogFooter{
+            padding: 8px 12px;
+        }
+        .dlgBtn{
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+        .dlgBtn.tiny{
+            padding: 4px 9px;
+            font-size: 12px;
+        }
+        .dlgField{
+            padding: 6px 10px;
+            font-size: 13px;
+            border-radius: 6px;
+        }
+        .dlgFileHead{
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .dlgFileHead .dlgMime{
+            margin-top: 3px;
+        }
+        .scCropStage, .scZoomRow, .scCropOption{
+            width: min(240px, 100%);
+        }
+        .scZoomRow, .scCropOption{
+            margin-top: 10px;
+        }
+        .scCropActions{
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body class="whiteTheme">
+    <div class="dlgLoader" id="loader"><div class="dlgSpinner"></div></div>
+    <div class="dialog">
+        <div class="dlgTabs">
+            <div class="dlgTab active" tab="basic" onclick="switchTab('basic');" locale="tab/basic">Basic</div>
+            <div class="dlgTab" tab="icon" onclick="switchTab('icon');" locale="tab/icon">Icon</div>
+            <div class="dlgTab hidden" tab="launch" onclick="switchTab('launch');" locale="tab/launch">Launch Options</div>
+        </div>
+
+        <div class="dialogBody">
+            <!-- Basic -->
+            <div class="dlgPage active" id="page_basic">
+                <div class="dlgFileHead">
+                    <div class="scHeadIcon"><img id="headIcon" src="../../img/system/favicon.png"></div>
+                    <div class="dlgFileHeadInfo">
+                        <div class="scHeadName" id="headName"></div>
+                        <div class="dlgMime"><span class="scBadge" id="headType"></span><span id="headFile"></span></div>
+                    </div>
+                </div>
+
+                <div id="loadError" class="dlgNotice hidden"><i class="exclamation circle icon"></i><span></span></div>
+
+                <div class="scField">
+                    <label for="sname" locale="field/name">Name</label>
+                    <input class="dlgField" type="text" id="sname" maxlength="256" autocomplete="off">
+                </div>
+
+                <!-- Target: one of these is shown depending on the shortcut type -->
+                <div class="scField targetField" data-type="url">
+                    <label for="surl" locale="field/url">Website URL</label>
+                    <input class="dlgField" type="text" id="surl" placeholder="https://example.com" autocomplete="off">
+                    <div class="hint" locale="field/url/hint">Must start with http:// or https://</div>
+                </div>
+                <div class="scField targetField" data-type="folder">
+                    <label for="sfolder" locale="field/folder">Folder</label>
+                    <div class="scInputRow">
+                        <input class="dlgField" type="text" id="sfolder" placeholder="user:/Desktop" autocomplete="off">
+                        <button type="button" class="dlgBtn scSquareBtn" onclick="selectFolder();" title="Browse"><i class="folder open outline icon"></i></button>
+                    </div>
+                </div>
+                <div class="scField targetField" data-type="module">
+                    <label for="smodule" locale="field/module">WebApp</label>
+                    <span class="dlgSelectWrap"><select class="dlgField" id="smodule" onchange="moduleChanged();"></select></span>
+                </div>
+
+                <div class="scField">
+                    <label locale="field/location">Location</label>
+                    <div class="dlgMime" id="shortcutLocation" style="margin-top:0px;"></div>
+                </div>
+            </div>
+
+            <!-- Icon -->
+            <div class="dlgPage" id="page_icon">
+                <div id="iconMain">
+                    <div class="scIconCurrent">
+                        <div class="scBigIcon"><img id="bigIcon" src="../../img/system/favicon.png"></div>
+                        <div style="min-width:0px;">
+                            <div class="scPageTitle" locale="icon/current">Current icon</div>
+                            <div class="scIconSource" id="iconSource"></div>
+                            <div class="scIconActions">
+                                <button type="button" class="dlgBtn tiny" onclick="pickImageFromFiles();"><i class="folder open outline icon"></i> <span locale="icon/fromFiles">My files</span></button>
+                                <button type="button" class="dlgBtn tiny" onclick="$('#deviceFile').click();"><i class="upload icon"></i> <span locale="icon/fromDevice">This device</span></button>
+                                <button type="button" class="dlgBtn tiny ghost" onclick="useDefaultIcon();"><i class="undo icon"></i> <span locale="icon/default">Default</span></button>
+                            </div>
+                            <input type="file" id="deviceFile" accept="image/*" class="hidden" onchange="imageFromDevice(this);">
+                        </div>
+                    </div>
+
+                    <div class="scSectionLabel" locale="icon/suggested">Suggested</div>
+                    <div class="scPresetGrid" id="imagePresets"></div>
+
+                    <div class="scSectionLabel" locale="icon/presets">Icon presets</div>
+                    <div class="scSwatches" id="swatches"></div>
+                    <div class="scPresetGrid" id="glyphPresets"></div>
+
+                    <details class="scAdvanced">
+                        <summary locale="icon/advanced">Icon path or URL</summary>
+                        <input class="dlgField" type="text" id="sicon" placeholder="img/system/folder-shortcut.png" autocomplete="off" oninput="setIconPath(this.value.trim(), true);">
+                        <div class="scField"><div class="hint" locale="icon/advanced/hint">A web path relative to the ArozOS root, or an image URL.</div></div>
+                    </details>
+                </div>
+
+                <!-- Shown instead of the above while an image is being cropped -->
+                <div id="cropPanel" class="hidden">
+                    <div class="scPageTitle" locale="crop/title">Crop to square</div>
+                    <div class="scPageDesc" locale="crop/desc">Drag to move the image, scroll or use the slider to zoom.</div>
+                    <div class="scCropStage" id="cropStage">
+                        <img id="cropImg" alt="">
+                        <div class="scCropGrid"></div>
+                    </div>
+                    <div class="scZoomRow">
+                        <i class="image outline icon" style="font-size:12px;"></i>
+                        <input type="range" id="cropZoom" min="1" max="6" step="0.01" value="1" oninput="cropZoomTo(parseFloat(this.value));">
+                        <i class="image outline icon" style="font-size:18px;"></i>
+                    </div>
+                    <label class="scCropOption">
+                        <span class="dlgToggle"><input type="checkbox" id="cropDesktopStyle" checked><span class="slider"></span></span>
+                        <span locale="crop/desktopStyle">Rounded desktop icon style</span>
+                    </label>
+                    <div class="scCropActions">
+                        <button type="button" class="dlgBtn" onclick="closeCrop();" locale="button/cancel">Cancel</button>
+                        <button type="button" class="dlgBtn primary" onclick="applyCrop();"><i class="crop icon"></i> <span locale="crop/apply">Use this image</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Launch Options: url and module shortcuts only -->
+            <div class="dlgPage" id="page_launch">
+                <div class="scPageTitle" locale="launch/title">Launch Options</div>
+                <div class="scPageDesc" id="launchDesc"></div>
+
+                <div class="scField">
+                    <label for="stitle" locale="launch/windowTitle">Window Title</label>
+                    <input class="dlgField" type="text" id="stitle" maxlength="256" autocomplete="off">
+                </div>
+                <div class="scField">
+                    <label for="sopenin" locale="launch/openIn">Open In</label>
+                    <span class="dlgSelectWrap">
+                        <select class="dlgField" id="sopenin" onchange="updateSizeState();">
+                            <option value="float" locale="launch/openIn/float">Float Window</option>
+                            <option value="tab" locale="launch/openIn/tab">New Tab</option>
+                        </select>
+                    </span>
+                </div>
+                <div class="scTwoCol">
+                    <div class="scField sizeField">
+                        <label for="swidth" locale="launch/width">Window Width</label>
+                        <div class="scSuffixInput">
+                            <input class="dlgField" type="number" id="swidth" min="100" max="10000" step="1">
+                            <span class="suffix">px</span>
+                        </div>
+                    </div>
+                    <div class="scField sizeField">
+                        <label for="sheight" locale="launch/height">Window Height</label>
+                        <div class="scSuffixInput">
+                            <input class="dlgField" type="number" id="sheight" min="100" max="10000" step="1">
+                            <span class="suffix">px</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="scField"><div class="hint" id="sizeHint"></div></div>
+            </div>
+        </div>
+
+        <div class="dialogFooter">
+            <div class="scError" id="saveError"></div>
+            <div class="spacer"></div>
+            <button type="button" class="dlgBtn" onclick="ao_module_close();" locale="button/cancel">Cancel</button>
+            <button type="button" class="dlgBtn primary" id="saveBtn" onclick="saveShortcut();" locale="button/save">Save</button>
+        </div>
+    </div>
+
+    <script>
+        /*
+            shortcutEditor.html
+
+            Edits a .shortcut file through /system/desktop/opr/{get,update}Shortcut.
+
+            Basic   - name and target (URL, folder or WebApp)
+            Icon    - a suggested image, a glyph preset rendered to a squircle
+                      like the generated desktop icons, or a picture from the
+                      user's files / this device, cropped to a square here.
+                      Rendered icons are posted as a PNG data URL (sicondata)
+                      and stored by the server next to the shortcut.
+            Launch  - floatWindow title / open-in / size. Only url shortcuts
+                      store their own; a WebApp's come from its init.agi and
+                      are shown read only. Folders have none, so no tab.
+        */
+
+        //Default floatWindow size used by the desktop when none is given
+        const DEFAULT_FW_SIZE = [854, 480];
+        const DEFAULT_FOLDER_ICON = "img/system/folder-shortcut.png";
+
+        //Same geometry as the generated desktop icons (mod/desktop/icons/options.go)
+        const ICON_OUTPUT_SIZE = 256;
+        const ICON_BACKPLATE_RATIO = 0.70;
+        const ICON_SQUIRCLE_FACTOR = 0.75;
+
+        const PRESET_COLORS = ["#1a73e8", "#00897b", "#188038", "#f29900", "#e8710a", "#d93025", "#d01884", "#7b1fa2", "#5f6368", "#202124"];
+        const PRESET_GLYPHS = [
+            "globe", "home", "folder", "film", "music", "image", "book", "code",
+            "terminal", "cloud", "server", "database", "download", "gamepad", "shopping cart", "envelope",
+            "calendar alternate", "chart bar", "cog", "star", "heart", "rocket", "newspaper", "headphones"
+        ];
+        //Drawn preset icons, listed by img/shortcut/icons.json
+        const PRESET_ICON_ROOT = "SystemAO/desktop/img/shortcut/";
+
+        //Opened with the standard [{filepath, filename}] input file list
+        var inputFiles = ao_module_loadInputFiles();
+        var shortcutFile = (Array.isArray(inputFiles) && inputFiles.length > 0 && inputFiles[0].filepath) ? inputFiles[0].filepath : "";
+        var shortcutData = null;
+        var moduleList = [];
+        var presetIcons = [];
+
+        //The icon that will be saved: a path, or rendered PNG data
+        var iconState = {path: "", data: null, source: ""};
+        var presetColor = PRESET_COLORS[0];
+        var selectedGlyph = "";
+
+        function t(key, fallback){
+            return applocale.getString(key, fallback);
+        }
+
+        applocale.init("../locale/shortcut_editor.json", function(){
+            applocale.translate();
+            dlgInitTheme();
+            loadShortcut();
+        });
+
+        /* ---------------------------------------------------------------
+            Tabs
+        --------------------------------------------------------------- */
+        function switchTab(tabName){
+            if (!$("#cropPanel").hasClass("hidden") && tabName != "icon"){
+                closeCrop();
+            }
+            $(".dlgTab").removeClass("active");
+            $('.dlgTab[tab="' + tabName + '"]').addClass("active");
+            $(".dlgPage").removeClass("active");
+            $("#page_" + tabName).addClass("active");
+        }
+
+        /* ---------------------------------------------------------------
+            Load
+        --------------------------------------------------------------- */
+        function showLoadError(msg){
+            $("#loader").hide();
+            $("#loadError span").text(msg);
+            $("#loadError").removeClass("hidden");
+            $("#page_basic .scField").addClass("hidden");
+            $('.dlgTab[tab="icon"], .dlgTab[tab="launch"]').addClass("hidden");
+            $("#headName").text(t("error/open", "Unable to open shortcut"));
+            $("#saveBtn").addClass("disabled");
+        }
+
+        function loadShortcut(){
+            if (shortcutFile == ""){
+                showLoadError(t("error/noFile", "No shortcut file given"));
+                return;
+            }
+            $.get("../../system/desktop/opr/getShortcut", {src: shortcutFile}, function(data){
+                if (data.error !== undefined){
+                    showLoadError(data.error);
+                    return;
+                }
+                if (["module", "folder", "url"].indexOf(data.Type) < 0){
+                    showLoadError(t("error/type", "Unsupported shortcut type") + ": " + data.Type);
+                    return;
+                }
+                shortcutData = data;
+                if (data.Type == "module"){
+                    //Need the module list before the form can be filled
+                    $.get("../../system/modules/list", function(modules){
+                        if (modules.error === undefined){
+                            moduleList = modules.filter(function(m){ return m.StartDir != ""; });
+                        }
+                        renderForm();
+                    }).fail(renderForm);
+                }else{
+                    renderForm();
+                }
+            }).fail(function(){
+                showLoadError(t("error/network", "Unable to reach the server"));
+            });
+        }
+
+        function typeLabel(type){
+            return {
+                "module": t("type/module", "WebApp"),
+                "folder": t("type/folder", "Folder"),
+                "url": t("type/url", "Website")
+            }[type];
+        }
+
+        function renderForm(){
+            var d = shortcutData;
+            $("#loader").fadeOut(120);
+            $("#headName").text(d.Name);
+            $("#headType").text(typeLabel(d.Type));
+            $("#headFile").text(d.Filepath.split("/").pop());
+            $("#shortcutLocation").text(d.Filepath);
+            $("#sname").val(d.Name);
+            $(".targetField").addClass("hidden");
+            $('.targetField[data-type="' + d.Type + '"]').removeClass("hidden");
+
+            if (d.Type == "url"){
+                $("#surl").val(d.Path);
+                $('.dlgTab[tab="launch"]').removeClass("hidden");
+                $("#launchDesc").text(t("launch/desc/url", "How this website opens from the desktop."));
+                $("#stitle").val(d.WindowTitle).attr("placeholder", t("launch/titlePlaceholder", "Same as the shortcut name"));
+                $("#sopenin").val(d.OpenIn == "tab" ? "tab" : "float");
+                $("#swidth").val(d.WindowWidth > 0 ? d.WindowWidth : "").attr("placeholder", DEFAULT_FW_SIZE[0]);
+                $("#sheight").val(d.WindowHeight > 0 ? d.WindowHeight : "").attr("placeholder", DEFAULT_FW_SIZE[1]);
+                $("#sizeHint").text(t("launch/sizeHint", "Leave the size empty to use the default window size."));
+                updateSizeState();
+
+            }else if (d.Type == "folder"){
+                //Folders always open in the File Manager
+                $("#sfolder").val(d.Path);
+
+            }else if (d.Type == "module"){
+                //A WebApp shortcut always shows the app's own icon
+                $('.dlgTab[tab="icon"]').addClass("hidden");
+                var select = $("#smodule");
+                var found = false;
+                moduleList.forEach(function(m){
+                    if (m.Name == d.Path){
+                        found = true;
+                    }
+                    select.append($("<option>").val(m.Name).text(m.Name));
+                });
+                if (!found){
+                    //Keep the current target selectable even if it is not installed
+                    select.prepend($("<option>").val(d.Path).text(d.Path + " (" + t("module/missing", "not installed") + ")"));
+                }
+                select.val(d.Path);
+                $('.dlgTab[tab="launch"]').removeClass("hidden");
+                $("#launchDesc").text(t("launch/desc/module", "Defined by the WebApp itself and cannot be changed here."));
+                $("#page_launch input, #page_launch select").prop("disabled", true);
+                $("#page_launch .scField").addClass("disabled");
+                showModuleDefaults(d.Path);
+            }
+
+            $("#sname").on("input", function(){ $("#headName").text(this.value); });
+            $("#surl").on("change", function(){ refreshImagePresets(); });
+
+            setIconPath(d.Icon);
+            if (d.Type != "module"){
+                buildSwatches();
+                buildGlyphPresets();
+                loadPresetIcons();
+            }
+
+            if (!d.Writable){
+                $("input, select, button.scSquareBtn").prop("disabled", true);
+                $(".scIconActions .dlgBtn").addClass("disabled");
+                $(".scPreset, .scSwatch").css("pointer-events", "none");
+                $("#saveBtn").addClass("disabled");
+                $("#saveError").text(t("error/readonly", "You do not have permission to modify this shortcut."));
+            }
+        }
+
+        /* ---------------------------------------------------------------
+            Launch options
+        --------------------------------------------------------------- */
+        function updateSizeState(){
+            if (shortcutData.Type != "url"){
+                return;
+            }
+            //Window size only applies to float windows
+            var isTab = $("#sopenin").val() == "tab";
+            $("#swidth, #sheight").prop("disabled", isTab);
+            $(".sizeField").toggleClass("disabled", isTab);
+        }
+
+        function getModule(name){
+            for (var i = 0; i < moduleList.length; i++){
+                if (moduleList[i].Name == name){
+                    return moduleList[i];
+                }
+            }
+            return null;
+        }
+
+        //Show the launch options the WebApp defines in its init.agi
+        function showModuleDefaults(name){
+            var m = getModule(name);
+            if (m == null){
+                $("#stitle, #swidth, #sheight").val("");
+                $("#sizeHint").text(t("module/notInstalled", "This WebApp is not installed on this host."));
+                return;
+            }
+            var size = DEFAULT_FW_SIZE;
+            if (m.SupportFW && Array.isArray(m.InitFWSize) && m.InitFWSize.length == 2){
+                size = m.InitFWSize;
+            }
+            $("#stitle").val(m.Name);
+            //WebApps always launch in a float window from the desktop
+            $("#sopenin").val("float");
+            $("#swidth").val(size[0]);
+            $("#sheight").val(size[1]);
+            $("#sizeHint").text(m.SupportFW ? "" : t("module/noFW", "This WebApp has no float window mode; it opens its main page in a default sized window."));
+        }
+
+        function moduleChanged(){
+            var previous = getModule(shortcutData.Path);
+            var current = getModule($("#smodule").val());
+            shortcutData.Path = $("#smodule").val();
+            //The server gives the shortcut the new app's icon on save
+            if (current != null){
+                setPreview(resolveIconSrc(moduleDesktopIcon(current)), resolveIconSrc(current.IconPath));
+            }
+            //Rename the shortcut too if it still carries the old app name
+            if (previous != null && current != null && $("#sname").val() == previous.Name){
+                $("#sname").val(current.Name);
+                $("#headName").text(current.Name);
+            }
+            showModuleDefaults(shortcutData.Path);
+        }
+
+        /* ---------------------------------------------------------------
+            Icon: state and previews
+        --------------------------------------------------------------- */
+        function moduleDesktopIcon(m){
+            var dir = m.IconPath.split("/");
+            dir.pop();
+            return dir.concat(["desktop_icon.png"]).join("/");
+        }
+
+        //Only folder and url shortcuts have an editable icon
+        function defaultIcon(){
+            if (shortcutData.Type == "folder"){
+                return DEFAULT_FOLDER_ICON;
+            }else if (shortcutData.Type == "url"){
+                try {
+                    return new URL($("#surl").val().trim()).origin + "/favicon.ico";
+                } catch (e) {
+                    return "";
+                }
+            }
+            return "";
+        }
+
+        function resolveIconSrc(icon){
+            if (icon == ""){
+                return "../../img/system/favicon.png";
+            }
+            if (/^(https?:|data:|\/)/i.test(icon)){
+                return icon;
+            }
+            return "../../" + icon;
+        }
+
+        //Show src, falling back to fallback (if given) and then the system icon
+        function setPreview(src, fallback){
+            $("#headIcon, #bigIcon").off("error").on("error", function(){
+                if (fallback !== undefined && $(this).attr("src") != fallback){
+                    $(this).attr("src", fallback);
+                }else{
+                    $(this).off("error").attr("src", "../../img/system/favicon.png");
+                }
+            }).attr("src", src);
+        }
+
+        function describeIcon(){
+            if (iconState.data != null){
+                return iconState.source + " - " + t("icon/unsaved", "saved when you press Save");
+            }
+            var p = iconState.path;
+            if (p.indexOf("media/?file=") == 0 || p.indexOf("media?file=") == 0){
+                return t("icon/fromFile", "Image from") + " " + decodeURIComponent(p.split("file=")[1].replace(/\+/g, " "));
+            }
+            if (p == defaultIcon()){
+                return t("icon/isDefault", "Default icon");
+            }
+            for (var i = 0; i < presetIcons.length; i++){
+                if (PRESET_ICON_ROOT + presetIcons[i].file == p){
+                    return presetIcons[i].name;
+                }
+            }
+            return p;
+        }
+
+        function setIconPath(path, fromInput){
+            iconState = {path: path, data: null, source: ""};
+            selectedGlyph = "";
+            if (!fromInput){
+                $("#sicon").val(path);
+            }
+            setPreview(resolveIconSrc(path));
+            refreshSelection();
+        }
+
+        function setIconData(dataURL, source){
+            iconState = {path: "", data: dataURL, source: source};
+            //selectGlyph sets its own selection again right after this
+            selectedGlyph = "";
+            $("#sicon").val("");
+            setPreview(dataURL);
+            refreshSelection();
+        }
+
+        function refreshSelection(){
+            $("#iconSource").text(describeIcon());
+            $(".scPreset").removeClass("selected");
+            if (iconState.data == null){
+                $("#imagePresets .scPreset").each(function(){
+                    if ($(this).attr("data-path") == iconState.path){
+                        $(this).addClass("selected");
+                    }
+                });
+            }else if (selectedGlyph != ""){
+                $('#glyphPresets .scPreset[data-glyph="' + selectedGlyph + '"]').addClass("selected");
+            }
+        }
+
+        function useDefaultIcon(){
+            var icon = defaultIcon();
+            if (icon != ""){
+                setIconPath(icon);
+            }
+        }
+
+        /* ---------------------------------------------------------------
+            Icon: presets
+        --------------------------------------------------------------- */
+        function loadPresetIcons(){
+            $.getJSON("img/shortcut/icons.json", function(data){
+                presetIcons = (data && Array.isArray(data.icons)) ? data.icons : [];
+                refreshImagePresets();
+            }).fail(refreshImagePresets);
+        }
+
+        //The type's default icon first, then the drawn presets
+        function refreshImagePresets(){
+            var list = [];
+            var def = defaultIcon();
+            if (def != ""){
+                list.push({path: def, name: t("icon/isDefault", "Default icon")});
+            }
+            presetIcons.forEach(function(icon){
+                var p = PRESET_ICON_ROOT + icon.file;
+                if (p != def){
+                    list.push({path: p, name: icon.name});
+                }
+            });
+
+            var grid = $("#imagePresets").empty();
+            list.forEach(function(entry){
+                var tile = $('<div class="scPreset"></div>').attr("data-path", entry.path).attr("title", entry.name);
+                var img = $("<img>").attr("src", resolveIconSrc(entry.path)).on("error", function(){
+                    //e.g. a site without a favicon
+                    tile.remove();
+                });
+                tile.append(img).on("click", function(){ setIconPath(entry.path); });
+                grid.append(tile);
+            });
+            refreshSelection();
+        }
+
+        function buildSwatches(){
+            var holder = $("#swatches").empty();
+            PRESET_COLORS.forEach(function(c){
+                var sw = $('<div class="scSwatch"></div>').css("background-color", c).attr("data-color", c);
+                if (c == presetColor){
+                    sw.addClass("selected");
+                }
+                sw.on("click", function(){
+                    presetColor = c;
+                    $(".scSwatch").removeClass("selected");
+                    sw.addClass("selected");
+                    $("#glyphPresets .glyphPlate").css("background-color", c);
+                    if (selectedGlyph != ""){
+                        selectGlyph(selectedGlyph);
+                    }
+                });
+                holder.append(sw);
+            });
+        }
+
+        function buildGlyphPresets(){
+            var grid = $("#glyphPresets").empty();
+            PRESET_GLYPHS.forEach(function(g){
+                var tile = $('<div class="scPreset"></div>').attr("data-glyph", g).attr("title", g);
+                var plate = $('<div class="glyphPlate"></div>').css("background-color", presetColor);
+                plate.append($('<i class="icon"></i>').addClass(g));
+                tile.append(plate).on("click", function(){ selectGlyph(g); });
+                grid.append(tile);
+            });
+        }
+
+        function selectGlyph(glyph){
+            renderGlyphIcon(glyph, presetColor).then(function(dataURL){
+                if (dataURL == null){
+                    return;
+                }
+                setIconData(dataURL, t("icon/preset", "Icon preset"));
+                selectedGlyph = glyph;
+                refreshSelection();
+            });
+        }
+
+        //Trace the squircle backplate of a desktop icon onto ctx
+        function squirclePath(ctx, cx, cy, r){
+            var n = 2 / (1 - ICON_SQUIRCLE_FACTOR);
+            ctx.beginPath();
+            for (var i = 0; i <= 360; i++){
+                var a = i / 360 * Math.PI * 2;
+                var c = Math.cos(a), s = Math.sin(a);
+                var x = cx + r * Math.sign(c) * Math.pow(Math.abs(c), 2 / n);
+                var y = cy + r * Math.sign(s) * Math.pow(Math.abs(s), 2 / n);
+                if (i == 0){
+                    ctx.moveTo(x, y);
+                }else{
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.closePath();
+        }
+
+        //Render a Semantic UI glyph, white on a coloured squircle, to a PNG data URL
+        function renderGlyphIcon(glyph, color){
+            var probe = $('<i class="icon"></i>').addClass(glyph).css({position: "absolute", left: "-9999px", top: "0px"}).appendTo("body")[0];
+            var glyphChar = window.getComputedStyle(probe, "::before").content;
+            var fontFamily = window.getComputedStyle(probe).fontFamily;
+            $(probe).remove();
+            glyphChar = String(glyphChar).replace(/^["']|["']$/g, "");
+            if (glyphChar == "" || glyphChar == "none"){
+                return Promise.resolve(null);
+            }
+
+            var size = ICON_OUTPUT_SIZE;
+            var plate = size * ICON_BACKPLATE_RATIO;
+            var fontPx = Math.round(plate * 0.5);
+            var fontSpec = fontPx + "px " + fontFamily;
+            return document.fonts.load(fontSpec, glyphChar).catch(function(){}).then(function(){
+                var canvas = document.createElement("canvas");
+                canvas.width = size;
+                canvas.height = size;
+                var ctx = canvas.getContext("2d");
+                squirclePath(ctx, size / 2, size / 2, plate / 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                //Centre on the glyph's ink box rather than its em box
+                ctx.font = fontSpec;
+                ctx.textAlign = "left";
+                ctx.textBaseline = "alphabetic";
+                var m = ctx.measureText(glyphChar);
+                var inkW = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+                var inkH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+                var x = size / 2 - inkW / 2 + m.actualBoundingBoxLeft;
+                var y = size / 2 + inkH / 2 - m.actualBoundingBoxDescent;
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(glyphChar, x, y);
+                return canvas.toDataURL("image/png");
+            });
+        }
+
+        /* ---------------------------------------------------------------
+            Icon: picture from files / device, cropped to a square
+        --------------------------------------------------------------- */
+        var crop = null;    //{img, stage, scale, minScale, tx, ty, drag, source}
+
+        function pickImageFromFiles(){
+            ao_module_openFileSelector(imageFromFiles, "user:/", "file", false, {
+                filter: ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"]
+            });
+        }
+
+        function imageFromFiles(files){
+            if (files.length > 0){
+                openCrop("../../media/?file=" + encodeURIComponent(files[0].filepath), files[0].filename);
+            }
+        }
+
+        function imageFromDevice(input){
+            if (input.files.length == 0){
+                return;
+            }
+            var file = input.files[0];
+            input.value = "";
+            if (!file.type.startsWith("image/")){
+                $("#saveError").text(t("error/notImage", "That file is not an image."));
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(){ openCrop(reader.result, file.name); };
+            reader.readAsDataURL(file);
+        }
+
+        function openCrop(src, name){
+            $("#saveError").text("");
+            var img = document.getElementById("cropImg");
+            img.onload = function(){
+                $("#iconMain").addClass("hidden");
+                $("#cropPanel").removeClass("hidden");
+                $("#saveBtn").addClass("disabled");
+                var stage = document.getElementById("cropStage");
+                var s = stage.clientWidth;
+                var w = img.naturalWidth || 256, h = img.naturalHeight || 256;
+                var minScale = Math.max(s / w, s / h);
+                crop = {img: img, w: w, h: h, s: s, minScale: minScale, scale: minScale,
+                        tx: (s - w * minScale) / 2, ty: (s - h * minScale) / 2, drag: null, source: name};
+                $("#cropZoom").val(1);
+                layoutCrop();
+            };
+            img.onerror = function(){
+                $("#saveError").text(t("error/loadImage", "Unable to load that image."));
+            };
+            img.src = src;
+        }
+
+        function clampCrop(){
+            crop.tx = Math.min(0, Math.max(crop.s - crop.w * crop.scale, crop.tx));
+            crop.ty = Math.min(0, Math.max(crop.s - crop.h * crop.scale, crop.ty));
+        }
+
+        function layoutCrop(){
+            clampCrop();
+            $(crop.img).css({
+                width: (crop.w * crop.scale) + "px",
+                height: (crop.h * crop.scale) + "px",
+                transform: "translate(" + crop.tx + "px, " + crop.ty + "px)"
+            });
+        }
+
+        //Zoom to factor (1 = cover) keeping the point (px, py) of the stage still
+        function cropZoomTo(factor, px, py){
+            if (crop == null){
+                return;
+            }
+            factor = Math.min(6, Math.max(1, factor));
+            if (px === undefined){
+                px = crop.s / 2;
+                py = crop.s / 2;
+            }
+            var newScale = crop.minScale * factor;
+            crop.tx = px - (px - crop.tx) * newScale / crop.scale;
+            crop.ty = py - (py - crop.ty) * newScale / crop.scale;
+            crop.scale = newScale;
+            $("#cropZoom").val(factor);
+            layoutCrop();
+        }
+
+        $(function(){
+            var stage = document.getElementById("cropStage");
+            stage.addEventListener("pointerdown", function(e){
+                if (crop == null){
+                    return;
+                }
+                crop.drag = {x: e.clientX, y: e.clientY, tx: crop.tx, ty: crop.ty};
+                stage.setPointerCapture(e.pointerId);
+                $(stage).addClass("dragging");
+            });
+            stage.addEventListener("pointermove", function(e){
+                if (crop == null || crop.drag == null){
+                    return;
+                }
+                crop.tx = crop.drag.tx + (e.clientX - crop.drag.x);
+                crop.ty = crop.drag.ty + (e.clientY - crop.drag.y);
+                layoutCrop();
+            });
+            var endDrag = function(){
+                if (crop != null){
+                    crop.drag = null;
+                }
+                $(stage).removeClass("dragging");
+            };
+            stage.addEventListener("pointerup", endDrag);
+            stage.addEventListener("pointercancel", endDrag);
+            stage.addEventListener("wheel", function(e){
+                if (crop == null){
+                    return;
+                }
+                e.preventDefault();
+                var rect = stage.getBoundingClientRect();
+                var factor = crop.scale / crop.minScale * (e.deltaY < 0 ? 1.1 : 1 / 1.1);
+                cropZoomTo(factor, e.clientX - rect.left, e.clientY - rect.top);
+            }, {passive: false});
+        });
+
+        function closeCrop(){
+            crop = null;
+            $("#cropPanel").addClass("hidden");
+            $("#iconMain").removeClass("hidden");
+            if (shortcutData != null && shortcutData.Writable){
+                $("#saveBtn").removeClass("disabled");
+            }
+        }
+
+        function applyCrop(){
+            if (crop == null){
+                return;
+            }
+            var size = ICON_OUTPUT_SIZE;
+            var canvas = document.createElement("canvas");
+            canvas.width = size;
+            canvas.height = size;
+            var ctx = canvas.getContext("2d");
+            ctx.imageSmoothingQuality = "high";
+
+            //The visible square of the stage, in image pixels
+            var sx = -crop.tx / crop.scale;
+            var sy = -crop.ty / crop.scale;
+            var sw = crop.s / crop.scale;
+            if ($("#cropDesktopStyle").is(":checked")){
+                //Padded squircle, the same footprint as the other desktop icons
+                var plate = size * ICON_BACKPLATE_RATIO;
+                squirclePath(ctx, size / 2, size / 2, plate / 2);
+                ctx.clip();
+                ctx.drawImage(crop.img, sx, sy, sw, sw, (size - plate) / 2, (size - plate) / 2, plate, plate);
+            }else{
+                ctx.drawImage(crop.img, sx, sy, sw, sw, 0, 0, size, size);
+            }
+
+            var dataURL;
+            try {
+                dataURL = canvas.toDataURL("image/png");
+            } catch (e) {
+                $("#saveError").text(t("error/loadImage", "Unable to load that image."));
+                return;
+            }
+            var source = crop.source;
+            closeCrop();
+            setIconData(dataURL, source);
+        }
+
+        /* ---------------------------------------------------------------
+            Folder picker
+        --------------------------------------------------------------- */
+        function selectFolder(){
+            ao_module_openFileSelector(folderSelected, "user:/", "folder", false);
+        }
+
+        function folderSelected(files){
+            if (files.length > 0){
+                $("#sfolder").val(files[0].filepath);
+            }
+        }
+
+        /* ---------------------------------------------------------------
+            Save
+        --------------------------------------------------------------- */
+        function saveShortcut(){
+            if (shortcutData == null || !shortcutData.Writable || $("#saveBtn").hasClass("disabled")){
+                return;
+            }
+            $("#saveError").text("");
+
+            var target = "";
+            if (shortcutData.Type == "url"){
+                target = $("#surl").val().trim();
+            }else if (shortcutData.Type == "folder"){
+                target = $("#sfolder").val().trim();
+            }else if (shortcutData.Type == "module"){
+                target = $("#smodule").val();
+            }
+
+            var payload = {
+                src: shortcutFile,
+                stext: $("#sname").val().trim(),
+                spath: target,
+                sicon: iconState.path
+            };
+            if (shortcutData.Type == "module"){
+                //Kept by the server: a WebApp shortcut always uses the app's icon
+                payload.sicon = "";
+            }else if (iconState.data != null){
+                payload.sicondata = iconState.data;
+            }else if (payload.sicon == ""){
+                payload.sicon = defaultIcon();
+            }
+            if (shortcutData.Type == "url"){
+                payload.stitle = $("#stitle").val().trim();
+                payload.sopenin = $("#sopenin").val();
+                payload.swidth = $("#swidth").val();
+                payload.sheight = $("#sheight").val();
+            }
+
+            //Point at the tab holding the field the user has to fix
+            if (payload.stext == "" || payload.spath == ""){
+                switchTab("basic");
+            }
+
+            $("#saveBtn").addClass("disabled");
+            $.ajax({
+                url: "../../system/desktop/opr/updateShortcut",
+                method: "POST",
+                data: payload,
+                success: function(data){
+                    $("#saveBtn").removeClass("disabled");
+                    if (data.error !== undefined){
+                        $("#saveError").text(data.error).attr("title", data.error);
+                        return;
+                    }
+                    //Redraw the desktop so the new name and icon show up
+                    try {
+                        if (typeof(parent.refresh) == "function"){
+                            parent.refresh();
+                        }
+                    } catch (e) {}
+                    ao_module_close();
+                },
+                error: function(){
+                    $("#saveBtn").removeClass("disabled");
+                    $("#saveError").text(t("error/network", "Unable to reach the server"));
+                }
+            });
+        }
+
+        $(document).on("keydown", function(e){
+            if (e.key == "Enter" && $(e.target).is("input.dlgField")){
+                saveShortcut();
+            }
+        });
+    </script>
+</body>
+</html>

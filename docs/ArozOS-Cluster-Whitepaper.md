@@ -984,7 +984,7 @@ List fields (`inputs`, `features`, `nodes`) accept a comma-separated list;
 |---|---|
 | ArozOS binary | This branch or later on **every** member; the cluster is built in. No separate service, database or agent is installed. |
 | Build toolchain | Go 1.25 (`go.mod`); `CGO_ENABLED=0` builds are supported. |
-| Go modules used by the cluster | `github.com/gorilla/websocket` (BSD-2), `github.com/satori/go.uuid` (MIT), `github.com/boltdb/bolt` (MIT, through `mod/database`), `golang.org/x/sys` (BSD-3), `github.com/robertkrimen/otto` (MIT, AGI) and the Go standard library (Ed25519, SHA-256). All already in ArozOS; the cluster added no new module. |
+| Go modules used by the cluster | `github.com/gorilla/websocket` (BSD-2), `github.com/satori/go.uuid` (MIT), `go.etcd.io/bbolt` (MIT, through `mod/database`), `golang.org/x/sys` (BSD-3), `github.com/robertkrimen/otto` (MIT, AGI) and the Go standard library (Ed25519, SHA-256). All already in ArozOS; the cluster added no new module. |
 | External tools | **None required.** `ffmpeg`, `docker`, `nvidia-smi`, `git`, `python3`, `node` only advertise optional capabilities that jobs may ask for. |
 | Platforms | Every ArozOS target: Linux amd64/386/arm/arm64/mipsle/riscv64, macOS, Windows. Syscalls are build-tagged (`capability/diskusage_*.go`). |
 
@@ -1167,8 +1167,10 @@ sh ../scripts/check-conventions.sh --diff origin/master
 
 ## 21. Known constraints and pitfalls
 
-- **No `-race` for Bolt-backed packages.** `boltdb/bolt` panics under
-  checkptr; only `acn` can run with `-race`.
+- **`-race` runs on every package** since `mod/database` moved to
+  `go.etcd.io/bbolt` (the old `boltdb/bolt` panicked under checkptr). It
+  reports a race on the metadata store swap in `resetLocal` that is not
+  fixed yet.
 - **Two ArozOS instances cannot share `src/`** (Bolt lock on `ao.db`).
 - **Page scripts must not declare `var status`**: it shadows `window.status`.
   Use names such as `clusterStatus`.

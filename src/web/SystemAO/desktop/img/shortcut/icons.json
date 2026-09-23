@@ -1,0 +1,204 @@
+{
+    "icons": [
+        {
+            "id": "folder",
+            "name": "Folder",
+            "file": "folder.svg"
+        },
+        {
+            "id": "cabinet",
+            "name": "Cabinet",
+            "file": "cabinet.svg"
+        },
+        {
+            "id": "documents",
+            "name": "Documents",
+            "file": "documents.svg"
+        },
+        {
+            "id": "pictures",
+            "name": "Pictures",
+            "file": "pictures.svg"
+        },
+        {
+            "id": "music",
+            "name": "Music",
+            "file": "music.svg"
+        },
+        {
+            "id": "videos",
+            "name": "Videos",
+            "file": "videos.svg"
+        },
+        {
+            "id": "downloads",
+            "name": "Downloads",
+            "file": "downloads.svg"
+        },
+        {
+            "id": "desktop",
+            "name": "Desktop",
+            "file": "desktop.svg"
+        },
+        {
+            "id": "recycle_bin",
+            "name": "Recycle Bin",
+            "file": "recycle_bin.svg"
+        },
+        {
+            "id": "home",
+            "name": "Home",
+            "file": "home.svg"
+        },
+        {
+            "id": "computer",
+            "name": "Computer",
+            "file": "computer.svg"
+        },
+        {
+            "id": "network",
+            "name": "Network",
+            "file": "network.svg"
+        },
+        {
+            "id": "settings",
+            "name": "Settings",
+            "file": "settings.svg"
+        },
+        {
+            "id": "control_panel",
+            "name": "Control Panel",
+            "file": "control_panel.svg"
+        },
+        {
+            "id": "star",
+            "name": "Star",
+            "file": "star.svg"
+        },
+        {
+            "id": "search",
+            "name": "Search",
+            "file": "search.svg"
+        },
+        {
+            "id": "cloud",
+            "name": "Cloud",
+            "file": "cloud.svg"
+        },
+        {
+            "id": "external_drive",
+            "name": "External Drive",
+            "file": "external_drive.svg"
+        },
+        {
+            "id": "usb_drive",
+            "name": "USB Drive",
+            "file": "usb_drive.svg"
+        },
+        {
+            "id": "cd_dvd",
+            "name": "CD/DVD",
+            "file": "cd_dvd.svg"
+        },
+        {
+            "id": "camera",
+            "name": "Camera",
+            "file": "camera.svg"
+        },
+        {
+            "id": "printer",
+            "name": "Printer",
+            "file": "printer.svg"
+        },
+        {
+            "id": "scanner",
+            "name": "Scanner",
+            "file": "scanner.svg"
+        },
+        {
+            "id": "microphone",
+            "name": "Microphone",
+            "file": "microphone.svg"
+        },
+        {
+            "id": "speaker",
+            "name": "Speaker",
+            "file": "speaker.svg"
+        },
+        {
+            "id": "headphones",
+            "name": "Headphones",
+            "file": "headphones.svg"
+        },
+        {
+            "id": "bluetooth",
+            "name": "Bluetooth",
+            "file": "bluetooth.svg"
+        },
+        {
+            "id": "wifi",
+            "name": "Wi-Fi",
+            "file": "wifi.svg"
+        },
+        {
+            "id": "battery",
+            "name": "Battery",
+            "file": "battery.svg"
+        },
+        {
+            "id": "lock",
+            "name": "Lock",
+            "file": "lock.svg"
+        },
+        {
+            "id": "key",
+            "name": "Key",
+            "file": "key.svg"
+        },
+        {
+            "id": "globe",
+            "name": "Globe",
+            "file": "globe.svg"
+        },
+        {
+            "id": "email",
+            "name": "Email",
+            "file": "email.svg"
+        },
+        {
+            "id": "calendar",
+            "name": "Calendar",
+            "file": "calendar.svg"
+        },
+        {
+            "id": "notes",
+            "name": "Notes",
+            "file": "notes.svg"
+        },
+        {
+            "id": "calculator",
+            "name": "Calculator",
+            "file": "calculator.svg"
+        },
+        {
+            "id": "clock",
+            "name": "Clock",
+            "file": "clock.svg"
+        },
+        {
+            "id": "weather",
+            "name": "Weather",
+            "file": "weather.svg"
+        },
+        {
+            "id": "map",
+            "name": "Map",
+            "file": "map.svg"
+        },
+        {
+            "id": "phone",
+            "name": "Phone",
+            "file": "phone.svg"
+        }
+    ]
+}

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><linearGradient id="star" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#ffab00"/></linearGradient></defs>
+<polygon points="32,9 38.76,24.7 55.78,26.27 42.94,37.55 46.69,54.23 32,45.5 17.31,54.23 21.06,37.55 8.22,26.27 25.24,24.7" fill="url(#star)" stroke="url(#star)" stroke-width="3.5" stroke-linejoin="round"/>
+</svg>

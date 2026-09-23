@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><linearGradient id="pin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a5c"/><stop offset="1" stop-color="#d32f2f"/></linearGradient></defs>
+<ellipse cx="32" cy="57" rx="9" ry="2.6" fill="#000000" opacity="0.15"/><path d="M32 57S13 37.5 13 25a19 19 0 0 1 38 0C51 37.5 32 57 32 57z" fill="url(#pin)"/><circle cx="32" cy="25" r="7.5" fill="#ffffff"/>
+</svg>

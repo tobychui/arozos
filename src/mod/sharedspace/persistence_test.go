@@ -21,9 +21,6 @@ type persistenceEnv struct {
 
 func newPersistenceEnv(t *testing.T) *persistenceEnv {
 	t.Helper()
-	if raceDetectorEnabled {
-		t.Skip("boltdb v1.3.1 trips checkptr under -race; run without -race to cover persistence")
-	}
 	base := t.TempDir()
 	return &persistenceEnv{
 		dbfile:      filepath.Join(base, "test.db"),

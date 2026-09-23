@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><linearGradient id="house" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b9ae0"/><stop offset="1" stop-color="#4a5bb5"/></linearGradient></defs>
+<path d="M30 8.7a3 3 0 0 1 4 0l21.4 19.1A1.8 1.8 0 0 1 54.2 31H51v21a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4V31H9.8a1.8 1.8 0 0 1-1.2-3.2z" fill="url(#house)"/><rect x="26" y="37" width="12" height="19" rx="2" fill="#e8ecff"/>
+</svg>

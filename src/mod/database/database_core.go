@@ -1,38 +1,38 @@
-//go:build !mipsle && !riscv64 && !loong64
-// +build !mipsle,!riscv64,!loong64
-
 package database
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"sync"
 
-	"github.com/boltdb/bolt"
+	"go.etcd.io/bbolt"
 	"imuslab.com/arozos/mod/info/logger"
 )
 
 func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
-	db, err := bolt.Open(dbfile, 0600, nil)
+	db, err := bbolt.Open(dbfile, 0600, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	tableMap := sync.Map{}
+	if !readOnlyMode {
+		if err := migrateLegacyFsdb(db, dbfile); err != nil {
+			logger.PrintAndLog("Database", "Importing legacy file system database failed", err)
+		}
+	}
+
+	d := &Database{
+		Db:       db,
+		ReadOnly: readOnlyMode,
+	}
 	//Build the table list from database
-	err = db.View(func(tx *bolt.Tx) error {
-		return tx.ForEach(func(name []byte, _ *bolt.Bucket) error {
-			tableMap.Store(string(name), "")
+	err = db.View(func(tx *bbolt.Tx) error {
+		return tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
+			d.Tables.Store(string(name), "")
 			return nil
 		})
 	})
-
-	return &Database{
-		Db:       db,
-		Tables:   tableMap,
-		ReadOnly: readOnlyMode,
-	}, err
+	return d, err
 }
 
 // Dump the whole db into a log file
@@ -60,7 +60,7 @@ func (d *Database) newTable(tableName string) error {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
 
-	err := d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
 		if err != nil {
 			return err
@@ -86,7 +86,7 @@ func (d *Database) dropTable(tableName string) error {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
 
-	err := d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		err := tx.DeleteBucket([]byte(tableName))
 		if err != nil {
 			return err
@@ -109,7 +109,7 @@ func (d *Database) write(tableName string, key string, value interface{}) error 
 	if err != nil {
 		return err
 	}
-	err = d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+	err = d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
 		if err != nil {
 			return err
@@ -122,7 +122,7 @@ func (d *Database) write(tableName string, key string, value interface{}) error 
 }
 
 func (d *Database) read(tableName string, key string, assignee interface{}) error {
-	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
 		v := b.Get([]byte(key))
 		json.Unmarshal(v, &assignee)
@@ -138,7 +138,7 @@ func (d *Database) keyExists(tableName string, key string) bool {
 		logger.PrintAndLog("Database", "[DB] ERROR: Requesting key from table that didn't exist!!!", nil)
 		return false
 	}
-	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
 		v := b.Get([]byte(key))
 		if v == nil {
@@ -174,7 +174,7 @@ func (d *Database) writeBatch(ops []BatchOp) error {
 		}
 		values[i] = js
 	}
-	return d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+	return d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		for i, op := range ops {
 			b, err := tx.CreateBucketIfNotExists([]byte(op.Table))
 			if err != nil {
@@ -199,7 +199,7 @@ func (d *Database) delete(tableName string, key string) error {
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
 
-	err := d.Db.(*bolt.DB).Update(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).Update(func(tx *bbolt.Tx) error {
 		tx.Bucket([]byte(tableName)).Delete([]byte(key))
 		return nil
 	})
@@ -209,7 +209,7 @@ func (d *Database) delete(tableName string, key string) error {
 
 func (d *Database) listTable(tableName string) ([][][]byte, error) {
 	var results [][][]byte
-	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
 		c := b.Cursor()
 
@@ -222,13 +222,13 @@ func (d *Database) listTable(tableName string) ([][][]byte, error) {
 }
 
 func (d *Database) close() {
-	d.Db.(*bolt.DB).Close()
+	d.Db.(*bbolt.DB).Close()
 }
 
 // listTableWithPrefix seeks the cursor to prefix and reads while keys match.
 func (d *Database) listTableWithPrefix(tableName string, prefix string) ([][][]byte, error) {
 	var results [][][]byte = [][][]byte{}
-	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {
+	err := d.Db.(*bbolt.DB).View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
 		if b == nil {
 			return errors.New("table not exists")

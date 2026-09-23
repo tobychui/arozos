@@ -4294,7 +4294,9 @@
             //Special type of override for files
             if (properties.type == "shortcut"){
                 var fd = JSON.parse(decodeURIComponent(properties.compressedFiledata));
-                if (fd.ShortcutType == "url"){
+                //Pad raw site favicons only. Icons made in the shortcut editor
+                //(crops, presets) are already drawn at desktop icon size.
+                if (fd.ShortcutType == "url" && /^https?:\/\//i.test(fd.ShortcutImage || "")){
                     imageStyleOverride = `padding: 8px;`;
                 }
             }
@@ -5310,14 +5312,7 @@
                     //Open the target folder
                     openFolder(filedata.ShortcutPath)
                 }else if (stype == "url"){
-                    //Open the target webpage in a new tab
-                    newFloatWindow({
-                        url: filedata.ShortcutPath,
-                        appicon: filedata.ShortcutImage,
-                        title: filedata.ShortcutName,
-                        parent: filedata.ShortcutPath
-                    })
-                    //window.open(filedata.ShortcutPath);
+                    openURLShortcut(filedata);
                 }else{
                     console.log(filedata);
                 }
@@ -5635,6 +5630,8 @@
                                 addContextMenuItem($("#contextmenu"), lcontex('Open in New Tab'), "<i class='external icon'></i>", "openWebAppInNewTab", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
+                                addContextMenuSeperator($("#contextmenu"));
+                                addContextMenuItem($("#contextmenu"), lcontex('Edit Shortcut'), "<i class='edit icon'></i>", "openShortcutEditor", false);
 
                             }else if (fd.ShortcutType == "folder"){
                                 //Folder
@@ -5643,12 +5640,16 @@
                                 addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                                 addContextMenuSeperator($("#contextmenu"));
+                                addContextMenuItem($("#contextmenu"), lcontex('Edit Shortcut'), "<i class='edit icon'></i>", "openShortcutEditor", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Properties'), undefined, "openObjectProperty", false);
                           
                             }else{
                                 addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Open in New Tab'), "<i class='external icon'></i>", "openURLShortcutInNewTab", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
+                                addContextMenuSeperator($("#contextmenu"));
+                                addContextMenuItem($("#contextmenu"), lcontex('Edit Shortcut'), "<i class='edit icon'></i>", "openShortcutEditor", false);
                             }
                             
                           
@@ -5779,6 +5780,47 @@
                 });
             });
 
+            hideAllContextMenus();
+        }
+
+        //Open a url shortcut using the launch options stored in the shortcut file
+        function openURLShortcut(fd){
+            if (fd.ShortcutOpenIn == "tab"){
+                window.open(fd.ShortcutPath);
+                return;
+            }
+            var config = {
+                url: fd.ShortcutPath,
+                appicon: fd.ShortcutImage,
+                title: (fd.ShortcutTitle != undefined && fd.ShortcutTitle != "") ? fd.ShortcutTitle : fd.ShortcutName,
+                parent: fd.ShortcutPath
+            };
+            if (fd.ShortcutWidth > 0){
+                config.width = fd.ShortcutWidth;
+            }
+            if (fd.ShortcutHeight > 0){
+                config.height = fd.ShortcutHeight;
+            }
+            newFloatWindow(config);
+        }
+
+        //Edit the name, target, icon and launch options of the selected shortcut
+        function openShortcutEditor(target, event){
+            var selected = $(".launchIconWrapper.selected").first();
+            if (selected.length == 0){
+                hideAllContextMenus();
+                return;
+            }
+            var fd = JSON.parse(decodeURIComponent(selected.parent().attr("filedata")));
+            //Standard input file list, read back with ao_module_loadInputFiles()
+            var inputFiles = encodeURIComponent(JSON.stringify([{filepath: fd.Filepath, filename: fd.Filename}]));
+            newFloatWindow({
+                url: "SystemAO/desktop/shortcutEditor.html#" + inputFiles,
+                appicon: "img/desktop/system_icon/shortcut.png",
+                width: 400,
+                height: 560,
+                title: "Edit Shortcut"
+            });
             hideAllContextMenus();
         }
 

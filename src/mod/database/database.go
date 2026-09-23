@@ -13,7 +13,7 @@ import (
 )
 
 type Database struct {
-	Db       interface{} //This will be nil on openwrt and *bolt.DB in the rest of the systems
+	Db       interface{} //The *bbolt.DB handle
 	Tables   sync.Map
 	ReadOnly bool
 }

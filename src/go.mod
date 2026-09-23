@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.22.19
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
 	github.com/bodgit/sevenzip v1.6.4
-	github.com/boltdb/bolt v1.3.1
 	github.com/creack/pty v1.1.24
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/disintegration/imaging v1.6.2
@@ -43,6 +42,7 @@ require (
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/studio-b12/gowebdav v0.11.0
+	go.etcd.io/bbolt v1.5.0
 	gitlab.com/NebulousLabs/go-upnp v0.0.0-20211002182029-11da932010b6
 	golang.org/x/crypto v0.53.0
 	golang.org/x/image v0.33.0
