@@ -206,3 +206,56 @@ func TestGetCPUStatsNonLinux(t *testing.T) {
 		t.Error("getCPUStats() should return an error on non-Linux platform")
 	}
 }
+
+// TestDarwinUsedBytesFromMemPercentSum guards the macOS RAM formula.
+// ps -A -o %mem sums percentages (e.g. 82.5), not a 0–1 fraction.
+// The old expression phyMem - phyMem*sum produced usedRam ≈ -1.4e15 on a 16GB Mac.
+func TestDarwinUsedBytesFromMemPercentSum(t *testing.T) {
+	phyMem := int64(17179869184) // 16 GiB
+	sumPercent := 82.5
+
+	oldBroken := int64(float64(phyMem) - float64(phyMem)*sumPercent)
+	if oldBroken >= 0 {
+		t.Fatalf("sanity: old formula should be negative for sum=82.5, got %d", oldBroken)
+	}
+
+	used := darwinUsedBytesFromMemPercentSum(phyMem, sumPercent)
+	if used < 0 {
+		t.Errorf("used=%d want >= 0", used)
+	}
+	if used > phyMem {
+		t.Errorf("used=%d > phyMem=%d", used, phyMem)
+	}
+	want := int64(float64(phyMem) * (sumPercent / 100.0))
+	if used != want {
+		t.Errorf("used=%d want %d", used, want)
+	}
+}
+
+func TestDarwinUsedBytesFromMemPercentSumClamps(t *testing.T) {
+	phyMem := int64(17179869184)
+	over := darwinUsedBytesFromMemPercentSum(phyMem, 250)
+	if over != phyMem {
+		t.Errorf("over-100%% sum: got %d want phyMem %d", over, phyMem)
+	}
+	neg := darwinUsedBytesFromMemPercentSum(phyMem, -10)
+	if neg != 0 {
+		t.Errorf("negative sum: got %d want 0", neg)
+	}
+}
+
+func TestGetNumericRAMUsageDarwin(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("darwin-only live RAM check")
+	}
+	used, total := GetNumericRAMUsage()
+	if total <= 0 {
+		t.Fatalf("total=%d want > 0", total)
+	}
+	if used < 0 {
+		t.Errorf("used=%d want >= 0", used)
+	}
+	if used > total {
+		t.Errorf("used=%d > total=%d", used, total)
+	}
+}
