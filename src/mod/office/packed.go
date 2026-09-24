@@ -14,6 +14,10 @@ package office
 
 	PackEnvelope also resolves legacy "media?file=<vpath>" links through the
 	supplied reader so older documents become portable on their next save.
+	That covers a link that is a whole JSON value (a Slides / Sheets image
+	src) and one inside an HTML string (a Docs body's <img src="..."> or
+	<video poster="...">), where the attribute value becomes the asset ref.
+	The unpackers resolve "asset://<name>" in both positions the same way.
 	UnpackEnvelope transparently passes through legacy plain-JSON files, so
 	old documents keep opening without migration.
 */
@@ -26,9 +30,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"html"
 	"io"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -111,6 +117,74 @@ func mediaLinkVpath(s string) string {
 	return vals.Get("file")
 }
 
+// htmlMediaAttrRe matches a src or poster attribute in an HTML fragment -
+// the places a Docs body keeps its pictures. href is deliberately left out:
+// a hyperlink to a file is a link, not content to copy into the document.
+var htmlMediaAttrRe = regexp.MustCompile(`(?i)(\s(?:src|poster)\s*=\s*)("[^"]*"|'[^']*')`)
+
+// embedHTMLMediaLinks rewrites every media?file= link held in a src/poster
+// attribute of an HTML string through embed, which returns the asset name
+// (and false to leave that link as it is).
+func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) string {
+	if !strings.Contains(s, "media") {
+		return s
+	}
+	return htmlMediaAttrRe.ReplaceAllStringFunc(s, func(m string) string {
+		sub := htmlMediaAttrRe.FindStringSubmatch(m)
+		quoted := sub[2]
+		quote := quoted[:1]
+		vp := mediaLinkVpath(html.UnescapeString(quoted[1 : len(quoted)-1]))
+		if vp == "" {
+			return m
+		}
+		name, ok := embed(vp)
+		if !ok {
+			return m
+		}
+		return sub[1] + quote + "asset://" + name + quote
+	})
+}
+
+// assetRefRe matches an asset reference inside a larger string. Asset names
+// are written by the packers as <hash>.<ext>, so this character set covers
+// every name either of them produces.
+var assetRefRe = regexp.MustCompile(`asset://([A-Za-z0-9._-]+)`)
+
+// resolveAssetRefs replaces asset references in s through resolve: the
+// whole string when it is one reference (the original form, which accepts
+// any name), and every reference embedded in it otherwise.
+func resolveAssetRefs(s string, resolve func(name string) (string, bool)) string {
+	if !strings.Contains(s, "asset://") {
+		return s
+	}
+	if strings.HasPrefix(s, "asset://") {
+		if out, ok := resolve(strings.TrimPrefix(s, "asset://")); ok {
+			return out
+		}
+	}
+	return assetRefRe.ReplaceAllStringFunc(s, func(m string) string {
+		if out, ok := resolve(strings.TrimPrefix(m, "asset://")); ok {
+			return out
+		}
+		return m
+	})
+}
+
+// assetExt is the extension an embedded file is stored under: the source
+// path's own, lower-cased, when it is a plain one, and "bin" otherwise.
+func assetExt(vpath string) string {
+	ext := strings.TrimPrefix(strings.ToLower(path.Ext(vpath)), ".")
+	if ext == "" || len(ext) > 10 {
+		return "bin"
+	}
+	for _, r := range ext {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+			return "bin"
+		}
+	}
+	return ext
+}
+
 // transformStrings walks every string value in decoded JSON
 func transformStrings(v interface{}, fn func(string) string) interface{} {
 	switch t := v.(type) {
@@ -152,20 +226,35 @@ func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error))
 		return name
 	}
 
+	// a linked file, read through the caller; each vpath is read once
+	embedded := map[string]string{}
+	embedVpath := func(vp string) (string, bool) {
+		if readVpath == nil {
+			return "", false
+		}
+		if name, ok := embedded[vp]; ok {
+			return name, true
+		}
+		data, err := readVpath(vp)
+		if err != nil || len(data) == 0 {
+			return "", false
+		}
+		name := add(data, assetExt(vp))
+		embedded[vp] = name
+		return name, true
+	}
+
 	root = transformStrings(root, func(s string) string {
 		if data, ext, ok := parseAnyDataURL(s); ok {
 			return "asset://" + add(data, ext)
 		}
-		if vp := mediaLinkVpath(s); vp != "" && readVpath != nil {
-			if data, err := readVpath(vp); err == nil && len(data) > 0 {
-				ext := strings.TrimPrefix(strings.ToLower(path.Ext(vp)), ".")
-				if ext == "" {
-					ext = "bin"
-				}
-				return "asset://" + add(data, ext)
+		if vp := mediaLinkVpath(s); vp != "" {
+			if name, ok := embedVpath(vp); ok {
+				return "asset://" + name
 			}
+			return s
 		}
-		return s
+		return embedHTMLMediaLinks(s, embedVpath)
 	})
 
 	doc, err := json.Marshal(root)
@@ -243,14 +332,12 @@ func UnpackEnvelopeToLinks(data []byte, saveAsset func(name string, content []by
 		return "", errors.New("corrupted document.json: " + err.Error())
 	}
 	root = transformStrings(root, func(s string) string {
-		if !strings.HasPrefix(s, "asset://") {
-			return s
-		}
-		name := strings.TrimPrefix(s, "asset://")
-		if !written[name] {
-			return s
-		}
-		return linkFor(name)
+		return resolveAssetRefs(s, func(name string) (string, bool) {
+			if !written[name] {
+				return "", false
+			}
+			return linkFor(name), true
+		})
 	})
 	out, err := json.Marshal(root)
 	if err != nil {
@@ -297,15 +384,13 @@ func UnpackEnvelope(data []byte) (string, error) {
 		return "", errors.New("corrupted document.json: " + err.Error())
 	}
 	root = transformStrings(root, func(s string) string {
-		if !strings.HasPrefix(s, "asset://") {
-			return s
-		}
-		name := strings.TrimPrefix(s, "asset://")
-		data, ok := assets[name]
-		if !ok {
-			return s
-		}
-		return dataURLOf(data, strings.TrimPrefix(path.Ext(name), "."))
+		return resolveAssetRefs(s, func(name string) (string, bool) {
+			data, ok := assets[name]
+			if !ok {
+				return "", false
+			}
+			return dataURLOf(data, strings.TrimPrefix(path.Ext(name), ".")), true
+		})
 	})
 	out, err := json.Marshal(root)
 	if err != nil {

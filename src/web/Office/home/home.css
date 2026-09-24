@@ -22,6 +22,11 @@
     --blue: #2563eb;
     --blue-soft: #eaf1fe;
     --blue-line: #cddffc;
+    --blue-text: #2563eb;   /* blue used as text on --blue-soft */
+    --text-soft: #344054;
+    --hover: #f4f6fa;
+    --privacy-bg: #f2f6fe;
+    --privacy-line: #e2ebfb;
     --doc: #3b82f6;
     --sheet: #16a34a;
     --slides: #f97316;
@@ -86,22 +91,6 @@ body {
     padding: 0 6px 0 4px;
     margin-bottom: 26px;
 }
-.hm-brand-mark {
-    width: 38px;
-    height: 38px;
-    border-radius: 11px;
-    background: var(--blue);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, .30);
-}
-.hm-brand-glyph {
-    width: 21px; height: 21px;
-    fill: none; stroke: #fff; stroke-width: 1.7;
-    stroke-linecap: round; stroke-linejoin: round;
-}
 .hm-brand-text { display: flex; flex-direction: column; line-height: 1.25; }
 .hm-brand-text b { font-size: 15.5px; font-weight: 600; letter-spacing: -.01em; }
 .hm-brand-text span { font-size: 12px; color: var(--dim); }
@@ -116,27 +105,27 @@ body {
     border: 0;
     border-radius: 9px;
     background: transparent;
-    color: #344054;
+    color: var(--text-soft);
     font: inherit;
     font-size: 14px;
     text-align: left;
     cursor: pointer;
 }
-.hm-navitem:hover { background: #f4f6fa; }
-.hm-navitem.is-active { background: var(--blue-soft); color: var(--blue); font-weight: 500; }
+.hm-navitem:hover { background: var(--hover); }
+.hm-navitem.is-active { background: var(--blue-soft); color: var(--blue-text); font-weight: 500; }
 .hm-navitem .ic { stroke-width: 1.75; }
 .hm-navsep { height: 1px; background: var(--line); margin: 12px 4px; }
 
 .hm-side-foot { margin-top: auto; padding-top: 20px; }
 .hm-privacy {
-    background: #f2f6fe;
-    border: 1px solid #e2ebfb;
+    background: var(--privacy-bg);
+    border: 1px solid var(--privacy-line);
     border-radius: var(--radius);
     padding: 13px 14px;
 }
 .hm-privacy-head {
     display: flex; align-items: center; gap: 8px;
-    color: var(--blue); font-size: 13.5px; margin-bottom: 4px;
+    color: var(--blue-text); font-size: 13.5px; margin-bottom: 4px;
 }
 .hm-privacy-head .ic { width: 16px; height: 16px; }
 .hm-privacy p { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.45; }
@@ -181,7 +170,7 @@ body {
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--panel);
-    color: #344054;
+    color: var(--text-soft);
     font: inherit;
     font-weight: 500;
     cursor: pointer;
@@ -435,6 +424,42 @@ body {
     .hm-tplgrid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ---- ?request= share fetch ---- */
+.hm-fetch {
+    position: fixed; inset: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    background: var(--bg);
+}
+.hm-fetch[hidden] { display: none; }
+.hm-fetch-card {
+    width: 100%; max-width: 440px;
+    padding: 28px 28px 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lift);
+    text-align: center;
+}
+.hm-fetch-spin {
+    width: 34px; height: 34px; margin: 0 auto 16px;
+    border-radius: 50%;
+    border: 3px solid var(--blue-soft);
+    border-top-color: var(--blue);
+    animation: hm-spin .8s linear infinite;
+}
+.hm-fetch-spin[hidden] { display: none; }
+@keyframes hm-spin { to { transform: rotate(360deg); } }
+.hm-fetch-title { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+.hm-fetch-msg { margin: 0; color: var(--dim); font-size: 13.5px; }
+.hm-fetch.is-error .hm-fetch-msg { color: var(--text); }
+.hm-fetch-src {
+    margin: 12px 0 0; font-size: 12px; color: var(--dimmer);
+    word-break: break-all;
+}
+.hm-fetch-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+.hm-fetch-actions[hidden] { display: none; }
+
 /* ================= dark ================= */
 /* The suite stores one theme choice for every app under office_theme; the
    home page follows it, and follows the system when nothing is stored. */
@@ -449,6 +474,11 @@ body {
         --dimmer: #7c848d;
         --blue-soft: #1c2a44;
         --blue-line: #2c4a7a;
+        --blue-text: #8ab4f8;
+        --text-soft: #c4c9d0;
+        --hover: #262a31;
+        --privacy-bg: #1b2436;
+        --privacy-line: #26344e;
         --shadow: 0 1px 2px rgba(0, 0, 0, .4);
         --shadow-lift: 0 8px 24px rgba(0, 0, 0, .5);
     }
@@ -462,13 +492,31 @@ body {
     --dim: #9aa0a6;
     --dimmer: #7c848d;
     --blue-soft: #1c2a44;
+    --blue-line: #2c4a7a;
+    --blue-text: #8ab4f8;
+    --text-soft: #c4c9d0;
+    --hover: #262a31;
+    --privacy-bg: #1b2436;
+    --privacy-line: #26344e;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4);
     --shadow-lift: 0 8px 24px rgba(0, 0, 0, .5);
 }
-:root[data-theme="dark"] .hm-navitem:hover,
+/* Component overrides that are not worth a token. Listed twice, like the
+   tokens above, so the system dark mode gets them too - not only an
+   explicit office_theme = dark. */
 :root[data-theme="dark"] .hm-menu button:hover,
 :root[data-theme="dark"] .hm-row:hover,
-:root[data-theme="dark"] .hm-btn:hover { background: #262a31; }
-:root[data-theme="dark"] .hm-privacy { background: #1b2436; border-color: #26344e; }
-:root[data-theme="dark"] .hm-tip kbd { background: #262a31; color: var(--text); }
+:root[data-theme="dark"] .hm-row-more:hover,
+:root[data-theme="dark"] .hm-pgbtn:hover:not(:disabled),
+:root[data-theme="dark"] .hm-btn:hover { background: var(--hover); }
+:root[data-theme="dark"] .hm-tip kbd { background: var(--hover); color: var(--text); }
 :root[data-theme="dark"] .hm-tpl-thumb { background: #f4f6fa; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .hm-menu button:hover,
+    :root:not([data-theme="light"]) .hm-row:hover,
+    :root:not([data-theme="light"]) .hm-row-more:hover,
+    :root:not([data-theme="light"]) .hm-pgbtn:hover:not(:disabled),
+    :root:not([data-theme="light"]) .hm-btn:hover { background: var(--hover); }
+    :root:not([data-theme="light"]) .hm-tip kbd { background: var(--hover); color: var(--text); }
+    :root:not([data-theme="light"]) .hm-tpl-thumb { background: #f4f6fa; }
+}

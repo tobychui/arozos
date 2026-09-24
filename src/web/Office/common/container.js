@@ -15,8 +15,11 @@
     Symmetry with Go:
       - unpack() mirrors office.UnpackEnvelope: assets come back as data
         URLs, so the document is self-contained in memory and survives a
-        localStorage draft round trip. Legacy plain-JSON documents (written
-        before the container existed) pass through untouched.
+        localStorage draft round trip. A reference is resolved both as a
+        whole value (a Slides / Sheets image src) and inside a string (a
+        Docs body's <img src="asset://...">, which Go writes when it embeds
+        pictures linked from ArozOS storage). Legacy plain-JSON documents
+        (written before the container existed) pass through untouched.
       - pack() mirrors office.PackEnvelope's data-URL branch: every data URL
         in the body becomes a deduplicated asset entry. It cannot resolve
         "media?file=" links - those are ArozOS storage references and there
@@ -431,11 +434,22 @@ var OfficeContainer = (function () {
         var doc = files[DOC_NAME];
         if (!doc) throw new Error("document container is missing " + DOC_NAME);
         var root = JSON.parse(utf8Decode(doc));
-        root = transformStrings(root, function (s) {
-            if (s.substring(0, 8) !== "asset://") return s;
-            var name = s.substring(8);
+        var inline = function (name) {
             var data = files["assets/" + name];
-            return data ? dataURLOf(data, extOfName(name)) : s;
+            return data ? dataURLOf(data, extOfName(name)) : null;
+        };
+        root = transformStrings(root, function (s) {
+            if (s.indexOf("asset://") < 0) return s;
+            // a whole-value reference keeps accepting any name, as before
+            if (s.substring(0, 8) === "asset://") {
+                var whole = inline(s.substring(8));
+                if (whole) return whole;
+            }
+            // references inside a string use the names the packers write,
+            // the same set as packed.go's assetRefRe
+            return s.replace(/asset:\/\/([A-Za-z0-9._-]+)/g, function (m, name) {
+                return inline(name) || m;
+            });
         });
         return JSON.stringify(root);
     }

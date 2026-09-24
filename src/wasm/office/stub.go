@@ -19,6 +19,6 @@ func main() {
 	fmt.Println("This package is only useful as a WebAssembly module. Build it with:")
 	fmt.Println("    cd src && GOOS=js GOARCH=wasm go build -o office.wasm ./wasm/office")
 	fmt.Println("or let the web-viewer generator do it:")
-	fmt.Println("    cd \"apps/ArozOS Office Web\" && ./update_viewer.sh -wasm")
+	fmt.Println("    cd apps/arozos_office && ./update_viewer.sh -wasm")
 	fmt.Printf("Converters compiled in: %d import, %d export\n", len(in), len(out))
 }

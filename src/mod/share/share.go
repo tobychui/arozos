@@ -901,6 +901,13 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			} else if directServe {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				// Name the file for cross-origin readers (e.g. the standalone
+				// Office web edition opening a shared .doca), which cannot see
+				// the download page. inline keeps in-browser previews working.
+				if disposition := previewDisposition(arozfs.Base(shareOption.FileVirtualPath)); disposition != "" {
+					w.Header().Set("Content-Disposition", disposition)
+					w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+				}
 				if metadata.IsRawImageFile(fileRuntimeAbsPath) {
 					// Convert RAW image to JPEG for browser display
 					jpegData, err := metadata.RenderRAWImage(targetFsh, fileRuntimeAbsPath)
@@ -1612,4 +1619,14 @@ func (s *Manager) handleZipDownload(w http.ResponseWriter, r *http.Request, jobI
 	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filename), "+", "%20"))
 	w.Header().Set("Content-Type", "application/zip")
 	http.ServeFile(w, r, outputPath)
+}
+
+// previewDisposition returns the Content-Disposition header for a file served
+// by /share/preview: inline, with the file name (RFC 2231 encoded when it is
+// not plain ASCII). It returns "" when no valid header can be built.
+func previewDisposition(filename string) string {
+	if filename == "" || filename == "." || filename == "/" {
+		return ""
+	}
+	return mime.FormatMediaType("inline", map[string]string{"filename": filename})
 }

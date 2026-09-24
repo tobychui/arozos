@@ -53,13 +53,14 @@
     },
     {
       "name": "office-web-static",
-      "runtimeExecutable": "python",
+      "runtimeExecutable": "go",
       "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8127",
-        "--directory",
-        "apps/ArozOS Office Web/dist"
+        "run",
+        "apps/arozos_office/serve.go",
+        "-dir",
+        "apps/arozos_office/dist",
+        "-port",
+        "8127"
       ],
       "port": 8127
     }

@@ -81,7 +81,7 @@ both host implementations and picks one from the flags in
 [`common/mode.js`](common/mode.js);
 [`common/container.js`](common/container.js) is the browser-side twin of
 [`packed.go`](../../mod/office/packed.go). The generator
-[`apps/ArozOS Office Web/generate.go`](../../../apps/ArozOS%20Office%20Web/generate.go)
+[`apps/arozos_office/generate.go`](../../../apps/arozos_office/generate.go)
 copies the tree, drops the `.agi` backends, and flips those flags — that is
 the whole build.
 
@@ -177,6 +177,16 @@ Handled by [`packed.go`](../../mod/office/packed.go) +
   `media?file=<vpath>` links, so multi-MB media never rides the JSON body.
   On **save**, `office.packToFile` re-resolves those links (server-side,
   via a permission-checked vpath reader) and embeds them back.
+- A link is embedded wherever it sits: as a whole value (a Slides / Sheets
+  image `src`) or inside an HTML string (a Docs body's `<img src="…">` /
+  `<video poster="…">`, where the attribute value becomes
+  `asset://<name>`). Only `src` and `poster` are embedded - an `href` to a
+  file stays a link. Every unpacker (`UnpackEnvelope`,
+  `UnpackEnvelopeToLinks`, and `common/container.js` in the browser)
+  resolves `asset://` refs in both positions. This is what makes a `.doca`
+  with pictures from the user's storage open with its pictures anywhere
+  else - the standalone web edition included. Documents saved before this
+  still hold links, and become portable on their next save.
 
 ## Import / export — how each path works and why
 

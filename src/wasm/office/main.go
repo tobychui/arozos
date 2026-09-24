@@ -31,7 +31,7 @@ overlay and yields a frame before calling in (see common/wasm.js).
 
 Build:  cd src && GOOS=js GOARCH=wasm go build -o office.wasm ./wasm/office
 
-	(apps/ArozOS Office Web/generate.go -wasm does this for you)
+	(apps/arozos_office/generate.go -wasm does this for you)
 */
 package main
 

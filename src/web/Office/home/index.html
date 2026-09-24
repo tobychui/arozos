@@ -52,9 +52,6 @@
     <!-- ============ sidebar ============ -->
     <aside class="hm-side">
         <a class="hm-brand" href="../home/index.html">
-            <span class="hm-brand-mark">
-                <svg viewBox="0 0 24 24" class="hm-brand-glyph"><use href="#i-doc"></use></svg>
-            </span>
             <span class="hm-brand-text">
                 <b>ArozOS Office</b>
                 <span>Web Edition</span>
@@ -223,9 +220,25 @@
 </div>
 
 <div class="hm-drop" id="hmDrop" hidden><div>Drop the file to open it</div></div>
+
+<!-- ?request=<share link>: fetching a document from an ArozOS share -->
+<div class="hm-fetch" id="hmFetch" hidden role="dialog" aria-modal="true" aria-labelledby="hmFetchTitle">
+    <div class="hm-fetch-card">
+        <div class="hm-fetch-spin" id="hmFetchSpin" aria-hidden="true"></div>
+        <h2 class="hm-fetch-title" id="hmFetchTitle">Opening shared document</h2>
+        <p class="hm-fetch-msg" id="hmFetchMsg"></p>
+        <p class="hm-fetch-src" id="hmFetchSrc"></p>
+        <div class="hm-fetch-actions" id="hmFetchActions" hidden>
+            <button type="button" class="hm-btn" id="hmFetchRetry">Try again</button>
+            <button type="button" class="hm-btn hm-btn-primary" id="hmFetchClose">Go to home</button>
+        </div>
+    </div>
+</div>
 <input type="file" id="hmFile" hidden>
 
 <script src="../common/mode.js"></script>
+<script src="../common/container.js"></script>
+<script src="../common/share.js"></script>
 <script src="../common/recents.js"></script>
 <script src="../home/home.js"></script>
 </body>

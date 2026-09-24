@@ -1561,7 +1561,7 @@ var OfficeApp = (function () {
 
         // load input file (embedded / open-with) or start blank
         meta = { createdAt: now(), revision: 0 };
-        var inputs = OfficePlatform.loadInputFiles();
+        var inputs = OfficePlatform.loadInputFiles(cfg.extension);
         if (inputs && inputs.length > 0) {
             cfg.create();
             openPath(inputs[0].filepath, inputs[0].filename,

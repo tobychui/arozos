@@ -216,7 +216,7 @@ The suite runs in two hosts from one code base, and this is the seam:
 | `standalone` | any static web server ("ArozOS Office Web") | `<input type=file>` / drag and drop / `?open=<relative path>` | the visitor's device; `Save` downloads the file back | the same `mod/office` code compiled to WebAssembly — **when the build shipped it** |
 
 The mode is one line in `common/mode.js` (`window.OFFICE_STANDALONE`, plus
-`window.OFFICE_WASM`), which `apps/ArozOS Office Web/generate.go` rewrites in
+`window.OFFICE_WASM`), which `apps/arozos_office/generate.go` rewrites in
 its output tree. Never test those flags — ask `OfficePlatform`.
 
 ### Two capability questions, deliberately separate

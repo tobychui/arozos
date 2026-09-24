@@ -16,7 +16,7 @@ no file I/O and keeps no globals, which is what makes running it in a
 browser possible at all.
 
 PDF is deliberately absent. The web edition renders PDF in the front end
-(see apps/ArozOS Office Web/README.md); pulling BuildDocPdf and friends
+(see apps/arozos_office/README.md); pulling BuildDocPdf and friends
 in here would only add fpdf to the module for nothing.
 */
 package main

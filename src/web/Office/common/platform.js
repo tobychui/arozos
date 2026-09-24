@@ -51,9 +51,11 @@
       ?open=<relative path>      open that document
       ?template=<relative path>  start a new unsaved document from it
       ?recent=<id>               reopen one of this browser's recent documents
+      ?request=<share link>      (standalone) open a public ArozOS share,
+                                 optionally with &name=<file name>
 
-    Requires: jquery, ../common/mode.js, ../common/container.js and (in
-    ArozOS mode) ../../script/ao_module.js
+    Requires: jquery, ../common/mode.js, ../common/container.js, (for
+    ?request=) ../common/share.js and (in ArozOS mode) ../../script/ao_module.js
 */
 var OfficePlatform = (function () {
     "use strict";
@@ -368,10 +370,10 @@ var OfficePlatform = (function () {
             }, function () { asDataURL(); });
         },
 
-        loadInputFiles: function () {
+        loadInputFiles: function (ext) {
             // a ?template= / ?open= / ?recent= link is answered the same way
             // in both hosts; otherwise ask the desktop what it opened us with
-            var entry = entryPointFiles();
+            var entry = entryPointFiles(ext);
             if (entry) return entry;
             try { return ao_module_loadInputFiles(); } catch (e) { return null; }
         },
@@ -409,6 +411,7 @@ var OfficePlatform = (function () {
     var STANDALONE_INLINE_MAX = 24 * 1024 * 1024;
     var SESSION_MAX = 4 * 1024 * 1024;   // localStorage is ~5 MB per origin
     var localFiles = {};                 // "local:/<name>" -> File
+    var sharedFiles = {};                // "share:/<name>" -> preview URL
 
     function readAsDataURL(blob, cb, errcb) {
         var reader = new FileReader();
@@ -491,6 +494,7 @@ var OfficePlatform = (function () {
     }
     var NO_CONVERTER = "this build has no converter for that format";
     var RECENT_PREFIX = "recent:/";
+    var SHARE_PREFIX = "share:/";
 
     /*
         A virtual path names something a host owns - "user:/Desktop/a.doca" in
@@ -517,8 +521,25 @@ var OfficePlatform = (function () {
 
         Relative paths only - fetchRelative refuses anything with a scheme, so
         none of these can be turned into a fetch of another site.
+
+        The one deliberate exception, standalone only:
+
+          ?request=<share link>[&name=<file name>]
+                                     open a document from a public ArozOS
+                                     share. OfficeShare.parse only accepts a
+                                     share path and rewrites it to that
+                                     server's preview endpoint, so this is
+                                     not a general fetch either. The home
+                                     page normally takes these links itself
+                                     (it can tell which app a document is
+                                     for) and only falls back to sending one
+                                     here when it cannot keep the file.
+
+        ext is the calling app's own extension; a share link does not carry
+        the file name, and the container is only opened as one when the name
+        says it is.
     */
-    function entryPointFiles() {
+    function entryPointFiles(ext) {
         var q = window.location.search || "";
         var param = function (name) {
             var m = new RegExp("[?&]" + name + "=([^&]+)").exec(q);
@@ -540,6 +561,18 @@ var OfficePlatform = (function () {
 
         var tpl = param("template");
         if (tpl) return [{ filepath: tpl, filename: basename(tpl), asTemplate: true }];
+
+        var request = param("request");
+        if (request && STANDALONE && window.OfficeShare) {
+            var info;
+            try { info = OfficeShare.parse(request); }
+            catch (e) { toast(e.message, "error"); return null; }
+            var app = { ".doca": "document", ".xlsa": "spreadsheet", ".ppta": "presentation" }[ext] || "";
+            var shareName = OfficeShare.fileName(app, [param("name"), info.nameHint]);
+            var sharePath = SHARE_PREFIX + shareName;
+            sharedFiles[sharePath] = info.previewUrl;
+            return [{ filepath: sharePath, filename: shareName }];
+        }
 
         var open = param("open");
         if (open) return [{ filepath: open, filename: basename(open) }];
@@ -571,6 +604,10 @@ var OfficePlatform = (function () {
         if (path.indexOf(RECENT_PREFIX) === 0) {
             if (!window.OfficeRecents) { errcb("recent documents are not available here"); return; }
             OfficeRecents.load(path.substring(RECENT_PREFIX.length), cb, errcb);
+            return;
+        }
+        if (sharedFiles[path]) {
+            OfficeShare.fetch(sharedFiles[path], function (bytes) { cb(bytes); }, errcb);
             return;
         }
         fetchRelative(path, "arraybuffer", cb, errcb);
@@ -925,7 +962,9 @@ var OfficePlatform = (function () {
         mediaUrl: function (v) { return host.mediaUrl(v); },
         blobToSrc: function (b, n, cb, errcb) { host.blobToSrc(b, n, cb, errcb); },
 
-        loadInputFiles: function () { return host.loadInputFiles(); },
+        // ext: the calling app's native extension, which names a document
+        // opened from a share link that did not say what it is called
+        loadInputFiles: function (ext) { return host.loadInputFiles(ext); },
         // open a document in a second window of this app; false = this host
         // has nowhere to open it from (the standalone build saves by download)
         openDocument: function (fp, fn, o) { return !!host.openDocument(fp, fn, o || {}); },

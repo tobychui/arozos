@@ -144,6 +144,35 @@ throws("a truncated container is rejected", function () {
 var noDoc = C.writeZip([{ name: "assets/x.png", data: bytes("xx") }]);
 throws("a container with no document.json is rejected", function () { C.unpack(noDoc); });
 
+/* ---------- a Docs body with a picture Go embedded inside the HTML ----------
+   GO_HTML_EMBED is a real .doca from office.PackEnvelope: its body.html held
+   <img src="../../media?file=user:/Photo/cat.png">, which Go read and stored
+   as assets/<hash>.png, leaving <img src="asset://<hash>.png"> in the HTML.
+   Regenerate the same way as GO_PACKED, from an envelope with such a link. */
+var GO_HTML_EMBED =
+    "UEsDBBQACAAIAAAAAAAAAAAAAAAAAAAAAAANAAAAZG9jdW1lbnQuanNvbkyMzWqFMBQGX+XyrUNj" +
+    "rlDhgMu+RTb5OWrAmGBiWyu+e6H2gqthZjEHTM4g+OS2yEuFgE1+Bx2YapxB0FvTtG5Sf+SPaNl7" +
+    "9leVr3xpvkuI46OsrtcwpXAlKe3TWu7eW9exesvLqPEodZ+51/gKvk6knk3+1rhf5P8Tp0DkakDH" +
+    "KVD3zCCYNf2kItMwBMcQ+OS1hLSA1PkbAAD//1BLBwgrX789nAAAANgAAABQSwMEFAAIAAAAAAAA" +
+    "AAAAAAAAAAAAAAAAABcAAABhc3NldHMvYjJiYmU3NjNjN2UxLnBuZ4lQTkcNChoKAAAADUlIRFIA" +
+    "AAABAAAAAQgGAAAAHxXEiQAAAA1JREFUeNpj/M/AUA8ABIUBgISpjCEAAAAASUVORK5CYIJQSwcI" +
+    "JqSVB0YAAABGAAAAUEsBAhQAFAAIAAgAAAAAACtfvz2cAAAA2AAAAA0AAAAAAAAAAAAAAAAAAAAA" +
+    "AGRvY3VtZW50Lmpzb25QSwECFAAUAAgAAAAAAAAAJqSVB0YAAABGAAAAFwAAAAAAAAAAAAAAAADX" +
+    "AAAAYXNzZXRzL2IyYmJlNzYzYzdlMS5wbmdQSwUGAAAAAAIAAgCAAAAAYgEAAAAA";
+var htmlBytes = fromBase64(GO_HTML_EMBED);
+var htmlStored = JSON.parse(C.utf8Decode(C.readZip(htmlBytes)["document.json"]));
+ok("Go stored the picture as an asset ref inside the HTML",
+    /<img src="asset:\/\/[0-9a-f]+\.png"/.test(htmlStored.body.html));
+var htmlEnv = JSON.parse(C.unpack(htmlBytes));
+ok("the ref inside the HTML comes back as a data URL",
+    htmlEnv.body.html.indexOf('<img src="data:image/png;base64,') >= 0);
+eq("no asset ref is left in the HTML", htmlEnv.body.html.indexOf("asset://"), -1);
+ok("the rest of the tag survives", htmlEnv.body.html.indexOf('style="width:120px"') >= 0);
+var unknownRef = C.writeZip([{ name: "document.json",
+    data: C.utf8Encode('{"app":"document","body":{"html":"<img src=\\"asset://gone.png\\">"}}') }]);
+eq("an embedded ref with no asset is left alone",
+    JSON.parse(C.unpack(unknownRef)).body.html, '<img src="asset://gone.png">');
+
 /* ---------- zip writer basics ---------- */
 var zip = C.writeZip([
     { name: "document.json", data: C.utf8Encode('{"k":"v"}') },

@@ -9,7 +9,7 @@
                   the Go converters in mod/office are all available.
 
       standalone  the file the web-viewer generator writes over this one in
-                  its output tree (see apps/ArozOS Office Web/generate.go)
+                  its output tree (see apps/arozos_office/generate.go)
                   the suite is served by any dumb static file server, with
                   no ArozOS behind it: documents are opened from and saved
                   back to the visitor's own device, and every server-side

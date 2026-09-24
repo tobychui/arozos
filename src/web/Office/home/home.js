@@ -8,12 +8,20 @@
       - mode.js      which build this is, so formats the build cannot convert
                      are not offered
       - recents.js   OfficeRecents: the documents this browser is keeping
+      - container.js + share.js   OfficeShare: ?request=<ArozOS share link>
 
     How opening a file from here works. A File the visitor picks cannot be
     handed across a page navigation, so "Open from device" writes the bytes
     into OfficeRecents (IndexedDB) and sends the app to ?recent=<id>, which
     OfficePlatform resolves back to those bytes. That is the same path the
     "Recently opened" list uses, so there is one mechanism rather than two.
+
+    ?request=<share link> (standalone build) uses the same hand-off: the page
+    downloads the document from the ArozOS share's preview endpoint, reads
+    which app it belongs to from its envelope, keeps it in OfficeRecents and
+    sends that app to ?recent=<id>. When the browser will not keep it (no
+    IndexedDB, or a document over the per-entry cap) the app is sent the
+    link itself instead - ?request=&name= - and fetches it again there.
 
     Paths: BASE comes from <body data-office-base>, which the web-viewer
     generator rewrites when it moves this page to the site root. Never
@@ -588,6 +596,84 @@
         reader.readAsArrayBuffer(file);
     }
 
+    /* ================= ?request=<ArozOS share link> ================= */
+    function queryParam(name) {
+        var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search || "");
+        if (!m) return null;
+        try { return decodeURIComponent(m[1].replace(/\+/g, " ")) || null; } catch (e) { return null; }
+    }
+
+    function fetchView(state, title, msg) {
+        var box = $("#hmFetch");
+        box.hidden = false;
+        box.classList.toggle("is-error", state === "error");
+        $("#hmFetchSpin").hidden = state === "error";
+        $("#hmFetchActions").hidden = state !== "error";
+        $("#hmFetchTitle").textContent = title;
+        $("#hmFetchMsg").textContent = msg || "";
+    }
+
+    // leave the request behind: close the overlay and drop the parameters,
+    // so a reload shows the plain home page rather than fetching again
+    function closeFetch() {
+        $("#hmFetch").hidden = true;
+        try { window.history.replaceState(null, "", window.location.pathname); } catch (e) { }
+    }
+
+    function openSharedLink(link, nameParam) {
+        var fail = function (msg) { fetchView("error", "Could not open the shared document", msg); };
+        var info;
+        try { info = OfficeShare.parse(link); } catch (e) {
+            fail(e.message);
+            $("#hmFetchRetry").hidden = true;   // a bad link will not get better
+            return;
+        }
+
+        $("#hmFetchSrc").textContent = link;
+        var host = info.origin.replace(/^https?:\/\//, "");
+        fetchView("busy", "Opening shared document", "Downloading from " + host + "...");
+
+        OfficeShare.fetch(info.previewUrl, function (bytes, serverName) {
+            var app = OfficeShare.appOf(bytes);
+            if (!app) {
+                fail("That share is not an ArozOS Office document (.doca, .xlsa or .ppta).");
+                return;
+            }
+            var name = OfficeShare.fileName(app, [nameParam, serverName, info.nameHint]);
+            fetchView("busy", "Opening shared document",
+                "Opening " + name + " in " + APPS[app].label + "...");
+
+            // replace(), not assign: Back from the editor should not land on
+            // this page and download the document all over again
+            var handTo = function (query) { window.location.replace(appUrl(app, query)); };
+            var sendLink = function () {
+                handTo("?request=" + encodeURIComponent(link) + "&name=" + encodeURIComponent(name));
+            };
+            if (!window.OfficeRecents || !OfficeRecents.supported()) { sendLink(); return; }
+            OfficeRecents.remember({ name: name, app: app, ext: OfficeShare.extension(app), bytes: bytes },
+                function (id) { handTo("?recent=" + encodeURIComponent(id)); },
+                sendLink);
+        }, fail);
+    }
+
+    // true when the page was opened to fetch a share, and is now doing so
+    function handleRequest() {
+        var link = queryParam("request");
+        if (!link) return false;
+        if (!isStandalone() || !window.OfficeShare) {
+            // inside ArozOS the user opens the file from their own storage;
+            // recents and the hand-off are a standalone-build mechanism
+            fetchView("error", "Could not open the shared document",
+                "Opening share links is a feature of the standalone web edition. " +
+                "In ArozOS, open the file from the File Manager instead.");
+            return true;
+        }
+        var name = queryParam("name");
+        $("#hmFetchRetry").addEventListener("click", function () { openSharedLink(link, name); });
+        openSharedLink(link, name);
+        return true;
+    }
+
     /* ================= filters ================= */
     function setFilter(f) {
         state.filter = f;
@@ -603,6 +689,8 @@
     /* ================= wiring ================= */
     function init() {
         applyTheme();
+        $("#hmFetchClose").addEventListener("click", closeFetch);
+        handleRequest();
         renderNewGrid();
         buildCreateMenu();
         renderRecents();
