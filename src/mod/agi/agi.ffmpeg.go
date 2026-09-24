@@ -522,6 +522,9 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		return otto.TrueValue()
 	})
 
+	//Background jobs: timeline renders and proxies (agi.ffmpeg.jobs.go)
+	g.injectFFmpegJobFunctions(payload)
+
 	vm.Run(`
 		var ffmpeg = {};
 		ffmpeg.convert = _ffmpeg_conv;
@@ -530,5 +533,8 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 		ffmpeg.videoConvert = _ffmpeg_video_conv;
 		ffmpeg.convertWithProgress = _ffmpeg_conv_with_progress;
 		ffmpeg.cancel = _ffmpeg_cancel;
+		ffmpeg.renderTimeline = _ffmpeg_render_timeline;
+		ffmpeg.makeProxy = _ffmpeg_make_proxy;
+		ffmpeg.hwEncoder = _ffmpeg_hw_encoder;
 	`)
 }

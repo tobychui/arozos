@@ -24,6 +24,10 @@ func TestCleanRepoPath(t *testing.T) {
 		{name: "parent escape", input: "../secret.txt", wantError: true},
 		{name: "nested parent escape", input: "src/../../secret.txt", wantError: true},
 		{name: "absolute unix path", input: "/absolute/secret.txt", wantError: true},
+		{name: "mixed separators", input: "src/mod\\main.go", want: "src/mod/main.go"},
+		{name: "backslash parent escape", input: "..\\secret.txt", wantError: true},
+		{name: "nested backslash parent escape", input: "src\\..\\..\\secret.txt", wantError: true},
+		{name: "backslash absolute path", input: "\\etc\\passwd", wantError: true},
 	}
 
 	for _, test := range tests {

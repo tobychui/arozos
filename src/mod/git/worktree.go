@@ -238,9 +238,12 @@ func cleanRepoPaths(files []string) ([]string, error) {
 }
 
 // cleanRepoPath validates that a path stays inside the repository. Paths come
-// from the browser, so a "../" escape must never reach the filesystem.
+// from the browser, so a "../" escape must never reach the filesystem. A
+// browser on any OS may send either separator, and filepath only understands
+// a backslash on Windows, so both are folded to "/" first: "..\secret" must be
+// rejected on Linux too.
 func cleanRepoPath(file string) (string, error) {
-	cleaned := filepath.ToSlash(filepath.Clean(strings.TrimSpace(file)))
+	cleaned := filepath.ToSlash(filepath.Clean(strings.ReplaceAll(strings.TrimSpace(file), "\\", "/")))
 	cleaned = strings.TrimPrefix(cleaned, "./")
 
 	if cleaned == "" || cleaned == "." {

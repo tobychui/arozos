@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -167,6 +168,47 @@ func TestCancelConversionKillsRunningJob(t *testing.T) {
 	}
 }
 
+// TestWasCancelled tells a user's cancel from a job that failed on its own.
+func TestWasCancelled(t *testing.T) {
+	key := filepath.Join(t.TempDir(), "cancelled.progress.json")
+
+	if WasCancelled(key) {
+		t.Fatal("a job nobody cancelled must not report as cancelled")
+	}
+	if WasCancelled("") {
+		t.Fatal("an empty progress file has no jobs")
+	}
+
+	cmd := startHelperProcess(t)
+	registerConversion(key, cmd)
+	go cmd.Wait()
+	if !CancelConversion(key) {
+		t.Fatal("CancelConversion returned false for a running job")
+	}
+	unregisterConversion(key)
+
+	if !WasCancelled(key) {
+		t.Error("a cancelled job must report as cancelled")
+	}
+	if WasCancelled(key) {
+		t.Error("the cancelled mark must be consumed by the first answer")
+	}
+
+	// A new run under the same progress file starts clean, even if the mark of
+	// an earlier cancel was never read
+	cancelledConversions.Store(conversionJobKey(key), struct{}{})
+	again := startHelperProcess(t)
+	registerConversion(key, again)
+	defer func() {
+		again.Process.Kill()
+		again.Wait()
+		unregisterConversion(key)
+	}()
+	if WasCancelled(key) {
+		t.Error("registering a new job must clear a stale cancelled mark")
+	}
+}
+
 func TestRequiresEvenDimensions(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -258,5 +300,179 @@ func TestGetVideoDimensionsInvalidFile(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "not-a-video.webm")
 	if w, h, err := getVideoDimensions(missing); err == nil {
 		t.Errorf("getVideoDimensions(%q) = (%d, %d), want an error", missing, w, h)
+	}
+}
+
+/* ---------- asynchronous job helpers ---------- */
+
+func TestRunWithProgressRequiresProgressFile(t *testing.T) {
+	if err := RunWithProgress([]string{"-i", "x"}, "y", 0, ""); err == nil {
+		t.Fatal("RunWithProgress must refuse to run without a progress file")
+	}
+}
+
+func TestProgressStageLifecycle(t *testing.T) {
+	dir := t.TempDir()
+	progress := filepath.Join(dir, "job.progress.json")
+	output := filepath.Join(dir, "out.bin")
+
+	// Nothing written yet: an empty snapshot, never an error
+	if got := ReadProgress(progress); got.Stage != "" || got.Completed {
+		t.Fatalf("empty progress file should read as zero value, got %+v", got)
+	}
+
+	WriteProgressStage(progress, StageQueued)
+	if got := ReadProgress(progress); got.Stage != StageQueued {
+		t.Fatalf("stage not recorded: %+v", got)
+	}
+
+	// A periodic monitor write keeps the stage
+	writeProgressJSON(progress, 10, output, time.Now(), 42, false)
+	got := ReadProgress(progress)
+	if got.Stage != StageQueued || got.Percentage != 42 {
+		t.Fatalf("monitor write must keep the stage and record the percentage: %+v", got)
+	}
+
+	if err := os.WriteFile(output, []byte("0123456789"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	MarkProgressCompleted(progress, output)
+	got = ReadProgress(progress)
+	if !got.Completed || got.Percentage != 100 || got.Stage != StageDone || got.OutputSize != 10 {
+		t.Fatalf("completion not recorded: %+v", got)
+	}
+
+	MarkProgressFailed(progress, os.ErrNotExist)
+	got = ReadProgress(progress)
+	if got.Completed || got.Stage != StageFailed || got.Error == "" {
+		t.Fatalf("failure not recorded: %+v", got)
+	}
+	MarkProgressFailed(progress, nil)
+	if got := ReadProgress(progress); got.Error != "unknown error" {
+		t.Fatalf("nil error should still leave a message: %+v", got)
+	}
+}
+
+func TestMediaDurationMsUnprobeable(t *testing.T) {
+	if got := MediaDurationMs(filepath.Join(t.TempDir(), "missing.mp4")); got != 0 {
+		t.Fatalf("MediaDurationMs on a missing file = %d, want 0", got)
+	}
+}
+
+// TestStderrTail keeps only the end of a long ffmpeg message.
+func TestStderrTail(t *testing.T) {
+	tail := &stderrTail{}
+	if tail.String() != "" {
+		t.Fatalf("empty tail = %q", tail.String())
+	}
+	tail.Write([]byte("first line\n"))
+	tail.Write([]byte(strings.Repeat("x", stderrTailSize)))
+	tail.Write([]byte("\nStream specifier ':a' matches no streams\n"))
+	got := tail.String()
+	if len(got) > stderrTailSize {
+		t.Errorf("tail is %d bytes, want at most %d", len(got), stderrTailSize)
+	}
+	if !strings.HasSuffix(got, "matches no streams") {
+		t.Errorf("tail lost the end of the message: %q", got)
+	}
+	if strings.Contains(got, "first line") {
+		t.Errorf("tail kept the start of the message: %q", got)
+	}
+}
+
+// TestRunWithProgressReportsFFmpegMessage makes ffmpeg fail and checks that
+// the returned error says why, not only that it exited non-zero.
+func TestRunWithProgressReportsFFmpegMessage(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "no_such_input.mp4")
+	args := []string{"-hide_banner", "-loglevel", "error", "-i", missing}
+	err := RunWithProgress(args, filepath.Join(dir, "out.mp4"), 0, filepath.Join(dir, "job.progress.json"))
+	if err == nil {
+		t.Fatal("expected ffmpeg to fail on a missing input")
+	}
+	if !strings.Contains(err.Error(), "no_such_input.mp4") {
+		t.Errorf("error should carry ffmpeg's own message, got: %v", err)
+	}
+}
+
+// TestHasAudioStream checks the audio probe against real files: a clip with
+// a sound track, a silent one, and a file ffprobe cannot read at all (which
+// must fall back to "has audio" so existing behaviour is kept).
+func TestHasAudioStream(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not installed")
+	}
+	dir := t.TempDir()
+	withAudio := filepath.Join(dir, "with_audio.mp4")
+	silent := filepath.Join(dir, "silent.mp4")
+	gen := func(out string, extra ...string) {
+		args := []string{"-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration=1"}
+		args = append(args, extra...)
+		args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-shortest", out)
+		if err := exec.Command("ffmpeg", args...).Run(); err != nil {
+			t.Fatalf("could not generate %s: %v", out, err)
+		}
+	}
+	gen(withAudio, "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-c:a", "aac")
+	gen(silent)
+
+	tests := []struct {
+		name    string
+		file    string
+		want    bool
+		wantErr bool
+	}{
+		{name: "video with sound", file: withAudio, want: true},
+		{name: "silent video", file: silent, want: false},
+		{name: "unreadable file keeps audio", file: filepath.Join(dir, "missing.mp4"), want: true, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := HasAudioStream(tc.file)
+			if got != tc.want {
+				t.Errorf("HasAudioStream(%s) = %v, want %v", tc.name, got, tc.want)
+			}
+			if (err != nil) != tc.wantErr {
+				t.Errorf("HasAudioStream(%s) error = %v, wantErr %v", tc.name, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TestRunWithProgressWithFFmpeg encodes a synthetic clip through the generic
+// runner and checks that the job is registered while it runs and that the
+// caller stays in charge of the completion flag.
+func TestRunWithProgressWithFFmpeg(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	dir := t.TempDir()
+	progress := filepath.Join(dir, "job.progress.json")
+	output := filepath.Join(dir, "out.mp4")
+	args := []string{"-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration=1",
+		"-c:v", "libx264", "-pix_fmt", "yuv420p"}
+	if err := RunWithProgress(args, output, 1000, progress); err != nil {
+		t.Fatalf("RunWithProgress failed: %v", err)
+	}
+	if st, err := os.Stat(output); err != nil || st.Size() == 0 {
+		t.Fatalf("output not written: %v", err)
+	}
+	if ConversionIsRunning(progress) {
+		t.Fatal("job must be unregistered once ffmpeg exits")
+	}
+	if got := ReadProgress(progress); got.Completed {
+		t.Fatalf("runner must not mark the job completed by itself: %+v", got)
+	}
+	if _, err := os.Stat(progress + ".ffprog"); !os.IsNotExist(err) {
+		t.Fatal("ffmpeg pipe file should be removed")
+	}
+	if err := RunWithProgress([]string{"-i", filepath.Join(dir, "missing.mp4")}, output, 0, progress); err == nil {
+		t.Fatal("a failing ffmpeg run must be reported")
 	}
 }

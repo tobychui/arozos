@@ -21,9 +21,13 @@ CS.media = {
     },
 
     //URL of the playable pixels / samples. Project imports (.pxs / .asproj)
-    //are composited on import into media.compositeUrl.
+    //are composited on import into media.compositeUrl; footage the browser
+    //cannot decode plays through a server-made proxy.
     mediaURL: function (media) {
         if (media.compositeUrl) { return media.compositeUrl; }
+        if (media.proxyVpath && media.proxyState === "ready") {
+            return "../media?file=" + encodeURIComponent(media.proxyVpath);
+        }
         return CS.media.rawURL(media);
     },
 
@@ -172,11 +176,240 @@ CS.media = {
     /* ---------- probing ---------- */
 
     probe: function (media) {
+        CS.media.initProxyFields(media);
         if (media.srcKind === "pxs") { CS.media.probePxs(media); }
         else if (media.srcKind === "asproj") { CS.media.probeAsproj(media); }
-        else if (media.type === "video") { CS.media.probeVideo(media); }
+        else if (media.vpath && CS.inArozOS()) { CS.media.prepare(media); }
+        else { CS.media.probeDirect(media); }
+    },
+
+    //Probe through whatever URL mediaURL resolves to right now
+    probeDirect: function (media) {
+        if (media.type === "video") { CS.media.probeVideo(media); }
         else if (media.type === "audio") { CS.media.probeAudio(media); }
         else { CS.media.probeImage(media); }
+    },
+
+    /* ---------- playability and proxies ---------- */
+
+    //Fields of the proxy machinery; media restored from a project file or
+    //created before this feature existed may lack them
+    initProxyFields: function (media) {
+        if (media.proxyState === undefined) { media.proxyState = ""; }   // "" | pending | ready | failed
+        if (media.proxyVpath === undefined) { media.proxyVpath = ""; }
+        if (media.proxyPct === undefined) { media.proxyPct = 0; }
+        if (media.proxyHeight === undefined) { media.proxyHeight = 0; }
+        if (media.srcWidth === undefined) { media.srcWidth = 0; }      // original pixel size, from the
+        if (media.srcHeight === undefined) { media.srcHeight = 0; }    // codec probe (0 = unknown)
+        if (media.directPlay === undefined) { media.directPlay = null; } // null = not probed yet
+    },
+
+    //Decide how a server-side file will be played: directly, or through a
+    //proxy the host's ffmpeg makes. Runs once the ffmpeg check has answered.
+    prepare: function (media) {
+        CS.whenFFmpegKnown(function () {
+            if (!CS.serverFFmpeg) {
+                //No ffmpeg: the browser gets the original and either plays it or
+                //reports the media offline
+                CS.media.probeDirect(media);
+                return;
+            }
+            if (media.type === "video") { CS.media.prepareVideo(media); }
+            else if (media.type === "audio") { CS.media.prepareAudio(media); }
+            else { CS.media.prepareImage(media); }
+        });
+    },
+
+    prepareVideo: function (media) {
+        var ext = CS.extOf(media.name);
+        //The container extension says nothing about the codecs inside: ask the
+        //media server's probe endpoint, which knows what browsers decode
+        fetch("../media/probe/?file=" + encodeURIComponent(media.vpath))
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; })
+            .then(function (info) {
+                if (info && info.error === undefined && info.videoCodec !== undefined) {
+                    media.directPlay = !!info.directPlay;
+                    media.srcWidth = info.width || 0;
+                    media.srcHeight = info.height || 0;
+                } else {
+                    //Probe unavailable (remote file system, ...): judge by the
+                    //container and let the browser have the final say
+                    media.directPlay = CS.BROWSER_VIDEO_EXTS.indexOf(ext) >= 0 ? null : false;
+                }
+                CS.media.decideVideoProxy(media);
+            });
+    },
+
+    //Proxy when the browser cannot decode the file at all, or when the
+    //playback resolution is reduced and the footage is larger than that
+    decideVideoProxy: function (media) {
+        var ext = CS.extOf(media.name);
+        var playable = media.directPlay !== false && CS.BROWSER_VIDEO_EXTS.indexOf(ext) >= 0;
+        var height = CS.proxyHeight();
+        var tooBig = height > 0 && media.srcHeight > height * 1.34;
+        if (!playable || tooBig) {
+            CS.media.requestProxy(media, "video", height);
+        } else {
+            CS.media.clearProxy(media);
+            CS.media.probeDirect(media);
+        }
+    },
+
+    prepareAudio: function (media) {
+        var ext = CS.extOf(media.name);
+        if (CS.BROWSER_AUDIO_EXTS.indexOf(ext) >= 0) {
+            CS.media.clearProxy(media);
+            CS.media.probeDirect(media);
+        } else {
+            CS.media.requestProxy(media, "audio", 0);
+        }
+    },
+
+    prepareImage: function (media) {
+        var ext = CS.extOf(media.name);
+        if (CS.BROWSER_IMAGE_EXTS.indexOf(ext) >= 0) {
+            CS.media.clearProxy(media);
+            CS.media.probeDirect(media);
+        } else {
+            CS.media.requestProxy(media, "image", 0);
+        }
+    },
+
+    clearProxy: function (media) {
+        if (media.proxyState === "ready" && media.proxyVpath) {
+            //Switching back to the original: the pooled elements point at the proxy
+            CS.player.dropMedia(media.id);
+        }
+        media.proxyState = "";
+        media.proxyVpath = "";
+        media.proxyPct = 0;
+        media.proxyHeight = 0;
+    },
+
+    //Ask the host for a proxy (cached per source file, size and playback
+    //resolution) and follow the conversion until it is ready
+    requestProxy: function (media, kind, height) {
+        if (media.proxyState === "ready" && media.proxyHeight === height && media.proxyVpath) {
+            CS.media.probeDirect(media);
+            return;
+        }
+        if (media.proxyState === "pending" && media.proxyHeight === height) { return; }
+        media.probed = false;
+        media.offline = false;
+        media.proxyState = "pending";
+        media.proxyPct = 0;
+        media.proxyHeight = height;
+        media.proxyVpath = "";
+        CS.media.renderBin();
+
+        ao_module_agirun("Cine Studio/backend/ffmpegtools.js", {
+            action: "proxy",
+            src: media.vpath,
+            kind: kind,
+            height: height
+        }, function (resp) {
+            var data;
+            try { data = typeof resp === "string" ? JSON.parse(resp) : resp; }
+            catch (e) { data = { error: "bad response" }; }
+            if (!data || !data.ok) {
+                CS.media.proxyFailed(media, (data && data.error) || "proxy request failed");
+                return;
+            }
+            //A different resolution was chosen while the request was in flight
+            if (media.proxyHeight !== height) { return; }
+            if (data.ready) {
+                CS.media.proxyReady(media, data.vpath);
+            } else {
+                CS.media.pollProxy(media, data.progress, data.vpath, height);
+            }
+        }, function () {
+            CS.media.proxyFailed(media, "proxy request failed");
+        });
+    },
+
+    pollProxy: function (media, progressFile, vpath, height) {
+        function tick() {
+            //Abandoned: the media was removed or re-prepared at another size
+            if (CS.project.media.indexOf(media) < 0 || media.proxyHeight !== height || media.proxyState !== "pending") { return; }
+            ao_module_agirun("Cine Studio/backend/ffmpegtools.js", {
+                action: "progress",
+                progress: progressFile,
+                target: vpath
+            }, function (resp) {
+                var p;
+                try { p = typeof resp === "string" ? JSON.parse(resp) : resp; }
+                catch (e) { p = null; }
+                if (media.proxyHeight !== height || media.proxyState !== "pending") { return; }
+                if (p && p.stage === "failed") {
+                    CS.media.proxyFailed(media, p.error || "conversion failed");
+                    return;
+                }
+                if (p && p.completed && p.exists) {
+                    CS.media.proxyReady(media, vpath);
+                    return;
+                }
+                if (p) {
+                    media.proxyPct = p.stage === "queued" ? 0 : (p.percentage || 0);
+                    media.proxyStage = p.stage || "";
+                    CS.media.paintProxyBadges(media);
+                }
+                setTimeout(tick, 800);
+            }, function () {
+                setTimeout(tick, 2000);
+            });
+        }
+        setTimeout(tick, 600);
+    },
+
+    proxyReady: function (media, vpath) {
+        media.proxyState = "ready";
+        media.proxyVpath = vpath;
+        media.proxyPct = 100;
+        //Any element created while the proxy was pending points at the original
+        CS.player.dropMedia(media.id);
+        CS.media.probeDirect(media);
+        CS.media.renderBin();
+    },
+
+    proxyFailed: function (media, reason) {
+        media.proxyState = "failed";
+        media.proxyVpath = "";
+        CS.toast("Cannot prepare " + media.name + ": " + reason, true);
+        CS.media.markOffline(media);
+    },
+
+    //Re-evaluate every server-side clip after the playback resolution changed
+    applyQuality: function () {
+        if (!CS.inArozOS() || !CS.serverFFmpeg) { return; }
+        CS.project.media.forEach(function (m) {
+            if (m.vpath && m.type === "video" && !m.srcKind) {
+                CS.media.initProxyFields(m);
+                if (m.directPlay === null && !m.srcHeight) {
+                    CS.media.prepareVideo(m);
+                } else {
+                    CS.media.decideVideoProxy(m);
+                }
+            }
+        });
+    },
+
+    //Update only the proxy badges so a running conversion does not repaint
+    //the whole bin several times a second
+    paintProxyBadges: function (media) {
+        var grid = document.getElementById("bin-grid");
+        var badge = grid.querySelector('[data-proxy-badge="' + media.id + '"]');
+        if (badge) { badge.textContent = CS.media.proxyLabel(media); }
+        var fill = grid.querySelector('[data-proxy-fill="' + media.id + '"]');
+        if (fill) { fill.style.width = Math.round(media.proxyPct) + "%"; }
+    },
+
+    proxyLabel: function (media) {
+        if (media.proxyState === "pending") {
+            return media.proxyStage === "queued" ? "Queued" : "Proxy " + Math.round(media.proxyPct) + "%";
+        }
+        if (media.proxyState === "ready") { return media.proxyHeight ? "Proxy " + media.proxyHeight + "p" : "Proxy"; }
+        return "";
     },
 
     /* ---------- Pixel Studio (.pxs) import ---------- */
@@ -451,6 +684,12 @@ CS.media = {
             media.duration = v.duration && isFinite(v.duration) ? v.duration : 0;
             media.width = v.videoWidth;
             media.height = v.videoHeight;
+            //Without a codec probe the element is the only source of the
+            //original size (only true when it is not playing a proxy)
+            if (!media.srcWidth && media.proxyState !== "ready") {
+                media.srcWidth = v.videoWidth;
+                media.srcHeight = v.videoHeight;
+            }
             //Grab up to 5 frames spread across the clip for the filmstrip
             var n = Math.min(5, Math.max(1, Math.floor(media.duration)));
             frameTargets = [];
@@ -647,6 +886,25 @@ CS.media = {
                 badge.className = "offline-badge";
                 badge.innerHTML = CS.iconSVG("warning");
                 thumb.appendChild(badge);
+            } else if (m.proxyState === "pending" || m.proxyState === "ready") {
+                var pbadge = document.createElement("span");
+                pbadge.className = "proxy-badge " + m.proxyState;
+                pbadge.setAttribute("data-proxy-badge", m.id);
+                pbadge.textContent = CS.media.proxyLabel(m);
+                pbadge.title = m.proxyState === "pending"
+                    ? "The host is converting this file into a format the browser can play"
+                    : "Playing through a proxy made by the host; exports use the original file";
+                thumb.appendChild(pbadge);
+                if (m.proxyState === "pending") {
+                    var pbar = document.createElement("span");
+                    pbar.className = "proxy-bar";
+                    var pfill = document.createElement("span");
+                    pfill.className = "fill";
+                    pfill.setAttribute("data-proxy-fill", m.id);
+                    pfill.style.width = Math.round(m.proxyPct || 0) + "%";
+                    pbar.appendChild(pfill);
+                    thumb.appendChild(pbar);
+                }
             }
 
             var name = document.createElement("div");
@@ -661,8 +919,11 @@ CS.media = {
                 CS.state.selectedMediaId = m.id;
                 CS.media.renderBin();
             });
+            //Double-click opens the item in the source monitor (Premiere);
+            //"Add to timeline" stays in the context menu and via drag
             item.addEventListener("dblclick", function () {
-                CS.media.sendToTimeline(m);
+                CS.state.selectedMediaId = m.id;
+                CS.source.open(m);
             });
             item.addEventListener("dragstart", function (ev) {
                 ev.dataTransfer.setData("cinestudio/media", m.id);
@@ -702,6 +963,7 @@ CS.media = {
     itemMenu: function (media, x, y) {
         CS.showMenu([
             { label: "Add to timeline", icon: "plus", action: function () { CS.media.sendToTimeline(media); } },
+            { label: "Open in source monitor", icon: "monitor", action: function () { CS.source.open(media); } },
             {
                 label: "Reveal in File Manager", icon: "folder", disabled: !media.vpath || !CS.inArozOS(),
                 action: function () { ao_module_openPath(CS.dirOf(media.vpath), media.name); }
@@ -733,7 +995,6 @@ CS.media = {
 
     //Double click: append at the playhead on the first compatible track
     sendToTimeline: function (media) {
-        if (media.offline) { CS.toast("Cannot use offline media", true); return; }
         var kind = media.type === "audio" ? "audio" : "video";
         var track = null;
         var tracks = CS.project.tracks.filter(function (t) { return t.kind === kind; });
