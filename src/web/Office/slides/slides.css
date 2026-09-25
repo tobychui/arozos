@@ -381,6 +381,17 @@ body.dark .sl-h { background: #2b2d31; }
     cursor: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='4'%20stroke-linejoin='round'%20stroke-linecap='round'%3E%3Cpath%20d='M7.05%2016.95A7%207%200%201%201%2016.95%2016.95'/%3E%3Cpath%20d='M13.98%2019.92L18.93%2018.93L14.97%2014.97Z'/%3E%3C/g%3E%3Cpath%20d='M7.05%2016.95A7%207%200%201%201%2016.95%2016.95'%20fill='none'%20stroke='%23000'%20stroke-width='1.9'%20stroke-linecap='round'/%3E%3Cpath%20d='M13.98%2019.92L18.93%2018.93L14.97%2014.97Z'%20fill='%23000'/%3E%3C/svg%3E") 12 12, grab;
 }
 .sl-h[data-h="p1"], .sl-h[data-h="p2"] { cursor: move; }
+/* the adjustment handle: a callout's tip, a rounded corner - yellow and
+   diamond-shaped, as in PowerPoint and Google Slides */
+.sl-h.sl-h-adj {
+    background: #fbbc04;
+    border-color: #8a6100;
+    border-radius: 1px;
+    transform: rotate(45deg);
+    cursor: pointer;
+    z-index: 611;
+}
+body.dark .sl-h.sl-h-adj { background: #fbbc04; }
 .sl-rot-stem {
     position: absolute;
     background: var(--of-accent);
@@ -957,3 +968,9 @@ body.dark .sl-h { background: #2b2d31; }
 }
 .sl-fp-swatch:hover { border-color: var(--of-accent); }
 .sl-fp-swatch.active { border-color: var(--of-accent); box-shadow: 0 0 0 1px var(--of-accent); color: var(--of-accent); }
+
+/* ---- line menus (slides_lines.js): the toolbar glyphs and menu samples
+   are SVG drawn in currentColor, so they follow the theme ---- */
+.sl-linebtn .sl-line-ico { display: block; }
+.of-mi-html .sl-line-ico { color: var(--of-fg); }
+.of-mi-html .sl-mi-text { font-size: 12px; color: var(--of-fg-soft); min-width: 32px; }

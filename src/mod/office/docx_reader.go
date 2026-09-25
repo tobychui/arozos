@@ -791,7 +791,11 @@ func (cv *docxConv) paragraph(p *xnode, part *docxPartCtx, ctx blockCtx, spanAll
 		}
 	}
 
-	runs := cv.runs(p, part, baseR)
+	// a run takes its look from the paragraph style and its own rPr; the
+	// paragraph mark's rPr formats only the mark (the empty line's height,
+	// a list number), so runs must not inherit it - but they are written
+	// against the block, which does
+	runs := cv.runs(p, part, *styleR, baseR)
 
 	tag := "p"
 	var classes []string
@@ -1274,9 +1278,9 @@ type inlinePiece struct {
 }
 
 // runs renders the inline content of a paragraph
-func (cv *docxConv) runs(p *xnode, part *docxPartCtx, baseR docxRPr) runsResult {
+func (cv *docxConv) runs(p *xnode, part *docxPartCtx, baseR, blockR docxRPr) runsResult {
 	res := runsResult{}
-	blockCSS := rPrCSS(baseR)
+	blockCSS := rPrCSS(blockR)
 	var pieces []inlinePiece
 	var segments []string
 	flush := func() {

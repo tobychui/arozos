@@ -29,8 +29,11 @@
                         //  shape: { kind: a SlidesShapes name, which is the
                         //                 PresentationML preset name -
                         //                 "rect"|"roundRect"|"ellipse"|"rightBrace"|...
-                        //           fill, stroke, strokeW, text, textColor, fontSize, bold }
-                        //  line : { stroke, strokeW, dash, arrowEnd }
+                        //           fill, stroke, strokeW, text, textColor, fontSize, bold,
+                        //           adj: { adj1, adj2, ... } - a callout's tip (SlidesShapes) }
+                        //  line : { stroke, strokeW, dashStyle, startHead, endHead }
+                        //         (slides_lines.js; older documents say
+                        //          dash / arrowEnd / arrowStart instead)
                         //  table: { rows: [["a","b"],...], headerRow, colW?, rowH?, fontSize, color }
                         //  chart: { spec: <OfficeCharts spec> }
                         //  video: { src (data URL), autoplay }
@@ -323,13 +326,37 @@ var SlidesApp = (function () {
        corners and be partly transparent. The crop is reproduced the way
        PowerPoint defines it: the visible rectangle is scaled up to fill
        the frame and the rest is clipped by the wrapper. */
-    function imageHtml(p) {
+    function imageHtml(p, w, h) {
         var imgS = "object-fit:" + esc(p.fit || "contain") + ";" + cropImgStyle(p.crop);
         var wrapS = "";
         if (p.radius) wrapS += "border-radius:" + (Number(p.radius) || 0) + "px;";
         if (p.opacity) wrapS += "opacity:" + clamp(Number(p.opacity) || 1, 0, 1) + ";";
         var clip = maskClipPath(p.mask);
         if (clip) wrapS += "clip-path:" + clip + ";-webkit-clip-path:" + clip + ";";
+        // a picture's outline (pptx <a:ln> on the picture) is centred on the
+        // frame like PowerPoint draws it; a shaped crop gets it along the
+        // shape, which a clipped wrapper cannot draw on itself
+        var sw = Number(p.strokeW) || 0;
+        var outline = "";
+        if (sw > 0 && p.stroke && p.stroke !== "none") {
+            var dash = SlidesLines.dashArray(p, sw);
+            if (!clip && !dash) {
+                wrapS += "outline:" + sw + "px solid " + esc(p.stroke) +
+                    ";outline-offset:" + (-sw / 2) + "px;";
+            } else if (w > 0 && h > 0) {
+                // CSS has no dash-dot, and a clipped wrapper cannot draw
+                // along its own clip: an SVG does both
+                var d = clip && window.SlidesShapes ? SlidesShapes.path(p.mask, w, h) : "";
+                var r = Number(p.radius) || 0;
+                var geo = d ? '<path d="' + esc(d) + '"'
+                    : '<rect x="0" y="0" width="' + w + '" height="' + h + '" rx="' + r + '"';
+                outline = '<svg class="sl-img-outline" width="' + w + '" height="' + h +
+                    '" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none;">' +
+                    geo + ' fill="none" stroke="' + esc(p.stroke) + '" stroke-width="' + sw + '"' +
+                    ' stroke-linecap="' + SlidesLines.capOf(p) + '"' +
+                    (dash ? ' stroke-dasharray="' + dash.join(" ") + '"' : "") + "/></svg>";
+            }
+        }
         // re-colour and the brightness / contrast adjustments are one CSS
         // filter, built by the picture tools so the canvas, the thumbnails,
         // present mode and the panel's own swatches all agree
@@ -341,7 +368,7 @@ var SlidesApp = (function () {
         if (flip) imgS += "transform:" + flip.trim() + ";";
         return '<div class="sl-img-wrap" style="' + wrapS + '">' +
             '<img draggable="false" src="' + esc(p.src || "") +
-            '" style="' + imgS + '" alt=""></div>';
+            '" style="' + imgS + '" alt=""></div>' + outline;
     }
 
     /* The visible rectangle is scaled up to fill the frame and the rest is
@@ -409,7 +436,8 @@ var SlidesApp = (function () {
         var attrs = 'fill="' + esc(fill) + '"' +
             (SlidesShapes.evenOdd(kind) ? ' fill-rule="evenodd"' : "") +
             (hasStroke ? ' stroke="' + esc(stroke) + '" stroke-width="' + sw + '"' +
-                (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") : ' stroke="none"') +
+                (SlidesLines.dashArray(p, sw) ? ' stroke-dasharray="' + SlidesLines.dashArray(p, sw).join(" ") +
+                    '" stroke-linecap="' + SlidesLines.capOf(p) + '"' : "") : ' stroke="none"') +
             ' stroke-linejoin="round" vector-effect="non-scaling-stroke"';
         var inner;
         var i = hasStroke ? Math.max(0.5, sw / 2) : 0;
@@ -421,7 +449,7 @@ var SlidesApp = (function () {
         } else if (kind === "ellipse") {
             inner = '<ellipse cx="' + (w / 2) + '" cy="' + (h / 2) + '" rx="' + (w / 2 - i) + '" ry="' + (h / 2 - i) + '" ' + attrs + "/>";
         } else {
-            var d = SlidesShapes.path(kind, w, h);
+            var d = SlidesShapes.path(kind, w, h, p.adj);
             if (!d) d = SlidesShapes.path("rect", w, h);
             inner = '<path d="' + d + '" ' + attrs + "/>";
         }
@@ -495,24 +523,6 @@ var SlidesApp = (function () {
         var ox = 0, oy = 0;
         pts.forEach(function (pt) { ox = Math.min(ox, pt[0]); oy = Math.min(oy, pt[1]); });
         pts = pts.map(function (pt) { return [pt[0] - ox, pt[1] - oy]; });
-        var head = "";
-        var first = pts[0], last = pts[pts.length - 1];
-        var trimmed = pts.slice();
-
-        function arrowAt(tip, from) {
-            var ang = Math.atan2(tip[1] - from[1], tip[0] - from[0]);
-            var s = 6 + sw * 2.4;
-            var bx = tip[0] - s * Math.cos(ang), by = tip[1] - s * Math.sin(ang);
-            var px = s * 0.45 * -Math.sin(ang), py = s * 0.45 * Math.cos(ang);
-            head += '<polygon points="' + tip[0].toFixed(1) + "," + tip[1].toFixed(1) + " " +
-                (bx + px).toFixed(1) + "," + (by + py).toFixed(1) + " " +
-                (bx - px).toFixed(1) + "," + (by - py).toFixed(1) +
-                '" fill="' + esc(stroke) + '"/>';
-            // pull the stroke back so it does not poke through the head
-            return [tip[0] - s * 0.6 * Math.cos(ang), tip[1] - s * 0.6 * Math.sin(ang)];
-        }
-        if (p.arrowEnd) trimmed[trimmed.length - 1] = arrowAt(last, pts[pts.length - 2]);
-        if (p.arrowStart) trimmed[0] = arrowAt(first, pts[1]);
 
         function poly(list) {
             return list.map(function (pt) {
@@ -523,11 +533,10 @@ var SlidesApp = (function () {
         // generous transparent hit area
         out += '<polyline points="' + poly(pts) + '" fill="none" ' +
             'stroke="rgba(0,0,0,0)" stroke-width="' + Math.max(14, sw + 10) + '"/>';
-        out += '<polyline points="' + poly(trimmed) + '" fill="none"' +
-            ' stroke="' + esc(stroke) + '" stroke-width="' + sw +
-            '" stroke-linecap="round" stroke-linejoin="round"' +
-            (p.dash ? ' stroke-dasharray="' + (sw * 3) + " " + (sw * 2.4) + '"' : "") + "/>";
-        out += head + "</svg>";
+        // the stroke, its dash and both ends: slides_lines.js, which the PDF
+        // exporter asks too
+        out += SlidesLines.svgMarkup(pts, p, sw, stroke);
+        out += "</svg>";
         return out;
     }
 
@@ -643,7 +652,7 @@ var SlidesApp = (function () {
                     (o.props.html || "") + "</div>";
                 break;
             case "image":
-                d.innerHTML = imageHtml(o.props);
+                d.innerHTML = imageHtml(o.props, o.w, o.h);
                 break;
             case "shape":
                 d.innerHTML = shapeSvg(o) + shapeTextDiv(o);
@@ -703,6 +712,44 @@ var SlidesApp = (function () {
         return h;
     }
 
+    /* ---- shape adjustments: a callout's tip, a rounded corner ----
+       The yellow handle sits where the adjustment is: on the tip of a
+       speech bubble, on the top edge where a rounded rectangle's corner
+       ends. Positions are in the frame's own (unrotated) box. */
+    function adjHandlePos(o) {
+        if (o.type !== "shape" || !o.props) return null;
+        var kind = SlidesShapes.canonical(o.props.kind || "rect");
+        var how = SlidesShapes.adjustable(kind);
+        if (how === "tip") {
+            if (o.props.adj) return SlidesShapes.tipPoint(kind, o.w, o.h, o.props.adj);
+            var lt = SlidesShapes.legacyTip(kind);
+            return lt ? [lt.tip[0] * o.w, lt.tip[1] * o.h] : null;
+        }
+        if (how === "radius") {
+            var r = o.props.radius !== undefined ? Number(o.props.radius) : Math.min(o.w, o.h) * 0.15;
+            return [clamp(r, 0, Math.min(o.w, o.h) / 2), 0];
+        }
+        return null;
+    }
+    /* A callout made before adjustments existed drew its body in the top of
+       the frame and its tip at the bottom. The first drag of its handle
+       turns it into the adjusted form without moving anything: the frame
+       shrinks to the body and the tip is stated where it already was. */
+    function adoptAdjustments(o) {
+        var kind = SlidesShapes.canonical(o.props.kind || "rect");
+        if (SlidesShapes.adjustable(kind) !== "tip" || o.props.adj) return;
+        var lt = SlidesShapes.legacyTip(kind);
+        if (!lt) return;
+        var tip = [lt.tip[0] * o.w, lt.tip[1] * o.h];
+        var bodyH = Math.max(8, o.h * lt.body);
+        o.h = bodyH;
+        o.props.adj = {
+            adj1: Math.round((tip[0] - o.w / 2) / o.w * 100000),
+            adj2: Math.round((tip[1] - bodyH / 2) / bodyH * 100000)
+        };
+        if (lt.round) o.props.adj.adj3 = Math.round(lt.round * 100000);
+    }
+
     function renderOverlay() {
         if (!framesEl) return;
         framesEl.innerHTML = "";
@@ -751,6 +798,14 @@ var SlidesApp = (function () {
                     stem.style.height = stemH + "px";
                     fr.appendChild(stem);
                     fr.appendChild(mkHandle("rot", w / 2, -stemH, hs));
+                    var ah = adjHandlePos(o);
+                    if (ah) {
+                        var knob = mkHandle("adj", ah[0], ah[1], hs * 0.95);
+                        knob.className += " sl-h-adj";
+                        knob.title = SlidesShapes.adjustable(o.props.kind) === "tip"
+                            ? "Drag to move the tip" : "Drag to round the corners";
+                        fr.appendChild(knob);
+                    }
                 }
             }
             framesEl.appendChild(fr);
@@ -1388,7 +1443,26 @@ var SlidesApp = (function () {
         clip = clip.map(function (c) { var n = deep(c); n.x += 15; n.y += 15; return n; });
         setSel(ids);
         commit();
+        adoptPastedMedia(ids);
         return true;
+    }
+    /* Pictures copied from another window link into that window's working
+       copies, which go when it closes: make them this window's own. */
+    function adoptPastedMedia(ids) {
+        var slide = curSlide();
+        slide.objects.forEach(function (o) {
+            if (ids.indexOf(o.id) < 0 || !o.props) return;
+            ["src", "png", "poster"].forEach(function (k) {
+                var v = o.props[k];
+                if (!v || !OfficePlatform.isForeignWorkingCopy(v)) return;
+                OfficePlatform.adoptSrc(v, function (nv) {
+                    if (nv === v || o.props[k] !== v) return;
+                    o.props[k] = nv;
+                    OfficeApp.markDirty();
+                    renderAll();
+                });
+            });
+        });
     }
     function duplicateSelection() {
         if (!sel.length) return;
@@ -1646,10 +1720,14 @@ var SlidesApp = (function () {
         // a brace or a bracket only reads as itself tall and narrow, so the
         // catalogue gets to say what box its shapes want
         var size = SlidesShapes.defaultSize(kind) || [200, 160];
-        addObj("shape", {
+        var props = {
             kind: kind, fill: /^#[0-9a-fA-F]{6}$/.test(th.accent) ? th.accent : "#e07b1f",
             stroke: "#333333", strokeW: 0, text: "", fontSize: 18
-        }, { x: 480 - size[0] / 2, y: 270 - size[1] / 2, w: size[0], h: size[1] });
+        };
+        // a speech bubble starts with its tip where PowerPoint puts one,
+        // and a yellow handle to move it
+        if (SlidesShapes.adjustable(kind) === "tip") props.adj = SlidesShapes.tipDefaults(kind);
+        addObj("shape", props, { x: 480 - size[0] / 2, y: 270 - size[1] / 2, w: size[0], h: size[1] });
     }
     function armDraw(kind) {
         endEdit(true);
@@ -2427,10 +2505,18 @@ var SlidesApp = (function () {
             if (so.length !== 1) return;
             var o = so[0];
             drag = {
-                mode: hname === "rot" ? "rotate" : (hname === "p1" || hname === "p2") ? "lineend" : "resize",
+                mode: hname === "rot" ? "rotate" : (hname === "p1" || hname === "p2") ? "lineend"
+                    : hname === "adj" ? "adjust" : "resize",
                 h: hname, id: o.id, start: pt, moved: false,
                 g: { x: o.x, y: o.y, w: o.w, h: o.h, rot: o.rot || 0 }
             };
+            if (drag.mode === "adjust") {
+                // where the handle starts; an old callout is converted on the
+                // first real move (adoptAdjustments), which leaves the tip -
+                // and so this point - exactly where it is
+                drag.at = adjHandlePos(o) || [0, 0];
+                drag.how = SlidesShapes.adjustable(o.props.kind);
+            }
             // the pointer leaves the knob as soon as the object turns, so
             // the rotate cursor has to be put on the canvas for the drag
             if (drag.mode === "rotate") canvasEl.classList.add("sl-rotating");
@@ -2560,6 +2646,27 @@ var SlidesApp = (function () {
                 o.w = newW; o.h = newH;
                 o.x = dirs[0] === -1 ? g.x + (g.w - newW) : g.x;
                 o.y = dirs[1] === -1 ? g.y + (g.h - newH) : g.y;
+                updateObjEl(o);
+                renderOverlay();
+                break;
+            }
+            case "adjust": {
+                o = objById(drag.id);
+                if (!o) return;
+                if (drag.how === "tip") adoptAdjustments(o);
+                // the pointer's travel, turned into the shape's own box
+                var arad = -(drag.g.rot || 0) * Math.PI / 180;
+                var lx = drag.at[0] + dx * Math.cos(arad) - dy * Math.sin(arad);
+                var ly = drag.at[1] + dx * Math.sin(arad) + dy * Math.cos(arad);
+                if (drag.how === "radius") {
+                    o.props.radius = Math.round(clamp(lx, 0, Math.min(o.w, o.h) / 2) * 100) / 100;
+                } else {
+                    var adj = {};
+                    Object.keys(o.props.adj || {}).forEach(function (k) { adj[k] = o.props.adj[k]; });
+                    adj.adj1 = Math.round((lx - o.w / 2) / Math.max(1, o.w) * 100000);
+                    adj.adj2 = Math.round((ly - o.h / 2) / Math.max(1, o.h) * 100000);
+                    o.props.adj = adj;
+                }
                 updateObjEl(o);
                 renderOverlay();
                 break;
@@ -2888,18 +2995,14 @@ var SlidesApp = (function () {
                     })
                 });
             }
-            if (o.type === "line") {
+            if (o.type === "line" || o.type === "shape" || o.type === "image") {
                 items.push({ sep: true });
-                items.push({
-                    label: "Arrow head",
-                    checked: function () { return !!o.props.arrowEnd; },
-                    action: function () { o.props.arrowEnd = !o.props.arrowEnd; commit(); }
-                });
-                items.push({
-                    label: "Dashed",
-                    checked: function () { return !!o.props.dash; },
-                    action: function () { o.props.dash = !o.props.dash; commit(); }
-                });
+                items.push({ label: "Line weight", icon: "bars", sub: weightItems() });
+                items.push({ label: "Line dash", icon: "ellipsis horizontal", sub: dashItems() });
+                if (o.type === "line") {
+                    items.push({ label: "Line start", icon: "long arrow alternate left", sub: headItems(false) });
+                    items.push({ label: "Line end", icon: "long arrow alternate right", sub: headItems(true) });
+                }
             }
         } else {
             items = [
@@ -3319,21 +3422,18 @@ var SlidesApp = (function () {
             var v = $sc.val();
             applyToSel(function (o) {
                 if (o.type === "shape" || o.type === "line") { o.props.stroke = v; return true; }
+                // a picture's frame: only one it already has
+                if (o.type === "image" && Number(o.props.strokeW) > 0) { o.props.stroke = v; return true; }
                 return false;
             });
         });
         $tb.append($sc);
-        var $sw = $('<input type="number" class="of-tinput sl-num" id="slStrokeW" min="0" max="30" step="1" title="Line / border width" value="2">');
-        $sw.on("change", function () {
-            var v = clamp(parseInt($sw.val(), 10) || 0, 0, 30);
-            $sw.val(v);
-            applyToSel(function (o) {
-                if (o.type === "shape") { o.props.strokeW = v; return true; }
-                if (o.type === "line") { o.props.strokeW = Math.max(1, v); return true; }
-                return false;
-            });
-        });
-        $tb.append($sw);
+        // the line menus, as Google Slides has them: weight and dash for
+        // anything with a line, the two ends for a line
+        $tb.append(lineMenuButton("weight", "Line weight", "slBtnLineWeight", weightItems));
+        $tb.append(lineMenuButton("dash", "Line dash", "slBtnLineDash", dashItems));
+        $tb.append(lineMenuButton("start", "Line start", "slBtnLineStart", function () { return headItems(false); }));
+        $tb.append(lineMenuButton("end", "Line end", "slBtnLineEnd", function () { return headItems(true); }));
         $tb.append('<div class="of-tsep"></div>');
 
         var $snap = tbtn("magnet", "Snap to grid (10 px)", function () {
@@ -3361,6 +3461,88 @@ var SlidesApp = (function () {
         $tb.append($present);
     }
 
+    /* ---- line menus (weight, dash, start, end) ---- */
+    // what the line menus act on: shapes, lines and picture frames
+    function strokedObjs() {
+        return selObjs().filter(function (o) {
+            return o.type === "shape" || o.type === "line" || o.type === "image";
+        });
+    }
+    function lineObjs() {
+        return selObjs().filter(function (o) { return o.type === "line"; });
+    }
+    function lineMenuButton(icon, title, id, items) {
+        // hidden until the selection has a line to style (syncToolbarFromSel)
+        var $b = $('<button type="button" class="of-tbtn sl-linebtn" id="' + id + '" title="' + esc(title) +
+            '" style="display:none;">' +
+            SlidesLines.toolIcon(icon) + "</button>");
+        $b.on("click", function (e) {
+            var r = e.currentTarget.getBoundingClientRect();
+            OfficeApp.showContextMenu(r.left, r.bottom + 4, items());
+        });
+        return $b;
+    }
+    // a frame with no colour of its own takes the line colour on the
+    // toolbar, or setting its weight would show nothing
+    function ensureStroke(o) {
+        if (!o.props.stroke || o.props.stroke === "none") {
+            o.props.stroke = $("#slStrokeColor").val() || "#333333";
+        }
+    }
+    function weightItems() {
+        var first = strokedObjs()[0];
+        return SlidesLines.WEIGHTS.map(function (w) {
+            return {
+                label: w + "px", html: SlidesLines.weightIcon(w) + '<span class="sl-mi-text">' + w + "px</span>",
+                checked: function () { return !!first && (Number(first.props.strokeW) || 0) === w; },
+                action: function () {
+                    applyToSel(function (o) {
+                        if (o.type !== "shape" && o.type !== "line" && o.type !== "image") return false;
+                        o.props.strokeW = w;
+                        if (o.type !== "line") ensureStroke(o);
+                        return true;
+                    });
+                }
+            };
+        });
+    }
+    function dashItems() {
+        var first = strokedObjs()[0];
+        return SlidesLines.DASHES.map(function (d) {
+            return {
+                label: d.label, html: SlidesLines.dashIcon(d.id),
+                checked: function () {
+                    if (!first) return false;
+                    var cur = SlidesLines.dashOf(first.props);
+                    return cur === d.id || (cur === "legacy" && d.id === "dash");
+                },
+                action: function () {
+                    applyToSel(function (o) {
+                        if (o.type !== "shape" && o.type !== "line" && o.type !== "image") return false;
+                        SlidesLines.setDash(o.props, d.id);
+                        return true;
+                    });
+                }
+            };
+        });
+    }
+    function headItems(end) {
+        var first = lineObjs()[0];
+        return SlidesLines.HEADS.map(function (h) {
+            return {
+                label: h.label, html: SlidesLines.headIcon(h.id, end),
+                checked: function () { return !!first && SlidesLines.headOf(first.props, end) === h.id; },
+                action: function () {
+                    applyToSel(function (o) {
+                        if (o.type !== "line") return false;
+                        SlidesLines.setHead(o.props, end, h.id);
+                        return true;
+                    });
+                }
+            };
+        });
+    }
+
     // selectedImage returns the lone selected picture, or null
     function selectedImage() {
         var so = selObjs();
@@ -3377,6 +3559,9 @@ var SlidesApp = (function () {
             $("#slBtnImgFmt").toggleClass("active", SlidesImageTools.panelOpen());
             SlidesImageTools.sync();
         }
+        // the line menus only where there is a line to style
+        $("#slBtnLineWeight, #slBtnLineDash").toggle(strokedObjs().length > 0);
+        $("#slBtnLineStart, #slBtnLineEnd").toggle(lineObjs().length > 0);
         if (!o) return;
         var p = o.props;
         if (o.type === "text" || o.type === "shape" || o.type === "table") {
@@ -3386,10 +3571,9 @@ var SlidesApp = (function () {
         // trigger of-cp-refresh so the swatch buttons repaint their chip
         if (tcol && /^#[0-9a-fA-F]{6}$/.test(tcol)) $("#slTextColor").val(tcol).trigger("of-cp-refresh");
         if (o.type === "shape" && p.fill && /^#[0-9a-fA-F]{6}$/.test(p.fill)) $("#slFillColor").val(p.fill).trigger("of-cp-refresh");
-        if ((o.type === "shape" || o.type === "line") && p.stroke && /^#[0-9a-fA-F]{6}$/.test(p.stroke)) {
+        if ((o.type === "shape" || o.type === "line" || o.type === "image") && p.stroke && /^#[0-9a-fA-F]{6}$/.test(p.stroke)) {
             $("#slStrokeColor").val(p.stroke).trigger("of-cp-refresh");
         }
-        if (o.type === "shape" || o.type === "line") $("#slStrokeW").val(Number(p.strokeW) || 0);
         $("#slBtnBold").toggleClass("active", !!p.bold);
         $("#slBtnItalic").toggleClass("active", !!p.italic);
         $("#slBtnUnderline").toggleClass("active", !!p.underline);

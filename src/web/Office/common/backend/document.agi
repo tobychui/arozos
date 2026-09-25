@@ -9,39 +9,69 @@
     mod/office native.go).
 
     Media handling: documents reference media through media?file= links
-    (either the user's own files or uploads under the Office working
-    directory). office.saveDocument reads those files server side, so the
-    pictures never travel from the browser on a save, and office.loadDocument
-    extracts a document's media into a per-document cache dir and links it,
-    so they are streamed rather than sent as base64 on an open.
+    (either the user's own files or working copies, below). office.saveDocument
+    reads those files server side, so the pictures never travel from the
+    browser on a save, and office.loadDocument extracts a document's media
+    into a working folder and links it, so they are streamed rather than sent
+    as base64 on an open.
 
-    Working directory: user:/.appdata/Office/
-        uploads/   media dropped in from the device (via the system
-                   upload endpoint, streamed as multipart)
-        tmp/       request payloads the front end uploaded instead of
-                   posting (OfficeApp.agirunLarge), gzipped where the
-                   browser can compress - consumed and deleted by the
-                   backend script that receives them; swept on "prepare"
-        cache/     media extracted from opened documents
-        session/   rolling per-app snapshots for "Restore from previous
-                   session"
+    Working copies belong to one editor window (the "instance" parameter, a
+    random id the page makes) and live under tmp:/, which the nightly tmp
+    sweep empties of anything a day old:
+        tmp:/.appdata/Office/cache/<instance>/    media of the opened documents
+        tmp:/.appdata/Office/uploads/<instance>/  media dropped in from the device
+        tmp:/.appdata/Office/tmp/                 request payloads the front end
+                   uploaded instead of posting (agirunLarge), gzipped where the
+                   browser can compress - consumed and deleted at once
+    The window deletes its folders when it closes ("release") and keeps them
+    fresh while it stays open ("touch"); office.saveDocument refuses to save
+    if a picture's working copy is gone anyway, rather than drop it.
+
+    Kept for good: user:/.appdata/Office/session/ - the rolling per-app
+    snapshots for "Restore from previous session" (self-contained zips).
 
     POST parameters:
-        action = "save" | "load" | "prepare" | "session-save" |
-                 "session-load" | "session-delete"
+        action = "save" | "load" | "prepare" | "touch" | "release" |
+                 "session-save" | "session-load" | "session-delete"
 
         save:           filepath (.docx/.xlsx/.pptx), content (envelope JSON) -> "OK"
                         contentFile may replace content: vpath of an uploaded
                         payload file (deleted after reading)
-        load:           filepath                             -> {"envelope": {...}}
-        prepare:        (none)                               -> "OK" (workdir exists)
+        load:           filepath, instance                   -> {"envelope": {...}}
+        prepare:        instance                             -> "OK" (folders exist)
+        touch:          instance (the window is still open)  -> "OK"
+        release:        instance (the window closed)         -> "OK"
         session-save:   app, content(envelope JSON)          -> "OK"
-        session-load:   app                                  -> {"envelope": {...}} or {"none": true}
+        session-load:   app, instance                        -> {"envelope": {...}} or {"none": true}
         session-delete: app  (drop the snapshot so it stops  -> "OK"
                               prompting on next launch)
 */
 
 var WORKDIR = "user:/.appdata/Office";
+var TMPWORK = "tmp:/.appdata/Office";
+var DAY = 24 * 60 * 60;
+
+/*
+    The editor window's own id. A page made before the working copies moved
+    to tmp:/ sends none; it shares one folder that only the nightly sweep
+    clears.
+*/
+function instanceId(){
+    if (typeof instance === "undefined" || !instance){
+        return "shared";
+    }
+    var id = String(instance);
+    if (!/^[a-z0-9]{6,40}$/.test(id)){
+        return "shared";
+    }
+    return id;
+}
+function cacheDir(){
+    return TMPWORK + "/cache/" + instanceId();
+}
+function uploadDir(){
+    return TMPWORK + "/uploads/" + instanceId();
+}
 
 function ensureWorkdir(){
     if (!requirelib("filelib")){
@@ -50,10 +80,14 @@ function ensureWorkdir(){
     var dirs = [
         "user:/.appdata",
         WORKDIR,
-        WORKDIR + "/uploads",
-        WORKDIR + "/cache",
         WORKDIR + "/session",
-        WORKDIR + "/tmp"
+        "tmp:/.appdata",
+        TMPWORK,
+        TMPWORK + "/cache",
+        TMPWORK + "/uploads",
+        TMPWORK + "/tmp",
+        cacheDir(),
+        uploadDir()
     ];
     for (var i = 0; i < dirs.length; i++){
         if (!filelib.fileExists(dirs[i])){
@@ -64,23 +98,23 @@ function ensureWorkdir(){
 }
 
 /*
-    Drop leftover agirunLarge payloads (see OfficeApp.agirunLarge): the
-    receiving script deletes its own temp file, so anything still here is
-    from a request that was interrupted before the backend ran.
+    Drop leftovers a day old: agirunLarge payloads from requests that were
+    interrupted before the backend ran, working folders of windows that
+    closed without saying so, and the folders earlier versions kept under
+    user:/ (where nothing ever removed them). The nightly tmp sweep would
+    get the tmp:/ ones too; this keeps them from waiting for it.
 */
-function sweepTmp(){
-    var maxAgeMs = 24 * 60 * 60 * 1000;
-    var now = new Date().getTime();
-    try {
-        var leftovers = filelib.glob(WORKDIR + "/tmp/*");
-        for (var i = 0; i < leftovers.length; i++){
-            var ts = filelib.mtime(leftovers[i], true);
-            if (!ts || (now - ts * 1000) > maxAgeMs){
-                filelib.deleteFile(leftovers[i]);
-            }
+function sweepLeftovers(){
+    var roots = [
+        TMPWORK + "/tmp", TMPWORK + "/cache", TMPWORK + "/uploads",
+        WORKDIR + "/tmp", WORKDIR + "/cache", WORKDIR + "/uploads"
+    ];
+    for (var i = 0; i < roots.length; i++){
+        try {
+            office.releaseWorkdir(roots[i], DAY);
+        } catch (e) {
+            //non-fatal: a failed sweep must never block the workdir setup
         }
-    } catch (e) {
-        //non-fatal: a failed sweep must never block the workdir setup
     }
 }
 
@@ -122,18 +156,44 @@ function main(){
         return;
     }
 
+    if (!requirelib("office")){
+        sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+        return;
+    }
+
     if (action == "prepare"){
         if (!ensureWorkdir()){
             sendJSONResp(JSON.stringify({ error: "filelib unavailable" }));
             return;
         }
-        sweepTmp();
+        sweepLeftovers();
         sendResp("OK");
         return;
     }
 
-    if (!requirelib("office")){
-        sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+    if (action == "touch"){
+        try {
+            office.touchWorkdir(cacheDir(), uploadDir());
+        } catch (e) {
+            sendJSONResp(JSON.stringify({ error: "touch failed: " + e.message }));
+            return;
+        }
+        sendResp("OK");
+        return;
+    }
+
+    if (action == "release"){
+        //the shared folder of an old page is left to the sweeps
+        if (instanceId() != "shared"){
+            try {
+                office.releaseWorkdir(cacheDir());
+                office.releaseWorkdir(uploadDir());
+            } catch (e) {
+                sendJSONResp(JSON.stringify({ error: "release failed: " + e.message }));
+                return;
+            }
+        }
+        sendResp("OK");
         return;
     }
 
@@ -164,7 +224,7 @@ function main(){
         }
         try {
             ensureWorkdir();
-            var envelope = office.loadDocument(filepath, WORKDIR + "/cache");
+            var envelope = office.loadDocument(filepath, cacheDir());
             if (!envelope){
                 sendJSONResp(JSON.stringify({ error: "unable to read the document" }));
                 return;
@@ -213,7 +273,7 @@ function main(){
                 return;
             }
             ensureWorkdir();
-            var sess = office.unpackToWorkdir(src, WORKDIR + "/cache");
+            var sess = office.unpackToWorkdir(src, cacheDir());
             if (!sess){
                 sendJSONResp(JSON.stringify({ none: true }));
                 return;

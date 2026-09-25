@@ -139,6 +139,17 @@ type Props struct {
 	Dash       bool `json:"dash,omitempty"`
 	ArrowEnd   bool `json:"arrowEnd,omitempty"`
 	ArrowStart bool `json:"arrowStart,omitempty"`
+	// the line's look, as the editor's line menus set it (pptx_lines.go):
+	// the dash ("" / solid, dot, dash, dashDot, longDash, longDashDot) and
+	// each end (none, arrow, triangle, circle, square, diamond and their
+	// open* versions). Absent, Dash / ArrowEnd / ArrowStart decide.
+	DashStyle string `json:"dashStyle,omitempty"`
+	StartHead string `json:"startHead,omitempty"`
+	EndHead   string `json:"endHead,omitempty"`
+	// a preset shape's adjustments, named and scaled as PresentationML's
+	// (adj1, adj2 ... in 1/100000 of the frame): where a callout's tip
+	// points, how round a corner is
+	Adj map[string]float64 `json:"adj,omitempty"`
 	// elbow / rotated connectors imported from pptx: the polyline the
 	// connector actually follows, relative to the object's x/y. Absent on
 	// a plain two-point line, which is the only kind the editor draws.

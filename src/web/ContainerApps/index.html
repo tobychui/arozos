@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#2b6fd6">
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <title>Container Apps</title>
+    <style>
+        :root {
+            --bg:#f5f5f7; --panel:#ffffff; --panel-2:#fafafb; --row-hover:#f3f6fb;
+            --border:#e4e4e7; --border-soft:#eeeef0; --text:#1d1d1f; --dim:#86868b;
+            --accent:#0a84ff; --accent-soft:#e8f2ff; --ok-text:#1a8c3a; --warn-bg:#fff6e5; --warn-text:#8a5300;
+            --danger:#d93025; --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
+        }
+        body.dark {
+            --bg:#1c1c1e; --panel:#2c2c2e; --panel-2:#242426; --row-hover:#34343780;
+            --border:#3a3a3c; --border-soft:#333335; --text:#f5f5f7; --dim:#98989d;
+            --accent-soft:#1d3a5f; --ok-text:#30d158; --warn-bg:#3a2d12; --warn-text:#ffb340;
+            --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.4);
+        }
+        * { box-sizing: border-box; }
+        html, body { height:100%; margin:0; }
+        body {
+            background:var(--bg); color:var(--text); overflow:hidden;
+            font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size:13px;
+        }
+        .hidden { display:none !important; }
+        a { color:var(--accent); }
+
+        /* ---------- Layout ---------- */
+        .ca-app { display:flex; flex-direction:column; height:100%; }
+        .ca-top { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--border); background:var(--panel); }
+        .ca-title { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:600; flex:1; min-width:0; }
+        .ca-title img { width:26px; height:26px; }
+        .ca-body { flex:1; overflow:auto; padding:18px; }
+        .ca-seg { display:inline-flex; background:var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:2px; }
+        .ca-seg button { border:0; background:transparent; color:var(--dim); padding:5px 12px; border-radius:7px; cursor:pointer; font:inherit; }
+        .ca-seg button.active { background:var(--panel); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,.12); }
+
+        /* ---------- Buttons & fields ---------- */
+        .ca-btn { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--border); background:var(--panel); color:var(--text);
+            padding:6px 12px; border-radius:8px; cursor:pointer; font:inherit; white-space:nowrap; }
+        .ca-btn:hover { background:var(--row-hover); }
+        .ca-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+        .ca-btn.primary:hover { filter:brightness(1.08); }
+        .ca-btn.danger { color:var(--danger); }
+        .ca-btn.sm { padding:3px 9px; font-size:12px; }
+        .ca-btn:disabled { opacity:.5; cursor:default; }
+        .ca-btn i.icon { margin:0; height:auto; }
+        .ca-field { margin-bottom:12px; }
+        .ca-field > label { display:block; font-weight:600; margin-bottom:5px; }
+        .ca-input { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); font:inherit; }
+        .ca-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+        .ca-input[readonly] { background:var(--panel-2); color:var(--dim); }
+        .ca-row { display:flex; gap:10px; }
+        .ca-row > * { flex:1; min-width:0; }
+        .ca-hint { color:var(--dim); font-size:12px; margin-top:4px; line-height:1.45; }
+        .ca-check { display:flex; gap:9px; align-items:flex-start; padding:7px 0; cursor:pointer; }
+        .ca-check input { margin-top:2px; flex-shrink:0; }
+        .ca-check b { display:block; font-weight:600; }
+        .ca-check span { color:var(--dim); font-size:12px; line-height:1.45; }
+        .ca-mono { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+
+        /* ---------- User app grid ---------- */
+        .ca-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px; }
+        .ca-tile { background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); box-shadow:var(--shadow);
+            padding:18px 12px 12px; text-align:center; cursor:pointer; position:relative; transition:transform .12s; }
+        .ca-tile:hover { transform:translateY(-2px); }
+        .ca-tile img { width:64px; height:64px; object-fit:contain; }
+        .ca-tile .name { margin-top:8px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .ca-tile .pin { position:absolute; top:6px; right:6px; opacity:0; transition:opacity .12s; }
+        .ca-tile:hover .pin, .ca-tile:focus-within .pin { opacity:1; }
+        .ca-empty { text-align:center; color:var(--dim); padding:60px 20px; line-height:1.6; }
+        .ca-empty i.icon { font-size:36px; opacity:.4; margin-bottom:10px; }
+
+        /* ---------- Admin tables ---------- */
+        .ca-card { background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden; }
+        .ca-card-head { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-soft); }
+        .ca-card-head h3 { margin:0; font-size:14px; flex:1; }
+        .ca-table { width:100%; border-collapse:collapse; }
+        .ca-table th { text-align:left; font-weight:600; color:var(--dim); font-size:11.5px; padding:8px 16px; border-bottom:1px solid var(--border-soft); }
+        .ca-table td { padding:10px 16px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+        .ca-table tr:last-child td { border-bottom:0; }
+        .ca-table tr:hover td { background:var(--row-hover); }
+        .ca-appcell { display:flex; align-items:center; gap:10px; min-width:0; }
+        .ca-appcell img { width:30px; height:30px; object-fit:contain; flex-shrink:0; }
+        .ca-appcell .sub { color:var(--dim); font-size:11.5px; }
+        .ca-actions { display:flex; gap:6px; justify-content:flex-end; }
+        .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:11px; font-weight:600; background:var(--panel-2); border:1px solid var(--border); color:var(--dim); margin:1px 2px 1px 0; }
+        .pill.blue { background:var(--accent-soft); color:var(--accent); border-color:transparent; }
+        .pill.green { color:var(--ok-text); }
+        .pill.warn { background:var(--warn-bg); color:var(--warn-text); border-color:transparent; }
+
+        /* ---------- Editor drawer ---------- */
+        .ca-shade { position:fixed; inset:0; background:rgba(0,0,0,.28); z-index:20; }
+        .ca-drawer { position:fixed; top:0; right:0; bottom:0; width:min(560px, 100%); background:var(--bg); z-index:21;
+            display:flex; flex-direction:column; box-shadow:-10px 0 30px rgba(0,0,0,.18); }
+        .ca-drawer-head { display:flex; align-items:center; gap:10px; padding:14px 18px; background:var(--panel); border-bottom:1px solid var(--border); }
+        .ca-drawer-head h2 { margin:0; font-size:15px; flex:1; }
+        .ca-drawer-body { flex:1; overflow:auto; padding:16px 18px; }
+        .ca-drawer-foot { display:flex; gap:8px; padding:12px 18px; background:var(--panel); border-top:1px solid var(--border); }
+        .ca-drawer-foot .spacer { flex:1; }
+        .ca-section { background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px 16px 4px; margin-bottom:14px; }
+        .ca-section-title { font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+        .ca-section-title .grow { flex:1; }
+        .ca-modes { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+        .ca-mode { border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; cursor:pointer; }
+        .ca-mode.active { border-color:var(--accent); background:var(--accent-soft); }
+        .ca-mode b { display:flex; align-items:center; gap:6px; }
+        .ca-mode > span { display:block; color:var(--dim); font-size:12px; margin-top:4px; line-height:1.4; }
+        .ca-note { border-radius:9px; padding:9px 12px; margin:4px 0 12px; font-size:12px; line-height:1.5; background:var(--panel-2); border:1px solid var(--border-soft); }
+        .ca-note.warn { background:var(--warn-bg); color:var(--warn-text); border-color:transparent; }
+        .ca-note.info { background:var(--accent-soft); border-color:transparent; }
+        .ca-note ul { margin:4px 0 0; padding-left:18px; }
+        .ca-verdict { font-weight:700; }
+        .ca-groups { display:flex; flex-wrap:wrap; gap:4px 14px; }
+        .ca-groups label { display:flex; gap:6px; align-items:center; cursor:pointer; }
+        .ca-error { color:var(--danger); font-size:12px; align-self:center; }
+
+        #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); color:#fff; padding:8px 16px; border-radius:8px;
+            box-shadow:0 6px 18px rgba(0,0,0,.2); z-index:50; display:none; max-width:90%; }
+    </style>
+</head>
+<body>
+<div class="ca-app">
+    <div class="ca-top">
+        <div class="ca-title"><img src="img/icon.svg" alt=""> <span>Container Apps</span></div>
+        <div class="ca-seg hidden adminOnly" id="viewSwitch">
+            <button data-view="apps" class="active">Apps</button>
+            <button data-view="manage">Manage</button>
+        </div>
+        <button class="ca-btn primary hidden adminOnly" id="newBtn"><i class="plus icon"></i> Publish app</button>
+    </div>
+
+    <div class="ca-body">
+        <!-- Everyone: the apps this user may open -->
+        <section id="view-apps">
+            <div class="ca-grid" id="appGrid"></div>
+            <div class="ca-empty hidden" id="appEmpty">
+                <i class="cube icon"></i><br>
+                <span id="appEmptyText">No container apps have been published yet.</span>
+            </div>
+        </section>
+
+        <!-- Administrators: published apps and containers -->
+        <section id="view-manage" class="hidden">
+            <div class="ca-card">
+                <div class="ca-card-head">
+                    <h3>Published apps</h3>
+                    <button class="ca-btn sm" id="refreshBtn" title="Refresh"><i class="sync icon"></i></button>
+                </div>
+                <table class="ca-table">
+                    <thead><tr><th>App</th><th>Access</th><th>Traffic</th><th></th></tr></thead>
+                    <tbody id="endpointBody"></tbody>
+                </table>
+            </div>
+            <div class="ca-card" id="containerCard">
+                <div class="ca-card-head"><h3>Containers with web ports</h3></div>
+                <table class="ca-table">
+                    <thead><tr><th>Container</th><th>Published ports</th><th></th></tr></thead>
+                    <tbody id="containerBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- Publish / edit drawer -->
+<div class="ca-shade hidden" id="shade"></div>
+<div class="ca-drawer hidden" id="editor">
+    <div class="ca-drawer-head">
+        <h2 id="editorTitle">Publish app</h2>
+        <button class="ca-btn sm" id="closeEditor" title="Close"><i class="close icon"></i></button>
+    </div>
+    <div class="ca-drawer-body">
+        <div class="ca-section">
+            <div class="ca-section-title"><i class="server icon"></i> Web server</div>
+            <div class="ca-field">
+                <label for="fTarget">Target address</label>
+                <div class="ca-row">
+                    <input class="ca-input ca-mono" id="fTarget" placeholder="127.0.0.1:8081" autocomplete="off">
+                    <button class="ca-btn" id="probeBtn" style="flex:0 0 auto;"><i class="search icon"></i> Analyze</button>
+                </div>
+                <div class="ca-hint" id="targetHint">The host:port ArozOS reaches the web interface on, usually a port published by the container.</div>
+            </div>
+            <label class="ca-check"><input type="checkbox" id="fTargetTLS"><div><b>The app itself uses HTTPS</b><span>Only when the container serves https on this port.</span></div></label>
+            <label class="ca-check hidden" id="skipVerifyRow"><input type="checkbox" id="fSkipVerify"><div><b>Accept a self-signed certificate</b></div></label>
+            <div id="probeResult" class="hidden"></div>
+        </div>
+
+        <div class="ca-section">
+            <div class="ca-section-title"><i class="tag icon"></i> App</div>
+            <div class="ca-row">
+                <div class="ca-field"><label for="fName">Name</label><input class="ca-input" id="fName" maxlength="64" autocomplete="off"></div>
+                <div class="ca-field"><label for="fSlug">Address name</label><input class="ca-input ca-mono" id="fSlug" maxlength="63" autocomplete="off" placeholder="my-app"></div>
+            </div>
+            <div class="ca-hint" id="slugHint" style="margin:-6px 0 10px;"></div>
+            <div class="ca-field">
+                <label for="fIcon">Icon</label>
+                <input class="ca-input" id="fIcon" placeholder="ContainerApps/img/app.svg" autocomplete="off">
+                <div class="ca-hint">A web path relative to the ArozOS root, or an image URL.</div>
+            </div>
+        </div>
+
+        <div class="ca-section">
+            <div class="ca-section-title"><i class="linkify icon"></i> How it is served</div>
+            <div class="ca-modes">
+                <div class="ca-mode" data-mode="path">
+                    <b><i class="folder outline icon"></i> Path</b>
+                    <span id="modePathDesc">On this address: <span class="ca-mono">/app/&lt;name&gt;/</span>. Nothing to set up.</span>
+                </div>
+                <div class="ca-mode" data-mode="subdomain">
+                    <b><i class="globe icon"></i> Subdomain</b>
+                    <span>On its own host name, e.g. <span class="ca-mono">app.example.com</span>. Isolated from ArozOS.</span>
+                </div>
+            </div>
+
+            <div id="pathOptions">
+                <div class="ca-note warn">
+                    <i class="exclamation triangle icon"></i>
+                    In path mode the app shares the ArozOS address. Its web pages can act as the signed in user on ArozOS,
+                    so only use it for software you trust. Choose subdomain mode for anything else.
+                </div>
+                <label class="ca-check"><input type="checkbox" id="fTrusted"><div><b>I trust this container</b><span>Required for path mode.</span></div></label>
+                <label class="ca-check"><input type="checkbox" id="fRootRedirect"><div><b>Catch root requests</b><span>When the app asks for a file from "/", send it back to the app instead of the ArozOS web root.</span></div></label>
+                <label class="ca-check"><input type="checkbox" id="fRewriteRoot"><div><b>Rewrite root paths (inject script)</b><span>Rewrites links in pages and style sheets and injects a small script that routes the app's own requests. Needed by most apps that were built to run at "/".</span></div></label>
+            </div>
+
+            <div id="subdomainOptions">
+                <div class="ca-field">
+                    <label for="fHostname">Host name</label>
+                    <input class="ca-input ca-mono" id="fHostname" placeholder="app.example.com" autocomplete="off">
+                    <div class="ca-hint">Point this name at the same server as ArozOS (a DNS record, or a public hostname in Cloudflare Tunnel). Cloudflare's free certificate only covers one level, so prefer <span class="ca-mono">app.example.com</span> or <span class="ca-mono">app-nas.example.com</span> over <span class="ca-mono">app.nas.example.com</span>.</div>
+                </div>
+                <div class="ca-field">
+                    <label for="fPortal">ArozOS address</label>
+                    <input class="ca-input ca-mono" id="fPortal" placeholder="https://nas.example.com" autocomplete="off">
+                    <div class="ca-hint">Where users sign in before being sent to the app.</div>
+                </div>
+                <div class="ca-note warn hidden" id="ipWarning"><i class="exclamation triangle icon"></i> You are using ArozOS through an IP address. Subdomain mode needs a domain name.</div>
+            </div>
+            <label class="ca-check"><input type="checkbox" id="fAllowFraming"><div><b>Allow in desktop window</b><span>Remove the app's "do not frame me" headers so it can open in a desktop window.</span></div></label>
+        </div>
+
+        <div class="ca-section">
+            <div class="ca-section-title"><i class="users icon"></i> Who can open it</div>
+            <label class="ca-check"><input type="checkbox" id="fRequireLogin"><div><b>Require ArozOS sign in</b><span>Turn off only for apps meant to be public, for example a status page.</span></div></label>
+            <div class="ca-field" id="groupField">
+                <label>Permission groups</label>
+                <div class="ca-groups" id="groupList"></div>
+                <div class="ca-hint">None selected means every user can see it and pin it to their desktop.</div>
+            </div>
+        </div>
+
+        <div class="ca-section">
+            <div class="ca-section-title"><i class="window restore outline icon"></i> Opening from the desktop</div>
+            <div class="ca-row">
+                <div class="ca-field">
+                    <label for="fOpenIn">Open in</label>
+                    <select class="ca-input" id="fOpenIn"><option value="float">Desktop window</option><option value="tab">New browser tab</option></select>
+                </div>
+                <div class="ca-field"><label for="fWidth">Width</label><input class="ca-input" type="number" id="fWidth" min="100" max="10000" placeholder="1080"></div>
+                <div class="ca-field"><label for="fHeight">Height</label><input class="ca-input" type="number" id="fHeight" min="100" max="10000" placeholder="640"></div>
+            </div>
+        </div>
+    </div>
+    <div class="ca-drawer-foot">
+        <button class="ca-btn danger hidden" id="deleteBtn"><i class="trash alternate outline icon"></i> Remove</button>
+        <div class="spacer"></div>
+        <span class="ca-error" id="saveError"></span>
+        <button class="ca-btn" id="cancelBtn">Cancel</button>
+        <button class="ca-btn primary" id="saveBtn"><i class="check icon"></i> Save</button>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/*
+    Container Apps
+
+    Everyone:       the apps they may open, opened like a desktop shortcut and
+                    pinned as an "app" shortcut (/system/appproxy/apps)
+    Administrators: publish / edit / remove apps (/system/appproxy/admin/*),
+                    starting from a Docker container's published port.
+
+    Docker Manager opens this page as index.html#publish=<container name>.
+*/
+(function(){
+    var API = "../system/appproxy/";
+    var DEFAULT_ICON = "ContainerApps/img/app.svg";
+    var state = {isAdmin: false, apps: [], endpoints: [], containers: [], groups: [], editing: null, slugTouched: false, mode: "path"};
+
+    function esc(s){
+        return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function toast(msg, ok){
+        var t = document.getElementById("toast");
+        t.textContent = msg;
+        t.style.background = ok === false ? "#c42b1c" : (ok === true ? "#107c10" : "#2b6cb0");
+        t.style.display = "block";
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function(){ t.style.display = "none"; }, 3200);
+    }
+    //Icons are stored relative to the ArozOS root
+    function iconSrc(icon){
+        icon = icon || DEFAULT_ICON;
+        if (/^(https?:)?\/\//i.test(icon) || icon.indexOf("data:") === 0){
+            return icon;
+        }
+        return "../" + icon.replace(/^\/+/, "");
+    }
+    function normalizeSlug(name){
+        return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").substring(0, 63).replace(/-+$/, "");
+    }
+    function isIPHost(host){
+        return /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.indexOf(":") >= 0 || host == "localhost";
+    }
+
+    function applyTheme(){
+        try {
+            ao_module_getSystemThemeColor(function(c){
+                document.body.classList.toggle("dark", c !== "whiteTheme");
+            });
+        } catch (e) {}
+    }
+
+    /* ---------------- Everyone: app list ---------------- */
+    function loadApps(){
+        $.get(API + "apps", function(data){
+            if (data.error !== undefined){
+                $("#appGrid").empty();
+                $("#appEmptyText").text(data.error);
+                $("#appEmpty").removeClass("hidden");
+                return;
+            }
+            state.apps = data.Apps || [];
+            state.isAdmin = !!data.IsAdmin;
+            $(".adminOnly").toggleClass("hidden", !state.isAdmin);
+            renderApps();
+            if (state.isAdmin){
+                handleHash();
+            }
+        });
+    }
+
+    function renderApps(){
+        var grid = $("#appGrid").empty();
+        $("#appEmpty").toggleClass("hidden", state.apps.length > 0);
+        $("#appEmptyText").text(state.isAdmin
+            ? "No container apps have been published yet. Use Publish app, or the Manage tab to publish a running container."
+            : "No container apps have been published for you yet.");
+        state.apps.forEach(function(app){
+            var tile = $('<div class="ca-tile" tabindex="0"></div>');
+            tile.append($('<img alt="">').attr("src", iconSrc(app.Icon)).on("error", function(){ this.src = iconSrc(DEFAULT_ICON); }));
+            tile.append($('<div class="name"></div>').text(app.Name));
+            var pin = $('<button class="ca-btn sm pin" title="Add to desktop"><i class="thumbtack icon"></i></button>');
+            pin.on("click", function(e){ e.stopPropagation(); pinApp(app); });
+            tile.append(pin);
+            tile.on("click", function(){ openApp(app); });
+            tile.on("keydown", function(e){ if (e.key === "Enter"){ openApp(app); } });
+            grid.append(tile);
+        });
+    }
+
+    function openApp(app){
+        if (ao_module_virtualDesktop && parent && typeof parent.openContainerAppShortcut === "function"){
+            parent.openContainerAppShortcut({ShortcutName: app.Name, ShortcutPath: app.Slug, ShortcutImage: app.Icon});
+            return;
+        }
+        window.open("../" + app.URL);
+    }
+
+    function pinApp(app){
+        $.post("../system/desktop/createShortcut", {
+            stype: "app",
+            stext: app.Name,
+            spath: app.Slug,
+            sicon: app.Icon || DEFAULT_ICON,
+            sdest: "user:/Desktop/"
+        }, function(data){
+            if (data.error !== undefined){
+                toast("Unable to add to desktop: " + data.error, false);
+                return;
+            }
+            toast(app.Name + " added to your desktop", true);
+            try {
+                if (ao_module_virtualDesktop && typeof parent.refresh === "function"){
+                    parent.refresh();
+                }
+            } catch (e) {}
+        }).fail(function(){ toast("Unable to add to desktop", false); });
+    }
+
+    /* ---------------- Administrators ---------------- */
+    function showView(name){
+        $("#viewSwitch button").removeClass("active");
+        $('#viewSwitch button[data-view="' + name + '"]').addClass("active");
+        $("#view-apps").toggleClass("hidden", name !== "apps");
+        $("#view-manage").toggleClass("hidden", name !== "manage");
+        if (name === "manage"){
+            loadManage();
+        }else{
+            loadApps();
+        }
+    }
+
+    function loadManage(done){
+        var pending = 2;
+        function finish(){ if (--pending === 0 && done){ done(); } }
+        $("#endpointBody").html('<tr><td colspan="4" class="ca-empty" style="padding:20px;">Loading...</td></tr>');
+        $.get(API + "admin/list", function(list){
+            state.endpoints = Array.isArray(list) ? list : [];
+            renderEndpoints();
+        }).always(finish);
+        $.get(API + "admin/containers", function(list){
+            state.containers = Array.isArray(list) ? list : [];
+            renderContainers();
+        }).always(finish);
+    }
+
+    function accessPills(ep){
+        var h = "";
+        if (ep.Mode === "subdomain"){
+            h += '<span class="pill blue"><i class="globe icon"></i>' + esc(ep.Hostname) + '</span>';
+        }else{
+            h += '<span class="pill blue"><i class="folder outline icon"></i>/app/' + esc(ep.Slug) + '/</span>';
+            if (ep.RewriteRoot){
+                h += '<span class="pill">rewrite</span>';
+            }
+        }
+        if (!ep.RequireLogin){
+            h += '<span class="pill warn">public</span>';
+        }else if (ep.AllowedGroups && ep.AllowedGroups.length){
+            h += '<span class="pill">' + esc(ep.AllowedGroups.join(", ")) + '</span>';
+        }else{
+            h += '<span class="pill green">all users</span>';
+        }
+        return h;
+    }
+
+    function renderEndpoints(){
+        var body = $("#endpointBody").empty();
+        if (state.endpoints.length === 0){
+            body.html('<tr><td colspan="4" class="ca-empty" style="padding:24px;">Nothing published yet.</td></tr>');
+            return;
+        }
+        state.endpoints.forEach(function(ep){
+            var s = ep.Stats || {};
+            var traffic = '<div>' + (s.Requests || 0) + ' requests</div>';
+            if (ep.Mode === "path" && s.Leaks > 0){
+                var tip = "Recent: " + (s.LastLeaks || []).join(", ");
+                traffic += '<div class="ca-hint" title="' + esc(tip) + '"><i class="exclamation triangle icon"></i>' + s.Leaks + ' root requests caught' +
+                    (ep.RewriteRoot ? '' : ', consider rewriting') + '</div>';
+            }
+            var row = $('<tr>' +
+                '<td><div class="ca-appcell"><img alt=""><div style="min-width:0;"><div><b></b></div><div class="sub ca-mono"></div></div></div></td>' +
+                '<td>' + accessPills(ep) + '</td>' +
+                '<td>' + traffic + '</td>' +
+                '<td><div class="ca-actions">' +
+                    '<button class="ca-btn sm" data-act="open" title="Open"><i class="external alternate icon"></i></button>' +
+                    '<button class="ca-btn sm" data-act="edit" title="Edit"><i class="edit outline icon"></i></button>' +
+                '</div></td></tr>');
+            row.find("img").attr("src", iconSrc(ep.Icon)).on("error", function(){ this.src = iconSrc(DEFAULT_ICON); });
+            row.find("b").text(ep.Name);
+            row.find(".sub").text(ep.Target + (ep.Container ? "  (" + ep.Container + ")" : ""));
+            row.find('[data-act="open"]').on("click", function(){ openApp({Name: ep.Name, Slug: ep.Slug, Icon: ep.Icon, URL: "app/" + ep.Slug + "/"}); });
+            row.find('[data-act="edit"]').on("click", function(){ openEditor(ep); });
+            body.append(row);
+        });
+    }
+
+    function renderContainers(){
+        var body = $("#containerBody").empty();
+        var withPorts = state.containers.filter(function(c){ return c.Targets && c.Targets.length > 0; });
+        if (withPorts.length === 0){
+            body.html('<tr><td colspan="3" class="ca-empty" style="padding:24px;">' +
+                (state.containers.length === 0 ? "Docker is not available, or there are no containers." : "No container publishes a port on this host.") + '</td></tr>');
+            return;
+        }
+        withPorts.forEach(function(c){
+            var ports = c.Ports.map(function(p){
+                return '<span class="pill ca-mono" title="container port ' + p.ContainerPort + '">' + esc(c.Targets[c.Ports.indexOf(p)]) + '</span>';
+            }).join("");
+            var published = (c.Published || []).length ? '<div class="ca-hint">Published as ' + esc(c.Published.join(", ")) + '</div>' : "";
+            var running = String(c.State).toLowerCase() === "running";
+            var row = $('<tr>' +
+                '<td><div class="ca-mono"><b></b></div><div class="ca-hint ca-mono img"></div></td>' +
+                '<td>' + ports + published + '</td>' +
+                '<td><div class="ca-actions"></div></td></tr>');
+            row.find("b").text(c.Name);
+            row.find(".img").text(c.Image + (running ? "" : "  (" + c.State + ")"));
+            var actions = row.find(".ca-actions");
+            c.Targets.forEach(function(target, i){
+                var label = c.Targets.length > 1 ? "Publish :" + c.Ports[i].HostPort : "Publish";
+                var btn = $('<button class="ca-btn sm primary"><i class="plus icon"></i> </button>');
+                btn.append(document.createTextNode(label));
+                btn.on("click", function(){ publishContainer(c, target); });
+                actions.append(btn);
+            });
+            body.append(row);
+        });
+    }
+
+    function publishContainer(c, target){
+        openEditor(null, {
+            Name: c.Name.charAt(0).toUpperCase() + c.Name.slice(1),
+            Slug: normalizeSlug(c.Name),
+            Container: c.Name,
+            Image: c.Image,
+            Target: target
+        });
+        runProbe();
+    }
+
+    /* ---------------- Editor ---------------- */
+    function loadGroups(selected){
+        var list = $("#groupList").html('<span class="ca-hint">Loading...</span>');
+        $.get("../system/permission/listgroup", function(groups){
+            state.groups = Array.isArray(groups) ? groups : [];
+            list.empty();
+            state.groups.forEach(function(g){
+                var lbl = $('<label><input type="checkbox"> <span></span></label>');
+                lbl.find("input").val(g).prop("checked", selected.indexOf(g) >= 0);
+                lbl.find("span").text(g);
+                list.append(lbl);
+            });
+        }).fail(function(){ list.html('<span class="ca-hint">Unable to load groups</span>'); });
+    }
+
+    function setMode(mode){
+        state.mode = mode;
+        $(".ca-mode").removeClass("active");
+        $('.ca-mode[data-mode="' + mode + '"]').addClass("active");
+        $("#pathOptions").toggleClass("hidden", mode !== "path");
+        $("#subdomainOptions").toggleClass("hidden", mode !== "subdomain");
+        if (mode === "subdomain" && $("#fHostname").val().trim() === ""){
+            suggestHostname();
+        }
+    }
+
+    function suggestHostname(){
+        var host = location.hostname;
+        var slug = $("#fSlug").val().trim() || "app";
+        $("#ipWarning").toggleClass("hidden", !isIPHost(host));
+        if (isIPHost(host)){
+            return;
+        }
+        //app.example.com next to nas.example.com, one level under the parent domain
+        var parts = host.split(".");
+        var parentDomain = parts.length > 2 ? parts.slice(1).join(".") : host;
+        $("#fHostname").val(slug + "." + parentDomain);
+    }
+
+    function updateSlugHint(){
+        var slug = $("#fSlug").val().trim();
+        $("#slugHint").html(slug ? 'Opens at <span class="ca-mono">' + esc(location.origin) + '/app/' + esc(slug) + '/</span>' : "");
+        $("#modePathDesc").html('On this address: <span class="ca-mono">/app/' + esc(slug || "<name>") + '/</span>. Nothing to set up.');
+    }
+
+    function openEditor(ep, prefill){
+        state.editing = ep;
+        var d = ep || $.extend({
+            Name: "", Slug: "", Icon: "", Container: "", Image: "", Target: "",
+            TargetTLS: false, SkipTLSVerify: false, Mode: "path", Hostname: "", PortalOrigin: "",
+            Trusted: false, RootRedirect: true, RewriteRoot: false, AllowFraming: true,
+            RequireLogin: true, AllowedGroups: [], OpenIn: "float", Width: 0, Height: 0
+        }, prefill || {});
+        state.prefill = d;
+        state.slugTouched = !!ep;
+
+        $("#editorTitle").text(ep ? "Edit " + ep.Name : "Publish app");
+        $("#fTarget").val(d.Target);
+        $("#fTargetTLS").prop("checked", d.TargetTLS);
+        $("#fSkipVerify").prop("checked", d.SkipTLSVerify);
+        $("#skipVerifyRow").toggleClass("hidden", !d.TargetTLS);
+        $("#fName").val(d.Name);
+        $("#fSlug").val(d.Slug).prop("readonly", !!ep);
+        $("#fIcon").val(d.Icon);
+        $("#fHostname").val(d.Hostname);
+        $("#fPortal").val(d.PortalOrigin || location.origin);
+        $("#fTrusted").prop("checked", d.Trusted);
+        $("#fRootRedirect").prop("checked", d.RootRedirect);
+        $("#fRewriteRoot").prop("checked", d.RewriteRoot);
+        $("#fAllowFraming").prop("checked", d.AllowFraming);
+        $("#fRequireLogin").prop("checked", d.RequireLogin);
+        $("#groupField").toggleClass("hidden", !d.RequireLogin);
+        $("#fOpenIn").val(d.OpenIn === "tab" ? "tab" : "float");
+        $("#fWidth").val(d.Width > 0 ? d.Width : "");
+        $("#fHeight").val(d.Height > 0 ? d.Height : "");
+        $("#probeResult").addClass("hidden").empty();
+        $("#saveError").text("");
+        $("#deleteBtn").toggleClass("hidden", !ep);
+        setMode(d.Mode === "subdomain" ? "subdomain" : "path");
+        updateSlugHint();
+        loadGroups(d.AllowedGroups || []);
+        $("#shade, #editor").removeClass("hidden");
+    }
+
+    function closeEditor(){
+        $("#shade, #editor").addClass("hidden");
+        state.editing = null;
+    }
+
+    function collectForm(){
+        var base = state.editing || state.prefill || {};
+        var groups = [];
+        $("#groupList input:checked").each(function(){ groups.push(this.value); });
+        return {
+            Slug: $("#fSlug").val().trim(),
+            Name: $("#fName").val().trim(),
+            Icon: $("#fIcon").val().trim() || DEFAULT_ICON,
+            Container: base.Container || "",
+            Image: base.Image || "",
+            Target: $("#fTarget").val().trim(),
+            TargetTLS: $("#fTargetTLS").prop("checked"),
+            SkipTLSVerify: $("#fSkipVerify").prop("checked"),
+            Mode: state.mode,
+            Hostname: $("#fHostname").val().trim(),
+            PortalOrigin: $("#fPortal").val().trim(),
+            Trusted: $("#fTrusted").prop("checked"),
+            RootRedirect: $("#fRootRedirect").prop("checked"),
+            RewriteRoot: $("#fRewriteRoot").prop("checked"),
+            AllowFraming: $("#fAllowFraming").prop("checked"),
+            RequireLogin: $("#fRequireLogin").prop("checked"),
+            AllowedGroups: groups,
+            OpenIn: $("#fOpenIn").val(),
+            Width: parseInt($("#fWidth").val(), 10) || 0,
+            Height: parseInt($("#fHeight").val(), 10) || 0
+        };
+    }
+
+    function saveEditor(){
+        var ep = collectForm();
+        if (ep.Mode === "path" && !ep.Trusted){
+            $("#saveError").text("Tick \"I trust this container\" or use subdomain mode.");
+            return;
+        }
+        var btn = $("#saveBtn").prop("disabled", true);
+        $("#saveError").text("");
+        $.post(API + "admin/save", {data: JSON.stringify(ep), create: state.editing ? "false" : "true"}, function(res){
+            if (res.error !== undefined){
+                $("#saveError").text(res.error);
+                return;
+            }
+            toast(state.editing ? "Saved" : res.Name + " published", true);
+            closeEditor();
+            loadManage();
+        }).fail(function(){
+            $("#saveError").text("Unable to reach the server");
+        }).always(function(){ btn.prop("disabled", false); });
+    }
+
+    function deleteEndpoint(){
+        var ep = state.editing;
+        if (!ep || !confirm("Remove " + ep.Name + "? Desktop shortcuts to it will stop working.")){
+            return;
+        }
+        $.post(API + "admin/delete", {slug: ep.Slug}, function(res){
+            if (res.error !== undefined){
+                $("#saveError").text(res.error);
+                return;
+            }
+            toast(ep.Name + " removed", true);
+            closeEditor();
+            loadManage();
+        });
+    }
+
+    var VERDICT_TEXT = {
+        "path": "Works under a path as is",
+        "path-rewrite": "Works under a path with root path rewriting",
+        "subdomain": "Subdomain mode recommended"
+    };
+
+    function runProbe(){
+        var target = $("#fTarget").val().trim();
+        if (target === ""){
+            return;
+        }
+        var box = $("#probeResult").removeClass("hidden").html('<div class="ca-note">Analyzing the app...</div>');
+        var base = state.editing || state.prefill || {};
+        $.get(API + "admin/probe", {
+            target: target,
+            tls: $("#fTargetTLS").prop("checked"),
+            skipverify: $("#fSkipVerify").prop("checked"),
+            image: base.Image || "",
+            slug: $("#fSlug").val().trim()
+        }, function(res){
+            if (res.error !== undefined){
+                box.html('<div class="ca-note warn"></div>').find(".ca-note").text(res.error);
+                return;
+            }
+            var cls = res.Reachable ? "info" : "warn";
+            var head = res.Reachable
+                ? '<div class="ca-verdict">' + esc(VERDICT_TEXT[res.Verdict] || "Unknown") + '</div>'
+                : '<div class="ca-verdict">The app did not answer' + (res.Error ? ": " + esc(res.Error) : "") + '</div>';
+            if (res.KnownApp){
+                head += '<div>Recognised as ' + esc(res.KnownApp) + '</div>';
+            }
+            var reasons = (res.Reasons || []).map(function(r){ return "<li>" + esc(r) + "</li>"; }).join("");
+            var apply = res.Verdict && !state.editing ? '<div style="margin-top:8px;"><button class="ca-btn sm" id="applyVerdict">Use this recommendation</button></div>' : "";
+            box.html('<div class="ca-note ' + cls + '">' + head + (reasons ? "<ul>" + reasons + "</ul>" : "") + apply + '</div>');
+            if (res.Title && $("#fName").val().trim() === ""){
+                $("#fName").val(res.Title).trigger("input");
+            }
+            $("#applyVerdict").on("click", function(){ applyVerdict(res); });
+            //A fresh publish follows the recommendation right away
+            if (!state.editing && res.Verdict){
+                applyVerdict(res);
+            }
+        }).fail(function(){ box.html('<div class="ca-note warn">Unable to analyze the app.</div>'); });
+    }
+
+    function applyVerdict(res){
+        if (res.Verdict === "subdomain"){
+            setMode("subdomain");
+        }else{
+            setMode("path");
+            $("#fRewriteRoot").prop("checked", res.Verdict === "path-rewrite");
+            $("#fRootRedirect").prop("checked", true);
+        }
+        if (res.FrameBlocked){
+            $("#fAllowFraming").prop("checked", true);
+        }
+    }
+
+    /* ---------------- Wiring ---------------- */
+    function handleHash(){
+        var m = /publish=([^&]+)/.exec(location.hash);
+        if (!m){
+            return;
+        }
+        var name = decodeURIComponent(m[1]);
+        history.replaceState(null, "", location.pathname);
+        showView("manage");
+        loadManage(function(){
+            var c = state.containers.filter(function(x){ return x.Name === name; })[0];
+            if (!c){
+                toast("Container " + name + " not found", false);
+                return;
+            }
+            if (!c.Targets || c.Targets.length === 0){
+                toast(name + " does not publish a port on this host. Add a port mapping first, or enter the address by hand.", false);
+                openEditor(null, {Name: name, Slug: normalizeSlug(name), Container: name, Image: c.Image});
+                return;
+            }
+            publishContainer(c, c.Targets[0]);
+        });
+    }
+
+    $("#viewSwitch button").on("click", function(){ showView($(this).data("view")); });
+    $("#newBtn").on("click", function(){ openEditor(null); });
+    $("#refreshBtn").on("click", function(){ loadManage(); });
+    $("#closeEditor, #cancelBtn, #shade").on("click", closeEditor);
+    $("#saveBtn").on("click", saveEditor);
+    $("#deleteBtn").on("click", deleteEndpoint);
+    $("#probeBtn").on("click", runProbe);
+    $("#fTarget").on("keydown", function(e){ if (e.key === "Enter"){ runProbe(); } });
+    $(".ca-mode").on("click", function(){ setMode($(this).data("mode")); });
+    $("#fTargetTLS").on("change", function(){ $("#skipVerifyRow").toggleClass("hidden", !this.checked); });
+    $("#fRequireLogin").on("change", function(){ $("#groupField").toggleClass("hidden", !this.checked); });
+    $("#fRewriteRoot").on("change", function(){ if (this.checked){ $("#fRootRedirect").prop("checked", true); } });
+    $("#fName").on("input", function(){
+        if (!state.slugTouched && !state.editing){
+            $("#fSlug").val(normalizeSlug(this.value));
+            updateSlugHint();
+        }
+    });
+    $("#fSlug").on("input", function(){ state.slugTouched = true; updateSlugHint(); });
+    $(document).on("keydown", function(e){ if (e.key === "Escape" && !$("#editor").hasClass("hidden")){ closeEditor(); } });
+    window.addEventListener("hashchange", function(){ if (state.isAdmin){ handleHash(); } });
+
+    applyTheme();
+    loadApps();
+})();
+</script>
+</body>
+</html>

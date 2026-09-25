@@ -1268,9 +1268,126 @@ var SlidesShapes = (function () {
         return d && d.pts ? d.pts(w, h) : null;
     }
 
-    function path(kind, w, h) {
+    /* ---------------- adjustments ----------------
+       A preset's adjustments, named and scaled as PresentationML's (adj1,
+       adj2, ... in 1/100000 of the frame). The speech-bubble callouts are
+       drawn the way PowerPoint defines them whenever the object carries
+       props.adj: the body fills the frame and the tail runs out to the tip
+       at (centre + adj1 * w, centre + adj2 * h), which may well lie outside
+       the frame. A callout with no adj was made before adjustments existed
+       and keeps the shape it was drawn with (body in the top ~72%, tip at
+       the bottom) until its handle is first dragged - see legacyTip. */
+    var TIP_DEFAULTS = {
+        wedgeRectCallout: { adj1: -20833, adj2: 62500 },
+        wedgeRoundRectCallout: { adj1: -20833, adj2: 62500, adj3: 16667 },
+        wedgeEllipseCallout: { adj1: -20833, adj2: 62500 },
+        cloudCallout: { adj1: -20833, adj2: 62500 }
+    };
+    // where the old, unadjusted drawings put the tip and how much of the
+    // frame their body took
+    var LEGACY_TIP = {
+        wedgeRectCallout: { tip: [0.2, 1], body: 0.72, round: 0 },
+        wedgeRoundRectCallout: { tip: [0.2, 1], body: 0.72, round: 0.18 },
+        wedgeEllipseCallout: { tip: [0.16, 1], body: 0.72, round: 0 },
+        cloudCallout: { tip: [0.13, 0.96], body: 0.74, round: 0 }
+    };
+    function adjOf(kind, adj) {
+        var out = {}, d = TIP_DEFAULTS[kind] || {};
+        Object.keys(d).forEach(function (k) { out[k] = d[k]; });
+        Object.keys(adj || {}).forEach(function (k) {
+            var v = Number(adj[k]);
+            if (isFinite(v)) out[k] = v;
+        });
+        return out;
+    }
+    function tipPoint(kind, w, h, adj) {
+        var a = adjOf(kind, adj);
+        return [w / 2 + a.adj1 * w / 100000, h / 2 + a.adj2 * h / 100000];
+    }
+    /* The tail of a rectangular callout, as presetShapeDefinitions puts it:
+       it leaves the side the tip is furthest beyond (measured in the
+       frame's own proportions) between 2/12 and 5/12 of that side, or 7/12
+       and 10/12 when the tip is past the middle. Every side gets a tail
+       vertex; on the three that do not carry the tail it lies on the side
+       itself. */
+    function wedgeSides(w, h, a) {
+        var dxPos = w * a.adj1 / 100000, dyPos = h * a.adj2 / 100000;
+        var xPos = w / 2 + dxPos, yPos = h / 2 + dyPos;
+        var dq = dxPos * h / w;
+        var dz = Math.abs(dyPos) - Math.abs(dq);   // > 0: the tip is above or below
+        var x1 = w * (dxPos > 0 ? 7 : 2) / 12, x2 = w * (dxPos > 0 ? 10 : 5) / 12;
+        var y1 = h * (dyPos > 0 ? 7 : 2) / 12, y2 = h * (dyPos > 0 ? 10 : 5) / 12;
+        var q = function (c, a1, b1) { return c > 0 ? a1 : b1; };
+        return {
+            x1: x1, x2: x2, y1: y1, y2: y2,
+            xt: q(dz, q(dyPos, x1, xPos), x1), yt: q(dz, q(dyPos, 0, yPos), 0),
+            xr: q(dz, w, q(dxPos, xPos, w)), yr: q(dz, y1, q(dxPos, yPos, y1)),
+            xb: q(dz, q(dyPos, xPos, x1), x1), yb: q(dz, q(dyPos, yPos, h), h),
+            xl: q(dz, 0, q(dxPos, 0, xPos)), yl: q(dz, y1, q(dxPos, y1, yPos))
+        };
+    }
+    function adjustedPath(kind, w, h, adj) {
+        var a = adjOf(kind, adj);
+        var e, t;
+        if (kind === "wedgeRectCallout") {
+            e = wedgeSides(w, h, a);
+            return P().poly([[0, 0], [e.x1, 0], [e.xt, e.yt], [e.x2, 0], [w, 0], [w, e.y1],
+                [e.xr, e.yr], [w, e.y2], [w, h], [e.x2, h], [e.xb, e.yb], [e.x1, h], [0, h],
+                [0, e.y2], [e.xl, e.yl], [0, e.y1]]).toString();
+        }
+        if (kind === "wedgeRoundRectCallout") {
+            e = wedgeSides(w, h, a);
+            var u = Math.min(w, h) * Math.max(0, Math.min(50000, a.adj3)) / 100000;
+            var p = P();
+            p.M(u, 0).L(e.x1, 0).L(e.xt, e.yt).L(e.x2, 0).L(w - u, 0)
+                .arc(w - u, u, u, u, -Math.PI / 2, 0)
+                .L(w, e.y1).L(e.xr, e.yr).L(w, e.y2).L(w, h - u)
+                .arc(w - u, h - u, u, u, 0, Math.PI / 2)
+                .L(e.x2, h).L(e.xb, e.yb).L(e.x1, h).L(u, h)
+                .arc(u, h - u, u, u, Math.PI / 2, Math.PI)
+                .L(0, e.y2).L(e.xl, e.yl).L(0, e.y1).L(0, u)
+                .arc(u, u, u, u, Math.PI, Math.PI * 1.5);
+            return p.Z().toString();
+        }
+        if (kind === "wedgeEllipseCallout") {
+            // the tail leaves the ellipse 11 degrees either side of the
+            // direction of the tip, and the outline goes the long way round
+            t = tipPoint(kind, w, h, a);
+            var pang = Math.atan2((t[1] - h / 2) * w, (t[0] - w / 2) * h);
+            var gap = 11 * Math.PI / 180;
+            return P().arc(w / 2, h / 2, w / 2, h / 2, pang + gap, pang - gap + Math.PI * 2, true)
+                .L(t[0], t[1]).Z().toString();
+        }
+        if (kind === "cloudCallout") {
+            var c = P();
+            c.M(w * 0.22, h * 0.92)
+                .C(w * 0.02, h * 0.92, w * -0.05, h * 0.58, w * 0.13, h * 0.5)
+                .C(w * 0.06, h * 0.28, w * 0.26, h * 0.1, w * 0.42, h * 0.2)
+                .C(w * 0.5, h * -0.03, w * 0.8, h * -0.03, w * 0.86, h * 0.22)
+                .C(w * 1.04, h * 0.26, w * 1.04, h * 0.6, w * 0.87, h * 0.66)
+                .C(w * 0.93, h * 0.88, w * 0.7, h * 1.02, w * 0.57, h * 0.9)
+                .C(w * 0.48, h * 1.0, w * 0.3, h * 1.0, w * 0.22, h * 0.92)
+                .Z();
+            // three bubbles from the edge of the cloud out to the tip
+            t = tipPoint(kind, w, h, a);
+            var dx = t[0] - w / 2, dy = t[1] - h / 2;
+            var reach = Math.sqrt(Math.pow(dx / (w / 2), 2) + Math.pow(dy / (h / 2), 2));
+            if (reach > 1) {
+                var ex = w / 2 + dx / reach, ey = h / 2 + dy / reach;
+                var ss = Math.min(w, h);
+                [[0.3, 0.09], [0.65, 0.06], [1, 0.035]].forEach(function (b) {
+                    c.circle(ex + (t[0] - ex) * b[0], ey + (t[1] - ey) * b[0], ss * b[1], ss * b[1]);
+                });
+            }
+            return c.toString();
+        }
+        return "";
+    }
+
+    function path(kind, w, h, adj) {
         var d = def(kind);
         if (!d) return "";
+        if (adj && TIP_DEFAULTS[kind]) return adjustedPath(kind, w, h, adj);
         if (d.pts) return P().poly(d.pts(w, h)).toString();
         return d.path(w, h);
     }
@@ -1328,6 +1445,15 @@ var SlidesShapes = (function () {
         isOpen: function (kind) { var d = def(kind); return !!(d && d.open); },
         points: points,
         path: path,
+        // adjustments (see TIP_DEFAULTS): "tip" for the speech-bubble
+        // callouts, "radius" for a rounded rectangle, "" for the rest
+        adjustable: function (kind) {
+            kind = canonical(kind);
+            return TIP_DEFAULTS[kind] ? "tip" : (kind === "roundRect" ? "radius" : "");
+        },
+        tipDefaults: function (kind) { return adjOf(canonical(kind), null); },
+        tipPoint: function (kind, w, h, adj) { return tipPoint(canonical(kind), w, h, adj); },
+        legacyTip: function (kind) { return LEGACY_TIP[canonical(kind)] || null; },
         detail: detail,
         defaultSize: defaultSize
     };

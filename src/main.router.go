@@ -24,6 +24,13 @@ func mrouter(h http.Handler) http.Handler {
 			You can also check the path for url using r.URL.Path
 		*/
 
+		//Container apps come first: an app hostname, /app/<slug>/, or a root
+		//request made by an app page (which must never be answered from the
+		//ArozOS web root, not even the public /script or /img paths below)
+		if appProxyManager != nil && appProxyManager.HandleRequest(w, r) {
+			return
+		}
+
 		if r.URL.Path == "/favicon.ico" || r.URL.Path == "/manifest.webmanifest" || r.URL.Path == "/robots.txt" || r.URL.Path == "/humans.txt" {
 			//Serving web specification files. Allow no auth access.
 			h.ServeHTTP(w, r)

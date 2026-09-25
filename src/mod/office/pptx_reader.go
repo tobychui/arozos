@@ -912,6 +912,10 @@ type textResult struct {
 	FontCSS  string
 	LineH    float64
 	FontSize float64
+	// the whole box is bold / italic / underlined: every run of text is.
+	// The editor applies these to the box itself, and a descendant cannot
+	// take an underline off again, so the first run alone must not decide.
+	Bold, Italic, Underline bool
 }
 
 // buildTextBody renders a <p:txBody> into the editor's storage HTML
@@ -925,6 +929,7 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 	var plain []string
 	autoNum := map[int]int{}
 	firstSet := false
+	anyText, allBold, allItalic, allUnder := false, true, true, true
 	paras := tx.all("p")
 	for pi, p := range paras {
 		pPr := p.first("pPr")
@@ -966,6 +971,10 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 				if txt == "" {
 					continue
 				}
+				anyText = true
+				allBold = allBold && rs.Bold
+				allItalic = allItalic && rs.Italic
+				allUnder = allUnder && rs.Underline
 				runs.WriteString(`<span style="` + runCSS(rs, scale) + `">` +
 					xmlEscape(txt) + `</span>`)
 				lineText.WriteString(txt)
@@ -1084,10 +1093,18 @@ func (sc *slideCtx) buildTextBody(tx *xnode, chain []*xnode, bp bodyProps, cm co
 	res.Plain = strings.Join(plain, "\n")
 	if !firstSet && len(paras) > 0 {
 		ps := resolveParaStyle(chain, paras[0].first("pPr"), 0, &sc.cc)
-		sc.resolveThemeFonts(&ps.DefRun)
-		res.First = ps.DefRun
+		// no text at all: what the box types in is its endParaRPr
+		rs := ps.DefRun
+		applyRPr(&rs, paras[0].first("endParaRPr"), &sc.cc)
+		sc.resolveThemeFonts(&rs)
+		res.First = rs
 		res.Align = algnToCSS(ps.Align)
 		res.LineH = lineHeightOf(ps, bp)
+	}
+	if anyText {
+		res.Bold, res.Italic, res.Underline = allBold, allItalic, allUnder
+	} else {
+		res.Bold, res.Italic, res.Underline = res.First.Bold, res.First.Italic, res.First.Underline
 	}
 	res.FontCSS = fontStackFor(res.First.Latin, res.First.EastAsian)
 	res.FontSize = ptToPx(res.First.SizePt) * scale
@@ -1244,8 +1261,8 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 			Type: "text", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
 			Props: Props{
 				HTML: tr.HTML, FontSize: round2(tr.FontSize), Color: tr.First.Color,
-				Align: tr.Align, Bold: tr.First.Bold, Italic: tr.First.Italic,
-				Underline: tr.First.Underline, FontFamily: tr.FontCSS,
+				Align: tr.Align, Bold: tr.Bold, Italic: tr.Italic,
+				Underline: tr.Underline, FontFamily: tr.FontCSS,
 				VAlign: anchorToVAlign(bp.Anchor), Pad: pad,
 				LineHeight: round2(tr.LineH),
 			},
@@ -1258,14 +1275,21 @@ func (sc *slideCtx) parseSp(node *xnode, cm coordMap) *Object {
 	if !hasLine {
 		stroke, strokeW = "", 0
 	}
+	radius := round2(sc.cornerRadius(spPr, prst, box))
+	if kind == "roundRect" && radius <= 0 {
+		// adj 0: square corners. A zero radius is not stored (omitempty),
+		// and a roundRect without one is drawn with the default rounding
+		kind = "rect"
+	}
 	return &Object{
 		Type: "shape", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
 		Props: Props{
 			Kind: kind, Fill: fill, Stroke: stroke, StrokeW: round2(strokeW),
-			Dash: dash, Radius: round2(sc.cornerRadius(spPr, prst, box)),
+			Dash: dash, DashStyle: dashStyleOfLn(spPr), Radius: radius,
+			Adj:  readShapeAdj(prst, spPr),
 			HTML: tr.HTML, Text: tr.Plain, TextColor: tr.First.Color,
 			FontSize: round2(tr.FontSize), FontFamily: tr.FontCSS,
-			Bold: tr.First.Bold, Italic: tr.First.Italic,
+			Bold: tr.Bold, Italic: tr.Italic,
 			Align: tr.Align, VAlign: anchorToVAlign(bp.Anchor), Pad: pad,
 			LineHeight: round2(tr.LineH),
 		},
@@ -1278,10 +1302,20 @@ func (sc *slideCtx) cornerRadius(spPr *xnode, prst string, box xfrmBox) float64 
 		return 0
 	}
 	adj := 16667.0 // the DrawingML default for roundRect
+	// the guide that rounds the corner: roundRect's "adj", a rounded
+	// callout's "adj3" (its adj1/adj2 place the tip, and read as a radius
+	// they made the corners enormous), adj1 for the other rounded presets
+	want := "adj1"
+	switch prst {
+	case "roundRect":
+		want = "adj"
+	case "wedgeRoundRectCallout":
+		want = "adj3"
+	}
 	if g := spPr.first("prstGeom"); g != nil {
 		if av := g.first("avLst"); av != nil {
 			for _, gd := range av.all("gd") {
-				if strings.Contains(gd.attr("name"), "adj") {
+				if gd.attr("name") == want {
 					if v := strings.TrimPrefix(gd.attr("fmla"), "val "); v != gd.attr("fmla") {
 						adj = atofDefault(v, adj)
 					}
@@ -1309,6 +1343,16 @@ func (sc *slideCtx) styleRefColor(node *xnode, ref string) string {
 	for i := range r.Nodes {
 		if c := sc.cc.resolveColor(&r.Nodes[i]); c != "" {
 			return c
+		}
+	}
+	return ""
+}
+
+// dashStyleOfLn is the editor's dash style for an <a:ln> ("" for solid)
+func dashStyleOfLn(spPr *xnode) string {
+	if ln := spPr.first("ln"); ln != nil {
+		if d := ln.first("prstDash"); d != nil {
+			return dashStyleForPrst(d.attr("val"))
 		}
 	}
 	return ""
@@ -1359,17 +1403,6 @@ func (sc *slideCtx) parseCxnSp(node *xnode, cm coordMap) *Object {
 	if strokeW <= 0 {
 		strokeW = 1
 	}
-	arrowEnd, arrowStart := false, false
-	if ln := spPr.first("ln"); ln != nil {
-		if te := ln.first("tailEnd"); te != nil {
-			t := te.attr("type")
-			arrowEnd = t != "" && t != "none"
-		}
-		if he := ln.first("headEnd"); he != nil {
-			t := he.attr("type")
-			arrowStart = t != "" && t != "none"
-		}
-	}
 	prst := ""
 	if g := spPr.first("prstGeom"); g != nil {
 		prst = g.attr("prst")
@@ -1380,8 +1413,8 @@ func (sc *slideCtx) parseCxnSp(node *xnode, cm coordMap) *Object {
 	// end; anything with a bend carries the full polyline alongside it
 	ox, oy := pts[0][0], pts[0][1]
 	last := pts[len(pts)-1]
-	props := Props{Stroke: stroke, StrokeW: round2(strokeW), Dash: dash,
-		ArrowEnd: arrowEnd, ArrowStart: arrowStart}
+	props := Props{Stroke: stroke, StrokeW: round2(strokeW), Dash: dash}
+	readLineEnds(spPr.first("ln"), &props)
 	if len(pts) > 2 {
 		rel := make([][]float64, len(pts))
 		for i, p := range pts {
@@ -1514,6 +1547,12 @@ func (sc *slideCtx) parsePic(node *xnode, cm coordMap) *Object {
 		props.Radius = round2(rad)
 	}
 	props.FlipH, props.FlipV = box.FlipH, box.FlipV
+	// a frame drawn around the picture (screenshots often carry one)
+	if stroke, sw, dash := sc.lineOf(spPr, cm); stroke != "" && stroke != "none" && sw > 0 {
+		props.Stroke, props.StrokeW, props.Dash = stroke, round2(sw), dash
+		readLineEnds(spPr.first("ln"), &props)
+		props.StartHead, props.EndHead, props.ArrowStart, props.ArrowEnd = "", "", false, false
+	}
 	readPictureEffects(blip, &props)
 	return &Object{
 		Type: "image", X: box.X, Y: box.Y, W: box.W, H: box.H, Rot: box.Rot,
@@ -1769,15 +1808,6 @@ func (sc *slideCtx) freeformLine(node, spPr *xnode, box xfrmBox, cm coordMap) *O
 	if len(pts) < 2 {
 		return nil
 	}
-	arrowEnd, arrowStart := false, false
-	if ln := spPr.first("ln"); ln != nil {
-		if te := ln.first("tailEnd"); te != nil {
-			arrowEnd = te.attr("type") != "" && te.attr("type") != "none"
-		}
-		if he := ln.first("headEnd"); he != nil {
-			arrowStart = he.attr("type") != "" && he.attr("type") != "none"
-		}
-	}
 	// the editor's line origin is the first point, so the polyline it
 	// carries is relative to that
 	ox, oy := pts[0][0], pts[0][1]
@@ -1786,8 +1816,8 @@ func (sc *slideCtx) freeformLine(node, spPr *xnode, box xfrmBox, cm coordMap) *O
 		pts[i][1] = round2(pts[i][1] - oy)
 	}
 	last := pts[len(pts)-1]
-	props := Props{Stroke: stroke, StrokeW: round2(strokeW), Dash: dash,
-		ArrowEnd: arrowEnd, ArrowStart: arrowStart}
+	props := Props{Stroke: stroke, StrokeW: round2(strokeW), Dash: dash}
+	readLineEnds(spPr.first("ln"), &props)
 	if len(pts) > 2 {
 		props.Points = pts
 	}

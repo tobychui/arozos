@@ -5313,6 +5313,8 @@
                     openFolder(filedata.ShortcutPath)
                 }else if (stype == "url"){
                     openURLShortcut(filedata);
+                }else if (stype == "app"){
+                    openContainerAppShortcut(filedata);
                 }else{
                     console.log(filedata);
                 }
@@ -5804,6 +5806,34 @@
             newFloatWindow(config);
         }
 
+        //Open a container app shortcut. How it opens (window or tab, size) is
+        //decided by an administrator, so it is looked up on every launch
+        function openContainerAppShortcut(fd, forceNewTab){
+            $.get("system/appproxy/launch?slug=" + encodeURIComponent(fd.ShortcutPath), function(app){
+                if (app.error !== undefined){
+                    showNotificationToast(fd.ShortcutName, app.error, "medium");
+                    return;
+                }
+                if (forceNewTab || app.OpenIn == "tab"){
+                    window.open(app.URL);
+                    return;
+                }
+                var config = {
+                    url: app.URL,
+                    appicon: fd.ShortcutImage || app.Icon,
+                    title: app.Name,
+                    parent: "app:" + app.Slug
+                };
+                if (app.Width > 0){
+                    config.width = app.Width;
+                }
+                if (app.Height > 0){
+                    config.height = app.Height;
+                }
+                newFloatWindow(config);
+            });
+        }
+
         //Edit the name, target, icon and launch options of the selected shortcut
         function openShortcutEditor(target, event){
             var selected = $(".launchIconWrapper.selected").first();
@@ -5829,6 +5859,8 @@
                 var fd = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
                 if (fd.ShortcutType == "url" && fd.ShortcutPath) {
                     window.open(fd.ShortcutPath);
+                }else if (fd.ShortcutType == "app" && fd.ShortcutPath) {
+                    openContainerAppShortcut(fd, true);
                 }
             });
 

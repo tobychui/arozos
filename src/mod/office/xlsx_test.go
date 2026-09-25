@@ -230,3 +230,27 @@ func TestNumFmtMapping(t *testing.T) {
 		}
 	}
 }
+
+// A column width must survive any number of trips through .xlsx: the
+// writer states it to 1/100 of a character, and the reader used to truncate
+// that back to a pixel less every time.
+func TestXlsxColumnWidthIsStable(t *testing.T) {
+	for _, px := range []float64{7, 36, 57, 61, 68, 85, 96, 165, 208} {
+		wb := &Workbook{Sheets: []*WorkSheet{{
+			Name: "S", Cells: map[string]*WorkCell{"A1": {V: "x"}},
+			ColW: map[string]float64{"0": px},
+		}}}
+		for trip := 1; trip <= 3; trip++ {
+			data, err := BuildXlsx(wb)
+			if err != nil {
+				t.Fatalf("BuildXlsx: %v", err)
+			}
+			if wb, err = ParseXlsx(data); err != nil {
+				t.Fatalf("ParseXlsx: %v", err)
+			}
+			if got := wb.Sheets[0].ColW["0"]; got != px {
+				t.Fatalf("%vpx column after %d trip(s) = %vpx", px, trip, got)
+			}
+		}
+	}
+}

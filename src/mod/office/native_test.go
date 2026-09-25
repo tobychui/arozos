@@ -3,6 +3,7 @@ package office
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -262,6 +263,42 @@ func TestNativeMediaSharedWithOOXML(t *testing.T) {
 	env, _ = ReadNativeFile(AppDocument, file, nil)
 	if !strings.Contains(env, "data:image/png;base64,") {
 		t.Errorf("no data URL without a sink: %.300s", env)
+	}
+}
+
+// The browser build keeps a Docs picture inline, as a data URL in an
+// <img src>. It must be stored once - the OOXML media part - and not also as
+// base64 inside the embedded copy, which doubled a picture-heavy document.
+func TestNativeInlineHTMLPictureStoredOnce(t *testing.T) {
+	durl := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngBytes(t))
+	body := `{"html":"<p><img src=\"` + durl + `\" style=\"width: 20pt\"></p>"}`
+	file, err := BuildNativeFile(AppDocument, envelopeOf(AppDocument, body), nil)
+	if err != nil {
+		t.Fatalf("BuildNativeFile: %v", err)
+	}
+	parts := unzipParts(t, file)
+	if strings.Contains(parts[nativeDocPart], "base64") {
+		t.Errorf("the embedded copy still holds the picture inline")
+	}
+	media := 0
+	for name := range parts {
+		if strings.HasPrefix(name, "word/media/") {
+			media++
+		}
+		if strings.HasPrefix(name, nativeAssetDir) {
+			t.Errorf("picture stored twice: %s", name)
+		}
+	}
+	if media != 1 {
+		t.Errorf("word/media holds %d pictures, want 1", media)
+	}
+	// and it comes back exactly as it was
+	env, err := ReadNativeFile(AppDocument, file, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(env, durl) {
+		t.Errorf("the picture did not come back inline: %.300s", env)
 	}
 }
 

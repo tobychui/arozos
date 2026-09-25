@@ -148,7 +148,7 @@ var SlidesPdf = (function () {
     // shapePathOps turns one of the editor's shape outlines into path
     // operators in page space. Used for both shape objects and the clip
     // path of a shaped crop, so the two cannot disagree.
-    function shapePathOps(kind, x, y, w, h, radius) {
+    function shapePathOps(kind, x, y, w, h, radius, adj) {
         var X = function (v) { return px(x + v); };
         var Y = function (v) { return px(SLIDE_H - (y + v)); };
         var ops = [];
@@ -182,7 +182,7 @@ var SlidesPdf = (function () {
             ops.push(PDFLib.closePath());
             return ops;
         }
-        var d = (window.SlidesShapes) ? SlidesShapes.path(kind, w, h) : "";
+        var d = (window.SlidesShapes) ? SlidesShapes.path(kind, w, h, adj) : "";
         if (!d) return shapePathOps("rect", x, y, w, h, 0);
         return svgPathOps(d, X, Y);
     }
@@ -543,6 +543,20 @@ var SlidesPdf = (function () {
                 width: px(fullW), height: px(fullH)
             });
             pg.restore();
+            // the picture's outline, along the frame (or the shape it is
+            // cropped to), centred on it as the editor and PowerPoint draw it
+            var sw = Number(p.strokeW) || 0;
+            var sc = (sw > 0 && p.stroke && p.stroke !== "none") ? parseColor(p.stroke) : null;
+            if (sc && o.type === "image") {
+                var sops = shapePathOps(p.mask || "rect", o.x, o.y, o.w, o.h, p.radius);
+                sops.unshift(PDFLib.setStrokingColor(sc), PDFLib.setLineWidth(px(sw)));
+                var idash = SlidesLines.dashArray(p, sw);
+                if (idash) sops.unshift(PDFLib.setDashPattern(idash.map(px), 0));
+                sops.push(PDFLib.stroke());
+                pg.save();
+                pg.ops(sops);
+                pg.restore();
+            }
         });
     }
 
@@ -566,12 +580,16 @@ var SlidesPdf = (function () {
         var fill = (fillCss && fillCss !== "none") ? parseColor(fillCss) : null;
         var stroke = (strokeW > 0 && strokeCss && strokeCss !== "none") ? parseColor(strokeCss) : null;
         if (fill || stroke) {
-            var ops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius);
+            var ops = shapePathOps(kind, o.x, o.y, o.w, o.h, p.radius, p.adj);
             if (fill) ops.unshift(PDFLib.setFillingColor(fill));
             if (stroke) {
                 ops.unshift(PDFLib.setStrokingColor(stroke));
                 ops.unshift(PDFLib.setLineWidth(px(strokeW)));
-                if (p.dash) ops.unshift(PDFLib.setDashPattern([px(strokeW * 3), px(strokeW * 2.4)], 0));
+                var sdash = SlidesLines.dashArray(p, strokeW);
+                if (sdash) {
+                    ops.unshift(PDFLib.setDashPattern(sdash.map(px), 0));
+                    if (SlidesLines.capOf(p) === "butt") ops.unshift(PDFLib.setLineCap(PDFLib.LineCapStyle.Butt));
+                }
             }
             if (fill && stroke) {
                 ops.push(evenOdd ? PDFLib.PDFOperator.of(PDFLib.PDFOperatorNames.FillEvenOddAndStroke)
@@ -617,26 +635,17 @@ var SlidesPdf = (function () {
             : [[o.x, o.y], [o.x + o.w, o.y + o.h]];
         var col = parseColor(p.stroke) || PDFLib.rgb(0.13, 0.13, 0.14);
         var sw = Number(p.strokeW) || 2;
-
-        var trimmed = pts.slice();
-        var heads = [];
-        var arrow = function (tipIdx, fromIdx) {
-            var tip = pts[tipIdx], from = pts[fromIdx];
-            var ang = Math.atan2(tip[1] - from[1], tip[0] - from[0]);
-            var s = 6 + sw * 2.4;
-            var bx = tip[0] - s * Math.cos(ang), by = tip[1] - s * Math.sin(ang);
-            var ox = s * 0.45 * -Math.sin(ang), oy = s * 0.45 * Math.cos(ang);
-            heads.push([tip, [bx + ox, by + oy], [bx - ox, by - oy]]);
-            return [tip[0] - s * 0.6 * Math.cos(ang), tip[1] - s * 0.6 * Math.sin(ang)];
-        };
-        if (p.arrowEnd) trimmed[trimmed.length - 1] = arrow(pts.length - 1, pts.length - 2);
-        if (p.arrowStart) trimmed[0] = arrow(0, 1);
+        // the stroke, its dash and both ends are the very geometry the
+        // canvas draws (slides_lines.js)
+        var geo = SlidesLines.geometry(pts, p, sw);
+        var dash = SlidesLines.dashArray(p, sw);
+        var round = SlidesLines.capOf(p) === "round";
 
         var ops = [PDFLib.setStrokingColor(col), PDFLib.setLineWidth(px(sw)),
-            PDFLib.setLineCap(PDFLib.LineCapStyle.Round),
+            PDFLib.setLineCap(round ? PDFLib.LineCapStyle.Round : PDFLib.LineCapStyle.Butt),
             PDFLib.setLineJoin(PDFLib.LineJoinStyle.Round)];
-        if (p.dash) ops.push(PDFLib.setDashPattern([px(sw * 3), px(sw * 2.4)], 0));
-        trimmed.forEach(function (pt, i) {
+        if (dash) ops.push(PDFLib.setDashPattern(dash.map(px), 0));
+        geo.line.forEach(function (pt, i) {
             ops.push(i === 0 ? PDFLib.moveTo(px(pt[0]), pg.y(pt[1])) : PDFLib.lineTo(px(pt[0]), pg.y(pt[1])));
         });
         ops.push(PDFLib.stroke());
@@ -644,12 +653,26 @@ var SlidesPdf = (function () {
         pg.ops(ops);
         pg.restore();
 
-        heads.forEach(function (tri) {
-            var hops = [PDFLib.setFillingColor(col)];
-            tri.forEach(function (pt, i) {
+        geo.heads.forEach(function (h) {
+            var hpts = h.pts;
+            if (h.kind === "circle") {
+                // a circle as a fine polygon: a head is a few pixels across
+                hpts = [];
+                for (var k = 0; k < 32; k++) {
+                    var a = k / 32 * Math.PI * 2;
+                    hpts.push([h.cx + h.r * Math.cos(a), h.cy + h.r * Math.sin(a)]);
+                }
+            }
+            var hops = h.fill ? [PDFLib.setFillingColor(col)]
+                : [PDFLib.setStrokingColor(col), PDFLib.setLineWidth(px(sw)),
+                    PDFLib.setLineCap(PDFLib.LineCapStyle.Round),
+                    PDFLib.setLineJoin(PDFLib.LineJoinStyle.Round)];
+            hpts.forEach(function (pt, i) {
                 hops.push(i === 0 ? PDFLib.moveTo(px(pt[0]), pg.y(pt[1])) : PDFLib.lineTo(px(pt[0]), pg.y(pt[1])));
             });
-            hops.push(PDFLib.closePath(), PDFLib.fill());
+            var closed = h.kind === "circle" || h.closed;
+            if (closed) hops.push(PDFLib.closePath());
+            hops.push(h.fill ? PDFLib.fill() : PDFLib.stroke());
             pg.save();
             pg.ops(hops);
             pg.restore();

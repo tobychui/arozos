@@ -148,6 +148,7 @@ func RunStartup() {
 	AIModelSettingInit()      //AI Model (OpenAI / Anthropic) config, pricing, quota & usage metrics
 	CNNInferenceSettingInit() //CXNNAIO vision-inference server config & connectivity test
 	DockerServiceInit()       //Docker container/image/compose management, only if Docker detected on host
+	AppProxyInit()            //Container apps reverse proxy (/app/<slug>/ and app hostnames), after Docker
 	AGIRuntimeManagerInit()   //AGI VM lifecycle monitor (Developer Options tab)
 	NotificationSettingInit() //Notification agents config + per-user preferences + desktop delivery endpoints
 	StartupFlagsInit()        //System BootFlag settibg

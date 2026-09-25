@@ -148,6 +148,32 @@ func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) stri
 	})
 }
 
+// htmlDataAttrRe matches the attributes a Docs body may hold a picture in as
+// a data URL: src and poster, and the PNG a writer prefers
+// (data-export-src, for a picture Word cannot hold)
+var htmlDataAttrRe = regexp.MustCompile(`(?i)(\s(?:src|poster|data-export-src)\s*=\s*)("data:[^"]*"|'data:[^']*')`)
+
+// embedHTMLDataURLs moves every data URL held in such an attribute of an
+// HTML string out through add, which stores the bytes and names them. A
+// Docs body keeps an inline picture there, and left in place it would be
+// stored twice in the file: once as base64 in the embedded copy and once as
+// the OOXML media part.
+func embedHTMLDataURLs(s string, add func(data []byte, ext string) string) string {
+	if !strings.Contains(s, "data:") {
+		return s
+	}
+	return htmlDataAttrRe.ReplaceAllStringFunc(s, func(m string) string {
+		sub := htmlDataAttrRe.FindStringSubmatch(m)
+		quoted := sub[2]
+		quote := quoted[:1]
+		data, ext, ok := parseAnyDataURL(html.UnescapeString(quoted[1 : len(quoted)-1]))
+		if !ok {
+			return m
+		}
+		return sub[1] + quote + "asset://" + add(data, ext) + quote
+	})
+}
+
 /*
 InlineMediaLinks turns the picture links in a body (media?file=, as a
 whole value or in an <img src>) into data URLs, read through readVpath.
@@ -371,7 +397,7 @@ func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)
 			}
 			return s
 		}
-		return embedHTMLMediaLinks(s, embedVpath)
+		return embedHTMLDataURLs(embedHTMLMediaLinks(s, embedVpath), add)
 	})
 
 	doc, err := marshalNoEscape(root)

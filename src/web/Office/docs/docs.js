@@ -2651,11 +2651,29 @@
                     restoreSel();
                     try { document.execCommand("insertHTML", false, clean); } catch (e) { }
                     afterEdit(true);
+                    adoptPastedImages();
                 }).catch(fallbackText);
                 return;
             }
             fallbackText();
         }).catch(fallbackText);
+    }
+
+    /* Pictures pasted from another window link into that window's working
+       copies, which go when it closes: make them this window's own. */
+    function adoptPastedImages() {
+        var imgs = editor.querySelectorAll("img");
+        Array.prototype.forEach.call(imgs, function (img) {
+            ["src", "data-export-src"].forEach(function (attr) {
+                var v = img.getAttribute(attr);
+                if (!v || !OfficePlatform.isForeignWorkingCopy(v)) return;
+                OfficePlatform.adoptSrc(v, function (nv) {
+                    if (nv === v || img.getAttribute(attr) !== v) return;
+                    img.setAttribute(attr, nv);
+                    OfficeApp.markDirty();
+                });
+            });
+        });
     }
 
     /* ================= paste ================= */
@@ -2690,6 +2708,7 @@
                 }
                 try { document.execCommand("insertHTML", false, clean); } catch (err) { }
                 afterEdit(true);
+                adoptPastedImages();
                 return;
             }
         }

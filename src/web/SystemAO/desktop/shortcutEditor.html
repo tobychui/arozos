@@ -406,6 +406,11 @@
                         <button type="button" class="dlgBtn scSquareBtn" onclick="selectFolder();" title="Browse"><i class="folder open outline icon"></i></button>
                     </div>
                 </div>
+                <div class="scField targetField" data-type="app">
+                    <label for="sapp" locale="field/app">Container App</label>
+                    <input class="dlgField" type="text" id="sapp" readonly>
+                    <div class="hint" locale="field/app/hint">How it opens is set by an administrator.</div>
+                </div>
                 <div class="scField targetField" data-type="module">
                     <label for="smodule" locale="field/module">WebApp</label>
                     <span class="dlgSelectWrap"><select class="dlgField" id="smodule" onchange="moduleChanged();"></select></span>
@@ -611,7 +616,7 @@
                     showLoadError(data.error);
                     return;
                 }
-                if (["module", "folder", "url"].indexOf(data.Type) < 0){
+                if (["module", "folder", "url", "app"].indexOf(data.Type) < 0){
                     showLoadError(t("error/type", "Unsupported shortcut type") + ": " + data.Type);
                     return;
                 }
@@ -636,7 +641,8 @@
             return {
                 "module": t("type/module", "WebApp"),
                 "folder": t("type/folder", "Folder"),
-                "url": t("type/url", "Website")
+                "url": t("type/url", "Website"),
+                "app": t("type/app", "Container App")
             }[type];
         }
 
@@ -665,6 +671,10 @@
             }else if (d.Type == "folder"){
                 //Folders always open in the File Manager
                 $("#sfolder").val(d.Path);
+
+            }else if (d.Type == "app"){
+                //A container app opens the way its administrator set it up
+                $("#sapp").val(d.Path);
 
             }else if (d.Type == "module"){
                 //A WebApp shortcut always shows the app's own icon
@@ -779,6 +789,8 @@
         function defaultIcon(){
             if (shortcutData.Type == "folder"){
                 return DEFAULT_FOLDER_ICON;
+            }else if (shortcutData.Type == "app"){
+                return "ContainerApps/img/app.svg";
             }else if (shortcutData.Type == "url"){
                 try {
                     return new URL($("#surl").val().trim()).origin + "/favicon.ico";
@@ -1203,6 +1215,8 @@
                 target = $("#sfolder").val().trim();
             }else if (shortcutData.Type == "module"){
                 target = $("#smodule").val();
+            }else if (shortcutData.Type == "app"){
+                target = shortcutData.Path;
             }
 
             var payload = {

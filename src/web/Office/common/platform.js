@@ -154,16 +154,75 @@ var OfficePlatform = (function () {
     /* ================================================================
        ArozOS host
        ================================================================ */
-    var WORKDIR = "user:/.appdata/Office";
+    /* Working copies (pictures of the open documents, pictures dropped in
+       before a save, oversized request payloads) live under tmp:/, which
+       ArozOS empties nightly of anything a day old. Each editor window has
+       its own folders, named by INSTANCE, and deletes them when it closes;
+       see common/backend/document.agi. */
+    var WORKDIR = "tmp:/.appdata/Office";
     var TMPDIR = WORKDIR + "/tmp";
+    var INSTANCE = (Date.now().toString(36) +
+        Math.random().toString(36).substring(2, 10)).replace(/[^a-z0-9]/g, "");
+    var UPLOADS = WORKDIR + "/uploads/" + INSTANCE;
+    // well inside the sweep's day, and throttled background timers still
+    // manage it
+    var KEEPALIVE_MS = 2 * 60 * 60 * 1000;
     var DOCUMENT_BACKEND = "Office/common/backend/document.agi";
-    var DATAURL_MAX = 1024 * 1024;      // blobs under 1 MB may stay inline
+    // only tiny blobs stay inline: an inline picture is base64 in the body,
+    // which rides along on every save (pictures do not gzip), while an
+    // uploaded one is a link the server reads - sent once, however often
+    // the document is saved
+    var DATAURL_MAX = 32 * 1024;
     var POST_INLINE_MAX = 4 * 1024 * 1024;   // stay well clear of the 10 MB form cap
     // past this a payload is gzipped and uploaded rather than form-posted:
     // a urlencoded JSON body is roughly twice its own size, a gzipped one a
     // fifth of it, and the upload is one extra round trip
     var COMPRESS_MIN = 64 * 1024;
     var workdirReady = false;
+    var keepAliveTimer = null;
+    var workdirReleased = false;
+
+    /* An open window keeps its working copies from the nightly sweep, and
+       lets them go when it closes - unless it closes with unsaved changes:
+       the draft kept in this browser still links them, and the sweep will
+       take them a day later. */
+    function startKeepAlive() {
+        if (keepAliveTimer || typeof ao_module_agirun !== "function") return;
+        keepAliveTimer = setInterval(function () {
+            ao_module_agirun(DOCUMENT_BACKEND, { action: "touch", instance: INSTANCE },
+                function () { }, function () { });
+        }, KEEPALIVE_MS);
+        window.addEventListener("pagehide", function () {
+            if (window.OfficeApp && OfficeApp.isDirty && OfficeApp.isDirty()) return;
+            releaseWorkdir();
+        });
+    }
+    /* The vpath behind a media?file= link, or "" */
+    function linkVpath(src) {
+        var m = /media\?file=([^&"'\s)]+)/.exec(String(src || ""));
+        if (!m) return "";
+        try { return decodeURIComponent(m[1]); } catch (e) { return ""; }
+    }
+    /* A link into another window's working copies - a picture copied from
+       there. That window deletes its folders when it closes, so the picture
+       has to become this window's own. */
+    function isForeignWorkingCopy(src) {
+        var vp = linkVpath(src);
+        return vp.indexOf(WORKDIR + "/") === 0 && vp.indexOf("/" + INSTANCE + "/") < 0;
+    }
+    function releaseWorkdir() {
+        if (workdirReleased || !keepAliveTimer) return;
+        workdirReleased = true;
+        clearInterval(keepAliveTimer);
+        var url = (typeof ao_root === "string" ? ao_root : "../../") +
+            "system/ajgi/interface?script=" + DOCUMENT_BACKEND;
+        var form = new URLSearchParams({ action: "release", instance: INSTANCE });
+        // a closing page cannot wait for an answer: a beacon still goes out
+        try {
+            if (navigator.sendBeacon && navigator.sendBeacon(url, form)) return;
+        } catch (e) { }
+        try { fetch(url, { method: "POST", body: form, keepalive: true, credentials: "same-origin" }); } catch (e) { }
+    }
 
     var arozos = {
         name: "arozos",
@@ -198,14 +257,16 @@ var OfficePlatform = (function () {
 
         prepareWorkdir: function (cb, errcb) {
             if (workdirReady) { cb(); return; }
-            ao_module_agirun(DOCUMENT_BACKEND, { action: "prepare" }, function (data) {
+            ao_module_agirun(DOCUMENT_BACKEND, { action: "prepare", instance: INSTANCE }, function (data) {
                 if (data && data.error) { if (errcb) errcb(data.error); return; }
                 workdirReady = true;
+                startKeepAlive();
                 cb();
             }, function () {
                 if (errcb) errcb("connection error");
             });
         },
+        releaseWorkdir: function () { releaseWorkdir(); },
 
         agirun: function (script, params, cb, errcb, timeout) {
             ao_module_agirun(script, params, cb, errcb, timeout);
@@ -359,11 +420,12 @@ var OfficePlatform = (function () {
                 errcb("open documents from your ArozOS storage");
                 return;
             }
-            arozos.agirun(DOCUMENT_BACKEND, { action: "load", filepath: path }, function (data) {
+            arozos.agirun(DOCUMENT_BACKEND, { action: "load", filepath: path, instance: INSTANCE }, function (data) {
                 if (!data || data.error) {
                     errcb((data && data.error) || "no response");
                     return;
                 }
+                startKeepAlive();
                 cb(data.envelope);
             }, function () { errcb("cannot reach the ArozOS backend"); }, 120000);
         },
@@ -379,8 +441,11 @@ var OfficePlatform = (function () {
             }, "content", cb || function () { }, errcb || function () { }, 60000);
         },
         sessionLoad: function (app, cb) {
-            arozos.agirun(DOCUMENT_BACKEND, { action: "session-load", app: app },
-                function (data) { cb(data && data.envelope); },
+            arozos.agirun(DOCUMENT_BACKEND, { action: "session-load", app: app, instance: INSTANCE },
+                function (data) {
+                    if (data && data.envelope) startKeepAlive();
+                    cb(data && data.envelope);
+                },
                 function () { cb(null); }, 60000);
         },
         sessionDelete: function (app) {
@@ -428,18 +493,34 @@ var OfficePlatform = (function () {
                 try {
                     file = new File([blob], name, { type: blob.type || "application/octet-stream" });
                 } catch (e) { asDataURL(); return; }
-                ao_module_uploadFile(file, WORKDIR + "/uploads",
+                ao_module_uploadFile(file, UPLOADS,
                     function (resp) {
                         if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
                             errcb("Upload failed: " + resp);
                             return;
                         }
-                        cb(arozos.mediaUrl(WORKDIR + "/uploads/" + name));
+                        cb(arozos.mediaUrl(UPLOADS + "/" + name));
                     },
                     undefined,
                     function () { asDataURL("Upload failed and the file is too large to embed"); });
             }, function () { asDataURL(); });
         },
+
+        /* A pasted picture that links into another window's working copies
+           is copied into this window's own (cb gets the new src, or the old
+           one when the copy fails - it still works while that window is
+           open). Anything else is returned as it is. */
+        adoptSrc: function (src, cb) {
+            if (!isForeignWorkingCopy(src) || typeof fetch !== "function") { cb(src); return; }
+            var name = linkVpath(src).split("/").pop() || "picture.png";
+            fetch(src, { credentials: "same-origin" }).then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return r.blob();
+            }).then(function (blob) {
+                arozos.cacheBlob(blob, name, cb, function () { cb(src); });
+            }).catch(function () { cb(src); });
+        },
+        isForeignWorkingCopy: isForeignWorkingCopy,
 
         loadInputFiles: function (ext) {
             // a ?template= / ?open= / ?recent= link is answered the same way
@@ -756,6 +837,9 @@ var OfficePlatform = (function () {
         },
 
         prepareWorkdir: function (cb) { cb(); },
+        releaseWorkdir: function () { },
+        adoptSrc: function (src, cb) { cb(src); },
+        isForeignWorkingCopy: function () { return false; },
 
         agirun: function (script, params, cb, errcb) {
             if (errcb) errcb("no ArozOS backend in the standalone web edition");
@@ -999,6 +1083,11 @@ var OfficePlatform = (function () {
         agirun: function (s, p, cb, errcb, t) { host.agirun(s, p, cb, errcb, t); },
         agirunLarge: function (s, p, f, cb, errcb, t) { host.agirunLarge(s, p, f, cb, errcb, t); },
         prepareWorkdir: function (cb, errcb) { host.prepareWorkdir(cb, errcb); },
+        // the window is closing for good: drop its working copies
+        releaseWorkdir: function () { host.releaseWorkdir(); },
+        // a pasted picture from another window becomes this window's own
+        adoptSrc: function (src, cb) { host.adoptSrc(src, cb); },
+        isForeignWorkingCopy: function (src) { return host.isForeignWorkingCopy(src); },
 
         mediaUrl: function (v) { return host.mediaUrl(v); },
         blobToSrc: function (b, n, cb, errcb) { host.blobToSrc(b, n, cb, errcb); },

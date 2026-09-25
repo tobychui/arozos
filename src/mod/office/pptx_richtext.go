@@ -29,7 +29,7 @@ type htmlRun struct {
 	Break     bool
 	SizePx    float64
 	Font      string // the first real family in the CSS stack
-	Bold      bool
+	Bold      bool   // b="1": a weight the font name does not already carry
 	Italic    bool
 	Underline bool
 	Strike    bool
@@ -46,7 +46,14 @@ type htmlPara struct {
 	PadLeft    float64 // px
 	Indent     float64 // px, negative for a hanging bullet
 	Bullet     string  // the marker glyph, "" when the paragraph has none
-	Runs       []htmlRun
+	BulletClr  string  // the marker's own colour, "" when it follows the text
+	BulletFont string  // the marker's own typeface, "" when it follows the text
+	BulletSize float64 // the marker's own size in px, 0 when it follows the text
+	// the style of a paragraph with no text (only the zero-width space the
+	// reader pads an empty line with), written as endParaRPr so the line
+	// keeps its size and font in PowerPoint
+	End  *htmlRun
+	Runs []htmlRun
 }
 
 // inlineStyle is the formatting in force at a point in the tree
@@ -54,6 +61,7 @@ type inlineStyle struct {
 	sizePx     float64
 	font       string
 	bold       bool
+	weight     int // the CSS font-weight in force, 0 when unset
 	italic     bool
 	underline  bool
 	strike     bool
@@ -129,6 +137,7 @@ func parseStorageHTML(html string, base inlineStyle) []htmlPara {
 				lists = append(lists, listCtx{ordered: name == "ol"})
 			case "b", "strong":
 				st.bold = true
+				st.weight = 0
 			case "i", "em":
 				st.italic = true
 			case "u":
@@ -145,6 +154,11 @@ func parseStorageHTML(html string, base inlineStyle) []htmlPara {
 				// sits relative to the text is the hanging indent
 				cur.Bullet = "•"
 				cur.Indent = st.bulletLeft - cur.PadLeft
+				// PowerPoint colours a marker like the first run unless
+				// told otherwise, and the reader's marker states its own
+				cur.BulletClr = st.color
+				cur.BulletFont = st.font
+				cur.BulletSize = st.sizePx
 			}
 			stack = append(stack, st)
 		case xml.EndElement:
@@ -167,17 +181,25 @@ func parseStorageHTML(html string, base inlineStyle) []htmlPara {
 			// space so it keeps its height; that is layout, not content
 			text = strings.ReplaceAll(text, "​", "")
 			if text == "" {
+				if string(t) != "" && !st.bulletSpan {
+					if n := len(cur.Runs); n == 0 {
+						end := styledRun(st, "")
+						cur.End = &end
+					} else if cur.Runs[n-1].Break {
+						// the sized spacer after a <br> is what gives the line
+						// it opens its height; the break carries that size
+						br := styledRun(st, "")
+						br.Break = true
+						cur.Runs[n-1] = br
+					}
+				}
 				continue
 			}
 			if st.bulletSpan {
 				cur.Bullet = strings.TrimSpace(text)
 				continue
 			}
-			cur.Runs = append(cur.Runs, htmlRun{
-				Text: text, SizePx: st.sizePx, Font: st.font,
-				Bold: st.bold, Italic: st.italic, Underline: st.underline,
-				Strike: st.strike, Color: st.color, Highlight: st.highlight,
-			})
+			cur.Runs = append(cur.Runs, styledRun(st, text))
 		}
 	}
 	flush()
@@ -185,6 +207,22 @@ func parseStorageHTML(html string, base inlineStyle) []htmlPara {
 		paras = []htmlPara{{}}
 	}
 	return paras
+}
+
+// styledRun is a run of text in the style in force. PowerPoint has only
+// bold or not; a weight the font name already carries ('Open Sans
+// SemiBold' at 600, which is how the reader writes a SemiBold face) is
+// the face itself, and marking it bold as well would draw it heavier.
+func styledRun(st inlineStyle, text string) htmlRun {
+	bold := st.bold
+	if st.weight > 0 {
+		bold = st.weight >= 700 || (st.weight >= 600 && fontWeightOf(st.font) < st.weight)
+	}
+	return htmlRun{
+		Text: text, SizePx: st.sizePx, Font: st.font,
+		Bold: bold, Italic: st.italic, Underline: st.underline,
+		Strike: st.strike, Color: st.color, Highlight: st.highlight,
+	}
 }
 
 // applyBlockAttrs reads the paragraph-level CSS off a block element
@@ -238,7 +276,15 @@ func applyInlineAttrs(st *inlineStyle, el xml.StartElement) {
 		case "font-family":
 			st.font = firstFontFamily(val)
 		case "font-weight":
-			st.bold = val == "bold" || parseNum(val) >= 600
+			switch val {
+			case "bold", "bolder":
+				st.bold, st.weight = true, 700
+			case "normal", "lighter":
+				st.bold, st.weight = false, 400
+			default:
+				st.weight = int(parseNum(val))
+				st.bold = st.weight >= 600
+			}
 		case "font-style":
 			st.italic = val == "italic" || val == "oblique"
 		case "text-decoration", "text-decoration-line":
@@ -258,7 +304,9 @@ func applyInlineAttrs(st *inlineStyle, el xml.StartElement) {
 	}
 }
 
-// styleDecls splits a style attribute into lower-cased property/value pairs
+// styleDecls splits a style attribute into lower-cased property/value
+// pairs. A font-family keeps its case: it goes back out as a typeface
+// name, which PowerPoint shows as it is spelled.
 func styleDecls(el xml.StartElement) map[string]string {
 	raw := ""
 	for _, a := range el.Attr {
@@ -275,8 +323,12 @@ func styleDecls(el xml.StartElement) map[string]string {
 		if i < 0 {
 			continue
 		}
-		out[strings.ToLower(strings.TrimSpace(decl[:i]))] =
-			strings.ToLower(strings.TrimSpace(decl[i+1:]))
+		prop := strings.ToLower(strings.TrimSpace(decl[:i]))
+		val := strings.TrimSpace(decl[i+1:])
+		if prop != "font-family" {
+			val = strings.ToLower(val)
+		}
+		out[prop] = val
 	}
 	return out
 }

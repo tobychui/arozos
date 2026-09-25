@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,9 @@ import (
 	name of an existing shortcut is never changed (desktop icon positions are
 	keyed by file name); only the content is rewritten.
 */
+
+// appSlugRegex matches the slug of a container app (see mod/appproxy)
+var appSlugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
 // shortcutEdit is the editable content of a shortcut as posted by the editor
 type shortcutEdit struct {
@@ -84,6 +88,10 @@ func (s *Service) handleShortcutCreate(w http.ResponseWriter, r *http.Request) {
 	shortcutIcon, err := utils.PostPara(r, "sicon")
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+	if shortcutType == "app" && !appSlugRegex.MatchString(shortcutPath) {
+		utils.SendErrorResponse(w, "Invalid container app")
 		return
 	}
 	shortcutCreationDest, err := utils.PostPara(r, "sdest")
@@ -286,6 +294,14 @@ func (s *Service) applyShortcutEdit(data *arozfs.ShortcutData, edit shortcutEdit
 		}
 
 	case "folder":
+		shortcut.ClearLaunchOptions(data)
+
+	case "app":
+		//A container app: the target is its slug and an administrator decides
+		//how it opens, so only the name and icon are the user's
+		if !appSlugRegex.MatchString(targetPath) {
+			return errors.New("Invalid container app")
+		}
 		shortcut.ClearLaunchOptions(data)
 
 	default:

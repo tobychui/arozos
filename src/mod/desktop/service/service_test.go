@@ -266,6 +266,18 @@ func TestApplyShortcutEdit(t *testing.T) {
 			wantAfter: arozfs.ShortcutData{Type: "folder", Name: "Docs", Path: "user:/Documents", Icon: "f.png"},
 		},
 		{
+			name:      "container app keeps its slug and drops launch options",
+			data:      arozfs.ShortcutData{Type: "app", Path: "grafana", OpenIn: "tab"},
+			edit:      shortcutEdit{Name: "Dashboards", Path: "grafana", Icon: "ContainerApps/img/app.svg", OpenIn: "tab", Width: "900"},
+			wantAfter: arozfs.ShortcutData{Type: "app", Name: "Dashboards", Path: "grafana", Icon: "ContainerApps/img/app.svg"},
+		},
+		{
+			name:    "container app with an invalid slug",
+			data:    arozfs.ShortcutData{Type: "app"},
+			edit:    shortcutEdit{Name: "x", Path: "../../etc", Icon: "i.png"},
+			wantErr: "container app",
+		},
+		{
 			name:    "unsupported type",
 			data:    arozfs.ShortcutData{Type: "invalid"},
 			edit:    shortcutEdit{Name: "x", Path: "y", Icon: "i.png"},

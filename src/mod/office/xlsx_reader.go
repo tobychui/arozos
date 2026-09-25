@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 	"path"
 	"strconv"
 	"strings"
@@ -411,7 +412,9 @@ func parseWorksheet(tree *xnode, sharedStr []string, styleMap []xlsxXfInfo) *Wor
 				max = min + 64 // ignore column-range floods
 			}
 			for i := min; i <= max; i++ {
-				ws.ColW[strconv.Itoa(i-1)] = float64(int(colCharsToPx(w)))
+				// rounded: the writer states widths to 1/100 of a character,
+				// and truncating that lost a pixel on every round trip
+				ws.ColW[strconv.Itoa(i-1)] = math.Round(colCharsToPx(w))
 			}
 		}
 	}

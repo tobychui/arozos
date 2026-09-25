@@ -242,6 +242,36 @@ through AGI, while a **subservice** is an *external* program ArozOS launches,
 supervises and reverse-proxies. Use a webapp by default; reach for a subservice
 when the work doesn't fit the in-core JavaScript sandbox.
 
+## What Container Apps are
+
+**Container Apps** publish a web server running on another port (usually a
+Docker container's published port) through a built-in reverse proxy, so it is
+reachable on the ArozOS port itself (and therefore through Cloudflare or a
+single forwarded port) and can be pinned to the desktop by every user.
+
+- **Where it lives:** [`src/mod/appproxy/`](src/mod/appproxy/) (routing,
+  rewriting, detection, subdomain login hand-off); wiring and endpoints in
+  [`src/appproxy.go`](src/appproxy.go). `mrouter` calls
+  `appProxyManager.HandleRequest` **before any other branch**
+  ([`src/main.router.go`](src/main.router.go)); `app` is a reserved
+  subservice path. Records live in the `appproxy` table of the system DB.
+- **Two modes:** *path* (`/app/<slug>/`, same origin as the desktop, so it
+  requires the admin's "I trust this container" flag) and *subdomain* (its own
+  hostname; `/app/<slug>/` on the ArozOS host issues a one-time ticket and
+  redirects to `https://<hostname>/__appproxy/claim`, which sets an HttpOnly
+  `ao_appsess` cookie). `/app/<slug>/` is always the canonical entry point.
+- **Root paths in path mode:** "catch root requests" 307-redirects requests
+  whose Referer is an app page back under `/app/<slug>/` (so they never hit
+  the ArozOS web root); "rewrite root paths" rewrites HTML/CSS and injects
+  `/app/<slug>/__appproxy/shim.js` (patches fetch/XHR/WebSocket/history/DOM
+  setters). The redirect alone loses to the browser cache and `pushState`, so
+  most apps need the rewrite. ArozOS cookies (`ao_*`) are never forwarded.
+- **UI:** the `ContainerApps` web app (all users see the apps they may open and
+  pin them; admins publish/edit and get a detection verdict from
+  `/system/appproxy/admin/probe`), a "Publish as app" action in Docker Manager,
+  and the `app` desktop shortcut type, which asks `/system/appproxy/launch`
+  how to open on every launch so admin changes apply to existing shortcuts.
+
 ## What the Cluster is
 
 Several independent ArozOS installations can form a **cluster** that exposes one
@@ -543,5 +573,6 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
 - [`src/mod/subservice/`](src/mod/subservice/) — reverse-proxied binary subservices (see "What a SubService is"); wired up in [`src/subservice.go`](src/subservice.go).
+- [`src/mod/appproxy/`](src/mod/appproxy/) — Container Apps reverse proxy (see "What Container Apps are").
 - [`src/web/`](src/web/) — front-end assets and WebApps (one folder per module; see "What a WebApp is").
 - [`src/system/`](src/system/) — runtime data and config (not shipped in release).

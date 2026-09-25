@@ -1303,12 +1303,18 @@ nothing has changed it since - that is returned as saved; otherwise (a file
 from Word, Excel or PowerPoint, or one they have re-saved) the OOXML is
 imported and wrapped in a fresh envelope. Either way the document's media
 is written into `<workdirBase>/<doc-hash>/` and referenced by `media?file=`
-links, so the JSON stays small (the Office webapps use
-`user:/.appdata/Office/cache`).
+links, so the JSON stays small (the Office webapps use one folder per editor
+window, `tmp:/.appdata/Office/cache/<window>`, deleted when the window closes -
+see `office.releaseWorkdir`). A picture already in that folder is not written
+again.
+
+`office.saveDocument` refuses to save (a `MediaExpired` error) when a picture
+the document links under the Office working folders can no longer be read -
+the nightly tmp sweep removed it - rather than write the file without it.
 
 ```javascript
 requirelib("office");
-var envelope = office.loadDocument("user:/Documents/deck.pptx", "user:/.appdata/Office/cache");
+var envelope = office.loadDocument("user:/Documents/deck.pptx", "tmp:/.appdata/Office/cache/k3x9a2f0");
 sendJSONResp('{"envelope":' + envelope + '}');
 ```
 
@@ -1320,6 +1326,33 @@ instead of posting it (`OfficeApp.agirunLarge`), gunzipped when it is gzip
 ```javascript
 var body = office.readPayload(dataFile);
 filelib.deleteFile(dataFile);
+```
+
+### `office.touchWorkdir(vpath, ...)`
+Refresh the modification time of each folder, everything in it and every
+folder above it up to the root of its storage, so the nightly tmp sweep (which
+removes whatever has not changed for a day, `-tmp_time`) leaves an open editor
+window's working copies alone. Only folders inside the Office working folders
+are accepted (`tmp:/.appdata/Office/cache|uploads|tmp/...`); anything else
+throws `PermissionDenied`. A folder that does not exist is skipped.
+
+```javascript
+requirelib("office");
+office.touchWorkdir("tmp:/.appdata/Office/cache/k3x9a2f0", "tmp:/.appdata/Office/uploads/k3x9a2f0");
+```
+
+### `office.releaseWorkdir(vpath [, olderThanSeconds])`
+Delete an editor window's working folder with everything in it (the window
+closed). With an age, delete instead only the entries of the folder whose
+newest file is older than that - a sweep of leftovers, which may also be
+given one of the working roots themselves (`tmp:/.appdata/Office/cache`, or
+the `user:/.appdata/Office/cache|uploads|tmp` folders earlier versions used).
+Same folder restriction as `touchWorkdir`.
+
+```javascript
+requirelib("office");
+office.releaseWorkdir("tmp:/.appdata/Office/cache/k3x9a2f0");      // the window closed
+office.releaseWorkdir("tmp:/.appdata/Office/cache", 24 * 60 * 60); // leftovers a day old
 ```
 
 ### `office.pptxToPresentation(srcVpath)`

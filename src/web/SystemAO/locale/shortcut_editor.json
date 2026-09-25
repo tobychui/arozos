@@ -57,7 +57,10 @@
                 "icon/isDefault": "預設圖示",
                 "icon/preset": "圖示樣式",
                 "error/notImage": "該檔案不是圖片。",
-                "error/loadImage": "無法載入該圖片。"
+                "error/loadImage": "無法載入該圖片。",
+                "type/app": "容器應用程式",
+                "field/app": "容器應用程式",
+                "field/app/hint": "開啟方式由管理員設定。"
             }
         },
         "zh-hk": {
@@ -115,7 +118,10 @@
                 "icon/isDefault": "預設圖示",
                 "icon/preset": "圖示樣式",
                 "error/notImage": "該檔案不是圖片。",
-                "error/loadImage": "無法載入該圖片。"
+                "error/loadImage": "無法載入該圖片。",
+                "type/app": "容器應用程式",
+                "field/app": "容器應用程式",
+                "field/app/hint": "開啟方式由管理員設定。"
             }
         },
         "zh-cn": {
@@ -173,7 +179,10 @@
                 "icon/isDefault": "默认图标",
                 "icon/preset": "预设图标样式",
                 "error/notImage": "该文件不是图片。",
-                "error/loadImage": "无法加载该图片。"
+                "error/loadImage": "无法加载该图片。",
+                "type/app": "容器应用",
+                "field/app": "容器应用",
+                "field/app/hint": "打开方式由管理员设置。"
             }
         },
         "en-us": {
@@ -231,7 +240,10 @@
                 "icon/isDefault": "Default icon",
                 "icon/preset": "Icon preset",
                 "error/notImage": "That file is not an image.",
-                "error/loadImage": "Unable to load that image."
+                "error/loadImage": "Unable to load that image.",
+                "type/app": "Container App",
+                "field/app": "Container App",
+                "field/app/hint": "How it opens is set by an administrator."
             }
         },
         "ja-jp": {
@@ -289,7 +301,10 @@
                 "icon/isDefault": "既定のアイコン",
                 "icon/preset": "アイコンプリセット",
                 "error/notImage": "そのファイルは画像ではありません。",
-                "error/loadImage": "その画像を読み込めません。"
+                "error/loadImage": "その画像を読み込めません。",
+                "type/app": "コンテナアプリ",
+                "field/app": "コンテナアプリ",
+                "field/app/hint": "開き方は管理者が設定します。"
             }
         },
         "ko-kr": {
@@ -347,7 +362,10 @@
                 "icon/isDefault": "기본 아이콘",
                 "icon/preset": "아이콘 프리셋",
                 "error/notImage": "이미지 파일이 아닙니다.",
-                "error/loadImage": "이미지를 불러올 수 없습니다."
+                "error/loadImage": "이미지를 불러올 수 없습니다.",
+                "type/app": "コンテナアプリ",
+                "field/app": "コンテナアプリ",
+                "field/app/hint": "開き方は管理者が設定します。"
             }
         }
     }

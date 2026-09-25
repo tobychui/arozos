@@ -191,9 +191,26 @@ WebAssembly in the web edition (`documentFile` / `spreadsheetFile` /
 - **Pictures travel as links, not base64.** The editors keep a storage
   picture as a `media?file=` link; `office.saveDocument` reads it server side
   (for the OOXML part and the embedded copy both, one read). `office.
-  loadDocument` writes a document's media into a per-document cache dir
-  under `user:/.appdata/Office/cache/` and links it - for an imported file
-  too, so a 20 MB `.docx` of photos opens as a small JSON body.
+  loadDocument` writes a document's media into a working folder and links
+  it - for an imported file too, so a 20 MB `.docx` of photos opens as a small
+  JSON body.
+- **Working copies live under `tmp:/` and belong to one editor window.**
+  An opened document's pictures go to `tmp:/.appdata/Office/cache/<window>/`,
+  pictures dropped in before a save to `tmp:/.appdata/Office/uploads/<window>/`
+  and oversized request payloads to `tmp:/.appdata/Office/tmp/` (`<window>` is
+  a random id the page makes, `INSTANCE` in `common/platform.js`). The window
+  deletes its folders when it closes (`office.releaseWorkdir`, sent as a beacon
+  on `pagehide` and from the float-window close guard), and every two hours
+  while it stays open refreshes them (`office.touchWorkdir`) so the nightly tmp
+  sweep, which removes whatever has not changed for a day, leaves them alone.
+  A window closed with unsaved changes keeps them: the draft in the browser
+  still links them, and the sweep takes them a day later. Should a picture's
+  working copy be gone anyway, `office.saveDocument` refuses the save instead of
+  writing the file without it. A picture pasted from another window links into
+  that window's folder, so the receiving window copies it into its own
+  (`OfficePlatform.adoptSrc`). Earlier versions kept these folders under
+  `user:/.appdata/Office/`, where nothing removed them; `prepare` sweeps them by
+  age.
 - **The upload is compressed.** `agirunLarge` gzips a body over 64 KB and
   uploads it; `office.readPayload` gunzips it (see CONTRACT.md).
 - **Session snapshots** stay a small zip of the envelope and its assets
@@ -207,7 +224,7 @@ keeps for the suite:
 |---|---|---|
 | Docs | text, styles, lists, tables, pictures, footnotes, headers/footers, **comments** (resolved state included) and **suggestions as tracked changes** ([`docx_review.go`](../../mod/office/docx_review.go)), "Suggest edits" as `trackRevisions` | - |
 | Sheets | cells, formulas, styles, merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx_cf.go`](../../mod/office/xlsx_cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
-| Slides | every object, **transitions** (fade / push / zoom), **click links** (to a slide or a URL), charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files |
+| Slides | every object, **transitions** (fade / push / zoom), **click links** (to a slide or a URL), **line dashes and ends** (a square end as a diamond, an open end as the filled one - PowerPoint has neither), **picture frames**, **callout tips**, charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files, the exact line end |
 
 The reverse holds too: comments, tracked changes, conditional formats, tab
 colours, filter ranges, transitions and click links made in Office
@@ -453,6 +470,38 @@ is on and the slide being edited are never two different slides. Delete
 then removes the slide; with the canvas focused the same key removes the
 selected objects. Both are registered with `HK` and guarded by
 `railFocused()`, so neither has to know about the other.
+
+### Slides: line styles and shape adjustments
+
+**Lines look the way Google Slides lets you make them.** When a line, a
+shape or a picture is selected the toolbar shows *Line weight* (1-24px) and
+*Line dash* (solid, dot, dash, dash-dot, long dash, long dash-dot); for a line
+also *Line start* and *Line end* (none, arrow, filled arrow / circle / square /
+diamond and open versions of the last four). Each menu pictures its choices.
+All of it lives in [`slides/slides_lines.js`](slides/slides_lines.js)
+(`SlidesLines`): the catalogue, the dash patterns (PowerPoint's own presets
+in multiples of the weight, flat-capped as PowerPoint draws them) and one
+`geometry()` that turns a polyline into the stroke plus its end marks. The
+canvas and the PDF exporter both draw from it, so they cannot disagree. The
+props are `dashStyle`, `startHead` and `endHead`; a document from before
+them says `dash` / `arrowEnd` / `arrowStart`, which still draw exactly as they
+did, and `setDash` / `setHead` keep those flags in step for older readers.
+The `.pptx` mapping is [`mod/office/pptx_lines.go`](../../mod/office/pptx_lines.go).
+
+**A callout's tip is an adjustment, as in PowerPoint.** The four speech
+bubbles (`wedgeRectCallout`, `wedgeRoundRectCallout`, `wedgeEllipseCallout`,
+`cloudCallout`) carry `props.adj` with PresentationML's own names and scale
+(`adj1`/`adj2` place the tip at centre + adj x frame, in 1/100000;
+`adj3` rounds the rounded one's corners). `SlidesShapes.path(kind, w, h, adj)`
+draws them with PowerPoint's formulas - the body fills the frame, the tail
+leaves the side the tip lies beyond - and a selected callout shows a yellow
+diamond on its tip to drag; a rounded rectangle shows one where its corner
+ends. A callout made before adjustments existed has no `adj` and keeps its old
+drawing (body in the top 72%, tip at the bottom) until its handle is first
+dragged, when the frame shrinks to the body and the tip is stated where it
+already was (`adoptAdjustments`); the `.pptx` writer converts it the same way
+([`mod/office/pptx_adjust.go`](../../mod/office/pptx_adjust.go)). Other presets
+still draw at their default adjustments.
 
 ### Slides: the shape catalogue
 
@@ -850,7 +899,7 @@ once a urlencoded body passes 10 MB** (the connection is then reset
 mid-upload and the app can only report "cannot reach the ArozOS backend").
 Export calls therefore go through `OfficeApp.agirunLarge` instead of
 `ao_module_agirun`: under 4 MB it posts normally, above that it uploads the
-payload to `user:/.appdata/Office/tmp/` through the system upload endpoint
+payload to `tmp:/.appdata/Office/tmp/` through the system upload endpoint
 (streamed to disk - the host never has to buffer it in RAM, which matters on
 low-memory boards) and passes `dataFile` to the backend script, which reads
 and deletes it. Raising the server-side form limit is *not* an option here.
@@ -1070,6 +1119,7 @@ node --check web/Office/docs/docs.js   # etc. for each edited JS file
 node web/Office/sheets/test_formula.js    # formula engine
 node web/Office/sheets/test_formula_fns.js  # formula functions (vs. Excel examples)
 node web/Office/common/test_share.js      # share links and OOXML app detection
+node web/Office/slides/test_lines.js      # line styles, line ends, callout adjustments
 sh ../scripts/check-conventions.sh --diff origin/master
 ```
 

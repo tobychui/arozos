@@ -66,7 +66,6 @@ func TestBuildPptxStructure(t *testing.T) {
 		"ppt/slides/slide2.xml",
 		"ppt/slides/_rels/slide1.xml.rels",
 		"ppt/media/image1.png",
-		"ppt/media/image2.png",
 	}
 	have := map[string]bool{}
 	for _, f := range zr.File {
@@ -76,6 +75,15 @@ func TestBuildPptxStructure(t *testing.T) {
 		if !have[p] {
 			t.Errorf("missing expected pptx part: %s", p)
 		}
+	}
+	// the picture and the chart are the same PNG: one part, both slides
+	// pointing at it
+	if have["ppt/media/image2.png"] {
+		t.Errorf("the same picture was stored twice")
+	}
+	rels2 := string(zipPart(t, data, "ppt/slides/_rels/slide2.xml.rels"))
+	if !strings.Contains(rels2, `Target="../media/image1.png"`) {
+		t.Errorf("slide 2 does not share the picture part: %s", rels2)
 	}
 }
 

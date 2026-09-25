@@ -22,12 +22,14 @@ package office
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"sort"
 	"strings"
 )
@@ -157,11 +159,11 @@ func buildPptxPackage(p *Presentation, readVpath func(string) ([]byte, error), w
 	}
 
 	// ---- slides + media ----
-	mediaCount := 0
+	mediaSet := &pptxMediaSet{byHash: map[[32]byte]int{}}
 	var mediaExts []string
 	var sidecar []sidecarFile
 	for i, slide := range p.Slides {
-		slideXML, slideRels, media, slideSidecar, err := buildSlideXML(p, slide, &mediaCount, readVpath, withSidecar)
+		slideXML, slideRels, media, slideSidecar, err := buildSlideXML(p, slide, mediaSet, readVpath, withSidecar)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -201,6 +203,26 @@ type mediaEntry struct {
 	data  []byte
 }
 
+// pptxMediaSet numbers the media parts of a package and keeps one part per
+// distinct picture: a logo on every slide is one part that every slide
+// points at, as PowerPoint writes it, not a copy per slide.
+type pptxMediaSet struct {
+	count  int
+	byHash map[[32]byte]int
+}
+
+// place returns the part number for data, and whether the part is new and
+// still has to be written
+func (m *pptxMediaSet) place(data []byte) (int, bool) {
+	h := sha256.Sum256(data)
+	if idx, ok := m.byHash[h]; ok {
+		return idx, false
+	}
+	m.count++
+	m.byHash[h] = m.count
+	return m.count, true
+}
+
 // sidecarFile is one video/audio file collected for the sidecar zip
 // written next to the exported .pptx
 type sidecarFile struct {
@@ -210,7 +232,7 @@ type sidecarFile struct {
 
 // buildSlideXML renders one slide part plus its .rels, media payloads and
 // the video/audio files destined for the sidecar zip
-func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath func(string) ([]byte, error), withSidecar bool) (string, string, []mediaEntry, []sidecarFile, error) {
+func buildSlideXML(p *Presentation, slide *Slide, mediaSet *pptxMediaSet, readVpath func(string) ([]byte, error), withSidecar bool) (string, string, []mediaEntry, []sidecarFile, error) {
 	var sb strings.Builder
 	var rels strings.Builder
 	var media []mediaEntry
@@ -288,11 +310,13 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath fun
 				// unreadable, or a remote URL - skip it silently
 				continue
 			}
-			*mediaCount++
+			idx, isNew := mediaSet.place(data)
 			rid := fmt.Sprintf("rId%d", relIdx)
 			relIdx++
-			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, *mediaCount, ext))
-			media = append(media, mediaEntry{index: *mediaCount, ext: ext, data: data})
+			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, idx, ext))
+			if isNew {
+				media = append(media, mediaEntry{index: idx, ext: ext, data: data})
+			}
 			sb.WriteString(buildPicSp(shapeID, o, rid))
 		case "video", "audio":
 			// media is NOT embedded in the pptx (playback support across
@@ -304,11 +328,13 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath fun
 			if pd, pe, pok := imageSrcBytes(o.Props.Png, readVpath); pok && (pe == "png" || pe == "jpeg") {
 				posterData, posterExt = pd, pe
 			}
-			*mediaCount++
+			idx, isNew := mediaSet.place(posterData)
 			rid := fmt.Sprintf("rId%d", relIdx)
 			relIdx++
-			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, *mediaCount, posterExt))
-			media = append(media, mediaEntry{index: *mediaCount, ext: posterExt, data: posterData})
+			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, idx, posterExt))
+			if isNew {
+				media = append(media, mediaEntry{index: idx, ext: posterExt, data: posterData})
+			}
 			sb.WriteString(buildPicSp(shapeID, o, rid))
 			if withSidecar {
 				if data, ext, ok := mediaSrcBytes(o.Props.Src, o.Type, readVpath); ok {
@@ -515,12 +541,14 @@ func maxF(a, b float64) float64 {
 	return b
 }
 
-// fontSizeToSz converts a CSS px font size to pptx hundredths of a point
+// fontSizeToSz converts a CSS px font size to pptx hundredths of a point.
+// Rounded, not truncated: the reader's 28pt comes back as 37.33px, and
+// truncating that wrote 27.99pt.
 func fontSizeToSz(px float64) int {
 	if px <= 0 {
 		px = 24
 	}
-	return int(px * 0.75 * 100)
+	return int(math.Round(px * 0.75 * 100))
 }
 
 func alignToAlgn(align string) string {
@@ -615,17 +643,28 @@ func buildRichBody(o *Object, fallbackColor string) string {
 			// the reader turns a pptx percentage into a CSS multiplier by
 			// multiplying with the font's line height; undo that here
 			sb.WriteString(fmt.Sprintf(`<a:lnSpc><a:spcPct val="%d"/></a:lnSpc>`,
-				int(lh/pptxLineHeightFactor*100000)))
+				int(math.Round(lh/pptxLineHeightFactor*100000))))
 		}
 		if para.MarginTop > 0 {
 			sb.WriteString(fmt.Sprintf(`<a:spcBef><a:spcPts val="%d"/></a:spcBef>`,
-				int(para.MarginTop*0.75*100)))
+				int(math.Round(para.MarginTop*0.75*100))))
 		}
 		if para.MarginBot > 0 {
 			sb.WriteString(fmt.Sprintf(`<a:spcAft><a:spcPts val="%d"/></a:spcAft>`,
-				int(para.MarginBot*0.75*100)))
+				int(math.Round(para.MarginBot*0.75*100))))
 		}
 		if para.Bullet != "" {
+			if c := hexColor(para.BulletClr, ""); c != "" {
+				sb.WriteString(`<a:buClr><a:srgbClr val="` + c + `"/></a:buClr>`)
+			}
+			// PowerPoint sizes a marker like the first run unless told
+			if para.BulletSize > 0 && (len(para.Runs) == 0 ||
+				fontSizeToSz(para.BulletSize) != fontSizeToSz(firstRunSize(para, base))) {
+				sb.WriteString(fmt.Sprintf(`<a:buSzPts val="%d"/>`, fontSizeToSz(para.BulletSize)))
+			}
+			if para.BulletFont != "" {
+				sb.WriteString(`<a:buFont typeface="` + xmlEscape(para.BulletFont) + `"/>`)
+			}
 			sb.WriteString(`<a:buChar char="` + xmlEscape(para.Bullet) + `"/>`)
 		} else {
 			sb.WriteString(`<a:buNone/>`)
@@ -641,19 +680,35 @@ func buildRichBody(o *Object, fallbackColor string) string {
 			}
 			sb.WriteString(`<a:r>` + runRPr(r, base) + `<a:t>` + xmlEscape(r.Text) + `</a:t></a:r>`)
 		}
+		if para.End != nil {
+			// an empty line keeps its size and font (the reader sizes it by this)
+			sb.WriteString(runProps("a:endParaRPr", *para.End, base))
+		}
 		sb.WriteString(`</a:p>`)
 	}
 	return sb.String()
 }
 
+// firstRunSize is the size of a paragraph's first run, in px
+func firstRunSize(para htmlPara, base inlineStyle) float64 {
+	if len(para.Runs) > 0 && para.Runs[0].SizePx > 0 {
+		return para.Runs[0].SizePx
+	}
+	return base.sizePx
+}
+
 // runRPr renders one run's <a:rPr>
-func runRPr(r htmlRun, base inlineStyle) string {
+func runRPr(r htmlRun, base inlineStyle) string { return runProps("a:rPr", r, base) }
+
+// runProps renders run properties under the given element name (<a:rPr>,
+// or <a:endParaRPr> for the style an empty paragraph keeps)
+func runProps(tag string, r htmlRun, base inlineStyle) string {
 	size := r.SizePx
 	if size <= 0 {
 		size = base.sizePx
 	}
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(`<a:rPr lang="en-US" sz="%d"`, fontSizeToSz(size)))
+	sb.WriteString(fmt.Sprintf(`<%s lang="en-US" sz="%d"`, tag, fontSizeToSz(size)))
 	sb.WriteString(` b="` + boolAttr(r.Bold) + `" i="` + boolAttr(r.Italic) + `"`)
 	if r.Underline {
 		sb.WriteString(` u="sng"`)
@@ -681,7 +736,7 @@ func runRPr(r htmlRun, base inlineStyle) string {
 		sb.WriteString(`<a:latin typeface="` + f + `"/><a:ea typeface="` + f +
 			`"/><a:cs typeface="` + f + `"/>`)
 	}
-	sb.WriteString(`</a:rPr>`)
+	sb.WriteString(`</` + tag + `>`)
 	return sb.String()
 }
 
@@ -726,6 +781,13 @@ func buildShapeSp(id int, o *Object) string {
 	p := o.Props
 	prst := shapeKindPrst(p.Kind)
 	geom := `<a:prstGeom prst="` + prst + `"><a:avLst/></a:prstGeom>`
+	// a callout carries where its tip is (an old one is converted, and
+	// its frame shrinks to the body it drew - see pptx_adjust.go)
+	frameH := o.H
+	if fh, adj := calloutFrame(prst, o.W, o.H, p.Adj); adj != nil {
+		frameH = fh
+		geom = `<a:prstGeom prst="` + prst + `">` + avLstXML(adj) + `</a:prstGeom>`
+	}
 	if prst == "roundRect" && p.Radius > 0 && o.W > 0 && o.H > 0 {
 		adj := int(p.Radius / minF(o.W, o.H) * 100000)
 		if adj > 0 && adj <= 50000 {
@@ -735,12 +797,7 @@ func buildShapeSp(id int, o *Object) string {
 	}
 	ln := `<a:ln><a:noFill/></a:ln>`
 	if p.StrokeW > 0 && p.Stroke != "" && p.Stroke != "none" {
-		ln = fmt.Sprintf(`<a:ln w="%d"><a:solidFill><a:srgbClr val="%s"/></a:solidFill>`,
-			pxToEmu(p.StrokeW), hexColor(p.Stroke, "333333"))
-		if p.Dash {
-			ln += `<a:prstDash val="dash"/>`
-		}
-		ln += `</a:ln>`
+		ln = strokeLn(p)
 	}
 	fill := `<a:noFill/>`
 	if p.Fill != "" && p.Fill != "none" {
@@ -778,7 +835,7 @@ func buildShapeSp(id int, o *Object) string {
 		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="Shape %d"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>`+
 			`<p:spPr>%s%s%s%s</p:spPr>%s</p:sp>`,
 		id, id,
-		xfrm(o.X, o.Y, o.W, o.H, o.Rot, false, false),
+		xfrm(o.X, o.Y, o.W, frameH, o.Rot, false, false),
 		geom, fill, ln, tx)
 }
 
@@ -807,11 +864,21 @@ func buildLineSp(id int, o *Object) string {
 		h = -h
 		flipV = true
 	}
+	// not xfrm(): its one-pixel floor on the box would tilt a horizontal or
+	// vertical line, whose box is exactly zero across
+	attrs := ""
+	if flipH {
+		attrs += ` flipH="1"`
+	}
+	if flipV {
+		attrs += ` flipV="1"`
+	}
+	box := fmt.Sprintf(`<a:xfrm%s><a:off x="%d" y="%d"/><a:ext cx="%d" cy="%d"/></a:xfrm>`,
+		attrs, pxToEmu(x), pxToEmu(y), pxToEmu(w), pxToEmu(h))
 	return fmt.Sprintf(
 		`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="%d" name="Line %d"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr>`+
 			`<p:spPr>%s<a:prstGeom prst="line"><a:avLst/></a:prstGeom>%s</p:spPr></p:cxnSp>`,
-		id, id,
-		xfrm(x, y, w, h, 0, flipH, flipV), lineLn(p))
+		id, id, box, lineLn(p))
 }
 
 // lineLn renders the <a:ln> of a line object, with its dash and arrow heads
@@ -822,16 +889,7 @@ func lineLn(p Props) string {
 	}
 	ln := fmt.Sprintf(`<a:ln w="%d"><a:solidFill><a:srgbClr val="%s"/></a:solidFill>`,
 		pxToEmu(sw), hexColor(p.Stroke, "202124"))
-	if p.Dash {
-		ln += `<a:prstDash val="dash"/>`
-	}
-	if p.ArrowStart {
-		ln += `<a:headEnd type="triangle"/>`
-	}
-	if p.ArrowEnd {
-		ln += `<a:tailEnd type="triangle"/>`
-	}
-	return ln + `</a:ln>`
+	return ln + lnDashAndEnds(p, true) + `</a:ln>`
 }
 
 // buildPolylineSp exports a bent connector as a freeform shape. Rebuilding
@@ -888,12 +946,24 @@ func buildPicSp(id int, o *Object, rid string) string {
 		}
 	}
 	blip := `<a:blip r:embed="` + rid + `">` + pictureEffects(p) + `</a:blip>`
+	// the picture's outline, when it has one (a picture has none by default)
+	ln := ""
+	if p.StrokeW > 0 && p.Stroke != "" && p.Stroke != "none" {
+		ln = strokeLn(p)
+	}
 	return fmt.Sprintf(
 		`<p:pic><p:nvPicPr><p:cNvPr id="%d" name="Picture %d"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>`+
 			`<p:blipFill>%s%s<a:stretch><a:fillRect/></a:stretch></p:blipFill>`+
-			`<p:spPr>%s%s</p:spPr></p:pic>`,
+			`<p:spPr>%s%s%s</p:spPr></p:pic>`,
 		id, id, blip, srcRect,
-		xfrm(o.X, o.Y, o.W, o.H, o.Rot, p.FlipH, p.FlipV), geom)
+		xfrm(o.X, o.Y, o.W, o.H, o.Rot, p.FlipH, p.FlipV), geom, ln)
+}
+
+// strokeLn renders a solid (or dashed) <a:ln> from an object's stroke
+func strokeLn(p Props) string {
+	ln := fmt.Sprintf(`<a:ln w="%d"><a:solidFill><a:srgbClr val="%s"/></a:solidFill>`,
+		pxToEmu(p.StrokeW), hexColor(p.Stroke, "333333"))
+	return ln + lnDashAndEnds(p, false) + `</a:ln>`
 }
 
 // pictureEffects renders the colour effects a picture carries as the
@@ -1004,6 +1074,9 @@ func buildTableFrame(id int, o *Object) string {
 					}
 					paras.WriteString(`<a:r>` + runRPr(r, base) + `<a:t>` +
 						xmlEscape(r.Text) + `</a:t></a:r>`)
+				}
+				if para.End != nil {
+					paras.WriteString(runProps("a:endParaRPr", *para.End, base))
 				}
 				paras.WriteString(`</a:p>`)
 			}

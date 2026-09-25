@@ -238,3 +238,43 @@ func TestOdpRoundTrip(t *testing.T) {
 		t.Errorf("table lost: %s", b)
 	}
 }
+
+// A text box is bold / underlined as a whole only when every run is: the
+// editor applies those flags to the box, and one bold first word used to
+// turn the whole box bold on import.
+func TestOdpBoxFlagsNeedEveryRun(t *testing.T) {
+	cases := []struct {
+		name, html string
+		bold, und  bool
+	}{
+		{"first run only", `<div><span style="font-weight:700;text-decoration:underline;">Title</span><span> body</span></div>`, false, false},
+		{"every run", `<div><span style="font-weight:700;">Title</span><span style="font-weight:700;"> body</span></div>`, true, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := &Presentation{Theme: "clean", Slides: []*Slide{{Objects: []*Object{
+				{Type: "text", X: 96, Y: 48, W: 480, H: 96, Props: Props{HTML: c.html, FontSize: 24}},
+			}}}}
+			data, err := BuildOdp(src)
+			if err != nil {
+				t.Fatalf("BuildOdp: %v", err)
+			}
+			back, err := ParseOdp(data)
+			if err != nil {
+				t.Fatalf("ParseOdp: %v", err)
+			}
+			var txt *Object
+			for _, o := range back.Slides[0].Objects {
+				if o.Type == "text" {
+					txt = o
+				}
+			}
+			if txt == nil {
+				t.Fatalf("text object lost")
+			}
+			if txt.Props.Bold != c.bold || txt.Props.Underline != c.und {
+				t.Errorf("bold=%v underline=%v, want %v %v (%s)", txt.Props.Bold, txt.Props.Underline, c.bold, c.und, txt.Props.HTML)
+			}
+		})
+	}
+}

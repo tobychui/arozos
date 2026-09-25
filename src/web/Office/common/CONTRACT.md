@@ -149,7 +149,10 @@ OfficeApp.init({
 **Menu item shape** (also used by `showContextMenu`):
 `{ label, icon /*semantic icon name, e.g. "save"*/, key /*display, e.g. "Ctrl+B"*/,
    action: fn, enabled: fn->bool, checked: bool|fn /*renders ✓, replaces icon*/,
-   sub: array|fn->array, sep: true }`
+   sub: array|fn->array, sep: true,
+   html /*trusted markup shown instead of the label (a picture of the choice,
+          e.g. a line sample); the label becomes the tooltip. Build it in the
+          app - never from document or user content*/ }`
 Menus re-render every time they open, so `checked`/`enabled`/`sub` are re-evaluated.
 `key` is display-only — bind the real shortcut with `registerShortcut`.
 
@@ -198,7 +201,7 @@ Go's `r.ParseForm`, which caps a urlencoded body at **10 MB**; past that the
 parse fails, *every* parameter disappears and the still-uploading connection is
 reset (the browser just reports a network error). `agirunLarge` posts inline
 while `params[field]` stays under 64 KB; above that it gzips the field
-(`CompressionStream`) and uploads it to `user:/.appdata/Office/tmp/` through the
+(`CompressionStream`) and uploads it to `tmp:/.appdata/Office/tmp/` through the
 system upload endpoint (streamed to disk, so the payload never has to fit in
 the host's RAM), passing the vpath as `<field>File` instead. A document body
 gzips to a fifth or less of its size, where urlencoding would have doubled it,
@@ -425,9 +428,9 @@ in the web edition ([`mod/office/native.go`](../../../mod/office/native.go)):
   one of ours that another program has since saved.
 - **Media never crosses the network as base64.** A picture from storage is a
   `media?file=` link; the server reads it into the file on save, and on
-  open writes the file's media into `user:/.appdata/Office/cache/<doc>/` and
-  links it. In the web edition media is inline, since there is no file
-  system.
+  open writes the file's media into the window's working folder
+  (`tmp:/.appdata/Office/cache/<window>/<doc>/`) and links it. In the web
+  edition media is inline, since there is no file system.
 - **`cfg.prepareNative(copy)`** is the app's chance to add what only the
   browser can make before the body is written: Slides renders its charts to
   PNG and grabs video poster frames, Docs renders SVG / WebP / BMP pictures
@@ -505,12 +508,26 @@ All three apps declare `saveFormats`; Sheets is the reference implementation
 **Never store large media as base64 in the model**: use
 `OfficeApp.mediaUrl(vpath)` for storage picks and
 `OfficeApp.blobToSrc(blob, name, cb, errcb)` for device/pasted blobs
-(<=1 MB stays inline, bigger streams to `user:/.appdata/Office/uploads/`
-via the system upload endpoint). The server reads both forms into the file
-at save time. The framework also writes rolling session snapshots to
+(<=32 KB stays inline, bigger streams to the window's own
+`tmp:/.appdata/Office/uploads/<window>/` via the system upload endpoint - an
+inline picture would ride along on every save, a link is uploaded once). The
+server reads both forms into the file at save time.
+
+**Working copies are per window and temporary.** Everything under
+`tmp:/.appdata/Office/` belongs to one editor window (`INSTANCE` in
+`platform.js`): it is deleted when the window closes clean
+(`OfficePlatform.releaseWorkdir()`, called by the close guard and on
+`pagehide`), kept fresh while the window is open, and otherwise removed by the
+nightly tmp sweep a day later. So never hand a working-copy link to another
+window without copying it: a paste handler that inserts objects or HTML from
+another window calls `OfficePlatform.adoptSrc(src, cb)` for each picture link
+(`isForeignWorkingCopy(src)` says whether it has to), which copies it into this
+window's own uploads. Slides (`adoptPastedMedia`) and Docs
+(`adoptPastedImages`) do this. The framework also writes rolling session snapshots to
 `user:/.appdata/Office/session/<app>.osession` (a small zip of the envelope
-and its media, `office.packToFile`, written on the autosave tick and after a
-save) and offers "Restore from previous session" on blank startup. That
+and its media, `office.packToFile`, written on the autosave tick while the
+document is not saved to its own file; a save to the app's own format
+deletes the snapshot instead of uploading the document twice) and offers "Restore from previous session" on blank startup. That
 dialog's **Discard** button deletes the snapshot (document.agi
 `session-delete`) so it stops prompting; **Start fresh** keeps it for a
 later launch. The framework also intercepts the floatWindow close button

@@ -143,6 +143,8 @@ body.of-app {
     font-size: 13px !important;
 }
 .of-menu-item .of-mi-label { flex: 1 1 auto; }
+/* a menu entry shown as a picture of its choice (it.html): line samples */
+.of-menu-item .of-mi-html { display: flex; align-items: center; gap: 10px; min-height: 18px; }
 .of-menu-item .of-mi-key {
     color: var(--of-fg-soft);
     font-size: 12px;

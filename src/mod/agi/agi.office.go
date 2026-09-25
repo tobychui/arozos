@@ -41,6 +41,11 @@ import (
 	                                                     working dir and linked
 	    office.readPayload(vpath)                     => the text of an uploaded payload file,
 	                                                     gunzipped when it is gzip
+	    office.touchWorkdir(vpath, ...)               => keep an editor window's working
+	                                                     folders under tmp:/.appdata/Office/
+	                                                     from the nightly tmp sweep
+	    office.releaseWorkdir(vpath [, olderThanSec]) => delete such a folder (or only
+	                                                     its entries older than that)
 
 	Format conversions:
 	    office.pptxToPresentation(srcVpath)           => JSON body string (Slides schema)
@@ -106,6 +111,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
 	readVpath := officeVpathReader(u)
+	g.injectOfficeWorkdirFunctions(vm, u, scriptFsh)
 
 	// writeOut writes bytes to a checked, already rewritten vpath
 	writeOut := func(destVpath string, data []byte) error {
@@ -155,10 +161,26 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		if app == "" {
 			panic(vm.MakeCustomError("UnsupportedFormat", "Office documents are saved as .docx, .xlsx or .pptx: "+destVpath))
 		}
-		data, err := office.BuildNativeFile(app, envelope, readVpath)
+		// a picture whose working copy has gone (the nightly tmp sweep, an
+		// editor left open for days) would be left out of the file without
+		// a word: refuse the save instead, so nothing is lost
+		var expired []string
+		read := func(vp string) ([]byte, error) {
+			b, err := readVpath(vp)
+			if err != nil && isOfficeWorkdir(vp) {
+				expired = append(expired, vp)
+			}
+			return b, err
+		}
+		data, err := office.BuildNativeFile(app, envelope, read)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
+		}
+		if len(expired) > 0 {
+			panic(vm.MakeCustomError("MediaExpired", fmt.Sprintf(
+				"%d picture(s) of this document are no longer on the server (their temporary copy expired) - reopen the document before saving, or they would be lost",
+				len(expired))))
 		}
 		if err := writeOut(destVpath, data); err != nil {
 			g.RaiseError(err)
@@ -208,13 +230,22 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		}
 		sink := func(name string, content []byte) (string, error) {
 			name = filepath.Base(name)
-			if err := wdFsh.FileSystemAbstraction.MkdirAll(docDirR, 0755); err != nil {
+			link := "../../media?file=" + url.QueryEscape(docDirV+"/"+name)
+			target := filepath.Join(docDirR, name)
+			// asset names are content hashes, so a file already in the cache
+			// under this name is this picture: reopening a document does not
+			// write its media out again
+			fsa := wdFsh.FileSystemAbstraction
+			if fsa.FileExists(target) && fsa.GetFileSize(target) == int64(len(content)) {
+				return link, nil
+			}
+			if err := fsa.MkdirAll(docDirR, 0755); err != nil {
 				return "", err
 			}
-			if err := wdFsh.FileSystemAbstraction.WriteStream(filepath.Join(docDirR, name), bytes.NewReader(content), 0755); err != nil {
+			if err := fsa.WriteStream(target, bytes.NewReader(content), 0755); err != nil {
 				return "", err
 			}
-			return "../../media?file=" + url.QueryEscape(docDirV+"/"+name), nil
+			return link, nil
 		}
 		envelope, err := office.ReadNativeFile(app, data, sink)
 		if err != nil {
@@ -853,6 +884,8 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		office.saveDocument = _office_saveDocument;               // envelope JSON -> .docx / .xlsx / .pptx (the suite's own save)
 		office.loadDocument = _office_loadDocument;               // .docx / .xlsx / .pptx -> envelope JSON, media extracted to a workdir
 		office.readPayload = _office_readPayload;                 // uploaded payload file -> string (gunzipped)
+		office.touchWorkdir = _office_touchWorkdir;               // keep an editor window's tmp:/.appdata/Office folders fresh
+		office.releaseWorkdir = _office_releaseWorkdir;           // delete an editor window's working folder (or its stale entries)
 		office.packToFile = _office_packToFile;                   // envelope JSON -> session snapshot container file
 		office.unpackToWorkdir = _office_unpackToWorkdir;         // session snapshot -> envelope JSON, assets extracted to a workdir
 

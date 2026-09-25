@@ -97,6 +97,17 @@ function openthis(object,evt=null, isDoubleClick=false){
                     title: shortcutInfo[1],
                     parent: shortcutInfo[2]
                 })
+            }else if (shortcutInfo[0] == "app"){
+                //A container app, opened the way its administrator configured
+                if (ao_module_virtualDesktop && typeof parent.openContainerAppShortcut == "function"){
+                    parent.openContainerAppShortcut({
+                        ShortcutName: shortcutInfo[1],
+                        ShortcutPath: shortcutInfo[2],
+                        ShortcutImage: shortcutInfo[3]
+                    });
+                }else{
+                    window.open("../../app/" + encodeURIComponent(shortcutInfo[2]) + "/");
+                }
             }
         });
         

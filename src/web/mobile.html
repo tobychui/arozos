@@ -811,7 +811,7 @@ function initFiles(){
         if(!data||data.error){$("#files-empty").show();return;}
 
         // URL shortcuts shown first
-        var urlShortcuts=data.filter(function(f){return f.IsShortcut&&f.ShortcutType==="url";});
+        var urlShortcuts=data.filter(function(f){return f.IsShortcut&&(f.ShortcutType==="url"||f.ShortcutType==="app");});
         // Folders shown after
         var folders=data.filter(function(f){return f.IsDir&&!f.IsShortcut;});
 
@@ -820,7 +820,8 @@ function initFiles(){
         urlShortcuts.forEach(function(f){
             var icon=f.ShortcutImage||"";
             var name=escH(f.ShortcutName||f.Filename);
-            var url=escA(f.ShortcutPath);
+            //Container apps always resolve through app/<slug>/
+            var url=escA(f.ShortcutType==="app"?"app/"+encodeURIComponent(f.ShortcutPath)+"/":f.ShortcutPath);
             $("#files-grid").append(
                 '<div class="folder-item" onclick="openUrlShortcut(\''+url+'\')">'
                 +'<img class="shortcut-icon" src="'+escA(icon)+'" onerror="this.src=\'img/system/favicon.png\'">'

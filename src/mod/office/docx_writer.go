@@ -220,6 +220,101 @@ func cssBorder(v string) (wBorder, bool) {
 	return b, true
 }
 
+/*
+cssBorderSides reads the borders a style gives each side, the way CSS
+cascades them: the border shorthand, each side's own shorthand, then the
+longhands - border-width / -style / -color with one to four values, which is
+how the browser writes a uniform border back once it has been edited, and
+the per-side ones. Only the sides the style mentions are returned; a side
+given a width or colour but never a style has none, as in CSS.
+*/
+func cssBorderSides(css map[string]string) map[string]wBorder {
+	sides := []string{"top", "right", "bottom", "left"}
+	out := map[string]wBorder{}
+	if v, ok := css["border"]; ok {
+		if bd, ok := cssBorder(v); ok {
+			for _, side := range sides {
+				out[side] = bd
+			}
+		}
+	}
+	for _, side := range sides {
+		if v, ok := css["border-"+side]; ok {
+			if bd, ok := cssBorder(v); ok {
+				out[side] = bd
+			}
+		}
+	}
+	set := func(side, prop, v string) {
+		v = strings.TrimSpace(strings.ToLower(v))
+		bd, ok := out[side]
+		if !ok {
+			bd = wBorder{sz: 4, color: "000000"} // no style yet
+		}
+		switch prop {
+		case "style":
+			switch v {
+			case "none", "hidden":
+				bd.val = "nil"
+			case "dotted", "dashed", "double":
+				bd.val = v
+			default:
+				bd.val = "single"
+			}
+		case "width":
+			switch v {
+			case "thin":
+				bd.sz = 4
+			case "medium":
+				bd.sz = 12
+			case "thick":
+				bd.sz = 18
+			default:
+				if pt, ok := cssPt(v, 11); ok {
+					if pt == 0 {
+						bd.val = "nil"
+					}
+					bd.sz = int(math.Max(2, math.Round(pt*8)))
+				}
+			}
+		case "color":
+			if c := cssColorHex(v); c != "" {
+				bd.color = c
+			}
+		}
+		out[side] = bd
+	}
+	for _, prop := range []string{"style", "width", "color"} {
+		if v, ok := css["border-"+prop]; ok {
+			vals := splitCSSValue(strings.TrimSpace(v))
+			for i, side := range sides {
+				// 1 to 4 values, top right bottom left, as in padding
+				switch len(vals) {
+				case 1:
+					set(side, prop, vals[0])
+				case 2:
+					set(side, prop, vals[i%2])
+				case 3:
+					set(side, prop, vals[[]int{0, 1, 2, 1}[i]])
+				case 4:
+					set(side, prop, vals[i])
+				}
+			}
+		}
+		for _, side := range sides {
+			if v, ok := css["border-"+side+"-"+prop]; ok {
+				set(side, prop, v)
+			}
+		}
+	}
+	for side, bd := range out {
+		if bd.val == "" {
+			delete(out, side)
+		}
+	}
+	return out
+}
+
 // borderSpace is a border's w:space: whole points, 0 to 31
 func borderSpace(pt float64) int {
 	return int(math.Max(0, math.Min(31, math.Round(pt))))
@@ -1117,19 +1212,12 @@ func (b *docxBuilder) blockStyleOf(n *html.Node, parent wRunStyle) (pProps, wRun
 		pp.shade = c
 		rs.shade = ""
 	}
-	for _, side := range []string{"top", "right", "bottom", "left"} {
-		if v, ok := css["border-"+side]; ok {
-			if bd, ok := cssBorder(v); ok && bd.val != "nil" {
-				if pp.borders == nil {
-					pp.borders = map[string]wBorder{}
-				}
-				pp.borders[side] = bd
+	for side, bd := range cssBorderSides(css) {
+		if bd.val != "nil" {
+			if pp.borders == nil {
+				pp.borders = map[string]wBorder{}
 			}
-		}
-	}
-	if v, ok := css["border"]; ok {
-		if bd, ok := cssBorder(v); ok && bd.val != "nil" {
-			pp.borders = map[string]wBorder{"top": bd, "right": bd, "bottom": bd, "left": bd}
+			pp.borders[side] = bd
 		}
 	}
 	// padding: inside a border it is the border's space, and the text keeps
@@ -2105,17 +2193,8 @@ func (b *docxBuilder) cell(c tcell, part *docxPart, rs wRunStyle, sb *strings.Bu
 	// borders: the cell's own, else the editor's default grid
 	def := wBorder{val: "single", sz: 6, color: "B9BEC7"}
 	borders := map[string]wBorder{"top": def, "left": def, "bottom": def, "right": def}
-	if v, ok := css["border"]; ok {
-		if bd, ok := cssBorder(v); ok {
-			borders = map[string]wBorder{"top": bd, "left": bd, "bottom": bd, "right": bd}
-		}
-	}
-	for _, side := range []string{"top", "right", "bottom", "left"} {
-		if v, ok := css["border-"+side]; ok {
-			if bd, ok := cssBorder(v); ok {
-				borders[side] = bd
-			}
-		}
+	for side, bd := range cssBorderSides(css) {
+		borders[side] = bd
 	}
 	tp.WriteString("<w:tcBorders>")
 	for _, side := range []string{"top", "left", "bottom", "right"} {

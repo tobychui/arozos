@@ -848,7 +848,11 @@ var OfficeApp = (function () {
             savedClean(seq);
             addRecent(fp, fn);
             setStatus("Saved " + fn);
-            saveSession();   // keep the session snapshot in step with the file
+            // the file now holds what the snapshot would: drop the snapshot
+            // (one tiny request) rather than uploading the document a second
+            // time, which doubled every save on a slow link and offered to
+            // "restore" a document that was already saved
+            deleteSession();
             finishSave();
             if (cb) cb();
         }, function (err) {
@@ -1167,7 +1171,15 @@ var OfficeApp = (function () {
             } else {
                 $it.append('<span style="width:16px;"></span>');
             }
-            $it.append('<span class="of-mi-label">' + escapeHtml(it.label) + "</span>");
+            // it.html: a picture of the choice (a line sample, a swatch) the
+            // app builds itself - trusted markup, never user content; the
+            // label stays as the tooltip
+            if (it.html) {
+                $it.append($('<span class="of-mi-label of-mi-html"></span>').html(it.html))
+                    .attr("title", it.label || "");
+            } else {
+                $it.append('<span class="of-mi-label">' + escapeHtml(it.label) + "</span>");
+            }
             if (it.key) $it.append('<span class="of-mi-key">' + escapeHtml(it.key) + "</span>");
             if (typeof it.enabled === "function" && !it.enabled()) $it.addClass("disabled");
             if (it.sub) {
@@ -1713,6 +1725,9 @@ var OfficeApp = (function () {
         if (typeof window.ao_module_close !== "function") return;
         var reallyClose = function () {
             markClean();   // never re-prompt while the window tears down
+            // closed for good (saved, or changes thrown away): its working
+            // copies can go now rather than wait for the nightly sweep
+            OfficePlatform.releaseWorkdir();
             if (typeof window.ao_module_closeHandler === "function") {
                 ao_module_closeHandler();
             }

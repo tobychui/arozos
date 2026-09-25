@@ -884,7 +884,7 @@
           "sig": "office.loadDocument(srcVpath, workdirBase)",
           "desc": "Open a .docx / .xlsx / .pptx as an editor envelope JSON string: the embedded copy when the suite wrote the file and nothing has changed it since, an import of the OOXML otherwise. Media is extracted into <workdirBase>/<doc-hash>/ and linked by media?file= so the JSON stays small.",
           "ret": "string (JSON)",
-          "example": "requirelib(\"office\");\nvar envelope = office.loadDocument(\"user:/Documents/deck.pptx\", \"user:/.appdata/Office/cache\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
+          "example": "requirelib(\"office\");\nvar envelope = office.loadDocument(\"user:/Documents/deck.pptx\", \"tmp:/.appdata/Office/cache/k3x9a2f0\");\nsendJSONResp('{\"envelope\":' + envelope + '}');"
         },
         {
           "name": "office.readPayload",
@@ -892,6 +892,20 @@
           "desc": "Return the text of a request payload the front end uploaded as a file (OfficeApp.agirunLarge), gunzipped when it is gzip. The caller deletes the file afterwards.",
           "ret": "string",
           "example": "requirelib(\"office\");\nvar body = office.readPayload(dataFile);\nfilelib.deleteFile(dataFile);"
+        },
+        {
+          "name": "office.touchWorkdir",
+          "sig": "office.touchWorkdir(vpath, ...)",
+          "desc": "Refresh the modification time of an editor window's working folders (and every folder above them) so the nightly tmp sweep leaves them alone. Only folders inside tmp:/.appdata/Office/cache|uploads|tmp are accepted.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\noffice.touchWorkdir(\"tmp:/.appdata/Office/cache/k3x9a2f0\", \"tmp:/.appdata/Office/uploads/k3x9a2f0\");"
+        },
+        {
+          "name": "office.releaseWorkdir",
+          "sig": "office.releaseWorkdir(vpath [, olderThanSeconds])",
+          "desc": "Delete an editor window's working folder with everything in it; with an age, delete only its entries whose newest file is older than that (a sweep, which may also target a working root). Same folder restriction as touchWorkdir.",
+          "ret": "boolean",
+          "example": "requirelib(\"office\");\noffice.releaseWorkdir(\"tmp:/.appdata/Office/cache/k3x9a2f0\");\noffice.releaseWorkdir(\"tmp:/.appdata/Office/cache\", 86400);"
         },
         {
           "name": "office.pptxToPresentation",

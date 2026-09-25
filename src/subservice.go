@@ -29,6 +29,7 @@ var (
 		"COM",
 		"ws",
 		"cluster",
+		"app",
 	}
 )
 

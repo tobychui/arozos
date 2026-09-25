@@ -174,6 +174,14 @@ type odpConverter struct {
 	master  *onode
 	pageBg  map[string]string
 	seq     int
+	// runs of the text body being built (see buildText)
+	runs *odpRunFlags
+}
+
+// odpRunFlags gathers whether every run of a text body is bold / italic /
+// underlined - the only case in which the box itself may say so
+type odpRunFlags struct {
+	any, bold, italic, under bool
 }
 
 // collectStyles indexes every style:style and text:list-style in a container
@@ -583,8 +591,8 @@ func (cv *odpConverter) textProps(res odpText, st odpStyle) Props {
 	p := Props{
 		HTML: res.HTML, FontSize: round2(ptToPx(res.First.SizePt)),
 		Color: res.First.Color, Align: res.First.Align,
-		Bold: res.First.Bold, Italic: res.First.Italic,
-		Underline:  res.First.Underline,
+		Bold: res.Bold, Italic: res.Italic,
+		Underline:  res.Underline,
 		FontFamily: fontStackFor(res.First.Font, res.First.Font),
 		VAlign:     st.VAlign,
 		LineHeight: round2(odpLineHeight(res.First)),
@@ -638,7 +646,7 @@ func (cv *odpConverter) shape(n *onode, slide *Slide, ox, oy, kx, ky float64) {
 		Dash: st.Dash, HTML: res.HTML, Text: res.Plain,
 		TextColor: res.First.Color, FontSize: round2(ptToPx(res.First.SizePt)),
 		FontFamily: fontStackFor(res.First.Font, res.First.Font),
-		Bold:       res.First.Bold, Italic: res.First.Italic,
+		Bold:       res.Bold, Italic: res.Italic,
 		Align: res.First.Align, VAlign: st.VAlign,
 		LineHeight: round2(odpLineHeight(res.First)),
 	}
@@ -941,12 +949,20 @@ type odpText struct {
 	HTML  string
 	Plain string
 	First odpStyle
+	// the whole box is bold / italic / underlined: every run is. The editor
+	// applies these to the box itself, and a descendant cannot take an
+	// underline off again, so the first run alone must not decide.
+	Bold, Italic, Underline bool
 }
 
 // buildText renders every paragraph and list under a container into the
 // editor's storage HTML, resolving each paragraph's and span's styles
 func (cv *odpConverter) buildText(container *onode, base odpStyle) odpText {
 	out := odpText{First: base}
+	flags := &odpRunFlags{bold: true, italic: true, under: true}
+	outer := cv.runs
+	cv.runs = flags
+	defer func() { cv.runs = outer }()
 	var sb strings.Builder
 	var plain []string
 	first := true
@@ -995,6 +1011,11 @@ func (cv *odpConverter) buildText(container *onode, base odpStyle) odpText {
 	if strings.TrimSpace(out.Plain) == "" {
 		out.HTML = ""
 	}
+	if flags.any {
+		out.Bold, out.Italic, out.Underline = flags.bold, flags.italic, flags.under
+	} else {
+		out.Bold, out.Italic, out.Underline = out.First.Bold, out.First.Italic, out.First.Underline
+	}
 	return out
 }
 
@@ -1019,6 +1040,12 @@ func (cv *odpConverter) paragraphHTML(p *onode, ps odpStyle, bullet string, dept
 				}
 				if minSize == 0 || st.SizePt < minSize {
 					minSize = st.SizePt
+				}
+				if f := cv.runs; f != nil && strings.TrimSpace(c.text) != "" {
+					f.any = true
+					f.bold = f.bold && st.Bold
+					f.italic = f.italic && st.Italic
+					f.under = f.under && st.Underline
 				}
 				runs.WriteString(`<span style="` + odpRunCSS(st) + `">` +
 					xmlEscape(c.text) + `</span>`)
