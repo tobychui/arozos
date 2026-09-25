@@ -11,10 +11,10 @@ func TestPreviewDisposition(t *testing.T) {
 		filename string
 		want     string // expected filename after parsing the header back; "" = no header
 	}{
-		{"plain ascii", "HelloWorld.doca", "HelloWorld.doca"},
-		{"spaces", "Q3 Report.xlsa", "Q3 Report.xlsa"},
-		{"quotes", `say "hi".ppta`, `say "hi".ppta`},
-		{"non ascii", "報告書.doca", "報告書.doca"},
+		{"plain ascii", "HelloWorld.docx", "HelloWorld.docx"},
+		{"spaces", "Q3 Report.xlsx", "Q3 Report.xlsx"},
+		{"quotes", `say "hi".pptx`, `say "hi".pptx`},
+		{"non ascii", "報告書.docx", "報告書.docx"},
 		{"empty", "", ""},
 		{"dot", ".", ""},
 	}

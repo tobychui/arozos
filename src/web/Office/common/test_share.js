@@ -5,7 +5,6 @@
     parse() is the security boundary of ?request=: whatever it returns is
     fetched, so most of these pin what it refuses.
 */
-global.OfficeContainer = require("./container.js");
 var S = require("./share.js");
 
 var failures = 0, passes = 0;
@@ -28,7 +27,7 @@ var PREVIEW = "http://localhost:8080/share/preview/" + ID + "/";
     ["share page, trailing slash", "http://localhost:8080/share/" + ID + "/", PREVIEW],
     ["share page, no slash", "http://localhost:8080/share/" + ID, PREVIEW],
     ["preview link", PREVIEW, PREVIEW],
-    ["download link", "http://localhost:8080/share/download/" + ID + "/HelloWorld.doca", PREVIEW],
+    ["download link", "http://localhost:8080/share/download/" + ID + "/HelloWorld.docx", PREVIEW],
     ["legacy ?id=", "http://localhost:8080/share?id=" + ID, PREVIEW],
     ["surrounding space", "  http://localhost:8080/share/" + ID + "/  ", PREVIEW],
     ["query and hash ignored", "http://localhost:8080/share/" + ID + "/?x=1#top", PREVIEW],
@@ -42,7 +41,7 @@ var PREVIEW = "http://localhost:8080/share/preview/" + ID + "/";
     eq("parse " + c[0], info.previewUrl, c[2]);
 });
 eq("download link name hint",
-    S.parse("http://localhost:8080/share/download/" + ID + "/My%20Doc.doca").nameHint, "My Doc.doca");
+    S.parse("http://localhost:8080/share/download/" + ID + "/My%20Doc.docx").nameHint, "My Doc.docx");
 eq("share page has no name hint", S.parse("http://localhost:8080/share/" + ID + "/").nameHint, "");
 
 /* ---- parse: refused ---- */
@@ -62,39 +61,50 @@ eq("share page has no name hint", S.parse("http://localhost:8080/share/" + ID + 
 ].forEach(function (c) { throws("parse refuses " + c[0], function () { S.parse(c[1]); }); });
 
 /* ---- file names ---- */
-eq("name kept", S.fileName("document", ["Report.doca"]), "Report.doca");
-eq("first usable wins", S.fileName("document", [null, "", "B.doca"]), "B.doca");
-eq("wrong ext replaced", S.fileName("spreadsheet", ["Budget.doca"]), "Budget.xlsa");
-eq("no ext added", S.fileName("presentation", ["Pitch"]), "Pitch.ppta");
-eq("ext case-insensitive", S.fileName("document", ["A.DOCA"]), "A.DOCA");
-eq("default name", S.fileName("spreadsheet", []), "Shared spreadsheet.xlsa");
-eq("path stripped", S.fileName("document", ["../../etc/x.doca"]), "x.doca");
-eq("backslash path stripped", S.fileName("document", ["C:\\a\\y.doca"]), "y.doca");
-eq("control chars stripped", S.fileName("document", ["a\u0000b\n.doca"]), "ab.doca");
-eq("bare extension gets default", S.fileName("document", [".doca"]), "Shared document.doca");
+eq("name kept", S.fileName("document", ["Report.docx"]), "Report.docx");
+eq("first usable wins", S.fileName("document", [null, "", "B.docx"]), "B.docx");
+eq("wrong ext replaced", S.fileName("spreadsheet", ["Budget.docx"]), "Budget.xlsx");
+eq("no ext added", S.fileName("presentation", ["Pitch"]), "Pitch.pptx");
+eq("ext case-insensitive", S.fileName("document", ["A.DOCX"]), "A.DOCX");
+eq("default name", S.fileName("spreadsheet", []), "Shared spreadsheet.xlsx");
+eq("path stripped", S.fileName("document", ["../../etc/x.docx"]), "x.docx");
+eq("backslash path stripped", S.fileName("document", ["C:\\a\\y.docx"]), "y.docx");
+eq("control chars stripped", S.fileName("document", ["a\u0000b\n.docx"]), "ab.docx");
+eq("bare extension gets default", S.fileName("document", [".docx"]), "Shared document.docx");
 
 /* ---- Content-Disposition ---- */
-eq("disposition quoted", S.dispositionName('inline; filename="HelloWorld.doca"'), "HelloWorld.doca");
-eq("disposition bare", S.dispositionName("inline; filename=Plain.xlsa"), "Plain.xlsa");
-eq("disposition escaped quote", S.dispositionName('inline; filename="say \\"hi\\".ppta"'), 'say "hi".ppta');
+eq("disposition quoted", S.dispositionName('inline; filename="HelloWorld.docx"'), "HelloWorld.docx");
+eq("disposition bare", S.dispositionName("inline; filename=Plain.xlsx"), "Plain.xlsx");
+eq("disposition escaped quote", S.dispositionName('inline; filename="say \\"hi\\".pptx"'), 'say "hi".pptx');
 eq("disposition rfc2231 wins", S.dispositionName(
-    "inline; filename*=utf-8''%E5%A0%B1%E5%91%8A.doca; filename=\"fallback.doca\""), "\u5831\u544a.doca");
+    "inline; filename*=utf-8''%E5%A0%B1%E5%91%8A.docx; filename=\"fallback.docx\""), "\u5831\u544a.docx");
 eq("disposition absent", S.dispositionName(null), "");
 eq("disposition without name", S.dispositionName("inline"), "");
 
 /* ---- appOf ---- */
-function containerFor(app) {
-    return OfficeContainer.pack(JSON.stringify({
-        type: "arozos-office", app: app, version: 1, body: {}
-    }));
+// a minimal stored zip holding empty files under the given names
+function zipOf(names) {
+    var local = [], central = [], offset = 0;
+    function u16(v) { return [v & 255, (v >> 8) & 255]; }
+    function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
+    names.forEach(function (name) {
+        var nb = Array.from(Buffer.from(name, "utf8"));
+        var head = [].concat(u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+            u32(0), u32(0), u32(0), u16(nb.length), u16(0), nb);
+        central = central.concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+            u32(0), u32(0), u32(0), u16(nb.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), nb);
+        local = local.concat(head);
+        offset += head.length;
+    });
+    var end = [].concat(u32(0x06054b50), u16(0), u16(0), u16(names.length), u16(names.length),
+        u32(central.length), u32(offset), u16(0));
+    return new Uint8Array(local.concat(central, end));
 }
-eq("appOf document", S.appOf(containerFor("document")), "document");
-eq("appOf spreadsheet", S.appOf(containerFor("spreadsheet")), "spreadsheet");
-eq("appOf presentation", S.appOf(containerFor("presentation")), "presentation");
-eq("appOf unknown app", S.appOf(containerFor("paint")), null);
-eq("appOf plain JSON document",
-    S.appOf(OfficeContainer.utf8Encode('{"app":"spreadsheet","body":{}}')), "spreadsheet");
-eq("appOf html page", S.appOf(OfficeContainer.utf8Encode("<!DOCTYPE html><html>")), null);
+eq("appOf document", S.appOf(zipOf(["[Content_Types].xml", "word/document.xml", "arozos/document.json"])), "document");
+eq("appOf spreadsheet", S.appOf(zipOf(["[Content_Types].xml", "xl/workbook.xml"])), "spreadsheet");
+eq("appOf presentation", S.appOf(zipOf(["ppt/presentation.xml", "ppt/slides/slide1.xml"])), "presentation");
+eq("appOf other zip", S.appOf(zipOf(["content.xml", "mimetype"])), null);
+eq("appOf html page", S.appOf(Buffer.from("<!DOCTYPE html><html>")), null);
 eq("appOf garbage zip", S.appOf(new Uint8Array([0x50, 0x4B, 1, 2, 3])), null);
 eq("appOf empty", S.appOf(new Uint8Array(0)), null);
 

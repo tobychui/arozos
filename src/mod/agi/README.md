@@ -1264,15 +1264,62 @@ directly (all optional):
 
 ## office API
 
-Converters between the ArozOS Office suite webapps (`src/web/Office/`) and
-common office file formats. Backed by `mod/office` (pure Go, no external
-dependencies). Word (.docx) and Excel (.xlsx) helpers will join this library
-as the Docs and Sheets webapps mature.
+The ArozOS Office suite's documents (`src/web/Office/`) and converters
+between its webapps and common office file formats. Backed by `mod/office`
+(pure Go, no external dependencies).
+
+Docs, Sheets and Slides keep their documents in `.docx` / `.xlsx` / `.pptx`:
+the OOXML every office application reads, with the editor's own envelope
+(`{type:"arozos/office", app, version, meta, body}`) embedded in the package
+so the suite reopens exactly what it saved. `saveDocument` / `loadDocument`
+are that open and save; the other functions convert a bare body.
 
 Load:
 
 ```javascript
 requirelib("office");
+```
+
+### `office.saveDocument(envelopeJson, destVpath)`
+Write an editor envelope as the Office file `destVpath`'s extension names
+(`.docx` for a `document`, `.xlsx` for a `spreadsheet`, `.pptx` for a
+`presentation` - any other pairing throws). The body is rendered to OOXML
+and the envelope is embedded in the package with a fingerprint of every
+OOXML part. `media?file=` links in the body (pictures, video, audio) are
+read server side with the calling user's read permission, once each, and a
+picture that is also an OOXML part is stored once. Returns `true`.
+
+```javascript
+requirelib("office");
+if (office.saveDocument(content, "user:/Documents/report.docx")){
+    sendResp("OK");
+}
+```
+
+### `office.loadDocument(srcVpath, workdirBase)`
+Open a `.docx` / `.xlsx` / `.pptx` as an editor envelope **JSON string**.
+When the file carries a current embedded envelope - the suite wrote it and
+nothing has changed it since - that is returned as saved; otherwise (a file
+from Word, Excel or PowerPoint, or one they have re-saved) the OOXML is
+imported and wrapped in a fresh envelope. Either way the document's media
+is written into `<workdirBase>/<doc-hash>/` and referenced by `media?file=`
+links, so the JSON stays small (the Office webapps use
+`user:/.appdata/Office/cache`).
+
+```javascript
+requirelib("office");
+var envelope = office.loadDocument("user:/Documents/deck.pptx", "user:/.appdata/Office/cache");
+sendJSONResp('{"envelope":' + envelope + '}');
+```
+
+### `office.readPayload(vpath)`
+Return the text of a request payload the front end uploaded as a file
+instead of posting it (`OfficeApp.agirunLarge`), gunzipped when it is gzip
+(capped at 512 MB once inflated). The caller deletes the file afterwards.
+
+```javascript
+var body = office.readPayload(dataFile);
+filelib.deleteFile(dataFile);
 ```
 
 ### `office.pptxToPresentation(srcVpath)`
@@ -1290,9 +1337,10 @@ sendJSONResp('{"body":' + bodyJson + '}');
 
 ### `office.presentationToPptx(bodyJson, destVpath)`
 Build a `.pptx` from a serialized Slides body JSON string and write it to
-`destVpath`. Image objects must be inlined as `data:` URLs and chart
-objects should carry a client-rendered PNG in `props.png` (the Slides
-webapp does both automatically before calling). Video/audio objects are
+`destVpath`. Pictures may be `data:` URLs or `media?file=` links (read with
+the caller's permission); chart objects should carry a PNG in `props.png`.
+Slide transitions and click links (`props.link`) are written as PowerPoint's
+own. Video/audio objects are
 **not embedded**: each renders as a poster picture (the captured frame in
 `props.png`, or a generated placeholder) and the media files themselves
 are packed into a sidecar zip written next to the pptx as
@@ -1312,8 +1360,9 @@ if (r){
 Parse an Excel `.xlsx` file into the Sheets document body schema. Returns
 the body as a **JSON string**, or throws on failure. Handles values,
 formulas (recalculated by the webapp), shared/inline strings, cell styles,
-number formats, column widths / row heights, merged cells and frozen panes.
-Charts, pivot tables and conditional formatting are skipped. Legacy binary
+number formats, column widths / row heights, merged cells, frozen panes,
+charts, notes, conditional formats (the rule types the editor has), tab
+colours and the filter range. Pivot tables are skipped. Legacy binary
 `.xls` is rejected with a message asking for `.xlsx`.
 
 ```javascript
@@ -1325,7 +1374,8 @@ sendJSONResp('{"body":' + bodyJson + '}');
 ### `office.workbookToXlsx(bodyJson, destVpath)`
 Build a `.xlsx` from a serialized Sheets body JSON string and write it to
 `destVpath`. Returns `true` on success. Formulas are written natively so
-Excel recalculates them; webapp charts and filters are not exported.
+Excel recalculates them; charts, notes, conditional formats, tab colours
+and the filter range are written as Excel's own.
 
 ```javascript
 requirelib("office");
@@ -1339,9 +1389,10 @@ Parse a Word `.docx` file into the Docs document body schema. Returns the
 body as a **JSON string**, or throws on failure. Handles paragraphs,
 heading/title styles, alignment, inline formatting (bold/italic/underline/
 strikethrough, color, size), hyperlinks, lists, tables, embedded images
-(inlined as `data:` URLs), header/footer text and page geometry. Tracked
-changes, footnotes and text boxes are ignored. Legacy binary `.doc` is
-rejected with a message asking for `.docx`.
+(inlined as `data:` URLs), header/footer text, footnotes, page geometry,
+comments (`body.comments`) and tracked changes (as the editor's suggestion
+marks). Text boxes are ignored. Legacy binary `.doc` is rejected with a
+message asking for `.docx`.
 
 ```javascript
 requirelib("office");
@@ -1351,8 +1402,10 @@ sendJSONResp('{"body":' + bodyJson + '}');
 
 ### `office.documentToDocx(bodyJson, destVpath)`
 Build a `.docx` from a serialized Docs body JSON string and write it to
-`destVpath`. Returns `true` on success. Images must be inlined as `data:`
-URLs (the Docs webapp does this automatically before calling).
+`destVpath`. Returns `true` on success. Pictures may be `data:` URLs or
+`media?file=` links (read with the caller's permission); an image's
+`data-export-src` is preferred over its `src`. Comments and suggestion marks
+become Word comments and tracked changes.
 
 ```javascript
 requirelib("office");
@@ -1362,29 +1415,20 @@ if (office.documentToDocx(data, "user:/Desktop/out.docx")){
 ```
 
 ### `office.packToFile(envelopeJson, destVpath)`
-Write an Office suite native file (`.doca` / `.xlsa` / `.ppta`) as a **zip
-container**: `document.json` plus deduplicated binary `assets/`. Media data
-URLs and legacy `media?file=` links inside the envelope become embedded
-assets, so the file stays portable when copied to another machine. Returns
-`true` on success.
-
-### `office.unpackFromFile(srcVpath)`
-Read a native Office suite file and return its envelope **JSON string**
-with embedded assets re-inlined as `data:` URLs. Legacy plain-JSON
-documents pass through unchanged, so old files keep opening (and are
-upgraded to the container format on their next save).
+Write an editor envelope as a session snapshot: a **zip** of `document.json`
+plus deduplicated binary `assets/`. Media data URLs and `media?file=` links
+inside the envelope become assets, so the snapshot holds the document by
+itself. The Office suite writes its "Restore from previous session"
+snapshots with it. Returns `true` on success.
 
 ### `office.unpackToWorkdir(srcVpath, workdirBase)`
-Read a native Office suite container and return its envelope **JSON string**
-with binary assets extracted into `<workdirBase>/<doc-hash>/` and referenced
-by `media?file=` links instead of inline base64 - so the JSON stays small
-even for video-heavy documents (the Office webapps use
-`user:/.appdata/Office/cache` as the working directory). Legacy plain-JSON
-documents pass through unchanged.
+Read a snapshot written by `packToFile` and return its envelope **JSON
+string** with the assets extracted into `<workdirBase>/<doc-hash>/` and
+referenced by `media?file=` links instead of inline base64.
 
 ```javascript
 requirelib("office");
-var envelope = office.unpackToWorkdir("user:/Documents/deck.ppta", "user:/.appdata/Office/cache");
+var envelope = office.unpackToWorkdir("user:/.appdata/Office/session/presentation.osession", "user:/.appdata/Office/cache");
 sendJSONResp('{"envelope":' + envelope + '}');
 ```
 
@@ -1396,8 +1440,9 @@ geometry, header/footer and page breaks).
 
 ### `office.documentToOdt(jsonStr, destVpath)`
 Build an `.odt` from a serialized Docs body JSON and write it to
-`destVpath`. Covers the same subset as the docx exporter. Returns `true`
-on success.
+`destVpath`. Covers the same subset as the docx exporter (review markup
+excepted). Pictures may be `data:` URLs or `media?file=` links. Returns
+`true` on success.
 
 ### `office.odsToWorkbook(srcVpath)`
 Read an OpenDocument Spreadsheet (`.ods`) and return the Sheets body

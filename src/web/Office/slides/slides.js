@@ -1695,8 +1695,8 @@ var SlidesApp = (function () {
             memoryKey: "media"
         }, function (files) {
             files.forEach(function (f) {
-                // reference the storage file - packToFile embeds it into
-                // the container at save time, keeping edits lightweight
+                // reference the storage file - the server reads it into the
+                // saved file, keeping edits and saves lightweight
                 placeImage(OfficeApp.mediaUrl(f.filepath));
             });
         });
@@ -1710,7 +1710,7 @@ var SlidesApp = (function () {
         });
     }
 
-    /* ---------- video / audio (workdir-linked, packed on save) ---------- */
+    /* ---------- video / audio (workdir-linked, read into the file on save) ---------- */
     function placeMedia(kind, src) {
         var geo = kind === "video"
             ? { x: 240, y: 135, w: 480, h: 270 }
@@ -1724,7 +1724,7 @@ var SlidesApp = (function () {
             return;
         }
         // big files stream to user:/.appdata/Office/uploads and are linked;
-        // the container save embeds them without a giant POST payload
+        // the save reads them server side without a giant POST payload
         OfficeApp.showBusy("Importing " + (name || TYPE_NAMES[kind].toLowerCase()) + "...");
         OfficeApp.blobToSrc(blob, name || (kind + ".bin"), function (src) {
             OfficeApp.hideBusy();
@@ -1739,7 +1739,7 @@ var SlidesApp = (function () {
             ? ["mp4", "webm", "ogv"]
             : ["mp3", "wav", "ogg", "flac", "aac"];
         OfficePlatform.pickOpen({ filter: filters, memoryKey: "media" }, function (files) {
-            // just link it - packToFile embeds the file at save time
+            // just link it - the server reads the file in at save time
             placeMedia(kind, OfficeApp.mediaUrl(files[0].filepath));
         });
     }
@@ -3440,22 +3440,21 @@ var SlidesApp = (function () {
     }
     function clearPrintArea() { $("#slPrintArea").empty(); }
 
-    /* ================= PPTX / ODP import / export =================
-       The same Go converters either way: the office AGI library in ArozOS,
-       the WebAssembly build of it (src/wasm/office) in the standalone web
-       edition. One descriptor names both; OfficePlatform picks. A null wasm
-       name marks a conversion that is still server-only. */
-    var PPTX_BACKEND = "Office/slides/backend/pptx.agi";
+    /* ================= ODP import / export =================
+       The deck's own format, .pptx, is opened and saved by the framework
+       (OfficePlatform.documentLoad / documentSave). OpenDocument goes
+       through the same Go converters either way: the office AGI library in
+       ArozOS, the WebAssembly build of it (src/wasm/office) in the
+       standalone web edition. One descriptor names both; OfficePlatform
+       picks. */
+    var CONVERT_BACKEND = "Office/slides/backend/convert.agi";
     var CONVERT = {
-        "import": { agi: PPTX_BACKEND, action: "import", wasm: "pptxToPresentation" },
-        "import-odf": { agi: PPTX_BACKEND, action: "import-odf", wasm: "odpToPresentation" },
-        "export": { agi: PPTX_BACKEND, action: "export", wasm: "presentationToPptx" },
-        "export-odf": { agi: PPTX_BACKEND, action: "export-odf", wasm: "presentationToOdp" }
+        "import-odf": { agi: CONVERT_BACKEND, action: "import-odf", wasm: "odpToPresentation" },
+        "export-odf": { agi: CONVERT_BACKEND, action: "export-odf", wasm: "presentationToOdp" }
     };
 
-    /* Load a .pptx ("import") or .odp ("import-odf"). */
-    function importPptx(fp, fn, action) {
-        action = action || "import";
+    function importOdp(fp, fn) {
+        var action = "import-odf";
         OfficeApp.showBusy("Importing " + fn + "...");
         OfficePlatform.convertIn(CONVERT[action], fp, function (data) {
             OfficeApp.hideBusy();
@@ -3484,15 +3483,6 @@ var SlidesApp = (function () {
             OfficeApp.toast("Import failed: " + msg, "error");
         });
     }
-    function importOdp(fp, fn) { importPptx(fp, fn, "import-odf"); }
-    function importPptxDialog() {
-        if (!OfficePlatform.requireConvert("PowerPoint / OpenDocument import")) return;
-        OfficePlatform.pickOpen({ filter: ["pptx", "odp"], memoryKey: "import" }, function (files) {
-            var fp = files[0].filepath, fn = files[0].filename;
-            if (/\.odp$/i.test(fn)) importOdp(fp, fn);
-            else importPptx(fp, fn);
-        });
-    }
 
     /* Rasterize a chart spec to a PNG dataURL (charts export as pictures). */
     function rasterizeChartToPng(spec, w, h) {
@@ -3519,20 +3509,6 @@ var SlidesApp = (function () {
         });
     }
 
-    /* Convert a same-origin image URL (media?file=...) to a PNG dataURL. */
-    function urlToDataUrl(src) {
-        return fetch(src).then(function (r) {
-            if (!r.ok) throw new Error("http " + r.status);
-            return r.blob();
-        }).then(function (blob) {
-            return new Promise(function (resolve, reject) {
-                var reader = new FileReader();
-                reader.onload = function () { resolve(reader.result); };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        });
-    }
 
     /* Capture a poster frame of a video source as a PNG data URL - used as
        the embedded media poster in pptx exports and the placeholder image
@@ -3574,62 +3550,78 @@ var SlidesApp = (function () {
 
     /* Deep-clone the body and inline every image / chart as a dataURL so the
        server-side exporter can embed them into the .pptx. */
-    function prepareBodyForPptx() {
-        var b = deep(body);
+    /* What the .pptx needs that only the browser can make: every chart as a
+       PNG (the writer draws charts as pictures) and a poster frame for every
+       video. Both are kept for the session by what they were made from, and
+       in ArozOS uploaded once (OfficePlatform.cacheBlob) - an unchanged chart
+       costs nothing on the next save, which is what lets a deck autosave.
+       Pictures are left alone: a storage picture stays a media?file= link,
+       and the server reads it. */
+    var renderCache = {};   // key -> Promise(src | null)
+    function dataUrlToBlob(durl) {
+        var comma = durl.indexOf(",");
+        var mime = (/^data:([^;,]+)/.exec(durl) || [])[1] || "image/png";
+        var bin = atob(durl.substring(comma + 1));
+        var arr = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return new Blob([arr], { type: mime });
+    }
+    function cachedRender(key, make) {
+        if (!renderCache[key]) {
+            renderCache[key] = make().then(function (durl) {
+                if (!durl) return null;
+                return new Promise(function (resolve) {
+                    OfficePlatform.cacheBlob(dataUrlToBlob(durl), "render.png",
+                        resolve, function () { resolve(durl); });
+                });
+            });
+            // a failed render is tried again next time
+            renderCache[key].then(function (src) { if (!src) delete renderCache[key]; });
+        }
+        return renderCache[key];
+    }
+    // b is the framework's private copy of the body
+    function prepareNative(b) {
         var jobs = [];
         b.slides.forEach(function (s) {
             s.objects.forEach(function (o) {
                 if (o.type === "chart") {
-                    jobs.push(rasterizeChartToPng(o.props.spec || {}, o.w, o.h).then(function (png) {
+                    var spec = o.props.spec || {};
+                    jobs.push(cachedRender("chart|" + JSON.stringify(spec) + "|" + Math.round(o.w) + "x" + Math.round(o.h),
+                        function () { return rasterizeChartToPng(spec, o.w, o.h); }).then(function (png) {
                         if (png) o.props.png = png;
                     }));
-                } else if (o.type === "image" && o.props.src && !/^data:/i.test(o.props.src)) {
-                    jobs.push(urlToDataUrl(o.props.src).then(function (durl) {
-                        o.props.src = durl;
-                    }).catch(function () { /* leave original src; exporter skips it */ }));
                 } else if (o.type === "video" && o.props.src) {
-                    // grab a real frame for the poster image; the media file
-                    // itself keeps its media?file= link - the server-side
-                    // exporter resolves the bytes (pptx: sidecar zip), so
-                    // they never ride this JSON payload
-                    jobs.push(captureVideoFrame(o.props.src).then(function (png) {
-                        if (png) o.props.png = png;
-                    }));
+                    // the media file itself keeps its media?file= link - the
+                    // server reads the bytes, so they never ride this payload
+                    var src = o.props.src;
+                    jobs.push(cachedRender("video|" + src, function () { return captureVideoFrame(src); })
+                        .then(function (png) { if (png) o.props.png = png; }));
                 }
                 // audio keeps its link untouched (no frame to capture)
             });
         });
-        return Promise.all(jobs).then(function () { return b; });
+        return Promise.all(jobs);
+    }
+    function preparedCopy() {
+        var b = deep(body);
+        return prepareNative(b).then(function () { return b; });
     }
 
-    // shared by .pptx ("export") and .odp ("export-odf"): both need the
-    // prepared body (charts rastered to PNG, images inlined, video poster
-    // frames captured)
-    function exportSlidesFile(ext, action, busyLabel) {
-        var spec = CONVERT[action];
-        // PDF is server-only; the rest run wherever there are converters
-        var allowed = spec.wasm ? OfficePlatform.requireConvert("Exporting " + ext)
-            : OfficePlatform.requireBackend("Exporting " + ext);
-        if (!allowed) return;
+    function exportOdp() {
+        if (!OfficePlatform.requireConvert("Exporting .odp")) return;
         endEdit(true);
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ext;
-        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.pptx") + ".odp";
+        OfficePlatform.pickSave({ defaultName: defName, ext: ".odp", memoryKey: "export" }, function (file) {
             var fp = file.filepath;
-            OfficeApp.showBusy(busyLabel);
-            prepareBodyForPptx().then(function (prepared) {
-                // in ArozOS this posts through agirunLarge (decks with
-                // inlined images blow past the 10MB POST form limit); in the
-                // web edition it runs in the wasm module and downloads
-                OfficePlatform.convertOut(spec, fp, JSON.stringify(prepared), function (res) {
+            OfficeApp.showBusy("Exporting OpenDocument file...");
+            preparedCopy().then(function (prepared) {
+                // pictures stay links: the server reads them (office lib), and
+                // the web edition keeps them inline already
+                OfficePlatform.convertOut(CONVERT["export-odf"], fp, JSON.stringify(prepared), function () {
                     OfficeApp.hideBusy();
                     OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
-                    if (res && res.mediaZip) {
-                        // pptx export packs video/audio into a sidecar zip
-                        OfficeApp.toast("Exported " + OfficeApp.basename(fp) +
-                            " - video/audio files saved to " + res.mediaZip);
-                    } else {
-                        OfficeApp.toast("Exported " + OfficeApp.basename(fp));
-                    }
+                    OfficeApp.toast("Exported " + OfficeApp.basename(fp));
                 }, function (errmsg) {
                     OfficeApp.hideBusy();
                     OfficeApp.toast("Export failed: " + errmsg, "error");
@@ -3640,8 +3632,6 @@ var SlidesApp = (function () {
             });
         });
     }
-    function exportPptx() { exportSlidesFile(".pptx", "export", "Exporting PowerPoint file..."); }
-    function exportOdp() { exportSlidesFile(".odp", "export-odf", "Exporting OpenDocument file..."); }
     /* PDF is built in the browser (slides_pdf.js), not on the server: only
        the browser knows which font it actually resolved and where every
        line wrapped, and that is exactly what the export has to reproduce.
@@ -3659,7 +3649,7 @@ var SlidesApp = (function () {
         }
         endEdit(true);
         endCrop(true);
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.ppta") + ".pdf";
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Presentation.pptx") + ".pdf";
         OfficePlatform.pickSave({ defaultName: defName, ext: ".pdf", memoryKey: "export" }, function (file) {
             var fp = file.filepath;
             // rendering a deck takes a moment, and there is no reason for
@@ -3728,24 +3718,17 @@ var SlidesApp = (function () {
     }
 
     /* ================= saving back into a foreign format =================
-       A deck opened from .pptx / .odp goes on living in that file: the
-       framework keeps filepath/filename pointing at it and Ctrl+S comes back
-       here instead of forcing a Save As to .ppta. These are the same
-       converters the Export menu uses, reporting through the framework's
-       save callbacks rather than a toast of their own. */
+       A deck opened from .odp goes on living in that file: the framework
+       keeps filepath/filename pointing at it and Ctrl+S comes back here
+       instead of forcing a Save As to .pptx. This is the same converter the
+       Export menu uses, reporting through the framework's save callbacks
+       rather than a toast of its own. */
     function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
-    function saveViaConverter(action, fp, done, fail) {
+    function saveOdp(fp, done, fail) {
         endEdit(true);
-        prepareBodyForPptx().then(function (prepared) {
-            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(prepared),
-                function (res) {
-                    // .pptx keeps video and audio beside the file rather than
-                    // embedding them - say where they went
-                    if (res && res.mediaZip) {
-                        OfficeApp.toast("Video / audio files saved to " + res.mediaZip);
-                    }
-                    done();
-                }, fail);
+        preparedCopy().then(function (prepared) {
+            OfficePlatform.convertOut(CONVERT["export-odf"], fp, JSON.stringify(prepared),
+                function () { done(); }, fail);
         }).catch(function (err) {
             fail((err && err.message) ? err.message : "could not prepare the presentation");
         });
@@ -3764,8 +3747,8 @@ var SlidesApp = (function () {
             " - the OpenDocument presentation writer cannot store them"] : [];
     }
     /*
-        The formats File > Save as offers besides .ppta, and the ones a deck
-        opened from .pptx / .odp is saved back into. needsConvert marks the
+        The formats File > Save as offers besides .pptx, and the ones a deck
+        opened from .odp is saved back into. needsConvert marks the
         writers that go through the Office format converters and needsBackend
         the ones that need a server outright (the real-text PDF renderer);
         OfficeApp drops whichever the running host cannot do. PDF is oneWay -
@@ -3773,15 +3756,10 @@ var SlidesApp = (function () {
     */
     var SAVE_FORMATS = [
         {
-            ext: ".pptx", label: "PowerPoint presentation (.pptx)", icon: "file powerpoint outline",
-            needsConvert: true, noAutosave: true,
-            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
-        },
-        {
             ext: ".odp", label: "OpenDocument presentation (.odp)", icon: "file alternate outline",
             needsConvert: true, noAutosave: true,
             unsupported: odpUnsupported,
-            save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
+            save: function (fp, fn, done, fail) { saveOdp(fp, done, fail); }
         },
         {
             // rendered in the browser, so it needs no backend - only the
@@ -4102,10 +4080,15 @@ var SlidesApp = (function () {
             appName: "Slides",
             appType: "presentation",
             appIcon: "../img/slides.svg",
-            extension: ".ppta",
+            extension: ".pptx",
+            nativeLabel: "PowerPoint presentation (.pptx)",
             fileTypeName: "Presentation",
-            packed: true,
             defaultFileName: "New Presentation",
+            // charts drawn to PNG and video poster frames, before a save
+            prepareNative: function (copy) {
+                endEdit(true);
+                return prepareNative(copy);
+            },
 
             serialize: function () { return deep(body); },
             deserialize: function (b) {
@@ -4192,28 +4175,22 @@ var SlidesApp = (function () {
                 { title: "Design", items: designMenuItems }
             ],
             binaryImporters: {
-                ".pptx": function (fp, fn) { importPptx(fp, fn); },
                 ".odp": importOdp
             },
             saveFormats: SAVE_FORMATS,
             /*
-                .pptx / .odp need the Office converters - the AGI backend in
-                ArozOS, the WebAssembly module in the web edition. The .pdf
+                .odp needs the Office converters - the AGI backend in ArozOS,
+                the WebAssembly module in the web edition; .pptx is the deck's
+                own format (File > Save / Save as). The .pdf
                 export is rendered here in the browser (slides_pdf.js), so it
                 needs no backend at all. The PNG exports are rendered by
                 html2canvas right here and are always available.
             */
             fileMenuExtras: [
-                !OfficePlatform.canConvert() ? null :
-                    { label: "Import PowerPoint / OpenDocument...", icon: "file powerpoint outline", action: importPptxDialog },
                 {
                     label: "Export", icon: "external alternate", sub: function () {
                         var items = [];
                         if (OfficePlatform.canConvert()) {
-                            items.push({
-                                label: "PowerPoint (.pptx)", icon: "file powerpoint outline",
-                                action: exportPptx
-                            });
                             items.push({
                                 label: "OpenDocument (.odp)", icon: "file alternate outline",
                                 action: exportOdp

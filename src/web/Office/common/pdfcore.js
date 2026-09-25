@@ -754,8 +754,8 @@ var OfficePdfCore = (function () {
     /* embedImage caches by source string: a deck that uses one picture on
        twenty slides embeds its bytes once.
 
-       A native .ppta keeps its large media out of the body as media?file=
-       links, so a source that is not a data URL is fetched. Embedding the
+       A deck keeps its large media out of the body as media?file= links,
+       so a source that is not a data URL is fetched. Embedding the
        original bytes is the point - re-encoding through a canvas would
        turn a photo into a much larger lossless PNG. */
     function makeImageEmbedder(pdfDoc) {

@@ -1,25 +1,27 @@
 package office
 
 /*
-	packed.go - zip container for the Office suite's native file formats
-	(.doca / .xlsa / .ppta).
+	packed.go - the asset store behind the Office suite's documents.
 
-	Instead of storing media as base64 data URLs (bloated) or as links into
-	the host's virtual filesystem (breaks when the file moves to another
-	machine), native files are packed as a zip:
+	The editors keep media out of their JSON body as media?file= links into
+	the host's file system (or, for small pieces, as data URLs). Anything
+	that has to hold a document by itself - a session snapshot, or the
+	editor copy embedded in every .docx / .xlsx / .pptx the suite writes
+	(native.go) - takes those out into binary assets:
 
 	    document.json    the JSON envelope; every media value is replaced
 	                     by an "asset://<name>" reference
 	    assets/<name>    binary media, deduplicated by content hash
 
-	PackEnvelope also resolves legacy "media?file=<vpath>" links through the
-	supplied reader so older documents become portable on their next save.
-	That covers a link that is a whole JSON value (a Slides / Sheets image
-	src) and one inside an HTML string (a Docs body's <img src="..."> or
-	<video poster="...">), where the attribute value becomes the asset ref.
-	The unpackers resolve "asset://<name>" in both positions the same way.
-	UnpackEnvelope transparently passes through legacy plain-JSON files, so
-	old documents keep opening without migration.
+	A link is taken out wherever it sits: a whole JSON value (a Slides /
+	Sheets image src) or inside an HTML string (a Docs body's <img src="...">
+	or <video poster="...">), where the attribute value becomes the asset
+	ref. The unpackers resolve "asset://<name>" in both positions the same
+	way.
+
+	PackEnvelope / UnpackEnvelope(ToLinks) write and read that pair as a zip
+	of its own, which is what the "Restore from previous session" snapshots
+	(user:/.appdata/Office/session/<app>.osession) are.
 */
 
 import (
@@ -35,6 +37,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -145,6 +148,71 @@ func embedHTMLMediaLinks(s string, embed func(vpath string) (string, bool)) stri
 	})
 }
 
+/*
+InlineMediaLinks turns the picture links in a body (media?file=, as a
+whole value or in an <img src>) into data URLs, read through readVpath.
+The OpenDocument writers only take inline pictures; doing this on the
+server is what spares the browser downloading every picture and sending it
+back as base64. Links that are not a png / jpeg / gif, or cannot be read,
+stay as they are.
+*/
+func InlineMediaLinks(body string, readVpath func(string) ([]byte, error)) (string, error) {
+	if readVpath == nil || !strings.Contains(body, "media") {
+		return body, nil
+	}
+	var root interface{}
+	if err := json.Unmarshal([]byte(body), &root); err != nil {
+		return "", errors.New("invalid document JSON: " + err.Error())
+	}
+	done := map[string]string{}
+	inline := func(vp string) (string, bool) {
+		if d, ok := done[vp]; ok {
+			return d, d != ""
+		}
+		data, err := readVpath(vp)
+		ext := ""
+		if err == nil {
+			ext = sniffImageExt(data)
+		}
+		if ext == "" {
+			done[vp] = ""
+			return "", false
+		}
+		d := encodeDataURL(data, ext)
+		done[vp] = d
+		return d, true
+	}
+	root = transformStrings(root, func(s string) string {
+		if vp := mediaLinkVpath(s); vp != "" {
+			if d, ok := inline(vp); ok {
+				return d
+			}
+			return s
+		}
+		if !strings.Contains(s, "media") {
+			return s
+		}
+		return htmlMediaAttrRe.ReplaceAllStringFunc(s, func(m string) string {
+			sub := htmlMediaAttrRe.FindStringSubmatch(m)
+			quoted := sub[2]
+			vp := mediaLinkVpath(html.UnescapeString(quoted[1 : len(quoted)-1]))
+			if vp == "" {
+				return m
+			}
+			d, ok := inline(vp)
+			if !ok {
+				return m
+			}
+			return sub[1] + quoted[:1] + d + quoted[:1]
+		})
+	})
+	out, err := marshalNoEscape(root)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 // assetRefRe matches an asset reference inside a larger string. Asset names
 // are written by the packers as <hash>.<ext>, so this character set covers
 // every name either of them produces.
@@ -205,11 +273,60 @@ func transformStrings(v interface{}, fn func(string) string) interface{} {
 }
 
 // PackEnvelope converts an envelope JSON string into the zip container.
-// readVpath (optional) resolves legacy media?file= links to file bytes.
+// readVpath (optional) resolves media?file= links to file bytes.
 func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error)) ([]byte, error) {
+	doc, assets, err := collectAssets(envelope, readVpath)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	w, err := zw.Create(packedDocName) // deflate: JSON compresses well
+	if err != nil {
+		return nil, err
+	}
+	if _, err = w.Write(doc); err != nil {
+		return nil, err
+	}
+	for _, name := range sortedKeys(assets) {
+		// media is usually pre-compressed - store without recompression
+		hw, err := zw.CreateHeader(&zip.FileHeader{Name: "assets/" + name, Method: zip.Store})
+		if err != nil {
+			return nil, err
+		}
+		if _, err = hw.Write(assets[name]); err != nil {
+			return nil, err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// sortedKeys keeps the zip entry order stable, so packing the same
+// document twice produces the same bytes
+func sortedKeys(m map[string][]byte) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+/*
+collectAssets takes the media out of an envelope: every data URL and every
+media?file= link (resolved through readVpath) becomes an "asset://<name>"
+reference, and the bytes come back beside the rewritten JSON, deduplicated
+by content hash. Shared by the session container above and by the asset
+store inside the suite's .docx / .xlsx / .pptx files (native.go).
+*/
+func collectAssets(envelope string, readVpath func(vpath string) ([]byte, error)) ([]byte, map[string][]byte, error) {
 	var root interface{}
 	if err := json.Unmarshal([]byte(envelope), &root); err != nil {
-		return nil, errors.New("invalid envelope JSON: " + err.Error())
+		return nil, nil, errors.New("invalid envelope JSON: " + err.Error())
 	}
 
 	assets := map[string][]byte{} // name -> data
@@ -257,34 +374,23 @@ func PackEnvelope(envelope string, readVpath func(vpath string) ([]byte, error))
 		return embedHTMLMediaLinks(s, embedVpath)
 	})
 
-	doc, err := json.Marshal(root)
+	doc, err := marshalNoEscape(root)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	return doc, assets, nil
+}
 
-	buf := new(bytes.Buffer)
-	zw := zip.NewWriter(buf)
-	w, err := zw.Create(packedDocName) // deflate: JSON compresses well
-	if err != nil {
+// marshalNoEscape is json.Marshal without the HTML escaping: a Docs body is
+// mostly markup, and < for every "<" makes it a third bigger for nothing
+func marshalNoEscape(v interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
-	if _, err = w.Write(doc); err != nil {
-		return nil, err
-	}
-	for name, data := range assets {
-		// media is usually pre-compressed - store without recompression
-		hw, err := zw.CreateHeader(&zip.FileHeader{Name: "assets/" + name, Method: zip.Store})
-		if err != nil {
-			return nil, err
-		}
-		if _, err = hw.Write(data); err != nil {
-			return nil, err
-		}
-	}
-	if err := zw.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // UnpackEnvelopeToLinks restores the envelope JSON from a zip container,

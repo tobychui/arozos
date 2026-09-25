@@ -902,7 +902,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 				// Name the file for cross-origin readers (e.g. the standalone
-				// Office web edition opening a shared .doca), which cannot see
+				// Office web edition opening a shared .docx), which cannot see
 				// the download page. inline keeps in-browser previews working.
 				if disposition := previewDisposition(arozfs.Base(shareOption.FileVirtualPath)); disposition != "" {
 					w.Header().Set("Content-Disposition", disposition)

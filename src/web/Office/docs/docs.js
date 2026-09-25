@@ -31,8 +31,10 @@
         doc-cmt (comment anchor), doc-ins / doc-del (tracked changes),
         doc-pagebreak (explicit page break block; exports as a real
         <w:br w:type="page"/> and is sized on screen by layoutPageBreaks).
-      - Foreign exports (docx/html/md/txt) use resolvedHtml(): suggestions
-        applied as if accepted, comment anchors unwrapped.
+      - The .docx keeps comments and suggestions as Word comments and
+        tracked changes (mod/office docx_review.go). Foreign exports
+        (odt/html/md/txt) use resolvedHtml(): suggestions applied as if
+        accepted, comment anchors unwrapped.
 */
 
 (function () {
@@ -227,6 +229,8 @@
             el.removeAttribute("data-split");
             el.removeAttribute("data-split-of");
             el.removeAttribute("data-pair");
+            // the PNG a save rendered for the writers, not part of the text
+            el.removeAttribute("data-export-src");
             el.classList.remove("doc-split-head", "doc-split-tail");
             for (var a = el.attributes.length - 1; a >= 0; a--) {
                 var at = el.attributes[a];
@@ -828,8 +832,8 @@
                 filter: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
                 memoryKey: "media"
             }, function (files) {
-                // reference the storage file - packToFile embeds it into
-                // the container at save time, keeping edits lightweight
+                // reference the storage file - the server reads it into the
+                // saved file, keeping edits and saves lightweight
                 insertImage(OfficeApp.mediaUrl(files[0].filepath));
             });
         } catch (e) {
@@ -3012,19 +3016,19 @@
         setImportedContent(sanitizeHtml(text, { keepClasses: false }));
     }
 
-    /* ================= DOCX / ODT import / export =================
-       The same Go converters either way: the office AGI library in ArozOS,
-       the WebAssembly build of it (src/wasm/office) in the standalone web
-       edition. One descriptor names both, and OfficePlatform picks. */
-    var DOCX_BACKEND = "Office/docs/backend/docx.agi";
+    /* ================= ODT import / export =================
+       The document's own format, .docx, is opened and saved by the framework
+       (OfficePlatform.documentLoad / documentSave). OpenDocument goes
+       through the same Go converters either way: the office AGI library in
+       ArozOS, the WebAssembly build of it (src/wasm/office) in the
+       standalone web edition. One descriptor names both, and OfficePlatform
+       picks. */
+    var CONVERT_BACKEND = "Office/docs/backend/convert.agi";
     var CONVERT = {
-        "import": { agi: DOCX_BACKEND, action: "import", wasm: "docxToDocument" },
-        "import-odf": { agi: DOCX_BACKEND, action: "import-odf", wasm: "odtToDocument" },
-        "export": { agi: DOCX_BACKEND, action: "export", wasm: "documentToDocx" },
-        "export-odf": { agi: DOCX_BACKEND, action: "export-odf", wasm: "documentToOdt" }
+        "import-odf": { agi: CONVERT_BACKEND, action: "import-odf", wasm: "odtToDocument" },
+        "export-odf": { agi: CONVERT_BACKEND, action: "export-odf", wasm: "documentToOdt" }
     };
 
-    // shared by .docx ("import") and .odt ("import-odf")
     function importDocFile(fp, fn, action) {
         OfficeApp.showBusy("Importing " + fn + "...");
         OfficePlatform.convertIn(CONVERT[action], fp, function (body) {
@@ -3050,99 +3054,136 @@
             OfficeApp.toast("Import failed: " + msg, "error");
         });
     }
-    function importDocx(fp, fn) { importDocFile(fp, fn, "import"); }
     function importOdt(fp, fn) { importDocFile(fp, fn, "import-odf"); }
-    function importDocxDialog() {
-        if (!OfficePlatform.requireConvert("Word / OpenDocument import")) return;
-        OfficePlatform.pickOpen({ filter: ["docx", "odt"], memoryKey: "import" }, function (files) {
-            var fp = files[0].filepath, fn = files[0].filename;
-            if (/\.odt$/i.test(fn)) importOdt(fp, fn);
-            else importDocx(fp, fn);
-        });
-    }
 
-    /* inline storage-served images (media?file=...) as data URLs so the
-       server-side exporter can embed them */
-    /* Rasterize an <img> whose src Word cannot embed (SVG charts pasted from
-       Sheets/Slides, webp, ...) into a PNG data URL at 2x its display size.
-       Keeps/sets the width attribute so the docx writer sizes it like the
-       editor does. */
-    function rasterizeImgToPng(im) {
+    /* ================= pictures Word cannot hold =================
+       Word and the OpenDocument writers embed PNG, JPEG and GIF. A picture
+       in anything else (an SVG chart pasted from Sheets or Slides, WebP,
+       BMP) is rendered to PNG at 2x its display size before saving, and the
+       PNG rides along in data-export-src - the writers prefer it, the
+       editor keeps showing the original.
+
+       Pictures are otherwise left alone: a storage picture stays a
+       media?file= link and the server reads it, so a save never downloads
+       and re-uploads them. The PNG renders are kept for the session and, in
+       ArozOS, uploaded once (OfficePlatform.cacheBlob), so an unchanged
+       chart costs nothing on the next save. */
+    var exportPngCache = {};   // src + "|" + width -> PNG src
+    function needsPngForExport(src) {
+        if (/^data:image\/(svg|webp|bmp)/i.test(src)) return true;
+        var path = String(src).split("#")[0];
+        try { path = decodeURIComponent(path); } catch (e) { }
+        return /\.(svg|webp|bmp)(\?|&|$)/i.test(path);
+    }
+    function rasterizeToPngSrc(src, w) {
+        var key = src + "|" + w;
+        if (exportPngCache[key]) return Promise.resolve(exportPngCache[key]);
         return new Promise(function (resolve) {
             var probe = new Image();
             probe.onload = function () {
+                var cw = w || probe.naturalWidth || 400;
+                var ch = cw * (probe.naturalHeight || 300) / (probe.naturalWidth || 400);
+                var cv = document.createElement("canvas");
+                cv.width = Math.max(1, Math.round(cw * 2));
+                cv.height = Math.max(1, Math.round(ch * 2));
+                var ctx = cv.getContext("2d");
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, cv.width, cv.height);
                 try {
-                    var w = parseInt(im.getAttribute("width"), 10) ||
-                        parseFloat((im.getAttribute("style") || "").replace(/^.*width:\s*([\d.]+)px.*$/, "$1")) ||
-                        probe.naturalWidth || 400;
-                    var h = w * (probe.naturalHeight || 300) / (probe.naturalWidth || 400);
-                    var cv = document.createElement("canvas");
-                    cv.width = Math.max(1, Math.round(w * 2));
-                    cv.height = Math.max(1, Math.round(h * 2));
-                    var ctx = cv.getContext("2d");
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillRect(0, 0, cv.width, cv.height);
                     ctx.drawImage(probe, 0, 0, cv.width, cv.height);
-                    im.setAttribute("src", cv.toDataURL("image/png"));
-                    im.setAttribute("width", String(Math.round(w)));
-                    im.setAttribute("height", String(Math.round(h)));
-                } catch (e) { /* leave as-is; exporter will skip it */ }
-                resolve();
+                } catch (e) { resolve(null); return; }
+                cv.toBlob(function (blob) {
+                    if (!blob) { resolve(null); return; }
+                    OfficePlatform.cacheBlob(blob, "picture.png", function (out) {
+                        exportPngCache[key] = { src: out, w: cw, h: ch };
+                        resolve(exportPngCache[key]);
+                    }, function () { resolve(null); });
+                }, "image/png");
             };
-            probe.onerror = function () { resolve(); };
-            probe.src = im.getAttribute("src");
+            probe.onerror = function () { resolve(null); };
+            probe.src = src;
         });
     }
-    function inlineImagesForExport(html) {
+    // an img's display width in CSS px, from its style or width attribute
+    function imgDisplayWidth(im) {
+        var w = parseFloat((im.getAttribute("style") || "").replace(/^(?:.*;)?\s*width:\s*([\d.]+)px.*$/, "$1"));
+        if (!(w > 0)) w = parseInt(im.getAttribute("width"), 10);
+        return w > 0 ? w : 0;
+    }
+    /* html -> Promise(html) with data-export-src on every picture that needs
+       one, and a stale one dropped from a picture that no longer does */
+    function withExportPictures(html) {
+        if (!html || html.indexOf("<img") < 0) return Promise.resolve(html);
         var div = document.createElement("div");
         div.innerHTML = html;
-        var imgs = Array.prototype.slice.call(div.querySelectorAll("img"));
-        var jobs = imgs.filter(function (im) {
-            return im.src && !/^data:/i.test(im.getAttribute("src") || "");
-        }).map(function (im) {
-            return fetch(im.src).then(function (r) {
-                if (!r.ok) throw new Error("http " + r.status);
-                return r.blob();
-            }).then(function (blob) {
-                return new Promise(function (resolve) {
-                    var reader = new FileReader();
-                    reader.onload = function () {
-                        im.setAttribute("src", reader.result);
-                        resolve();
-                    };
-                    reader.onerror = function () { resolve(); };
-                    reader.readAsDataURL(blob);
-                });
-            }).catch(function () { /* leave the URL; exporter skips it */ });
+        var jobs = Array.prototype.slice.call(div.querySelectorAll("img")).map(function (im) {
+            var src = im.getAttribute("src") || "";
+            if (!needsPngForExport(src)) {
+                im.removeAttribute("data-export-src");
+                return null;
+            }
+            var w = imgDisplayWidth(im);
+            var sized = w > 0 || /(^|;)\s*width\s*:/i.test(im.getAttribute("style") || "");
+            return rasterizeToPngSrc(src, w).then(function (png) {
+                if (!png) { im.removeAttribute("data-export-src"); return; }
+                im.setAttribute("data-export-src", png.src);
+                // the PNG is drawn at 2x: without a stated size the writer
+                // would take its pixels for the picture's size
+                if (!sized) {
+                    im.setAttribute("width", String(Math.round(png.w)));
+                    im.setAttribute("height", String(Math.round(png.h)));
+                }
+            });
         });
-        return Promise.all(jobs).then(function () {
-            // second pass: convert anything Word cannot embed (svg charts,
-            // webp/bmp) to PNG so it survives as a real, sized picture
-            var conv = Array.prototype.slice.call(div.querySelectorAll("img"))
-                .filter(function (im) {
-                    return /^data:image\/(svg|webp|bmp)/i.test(im.getAttribute("src") || "");
-                })
-                .map(rasterizeImgToPng);
-            return Promise.all(conv);
-        }).then(function () { return div.innerHTML; });
+        return Promise.all(jobs).then(function () { return div.innerHTML; });
     }
-    // shared by .docx ("export") and .odt ("export-odf")
-    function exportDocFile(ext, action, busyLabel) {
-        var spec = CONVERT[action];
-        if (!OfficePlatform.requireConvert("Exporting " + ext)) return;
-        var defName = exportBaseName() + ext;
-        OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
+    // the ODF writer reads src itself: swap the PNG in
+    function exportSrcAsSrc(html) {
+        if (!html || html.indexOf("data-export-src") < 0) return html;
+        var div = document.createElement("div");
+        div.innerHTML = html;
+        var imgs = div.querySelectorAll("img[data-export-src]");
+        for (var i = 0; i < imgs.length; i++) {
+            imgs[i].setAttribute("src", imgs[i].getAttribute("data-export-src"));
+            imgs[i].removeAttribute("data-export-src");
+        }
+        return div.innerHTML;
+    }
+    // what the framework calls before writing the .docx: body is its own copy
+    function prepareNative(body) {
+        var parts = ["html", "headerHtml", "footerHtml"];
+        var jobs = parts.map(function (k) {
+            if (typeof body[k] !== "string") return null;
+            return withExportPictures(body[k]).then(function (h) { body[k] = h; });
+        });
+        (body.footnotes || []).forEach(function (fn) {
+            jobs.push(withExportPictures(fn.html).then(function (h) { fn.html = h; }));
+        });
+        return Promise.all(jobs);
+    }
+    /* a body for the ODF writer: suggestions applied, comment anchors
+       unwrapped (ODF does not get review markup), pictures as PNG */
+    function odfBody() {
+        var b = currentBody();
+        b.html = resolvedHtml();
+        return prepareNative(b).then(function () {
+            ["html", "headerHtml", "footerHtml"].forEach(function (k) {
+                if (typeof b[k] === "string") b[k] = exportSrcAsSrc(b[k]);
+            });
+            (b.footnotes || []).forEach(function (fn) { fn.html = exportSrcAsSrc(fn.html); });
+            return b;
+        });
+    }
+    function exportOdt() {
+        if (!OfficePlatform.requireConvert("Exporting .odt")) return;
+        var defName = exportBaseName() + ".odt";
+        OfficePlatform.pickSave({ defaultName: defName, ext: ".odt", memoryKey: "export" }, function (file) {
             var fp = file.filepath;
-            OfficeApp.showBusy(busyLabel);
-            var body = currentBody();
-            // suggestions applied, comment anchors unwrapped
-            body.html = resolvedHtml();
-            inlineImagesForExport(body.html).then(function (inlined) {
-                body.html = inlined;
-                // in ArozOS this posts through agirunLarge (documents with
-                // inlined images blow past the 10MB POST form limit); in the
-                // web edition it runs in the wasm module and downloads
-                OfficePlatform.convertOut(spec, fp, JSON.stringify(body), function () {
+            OfficeApp.showBusy("Exporting OpenDocument file...");
+            odfBody().then(function (b) {
+                // pictures stay links: the server reads them (office lib), and
+                // the web edition keeps them inline already
+                OfficePlatform.convertOut(CONVERT["export-odf"], fp, JSON.stringify(b), function () {
                     OfficeApp.hideBusy();
                     OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
                     OfficeApp.toast("Exported " + OfficeApp.basename(fp));
@@ -3153,23 +3194,17 @@
             });
         });
     }
-    function exportDocx() { exportDocFile(".docx", "export", "Exporting Word file..."); }
-    function exportOdt() { exportDocFile(".odt", "export-odf", "Exporting OpenDocument file..."); }
 
     /* ================= saving back into a foreign format =================
-       A document opened from .docx / .odt / .html / .md / .txt goes on living
-       in that file: the framework keeps filepath/filename pointing at it and
-       Ctrl+S comes back here instead of forcing a Save As to .doca. These are
-       the same renderings the Export menu produces, reporting through the
-       framework's save callbacks rather than a toast of their own. */
+       A document opened from .odt / .html / .md / .txt goes on living in
+       that file: the framework keeps filepath/filename pointing at it and
+       Ctrl+S comes back here instead of forcing a Save As to .docx. These
+       are the same renderings the Export menu produces, reporting through
+       the framework's save callbacks rather than a toast of their own. */
     function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
-    function saveViaConverter(action, fp, done, fail) {
-        var b = currentBody();
-        // suggestions applied, comment anchors unwrapped
-        b.html = resolvedHtml();
-        inlineImagesForExport(b.html).then(function (inlined) {
-            b.html = inlined;
-            OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(b),
+    function saveOdt(fp, done, fail) {
+        odfBody().then(function (b) {
+            OfficePlatform.convertOut(CONVERT["export-odf"], fp, JSON.stringify(b),
                 function () { done(); }, fail);
         }).catch(function (err) {
             fail((err && err.message) ? err.message : "could not prepare the document");
@@ -3182,12 +3217,13 @@
         OfficeApp.vfsSave(fp, content, done, fail);
     }
     /*
-        Comments and pending suggestions live only in the native container:
-        every other writer is fed resolvedHtml(), which unwraps the comment
-        anchors, keeps insertions and drops deletions. That is a change to the
-        text itself, so it is a veto rather than a quiet loss. Formatting a
-        format merely renders differently is deliberately not listed - it
-        would fire on nearly every save.
+        Comments and pending suggestions live in the .docx as Word's own
+        comments and tracked changes; every other writer is fed
+        resolvedHtml(), which unwraps the comment anchors, keeps insertions
+        and drops deletions. That is a change to the text itself, so it is a
+        veto rather than a quiet loss. Formatting a format merely renders
+        differently is deliberately not listed - it would fire on nearly
+        every save.
     */
     function reviewUnsupported() {
         var out = [];
@@ -3213,7 +3249,7 @@
         return out;
     }
     /*
-        The formats File > Save as offers besides .doca, and the ones a
+        The formats File > Save as offers besides .docx, and the ones a
         document opened from one of them is saved back into. needsConvert
         marks the writers that go through the Office format converters and
         needsBackend the ones that need a server outright (the real-text PDF
@@ -3224,16 +3260,10 @@
     */
     var SAVE_FORMATS = [
         {
-            ext: ".docx", label: "Word document (.docx)", icon: "file word outline",
-            needsConvert: true, noAutosave: true,
-            unsupported: reviewUnsupported,
-            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
-        },
-        {
             ext: ".odt", label: "OpenDocument text (.odt)", icon: "file alternate outline",
             needsConvert: true, noAutosave: true,
             unsupported: reviewUnsupported,
-            save: function (fp, fn, done, fail) { saveViaConverter("export-odf", fp, done, fail); }
+            save: function (fp, fn, done, fail) { saveOdt(fp, done, fail); }
         },
         {
             ext: ".pdf", label: "PDF document (.pdf)", icon: "file pdf outline",
@@ -3682,10 +3712,12 @@
             appName: "Docs",
             appType: "document",
             appIcon: "../img/docs.svg",
-            extension: ".doca",
+            extension: ".docx",
+            nativeLabel: "Word document (.docx)",
             fileTypeName: "Document",
-            packed: true,
             defaultFileName: "New Document",
+            // pictures Word cannot hold get a PNG beside them before a save
+            prepareNative: prepareNative,
 
             serialize: function () { return currentBody(); },
             deserialize: function (body) {
@@ -3705,7 +3737,6 @@
                 ".htm": function (text) { importHtml(text); }
             },
             binaryImporters: {
-                ".docx": importDocx,
                 ".odt": importOdt
             },
             saveFormats: SAVE_FORMATS,
@@ -3807,22 +3838,19 @@
                 }
             ],
             /*
-                .docx / .odt need the Office converters - the AGI backend in
-                ArozOS, the WebAssembly module in the web edition. The
-                real-text .pdf renderer is still server-only, so the web
-                edition points at File > Print / PDF for that. .html / .md /
-                .txt are written right here and are always available.
+                .odt needs the Office converters - the AGI backend in ArozOS,
+                the WebAssembly module in the web edition. .docx is the
+                document's own format (File > Save / Save as). .pdf, .html,
+                .md and .txt are rendered right here and are always
+                available.
             */
             fileMenuExtras: [
                 { label: "Page setup...", icon: "file alternate outline", action: pageSetupDialog },
-                !OfficePlatform.canConvert() ? null :
-                    { label: "Import Word / OpenDocument...", icon: "file word outline", action: importDocxDialog },
                 {
                     label: "Export", icon: "external alternate",
                     sub: function () {
                         var items = [];
                         if (OfficePlatform.canConvert()) {
-                            items.push({ label: "Word (.docx)", icon: "file word outline", action: exportDocx });
                             items.push({ label: "OpenDocument (.odt)", icon: "file alternate outline", action: exportOdt });
                         }
                         items.push({ label: "PDF document (.pdf)", icon: "file pdf outline", action: exportPdf });

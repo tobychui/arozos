@@ -4,7 +4,7 @@
     Shared by Docs, Sheets and Slides.
 
     Required POST parameters:
-        filepath  - virtual path to the target file (e.g. user:/Documents/report.doca)
+        filepath  - virtual path to the target file (e.g. user:/Documents/notes.md)
         content   - serialized document content to write
         contentFile - vpath of an uploaded temp file holding that content,
                     used instead of content when the payload is too big for
@@ -25,7 +25,8 @@ function resolveContent(){
         if (!requirelib("filelib")){
             return "";
         }
-        var loaded = filelib.readFile(contentFile);
+        // gunzipped by office.readPayload when the browser compressed it
+        var loaded = requirelib("office") ? office.readPayload(contentFile) : filelib.readFile(contentFile);
         filelib.deleteFile(contentFile);
         return loaded;
     }

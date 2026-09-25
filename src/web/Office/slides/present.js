@@ -423,7 +423,7 @@ var SlidesExport = (function () {
     }
 
     function docName() {
-        var n = OfficeApp.getFileName() || "presentation.ppta";
+        var n = OfficeApp.getFileName() || "presentation.pptx";
         return OfficeApp.stripExt(n);
     }
 

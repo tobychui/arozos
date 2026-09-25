@@ -8,7 +8,7 @@
       - mode.js      which build this is, so formats the build cannot convert
                      are not offered
       - recents.js   OfficeRecents: the documents this browser is keeping
-      - container.js + share.js   OfficeShare: ?request=<ArozOS share link>
+      - share.js     OfficeShare: ?request=<ArozOS share link>
 
     How opening a file from here works. A File the visitor picks cannot be
     handed across a page navigation, so "Open from device" writes the bytes
@@ -18,7 +18,8 @@
 
     ?request=<share link> (standalone build) uses the same hand-off: the page
     downloads the document from the ArozOS share's preview endpoint, reads
-    which app it belongs to from its envelope, keeps it in OfficeRecents and
+    which app it belongs to from the parts its zip holds (word/, xl/, ppt/),
+    keeps it in OfficeRecents and
     sends that app to ?recent=<id>. When the browser will not keep it (no
     IndexedDB, or a document over the per-entry cap) the app is sent the
     link itself instead - ?request=&name= - and fetches it again there.
@@ -36,34 +37,34 @@
     /* ================= the three apps ================= */
     var APPS = {
         document: {
-            dir: "docs", label: "Document", plural: "Documents", ext: ".doca",
+            dir: "docs", label: "Document", plural: "Documents", ext: ".docx",
             icon: "#i-doc", accent: "#3b82f6", soft: "#eaf2ff", line: "#c7ddfb",
             desc: "Word processor for creating letters, reports, and more."
         },
         spreadsheet: {
-            dir: "sheets", label: "Spreadsheet", plural: "Spreadsheets", ext: ".xlsa",
+            dir: "sheets", label: "Spreadsheet", plural: "Spreadsheets", ext: ".xlsx",
             icon: "#i-sheet", accent: "#16a34a", soft: "#e7f7ee", line: "#bfe8cf",
             desc: "Analyze data with powerful formulas and charts."
         },
         presentation: {
-            dir: "slides", label: "Presentation", plural: "Presentations", ext: ".ppta",
+            dir: "slides", label: "Presentation", plural: "Presentations", ext: ".pptx",
             icon: "#i-slides", accent: "#f97316", soft: "#fef1e6", line: "#fbd9b6",
             desc: "Design slides and present your ideas with style."
         }
     };
     var APP_ORDER = ["document", "spreadsheet", "presentation"];
 
-    // Which extension belongs to which app. The foreign formats are only
-    // offered when this build can actually convert them.
-    var NATIVE_EXT = { ".doca": "document", ".xlsa": "spreadsheet", ".ppta": "presentation" };
+    // Which extension belongs to which app. The apps' own formats, and the
+    // OpenDocument ones, go through the Office format code (mod/office) -
+    // server side in ArozOS, WebAssembly in the web edition - so they are
+    // only offered when this build has it.
+    var NATIVE_EXT = { ".docx": "document", ".xlsx": "spreadsheet", ".pptx": "presentation" };
     var TEXT_EXT = {
         ".txt": "document", ".md": "document", ".html": "document", ".htm": "document",
         ".csv": "spreadsheet", ".tsv": "spreadsheet"
     };
     var CONVERT_EXT = {
-        ".docx": "document", ".odt": "document",
-        ".xlsx": "spreadsheet", ".ods": "spreadsheet",
-        ".pptx": "presentation", ".odp": "presentation"
+        ".odt": "document", ".ods": "spreadsheet", ".odp": "presentation"
     };
 
     /* mode.js sets these; in the ArozOS tree both are false/undefined and the
@@ -78,9 +79,11 @@
     function openableExts() {
         var map = {};
         var add = function (src) { Object.keys(src).forEach(function (k) { map[k] = src[k]; }); };
-        add(NATIVE_EXT);
         add(TEXT_EXT);
-        if (canConvert()) add(CONVERT_EXT);
+        if (canConvert()) {
+            add(NATIVE_EXT);
+            add(CONVERT_EXT);
+        }
         return map;
     }
     function appForExt(ext) { return openableExts()[String(ext).toLowerCase()] || null; }
@@ -576,7 +579,7 @@
         var app = appForExt(ext);
         if (!app) {
             window.alert("ArozOS Office cannot open " + (ext || "that kind of file") +
-                (CONVERT_EXT[ext] ? " - this build was made without the Office format converters." : "."));
+                ((CONVERT_EXT[ext] || NATIVE_EXT[ext]) ? " - this build was made without the Office format code." : "."));
             return;
         }
         if (!window.OfficeRecents || !OfficeRecents.supported()) {
@@ -636,7 +639,7 @@
         OfficeShare.fetch(info.previewUrl, function (bytes, serverName) {
             var app = OfficeShare.appOf(bytes);
             if (!app) {
-                fail("That share is not an ArozOS Office document (.doca, .xlsa or .ppta).");
+                fail(OfficeShare.notADocument);
                 return;
             }
             var name = OfficeShare.fileName(app, [nameParam, serverName, info.nameHint]);
@@ -697,11 +700,10 @@
         loadTemplates();
 
         // formats line in the tip, so it never claims more than the build does
-        var natives = Object.keys(NATIVE_EXT).join(", ");
         var tip = $(".hm-tip-formats");
         tip.textContent = canConvert()
-            ? "Supported formats: " + natives + ", .docx, .xlsx, .pptx, ODF"
-            : "Supported formats: " + natives;
+            ? "Supported formats: .docx, .xlsx, .pptx, ODF, CSV, Markdown"
+            : "Supported formats: CSV, Markdown, plain text";
 
         $("#hmCreate").addEventListener("click", function (ev) {
             ev.stopPropagation();

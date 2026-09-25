@@ -224,6 +224,8 @@ type pptxDoc struct {
 	// typefaces some run actually asks for, lower-cased - only these are
 	// worth pulling out of the embedded font list
 	usedFonts map[string]bool
+	// slide part path -> 1-based position, for "go to slide" links
+	slideIndex map[string]int
 }
 
 // slideCtx is the resolution context of one slide: its layout, master,
@@ -341,6 +343,10 @@ func ParsePptx(data []byte) (*Presentation, error) {
 	if len(slidePaths) == 0 {
 		return nil, errors.New("pptx contains no slides")
 	}
+	doc.slideIndex = map[string]int{}
+	for i, sp := range slidePaths {
+		doc.slideIndex[sp] = i + 1
+	}
 
 	out := &Presentation{
 		Size:   []int{slidePxW, slidePxH},
@@ -357,6 +363,7 @@ func ParsePptx(data []byte) (*Presentation, error) {
 		sc.slideNum = si + 1
 		slide := sc.parseSlide(tree)
 		slide.ID = fmt.Sprintf("s-import%d", si+1)
+		slide.Transition = transitionOf(tree)
 		slide.Notes = sc.extractNotes()
 		out.Slides = append(out.Slides, slide)
 	}
@@ -593,13 +600,13 @@ func (sc *slideCtx) walkShapes(spTree *xnode, cm coordMap, slide *Slide, z *int,
 		}
 		switch node.XMLName.Local {
 		case "sp":
-			sc.addObject(slide, sc.parseSp(node, cm), z)
+			sc.addObject(slide, sc.withLink(node, sc.parseSp(node, cm)), z)
 		case "cxnSp":
-			sc.addObject(slide, sc.parseCxnSp(node, cm), z)
+			sc.addObject(slide, sc.withLink(node, sc.parseCxnSp(node, cm)), z)
 		case "pic":
-			sc.addObject(slide, sc.parsePic(node, cm), z)
+			sc.addObject(slide, sc.withLink(node, sc.parsePic(node, cm)), z)
 		case "graphicFrame":
-			sc.addObject(slide, sc.parseGraphicFrame(node, cm), z)
+			sc.addObject(slide, sc.withLink(node, sc.parseGraphicFrame(node, cm)), z)
 		case "grpSp":
 			sc.walkShapes(node, groupMap(node, cm), slide, z, false)
 		case "AlternateContent":
@@ -1886,4 +1893,79 @@ func nearestRecolor(hex string) string {
 		}
 	}
 	return best
+}
+
+/* ---------------- transitions and click links ---------------- */
+
+// transitionOf maps a slide's <p:transition> onto the editor's three:
+// fade, slide (anything that moves the slide in) and zoom. PowerPoint 2010
+// and later wrap it in mc:AlternateContent, with a plain fallback.
+func transitionOf(sld *xnode) string {
+	tr := sld.first("transition")
+	if tr == nil {
+		if ac := sld.first("AlternateContent"); ac != nil {
+			if fb := ac.first("Fallback"); fb != nil {
+				tr = fb.first("transition")
+			}
+			if tr == nil {
+				if ch := ac.first("Choice"); ch != nil {
+					tr = ch.first("transition")
+				}
+			}
+		}
+	}
+	if tr == nil {
+		return ""
+	}
+	for i := range tr.Nodes {
+		switch tr.Nodes[i].XMLName.Local {
+		case "fade", "dissolve", "cut":
+			return "fade"
+		case "push", "cover", "pull", "wipe", "split", "strips", "randomBar", "blinds", "checker", "comb", "wheel", "wedge", "circle", "diamond", "plus", "newsflash", "random", "vortex", "ripple", "flip", "gallery", "cube", "doors", "box", "conveyor", "pan", "glitter", "honeycomb", "flash", "shred", "switch", "ferris", "flythrough", "warp", "reveal", "prism":
+			return "slide"
+		case "zoom":
+			return "zoom"
+		case "sndAc", "extLst":
+			continue
+		default:
+			return "fade"
+		}
+	}
+	return ""
+}
+
+// withLink reads a shape's click action into props.link: a jump to another
+// slide becomes "#N", an external address stays as it is (http(s) only)
+func (sc *slideCtx) withLink(node *xnode, obj *Object) *Object {
+	if obj == nil {
+		return nil
+	}
+	var cNvPr *xnode
+	for i := range node.Nodes {
+		if strings.HasPrefix(node.Nodes[i].XMLName.Local, "nv") {
+			cNvPr = node.Nodes[i].first("cNvPr")
+			break
+		}
+	}
+	hl := cNvPr.first("hlinkClick")
+	if hl == nil {
+		return obj
+	}
+	rid := hl.attrNS("relationships", "id")
+	target := sc.partRels()[rid]
+	action := hl.attr("action")
+	switch {
+	case strings.Contains(action, "hlinksldjump"):
+		if n, ok := sc.doc.slideIndex[resolvePartPath(sc.partDir(), target)]; ok {
+			obj.Props.Link = "#" + strconv.Itoa(n)
+		}
+	case strings.Contains(action, "hlinkshowjump"):
+		// first / last / next / previous slide: no absolute target to keep
+	case action == "" && target != "":
+		low := strings.ToLower(target)
+		if strings.HasPrefix(low, "http://") || strings.HasPrefix(low, "https://") {
+			obj.Props.Link = target
+		}
+	}
+	return obj
 }

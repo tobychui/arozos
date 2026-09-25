@@ -5,7 +5,7 @@
     Writes the template files listed in manifest.json from the document
     bodies defined below.
 
-        node build_templates.js        # rewrites *.doca / *.xlsa / *.ppta here
+        node build_templates.js        # rewrites the *.json templates here
 
     Why a builder rather than checked-in blobs: a template is an envelope
     wrapped around a body in the app's own schema (see src/web/Office/README.md),
@@ -13,11 +13,11 @@
     A1-keyed cells - is how templates drift out of shape. Here each template
     is a readable literal and the envelope is generated.
 
-    The files are written as **plain JSON**, not zip containers. Both the Go
-    unpacker (office.UnpackEnvelope) and the browser one
-    (OfficeContainer.unpack) pass a non-"PK" payload straight through as a
-    legacy plain-JSON document, so a template needs no packing - and none of
-    these carry binary media, which is the only thing the container is for.
+    A template is that envelope as a plain JSON file, not a .docx / .xlsx /
+    .pptx: the apps load ?template=<file>.json straight into the editor as a
+    new unsaved document (OfficeApp openPath), so starting from one needs no
+    conversion at all - in ArozOS or in the web edition - and Save asks where
+    to put the real file.
 
     Adding a template: add it to TEMPLATES, add a matching entry to
     manifest.json (id, file, label, preview, blurb), and re-run this file.
@@ -139,10 +139,10 @@ function bullets(items, y) {
 var TEMPLATES = {};
 
 /* ---------- Docs ---------- */
-TEMPLATES["blank-document.doca"] = envelope("document", "Blank Document",
+TEMPLATES["blank-document.json"] = envelope("document", "Blank Document",
     doc("<p><br></p>"));
 
-TEMPLATES["report.doca"] = envelope("document", "Report", doc(
+TEMPLATES["report.json"] = envelope("document", "Report", doc(
     '<h1 class="doc-title">Quarterly Report</h1>' +
     '<p style="color:#5f6368;">Prepared by Your Name &nbsp;&middot;&nbsp; Month Year</p>' +
     "<h2>Summary</h2>" +
@@ -165,7 +165,7 @@ TEMPLATES["report.doca"] = envelope("document", "Report", doc(
     "<li>The decision you need from the reader.</li></ol>",
     { header: "Quarterly Report", footer: "Confidential", pageNumbers: true }));
 
-TEMPLATES["resume.doca"] = envelope("document", "Resume", doc(
+TEMPLATES["resume.json"] = envelope("document", "Resume", doc(
     '<h1 class="doc-title">Your Name</h1>' +
     '<p style="color:#5f6368;">City, Country &nbsp;&middot;&nbsp; you@example.com ' +
     "&nbsp;&middot;&nbsp; +00 000 000 000</p>" +
@@ -186,7 +186,7 @@ TEMPLATES["resume.doca"] = envelope("document", "Resume", doc(
     "<h2>Skills</h2>" +
     "<p>The tools and languages you would be comfortable being tested on.</p>"));
 
-TEMPLATES["letter.doca"] = envelope("document", "Letter", doc(
+TEMPLATES["letter.json"] = envelope("document", "Letter", doc(
     '<p style="color:#5f6368;">Your Name<br>Street Address<br>City, Postcode</p>' +
     "<p><br></p>" +
     "<p>Recipient Name<br>Company<br>Street Address<br>City, Postcode</p>" +
@@ -203,7 +203,7 @@ TEMPLATES["letter.doca"] = envelope("document", "Letter", doc(
     "<p><br></p><p><br></p>" +
     "<p>Your Name</p>"));
 
-TEMPLATES["meeting-notes.doca"] = envelope("document", "Meeting Notes", doc(
+TEMPLATES["meeting-notes.json"] = envelope("document", "Meeting Notes", doc(
     '<h1 class="doc-title">Meeting Notes</h1>' +
     "<table><tbody>" +
     "<tr><td><b>Date</b></td><td>&nbsp;</td></tr>" +
@@ -226,10 +226,10 @@ TEMPLATES["meeting-notes.doca"] = envelope("document", "Meeting Notes", doc(
     { footer: "Meeting notes", pageNumbers: true }));
 
 /* ---------- Sheets ---------- */
-TEMPLATES["blank-spreadsheet.xlsa"] = envelope("spreadsheet", "Blank Spreadsheet",
+TEMPLATES["blank-spreadsheet.json"] = envelope("spreadsheet", "Blank Spreadsheet",
     book([sheet("Sheet1", {})]));
 
-TEMPLATES["budget-sheet.xlsa"] = envelope("spreadsheet", "Budget Sheet", book([
+TEMPLATES["budget-sheet.json"] = envelope("spreadsheet", "Budget Sheet", book([
     sheet("Budget", {
         A1: cell("Monthly Budget", { b: true, fs: 18 }),
         A3: cell("Category", HEAD), B3: cell("Planned", HEAD),
@@ -258,7 +258,7 @@ TEMPLATES["budget-sheet.xlsa"] = envelope("spreadsheet", "Budget Sheet", book([
     }, { freeze: { r: 3, c: 1 }, colW: { "0": 160, "1": 110, "2": 110, "3": 110 } })
 ]));
 
-TEMPLATES["invoice.xlsa"] = envelope("spreadsheet", "Invoice", book([
+TEMPLATES["invoice.json"] = envelope("spreadsheet", "Invoice", book([
     sheet("Invoice", {
         A1: cell("INVOICE", { b: true, fs: 24, fc: "#e8710a" }),
         A3: cell("From", { b: true }), A4: cell("Your Name / Company"),
@@ -290,7 +290,7 @@ TEMPLATES["invoice.xlsa"] = envelope("spreadsheet", "Invoice", book([
     }, { colW: { "0": 220, "1": 70, "2": 110, "3": 120 } })
 ]));
 
-TEMPLATES["task-tracker.xlsa"] = envelope("spreadsheet", "Task Tracker", book([
+TEMPLATES["task-tracker.json"] = envelope("spreadsheet", "Task Tracker", book([
     sheet("Tasks", {
         A1: cell("Task Tracker", { b: true, fs: 18 }),
         A3: cell("Task", HEAD), B3: cell("Owner", HEAD), C3: cell("Status", HEAD),
@@ -312,10 +312,10 @@ TEMPLATES["task-tracker.xlsa"] = envelope("spreadsheet", "Task Tracker", book([
 ]));
 
 /* ---------- Slides ---------- */
-TEMPLATES["blank-presentation.ppta"] = envelope("presentation", "Blank Presentation",
+TEMPLATES["blank-presentation.json"] = envelope("presentation", "Blank Presentation",
     deck([slide([])]));
 
-TEMPLATES["presentation.ppta"] = envelope("presentation", "Presentation", deck([
+TEMPLATES["presentation.json"] = envelope("presentation", "Presentation", deck([
     slide(title("Presentation Title", "Your name &middot; Date"),
         { notes: "Open with why the audience should care." }),
     slide([
@@ -356,7 +356,7 @@ TEMPLATES["presentation.ppta"] = envelope("presentation", "Presentation", deck([
     ], { notes: "Do not end on a thank-you slide - end on the ask." })
 ]));
 
-TEMPLATES["lesson.ppta"] = envelope("presentation", "Lesson", deck([
+TEMPLATES["lesson.json"] = envelope("presentation", "Lesson", deck([
     slide(title("Lesson Title", "Subject &middot; Year group")),
     slide([
         heading("Learning objectives"),

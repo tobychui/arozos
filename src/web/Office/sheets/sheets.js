@@ -3141,10 +3141,12 @@ var SheetsApp = (function () {
             appName: "Sheets",
             appType: "spreadsheet",
             appIcon: "../img/sheets.svg",
-            extension: ".xlsa",
+            extension: ".xlsx",
+            nativeLabel: "Excel workbook (.xlsx)",
             fileTypeName: "Spreadsheet",
-            packed: true,
             defaultFileName: "New Spreadsheet",
+            // array formulas are marked with the range they fill
+            prepareNative: function (copy) { SheetsApp.markSpills(copy); },
 
             serialize: function () { return deep(body); },
             deserialize: function (b) {
@@ -3170,7 +3172,6 @@ var SheetsApp = (function () {
                 ".tsv": function (text, fn) { SheetsIO.importDelimited(text, fn, "\t"); }
             },
             binaryImporters: {
-                ".xlsx": function (fp, fn) { SheetsIO.importXlsx(fp, fn); },
                 ".ods": function (fp, fn) { SheetsIO.importOds(fp, fn); }
             },
             // a workbook opened from one of these keeps saving back into it
@@ -3193,22 +3194,18 @@ var SheetsApp = (function () {
                 { title: "Data", items: dataMenuItems }
             ],
             /*
-                .xlsx / .ods need the Office converters - the AGI backend in
-                ArozOS, the WebAssembly module in the web edition. The
-                real-text .pdf renderer is still server-only, so the web
-                edition points at File > Print / PDF for that. The delimited
-                exports are written right here and always available.
+                .ods needs the Office converters - the AGI backend in ArozOS,
+                the WebAssembly module in the web edition. .xlsx is the
+                workbook's own format (File > Save / Save as). The real-text
+                .pdf renderer is still server-only, so the web edition points
+                at File > Print / PDF for that. The delimited exports are
+                written right here and always available.
             */
             fileMenuExtras: [
-                !OfficePlatform.canConvert() ? null : {
-                    label: "Import Excel / OpenDocument...", icon: "file excel outline",
-                    action: function () { SheetsIO.importXlsxDialog(); }
-                },
                 {
                     label: "Export", icon: "external alternate", sub: function () {
                         var items = [];
                         if (OfficePlatform.canConvert()) {
-                            items.push({ label: "Excel (.xlsx)", icon: "file excel outline", action: function () { SheetsIO.exportXlsx(); } });
                             items.push({ label: "OpenDocument (.ods)", icon: "file alternate outline", action: function () { SheetsIO.exportOds(); } });
                         }
                         if (OfficePlatform.hasBackend()) {
@@ -3266,12 +3263,16 @@ var SheetsApp = (function () {
     /* ---------- API used by sheets_io.js ---------- */
     return {
         getBody: function () { return body; },
-        /* The body for a converter: a copy where every spill anchor carries
+        /* Finish a copy of the body for a writer: every spill anchor carries
            "a" = the range its array fills, so the xlsx writer can mark it as
-           a dynamic-array formula. */
-        exportBody: function () {
-            var copy = JSON.parse(JSON.stringify(body));
+           a dynamic-array formula. A range left over from an earlier save is
+           cleared first - the copy is also what the .xlsx embeds, so it comes
+           back on the next open. */
+        markSpills: function (copy) {
             copy.sheets.forEach(function (sh, si) {
+                Object.keys(sh.cells || {}).forEach(function (k) {
+                    if (sh.cells[k]) delete sh.cells[k].a;
+                });
                 if (!calc || !calc.spillList) return;
                 calc.spillList(si).forEach(function (sp) {
                     var cell = sh.cells[key(sp.c1, sp.r1)];
@@ -3279,6 +3280,10 @@ var SheetsApp = (function () {
                 });
             });
             return copy;
+        },
+        // the body for a converter: a finished copy (see markSpills)
+        exportBody: function () {
+            return SheetsApp.markSpills(JSON.parse(JSON.stringify(body)));
         },
         sheet: sheet,
         selRange: selRange,

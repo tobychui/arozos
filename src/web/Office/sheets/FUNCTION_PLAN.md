@@ -269,7 +269,7 @@ Why:
 - **Web imports** would have to fetch URLs server-side (the browser blocks
   cross-origin reads), which means an AGI endpoint with SSRF protection,
   caching and rate limits, and nothing at all in the standalone web edition.
-  If wanted later, an `IMPORTRANGE` that reads another `.xlsa` in the user's
+  If wanted later, an `IMPORTRANGE` that reads another `.xlsx` in the user's
   own storage is the most useful and safest variant.
 - **In-cell graphics** (`SPARKLINE`, `IMAGE`) are grid features first; revisit
   with in-cell rendering.

@@ -33,6 +33,11 @@ type Document struct {
 	// LineSpacing is the multiple of single spacing a paragraph without
 	// data-ls uses (0 = the editor's default)
 	LineSpacing float64 `json:"lineSpacing,omitempty"`
+	// review comments, anchored in HTML by <span class="doc-cmt" data-cid>,
+	// and "Suggest edits" (pending ins.doc-ins / del.doc-del marks); both
+	// map onto Word's own comments and revisions (docx_review.go)
+	Comments     []*DocComment `json:"comments,omitempty"`
+	TrackChanges bool          `json:"trackChanges,omitempty"`
 }
 
 // Footnote is one footnote's content (block HTML)

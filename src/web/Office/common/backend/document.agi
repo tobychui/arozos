@@ -1,23 +1,28 @@
 /*
-    ArozOS Office Suite - native container backend
+    ArozOS Office Suite - document backend
 
-    Saves and loads the suite's native files (.doca / .xlsa / .ppta) as zip
-    containers with embedded binary assets (see mod/office packed.go).
+    Opens and saves the suite's documents. Docs, Sheets and Slides live in
+    .docx / .xlsx / .pptx files: office.saveDocument writes the OOXML plus
+    the editor's own envelope embedded in the package, and office.loadDocument
+    hands the envelope back - the embedded copy when nothing else has changed
+    the file, an import of the OOXML when Word, Excel or PowerPoint has (see
+    mod/office native.go).
 
     Media handling: documents reference media through media?file= links
     (either the user's own files or uploads under the Office working
-    directory). office.packToFile embeds those files into the container at
-    save time, and office.unpackToWorkdir extracts them back into a
-    per-document cache dir on load - so the JSON payloads that travel
-    through this endpoint stay small even for video-heavy documents.
+    directory). office.saveDocument reads those files server side, so the
+    pictures never travel from the browser on a save, and office.loadDocument
+    extracts a document's media into a per-document cache dir and links it,
+    so they are streamed rather than sent as base64 on an open.
 
     Working directory: user:/.appdata/Office/
         uploads/   media dropped in from the device (via the system
                    upload endpoint, streamed as multipart)
-        tmp/       oversized POST payloads uploaded by the front end
-                   (OfficeApp.agirunLarge) - consumed and deleted by the
+        tmp/       request payloads the front end uploaded instead of
+                   posting (OfficeApp.agirunLarge), gzipped where the
+                   browser can compress - consumed and deleted by the
                    backend script that receives them; swept on "prepare"
-        cache/     assets extracted from opened containers
+        cache/     media extracted from opened documents
         session/   rolling per-app snapshots for "Restore from previous
                    session"
 
@@ -25,20 +30,15 @@
         action = "save" | "load" | "prepare" | "session-save" |
                  "session-load" | "session-delete"
 
-        save:           filepath, content(envelope JSON)     -> "OK"
+        save:           filepath (.docx/.xlsx/.pptx), content (envelope JSON) -> "OK"
                         contentFile may replace content: vpath of an uploaded
-                        temp file holding the same JSON, used when the payload
-                        is too big for a POST form body (deleted after reading)
+                        payload file (deleted after reading)
         load:           filepath                             -> {"envelope": {...}}
         prepare:        (none)                               -> "OK" (workdir exists)
         session-save:   app, content(envelope JSON)          -> "OK"
         session-load:   app                                  -> {"envelope": {...}} or {"none": true}
         session-delete: app  (drop the snapshot so it stops  -> "OK"
                               prompting on next launch)
-
-    Legacy plain-JSON documents load transparently and are upgraded to the
-    container format on their next save. When the office lib is unavailable
-    (older host), save falls back to a plain JSON write so no data is lost.
 */
 
 var WORKDIR = "user:/.appdata/Office";
@@ -66,13 +66,13 @@ function ensureWorkdir(){
 /*
     Drop leftover agirunLarge payloads (see OfficeApp.agirunLarge): the
     receiving script deletes its own temp file, so anything still here is
-    from an export that was interrupted before the backend ran.
+    from a request that was interrupted before the backend ran.
 */
 function sweepTmp(){
     var maxAgeMs = 24 * 60 * 60 * 1000;
     var now = new Date().getTime();
     try {
-        var leftovers = filelib.glob(WORKDIR + "/tmp/*.json");
+        var leftovers = filelib.glob(WORKDIR + "/tmp/*");
         for (var i = 0; i < leftovers.length; i++){
             var ts = filelib.mtime(leftovers[i], true);
             if (!ts || (now - ts * 1000) > maxAgeMs){
@@ -89,22 +89,31 @@ function safeAppName(name){
 }
 
 /*
-    The front end streams an oversized payload to a temp file instead of
-    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
-    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
-    10MB. Read it back from contentFile when that path was taken, and remove
-    the temp file once it is in.
+    The front end uploads a big payload as a file instead of putting it in
+    the POST body (OfficeApp.agirunLarge in common/office.js): Go's
+    r.ParseForm drops EVERY parameter once a urlencoded body passes 10MB, and
+    a compressed upload is much smaller on a slow link anyway. Read it back
+    from contentFile when that path was taken (office.readPayload gunzips it),
+    and remove the temp file once it is in.
 */
 function resolveContent(){
     if (typeof contentFile !== "undefined" && contentFile){
         if (!requirelib("filelib")){
             return "";
         }
-        var loaded = filelib.readFile(contentFile);
+        var loaded = requirelib("office") ? office.readPayload(contentFile) : filelib.readFile(contentFile);
         filelib.deleteFile(contentFile);
         return loaded;
     }
     return (typeof content === "undefined" || !content) ? "" : content;
+}
+
+function requireFilepath(){
+    if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
+        sendJSONResp(JSON.stringify({ error: "filepath is required" }));
+        return false;
+    }
+    return true;
 }
 
 function main(){
@@ -112,8 +121,6 @@ function main(){
         sendJSONResp(JSON.stringify({ error: "action is required" }));
         return;
     }
-
-    var hasOffice = requirelib("office");
 
     if (action == "prepare"){
         if (!ensureWorkdir()){
@@ -125,9 +132,13 @@ function main(){
         return;
     }
 
+    if (!requirelib("office")){
+        sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+        return;
+    }
+
     if (action == "save"){
-        if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
-            sendJSONResp(JSON.stringify({ error: "filepath is required" }));
+        if (!requireFilepath()){
             return;
         }
         var payload = resolveContent();
@@ -136,17 +147,9 @@ function main(){
             return;
         }
         try {
-            if (hasOffice){
-                if (!office.packToFile(payload, filepath)){
-                    sendJSONResp(JSON.stringify({ error: "unable to write the document container" }));
-                    return;
-                }
-            } else {
-                //fallback: plain JSON (not packed, but nothing is lost)
-                if (!requirelib("filelib") || !filelib.writeFile(filepath, payload)){
-                    sendJSONResp(JSON.stringify({ error: "unable to write file" }));
-                    return;
-                }
+            if (!office.saveDocument(payload, filepath)){
+                sendJSONResp(JSON.stringify({ error: "unable to write the document" }));
+                return;
             }
             sendResp("OK");
         } catch (e) {
@@ -156,17 +159,12 @@ function main(){
     }
 
     if (action == "load"){
-        if (typeof filepath === "undefined" || !filepath || filepath.trim() === ""){
-            sendJSONResp(JSON.stringify({ error: "filepath is required" }));
-            return;
-        }
-        if (!hasOffice){
-            sendJSONResp(JSON.stringify({ error: "office lib unavailable - please update your ArozOS host" }));
+        if (!requireFilepath()){
             return;
         }
         try {
             ensureWorkdir();
-            var envelope = office.unpackToWorkdir(filepath, WORKDIR + "/cache");
+            var envelope = office.loadDocument(filepath, WORKDIR + "/cache");
             if (!envelope){
                 sendJSONResp(JSON.stringify({ error: "unable to read the document" }));
                 return;
@@ -180,19 +178,15 @@ function main(){
     }
 
     if (action == "session-save"){
-        var payload = resolveContent();
-        if (typeof app === "undefined" || !payload){
+        var sessPayload = resolveContent();
+        if (typeof app === "undefined" || !sessPayload){
             sendJSONResp(JSON.stringify({ error: "app and content are required" }));
-            return;
-        }
-        if (!hasOffice){
-            sendJSONResp(JSON.stringify({ error: "office lib unavailable" }));
             return;
         }
         try {
             ensureWorkdir();
             var dest = WORKDIR + "/session/" + safeAppName(app) + ".osession";
-            if (!office.packToFile(payload, dest)){
+            if (!office.packToFile(sessPayload, dest)){
                 sendJSONResp(JSON.stringify({ error: "unable to write the session snapshot" }));
                 return;
             }
@@ -208,7 +202,7 @@ function main(){
             sendJSONResp(JSON.stringify({ error: "app is required" }));
             return;
         }
-        if (!hasOffice || !requirelib("filelib")){
+        if (!requirelib("filelib")){
             sendJSONResp(JSON.stringify({ none: true }));
             return;
         }

@@ -18,11 +18,12 @@
     link") answers a cross-origin request: a share limited to signed-in users
     or groups needs an ArozOS login this page does not have, and reports so.
 
-    The preview endpoint sends no usable Content-Type for .doca / .xlsa /
-    .ppta, and older servers no filename either, so which app a document
-    belongs to is read from the document itself (the envelope's "app"), and
-    the name comes from, in order: an explicit &name=, the server's
-    Content-Disposition, a /share/download/<uuid>/<name> link, or a default.
+    The preview endpoint sends no usable Content-Type for .docx / .xlsx /
+    .pptx, and older servers no filename either, so which app a document
+    belongs to is read from the document itself (the main part its zip
+    holds: word/, xl/ or ppt/), and the name comes from, in order: an
+    explicit &name=, the server's Content-Disposition, a
+    /share/download/<uuid>/<name> link, or a default.
 
     Nothing here is allowed to become a general "fetch any URL" primitive:
     parse() only accepts http(s) URLs whose path is an ArozOS share path with
@@ -34,16 +35,22 @@
         OfficeShare.fetch(info.previewUrl, function (bytes, serverName) { },
                           function (message) { });
         OfficeShare.appOf(bytes)                     // "document" | ... | null
-        OfficeShare.fileName(app, [candidates...])   // "Report.doca"
+        OfficeShare.fileName(app, [candidates...])   // "Report.docx"
 
-    Requires container.js (OfficeContainer) for appOf(). Has no DOM
-    dependencies beyond XMLHttpRequest, so it also loads in Node for
-    test_share.js.
+    Has no DOM dependencies beyond XMLHttpRequest, so it also loads in Node
+    for test_share.js.
 */
 var OfficeShare = (function () {
     "use strict";
 
-    var EXT = { document: ".doca", spreadsheet: ".xlsa", presentation: ".ppta" };
+    var EXT = { document: ".docx", spreadsheet: ".xlsx", presentation: ".pptx" };
+    // the main part of each kind of Office package
+    var MAIN_PART = {
+        "word/document.xml": "document",
+        "xl/workbook.xml": "spreadsheet",
+        "ppt/presentation.xml": "presentation"
+    };
+    var NOT_A_DOCUMENT = "That share is not a Word, Excel or PowerPoint document (.docx, .xlsx or .pptx).";
     var DEFAULT_NAME = {
         document: "Shared document",
         spreadsheet: "Shared spreadsheet",
@@ -131,7 +138,7 @@ var OfficeShare = (function () {
     }
 
     /* The first usable candidate, forced to the app's own extension: a
-       .doca is opened by Docs only when its name says .doca, and a name
+       .docx is opened as one only when its name says .docx, and a name
        carrying another extension would be the wrong format on Save. */
     function fileName(app, candidates) {
         var ext = EXT[app] || "";
@@ -141,7 +148,7 @@ var OfficeShare = (function () {
             if (!n) continue;
             if (!ext || extOf(n) === ext) return n;
             var base = extOf(n) ? n.substring(0, n.lastIndexOf(".")) : n;
-            // ".doca" alone is an extension, not a name
+            // ".docx" alone is an extension, not a name
             if (base && base.toLowerCase() !== ext) return base + ext;
         }
         return (DEFAULT_NAME[app] || "Shared document") + ext;
@@ -166,28 +173,46 @@ var OfficeShare = (function () {
     /* ---------------- the document itself ---------------- */
 
     function looksLikeDocument(bytes) {
-        if (!bytes || bytes.length < 2) return false;
-        if (bytes[0] === 0x50 && bytes[1] === 0x4B) return true;   // zip container
-        // a pre-container plain JSON document, possibly after a BOM/space
-        for (var i = 0; i < Math.min(bytes.length, 8); i++) {
-            var c = bytes[i];
-            if (c === 0x7B) return true;                            // {
-            if (c !== 0x20 && c !== 0x0A && c !== 0x0D && c !== 0x09 &&
-                c !== 0xEF && c !== 0xBB && c !== 0xBF) return false;
-        }
-        return false;
+        return !!bytes && bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4B;   // a zip
     }
 
-    // which app a native document belongs to, from its envelope
-    function appOf(bytes) {
-        var C = (typeof OfficeContainer !== "undefined") ? OfficeContainer : null;
-        if (!C || !looksLikeDocument(bytes)) return null;
-        try {
-            var env = JSON.parse(C.unpack(bytes));
-            return (env && EXT[env.app]) ? env.app : null;
-        } catch (e) {
-            return null;
+    /* The entry names of a zip, read from its central directory - nothing
+       is decompressed, so this is cheap even for a large deck. null when
+       the bytes are not a readable zip. */
+    function zipNames(bytes) {
+        var n = bytes.length;
+        var u16 = function (p) { return bytes[p] | (bytes[p + 1] << 8); };
+        var u32 = function (p) { return (u16(p) | (u16(p + 2) << 16)) >>> 0; };
+        var eocd = -1;
+        // the end record sits in the last 22 bytes plus at most a 64K comment
+        for (var i = n - 22; i >= 0 && i >= n - 65557; i--) {
+            if (u32(i) === 0x06054b50) { eocd = i; break; }
         }
+        if (eocd < 0) return null;
+        var count = u16(eocd + 10);
+        var p = u32(eocd + 16);
+        var names = [];
+        for (var k = 0; k < count; k++) {
+            if (p + 46 > n || u32(p) !== 0x02014b50) return null;
+            var nameLen = u16(p + 28), extraLen = u16(p + 30), commentLen = u16(p + 32);
+            if (p + 46 + nameLen > n) return null;
+            var name = "";
+            for (var c = 0; c < nameLen; c++) name += String.fromCharCode(bytes[p + 46 + c]);
+            names.push(name);
+            p += 46 + nameLen + extraLen + commentLen;
+        }
+        return names;
+    }
+
+    // which app an Office document belongs to, from the parts it holds
+    function appOf(bytes) {
+        if (!looksLikeDocument(bytes)) return null;
+        var names = zipNames(bytes);
+        if (!names) return null;
+        for (var i = 0; i < names.length; i++) {
+            if (MAIN_PART[names[i]]) return MAIN_PART[names[i]];
+        }
+        return null;
     }
 
     /* ---------------- fetching ---------------- */
@@ -228,7 +253,7 @@ var OfficeShare = (function () {
             }
             var bytes = new Uint8Array(xhr.response || new ArrayBuffer(0));
             if (!looksLikeDocument(bytes)) {
-                errcb("That share is not an ArozOS Office document (.doca, .xlsa or .ppta).");
+                errcb(NOT_A_DOCUMENT);
                 return;
             }
             var name = "";
@@ -253,7 +278,8 @@ var OfficeShare = (function () {
         fileName: fileName,
         cleanName: cleanName,
         dispositionName: dispositionName,
-        extension: function (app) { return EXT[app] || ""; }
+        extension: function (app) { return EXT[app] || ""; },
+        notADocument: NOT_A_DOCUMENT
     };
 })();
 

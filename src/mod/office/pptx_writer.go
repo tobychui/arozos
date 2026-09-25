@@ -14,7 +14,9 @@ package office
 	    object-level bold/italic/underline/color/size formatting.
 	  - chart objects must carry a client-rendered PNG in props.png; they are
 	    exported as pictures (native pptx charts are out of scope).
-	  - images must be data URLs (the webapp inlines them before export).
+	  - pictures are data URLs or media?file= links read through readVpath.
+	  - slide transitions and click links (props.link: "#N" or an http(s)
+	    URL) become <p:transition> and <a:hlinkClick>.
 */
 
 import (
@@ -33,7 +35,7 @@ import (
 const nsDecl = `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"`
 
 // shapeKindToPrst carries the three names the editor used before its shape
-// catalogue existed. A .ppta written back then still says them, and export
+// catalogue existed. A deck saved back then still says them, and export
 // has to keep working; everything else is its own preset name already, and
 // shapeKindPrst falls through to that.
 var shapeKindToPrst = map[string]string{
@@ -69,6 +71,17 @@ func BuildPptx(p *Presentation) ([]byte, error) {
 // (second return value, nil when the deck has none) for the caller to
 // save next to the .pptx. readVpath (optional) resolves media?file= links.
 func BuildPptxMedia(p *Presentation, readVpath func(string) ([]byte, error)) ([]byte, []byte, error) {
+	return buildPptxPackage(p, readVpath, true)
+}
+
+// buildPptx writes the .pptx alone; the video / audio files are not
+// collected (the suite's own files carry them in the embedded copy)
+func buildPptx(p *Presentation, readVpath func(string) ([]byte, error), withSidecar bool) ([]byte, error) {
+	data, _, err := buildPptxPackage(p, readVpath, withSidecar)
+	return data, err
+}
+
+func buildPptxPackage(p *Presentation, readVpath func(string) ([]byte, error), withSidecar bool) ([]byte, []byte, error) {
 	if p == nil || len(p.Slides) == 0 {
 		return nil, nil, errors.New("presentation has no slides")
 	}
@@ -148,7 +161,7 @@ func BuildPptxMedia(p *Presentation, readVpath func(string) ([]byte, error)) ([]
 	var mediaExts []string
 	var sidecar []sidecarFile
 	for i, slide := range p.Slides {
-		slideXML, slideRels, media, slideSidecar, err := buildSlideXML(p, slide, &mediaCount, readVpath)
+		slideXML, slideRels, media, slideSidecar, err := buildSlideXML(p, slide, &mediaCount, readVpath, withSidecar)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -197,7 +210,7 @@ type sidecarFile struct {
 
 // buildSlideXML renders one slide part plus its .rels, media payloads and
 // the video/audio files destined for the sidecar zip
-func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath func(string) ([]byte, error)) (string, string, []mediaEntry, []sidecarFile, error) {
+func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath func(string) ([]byte, error), withSidecar bool) (string, string, []mediaEntry, []sidecarFile, error) {
 	var sb strings.Builder
 	var rels strings.Builder
 	var media []mediaEntry
@@ -225,11 +238,37 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath fun
 	copy(objs, slide.Objects)
 	sort.SliceStable(objs, func(a, b int) bool { return objs[a].Z < objs[b].Z })
 
+	// a click link needs a relationship of its own: a jump to another slide
+	// part, or an external address
+	clickLink := func(o *Object) string {
+		link := strings.TrimSpace(o.Props.Link)
+		if link == "" {
+			return ""
+		}
+		rid := fmt.Sprintf("rId%d", relIdx)
+		if n, ok := slideJump(link); ok {
+			if n < 1 || n > len(p.Slides) {
+				return ""
+			}
+			relIdx++
+			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slide%d.xml"/>`, rid, n))
+			return `<a:hlinkClick r:id="` + rid + `" action="ppaction://hlinksldjump"/>`
+		}
+		low := strings.ToLower(link)
+		if !strings.HasPrefix(low, "http://") && !strings.HasPrefix(low, "https://") {
+			return ""
+		}
+		relIdx++
+		rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="%s" TargetMode="External"/>`, rid, xmlEscape(link)))
+		return `<a:hlinkClick r:id="` + rid + `"/>`
+	}
+
 	shapeID := 2
 	for _, o := range objs {
 		if o == nil {
 			continue
 		}
+		start := sb.Len()
 		switch o.Type {
 		case "text":
 			sb.WriteString(buildTextSp(shapeID, o, p.Theme))
@@ -240,13 +279,13 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath fun
 		case "table":
 			sb.WriteString(buildTableFrame(shapeID, o))
 		case "image", "chart":
-			durl := o.Props.Src
+			src := o.Props.Src
 			if o.Type == "chart" {
-				durl = o.Props.Png
+				src = o.Props.Png
 			}
-			data, ext, ok := decodeDataURL(durl)
+			data, ext, ok := imageSrcBytes(src, readVpath)
 			if !ok {
-				// image not inlined (remote URL etc.) - skip it silently
+				// unreadable, or a remote URL - skip it silently
 				continue
 			}
 			*mediaCount++
@@ -262,7 +301,7 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath fun
 			// (props.png) or a generated placeholder - and the media file
 			// itself goes into the sidecar zip saved next to the .pptx
 			posterData, posterExt := mediaPosterPNG(), "png"
-			if pd, pe, pok := decodeDataURL(o.Props.Png); pok && (pe == "png" || pe == "jpeg") {
+			if pd, pe, pok := imageSrcBytes(o.Props.Png, readVpath); pok && (pe == "png" || pe == "jpeg") {
 				posterData, posterExt = pd, pe
 			}
 			*mediaCount++
@@ -271,17 +310,28 @@ func buildSlideXML(p *Presentation, slide *Slide, mediaCount *int, readVpath fun
 			rels.WriteString(fmt.Sprintf(`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image%d.%s"/>`, rid, *mediaCount, posterExt))
 			media = append(media, mediaEntry{index: *mediaCount, ext: posterExt, data: posterData})
 			sb.WriteString(buildPicSp(shapeID, o, rid))
-			if data, ext, ok := mediaSrcBytes(o.Props.Src, o.Type, readVpath); ok {
-				sidecar = append(sidecar,
-					sidecarFile{name: sidecarName(o.Props.Src, len(sidecar)+1, ext), data: data})
+			if withSidecar {
+				if data, ext, ok := mediaSrcBytes(o.Props.Src, o.Type, readVpath); ok {
+					sidecar = append(sidecar,
+						sidecarFile{name: sidecarName(o.Props.Src, len(sidecar)+1, ext), data: data})
+				}
 			}
 		default:
 			continue
 		}
+		if hl := clickLink(o); hl != "" {
+			x := withClickLink(sb.String()[start:], hl)
+			rest := sb.String()[:start]
+			sb.Reset()
+			sb.WriteString(rest)
+			sb.WriteString(x)
+		}
 		shapeID++
 	}
 
-	sb.WriteString(`</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`)
+	sb.WriteString(`</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>`)
+	sb.WriteString(transitionXML(slide.Transition))
+	sb.WriteString(`</p:sld>`)
 
 	relXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
 		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
@@ -1059,3 +1109,52 @@ const pptxSlideLayoutRels = `<?xml version="1.0" encoding="UTF-8" standalone="ye
 
 const pptxTheme = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="ArozOS"><a:themeElements><a:clrScheme name="ArozOS"><a:dk1><a:srgbClr val="202124"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="E07B1F"/></a:accent1><a:accent2><a:srgbClr val="4C9BE8"/></a:accent2><a:accent3><a:srgbClr val="4CC06A"/></a:accent3><a:accent4><a:srgbClr val="B06AE8"/></a:accent4><a:accent5><a:srgbClr val="E8B84C"/></a:accent5><a:accent6><a:srgbClr val="4CC9C0"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="ArozOS"><a:majorFont><a:latin typeface="Segoe UI"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Segoe UI"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="ArozOS"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`
+
+/* ---------- transitions and click links ---------- */
+
+// slideJump reads the editor's "#N" slide link (1-based)
+func slideJump(link string) (int, bool) {
+	if !strings.HasPrefix(link, "#") || len(link) < 2 {
+		return 0, false
+	}
+	n := 0
+	for _, r := range link[1:] {
+		if r < '0' || r > '9' {
+			return 0, false
+		}
+		n = n*10 + int(r-'0')
+		if n > 100000 {
+			return 0, false
+		}
+	}
+	return n, true
+}
+
+// withClickLink puts an <a:hlinkClick> into the first cNvPr of a shape's XML
+func withClickLink(shapeXML, hlink string) string {
+	i := strings.Index(shapeXML, "<p:cNvPr ")
+	if i < 0 {
+		return shapeXML
+	}
+	j := strings.Index(shapeXML[i:], "/>")
+	k := strings.Index(shapeXML[i:], ">")
+	if j < 0 || k < j {
+		return shapeXML // not self-closing: leave it alone
+	}
+	j += i
+	return shapeXML[:j] + ">" + hlink + "</p:cNvPr>" + shapeXML[j+2:]
+}
+
+// transitionXML is the slide's entry transition in PresentationML: the
+// editor's three map onto PowerPoint's fade, push and zoom
+func transitionXML(t string) string {
+	switch t {
+	case "fade":
+		return `<p:transition spd="med"><p:fade/></p:transition>`
+	case "slide":
+		return `<p:transition spd="med"><p:push dir="l"/></p:transition>`
+	case "zoom":
+		return `<p:transition spd="med"><p:zoom/></p:transition>`
+	}
+	return ""
+}

@@ -38,6 +38,7 @@ package office
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"image"
@@ -605,11 +606,22 @@ type docxBuilder struct {
 	colWPt                        float64 // one column of a multi-column page
 	media                         []mediaEntry
 	imgCount                      int
-	docPrID                       int
-	num                           docxNumbering
-	fnIDs                         map[string]int
-	fnOrder                       []string
-	bookmarkN                     int
+	mediaByHash                   map[[32]byte]int
+	// resolves the media?file= links pictures carry (nil = data URLs only)
+	readVpath func(string) ([]byte, error)
+	// review markup (docx_review.go): pieces per comment anchor, pieces
+	// written so far, Word ids, and the revision counter
+	cmtTotal  map[string]int
+	cmtSeen   map[string]int
+	cmtWordID map[string]int
+	cmtOrder  []*DocComment
+	revID     int
+	inRev     bool
+	docPrID   int
+	num       docxNumbering
+	fnIDs     map[string]int
+	fnOrder   []string
+	bookmarkN int
 	// multi-column documents: blocks with class "col-span-all" (IEEE-style
 	// title/author rows) are emitted into their own single-column section,
 	// separated from the columned body by a continuous section break
@@ -620,12 +632,20 @@ type docxBuilder struct {
 	usedDivider bool
 }
 
-// BuildDocx serializes a Document into a complete .docx file
+// BuildDocx serializes a Document into a complete .docx file; pictures
+// must be inline data URLs
 func BuildDocx(doc *Document) ([]byte, error) {
+	return BuildDocxMedia(doc, nil)
+}
+
+// BuildDocxMedia serializes a Document, reading pictures that are
+// media?file= links through readVpath
+func BuildDocxMedia(doc *Document, readVpath func(string) ([]byte, error)) ([]byte, error) {
 	if doc == nil {
 		return nil, errors.New("nil document")
 	}
-	b := &docxBuilder{doc: doc, fnIDs: map[string]int{}}
+	b := &docxBuilder{doc: doc, fnIDs: map[string]int{}, mediaByHash: map[[32]byte]int{}, readVpath: readVpath,
+		cmtTotal: map[string]int{}, cmtSeen: map[string]int{}, cmtWordID: map[string]int{}}
 	b.fullWPt = textWidthPt(doc.Page)
 	b.colWPt = b.fullWPt
 	b.textWPt = b.fullWPt
@@ -676,6 +696,8 @@ func BuildDocx(doc *Document) ([]byte, error) {
 		}
 	}
 
+	cmtXML, cmtExtXML := b.commentsXML()
+
 	buf := new(bytes.Buffer)
 	zw := zip.NewWriter(buf)
 	add := func(name string, data []byte) error {
@@ -709,6 +731,12 @@ func BuildDocx(doc *Document) ([]byte, error) {
 	if fnXML != "" {
 		ct.WriteString(`<Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>`)
 	}
+	if cmtXML != "" {
+		ct.WriteString(`<Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/>`)
+	}
+	if cmtExtXML != "" {
+		ct.WriteString(`<Override PartName="/word/commentsExtended.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml"/>`)
+	}
 	ct.WriteString(`</Types>`)
 	if err := addS("[Content_Types].xml", ct.String()); err != nil {
 		return nil, err
@@ -735,6 +763,12 @@ func BuildDocx(doc *Document) ([]byte, error) {
 	if fnXML != "" {
 		fixed += `<Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>`
 	}
+	if cmtXML != "" {
+		fixed += `<Relationship Id="rId7" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>`
+	}
+	if cmtExtXML != "" {
+		fixed += `<Relationship Id="rId8" Type="http://schemas.microsoft.com/office/2011/relationships/commentsExtended" Target="commentsExtended.xml"/>`
+	}
 	if err := addS("word/_rels/document.xml.rels", docPart.relsXML(fixed)); err != nil {
 		return nil, err
 	}
@@ -747,8 +781,23 @@ func BuildDocx(doc *Document) ([]byte, error) {
 	if err := addS("word/styles.xml", docxStylesXML(doc)); err != nil {
 		return nil, err
 	}
-	if err := addS("word/settings.xml", docxSettings); err != nil {
+	settings := docxSettings
+	if doc.TrackChanges {
+		// "Suggest edits" on: Word goes on tracking where the editor left off
+		settings = strings.Replace(settings, `<w:defaultTabStop`, `<w:trackRevisions/><w:defaultTabStop`, 1)
+	}
+	if err := addS("word/settings.xml", settings); err != nil {
 		return nil, err
+	}
+	if cmtXML != "" {
+		if err := addS("word/comments.xml", cmtXML); err != nil {
+			return nil, err
+		}
+	}
+	if cmtExtXML != "" {
+		if err := addS("word/commentsExtended.xml", cmtExtXML); err != nil {
+			return nil, err
+		}
 	}
 	if err := addS("word/numbering.xml", b.num.xml()); err != nil {
 		return nil, err
@@ -818,6 +867,11 @@ func (b *docxBuilder) convertBlocks(src string, part *docxPart, top bool) (strin
 	body := findHTMLNode(root, "body")
 	if body == nil {
 		return "", nil
+	}
+	liftReviewWrappers(body)
+	if top {
+		b.countComments(body)
+		b.numberComments()
 	}
 	var sb strings.Builder
 	base := wRunStyle{font: "Arial", sizePt: 11, color: "000000"}
@@ -1468,6 +1522,10 @@ func (b *docxBuilder) inline(n *html.Node, rs wRunStyle, part *docxPart, rb *run
 		}
 	}
 
+	if b.reviewInline(n, rs, part, rb) {
+		return
+	}
+
 	crs := rs
 	switch n.Data {
 	case "b", "strong":
@@ -1538,14 +1596,26 @@ func (b *docxBuilder) inline(n *html.Node, rs wRunStyle, part *docxPart, rb *run
 var insetRe = regexp.MustCompile(`inset\(\s*([-\d.]+)%?\s*([-\d.]+)?%?\s*([-\d.]+)?%?\s*([-\d.]+)?%?\s*\)`)
 
 func (b *docxBuilder) image(n *html.Node, part *docxPart) string {
-	data, ext, ok := decodeDataURL(htmlAttr(n, "src"))
-	if !ok {
-		return "" // non-inlined pictures are skipped (the app inlines them before export)
+	// data-export-src: the PNG the editor rendered for a picture Word cannot
+	// take as it is (an SVG chart, a WebP); src stays the original
+	src := htmlAttr(n, "data-export-src")
+	if src == "" {
+		src = htmlAttr(n, "src")
 	}
-	b.imgCount++
-	idx := b.imgCount
+	data, ext, ok := imageSrcBytes(src, b.readVpath)
+	if !ok {
+		return "" // a picture that cannot be read or embedded is skipped
+	}
+	// the same picture twice is one media part
+	sum := sha256.Sum256(data)
+	idx, seen := b.mediaByHash[sum]
+	if !seen {
+		b.imgCount++
+		idx = b.imgCount
+		b.mediaByHash[sum] = idx
+		b.media = append(b.media, mediaEntry{index: idx, ext: ext, data: data})
+	}
 	rid := part.add(relImage, fmt.Sprintf("media/image%d.%s", idx, ext), false)
-	b.media = append(b.media, mediaEntry{index: idx, ext: ext, data: data})
 
 	css := cssDecls(htmlAttr(n, "style"))
 	natW, natH := 0.0, 0.0

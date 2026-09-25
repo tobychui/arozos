@@ -250,3 +250,37 @@ func TestNoPdfConverters(t *testing.T) {
 		}
 	}
 }
+
+// The suite's own open and save: an envelope goes out as the Office file
+// and comes back as the same envelope, under one name per app.
+func TestNativeFileConverters(t *testing.T) {
+	cases := []struct {
+		name, app, body, keep string
+	}{
+		{"documentFile", "document", docJSON, "café 中文"},
+		{"spreadsheetFile", "spreadsheet", bookJSON, "=SUM(B2:B2)"},
+		{"presentationFile", "presentation", deckJSON, "speaker note"},
+	}
+	for _, c := range cases {
+		env := `{"type":"arozos/office","app":"` + c.app + `","version":1,"meta":{"title":"T"},"body":` + c.body + `}`
+		data, zip, err := RunExport(c.name, env)
+		if err != nil {
+			t.Fatalf("%s export: %v", c.name, err)
+		}
+		if zip != nil {
+			t.Errorf("%s: the native save must not produce a sidecar", c.name)
+		}
+		back, err := RunImport(c.name, data)
+		if err != nil {
+			t.Fatalf("%s import: %v", c.name, err)
+		}
+		if !strings.Contains(back, `"title":"T"`) || !strings.Contains(back, c.keep) {
+			t.Errorf("%s: envelope not restored: %.300s", c.name, back)
+		}
+		// the wrong app for the file is refused
+		wrong := strings.Replace(env, `"app":"`+c.app+`"`, `"app":"other"`, 1)
+		if _, _, err := RunExport(c.name, wrong); err == nil {
+			t.Errorf("%s accepted another app's envelope", c.name)
+		}
+	}
+}

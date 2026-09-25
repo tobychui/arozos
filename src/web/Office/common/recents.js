@@ -4,7 +4,7 @@
 
     The standalone web edition has nowhere to put a "recent files" list: a
     file the visitor picked is a File object that dies with the page, and its
-    path (`local:/report.doca`) means nothing after a reload. So a recent
+    path (`local:/report.docx`) means nothing after a reload. So a recent
     document here is not a pointer to a file - it is a *copy of the document*
     held in the browser.
 
@@ -15,7 +15,7 @@
         and the home page's first paint both need the list immediately, and
         IndexedDB cannot answer synchronously.
       - the **payloads** live in IndexedDB, one record per document. They are
-        whole .doca/.xlsa/.ppta containers, far past what localStorage's ~5 MB
+        whole .docx/.xlsx/.pptx files, far past what localStorage's ~5 MB
         per origin could hold.
 
     They are kept in step by remember()/forget()/clear(); a payload whose

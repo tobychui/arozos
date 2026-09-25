@@ -819,7 +819,7 @@ func TestPresetGeometryRoundTrip(t *testing.T) {
 // A preset the editor cannot draw still has to land on something, and
 // "rect" is the answer of last resort - never an empty geometry.
 // The editor had three names of its own before the catalogue: round, arrow
-// and star. They are gone from the catalogue, but a .ppta written back then
+// and star. They are gone from the catalogue, but a deck saved back then
 // still says them, so export has to translate - and what comes back is the
 // preset's own name, which is how a deck gets rewritten by opening it.
 func TestLegacyShapeNamesStillExport(t *testing.T) {

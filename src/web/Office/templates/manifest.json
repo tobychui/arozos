@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "note": "Getting-started templates. Files are built by build_templates.js - edit the bodies there, not the .doca/.xlsa/.ppta files. 'preview' names a thumbnail the home page draws as SVG (see drawPreview in home/home.js); 'app' must match the envelope's app field.",
+  "note": "Getting-started templates. Files are built by build_templates.js - edit the bodies there, not the .json files. 'preview' names a thumbnail the home page draws as SVG (see drawPreview in home/home.js); 'app' must match the envelope's app field.",
   "templates": [
     {
       "id": "blank-document",
-      "file": "blank-document.doca",
+      "file": "blank-document.json",
       "app": "document",
       "label": "Blank Document",
       "blurb": "An empty page to start from.",
@@ -12,7 +12,7 @@
     },
     {
       "id": "report",
-      "file": "report.doca",
+      "file": "report.json",
       "app": "document",
       "label": "Report",
       "blurb": "Summary, highlights, a table of figures and next steps.",
@@ -20,7 +20,7 @@
     },
     {
       "id": "resume",
-      "file": "resume.doca",
+      "file": "resume.json",
       "app": "document",
       "label": "Resume",
       "blurb": "Profile, experience, education and skills.",
@@ -28,7 +28,7 @@
     },
     {
       "id": "invoice",
-      "file": "invoice.xlsa",
+      "file": "invoice.json",
       "app": "spreadsheet",
       "label": "Invoice",
       "blurb": "Line items, subtotal, tax and total due.",
@@ -36,7 +36,7 @@
     },
     {
       "id": "budget-sheet",
-      "file": "budget-sheet.xlsa",
+      "file": "budget-sheet.json",
       "app": "spreadsheet",
       "label": "Budget Sheet",
       "blurb": "Planned against actual, with the difference worked out.",
@@ -44,7 +44,7 @@
     },
     {
       "id": "presentation",
-      "file": "presentation.ppta",
+      "file": "presentation.json",
       "app": "presentation",
       "label": "Presentation",
       "blurb": "Title, problem, proposal, how it works, the ask.",
@@ -52,7 +52,7 @@
     },
     {
       "id": "letter",
-      "file": "letter.doca",
+      "file": "letter.json",
       "app": "document",
       "label": "Letter",
       "blurb": "Addresses, date, salutation and sign-off.",
@@ -60,7 +60,7 @@
     },
     {
       "id": "meeting-notes",
-      "file": "meeting-notes.doca",
+      "file": "meeting-notes.json",
       "app": "document",
       "label": "Meeting Notes",
       "blurb": "Attendees, agenda, decisions and an actions table.",
@@ -68,7 +68,7 @@
     },
     {
       "id": "task-tracker",
-      "file": "task-tracker.xlsa",
+      "file": "task-tracker.json",
       "app": "spreadsheet",
       "label": "Task Tracker",
       "blurb": "Task, owner, status and due date, with a frozen header.",
@@ -76,7 +76,7 @@
     },
     {
       "id": "lesson",
-      "file": "lesson.ppta",
+      "file": "lesson.json",
       "app": "presentation",
       "label": "Lesson",
       "blurb": "Objectives, starter, main activity and plenary.",
@@ -84,7 +84,7 @@
     },
     {
       "id": "blank-spreadsheet",
-      "file": "blank-spreadsheet.xlsa",
+      "file": "blank-spreadsheet.json",
       "app": "spreadsheet",
       "label": "Blank Spreadsheet",
       "blurb": "An empty grid to start from.",
@@ -92,7 +92,7 @@
     },
     {
       "id": "blank-presentation",
-      "file": "blank-presentation.ppta",
+      "file": "blank-presentation.json",
       "app": "presentation",
       "label": "Blank Presentation",
       "blurb": "One empty slide to start from.",

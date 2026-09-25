@@ -13,19 +13,23 @@
       "standalone"  a plain static web server with no ArozOS behind it
                     (the "ArozOS Office Web" build). Documents are read from
                     the visitor's device or from a relative URL next to the
-                    page, native containers are packed and unpacked in the
-                    browser by OfficeContainer, and saving hands the file
+                    page, opened and saved by the same Go code compiled to
+                    WebAssembly (common/wasm.js), and saving hands the file
                     back as a download.
+
+    Documents are .docx / .xlsx / .pptx in both hosts: documentLoad turns
+    the file into the editor envelope and documentSave writes the envelope
+    back as the file (mod/office native.go - the OOXML plus the editor's own
+    copy embedded in the package).
 
     Two separate capability questions, deliberately not one:
 
       hasBackend()  is there an ArozOS server? Gate anything that needs
                     storage, an AGI script or a user account on this.
-      canConvert()  can this build convert the Office interchange formats
-                    (.docx / .xlsx / .pptx / ODF)? True in ArozOS, and true
-                    in a standalone build shipped with the WebAssembly
-                    converters (src/wasm/office, loaded by common/wasm.js).
-                    Import/export menu entries gate on this.
+      canConvert()  does this build carry the Office format code (mod/office)?
+                    True in ArozOS, and true in the standalone build, which
+                    always ships it as WebAssembly (src/wasm/office): it is
+                    what opens and saves every document there.
 
     Run a conversion through convertIn / convertOut rather than reaching for
     either host's mechanism: they take one descriptor naming the AGI script
@@ -35,7 +39,7 @@
     web-viewer generator rewrites in its output tree. Nothing else in the
     suite should test that flag: ask OfficePlatform instead.
 
-    Load order: mode.js, container.js, platform.js, office.js.
+    Load order: mode.js, recents.js, wasm.js, platform.js, office.js.
 
     Path shapes in standalone mode
     ------------------------------
@@ -45,7 +49,8 @@
       "recent:/<id>"    a document kept in this browser by OfficeRecents
                         (IndexedDB), which is what ?recent=<id> opens
       anything else     a relative URL served next to the page (read only),
-                        which is how ?open= and ?template= work
+                        which is how ?open= and ?template= work (a template
+                        is a plain envelope JSON file, templates/*.json)
 
     Query parameters the home page uses (see home/home.js):
       ?open=<relative path>      open that document
@@ -54,8 +59,9 @@
       ?request=<share link>      (standalone) open a public ArozOS share,
                                  optionally with &name=<file name>
 
-    Requires: jquery, ../common/mode.js, ../common/container.js, (for
-    ?request=) ../common/share.js and (in ArozOS mode) ../../script/ao_module.js
+    Requires: jquery, ../common/mode.js, ../common/wasm.js (standalone),
+    (for ?request=) ../common/share.js and (in ArozOS mode)
+    ../../script/ao_module.js
 */
 var OfficePlatform = (function () {
     "use strict";
@@ -76,6 +82,41 @@ var OfficePlatform = (function () {
         return i < 0 ? String(p) : String(p).substring(0, i);
     }
     function now() { return new Date().getTime(); }
+    function extOf(name) {
+        var s = basename(name);
+        var i = s.lastIndexOf(".");
+        return i < 0 ? "" : s.substring(i).toLowerCase();
+    }
+
+    /* The suite's own formats, by extension: which app lives in each, the
+       WebAssembly converter that opens and saves it, and its MIME type. */
+    var NATIVE = {
+        ".docx": { app: "document", wasm: "documentFile",
+            mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+        ".xlsx": { app: "spreadsheet", wasm: "spreadsheetFile",
+            mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+        ".pptx": { app: "presentation", wasm: "presentationFile",
+            mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
+    };
+    function nativeOf(name) { return NATIVE[extOf(name)] || null; }
+    function extForApp(app) {
+        for (var e in NATIVE) if (NATIVE[e].app === app) return e;
+        return "";
+    }
+
+    /* gzip a string with the browser's own CompressionStream; cb(null) where
+       there is none (the payload then goes uncompressed) */
+    function gzipText(text, cb) {
+        if (typeof CompressionStream !== "function" || typeof Response !== "function" ||
+            typeof Blob !== "function") {
+            cb(null);
+            return;
+        }
+        try {
+            var stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+            new Response(stream).blob().then(function (b) { cb(b); }, function () { cb(null); });
+        } catch (e) { cb(null); }
+    }
     function status(msg, type) {
         if (window.OfficeApp && OfficeApp.setStatus) OfficeApp.setStatus(msg, type);
     }
@@ -115,9 +156,13 @@ var OfficePlatform = (function () {
        ================================================================ */
     var WORKDIR = "user:/.appdata/Office";
     var TMPDIR = WORKDIR + "/tmp";
-    var CONTAINER_BACKEND = "Office/common/backend/container.agi";
+    var DOCUMENT_BACKEND = "Office/common/backend/document.agi";
     var DATAURL_MAX = 1024 * 1024;      // blobs under 1 MB may stay inline
     var POST_INLINE_MAX = 4 * 1024 * 1024;   // stay well clear of the 10 MB form cap
+    // past this a payload is gzipped and uploaded rather than form-posted:
+    // a urlencoded JSON body is roughly twice its own size, a gzipped one a
+    // fifth of it, and the upload is one extra round trip
+    var COMPRESS_MIN = 64 * 1024;
     var workdirReady = false;
 
     var arozos = {
@@ -128,8 +173,9 @@ var OfficePlatform = (function () {
         // the office AGI lib is there whenever the host is
         canConvert: function () { return true; },
 
-        /* One conversion, whichever direction. In this host both are the AGI
-           call the app used to make by hand; spec.wasm is ignored. */
+        /* One conversion to or from a foreign format (ODF), whichever
+           direction. In this host both are an AGI call; spec.wasm is
+           ignored. */
         convertIn: function (spec, srcRef, cb, errcb) {
             arozos.agirun(spec.agi, { action: spec.action, src: srcRef },
                 function (data) {
@@ -152,7 +198,7 @@ var OfficePlatform = (function () {
 
         prepareWorkdir: function (cb, errcb) {
             if (workdirReady) { cb(); return; }
-            ao_module_agirun(CONTAINER_BACKEND, { action: "prepare" }, function (data) {
+            ao_module_agirun(DOCUMENT_BACKEND, { action: "prepare" }, function (data) {
                 if (data && data.error) { if (errcb) errcb(data.error); return; }
                 workdirReady = true;
                 cb();
@@ -170,12 +216,16 @@ var OfficePlatform = (function () {
            which caps an application/x-www-form-urlencoded body at 10 MB.
            Past that the parse fails, EVERY parameter silently disappears and
            the still-uploading socket gets reset (the browser reports a plain
-           network error). Export payloads cross that line easily once images
-           and chart bitmaps are inlined as data URLs, so anything bigger
-           than POST_INLINE_MAX is streamed to a temp file through the system
-           upload endpoint (buffered to disk server side instead of being
-           held in RAM) and handed to the script as a vpath in <field>File.
-           The backend script reads that file and deletes it. */
+           network error). So a payload of any size worth mentioning is
+           uploaded as a file through the system upload endpoint instead
+           (streamed to disk server side rather than held in RAM) and handed
+           to the script as a vpath in <field>File.
+
+           That is also what makes a save cheap on a slow link: the upload is
+           gzipped (CompressionStream) - a document body shrinks to a fifth
+           or less, where urlencoding would have doubled it. The backend
+           reads the file with office.readPayload, which gunzips it, and
+           deletes it. Small payloads are simply posted. */
         agirunLarge: function (script, params, field, cb, errcb, timeout) {
             timeout = timeout || 0;
             errcb = errcb || function () { };
@@ -186,35 +236,41 @@ var OfficePlatform = (function () {
                     cb(data);
                 }, function () { errcb("connection error"); }, timeout);
             };
-            if (typeof payload !== "string" || payload.length <= POST_INLINE_MAX ||
+            if (typeof payload !== "string" || payload.length <= COMPRESS_MIN ||
                 typeof ao_module_uploadFile !== "function") {
                 post(params);
                 return;
             }
-            arozos.prepareWorkdir(function () {
-                var name = "post-" + Date.now().toString(36) + "-" +
-                    Math.random().toString(36).substring(2, 8) + ".json";
-                var file;
-                try {
-                    file = new File([new Blob([payload], { type: "application/json" })],
-                        name, { type: "application/json" });
-                } catch (e) { post(params); return; }
-                ao_module_uploadFile(file, TMPDIR, function (resp) {
-                    if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
-                        errcb("upload failed: " + resp);
-                        return;
-                    }
-                    // hand over the vpath instead of the payload itself
-                    var p = {};
-                    Object.keys(params).forEach(function (k) {
-                        if (k !== field) p[k] = params[k];
+            var upload = function (blob, name) {
+                arozos.prepareWorkdir(function () {
+                    var file;
+                    try {
+                        file = new File([blob], name, { type: blob.type || "application/octet-stream" });
+                    } catch (e) { post(params); return; }
+                    ao_module_uploadFile(file, TMPDIR, function (resp) {
+                        if (typeof resp === "string" && resp.indexOf('"error"') >= 0) {
+                            errcb("upload failed: " + resp);
+                            return;
+                        }
+                        // hand over the vpath instead of the payload itself
+                        var p = {};
+                        Object.keys(params).forEach(function (k) {
+                            if (k !== field) p[k] = params[k];
+                        });
+                        p[field + "File"] = TMPDIR + "/" + name;
+                        post(p);
+                    }, undefined, function () {
+                        errcb("upload failed - the document is too large to send");
                     });
-                    p[field + "File"] = TMPDIR + "/" + name;
-                    post(p);
-                }, undefined, function () {
-                    errcb("upload failed - the document is too large to send");
-                });
-            }, function () { post(params); });
+                }, function () { post(params); });
+            };
+            var stem = "post-" + Date.now().toString(36) + "-" +
+                Math.random().toString(36).substring(2, 8);
+            gzipText(payload, function (gz) {
+                if (gz) { upload(gz, stem + ".json.gz"); return; }
+                if (payload.length <= POST_INLINE_MAX) { post(params); return; }
+                upload(new Blob([payload], { type: "application/json" }), stem + ".json");
+            });
         },
 
         pickOpen: function (opts, cb) {
@@ -292,12 +348,18 @@ var OfficePlatform = (function () {
             });
         },
 
-        containerLoad: function (path, cb, errcb) {
-            // templates and ?open= documents are web assets: read and unpack
-            // them here rather than asking the backend for a vpath it has no
-            // way to resolve
-            if (!isVpath(path)) { webContainerLoad(path, cb, errcb); return; }
-            arozos.agirun(CONTAINER_BACKEND, { action: "load", filepath: path }, function (data) {
+        /* The suite's own open and save: a .docx / .xlsx / .pptx in the
+           user's storage becomes the editor envelope and back
+           (common/backend/document.agi -> office.loadDocument /
+           office.saveDocument). Pictures stay links both ways - the server
+           reads and extracts them, so they never cross the network as
+           base64. */
+        documentLoad: function (path, cb, errcb) {
+            if (!isVpath(path)) {
+                errcb("open documents from your ArozOS storage");
+                return;
+            }
+            arozos.agirun(DOCUMENT_BACKEND, { action: "load", filepath: path }, function (data) {
                 if (!data || data.error) {
                     errcb((data && data.error) || "no response");
                     return;
@@ -305,29 +367,29 @@ var OfficePlatform = (function () {
                 cb(data.envelope);
             }, function () { errcb("cannot reach the ArozOS backend"); }, 120000);
         },
-        containerSave: function (path, envelopeJson, cb, errcb) {
-            arozos.agirunLarge(CONTAINER_BACKEND, {
+        documentSave: function (path, envelopeJson, cb, errcb) {
+            arozos.agirunLarge(DOCUMENT_BACKEND, {
                 action: "save", filepath: path, content: envelopeJson
-            }, "content", function () { cb(); }, errcb, 120000);
+            }, "content", function () { cb(); }, errcb, 180000);
         },
 
         sessionSave: function (app, envelopeJson, cb, errcb) {
-            arozos.agirunLarge(CONTAINER_BACKEND, {
+            arozos.agirunLarge(DOCUMENT_BACKEND, {
                 action: "session-save", app: app, content: envelopeJson
             }, "content", cb || function () { }, errcb || function () { }, 60000);
         },
         sessionLoad: function (app, cb) {
-            arozos.agirun(CONTAINER_BACKEND, { action: "session-load", app: app },
+            arozos.agirun(DOCUMENT_BACKEND, { action: "session-load", app: app },
                 function (data) { cb(data && data.envelope); },
                 function () { cb(null); }, 60000);
         },
         sessionDelete: function (app) {
-            arozos.agirun(CONTAINER_BACKEND, { action: "session-delete", app: app },
+            arozos.agirun(DOCUMENT_BACKEND, { action: "session-delete", app: app },
                 function () { }, function () { }, 60000);
         },
 
-        // page-relative form matching what the server-side unpacker writes;
-        // the packer recognizes it and embeds the file at save time
+        // page-relative form matching what office.loadDocument writes; the
+        // server reads the file behind it at save time
         mediaUrl: function (vpath) {
             return "../../media?file=" + encodeURIComponent(vpath);
         },
@@ -335,20 +397,29 @@ var OfficePlatform = (function () {
         /* Turn a Blob/File into a document-storable src string. Small blobs
            stay inline data URLs; anything bigger is streamed to the Office
            working directory through the system upload endpoint and
-           referenced by a media?file= link (packToFile embeds it into the
-           container at save time). */
+           referenced by a media?file= link (the server reads it into the
+           file at save time). */
         blobToSrc: function (blob, filename, cb, errcb) {
+            if (blob.size <= DATAURL_MAX) {
+                readAsDataURL(blob, cb, errcb || function (msg) { status(msg, "error"); });
+                return;
+            }
+            arozos.cacheBlob(blob, filename, cb, errcb);
+        },
+        /* The same, whatever the size: a render the editor makes for saving
+           (a chart as PNG, a video's poster frame) is uploaded once and
+           linked, so it is not sent again with every save. */
+        cacheBlob: function (blob, filename, cb, errcb) {
             errcb = errcb || function (msg) { status(msg, "error"); };
             var asDataURL = function (failMsg) {
                 // inline fallback only for small payloads - big base64 blobs
-                // would break the save POST again
+                // would make every save carry them
                 if (blob.size > 8 * 1024 * 1024) {
                     errcb(failMsg || "File is too large to embed without an ArozOS backend");
                     return;
                 }
                 readAsDataURL(blob, cb, errcb);
             };
-            if (blob.size <= DATAURL_MAX) { asDataURL(); return; }
             if (typeof ao_module_uploadFile !== "function") { asDataURL(); return; }
             arozos.prepareWorkdir(function () {
                 var safe = String(filename || "media").replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 80);
@@ -493,16 +564,16 @@ var OfficePlatform = (function () {
             "standalone web edition", "error");
     }
     var NO_CONVERTER = "this build has no converter for that format";
+    var NO_WASM = "this build was made without the Office format code, so it cannot open or save documents";
     var RECENT_PREFIX = "recent:/";
     var SHARE_PREFIX = "share:/";
 
     /*
-        A virtual path names something a host owns - "user:/Desktop/a.doca" in
+        A virtual path names something a host owns - "user:/Desktop/a.docx" in
         ArozOS, "local:/", "device:/" and "recent:/" in the browser. Anything
         else is a plain relative URL served by whatever web server is in front
-        of the suite, and is read the same way in both hosts: over HTTP, and
-        unpacked client-side. That is what lets templates/ and ?open= work
-        identically whether or not there is an ArozOS behind the page.
+        of the suite, and is read over HTTP. That is what lets templates/
+        work identically whether or not there is an ArozOS behind the page.
     */
     function isVpath(p) {
         return /^[a-zA-Z][a-zA-Z0-9_+.-]*:\//.test(String(p || ""));
@@ -536,7 +607,7 @@ var OfficePlatform = (function () {
                                      here when it cannot keep the file.
 
         ext is the calling app's own extension; a share link does not carry
-        the file name, and the container is only opened as one when the name
+        the file name, and the document is only opened as one when the name
         says it is.
     */
     function entryPointFiles(ext) {
@@ -567,7 +638,7 @@ var OfficePlatform = (function () {
             var info;
             try { info = OfficeShare.parse(request); }
             catch (e) { toast(e.message, "error"); return null; }
-            var app = { ".doca": "document", ".xlsa": "spreadsheet", ".ppta": "presentation" }[ext] || "";
+            var app = NATIVE[ext] ? NATIVE[ext].app : "";
             var shareName = OfficeShare.fileName(app, [param("name"), info.nameHint]);
             var sharePath = SHARE_PREFIX + shareName;
             sharedFiles[sharePath] = info.previewUrl;
@@ -583,7 +654,7 @@ var OfficePlatform = (function () {
         The name a document should be written out under. Normally that is the
         last path segment - but a document reopened from the recent list has
         the path "recent:/<id>", and an id is not a filename: saving one has
-        to produce "My Report.doca", not "mtm6gu3c-bn7mpk". The recent index
+        to produce "My Report.docx", not "mtm6gu3c-bn7mpk". The recent index
         is the only thing that knows, so ask it.
     */
     function saveName(path) {
@@ -612,34 +683,10 @@ var OfficePlatform = (function () {
         }
         fetchRelative(path, "arraybuffer", cb, errcb);
     }
-    /* Read a native container that is not a host's own file - a template, a
-       ?open= document, or one of this browser's recent documents - and unpack
-       it here. Both hosts use this; only ArozOS storage goes to the backend. */
-    function webContainerLoad(path, cb, errcb) {
-        readWebBytes(path, function (bytes) {
-            var envelope;
-            try {
-                envelope = OfficeContainer.unpack(bytes);
-            } catch (e) {
-                errcb(e.message || "unreadable document");
-                return;
-            }
-            // opening a document is what puts it in "recently opened";
-            // reopening one already there only moves it up the list, and a
-            // template is a starting point rather than a document the visitor
-            // has worked on, so it is not remembered at all
-            if (path.indexOf(RECENT_PREFIX) === 0) {
-                if (window.OfficeRecents) OfficeRecents.touch(path.substring(RECENT_PREFIX.length));
-            } else if (!isTemplatePath(path)) {
-                keepRecent(basename(path), envelope, bytes);
-            }
-            cb(envelope);
-        }, errcb);
-    }
     function readWebText(path, cb, errcb) {
         if (path.indexOf(RECENT_PREFIX) === 0) {
             readWebBytes(path, function (bytes) {
-                cb(OfficeContainer.utf8Decode(bytes));
+                cb(new TextDecoder("utf-8").decode(bytes));
             }, errcb);
             return;
         }
@@ -657,16 +704,11 @@ var OfficePlatform = (function () {
         Keep a copy of the document in this browser so the home page can
         offer it again after a reload. Best-effort throughout: recents are a
         convenience, and a full quota or a private window must never break
-        opening or saving. envelope may be the JSON string or the parsed
-        object - it is read only for the app type.
+        opening or saving.
     */
-    function keepRecent(name, envelope, bytes) {
+    function keepRecent(name, bytes) {
         if (!name || !bytes || !window.OfficeRecents || !OfficeRecents.supported()) return;
-        var app = "";
-        try {
-            var env = (typeof envelope === "string") ? JSON.parse(envelope) : envelope;
-            app = (env && env.app) || "";
-        } catch (e) { app = ""; }
+        var app = nativeOf(name) ? nativeOf(name).app : "";
         var dot = name.lastIndexOf(".");
         OfficeRecents.remember({
             name: name,
@@ -684,15 +726,15 @@ var OfficePlatform = (function () {
         tracksRecents: false,
         autosavesToFile: false,
 
-        // only when the build shipped the WebAssembly converters
+        // the build ships the WebAssembly module (generate.go always adds it)
         canConvert: function () {
             return !!(window.OfficeWasm && OfficeWasm.available());
         },
 
         /* The converters are the same Go code the AGI backends run, compiled
            to WebAssembly (src/wasm/office). The module is a few MB, so it is
-           fetched the first time one of these is called, not at page load -
-           the caller's busy overlay covers the wait. */
+           fetched the first time a document is opened or saved, not at page
+           load - the caller's busy overlay covers the wait. */
         convertIn: function (spec, srcRef, cb, errcb) {
             if (!spec.wasm) { errcb(NO_CONVERTER); return; }
             standalone.readBytes(srcRef, function (bytesIn) {
@@ -709,18 +751,7 @@ var OfficePlatform = (function () {
                     errcb(e.message || "download failed");
                     return;
                 }
-                var zipName = null;
-                if (res.mediaZip && res.mediaZip.length) {
-                    // .pptx keeps video and audio beside the file rather than
-                    // embedding them - hand over the sidecar as its own download
-                    zipName = stripExt(name) + ".zip";
-                    try {
-                        download(res.mediaZip, zipName, "application/zip");
-                    } catch (e) {
-                        zipName = null;
-                    }
-                }
-                cb({ mediaZip: zipName });
+                cb({ mediaZip: null });
             }, errcb);
         },
 
@@ -806,42 +837,46 @@ var OfficePlatform = (function () {
             }
         },
 
-        containerLoad: function (path, cb, errcb) {
-            var f = localFiles[path];
-            if (!f) { webContainerLoad(path, cb, errcb); return; }
-            // a File the visitor picked: same unpack, but the bytes come from
-            // the file rather than the network
-            readAsBytes(f, function (bytes) {
-                var envelope;
+        /* The suite's own open and save, run by the WebAssembly module: the
+           file's bytes become the envelope (pictures inline as data URLs -
+           there is no file system to link into) and the envelope becomes the
+           file, handed over as a download. Both keep a copy in this
+           browser's recent documents. */
+        documentLoad: function (path, cb, errcb) {
+            var name = saveName(path);
+            var nat = nativeOf(name);
+            if (!nat) { errcb("not a .docx, .xlsx or .pptx file"); return; }
+            if (!standalone.canConvert()) { errcb(NO_WASM); return; }
+            standalone.readBytes(path, function (bytes) {
+                OfficeWasm.runImport(nat.wasm, bytes, function (envelope) {
+                    // opening a document is what puts it in "recently opened";
+                    // reopening one already there only moves it up the list
+                    if (String(path).indexOf(RECENT_PREFIX) === 0) {
+                        if (window.OfficeRecents) OfficeRecents.touch(path.substring(RECENT_PREFIX.length));
+                    } else if (!isTemplatePath(path)) {
+                        keepRecent(name, bytes);
+                    }
+                    cb(envelope);
+                }, errcb);
+            }, function (msg) { errcb("could not read the file: " + msg); });
+        },
+        documentSave: function (path, envelopeJson, cb, errcb) {
+            var name = saveName(path);
+            var nat = nativeOf(name);
+            if (!nat) { errcb("documents are saved as .docx, .xlsx or .pptx"); return; }
+            if (!standalone.canConvert()) { errcb(NO_WASM); return; }
+            OfficeWasm.runExport(nat.wasm, envelopeJson, function (res) {
                 try {
-                    envelope = OfficeContainer.unpack(bytes);
+                    download(res.data, name, nat.mime);
                 } catch (e) {
-                    errcb(e.message || "unreadable document");
+                    errcb(e.message || "download failed");
                     return;
                 }
-                keepRecent(basename(path), envelope, bytes);
-                cb(envelope);
+                // a saved document is the one most worth having in recents: the
+                // download leaves the browser's hands, this copy does not
+                keepRecent(name, res.data);
+                cb();
             }, errcb);
-        },
-        containerSave: function (path, envelopeJson, cb, errcb) {
-            var bytes;
-            try {
-                bytes = OfficeContainer.pack(envelopeJson);
-            } catch (e) {
-                errcb(e.message || "could not build the document");
-                return;
-            }
-            var name = saveName(path);
-            try {
-                download(bytes, name, "application/zip");
-            } catch (e) {
-                errcb(e.message || "download failed");
-                return;
-            }
-            // a saved document is the one most worth having in recents: the
-            // download leaves the browser's hands, this copy does not
-            keepRecent(name, envelopeJson, bytes);
-            cb();
         },
 
         /* The session snapshot is the crash net, so it stays inside the
@@ -869,6 +904,10 @@ var OfficePlatform = (function () {
             return "";
         },
         blobToSrc: function (blob, filename, cb, errcb) {
+            standalone.cacheBlob(blob, filename, cb, errcb);
+        },
+        // nowhere to upload to: a render made for saving stays inline
+        cacheBlob: function (blob, filename, cb, errcb) {
             errcb = errcb || function (msg) { status(msg, "error"); };
             if (blob.size > STANDALONE_INLINE_MAX) {
                 errcb("File is too large for the standalone web edition (max " +
@@ -927,7 +966,7 @@ var OfficePlatform = (function () {
         requireBackend: requireBackend,
         requireConvert: requireConvert,
 
-        /* Office interchange formats, whichever host is running.
+        /* Foreign formats (ODF), whichever host is running.
            spec = { agi: "<backend .agi path>", action: "<agi action>",
                     wasm: "<converter name from src/wasm/office>" }
            convertIn  -> cb(bodyJsonString)
@@ -948,8 +987,10 @@ var OfficePlatform = (function () {
         // Uint8Array, and the standalone host turns it into a download
         writeBytes: function (p, b, cb, errcb) { host.writeBytes(p, b, cb, errcb); },
 
-        containerLoad: function (p, cb, errcb) { host.containerLoad(p, cb, errcb); },
-        containerSave: function (p, j, cb, errcb) { host.containerSave(p, j, cb, errcb); },
+        // the suite's own .docx / .xlsx / .pptx: file <-> envelope JSON
+        documentLoad: function (p, cb, errcb) { host.documentLoad(p, cb, errcb || function () { }); },
+        documentSave: function (p, j, cb, errcb) { host.documentSave(p, j, cb, errcb || function () { }); },
+        nativeExtension: extForApp,
 
         sessionSave: function (a, j, cb, errcb) { host.sessionSave(a, j, cb, errcb); },
         sessionLoad: function (a, cb) { host.sessionLoad(a, cb); },
@@ -961,6 +1002,9 @@ var OfficePlatform = (function () {
 
         mediaUrl: function (v) { return host.mediaUrl(v); },
         blobToSrc: function (b, n, cb, errcb) { host.blobToSrc(b, n, cb, errcb); },
+        // a render made for saving (chart PNG, poster frame): a link in
+        // ArozOS, so later saves do not carry it again
+        cacheBlob: function (b, n, cb, errcb) { host.cacheBlob(b, n, cb, errcb); },
 
         // ext: the calling app's native extension, which names a document
         // opened from a share link that did not say what it is called

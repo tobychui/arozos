@@ -71,9 +71,9 @@ function dlgGetTypeColor(ext){
         code: ["js", "css", "html", "htm", "php", "go", "py", "java", "c", "cpp", "h", "json", "xml", "yaml", "yml", "agi", "sh", "bat"],
         text: ["txt", "md", "log", "csv", "rtf"],
         pdf: ["pdf"],
-        word: ["doc", "docx", "odt", "doca"],
-        excel: ["xls", "xlsx", "ods", "xlsxa"],
-        powerpoint: ["ppt", "pptx", "odp", "ppa"],
+        word: ["doc", "docx", "odt"],
+        excel: ["xls", "xlsx", "ods"],
+        powerpoint: ["ppt", "pptx", "odp"],
         model: ["stl", "obj", "3ds", "fbx", "step", "iges", "gcode"],
         db: ["db", "sqlite", "sqlite3", "sql"]
     };

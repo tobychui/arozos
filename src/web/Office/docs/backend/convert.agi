@@ -1,45 +1,43 @@
 /*
-    Docs - DOCX import / export backend
+    Docs - OpenDocument / PDF conversion backend
 
-    Bridges the Docs webapp to the "office" AGI library (mod/office).
+    Bridges the Docs webapp to the "office" AGI library (mod/office) for the
+    formats a document can be converted to and from. Its own format, .docx,
+    is opened and saved by common/backend/document.agi.
 
     POST parameters:
-        action = "import" | "export" | "import-odf" | "export-odf"
+        action = "import-odf" | "export-odf" | "export-pdf"
 
-        import:  src  - virtual path of the .docx to read
-                 -> {"body": <Docs body schema object>}
+        import-odf: src  - virtual path of the .odt to read
+                    -> {"body": <Docs body schema object>}
 
-        export:  dest - virtual path of the .docx to write
-                 data - serialized Docs body JSON (images inlined as
-                        data URLs by the front end)
-                 dataFile - vpath of an uploaded temp file holding that same
-                        JSON, used instead of data when the payload is too
-                        big for a POST form body (deleted after reading)
-                 -> "OK"
-
-        import-odf / export-odf: same contract for OpenDocument (.odt)
+        export-odf: dest - virtual path of the .odt to write
+                    data - serialized Docs body JSON; pictures may stay
+                           media?file= links, the server reads them
+                    dataFile - vpath of an uploaded payload file holding that
+                           same JSON (deleted after reading)
+                    -> "OK"
 
         export-pdf: dest - virtual path of the .pdf to write
-                    data - serialized Docs body JSON (same as export)
+                    data - serialized Docs body JSON (same as export-odf)
                     -> "OK"   (server-side real-text PDF, mod/office)
-
-    Legacy binary .doc is not supported (the office lib rejects it with a
-    helpful message).
 */
 
 /*
-    The front end streams an oversized payload to a temp file instead of
-    putting it in the POST body (OfficeApp.agirunLarge in common/office.js):
-    Go's r.ParseForm drops EVERY parameter once a urlencoded body passes
-    10MB. Read it back from dataFile when that path was taken, and remove the
-    temp file once it is in.
+    The front end uploads a big payload as a file instead of putting it in
+    the POST body (OfficeApp.agirunLarge in common/office.js): Go's
+    r.ParseForm drops EVERY parameter once a urlencoded body passes 10MB, and
+    a compressed upload is much smaller on a slow link anyway. Read it back
+    from dataFile when that path was taken, and remove the temp file once it
+    is in.
 */
 function resolveData(){
     if (typeof dataFile !== "undefined" && dataFile){
         if (!requirelib("filelib")){
             return "";
         }
-        var content = filelib.readFile(dataFile);
+        // gunzipped by office.readPayload when the browser compressed it
+        var content = requirelib("office") ? office.readPayload(dataFile) : filelib.readFile(dataFile);
         filelib.deleteFile(dataFile);
         return content;
     }
@@ -54,48 +52,6 @@ function main(){
 
     if (typeof action === "undefined"){
         sendJSONResp(JSON.stringify({ error: "action is required" }));
-        return;
-    }
-
-    if (action == "import"){
-        if (typeof src === "undefined" || !src || src.trim() === ""){
-            sendJSONResp(JSON.stringify({ error: "src is required" }));
-            return;
-        }
-        try {
-            var bodyJson = office.docxToDocument(src);
-            if (!bodyJson){
-                sendJSONResp(JSON.stringify({ error: "unable to parse the docx file" }));
-                return;
-            }
-            //bodyJson is already a JSON string - concat instead of re-encoding
-            sendJSONResp('{"body":' + bodyJson + '}');
-        } catch (e) {
-            sendJSONResp(JSON.stringify({ error: "import failed: " + e.message }));
-        }
-        return;
-    }
-
-    if (action == "export"){
-        if (typeof dest === "undefined" || !dest || dest.trim() === ""){
-            sendJSONResp(JSON.stringify({ error: "dest is required" }));
-            return;
-        }
-        var payload = resolveData();
-        if (!payload){
-            sendJSONResp(JSON.stringify({ error: "data is required" }));
-            return;
-        }
-        try {
-            var ok = office.documentToDocx(payload, dest);
-            if (!ok){
-                sendJSONResp(JSON.stringify({ error: "unable to write the docx file" }));
-                return;
-            }
-            sendResp("OK");
-        } catch (e) {
-            sendJSONResp(JSON.stringify({ error: "export failed: " + e.message }));
-        }
         return;
     }
 

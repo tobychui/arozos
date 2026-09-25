@@ -24,7 +24,8 @@ function resolveContent(){
         if (!requirelib("filelib")){
             return "";
         }
-        var loaded = filelib.readFile(contentFile);
+        // gunzipped by office.readPayload when the browser compressed it
+        var loaded = requirelib("office") ? office.readPayload(contentFile) : filelib.readFile(contentFile);
         filelib.deleteFile(contentFile);
         return loaded;
     }

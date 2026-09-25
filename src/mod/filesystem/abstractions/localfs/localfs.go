@@ -187,7 +187,7 @@ func (l LocalFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, err
 func (l LocalFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
 	// O_TRUNC: WriteStream replaces the file. Without it, writing fewer
 	// bytes than the file already holds leaves the old tail behind and
-	// corrupts structured formats (zip containers like .ppta read their
+	// corrupts structured formats (zip containers like .pptx read their
 	// directory from the END of the file, so they keep opening as the
 	// stale document - or fail to open at all)
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)

@@ -15,6 +15,13 @@ Everything here is a pure []byte/string transformation - mod/office does
 no file I/O and keeps no globals, which is what makes running it in a
 browser possible at all.
 
+The suite's own documents are .docx / .xlsx / .pptx (mod/office native.go),
+so the three "<app>File" converters are what every open and save of the
+web edition runs: in, a file becomes the editor envelope (the embedded copy
+when it is current, an import otherwise); out, the envelope becomes the
+file. The per-format body converters beside them serve the other formats
+(ODF) and keep the table symmetrical with the office.* AGI library.
+
 PDF is deliberately absent. The web edition renders PDF in the front end
 (see apps/arozos_office/README.md); pulling BuildDocPdf and friends
 in here would only add fpdf to the module for nothing.
@@ -36,9 +43,28 @@ type ImportFunc func(data []byte) (string, error)
 // nil for a deck with no video or audio (see BuildPptxMedia).
 type ExportFunc func(jsonStr string) ([]byte, []byte, error)
 
+// nativeImport / nativeExport are the suite's own open and save. Media
+// stays inline as data URLs: there is no file system here to link into.
+func nativeImport(app string) ImportFunc {
+	return func(data []byte) (string, error) {
+		return office.ReadNativeFile(app, data, nil)
+	}
+}
+
+func nativeExport(app string) ExportFunc {
+	return func(envelope string) ([]byte, []byte, error) {
+		data, err := office.BuildNativeFile(app, envelope, nil)
+		return data, nil, err
+	}
+}
+
 // Importers are named after the office.* AGI functions they mirror, so a
 // call site can name one string for both hosts.
 var Importers = map[string]ImportFunc{
+	"documentFile":     nativeImport(office.AppDocument),
+	"spreadsheetFile":  nativeImport(office.AppSpreadsheet),
+	"presentationFile": nativeImport(office.AppPresentation),
+
 	"docxToDocument": func(data []byte) (string, error) {
 		doc, err := office.ParseDocx(data)
 		if err != nil {
@@ -84,6 +110,10 @@ var Importers = map[string]ImportFunc{
 }
 
 var Exporters = map[string]ExportFunc{
+	"documentFile":     nativeExport(office.AppDocument),
+	"spreadsheetFile":  nativeExport(office.AppSpreadsheet),
+	"presentationFile": nativeExport(office.AppPresentation),
+
 	"documentToDocx": func(jsonStr string) ([]byte, []byte, error) {
 		doc, err := office.ParseDocumentJSON(jsonStr)
 		if err != nil {
@@ -122,8 +152,8 @@ var Exporters = map[string]ExportFunc{
 			return nil, nil, err
 		}
 		// nil resolver: a deck reaching this build carries its media as data
-		// URLs (the container unpacker inlines them), never as media?file=
-		// links into an ArozOS file system that is not there
+		// URLs, never as media?file= links into an ArozOS file system that
+		// is not there
 		return office.BuildPptxMedia(pres, nil)
 	},
 	"presentationToOdp": func(jsonStr string) ([]byte, []byte, error) {

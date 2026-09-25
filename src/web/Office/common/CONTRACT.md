@@ -2,11 +2,11 @@
 
 This folder (`src/web/Office/common/`) is shared by the three Office webapps:
 
-| App | Folder | Native ext | `appType` | Accent |
+| App | Folder | Own format | `appType` | Accent |
 |---|---|---|---|---|
-| Docs (word processor) | `Office/docs/` | `.doca` | `document` | blue |
-| Sheets (spreadsheet) | `Office/sheets/` | `.xlsa` | `spreadsheet` | green |
-| Slides (presentation) | `Office/slides/` | `.ppta` | `presentation` | orange |
+| Docs (word processor) | `Office/docs/` | `.docx` | `document` | blue |
+| Sheets (spreadsheet) | `Office/sheets/` | `.xlsx` | `spreadsheet` | green |
+| Slides (presentation) | `Office/slides/` | `.pptx` | `presentation` | orange |
 
 Apps are registered in `Office/init.agi` (already done — do not edit it).
 
@@ -42,13 +42,13 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <link rel="stylesheet" href="app.css">
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
-    <!-- host layer: mode.js picks the host, container.js is the browser-side
-         .doca/.xlsa/.ppta packer, recents.js is the browser-side recent
-         document store, wasm.js lazily loads the Office format converters,
-         platform.js is the abstraction itself.
+    <!-- host layer: mode.js picks the host, share.js reads ?request= share
+         links, recents.js is the browser-side recent document store, wasm.js
+         lazily loads the Office format code (the web edition's open and
+         save), platform.js is the abstraction itself.
          All five must load before office.js. -->
     <script src="../common/mode.js"></script>
-    <script src="../common/container.js"></script>
+    <script src="../common/share.js"></script>
     <script src="../common/recents.js"></script>
     <script src="../common/wasm.js"></script>
     <script src="../common/platform.js"></script>
@@ -91,7 +91,8 @@ OfficeApp.init({
     appName: "Docs",             // window title suffix
     appType: "document",         // envelope "app" field — document|spreadsheet|presentation
     appIcon: "../img/docs.svg",
-    extension: ".doca",
+    extension: ".docx",          // the app's own format: .docx | .xlsx | .pptx
+    nativeLabel: "Word document (.docx)",   // how Save as names it
     fileTypeName: "Document",
     defaultFileName: "New Document",
 
@@ -100,15 +101,19 @@ OfficeApp.init({
     deserialize: function(body){ … },                // body -> editor
     create:      function(){ … },                    // blank document
 
+    // --- saving the own format (optional) — see "Documents" below ---
+    prepareNative: function(copy){ … return promise; }, // finish a private
+                                 // copy of the body for the OOXML writer
+
     // --- foreign-format import (optional) ---
     importers: {
         ".txt": function(text, filename){ … },       // load text into editor
         ".md":  function(text, filename){ … }
     },
-    // binary formats the framework must NOT fetch as text (e.g. .pptx);
-    // the handler gets the vpath and converts server-side (AGI "office" lib)
+    // binary formats the framework must NOT fetch as text (e.g. .odp);
+    // the handler gets the vpath and converts it (OfficePlatform.convertIn)
     binaryImporters: {
-        ".pptx": function(filepath, filename){ … }
+        ".odp": function(filepath, filename){ … }
     },
 
     // --- foreign-format saving (optional) — see "Save formats" below ---
@@ -192,14 +197,18 @@ cb(data), errcb(msg), timeout)`.** The AGI gateway parses POST parameters with
 Go's `r.ParseForm`, which caps a urlencoded body at **10 MB**; past that the
 parse fails, *every* parameter disappears and the still-uploading connection is
 reset (the browser just reports a network error). `agirunLarge` posts inline
-while `params[field]` stays under 4 MB, and otherwise uploads that field to
-`user:/.appdata/Office/tmp/` through the system upload endpoint (streamed to
-disk, so the payload never has to fit in the host's RAM) and passes the vpath as
-`<field>File` instead. Backend scripts must accept both — read `dataFile` with
-`filelib.readFile()` and `filelib.deleteFile()` it right after (see
-`slides/backend/pptx.agi`). It also unifies error handling: `errcb` fires for
-transport failures *and* for `{error: …}` replies. The framework already routes
-every document save, session snapshot and export of all three apps through it.
+while `params[field]` stays under 64 KB; above that it gzips the field
+(`CompressionStream`) and uploads it to `user:/.appdata/Office/tmp/` through the
+system upload endpoint (streamed to disk, so the payload never has to fit in
+the host's RAM), passing the vpath as `<field>File` instead. A document body
+gzips to a fifth or less of its size, where urlencoding would have doubled it,
+which is what keeps a save quick on a slow link. (Without `CompressionStream`
+it posts inline up to 4 MB and uploads uncompressed past that.) Backend scripts
+must accept both — read `dataFile` with `office.readPayload()` (which gunzips)
+and `filelib.deleteFile()` it right after (see `slides/backend/convert.agi`).
+It also unifies error handling: `errcb` fires for transport failures *and* for
+`{error: …}` replies. The framework already routes every document save,
+session snapshot and export of all three apps through it.
 
 Utils: `escapeHtml basename dirname extOf stripExt`.
 
@@ -210,10 +219,10 @@ your hooks, Ctrl+/ (shortcuts help). Register everything else yourself.
 
 The suite runs in two hosts from one code base, and this is the seam:
 
-| host | where | file dialogs | documents | Office-format conversions |
+| host | where | file dialogs | documents | open / save / conversions |
 |---|---|---|---|---|
 | `arozos` | the ArozOS desktop | `ao_module_openFileSelector` | ArozOS virtual file system | the AGI backends → `mod/office` |
-| `standalone` | any static web server ("ArozOS Office Web") | `<input type=file>` / drag and drop / `?open=<relative path>` | the visitor's device; `Save` downloads the file back | the same `mod/office` code compiled to WebAssembly — **when the build shipped it** |
+| `standalone` | any static web server ("ArozOS Office Web") | `<input type=file>` / drag and drop / `?open=<relative path>` | the visitor's device; `Save` downloads the file back | the same `mod/office` code compiled to WebAssembly (always shipped) |
 
 The mode is one line in `common/mode.js` (`window.OFFICE_STANDALONE`, plus
 `window.OFFICE_WASM`), which `apps/arozos_office/generate.go` rewrites in
@@ -225,13 +234,14 @@ its output tree. Never test those flags — ask `OfficePlatform`.
 OfficePlatform.hasBackend()   // is there an ArozOS server?
                               // gate storage, AGI scripts, accounts,
                               // and the real-text PDF renderer on this
-OfficePlatform.canConvert()   // can this build convert .docx/.xlsx/.pptx/ODF?
-                              // true in ArozOS; true in a standalone build
-                              // made with -wasm. Gate import/export on this.
+OfficePlatform.canConvert()   // does this build carry mod/office - the code
+                              // that opens and saves every document and
+                              // converts ODF? True in ArozOS and in the
+                              // standalone build. Gate conversions on this.
 ```
 
-They are not the same question and must not be conflated: a standalone build
-with the converters can write a .docx but still cannot render a server PDF.
+They are not the same question and must not be conflated: the standalone
+build can write a .docx but still cannot render a server PDF.
 
 ```js
 OfficePlatform.mode()               // "arozos" | "standalone"
@@ -242,20 +252,28 @@ OfficePlatform.tracksRecents()      // false in standalone (paths do not outlive
 OfficePlatform.autosavesToFile()    // false in standalone (autosave would download)
 
 // dialogs - cb gets [{filepath, filename}] / {filepath, filename}
-OfficePlatform.pickOpen({filter:["doca","txt"], multiple, memoryKey}, cb)
+OfficePlatform.pickOpen({filter:["docx","txt"], multiple, memoryKey}, cb)
 OfficePlatform.pickSave({defaultName, ext, memoryKey, forceOverwrite}, cb)
 
-// Office interchange formats. One descriptor names both mechanisms; the
-// host picks. wasm:null marks a conversion that is still server-only.
+// the app's own format: a .docx / .xlsx / .pptx <-> the envelope. Only the
+// framework calls these (openPath / writeNative).
+OfficePlatform.documentLoad(path, cb(envelopeJson), errcb)
+OfficePlatform.documentSave(path, envelopeJson, cb, errcb)
+
+// foreign formats (ODF). One descriptor names both mechanisms; the host
+// picks. wasm:null marks a conversion that is still server-only.
 OfficePlatform.convertIn({agi, action, wasm}, srcPath, cb(bodyJson), errcb)
 OfficePlatform.convertOut({agi, action, wasm}, destPath, bodyJson,
                           cb({mediaZip}), errcb)
 
 // io - OfficeApp.vfsLoad / vfsSave / blobToSrc / mediaUrl / agirunLarge all
 // forward to these, so app code normally keeps using OfficeApp
-readText writeText writeBytes containerLoad containerSave
+readText writeText writeBytes documentLoad documentSave
 sessionSave sessionLoad sessionDelete
 agirun agirunLarge prepareWorkdir mediaUrl blobToSrc
+cacheBlob        // a render made for saving (a chart PNG, a poster frame):
+                 // uploaded once in ArozOS and linked, so later saves do
+                 // not carry it again; a data URL in the web edition
 loadInputFiles adoptDroppedFile setWindowTitle setWindowTheme
 openDocument     // open a document in a second window of this app;
                  // false = nowhere to open it from (standalone downloads)
@@ -268,7 +286,7 @@ oversized-payload path as every export and lands in
 standalone edition it is a download. The Slides PDF export is the reason
 it exists (see the Office README).
 
-**Adding a format conversion:** add the converter to
+**Adding a foreign format conversion:** add the converter to
 [`src/wasm/office/convert.go`](../../../wasm/office/convert.go) (and its
 pairing test), then call `OfficePlatform.convertIn/convertOut` with a
 descriptor naming the AGI action *and* the wasm converter. Gate the menu
@@ -281,14 +299,6 @@ writer `needsBackend: true`. The framework filters both flags out of Save As,
 save-back and autosave for you, and `cfg.binaryImporters` are dropped
 wholesale when `canConvert()` is false — nothing else is needed for an
 importer.
-
-`OfficeContainer` (`common/container.js`) is the browser-side twin of
-`mod/office/packed.go`: `pack(envelopeJson) -> Uint8Array` and
-`unpack(bytes) -> envelopeJson` for the native zip containers, with assets
-inlined as data URLs on the way in and re-extracted on the way out. It is
-what makes the standalone build able to open a file ArozOS wrote, and write
-one ArozOS can open. Only `platform.js` calls it.
-Tests: `node common/test_container.js`.
 
 `OfficeRecents` (`common/recents.js`) is the suite's *browser-side* recent
 document list, and the thing that makes the home page work. A file the visitor
@@ -314,22 +324,22 @@ host — this is how the home page opens templates and recent documents:
 
 | link | effect |
 |---|---|
-| `?open=<relative path>` | open a document published next to the app |
-| `?template=<relative path>` | load it as a **new unsaved document**, so Save asks for a name instead of writing back over the template |
+| `?open=<relative path>` | open a document published next to the app (web edition) |
+| `?template=<relative path>.json` | load that envelope as a **new unsaved document**, so Save asks for a name instead of writing back over the template |
 | `?recent=<id>` | reopen one of this browser's recent documents |
 
 Paths must be relative; `fetchRelative` refuses anything with a scheme, so
-`?open=` cannot be turned into a fetch of another site. A path that is not a
-vpath (`user:/`, `local:/`, `recent:/`, …) is read over HTTP and unpacked
-client-side **in both hosts**, which is what lets `templates/` work in ArozOS
-as well as in the web edition.
+`?open=` cannot be turned into a fetch of another site. A template is a plain
+envelope JSON file (`templates/*.json`), read over HTTP **in both hosts** and
+loaded straight into the editor - no conversion - which is what lets
+`templates/` work in ArozOS as well as in the web edition.
 
-`OfficeWasm` (`common/wasm.js`) loads the WebAssembly converters
+`OfficeWasm` (`common/wasm.js`) loads the WebAssembly module
 (`Office/common/wasm/office.wasm`, built from
-[`src/wasm/office`](../../../wasm/office)) the first time a conversion is
-actually asked for — never on page load, since the module is several MB and
-most visitors only ever read a `.doca`. Only `platform.js` calls it; the
-suite goes through `convertIn`/`convertOut`.
+[`src/wasm/office`](../../../wasm/office)) the first time a document is opened
+or saved — never on page load, since the module is several MB. Only
+`platform.js` calls it; the suite goes through `documentLoad` /
+`documentSave` and `convertIn` / `convertOut`.
 
 ## OfficeHotkeys (common/hotkeys.js) — shared keyboard registry
 
@@ -377,7 +387,7 @@ undo.undo(); undo.redo(); undo.canUndo(); undo.canRedo();
 `apply(state)` must restore the editor **and NOT push**. Call
 `OfficeApp.markDirty()` in apply too (undo changes the doc).
 
-## File format (envelope — handled by framework)
+## The envelope (handled by framework)
 
 ```json
 {
@@ -391,12 +401,48 @@ undo.undo(); undo.redo(); undo.canUndo(); undo.canRedo();
 ```
 
 Your app owns only `body`. **Document your body schema in a comment at the top
-of your app.js** so the other apps / future importers can read it.
+of your app.js** so the other apps / future importers can read it. The
+envelope is what the editor holds, what session snapshots store, what a
+template file is, and what every `.docx` / `.xlsx` / `.pptx` the suite writes
+carries inside it (next section).
+
+## Documents: .docx / .xlsx / .pptx
+
+Each app's own format is the Office format of its kind (`cfg.extension`).
+Opening goes through `OfficePlatform.documentLoad` and saving through
+`documentSave`, which run `office.loadDocument` / `office.saveDocument`
+(`common/backend/document.agi`) in ArozOS and the same Go code as WebAssembly
+in the web edition ([`mod/office/native.go`](../../../mod/office/native.go)):
+
+- **Save** renders the body to OOXML *and* embeds the envelope in the
+  package (`arozos/document.json`, its media as assets shared with the OOXML
+  parts where the bytes are the same), with a fingerprint of every OOXML
+  part. Word, Excel and PowerPoint ignore the extra parts and open the file
+  as the plain document it also is.
+- **Open** returns the embedded envelope when the fingerprint still matches
+  — so what the suite saved comes back exactly, including what OOXML cannot
+  hold — and imports the OOXML otherwise: a file from another program, or
+  one of ours that another program has since saved.
+- **Media never crosses the network as base64.** A picture from storage is a
+  `media?file=` link; the server reads it into the file on save, and on
+  open writes the file's media into `user:/.appdata/Office/cache/<doc>/` and
+  links it. In the web edition media is inline, since there is no file
+  system.
+- **`cfg.prepareNative(copy)`** is the app's chance to add what only the
+  browser can make before the body is written: Slides renders its charts to
+  PNG and grabs video poster frames, Docs renders SVG / WebP / BMP pictures
+  to PNG (`data-export-src`), Sheets marks array formulas with their spill
+  range. `copy` is a private deep copy; it may be changed in place, and a
+  Promise may be returned. What it leaves there is what the OOXML shows
+  *and* what is embedded, so add, never take away. Cache the renders
+  (`OfficePlatform.cacheBlob`): autosave runs this every 25 seconds.
+- Saves are serialised by the framework, and an edit made while one is
+  under way keeps the document dirty.
 
 ## Save formats (`saveFormats`) — living in a foreign file
 
-By default a document can only be *saved* into the app's own container; a
-`.csv` or `.xlsx` you opened was an import, and Save became Save As. Declaring
+By default a document can only be *saved* into the app's own format; a
+`.csv` or `.odt` you opened was an import, and Save became Save As. Declaring
 `saveFormats` lets an app write other formats too:
 
 ```js
@@ -418,16 +464,16 @@ saveFormats: [{
 
 What the framework then does:
 
-- **File > Save as** turns into a format picker — the native container first
+- **File > Save as** turns into a format picker — the app's own format first
   (still `Ctrl+Shift+S`), then one entry per format. With no `saveFormats` it
   stays the plain "Save as..." command it has always been.
 - **Opening one of these formats keeps the document attached to that file**:
-  `filepath`/`filename` stay the original (`sales.csv`, not `sales.xlsa`), so
+  `filepath`/`filename` stay the original (`sales.csv`, not `sales.xlsx`), so
   `Ctrl+S` writes straight back in the same format. An imported format with
   **no** matching entry is read-only as before — `filepath` is null and Save
   falls through to Save As.
 - **`unsupported()` is a veto, not a warning.** A foreign format holds less
-  than the container does, so return a list of plain-string reasons ("2
+  than the app's own format does, so return a list of plain-string reasons ("2
   charts", "3 sheets — a delimited text file holds only one") when the
   document would lose content. The framework refuses the write and offers
   "Save as `<native ext>`..." instead. Reasons are escaped, never treated as
@@ -439,12 +485,11 @@ What the framework then does:
 - **Autosave** writes a foreign format only while `unsupported()` passes, and
   never writes one marked `noAutosave`; in either case it silently skips the
   file and falls back to the session snapshot rather than popping a dialog.
-  `noAutosave` is for writers whose *preparation* is the expensive part —
-  Slides rasterizes every chart and seeks each video for a poster frame, Docs
-  refetches and re-rasterizes every image — which is fine once on Ctrl+S and
-  wrong every 25 seconds.
+  `noAutosave` is for writers whose *preparation* is the expensive part,
+  which is fine once on Ctrl+S and wrong every 25 seconds. (The app's own
+  format always autosaves; its preparation is cached.)
 - **A warning strip appears under the toolbar** for as long as the open file
-  is not the app's own container, because living in a foreign file means
+  is not in the app's own format, because living in a foreign file means
   everything that format cannot hold is dropped on every save. Its **Convert
   to `<native ext>`** button asks where to put a native copy, writes it, and
   opens it in a window of its own (`OfficePlatform.openDocument`) — this
@@ -455,24 +500,18 @@ What the framework then does:
 All three apps declare `saveFormats`; Sheets is the reference implementation
 (`sheets/sheets_io.js`, `SAVE_FORMATS`).
 
-## Packed native files (zip container)
+## Media, session snapshots and the close guard
 
-All three apps set `packed: true` in `OfficeApp.init`. Native files
-(`.doca` / `.xlsa` / `.ppta`) are then saved through
-`common/backend/container.agi` -> `office.packToFile` as a **zip**:
-`document.json` (the envelope, media replaced by `asset://<hash>.<ext>`)
-plus deduplicated binary `assets/`. Loads go through
-`office.unpackToWorkdir`, which extracts assets into
-`user:/.appdata/Office/cache/<doc>/` and links them via `media?file=` so
-the JSON stays small. **Never store large media as base64 in the model**:
-use `OfficeApp.mediaUrl(vpath)` for storage picks and
+**Never store large media as base64 in the model**: use
+`OfficeApp.mediaUrl(vpath)` for storage picks and
 `OfficeApp.blobToSrc(blob, name, cb, errcb)` for device/pasted blobs
 (<=1 MB stays inline, bigger streams to `user:/.appdata/Office/uploads/`
-via the system upload endpoint). The packer embeds both forms at save
-time. The framework also writes rolling session snapshots to
-`user:/.appdata/Office/session/<app>.osession` (autosave tick + after
+via the system upload endpoint). The server reads both forms into the file
+at save time. The framework also writes rolling session snapshots to
+`user:/.appdata/Office/session/<app>.osession` (a small zip of the envelope
+and its media, `office.packToFile`, written on the autosave tick and after a
 save) and offers "Restore from previous session" on blank startup. That
-dialog's **Discard** button deletes the snapshot (container.agi
+dialog's **Discard** button deletes the snapshot (document.agi
 `session-delete`) so it stops prompting; **Start fresh** keeps it for a
 later launch. The framework also intercepts the floatWindow close button
 (overriding `ao_module_close`) to confirm before discarding unsaved
@@ -559,9 +598,11 @@ when taller than it.
 Slide objects may carry: `group` (shared id; grouped objects select/move as
 one), `props.anim` ("fade"|"slide"|"zoom" entrance, revealed click-by-click
 in present mode), `props.link` ("#N" -> slide N, or an http(s) URL, followed
-on click while presenting). New object types `video` / `audio` embed media as
-data URLs (dropped on .pptx export, kept in the packed .ppta). Each slide has
-`transition` ("none"|"fade"|"slide"|"zoom"). Text boxes support `<ul>`/`<ol>`
+on click while presenting). New object types `video` / `audio` link their
+media (the .pptx shows the poster frame; the file itself travels in the
+editor copy the .pptx embeds). Each slide has
+`transition` ("none"|"fade"|"slide"|"zoom"), written as PowerPoint's
+fade / push / zoom, and `props.link` becomes an `a:hlinkClick`. Text boxes support `<ul>`/`<ol>`
 lists via execCommand; htmlToLines (mod/office) flattens them to bullet/number
 prefixes for .pptx. present.js adds transitions, click-to-reveal animations,
 laser pointer (L), interactive links, and a presenter-view popup.

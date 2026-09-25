@@ -2,6 +2,7 @@ package agi
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
@@ -17,6 +18,7 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/office"
+	"imuslab.com/arozos/mod/user"
 )
 
 /*
@@ -27,7 +29,20 @@ import (
 	lifting lives in mod/office; this file only wires it into the AGI VM
 	with per-user permission and virtual-path handling.
 
-	Currently exposed:
+	The suite's own documents ARE .docx / .xlsx / .pptx (mod/office
+	native.go): the OOXML plus the editor's envelope embedded in the package.
+
+	    office.saveDocument(envelopeJson, destVpath)  => write the envelope as the Office
+	                                                     file its extension names; media?file=
+	                                                     links are read server side
+	    office.loadDocument(srcVpath, workdirBase)    => envelope JSON string: the embedded
+	                                                     copy when current, else an import;
+	                                                     media extracted to a per-document
+	                                                     working dir and linked
+	    office.readPayload(vpath)                     => the text of an uploaded payload file,
+	                                                     gunzipped when it is gzip
+
+	Format conversions:
 	    office.pptxToPresentation(srcVpath)           => JSON body string (Slides schema)
 	    office.presentationToPptx(jsonStr, destVpath) => true on success; when the deck
 	                                                     has video/audio, their files are
@@ -37,11 +52,10 @@ import (
 	    office.workbookToXlsx(jsonStr, destVpath)     => true on success
 	    office.docxToDocument(srcVpath)               => JSON body string (Docs schema)
 	    office.documentToDocx(jsonStr, destVpath)     => true on success
-	    office.packToFile(envelopeJson, destVpath)    => write native zip container
-	    office.unpackFromFile(srcVpath)               => envelope JSON (assets as data URLs)
-	    office.unpackToWorkdir(srcVpath, workdirBase) => envelope JSON (assets extracted to a
-	                                                     per-document working dir, referenced by
-	                                                     media?file= links - keeps the JSON small)
+	    office.packToFile(envelopeJson, destVpath)    => write a session snapshot container
+	    office.unpackToWorkdir(srcVpath, workdirBase) => envelope JSON of a snapshot (assets
+	                                                     extracted to a per-document working dir,
+	                                                     referenced by media?file= links)
 	    office.odtToDocument(srcVpath)                => JSON body string (Docs schema)
 	    office.documentToOdt(jsonStr, destVpath)      => true on success
 	    office.odsToWorkbook(srcVpath)                => JSON body string (Sheets schema)
@@ -64,10 +78,192 @@ func (g *Gateway) OfficeLibRegister() {
 	}
 }
 
+// officeVpathReader resolves the media?file= links a document carries,
+// through the same read permission the user has everywhere else
+func officeVpathReader(u *user.User) func(string) ([]byte, error) {
+	return func(vp string) ([]byte, error) {
+		if !u.CanRead(vp) {
+			return nil, errors.New("read access denied")
+		}
+		fsh, rp, err := static.VirtualPathToRealPath(vp, u)
+		if err != nil {
+			return nil, err
+		}
+		f, err := fsh.FileSystemAbstraction.ReadStream(rp)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(f)
+	}
+}
+
+// officeMaxPayload caps an uploaded (and possibly gzipped) request payload
+const officeMaxPayload = 512 << 20
+
 func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm := payload.VM
 	u := payload.User
 	scriptFsh := payload.ScriptFsh
+	readVpath := officeVpathReader(u)
+
+	// writeOut writes bytes to a checked, already rewritten vpath
+	writeOut := func(destVpath string, data []byte) error {
+		destFsh, destRpath, err := static.VirtualPathToRealPath(destVpath, u)
+		if err != nil {
+			return err
+		}
+		if err := destFsh.FileSystemAbstraction.WriteStream(destRpath, bytes.NewReader(data), 0755); err != nil {
+			return err
+		}
+		u.SetOwnerOfFile(destFsh, destVpath)
+		return nil
+	}
+	// readIn reads a checked, already rewritten vpath
+	readIn := func(srcVpath string) ([]byte, error) {
+		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
+		if err != nil {
+			return nil, err
+		}
+		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(f)
+	}
+
+	// saveDocument(envelopeJson, destVpath) => true: the suite's own save.
+	// The extension decides the format (.docx / .xlsx / .pptx) and must
+	// match the envelope's app.
+	vm.Set("_office_saveDocument", func(call otto.FunctionCall) otto.Value {
+		envelope, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		destVpath, err := call.Argument(1).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		destVpath = static.RelativeVpathRewrite(scriptFsh, destVpath, vm, u)
+		if !u.CanWrite(destVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
+		}
+		app := office.AppForExt(filepath.Ext(destVpath))
+		if app == "" {
+			panic(vm.MakeCustomError("UnsupportedFormat", "Office documents are saved as .docx, .xlsx or .pptx: "+destVpath))
+		}
+		data, err := office.BuildNativeFile(app, envelope, readVpath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		if err := writeOut(destVpath, data); err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		return otto.TrueValue()
+	})
+
+	// loadDocument(srcVpath, workdirBase) => envelope JSON string. Media is
+	// written into <workdirBase>/<doc-hash>/ and linked by media?file=, so
+	// the browser streams pictures instead of receiving them as base64.
+	vm.Set("_office_loadDocument", func(call otto.FunctionCall) otto.Value {
+		srcVpath, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		workdirBase, err := call.Argument(1).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		srcVpath = static.RelativeVpathRewrite(scriptFsh, srcVpath, vm, u)
+		workdirBase = strings.TrimSuffix(static.RelativeVpathRewrite(scriptFsh, workdirBase, vm, u), "/")
+		if !u.CanRead(srcVpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+srcVpath))
+		}
+		if !u.CanWrite(workdirBase) {
+			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+workdirBase))
+		}
+		app := office.AppForExt(filepath.Ext(srcVpath))
+		if app == "" {
+			panic(vm.MakeCustomError("UnsupportedFormat", "not a .docx, .xlsx or .pptx file: "+srcVpath))
+		}
+		data, err := readIn(srcVpath)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+
+		h := sha1.Sum([]byte(srcVpath))
+		docDirV := workdirBase + "/" + hex.EncodeToString(h[:])[:12]
+		wdFsh, docDirR, err := static.VirtualPathToRealPath(docDirV, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		sink := func(name string, content []byte) (string, error) {
+			name = filepath.Base(name)
+			if err := wdFsh.FileSystemAbstraction.MkdirAll(docDirR, 0755); err != nil {
+				return "", err
+			}
+			if err := wdFsh.FileSystemAbstraction.WriteStream(filepath.Join(docDirR, name), bytes.NewReader(content), 0755); err != nil {
+				return "", err
+			}
+			return "../../media?file=" + url.QueryEscape(docDirV+"/"+name), nil
+		}
+		envelope, err := office.ReadNativeFile(app, data, sink)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		reply, _ := vm.ToValue(envelope)
+		return reply
+	})
+
+	// readPayload(vpath) => string: a request payload the front end uploaded
+	// as a file instead of posting it (OfficeApp.agirunLarge), gzipped when
+	// the browser could compress it. The caller deletes the file.
+	vm.Set("_office_readPayload", func(call otto.FunctionCall) otto.Value {
+		vp, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		vp = static.RelativeVpathRewrite(scriptFsh, vp, vm, u)
+		if !u.CanRead(vp) {
+			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+vp))
+		}
+		data, err := readIn(vp)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.NullValue()
+		}
+		if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
+			zr, err := gzip.NewReader(bytes.NewReader(data))
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			plain, err := io.ReadAll(io.LimitReader(zr, officeMaxPayload+1))
+			zr.Close()
+			if err != nil {
+				g.RaiseError(err)
+				return otto.NullValue()
+			}
+			if len(plain) > officeMaxPayload {
+				g.RaiseError(errors.New("payload is too large"))
+				return otto.NullValue()
+			}
+			data = plain
+		}
+		reply, _ := vm.ToValue(string(data))
+		return reply
+	})
 
 	// pptxToPresentation(srcVpath) => JSON string of the Slides body schema
 	vm.Set("_office_pptxToPresentation", func(call otto.FunctionCall) otto.Value {
@@ -139,23 +335,8 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
-		// resolver reads video/audio media?file= links server-side, so
-		// their bytes never ride the JSON payload
-		readVpath := func(vp string) ([]byte, error) {
-			if !u.CanRead(vp) {
-				return nil, errors.New("read access denied")
-			}
-			fsh, rp, err := static.VirtualPathToRealPath(vp, u)
-			if err != nil {
-				return nil, err
-			}
-			f, err := fsh.FileSystemAbstraction.ReadStream(rp)
-			if err != nil {
-				return nil, err
-			}
-			defer f.Close()
-			return io.ReadAll(f)
-		}
+		// media?file= links (pictures, video, audio) are read here, so their
+		// bytes never ride the JSON payload
 		data, mediaZip, err := office.BuildPptxMedia(pres, readVpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -359,7 +540,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
-		data, err := office.BuildDocx(doc)
+		data, err := office.BuildDocxMedia(doc, readVpath)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
@@ -400,23 +581,7 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 			panic(vm.MakeCustomError("PermissionDenied", "Write access denied: "+destVpath))
 		}
 
-		// resolver for legacy media?file= links inside the document
-		readVpath := func(vp string) ([]byte, error) {
-			if !u.CanRead(vp) {
-				return nil, errors.New("read access denied")
-			}
-			fsh, rp, err := static.VirtualPathToRealPath(vp, u)
-			if err != nil {
-				return nil, err
-			}
-			f, err := fsh.FileSystemAbstraction.ReadStream(rp)
-			if err != nil {
-				return nil, err
-			}
-			defer f.Close()
-			return io.ReadAll(f)
-		}
-
+		// media?file= links inside the document become embedded assets
 		data, err := office.PackEnvelope(envelope, readVpath)
 		if err != nil {
 			g.RaiseError(err)
@@ -436,47 +601,6 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		u.SetOwnerOfFile(destFsh, destVpath)
 
 		reply, _ := vm.ToValue(true)
-		return reply
-	})
-
-	// unpackFromFile(srcVpath) => envelope JSON string (assets re-inlined
-	// as data URLs; legacy plain-JSON documents pass through unchanged)
-	vm.Set("_office_unpackFromFile", func(call otto.FunctionCall) otto.Value {
-		srcVpath, err := call.Argument(0).ToString()
-		if err != nil {
-			g.RaiseError(err)
-			return otto.NullValue()
-		}
-
-		srcVpath = static.RelativeVpathRewrite(scriptFsh, srcVpath, vm, u)
-		if !u.CanRead(srcVpath) {
-			panic(vm.MakeCustomError("PermissionDenied", "Read access denied: "+srcVpath))
-		}
-
-		srcFsh, srcRpath, err := static.VirtualPathToRealPath(srcVpath, u)
-		if err != nil {
-			g.RaiseError(err)
-			return otto.NullValue()
-		}
-		f, err := srcFsh.FileSystemAbstraction.ReadStream(srcRpath)
-		if err != nil {
-			g.RaiseError(err)
-			return otto.NullValue()
-		}
-		data, err := io.ReadAll(f)
-		f.Close()
-		if err != nil {
-			g.RaiseError(err)
-			return otto.NullValue()
-		}
-
-		envelope, err := office.UnpackEnvelope(data)
-		if err != nil {
-			g.RaiseError(err)
-			return otto.NullValue()
-		}
-
-		reply, _ := vm.ToValue(envelope)
 		return reply
 	})
 
@@ -636,6 +760,11 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		return office.DocumentToJSON(doc)
 	})
 	registerOdfExport("_office_documentToOdt", func(jsonStr string) ([]byte, error) {
+		// the ODF writers take inline pictures only: read the links here
+		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
+		if err != nil {
+			return nil, err
+		}
 		doc, err := office.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			return nil, err
@@ -664,6 +793,10 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		return office.PresentationToJSON(pres)
 	})
 	registerOdfExport("_office_presentationToOdp", func(jsonStr string) ([]byte, error) {
+		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
+		if err != nil {
+			return nil, err
+		}
 		pres, err := office.ParsePresentationJSON(jsonStr)
 		if err != nil {
 			return nil, err
@@ -677,6 +810,10 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	   strings + styles) instead of the raw workbook, since formula
 	   evaluation lives in the web client. */
 	registerOdfExport("_office_documentToPdf", func(jsonStr string) ([]byte, error) {
+		jsonStr, err := office.InlineMediaLinks(jsonStr, readVpath)
+		if err != nil {
+			return nil, err
+		}
 		doc, err := office.ParseDocumentJSON(jsonStr)
 		if err != nil {
 			return nil, err
@@ -713,9 +850,11 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 		office.workbookToXlsx = _office_workbookToXlsx;           // Sheets body JSON string -> xlsx file
 		office.docxToDocument = _office_docxToDocument;           // docx file -> Docs body JSON string
 		office.documentToDocx = _office_documentToDocx;           // Docs body JSON string -> docx file
-		office.packToFile = _office_packToFile;                   // envelope JSON -> native zip container file
-		office.unpackFromFile = _office_unpackFromFile;           // container (or legacy JSON) file -> envelope JSON (data URLs)
-		office.unpackToWorkdir = _office_unpackToWorkdir;         // container -> envelope JSON, assets extracted to a workdir
+		office.saveDocument = _office_saveDocument;               // envelope JSON -> .docx / .xlsx / .pptx (the suite's own save)
+		office.loadDocument = _office_loadDocument;               // .docx / .xlsx / .pptx -> envelope JSON, media extracted to a workdir
+		office.readPayload = _office_readPayload;                 // uploaded payload file -> string (gunzipped)
+		office.packToFile = _office_packToFile;                   // envelope JSON -> session snapshot container file
+		office.unpackToWorkdir = _office_unpackToWorkdir;         // session snapshot -> envelope JSON, assets extracted to a workdir
 
 		office.odtToDocument = _office_odtToDocument;             // odt file -> Docs body JSON string
 		office.documentToOdt = _office_documentToOdt;             // Docs body JSON string -> odt file
@@ -743,5 +882,11 @@ func (g *Gateway) injectOfficeLibFunctions(payload *static.AgiLibInjectionPayloa
 	if (requirelib("office")) {
 		var ok = office.presentationToPptx(bodyJsonString, "user:/Desktop/out.pptx");
 		if (ok) { sendResp("OK"); }
+	}
+
+	// The suite's own save / open (envelope in, envelope out)
+	if (requirelib("office")) {
+		office.saveDocument(envelopeJson, "user:/Documents/report.docx");
+		var env = office.loadDocument("user:/Documents/report.docx", "user:/.appdata/Office/cache");
 	}
 */

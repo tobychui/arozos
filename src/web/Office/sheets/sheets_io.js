@@ -3,9 +3,12 @@
     Requires sheets.js (SheetsApp core API) and ../common/charts.js.
 
     Import/export support:
+        .xlsx        - the workbook's own format, opened and saved by the
+                       framework (OfficePlatform.documentLoad/documentSave)
         .csv / .tsv  - parsed and produced client-side
-        .xlsx        - converted server-side by the "office" AGI library
-                       (Office/sheets/backend/xlsx.agi -> mod/office)
+        .ods         - converted by the "office" library (server side through
+                       Office/sheets/backend/convert.agi, WebAssembly in the
+                       web edition)
         .xls (legacy binary) is not supported - convert to .xlsx first.
 */
 
@@ -14,19 +17,17 @@ var SheetsIO = (function () {
 
     var Core = SheetsApp;
     var F = SheetFormula;
-    var XLSX_BACKEND = "Office/sheets/backend/xlsx.agi";
+    var CONVERT_BACKEND = "Office/sheets/backend/convert.agi";
     /* The same Go converters either way: the office AGI library in ArozOS,
        the WebAssembly build of it (src/wasm/office) in the standalone web
        edition. One descriptor names both; OfficePlatform picks. A null wasm
        name marks a conversion that is still server-only. */
     var CONVERT = {
-        "import": { agi: XLSX_BACKEND, action: "import", wasm: "xlsxToWorkbook" },
-        "import-odf": { agi: XLSX_BACKEND, action: "import-odf", wasm: "odsToWorkbook" },
-        "export": { agi: XLSX_BACKEND, action: "export", wasm: "workbookToXlsx" },
-        "export-odf": { agi: XLSX_BACKEND, action: "export-odf", wasm: "workbookToOds" },
+        "import-odf": { agi: CONVERT_BACKEND, action: "import-odf", wasm: "odsToWorkbook" },
+        "export-odf": { agi: CONVERT_BACKEND, action: "export-odf", wasm: "workbookToOds" },
         // the real-text PDF renderer stays server side; the web edition
         // offers File > Print / PDF instead
-        "export-pdf": { agi: XLSX_BACKEND, action: "export-pdf", wasm: null }
+        "export-pdf": { agi: CONVERT_BACKEND, action: "export-pdf", wasm: null }
     };
 
     function esc(t) { return OfficeApp.escapeHtml(t); }
@@ -415,7 +416,7 @@ var SheetsIO = (function () {
 
     /* ========== what each foreign format cannot hold ==========
        Returned to OfficeApp as plain-string reasons: a non-empty list makes
-       it refuse the save and steer the user to .xlsa instead of quietly
+       it refuse the save and steer the user to .xlsx instead of quietly
        shipping a file that has lost content. Purely visual formatting (fonts,
        colors, number formats, column widths) is NOT counted - it never
        survived a text grid and blocking on it would nag on every edit. */
@@ -469,15 +470,15 @@ var SheetsIO = (function () {
         var model;
         try { model = Core.buildPrintModel(); }
         catch (e) { fail(e.message); return; }
-        OfficeApp.agirunLarge(XLSX_BACKEND, {
+        OfficeApp.agirunLarge(CONVERT_BACKEND, {
             action: "export-pdf",
             dest: fp,
             data: JSON.stringify(model)
         }, "data", function () { done(); }, fail, 180000);
     }
     /*
-        The formats File > Save as offers besides .xlsa, and the ones a
-        document opened from .xlsx/.ods/.csv/.tsv is saved back into.
+        The formats File > Save as offers besides .xlsx, and the ones a
+        document opened from .ods/.csv/.tsv is saved back into.
         PDF is oneWay: it is a rendering, so saving one leaves the document
         itself still pointing at its own file.
     */
@@ -487,11 +488,6 @@ var SheetsIO = (function () {
        cannot do from Save as / save-back / autosave, leaving the delimited
        writers - built right here in the browser - always available. */
     var SAVE_FORMATS = [
-        {
-            ext: ".xlsx", label: "Excel workbook (.xlsx)", icon: "file excel outline",
-            needsConvert: true,
-            save: function (fp, fn, done, fail) { saveViaConverter("export", fp, done, fail); }
-        },
         {
             ext: ".ods", label: "OpenDocument spreadsheet (.ods)", icon: "file alternate outline",
             needsConvert: true,
@@ -515,10 +511,9 @@ var SheetsIO = (function () {
         }
     ];
 
-    /* ================= XLSX (server-side via the office AGI lib) ================= */
-    // shared by .xlsx ("import") and .ods ("import-odf")
-    function importXlsx(fp, fn, action) {
-        action = action || "import";
+    /* ================= ODS (through the office library) ================= */
+    function importOds(fp, fn) {
+        var action = "import-odf";
         OfficeApp.showBusy("Importing " + fn + "...");
         OfficePlatform.convertIn(CONVERT[action], fp, function (body) {
             OfficeApp.hideBusy();
@@ -542,25 +537,15 @@ var SheetsIO = (function () {
             OfficeApp.toast("Import failed: " + msg, "error");
         });
     }
-    function importOds(fp, fn) { importXlsx(fp, fn, "import-odf"); }
-    function importXlsxDialog() {
-        if (!OfficePlatform.requireConvert("Excel / OpenDocument import")) return;
-        OfficePlatform.pickOpen({ filter: ["xlsx", "ods"], memoryKey: "import" }, function (files) {
-            var fp = files[0].filepath, fn = files[0].filename;
-            if (/\.ods$/i.test(fn)) importOds(fp, fn);
-            else importXlsx(fp, fn);
-        });
-    }
-    // shared by .xlsx ("export") and .ods ("export-odf")
     function exportSheetFile(ext, action, busyLabel) {
         if (!OfficePlatform.requireConvert("Exporting " + ext)) return;
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ext;
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsx") + ext;
         OfficePlatform.pickSave({ defaultName: defName, ext: ext, memoryKey: "export" }, function (file) {
             var fp = file.filepath;
             OfficeApp.showBusy(busyLabel);
-            // in ArozOS this posts through agirunLarge (workbooks with
-            // inlined images blow past the 10MB POST form limit); in the web
-            // edition it runs in the wasm module and downloads
+            // in ArozOS this goes through agirunLarge (compressed and
+            // uploaded when large); in the web edition it runs in the wasm
+            // module and downloads
             OfficePlatform.convertOut(CONVERT[action], fp, JSON.stringify(Core.exportBody()), function () {
                 OfficeApp.hideBusy();
                 OfficeApp.setStatus("Exported " + OfficeApp.basename(fp));
@@ -571,14 +556,13 @@ var SheetsIO = (function () {
             });
         });
     }
-    function exportXlsx() { exportSheetFile(".xlsx", "export", "Exporting Excel file..."); }
     function exportOds() { exportSheetFile(".ods", "export-odf", "Exporting OpenDocument file..."); }
     // server-side real-text PDF: posts the client-computed print model
     // (formatted display strings + styles) instead of the raw workbook,
     // since formula evaluation lives in this client
     function exportPdf() {
         if (!OfficePlatform.requireBackend("PDF export")) return;
-        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsa") + ".pdf";
+        var defName = OfficeApp.stripExt(OfficeApp.getFileName() || "New Spreadsheet.xlsx") + ".pdf";
         OfficePlatform.pickSave({ defaultName: defName, ext: ".pdf", memoryKey: "export" }, function (file) {
             var fp = file.filepath;
             OfficeApp.showBusy("Exporting PDF...");
@@ -590,7 +574,7 @@ var SheetsIO = (function () {
                 OfficeApp.toast("Export failed: " + e.message, "error");
                 return;
             }
-            OfficeApp.agirunLarge(XLSX_BACKEND, {
+            OfficeApp.agirunLarge(CONVERT_BACKEND, {
                 action: "export-pdf",
                 dest: fp,
                 data: JSON.stringify(model)
@@ -840,10 +824,7 @@ var SheetsIO = (function () {
         importDelimited: importDelimited,
         exportDelimited: exportDelimited,
         saveFormats: SAVE_FORMATS,
-        importXlsx: importXlsx,
         importOds: importOds,
-        importXlsxDialog: importXlsxDialog,
-        exportXlsx: exportXlsx,
         exportOds: exportOds,
         exportPdf: exportPdf,
         pivotDialog: pivotDialog,

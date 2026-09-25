@@ -8,11 +8,16 @@ This README is the developer handoff document: it explains how everything
 fits together, why the non-obvious decisions were made, and where to start
 when you continue development.
 
-| App | Folder | Native ext | Interop formats |
+| App | Folder | Own format | Other formats |
 |---|---|---|---|
-| Docs | [`docs/`](docs/) | `.doca` | .docx, .odt, .pdf (export), .html, .md, .txt |
-| Sheets | [`sheets/`](sheets/) | `.xlsa` | .xlsx, .ods, .pdf (export), .csv, .tsv |
-| Slides | [`slides/`](slides/) | `.ppta` | .pptx (+ media zip), .odp, .pdf (export), .png |
+| Docs | [`docs/`](docs/) | `.docx` | .odt, .pdf (export), .html, .md, .txt |
+| Sheets | [`sheets/`](sheets/) | `.xlsx` | .ods, .pdf (export), .csv, .tsv |
+| Slides | [`slides/`](slides/) | `.pptx` | .odp, .pdf (export), .png |
+
+Each app saves straight into the Office format of its kind, with the
+editor's own copy of the document embedded in the package, so what Word,
+Excel and PowerPoint see is a normal file and what the suite reopens is
+exactly what it saved (see [Documents](#documents-docx--xlsx--pptx)).
 
 All three apps are registered by the single [`init.agi`](init.agi) in this
 folder (module registration only — it runs with system scope, don't put
@@ -25,11 +30,11 @@ Two more folders sit alongside them:
   standalone web edition (see below) and also works in place at
   `Office/home/index.html`. Vanilla JS, no framework, no icon font.
 - [`templates/`](templates/) — the getting-started templates. They are
-  plain-JSON envelopes with native extensions (both unpackers pass a non-"PK"
-  payload straight through), generated from readable literals by
-  `node templates/build_templates.js` — **edit that file, not the
-  `.doca`/`.xlsa`/`.ppta` output**, and keep `manifest.json` in step (the
-  builder fails if the two disagree).
+  plain envelope JSON files (`*.json`), loaded straight into the editor as a
+  new unsaved document with no conversion, generated from readable literals
+  by `node templates/build_templates.js` — **edit that file, not the
+  `.json` output**, and keep `manifest.json` in step (the builder fails if
+  the two disagree).
 
 ## Architecture at a glance
 
@@ -71,33 +76,31 @@ Three layers, strictly separated:
 The same front end also ships as a **standalone web edition** ("ArozOS Office
 Web"): the suite served by a plain static file server with no ArozOS behind
 it, so a document can be shared with someone who has no account. Documents
-are opened from and saved back to the visitor's own device, native containers
-are packed and unpacked in the browser, and every server-side conversion is
-switched off.
+are opened from and saved back to the visitor's own device, by the same Go
+code compiled to WebAssembly.
 
 That is not a fork. Everything reaching outside the browser tab goes through
 [`common/platform.js`](common/platform.js) (`OfficePlatform`), which carries
 both host implementations and picks one from the flags in
-[`common/mode.js`](common/mode.js);
-[`common/container.js`](common/container.js) is the browser-side twin of
-[`packed.go`](../../mod/office/packed.go). The generator
+[`common/mode.js`](common/mode.js). The generator
 [`apps/arozos_office/generate.go`](../../../apps/arozos_office/generate.go)
 copies the tree, drops the `.agi` backends, and flips those flags — that is
 the whole build.
 
-The **Office interchange formats work there too**: `mod/office` is pure
+The **documents work there the same way**: `mod/office` is pure
 `[]byte`/struct code with no I/O, so it compiles to WebAssembly
 ([`src/wasm/office`](../../wasm/office)) and the standalone build runs the
-identical converters in the page — a `.docx` it writes is what ArozOS would
-have written. `generate.go -wasm` builds and ships that module, and
-`common/wasm.js` fetches it the first time an import or export is used.
+identical code in the page — a `.docx` it writes is what ArozOS would have
+written. `generate.go` always builds and ships that module, and
+`common/wasm.js` fetches it the first time a document is opened or saved.
 
 Two capability questions, and they are **not** the same:
 
 - `OfficePlatform.hasBackend()` — is there a server? (storage, AGI scripts,
   the Sheets PDF renderer — Docs and Slides render their own PDF in the
   browser and need no backend for it)
-- `OfficePlatform.canConvert()` — can this build convert Office formats?
+- `OfficePlatform.canConvert()` — does this build carry the Office format
+  code (true in ArozOS and in the standalone build)?
 
 **Gate anything new on the right one** (details in `CONTRACT.md`), or it will
 be a dead menu entry out there.
@@ -164,41 +167,69 @@ Go structs are the source of truth — they mirror the JS exactly:
   h, rot, z, props}]}]}`. Object types: `text`, `image`, `shape`, `line`,
   `table`, `chart`, `video`, `audio`.
 
-## Native file format (.doca / .xlsa / .ppta)
+## Documents (.docx / .xlsx / .pptx)
 
-Handled by [`packed.go`](../../mod/office/packed.go) +
-[`common/backend/container.agi`](common/backend/container.agi):
+Handled by [`native.go`](../../mod/office/native.go) +
+[`common/backend/document.agi`](common/backend/document.agi)
+(`office.saveDocument` / `office.loadDocument`), and by the same Go code as
+WebAssembly in the web edition (`documentFile` / `spreadsheetFile` /
+`presentationFile` in [`src/wasm/office`](../../wasm/office)):
 
-- A **zip container**: `body.json` (the schema above with big assets
-  stripped) + an `assets/` folder holding images/video/audio binaries.
-- Legacy plain-JSON files (pre-container) still load transparently.
-- On **open**, `office.unpackToWorkdir` extracts assets into a per-document
-  cache dir under the user's appdata and rewrites references to
-  `media?file=<vpath>` links, so multi-MB media never rides the JSON body.
-  On **save**, `office.packToFile` re-resolves those links (server-side,
-  via a permission-checked vpath reader) and embeds them back.
-- A link is embedded wherever it sits: as a whole value (a Slides / Sheets
-  image `src`) or inside an HTML string (a Docs body's `<img src="…">` /
-  `<video poster="…">`, where the attribute value becomes
-  `asset://<name>`). Only `src` and `poster` are embedded - an `href` to a
-  file stays a link. Every unpacker (`UnpackEnvelope`,
-  `UnpackEnvelopeToLinks`, and `common/container.js` in the browser)
-  resolves `asset://` refs in both positions. This is what makes a `.doca`
-  with pictures from the user's storage open with its pictures anywhere
-  else - the standalone web edition included. Documents saved before this
-  still hold links, and become portable on their next save.
+- **Save** renders the body to OOXML with the ordinary writers and then
+  adds the editor's envelope to the package: `arozos/document.json` (media
+  as `asset://<name>` refs), `arozos/manifest.json` (a fingerprint of every
+  OOXML part, and which assets are the same bytes as an OOXML part, so a
+  picture is stored once) and `arozos/assets/` for media the OOXML does not
+  hold (video, audio, a chart's source). A root relationship of our own type
+  ties it in and every part has a content type, so the package stays valid
+  OPC; office applications ignore relationship types they do not know.
+- **Open** trusts the embedded envelope only while the fingerprint matches.
+  A file from Word, Excel or PowerPoint - or one of ours they have saved
+  since, which rewrites the parts - is imported from its OOXML instead. So
+  a round trip through the suite is exact, and an edit made elsewhere is
+  never hidden behind a stale copy.
+- **Pictures travel as links, not base64.** The editors keep a storage
+  picture as a `media?file=` link; `office.saveDocument` reads it server side
+  (for the OOXML part and the embedded copy both, one read). `office.
+  loadDocument` writes a document's media into a per-document cache dir
+  under `user:/.appdata/Office/cache/` and links it - for an imported file
+  too, so a 20 MB `.docx` of photos opens as a small JSON body.
+- **The upload is compressed.** `agirunLarge` gzips a body over 64 KB and
+  uploads it; `office.readPayload` gunzips it (see CONTRACT.md).
+- **Session snapshots** stay a small zip of the envelope and its assets
+  ([`packed.go`](../../mod/office/packed.go), `office.packToFile` /
+  `office.unpackToWorkdir`), written to `user:/.appdata/Office/session/`.
+
+What each OOXML file shows to other programs, beyond what the embedded copy
+keeps for the suite:
+
+| | Word / Excel / PowerPoint see | kept only in the embedded copy |
+|---|---|---|
+| Docs | text, styles, lists, tables, pictures, footnotes, headers/footers, **comments** (resolved state included) and **suggestions as tracked changes** ([`docx_review.go`](../../mod/office/docx_review.go)), "Suggest edits" as `trackRevisions` | - |
+| Sheets | cells, formulas, styles, merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx_cf.go`](../../mod/office/xlsx_cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
+| Slides | every object, **transitions** (fade / push / zoom), **click links** (to a slide or a URL), charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files |
+
+The reverse holds too: comments, tracked changes, conditional formats, tab
+colours, filter ranges, transitions and click links made in Office
+applications are read back.
 
 ## Import / export — how each path works and why
 
-Every import/export is **server-side** through `mod/office`, *except*
-things only a browser can compute, which the client pre-bakes into the
-body before posting:
+Every conversion runs through `mod/office` (server side, or WebAssembly in
+the web edition), *except* things only a browser can compute, which the
+client adds to the body first (`cfg.prepareNative`, also used by the ODF
+exports):
 
-- **Charts** → client rasterizes to PNG (`props.png` in Slides,
-  chart PNGs in Docs export) because native OOXML charts are out of scope.
-- **Images** → client inlines to data URLs (`inlineImagesForExport`).
-- **Video poster frames** → client captures a real frame per video
-  (`captureVideoFrame` in `slides.js`) into `props.png`.
+- **Charts** → Slides rasterizes to PNG (`props.png`) because native
+  PowerPoint charts are not written yet; cached per chart and uploaded
+  once, so an unchanged chart costs nothing on the next save.
+- **Pictures Word cannot hold** (SVG, WebP, BMP) → Docs renders a PNG into
+  `data-export-src`, which the writers prefer. Every other picture stays a
+  link that the server reads.
+- **Video poster frames** → Slides captures a real frame per video
+  (`captureVideoFrame` in `slides.js`) into `props.png`, cached the same way.
+- **Array formulas** → Sheets marks each spill anchor with the range it
+  fills (`cell.a`).
 - **Sheets PDF print model** → client sends formatted display strings +
   styles (`Core.buildPrintModel()` in `sheets.js`) because formula
   evaluation and number formatting live in the client.
@@ -257,7 +288,7 @@ model allows) in its `.docx`, because there is only one layout:
   document can be edited meanwhile without changing the file that comes
   out. Font resolution against the shipped Noto faces, text runs and the
   raster fallback live in [`common/pdfcore.js`](common/pdfcore.js), also
-  used by Slides. `docs/backend/docx.agi`'s `export-pdf` and
+  used by Slides. `docs/backend/convert.agi`'s `export-pdf` and
   `mod/office/pdf_doc.go` remain for AGI callers (`office.documentToPdf`),
   but the editor no longer uses them.
 - **Columns** (`page.columns` > 1) paginate the same way. Before each
@@ -439,8 +470,7 @@ own before the catalogue — `round`, `arrow`, `star` — and they are gone:
 `SlidesShapes.ALIASES` knows what they used to mean and `normalizeBody()`
 runs every kind through `canonical()` as a document loads, so a deck
 written back then is rewritten the first time it is opened. The Go writer
-keeps the same three for a `.ppta` that has not been through the editor
-yet. A preset the catalogue does not draw is sent to the nearest outline
+keeps the same three for a deck that has not been through the editor yet. A preset the catalogue does not draw is sent to the nearest outline
 that it does, and only a completely unknown one becomes a rectangle. The symptom
 that prompted all this was a `rightBrace` importing as a thin outlined
 rectangle, rotated — two long diagonal lines where a brace should be.
@@ -765,36 +795,39 @@ layers the matching rule on top — paint and the PDF print model read the
 second, everything that edits formatting reads the first, so a rule is never
 mistaken for something the user applied by hand.
 
-Rules ride in the document body, so they persist in `.xlsa` and reach PDF
-export through the print model. **They are dropped on `.xlsx` / `.ods`
-export** — those writers would need real DXF / style-map records, and the Go
-structs model neither `cell.cf` nor `sheet.cfDefs`. If that matters, the
-alternative is baking the resolved colours into the exported cells' own
-styles at export time.
+Rules ride in the document body and reach PDF export through the print
+model. The `.xlsx` holds them as Excel's own conditional formats
+([`xlsx_cf.go`](../../mod/office/xlsx_cf.go)): the cells carrying a rule are
+gathered into ranges, the rule's relative references are moved from its
+anchor to the range's corner, its look becomes a `<dxf>`, and the rules are
+ranked the way the cells list them - the reader stamps them back onto the
+cells. Excel's visual rules (colour scales, data bars, icon sets, top-N)
+have no counterpart here and are not read. **They are dropped on `.ods`
+export**, which would need a style-map writer.
 
 ### Saving back into a foreign format
 
 All three apps declare `saveFormats` (see
 [`common/CONTRACT.md`](common/CONTRACT.md)), so a document opened from a
 foreign format **stays that file**: `Ctrl+S` rewrites it in its own format
-instead of forcing a Save As to the native container, and File > Save as
+instead of forcing a Save As to the app's own format, and File > Save as
 offers the whole list (plus PDF, which is one-way).
 
 | App | saved back into | declared in |
 |---|---|---|
-| Docs | .docx, .odt, .html/.htm, .md, .txt (+ .pdf one-way) | `SAVE_FORMATS` in [`docs/docs.js`](docs/docs.js) |
-| Sheets | .xlsx, .ods, .csv, .tsv (+ .pdf one-way) | `SAVE_FORMATS` in [`sheets/sheets_io.js`](sheets/sheets_io.js) |
-| Slides | .pptx, .odp (+ .pdf one-way) | `SAVE_FORMATS` in [`slides/slides.js`](slides/slides.js) |
+| Docs | .odt, .html/.htm, .md, .txt (+ .pdf one-way) | `SAVE_FORMATS` in [`docs/docs.js`](docs/docs.js) |
+| Sheets | .ods, .csv, .tsv (+ .pdf one-way) | `SAVE_FORMATS` in [`sheets/sheets_io.js`](sheets/sheets_io.js) |
+| Slides | .odp (+ .pdf one-way) | `SAVE_FORMATS` in [`slides/slides.js`](slides/slides.js) |
 
 Each format vetoes what it cannot hold — `.csv`/`.tsv` reject formulas,
 charts, notes, merges and second sheets; `.ods` rejects charts
 (`ods_writer.go` cannot represent them); `.odp` rejects video and audio
 objects (`odp_writer.go` emits no case for them); every Docs writer but the
-native one rejects comments and pending suggestions, because they are fed
+`.docx` rejects comments and pending suggestions, because they are fed
 `resolvedHtml()` and would come back with insertions accepted and deletions
-applied; `.txt` additionally rejects images and tables; `.xlsx` and `.pptx`
-take everything. The veto lists what would be lost and offers the native
-extension instead, so no save quietly drops content. Purely visual formatting
+applied; `.txt` additionally rejects images and tables. The veto lists what
+would be lost and offers the app's own format instead, so no save quietly
+drops content. Purely visual formatting
 is deliberately *not* a veto reason: it would fire on nearly every CSV edit.
 When a format's Go writer gains or loses a capability, update the matching
 `unsupported()`.
@@ -951,16 +984,15 @@ the path that honours every mode exactly.
   model → docx → model for each construct; when adding one, add a row. A
   mismatch shows up as layout drift the next time the file is opened, not
   as an error.
-- **PPTX video/audio are NOT embedded**
+- **PPTX video/audio are NOT embedded as PowerPoint media**
   ([`pptx_writer.go`](../../mod/office/pptx_writer.go)): embedded media
   (`a:videoFile` + `p14:media` + timing tree, python-pptx-identical
   structure) was implemented and still would not play reliably in
-  PowerPoint/Google Slides, so the design is: slide shows the captured
-  poster frame as a plain picture, and `BuildPptxMedia` returns a second
-  `[]byte` — a **sidecar zip** of the media files that the AGI layer
-  writes next to the pptx as `<name>.zip`. `presentationToPptx` returns
-  the zip's vpath (string) instead of `true` when one was written; the
-  client toasts it.
+  PowerPoint/Google Slides, so the slide shows the captured poster frame as
+  a plain picture. The media file itself travels in the editor copy the
+  suite embeds (`arozos/assets/`), so it plays in Slides. For the AGI
+  `office.presentationToPptx` export, `BuildPptxMedia` still returns a
+  **sidecar zip** of the media that the AGI layer writes next to the pptx.
 - **PDF export** ([`pdf.go`](../../mod/office/pdf.go) /
   [`pdf_doc.go`](../../mod/office/pdf_doc.go) /
   [`pdf_sheet.go`](../../mod/office/pdf_sheet.go) /
@@ -1037,7 +1069,7 @@ gofmt -l mod/office/ wasm/office/      # must print nothing
 node --check web/Office/docs/docs.js   # etc. for each edited JS file
 node web/Office/sheets/test_formula.js    # formula engine
 node web/Office/sheets/test_formula_fns.js  # formula functions (vs. Excel examples)
-node web/Office/common/test_container.js  # native container (vs. packed.go)
+node web/Office/common/test_share.js      # share links and OOXML app detection
 sh ../scripts/check-conventions.sh --diff origin/master
 ```
 
@@ -1087,13 +1119,19 @@ sh ../scripts/check-conventions.sh --diff origin/master
 - **MicroType Express decompression** so Google-Slides-embedded fonts can
   be used (see the format notes) — the last visible gap between an
   imported deck and its source.
-- **Native OOXML chart *writing***. Charts are now *read* into live chart
+- **Native PowerPoint chart *writing***. Charts are *read* into live chart
   objects ([`pptx_chart.go`](../../mod/office/pptx_chart.go), from the
   `c:numCache` / `c:strCache` values, so no embedded workbook is needed),
-  but they are still *written* as the client-rendered PNG in `props.png`.
-  A round trip therefore turns a chart into a picture.
-- Embedded fonts are read but not written back, so a `.pptx` exported from
-  a deck that carried its fonts no longer carries them.
+  but they are *written* as the client-rendered PNG in `props.png`. The
+  suite's own copy keeps the live chart, so this only shows once
+  PowerPoint has saved the file (the copy is then stale and the PNG is
+  what gets imported). `xlsx_charts.go` already writes DrawingML charts
+  for Sheets and is the place to start.
+- **Groups and entrance animations in `.pptx`** (`p:grpSp`, `p:timing`):
+  kept in the embedded copy, not written as PowerPoint's own, so they are
+  lost once PowerPoint saves the file.
+- Embedded fonts are read but not written back to the `.pptx` parts (the
+  embedded copy keeps them for the suite).
 - A **shaped crop** (`props.mask`) round-trips through `.pptx` as the
   picture's `prstGeom` and is a real clip path in the browser-rendered
   PDF, but the `.odp` writer does not draw one — ODF would need a custom

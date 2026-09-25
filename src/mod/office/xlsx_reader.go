@@ -63,6 +63,7 @@ func ParseXlsx(data []byte) (*Workbook, error) {
 	wb0 := parseDefinedNames(wbTree)
 	shared := parseSharedStrings(files["xl/sharedStrings.xml"])
 	styleMap := parseXlsxStyles(files["xl/styles.xml"])
+	dxfs := parseDxfs(files["xl/styles.xml"])
 
 	wb := &Workbook{Sheets: []*WorkSheet{}, Active: 0}
 	chartIDSeq := 0
@@ -99,6 +100,7 @@ func ParseXlsx(data []byte) (*Workbook, error) {
 		}
 		ws := parseWorksheet(tree, shared, styleMap)
 		ws.Name = name
+		parseSheetExtras(tree, ws, dxfs)
 		parseSheetDrawing(files, partPath, tree, ws, &chartIDSeq)
 		parseSheetComments(files, partPath, ws)
 		wb.Sheets = append(wb.Sheets, ws)

@@ -67,10 +67,12 @@ type Rect struct {
 
 // Slide is a single slide
 type Slide struct {
-	ID      string    `json:"id,omitempty"`
-	Bg      string    `json:"bg,omitempty"` // "" = theme default background
-	Notes   string    `json:"notes,omitempty"`
-	Objects []*Object `json:"objects"`
+	ID    string `json:"id,omitempty"`
+	Bg    string `json:"bg,omitempty"` // "" = theme default background
+	Notes string `json:"notes,omitempty"`
+	// entry transition: "" / "none" | "fade" | "slide" | "zoom"
+	Transition string    `json:"transition,omitempty"`
+	Objects    []*Object `json:"objects"`
 }
 
 // Object is one visual element on a slide
@@ -153,6 +155,9 @@ type Props struct {
 	// chart (spec kept opaque; Png is a client-side raster for export)
 	Spec json.RawMessage `json:"spec,omitempty"`
 	Png  string          `json:"png,omitempty"`
+	// any type: followed when clicked while presenting - "#N" (slide N)
+	// or an http(s) address
+	Link string `json:"link,omitempty"`
 }
 
 // theme background approximations, mirroring THEMES in slides.js
@@ -359,6 +364,50 @@ func decodeDataURL(durl string) ([]byte, string, bool) {
 		return nil, "", false
 	}
 	return raw, ext, true
+}
+
+/*
+imageSrcBytes resolves a picture source for an OOXML writer: an inline
+data URL, or a media?file= link read through readVpath (the editors keep
+pictures from the user's storage as links, and the server reads them here
+rather than the browser downloading and re-uploading every one). Only the
+formats Word and PowerPoint embed as they are qualify - the editors turn
+anything else (SVG charts, WebP, BMP) into PNG before saving.
+*/
+func imageSrcBytes(src string, readVpath func(string) ([]byte, error)) ([]byte, string, bool) {
+	if data, ext, ok := decodeDataURL(src); ok {
+		return data, ext, true
+	}
+	if readVpath == nil {
+		return nil, "", false
+	}
+	vp := mediaLinkVpath(src)
+	if vp == "" {
+		return nil, "", false
+	}
+	data, err := readVpath(vp)
+	if err != nil || len(data) == 0 {
+		return nil, "", false
+	}
+	ext := sniffImageExt(data)
+	if ext == "" {
+		return nil, "", false
+	}
+	return data, ext, true
+}
+
+// sniffImageExt names png / jpeg / gif content by its signature ("" for
+// anything else)
+func sniffImageExt(data []byte) string {
+	switch {
+	case len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n":
+		return "png"
+	case len(data) >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF:
+		return "jpeg"
+	case len(data) >= 6 && (string(data[:6]) == "GIF87a" || string(data[:6]) == "GIF89a"):
+		return "gif"
+	}
+	return ""
 }
 
 // encodeDataURL builds a data URL from raw image bytes

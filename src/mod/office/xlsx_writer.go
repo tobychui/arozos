@@ -7,8 +7,8 @@ package office
 	xl/styles.xml (deduplicated dynamic style table) and one worksheet per
 	sheet. Strings are written inline (no sharedStrings part). Formulas are
 	written as <f> elements so Excel recalculates them on open. Webapp
-	charts become native DrawingML chart parts (xlsx_charts.go); filters
-	are not representable and are skipped.
+	charts become native DrawingML chart parts (xlsx_charts.go); conditional
+	formats, tab colours and the filter range are written by xlsx_cf.go.
 */
 
 import (
@@ -28,6 +28,8 @@ type xlsxStyleTable struct {
 	fonts   []string // font xml fragments
 	fills   []string // fill xml fragments
 	xfs     []string // cellXfs xf fragments
+	dxfs    []string // differential formats (conditional rules)
+	dxfIdx  map[string]int
 	fontIdx map[string]int
 	fillIdx map[string]int
 	numIdx  map[string]int
@@ -40,6 +42,7 @@ func newStyleTable() *xlsxStyleTable {
 		fillIdx: map[string]int{},
 		numIdx:  map[string]int{},
 		xfIdx:   map[string]int{},
+		dxfIdx:  map[string]int{},
 	}
 	// required defaults: font 0, fill 0 (none) + fill 1 (gray125)
 	t.font(`<font><sz val="11"/><name val="Calibri"/></font>`)
@@ -218,6 +221,9 @@ func (t *xlsxStyleTable) render() string {
 	sb.WriteString(`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`)
 	sb.WriteString(fmt.Sprintf(`<cellXfs count="%d">%s</cellXfs>`, len(t.xfs), strings.Join(t.xfs, "")))
 	sb.WriteString(`<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>`)
+	if len(t.dxfs) > 0 {
+		sb.WriteString(fmt.Sprintf(`<dxfs count="%d">%s</dxfs>`, len(t.dxfs), strings.Join(t.dxfs, "")))
+	}
 	sb.WriteString(`</styleSheet>`)
 	return sb.String()
 }
@@ -376,6 +382,13 @@ func BuildXlsx(wb *Workbook) ([]byte, error) {
 		names = append(names, fmt.Sprintf(`<definedName name="%s"%s>%s</definedName>`,
 			xmlEscape(n.Name), scope, xmlEscape(addXlPrefixes(strings.TrimPrefix(n.Formula, "=")))))
 	}
+	// Excel names every sheet's filter range too
+	for i, ws := range wb.Sheets {
+		if r := filterRange(ws.Filter); r != "" {
+			names = append(names, fmt.Sprintf(`<definedName name="_xlnm._FilterDatabase" localSheetId="%d" hidden="1">%s</definedName>`,
+				i, xmlEscape("'"+strings.ReplaceAll(sheetNames[i], "'", "''")+"'!"+absRange(r))))
+		}
+	}
 	if len(names) > 0 {
 		wbXML.WriteString(`<definedNames>` + strings.Join(names, "") + `</definedNames>`)
 	}
@@ -509,6 +522,9 @@ func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable, hasDrawing bool, l
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
 	sb.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"` +
 		` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`)
+	if c := hexColor(ws.Color, ""); c != "" {
+		sb.WriteString(`<sheetPr><tabColor rgb="FF` + c + `"/></sheetPr>`)
+	}
 
 	// freeze pane
 	if ws.Freeze != nil && (ws.Freeze.R > 0 || ws.Freeze.C > 0) {
@@ -598,6 +614,10 @@ func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable, hasDrawing bool, l
 	}
 	sb.WriteString("</sheetData>")
 
+	if r := filterRange(ws.Filter); r != "" {
+		sb.WriteString(`<autoFilter ref="` + r + `"/>`)
+	}
+
 	// merges
 	if len(ws.Merges) > 0 {
 		var ms []string
@@ -619,6 +639,8 @@ func buildWorksheetXML(ws *WorkSheet, styles *xlsxStyleTable, hasDrawing bool, l
 			sb.WriteString(`</mergeCells>`)
 		}
 	}
+
+	sb.WriteString(conditionalFormattingXML(ws, styles))
 
 	if hasDrawing {
 		sb.WriteString(`<drawing r:id="rId1"/>`)

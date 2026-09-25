@@ -6,10 +6,13 @@
     Office/common/ (framework, chrome CSS, chart renderer, vendored libs
     and the AGI file-saver backend).
 
-    Native file formats (JSON envelope, see Office/common/CONTRACT.md):
-        .doca - Docs   (word processor document)
-        .xlsa - Sheets (spreadsheet workbook)
-        .ppta - Slides (presentation)
+    File formats: each app saves straight into the Office format of its
+    kind, with the editor's own copy embedded in the package so the suite
+    reopens exactly what it saved (mod/office native.go):
+        .docx - Docs   (word processor document)
+        .xlsx - Sheets (spreadsheet workbook)
+        .pptx - Slides (presentation)
+    and opens the OpenDocument and text formats besides.
 */
 
 //Docs - word processor
@@ -28,7 +31,7 @@ registerModule(JSON.stringify({
     // 1080x700 once the document is ready (common/splash.js, data-size)
     InitFWSize: [480, 320],
     InitEmbSize: [480, 320],
-    SupportedExt: [".doca", ".docx"]
+    SupportedExt: [".docx", ".odt"]
 }));
 
 //Sheets - spreadsheet
@@ -46,7 +49,7 @@ registerModule(JSON.stringify({
     // splash-sized, grows to 1180x720 when ready (common/splash.js)
     InitFWSize: [480, 320],
     InitEmbSize: [480, 320],
-    SupportedExt: [".xlsa", ".csv", ".tsv", ".xlsx"]
+    SupportedExt: [".xlsx", ".ods", ".csv", ".tsv"]
 }));
 
 
@@ -65,11 +68,7 @@ registerModule(JSON.stringify({
     // splash-sized, grows to 1220x740 when ready (common/splash.js)
     InitFWSize: [480, 320],
     InitEmbSize: [480, 320],
-    SupportedExt: [".ppta", ".pptx"]
+    SupportedExt: [".pptx", ".odp"]
 }));
 
-//Register office specific file icons
-registerExtensionIcon(".doca", "img/file_icon_docs.png");
-registerExtensionIcon(".xlsa", "img/file_icon_sheets.png");
-registerExtensionIcon(".ppta", "img/file_icon_slides.png");
 

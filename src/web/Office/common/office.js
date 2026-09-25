@@ -2,8 +2,9 @@
     ArozOS Office Suite - shared application framework
     ====================================================
     Shared by Docs, Sheets and Slides. Provides:
-      - Document lifecycle: New / Open / Save / Save As, import of foreign
-        formats, native JSON envelope handling, file version metadata
+      - Document lifecycle: New / Open / Save / Save As in the app's own
+        Office format (.docx / .xlsx / .pptx), foreign formats (ODF, text),
+        the JSON envelope the editors hold, file version metadata
       - Auto-save, crash-recovery drafts (localStorage), recent documents
       - Menubar + statusbar chrome, dialogs, toasts, context menus
       - Keyboard shortcut registry, undo/redo bindings
@@ -13,13 +14,14 @@
         ../../script/jquery.min.js
         ../../script/ao_module.js
         ../common/mode.js
-        ../common/container.js
+        ../common/recents.js
+        ../common/wasm.js
         ../common/platform.js
         ../common/office.css
 
     Everything that reaches outside the browser tab - file dialogs, reading
-    and writing documents, the native container, session snapshots, AGI
-    calls - goes through OfficePlatform (common/platform.js), which is what
+    and writing documents, session snapshots, AGI calls - goes through
+    OfficePlatform (common/platform.js), which is what
     lets the same source run both as an ArozOS webapp and as the standalone
     static-hosting build.
 
@@ -108,6 +110,12 @@ var OfficeApp = (function () {
     var draftTimer = null;
     var autosaveTimer = null;
     var loadedFromImport = false;
+    // saving is asynchronous (the app prepares the document, then it
+    // travels): one write at a time, and an edit made while it is under way
+    // keeps the document dirty
+    var editSeq = 0;          // bumped by every markDirty
+    var saveBusy = false;
+    var queuedSave = null;    // {fp, fn, cb} asked for while a save was running
 
     var ENVELOPE_TYPE = "arozos/office";
     var GENERATOR = "ArozOS Office/1.0";
@@ -176,7 +184,7 @@ var OfficeApp = (function () {
 
     /* ---------- session snapshots ("Restore from previous session") ---------- */
     function saveSession() {
-        if (!cfg || !cfg.packed) return;
+        if (!cfg) return;
         var env;
         try { env = buildEnvelopeNoBump(); } catch (e) { return; }
         // annotate a COPY of meta - session bookkeeping must not leak into
@@ -190,7 +198,7 @@ var OfficeApp = (function () {
     }
     // drop the saved session snapshot so it stops prompting on next launch
     function deleteSession() {
-        if (!cfg || !cfg.packed) return;
+        if (!cfg) return;
         OfficePlatform.sessionDelete(cfg.appType);
     }
     function trySessionRestore() {
@@ -410,6 +418,7 @@ var OfficeApp = (function () {
             });
     }
     function markDirty() {
+        editSeq++;
         if (!dirty) { dirty = true; updateTitle(); }
         clearTimeout(draftTimer);
         draftTimer = setTimeout(saveDraft, 2500);
@@ -488,7 +497,7 @@ var OfficeApp = (function () {
         A file opened from a foreign format stays attached to that file when
         the app declared a writer for its extension (cfg.saveFormats): Save
         then writes back in the original format, and only steps up to the
-        native container once the document outgrows it (see doSaveForeign).
+        app's own format once the document outgrows it (see doSaveForeign).
         With no writer the import is read-only and Save has to become Save As
         - which is what every app did before saveFormats existed.
     */
@@ -520,9 +529,27 @@ var OfficeApp = (function () {
     }
     function openPath(fp, fn, opts) {
         fn = fn || basename(fp);
-        // binary foreign formats (e.g. .pptx) are handled by the app itself,
+        var ext = extOf(fn);
+        // a template (templates/*.json) is a plain envelope, not an Office
+        // file: it is read as text in both hosts and needs no conversion
+        if (opts && opts.asTemplate && ext === ".json") {
+            setStatus("Opening " + fn + "...", "info", 0);
+            vfsLoad(fp, function (text) {
+                splashStep("Preparing " + fn + "...", function () {
+                    try {
+                        loadNativeText(text, fp, fn, opts);
+                    } catch (err) {
+                        setStatus("Cannot open " + fn + ": " + err.message, "error");
+                    }
+                });
+            }, function () {
+                setStatus("Failed to load " + fn, "error");
+            });
+            return;
+        }
+        // binary foreign formats (e.g. .odt) are handled by the app itself,
         // usually through a server-side AGI conversion - no text fetch here
-        var bi = binaryImporters()[extOf(fn)];
+        var bi = binaryImporters()[ext];
         if (bi) {
             meta = { createdAt: now(), revision: 0 };
             adoptImportedPath(fp, fn);
@@ -533,11 +560,12 @@ var OfficeApp = (function () {
             return;
         }
         setStatus("Opening " + fn + "...", "info", 0);
-        // packed apps store native files as zip containers with embedded
-        // assets, so they are unpacked rather than fetched as text - server
-        // side in ArozOS, by OfficeContainer in the standalone build
-        if (cfg.packed && extOf(fn) === cfg.extension) {
-            OfficePlatform.containerLoad(fp, function (envelope) {
+        /* The app's own format: the platform turns the .docx / .xlsx / .pptx
+           into the envelope - the editor copy the suite embedded when it
+           saved the file, or an import of the OOXML when another program
+           wrote it (server side in ArozOS, WebAssembly in the web edition). */
+        if (ext === cfg.extension) {
+            OfficePlatform.documentLoad(fp, function (envelope) {
                 splashStep("Preparing " + fn + "...", function () {
                     var env = envelope;
                     if (typeof env === "string") {
@@ -557,11 +585,7 @@ var OfficeApp = (function () {
         vfsLoad(fp, function (text) {
             splashStep("Preparing " + fn + "...", function () {
                 try {
-                    if (extOf(fn) === cfg.extension) {
-                        loadNativeText(text, fp, fn, opts);
-                    } else {
-                        loadImportText(text, fp, fn);
-                    }
+                    loadImportText(text, fp, fn);
                 } catch (err) {
                     setStatus("Cannot open " + fn + ": " + err.message, "error");
                 }
@@ -607,7 +631,7 @@ var OfficeApp = (function () {
     }
     /* ---------- foreign save formats (cfg.saveFormats) ---------- */
     /*
-        An app may declare formats it can write besides its native container:
+        An app may declare formats it can write besides its own (.docx / .xlsx / .pptx):
 
             saveFormats: [{
                 ext: ".csv", label: "CSV (.csv)", icon: "file alternate outline",
@@ -651,7 +675,11 @@ var OfficeApp = (function () {
     }
     // a writer whose output the document can go on living in (excludes PDF)
     function saveFormatFor(ext) { return findSaveFormat(ext, true); }
-    function formatLabel(fmt) { return (fmt && (fmt.label || fmt.ext)) || cfg.extension; }
+    function formatLabel(fmt) { return (fmt && (fmt.label || fmt.ext)) || nativeLabel(); }
+    // "Word document (.docx)" - what the app's own format is called
+    function nativeLabel() {
+        return cfg.nativeLabel || (cfg.fileTypeName + " (" + cfg.extension + ")");
+    }
     function formatReasons(fmt) {
         if (!fmt || !fmt.unsupported) return null;
         var r;
@@ -659,7 +687,7 @@ var OfficeApp = (function () {
         return (r && r.length) ? r : null;
     }
     /*
-        A foreign format holds less than the native container does, so it may
+        A foreign format holds less than the app's own format does, so it may
         refuse a document outright instead of silently dropping content. The
         reasons come from the app as plain strings - escaped here, never
         trusted as markup.
@@ -696,6 +724,8 @@ var OfficeApp = (function () {
         }
         if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
         setStatus("Saving...", "info", 0);
+        var seq = editSeq;
+        saveBusy = true;
         fmt.save(fp, fn, function () {
             setStatus("Saved " + fn);
             // a one-way rendering is a copy, not the document's own file - the
@@ -703,15 +733,31 @@ var OfficeApp = (function () {
             if (!fmt.oneWay) {
                 filepath = fp; filename = fn;
                 loadedFromImport = false;
-                markClean();
+                savedClean(seq);
                 addRecent(fp, fn);
                 saveSession();
             }
+            finishSave();
             if (cb) cb();
         }, function (err) {
             setStatus("Save failed: " + err, "error");
+            finishSave();
         });
         return true;
+    }
+    // the file on disk has what the document held when the save began: it is
+    // clean only if nobody edited since
+    function savedClean(seq) {
+        if (seq === editSeq) markClean();
+        else updateTitle();
+    }
+    function finishSave() {
+        saveBusy = false;
+        if (queuedSave) {
+            var q = queuedSave;
+            queuedSave = null;
+            doSaveTo(q.fp, q.fn, q.cb);
+        }
     }
 
     function save(cb) {
@@ -741,27 +787,43 @@ var OfficeApp = (function () {
         });
     }
     /*
-        Write the document into the app's own container at fp. Shared by Save
-        / Save As and by the convert-to-native action, which writes a copy
-        without moving the open document onto it - so this deliberately
+        Write the document into the app's own Office format at fp. Shared by
+        Save / Save As and by the convert-to-native action, which writes a
+        copy without moving the open document onto it - so this deliberately
         touches nothing but the file. Returns false when the envelope could
         not even be built.
+
+        cfg.prepareNative(body) gets a private copy of the body to finish for
+        the OOXML writer - render a chart to PNG, turn an SVG into something
+        Word can hold - and may return a Promise. What it leaves in the copy
+        is both what the .docx / .xlsx / .pptx shows and the editor copy
+        embedded in it, so a preparation must only add, never take away.
     */
     function writeNative(fp, done, fail) {
         var env;
-        try { env = buildEnvelope(); }
-        catch (e) { fail(e.message); return false; }
-        var payload = JSON.stringify(env);
-        if (cfg.packed) {
-            // native zip container: media data URLs become embedded assets
-            OfficePlatform.containerSave(fp, payload, done, fail);
-        } else {
-            vfsSave(fp, payload, done, fail);
-        }
+        try {
+            env = buildEnvelope();
+            env.body = JSON.parse(JSON.stringify(env.body));
+        } catch (e) { fail(e.message); return false; }
+        var prep;
+        try { prep = cfg.prepareNative ? cfg.prepareNative(env.body) : null; }
+        catch (e) { fail(e.message || "could not prepare the document"); return true; }
+        Promise.resolve(prep).then(function () {
+            OfficePlatform.documentSave(fp, JSON.stringify(env), done, fail);
+        }, function (err) {
+            fail((err && err.message) ? err.message : "could not prepare the document");
+        });
         return true;
     }
     // returns false when the write was declined (format cannot hold the doc)
     function doSaveTo(fp, fn, cb, silent) {
+        if (saveBusy) {
+            // autosave simply skips a tick; an explicit save runs next
+            if (silent) return true;
+            queuedSave = { fp: fp, fn: fn, cb: cb };
+            setStatus("Saving...", "info", 0);
+            return true;
+        }
         var ext = extOf(fn);
         if (ext !== cfg.extension) {
             // one of the app's own foreign formats - including a document
@@ -778,24 +840,30 @@ var OfficeApp = (function () {
         }
         if (cfg.onBeforeSave) { try { cfg.onBeforeSave(); } catch (e) { } }
         setStatus("Saving...", "info", 0);
-        return writeNative(fp, function () {
+        var seq = editSeq;
+        saveBusy = true;
+        var started = writeNative(fp, function () {
             filepath = fp; filename = fn;
             loadedFromImport = false;
-            markClean();
+            savedClean(seq);
             addRecent(fp, fn);
             setStatus("Saved " + fn);
             saveSession();   // keep the session snapshot in step with the file
+            finishSave();
             if (cb) cb();
         }, function (err) {
             setStatus("Save failed: " + err, "error");
+            finishSave();
         });
+        if (!started) saveBusy = false;
+        return started;
     }
 
     /* ---------- foreign-format banner ---------- */
     /*
         A document opened from .docx / .pptx / .csv / ... goes on living in
         that file: Save rewrites it in its own format rather than quietly
-        turning it into a native container (see doSaveTo). That is the right
+        turning it into the app's own format (see doSaveTo). That is the right
         default - somebody who opened a .docx wants a .docx back - but it
         also means every ArozOS Office feature the foreign format cannot hold
         is being dropped on each save, which is worth saying out loud once
@@ -808,7 +876,7 @@ var OfficeApp = (function () {
     var bannerDismissed = null;   // filepath the banner was dismissed for
 
     // the format the open document currently lives in, or null when that is
-    // the app's own container (or nothing on disk yet)
+    // the app's own format (or nothing on disk yet)
     function foreignFormat() {
         if (!filepath || !filename) return null;
         var ext = extOf(filename);
@@ -821,8 +889,7 @@ var OfficeApp = (function () {
         $b.append('<span class="of-fmtbanner-msg"></span>');
         $b.append($('<button type="button" class="of-fmtbanner-btn"></button>')
             .html('<i class="exchange icon"></i>Convert to ' + escapeHtml(cfg.extension))
-            .attr("title", "Save a copy as an ArozOS Office " + cfg.fileTypeName.toLowerCase() +
-                " and open it")
+            .attr("title", "Save a copy as a " + nativeLabel() + " and open it")
             .on("click", convertToNative));
         $b.append($('<button type="button" class="of-fmtbanner-x" title="Dismiss">×</button>')
             .on("click", function () {
@@ -838,13 +905,13 @@ var OfficeApp = (function () {
         if (!f || bannerDismissed === filepath) { $b.hide(); return; }
         var what = f.fmt ? formatLabel(f.fmt) : (f.ext + " file");
         $b.find(".of-fmtbanner-msg").html(
-            "This is a <b>" + escapeHtml(what) + "</b>, not an ArozOS Office " +
-            escapeHtml(cfg.fileTypeName.toLowerCase()) + ". " +
+            "This is a <b>" + escapeHtml(what) + "</b>, not a " +
+            escapeHtml(nativeLabel()) + ". " +
             "Anything " + escapeHtml(f.ext) + " cannot store is lost on save.");
         $b.css("display", "");
     }
     /*
-        Write the document out as a native container and open that copy in a
+        Write the document out in the app's own format and open that copy in a
         window of its own. The editor stays on the original foreign file: the
         converted document is a new file, and which of the two to go on
         working in is the person's call, not ours.
@@ -1055,7 +1122,7 @@ var OfficeApp = (function () {
     }
     /*
         With foreign writers declared, "Save as" becomes a format picker whose
-        first entry is the native container; without them it stays the plain
+        first entry is the app's own format; without them it stays the plain
         Save As command it has always been.
     */
     function saveAsMenuItem() {
@@ -1068,7 +1135,7 @@ var OfficeApp = (function () {
         }
         var sub = [
             {
-                label: cfg.fileTypeName + " (" + cfg.extension + ")",
+                label: nativeLabel(),
                 icon: "save", key: "Ctrl+Shift+S",
                 action: function () { saveAsFormat(null); }
             },
@@ -1570,11 +1637,7 @@ var OfficeApp = (function () {
             cfg.create();
             markClean();
             splashDone();
-            if (cfg.packed) {
-                trySessionRestore();   // falls back to checkDraft() itself
-            } else {
-                checkDraft();
-            }
+            trySessionRestore();   // falls back to checkDraft() itself
         }
 
         // autosave + unload guard
@@ -1602,7 +1665,7 @@ var OfficeApp = (function () {
     /*
         Standalone build: dropping a document on the window opens it.
         This is the whole point of the web edition - somebody was sent a
-        .doca and wants to look at it - so it is worth a drop target even
+        .docx and wants to look at it - so it is worth a drop target even
         though the apps already handle drops of their own.
 
         It listens in the capture phase but only claims the event when every
@@ -1614,7 +1677,7 @@ var OfficeApp = (function () {
         if (!OfficePlatform.isStandalone()) return;
         var openable = function (name) {
             var e = extOf(name);
-            return e === cfg.extension || !!(cfg.importers || {})[e];
+            return e === cfg.extension || !!(cfg.importers || {})[e] || !!binaryImporters()[e];
         };
         var claims = function (e) {
             var dt = e.dataTransfer;

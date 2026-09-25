@@ -111,6 +111,7 @@ func ParseDocx(data []byte) (*Document, error) {
 		nb:       parseNumbering(files["word/numbering.xml"]),
 		bodyNode: body,
 		fnNumber: map[string]int{},
+		rv:       docxReview{used: map[string]bool{}},
 	}
 	docPart := cv.part("word/document.xml")
 	// Google Docs writes every rsid as zeros and numbers paragraphs from 1
@@ -194,6 +195,15 @@ func ParseDocx(data []byte) (*Document, error) {
 				if h, txt := cv.hfHTML(fh); txt != "" || strings.Contains(h, "<img") {
 					doc.HFMode = ""
 				}
+			}
+		}
+	}
+	// review: the comments the text anchors, and whether Word was tracking
+	doc.Comments = parseDocxComments(files, cv.rv.used)
+	if raw, ok := files["word/settings.xml"]; ok {
+		if st, err := parseXMLTree(raw); err == nil {
+			if tr := st.first("trackRevisions"); tr != nil && onOff(tr).v {
+				doc.TrackChanges = true
 			}
 		}
 	}
@@ -326,6 +336,10 @@ type docxConv struct {
 	reduceBefore float64
 	// a footer carried the page number our export adds (see hfHTML)
 	autoPageNumber bool
+	// review state: open comment ranges and the revision mark being walked
+	// (docx_review.go)
+	rv     docxReview
+	curRev string // "" | "ins" | "del"
 }
 
 // editorTableStyle marks a table BuildDocx wrote from an editor-made one
@@ -1253,6 +1267,8 @@ type inlinePiece struct {
 	css  string // run style diff
 	vert string
 	link string
+	rev  string // "ins" | "del": a tracked change
+	cmt  string // the comment anchored here (editor id)
 	html string
 	raw  bool // html is a complete element (no span wrapping)
 }
@@ -1289,8 +1305,22 @@ func (cv *docxConv) runs(p *xnode, part *docxPartCtx, baseR docxRPr) runsResult 
 				cv.fields = append(cv.fields, fieldFrame{instr: instr, inResult: true})
 				walk(c, link)
 				cv.fields = cv.fields[:len(cv.fields)-1]
-			case "smartTag", "customXml", "ins", "moveTo", "bdo", "dir":
+			case "smartTag", "customXml", "bdo", "dir":
 				walk(c, link)
+			case "ins", "moveTo", "del", "moveFrom":
+				prev := cv.curRev
+				if cv.curRev == "" {
+					cv.curRev = "ins"
+					if c.XMLName.Local == "del" || c.XMLName.Local == "moveFrom" {
+						cv.curRev = "del"
+					}
+				}
+				walk(c, link)
+				cv.curRev = prev
+			case "commentRangeStart":
+				cv.rv.start(c.attr("id"))
+			case "commentRangeEnd":
+				cv.rv.end(c.attr("id"))
 			case "sdt":
 				if sc := c.first("sdtContent"); sc != nil {
 					walk(sc, link)
@@ -1357,7 +1387,7 @@ func (cv *docxConv) run(r *xnode, part *docxPartCtx, baseR docxRPr, blockCSS map
 		if kind := cv.fieldKind(); kind != "" && !raw {
 			html = `<span class="doc-field" data-field="` + kind + `">` + html + `</span>`
 		}
-		*pieces = append(*pieces, inlinePiece{css: css, vert: vert, link: link, html: html, raw: raw})
+		*pieces = append(*pieces, cv.reviewed(inlinePiece{css: css, vert: vert, link: link, html: html, raw: raw}))
 	}
 	for i := range r.Nodes {
 		c := &r.Nodes[i]
@@ -1387,7 +1417,7 @@ func (cv *docxConv) run(r *xnode, part *docxPartCtx, baseR docxRPr, blockCSS map
 			continue
 		}
 		switch c.XMLName.Local {
-		case "t":
+		case "t", "delText":
 			t := c.Text
 			if t == "" {
 				continue
@@ -1435,8 +1465,8 @@ func (cv *docxConv) run(r *xnode, part *docxPartCtx, baseR docxRPr, blockCSS map
 			}
 			// the reference is its own superscript: the run's vertAlign
 			// must not wrap it in a second one
-			*pieces = append(*pieces, inlinePiece{css: css, link: link, raw: true,
-				html: `<sup class="doc-fnref" data-fn="` + xmlEscape(id) + `" contenteditable="false">` + strconv.Itoa(num) + `</sup>`})
+			*pieces = append(*pieces, cv.reviewed(inlinePiece{css: css, link: link, raw: true,
+				html: `<sup class="doc-fnref" data-fn="` + xmlEscape(id) + `" contenteditable="false">` + strconv.Itoa(num) + `</sup>`}))
 		case "footnoteRef":
 			// the number inside the footnote itself - the editor draws it
 			continue
@@ -1466,47 +1496,89 @@ func (cv *docxConv) run(r *xnode, part *docxPartCtx, baseR docxRPr, blockCSS map
 	}
 }
 
-// joinPieces merges adjacent pieces sharing one format into one span
+// reviewed stamps the review state in force onto a piece
+func (cv *docxConv) reviewed(p inlinePiece) inlinePiece {
+	p.rev = cv.curRev
+	p.cmt = cv.rv.current()
+	if p.cmt != "" {
+		cv.rv.used[p.cmt] = true
+	}
+	return p
+}
+
+// joinPieces merges adjacent pieces sharing one format into one span.
+// Nesting, outermost first: comment anchor, link, tracked change, style.
 func joinPieces(pieces []inlinePiece) string {
 	var sb strings.Builder
+	groupBy(len(pieces), func(a, b int) bool { return pieces[a].cmt == pieces[b].cmt }, func(i, j int) {
+		inner := joinLinks(pieces[i:j])
+		if cmt := pieces[i].cmt; cmt != "" {
+			sb.WriteString(`<span class="doc-cmt" data-cid="` + xmlEscape(cmt) + `">` + inner + `</span>`)
+		} else {
+			sb.WriteString(inner)
+		}
+	})
+	return sb.String()
+}
+
+// groupBy calls emit(i, j) for every run [i, j) of neighbours same says
+// belong together
+func groupBy(n int, same func(a, b int) bool, emit func(i, j int)) {
 	i := 0
-	for i < len(pieces) {
-		// group by link first
-		link := pieces[i].link
-		j := i
-		for j < len(pieces) && pieces[j].link == link {
+	for i < n {
+		j := i + 1
+		for j < n && same(i, j) {
 			j++
 		}
+		emit(i, j)
+		i = j
+	}
+}
+
+func joinLinks(pieces []inlinePiece) string {
+	var sb strings.Builder
+	groupBy(len(pieces), func(a, b int) bool { return pieces[a].link == pieces[b].link }, func(i, j int) {
 		var inner strings.Builder
-		k := i
-		for k < j {
-			css, vert := pieces[k].css, pieces[k].vert
-			m := k
-			var text strings.Builder
-			for m < j && pieces[m].css == css && pieces[m].vert == vert {
-				text.WriteString(pieces[m].html)
-				m++
-			}
-			h := text.String()
-			if css != "" {
-				h = `<span style="` + xmlEscape(css) + `">` + h + `</span>`
-			}
-			switch vert {
-			case "superscript":
-				h = "<sup>" + h + "</sup>"
-			case "subscript":
-				h = "<sub>" + h + "</sub>"
+		groupBy(j-i, func(a, b int) bool { return pieces[i+a].rev == pieces[i+b].rev }, func(ri, rj int) {
+			h := joinStyled(pieces[i+ri : i+rj])
+			switch pieces[i+ri].rev {
+			case "ins":
+				h = `<ins class="doc-ins">` + h + `</ins>`
+			case "del":
+				h = `<del class="doc-del">` + h + `</del>`
 			}
 			inner.WriteString(h)
-			k = m
-		}
-		if link != "" {
+		})
+		if link := pieces[i].link; link != "" {
 			sb.WriteString(`<a href="` + xmlEscape(link) + `" style="color:inherit;text-decoration:inherit;">` + inner.String() + `</a>`)
 		} else {
 			sb.WriteString(inner.String())
 		}
-		i = j
-	}
+	})
+	return sb.String()
+}
+
+func joinStyled(pieces []inlinePiece) string {
+	var sb strings.Builder
+	groupBy(len(pieces), func(a, b int) bool {
+		return pieces[a].css == pieces[b].css && pieces[a].vert == pieces[b].vert
+	}, func(i, j int) {
+		var text strings.Builder
+		for k := i; k < j; k++ {
+			text.WriteString(pieces[k].html)
+		}
+		h := text.String()
+		if css := pieces[i].css; css != "" {
+			h = `<span style="` + xmlEscape(css) + `">` + h + `</span>`
+		}
+		switch pieces[i].vert {
+		case "superscript":
+			h = "<sup>" + h + "</sup>"
+		case "subscript":
+			h = "<sub>" + h + "</sub>"
+		}
+		sb.WriteString(h)
+	})
 	return sb.String()
 }
 

@@ -50,9 +50,13 @@ type WorkSheet struct {
 	// rows hidden by a filter are not in it
 	HiddenRows []int `json:"hiddenRows,omitempty"`
 	// Charts round-trip as native DrawingML chart parts (xlsx_charts.go);
-	// Filter is a webapp-owned blob not representable in xlsx
+	// Filter is the webapp's filter blob - its range becomes the sheet's
+	// <autoFilter>, the hidden values stay the editor's own
 	Charts json.RawMessage `json:"charts,omitempty"`
 	Filter json.RawMessage `json:"filter,omitempty"`
+	// conditional rule bodies, referenced by id from WorkCell.Cf
+	// (xlsx_cf.go)
+	CfDefs map[string]*CfRule `json:"cfDefs,omitempty"`
 }
 
 // WorkCell holds the raw input ("=" prefix marks a formula) plus style
@@ -64,6 +68,8 @@ type WorkCell struct {
 	// A is the range a spilling (dynamic array) formula fills, e.g. "B2:B9".
 	// The webapp sets it on export only; it marks the formula for Excel.
 	A string `json:"a,omitempty"`
+	// Cf lists the conditional rules this cell carries (WorkSheet.CfDefs)
+	Cf []string `json:"cf,omitempty"`
 }
 
 // CellStyle mirrors the "s" style object of sheets.js

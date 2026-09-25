@@ -2,17 +2,18 @@
     OfficeWasm - the Office format converters, loaded on demand
     ==========================================================
 
-    In ArozOS the .docx / .xlsx / .pptx / ODF conversions run server side in
-    mod/office behind the AGI gateway. The standalone web edition has no
-    server, so it ships the very same Go code compiled to WebAssembly
-    (src/wasm/office) and runs it in the page.
+    In ArozOS the suite's documents (.docx / .xlsx / .pptx) are opened and
+    saved, and ODF converted, server side in mod/office behind the AGI
+    gateway. The standalone web edition has no server, so it ships the very
+    same Go code compiled to WebAssembly (src/wasm/office) and runs it in
+    the page - every open and save there goes through it.
 
     This file is only the loader and the call wrapper; nothing outside
     common/platform.js should touch it. Ask `OfficePlatform.canConvert()`
     whether conversions are possible at all, and go through
     `OfficePlatform.convertIn/convertOut` to run one.
 
-        OfficeWasm.available()                 // was this build made with -wasm?
+        OfficeWasm.available()                 // did this build ship the module?
         OfficeWasm.isReady()                   // module already loaded?
         OfficeWasm.load(cb, errcb)             // fetch + start it (idempotent)
         OfficeWasm.runImport(name, bytes, cb(jsonString), errcb)
@@ -21,8 +22,9 @@
     Notes on the design:
 
     - **Lazy.** The module is a few MB, which is most of the page weight, and
-      plenty of visitors only ever read a .doca. It is fetched the first time
-      a conversion is actually asked for, never on page load.
+      a visitor who only looks at the home page needs none of it. It is
+      fetched the first time a document is opened or saved, never on page
+      load.
     - **Plain fetch, not instantiateStreaming.** Streaming instantiation
       needs the server to send Content-Type: application/wasm, and the whole
       promise of this build is that it works on any dumb static host - a
