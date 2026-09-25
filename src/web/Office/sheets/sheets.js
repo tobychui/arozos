@@ -94,6 +94,7 @@ var SheetsApp = (function () {
     var rafPending = false, lastPointerEvt = null;
     var gridEl, cellsEl, spacerEl, colHeadIn, rowHeadIn, inputEl, rangeBoxEl, fillEl, spillBoxEl;
     var frozenRowsEl, frozenColsEl, frozenCornerEl;
+    var paneOvs = [];   // clipped overlay mirrors, one per frozen pane
 
     function esc(t) { return OfficeApp.escapeHtml(t); }
     function deep(o) { return JSON.parse(JSON.stringify(o)); }
@@ -730,6 +731,7 @@ var SheetsApp = (function () {
         if (el._shHtml === html) return;
         el._shHtml = html;
         el.innerHTML = html;
+        if (el._shOv) el.appendChild(el._shOv);   // keep the pane's overlay mirror
     }
     function renderHeaders(c1, c2, r1, r2, sl, st, sel) {
         var s = sheet(), fz = s.freeze;
@@ -784,35 +786,76 @@ var SheetsApp = (function () {
         rowHeadIn.innerHTML = out.join("");
         rowHeadIn.style.transform = "translateY(" + (-st) + "px)";
     }
+    /* The overlays (range box, spill outline, fill handle) scroll with the
+       cells underneath the frozen panes, so a selection scrolled up/left
+       hides behind them. Each frozen pane holds a mirror of the overlays,
+       clipped to the pane, which draws selections that fall inside it. */
+    function initPaneOverlays() {
+        [frozenRowsEl, frozenColsEl, frozenCornerEl].forEach(function (layer) {
+            var clip = document.createElement("div");
+            clip.className = "sh-frozen-ov";
+            clip.innerHTML = '<div class="sh-ov-spill"></div><div class="sh-ov-range"></div>' +
+                '<div class="sh-ov-fill" title="Drag to fill"></div>';
+            layer._shOv = clip;
+            layer.appendChild(clip);
+            paneOvs.push({
+                layer: layer, clip: clip,
+                spill: clip.children[0], range: clip.children[1], fill: clip.children[2]
+            });
+        });
+    }
+    function isFillHandle(el) {
+        return el === fillEl || (el && el.classList && el.classList.contains("sh-ov-fill"));
+    }
+    // size each pane's clip to the frozen region it covers
+    function sizePaneOverlays() {
+        var s = sheet(), fz = s.freeze;
+        var fw = colX[fz.c] || 0, fh = rowY[fz.r] || 0;
+        var tw = colX[s.cols] || 0, th = rowY[s.rows] || 0;
+        paneOvs.forEach(function (p) {
+            var w = p.layer === frozenRowsEl ? tw : fw;
+            var h = p.layer === frozenColsEl ? th : fh;
+            p.clip.style.width = w + "px";
+            p.clip.style.height = h + "px";
+        });
+    }
+    // show an overlay at sheet coordinates (null hides it) in the scrolling
+    // content and in every frozen pane's mirror
+    function placeOverlay(name, box) {
+        var main = { range: rangeBoxEl, spill: spillBoxEl, fill: fillEl }[name];
+        var els = [main].concat(paneOvs.map(function (p) { return p[name]; }));
+        els.forEach(function (el) {
+            if (!el) return;
+            if (!box) { el.style.display = "none"; return; }
+            el.style.display = "block";
+            el.style.left = box.x + "px";
+            el.style.top = box.y + "px";
+            if (box.w != null) {
+                el.style.width = box.w + "px";
+                el.style.height = box.h + "px";
+            }
+        });
+    }
+    function rangeRectBox(c1, r1, c2, r2) {
+        var a = cellRect(c1, r1), b = cellRect(c2, r2);
+        return { x: a.x, y: a.y, w: b.x + b.w - a.x, h: b.y + b.h - a.y };
+    }
     function renderSpillBox() {
         if (!spillBoxEl) return;
         var sp = !editing && calc && calc.spillAt ? calc.spillAt(head.c, head.r, body.active) : null;
-        if (!sp) { spillBoxEl.style.display = "none"; return; }
-        var a = cellRect(sp.c1, sp.r1), b = cellRect(sp.c2, sp.r2);
-        spillBoxEl.style.display = "block";
-        spillBoxEl.style.left = a.x + "px";
-        spillBoxEl.style.top = a.y + "px";
-        spillBoxEl.style.width = (b.x + b.w - a.x) + "px";
-        spillBoxEl.style.height = (b.y + b.h - a.y) + "px";
+        placeOverlay("spill", sp ? rangeRectBox(sp.c1, sp.r1, sp.c2, sp.r2) : null);
     }
     function renderRangeBox(sel) {
+        sizePaneOverlays();
         renderSpillBox();
         if (!sel || editing) {
-            rangeBoxEl.style.display = "none";
-            fillEl.style.display = "none";
+            placeOverlay("range", null);
+            placeOverlay("fill", null);
             return;
         }
-        var a = cellRect(sel.c1, sel.r1);
-        var b = cellRect(sel.c2, sel.r2);
-        var x = a.x, y = a.y, w = b.x + b.w - a.x, h = b.y + b.h - a.y;
-        rangeBoxEl.style.display = "block";
-        rangeBoxEl.style.left = x + "px";
-        rangeBoxEl.style.top = y + "px";
-        rangeBoxEl.style.width = w + "px";
-        rangeBoxEl.style.height = h + "px";
-        fillEl.style.display = "block";
-        fillEl.style.left = (x + w - 4) + "px";
-        fillEl.style.top = (y + h - 4) + "px";
+        var bx = rangeRectBox(sel.c1, sel.r1, sel.c2, sel.r2);
+        placeOverlay("range", bx);
+        placeOverlay("fill", { x: bx.x + bx.w - 4, y: bx.y + bx.h - 4 });
     }
 
     /* ================= sheet tabs ================= */
@@ -1407,13 +1450,8 @@ var SheetsApp = (function () {
         if (editing.viaFx) inputEl.value = el.value;
         else $("#shFxInput").val(el.value);
         // outline the picked range on the grid
-        var ra = cellRect(Math.min(a.c, b.c), Math.min(a.r, b.r));
-        var rb = cellRect(Math.max(a.c, b.c), Math.max(a.r, b.r));
-        rangeBoxEl.style.display = "block";
-        rangeBoxEl.style.left = ra.x + "px";
-        rangeBoxEl.style.top = ra.y + "px";
-        rangeBoxEl.style.width = (rb.x + rb.w - ra.x) + "px";
-        rangeBoxEl.style.height = (rb.y + rb.h - ra.y) + "px";
+        placeOverlay("range", rangeRectBox(Math.min(a.c, b.c), Math.min(a.r, b.r),
+            Math.max(a.c, b.c), Math.max(a.r, b.r)));
     }
     function beginRefPick(pos) {
         var el = refEditorEl();
@@ -1492,7 +1530,7 @@ var SheetsApp = (function () {
             }
         }
         if (e.target.closest && e.target.closest(".sh-chart")) return;   // charts handle their own
-        if (e.target === fillEl) {
+        if (isFillHandle(e.target)) {
             drag = { mode: "fill", startRg: selRange() };
             gridEl.classList.add("sh-filling");
             try { gridEl.setPointerCapture(e.pointerId); } catch (err) { }
@@ -1535,7 +1573,7 @@ var SheetsApp = (function () {
     function onGridPointerMove(e) {
         if (!drag) {
             // hover feedback: the selection border is grabbable
-            var onEdge = e.target !== fillEl && !onGridScrollbar(e) && onSelBorder(gridPos(e));
+            var onEdge = !isFillHandle(e.target) && !onGridScrollbar(e) && onSelBorder(gridPos(e));
             gridEl.classList.toggle("sh-movesel", onEdge);
             return;
         }
@@ -1561,13 +1599,7 @@ var SheetsApp = (function () {
             var dC = clamp(pos.c - drag.grab.c, -srg.c1, sheet().cols - 1 - srg.c2);
             var dR = clamp(pos.r - drag.grab.r, -srg.r1, sheet().rows - 1 - srg.r2);
             drag.mv = { dC: dC, dR: dR };
-            var ga = cellRect(srg.c1 + dC, srg.r1 + dR);
-            var gb = cellRect(srg.c2 + dC, srg.r2 + dR);
-            rangeBoxEl.style.display = "block";
-            rangeBoxEl.style.left = ga.x + "px";
-            rangeBoxEl.style.top = ga.y + "px";
-            rangeBoxEl.style.width = (gb.x + gb.w - ga.x) + "px";
-            rangeBoxEl.style.height = (gb.y + gb.h - ga.y) + "px";
+            placeOverlay("range", rangeRectBox(srg.c1 + dC, srg.r1 + dR, srg.c2 + dC, srg.r2 + dR));
         } else if (drag.mode === "refpick") {
             if (refPick && editing) refPickApply(refPick.start, pos);
         } else if (drag.mode === "fill") {
@@ -1581,12 +1613,7 @@ var SheetsApp = (function () {
                 c1: Math.min(rg.c1, rg.c1 + dC), c2: Math.max(rg.c2, rg.c2 + dC),
                 r1: Math.min(rg.r1, rg.r1 + dR), r2: Math.max(rg.r2, rg.r2 + dR)
             };
-            var a = cellRect(box.c1, box.r1), b = cellRect(box.c2, box.r2);
-            rangeBoxEl.style.display = "block";
-            rangeBoxEl.style.left = a.x + "px";
-            rangeBoxEl.style.top = a.y + "px";
-            rangeBoxEl.style.width = (b.x + b.w - a.x) + "px";
-            rangeBoxEl.style.height = (b.y + b.h - a.y) + "px";
+            placeOverlay("range", rangeRectBox(box.c1, box.r1, box.c2, box.r2));
         }
     }
     function onGridPointerUp(e) {
@@ -3033,6 +3060,7 @@ var SheetsApp = (function () {
         rangeBoxEl = document.getElementById("shRangeBox");
         spillBoxEl = document.getElementById("shSpillBox");
         fillEl = document.getElementById("shFillHandle");
+        initPaneOverlays();
 
         gridEl.setAttribute("tabindex", "0");
         gridEl.addEventListener("scroll", function () {

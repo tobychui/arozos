@@ -229,28 +229,42 @@ body.dark {
 .sh-cell.i { font-style: italic; }
 .sh-cell.u { text-decoration: underline; }
 
+/* The selection overlays sit in the scrolling content just under the frozen
+   panes (12-14), so a selection scrolled up/left slides behind them instead of
+   painting over them. Each frozen pane carries a clipped mirror of the
+   overlays (.sh-frozen-ov, synced by placeOverlay) for selections inside it. */
+.sh-frozen-ov {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
 /* the outline of the spilled array the active cell belongs to */
-#shSpillBox {
+#shSpillBox, .sh-ov-spill {
     position: absolute;
     border: 1px dashed var(--of-accent);
     pointer-events: none;
     box-sizing: border-box;
     display: none;
-    z-index: 15;
+    z-index: 11;
 }
 /* formula bar showing the anchor formula of a spilled cell */
 #shFxInput.sh-fx-ghost { color: var(--of-fg-soft); }
 
 /* active cell + range border + fill handle */
-#shRangeBox {
+#shRangeBox, .sh-ov-range {
     position: absolute;
     border: 2px solid var(--of-accent);
     pointer-events: none;
     box-sizing: border-box;
     display: none;
-    z-index: 15;
+    z-index: 11;
 }
-#shFillHandle {
+#shFillHandle, .sh-ov-fill {
     position: absolute;
     width: 8px;
     height: 8px;
@@ -259,7 +273,8 @@ body.dark {
     box-sizing: border-box;
     cursor: crosshair;
     display: none;
-    z-index: 16;
+    z-index: 11;
+    pointer-events: auto;
 }
 #shGrid.sh-filling, #shGrid.sh-filling .sh-cell { cursor: crosshair; }
 /* grabbing the selection border moves the block - the rule has to name
