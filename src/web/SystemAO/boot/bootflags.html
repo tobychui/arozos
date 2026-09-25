@@ -1,171 +1,701 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Runtime Adjustment</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <script type="text/javascript" src="../../script/applocale.js"></script>
-        <style>
-            #bootflags_main_content{
-                padding: 20px;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="bootflags_main_content" class="ui container">
-            <div class="ui basic segment">
-                <h3 class="ui header">
-                    <i class="play icon"></i>
-                    <div class="content">
-                        <span locale="runtime/runtime_adjustment">Runtime Adjustment</span>
-                        <div class="sub header" locale="runtime/update_system_startup_parameters">Update system startup parameters in runtime</div>
-                    </div>
-                </h3>
-                <div class="ui divider"></div>
-                <form id="setupform" class="ui form" onsubmit="handleFormSubmit(event, this);">
-                    <div class="field">
-                        <label locale="runtime/host_name">Host Name</label>
-                        <input class="config" type="text" name="Hostname" placeholder="My ArOZ">
-                    </div>
-                    <div class="field">
-                        <label locale="runtime/max_upload_size">Max Upload Size (MB)</label>
-                        <input class="config" type="number" name="MaxUploadSize" placeholder="8192">
-                    </div>
-                    <div class="field">
-                        <label locale="runtime/file_upload_buffer">File Upload Buffer (MB)</label>
-                        <input class="config" type="number" name="MaxFileUploadBuff" placeholder="25">
-                    </div>
-                    <div class="field">
-                        <label locale="runtime/file_io_buffer">File IO Buffer (Bytes, Default 1024)</label>
-                        <input class="config" type="number" name="FileIOBuffer" placeholder="1024">
-                    </div>
-                    <div class="field">
-                        <div class="ui toggle checkbox">
-                            <input class="config" type="checkbox" name="DisableIPResolver" tabindex="0">
-                            <label locale="runtime/disable_ip_resolver">Disable IP Resolver</label>
-                            <small locale="runtime/disable_ip_resolver_note">Not trying to analyze Client IP address, useful when the server is hosted under NAT or Reverse Proxy</small>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <title>Runtime</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+/*
+   Runtime (startup parameters)
+   Scoped entirely to #rt-root to avoid conflicts with the parent
+   system-settings CSS. Follows the look of the Host Info page.
+*/
+
+#rt-root {
+    --rt-text:      #1d1d1f;
+    --rt-dim:       #6e6e73;
+    --rt-muted:     #98989d;
+    --rt-divider:   #e0e0e3;
+    --rt-card:      #ffffff;
+    --rt-card-bd:   #e5e5e7;
+    --rt-field:     #ffffff;
+    --rt-field-bd:  #d2d2d7;
+    --rt-soft:      rgba(0, 0, 0, 0.035);
+    --rt-accent:    #0071e3;
+    --rt-accent-bg: rgba(0, 113, 227, 0.10);
+    --rt-toggle:    #d1d1d6;
+    --rt-ok:        #1f9d55;
+    --rt-ok-bg:     rgba(31, 157, 85, 0.10);
+    --rt-err:       #d93025;
+    --rt-err-bg:    rgba(217, 48, 37, 0.09);
+    --rt-shadow:    rgba(0, 0, 0, 0.13);
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--rt-text);
+    padding: 20px;
+    max-width: 760px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+#rt-root.dark {
+    --rt-text:      #f0f0f0;
+    --rt-dim:       #a0a0a5;
+    --rt-muted:     #737378;
+    --rt-divider:   #3a3a3a;
+    --rt-card:      #2b2b2b;
+    --rt-card-bd:   #3b3b3b;
+    --rt-field:     #1f1f1f;
+    --rt-field-bd:  #48484a;
+    --rt-soft:      rgba(255, 255, 255, 0.05);
+    --rt-accent:    #2997ff;
+    --rt-accent-bg: rgba(41, 151, 255, 0.14);
+    --rt-toggle:    #48484a;
+    --rt-ok:        #4cc47f;
+    --rt-ok-bg:     rgba(76, 196, 127, 0.13);
+    --rt-err:       #ff6b61;
+    --rt-err-bg:    rgba(255, 107, 97, 0.13);
+    --rt-shadow:    rgba(0, 0, 0, 0.45);
+}
+
+#rt-root *, #rt-root *::before, #rt-root *::after { box-sizing: border-box; }
+
+/* Header */
+
+#rt-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 0 22px;
+}
+
+#rt-head-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+#rt-title {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--rt-text) !important;
+    margin-bottom: 3px;
+}
+
+#rt-subtitle {
+    font-size: 13px;
+    color: var(--rt-dim) !important;
+    line-height: 1.45;
+}
+
+/* Groups */
+
+.rt-group { margin-bottom: 22px; }
+
+.rt-group-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+    color: var(--rt-muted) !important;
+    margin: 0 0 8px 4px;
+}
+
+.rt-card {
+    background: var(--rt-card);
+    border: 1px solid var(--rt-card-bd);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.rt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--rt-divider);
+}
+
+.rt-row:last-child { border-bottom: none; }
+
+.rt-row-text { min-width: 0; flex: 1; }
+
+.rt-row-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--rt-text) !important;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rt-row-desc {
+    font-size: 12px;
+    color: var(--rt-dim) !important;
+    margin-top: 3px;
+    line-height: 1.45;
+}
+
+.rt-flag {
+    display: none;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    color: var(--rt-accent) !important;
+    background: var(--rt-accent-bg);
+    padding: 1px 7px;
+    border-radius: 20px;
+    white-space: nowrap;
+    cursor: help;
+}
+
+.rt-flag.show { display: inline-block; }
+
+/* Controls */
+
+.rt-control {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#rt-root input[type="text"],
+#rt-root input[type="number"] {
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--rt-text);
+    background: var(--rt-field);
+    border: 1px solid var(--rt-field-bd);
+    border-radius: 8px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+#rt-root input[type="text"]   { width: 240px; }
+#rt-root input[type="number"] { width: 120px; text-align: right; }
+
+#rt-root input[type="text"]:focus,
+#rt-root input[type="number"]:focus {
+    border-color: var(--rt-accent);
+    box-shadow: 0 0 0 3px var(--rt-accent-bg);
+}
+
+#rt-root input.rt-invalid {
+    border-color: var(--rt-err);
+    box-shadow: 0 0 0 3px var(--rt-err-bg);
+}
+
+.rt-unit {
+    font-size: 12px;
+    color: var(--rt-dim) !important;
+    min-width: 34px;
+}
+
+/* Toggle switch */
+
+.rt-switch {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.rt-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.rt-switch .rt-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    background: var(--rt-toggle);
+    transition: background 0.18s;
+}
+
+.rt-switch .rt-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.18s;
+}
+
+.rt-switch input:checked + .rt-track { background: var(--rt-accent); }
+.rt-switch input:checked + .rt-track::after { transform: translateX(18px); }
+.rt-switch input:focus-visible + .rt-track { box-shadow: 0 0 0 3px var(--rt-accent-bg); }
+
+/* Info note */
+
+.rt-note {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--rt-soft);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--rt-dim) !important;
+    margin-bottom: 18px;
+}
+
+.rt-note svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--rt-accent);
+}
+
+.rt-note code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11.5px;
+}
+
+/* Action bar */
+
+#rt-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid var(--rt-divider);
+}
+
+#rt-status {
+    margin-right: auto;
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+}
+
+#rt-status.ok  { display: inline-flex; color: var(--rt-ok) !important;  background: var(--rt-ok-bg); }
+#rt-status.err { display: inline-flex; color: var(--rt-err) !important; background: var(--rt-err-bg); }
+#rt-status svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.rt-btn {
+    font-family: inherit;
+    font-size: 13.5px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.12s, background 0.12s;
+}
+
+.rt-btn:disabled { opacity: 0.45; cursor: default; }
+
+.rt-btn-primary { background: var(--rt-accent); color: #ffffff !important; }
+.rt-btn-primary:not(:disabled):hover { opacity: 0.88; }
+
+.rt-btn-plain {
+    background: transparent;
+    color: var(--rt-accent) !important;
+}
+.rt-btn-plain:not(:disabled):hover { background: var(--rt-accent-bg); }
+
+/* Responsive */
+
+@media (max-width: 560px) {
+    #rt-root { padding: 14px; }
+    .rt-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .rt-control { justify-content: flex-start; }
+    .rt-row.rt-row-toggle {
+        flex-direction: row;
+        align-items: center;
+    }
+    #rt-root input[type="text"] { width: 100%; }
+    .rt-control-text { width: 100%; }
+    #rt-status { width: 100%; margin-right: 0; }
+}
+    </style>
+</head>
+<body>
+
+<div id="rt-root">
+
+    <div id="rt-head">
+        <img id="rt-head-icon" src="../info/img/runtime.png" alt="">
+        <div>
+            <div id="rt-title" locale="runtime/title">Runtime</div>
+            <div id="rt-subtitle" locale="runtime/subtitle">Adjust startup parameters while the system is running. Changes are saved and restored on every boot.</div>
+        </div>
+    </div>
+
+    <form id="rt-form" autocomplete="off" onsubmit="return false;">
+
+        <div class="rt-group">
+            <div class="rt-group-title" locale="runtime/group_general">General</div>
+            <div class="rt-card">
+                <div class="rt-row">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/host_name">Host Name</span>
+                            <span class="rt-flag" data-for="Hostname">-hostname</span>
                         </div>
+                        <div class="rt-row-desc" locale="runtime/host_name_note">Name shown to users and on the local network. Network discovery picks up a new name after a restart.</div>
                     </div>
-                    <div class="field">
-                        <div class="ui toggle checkbox">
-                            <input class="config" type="checkbox" name="EnableHomePage" tabindex="0">
-                            <label locale="runtime/enable_home_page">Enable Home Page</label>
-                            <small locale="runtime/enable_home_page_note">Allowing users to host their own static web pages</small>
-                        </div>
+                    <div class="rt-control rt-control-text">
+                        <input class="rt-config" type="text" name="Hostname" placeholder="My ArOZ" maxlength="64">
                     </div>
-                    <div class="field">
-                        <div class="ui toggle checkbox">
-                            <input class="config" type="checkbox" name="EnableDirListing" tabindex="0">
-                            <label locale="runtime/enable_directory_listing">Enable Directory Listing</label>
-                            <small locale="runtime/enable_directory_listing_note">Allow listing the contents of a directory if the request URL is a folder</small>
-                        </div>
-                    </div>
-                    <div class="ui divider"></div>
-                    <p locale="runtime/confirmation_message">To continue updating your boot configuration, please confirm that: </p>
-                    <div class="field">
-                        <div class="ui checkbox">
-                            <input type="checkbox" tabindex="0" onchange="toggleConfirmBtn(this.checked)">
-                            <label locale="runtime/i_know_what_i_am_doing">I know exactly what I am doing</label>
-                            <small locale="runtime/i_know_what_i_am_doing_note">These changes are only applied to the current runtime session. If something goes wrong, you can restart your system to restore it to the default value.</small>
-                        </div>
-                    </div>
-                    <button id="confirmbtn" class="ui red disabled button" type="submit" locale="runtime/write_to_runtime">Write to Runtime</button>
-                </form>
-                <div class="ui red message" style="display:none;" id="failedmsg" locale="runtime/update_failed">
-                    <div class="header">
-                        <i class="remove icon"></i> Flags Update Failed
-                    </div>
-                    <ul class="list">
-                        <p id="errmsg">Your settings were not applied due to an unknown error.</p>
-                    </ul>
-                </div>
-                <div id="succmsg" class="ui green message transition" style="display:none;" locale="runtime/param_updated">
-                    <div class="header">
-                        <i class="checkmark icon"></i> Startup parameter Updated
-                    </div>
-                    <ul class="list">
-                        <p locale="runtime/param_updated_note">These settings will only be available in the current runtime session. Restart your server to restore the original settings.</p>
-                    </ul>
                 </div>
             </div>
         </div>
-        
-            <br><br>
+
+        <div class="rt-group">
+            <div class="rt-group-title" locale="runtime/group_upload">Upload &amp; File I/O</div>
+            <div class="rt-card">
+                <div class="rt-row">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/max_upload_size">Max Upload Size</span>
+                            <span class="rt-flag" data-for="MaxUploadSize">-max_upload_size</span>
+                        </div>
+                        <div class="rt-row-desc" locale="runtime/max_upload_size_note">Largest file a user can upload. Must not exceed the memory available on this host.</div>
+                    </div>
+                    <div class="rt-control">
+                        <input class="rt-config" type="number" name="MaxUploadSize" min="1" step="1" placeholder="8192">
+                        <span class="rt-unit">MB</span>
+                    </div>
+                </div>
+                <div class="rt-row">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/file_upload_buffer">File Upload Buffer</span>
+                            <span class="rt-flag" data-for="MaxFileUploadBuff">-upload_buf</span>
+                        </div>
+                        <div class="rt-row-desc" locale="runtime/file_upload_buffer_note">Uploads larger than this are buffered to disk instead of memory (slower).</div>
+                    </div>
+                    <div class="rt-control">
+                        <input class="rt-config" type="number" name="MaxFileUploadBuff" min="1" step="1" placeholder="25">
+                        <span class="rt-unit">MB</span>
+                    </div>
+                </div>
+                <div class="rt-row">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/file_io_buffer">File IO Buffer</span>
+                            <span class="rt-flag" data-for="FileIOBuffer">-iobuf</span>
+                        </div>
+                        <div class="rt-row-desc" locale="runtime/file_io_buffer_note">Memory used for each file operation. Default is 1024.</div>
+                    </div>
+                    <div class="rt-control">
+                        <input class="rt-config" type="number" name="FileIOBuffer" min="1" step="1" placeholder="1024">
+                        <span class="rt-unit" locale="runtime/unit_bytes">Bytes</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <script>
 
-            var runtimeLocale = NewAppLocale();
-            runtimeLocale.init("../locale/system_settings/runtime.json", function(){
-                runtimeLocale.translate();
-                initCurrentSettingList();
-            });
+        <div class="rt-group">
+            <div class="rt-group-title" locale="runtime/group_web">Web Services</div>
+            <div class="rt-card">
+                <div class="rt-row rt-row-toggle">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/disable_ip_resolver">Disable IP Resolver</span>
+                            <span class="rt-flag" data-for="DisableIPResolver">-disable_ip_resolver</span>
+                        </div>
+                        <div class="rt-row-desc" locale="runtime/disable_ip_resolver_note">Do not try to analyze the client IP address. Useful when the server is hosted behind NAT or a reverse proxy.</div>
+                    </div>
+                    <label class="rt-switch">
+                        <input class="rt-config" type="checkbox" name="DisableIPResolver">
+                        <span class="rt-track"></span>
+                    </label>
+                </div>
+                <div class="rt-row rt-row-toggle">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/enable_home_page">Enable Home Page</span>
+                            <span class="rt-flag" data-for="EnableHomePage">-homepage</span>
+                        </div>
+                        <div class="rt-row-desc" locale="runtime/enable_home_page_note">Allow users to host their own static web pages.</div>
+                    </div>
+                    <label class="rt-switch">
+                        <input class="rt-config" type="checkbox" name="EnableHomePage">
+                        <span class="rt-track"></span>
+                    </label>
+                </div>
+                <div class="rt-row rt-row-toggle">
+                    <div class="rt-row-text">
+                        <div class="rt-row-label">
+                            <span locale="runtime/enable_directory_listing">Enable Directory Listing</span>
+                            <span class="rt-flag" data-for="EnableDirListing">-dir_list</span>
+                        </div>
+                        <div class="rt-row-desc" locale="runtime/enable_directory_listing_note">Allow listing the contents of a directory if the request URL is a folder.</div>
+                    </div>
+                    <label class="rt-switch">
+                        <input class="rt-config" type="checkbox" name="EnableDirListing">
+                        <span class="rt-track"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
 
-            function handleFormSubmit(event, obj){
-                event.preventDefault();
-                var result = {};
-                $(obj).find(".config").each(function(){
-                    var name = $(this).attr("name");
-                    var value = $(this).val();
-                    if ($(this).attr('type') == "checkbox"){
-                        value =  $(this)[0].checked
-                    }else if ($(this).attr('type') == "number"){
-                        value = parseInt(value);
-                    }
-                    result[name] = value;
+        <div class="rt-note">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5"/>
+                <path d="M8 7.2v4" stroke-linecap="round"/>
+                <circle cx="8" cy="4.9" r="0.6" fill="currentColor" stroke="none"/>
+            </svg>
+            <div locale="runtime/priority_note">Saved values are restored when the system starts. A value passed as a start parameter (for example <code>-hostname</code>) takes priority: it replaces the saved value on that boot. Settings marked with their flag name were set this way.</div>
+        </div>
+
+        <div id="rt-actions">
+            <span id="rt-status"></span>
+            <button type="button" class="rt-btn rt-btn-plain" id="rt-revert" disabled locale="runtime/revert">Revert</button>
+            <button type="button" class="rt-btn rt-btn-primary" id="rt-save" disabled locale="runtime/save">Save</button>
+        </div>
+    </form>
+
+</div><!-- #rt-root -->
+
+<script>
+(function () {
+    /*
+        Own locale instance rather than the shared global one: this page is
+        loaded as a fragment into System Settings, which keeps its own strings
+        on the global applocale.
+    */
+    var rtLocale = (typeof NewAppLocale === "function") ? NewAppLocale() : {
+        init: function (f, cb) { cb(); },
+        translate: function () {},
+        getString: function (k, fallback) { return fallback; }
+    };
+
+    function rtStr(key, fallback) {
+        try {
+            return rtLocale.getString(key, fallback) || fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    var ICON_OK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+    var ICON_ERR = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.8v4"/><path d="M8 11.2v0.1"/></svg>';
+
+    var root = document.getElementById("rt-root");
+    var loaded = null;      // last values read from the server
+    var statusTimer = null;
+
+    /* Theme */
+    function rtApplyTheme() {
+        try {
+            var theme = (typeof preferredTheme !== "undefined") ? preferredTheme :
+                        (parent && parent.preferredTheme) ? parent.preferredTheme : undefined;
+            if (theme && theme !== "auto") {
+                root.classList.toggle("dark", theme === "dark");
+            } else if (typeof ao_module_getSystemThemeColor === "function") {
+                ao_module_getSystemThemeColor(function (c) {
+                    root.classList.toggle("dark", c !== "whiteTheme");
                 });
-
-                //Send the results back to the backend
-                console.log(result);
-                $.ajax({
-                    url: "../../system/bootflags",
-                    data: {opr: "set", value: JSON.stringify(result)},
-                    method: "POST",
-                    success: function(data){
-                        if (data.error != undefined){
-                            $("#errmsg").text(data.error);
-                            $("#failedmsg").slideDown("fast").delay(10000).slideUp('fast');
-                        }else{
-                            $("#succmsg").slideDown("fast").delay(3000).slideUp('fast');
-                        }
-
-                        //Update the list again
-                        initCurrentSettingList();
-                    }
-                })
             }
+        } catch (e) {}
+    }
 
-            function initCurrentSettingList(){
-                $.get("../../system/bootflags", function(data){
-                    if (data.errpr !== undefined){
-                        $("#errmsg").text(data.error);
-                        $("#failedmsg").slideDown("fast").delay(10000).slideUp('fast');
-                    }else{
-                        //Load the data
-                        for (var [key, value] of Object.entries(data)) {
-                            var targetInputField = $(`[name ='${key}']`);
-                            if (targetInputField.attr("type") == "text"){
-                                targetInputField.val(value);
-                            }else if (targetInputField.attr("type") == "checkbox"){
-                                targetInputField[0].checked = value;
-                            }else if (targetInputField.attr("type") == "number"){
-                                targetInputField.val(value);
-                            }
-                        }
-                    }
-                });
+    window.detailPageThemeCallback = function (isDark) {
+        var el = document.getElementById("rt-root");
+        if (el) el.classList.toggle("dark", isDark);
+    };
+
+    /* Form helpers */
+    function fields() {
+        return root.querySelectorAll(".rt-config");
+    }
+
+    function readForm() {
+        var result = {};
+        fields().forEach(function (input) {
+            if (input.type === "checkbox") {
+                result[input.name] = input.checked;
+            } else if (input.type === "number") {
+                result[input.name] = parseInt(input.value, 10);
+            } else {
+                result[input.name] = input.value.trim();
             }
+        });
+        return result;
+    }
 
-            function toggleConfirmBtn(value){
-                if (value == true){
-                    $("#confirmbtn").removeClass("disabled");
-                }else{
-                    $("#confirmbtn").addClass("disabled");
+    function fillForm(data) {
+        fields().forEach(function (input) {
+            if (!(input.name in data)) return;
+            if (input.type === "checkbox") {
+                input.checked = !!data[input.name];
+            } else {
+                input.value = data[input.name];
+            }
+            input.classList.remove("rt-invalid");
+        });
+
+        var fromFlag = data.FromStartFlag || [];
+        root.querySelectorAll(".rt-flag").forEach(function (badge) {
+            var isSet = fromFlag.indexOf(badge.getAttribute("data-for")) >= 0;
+            badge.classList.toggle("show", isSet);
+            badge.title = rtStr("runtime/flag_tooltip", "Set by a start parameter this boot. It will replace the saved value again on the next boot unless the parameter is removed.");
+        });
+    }
+
+    function isDirty() {
+        if (loaded === null) return false;
+        var current = readForm();
+        for (var key in current) {
+            if (current[key] !== loaded[key]) return true;
+        }
+        return false;
+    }
+
+    function validate() {
+        var ok = true;
+        fields().forEach(function (input) {
+            var bad = false;
+            if (input.type === "number") {
+                var v = parseInt(input.value, 10);
+                bad = !(v > 0);
+            } else if (input.type === "text") {
+                bad = input.value.trim() === "";
+            }
+            input.classList.toggle("rt-invalid", bad);
+            if (bad) ok = false;
+        });
+        return ok;
+    }
+
+    function refreshButtons() {
+        var dirty = isDirty();
+        document.getElementById("rt-save").disabled = !dirty;
+        document.getElementById("rt-revert").disabled = !dirty;
+    }
+
+    function showStatus(ok, text) {
+        var el = document.getElementById("rt-status");
+        clearTimeout(statusTimer);
+        el.className = ok ? "ok" : "err";
+        el.innerHTML = (ok ? ICON_OK : ICON_ERR);
+        var span = document.createElement("span");
+        span.textContent = text;
+        el.appendChild(span);
+        if (ok) {
+            statusTimer = setTimeout(function () { el.className = ""; }, 3500);
+        }
+    }
+
+    /* Server I/O */
+    function rtLoad() {
+        $.get("../../system/bootflags", function (data) {
+            if (data == null || data.error !== undefined) {
+                showStatus(false, (data && data.error) || rtStr("runtime/load_failed", "Unable to load the current settings"));
+                return;
+            }
+            loaded = {};
+            for (var key in data) {
+                if (key !== "FromStartFlag") loaded[key] = data[key];
+            }
+            fillForm(data);
+            refreshButtons();
+        }).fail(function () {
+            showStatus(false, rtStr("runtime/load_failed", "Unable to load the current settings"));
+        });
+    }
+
+    function rtSave() {
+        if (!validate()) {
+            showStatus(false, rtStr("runtime/invalid", "Check the highlighted fields: values must be larger than zero and the host name cannot be empty."));
+            return;
+        }
+
+        var btn = document.getElementById("rt-save");
+        btn.disabled = true;
+        $.ajax({
+            url: "../../system/bootflags",
+            method: "POST",
+            data: { opr: "set", value: JSON.stringify(readForm()) },
+            success: function (data) {
+                if (data != null && data.error !== undefined) {
+                    showStatus(false, data.error);
+                    refreshButtons();
+                    return;
                 }
+                showStatus(true, rtStr("runtime/saved", "Saved. The new values are active and will be restored on the next boot."));
+                rtLoad();
+            },
+            error: function () {
+                showStatus(false, rtStr("runtime/save_failed", "Could not save the settings"));
+                refreshButtons();
             }
-        </script>
-    </body>
+        });
+    }
+
+    /* Boot */
+    rtApplyTheme();
+
+    fields().forEach(function (input) {
+        input.addEventListener("input", function () {
+            input.classList.remove("rt-invalid");
+            refreshButtons();
+        });
+        input.addEventListener("change", refreshButtons);
+    });
+
+    document.getElementById("rt-save").addEventListener("click", rtSave);
+    document.getElementById("rt-revert").addEventListener("click", function () {
+        if (loaded) fillForm($.extend({}, loaded, { FromStartFlag: currentFlagFields() }));
+        refreshButtons();
+    });
+    document.getElementById("rt-form").addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && e.target.tagName === "INPUT" && !document.getElementById("rt-save").disabled) {
+            e.preventDefault();
+            rtSave();
+        }
+    });
+
+    function currentFlagFields() {
+        var list = [];
+        root.querySelectorAll(".rt-flag.show").forEach(function (b) {
+            list.push(b.getAttribute("data-for"));
+        });
+        return list;
+    }
+
+    rtLocale.init("../locale/system_settings/runtime.json", function () {
+        rtLocale.translate();
+        rtLoad();
+    });
+})();
+</script>
+</body>
 </html>

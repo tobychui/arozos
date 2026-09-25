@@ -97,6 +97,7 @@ func RunStartup() {
 		panic(err)
 	}
 	sysdb = dbconn
+	StartupFlagsRestore() //Restore saved startup parameters before any service reads them, see startup.flags.go
 
 	//2. Initiate the auth Agent
 	AuthInit() //See auth.go
