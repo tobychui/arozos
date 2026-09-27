@@ -51,7 +51,8 @@ func mediaServer_init() {
 		//whose container extension merely looks playable
 		http.HandleFunc("/media/probe/", mediaServer.ServeMediaProbe)
 
-		//HLS output, for clients that require byte-range-able media (Safari / iOS)
+		//HLS output, for clients that require byte-range-able media (Safari / iOS);
+		//other browsers may opt in and play it through Media Source
 		http.HandleFunc("/media/hls/", mediaServer.ServeHLSPlaylist)
 		http.HandleFunc(mediaserver.HLSSegmentEndpoint, mediaServer.ServeHLSSegment)
 		http.HandleFunc("/media/duration/", mediaServer.GetAudioDuration)

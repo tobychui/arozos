@@ -6,10 +6,14 @@ package mediaserver
 	HLS delivery endpoints for transcoded video.
 
 	This module adds support for HLS based streaming to the media server.
+	Safari (and every browser on iOS) needs it, since it will not play the
+	unbounded MP4 response of /media/transcode. Other browsers default to that
+	MP4 stream and can opt into HLS, which they play through Media Source
+	(web/script/hlsmse.js) because the segments are fragmented MP4.
 
 	Two endpoints make up the format:
 	  /media/hls/          ?file=<vpath>[&res=][&start=]  -> the .m3u8 playlist
-	  /media/hls/segment   ?sid=<session>&name=<segment>  -> one .ts segment
+	  /media/hls/segment   ?sid=<session>&name=<segment>  -> one fMP4 segment, or the init segment
 
 	The playlist request creates (or joins) a transcode session; every segment
 	line inside it points back at the segment endpoint carrying that session id.

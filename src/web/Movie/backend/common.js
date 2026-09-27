@@ -43,9 +43,21 @@ var SCRIPT_CLEAR_INDEX        = BACKEND_PATH + "clearIndex.js";
 //        is a finite, seekable file, so WebKit plays it and seeking inside the
 //        transcoded window no longer restarts the stream.
 //
-// "auto" picks hls on WebKit and mp4 everywhere else, so nothing changes for
-// browsers that were already working.
+// "auto" picks hls on WebKit and mp4 everywhere else (Firefox, Chrome, Edge on
+// Windows and Linux). HLS exists for WebKit's sake and is not the better choice
+// where MP4 works: the MP4 transcode writes into the response, so the client's
+// reading pace holds ffmpeg back and closing the player ends it, while an HLS
+// session writes the whole film to temp disk as fast as the CPU allows and
+// outlives the player until it is reaped. Other browsers can still choose HLS
+// in settings; they play it through Media Source (see nativeHLSSupported).
 var STREAM_MODE_KEY = "movie_stream_mode";
+
+// Fired on the <video> element when a Media Source HLS player loses a stream
+// it had already bound (session reaped, segments failing, playback stuck),
+// with event.detail.reason saying why. Pages treat it like the element's own
+// 'error' event, which is how native HLS reports the same thing, and reopen
+// the stream where it stopped.
+var STREAM_LOST_EVENT = "transcodestreamlost";
 
 // Identifies this player to the HLS endpoint. Seeking outside the transcoded
 // window restarts the transcode at a new offset, and the server has no other
@@ -229,7 +241,9 @@ function playlistErrorMessage(body, status) {
 // A playlist is checked before the player is pointed at it, which makes the
 // attachment asynchronous: onReady fires once the stream is actually bound, and
 // is where the caller should call play(). onError reports a stream that never
-// became playable, with the server's own explanation.
+// became playable, with the server's own explanation. A stream that fails after
+// it was bound is reported on the element instead: its 'error' event for native
+// playback, STREAM_LOST_EVENT for the Media Source player.
 function attachTranscodeStream(videoEl, url, onError, onReady) {
     detachTranscodeStream(videoEl);
 
@@ -258,14 +272,32 @@ function attachTranscodeStream(videoEl, url, onError, onReady) {
         };
     } else if (window.MovieHLS && window.MovieHLS.isSupported()) {
         bind = function () {
-            videoEl._mseInstance = window.MovieHLS.attach(videoEl, url, {
-                onError: function (reason, err) { fail(reason, err); }
+            var instance = window.MovieHLS.attach(videoEl, url, {
+                onError: function (reason, err) {
+                    // A player already replaced by a newer stream is not news
+                    if (videoEl._mseInstance !== instance) { return; }
+                    videoEl.dispatchEvent(new CustomEvent(STREAM_LOST_EVENT, {
+                        detail: { reason: reason, error: err }
+                    }));
+                }
             });
+            videoEl._mseInstance = instance;
             ready();
         };
     } else {
         return false;
     }
+
+    // Stop the stream being replaced now, not when the new one binds. Tearing
+    // down its player does not stop the element: it plays on through whatever
+    // it had buffered while the page already counts time from the new offset,
+    // so after a jump to 2:20 the clock runs 2:20, 2:21, 2:22 over the old
+    // picture, then snaps back to 2:20 when the new stream arrives. The gap is
+    // the preflight below, which waits for the server to start ffmpeg at the
+    // new offset - seconds, not milliseconds. An emptied element shows nothing
+    // (the page keeps its freeze frame over it) and holds its clock at zero,
+    // which is exactly the new offset.
+    stopElementMedia(videoEl);
 
     // A seek made while the previous playlist is still being fetched must not
     // be overtaken by that older answer.
@@ -277,6 +309,16 @@ function attachTranscodeStream(videoEl, url, onError, onReady) {
         bind();
     });
     return true;
+}
+
+// Empty the element so nothing keeps playing from its old source. Removing the
+// attribute (rather than setting src to "") matters: an empty src is an invalid
+// source and fires 'error', which the pages would treat as a lost stream. The
+// load() rejects a pending play() with AbortError, which playVideo ignores.
+function stopElementMedia(videoEl) {
+    if (!videoEl.hasAttribute("src")) { return; }
+    videoEl.removeAttribute("src");
+    videoEl.load();
 }
 
 // Release whichever player is currently bound to the element. Always call this

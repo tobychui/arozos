@@ -157,3 +157,18 @@ func TestGetHWEncoderProfile_Cached(t *testing.T) {
 		t.Errorf("getHWEncoderProfile() returned different results across calls: %v vs %v", first, second)
 	}
 }
+
+// TestNVENCProfilesForceIDR guards the HLS segment length: without -forced-idr
+// NVENC ignores -force_key_frames for segmenting purposes and cuts ~10s
+// segments at its default GOP. Platforms with no NVENC candidate pass trivially.
+func TestNVENCProfilesForceIDR(t *testing.T) {
+	for _, profile := range candidateHWProfiles() {
+		if profile.Codec != "h264_nvenc" {
+			continue
+		}
+		i := indexOf(profile.EncodeArgs, "-forced-idr")
+		if i == -1 || i+1 >= len(profile.EncodeArgs) || profile.EncodeArgs[i+1] != "1" {
+			t.Errorf("%s EncodeArgs = %v, want -forced-idr 1", profile.Name, profile.EncodeArgs)
+		}
+	}
+}

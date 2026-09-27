@@ -223,8 +223,19 @@ func TestBuildHLSArgs(t *testing.T) {
 		if strings.Contains(joined, "-ss ") {
 			t.Errorf("start time 0 should not add -ss\ngot: %v", args)
 		}
-		if last := args[len(args)-1]; last != filepath.Join(dir, hlsPlaylistName) {
+		if last := args[len(args)-1]; last != filepath.ToSlash(filepath.Join(dir, hlsPlaylistName)) {
 			t.Errorf("playlist path = %q, want it last and inside the session dir", last)
+		}
+		// ffmpeg derives the init segment's directory from the playlist path
+		// by its last '/', so a backslash there sends init.mp4 elsewhere
+		segmentFlag := indexOf(args, "-hls_segment_filename")
+		if segmentFlag == -1 {
+			t.Fatalf("args missing -hls_segment_filename\ngot: %v", args)
+		}
+		for _, path := range []string{args[segmentFlag+1], args[len(args)-1]} {
+			if strings.Contains(path, `\`) {
+				t.Errorf("output path %q must use forward slashes", path)
+			}
 		}
 	})
 
@@ -594,6 +605,14 @@ func TestGetOrCreateSupersedesOnSeek(t *testing.T) {
 	}
 	if !strings.Contains(string(playlist), hlsSegmentSuffix) {
 		t.Error("the playlist lists no media segment")
+	}
+	//The segment endpoint serves the init segment from the session directory;
+	//on Windows ffmpeg used to drop it into its working directory instead
+	if _, err := second.SegmentPath(HLSInitSegmentName); err != nil {
+		t.Fatalf("init segment name rejected: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(second.Dir, HLSInitSegmentName)); err != nil {
+		t.Errorf("the init segment is not in the session directory: %v", err)
 	}
 }
 

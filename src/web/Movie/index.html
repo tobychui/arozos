@@ -2680,7 +2680,9 @@ function transcodeSeekTo(seconds) {
 }
 
 // Whether `pos` (absolute time) falls inside what the current stream has
-// already produced and can therefore be reached without reloading.
+// already produced and can therefore be reached without reloading. seekable
+// spans every segment the playlist lists, for native HLS and for the Media
+// Source player alike (it publishes the playlist's length as the duration).
 function seekWithinTranscodedWindow(vid, pos) {
     var relative = pos - transcodeSeekOffset;
     if (relative < 0) { return false; }
@@ -2696,16 +2698,20 @@ function seekWithinTranscodedWindow(vid, pos) {
 // player: reaped after a long pause, retired when the same player asked for a
 // different offset, or lost with a restart. The next segment then 404s and the
 // element reports a decode error, which leaves a black frame and no way back.
-// Re-open the stream where it stopped instead.
+// Re-open the stream where it stopped instead. The Media Source player reports
+// the same failures as STREAM_LOST_EVENT rather than an element error.
+//
+// Returns whether a recovery was started, so a caller holding a reason for the
+// failure can show it once recovery has given up.
 var streamRecoveryAttempts = 0;
 var STREAM_RECOVERY_LIMIT  = 3;   // consecutive tries before giving up
 
 function recoverTranscodeStream() {
-    if (!isTranscodedVideo || !usingHLS()) { return; }
-    if (playingIndex < 0 || !currentEpisodes[playingIndex]) { return; }
+    if (!isTranscodedVideo || !usingHLS()) { return false; }
+    if (playingIndex < 0 || !currentEpisodes[playingIndex]) { return false; }
     // A file that genuinely cannot be transcoded fails every time; retrying it
     // forever would replace one dead player with a flickering one.
-    if (streamRecoveryAttempts >= STREAM_RECOVERY_LIMIT) { return; }
+    if (streamRecoveryAttempts >= STREAM_RECOVERY_LIMIT) { return false; }
     streamRecoveryAttempts++;
 
     var vid      = document.getElementById('main-video');
@@ -2715,6 +2721,7 @@ function recoverTranscodeStream() {
     attachTranscodeStream(vid, transcodeStreamURL(currentEpisodes[playingIndex].filepath, resumeAt),
         function (reason) { hideSeekFreeze(); showToast(reason); },
         function () { playVideo(vid); });
+    return true;
 }
 
 // Current playback position in whole-file terms (transcode streams restart at 0)
@@ -3905,6 +3912,12 @@ function initVideoControls() {
     $(vid).on('error', function () {
         hideSeekFreeze();
         recoverTranscodeStream();
+    });
+    $(vid).on(STREAM_LOST_EVENT, function (e) {
+        hideSeekFreeze();
+        if (recoverTranscodeStream()) { return; }
+        var detail = (e.originalEvent && e.originalEvent.detail) || {};
+        showToast(detail.reason || 'The HLS stream stopped and could not be reopened.');
     });
 
     // Auto-hide controls

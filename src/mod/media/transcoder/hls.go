@@ -194,7 +194,7 @@ func (s *HLSSession) stop() {
 }
 
 // validHLSSegmentName reports whether name matches the segment naming this
-// package generates ("seg00000.ts"), rejecting anything containing a path
+// package generates ("seg00000.m4s", plus the fixed init segment name), rejecting anything containing a path
 // separator, "..", or unexpected characters.
 func validHLSSegmentName(name string) bool {
 	// The fMP4 initialisation segment is fetched through the same endpoint as
@@ -269,7 +269,8 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 
 	// Take the first video and, if present, the first audio track. Without this
 	// a file carrying extra streams (subtitles, attachments, second audio) can
-	// fail to mux into MPEG-TS.
+	// fail to mux into the fMP4 segments, or put a track the player does not
+	// expect into them.
 	args = append(args, "-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn")
 
 	if vf != "" {
@@ -298,10 +299,22 @@ func buildHLSArgs(inputFile string, dir string, resolution TranscodeOutputResolu
 		"-hls_segment_type", "fmp4",
 		"-hls_fmp4_init_filename", HLSInitSegmentName,
 		"-hls_base_url", segmentBaseURL,
-		"-hls_segment_filename", filepath.Join(dir, hlsSegmentPattern),
-		filepath.Join(dir, hlsPlaylistName),
+		"-hls_segment_filename", hlsOutputPath(dir, hlsSegmentPattern),
+		hlsOutputPath(dir, hlsPlaylistName),
 	)
 	return args, nil
+}
+
+// hlsOutputPath builds an output path for the HLS muxer with forward slashes.
+//
+// ffmpeg places the fMP4 init segment next to the playlist by cutting the
+// playlist path at its last '/', and only '/'. Given a native Windows path
+// (backslashes) it finds no directory, so init.mp4 lands in ffmpeg's working
+// directory instead of the session's, every session overwrites the same file,
+// and the player's first request - the init segment - 404s. ffmpeg on Windows
+// accepts forward slashes, and on every other OS this changes nothing.
+func hlsOutputPath(dir string, name string) string {
+	return filepath.ToSlash(filepath.Join(dir, name))
 }
 
 // resolutionHeight maps a requested output resolution to an ffmpeg scale

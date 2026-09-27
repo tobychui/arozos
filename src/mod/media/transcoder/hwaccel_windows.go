@@ -20,7 +20,10 @@ func candidateHWProfiles() []*hwEncoderProfile {
 			Name:        "NVIDIA NVENC",
 			Codec:       "h264_nvenc",
 			ScaleFilter: nv12ScaleFilter,
-			EncodeArgs:  []string{"-preset", "fast"},
+			// -forced-idr: NVENC turns -force_key_frames into plain I-frames,
+			// which the HLS muxer cannot cut on, so segments fall back to its
+			// 250-frame GOP (~10s) and every seek has to wait for one.
+			EncodeArgs: []string{"-preset", "fast", "-forced-idr", "1"},
 		},
 		{
 			Name:        "Intel Quick Sync (QSV)",
