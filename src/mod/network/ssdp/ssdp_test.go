@@ -3,6 +3,7 @@ package ssdp
 import (
 	"runtime"
 	"testing"
+	"time"
 )
 
 // TestSSDPOption_Fields verifies that an SSDPOption struct can be created with
@@ -92,4 +93,32 @@ func TestNewSSDPHost_SkipIfNoNetwork(t *testing.T) {
 	if host.advStarted {
 		t.Error("expected advStarted to be false before Start() is called")
 	}
+}
+
+// TestSSDPHost_CloseStopsAliveLoop is a regression test for the "send on closed
+// channel" panic on Ctrl+C: after Close() the alive loop must exit instead of
+// calling Alive() on the closed advertiser at the next tick.
+func TestSSDPHost_CloseStopsAliveLoop(t *testing.T) {
+	host, err := NewSSDPHost("127.0.0.1", 18081, "/nonexistent/template.xml", SSDPOption{UUID: "test-uuid-ssdp-0002"})
+	if err != nil {
+		t.Skipf("skipping SSDP shutdown test (network unavailable): %v", err)
+	}
+	host.aliveInterval = 10 * time.Millisecond
+	host.Start()
+	time.Sleep(30 * time.Millisecond)
+
+	closed := make(chan struct{})
+	go func() {
+		host.Close()
+		host.Close() //A second Close must not block or panic
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Close did not return")
+	}
+
+	//Several ticks after Close; the old loop panicked here
+	time.Sleep(50 * time.Millisecond)
 }

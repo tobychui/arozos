@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	ssdp "github.com/koron/go-ssdp"
@@ -31,7 +32,10 @@ type SSDPHost struct {
 	advStarted       bool
 	SSDPTemplateFile string
 	Option           *SSDPOption
+	aliveInterval    time.Duration
 	quit             chan bool
+	done             chan struct{}
+	closeOnce        sync.Once
 }
 
 func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOption) (*SSDPHost, error) {
@@ -65,6 +69,7 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 	return &SSDPHost{
 		ADV:              ad,
 		advStarted:       false,
+		aliveInterval:    5 * time.Second,
 		SSDPTemplateFile: templateFile,
 		Option:           &option,
 	}, nil
@@ -74,36 +79,46 @@ func (a *SSDPHost) Start() {
 	//Advertise ssdp
 	http.HandleFunc("/ssdp.xml", a.handleSSDP)
 	logger.PrintAndLog("Ssdp", "Starting SSDP Discovery Service: "+a.Option.URLBase, nil)
-	var aliveTick <-chan time.Time
-	aliveTick = time.Tick(time.Duration(5) * time.Second)
 
-	quit := make(chan bool)
-	a.quit = quit
+	a.quit = make(chan bool)
+	a.done = make(chan struct{})
 	a.advStarted = true
-	go func(ad *ssdp.Advertiser) {
+	go func(ad *ssdp.Advertiser, quit chan bool, done chan struct{}) {
+		defer close(done)
+		aliveTicker := time.NewTicker(a.aliveInterval)
+		defer aliveTicker.Stop()
 		for {
 			select {
-			case <-aliveTick:
+			case <-aliveTicker.C:
 				if ad != nil {
 					ad.Alive()
 				}
-
 			case <-quit:
-				ad.Bye()
-				ad.Close()
-				break
+				//Return (not break) so no Alive() can run after the advertiser is closed
+				if ad != nil {
+					ad.Bye()
+					ad.Close()
+				}
+				return
 			}
 		}
-	}(a.ADV)
+	}(a.ADV, a.quit, a.done)
 }
 
+// Close sends the SSDP byebye message and stops the advertiser. It waits for
+// the alive loop to exit and is safe to call more than once.
 func (a *SSDPHost) Close() {
-	if a != nil {
-		if a.advStarted {
-			a.quit <- true
-		}
+	if a == nil {
+		return
 	}
-
+	a.closeOnce.Do(func() {
+		if a.advStarted {
+			close(a.quit)
+			<-a.done
+		} else if a.ADV != nil {
+			a.ADV.Close()
+		}
+	})
 }
 
 // Serve the xml file with the given properties
