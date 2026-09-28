@@ -96,8 +96,9 @@ let uploadRetryMap = new Map(); //taskUUID -> {file, targetDir} for WebSocket up
 let lowMemoryMode = true;   //Upload with low memory mode channel
 let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
 let uploadFileChunkSize = 1024 * 1024 * 1; //1MB, 4MB not working quite well on slow network
+let uploadWindowSize = 8 * 1024 * 1024; //Bytes of chunks kept in flight per upload connection (see script/chunkupload.js)
 let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
-const CHUNK_TIMEOUT_MS = 30000; //30s timeout waiting for server "next" ack before retrying a chunk
+const CHUNK_TIMEOUT_MS = 30000; //30s without any server "next" ack (once everything queued has been sent) before resending the oldest chunk
 
 /*
     Heartbeat interval while an upload is paused. Comfortably under the 60s idle
@@ -110,7 +111,7 @@ const CHUNK_TIMEOUT_MS = 30000; //30s timeout waiting for server "next" ack befo
 */
 const UPLOAD_PAUSE_PING_MS = 20000;
 const UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE = 4001;
-const MAX_CHUNK_RETRIES = 3;    //Maximum retries per individual chunk before failing the upload
+const MAX_CHUNK_RETRIES = 3;    //Maximum retries without any progress before failing the upload
 
 /*
     Transfer panel state (see js/explorer/uploadui.js)

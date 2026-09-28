@@ -7,26 +7,7 @@
     file_explorer.html - see the <script> block at the end of that file.
 */
 
-    //CRC32 lookup table and helpers for chunk/file integrity verification
-    const crc32Table = (() => {
-        const t = new Uint32Array(256);
-        for (let i = 0; i < 256; i++) {
-            let c = i;
-            for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-            t[i] = c;
-        }
-        return t;
-    })();
-    //Update a running CRC32 state with new bytes (does not finalize)
-    function crc32UpdateState(state, bytes) {
-        for (let i = 0; i < bytes.length; i++)
-            state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
-        return state;
-    }
-    //Compute standalone CRC32 of a Uint8Array and return hex string
-    function crc32Hex(bytes) {
-        return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
-    }
+    //Upload chunk / file CRC32 lives with the upload protocol in script/chunkupload.js
 
     //Thumbnail base64 sniffing now lives in shared/filethumb.js as
     //FileThumb.thumbExtFromBase64 / FileThumb.base64ToDataURL

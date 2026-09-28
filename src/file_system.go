@@ -735,6 +735,23 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			expectingBinary = false
 
+			/*
+				Chunks are accepted strictly in index order, and "next" is sent
+				once per accepted chunk - clients that keep several chunks in
+				flight count those acknowledgements to know which chunks landed.
+				Anything else is dropped without a reply:
+				- index < blockCounter: a copy of a chunk already written, resent
+				  by the client after an acknowledgement timeout. Accepting it
+				  again would count its bytes twice in the size and full-file
+				  checksum.
+				- index > blockCounter: sent ahead in a pipelined window before
+				  the chunk at blockCounter failed its CRC check. The client
+				  rewinds to the retry and sends it again.
+			*/
+			if pendingChunkIndex != blockCounter {
+				continue
+			}
+
 			// Verify chunk CRC32
 			chunkSum := crc32.ChecksumIEEE(message)
 			chunkSumBytes := []byte{byte(chunkSum >> 24), byte(chunkSum >> 16), byte(chunkSum >> 8), byte(chunkSum)}
@@ -748,15 +765,10 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			// Chunk verified – write to tmp folder.
-			// Use pendingChunkIndex as the canonical filename so that a retry overwrites
-			// the previous (corrupted) attempt rather than creating a duplicate entry.
+			// Chunk verified – write to tmp folder
 			chunkFilepath := filepath.Join(uploadFolder, "upld_"+strconv.Itoa(pendingChunkIndex))
-			if pendingChunkIndex == blockCounter {
-				// First time this chunk index is successfully received
-				chunkName = append(chunkName, chunkFilepath)
-				blockCounter++
-			}
+			chunkName = append(chunkName, chunkFilepath)
+			blockCounter++
 
 			var writeErr error
 			if isHugeFile {

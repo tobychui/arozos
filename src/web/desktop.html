@@ -13,6 +13,7 @@
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
+    <script type="text/javascript" src="./script/chunkupload.js"></script>
     <!-- Sentinel paths (%trashbin%, ...), shared with the File Manager -->
     <script type="text/javascript" src="./SystemAO/file_system/shared/specialpaths.js"></script>
     <!-- <script type="text/javascript" src="./script/html2canvas.min.js"></script> -->
@@ -1562,27 +1563,9 @@
         let uploadFileChunkSize = 1024 * 512; //512KB per chunk in low memory upload
         let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
         let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
-        const CHUNK_TIMEOUT_MS = 30000; //30s to wait for server ack before retrying a chunk
-        const MAX_CHUNK_RETRIES = 3;    //Maximum per-chunk retries before marking the upload failed
-
-        //CRC32 lookup table and helpers (IEEE polynomial, matches Go's hash/crc32 package)
-        const crc32Table = (() => {
-            const t = new Uint32Array(256);
-            for (let i = 0; i < 256; i++) {
-                let c = i;
-                for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-                t[i] = c;
-            }
-            return t;
-        })();
-        function crc32UpdateState(state, bytes) {
-            for (let i = 0; i < bytes.length; i++)
-                state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
-            return state;
-        }
-        function crc32Hex(bytes) {
-            return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
-        }
+        let uploadWindowSize = 8 * 1024 * 1024; //Bytes of chunks kept in flight per upload connection (see script/chunkupload.js)
+        const CHUNK_TIMEOUT_MS = 30000; //30s without any server ack (once everything queued has been sent) before resending the oldest chunk
+        const MAX_CHUNK_RETRIES = 3;    //Maximum retries without any progress before marking the upload failed
 
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -7366,148 +7349,61 @@
                 }
                 
 
-                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode);
-                let currentSendingIndex = 0;
-                let chunks = Math.ceil(file.size/uploadFileChunkSize);
-
-                // Per-chunk retry state
-                let chunkRetryCount = 0;
-                let chunkTimeoutTimer = null;
-
-                // Running CRC32 state across all chunks for full-file checksum
-                let runningCRC32State = 0xFFFFFFFF;
-                let chunkCRC32Committed = {};
-
-                async function sendChunk(id) {
-                    let offsetStart = id * uploadFileChunkSize;
-                    let offsetEnd   = id * uploadFileChunkSize + uploadFileChunkSize;
-                    let arrayBuffer;
-                    try {
-                        arrayBuffer = await file.slice(offsetStart, offsetEnd).arrayBuffer();
-                    } catch(e) {
-                        console.error("[Desktop Upload] Failed to read chunk " + id + ": " + e);
-                        return;
-                    }
-
-                    let bytes = new Uint8Array(arrayBuffer);
-
-                    // Update running full-file CRC32 only on first attempt for each chunk
-                    if (!chunkCRC32Committed[id]) {
-                        runningCRC32State = crc32UpdateState(runningCRC32State, bytes);
-                        chunkCRC32Committed[id] = true;
-                    }
-
-                    let chunkCRCHex = crc32Hex(bytes);
-
-                    // Send metadata frame then binary frame
-                    socket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
-                    socket.send(arrayBuffer);
-
-                    // Update desktop icon progress (cap at 95% to reserve room for merge)
-                    let progress = chunks <= 1 ? 50 : (id / (chunks - 1) * 95.0);
-                    if (progress > 95) progress = 95;
-                    if (uploadingIconUUID != undefined){
-                        $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", progress + "%");
-                        if (progress >= 95){
-                            $("." + uploadingIconUUID + ".launchIcon").find(".progress").addClass("indeterminate");
-                        }
-                    }
-
-                    // Start ack timeout; retry chunk on expiry
-                    clearTimeout(chunkTimeoutTimer);
-                    chunkTimeoutTimer = setTimeout(function() {
-                        if (chunkRetryCount < MAX_CHUNK_RETRIES) {
-                            chunkRetryCount++;
-                            console.warn("[Desktop Upload] Chunk " + id + " ACK timeout – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
-                            sendChunk(id);
-                        } else {
-                            console.error("[Desktop Upload] Chunk " + id + " failed after max retries");
-                            socket.close();
-                        }
-                    }, CHUNK_TIMEOUT_MS);
-                }
-
-                //Start sending
-                socket.onopen = async function(e) {
-                    if (filesize < uploadFileChunkSize){
-                        if (uploadingIconUUID != undefined){
-                            $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "15%");
-                        }
-                    }
-                    await sendChunk(0);
-                    currentSendingIndex = 1;
+                //Chunking, pipelining, checksums and retries live in
+                //script/chunkupload.js, shared with the File Manager
+                let uploadIcon = function(){
+                    return $("." + uploadingIconUUID + ".launchIcon");
                 };
-
-                socket.onmessage = async function(event) {
-                    var incomingValue = event.data;
-
-                    if (incomingValue == "next"){
-                        clearTimeout(chunkTimeoutTimer);
-                        chunkRetryCount = 0;
-
-                        if (currentSendingIndex >= chunks){
-                            // All chunks acknowledged – send done with full-file checksum
-                            let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
-                            socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
-                        }else{
-                            await sendChunk(currentSendingIndex);
-                            currentSendingIndex++;
-                        }
-
-                    }else if (incomingValue == "OK"){
-                        //Merge completed successfully – icon will be cleaned up by onclose
-                    }else{
-                        try{
-                            var resp = JSON.parse(incomingValue);
-                            if (resp.error !== undefined){
-                                sendNotification("Upload Failed", resp.error, "remove");
-                                clearTimeout(chunkTimeoutTimer);
-                                $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
-                                $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
-                                setTimeout(function(){
-                                    $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000, function() { $(this).remove(); });
-                                }, 2000);
-                            } else if (resp.retryChunk !== undefined){
-                                // Server-requested chunk retry (CRC32 mismatch)
-                                clearTimeout(chunkTimeoutTimer);
-                                if (chunkRetryCount < MAX_CHUNK_RETRIES) {
-                                    chunkRetryCount++;
-                                    console.warn("[Desktop Upload] Server requested retry for chunk " + resp.retryChunk);
-                                    await sendChunk(resp.retryChunk);
-                                } else {
-                                    console.error("[Desktop Upload] Chunk " + resp.retryChunk + " CRC32 mismatch after max retries");
-                                    socket.close();
-                                }
-                            } else if (resp.move !== undefined){
-                                // Server is moving file from tmp to destination
-                                if (uploadingIconUUID != undefined){
-                                    $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "100%");
-                                }
-                            }
-                        }catch(ex){
-                            console.log(incomingValue);
-                            console.log(ex);
-                        }
-                    }
-                };
-
-                socket.onclose = function(event) {
-                    clearTimeout(chunkTimeoutTimer);
-                    $("." + uploadingIconUUID).remove();
-                    if (callback != undefined){
-                        callback();
-                    }
-                };
-
-                socket.onerror = function(error) {
-                    console.error("[Desktop Upload] WebSocket error:", error);
-                    clearTimeout(chunkTimeoutTimer);
-                    $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
-                    $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
+                let showUploadFailed = function(){
+                    uploadIcon().find(".progress").removeClass("primary").addClass("error");
+                    uploadIcon().find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
                     setTimeout(function(){
-                        $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000, function() { $(this).remove(); });
+                        uploadIcon().fadeOut(3000, function() { $(this).remove(); });
                     }, 2000);
                 };
+
+                ChunkUpload.start({
+                    url: protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode,
+                    file: file,
+                    chunkSize: uploadFileChunkSize,
+                    windowSize: uploadWindowSize,
+                    ackTimeout: CHUNK_TIMEOUT_MS,
+                    maxRetries: MAX_CHUNK_RETRIES,
+                    onProgress: function(loaded, total){
+                        //Cap at 95% to reserve room for the server side merge
+                        if (uploadingIconUUID == undefined){
+                            return;
+                        }
+                        let progress = Math.min(95, loaded / total * 95.0);
+                        uploadIcon().find(".bar").css("width", progress + "%");
+                        if (progress >= 95){
+                            uploadIcon().find(".progress").addClass("indeterminate");
+                        }
+                    },
+                    onMove: function(){
+                        // Server is moving file from tmp to destination
+                        if (uploadingIconUUID != undefined){
+                            uploadIcon().find(".bar").css("width", "100%");
+                        }
+                    },
+                    onError: function(message, fromServer){
+                        if (fromServer){
+                            sendNotification("Upload Failed", message, "remove");
+                            showUploadFailed();
+                        }
+                    },
+                    onClose: function(){
+                        //Merge completed or failed - either way the icon goes
+                        $("." + uploadingIconUUID).remove();
+                        if (callback != undefined){
+                            callback();
+                        }
+                    },
+                    onSocketError: function(error){
+                        console.error("[Desktop Upload] WebSocket error:", error);
+                        showUploadFailed();
+                    }
+                });
             }else{
                 let url = 'system/file_system/upload'
                 let uploadCurrentPath = "user:/Desktop/";

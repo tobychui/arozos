@@ -116,42 +116,14 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
             hugeFileMode = "&hugefile=true";
         }
 
-        let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(filename) + "&path=" + encodeURIComponent(uploadDir) + hugeFileMode);
-        let currentSendingIndex = 0;
-        let chunks = Math.ceil(file.size/uploadFileChunkSize);
-
-        // Per-chunk retry state
-        let chunkRetryCount = 0;
-        let chunkTimeoutTimer = null;
-
-        // Running CRC32 state across all chunks for full-file checksum
-        // Initialized to 0xFFFFFFFF (pre-conditioning), finalized with XOR at the end
-        let runningCRC32State = 0xFFFFFFFF;
-        // Track which chunk indices have already been factored into the running state
-        // so that retries do not corrupt the full-file CRC32
-        let chunkCRC32Committed = {};
-
         // Store file reference in retry map so the user can retry on failure
         uploadRetryMap.set(taskUUID, {file: file, targetDir: JSON.parse(JSON.stringify(uploadDir))});
 
-        /*
-            Pause / resume state.
-
-            Chunks are pulled by the server: every "next" acknowledgement asks
-            for one more. Pausing therefore just means not answering that ask
-            and remembering that one is outstanding, so nothing has to be
-            unwound and the transfer resumes exactly where it stopped.
-        */
-        let paused = false;
-        let resumeWaiting = false;
         let aborted = false;
         let completed = false;
-        let pausePingTimer = null;
 
         // Mark an upload task as failed and reveal the retry button
         function markUploadFailed(tUUID) {
-            clearTimeout(chunkTimeoutTimer);
-            stopPausePing();
             if (aborted) {
                 return;
             }
@@ -160,240 +132,94 @@ function uploadFile(file, uuid=undefined, targetDir=undefined) {
         }
 
         /*
-            Keep-alive while paused
-
-            A paused upload sends nothing at all, and neither an idle-timeout on
-            our own server nor a reverse proxy in front of it will keep such a
-            connection open. So the client keeps a slow heartbeat going for as
-            long as the pause lasts; the server answers each one, which puts
-            traffic on the wire in both directions.
+            The chunking, pipelining, checksums, retries and the pause
+            keep-alive all live in script/chunkupload.js, shared with the
+            desktop. This side only maps its events onto the transfer panel.
         */
-        function startPausePing() {
-            stopPausePing();
-            pausePingTimer = setInterval(function () {
-                if (socket.readyState != WebSocket.OPEN) {
-                    stopPausePing();
-                    return;
-                }
-                socket.send(JSON.stringify({ping: true}));
-            }, UPLOAD_PAUSE_PING_MS);
-        }
-
-        function stopPausePing() {
-            if (pausePingTimer != null) {
-                clearInterval(pausePingTimer);
-                pausePingTimer = null;
-            }
-        }
-
-        // Send a specific chunk by index.
-        // Reads the slice as ArrayBuffer, computes CRC32, sends metadata then binary.
-        // Sets a CHUNK_TIMEOUT_MS timer; on expiry retries up to MAX_CHUNK_RETRIES times.
-        async function sendChunk(id) {
-            var offsetStart = id * uploadFileChunkSize;
-            var offsetEnd   = id * uploadFileChunkSize + uploadFileChunkSize;
-            var thisblob = file.slice(offsetStart, offsetEnd);
-
-            let arrayBuffer;
-            try {
-                arrayBuffer = await thisblob.arrayBuffer();
-            } catch(e) {
-                console.error("[Upload] Failed to read chunk " + id + ": " + e);
-                markUploadFailed(taskUUID);
-                return;
-            }
-
-            let bytes = new Uint8Array(arrayBuffer);
-
-            // Update the running full-file CRC32 only on the first attempt for each
-            // chunk index so that retries do not double-count the bytes
-            if (!chunkCRC32Committed[id]) {
-                runningCRC32State = crc32UpdateState(runningCRC32State, bytes);
-                chunkCRC32Committed[id] = true;
-            }
-
-            // Compute a standalone CRC32 for this chunk for transmission verification
-            let chunkCRCHex = crc32Hex(bytes);
-
-            // Protocol: text metadata frame, then binary data frame
-            socket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
-            socket.send(arrayBuffer);
-
-            // Report the bytes actually handed to the socket
-            setUploadTaskProgress(taskUUID, Math.min(file.size, offsetEnd), file.size);
-
-            // (Re)start the per-chunk acknowledgement timeout
-            clearTimeout(chunkTimeoutTimer);
-            chunkTimeoutTimer = setTimeout(function() {
-                if (chunkRetryCount < MAX_CHUNK_RETRIES) {
-                    chunkRetryCount++;
-                    console.warn("[Upload] Chunk " + id + " ACK timeout – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
-                    sendChunk(id);
-                } else {
-                    console.error("[Upload] Chunk " + id + " failed after " + MAX_CHUNK_RETRIES + " retries");
-                    markUploadFailed(taskUUID);
-                    socket.close();
-                }
-            }, CHUNK_TIMEOUT_MS);
-        }
-
-        // Send whatever the server asked for next, or park the request if the
-        // user has paused. Every send path goes through here so pause only has
-        // to be handled once.
-        async function sendNext() {
-            if (paused || aborted) {
-                resumeWaiting = true;
-                return;
-            }
-            if (currentSendingIndex >= chunks){
-                // All chunks sent and acknowledged - send done + full-file checksum
-                let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
-                socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
+        let transfer = ChunkUpload.start({
+            url: protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(filename) + "&path=" + encodeURIComponent(uploadDir) + hugeFileMode,
+            file: file,
+            chunkSize: uploadFileChunkSize,
+            windowSize: uploadWindowSize,
+            ackTimeout: CHUNK_TIMEOUT_MS,
+            maxRetries: MAX_CHUNK_RETRIES,
+            pingInterval: UPLOAD_PAUSE_PING_MS,
+            onProgress: function(loaded, total){
+                setUploadTaskProgress(taskUUID, loaded, total);
+            },
+            onProcessing: function(){
                 setUploadTaskState(taskUUID, "processing");
-            }else{
-                await sendChunk(currentSendingIndex);
-                currentSendingIndex++;
+            },
+            onMove: function(status){
+                //File move from tmp to archive – show progress
+                setUploadTaskState(taskUUID, "processing");
+                setUploadTaskStatusText(taskUUID, status);
+            },
+            onDone: function(){
+                //Merge completed successfully
+                uploadRetryMap.delete(taskUUID);
+                unregisterUploadTransfer(taskUUID);
+                completed = true;
+                setUploadTaskState(taskUUID, "done");
+            },
+            onError: function(message, fromServer){
+                if (fromServer){
+                    msgbox("red remove", message);
+                }
+                markUploadFailed(taskUUID);
+            },
+            onClose: function(event){
+                unregisterUploadTransfer(taskUUID);
+
+                /*
+                    Any close that is not the end of a finished upload and not the
+                    user cancelling leaves the task stranded mid-transfer, so offer
+                    retry rather than a row frozen at whatever percentage it reached.
+                    The server closes with uploadPauseCloseCode when a pause has been
+                    left running for too long, which is the case worth naming.
+                */
+                if (!completed && !aborted){
+                    if (event.code == UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE){
+                        msgbox("caution", applocale.getString("upload/pauseExpired",
+                            "Upload cancelled: paused for too long"));
+                    }
+                    setUploadTaskState(taskUUID, "failed");
+                }
+
+                uploadingFileCount--;
+                updateUploadFileCount();
+                //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                setTimeout(function(){
+                    if (uploadPendingList.length > 0){
+                        let nextFile = uploadPendingList.shift();
+                        uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
+                    }
+                }, 100)
+            },
+            onSocketError: function(error){
+                console.error("[Upload] WebSocket error:", error);
+                // Mark the task as failed and show the retry button
+                markUploadFailed(taskUUID);
             }
-        }
+        });
 
         registerUploadTransfer(taskUUID, {
             pausable: true,
             pause: function(){
-                paused = true;
-                //The chunk clock must stop too, or the outstanding chunk would
-                //"time out" while the upload is legitimately sitting idle
-                clearTimeout(chunkTimeoutTimer);
-                try { socket.send(JSON.stringify({pause: true})); } catch(e) {}
-                startPausePing();
+                transfer.pause();
             },
             resume: function(){
-                paused = false;
-                stopPausePing();
-                try { socket.send(JSON.stringify({resume: true})); } catch(e) {}
-                if (resumeWaiting){
-                    resumeWaiting = false;
-                    sendNext();
-                }
+                transfer.resume();
             },
             abort: function(){
                 aborted = true;
-                clearTimeout(chunkTimeoutTimer);
-                stopPausePing();
-                try { socket.close(); } catch(e) {}
+                transfer.abort();
             }
         });
 
         //Update all UI elements
         updateUploadFileCount();
         uploadingFileCount++;
-
-        //Start sending
-        socket.onopen = async function(e) {
-            /*
-                The pause button is live from the moment the row appears, which
-                can be before this socket finished connecting. A pause raised in
-                that window could not be sent, so replay it here - otherwise the
-                server never learns the upload is paused and reaps it as idle.
-            */
-            if (paused){
-                try { socket.send(JSON.stringify({pause: true})); } catch(e) {}
-                startPausePing();
-                return;
-            }
-            currentSendingIndex = 0;
-            await sendNext();
-        };
-
-        socket.onmessage = async function(event) {
-            var incomingValue = event.data;
-
-            if (incomingValue == `{"pong":true}`){
-                //Heartbeat reply while paused - nothing to do, the point is
-                //that a frame crossed the connection in each direction
-                return;
-            }
-
-            if (incomingValue == "next"){
-                // Server acknowledged the last chunk; clear timeout and reset retry counter
-                clearTimeout(chunkTimeoutTimer);
-                chunkRetryCount = 0;
-                await sendNext();
-
-            }else if (incomingValue == "OK"){
-                //Merge completed successfully
-                uploadRetryMap.delete(taskUUID);
-                unregisterUploadTransfer(taskUUID);
-                completed = true;
-                setUploadTaskState(taskUUID, "done");
-            }else{
-                //Try to parse it as JSON
-                try{
-                    var resp = JSON.parse(incomingValue);
-                    if (resp.error !== undefined){
-                        //Server reported an error
-                        msgbox("red remove", resp.error);
-                        markUploadFailed(taskUUID);
-                    }else if (resp.retryChunk !== undefined){
-                        // Server detected a CRC32 mismatch and requests a chunk re-send
-                        clearTimeout(chunkTimeoutTimer);
-                        if (chunkRetryCount < MAX_CHUNK_RETRIES){
-                            chunkRetryCount++;
-                            console.warn("[Upload] Server requested retry for chunk " + resp.retryChunk + " (CRC32 mismatch) – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
-                            await sendChunk(resp.retryChunk);
-                        } else {
-                            console.error("[Upload] Chunk " + resp.retryChunk + " CRC32 mismatch after max retries");
-                            markUploadFailed(taskUUID);
-                            socket.close();
-                        }
-                    }else if (resp.move !== undefined){
-                        //File move from tmp to archive – show progress
-                        setUploadTaskState(taskUUID, "processing");
-                        setUploadTaskStatusText(taskUUID, resp.move);
-                    }
-                }catch(ex){
-                    //Something else
-                    console.log(ex);
-                }
-            }
-
-        };
-
-        socket.onclose = function(event) {
-            clearTimeout(chunkTimeoutTimer);
-            stopPausePing();
-            unregisterUploadTransfer(taskUUID);
-
-            /*
-                Any close that is not the end of a finished upload and not the
-                user cancelling leaves the task stranded mid-transfer, so offer
-                retry rather than a row frozen at whatever percentage it reached.
-                The server closes with uploadPauseCloseCode when a pause has been
-                left running for too long, which is the case worth naming.
-            */
-            if (!completed && !aborted){
-                if (event.code == UPLOAD_PAUSE_TIMEOUT_CLOSE_CODE){
-                    msgbox("caution", applocale.getString("upload/pauseExpired",
-                        "Upload cancelled: paused for too long"));
-                }
-                setUploadTaskState(taskUUID, "failed");
-            }
-
-            uploadingFileCount--;
-            updateUploadFileCount();
-            //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
-            setTimeout(function(){
-                if (uploadPendingList.length > 0){
-                    let nextFile = uploadPendingList.shift();
-                    uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
-                }
-            }, 100)
-        };
-
-        socket.onerror = function(error) {
-            console.error("[Upload] WebSocket error:", error);
-            // Mark the task as failed and show the retry button
-            markUploadFailed(taskUUID);
-        };
 
     }else{
         /*
