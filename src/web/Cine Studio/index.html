@@ -119,8 +119,14 @@
             </div>
         </div>
 
-        <!-- Preview player -->
+        <!-- Preview player: program monitor, or the source monitor for a bin item -->
         <div id="preview">
+            <div id="monitor-tabs">
+                <button data-monitor="source" title="Source monitor: the selected media on its own (double-click a bin item)">Source</button>
+                <button data-monitor="program" class="active" title="Program monitor: the sequence">Program</button>
+                <span id="source-name"></span>
+                <span id="audio-meter" title="Master level"><span class="meter-l"></span><span class="meter-r"></span></span>
+            </div>
             <div id="preview-stage">
                 <div id="canvas-wrap">
                     <canvas id="preview-canvas" width="1920" height="1080"></canvas>
@@ -143,7 +149,15 @@
                     <button class="pb-btn" id="btn-next-edit" title="Next edit point"><span data-icon="skip-fwd"></span></button>
                     <button class="pb-btn" id="btn-loop" title="Loop playback"><span data-icon="loop"></span></button>
                 </div>
+                <div class="pb-right" id="source-bar" style="display:none;">
+                    <span id="source-range"></span>
+                    <button class="pb-btn" id="btn-src-in" title="Mark In (I)"><span data-icon="mark-in"></span></button>
+                    <button class="pb-btn" id="btn-src-out" title="Mark Out (O)"><span data-icon="mark-out"></span></button>
+                    <button class="pb-btn wide" id="btn-src-insert" title="Insert at playhead (,)"><span data-icon="insert"></span><span>Insert</span></button>
+                    <button class="pb-btn wide" id="btn-src-overwrite" title="Overwrite at playhead (.)"><span data-icon="overwrite"></span><span>Overwrite</span></button>
+                </div>
                 <div class="pb-right">
+                    <button class="pb-btn wide" id="btn-preview-quality" title="Playback resolution (footage and preview are rendered at this fraction of the project size)"><span id="preview-quality-label">Full</span><span data-icon="chevron-down" class="mini"></span></button>
                     <button class="pb-btn wide" id="btn-preview-zoom"><span id="preview-zoom-label">Fit</span><span data-icon="chevron-down" class="mini"></span></button>
                     <button class="pb-btn" id="btn-safe-area" title="Toggle safe area"><span data-icon="display"></span></button>
                     <button class="pb-btn" id="btn-fullscreen" title="Fullscreen preview"><span data-icon="fullscreen"></span></button>
@@ -167,23 +181,34 @@
     <div id="tl-toolbar">
         <div class="tlt-left">
             <button class="tlt-btn active" id="tool-select" title="Selection tool (V)"><span data-icon="cursor"></span></button>
-            <button class="tlt-btn" id="tool-blade" title="Blade tool (B)"><span data-icon="blade"></span></button>
+            <button class="tlt-btn" id="tool-trackselect" title="Track Select Forward (A)"><span data-icon="track-select"></span></button>
+            <button class="tlt-btn" id="tool-ripple" title="Ripple Edit (B)"><span data-icon="ripple"></span></button>
+            <button class="tlt-btn" id="tool-rolling" title="Rolling Edit (N)"><span data-icon="rolling"></span></button>
+            <button class="tlt-btn" id="tool-ratestretch" title="Rate Stretch (R)"><span data-icon="stretch"></span></button>
+            <button class="tlt-btn" id="tool-blade" title="Razor (C)"><span data-icon="blade"></span></button>
+            <button class="tlt-btn" id="tool-slip" title="Slip (Y)"><span data-icon="slip"></span></button>
+            <button class="tlt-btn" id="tool-slide" title="Slide (U)"><span data-icon="slide"></span></button>
+            <span class="tlt-sep"></span>
             <button class="tlt-btn" id="tool-crop" title="Crop"><span data-icon="crop"></span></button>
-            <button class="tlt-btn" id="tool-text" title="Text"><span data-icon="nav-text"></span></button>
+            <button class="tlt-btn" id="tool-text" title="Text (T)"><span data-icon="nav-text"></span></button>
             <button class="tlt-btn" id="tool-audio" title="Audio mixer"><span data-icon="waveform"></span></button>
             <span class="tlt-sep"></span>
-            <button class="tlt-btn active" id="btn-snap" title="Toggle snapping"><span data-icon="magnet"></span></button>
+            <button class="tlt-btn active" id="btn-snap" title="Toggle snapping (S)"><span data-icon="magnet"></span></button>
+            <button class="tlt-btn active" id="btn-linked" title="Linked selection"><span data-icon="link"></span></button>
             <button class="tlt-btn" id="btn-marker" title="Add / remove marker at playhead (M)"><span data-icon="marker"></span></button>
+            <button class="tlt-btn" id="btn-mark-in" title="Mark In (I)"><span data-icon="mark-in"></span></button>
+            <button class="tlt-btn" id="btn-mark-out" title="Mark Out (O)"><span data-icon="mark-out"></span></button>
         </div>
         <div class="tlt-right">
             <button class="tlt-btn" id="btn-undo" title="Undo (Ctrl+Z)"><span data-icon="undo"></span></button>
             <button class="tlt-btn" id="btn-redo" title="Redo (Ctrl+Shift+Z)"><span data-icon="redo"></span></button>
             <button class="tlt-btn" id="btn-delete-clip" title="Delete selected clip (Del)"><span data-icon="trash"></span></button>
-            <button class="tlt-btn" id="btn-split-clip" title="Split at playhead (S)"><span data-icon="sliders"></span></button>
+            <button class="tlt-btn" id="btn-split-clip" title="Split at playhead (Ctrl+K)"><span data-icon="sliders"></span></button>
             <span class="tlt-sep"></span>
-            <button class="tlt-btn" id="btn-zoom-out" title="Zoom out"><span data-icon="minus"></span></button>
-            <input type="range" id="tl-zoom" min="4" max="200" value="40" title="Timeline zoom">
-            <button class="tlt-btn" id="btn-zoom-in" title="Zoom in"><span data-icon="plus"></span></button>
+            <button class="tlt-btn" id="btn-zoom-out" title="Zoom out (-)"><span data-icon="minus"></span></button>
+            <input type="range" id="tl-zoom" min="2" max="400" value="40" title="Timeline zoom">
+            <button class="tlt-btn" id="btn-zoom-in" title="Zoom in (=)"><span data-icon="plus"></span></button>
+            <button class="tlt-btn" id="btn-zoom-fit" title="Zoom to sequence (\)"><span data-icon="zoom-fit"></span></button>
             <button class="tlt-btn" id="btn-add-track" title="Add track"><span data-icon="plus-square"></span></button>
         </div>
     </div>
@@ -204,7 +229,7 @@
     </div>
 
     <!-- Hidden helpers -->
-    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*,.pxs,.asproj" style="display:none;">
+    <input type="file" id="local-file-input" multiple accept="video/*,audio/*,image/*,.mkv,.avi,.ts,.m2ts,.mts,.flv,.wmv,.mxf,.vob,.wma,.ape,.dts,.ac3,.mka,.tif,.tiff,.heic,.heif,.psd,.pxs,.asproj" style="display:none;">
     <div id="element-pool" style="display:none;"></div>
     <div id="toast-holder"></div>
     <div id="modal-holder"></div>
@@ -215,11 +240,14 @@
     <script src="js/main.js"></script>
     <script src="js/media.js"></script>
     <script src="js/effects.js"></script>
+    <script src="js/keyframes.js"></script>
     <script src="js/titles.js"></script>
     <script src="js/transitions.js"></script>
     <script src="js/panels.js"></script>
     <script src="js/session.js"></script>
     <script src="js/player.js"></script>
+    <script src="js/source.js"></script>
+    <script src="js/captions.js"></script>
     <script src="js/previewctl.js"></script>
     <script src="js/timeline.js"></script>
     <script src="js/inspector.js"></script>

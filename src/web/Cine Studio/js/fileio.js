@@ -22,7 +22,10 @@ CS.fileio = {
             name: CS.project.name,
             settings: CS.project.settings,
             media: CS.project.media.map(function (m) {
-                return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type, srcKind: m.srcKind || "" };
+                //The original size is kept so crops keep their meaning even
+                //before the codec probe has answered on the next open
+                return { id: m.id, name: m.name, vpath: m.vpath || "", type: m.type, srcKind: m.srcKind || "",
+                    srcWidth: m.srcWidth || 0, srcHeight: m.srcHeight || 0 };
             }),
             tracks: CS.project.tracks,
             clips: CS.project.clips,
@@ -62,6 +65,8 @@ CS.fileio = {
                 duration: m.type === "image" ? CS.IMAGE_DEFAULT_DURATION : 0,
                 width: 0,
                 height: 0,
+                srcWidth: m.srcWidth || 0,
+                srcHeight: m.srcHeight || 0,
                 thumbs: [],
                 peaks: null,
                 offline: false,
@@ -361,6 +366,14 @@ CS.fileio = {
             { label: "Undo", icon: "undo", disabled: CS.history.index <= 0, action: CS.undo },
             { label: "Redo", icon: "redo",
               disabled: CS.history.index >= CS.history.stack.length - 1, action: CS.redo },
+            { label: "History...", icon: "history", action: CS.historyDialog },
+            { sep: true },
+            { label: "Lift (;)", icon: "trash", disabled: !CS.inOutRange(), action: CS.rangeLift },
+            { label: "Extract (')", icon: "trash", disabled: !CS.inOutRange(), action: CS.rangeExtract },
+            { label: "Clear In / Out", icon: "mark-in", disabled: !CS.inOutRange(), action: function () { CS.clearInOut(); } },
+            { sep: true },
+            { label: "Import captions (SRT / VTT)...", icon: "captions", action: function () { if (CS.captions) { CS.captions.importDialog(); } } },
+            { label: "Export captions (SRT)", icon: "captions", action: function () { if (CS.captions) { CS.captions.exportSRT(); } } },
             { sep: true },
             { label: "Rename...", icon: "nav-text", action: CS.fileio.renameDialog },
             { label: "Project Settings...", icon: "gear", action: CS.fileio.settingsDialog }

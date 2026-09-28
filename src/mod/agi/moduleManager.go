@@ -82,6 +82,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")
 	if ffmpegExists {
 		g.FFmpegLibRegister()
+		g.VideoEditorLibRegister()
 	} else {
 		logger.PrintAndLog("Agi", "[AGI] ffmpeg not installed on host OS. Bypassing module.", nil)
 	}

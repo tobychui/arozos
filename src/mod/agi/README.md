@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.7` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.8` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -279,6 +279,7 @@ Registered library IDs:
 - `notification` (raise notifications to users via the core notification system, with priority - requires the host to wire in a notification sender)
 - `git` (version control for folders in the user's file system: clone / status / stage / commit / branch / diff / fetch / pull / push, with encrypted per-user HTTPS credentials — requires the host to wire in a git manager)
 - `ffmpeg` (only when ffmpeg exists on host)
+- `videoeditor` (timeline renders and proxy media for video editors such as Cine Studio, as background jobs; only when ffmpeg exists on host)
 
 Special case:
 
@@ -1605,7 +1606,104 @@ ffmpeg.videoConvert("user:/in.mp4", "user:/out.mkv", "", 38, "tmp:/job42.progres
 var stopped = ffmpeg.cancel("tmp:/job42.progress.json");
 ```
 
+## videoeditor API
+
+Server-side rendering for timeline video editors. Cine Studio is the
+reference client. The render logic lives in `mod/videoeditor` (timeline spec,
+ffmpeg filter graph, proxies, hardware encoder, job runner); this library only
+resolves virtual paths with the calling user's permissions. Low-level
+one-shot conversions stay in the `ffmpeg` library.
+
+Load:
+
+```javascript
+requirelib("videoeditor");
+```
+
+Note: library exists only when host has `ffmpeg` installed.
+
+### Background jobs
+
+Renders and proxies can outlast the script execution limit, so they run in
+the background: the call returns `true` as soon as the job is accepted (or
+raises an error for a bad spec / missing file / denied path) and the script
+follows it through the progress file:
+
+```json
+{"output_size": 1048576, "conversion_time": 12.5, "percentage": 42.3, "completed": false, "stage": "running"}
+```
+
+`stage` goes `queued` → `running` → `uploading` → `done`, or `failed` with an
+`error` message (`"cancelled"` for a cancelled job). `completed` only turns
+`true` once the output is fully written at its final path, so a poller may use
+the file the moment it sees it. At most two jobs encode at once; further ones
+wait as `queued`.
+
+### `videoeditor.renderTimeline(specJSON, output, progressFile[, options])`
+Renders an edited timeline (clips, transforms, crops, colour, effects,
+keyframed motion / opacity / volume, chroma key, adjustment layers,
+transitions, blend modes, reversed clips, panned and cross-faded audio) with
+a single ffmpeg run, from the original media files. `specJSON` is a
+`videoeditor.Project` document (see `mod/videoeditor/spec.go`); every `src` in
+it is a virtual path the calling user can read, and the output extension must
+match the spec's `format` (`mp4`, `mov`, `mkv`, `webm`, `gif` or `m4a`). Audio
+clips whose source has no audio stream are dropped. With `hardware: true` in
+the spec the host's hardware H.264 encoder is used when there is one.
+
+```javascript
+var spec = {
+  width: 1920, height: 1080, fps: 30, duration: 8, scale: 1, format: "mp4", quality: "high",
+  layers: [{ id: "c1", kind: "video", src: "user:/clip.mkv", start: 0, duration: 8, in: 2, speed: 1,
+             props: { x: 0, y: 0, scale: 100, rotation: 0, opacity: 100, crop: "fit", effects: [] } }],
+  audio:  [{ id: "c1", src: "user:/clip.mkv", start: 0, duration: 8, in: 2, speed: 1, volume: 1 }]
+};
+videoeditor.renderTimeline(JSON.stringify(spec), "user:/Exports/cut.mp4", "tmp:/cut.progress.json");
+```
+
+The optional `options` (an object or a JSON string) hands the end of the job to
+the server, so the script, or the browser tab behind it, does not have to be
+around when the render ends:
+
+| Option | Meaning |
+|---|---|
+| `cleanup` | Virtual path of a scratch folder to delete once the job has ended, however it ended. It must be a folder the user can write, not a file system root and not a folder holding `output`. |
+| `notify` | `true` sends the user a notification (through the user's own notification preferences) when the render finishes or fails. A cancelled render stays quiet. |
+
+```javascript
+videoeditor.renderTimeline(JSON.stringify(spec), "user:/Exports/cut.mp4", "tmp:/cut.progress.json",
+                           { cleanup: "user:/Cache/render_42", notify: true });
+```
+
+### `videoeditor.makeProxy(input, output, kind, height, progressFile)`
+Converts footage into something a browser can play: `kind` is `"video"`
+(H.264 / AAC MP4, at most `height` pixels tall, `0` keeps the source size,
+never upscaled), `"audio"` (AAC M4A) or `"image"` (PNG). The output extension
+must match the kind. Uses the host's hardware encoder when there is one.
+
+```javascript
+videoeditor.makeProxy("user:/footage/A001.mxf", "user:/Cache/A001_540.mp4", "video", 540, "tmp:/A001.progress.json");
+```
+
+### `videoeditor.hwEncoder()`
+Name of the hardware H.264 encoder renders can use (`"NVIDIA NVENC"`,
+`"Intel/AMD VAAPI"`, ...) or `""` when only software encoding is available.
+Probed once per server run.
+
+### `videoeditor.isRunning(progressFile)`
+`true` while the job started with this progress file is queued or encoding.
+A job the server lost track of (for instance across a restart) is not
+running, whatever its progress file last said.
+
+### `videoeditor.cancel(progressFile)`
+Stops a queued or running job and returns `true`, or returns `false` when no
+such job is in flight.
+
+```javascript
+var stopped = videoeditor.cancel("tmp:/cut.progress.json");
+```
+
 ## websocket API
+
 
 The websocket library upgrades the current HTTP connection to a WebSocket session.
 It is only available in script paths reached via a live HTTP request context
