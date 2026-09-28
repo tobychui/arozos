@@ -178,7 +178,7 @@ run("FUNCTIONAL", async (page, browser) => {
         CS.commit("Export Seed");
         window.__exportSize = -1;
         CS.fileio.downloadBlob = function (blob) { window.__exportSize = blob.size; };
-        CS.exporter.start({ base: "test_export", format: "webm", destDir: "", toDevice: true });
+        CS.exporter.startRecorder({ base: "test_export", format: "webm", destDir: "", toDevice: true });
     });
     await page.waitForFunction(() => window.__exportSize >= 0, { timeout: 30000 });
     const exportSize = await page.evaluate(() => window.__exportSize);

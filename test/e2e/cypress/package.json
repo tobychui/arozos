@@ -1,0 +1,14 @@
+{
+  "name": "cinestudio-cypress",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cypress end-to-end tests for the Cine Studio ArozOS WebApp",
+  "scripts": {
+    "serve": "node serve.js",
+    "test": "cypress run --browser electron",
+    "cy:open": "cypress open"
+  },
+  "devDependencies": {
+    "cypress": "^16.0.0"
+  }
+}

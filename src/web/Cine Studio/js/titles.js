@@ -24,7 +24,27 @@ CS.titles = {
           text: { content: "Caption", size: 44, color: "#ffffff", bold: false, align: "center", vpos: 0.9, style: "box" } }
     ],
 
+    //System fonts offered for titles; every entry falls back to a generic
+    //family so the browser and the rasterised export agree
+    fonts: [
+        { v: "sans", l: "Sans (system)", css: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' },
+        { v: "serif", l: "Serif", css: 'Georgia, "Times New Roman", Times, serif' },
+        { v: "mono", l: "Monospace", css: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace' },
+        { v: "condensed", l: "Condensed", css: '"Arial Narrow", "Helvetica Neue Condensed", "Roboto Condensed", sans-serif' },
+        { v: "rounded", l: "Rounded", css: '"Arial Rounded MT Bold", "Nunito", "Varela Round", sans-serif' },
+        { v: "cursive", l: "Script", css: '"Brush Script MT", "Segoe Script", cursive' },
+        { v: "impact", l: "Display", css: 'Impact, "Arial Black", "Anton", sans-serif' }
+    ],
+
+    fontCSS: function (key) {
+        for (var i = 0; i < CS.titles.fonts.length; i++) {
+            if (CS.titles.fonts[i].v === key) { return CS.titles.fonts[i].css; }
+        }
+        return CS.titles.fonts[0].css;
+    },
+
     elements: [
+        { id: "adjust", name: "Adjustment Layer", adjust: true },
         { id: "black",  name: "Black",  c0: "#000000" },
         { id: "white",  name: "White",  c0: "#ffffff" },
         { id: "red",    name: "Red",    c0: "#c62828" },
@@ -84,6 +104,7 @@ CS.titles = {
         var el = null;
         CS.titles.elements.forEach(function (e) { if (e.id === elId) { el = e; } });
         if (!el) { return; }
+        if (el.adjust) { CS.titles.insertAdjustment(); return; }
         var dur = 5;
         var start = CS.state.playhead;
         var props = CS.defaultClipProps();
@@ -101,6 +122,27 @@ CS.titles = {
         CS.project.clips.push(clip);
         CS.selectClip(clip.id);
         CS.commit("Add Element");
+    },
+
+    //Adjustment layer: a clip without a picture whose colour controls and
+    //effects apply to every track below it (Premiere's adjustment layer)
+    insertAdjustment: function () {
+        var dur = 5;
+        var start = CS.state.playhead;
+        var clip = {
+            id: CS.uid(),
+            mediaId: null,
+            kind: "adjust",
+            trackId: CS.titles.pickVideoTrack(start, dur),
+            start: start,
+            in: 0,
+            out: dur,
+            props: CS.defaultClipProps()
+        };
+        CS.project.clips.push(clip);
+        CS.selectClip(clip.id);
+        CS.commit("Add Adjustment Layer");
+        CS.toast("Adjustment layer added - its colour and effects apply to the tracks below");
     },
 
     /* ---------- frame source rendering ---------- */
@@ -140,16 +182,22 @@ CS.titles = {
 
     drawText: function (ctx, text, W, H) {
         text = text || {};
-        var size = Math.max(8, (text.size || 80) * (W / 1920));
-        var font = (text.bold ? "700 " : "400 ") + size + "px " +
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        var scale = W / 1920;
+        var size = Math.max(8, (text.size || 80) * scale);
+        var font = (text.italic ? "italic " : "") + (text.bold ? "700 " : "400 ") + size + "px " +
+            CS.titles.fontCSS(text.font || "sans");
         ctx.font = font;
         ctx.textBaseline = "middle";
+        var spacing = (text.spacing || 0) * scale;
+        //Tracking: native letterSpacing where the canvas supports it
+        if ("letterSpacing" in ctx) { ctx.letterSpacing = spacing + "px"; }
         var content = (text.content || "").split("\n");
-        var lineH = size * 1.25;
+        var lineH = size * (text.lineHeight || 1.25);
         var blockH = lineH * content.length;
         var y0 = H * (text.vpos === undefined ? 0.5 : text.vpos) - blockH / 2 + lineH / 2;
         var pad = size * 0.45;
+        var shadow = text.shadow === undefined ? (text.style !== "bar" && text.style !== "box") : !!text.shadow;
+        var outline = (text.outline || 0) * scale;
 
         content.forEach(function (line, i) {
             var y = y0 + i * lineH;
@@ -158,24 +206,30 @@ CS.titles = {
             if (text.align === "left") { x = W * 0.08; ctx.textAlign = "left"; }
             else if (text.align === "right") { x = W * 0.92; ctx.textAlign = "right"; }
             else { x = W / 2; ctx.textAlign = "center"; }
+            var bx = (text.align === "right") ? x - tw - pad : (text.align === "center" ? x - tw / 2 - pad : x - pad);
 
             if (text.style === "bar") {
-                var bx = (text.align === "right") ? x - tw - pad : (text.align === "center" ? x - tw / 2 - pad : x - pad);
-                ctx.fillStyle = "rgba(20, 20, 26, 0.72)";
+                ctx.fillStyle = text.boxColor || "rgba(20, 20, 26, 0.72)";
                 CS.titles.roundRect(ctx, bx, y - lineH / 2, tw + pad * 2, lineH, size * 0.16);
                 ctx.fill();
                 //accent stripe on the leading edge
-                ctx.fillStyle = "#2e7cf6";
+                ctx.fillStyle = text.accentColor || "#2e7cf6";
                 ctx.fillRect(bx, y - lineH / 2, Math.max(3, size * 0.09), lineH);
             } else if (text.style === "box") {
-                var bx2 = (text.align === "right") ? x - tw - pad : (text.align === "center" ? x - tw / 2 - pad : x - pad);
-                ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-                CS.titles.roundRect(ctx, bx2, y - lineH / 2, tw + pad * 2, lineH, size * 0.2);
+                ctx.fillStyle = text.boxColor || "rgba(0, 0, 0, 0.55)";
+                CS.titles.roundRect(ctx, bx, y - lineH / 2, tw + pad * 2, lineH, size * 0.2);
                 ctx.fill();
-            } else {
+            }
+            if (shadow) {
                 ctx.shadowColor = "rgba(0,0,0,0.65)";
                 ctx.shadowBlur = size * 0.12;
                 ctx.shadowOffsetY = size * 0.03;
+            }
+            if (outline > 0) {
+                ctx.lineJoin = "round";
+                ctx.lineWidth = outline * 2;
+                ctx.strokeStyle = text.outlineColor || "#000000";
+                ctx.strokeText(line, x, y);
             }
             ctx.fillStyle = text.color || "#ffffff";
             ctx.fillText(line, x, y);
@@ -183,6 +237,7 @@ CS.titles = {
             ctx.shadowBlur = 0;
             ctx.shadowOffsetY = 0;
         });
+        if ("letterSpacing" in ctx) { ctx.letterSpacing = "0px"; }
     },
 
     roundRect: function (ctx, x, y, w, h, r) {
@@ -284,6 +339,55 @@ CS.titles = {
                 CS.titles.invalidate(clip);
                 CS.commit("Title Style");
             })
+        ]);
+
+        //---- Typography ----
+        CS.inspector.row(sec, "Font", [
+            CS.inspector.select(CS.titles.fonts.map(function (f) { return { v: f.v, l: f.l }; }),
+                text.font || "sans", function (v) {
+                    text.font = v;
+                    CS.titles.invalidate(clip);
+                    CS.commit("Title Font");
+                }),
+            CS.inspector.toggleChip("Italic", !!text.italic, function (on) {
+                text.italic = on;
+                CS.titles.invalidate(clip);
+                CS.commit("Title Italic");
+            })
+        ]);
+        CS.inspector.row(sec, "Spacing", [
+            CS.inspector.slider(-5, 40, 1, text.spacing || 0, function (v) { text.spacing = v; CS.titles.invalidate(clip); }),
+            CS.inspector.numChip(null, text.spacing || 0, "px", function (v) { text.spacing = CS.clamp(v, -20, 100); CS.titles.invalidate(clip); }, 1)
+        ]);
+        CS.inspector.row(sec, "Line height", [
+            CS.inspector.slider(0.8, 2.5, 0.05, text.lineHeight || 1.25, function (v) { text.lineHeight = v; CS.titles.invalidate(clip); }),
+            CS.inspector.numChip(null, text.lineHeight || 1.25, "x", function (v) { text.lineHeight = CS.clamp(v, 0.5, 4); CS.titles.invalidate(clip); }, 0.05, 2)
+        ]);
+
+        var outlineColor = document.createElement("input");
+        outlineColor.type = "color";
+        outlineColor.value = text.outlineColor || "#000000";
+        outlineColor.className = "insp-color";
+        outlineColor.addEventListener("input", function () { text.outlineColor = outlineColor.value; CS.titles.invalidate(clip); });
+        outlineColor.addEventListener("change", function () { CS.commit("Outline Color"); });
+        CS.inspector.row(sec, "Outline", [
+            CS.inspector.slider(0, 20, 0.5, text.outline || 0, function (v) { text.outline = v; CS.titles.invalidate(clip); }),
+            outlineColor
+        ]);
+
+        var boxColor = document.createElement("input");
+        boxColor.type = "color";
+        boxColor.value = /^#[0-9a-f]{6}$/i.test(text.boxColor || "") ? text.boxColor : "#14141a";
+        boxColor.className = "insp-color";
+        boxColor.addEventListener("input", function () { text.boxColor = boxColor.value; CS.titles.invalidate(clip); });
+        boxColor.addEventListener("change", function () { CS.commit("Box Color"); });
+        CS.inspector.row(sec, "Effects", [
+            CS.inspector.toggleChip("Shadow", text.shadow === undefined ? (text.style !== "bar" && text.style !== "box") : !!text.shadow, function (on) {
+                text.shadow = on;
+                CS.titles.invalidate(clip);
+                CS.commit("Title Shadow");
+            }),
+            boxColor
         ]);
     },
 

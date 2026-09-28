@@ -2,7 +2,7 @@
 	Cine Studio - Ensure app folders exist
 
 	Creates the per-user folder structure used to store imported
-	media and exported renders.
+	media, exported renders and the proxy / render scratch cache.
 
 	Parameters:
 	  (none)
@@ -13,7 +13,7 @@
 requirelib("filelib");
 
 var root = "user:/Cine Studio";
-var subfolders = ["Media", "Exports", "Projects"];
+var subfolders = ["Media", "Exports", "Projects", "Cache"];
 
 if (!filelib.fileExists(root)) {
 	filelib.mkdir(root);

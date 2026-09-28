@@ -45,6 +45,20 @@ run("FEATURE", async (page, browser) => {
         const d = cv.getContext("2d").getImageData(Math.floor(cv.width / 2), Math.floor(cv.height / 2), 1, 1).data;
         return [d[0], d[1], d[2]];
     });
+    // Sample until the frame satisfies `accept`, or the time is up (the last
+    // sample is returned either way, so the caller's assertion reports a real
+    // failure). A fixed sleep before sampling races the video decoder on a
+    // slow CI runner.
+    const sampleUntil = async (accept, timeoutMs = 8000) => {
+        const deadline = Date.now() + timeoutMs;
+        let px = await samplePx();
+        while (!accept(px) && Date.now() < deadline) {
+            await page.waitForTimeout(100);
+            px = await samplePx();
+        }
+        return px;
+    };
+    const lit = (px) => px[0] + px[1] + px[2] >= 20;
 
     /* ---- effects ---- */
     await page.evaluate(() => {
@@ -54,13 +68,11 @@ run("FEATURE", async (page, browser) => {
         CS.selectClip(c.id);
         CS.player.seek(1.0);
     });
-    await page.waitForTimeout(700);
-    const base = await samplePx();
+    const base = await sampleUntil(lit);
     if (base[0] + base[1] + base[2] < 20) fail("baseline frame is black");
 
     await page.evaluate(() => CS.effects.applyToClip(window.__clip, "bw"));
-    await page.waitForTimeout(250);
-    const bw = await samplePx();
+    const bw = await sampleUntil((px) => Math.abs(px[0] - px[1]) <= 6 && Math.abs(px[1] - px[2]) <= 6);
     if (Math.abs(bw[0] - bw[1]) > 6 || Math.abs(bw[1] - bw[2]) > 6) fail("B&W effect not applied: " + bw);
     ok(`B&W effect desaturates (rgb ${bw})`);
 
@@ -68,8 +80,7 @@ run("FEATURE", async (page, browser) => {
         CS.effects.removeFromClip(window.__clip, "bw");
         CS.effects.applyToClip(window.__clip, "invert");
     });
-    await page.waitForTimeout(250);
-    const inv = await samplePx();
+    const inv = await sampleUntil((px) => Math.abs(px[0] - base[0]) >= 30 || Math.abs(px[2] - base[2]) >= 30);
     if (Math.abs(inv[0] - base[0]) < 30 && Math.abs(inv[2] - base[2]) < 30) fail("invert changed nothing: " + inv + " vs " + base);
     ok(`invert flips colors (rgb ${base} -> ${inv})`);
 
@@ -78,12 +89,10 @@ run("FEATURE", async (page, browser) => {
         CS.effects.applyToClip(window.__clip, "fadein"); // 1s default
         CS.player.seek(0.06);
     });
-    await page.waitForTimeout(500);
-    const faded = await samplePx();
+    const faded = await sampleUntil((px) => px[0] + px[1] + px[2] <= base[0] + base[1] + base[2] * 0.5);
     if (faded[0] + faded[1] + faded[2] > base[0] + base[1] + base[2] * 0.5) fail("fade-in start not dark: " + faded);
     await page.evaluate(() => CS.player.seek(2.0));
-    await page.waitForTimeout(400);
-    const unfaded = await samplePx();
+    const unfaded = await sampleUntil(lit);
     if (unfaded[0] + unfaded[1] + unfaded[2] < 20) fail("frame after fade window is dark");
     ok(`fade-in ramps alpha (start rgb ${faded}, later rgb ${unfaded})`);
 
@@ -125,7 +134,7 @@ run("FEATURE", async (page, browser) => {
     }));
     if (titleInfo.kind !== "title") fail("title clip not created");
     if (titleInfo.track === "V1") fail("title landed on the busy V1 track");
-    const titlePx = await samplePx();
+    const titlePx = await sampleUntil((px) => px[0] >= 180 && px[1] >= 180 && px[2] >= 180);
     if (titlePx[0] < 180 || titlePx[1] < 180 || titlePx[2] < 180) fail("title text not visible at center: " + titlePx);
     ok(`title clip renders on ${titleInfo.track} (center rgb ${titlePx})`);
 
@@ -136,8 +145,7 @@ run("FEATURE", async (page, browser) => {
         CS.titles.insertElement("red");
         CS.player.render();
     });
-    await page.waitForTimeout(200);
-    const redPx = await samplePx();
+    const redPx = await sampleUntil((px) => px[0] > 130 && px[1] < 90);
     if (!(redPx[0] > 130 && redPx[1] < 90)) fail("color element not red: " + redPx);
     await page.evaluate(() => { CS.deleteSelectedClip(); });
     ok(`color element renders (rgb ${redPx})`);
@@ -160,8 +168,7 @@ run("FEATURE", async (page, browser) => {
     if (trInfo.frozen !== 1) fail("frozen predecessor not detected");
     if (!trInfo.marker) fail("transition marker missing on clip");
     await page.evaluate(() => CS.player.seek(window.__clip2.start + 0.3));
-    await page.waitForTimeout(600);
-    const trPx = await samplePx();
+    const trPx = await sampleUntil(lit);
     if (trPx[0] + trPx[1] + trPx[2] < 20) fail("transition window renders black: " + trPx);
     ok(`dissolve transition renders mid-window (rgb ${trPx})`);
 

@@ -108,29 +108,36 @@ CS.inspector = {
             CS.titles.buildTextSection(body, clip);
         }
 
-        //---- Transform ----
+        //---- Transform (every value can be keyframed) ----
         var transform = CS.inspector.section(body, "Transform", function () {
             p.x = 0; p.y = 0; p.scale = 100; p.rotation = 0; p.opacity = 100;
+            if (p.keyframes) { ["x", "y", "scale", "rotation", "opacity"].forEach(function (k) { delete p.keyframes[k]; }); }
             CS.commit("Reset Transform");
         });
+        var kf = CS.keyframes;
+        var kv = function (key) { return kf.shown(clip, key); };
+        var set = function (key) { return function (v) { kf.applyEdit(clip, key, v); }; };
 
-        var xChip = CS.inspector.numChip("X", p.x, "", function (v) { p.x = v; }, 1);
-        var yChip = CS.inspector.numChip("Y", p.y, "", function (v) { p.y = v; }, 1);
-        CS.inspector.row(transform, "Position", [xChip, yChip]);
+        var xChip = CS.inspector.numChip("X", kv("x"), "", set("x"), 1);
+        var yChip = CS.inspector.numChip("Y", kv("y"), "", set("y"), 1);
+        CS.inspector.row(transform, "Position", [kf.controls(clip, "x"), xChip, yChip]);
 
         CS.inspector.row(transform, "Scale", [
-            CS.inspector.slider(10, 300, 1, p.scale, function (v) { p.scale = v; }),
-            CS.inspector.numChip(null, p.scale, "%", function (v) { p.scale = CS.clamp(v, 1, 1000); }, 1)
+            kf.controls(clip, "scale"),
+            CS.inspector.slider(10, 300, 1, kv("scale"), set("scale")),
+            CS.inspector.numChip(null, kv("scale"), "%", function (v) { kf.applyEdit(clip, "scale", CS.clamp(v, 1, 1000)); }, 1)
         ]);
 
         CS.inspector.row(transform, "Rotation", [
-            CS.inspector.dial(p.rotation, function (v) { p.rotation = v; }),
-            CS.inspector.numChip(null, p.rotation, "°", function (v) { p.rotation = ((v % 360) + 360) % 360; }, 1)
+            kf.controls(clip, "rotation"),
+            CS.inspector.dial(kv("rotation"), set("rotation")),
+            CS.inspector.numChip(null, kv("rotation"), "°", function (v) { kf.applyEdit(clip, "rotation", ((v % 360) + 360) % 360); }, 1)
         ]);
 
         CS.inspector.row(transform, "Opacity", [
-            CS.inspector.slider(0, 100, 1, p.opacity, function (v) { p.opacity = v; }),
-            CS.inspector.numChip(null, p.opacity, "%", function (v) { p.opacity = CS.clamp(v, 0, 100); }, 1)
+            kf.controls(clip, "opacity"),
+            CS.inspector.slider(0, 100, 1, kv("opacity"), set("opacity")),
+            CS.inspector.numChip(null, kv("opacity"), "%", function (v) { kf.applyEdit(clip, "opacity", CS.clamp(v, 0, 100)); }, 1)
         ]);
 
         CS.inspector.row(transform, "Blend", [
@@ -176,9 +183,15 @@ CS.inspector = {
                     CS.timeline.clampTrimOverlap(clip);
                 }, 5)
             ]);
+            CS.inspector.row(speed, "Direction", [
+                CS.inspector.toggleChip("Reverse", !!p.reverse, function (on) {
+                    p.reverse = on;
+                    CS.commit(on ? "Reverse Clip" : "Forward Clip");
+                })
+            ]);
             var spNote = document.createElement("div");
             spNote.className = "modal-note";
-            spNote.textContent = "Changes clip length on the timeline; audio pitch follows the rate.";
+            spNote.textContent = "Changes clip length on the timeline; audio pitch follows the rate. Reversed clips play their source backwards.";
             speed.appendChild(spNote);
         }
 
@@ -332,8 +345,32 @@ CS.inspector = {
             head.title = "Remove effect";
 
             if (def.params) {
-                //Multi-parameter effect (Fade To): one row per parameter
+                //Multi-parameter effect (Fade To, Ultra Key): one row per parameter
                 def.params.forEach(function (prm) {
+                    if (prm.type === "color") {
+                        var colorIn = document.createElement("input");
+                        colorIn.type = "color";
+                        colorIn.value = e[prm.key] || prm.def;
+                        colorIn.className = "insp-color";
+                        colorIn.addEventListener("input", function () {
+                            e[prm.key] = colorIn.value;
+                            CS.inspector.liveUpdate();
+                        });
+                        colorIn.addEventListener("change", function () { CS.commit("Adjust Property"); });
+                        var pick = document.createElement("button");
+                        pick.className = "insp-select";
+                        pick.textContent = "Pick from preview";
+                        pick.title = "Click a point on the preview to sample the key colour";
+                        pick.addEventListener("click", function () {
+                            CS.inspector.pickColorFromPreview(function (hex) {
+                                e[prm.key] = hex;
+                                colorIn.value = hex;
+                                CS.commit("Key Color");
+                            });
+                        });
+                        CS.inspector.row(sec, prm.name, [colorIn, pick]);
+                        return;
+                    }
                     CS.inspector.row(sec, prm.name, [
                         CS.inspector.slider(prm.min, prm.max, prm.step || 1,
                             CS.effects.paramValue(e, prm), function (v) { e[prm.key] = v; }),
@@ -378,11 +415,29 @@ CS.inspector = {
 
         var sec = CS.inspector.section(body, "Audio", function () {
             p.volume = 100;
+            p.pan = 0;
+            if (p.keyframes) { delete p.keyframes.volume; delete p.keyframes.pan; }
             CS.commit("Reset Audio");
         });
+        var kf = CS.keyframes;
+        var vol = kf.shown(clip, "volume");
         CS.inspector.row(sec, "Volume", [
-            CS.inspector.slider(0, 200, 1, (p.volume === undefined ? 100 : p.volume), function (v) { p.volume = v; }),
-            CS.inspector.numChip(null, (p.volume === undefined ? 100 : p.volume), "%", function (v) { p.volume = CS.clamp(v, 0, 200); }, 1)
+            kf.controls(clip, "volume"),
+            CS.inspector.slider(0, 200, 1, vol, function (v) { kf.applyEdit(clip, "volume", v); }),
+            CS.inspector.numChip(null, vol, "%", function (v) { kf.applyEdit(clip, "volume", CS.clamp(v, 0, 200)); }, 1)
+        ]);
+        //Gain in dB is the other way people think about level
+        var db = vol > 0 ? 20 * Math.log10(vol / 100) : -60;
+        CS.inspector.row(sec, "Gain", [
+            CS.inspector.numChip(null, db, "dB", function (v) {
+                kf.applyEdit(clip, "volume", CS.clamp(Math.round(Math.pow(10, CS.clamp(v, -60, 6) / 20) * 100), 0, 200));
+            }, 1, 1)
+        ]);
+        var pan = kf.shown(clip, "pan");
+        CS.inspector.row(sec, "Pan", [
+            kf.controls(clip, "pan"),
+            CS.inspector.slider(-100, 100, 1, pan, function (v) { kf.applyEdit(clip, "pan", v); }),
+            CS.inspector.numChip(null, pan, "", function (v) { kf.applyEdit(clip, "pan", CS.clamp(v, -100, 100)); }, 1)
         ]);
 
         var note = document.createElement("div");
@@ -449,6 +504,29 @@ CS.inspector = {
         rampNote.textContent = "The volume travels linearly from the start level to the end "
             + "level across the whole clip, on top of the clip volume above.";
         sec.appendChild(rampNote);
+    },
+
+    //One-shot eyedropper on the preview canvas
+    pickColorFromPreview: function (done) {
+        var ov = document.getElementById("preview-overlay");
+        CS.toast("Click the preview to sample a colour");
+        ov.style.cursor = "crosshair";
+        var handler = function (ev) {
+            ov.removeEventListener("pointerdown", handler, true);
+            ov.style.cursor = "";
+            ev.stopPropagation();
+            ev.preventDefault();
+            var cv = CS.player.canvas;
+            var rect = cv.getBoundingClientRect();
+            var x = Math.floor((ev.clientX - rect.left) / rect.width * cv.width);
+            var y = Math.floor((ev.clientY - rect.top) / rect.height * cv.height);
+            try {
+                var px = cv.getContext("2d").getImageData(CS.clamp(x, 0, cv.width - 1), CS.clamp(y, 0, cv.height - 1), 1, 1).data;
+                var hex = "#" + [px[0], px[1], px[2]].map(function (v) { return ("0" + v.toString(16)).slice(-2); }).join("");
+                done(hex);
+            } catch (e) { CS.toast("Could not read the preview pixels", true); }
+        };
+        ov.addEventListener("pointerdown", handler, true);
     },
 
     /* ---------- crop helpers ---------- */

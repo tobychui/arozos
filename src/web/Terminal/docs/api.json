@@ -1172,6 +1172,49 @@
       ]
     },
     {
+      "id": "videoeditor",
+      "name": "videoeditor",
+      "desc": "Server-side rendering for timeline video editors (Cine Studio): timeline renders and browser-playable proxies run as background jobs followed through a progress file (stage queued / running / uploading / done / failed, error on failure; completed turns true only once the output is in place). At most two jobs encode at once. Only available when ffmpeg is installed on the host.",
+      "load": "requirelib(\"videoeditor\");",
+      "functions": [
+        {
+          "name": "videoeditor.renderTimeline",
+          "sig": "videoeditor.renderTimeline(specJSON, output, progressFile[, options])",
+          "desc": "Start rendering a timeline spec (videoeditor.Project JSON, see mod/videoeditor/spec.go) from the original media. Every src is a virtual path the user can read; the output extension must match the spec format (mp4, mov, mkv, webm, gif, m4a). options {cleanup, notify}: cleanup is a scratch folder the server deletes when the job ends, notify sends the user a notification when it finishes or fails. Returns true once the job is queued.",
+          "ret": "bool",
+          "example": "requirelib(\"videoeditor\");\nvideoeditor.renderTimeline(JSON.stringify(spec), \"user:/Exports/cut.mp4\", \"tmp:/cut.progress.json\", {notify: true});"
+        },
+        {
+          "name": "videoeditor.makeProxy",
+          "sig": "videoeditor.makeProxy(input, output, kind, height, progressFile)",
+          "desc": "Start converting footage into a browser-playable proxy: kind \"video\" (H.264/AAC MP4, at most height pixels tall, 0 = source size), \"audio\" (AAC M4A) or \"image\" (PNG). The output extension must match the kind. Uses the hardware encoder when there is one.",
+          "ret": "bool",
+          "example": "requirelib(\"videoeditor\");\nvideoeditor.makeProxy(\"user:/footage/A001.mxf\", \"user:/Cache/A001_540.mp4\", \"video\", 540, \"tmp:/A001.progress.json\");"
+        },
+        {
+          "name": "videoeditor.hwEncoder",
+          "sig": "videoeditor.hwEncoder()",
+          "desc": "Name of the hardware H.264 encoder renders can use (e.g. \"NVIDIA NVENC\"), or \"\" when only software encoding is available.",
+          "ret": "string",
+          "example": "requirelib(\"videoeditor\");\nvar hw = videoeditor.hwEncoder();"
+        },
+        {
+          "name": "videoeditor.isRunning",
+          "sig": "videoeditor.isRunning(progressFile)",
+          "desc": "True while the job started with this progress file is queued or encoding on this server.",
+          "ret": "bool",
+          "example": "requirelib(\"videoeditor\");\nvar busy = videoeditor.isRunning(\"tmp:/cut.progress.json\");"
+        },
+        {
+          "name": "videoeditor.cancel",
+          "sig": "videoeditor.cancel(progressFile)",
+          "desc": "Stop a queued or running job. Returns false when no such job is in flight. The progress file then reports stage failed with error \"cancelled\".",
+          "ret": "bool",
+          "example": "requirelib(\"videoeditor\");\nvar stopped = videoeditor.cancel(\"tmp:/cut.progress.json\");"
+        }
+      ]
+    },
+    {
       "id": "notification",
       "name": "notification",
       "desc": "Raise notifications to ArozOS users through the core notification system. The delivery channel (Telegram, desktop, email, custom webhook) is chosen by each receiving user's own notification preferences; the script only sets the priority (low / medium / high). Available when the host wired the notification system in.",

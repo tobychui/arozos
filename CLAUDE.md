@@ -42,8 +42,12 @@ ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
   permission), `git` (version control over folders in the user's file system —
   clone/status/stage/commit/branch/diff/fetch/pull/push via go-git with no `git`
   binary on the host, plus encrypted per-user HTTPS credentials,
-  [`src/mod/git/`](src/mod/git/); the GitApp WebApp is its front end), and
-  `ffmpeg` (only when ffmpeg is on the host), plus
+  [`src/mod/git/`](src/mod/git/); the GitApp WebApp is its front end),
+  `ffmpeg` (low-level one-shot conversions) and `videoeditor` (timeline
+  renders and proxy media as background jobs for Cine Studio,
+  [`src/mod/videoeditor/`](src/mod/videoeditor/)) — both only when ffmpeg is
+  on the host. Keep editor/render features in `videoeditor`, not in `ffmpeg`
+  or `mod/media` (which is for streaming and transcoding only). Plus
   `websocket` and `scheduler` which are injected only in an HTTP request
   context.
 - **Execution entry points:**

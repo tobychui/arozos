@@ -84,13 +84,15 @@ CS.previewctl = {
             dw = rect.w * s;
             dh = rect.h * s;
         }
-        var userScale = (p.scale === undefined ? 100 : p.scale) / 100;
+        var t = CS.state.playhead;
+        var kv = function (key, fallback) { return CS.keyframes ? CS.keyframes.value(clip, key, t, fallback) : fallback; };
+        var userScale = kv("scale", p.scale === undefined ? 100 : p.scale) / 100;
         return {
-            cx: W / 2 + (p.x || 0),
-            cy: H / 2 + (p.y || 0),
+            cx: W / 2 + kv("x", p.x || 0),
+            cy: H / 2 + kv("y", p.y || 0),
             w: dw * userScale,
             h: dh * userScale,
-            rot: (p.rotation || 0) * Math.PI / 180
+            rot: kv("rotation", p.rotation || 0) * Math.PI / 180
         };
     },
 
@@ -178,13 +180,14 @@ CS.previewctl = {
 
         CS.player.pause();
         var box0 = CS.previewctl.clipBox(clip);
+        var kfv = function (key, fallback) { return CS.keyframes ? CS.keyframes.shown(clip, key) : fallback; };
         CS.previewctl.drag = {
             mode: mode,
             clip: clip,
             startPos: pos,
-            origX: clip.props.x || 0,
-            origY: clip.props.y || 0,
-            origScale: clip.props.scale === undefined ? 100 : clip.props.scale,
+            origX: kfv("x", clip.props.x || 0),
+            origY: kfv("y", clip.props.y || 0),
+            origScale: kfv("scale", clip.props.scale === undefined ? 100 : clip.props.scale),
             origDist: Math.max(4, Math.hypot(pos.x - box0.cx, pos.y - box0.cy)),
             moved: false
         };
@@ -204,14 +207,17 @@ CS.previewctl = {
         if (!d.moved && Math.hypot(dx, dy) < 2 / CS.previewctl.displayScale()) { return; }
         d.moved = true;
 
+        var apply = function (key, v) {
+            if (CS.keyframes) { CS.keyframes.applyEdit(d.clip, key, v); } else { d.clip.props[key] = v; }
+        };
         if (d.mode === "move") {
-            d.clip.props.x = Math.round(d.origX + dx);
-            d.clip.props.y = Math.round(d.origY + dy);
+            apply("x", Math.round(d.origX + dx));
+            apply("y", Math.round(d.origY + dy));
         } else {
             //uniform scale around the clip center, rotation independent
             var box = CS.previewctl.clipBox(d.clip);
             var dist = Math.hypot(pos.x - box.cx, pos.y - box.cy);
-            d.clip.props.scale = CS.clamp(Math.round(d.origScale * dist / d.origDist), 1, 1000);
+            apply("scale", CS.clamp(Math.round(d.origScale * dist / d.origDist), 1, 1000));
         }
         CS.player.render();
     },
