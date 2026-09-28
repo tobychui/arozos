@@ -1556,10 +1556,15 @@ body.fmResizing *{
     The floating upload / zip task card at the bottom right. Markup shell lives
     in file_explorer.html, rows are drawn by js/explorer/uploadui.js.
 */
+/*
+    Floats above the status bar rather than over it, so the tray buttons (the
+    upload list toggle included) stay clickable. --fm-statusbar-h is measured
+    by applyUploadPanelVisibility(); the fallback is the bar's usual height.
+*/
 #uploadTab{
     position: fixed;
-    right: 16px;
-    bottom: 16px;
+    right: 8px;
+    bottom: calc(var(--fm-statusbar-h, 39px) + 10px);
     width: 360px;
     max-width: calc(100% - 32px);
     background-color: var(--upload_bg);
@@ -1712,6 +1717,14 @@ body.fmResizing *{
     display: inline-block;
     width: 16px;
     text-align: center;
+}
+
+/* The summary's overall percentage: its own right aligned cell, like the numbers */
+#uploadTab .uploadPct{
+    display: inline-block;
+    min-width: 4ch;
+    margin-left: 8px;
+    text-align: right;
 }
 
 /*
@@ -1971,14 +1984,63 @@ body.fmResizing *{
     background-color: var(--fs-accent-soft);
 }
 
+/*
+    Minimized card (#uploadTab.compact, see toggleUploadMinimize)
+
+    The same panel shrunk in place to its summary row: ring, running total and
+    the maximize / close buttons, which only exist on this view because the
+    header that normally carries the controls is hidden.
+*/
+#uploadTab .uploadCompactBtn{
+    display: none;
+}
+
+/*
+    Shrink to fit rather than a fixed width: the total's label differs in
+    length between locales, and it must never be cut off mid number.
+*/
+#uploadTab.compact{
+    width: auto;
+    min-width: 240px;
+}
+#uploadTab.compact .uploadHeader,
+#uploadTab.compact .uploadList,
+#uploadTab.compact .uploadActions{
+    display: none;
+}
+#uploadTab.compact .uploadSummary{
+    gap: 8px;
+    padding: 8px 8px 8px 14px;
+    margin-top: 0px;
+    border-top: none;
+    background-color: var(--uploadtab_bg);
+}
+#uploadTab.compact .uploadSummaryIcon svg{
+    width: 22px;
+    height: 22px;
+}
+/* Not allowed to shrink: the card grows with the text instead of clipping it */
+#uploadTab.compact .uploadSummaryText{
+    flex: 0 0 auto;
+    overflow: visible;
+    font-size: 13px;
+    color: var(--uploadtab_txt);
+}
+#uploadTab.compact .uploadCompactBtn{
+    display: flex;
+}
+
 
 @media screen and (max-width: 500px) {
     #uploadTab{
         right: 12px;
         left: 12px;
-        bottom: 12px;
+        bottom: calc(var(--fm-statusbar-h, 37px) + 8px);
         width: auto;
         max-width: none;
+    }
+    #uploadTab.compact{
+        min-width: 0px;
     }
     .uploadList{
         max-height: 40vh;

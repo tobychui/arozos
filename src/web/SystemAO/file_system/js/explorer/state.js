@@ -95,7 +95,7 @@ let uploadPendingList = []; //Upload pending queue for mass upoad
 let uploadRetryMap = new Map(); //taskUUID -> {file, targetDir} for WebSocket upload retry
 let lowMemoryMode = true;   //Upload with low memory mode channel
 let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
-let uploadFileChunkSize = 1024 * 512; //512KB, 4MB not working quite well on slow network
+let uploadFileChunkSize = 1024 * 1024 * 1; //1MB, 4MB not working quite well on slow network
 let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
 const CHUNK_TIMEOUT_MS = 30000; //30s timeout waiting for server "next" ack before retrying a chunk
 
@@ -127,6 +127,8 @@ let uploadTaskInfo = new Map();
 let uploadTransferMap = new Map();
 //Panel collapsed to the #fmUploadListBtn in the status bar; a new task expands it
 let uploadPanelCollapsed = false;
+//Panel minimized to the compact card (ring + total only) in the same corner
+let uploadPanelCompact = false;
 const MAX_FINISHED_UPLOAD_ROWS = 60; //Trim completed rows past this to keep mass uploads responsive
 
 /*

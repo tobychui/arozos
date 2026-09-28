@@ -48,7 +48,7 @@ function initUploadMode(){
 
 function uploadFile(file, uuid=undefined, targetDir=undefined) {
     if (file.size > postUploadModeCutoff && lowMemoryMode){
-            /*
+        /*
             Low Memory Upload Mode
         */
         var filename = encodeURIComponent(file.name);

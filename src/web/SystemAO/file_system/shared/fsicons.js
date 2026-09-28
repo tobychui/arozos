@@ -78,6 +78,7 @@
 
         /* Transfer panel */
         minus:       S + '<path d="M5 12h14"/></svg>',
+        maximize:    S + '<rect x="5" y="5" width="14" height="14" rx="2"/></svg>',
         chevronDown: S + '<path d="M6 9.5l6 6 6-6"/></svg>',
         chevronUp:   S + '<path d="M6 14.5l6-6 6 6"/></svg>',
         cloudUpload: S + '<path d="M6.5 19a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.7 9.2 3.9 3.9 0 0 1 17.5 19z"/><path d="M12 18v-7M9.2 13.3L12 10.5l2.8 2.8"/></svg>',

@@ -554,6 +554,13 @@
             <div class="uploadSummary">
                 <span class="uploadSummaryIcon" id="uploadSummaryIcon" data-fsicon="taskProgress"></span>
                 <span class="uploadSummaryText" id="uploadSummaryText"></span>
+                <!-- Only shown on the minimized card, where the header is hidden -->
+                <div class="uploadHeaderBtn uploadCompactBtn" onclick="restoreUploadPanel();" title="Maximize">
+                    <span data-fsicon="maximize"></span>
+                </div>
+                <div class="uploadHeaderBtn uploadCompactBtn" onclick="closeUploadTab();" title="Close">
+                    <span data-fsicon="close"></span>
+                </div>
             </div>
             <div class="uploadActions">
                 <div class="uploadActionBtn" onclick="clearCompletedUploads();">

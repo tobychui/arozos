@@ -467,20 +467,33 @@ function updateUploadSummary(){
         taskCount++;
     });
 
-    //Every task counts the same towards the ring. Weighting them by size would
-    //need a size for each, which is exactly what a zip task cannot give.
-    let overall = taskCount > 0 ? percentSum / taskCount : 0;
+    /*
+        With every size known the overall figure is bytes moved over bytes in
+        total, so the ring and the percentage agree with the byte counter next
+        to them. A zip task has no size to weigh, so once one is in the list
+        every task counts the same instead.
+    */
+    let bytesKnown = total > 0 && !hasUnknown;
+    let overall = 0;
+    if (bytesKnown){
+        overall = Math.min(100, loaded / total * 100);
+    }else if (taskCount > 0){
+        overall = percentSum / taskCount;
+    }
     setUploadSummaryRing(overall);
+
+    //Floored, so 100% only ever shows once everything is actually through
+    let pctHTML = '<span class="uploadPct">' + Math.floor(overall) + '%</span>';
 
     //The %s slots get the same boxed number markup as the rows. The literal
     //text around them comes from the locale file and never changes width.
     let html = "";
-    if (total > 0 && !hasUnknown){
+    if (bytesKnown){
         html = applocale.getString("upload/total", "Total: %s / %s")
                 .replace("%s", formatUploadBytesHTML(loaded))
-                .replace("%s", formatUploadBytesHTML(total));
+                .replace("%s", formatUploadBytesHTML(total)) + pctHTML;
     }else if (loaded > 0){
-        html = formatUploadBytesHTML(loaded);
+        html = formatUploadBytesHTML(loaded) + pctHTML;
     }else if (taskCount > 0){
         //Nothing to count in bytes - a zip task only ever reports a percentage
         html = Math.round(overall) + "%";
@@ -559,14 +572,22 @@ function applyUploadPanelVisibility(){
     });
 
     if (taskCount == 0){
-        //Nothing left to show: the panel and its button both go away
+        //Nothing left to show: the panel and its button both go away, and the
+        //next batch opens as the full list again
         $("#uploadTab").hide();
         $("#fmUploadListBtn").hide();
         uploadPanelCollapsed = false;
+        uploadPanelCompact = false;
+        $("#uploadTab").removeClass("compact");
         return;
     }
 
     let expanded = !uploadPanelCollapsed;
+    //The panel floats just above the status bar, whose height varies with the
+    //layout (the narrow screen bar is shorter), so it is measured, not assumed
+    let statusBarHeight = $("#fmStatusBar").is(":visible") ? $("#fmStatusBar").outerHeight() : 0;
+    document.getElementById("uploadTab").style.setProperty("--fm-statusbar-h", statusBarHeight + "px");
+    $("#uploadTab").toggleClass("compact", uploadPanelCompact);
     $("#uploadTab").toggle(expanded);
     $("#fmUploadListBtn").css("display", "");
     $("#fmUploadListBtn").toggleClass("active", expanded);
@@ -777,10 +798,26 @@ function collapseUploadPanelForDialog(){
     applyUploadPanelVisibility();
 }
 
-//Collapse the panel down to #fmUploadListBtn. The tasks keep running.
+/*
+    Minimize: shrink the panel in place to a compact card that keeps only the
+    progress ring and the running total, with maximize and close beside them.
+    The tasks keep running, and the choice sticks until the list empties, so
+    reopening from the status bar or a new upload brings back the same view.
+*/
 function toggleUploadMinimize(){
-    uploadPanelCollapsed = true;
+    uploadPanelCompact = true;
+    uploadPanelCollapsed = false;
     applyUploadPanelVisibility();
+}
+
+//Maximize: back from the compact card to the full task list
+function restoreUploadPanel(){
+    uploadPanelCompact = false;
+    uploadPanelCollapsed = false;
+    applyUploadPanelVisibility();
+    //The list was hidden, so the in-flight row may be out of view
+    uploadListUserScrolledAt = 0;
+    scrollActiveUploadIntoView();
 }
 
 //The status bar button: expands the parked panel, or collapses it again
@@ -794,7 +831,24 @@ function toggleUploadPanel(){
     }
 }
 
+/*
+    Close. With every task completed there is nothing left to come back to, so
+    the list is cleared and the panel goes away with its status bar button.
+    Otherwise it hides to the status bar, where the transfers keep running. A
+    failed task counts as unfinished: clearing it would throw away its Retry.
+*/
 function closeUploadTab(){
+    let allCompleted = uploadTaskInfo.size > 0;
+    uploadTaskInfo.forEach(function(info){
+        if (info.state != "done"){
+            allCompleted = false;
+        }
+    });
+
+    if (allCompleted){
+        clearCompletedUploads();
+        return;
+    }
     uploadPanelCollapsed = true;
     applyUploadPanelVisibility();
 }
@@ -816,6 +870,7 @@ function removeThisTask(object, taskUUID){
 window.removeThisTask = removeThisTask;
 window.retryUploadFile = retryUploadFile;
 window.toggleUploadMinimize = toggleUploadMinimize;
+window.restoreUploadPanel = restoreUploadPanel;   // the compact card's maximize button
 window.toggleUploadPanel = toggleUploadPanel;   // the status bar button
 window.collapseUploadPanelForDialog = collapseUploadPanelForDialog;
 window.closeUploadTab = closeUploadTab;
