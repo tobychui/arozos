@@ -15,7 +15,7 @@ var moduleLaunchInfo = {
     LaunchFWDir: "Text/index.html",
     SupportEmb: false,
     InitFWSize: [940, 620],
-    SupportedExt: [".txt", ".md", ".markdown", ".mdown", ".mkd", ".csv", ".log", ".ini", ".conf"]
+    SupportedExt: [".txt", ".md", ".markdown", ".mdown", ".mkd", ".rtf", ".csv", ".log", ".ini", ".conf"]
 }
 
 registerModule(JSON.stringify(moduleLaunchInfo));
