@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Mail sign-in</title>
+    <link rel="icon" href="img/icon.svg">
+    <link rel="stylesheet" href="../script/semantic/components/icon.min.css">
+    <link rel="stylesheet" href="style/mail.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        body { display: flex; align-items: center; justify-content: center; height: 100%; overflow: auto; }
+        .card { max-width: 420px; margin: 20px; padding: 32px 28px; text-align: center; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); }
+        .card img { width: 56px; height: 56px; }
+        .card h1 { font-size: 19px; margin: 16px 0 8px; }
+        .card p { color: var(--text-2); line-height: 1.55; margin: 0 0 16px; }
+        .card .spinner { margin: 6px auto 0; }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <img src="img/icon.svg" alt="">
+        <h1 id="title">Finishing sign-in…</h1>
+        <p id="message">Please wait while ArozOS Mail completes the connection.</p>
+        <div class="spinner large" id="spinner"></div>
+    </div>
+    <script src="script/util.js"></script>
+    <script src="script/api.js"></script>
+    <script>
+        /*
+            Mail — OAuth redirect landing page
+
+            The provider sends the browser here with ?code=…&state=…. The code
+            is exchanged on the server (together with the PKCE verifier only the
+            server knows); this page never sees a token. The account wizard,
+            waiting in the main window, is told through a BroadcastChannel and
+            also polls the sign-in status, so it continues even if this window
+            lost its opener.
+        */
+        (function () {
+            "use strict";
+            var params = new URLSearchParams(window.location.search);
+            var state = params.get("state") || "";
+            var title = document.getElementById("title");
+            var message = document.getElementById("message");
+            var spinner = document.getElementById("spinner");
+
+            if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+
+            function notify(ok) {
+                try {
+                    var channel = new BroadcastChannel("arozos-mail-oauth");
+                    channel.postMessage({ state: state, ok: ok });
+                    channel.close();
+                } catch (e) { /* the wizard polls as well */ }
+            }
+
+            function done(ok, heading, text) {
+                spinner.style.display = "none";
+                title.textContent = heading;
+                message.textContent = text;
+                notify(ok);
+                if (ok) {
+                    setTimeout(function () { window.close(); }, 1500);
+                }
+            }
+
+            //Remove the code from the address bar and history straight away
+            var fullAddress = window.location.href;
+            try {
+                history.replaceState(null, "", window.location.pathname);
+            } catch (e) { /* ignore */ }
+
+            if (params.get("error")) {
+                done(false, "Sign-in was not completed", params.get("error_description") || params.get("error"));
+                return;
+            }
+            if (!state || !params.get("code")) {
+                done(false, "Nothing to do here", "This page finishes a mail sign-in started from the Mail app.");
+                return;
+            }
+            Mail.api.accounts("oauthComplete", { state: state, code: fullAddress }).then(function (status) {
+                done(true, "You're signed in", (status.email ? status.email + " is connected. " : "") + "You can close this window and return to Mail.");
+            }).catch(function (error) {
+                done(false, "Sign-in failed", error.message);
+            });
+        })();
+    </script>
+</body>
+
+</html>

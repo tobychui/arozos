@@ -46,6 +46,12 @@ func executeShutdownSequence() {
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down auth gateway", nil)
 	authAgent.Close()
 
+	//Shutdown the mail backend (outbox, IMAP connections, mail database)
+	if mailBackend != nil {
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down mail backend", nil)
+		mailBackend.Close()
+	}
+
 	//Shutdown all storage pools
 	systemWideLogger.PrintAndLog("System", "<!> Shutting down storage pools", nil)
 	closeAllStoragePools()

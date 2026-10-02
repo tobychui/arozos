@@ -1,0 +1,22 @@
+/*
+	Mail — single message and bulk action backend
+
+	opr = get | raw | flag | move | copy | moveToRole | remove | locate |
+	      setLabels | snooze | unsnooze
+*/
+
+includes("common.js");
+
+mailRun({
+    "get": function (input) { return email.get(input.accountId, input.folder, input.uid, input.options); },
+    "raw": function (input) { return email.rawSource(input.accountId, input.folder, input.uid); },
+    "flag": function (input) { return email.setFlag(input.accountId, input.folder, input.uids, input.flag, input.value !== false); },
+    "move": function (input) { return email.move(input.accountId, input.folder, input.uids, input.destination); },
+    "copy": function (input) { return email.copy(input.accountId, input.folder, input.uids, input.destination); },
+    "moveToRole": function (input) { return email.moveToRole(input.accountId, input.folder, input.uids, input.role); },
+    "remove": function (input) { return email.remove(input.accountId, input.folder, input.uids, input.permanent === true); },
+    "locate": function (input) { return email.locate(input.accountId, input.messageId, input.hint); },
+    "setLabels": function (input) { return email.setLabels(input.message, input.labels); },
+    "snooze": function (input) { return email.snooze(input.message, input.until); },
+    "unsnooze": function (input) { return email.unsnooze(input.message); }
+});

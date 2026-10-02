@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="mailBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#63b0ff"/>
+      <stop offset="1" stop-color="#1c6ae4"/>
+    </linearGradient>
+    <linearGradient id="mailPaper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e2edff"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="116" height="116" rx="27" fill="url(#mailBg)"/>
+  <rect x="22" y="35" width="84" height="60" rx="10" fill="url(#mailPaper)"/>
+  <path d="M28 89 L55 64 M100 89 L73 64" fill="none" stroke="#a9c9ff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M26 41 L64 70 L102 41" fill="none" stroke="#1c6ae4" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

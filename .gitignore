@@ -54,3 +54,4 @@ src/system/git/
 /.kilo
 /reference
 /src/system/cache
+/src/system/mail

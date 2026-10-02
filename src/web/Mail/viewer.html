@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Message</title>
+    <link rel="icon" href="img/icon.svg">
+    <link rel="stylesheet" href="../script/semantic/components/icon.min.css">
+    <link rel="stylesheet" href="style/mail.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+</head>
+
+<body>
+    <div class="viewer-app" id="viewer">
+        <div class="viewer-bar">
+            <div class="file"><i class="envelope outline icon"></i><span id="fileName">Message</span></div>
+            <button class="btn small" id="replyButton" disabled><i class="reply icon"></i>Reply</button>
+            <button class="btn small" id="replyAllButton" disabled><i class="reply all icon"></i>Reply all</button>
+            <button class="btn small" id="forwardButton" disabled><i class="share icon"></i>Forward</button>
+            <button class="iconbtn" id="moreButton" title="More" disabled><i class="ellipsis horizontal icon"></i></button>
+        </div>
+        <div class="reader-scroll scroll" id="content"></div>
+    </div>
+
+    <script src="script/util.js"></script>
+    <script src="script/api.js"></script>
+    <script src="script/ui.js"></script>
+    <script src="script/render.js"></script>
+    <script src="script/compose.js"></script>
+    <script>
+        /*
+            Mail — .eml viewer
+
+            Opened by ArozOS for .eml files. Shows the message with the same
+            sanitiser and sandbox as the mailbox view; replying and forwarding
+            hand the message over to the main Mail window.
+        */
+        (function () {
+            "use strict";
+            var util = Mail.util;
+            var ui = Mail.ui;
+            var api = Mail.api;
+            var render = Mail.render;
+            var el = util.el;
+            var icon = util.icon;
+            var content = document.getElementById("content");
+            var file = null;
+            var message = null;
+            var accounts = [];
+            var settings = {};
+
+            function applyTheme(theme) {
+                document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
+            }
+            if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                applyTheme("dark");
+            }
+            if (typeof ao_module_getSystemThemeColor === "function") {
+                try {
+                    ao_module_getSystemThemeColor(function (theme) {
+                        if (theme === "darkTheme" || theme === "whiteTheme") {
+                            applyTheme(theme === "darkTheme" ? "dark" : "light");
+                        }
+                    });
+                } catch (e) { /* standalone */ }
+            }
+            if (typeof ao_module_onThemeChanged === "function") {
+                ao_module_onThemeChanged(applyTheme);
+            }
+
+            Mail.compose.init({
+                host: document.body,
+                context: {
+                    accounts: function () { return accounts; },
+                    settings: function () { return settings; },
+                    defaultAccountId: function () { return accounts.length > 0 ? accounts[0].id : ""; }
+                }
+            });
+
+            function showError(text) {
+                util.clear(content);
+                content.appendChild(el("div", { class: "reader-empty" }, [icon("exclamation triangle"), el("div", { class: "title", text: "Cannot open this message" }), el("div", { text: text })]));
+            }
+
+            //handOver opens the main Mail window with a prepared composer
+            function handOver(options) {
+                if (accounts.length === 0) {
+                    ui.toast("Add a mail account in Mail first", { error: true });
+                    return;
+                }
+                var key = "handoff-" + util.randomId();
+                try {
+                    localStorage.setItem("aroz-mail:" + key, JSON.stringify(options));
+                } catch (e) {
+                    ui.toast("The message is too large to hand over", { error: true });
+                    return;
+                }
+                ao_module_newfw({
+                    url: "Mail/index.html#handoff=" + key,
+                    width: 1280, height: 800, appicon: "Mail/img/icon.svg", title: "Mail"
+                });
+            }
+
+            function withAttachmentsAsFiles(options) {
+                if (!message.attachments || message.attachments.length === 0) {
+                    return Promise.resolve(options);
+                }
+                return api.files("tempFolder", { purpose: "uploads" }).then(function (folder) {
+                    return Promise.all(message.attachments.map(function (attachment) {
+                        return api.files("saveEmlAttachment", { path: file.filepath, partId: attachment.id, dest: folder }).then(function (saved) {
+                            return { kind: "file", path: saved.path, name: attachment.filename, size: attachment.size };
+                        });
+                    }));
+                }).then(function (files) {
+                    options.attachments = files;
+                    return options;
+                });
+            }
+
+            function reply(all) {
+                var options = Mail.compose.replyOptions(message, all);
+                options.originalFolder = "";
+                options.originalUid = 0;
+                handOver(options);
+            }
+
+            function forward() {
+                var options = Mail.compose.forwardOptions(message, false);
+                options.originalFolder = "";
+                options.originalUid = 0;
+                withAttachmentsAsFiles(options).then(handOver).catch(function (error) { ui.errorToast(error); });
+            }
+
+            function importTo(accountId) {
+                api.files("importEml", { path: file.filepath, accountId: accountId, folder: "INBOX" }).then(function () {
+                    var target = accounts.filter(function (item) { return item.id === accountId; })[0];
+                    ui.toast("Imported into the inbox of " + (target ? target.email : "the account"));
+                }).catch(function (error) { ui.errorToast(error, "Import failed"); });
+            }
+
+            function saveAttachment(attachment, dest) {
+                return api.files("saveEmlAttachment", { path: file.filepath, partId: attachment.id, dest: dest });
+            }
+
+            function show(loaded, allowRemote) {
+                message = loaded;
+                message.accountId = accounts.length > 0 ? accounts[0].id : "";
+                util.clear(content);
+                content.appendChild(el("div", { class: "reader-subject" }, el("h1", { text: message.subject || "(no subject)" })));
+                content.appendChild(render.header(message, {}));
+                var notices = render.notices(message, {
+                    loadRemote: function () { load(true); }
+                });
+                if (notices) {
+                    content.appendChild(notices);
+                }
+                var body = el("div", { class: "reader-body" });
+                content.appendChild(body);
+                render.body(body, message, {
+                    onMailto: function (href) {
+                        handOver(Mail.compose.mailtoOptions(href, accounts.length > 0 ? accounts[0].id : ""));
+                    }
+                });
+                var attachments = render.attachments(message.attachments, {
+                    save: function (attachment) {
+                        ao_module_openFileSelector(function (files) {
+                            if (!files || files.length === 0) {
+                                return;
+                            }
+                            saveAttachment(attachment, files[0].filepath).then(function (saved) {
+                                ui.toast("Saved to " + saved.path);
+                            }).catch(function (error) { ui.errorToast(error); });
+                        }, "user:/Desktop", "folder", false, { path_memory_key: "mail-save" });
+                    },
+                    download: function (attachment) {
+                        api.files("tempFolder", { purpose: "downloads" }).then(function (folder) {
+                            return saveAttachment(attachment, folder);
+                        }).then(function (saved) {
+                            var link = el("a", { href: (ao_root || "../") + "media/?file=" + encodeURIComponent(saved.path) + "&download=true", download: saved.filename || "" });
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(function () { link.remove(); }, 1000);
+                        }).catch(function (error) { ui.errorToast(error); });
+                    }
+                });
+                if (attachments) {
+                    content.appendChild(attachments);
+                }
+                ["replyButton", "replyAllButton", "forwardButton", "moreButton"].forEach(function (id) {
+                    document.getElementById(id).disabled = false;
+                });
+                if (typeof ao_module_setWindowTitle === "function") {
+                    ao_module_setWindowTitle(message.subject || file.filename);
+                }
+            }
+
+            function load(allowRemote) {
+                content.appendChild(el("div", { class: "reader-loading" }, el("div", { class: "spinner large" })));
+                api.files("openEml", { path: file.filepath, allowRemote: allowRemote === true }).then(function (result) {
+                    show(result.message, allowRemote);
+                }).catch(function (error) {
+                    showError(error.message);
+                });
+            }
+
+            document.getElementById("replyButton").addEventListener("click", function () { reply(false); });
+            document.getElementById("replyAllButton").addEventListener("click", function () { reply(true); });
+            document.getElementById("forwardButton").addEventListener("click", forward);
+            document.getElementById("moreButton").addEventListener("click", function (event) {
+                var items = [{ title: "Import into" }];
+                accounts.forEach(function (item) {
+                    items.push({ label: item.email + " · Inbox", dot: item.color, onClick: function () { importTo(item.id); } });
+                });
+                if (accounts.length === 0) {
+                    items.push({ label: "No mail accounts", disabled: true });
+                }
+                items.push("-");
+                items.push({ label: "Show in File Manager", icon: "folder open outline", onClick: function () {
+                    var dir = file.filepath.substring(0, file.filepath.lastIndexOf("/"));
+                    ao_module_openPath(dir, file.filename);
+                } });
+                ui.menu(event.currentTarget, items, { alignRight: true });
+            });
+
+            var files = (typeof ao_module_loadInputFiles === "function") ? ao_module_loadInputFiles() : null;
+            if (!files || files.length === 0) {
+                showError("No file was given. Open an .eml file from the File Manager.");
+                return;
+            }
+            file = files[0];
+            document.getElementById("fileName").textContent = file.filename;
+            api.accounts("list", {}).then(function (list) { accounts = list || []; }).catch(function () { });
+            api.settings("get", {}).then(function (loaded) { settings = loaded || {}; }).catch(function () { });
+            load(false);
+        })();
+    </script>
+</body>
+
+</html>

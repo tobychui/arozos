@@ -1,0 +1,23 @@
+/*
+	Mail — ArozOS file system backend
+
+	Saving messages (.eml) and attachments into the user's folders, opening
+	.eml files and importing them into a mailbox. Every path is an ArozOS
+	virtual path and is checked against the user's permissions and quota by
+	the email library.
+
+	opr = saveMessage | saveAttachment | saveAll | openEml |
+	      saveEmlAttachment | importEml | tempFolder
+*/
+
+includes("common.js");
+
+mailRun({
+    "saveMessage": function (input) { return email.saveMessage(input.accountId, input.folder, input.uid, input.dest); },
+    "saveAttachment": function (input) { return email.saveAttachment(input.accountId, input.folder, input.uid, input.partId, input.dest); },
+    "saveAll": function (input) { return email.saveAllAttachments(input.accountId, input.folder, input.uid, input.partIds, input.dest); },
+    "openEml": function (input) { return email.openEml(input.path, input.allowRemote === true); },
+    "saveEmlAttachment": function (input) { return email.saveEmlAttachment(input.path, input.partId, input.dest); },
+    "importEml": function (input) { return email.importEml(input.path, input.accountId, input.folder); },
+    "tempFolder": function (input) { return email.tempFolder(input.purpose); }
+});

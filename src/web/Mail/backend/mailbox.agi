@@ -1,0 +1,36 @@
+/*
+	Mail — folders and message lists backend
+
+	opr = folders | list | unified | check | newSince | labelMessages |
+	      snoozed | outbox | createFolder | renameFolder | deleteFolder |
+	      emptyFolder | markAllRead
+*/
+
+includes("common.js");
+
+mailRun({
+    "folders": function (input) { return email.folders(input.accountId, input.refresh === true); },
+    "list": function (input) { return email.list(input.accountId, input.query); },
+    "unified": function (input) { return email.unified(input.view, input.query, input.accounts); },
+    "check": function (input) { return email.checkInboxes(); },
+    "newSince": function (input) {
+        var result = email.newSince(input.accountId, input.uidNext, input.limit);
+        //Raise a desktop notification too when the Mail window is in the
+        //background, so new mail is noticed outside the app
+        if (input.notify === true && result.success && result.data.length > 0 && requirelib("notification")) {
+            var first = result.data[0];
+            var sender = (first.from && first.from.length > 0) ? (first.from[0].name || first.from[0].email) : "";
+            var title = result.data.length > 1 ? (result.data.length + " new messages") : ("New mail from " + sender);
+            notification.send(title, first.subject || "(no subject)", "low");
+        }
+        return result;
+    },
+    "labelMessages": function (input) { return email.labelMessages(input.labelId); },
+    "snoozed": function (input) { return email.snoozed(); },
+    "outbox": function (input) { return email.outbox(); },
+    "createFolder": function (input) { return email.createFolder(input.accountId, input.parent, input.name); },
+    "renameFolder": function (input) { return email.renameFolder(input.accountId, input.folder, input.name); },
+    "deleteFolder": function (input) { return email.deleteFolder(input.accountId, input.folder); },
+    "emptyFolder": function (input) { return email.emptyFolder(input.accountId, input.folder); },
+    "markAllRead": function (input) { return email.markAllRead(input.accountId, input.folder); }
+});

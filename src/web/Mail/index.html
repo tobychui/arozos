@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mail</title>
+    <link rel="icon" href="img/icon.svg">
+    <link rel="stylesheet" href="../script/semantic/components/icon.min.css">
+    <link rel="stylesheet" href="style/mail.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+</head>
+
+<body>
+    <div class="mail-app" id="app">
+        <!-- Top bar: brand, search and the actions for the selected messages -->
+        <header class="topbar">
+            <div class="brand">
+                <button class="iconbtn menu-toggle" id="menuToggle" title="Folders"><i class="bars icon"></i></button>
+                <img src="img/icon.svg" alt="">
+                <span>Mail</span>
+            </div>
+            <div class="searchbar" id="search">
+                <i class="search icon"></i>
+                <input type="search" id="searchInput" placeholder="Search emails..." autocomplete="off" spellcheck="false" aria-label="Search emails">
+                <button class="iconbtn small clear" id="searchClear" title="Clear search"><i class="close icon"></i></button>
+                <select id="searchIn" title="Search in" aria-label="Search in">
+                    <option value="all">Everywhere</option>
+                    <option value="from">From</option>
+                    <option value="to">To</option>
+                    <option value="subject">Subject</option>
+                    <option value="body">Body</option>
+                </select>
+            </div>
+            <div class="toolbar">
+                <button class="iconbtn" id="markButton" title="Mark as read"><i class="envelope open outline icon"></i></button>
+                <button class="iconbtn" id="toolbarCompose" title="New message (C)"><i class="edit outline icon"></i></button>
+                <button class="iconbtn" id="deleteButton" title="Delete (Del)"><i class="trash alternate outline icon"></i></button>
+                <button class="iconbtn" id="replyButton" title="Reply (R)"><i class="reply icon"></i></button>
+                <button class="iconbtn" id="moreButton" title="More actions"><i class="ellipsis horizontal icon"></i></button>
+                <span class="sep wide-only"></span>
+                <button class="iconbtn wide-only" id="settingsButton" title="Settings"><i class="cog icon"></i></button>
+                <button class="avatar-btn" id="avatarButton" title="Account"></button>
+            </div>
+        </header>
+
+        <div class="workspace" id="workspace">
+            <!-- Folders, accounts and labels -->
+            <aside class="sidebar">
+                <div class="compose-wrap">
+                    <button class="compose-btn" id="composeButton"><i class="pencil alternate icon"></i>Compose</button>
+                </div>
+                <nav class="nav scroll" id="nav" aria-label="Mailboxes"></nav>
+            </aside>
+
+            <!-- Message list -->
+            <section class="listpane" id="listpane">
+                <div class="list-header" id="listHeader"></div>
+                <div class="filter-chips hidden" id="filterChips"></div>
+                <div class="bulkbar" id="bulkbar"></div>
+                <div class="message-list scroll" id="messageList" role="listbox" aria-label="Messages"></div>
+            </section>
+            <div class="splitter" id="splitter" title="Drag to resize"></div>
+
+            <!-- Reading pane -->
+            <main class="readpane" id="reader"></main>
+        </div>
+    </div>
+
+    <script src="script/util.js"></script>
+    <script src="script/api.js"></script>
+    <script src="script/ui.js"></script>
+    <script src="script/render.js"></script>
+    <script src="script/compose.js"></script>
+    <script src="script/accounts.js"></script>
+    <script src="script/settings.js"></script>
+    <script src="script/app.js"></script>
+</body>
+
+</html>

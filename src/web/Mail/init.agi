@@ -1,0 +1,30 @@
+/*
+	Mail Module Register Script
+
+	A multi-account email client for Gmail, Outlook / Hotmail / Microsoft 365,
+	Yahoo, iCloud and any IMAP / SMTP server. The backend is the AGI "email"
+	library (src/mod/email). Opening an .eml file shows it in the viewer.
+	Do not call any user scope functions in this script.
+*/
+
+var _MODULE_ROOT_DIR = "Mail";
+
+//Setup the module information
+var moduleLaunchInfo = {
+	Name: "Mail",
+	Desc: "Read, organise and send email from all your accounts",
+	Group: "Internet",
+	IconPath: _MODULE_ROOT_DIR + "/img/icon.svg",
+	Version: "1.0.0",
+	StartDir: _MODULE_ROOT_DIR + "/index.html",
+	SupportFW: true,
+	LaunchFWDir: _MODULE_ROOT_DIR + "/index.html",
+	SupportEmb: true,
+	LaunchEmb: _MODULE_ROOT_DIR + "/viewer.html",
+	InitFWSize: [1280, 800],
+	InitEmbSize: [900, 680],
+	SupportedExt: [".eml"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

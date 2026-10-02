@@ -17,6 +17,7 @@ import (
 
 	"imuslab.com/arozos/mod/agi/static"
 	apt "imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/email"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
@@ -77,6 +78,7 @@ type AgiSysInfo struct {
 	MeetRoomManager       *meetroom.Manager    //MeetRoom rooms for the meetroom lib (nil disables the lib)
 	SharedSpaceManager    *sharedspace.Manager //Shared collaboration spaces for the sharedspace lib (nil disables the lib)
 	GitManager            *git.Manager         //Version control backend for the git lib (nil disables the lib)
+	EmailManager          *email.Manager       //IMAP / SMTP mail client backend for the email lib (nil disables the lib)
 	ClusterProvider       ClusterProvider      //Cluster namespace / events for the cluster lib (nil disables the lib)
 
 	//NotificationSender routes a notification raised by an AGI script into the

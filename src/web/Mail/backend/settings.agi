@@ -1,0 +1,21 @@
+/*
+	Mail — preferences, labels and administration backend
+
+	opr = whoami | get | save | trust | labels | saveLabels | admin | saveAdmin
+*/
+
+includes("common.js");
+
+mailRun({
+    "whoami": function (input) {
+        var admin = email.isAdmin();
+        return { success: true, data: { username: USERNAME, icon: USERICON, admin: admin.success && admin.data === true } };
+    },
+    "get": function (input) { return email.settings(); },
+    "save": function (input) { return email.saveSettings(input.settings); },
+    "trust": function (input) { return email.trustSender(input.sender); },
+    "labels": function (input) { return email.labels(); },
+    "saveLabels": function (input) { return email.saveLabels(input.labels); },
+    "admin": function (input) { return email.adminConfig(); },
+    "saveAdmin": function (input) { return email.setAdminConfig(input.config); }
+});

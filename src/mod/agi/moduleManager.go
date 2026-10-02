@@ -74,6 +74,9 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	if g.Option.GitManager != nil {
 		g.GitLibRegister()
 	}
+	if g.Option.EmailManager != nil {
+		g.EmailLibRegister()
+	}
 	if g.Option.ClusterProvider != nil {
 		g.ClusterLibRegister()
 	}

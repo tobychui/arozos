@@ -1,0 +1,26 @@
+/*
+	Mail — composing and address book backend
+
+	opr = send | draft | deleteDraft | outboxCancel | outboxSendNow |
+	      contacts | searchContacts | saveContact | deleteContact |
+	      importContacts
+
+	A message carries `files` ([{path, name}], ArozOS paths of uploaded or
+	picked files) and `forwarded` ([{accountId, folder, uid, partId}],
+	attachments taken straight from an existing message on the server).
+*/
+
+includes("common.js");
+
+mailRun({
+    "send": function (input) { return email.send(input.message); },
+    "draft": function (input) { return email.saveDraft(input.message); },
+    "deleteDraft": function (input) { return email.deleteDraft(input.accountId, input.folder, input.uid); },
+    "outboxCancel": function (input) { return email.outboxCancel(input.id, input.toDrafts === true); },
+    "outboxSendNow": function (input) { return email.outboxSendNow(input.id); },
+    "contacts": function (input) { return email.contacts(); },
+    "searchContacts": function (input) { return email.searchContacts(input.query, input.limit); },
+    "saveContact": function (input) { return email.saveContact(input.contact); },
+    "deleteContact": function (input) { return email.deleteContact(input.email); },
+    "importContacts": function (input) { return email.importContacts(input.contacts); }
+});

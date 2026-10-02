@@ -1,0 +1,26 @@
+/*
+	Mail — accounts and sign-in backend
+
+	Passwords travel to the server once, when an account is added or its
+	password changed, and are never sent back: the account list only reports
+	whether a secret is stored.
+*/
+
+includes("common.js");
+
+mailRun({
+    "list": function (input) { return email.listAccounts(); },
+    "get": function (input) { return email.getAccount(input.id); },
+    "providers": function (input) { return email.providers(); },
+    "discover": function (input) { return email.discover(input.email); },
+    "test": function (input) { return email.testAccount(input.account); },
+    "add": function (input) { return email.addAccount(input.account); },
+    "update": function (input) { return email.updateAccount(input.id, input.account); },
+    "remove": function (input) { return email.removeAccount(input.id); },
+    "reorder": function (input) { return email.reorderAccounts(input.ids); },
+    "oauthProviders": function (input) { return email.oauthProviders(); },
+    "oauthStart": function (input) { return email.oauthStart(input.provider, input.email, input.redirectUri); },
+    "oauthComplete": function (input) { return email.oauthComplete(input.state, input.code); },
+    "oauthStatus": function (input) { return email.oauthStatus(input.state); },
+    "oauthCancel": function (input) { return email.oauthCancel(input.state); }
+});

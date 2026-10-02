@@ -3,15 +3,20 @@ package main
 import (
 	"net/http"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	agi "imuslab.com/arozos/mod/agi"
+	"imuslab.com/arozos/mod/email"
 	"imuslab.com/arozos/mod/git"
+	"imuslab.com/arozos/mod/notification"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
 
 var (
-	AGIGateway *agi.Gateway
+	AGIGateway  *agi.Gateway
+	mailBackend *email.Manager //Mail client backend, closed on shutdown
 )
 
 func AGIInit() {
@@ -27,6 +32,29 @@ func AGIInit() {
 		systemWideLogger.PrintAndLog("AGI", "Git support disabled", err)
 		gitManager = nil
 	}
+
+	//Create the mail client backend used by the AGI email library and the Mail
+	//WebApp. It keeps its own database and key under ./system/mail, so the
+	//shared AGI database helpers can never reach anyone's mail accounts.
+	emailManager, err := email.NewManager(email.Options{
+		DataDir: filepath.Join("./system", "mail"),
+		Notify: func(username string, title string, message string) {
+			sendUserNotification(&notification.NotificationPayload{
+				ID:        "mail-" + strconv.FormatInt(time.Now().UnixNano(), 10),
+				Title:     title,
+				Message:   message,
+				Receiver:  []string{username},
+				Sender:    "Mail",
+				Priority:  notification.PriorityHigh,
+				Timestamp: time.Now().Unix(),
+			})
+		},
+	})
+	if err != nil {
+		systemWideLogger.PrintAndLog("AGI", "Mail support disabled", err)
+		emailManager = nil
+	}
+	mailBackend = emailManager
 
 	//Create new AGI Gateway object
 	gw, err := agi.NewGateway(agi.AgiSysInfo{
@@ -48,6 +76,7 @@ func AGIInit() {
 		MeetRoomManager:       meetRoomManager,
 		SharedSpaceManager:    sharedSpaceManager,
 		GitManager:            gitManager,
+		EmailManager:          emailManager,
 		TempFolderPath:        *tmp_directory,
 		NotificationSender:    sendUserNotification,
 	})
