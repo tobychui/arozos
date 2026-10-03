@@ -436,7 +436,18 @@ Mail.compose = (function () {
 
     /* ---------- Composer ---------- */
 
+    //open starts a message. Inside the ArozOS desktop every message gets its
+    //own float window (compose.html); elsewhere it opens over the page.
     function open(options) {
+        options = options || {};
+        if (!context.windowMode && Mail.shared && Mail.shared.isDesktop()) {
+            return Promise.resolve(Mail.shared.openComposeWindow(options));
+        }
+        return openHere(options);
+    }
+
+    //openHere always opens the composer inside the current page
+    function openHere(options) {
         options = options || {};
         if (current) {
             return current.confirmReplace().then(function (ok) {
@@ -472,6 +483,7 @@ Mail.compose = (function () {
             sending: false,
             closed: false,
             tempFolder: null,
+            inFlight: null,
             uploadCounter: 0,
             lastSaved: null
         };
@@ -490,6 +502,12 @@ Mail.compose = (function () {
         var closeButton = el("button", { class: "iconbtn small", title: "Save draft and close" }, icon("close"));
         var head = el("div", { class: "composer-head" }, [title, statusText, minimizeButton, maximizeButton, closeButton]);
         root.appendChild(head);
+        //In its own window the float window's title bar replaces the header
+        var windowMode = context.windowMode === true;
+        if (windowMode) {
+            root.classList.add("window-mode");
+            head.classList.add("hidden");
+        }
 
         var body = el("div", { class: "composer-body" });
         root.appendChild(body);
@@ -555,6 +573,9 @@ Mail.compose = (function () {
             el("div", { class: "grow" }), discardButton, fileInput, imageInput
         ]);
         root.appendChild(foot);
+        if (windowMode) {
+            foot.insertBefore(statusText, discardButton);
+        }
         host.appendChild(root);
         self.root = root;
 
@@ -640,6 +661,9 @@ Mail.compose = (function () {
         [toField, ccField, bccField].forEach(function (field) { field.onChange(markDirty); });
         subjectInput.addEventListener("input", function () {
             title.textContent = subjectInput.value.trim() || "New message";
+            if (context.onTitle) {
+                context.onTitle(title.textContent);
+            }
             markDirty();
         });
         fromSelect.addEventListener("change", function () {
@@ -1147,7 +1171,7 @@ Mail.compose = (function () {
             state.saving = true;
             state.dirty = false;
             setStatus("Saving…");
-            return api.compose("draft", { message: request }).then(function (result) {
+            state.savePromise = api.compose("draft", { message: request }).then(function (result) {
                 state.saving = false;
                 state.draft = { folder: result.folder, uid: result.uid };
                 //The attachments now live inside the new draft
@@ -1164,6 +1188,7 @@ Mail.compose = (function () {
                 if (context.onDraftChanged) {
                     context.onDraftChanged(state.accountId);
                 }
+                announce("draft-saved", {});
                 return true;
             }).catch(function (error) {
                 state.saving = false;
@@ -1174,6 +1199,26 @@ Mail.compose = (function () {
                 }
                 return false;
             });
+            return state.savePromise;
+        }
+
+        //waitForSave settles an autosave that is still on its way, so a send
+        //or discard acts on the newest draft instead of leaving a copy behind
+        function waitForSave() {
+            if (!state.saving || !state.savePromise) {
+                return Promise.resolve();
+            }
+            return state.savePromise.then(function () { }, function () { });
+        }
+
+        //announce tells the other Mail windows (main window, lists) what happened
+        function announce(type, data) {
+            if (!Mail.shared) {
+                return;
+            }
+            data = data || {};
+            data.accountId = state.accountId;
+            Mail.shared.emit(type, data);
         }
 
         var autosave = setInterval(function () {
@@ -1225,59 +1270,178 @@ Mail.compose = (function () {
                 if (!ok) {
                     return;
                 }
-                var undoSeconds = context.settings().undoSendSeconds || 0;
-                request.undoSeconds = sendAt ? 0 : undoSeconds;
-                request.sendAt = sendAt || 0;
                 state.sending = true;
                 clearInterval(autosave);
-                var snapshot = self.snapshot(request);
-                hide();
-                var progress = ui.toast(sendAt ? "Scheduling…" : "Sending…", { duration: 0 });
-
-                api.compose("send", { message: request }).then(function (result) {
-                    progress.close();
-                    destroy();
-                    if (context.onSent) {
-                        context.onSent(result, request);
-                    }
-                    if (result.queued) {
-                        var label = sendAt ? "Scheduled for " + util.formatFullDate(result.sendAt) : "Message sent";
-                        ui.toast(label, {
-                            duration: sendAt ? 8000 : Math.max(3000, (undoSeconds - 1) * 1000),
-                            action: {
-                                label: "Undo", fn: function () {
-                                    api.compose("outboxCancel", { id: result.outboxId, toDrafts: false }).then(function () {
-                                        ui.toast(sendAt ? "Scheduled message cancelled" : "Sending cancelled");
-                                        open(snapshot);
-                                        if (context.onSent) {
-                                            context.onSent(null, null);
-                                        }
-                                    }).catch(function (error) {
-                                        ui.errorToast(error, "Too late to undo");
-                                    });
-                                }
-                            }
-                        });
-                    } else if (result.warning) {
-                        ui.toast("Message sent. " + result.warning, { duration: 9000 });
-                    } else {
-                        ui.toast("Message sent");
-                    }
-                }).catch(function (error) {
-                    progress.close();
-                    state.sending = false;
-                    show();
-                    autosave = setInterval(function () {
-                        if (state.dirty && !state.closed) {
-                            saveDraft(false);
-                        }
-                    }, AUTOSAVE_MS);
-                    ui.errorToast(error, "Not sent");
-                    if (error.authFailed && context.onAuthFailed) {
-                        context.onAuthFailed(state.accountId, error);
-                    }
+                //An autosave still in flight would otherwise create a draft
+                //the send does not know about, left behind once delivered
+                return waitForSave().then(function () {
+                    var undoSeconds = context.settings().undoSendSeconds || 0;
+                    request = buildRequest();
+                    request.undoSeconds = sendAt ? 0 : undoSeconds;
+                    request.sendAt = sendAt || 0;
+                    deliver(request, sendAt, undoSeconds);
                 });
             });
+        }
+
+        function restartAutosave() {
+            clearInterval(autosave);
+            autosave = setInterval(function () {
+                if (state.dirty && !state.closed) {
+                    saveDraft(false);
+                }
+            }, AUTOSAVE_MS);
+        }
+
+        //deliver hands the message to the server and reports the outcome
+        function deliver(request, sendAt, undoSeconds) {
+            var snapshot = self.snapshot(request);
+            if (windowMode) {
+                deliverInWindow(request, sendAt, undoSeconds);
+                return;
+            }
+            hide();
+            var progress = ui.toast(sendAt ? "Scheduling…" : "Sending…", { duration: 0 });
+
+            track(api.compose("send", { message: request }).then(function (result) {
+                progress.close();
+                destroy();
+                announce("sent", { queued: result.queued === true, sendAt: result.sendAt || 0, outboxId: result.outboxId || "" });
+                if (context.onSent) {
+                    context.onSent(result, request);
+                }
+                if (result.queued) {
+                    var label = sendAt ? "Scheduled for " + util.formatFullDate(result.sendAt) : "Message sent";
+                    ui.toast(label, {
+                        duration: sendAt ? 8000 : Math.max(3000, (undoSeconds - 1) * 1000),
+                        action: {
+                            label: "Undo", fn: function () {
+                                api.compose("outboxCancel", { id: result.outboxId, toDrafts: false }).then(function () {
+                                    ui.toast(sendAt ? "Scheduled message cancelled" : "Sending cancelled");
+                                    openHere(snapshot);
+                                    announce("send-cancelled", {});
+                                    if (context.onSent) {
+                                        context.onSent(null, null);
+                                    }
+                                }).catch(function (error) {
+                                    ui.errorToast(error, "Too late to undo");
+                                });
+                            }
+                        }
+                    });
+                } else if (result.warning) {
+                    ui.toast("Message sent. " + result.warning, { duration: 9000 });
+                } else {
+                    ui.toast("Message sent");
+                }
+            }).catch(function (error) {
+                progress.close();
+                sendFailed(error);
+            }));
+        }
+
+        //track remembers the send request on its way, handlers included.
+        //Closing the window waits for it: closing earlier would abort the
+        //request and leave it unknown whether the message went out.
+        function track(chain) {
+            state.inFlight = chain;
+            chain.then(function () {
+                if (state.inFlight === chain) {
+                    state.inFlight = null;
+                }
+            });
+        }
+
+        function sendFailed(error) {
+            state.sending = false;
+            show();
+            restartAutosave();
+            ui.errorToast(error, "Not sent");
+            if (error.authFailed && context.onAuthFailed) {
+                context.onAuthFailed(state.accountId, error);
+            }
+        }
+
+        //deliverInWindow sends from a composer window. The window stays open
+        //through the undo period, showing a countdown, and then closes itself.
+        //Closing it early is fine: the server outbox delivers regardless.
+        function deliverInWindow(request, sendAt, undoSeconds) {
+            var overlay = el("div", { class: "sent-overlay" });
+            var spinner = el("div", { class: "spinner large" });
+            var heading = el("div", { class: "heading", text: sendAt ? "Scheduling…" : "Sending…" });
+            var detail = el("div", { class: "detail" });
+            var actions = el("div", { class: "actions" });
+            overlay.appendChild(el("div", { class: "card" }, [spinner, heading, detail, actions]));
+            root.appendChild(overlay);
+            var timer = null;
+
+            var finish = function () {
+                clearInterval(timer);
+                state.closed = true;
+                if (context.closeWindow) {
+                    context.closeWindow();
+                }
+            };
+
+            track(api.compose("send", { message: request }).then(function (result) {
+                announce("sent", { queued: result.queued === true, sendAt: result.sendAt || 0, outboxId: result.outboxId || "" });
+                if (context.onSent) {
+                    context.onSent(result, request);
+                }
+                spinner.remove();
+                overlay.querySelector(".card").insertBefore(icon(result.queued && sendAt ? "clock outline" : "paper plane outline", "big-icon"), heading);
+                util.clear(actions);
+                if (!result.queued) {
+                    heading.textContent = "Message sent";
+                    detail.textContent = result.warning || "";
+                    setTimeout(finish, result.warning ? 4000 : 900);
+                    return;
+                }
+
+                var undo = el("button", { class: "btn", text: sendAt ? "Cancel and edit" : "Undo" });
+                var close = el("button", { class: "btn primary", text: "Close" });
+                actions.appendChild(undo);
+                actions.appendChild(close);
+                close.addEventListener("click", finish);
+                undo.addEventListener("click", function () {
+                    clearInterval(timer);
+                    undo.disabled = true;
+                    api.compose("outboxCancel", { id: result.outboxId, toDrafts: false }).then(function () {
+                        overlay.remove();
+                        state.sending = false;
+                        restartAutosave();
+                        announce("send-cancelled", {});
+                        ui.toast(sendAt ? "Scheduled message cancelled" : "Sending cancelled");
+                    }).catch(function (error) {
+                        undo.disabled = false;
+                        ui.errorToast(error, "Too late to undo");
+                    });
+                });
+
+                if (sendAt) {
+                    heading.textContent = "Scheduled";
+                    detail.textContent = "It will be sent " + util.formatFullDate(result.sendAt) + ".";
+                    return;
+                }
+                var remaining = Math.max(1, Math.round((result.sendAt - Date.now()) / 1000));
+                var tick = function () {
+                    heading.textContent = "Sending in " + remaining + "s";
+                    detail.textContent = "You can still undo.";
+                    if (remaining <= 0) {
+                        heading.textContent = "Message sent";
+                        detail.textContent = "";
+                        undo.disabled = true;
+                        clearInterval(timer);
+                        setTimeout(finish, 600);
+                    }
+                    remaining--;
+                };
+                tick();
+                timer = setInterval(tick, 1000);
+            }).catch(function (error) {
+                overlay.remove();
+                sendFailed(error);
+            }));
         }
 
         //snapshot captures everything needed to reopen this message after an undo
@@ -1365,10 +1529,17 @@ Mail.compose = (function () {
                 state.attachments.length > 0 || editorPlainText().replace(/\s+/g, "").length > 0;
         }
 
-        //close saves a draft when there is something worth keeping
+        //close saves a draft when there is something worth keeping. The
+        //composer window calls it from ao_module_close before it closes.
         self.close = function () {
-            if (state.sending) {
+            if (state.inFlight) {
+                return state.inFlight.then(function () { return self.close(); });
+            }
+            if (state.sending || state.closed) {
                 return Promise.resolve(true);
+            }
+            if (state.saving) {
+                return waitForSave().then(function () { return self.close(); });
             }
             if (state.dirty && hasContent()) {
                 return saveDraft(true).then(function (saved) {
@@ -1392,16 +1563,26 @@ Mail.compose = (function () {
 
         discardButton.addEventListener("click", function () {
             var discard = function () {
-                var draft = state.draft;
-                destroy();
-                if (draft && draft.uid) {
-                    api.compose("deleteDraft", { accountId: state.accountId, folder: draft.folder, uid: draft.uid }).then(function () {
-                        if (context.onDraftChanged) {
-                            context.onDraftChanged(state.accountId);
-                        }
-                    }).catch(function () { /* draft may already be gone */ });
-                }
-                ui.toast("Message discarded");
+                state.sending = true; //No autosave may start from here on
+                clearInterval(autosave);
+                waitForSave().then(function () {
+                    var draft = state.draft;
+                    destroy();
+                    var removal = Promise.resolve();
+                    if (draft && draft.uid) {
+                        removal = api.compose("deleteDraft", { accountId: state.accountId, folder: draft.folder, uid: draft.uid }).then(function () {
+                            if (context.onDraftChanged) {
+                                context.onDraftChanged(state.accountId);
+                            }
+                            announce("draft-deleted", {});
+                        }).catch(function () { /* draft may already be gone */ });
+                    }
+                    ui.toast("Message discarded");
+                    //A window must outlive the request, or closing it aborts it
+                    if (windowMode && context.closeWindow) {
+                        removal.then(function () { context.closeWindow(); });
+                    }
+                });
             };
             if (hasContent()) {
                 ui.confirm("Discard this message?", "The message and its saved draft will be deleted.", { okLabel: "Discard", danger: true }).then(function (ok) {
@@ -1446,11 +1627,21 @@ Mail.compose = (function () {
             root.classList.remove("minimized");
             focusInitial();
         };
+
+        //unsavedDraft is what a browser tab tries to save when it is closed
+        //without the composer's own close path (see compose.html)
+        self.unsavedDraft = function () {
+            if (state.sending || state.closed || !state.dirty || !hasContent() || uploading()) {
+                return null;
+            }
+            return buildRequest();
+        };
     }
 
     return {
         init: init,
         open: open,
+        openHere: openHere,
         isOpen: isOpen,
         current: function () { return current; },
         newMessage: function (accountId) { return open({ accountId: accountId, focus: "to" }); },

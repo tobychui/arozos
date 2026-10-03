@@ -1058,6 +1058,19 @@
             border: 0px;
         }
 
+        /* Click catcher over windows whose page does not load ao_module.js
+           (e.g. container apps), so a click on a background window can still
+           bring it to front. Shown only while the window is not focused. */
+        .floatWindow .iframewrapper .focuscover{
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: transparent;
+        }
+
         .alternativeAccount.item{
             padding-top: 0.6em !important;
             padding-bottom: 0.6em !important;
@@ -2435,6 +2448,17 @@
                 dockWindowToRight($(this).parent().parent().parent());
             });
 
+            //Focus cover: bring a background window forward. The cover hides once
+            //the window is focused so the next click reaches the page inside
+            $(".focuscover").off("mousedown touchstart").on("mousedown touchstart", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                var fw = $(this).closest(".floatWindow");
+                MoveFloatWindowToTop(fw);
+                updateFloatWindowFocusCovers();
+                hideAllContextMenus();
+            });
+
             //Float Window events for resizing
             $(".iframewrapper").off("mousedown").on("mousedown", function(evt) {
                 evt.preventDefault();
@@ -3280,6 +3304,7 @@
            
             
             focusedWindow = $(object);
+            updateFloatWindowFocusCovers();
             
             //Check if this div is hidden. If yes, fade it in.
             if ($(object).is(":hidden")) {
@@ -3290,6 +3315,27 @@
             var iframe = focusedWindow.find("iframe")[0];
             iframe.contentWindow.focus();
 
+        }
+
+        //Check if a floatWindow URL points to a container app (reverse proxied under /app/<slug>/)
+        function isContainerAppURL(url){
+            try {
+                var target = new URL(url, window.location.href);
+                return target.origin == window.location.origin && /^\/app\/[^\/]+/.test(target.pathname);
+            } catch (ex) {
+                return false;
+            }
+        }
+
+        //Show the focus cover on every covered floatWindow except the focused one.
+        //Pages without ao_module.js cannot report clicks back to the desktop, so the
+        //cover catches the first click on a background window and brings it forward
+        function updateFloatWindowFocusCovers(){
+            var focusedID = $(focusedWindow).attr("windowId");
+            $(".floatWindow.focuscovered").each(function(){
+                var isFocused = (focusedID !== undefined && $(this).attr("windowId") == focusedID);
+                $(this).find(".focuscover").css("display", isFocused ? "none" : "block");
+            });
         }
 
         function newFloatWindow(config, callback=undefined) {
@@ -3310,6 +3356,7 @@
             var parentWindowID = defaultOrKey(config, "", "parent");
             var callbackFunctionName = defaultOrKey(config, "", "callback");
             var bgcolor = defaultOrKey(config, "", "background-color");
+            var needFocusCover = defaultOrKey(config, false, "focuscover") || isContainerAppURL(url);
 
             //Encode function name
             callbackFunctionName = encodeURIComponent(callbackFunctionName);
@@ -3363,7 +3410,7 @@
                 dockButtons = "";
             }
             //Append the floatWindow into the body
-            $("body").append(`<div class="floatWindow" windowId="${uuid}" parent="${parentWindowID}" callback="${callbackFunctionName}" style="z-index:0; width:${width}px; height:${height}px; left:${left}px; top:${top}px;${backgroundStyle}">
+            $("body").append(`<div class="floatWindow${needFocusCover?" focuscovered":""}" windowId="${uuid}" parent="${parentWindowID}" callback="${callbackFunctionName}" style="z-index:0; width:${width}px; height:${height}px; left:${left}px; top:${top}px;${backgroundStyle}">
                 <div class="controls fwdragger themeColorSolid" style="${overWriteThemeColor}">
                     <img class="moduleicon" src="${moduleIcon}"></img>
                     <div class="title">${title}</div>
@@ -3383,6 +3430,7 @@
                 <div class="iframewrapper" style="${overWriteIframeWrapperBorderStyle}">
                     <iframe src="${url}" allowfullscreen="true"></iframe>
                     <div class="iframecover"></div>
+                    ${needFocusCover?'<div class="focuscover"></div>':''}
                 </div>
             </div>`);
             var newWindowObject = getFloatWindowByID(uuid);
@@ -5805,7 +5853,8 @@
                     url: app.URL,
                     appicon: fd.ShortcutImage || app.Icon,
                     title: app.Name,
-                    parent: "app:" + app.Slug
+                    parent: "app:" + app.Slug,
+                    focuscover: true
                 };
                 if (app.Width > 0){
                     config.width = app.Width;

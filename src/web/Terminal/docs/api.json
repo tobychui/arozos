@@ -1489,6 +1489,455 @@
       ]
     },
     {
+      "id": "email",
+      "name": "email",
+      "desc": "IMAP / SMTP mail client backing the Mail WebApp: accounts (password, app password or Google / Microsoft OAuth), folders, paging and search, sanitised reading, flags and moving, drafts, sending with undo and scheduling, address book, labels and snoozing. Every call returns {success, data} or {success: false, error} with authFailed, hint and code where they apply. Accounts and secrets are private to the calling user; secrets are encrypted and never returned. Available when the host wired the email manager in.",
+      "load": "requirelib(\"email\");",
+      "functions": [
+        {
+          "name": "email.providers",
+          "sig": "email.providers()",
+          "desc": "Known mail providers (Gmail, Outlook, Yahoo, iCloud, ...): server settings, OAuth support and app password instructions.",
+          "ret": "object",
+          "example": "requirelib(\"email\");\nvar presets = email.providers().data;"
+        },
+        {
+          "name": "email.discover",
+          "sig": "email.discover(address)",
+          "desc": "Suggest server settings for an address from provider presets, MX records, the Thunderbird ISPDB, autoconfig, SRV records or probing.",
+          "ret": "object",
+          "example": "var guess = email.discover(\"me@example.com\");\nif (guess.success) { console.log(guess.data.imap.host); }"
+        },
+        {
+          "name": "email.listAccounts",
+          "sig": "email.listAccounts()",
+          "desc": "The calling user's mail accounts, without secrets.",
+          "ret": "object",
+          "example": "var accounts = email.listAccounts().data;"
+        },
+        {
+          "name": "email.getAccount",
+          "sig": "email.getAccount(id)",
+          "desc": "One account, without secrets.",
+          "ret": "object",
+          "example": "var account = email.getAccount(id).data;"
+        },
+        {
+          "name": "email.testAccount",
+          "sig": "email.testAccount(input)",
+          "desc": "Log in to the IMAP and SMTP servers of an account form without storing it (password accounts).",
+          "ret": "object",
+          "example": "var test = email.testAccount({ email: \"me@example.com\", password: \"app-password\" });"
+        },
+        {
+          "name": "email.addAccount",
+          "sig": "email.addAccount(input)",
+          "desc": "Verify and store an account. input: {email, displayName, provider, imap: {host, port, security, username}, smtp, auth: \"password\" | \"oauth2\", password, smtpPassword, oauthState, signature, replyTo, saveSent}. Empty server settings come from the provider preset. On a rejected login the reply carries authFailed and a hint.",
+          "ret": "object",
+          "example": "var result = email.addAccount({\n    email: \"me@example.com\", provider: \"custom\",\n    imap: { host: \"mail.example.com\", port: 993, security: \"ssl\" },\n    smtp: { host: \"mail.example.com\", port: 465, security: \"ssl\" },\n    auth: \"password\", password: \"app-password\"\n});\nif (!result.success && result.authFailed) { console.log(result.hint); }"
+        },
+        {
+          "name": "email.updateAccount",
+          "sig": "email.updateAccount(id, input)",
+          "desc": "Change an account. An empty password keeps the stored one; changed connection settings are verified first.",
+          "ret": "object",
+          "example": "email.updateAccount(id, { email: \"me@example.com\", signature: \"<b>Me</b>\" });"
+        },
+        {
+          "name": "email.removeAccount",
+          "sig": "email.removeAccount(id)",
+          "desc": "Remove an account and its local labels, snoozes and queued mail. Messages stay on the server.",
+          "ret": "object",
+          "example": "email.removeAccount(id);"
+        },
+        {
+          "name": "email.reorderAccounts",
+          "sig": "email.reorderAccounts(ids)",
+          "desc": "Store the sidebar order of accounts.",
+          "ret": "object",
+          "example": "email.reorderAccounts([idA, idB]);"
+        },
+        {
+          "name": "email.oauthProviders",
+          "sig": "email.oauthProviders()",
+          "desc": "Google and Microsoft sign-in availability: [{id, name, enabled, flow}].",
+          "ret": "object",
+          "example": "var providers = email.oauthProviders().data;"
+        },
+        {
+          "name": "email.oauthStart",
+          "sig": "email.oauthStart(provider, address, redirectURI)",
+          "desc": "Start a Google or Microsoft sign-in. Returns state and flow, plus authUrl (redirect / loopback) or userCode and verificationUri (device flow).",
+          "ret": "object",
+          "example": "var start = email.oauthStart(\"microsoft\", \"me@outlook.com\", \"\").data;\nconsole.log(start.userCode, start.verificationUri);"
+        },
+        {
+          "name": "email.oauthComplete",
+          "sig": "email.oauthComplete(state, codeOrURL)",
+          "desc": "Finish a redirect or loopback sign-in with the authorization code or the full redirect URL.",
+          "ret": "object",
+          "example": "email.oauthComplete(state, \"http://127.0.0.1:53682/?state=...&code=...\");"
+        },
+        {
+          "name": "email.oauthStatus",
+          "sig": "email.oauthStatus(state)",
+          "desc": "Progress of a sign-in: status is pending, done or error. A done state is passed to addAccount as oauthState.",
+          "ret": "object",
+          "example": "var status = email.oauthStatus(state).data.status;"
+        },
+        {
+          "name": "email.oauthCancel",
+          "sig": "email.oauthCancel(state)",
+          "desc": "Abandon a pending sign-in.",
+          "ret": "object",
+          "example": "email.oauthCancel(state);"
+        },
+        {
+          "name": "email.folders",
+          "sig": "email.folders(accountId, refresh)",
+          "desc": "Mailboxes with role (inbox, sent, drafts, trash, junk, archive, all, flagged, important), total and unread counts. Cached for a few minutes unless refresh is true.",
+          "ret": "object",
+          "example": "var folders = email.folders(accountId, true).data;"
+        },
+        {
+          "name": "email.createFolder",
+          "sig": "email.createFolder(accountId, parent, name)",
+          "desc": "Create a folder, optionally inside parent.",
+          "ret": "object",
+          "example": "email.createFolder(accountId, \"\", \"Projects\");"
+        },
+        {
+          "name": "email.renameFolder",
+          "sig": "email.renameFolder(accountId, folder, newName)",
+          "desc": "Rename a user folder.",
+          "ret": "object",
+          "example": "email.renameFolder(accountId, \"Projects\", \"Clients\");"
+        },
+        {
+          "name": "email.deleteFolder",
+          "sig": "email.deleteFolder(accountId, folder)",
+          "desc": "Delete a user folder and its messages.",
+          "ret": "object",
+          "example": "email.deleteFolder(accountId, \"Old\");"
+        },
+        {
+          "name": "email.emptyFolder",
+          "sig": "email.emptyFolder(accountId, folder)",
+          "desc": "Permanently delete every message of the Trash or Junk folder.",
+          "ret": "object",
+          "example": "email.emptyFolder(accountId, \"Trash\");"
+        },
+        {
+          "name": "email.markAllRead",
+          "sig": "email.markAllRead(accountId, folder)",
+          "desc": "Mark every unread message of a folder as read.",
+          "ret": "object",
+          "example": "email.markAllRead(accountId, \"INBOX\");"
+        },
+        {
+          "name": "email.list",
+          "sig": "email.list(accountId, query)",
+          "desc": "A page of a folder. query: {folder, page, pageSize, sort: date | date_asc | from | subject | size, filter: all | unread | flagged | attachments | unanswered, search, searchIn: all | from | to | subject | body, previews}.",
+          "ret": "object",
+          "example": "var page = email.list(accountId, { folder: \"INBOX\", page: 0, pageSize: 50, previews: true }).data;\nconsole.log(page.total, page.messages.length);"
+        },
+        {
+          "name": "email.unified",
+          "sig": "email.unified(view, query, accountIds)",
+          "desc": "One list across accounts: inbox, flagged, unread or role:<role> (e.g. role:sent). Failing accounts are reported in data.errors.",
+          "ret": "object",
+          "example": "var inbox = email.unified(\"inbox\", { pageSize: 50 }, []).data;"
+        },
+        {
+          "name": "email.get",
+          "sig": "email.get(accountId, folder, uid, options)",
+          "desc": "A full message with sanitised html, text, attachments, auth verdicts and more. options: {markSeen, allowRemote}.",
+          "ret": "object",
+          "example": "var message = email.get(accountId, \"INBOX\", uid, { markSeen: true }).data;"
+        },
+        {
+          "name": "email.rawSource",
+          "sig": "email.rawSource(accountId, folder, uid)",
+          "desc": "The RFC 822 source as text (truncated at 2 MB).",
+          "ret": "object",
+          "example": "var source = email.rawSource(accountId, \"INBOX\", uid).data.source;"
+        },
+        {
+          "name": "email.setFlag",
+          "sig": "email.setFlag(accountId, folder, uids, flag, value)",
+          "desc": "Set or clear seen, flagged, answered, forwarded or draft on messages.",
+          "ret": "object",
+          "example": "email.setFlag(accountId, \"INBOX\", [uid], \"flagged\", true);"
+        },
+        {
+          "name": "email.move",
+          "sig": "email.move(accountId, folder, uids, destination)",
+          "desc": "Move messages to another folder of the same account.",
+          "ret": "object",
+          "example": "email.move(accountId, \"INBOX\", [uid], \"Projects\");"
+        },
+        {
+          "name": "email.copy",
+          "sig": "email.copy(accountId, folder, uids, destination)",
+          "desc": "Copy messages to another folder of the same account.",
+          "ret": "object",
+          "example": "email.copy(accountId, \"INBOX\", [uid], \"Projects\");"
+        },
+        {
+          "name": "email.moveToRole",
+          "sig": "email.moveToRole(accountId, folder, uids, role)",
+          "desc": "Move to the archive, junk, inbox or trash folder, creating it when missing. Gmail archives to All Mail.",
+          "ret": "object",
+          "example": "email.moveToRole(accountId, \"INBOX\", [uid], \"archive\");"
+        },
+        {
+          "name": "email.remove",
+          "sig": "email.remove(accountId, folder, uids, permanent)",
+          "desc": "Move to Trash, or delete for good inside Trash / Junk or when permanent is true.",
+          "ret": "object",
+          "example": "email.remove(accountId, \"INBOX\", [uid], false);"
+        },
+        {
+          "name": "email.locate",
+          "sig": "email.locate(accountId, messageId, hint)",
+          "desc": "Find a message by Message-ID after it moved: {folder, uid}.",
+          "ret": "object",
+          "example": "var where = email.locate(accountId, messageId, \"INBOX\").data;"
+        },
+        {
+          "name": "email.checkInboxes",
+          "sig": "email.checkInboxes()",
+          "desc": "STATUS of every inbox: unread, total and uidNext per account.",
+          "ret": "object",
+          "example": "var statuses = email.checkInboxes().data;"
+        },
+        {
+          "name": "email.newSince",
+          "sig": "email.newSince(accountId, uidNext, limit)",
+          "desc": "Unread inbox messages with a UID at or above uidNext, newest first.",
+          "ret": "object",
+          "example": "var fresh = email.newSince(accountId, lastUidNext, 5).data;"
+        },
+        {
+          "name": "email.saveMessage",
+          "sig": "email.saveMessage(accountId, folder, uid, destDir)",
+          "desc": "Save a message as an .eml file into an ArozOS folder. Existing files are never overwritten.",
+          "ret": "object",
+          "example": "var saved = email.saveMessage(accountId, \"INBOX\", uid, \"user:/Desktop\").data.path;"
+        },
+        {
+          "name": "email.saveAttachment",
+          "sig": "email.saveAttachment(accountId, folder, uid, partId, destDir)",
+          "desc": "Save one attachment into an ArozOS folder.",
+          "ret": "object",
+          "example": "email.saveAttachment(accountId, \"INBOX\", uid, \"2\", \"user:/Documents\");"
+        },
+        {
+          "name": "email.saveAllAttachments",
+          "sig": "email.saveAllAttachments(accountId, folder, uid, partIds, destDir)",
+          "desc": "Save several attachments into an ArozOS folder.",
+          "ret": "object",
+          "example": "email.saveAllAttachments(accountId, \"INBOX\", uid, [\"2\", \"3\"], \"user:/Documents\");"
+        },
+        {
+          "name": "email.openEml",
+          "sig": "email.openEml(vpath, allowRemote)",
+          "desc": "Read an .eml file like a mailbox message.",
+          "ret": "object",
+          "example": "var message = email.openEml(\"user:/Desktop/mail.eml\", false).data.message;"
+        },
+        {
+          "name": "email.saveEmlAttachment",
+          "sig": "email.saveEmlAttachment(vpath, partId, destDir)",
+          "desc": "Extract an attachment of an .eml file.",
+          "ret": "object",
+          "example": "email.saveEmlAttachment(\"user:/Desktop/mail.eml\", \"2\", \"user:/Desktop\");"
+        },
+        {
+          "name": "email.importEml",
+          "sig": "email.importEml(vpath, accountId, folder)",
+          "desc": "Append an .eml file to a mailbox folder.",
+          "ret": "object",
+          "example": "email.importEml(\"user:/Desktop/mail.eml\", accountId, \"INBOX\");"
+        },
+        {
+          "name": "email.tempFolder",
+          "sig": "email.tempFolder(purpose)",
+          "desc": "A private scratch folder under tmp:/Mail (uploads or downloads), pruned after a day.",
+          "ret": "object",
+          "example": "var folder = email.tempFolder(\"downloads\").data;"
+        },
+        {
+          "name": "email.send",
+          "sig": "email.send(message)",
+          "desc": "Send a message. message: {accountId, to, cc, bcc, subject, html, text, plainOnly, priority, readReceipt, inReplyTo, references, replyMode, originalFolder, originalUid, draftFolder, draftUid, files: [{path, name}], forwarded: [{accountId, folder, uid, partId}], undoSeconds, sendAt}. With undoSeconds or sendAt it waits in the server-side outbox.",
+          "ret": "object",
+          "example": "email.send({\n    accountId: accountId,\n    to: [\"Alice <alice@example.com>\"],\n    subject: \"Report\",\n    html: \"<p>Attached.</p>\",\n    files: [{ path: \"user:/Desktop/report.pdf\" }]\n});"
+        },
+        {
+          "name": "email.saveDraft",
+          "sig": "email.saveDraft(message)",
+          "desc": "Store the message in Drafts, replacing draftUid. Returns {folder, uid, attachments}.",
+          "ret": "object",
+          "example": "var draft = email.saveDraft({ accountId: accountId, subject: \"Later\" }).data;"
+        },
+        {
+          "name": "email.deleteDraft",
+          "sig": "email.deleteDraft(accountId, folder, uid)",
+          "desc": "Delete a draft permanently.",
+          "ret": "object",
+          "example": "email.deleteDraft(accountId, draft.folder, draft.uid);"
+        },
+        {
+          "name": "email.outbox",
+          "sig": "email.outbox()",
+          "desc": "Queued (undo period or scheduled) and failed messages.",
+          "ret": "object",
+          "example": "var queued = email.outbox().data;"
+        },
+        {
+          "name": "email.outboxCancel",
+          "sig": "email.outboxCancel(id, toDrafts)",
+          "desc": "Stop a queued message, optionally saving it to Drafts.",
+          "ret": "object",
+          "example": "email.outboxCancel(outboxId, true);"
+        },
+        {
+          "name": "email.outboxSendNow",
+          "sig": "email.outboxSendNow(id)",
+          "desc": "Deliver a queued or failed message at the next tick.",
+          "ret": "object",
+          "example": "email.outboxSendNow(outboxId);"
+        },
+        {
+          "name": "email.contacts",
+          "sig": "email.contacts()",
+          "desc": "The user's address book.",
+          "ret": "object",
+          "example": "var contacts = email.contacts().data;"
+        },
+        {
+          "name": "email.searchContacts",
+          "sig": "email.searchContacts(query, limit)",
+          "desc": "Address completion candidates, most used first.",
+          "ret": "object",
+          "example": "var matches = email.searchContacts(\"ali\", 8).data;"
+        },
+        {
+          "name": "email.saveContact",
+          "sig": "email.saveContact(contact)",
+          "desc": "Create or edit an entry: {email, name, company, phone, notes}.",
+          "ret": "object",
+          "example": "email.saveContact({ email: \"alice@example.com\", name: \"Alice\" });"
+        },
+        {
+          "name": "email.deleteContact",
+          "sig": "email.deleteContact(address)",
+          "desc": "Remove an entry.",
+          "ret": "object",
+          "example": "email.deleteContact(\"alice@example.com\");"
+        },
+        {
+          "name": "email.importContacts",
+          "sig": "email.importContacts(contacts)",
+          "desc": "Add many entries at once.",
+          "ret": "object",
+          "example": "email.importContacts([{ email: \"bob@example.com\", name: \"Bob\" }]);"
+        },
+        {
+          "name": "email.labels",
+          "sig": "email.labels()",
+          "desc": "The user's coloured labels: [{id, name, color}].",
+          "ret": "object",
+          "example": "var labels = email.labels().data;"
+        },
+        {
+          "name": "email.saveLabels",
+          "sig": "email.saveLabels(labels)",
+          "desc": "Replace the label definitions; removed labels are taken off every message.",
+          "ret": "object",
+          "example": "email.saveLabels([{ id: \"\", name: \"Clients\", color: \"#3b82f6\" }]);"
+        },
+        {
+          "name": "email.setLabels",
+          "sig": "email.setLabels(message, labelIds)",
+          "desc": "Assign labels to a message summary (as returned by list).",
+          "ret": "object",
+          "example": "email.setLabels(message, [\"work\"]);"
+        },
+        {
+          "name": "email.labelMessages",
+          "sig": "email.labelMessages(labelId)",
+          "desc": "Messages carrying a label, newest first.",
+          "ret": "object",
+          "example": "var tagged = email.labelMessages(\"work\").data;"
+        },
+        {
+          "name": "email.snooze",
+          "sig": "email.snooze(message, until)",
+          "desc": "Hide a message until a time (unix ms); it then reappears unread.",
+          "ret": "object",
+          "example": "email.snooze(message, Date.now() + 24 * 3600 * 1000);"
+        },
+        {
+          "name": "email.unsnooze",
+          "sig": "email.unsnooze(message)",
+          "desc": "Bring a snoozed message back now.",
+          "ret": "object",
+          "example": "email.unsnooze(message);"
+        },
+        {
+          "name": "email.snoozed",
+          "sig": "email.snoozed()",
+          "desc": "Snoozed messages, soonest first.",
+          "ret": "object",
+          "example": "var later = email.snoozed().data;"
+        },
+        {
+          "name": "email.settings",
+          "sig": "email.settings()",
+          "desc": "The user's Mail preferences.",
+          "ret": "object",
+          "example": "var settings = email.settings().data;"
+        },
+        {
+          "name": "email.saveSettings",
+          "sig": "email.saveSettings(settings)",
+          "desc": "Replace the user's Mail preferences (invalid values fall back to defaults).",
+          "ret": "object",
+          "example": "email.saveSettings({ density: \"compact\", undoSendSeconds: 10 });"
+        },
+        {
+          "name": "email.trustSender",
+          "sig": "email.trustSender(sender)",
+          "desc": "Always load remote content from an address or domain.",
+          "ret": "object",
+          "example": "email.trustSender(\"news@example.com\");"
+        },
+        {
+          "name": "email.isAdmin",
+          "sig": "email.isAdmin()",
+          "desc": "Whether the calling user administers Mail.",
+          "ret": "object",
+          "example": "var admin = email.isAdmin().data;"
+        },
+        {
+          "name": "email.adminConfig",
+          "sig": "email.adminConfig()",
+          "desc": "Administrator settings: OAuth clients (secrets hidden), network policy and limits. Admin only.",
+          "ret": "object",
+          "example": "var config = email.adminConfig().data;"
+        },
+        {
+          "name": "email.setAdminConfig",
+          "sig": "email.setAdminConfig(config)",
+          "desc": "Change the administrator settings. Client secrets are only replaced when googleSecretSet / microsoftSecretSet is true. Admin only.",
+          "ret": "object",
+          "example": "email.setAdminConfig({ allowPrivateHosts: false, maxAttachmentMB: 25,\n    microsoft: { enabled: true, clientId: \"...\", flow: \"device\", tenant: \"common\" } });"
+        }
+      ]
+    },
+    {
       "id": "cluster",
       "name": "Cluster",
       "desc": "ArozOS cluster: nodes, namespace metadata, replica policies and event hooks. requirelib(\"cluster\"). Ordinary file access on cluster:/ works through filelib.",

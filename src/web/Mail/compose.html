@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>New message</title>
+    <link rel="icon" href="img/icon.svg">
+    <link rel="stylesheet" href="../script/semantic/components/icon.min.css">
+    <link rel="stylesheet" href="style/mail.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+</head>
+
+<body class="window-page">
+    <div class="compose-host" id="composeHost">
+        <div class="reader-loading"><div class="spinner large"></div></div>
+    </div>
+
+    <script src="script/util.js"></script>
+    <script src="script/api.js"></script>
+    <script src="script/ui.js"></script>
+    <script src="script/shared.js"></script>
+    <script src="script/compose.js"></script>
+    <script>
+        /*
+            Mail — composer window
+
+            Every new message, reply, forward and reopened draft gets a float
+            window of its own. The message to start with arrives through a
+            storage hand-off (see Mail.shared.openComposeWindow), because a
+            quoted message is often too large for a URL.
+
+            Closing the window saves the message to Drafts first. A browser tab
+            that is closed without that chance sends what it has as a beacon.
+        */
+        (function () {
+            "use strict";
+            var util = Mail.util;
+            var ui = Mail.ui;
+            var api = Mail.api;
+            var shared = Mail.shared;
+            var el = util.el;
+            var icon = util.icon;
+            var host = document.getElementById("composeHost");
+            var accounts = [];
+            var settings = {};
+            var closing = false;
+            var finished = false;
+            var applyTheme = shared.followTheme(function () { return settings.theme; });
+
+            function setTitle(title) {
+                if (typeof ao_module_setWindowTitle === "function") {
+                    ao_module_setWindowTitle(title || "New message");
+                } else {
+                    document.title = title || "New message";
+                }
+            }
+
+            //closeWindow closes the window once the composer is done with it
+            function closeWindow() {
+                finished = true;
+                ao_module_closeHandler();
+            }
+
+            //The title bar's close button lands here: save the draft, then close
+            window.ao_module_close = function () {
+                var composer = Mail.compose.current();
+                if (!composer || finished) {
+                    closeWindow();
+                    return;
+                }
+                if (closing) {
+                    return;
+                }
+                closing = true;
+                composer.close().then(function (ok) {
+                    closing = false;
+                    if (ok) {
+                        closeWindow();
+                    }
+                }, function () {
+                    closing = false;
+                });
+            };
+
+            //Last resort when the window goes away without asking (a browser
+            //tab, a reload): hand the unsaved message to the server
+            window.addEventListener("pagehide", function () {
+                var composer = Mail.compose.current();
+                var draft = composer && !finished ? composer.unsavedDraft() : null;
+                if (!draft || !navigator.sendBeacon) {
+                    return;
+                }
+                var root = (typeof ao_root === "string" && ao_root) ? ao_root : "../";
+                navigator.sendBeacon(root + "system/ajgi/interface?script=Mail/backend/compose.agi", new URLSearchParams({
+                    opr: "draft",
+                    data: JSON.stringify({ message: draft })
+                }));
+            });
+
+            function showProblem(title, text, withMailButton) {
+                util.clear(host);
+                host.appendChild(el("div", { class: "reader-empty" }, [
+                    icon("exclamation triangle"),
+                    el("div", { class: "title", text: title }),
+                    el("div", { text: text }),
+                    withMailButton ? el("button", {
+                        class: "btn primary", on: {
+                            click: function () {
+                                ao_module_newfw({ url: "Mail/index.html", width: 1280, height: 800, appicon: "Mail/img/icon.svg", title: "Mail" });
+                                closeWindow();
+                            }
+                        }
+                    }, [icon("envelope outline"), "Open Mail"]) : null
+                ]));
+            }
+
+            //startOptions reads what to write from the launch hash
+            function startOptions() {
+                var hash = (window.location.hash || "").replace(/^#/, "");
+                var options = null;
+                if (hash.indexOf("handoff=") === 0) {
+                    options = shared.takeHandOff(hash.slice(8));
+                } else if (/^mailto:/i.test(decodeURIComponent(hash))) {
+                    options = Mail.compose.mailtoOptions(decodeURIComponent(hash), "");
+                } else if (hash.indexOf("compose=") === 0) {
+                    try {
+                        options = JSON.parse(decodeURIComponent(hash.slice(8)));
+                    } catch (e) { /* malformed */ }
+                }
+                //A reload must not start the same message twice
+                try {
+                    history.replaceState(null, "", window.location.pathname + window.location.search);
+                } catch (e) { /* ignore */ }
+                return options || {};
+            }
+
+            var options = startOptions();
+            if (!api.available) {
+                showProblem("Not connected", "Open Mail from the ArozOS desktop.", false);
+                return;
+            }
+
+            Promise.all([
+                api.accounts("list", {}),
+                api.settings("get", {}).catch(function () { return {}; })
+            ]).then(function (results) {
+                accounts = results[0] || [];
+                settings = results[1] || {};
+                applyTheme();
+                if (accounts.length === 0) {
+                    showProblem("No mail account", "Add a mail account in Mail before writing a message.", true);
+                    return;
+                }
+                util.clear(host);
+                Mail.compose.init({
+                    host: host,
+                    context: {
+                        windowMode: true,
+                        accounts: function () { return accounts; },
+                        settings: function () { return settings; },
+                        defaultAccountId: function () {
+                            if (settings.defaultAccount && accounts.some(function (item) { return item.id === settings.defaultAccount; })) {
+                                return settings.defaultAccount;
+                            }
+                            return accounts[0].id;
+                        },
+                        onTitle: setTitle,
+                        closeWindow: closeWindow,
+                        onAuthFailed: function (accountId) {
+                            var item = accounts.filter(function (account) { return account.id === accountId; })[0];
+                            ui.toast("Sign in to " + (item ? item.email : "this account") + " again from the Mail window, then send the message.", { error: true, duration: 9000 });
+                        }
+                    }
+                });
+                setTitle(options.subject || "New message");
+                Mail.compose.openHere(options);
+            }).catch(function (error) {
+                showProblem("Cannot write a message", error.message, false);
+            });
+        })();
+    </script>
+</body>
+
+</html>

@@ -28,6 +28,7 @@
     <script src="script/api.js"></script>
     <script src="script/ui.js"></script>
     <script src="script/render.js"></script>
+    <script src="script/shared.js"></script>
     <script src="script/compose.js"></script>
     <script>
         /*
@@ -35,7 +36,7 @@
 
             Opened by ArozOS for .eml files. Shows the message with the same
             sanitiser and sandbox as the mailbox view; replying and forwarding
-            hand the message over to the main Mail window.
+            open a composer window.
         */
         (function () {
             "use strict";
@@ -51,24 +52,7 @@
             var accounts = [];
             var settings = {};
 
-            function applyTheme(theme) {
-                document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
-            }
-            if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-                applyTheme("dark");
-            }
-            if (typeof ao_module_getSystemThemeColor === "function") {
-                try {
-                    ao_module_getSystemThemeColor(function (theme) {
-                        if (theme === "darkTheme" || theme === "whiteTheme") {
-                            applyTheme(theme === "darkTheme" ? "dark" : "light");
-                        }
-                    });
-                } catch (e) { /* standalone */ }
-            }
-            if (typeof ao_module_onThemeChanged === "function") {
-                ao_module_onThemeChanged(applyTheme);
-            }
+            var applyTheme = Mail.shared.followTheme(function () { return settings.theme; });
 
             Mail.compose.init({
                 host: document.body,
@@ -84,23 +68,13 @@
                 content.appendChild(el("div", { class: "reader-empty" }, [icon("exclamation triangle"), el("div", { class: "title", text: "Cannot open this message" }), el("div", { text: text })]));
             }
 
-            //handOver opens the main Mail window with a prepared composer
+            //handOver opens a composer window with a prepared message
             function handOver(options) {
                 if (accounts.length === 0) {
                     ui.toast("Add a mail account in Mail first", { error: true });
                     return;
                 }
-                var key = "handoff-" + util.randomId();
-                try {
-                    localStorage.setItem("aroz-mail:" + key, JSON.stringify(options));
-                } catch (e) {
-                    ui.toast("The message is too large to hand over", { error: true });
-                    return;
-                }
-                ao_module_newfw({
-                    url: "Mail/index.html#handoff=" + key,
-                    width: 1280, height: 800, appicon: "Mail/img/icon.svg", title: "Mail"
-                });
+                Mail.shared.openComposeWindow(options);
             }
 
             function withAttachmentsAsFiles(options) {
@@ -232,7 +206,10 @@
             file = files[0];
             document.getElementById("fileName").textContent = file.filename;
             api.accounts("list", {}).then(function (list) { accounts = list || []; }).catch(function () { });
-            api.settings("get", {}).then(function (loaded) { settings = loaded || {}; }).catch(function () { });
+            api.settings("get", {}).then(function (loaded) {
+                settings = loaded || {};
+                applyTheme();
+            }).catch(function () { });
             load(false);
         })();
     </script>

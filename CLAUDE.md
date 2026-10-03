@@ -42,7 +42,12 @@ ffmpeg helpers, SQLite, WebSockets, an LLM/`aimodel` chat library, and more).
   permission), `git` (version control over folders in the user's file system —
   clone/status/stage/commit/branch/diff/fetch/pull/push via go-git with no `git`
   binary on the host, plus encrypted per-user HTTPS credentials,
-  [`src/mod/git/`](src/mod/git/); the GitApp WebApp is its front end), and
+  [`src/mod/git/`](src/mod/git/); the GitApp WebApp is its front end), `email`
+  (IMAP / SMTP mail client — accounts with password or Google / Microsoft OAuth
+  sign-in, sanitised reading, drafts, undo / scheduled sending through a
+  server-side outbox, contacts, labels and snooze; mail data and the encrypted
+  secrets live in their own `system/mail/mail.db`,
+  [`src/mod/email/`](src/mod/email/); the Mail WebApp is its front end), and
   `ffmpeg` (only when ffmpeg is on the host), plus
   `websocket` and `scheduler` which are injected only in an HTTP request
   context.
@@ -572,6 +577,7 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/prouter/`](src/mod/prouter/) — permission/auth router (rule 4).
 - [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
 - [`src/mod/modules/`](src/mod/modules/) — module registry and the `ModuleInfo` struct shared by WebApps and SubServices (see "What a WebApp is").
+- [`src/mod/email/`](src/mod/email/) — IMAP / SMTP backend of the `email` AGI library and the Mail WebApp ([`src/web/Mail/`](src/web/Mail/)).
 - [`src/mod/subservice/`](src/mod/subservice/) — reverse-proxied binary subservices (see "What a SubService is"); wired up in [`src/subservice.go`](src/subservice.go).
 - [`src/mod/appproxy/`](src/mod/appproxy/) — Container Apps reverse proxy (see "What Container Apps are").
 - [`src/web/`](src/web/) — front-end assets and WebApps (one folder per module; see "What a WebApp is").

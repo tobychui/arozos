@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Message</title>
+    <link rel="icon" href="img/icon.svg">
+    <link rel="stylesheet" href="../script/semantic/components/icon.min.css">
+    <link rel="stylesheet" href="style/mail.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+</head>
+
+<body class="window-page">
+    <div class="viewer-app message-window" id="messageWindow">
+        <div class="viewer-bar">
+            <button class="btn small" id="replyButton" title="Reply (R)" disabled><i class="reply icon"></i><span class="text">Reply</span></button>
+            <button class="btn small" id="replyAllButton" title="Reply all (A)" disabled><i class="reply all icon"></i><span class="text">Reply all</span></button>
+            <button class="btn small" id="forwardButton" title="Forward (F)" disabled><i class="share icon"></i><span class="text">Forward</span></button>
+            <div class="grow"></div>
+            <button class="iconbtn" id="starButton" title="Star (S)" disabled><i class="star outline icon"></i></button>
+            <button class="iconbtn" id="unreadButton" title="Mark as unread (U)" disabled><i class="envelope outline icon"></i></button>
+            <button class="iconbtn" id="archiveButton" title="Archive (E)" disabled><i class="archive icon"></i></button>
+            <button class="iconbtn" id="deleteButton" title="Delete (Del)" disabled><i class="trash alternate outline icon"></i></button>
+            <button class="iconbtn" id="moreButton" title="More actions" disabled><i class="ellipsis horizontal icon"></i></button>
+        </div>
+        <div class="reader-scroll scroll" id="content">
+            <div class="reader-loading"><div class="spinner large"></div></div>
+        </div>
+    </div>
+
+    <script src="script/util.js"></script>
+    <script src="script/api.js"></script>
+    <script src="script/ui.js"></script>
+    <script src="script/render.js"></script>
+    <script src="script/shared.js"></script>
+    <script src="script/compose.js"></script>
+    <script src="script/settings.js"></script>
+    <script>
+        /*
+            Mail — message window
+
+            One mailbox message in a float window of its own (double-click a
+            message in the list). It offers the reading pane's actions and
+            tells the main window what changed through Mail.shared.emit, so
+            its list and counters follow.
+        */
+        (function () {
+            "use strict";
+            var util = Mail.util;
+            var ui = Mail.ui;
+            var api = Mail.api;
+            var render = Mail.render;
+            var shared = Mail.shared;
+            var compose = Mail.compose;
+            var el = util.el;
+            var icon = util.icon;
+            var content = document.getElementById("content");
+            var target = null;
+            var message = null;
+            var accounts = [];
+            var settings = {};
+            var labels = [];
+            var folders = [];
+            var frame = null;
+            var markTimer = null;
+            var busy = false;
+            var applyTheme = shared.followTheme(function () { return settings.theme; });
+
+            var buttons = {};
+            ["replyButton", "replyAllButton", "forwardButton", "starButton", "unreadButton", "archiveButton", "deleteButton", "moreButton"].forEach(function (id) {
+                buttons[id] = document.getElementById(id);
+            });
+
+            compose.init({
+                host: document.body,
+                context: {
+                    accounts: function () { return accounts; },
+                    settings: function () { return settings; },
+                    defaultAccountId: function () { return message ? message.accountId : (accounts.length > 0 ? accounts[0].id : ""); }
+                }
+            });
+
+            function setTitle(title) {
+                if (typeof ao_module_setWindowTitle === "function") {
+                    ao_module_setWindowTitle(title);
+                } else {
+                    document.title = title;
+                }
+            }
+
+            function readTarget() {
+                try {
+                    var parsed = JSON.parse(decodeURIComponent((window.location.hash || "").replace(/^#/, "")));
+                    if (parsed && parsed.accountId && parsed.folder && parsed.uid) {
+                        return parsed;
+                    }
+                } catch (e) { /* malformed */ }
+                return null;
+            }
+
+            function role() {
+                if (!message) {
+                    return "";
+                }
+                if (String(message.folder).toUpperCase() === "INBOX") {
+                    return "inbox";
+                }
+                var folder = folders.filter(function (item) { return item.name === message.folder; })[0];
+                return folder ? folder.role : "";
+            }
+
+            function destroyFrame() {
+                if (frame && frame.destroy) {
+                    frame.destroy();
+                }
+                frame = null;
+                clearTimeout(markTimer);
+            }
+
+            function showState(iconName, title, text) {
+                destroyFrame();
+                util.clear(content);
+                content.appendChild(el("div", { class: "reader-empty" }, [icon(iconName), el("div", { class: "title", text: title }), text ? el("div", { text: text }) : null]));
+                Object.keys(buttons).forEach(function (id) { buttons[id].disabled = true; });
+            }
+
+            //finish closes the window after the message left this folder
+            function finish(text) {
+                if (shared.isDesktop()) {
+                    ao_module_closeHandler();
+                    return;
+                }
+                showState("check", text, "You can close this tab.");
+            }
+
+            function updateButtons() {
+                var ready = message !== null && !busy;
+                Object.keys(buttons).forEach(function (id) { buttons[id].disabled = !ready; });
+                if (!message) {
+                    return;
+                }
+                buttons.starButton.classList.toggle("on", message.flagged === true);
+                buttons.starButton.title = message.flagged ? "Unstar (S)" : "Star (S)";
+                buttons.starButton.firstChild.className = (message.flagged ? "star" : "star outline") + " icon";
+                buttons.unreadButton.title = message.seen ? "Mark as unread (U)" : "Mark as read (Shift+I)";
+                buttons.unreadButton.firstChild.className = (message.seen ? "envelope outline" : "envelope open outline") + " icon";
+                var currentRole = role();
+                buttons.archiveButton.classList.toggle("hidden", currentRole === "archive" || currentRole === "all");
+                buttons.deleteButton.title = currentRole === "trash" ? "Delete permanently" : "Delete (Del)";
+            }
+
+            function emitChange(change, extra) {
+                var data = { change: change, accountId: message.accountId, folder: message.folder, uid: message.uid };
+                Object.keys(extra || {}).forEach(function (key) { data[key] = extra[key]; });
+                shared.emit("changed", data);
+            }
+
+            /* ---------- Loading ---------- */
+
+            function fetch(allowRemote) {
+                var request = function (folder, uid) {
+                    return api.message("get", { accountId: target.accountId, folder: folder, uid: uid, options: { allowRemote: allowRemote === true } });
+                };
+                return request(target.folder, target.uid).catch(function (error) {
+                    //Labelled and snoozed mail may have moved since it was listed
+                    if (error.code === "notfound" && target.messageId) {
+                        return api.message("locate", { accountId: target.accountId, messageId: target.messageId, hint: target.folder }).then(function (located) {
+                            target.folder = located.folder;
+                            target.uid = located.uid;
+                            return request(located.folder, located.uid);
+                        });
+                    }
+                    throw error;
+                });
+            }
+
+            function load(allowRemote) {
+                fetch(allowRemote).then(function (loaded) {
+                    show(loaded);
+                }).catch(function (error) {
+                    showState(error.authFailed ? "key" : "exclamation triangle",
+                        error.code === "notfound" ? "This message is no longer here" : "Could not open the message", error.message);
+                });
+            }
+
+            function labelPills() {
+                var pills = el("div", { class: "msg-labels" });
+                (message.labels || []).forEach(function (id) {
+                    var label = labels.filter(function (item) { return item.id === id; })[0];
+                    if (label) {
+                        pills.appendChild(el("span", { class: "label-pill", style: { "--pill": label.color }, text: label.name }));
+                    }
+                });
+                return pills;
+            }
+
+            function show(loaded) {
+                message = loaded;
+                destroyFrame();
+                util.clear(content);
+                setTitle(message.subject || "(no subject)");
+
+                var subject = el("div", { class: "reader-subject" }, [el("h1", { text: message.subject || "(no subject)" })]);
+                subject.appendChild(labelPills());
+                content.appendChild(subject);
+
+                var acts = el("div", { class: "acts" });
+                if (message.listUnsubscribe) {
+                    acts.appendChild(el("button", {
+                        class: "btn small ghost", title: "Unsubscribe from this mailing list", text: "Unsubscribe",
+                        on: { click: function () { shared.unsubscribe(message, function (href) { compose.mailto(href, message.accountId); }); } }
+                    }));
+                }
+                content.appendChild(render.header(message, { actions: acts, onAddress: addressMenu }));
+
+                var notices = render.notices(message, {
+                    loadRemote: function () { load(true); },
+                    trustSender: function (sender) {
+                        api.settings("trust", { sender: sender }).then(function () {
+                            ui.toast("Images from " + sender + " will always load");
+                            load(true);
+                        }).catch(function (error) { ui.errorToast(error); });
+                    }
+                });
+                if (notices) {
+                    content.appendChild(notices);
+                }
+
+                var body = el("div", { class: "reader-body" });
+                content.appendChild(body);
+                frame = render.body(body, message, {
+                    onMailto: function (href) { compose.mailto(href, message.accountId); }
+                });
+
+                var attachments = render.attachments(message.attachments, shared.attachmentHandlers(message));
+                if (attachments) {
+                    content.appendChild(attachments);
+                }
+                updateButtons();
+
+                if (!message.seen) {
+                    if (settings.markReadDelay === 0) {
+                        setFlag("seen", true);
+                    } else if (settings.markReadDelay > 0) {
+                        markTimer = setTimeout(function () { setFlag("seen", true); }, settings.markReadDelay * 1000);
+                    }
+                }
+            }
+
+            /* ---------- Actions ---------- */
+
+            function setFlag(flag, value) {
+                if (!message || message[flag] === value) {
+                    return;
+                }
+                if (flag === "seen") {
+                    clearTimeout(markTimer);
+                }
+                var previous = message[flag];
+                message[flag] = value;
+                updateButtons();
+                api.message("flag", { accountId: message.accountId, folder: message.folder, uids: [message.uid], flag: flag, value: value }).then(function () {
+                    emitChange(flag, { value: value });
+                }).catch(function (error) {
+                    message[flag] = previous;
+                    updateButtons();
+                    ui.errorToast(error);
+                });
+            }
+
+            //leave runs an action that takes the message out of this folder
+            function leave(operation, payload, doneText) {
+                if (!message || busy) {
+                    return;
+                }
+                var data = { accountId: message.accountId, folder: message.folder, uids: [message.uid] };
+                Object.keys(payload || {}).forEach(function (key) { data[key] = payload[key]; });
+                busy = true;
+                updateButtons();
+                api.message(operation, data).then(function () {
+                    emitChange("removed");
+                    finish(doneText);
+                }).catch(function (error) {
+                    busy = false;
+                    updateButtons();
+                    ui.errorToast(error);
+                });
+            }
+
+            function remove() {
+                var permanent = role() === "trash";
+                var proceed = (settings.confirmDelete || permanent) ?
+                    ui.confirm(permanent ? "Delete permanently?" : "Delete this message?",
+                        permanent ? "The message will be deleted and cannot be recovered." : "The message will be moved to Trash.",
+                        { okLabel: "Delete", danger: true }) : Promise.resolve(true);
+                proceed.then(function (ok) {
+                    if (ok) {
+                        leave("remove", { permanent: permanent }, permanent ? "Message deleted" : "Moved to Trash");
+                    }
+                });
+            }
+
+            function snooze(until) {
+                if (!message || busy) {
+                    return;
+                }
+                busy = true;
+                updateButtons();
+                api.message("snooze", { message: shared.summaryOf(message), until: until }).then(function () {
+                    emitChange("removed");
+                    finish("Snoozed until " + util.formatFullDate(until));
+                }).catch(function (error) {
+                    busy = false;
+                    updateButtons();
+                    ui.errorToast(error);
+                });
+            }
+
+            function toggleLabel(labelId, value) {
+                var next = (message.labels || []).filter(function (id) { return id !== labelId; });
+                if (value) {
+                    next.push(labelId);
+                }
+                message.labels = next;
+                var pills = content.querySelector(".reader-subject .msg-labels");
+                if (pills) {
+                    pills.replaceWith(labelPills());
+                }
+                api.message("setLabels", { message: shared.summaryOf(message), labels: next }).then(function () {
+                    emitChange("labels", { labels: next });
+                }).catch(function (error) { ui.errorToast(error); });
+            }
+
+            function chooseFolder() {
+                var body = el("div");
+                var search = el("input", { class: "input", type: "search", placeholder: "Find a folder", autofocus: true });
+                var list = el("div", { class: "folder-choices" });
+                body.appendChild(search);
+                body.appendChild(list);
+                var dialog = ui.modal({ title: "Move to", body: body, buttons: [{ label: "Cancel" }] });
+                var renderFolders = function () {
+                    util.clear(list);
+                    var query = search.value.trim().toLowerCase();
+                    folders.filter(function (folder) {
+                        return folder.selectable && folder.name !== message.folder && (!query || folder.name.toLowerCase().indexOf(query) >= 0);
+                    }).forEach(function (folder) {
+                        var choice = el("button", { class: "nav-item", type: "button" }, [icon(folder.role === "inbox" ? "inbox" : "folder outline"), el("span", { class: "label", text: folder.display || folder.name })]);
+                        choice.addEventListener("click", function () {
+                            dialog.close();
+                            leave("move", { destination: folder.name }, "Moved to " + (folder.display || folder.name));
+                        });
+                        list.appendChild(choice);
+                    });
+                };
+                search.addEventListener("input", renderFolders);
+                renderFolders();
+            }
+
+            function labelItems() {
+                var items = [];
+                labels.forEach(function (label) {
+                    var on = (message.labels || []).indexOf(label.id) >= 0;
+                    items.push({ label: label.name, dot: label.color, checked: on, onClick: function () { toggleLabel(label.id, !on); } });
+                });
+                if (labels.length === 0) {
+                    items.push({ label: "No labels yet", disabled: true });
+                }
+                return items;
+            }
+
+            function snoozeItems() {
+                var items = [];
+                ui.presetTimes().forEach(function (preset) {
+                    items.push({ label: preset.label, hint: preset.hint, icon: "clock outline", onClick: function () { snooze(preset.value); } });
+                });
+                items.push({
+                    label: "Pick date and time…", icon: "calendar alternate outline", onClick: function () {
+                        ui.pickDateTime("Snooze until", null, "Snooze").then(function (value) {
+                            if (value) {
+                                snooze(value);
+                            }
+                        });
+                    }
+                });
+                return items;
+            }
+
+            function moreMenu(anchor) {
+                var currentRole = role();
+                var items = [
+                    { label: "Forward as attachment", icon: "paperclip", onClick: function () { compose.forward(message, true); } },
+                    "-",
+                    { label: "Labels", icon: "tags", submenu: labelItems },
+                    { label: "Snooze", icon: "clock outline", submenu: snoozeItems }
+                ];
+                if (currentRole === "junk") {
+                    items.push({ label: "Not junk", icon: "check circle outline", onClick: function () { leave("moveToRole", { role: "inbox" }, "Moved to Inbox"); } });
+                } else {
+                    items.push({ label: "Mark as junk", icon: "ban", onClick: function () { leave("moveToRole", { role: "junk" }, "Moved to Junk"); } });
+                }
+                if (currentRole === "trash" || currentRole === "archive") {
+                    items.push({ label: "Move to Inbox", icon: "inbox", onClick: function () { leave("moveToRole", { role: "inbox" }, "Moved to Inbox"); } });
+                }
+                items.push({ label: "Move to…", icon: "folder open outline", disabled: folders.length === 0, onClick: chooseFolder });
+                items.push("-");
+                items.push({ label: "Save to ArozOS (.eml)…", icon: "save outline", onClick: function () { shared.saveAsEML(message); } });
+                items.push({ label: "Download (.eml)", icon: "download", onClick: function () { shared.downloadEML(message); } });
+                items.push({ label: "Print", icon: "print", onClick: function () { shared.printMessage(message); } });
+                items.push({ label: "View source", icon: "code", onClick: function () { shared.viewSource(message); } });
+                var sender = (message.from || [])[0];
+                if (sender && sender.email) {
+                    items.push({ label: "Add sender to address book", icon: "address book outline", onClick: function () { Mail.settings.contactDialog({ name: sender.name, email: sender.email }, function () { ui.toast("Contact saved"); }); } });
+                }
+                ui.menu(anchor, items, { alignRight: true });
+            }
+
+            function addressMenu(address) {
+                var anchor = { x: window.innerWidth / 2, y: 140 };
+                if (window.event && window.event.clientX !== undefined) {
+                    anchor = { x: window.event.clientX, y: window.event.clientY };
+                }
+                ui.menu(anchor, [
+                    { title: util.addressFull(address) },
+                    { label: "Write to " + (address.name || address.email), icon: "edit outline", onClick: function () { compose.open({ accountId: message.accountId, to: [util.formatAddressForInput(address)], focus: "body" }); } },
+                    { label: "Add to address book", icon: "address book outline", onClick: function () { Mail.settings.contactDialog({ name: address.name, email: address.email }, function () { ui.toast("Contact saved"); }); } },
+                    {
+                        label: "Copy address", icon: "copy outline", onClick: function () {
+                            if (navigator.clipboard) {
+                                navigator.clipboard.writeText(address.email).then(function () { ui.toast("Copied"); });
+                            }
+                        }
+                    }
+                ]);
+            }
+
+            buttons.replyButton.addEventListener("click", function () { compose.reply(message, false); });
+            buttons.replyAllButton.addEventListener("click", function () { compose.reply(message, true); });
+            buttons.forwardButton.addEventListener("click", function () { compose.forward(message, false); });
+            buttons.starButton.addEventListener("click", function () { setFlag("flagged", !message.flagged); });
+            buttons.unreadButton.addEventListener("click", function () { setFlag("seen", !message.seen); });
+            buttons.archiveButton.addEventListener("click", function () { leave("moveToRole", { role: "archive" }, "Archived"); });
+            buttons.deleteButton.addEventListener("click", remove);
+            buttons.moreButton.addEventListener("click", function () { moreMenu(buttons.moreButton); });
+
+            document.addEventListener("keydown", function (event) {
+                var typing = event.target && (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA" || event.target.tagName === "SELECT" || event.target.isContentEditable);
+                if (!message || busy || typing || ui.hasOpenModal() || ui.isMenuOpen() || compose.isOpen() || event.ctrlKey || event.metaKey || event.altKey) {
+                    return;
+                }
+                var handled = true;
+                switch (event.key) {
+                    case "r": compose.reply(message, false); break;
+                    case "a": compose.reply(message, true); break;
+                    case "f": compose.forward(message, false); break;
+                    case "s": setFlag("flagged", !message.flagged); break;
+                    case "u": setFlag("seen", false); break;
+                    case "I": if (event.shiftKey) { setFlag("seen", true); } break;
+                    case "e": if (!buttons.archiveButton.classList.contains("hidden")) { leave("moveToRole", { role: "archive" }, "Archived"); } break;
+                    case "#": case "Delete": remove(); break;
+                    default: handled = false;
+                }
+                if (handled) {
+                    event.preventDefault();
+                }
+            });
+
+            /* ---------- Start ---------- */
+
+            target = readTarget();
+            if (!target) {
+                showState("exclamation triangle", "No message to show", "Open messages from the Mail window.");
+                return;
+            }
+            if (target.subject) {
+                setTitle(target.subject);
+            }
+            if (!api.available) {
+                showState("plug", "Not connected", "Open Mail from the ArozOS desktop.");
+                return;
+            }
+            Promise.all([
+                api.settings("get", {}).catch(function () { return {}; }),
+                api.accounts("list", {}).catch(function () { return []; }),
+                api.settings("labels", {}).catch(function () { return []; })
+            ]).then(function (results) {
+                settings = results[0] || {};
+                accounts = results[1] || [];
+                labels = results[2] || [];
+                applyTheme();
+                api.mailbox("folders", { accountId: target.accountId }).then(function (list) {
+                    folders = list || [];
+                    updateButtons();
+                }).catch(function () { });
+                load(false);
+            });
+        })();
+    </script>
+</body>
+
+</html>

@@ -15,7 +15,7 @@ This document is updated to match the current AGI implementation in `mod/agi/agi
 
 ## AGI Version
 
-- Runtime version: `3.7` (`AgiVersion` in `agi.go`)
+- Runtime version: `3.8` (`AgiVersion` in `agi.go`)
 
 ## Quick Start
 
@@ -278,6 +278,7 @@ Registered library IDs:
 - `office` (ArozOS Office suite: .pptx / .xlsx / .docx converters + native zip container pack/unpack)
 - `notification` (raise notifications to users via the core notification system, with priority - requires the host to wire in a notification sender)
 - `git` (version control for folders in the user's file system: clone / status / stage / commit / branch / diff / fetch / pull / push, with encrypted per-user HTTPS credentials — requires the host to wire in a git manager)
+- `email` (IMAP / SMTP mail client: accounts with password or OAuth sign-in, folders, search, reading sanitised mail, drafts, sending with undo / scheduling, address book, labels, snooze — requires the host to wire in an email manager)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:
@@ -2541,6 +2542,263 @@ Stored credentials as `{host, username}`. **Tokens are never returned.**
 
 The host a remote URL maps to, i.e. the key credentials are stored under. Both
 `https://github.com/a/b.git` and `git@github.com:a/b.git` yield `github.com`.
+
+---
+
+## email API
+
+Load:
+
+```javascript
+requirelib("email");
+```
+
+A complete IMAP / SMTP mail client, backed by `mod/email`: multiple accounts
+per ArozOS user (Gmail, Outlook / Hotmail / Microsoft 365, Yahoo, iCloud and any
+IMAP server), folders, paging and server-side search, reading with sanitised
+HTML, flags, moving, drafts, sending with undo and scheduling, an address book,
+labels, snoozing and OAuth sign-in. It is the backend of the Mail WebApp and is
+available only when the host wired an email manager into the AGI gateway.
+
+**Return convention**
+
+Every function returns an object. On success it is `{success: true, data: …}`;
+on failure `{success: false, error: "…"}` plus, where it applies:
+
+- `authFailed: true` — the stored password or sign-in was rejected; ask the
+  user to sign in again (`updateAccount` with a new password, or a new OAuth
+  sign-in).
+- `hint` — what the user should do, e.g. "Gmail only accepts an app password".
+- `code` — `notfound` (account, folder or message is gone), `blocked`
+  (administrator policy), `toolarge`, `oauthdisabled`.
+
+**Privacy and security**
+
+- Accounts belong to the calling ArozOS user; other users can never list or
+  use them. Mail data is kept in its own database (`system/mail/mail.db`), out
+  of reach of the generic DB functions.
+- Passwords, OAuth refresh tokens and OAuth client secrets are sealed with
+  AES-256-GCM and are never returned to a script.
+- Non-admin users cannot connect to loopback / LAN addresses or use
+  unencrypted connections unless an administrator allows it (`setAdminConfig`).
+- `get` returns sanitised HTML (no scripts, frames, forms or event handlers;
+  remote images blocked unless allowed). Show it in a sandboxed iframe anyway.
+- Paths (`destDir`, `.eml` files, attachments to send) are ArozOS virtual paths
+  and are permission and quota checked. Saved files never overwrite an
+  existing file: `report.pdf` becomes `report (1).pdf`.
+
+**Identifiers**
+
+A message is addressed by `accountId`, `folder` (full IMAP mailbox name, e.g.
+`"INBOX"` or `"[Gmail]/Sent Mail"`) and `uid`. Attachments are addressed by
+their part id (`"2"`, `"1.3"`, …) as listed in `message.attachments`.
+
+### Accounts and sign-in
+
+#### `email.providers()` → `{success, data: [preset]}`
+
+Known providers: server settings, whether OAuth applies and how to create an
+app password.
+
+#### `email.discover(address)` → `{success, data}`
+
+Suggests server settings for an address (provider presets, MX records,
+Thunderbird ISPDB, the domain's autoconfig, SRV records, then probing).
+
+#### `email.listAccounts()` / `email.getAccount(id)`
+
+Accounts without secrets: `{id, email, displayName, provider, color, imap,
+smtp, auth, signature, replyTo, saveSent, hasSecret, authError}`.
+
+#### `email.testAccount(input)` → `{success, data: {imapOk, smtpOk}}`
+
+Logs in to both servers without storing anything (password accounts only).
+
+#### `email.addAccount(input)` → `{success, data: {account, test}}`
+
+Verifies IMAP (and SMTP unless `skipSmtpCheck`) and stores the account. Input:
+`{email, displayName, provider, imap: {host, port, security, username},
+smtp: {…}, auth: "password" | "oauth2", password, smtpPassword, oauthState,
+signature, replyTo, saveSent: "auto" | "always" | "never"}`. Server settings
+left empty are filled from the provider preset. `security` is `ssl`,
+`starttls` or `none`.
+
+```javascript
+var result = email.addAccount({
+    email: "me@example.com", displayName: "Me", provider: "custom",
+    imap: { host: "mail.example.com", port: 993, security: "ssl" },
+    smtp: { host: "mail.example.com", port: 465, security: "ssl" },
+    auth: "password", password: "app-password"
+});
+if (!result.success && result.authFailed) { /* show result.hint */ }
+```
+
+#### `email.updateAccount(id, input)` / `email.removeAccount(id)` / `email.reorderAccounts(ids)`
+
+An empty password keeps the stored one. Changed connection settings are
+verified before they are saved. Removing an account also forgets its local
+labels, snoozes and queued mail.
+
+#### `email.oauthProviders()` → `{success, data: [{id, name, enabled, flow}]}`
+
+#### `email.oauthStart(provider, address, redirectURI)` → `{success, data}`
+
+Starts a Google or Microsoft sign-in. The result carries `state`, `flow` and
+either `authUrl` (redirect / loopback flows: open it in a window) or
+`userCode` + `verificationUri` (device flow). `redirectURI` is the address of
+`Mail/oauth.html` as the browser sees it.
+
+#### `email.oauthComplete(state, codeOrURL)` / `email.oauthStatus(state)` / `email.oauthCancel(state)`
+
+Finish a redirect / loopback sign-in with the code (or the whole URL the
+provider redirected to), poll a sign-in (`status`: `pending`, `done`, `error`),
+or abandon it. A finished `state` is passed to `addAccount` /
+`updateAccount` as `oauthState`; tokens never reach the script.
+
+### Folders
+
+#### `email.folders(accountId, refresh)` → `{success, data: [folder]}`
+
+`{name, display, parent, delimiter, depth, role, selectable, total, unread}`.
+`role` is `inbox`, `sent`, `drafts`, `trash`, `junk`, `archive`, `all`,
+`flagged`, `important` or empty. Lists are cached for a few minutes unless
+`refresh` is true.
+
+#### `email.createFolder(accountId, parent, name)` / `email.renameFolder(accountId, folder, newName)` / `email.deleteFolder(accountId, folder)`
+
+#### `email.emptyFolder(accountId, folder)` / `email.markAllRead(accountId, folder)`
+
+`emptyFolder` only works on the Trash and Junk folders.
+
+### Messages
+
+#### `email.list(accountId, query)` → `{success, data: {total, page, pageSize, messages}}`
+
+`query`: `{folder, page, pageSize, sort, filter, search, searchIn, previews}`.
+`sort` is `date`, `date_asc`, `from`, `subject` or `size`; `filter` is `all`,
+`unread`, `flagged`, `attachments` or `unanswered`; `searchIn` is `all`,
+`from`, `to`, `subject` or `body`. Each message summary carries `uid`,
+`subject`, `from`, `to`, `date`, `seen`, `flagged`, `hasAttachments`,
+`preview`, `labels`, ….
+
+```javascript
+var page = email.list(accountId, { folder: "INBOX", page: 0, pageSize: 50, previews: true });
+```
+
+#### `email.unified(view, query, accountIds)` → `{success, data}`
+
+One list across accounts (all, or the given ids): `inbox`, `flagged`,
+`unread`, or `role:<role>` (e.g. `role:sent`). A failing account is reported
+in `data.errors` instead of failing the view.
+
+#### `email.get(accountId, folder, uid, options)` → `{success, data: message}`
+
+The message with `html` (sanitised), `text`, `attachments`, `replyTo`,
+`references`, `listUnsubscribe`, `auth` (SPF / DKIM / DMARC verdicts) and
+more. Options: `markSeen`, `allowRemote`.
+
+#### `email.rawSource(accountId, folder, uid)` → `{success, data: {source, truncated, size}}`
+
+#### `email.setFlag(accountId, folder, uids, flag, value)`
+
+`flag` is `seen`, `flagged`, `answered`, `forwarded` or `draft`.
+
+#### `email.move(accountId, folder, uids, destination)` / `email.copy(…)`
+
+#### `email.moveToRole(accountId, folder, uids, role)`
+
+Moves to the account's `archive`, `junk`, `inbox` or `trash` folder, creating
+it when missing. On Gmail, archive moves to All Mail.
+
+#### `email.remove(accountId, folder, uids, permanent)`
+
+Moves to Trash, or deletes for good inside Trash / Junk or when `permanent`.
+
+#### `email.locate(accountId, messageId, hint)` → `{success, data: {folder, uid}}`
+
+Finds a message by its Message-ID after it moved.
+
+#### `email.checkInboxes()` / `email.newSince(accountId, uidNext, limit)`
+
+Cheap STATUS poll of every inbox (`unread`, `total`, `uidNext`), and the new
+unread messages with a UID at or above `uidNext`.
+
+### Files
+
+#### `email.saveMessage(accountId, folder, uid, destDir)` → `{success, data: {path}}`
+
+Saves the message as an `.eml` file.
+
+#### `email.saveAttachment(accountId, folder, uid, partId, destDir)` / `email.saveAllAttachments(accountId, folder, uid, partIds, destDir)`
+
+#### `email.openEml(vpath, allowRemote)` / `email.saveEmlAttachment(vpath, partId, destDir)` / `email.importEml(vpath, accountId, folder)`
+
+Read an `.eml` file like a mailbox message, extract its attachments, or append
+it to a mailbox folder.
+
+#### `email.tempFolder(purpose)` → `{success, data: vpath}`
+
+A private scratch folder under `tmp:/Mail` (`uploads` or `downloads`), pruned
+after a day.
+
+### Composing
+
+#### `email.send(message)` → `{success, data: {queued, outboxId, sendAt, messageId, warning}}`
+
+`message`: `{accountId, fromName, to, cc, bcc, replyTo, subject, html, text,
+plainOnly, priority: "high" | "normal" | "low", readReceipt, inReplyTo,
+references, replyMode: "reply" | "forward", originalFolder, originalUid,
+draftFolder, draftUid, files: [{path, name}], forwarded: [{accountId, folder,
+uid, partId}], undoSeconds, sendAt}`. Images pasted as `data:` URIs become
+inline parts. With `undoSeconds` or a future `sendAt` the message waits in the
+server-side outbox and is delivered even if the browser closes. After delivery
+a copy is filed in Sent (unless the provider does that itself), the original is
+flagged answered / forwarded and the draft is removed. A `forwarded` entry with
+an empty `partId` attaches the whole original message.
+
+```javascript
+email.send({
+    accountId: accountId,
+    to: ["Alice <alice@example.com>"],
+    subject: "Report",
+    html: "<p>Attached.</p>",
+    files: [{ path: "user:/Desktop/report.pdf" }]
+});
+```
+
+#### `email.saveDraft(message)` → `{success, data: {folder, uid, attachments}}`
+
+Stores the message in Drafts, replacing `draftUid`.
+
+#### `email.deleteDraft(accountId, folder, uid)` / `email.outbox()` / `email.outboxCancel(id, toDrafts)` / `email.outboxSendNow(id)`
+
+### Address book, labels and snoozing
+
+#### `email.contacts()` / `email.searchContacts(query, limit)` / `email.saveContact(contact)` / `email.deleteContact(address)` / `email.importContacts(contacts)`
+
+Recipients of sent mail are collected automatically (a user preference).
+
+#### `email.labels()` / `email.saveLabels(labels)` / `email.setLabels(message, labelIds)` / `email.labelMessages(labelId)`
+
+Local, coloured labels (`{id, name, color}`) that work the same on every
+provider. `message` is a message summary as returned by `list`.
+
+#### `email.snooze(message, until)` / `email.unsnooze(message)` / `email.snoozed()`
+
+Hides a message until `until` (unix ms); it then reappears unread.
+
+### Preferences and administration
+
+#### `email.settings()` / `email.saveSettings(settings)` / `email.trustSender(sender)`
+
+The user's Mail preferences, and the list of senders (addresses or domains)
+whose remote images always load.
+
+#### `email.isAdmin()` / `email.adminConfig()` / `email.setAdminConfig(config)`
+
+Administrators configure the Google and Microsoft OAuth applications, whether
+users may reach LAN servers or use unencrypted connections, the attachment
+size limit and the number of accounts per user. Client secrets are write-only.
 
 ---
 

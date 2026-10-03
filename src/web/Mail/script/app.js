@@ -442,7 +442,7 @@ Mail.app = (function () {
         if (state.view.kind === "label" || state.view.kind === "snoozed" || state.view.kind === "outbox") {
             renderSidebar();
             renderListHeader();
-            renderList();
+            showList();
             return;
         }
         openView(roleView(ROLE_META[role] ? role : "inbox"));
@@ -627,7 +627,8 @@ Mail.app = (function () {
             }
             api.mailbox("emptyFolder", { accountId: accountId, folder: folder.name }).then(function (result) {
                 ui.toast(util.plural(result.count, "message") + " deleted");
-                reloadList();
+                markListsStale();
+                refreshList();
                 refreshCountsSoon();
             }).catch(function (error) { ui.errorToast(error); });
         });
@@ -641,6 +642,7 @@ Mail.app = (function () {
                     message.seen = true;
                 }
             });
+            markListsStale();
             renderList();
             refreshCountsSoon();
         }).catch(function (error) { ui.errorToast(error); });
@@ -688,24 +690,282 @@ Mail.app = (function () {
         renderSidebar();
         renderListHeader();
         showReaderEmpty();
-        reloadList();
+        showList();
     }
 
+    /* ---------- List cache ---------- */
+
+    //Lists already shown stay in memory, so going back to Inbox, Sent or
+    //Drafts is instant. A cached list older than LIST_FRESH_MS, or one that an
+    //action may have changed, is shown at once and then refreshed quietly.
+    var LIST_FRESH_MS = 60 * 1000;
+    var LIST_CACHE_SIZE = 24;
+    var MAX_PAGE_SIZE = 200; //The server's limit
+    var listCache = {};
+    var listCacheOrder = [];
+    var prefetched = false;
+
+    function viewKey(view) {
+        switch (view.kind) {
+            case "unified": return "unified:" + view.key;
+            case "folder": return "folder:" + view.accountId + ":" + view.folder;
+            case "label": return "label:" + view.id;
+        }
+        return view.kind;
+    }
+
+    //listKeyFor names a list: the view plus everything else that shapes it
+    function listKeyFor(view, search) {
+        return [viewKey(view), state.accountFilter, state.sort, state.filter, search ? state.searchIn + ":" + search : ""].join("\u0001");
+    }
+
+    function cacheList(key, entry) {
+        listCache[key] = entry;
+        listCacheOrder = listCacheOrder.filter(function (item) { return item !== key; });
+        listCacheOrder.push(key);
+        while (listCacheOrder.length > LIST_CACHE_SIZE) {
+            delete listCache[listCacheOrder.shift()];
+        }
+    }
+
+    //saveListToCache keeps the list on screen, local changes included
+    function saveListToCache() {
+        var list = state.list;
+        if (!list.key || !list.fetched || list.error) {
+            return;
+        }
+        cacheList(list.key, {
+            messages: list.messages.slice(), total: list.total, page: list.page, done: list.done,
+            errors: list.errors || [], sortUnsupported: list.sortUnsupported === true,
+            fetched: list.fetched, stale: list.stale === true, scroll: dom.list ? dom.list.scrollTop : 0
+        });
+    }
+
+    //markListsStale makes every cached list refresh on its next visit. The
+    //list on screen is left alone: actions update it in place.
+    function markListsStale() {
+        Object.keys(listCache).forEach(function (key) {
+            if (key !== state.list.key) {
+                listCache[key].stale = true;
+            }
+        });
+    }
+
+    //forgetLists drops every cached list and message, for changes that
+    //reshape all of them (accounts, page size, previews)
+    function forgetLists() {
+        listCache = {};
+        listCacheOrder = [];
+        messageCache = [];
+        state.list.fetched = 0;
+    }
+
+    function setRefreshing(on) {
+        dom.listpane.classList.toggle("refreshing", on);
+    }
+
+    //showList shows the list of the current view: the cached copy when there
+    //is one (refreshed in the background when it is old), the server's
+    //answer otherwise
+    function showList() {
+        saveListToCache();
+        var key = listKeyFor(state.view, state.search);
+        var cached = state.accounts.length > 0 ? listCache[key] : null;
+        if (!cached) {
+            reloadList();
+            return;
+        }
+        cacheList(key, cached);
+        setRefreshing(false);
+        state.list = {
+            key: key, messages: cached.messages.slice(), total: cached.total, page: cached.page, done: cached.done,
+            errors: cached.errors, sortUnsupported: cached.sortUnsupported, fetched: cached.fetched, stale: cached.stale,
+            loading: false, token: state.list.token + 1
+        };
+        renderList();
+        dom.list.scrollTop = cached.scroll || 0;
+        if (cached.stale || Date.now() - cached.fetched > LIST_FRESH_MS) {
+            refreshList();
+        }
+    }
+
+    //reloadList fetches the current list from the server, starting empty
     function reloadList() {
-        state.list = { messages: [], total: 0, page: 0, loading: false, done: false, token: state.list.token + 1, errors: [] };
+        setRefreshing(false);
+        state.list = {
+            key: listKeyFor(state.view, state.search), messages: [], total: 0, page: 0, loading: true, done: false,
+            token: state.list.token + 1, errors: [], fetched: 0
+        };
         renderList();
         loadPage(0);
     }
 
-    function listQuery(page) {
+    //refreshList reloads the loaded part of the list quietly: the rows on
+    //screen and the open message stay until the answer arrives
+    function refreshList(explicit) {
+        if (state.accounts.length === 0) {
+            return;
+        }
+        if (!state.list.fetched) {
+            //Nothing on screen yet: a full load is on its way or due
+            if (!state.list.loading) {
+                reloadList();
+            }
+            return;
+        }
+        var view = state.view;
+        var size = pageSize();
+        var pages = Math.max(1, Math.min(state.list.page + 1, Math.floor(MAX_PAGE_SIZE / size)));
+        var token = ++state.list.token;
+        state.list.loading = false;
+        setRefreshing(true);
+        fetchList(view, 0, pages * size).then(function (result) {
+            if (token !== state.list.token) {
+                return;
+            }
+            setRefreshing(false);
+            var messages = result.messages || [];
+            state.list.messages = messages;
+            state.list.total = result.total || 0;
+            state.list.page = pages - 1;
+            state.list.done = isLocalView(view) || messages.length < pages * size || messages.length >= state.list.total;
+            state.list.errors = result.errors || [];
+            state.list.sortUnsupported = result.sortUnsupported === true;
+            state.list.fetched = Date.now();
+            state.list.stale = false;
+            state.list.error = null;
+            pruneChecks();
+            renderList();
+            saveListToCache();
+            //A draft saved elsewhere replaces the copy on screen
+            if (state.currentKey && !messageByKey(state.currentKey) && viewRole() === "drafts") {
+                state.currentKey = null;
+                state.message = null;
+                showReaderEmpty();
+            }
+        }).catch(function (error) {
+            if (token !== state.list.token) {
+                return;
+            }
+            setRefreshing(false);
+            if (error.authFailed && view.kind === "folder") {
+                var item = account(view.accountId);
+                if (item) {
+                    item.authError = error.message;
+                    renderSidebar();
+                }
+            }
+            //The cached rows stay on screen; a background refresh fails quietly
+            if (explicit) {
+                ui.errorToast(error, "Could not refresh the list");
+            }
+        });
+    }
+
+    //pruneChecks forgets the selection of rows that are gone
+    function pruneChecks() {
+        var present = {};
+        state.list.messages.forEach(function (message) { present[message.key || util.messageKey(message)] = true; });
+        Object.keys(state.checked).forEach(function (key) {
+            if (!present[key]) {
+                delete state.checked[key];
+            }
+        });
+    }
+
+    //prefetchSoon loads the lists people open next into the cache, once the
+    //first list is on screen, so the first switch to them is instant too
+    function prefetchSoon() {
+        if (prefetched) {
+            return;
+        }
+        prefetched = true;
+        ["inbox", "sent", "drafts"].forEach(function (role, index) {
+            setTimeout(function () { prefetchView(roleView(role)); }, 1500 + index * 1000);
+        });
+    }
+
+    function prefetchView(view) {
+        if (state.search || state.accounts.length === 0 || isLocalView(view)) {
+            return;
+        }
+        var key = listKeyFor(view, "");
+        var cached = listCache[key];
+        if (key === state.list.key || (cached && !cached.stale && Date.now() - cached.fetched < LIST_FRESH_MS)) {
+            return;
+        }
+        var size = pageSize();
+        var started = Date.now();
+        fetchList(view, 0, size).then(function (result) {
+            //Opened meanwhile: that load is the one that counts
+            if (key === state.list.key || (listCache[key] && listCache[key].fetched >= started)) {
+                return;
+            }
+            var messages = result.messages || [];
+            cacheList(key, {
+                messages: messages, total: result.total || 0, page: 0,
+                done: messages.length < size || messages.length >= (result.total || 0),
+                errors: result.errors || [], sortUnsupported: result.sortUnsupported === true,
+                fetched: Date.now(), stale: false, scroll: 0
+            });
+        }).catch(function () { /* the list loads normally when opened */ });
+    }
+
+    function pageSize() {
+        return Math.min(MAX_PAGE_SIZE, state.settings.pageSize || 50);
+    }
+
+    function listQuery(page, size) {
         return {
-            page: page, pageSize: state.settings.pageSize || 50, sort: state.sort, filter: state.filter,
+            page: page, pageSize: size || pageSize(), sort: state.sort, filter: state.filter,
             search: state.search, searchIn: state.searchIn, previews: state.settings.showPreview !== false
         };
     }
 
+    //isLocalView tells the lists kept by ArozOS, which arrive whole
+    function isLocalView(view) {
+        return view.kind === "label" || view.kind === "snoozed" || view.kind === "outbox";
+    }
+
+    //fetchList asks the server for one page of a view
+    function fetchList(view, page, size) {
+        switch (view.kind) {
+            case "unified":
+                return api.mailbox("unified", { view: view.key, query: listQuery(page, size), accounts: state.accountFilter ? [state.accountFilter] : [] });
+            case "folder":
+                var query = listQuery(page, size);
+                query.folder = view.folder;
+                return api.mailbox("list", { accountId: view.accountId, query: query });
+            case "label":
+                return api.mailbox("labelMessages", { labelId: view.id }).then(localList);
+            case "snoozed":
+                return api.mailbox("snoozed", {}).then(function (list) {
+                    state.snoozedCount = (list || []).length;
+                    renderSidebar();
+                    return localList(list);
+                });
+            case "outbox":
+                return api.mailbox("outbox", {}).then(function (items) {
+                    items = items || [];
+                    state.outboxCount = items.length;
+                    renderSidebar();
+                    return { total: items.length, messages: items.map(outboxRow), page: 0 };
+                });
+        }
+        return Promise.resolve({ messages: [], total: 0, page: 0 });
+    }
+
+    //appendPage adds the next page, skipping rows already listed (new mail
+    //shifts the pages while the user scrolls)
+    function appendPage(messages, more) {
+        var listed = {};
+        messages.forEach(function (message) { listed[message.key || util.messageKey(message)] = true; });
+        return messages.concat(more.filter(function (message) { return !listed[message.key || util.messageKey(message)]; }));
+    }
+
     function loadPage(page) {
         if (state.accounts.length === 0) {
+            state.list.loading = false;
             renderList();
             return;
         }
@@ -713,50 +973,29 @@ Mail.app = (function () {
         state.list.loading = true;
         renderListFooter();
         var view = state.view;
-        var request;
-        switch (view.kind) {
-            case "unified":
-                request = api.mailbox("unified", { view: view.key, query: listQuery(page), accounts: state.accountFilter ? [state.accountFilter] : [] });
-                break;
-            case "folder":
-                var query = listQuery(page);
-                query.folder = view.folder;
-                request = api.mailbox("list", { accountId: view.accountId, query: query });
-                break;
-            case "label":
-                request = api.mailbox("labelMessages", { labelId: view.id }).then(localList);
-                break;
-            case "snoozed":
-                request = api.mailbox("snoozed", {}).then(function (list) {
-                    state.snoozedCount = (list || []).length;
-                    renderSidebar();
-                    return localList(list);
-                });
-                break;
-            case "outbox":
-                request = api.mailbox("outbox", {}).then(function (items) {
-                    state.outboxCount = (items || []).length;
-                    renderSidebar();
-                    return { total: items.length, messages: items.map(outboxRow), page: 0 };
-                });
-                break;
-        }
-        request.then(function (result) {
+        fetchList(view, page).then(function (result) {
             if (token !== state.list.token) {
                 return;
             }
             state.list.loading = false;
             var messages = result.messages || [];
-            state.list.messages = page === 0 ? messages : state.list.messages.concat(messages);
+            state.list.messages = page === 0 ? messages : appendPage(state.list.messages, messages);
             state.list.total = result.total || 0;
             state.list.page = page;
-            state.list.done = view.kind === "label" || view.kind === "snoozed" || view.kind === "outbox" ||
-                messages.length < (state.settings.pageSize || 50) || state.list.messages.length >= state.list.total;
+            state.list.done = isLocalView(view) || messages.length < pageSize() || state.list.messages.length >= state.list.total;
             state.list.errors = result.errors || [];
             state.list.sortUnsupported = result.sortUnsupported === true;
+            if (page === 0) {
+                state.list.fetched = Date.now();
+                state.list.stale = false;
+            }
             renderList();
+            saveListToCache();
             if (page === 0 && !isMobile() && !state.currentKey) {
                 showReaderEmpty();
+            }
+            if (page === 0) {
+                prefetchSoon();
             }
         }).catch(function (error) {
             if (token !== state.list.token) {
@@ -773,6 +1012,85 @@ Mail.app = (function () {
                 }
             }
             renderList();
+        });
+    }
+
+    /* ---------- Message cache ---------- */
+
+    //Opened messages are kept, so going back to one is instant. A message's
+    //content never changes; its flags and labels come from the list row.
+    var MESSAGE_CACHE_SIZE = 30;
+    var MESSAGE_CACHE_MAX_HTML = 1500000;
+    var messageCache = [];
+
+    function messageCacheKey(summary, options) {
+        return util.messageKey(summary) + (options && options.allowRemote ? "|remote" : "");
+    }
+
+    function cachedMessage(key) {
+        for (var i = 0; i < messageCache.length; i++) {
+            if (messageCache[i].key === key) {
+                var hit = messageCache.splice(i, 1)[0];
+                messageCache.push(hit);
+                return hit.message;
+            }
+        }
+        return null;
+    }
+
+    function cacheMessage(key, message) {
+        if ((message.html || "").length + (message.text || "").length > MESSAGE_CACHE_MAX_HTML) {
+            return;
+        }
+        messageCache = messageCache.filter(function (item) { return item.key !== key; });
+        messageCache.push({ key: key, message: message });
+        while (messageCache.length > MESSAGE_CACHE_SIZE) {
+            messageCache.shift();
+        }
+    }
+
+    function dropCachedMessages(messages) {
+        var keys = {};
+        messages.forEach(function (message) { keys[util.messageKey(message)] = true; });
+        messageCache = messageCache.filter(function (item) { return !keys[item.key.replace(/\|remote$/, "")]; });
+    }
+
+    function shallowCopy(message) {
+        var copy = {};
+        Object.keys(message).forEach(function (key) { copy[key] = message[key]; });
+        return copy;
+    }
+
+    //withRowState lays the newest flags and labels of the list row over a
+    //cached message
+    function withRowState(message, summary) {
+        var copy = shallowCopy(message);
+        ["seen", "flagged", "answered", "forwarded", "labels", "snoozedUntil"].forEach(function (key) {
+            if (summary[key] !== undefined) {
+                copy[key] = summary[key];
+            }
+        });
+        return copy;
+    }
+
+    //fetchMessage loads a full message, from the cache when it is there
+    function fetchMessage(summary, options) {
+        options = options || {};
+        var key = messageCacheKey(summary, options);
+        var hit = cachedMessage(key);
+        if (hit) {
+            var copy = withRowState(hit, summary);
+            //The server marks a message read while fetching it; a cached
+            //copy needs that done separately
+            if (options.markSeen && !summary.seen) {
+                copy.seen = true;
+                api.message("flag", { accountId: summary.accountId, folder: summary.folder, uids: [summary.uid], flag: "seen", value: true }).catch(function () { });
+            }
+            return Promise.resolve(copy);
+        }
+        return api.message("get", { accountId: summary.accountId, folder: summary.folder, uid: summary.uid, options: options }).then(function (message) {
+            cacheMessage(key, message);
+            return shallowCopy(message);
         });
     }
 
@@ -821,7 +1139,7 @@ Mail.app = (function () {
                     state[key] = value;
                     util.store.set(key, value);
                     renderListHeader();
-                    reloadList();
+                    showList();
                 };
             };
             var local = state.view.kind === "label" || state.view.kind === "snoozed" || state.view.kind === "outbox";
@@ -841,7 +1159,7 @@ Mail.app = (function () {
             ], { alignRight: true });
         });
         var refreshButton = el("button", { class: "iconbtn small", title: "Refresh" }, icon("sync"));
-        refreshButton.addEventListener("click", function () { reloadList(); refreshCountsSoon(); poll(); });
+        refreshButton.addEventListener("click", function () { refreshList(true); refreshCountsSoon(); refreshLocalCounts(); poll(); });
         dom.listHeader.appendChild(scopeButton);
         dom.listHeader.appendChild(el("div", { class: "spacer" }));
         dom.listHeader.appendChild(sortButton);
@@ -852,7 +1170,7 @@ Mail.app = (function () {
         var chips = [];
         if (state.filter !== "all") {
             var filterNames = { unread: "Unread", flagged: "Starred", attachments: "With attachments", unanswered: "Not replied" };
-            chips.push(el("span", { class: "chip active", on: { click: function () { state.filter = "all"; util.store.set("filter", "all"); renderListHeader(); reloadList(); } } }, [filterNames[state.filter], icon("close")]));
+            chips.push(el("span", { class: "chip active", on: { click: function () { state.filter = "all"; util.store.set("filter", "all"); renderListHeader(); showList(); } } }, [filterNames[state.filter], icon("close")]));
         }
         if (state.search) {
             chips.push(el("span", { class: "chip active", on: { click: clearSearch } }, ["Search: " + state.search, icon("close")]));
@@ -957,7 +1275,9 @@ Mail.app = (function () {
                 toggleCheck(key, index, false);
             } else if (event.shiftKey) {
                 toggleCheck(key, index, true);
-            } else {
+            } else if (key !== state.currentKey || !dom.reader.querySelector(".reader-loading, .reader-scroll")) {
+                //Clicking the open message again (or the second click of a
+                //double click) keeps it as it is
                 openMessage(message);
             }
         });
@@ -1034,6 +1354,15 @@ Mail.app = (function () {
         state.list.error = null;
 
         if (messages.length === 0) {
+            //"No results" only once the search has answered
+            if (state.list.loading && state.search) {
+                list.appendChild(el("div", { class: "list-status" }, [
+                    el("div", { class: "spinner large" }),
+                    el("div", { class: "title", text: "Searching…" }),
+                    el("div", { text: "Looking for “" + state.search + "”" })
+                ]));
+                return;
+            }
             if (state.list.loading) {
                 for (var i = 0; i < 7; i++) {
                     list.appendChild(el("div", { class: "skeleton-row" }, [
@@ -1206,19 +1535,12 @@ Mail.app = (function () {
             return;
         }
         var key = util.messageKey(summary);
+        state.currentKey = key;
         if (Object.keys(state.checked).length > 0) {
             state.checked = {};
-        }
-        state.currentKey = key;
-        renderList();
-        if (viewRole() === "drafts" && summary.draft) {
-            //Drafts open straight in the composer
-            loadMessage(summary, { allowRemote: true }).then(function (message) {
-                if (message) {
-                    compose.editDraft(message);
-                }
-            });
-            return;
+            renderList();
+        } else {
+            markCurrentRow();
         }
         dom.app.classList.add("reading");
         destroyFrame();
@@ -1244,19 +1566,25 @@ Mail.app = (function () {
         });
     }
 
-    //loadMessage fetches a message, relocating labelled / snoozed mail that
-    //moved to another folder since it was recorded
+    //markCurrentRow moves the highlight to the open message without
+    //rebuilding the list
+    function markCurrentRow() {
+        Array.prototype.forEach.call(dom.list.querySelectorAll(".msg-row"), function (row) {
+            row.classList.toggle("current", row.dataset.key === state.currentKey);
+        });
+    }
+
+    //loadMessage fetches a message for the reading pane, relocating
+    //labelled / snoozed mail that moved to another folder since it was
+    //recorded
     function loadMessage(summary, options) {
         var token = ++state.messageToken;
-        var request = function (folder, uid) {
-            return api.message("get", { accountId: summary.accountId, folder: folder, uid: uid, options: options || {} });
-        };
-        return request(summary.folder, summary.uid).catch(function (error) {
+        return fetchMessage(summary, options).catch(function (error) {
             if (error.code === "notfound" && summary.messageId && (state.view.kind === "label" || state.view.kind === "snoozed")) {
                 return api.message("locate", { accountId: summary.accountId, messageId: summary.messageId, hint: summary.folder }).then(function (located) {
                     summary.folder = located.folder;
                     summary.uid = located.uid;
-                    return request(located.folder, located.uid);
+                    return fetchMessage(summary, options);
                 });
             }
             throw error;
@@ -1341,6 +1669,7 @@ Mail.app = (function () {
             trustSender: function (sender) {
                 api.settings("trust", { sender: sender }).then(function () {
                     state.settings.trustedSenders = (state.settings.trustedSenders || []).concat([sender.toLowerCase()]);
+                    messageCache = [];
                     ui.toast("Images from " + sender + " will always load");
                     reloadMessage(message, true);
                 }).catch(function (error) { ui.errorToast(error); });
@@ -1356,25 +1685,45 @@ Mail.app = (function () {
             onMailto: function (href) { compose.mailto(href, message.accountId); }
         });
 
-        var attachments = render.attachments(message.attachments, {
-            open: function (attachment) { openAttachment(message, attachment); },
-            save: function (attachment) { saveAttachment(message, attachment); },
-            download: function (attachment) { downloadAttachment(message, attachment); },
-            saveAll: function (list) { saveAllAttachments(message, list); }
-        });
+        var attachments = render.attachments(message.attachments, shared.attachmentHandlers(message));
         if (attachments) {
             scroller.appendChild(attachments);
         }
 
         var actions = el("div", { class: "reader-actions" });
         if (message.draft || viewRole() === "drafts") {
-            actions.appendChild(el("button", { class: "btn primary", on: { click: function () { compose.editDraft(message); } } }, [icon("edit outline"), "Edit draft"]));
+            actions.appendChild(el("button", { class: "btn primary", on: { click: function () { editDraft(message); } } }, [icon("edit outline"), "Edit draft"]));
         }
         actions.appendChild(el("button", { class: "btn", on: { click: function () { compose.reply(message, false); } } }, [icon("reply"), "Reply"]));
         actions.appendChild(el("button", { class: "btn", on: { click: function () { compose.reply(message, true); } } }, [icon("reply all"), "Reply All"]));
         actions.appendChild(el("button", { class: "btn", on: { click: function () { compose.forward(message, false); } } }, [icon("share"), "Forward"]));
         scroller.appendChild(actions);
         updateToolbar();
+    }
+
+    //editDraft opens a draft in the composer with its remote images, which
+    //are the user's own, loaded
+    function editDraft(summary) {
+        fetchMessage(summary, { allowRemote: true }).then(function (message) {
+            compose.editDraft(message);
+        }).catch(function (error) { ui.errorToast(error, "Could not open the draft"); });
+    }
+
+    //openInWindow opens a message in a window of its own; a draft opens in
+    //a composer window instead
+    var windowGuard = {};
+    function openInWindow(summary) {
+        var key = util.messageKey(summary);
+        if (windowGuard[key]) {
+            return;
+        }
+        windowGuard[key] = true;
+        setTimeout(function () { delete windowGuard[key]; }, 1500);
+        if (summary.draft && viewRole() === "drafts") {
+            editDraft(summary);
+            return;
+        }
+        shared.openMessageWindow(summary);
     }
 
     function reloadMessage(message, allowRemote) {
@@ -1416,7 +1765,7 @@ Mail.app = (function () {
                     click: function () {
                         api.compose("outboxSendNow", { id: item.id }).then(function () {
                             ui.toast("Sending now");
-                            setTimeout(reloadList, 6000);
+                            messageSent({ queued: true, sendAt: Date.now() });
                         }).catch(function (error) { ui.errorToast(error); });
                     }
                 }
@@ -1426,9 +1775,12 @@ Mail.app = (function () {
                     click: function () {
                         api.compose("outboxCancel", { id: item.id, toDrafts: true }).then(function () {
                             ui.toast("Moved to Drafts");
-                            reloadList();
-                            refreshLocalCounts();
+                            state.currentKey = null;
                             showReaderEmpty();
+                            markListsStale();
+                            refreshList();
+                            refreshLocalCounts();
+                            refreshCountsSoon();
                         }).catch(function (error) { ui.errorToast(error); });
                     }
                 }
@@ -1438,16 +1790,7 @@ Mail.app = (function () {
     }
 
     function unsubscribe(message) {
-        var target = message.listUnsubscribe;
-        if (/^mailto:/i.test(target)) {
-            compose.mailto(target, message.accountId);
-        } else {
-            ui.confirm("Unsubscribe?", "This opens the sender's unsubscribe page: " + target, { okLabel: "Open page" }).then(function (ok) {
-                if (ok) {
-                    window.open(target, "_blank", "noopener,noreferrer");
-                }
-            });
-        }
+        shared.unsubscribe(message, function (href) { compose.mailto(href, message.accountId); });
     }
 
     function addressMenu(address) {
@@ -1472,126 +1815,9 @@ Mail.app = (function () {
 
     /* ---------- Attachments ---------- */
 
-    function attachmentRequest(message, attachment, dest) {
-        return api.files("saveAttachment", { accountId: message.accountId, folder: message.folder, uid: message.uid, partId: attachment.id, dest: dest });
-    }
-
-    function tempDownloads() {
-        return api.files("tempFolder", { purpose: "downloads" });
-    }
-
-    function openAttachment(message, attachment) {
-        var progress = ui.toast("Opening " + attachment.filename + "…", { duration: 0 });
-        tempDownloads().then(function (folder) {
-            return attachmentRequest(message, attachment, folder);
-        }).then(function (saved) {
-            progress.close();
-            openWithDefaultApp(saved.path);
-        }).catch(function (error) {
-            progress.close();
-            ui.errorToast(error, "Could not open the attachment");
-        });
-    }
-
-    function pickFolder(callback) {
-        if (typeof ao_module_openFileSelector !== "function") {
-            ui.toast("The ArozOS folder picker is not available", { error: true });
-            return;
-        }
-        ao_module_openFileSelector(function (files) {
-            if (files && files.length > 0) {
-                callback(files[0].filepath);
-            }
-        }, "user:/Desktop", "folder", false, { path_memory_key: "mail-save" });
-    }
-
-    function savedToast(path) {
-        var dir = path.substring(0, path.lastIndexOf("/"));
-        var name = path.substring(path.lastIndexOf("/") + 1);
-        ui.toast("Saved to " + path, {
-            action: typeof ao_module_openPath === "function" ? { label: "Show", fn: function () { ao_module_openPath(dir, name); } } : null
-        });
-    }
-
-    function saveAttachment(message, attachment) {
-        pickFolder(function (dir) {
-            attachmentRequest(message, attachment, dir).then(function (saved) {
-                savedToast(saved.path);
-            }).catch(function (error) { ui.errorToast(error, "Could not save"); });
-        });
-    }
-
-    function saveAllAttachments(message, list) {
-        pickFolder(function (dir) {
-            var progress = ui.toast("Saving " + util.plural(list.length, "attachment") + "…", { duration: 0 });
-            api.files("saveAll", {
-                accountId: message.accountId, folder: message.folder, uid: message.uid,
-                partIds: list.map(function (item) { return item.id; }), dest: dir
-            }).then(function (result) {
-                progress.close();
-                ui.toast(util.plural(result.paths.length, "file") + " saved to " + dir, {
-                    action: typeof ao_module_openPath === "function" ? { label: "Show", fn: function () { ao_module_openPath(dir); } } : null
-                });
-            }).catch(function (error) {
-                progress.close();
-                ui.errorToast(error, "Could not save");
-            });
-        });
-    }
-
-    function downloadPath(path) {
-        var root = (typeof ao_root === "string" && ao_root) ? ao_root : "../";
-        var link = el("a", { href: root + "media/?file=" + encodeURIComponent(path) + "&download=true", download: path.split("/").pop() });
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(function () { link.remove(); }, 1000);
-    }
-
-    function downloadAttachment(message, attachment) {
-        tempDownloads().then(function (folder) {
-            return attachmentRequest(message, attachment, folder);
-        }).then(function (saved) {
-            downloadPath(saved.path);
-        }).catch(function (error) { ui.errorToast(error, "Download failed"); });
-    }
-
-    //openWithDefaultApp opens a file with the WebApp registered for its type
-    function openWithDefaultApp(path) {
-        var filename = path.split("/").pop();
-        var ext = "." + filename.split(".").pop().toLowerCase();
-        var root = (typeof ao_root === "string" && ao_root) ? ao_root : "../";
-        $.ajax({
-            url: root + "system/modules/getDefault",
-            method: "GET",
-            data: { opr: "launch", ext: ext, mode: "launch" },
-            success: function (data) {
-                if (!data || data.error !== undefined) {
-                    ao_module_newfw({
-                        url: "SystemAO/file_system/defaultOpener.html#" + encodeURIComponent(JSON.stringify({ filepath: path, filename: filename })),
-                        width: 380, height: 560, appicon: "SystemAO/file_system/img/opener.png", title: "Open with"
-                    });
-                    return;
-                }
-                var url = data.StartDir;
-                var size = [undefined, undefined];
-                if (data.SupportFW && data.LaunchFWDir) {
-                    url = data.LaunchFWDir;
-                    size = data.InitFWSize || size;
-                }
-                if (data.SupportEmb && data.LaunchEmb) {
-                    url = data.LaunchEmb;
-                    size = data.InitEmbSize || size;
-                }
-                ao_module_newfw({
-                    url: url + "#" + encodeURIComponent(JSON.stringify([{ filepath: path, filename: filename }])),
-                    width: size[0], height: size[1], appicon: data.IconPath || "Mail/img/icon.svg", title: data.Name
-                });
-            },
-            error: function () {
-                downloadPath(path);
-            }
-        });
-    }
+    //Saving, opening and downloading live in shared.js so the message window
+    //can use them too
+    var shared = Mail.shared;
 
     /* ---------- Message actions ---------- */
 
@@ -1629,23 +1855,20 @@ Mail.app = (function () {
         if (state.message && changed.some(function (message) { return util.messageKey(message) === util.messageKey(state.message); })) {
             if (flag === "flagged") {
                 state.message.flagged = value;
-                var star = dom.reader.querySelector(".reader-head .star");
-                if (star) {
-                    star.classList.toggle("on", value);
-                    star.firstChild.className = (value ? "star" : "star outline") + " icon";
-                }
+                setReaderStar(value);
             } else if (flag === "seen") {
                 state.message.seen = value;
             }
         }
         renderList();
+        markListsStale();
         runGroups(changed.length > 0 ? changed : messages, "flag", { flag: flag, value: value }).then(function () {
             if (flag === "seen") {
                 refreshCountsSoon();
             }
         }).catch(function (error) {
             ui.errorToast(error);
-            reloadList();
+            refreshList();
         });
     }
 
@@ -1658,6 +1881,8 @@ Mail.app = (function () {
         state.list.total = Math.max(0, state.list.total - messages.length);
         Object.keys(keys).forEach(function (key) { delete state.checked[key]; });
         var wasCurrent = state.currentKey && keys[state.currentKey];
+        markListsStale();
+        dropCachedMessages(messages);
         renderList();
         if (wasCurrent) {
             state.currentKey = null;
@@ -1693,7 +1918,7 @@ Mail.app = (function () {
                 refreshCountsSoon();
             }).catch(function (error) {
                 ui.errorToast(error, "Could not delete");
-                reloadList();
+                refreshList();
             });
         });
     }
@@ -1710,7 +1935,7 @@ Mail.app = (function () {
             refreshCountsSoon();
         }).catch(function (error) {
             ui.errorToast(error);
-            reloadList();
+            refreshList();
         });
     }
 
@@ -1735,7 +1960,7 @@ Mail.app = (function () {
             refreshCountsSoon();
         }).catch(function (error) {
             ui.errorToast(error);
-            reloadList();
+            refreshList();
         });
     }
 
@@ -1806,6 +2031,7 @@ Mail.app = (function () {
             ["html", "text", "attachments"].forEach(function (key) { delete summary[key]; });
             api.message("setLabels", { message: summary, labels: labels }).catch(function (error) { ui.errorToast(error); });
         });
+        markListsStale();
         renderList();
         if (state.message && messages.some(function (message) { return util.messageKey(message) === util.messageKey(state.message); })) {
             showMessage(state.message);
@@ -1832,6 +2058,7 @@ Mail.app = (function () {
         Promise.all(messages.map(function (message) {
             return api.message("unsnooze", { message: message });
         })).then(function () {
+            markListsStale();
             if (state.view.kind === "snoozed") {
                 removeFromList(messages);
             }
@@ -1840,54 +2067,38 @@ Mail.app = (function () {
         }).catch(function (error) { ui.errorToast(error); });
     }
 
-    function saveAsEML(message) {
-        pickFolder(function (dir) {
-            api.files("saveMessage", { accountId: message.accountId, folder: message.folder, uid: message.uid, dest: dir }).then(function (saved) {
-                savedToast(saved.path);
-            }).catch(function (error) { ui.errorToast(error, "Could not save"); });
+    //labelItems is the Labels submenu: every label with a check when all
+    //chosen messages carry it
+    function labelItems(messages) {
+        var items = [];
+        state.labels.forEach(function (label) {
+            var all = messages.every(function (message) { return (message.labels || []).indexOf(label.id) >= 0; });
+            items.push({
+                label: label.name, dot: label.color, checked: all,
+                onClick: function () { toggleLabel(messages, label.id, !all); }
+            });
         });
+        items.push("-");
+        items.push({ label: "New label…", icon: "plus", onClick: createLabel });
+        return items;
     }
 
-    function downloadEML(message) {
-        tempDownloads().then(function (folder) {
-            return api.files("saveMessage", { accountId: message.accountId, folder: message.folder, uid: message.uid, dest: folder });
-        }).then(function (saved) {
-            downloadPath(saved.path);
-        }).catch(function (error) { ui.errorToast(error, "Download failed"); });
-    }
-
-    function viewSource(message) {
-        var pre = el("pre", { style: { whiteSpace: "pre-wrap", wordBreak: "break-all", fontFamily: "var(--mono)", fontSize: "12px", margin: "0", maxHeight: "65vh", overflow: "auto" }, text: "Loading…" });
-        ui.modal({ title: "Message source", subtitle: message.subject || "", xwide: true, body: pre, buttons: [{ label: "Close", primary: true }] });
-        api.message("raw", { accountId: message.accountId, folder: message.folder, uid: message.uid }).then(function (result) {
-            pre.textContent = result.source + (result.truncated ? "\n\n[… source truncated, " + util.formatSize(result.size) + " in total]" : "");
-        }).catch(function (error) {
-            pre.textContent = error.message;
+    //snoozeItems is the Snooze submenu
+    function snoozeItems(messages) {
+        var items = [];
+        ui.presetTimes().forEach(function (preset) {
+            items.push({ label: preset.label, hint: preset.hint, icon: "clock outline", onClick: function () { snoozeMessages(messages, preset.value); } });
         });
-    }
-
-    function printMessage(message) {
-        var popup = window.open("", "_blank", "width=860,height=900");
-        if (!popup) {
-            ui.toast("Allow pop-ups to print", { error: true });
-            return;
-        }
-        var from = (message.from && message.from[0]) || {};
-        var header = '<div style="font-family:sans-serif;border-bottom:1px solid #ccc;padding-bottom:10px;margin-bottom:14px">' +
-            "<h2 style=\"margin:0 0 8px\">" + util.escapeHTML(message.subject || "(no subject)") + "</h2>" +
-            "<div><b>From:</b> " + util.escapeHTML(util.addressFull(from)) + "</div>" +
-            "<div><b>To:</b> " + util.escapeHTML((message.to || []).map(util.addressFull).join(", ")) + "</div>" +
-            (message.cc && message.cc.length ? "<div><b>Cc:</b> " + util.escapeHTML(message.cc.map(util.addressFull).join(", ")) + "</div>" : "") +
-            "<div><b>Date:</b> " + util.escapeHTML(util.formatFullDate(message.date)) + "</div></div>";
-        var content = message.html ? new DOMParser().parseFromString(message.html, "text/html").body.innerHTML :
-            '<pre style="white-space:pre-wrap;font-family:sans-serif">' + util.escapeHTML(message.text || "") + "</pre>";
-        var csp = "default-src 'none'; img-src data:" + (message.remoteAllowed ? " https: http:" : "") + "; style-src 'unsafe-inline'";
-        popup.document.open();
-        popup.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><title>' +
-            util.escapeHTML(message.subject || "Message") + "</title></head><body>" + header + content + "</body></html>");
-        popup.document.close();
-        popup.focus();
-        setTimeout(function () { popup.print(); }, 400);
+        items.push({
+            label: "Pick date and time…", icon: "calendar alternate outline", onClick: function () {
+                ui.pickDateTime("Snooze until", null, "Snooze").then(function (value) {
+                    if (value) {
+                        snoozeMessages(messages, value);
+                    }
+                });
+            }
+        });
+        return items;
     }
 
     function messageMenu(anchor, messages) {
@@ -1909,13 +2120,20 @@ Mail.app = (function () {
             items.push({ label: "Forward as attachment", icon: "paperclip", onClick: function () { compose.forward(single, true); } });
             items.push("-");
         }
+        if (single) {
+            var draftRow = single.draft && viewRole() === "drafts";
+            items.push({
+                label: draftRow ? (shared.isDesktop() ? "Edit in new window" : "Edit draft") : "Open in new window",
+                icon: draftRow ? "edit outline" : "external alternate", hint: "Double-click", onClick: function () { openInWindow(single); }
+            });
+        }
         items.push({ label: anyUnread ? "Mark as read" : "Mark as unread", icon: anyUnread ? "envelope open outline" : "envelope outline", hint: anyUnread ? "Shift+I" : "U", onClick: function () { setFlag(messages, "seen", anyUnread); } });
         items.push({ label: anyStarred ? "Remove star" : "Star", icon: anyStarred ? "star" : "star outline", hint: "S", onClick: function () { setFlag(messages, "flagged", !anyStarred); } });
-        items.push({ label: "Labels…", icon: "tags", onClick: function () { labelPicker(anchor, messages); } });
+        items.push({ label: "Labels", icon: "tags", submenu: function () { return labelItems(messages); } });
         if (state.view.kind === "snoozed") {
             items.push({ label: "Unsnooze", icon: "clock outline", onClick: function () { unsnoozeMessages(messages); } });
         } else {
-            items.push({ label: "Snooze…", icon: "clock outline", onClick: function () { snoozePicker(anchor, messages); } });
+            items.push({ label: "Snooze", icon: "clock outline", submenu: function () { return snoozeItems(messages); } });
         }
         items.push("-");
         if (role !== "archive" && role !== "all") {
@@ -1933,52 +2151,18 @@ Mail.app = (function () {
         items.push({ label: role === "trash" ? "Delete permanently" : "Delete", icon: "trash alternate outline", hint: "Del", danger: true, onClick: function () { deleteMessages(messages, role === "trash"); } });
         if (single) {
             items.push("-");
-            items.push({ label: "Save to ArozOS (.eml)…", icon: "save outline", onClick: function () { saveAsEML(single); } });
-            items.push({ label: "Download (.eml)", icon: "download", onClick: function () { downloadEML(single); } });
+            items.push({ label: "Save to ArozOS (.eml)…", icon: "save outline", onClick: function () { shared.saveAsEML(single); } });
+            items.push({ label: "Download (.eml)", icon: "download", onClick: function () { shared.downloadEML(single); } });
             if (single.html !== undefined) {
-                items.push({ label: "Print", icon: "print", onClick: function () { printMessage(single); } });
+                items.push({ label: "Print", icon: "print", onClick: function () { shared.printMessage(single); } });
             }
-            items.push({ label: "View source", icon: "code", onClick: function () { viewSource(single); } });
+            items.push({ label: "View source", icon: "code", onClick: function () { shared.viewSource(single); } });
             var sender = (single.from || [])[0];
             if (sender && sender.email) {
                 items.push({ label: "Add sender to address book", icon: "address book outline", onClick: function () { Mail.settings.contactDialog({ name: sender.name, email: sender.email }, function () { ui.toast("Contact saved"); }); } });
             }
         }
         ui.menu(anchor, items);
-    }
-
-    function labelPicker(anchor, messages) {
-        var render = function () {
-            var items = [{ title: "Labels" }];
-            state.labels.forEach(function (label) {
-                var all = messages.every(function (message) { return (message.labels || []).indexOf(label.id) >= 0; });
-                items.push({
-                    label: label.name, dot: label.color, checked: all, keepOpen: false,
-                    onClick: function () { toggleLabel(messages, label.id, !all); }
-                });
-            });
-            items.push("-");
-            items.push({ label: "New label…", icon: "plus", onClick: createLabel });
-            return items;
-        };
-        setTimeout(function () { ui.menu(anchor, render()); }, 0);
-    }
-
-    function snoozePicker(anchor, messages) {
-        var items = [{ title: "Snooze until" }];
-        ui.presetTimes().forEach(function (preset) {
-            items.push({ label: preset.label, hint: preset.hint, icon: "clock outline", onClick: function () { snoozeMessages(messages, preset.value); } });
-        });
-        items.push({
-            label: "Pick date and time…", icon: "calendar alternate outline", onClick: function () {
-                ui.pickDateTime("Snooze until", null, "Snooze").then(function (value) {
-                    if (value) {
-                        snoozeMessages(messages, value);
-                    }
-                });
-            }
-        });
-        setTimeout(function () { ui.menu(anchor, items); }, 0);
     }
 
     /* ---------- Toolbar ---------- */
@@ -2032,7 +2216,7 @@ Mail.app = (function () {
         state.search = value;
         state.searchIn = dom.searchIn.value;
         renderListHeader();
-        reloadList();
+        showList();
     }
 
     function clearSearch() {
@@ -2046,6 +2230,7 @@ Mail.app = (function () {
         Mail.accounts.openWizard(function (info) {
             loadAccounts().then(function () {
                 loadFolders(info.id, true).catch(function () { }).then(function () {
+                    forgetLists();
                     renderSidebar();
                     if (state.accounts.length === 1) {
                         openView(roleView("inbox"));
@@ -2068,6 +2253,7 @@ Mail.app = (function () {
                 if (state.accountFilter === removed.id) {
                     state.accountFilter = "";
                 }
+                forgetLists();
                 openView(roleView("inbox"));
             }
         });
@@ -2076,6 +2262,7 @@ Mail.app = (function () {
     function accountSaved(saved) {
         state.accounts = state.accounts.map(function (item) { return item.id === saved.id ? saved : item; });
         loadFolders(saved.id, true).catch(function () { }).then(function () {
+            forgetLists();
             renderSidebar();
             reloadList();
         });
@@ -2130,8 +2317,12 @@ Mail.app = (function () {
     function newMailArrived(arrivals) {
         var viewingInbox = (state.view.kind === "unified" && state.view.key === "inbox") ||
             (state.view.kind === "folder" && state.view.folder.toUpperCase() === "INBOX");
+        markListsStale();
         if (viewingInbox && !state.search && dom.list.scrollTop < 200 && Object.keys(state.checked).length === 0) {
-            refreshTopOfList();
+            refreshList();
+        } else if (viewingInbox) {
+            //Refreshed when the user comes back to it
+            state.list.stale = true;
         }
         if (!state.settings.notify) {
             return;
@@ -2149,31 +2340,146 @@ Mail.app = (function () {
         });
     }
 
-    //refreshTopOfList reloads the first page quietly, keeping the open message
-    function refreshTopOfList() {
-        var token = ++state.list.token;
-        var view = state.view;
-        var request;
-        if (view.kind === "unified") {
-            request = api.mailbox("unified", { view: view.key, query: listQuery(0), accounts: state.accountFilter ? [state.accountFilter] : [] });
-        } else if (view.kind === "folder") {
-            var query = listQuery(0);
-            query.folder = view.folder;
-            request = api.mailbox("list", { accountId: view.accountId, query: query });
-        } else {
-            return;
+    /* ---------- Sent mail and other Mail windows ---------- */
+
+    //The server's outbox worker looks for due mail this often
+    var OUTBOX_TICK_MS = 5000;
+
+    //messageSent follows a message handed to the server. A queued message
+    //(undo send, scheduled send) keeps its draft until the outbox delivers
+    //it, so the lists and the Drafts counter refresh again after that.
+    function messageSent(result) {
+        markListsStale();
+        refreshLocalCounts();
+        refreshCountsSoon();
+        if (isSentLike()) {
+            refreshList();
         }
-        request.then(function (result) {
-            if (token !== state.list.token) {
+        if (result && result.queued) {
+            var wait = Math.max(0, (result.sendAt || Date.now()) - Date.now());
+            //Mail scheduled for later is followed in the Scheduled view
+            if (wait < 15 * 60 * 1000) {
+                setTimeout(function () { waitForDelivery(result.outboxId, 6); }, wait + OUTBOX_TICK_MS);
+            }
+        }
+    }
+
+    //waitForDelivery checks the outbox until a message has left it
+    function waitForDelivery(outboxId, attempts) {
+        api.mailbox("outbox", {}).then(function (items) {
+            items = items || [];
+            var pending = !!outboxId && items.some(function (item) { return item.id === outboxId && item.status !== "failed"; });
+            if (pending && attempts > 1) {
+                setTimeout(function () { waitForDelivery(outboxId, attempts - 1); }, 3000);
                 return;
             }
-            state.list.messages = result.messages || [];
-            state.list.total = result.total || 0;
-            state.list.page = 0;
-            state.list.done = state.list.messages.length >= state.list.total;
-            state.list.errors = result.errors || [];
-            renderList();
-        }).catch(function () { });
+            state.outboxCount = items.length;
+            delivered();
+        }).catch(delivered);
+    }
+
+    function delivered() {
+        markListsStale();
+        renderSidebar();
+        refreshCountsSoon();
+        if (isSentLike()) {
+            refreshList();
+        }
+    }
+
+    //draftChanged follows a draft saved or discarded by any composer
+    function draftChanged() {
+        markListsStale();
+        if (viewRole() === "drafts") {
+            refreshList();
+        }
+        refreshCountsSoon();
+    }
+
+    function setReaderStar(value) {
+        var star = dom.reader.querySelector(".reader-head .star");
+        if (star) {
+            star.classList.toggle("on", value);
+            star.title = value ? "Unstar" : "Star";
+            star.firstChild.className = (value ? "star" : "star outline") + " icon";
+        }
+    }
+
+    //messageChanged applies what a message window did to its message
+    function messageChanged(event) {
+        markListsStale();
+        var target = { accountId: event.accountId, folder: event.folder, uid: event.uid };
+        var key = util.messageKey(target);
+        var listed = messageByKey(key);
+        var open = state.message && util.messageKey(state.message) === key ? state.message : null;
+        switch (event.change) {
+            case "removed":
+                dropCachedMessages([target]);
+                if (listed) {
+                    removeFromList([listed]);
+                } else if (open) {
+                    state.currentKey = null;
+                    state.message = null;
+                    showReaderEmpty();
+                }
+                refreshCountsSoon();
+                refreshLocalCounts();
+                break;
+            case "seen":
+                if (listed) {
+                    noteSeen(listed, event.value === true);
+                }
+                if (open) {
+                    open.seen = event.value === true;
+                    updateToolbar();
+                }
+                refreshCountsSoon();
+                break;
+            case "flagged":
+                if (listed) {
+                    listed.flagged = event.value === true;
+                    renderList();
+                }
+                if (open) {
+                    open.flagged = event.value === true;
+                    setReaderStar(open.flagged);
+                }
+                break;
+            case "labels":
+                if (listed) {
+                    listed.labels = event.labels || [];
+                    renderList();
+                }
+                if (open) {
+                    open.labels = event.labels || [];
+                    showMessage(open);
+                }
+                break;
+            default:
+                refreshList();
+                refreshCountsSoon();
+        }
+    }
+
+    //listenToWindows follows the composer and message windows
+    function listenToWindows() {
+        shared.on(function (event) {
+            switch (event.type) {
+                case "draft-saved":
+                case "draft-deleted":
+                    draftChanged();
+                    break;
+                case "sent":
+                    messageSent(event);
+                    break;
+                case "send-cancelled":
+                    messageSent(null);
+                    break;
+                case "changed":
+                    messageChanged(event);
+                    break;
+            }
+        });
     }
 
     function startPolling() {
@@ -2340,6 +2646,16 @@ Mail.app = (function () {
         document.getElementById("searchClear").addEventListener("click", clearSearch);
 
         dom.list.addEventListener("scroll", maybeLoadMore);
+        dom.list.addEventListener("dblclick", function (event) {
+            var row = event.target.closest(".msg-row");
+            if (!row || event.ctrlKey || event.metaKey || event.shiftKey || event.target.closest("input, .star-toggle")) {
+                return;
+            }
+            var message = messageByKey(row.dataset.key);
+            if (message && !message.outbox) {
+                openInWindow(message);
+            }
+        });
         dom.list.addEventListener("dragstart", function (event) {
             var data = event.dataTransfer.getData("application/x-aroz-mail");
             try {
@@ -2364,11 +2680,13 @@ Mail.app = (function () {
                 var pollChanged = saved.pollMinutes !== state.settings.pollMinutes;
                 var listChanged = saved.pageSize !== state.settings.pageSize || saved.showPreview !== state.settings.showPreview;
                 state.settings = saved;
+                messageCache = [];
                 applyTheme();
                 if (pollChanged) {
                     startPolling();
                 }
                 if (listChanged) {
+                    forgetLists();
                     reloadList();
                 }
             },
@@ -2396,16 +2714,12 @@ Mail.app = (function () {
                 compose.open(options);
             } catch (e) { /* malformed */ }
         } else if (hash.indexOf("handoff=") === 0) {
-            //A composer prepared by the .eml viewer, passed through storage
+            //A composer prepared by another window, passed through storage
             //because a quoted message can be too large for a URL
-            var storageKey = "aroz-mail:" + hash.slice(8);
-            try {
-                var prepared = localStorage.getItem(storageKey);
-                localStorage.removeItem(storageKey);
-                if (prepared) {
-                    compose.open(JSON.parse(prepared));
-                }
-            } catch (e) { /* storage unavailable */ }
+            var prepared = shared.takeHandOff(hash.slice(8));
+            if (prepared) {
+                compose.open(prepared);
+            }
         } else if (/^mailto:/i.test(hash)) {
             compose.mailto(hash, defaultAccountId());
         }
@@ -2423,19 +2737,8 @@ Mail.app = (function () {
                 accounts: function () { return state.accounts; },
                 settings: function () { return state.settings; },
                 defaultAccountId: defaultAccountId,
-                onSent: function () {
-                    refreshLocalCounts();
-                    if (viewRole() === "sent" || viewRole() === "drafts") {
-                        setTimeout(reloadList, 1500);
-                    }
-                    refreshCountsSoon();
-                },
-                onDraftChanged: function () {
-                    if (viewRole() === "drafts") {
-                        reloadList();
-                    }
-                    refreshCountsSoon();
-                },
+                onSent: function (result) { messageSent(result); },
+                onDraftChanged: function () { draftChanged(); },
                 onAuthFailed: function (accountId, error) {
                     var item = account(accountId);
                     if (item) {
@@ -2444,6 +2747,8 @@ Mail.app = (function () {
                 }
             }
         });
+
+        listenToWindows();
 
         if (!api.available) {
             showReaderEmpty();

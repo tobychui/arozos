@@ -73,30 +73,62 @@ Mail.ui = (function () {
 
     /* ---------- Menus ---------- */
 
-    var openMenu = null;
+    //menuStack holds the open menu and its open submenus, outermost first
+    var menuStack = [];
+    var menuSession = null;
 
     function closeMenu() {
-        if (openMenu) {
-            var current = openMenu;
-            openMenu = null;
-            current.node.remove();
-            document.removeEventListener("mousedown", current.outside, true);
-            document.removeEventListener("keydown", current.keys, true);
+        if (menuStack.length === 0) {
+            return;
+        }
+        var stack = menuStack;
+        var session = menuSession;
+        menuStack = [];
+        menuSession = null;
+        stack.forEach(function (level) { level.node.remove(); });
+        if (session) {
+            clearTimeout(session.hoverTimer);
+            document.removeEventListener("mousedown", session.outside, true);
+            document.removeEventListener("keydown", session.keys, true);
             window.removeEventListener("blur", closeMenu);
             window.removeEventListener("resize", closeMenu);
-            if (current.onClose) {
-                current.onClose();
+            if (session.onClose) {
+                session.onClose();
             }
         }
     }
 
-    //menu shows items next to an anchor element or at {x, y}. Items:
-    //{label, icon, hint, onClick, danger, checked, disabled, dot}, "-" or {title}
-    function menu(anchor, items, options) {
-        closeMenu();
-        options = options || {};
+    //closeLevelsAbove closes the submenus deeper than level
+    function closeLevelsAbove(level) {
+        while (menuStack.length > level + 1) {
+            var closing = menuStack.pop();
+            closing.node.remove();
+            if (closing.parentRow) {
+                closing.parentRow.classList.remove("open");
+            }
+        }
+    }
+
+    function setFocus(level, index) {
+        var entry = menuStack[level];
+        if (!entry) {
+            return;
+        }
+        if (entry.focus >= 0 && entry.rows[entry.focus]) {
+            entry.rows[entry.focus].classList.remove("focus");
+        }
+        entry.focus = index;
+        if (index >= 0 && entry.rows[index]) {
+            entry.rows[index].classList.add("focus");
+            entry.rows[index].scrollIntoView({ block: "nearest" });
+        }
+    }
+
+    //buildMenu renders one menu level. Items: {label, icon, hint, onClick,
+    //danger, checked, disabled, dot, submenu}, "-" or {title}
+    function buildMenu(items, level) {
         var node = el("div", { class: "menu", role: "menu" });
-        var actionable = [];
+        var rows = [];
         items.forEach(function (item) {
             if (!item) {
                 return;
@@ -110,9 +142,12 @@ Mail.ui = (function () {
                 return;
             }
             var row = el("div", {
-                class: "menu-item" + (item.danger ? " danger" : "") + (item.checked ? " checked" : "") + (item.disabled ? " disabled" : ""),
+                class: "menu-item" + (item.danger ? " danger" : "") + (item.checked ? " checked" : "") + (item.disabled ? " disabled" : "") + (item.submenu ? " has-sub" : ""),
                 role: "menuitem", tabindex: "-1"
             });
+            if (item.submenu) {
+                row.setAttribute("aria-haspopup", "true");
+            }
             if (item.dot) {
                 row.appendChild(el("span", { class: "dot", style: { background: item.dot } }));
             } else if (item.icon) {
@@ -122,9 +157,17 @@ Mail.ui = (function () {
             if (item.hint) {
                 row.appendChild(el("span", { class: "hint", text: item.hint }));
             }
+            if (item.submenu) {
+                row.appendChild(icon("caret right", "sub-caret"));
+            }
+            var index = rows.length;
             row.addEventListener("click", function (event) {
                 event.stopPropagation();
                 if (item.disabled) {
+                    return;
+                }
+                if (item.submenu) {
+                    openSubmenu(level, row, item, false);
                     return;
                 }
                 if (!item.keepOpen) {
@@ -134,21 +177,35 @@ Mail.ui = (function () {
                     item.onClick(event);
                 }
             });
-            actionable.push(row);
+            row.addEventListener("mouseenter", function () {
+                if (!menuSession) {
+                    return;
+                }
+                setFocus(level, index);
+                clearTimeout(menuSession.hoverTimer);
+                if (item.submenu && !item.disabled) {
+                    //A short delay keeps a diagonal mouse path from flickering
+                    //through the neighbouring items' submenus
+                    menuSession.hoverTimer = setTimeout(function () {
+                        if (menuStack[level + 1] && menuStack[level + 1].parentRow === row) {
+                            return;
+                        }
+                        openSubmenu(level, row, item, false);
+                    }, 160);
+                } else {
+                    menuSession.hoverTimer = setTimeout(function () { closeLevelsAbove(level); }, 160);
+                }
+            });
+            rows.push(row);
             node.appendChild(row);
         });
-        document.body.appendChild(node);
+        return { node: node, rows: rows };
+    }
 
-        //Position: below the anchor, flipped to stay on screen
-        var rect;
-        if (anchor && anchor.getBoundingClientRect) {
-            rect = anchor.getBoundingClientRect();
-        } else {
-            rect = { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y, width: 0, height: 0 };
-        }
+    function placeNear(node, rect, alignRight) {
         var width = node.offsetWidth;
         var height = node.offsetHeight;
-        var left = options.alignRight ? rect.right - width : rect.left;
+        var left = alignRight ? rect.right - width : rect.left;
         var top = rect.bottom + 4;
         if (left + width > window.innerWidth - 8) {
             left = window.innerWidth - width - 8;
@@ -161,44 +218,109 @@ Mail.ui = (function () {
         }
         node.style.left = left + "px";
         node.style.top = top + "px";
+    }
 
-        var focusIndex = -1;
+    //placeBeside puts a submenu to the right of its parent menu with its top
+    //edge level with the item that opened it, flipping left near the edge
+    function placeBeside(node, rowRect, parentRect) {
+        var width = node.offsetWidth;
+        var height = node.offsetHeight;
+        var left = parentRect.right + 2;
+        if (left + width > window.innerWidth - 8) {
+            left = Math.max(8, parentRect.left - width - 2);
+        }
+        var top = rowRect.top;
+        if (top + height > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - height - 8);
+        }
+        node.style.left = left + "px";
+        node.style.top = top + "px";
+    }
+
+    function openSubmenu(level, row, item, focusFirst) {
+        closeLevelsAbove(level);
+        var items = typeof item.submenu === "function" ? item.submenu() : item.submenu;
+        var built = buildMenu(items || [], level + 1);
+        built.node.classList.add("submenu");
+        document.body.appendChild(built.node);
+        placeBeside(built.node, row.getBoundingClientRect(), menuStack[level].node.getBoundingClientRect());
+        menuStack.push({ node: built.node, rows: built.rows, parentRow: row, focus: -1 });
+        row.classList.add("open");
+        if (focusFirst) {
+            setFocus(level + 1, 0);
+        }
+    }
+
+    //menu shows items next to an anchor element or at {x, y}. An item with a
+    //submenu (array or function returning one) opens it beside the menu.
+    function menu(anchor, items, options) {
+        closeMenu();
+        options = options || {};
+        var built = buildMenu(items, 0);
+        document.body.appendChild(built.node);
+
+        var rect;
+        if (anchor && anchor.getBoundingClientRect) {
+            rect = anchor.getBoundingClientRect();
+        } else {
+            rect = { left: anchor.x, right: anchor.x, top: anchor.y, bottom: anchor.y, width: 0, height: 0 };
+        }
+        placeNear(built.node, rect, options.alignRight);
+        menuStack = [{ node: built.node, rows: built.rows, parentRow: null, focus: -1 }];
+
         var keys = function (event) {
+            var level = menuStack.length - 1;
+            var entry = menuStack[level];
+            if (!entry) {
+                return;
+            }
+            var handled = true;
             if (event.key === "Escape") {
-                event.preventDefault();
-                event.stopPropagation();
-                closeMenu();
+                if (level > 0) {
+                    closeLevelsAbove(level - 1);
+                } else {
+                    closeMenu();
+                }
             } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                if (entry.rows.length > 0) {
+                    var next = (entry.focus + (event.key === "ArrowDown" ? 1 : -1) + entry.rows.length) % entry.rows.length;
+                    setFocus(level, next);
+                }
+            } else if (event.key === "ArrowRight" && entry.focus >= 0 && entry.rows[entry.focus].classList.contains("has-sub")) {
+                entry.rows[entry.focus].click();
+                setFocus(level + 1, 0);
+            } else if (event.key === "ArrowLeft" && level > 0) {
+                closeLevelsAbove(level - 1);
+            } else if (event.key === "Enter" && entry.focus >= 0) {
+                var row = entry.rows[entry.focus];
+                row.click();
+                if (row.classList.contains("has-sub")) {
+                    setFocus(level + 1, 0);
+                }
+            } else {
+                handled = false;
+            }
+            if (handled) {
                 event.preventDefault();
                 event.stopPropagation();
-                if (actionable.length === 0) {
-                    return;
-                }
-                if (focusIndex >= 0) {
-                    actionable[focusIndex].classList.remove("focus");
-                }
-                focusIndex = (focusIndex + (event.key === "ArrowDown" ? 1 : -1) + actionable.length) % actionable.length;
-                actionable[focusIndex].classList.add("focus");
-                actionable[focusIndex].scrollIntoView({ block: "nearest" });
-            } else if (event.key === "Enter" && focusIndex >= 0) {
-                event.preventDefault();
-                event.stopPropagation();
-                actionable[focusIndex].click();
             }
         };
         var outside = function (event) {
-            if (!node.contains(event.target)) {
+            var inside = menuStack.some(function (entry) { return entry.node.contains(event.target); });
+            if (!inside) {
                 closeMenu();
             }
         };
+        menuSession = { outside: outside, keys: keys, onClose: options.onClose, hoverTimer: null };
         setTimeout(function () {
-            document.addEventListener("mousedown", outside, true);
+            if (menuSession && menuSession.outside === outside) {
+                document.addEventListener("mousedown", outside, true);
+            }
         }, 0);
         document.addEventListener("keydown", keys, true);
         window.addEventListener("blur", closeMenu);
         window.addEventListener("resize", closeMenu);
-        openMenu = { node: node, outside: outside, keys: keys, onClose: options.onClose };
-        return { close: closeMenu, node: node };
+        return { close: closeMenu, node: built.node };
     }
 
     /* ---------- Modals ---------- */
@@ -281,7 +403,7 @@ Mail.ui = (function () {
             if (modalStack[modalStack.length - 1] !== api) {
                 return;
             }
-            if (event.key === "Escape" && dismissable && !openMenu) {
+            if (event.key === "Escape" && dismissable && menuStack.length === 0) {
                 event.preventDefault();
                 event.stopPropagation();
                 close();
@@ -454,6 +576,6 @@ Mail.ui = (function () {
         toast: toast, errorToast: errorToast, menu: menu, closeMenu: closeMenu,
         modal: modal, hasOpenModal: hasOpenModal, confirm: confirmDialog, choice: choice, prompt: prompt,
         pickDateTime: pickDateTime, presetTimes: presetTimes,
-        isMenuOpen: function () { return openMenu !== null; }
+        isMenuOpen: function () { return menuStack.length > 0; }
     };
 })();

@@ -59,16 +59,56 @@ Mail.render = (function () {
         container.appendChild(preview);
 
         var observer = null;
+        var lastHeight = -1;
+        var ready = false;
+
+        //contentHeight measures the content itself. The document and body
+        //cannot be used: they are at least as tall as the frame (mail without
+        //a doctype renders in quirks mode, where the body fills the viewport),
+        //so measuring them feeds the frame's own height back and it creeps.
+        var contentHeight = function (doc) {
+            var body = doc.body;
+            var view = doc.defaultView;
+            var range = doc.createRange();
+            range.selectNodeContents(body);
+            var rect = range.getBoundingClientRect();
+            if (!rect || (rect.height === 0 && rect.bottom === 0)) {
+                return 60;
+            }
+            var style = view.getComputedStyle(body);
+            var bottom = rect.bottom + view.scrollY + (parseFloat(style.paddingBottom) || 0) +
+                (parseFloat(style.marginBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+            //Room for the horizontal scroll bar of wide newsletters
+            if (doc.documentElement.scrollWidth > doc.documentElement.clientWidth + 1) {
+                bottom += 18;
+            }
+            return Math.max(60, Math.ceil(bottom));
+        };
+
         var resize = function () {
             try {
                 var doc = frame.contentDocument;
-                if (!doc || !doc.documentElement) {
+                if (!doc || !doc.body) {
                     return;
                 }
-                var height = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
-                frame.style.height = Math.max(60, height + 2) + "px";
+                var height = contentHeight(doc);
+                if (Math.abs(height - lastHeight) > 1) {
+                    lastHeight = height;
+                    frame.style.height = height + "px";
+                }
+                if (!ready) {
+                    ready = true;
+                    frame.style.visibility = "visible";
+                    if (options.onReady) {
+                        options.onReady();
+                    }
+                }
             } catch (e) { /* frame navigated away */ }
         };
+
+        //Hidden and flat until measured, so nothing below it jumps around
+        frame.style.height = "0px";
+        frame.style.visibility = "hidden";
 
         frame.addEventListener("load", function () {
             var doc;
@@ -89,14 +129,10 @@ Mail.render = (function () {
                 observer = new ResizeObserver(resize);
                 observer.observe(doc.body);
             }
-            //Fonts and late layout settle within a few seconds
-            var passes = 0;
-            var settle = setInterval(function () {
-                resize();
-                if (++passes > 10 || !frame.isConnected) {
-                    clearInterval(settle);
-                }
-            }, 400);
+            //Web fonts may still change the layout once
+            if (doc.fonts && doc.fonts.ready) {
+                doc.fonts.ready.then(resize).catch(function () { });
+            }
 
             doc.addEventListener("click", function (event) {
                 var link = event.target.closest ? event.target.closest("a[href]") : null;
@@ -154,13 +190,17 @@ Mail.render = (function () {
         if (message.html) {
             return htmlFrame(container, message.html, {
                 allowRemote: message.remoteAllowed,
-                onMailto: options.onMailto
+                onMailto: options.onMailto,
+                onReady: options.onReady
             });
         }
         if (message.text) {
             plainBody(container, message.text, options);
         } else {
             container.appendChild(el("div", { class: "muted", text: message.encrypted ? "This message is encrypted." : "This message has no text." }));
+        }
+        if (options.onReady) {
+            options.onReady();
         }
         return null;
     }
