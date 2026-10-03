@@ -1,0 +1,84 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "console/shell": "Shell：",
+                "console/reconnect": "重新連線",
+                "console/closed": "工作階段已結束",
+                "console/live": "即時容器 Shell",
+                "console/title": "主控台：{name}",
+                "console/missingId": "缺少容器 ID。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "console/shell": "Shell：",
+                "console/reconnect": "重新連線",
+                "console/closed": "工作階段已結束",
+                "console/live": "即時容器 Shell",
+                "console/title": "主控台：{name}",
+                "console/missingId": "缺少容器 ID。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "console/shell": "Shell：",
+                "console/reconnect": "重新连接",
+                "console/closed": "会话已关闭",
+                "console/live": "实时容器 Shell",
+                "console/title": "控制台：{name}",
+                "console/missingId": "缺少容器 ID。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "strings": {
+                "console/shell": "Shell:",
+                "console/reconnect": "Reconnect",
+                "console/closed": "session closed",
+                "console/live": "Live container shell",
+                "console/title": "Console: {name}",
+                "console/missingId": "Missing container id."
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "console/shell": "シェル:",
+                "console/reconnect": "再接続",
+                "console/closed": "セッションが終了しました",
+                "console/live": "ライブコンテナシェル",
+                "console/title": "コンソール: {name}",
+                "console/missingId": "コンテナ ID がありません。"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "console/shell": "셸:",
+                "console/reconnect": "다시 연결",
+                "console/closed": "세션이 종료됨",
+                "console/live": "라이브 컨테이너 셸",
+                "console/title": "콘솔: {name}",
+                "console/missingId": "컨테이너 ID가 없습니다."
+            },
+            "titles": {},
+            "placeholder": {}
+        }
+    }
+}

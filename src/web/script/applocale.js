@@ -12,6 +12,8 @@
         applocale.init("../locale/file_explorer.json", function(){
             applocale.translate();
             //Do other init things on the page
+        }, function(){
+            //Optional: called instead when the locale file cannot be loaded
         });
     }
 */
@@ -21,12 +23,18 @@ function NewAppLocale(){
         lang: (localStorage.getItem('global_language') == null || localStorage.getItem('global_language') == "default" ? navigator.language : localStorage.getItem('global_language')).toLowerCase(),
         localeFile: "",
         localData: {},
-        init: function(localeFile, callback = undefined) {
+        init: function(localeFile, callback = undefined, onError = undefined) {
             this.localeFile = localeFile;
             let targetApplocaleObject = this;
             $.ajax({
                 dataType: "json",
                 url: localeFile,
+                error: function() {
+                    //Locale file missing or invalid. Let the page start with its built-in strings
+                    if (onError != undefined) {
+                        onError();
+                    }
+                },
                 success: function(data) {
                     targetApplocaleObject.localData = data;
                     if (callback != undefined) {

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../script/semantic/semantic.min.css">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
     <title>Container Apps</title>
     <style>
         :root {
@@ -128,12 +129,12 @@
 <body>
 <div class="ca-app">
     <div class="ca-top">
-        <div class="ca-title"><img src="img/icon.svg" alt=""> <span>Container Apps</span></div>
+        <div class="ca-title"><img src="img/icon.svg" alt=""> <span locale="app/title">Container Apps</span></div>
         <div class="ca-seg hidden adminOnly" id="viewSwitch">
-            <button data-view="apps" class="active">Apps</button>
-            <button data-view="manage">Manage</button>
+            <button data-view="apps" class="active" locale="view/apps">Apps</button>
+            <button data-view="manage" locale="view/manage">Manage</button>
         </div>
-        <button class="ca-btn primary hidden adminOnly" id="newBtn"><i class="plus icon"></i> Publish app</button>
+        <button class="ca-btn primary hidden adminOnly" id="newBtn"><i class="plus icon"></i> <span locale="editor/publish">Publish app</span></button>
     </div>
 
     <div class="ca-body">
@@ -142,7 +143,7 @@
             <div class="ca-grid" id="appGrid"></div>
             <div class="ca-empty hidden" id="appEmpty">
                 <i class="cube icon"></i><br>
-                <span id="appEmptyText">No container apps have been published yet.</span>
+                <span id="appEmptyText" locale="apps/none">No container apps have been published yet.</span>
             </div>
         </section>
 
@@ -150,18 +151,18 @@
         <section id="view-manage" class="hidden">
             <div class="ca-card">
                 <div class="ca-card-head">
-                    <h3>Published apps</h3>
+                    <h3 locale="manage/published">Published apps</h3>
                     <button class="ca-btn sm" id="refreshBtn" title="Refresh"><i class="sync icon"></i></button>
                 </div>
                 <table class="ca-table">
-                    <thead><tr><th>App</th><th>Access</th><th>Traffic</th><th></th></tr></thead>
+                    <thead><tr><th locale="manage/app">App</th><th locale="manage/access">Access</th><th locale="manage/traffic">Traffic</th><th></th></tr></thead>
                     <tbody id="endpointBody"></tbody>
                 </table>
             </div>
             <div class="ca-card" id="containerCard">
-                <div class="ca-card-head"><h3>Containers with web ports</h3></div>
+                <div class="ca-card-head"><h3 locale="manage/containers">Containers with web ports</h3></div>
                 <table class="ca-table">
-                    <thead><tr><th>Container</th><th>Published ports</th><th></th></tr></thead>
+                    <thead><tr><th locale="manage/container">Container</th><th locale="manage/ports">Published ports</th><th></th></tr></thead>
                     <tbody id="containerBody"></tbody>
                 </table>
             </div>
@@ -173,107 +174,107 @@
 <div class="ca-shade hidden" id="shade"></div>
 <div class="ca-drawer hidden" id="editor">
     <div class="ca-drawer-head">
-        <h2 id="editorTitle">Publish app</h2>
+        <h2 id="editorTitle" locale="editor/publish">Publish app</h2>
         <button class="ca-btn sm" id="closeEditor" title="Close"><i class="close icon"></i></button>
     </div>
     <div class="ca-drawer-body">
         <div class="ca-section">
-            <div class="ca-section-title"><i class="server icon"></i> Web server</div>
+            <div class="ca-section-title"><i class="server icon"></i> <span locale="editor/webServer">Web server</span></div>
             <div class="ca-field">
-                <label for="fTarget">Target address</label>
+                <label for="fTarget" locale="editor/target">Target address</label>
                 <div class="ca-row">
                     <input class="ca-input ca-mono" id="fTarget" placeholder="127.0.0.1:8081" autocomplete="off">
-                    <button class="ca-btn" id="probeBtn" style="flex:0 0 auto;"><i class="search icon"></i> Analyze</button>
+                    <button class="ca-btn" id="probeBtn" style="flex:0 0 auto;"><i class="search icon"></i> <span locale="editor/analyze">Analyze</span></button>
                 </div>
-                <div class="ca-hint" id="targetHint">The host:port ArozOS reaches the web interface on, usually a port published by the container.</div>
+                <div class="ca-hint" id="targetHint" locale="editor/targetHint">The host:port ArozOS reaches the web interface on, usually a port published by the container.</div>
             </div>
-            <label class="ca-check"><input type="checkbox" id="fTargetTLS"><div><b>The app itself uses HTTPS</b><span>Only when the container serves https on this port.</span></div></label>
-            <label class="ca-check hidden" id="skipVerifyRow"><input type="checkbox" id="fSkipVerify"><div><b>Accept a self-signed certificate</b></div></label>
+            <label class="ca-check"><input type="checkbox" id="fTargetTLS"><div><b locale="editor/tls">The app itself uses HTTPS</b><span locale="editor/tlsHint">Only when the container serves https on this port.</span></div></label>
+            <label class="ca-check hidden" id="skipVerifyRow"><input type="checkbox" id="fSkipVerify"><div><b locale="editor/skipVerify">Accept a self-signed certificate</b></div></label>
             <div id="probeResult" class="hidden"></div>
         </div>
 
         <div class="ca-section">
-            <div class="ca-section-title"><i class="tag icon"></i> App</div>
+            <div class="ca-section-title"><i class="tag icon"></i> <span locale="editor/app">App</span></div>
             <div class="ca-row">
-                <div class="ca-field"><label for="fName">Name</label><input class="ca-input" id="fName" maxlength="64" autocomplete="off"></div>
-                <div class="ca-field"><label for="fSlug">Address name</label><input class="ca-input ca-mono" id="fSlug" maxlength="63" autocomplete="off" placeholder="my-app"></div>
+                <div class="ca-field"><label for="fName" locale="editor/name">Name</label><input class="ca-input" id="fName" maxlength="64" autocomplete="off"></div>
+                <div class="ca-field"><label for="fSlug" locale="editor/slug">Address name</label><input class="ca-input ca-mono" id="fSlug" maxlength="63" autocomplete="off" placeholder="my-app"></div>
             </div>
             <div class="ca-hint" id="slugHint" style="margin:-6px 0 10px;"></div>
             <div class="ca-field">
-                <label for="fIcon">Icon</label>
+                <label for="fIcon" locale="editor/icon">Icon</label>
                 <input class="ca-input" id="fIcon" placeholder="ContainerApps/img/app.svg" autocomplete="off">
-                <div class="ca-hint">A web path relative to the ArozOS root, or an image URL.</div>
+                <div class="ca-hint" locale="editor/iconHint">A web path relative to the ArozOS root, or an image URL.</div>
             </div>
         </div>
 
         <div class="ca-section">
-            <div class="ca-section-title"><i class="linkify icon"></i> How it is served</div>
+            <div class="ca-section-title"><i class="linkify icon"></i> <span locale="editor/served">How it is served</span></div>
             <div class="ca-modes">
                 <div class="ca-mode" data-mode="path">
-                    <b><i class="folder outline icon"></i> Path</b>
+                    <b><i class="folder outline icon"></i> <span locale="editor/path">Path</span></b>
                     <span id="modePathDesc">On this address: <span class="ca-mono">/app/&lt;name&gt;/</span>. Nothing to set up.</span>
                 </div>
                 <div class="ca-mode" data-mode="subdomain">
-                    <b><i class="globe icon"></i> Subdomain</b>
-                    <span>On its own host name, e.g. <span class="ca-mono">app.example.com</span>. Isolated from ArozOS.</span>
+                    <b><i class="globe icon"></i> <span locale="editor/subdomain">Subdomain</span></b>
+                    <span locale="editor/subdomainDesc">On its own host name, e.g. <span class="ca-mono">app.example.com</span>. Isolated from ArozOS.</span>
                 </div>
             </div>
 
             <div id="pathOptions">
                 <div class="ca-note warn">
                     <i class="exclamation triangle icon"></i>
-                    In path mode the app shares the ArozOS address. Its web pages can act as the signed in user on ArozOS,
-                    so only use it for software you trust. Choose subdomain mode for anything else.
+                    <span locale="editor/pathWarn">In path mode the app shares the ArozOS address. Its web pages can act as the signed in user on ArozOS,
+                    so only use it for software you trust. Choose subdomain mode for anything else.</span>
                 </div>
-                <label class="ca-check"><input type="checkbox" id="fTrusted"><div><b>I trust this container</b><span>Required for path mode.</span></div></label>
-                <label class="ca-check"><input type="checkbox" id="fRootRedirect"><div><b>Catch root requests</b><span>When the app asks for a file from "/", send it back to the app instead of the ArozOS web root.</span></div></label>
-                <label class="ca-check"><input type="checkbox" id="fRewriteRoot"><div><b>Rewrite root paths (inject script)</b><span>Rewrites links in pages and style sheets and injects a small script that routes the app's own requests. Needed by most apps that were built to run at "/".</span></div></label>
+                <label class="ca-check"><input type="checkbox" id="fTrusted"><div><b locale="editor/trusted">I trust this container</b><span locale="editor/trustedHint">Required for path mode.</span></div></label>
+                <label class="ca-check"><input type="checkbox" id="fRootRedirect"><div><b locale="editor/rootRedirect">Catch root requests</b><span locale="editor/rootRedirectHint">When the app asks for a file from "/", send it back to the app instead of the ArozOS web root.</span></div></label>
+                <label class="ca-check"><input type="checkbox" id="fRewriteRoot"><div><b locale="editor/rewrite">Rewrite root paths (inject script)</b><span locale="editor/rewriteHint">Rewrites links in pages and style sheets and injects a small script that routes the app's own requests. Needed by most apps that were built to run at "/".</span></div></label>
             </div>
 
             <div id="subdomainOptions">
                 <div class="ca-field">
-                    <label for="fHostname">Host name</label>
+                    <label for="fHostname" locale="editor/hostname">Host name</label>
                     <input class="ca-input ca-mono" id="fHostname" placeholder="app.example.com" autocomplete="off">
-                    <div class="ca-hint">Point this name at the same server as ArozOS (a DNS record, or a public hostname in Cloudflare Tunnel). Cloudflare's free certificate only covers one level, so prefer <span class="ca-mono">app.example.com</span> or <span class="ca-mono">app-nas.example.com</span> over <span class="ca-mono">app.nas.example.com</span>.</div>
+                    <div class="ca-hint" locale="editor/hostnameHint">Point this name at the same server as ArozOS (a DNS record, or a public hostname in Cloudflare Tunnel). Cloudflare's free certificate only covers one level, so prefer <span class="ca-mono">app.example.com</span> or <span class="ca-mono">app-nas.example.com</span> over <span class="ca-mono">app.nas.example.com</span>.</div>
                 </div>
                 <div class="ca-field">
-                    <label for="fPortal">ArozOS address</label>
+                    <label for="fPortal" locale="editor/portal">ArozOS address</label>
                     <input class="ca-input ca-mono" id="fPortal" placeholder="https://nas.example.com" autocomplete="off">
-                    <div class="ca-hint">Where users sign in before being sent to the app.</div>
+                    <div class="ca-hint" locale="editor/portalHint">Where users sign in before being sent to the app.</div>
                 </div>
-                <div class="ca-note warn hidden" id="ipWarning"><i class="exclamation triangle icon"></i> You are using ArozOS through an IP address. Subdomain mode needs a domain name.</div>
+                <div class="ca-note warn hidden" id="ipWarning"><i class="exclamation triangle icon"></i> <span locale="editor/ipWarning">You are using ArozOS through an IP address. Subdomain mode needs a domain name.</span></div>
             </div>
-            <label class="ca-check"><input type="checkbox" id="fAllowFraming"><div><b>Allow in desktop window</b><span>Remove the app's "do not frame me" headers so it can open in a desktop window.</span></div></label>
+            <label class="ca-check"><input type="checkbox" id="fAllowFraming"><div><b locale="editor/framing">Allow in desktop window</b><span locale="editor/framingHint">Remove the app's "do not frame me" headers so it can open in a desktop window.</span></div></label>
         </div>
 
         <div class="ca-section">
-            <div class="ca-section-title"><i class="users icon"></i> Who can open it</div>
-            <label class="ca-check"><input type="checkbox" id="fRequireLogin"><div><b>Require ArozOS sign in</b><span>Turn off only for apps meant to be public, for example a status page.</span></div></label>
+            <div class="ca-section-title"><i class="users icon"></i> <span locale="editor/who">Who can open it</span></div>
+            <label class="ca-check"><input type="checkbox" id="fRequireLogin"><div><b locale="editor/requireLogin">Require ArozOS sign in</b><span locale="editor/requireLoginHint">Turn off only for apps meant to be public, for example a status page.</span></div></label>
             <div class="ca-field" id="groupField">
-                <label>Permission groups</label>
+                <label locale="editor/groups">Permission groups</label>
                 <div class="ca-groups" id="groupList"></div>
-                <div class="ca-hint">None selected means every user can see it and pin it to their desktop.</div>
+                <div class="ca-hint" locale="editor/groupsHint">None selected means every user can see it and pin it to their desktop.</div>
             </div>
         </div>
 
         <div class="ca-section">
-            <div class="ca-section-title"><i class="window restore outline icon"></i> Opening from the desktop</div>
+            <div class="ca-section-title"><i class="window restore outline icon"></i> <span locale="editor/opening">Opening from the desktop</span></div>
             <div class="ca-row">
                 <div class="ca-field">
-                    <label for="fOpenIn">Open in</label>
-                    <select class="ca-input" id="fOpenIn"><option value="float">Desktop window</option><option value="tab">New browser tab</option></select>
+                    <label for="fOpenIn" locale="editor/openIn">Open in</label>
+                    <select class="ca-input" id="fOpenIn"><option value="float" locale="editor/openFloat">Desktop window</option><option value="tab" locale="editor/openTab">New browser tab</option></select>
                 </div>
-                <div class="ca-field"><label for="fWidth">Width</label><input class="ca-input" type="number" id="fWidth" min="100" max="10000" placeholder="1080"></div>
-                <div class="ca-field"><label for="fHeight">Height</label><input class="ca-input" type="number" id="fHeight" min="100" max="10000" placeholder="640"></div>
+                <div class="ca-field"><label for="fWidth" locale="editor/width">Width</label><input class="ca-input" type="number" id="fWidth" min="100" max="10000" placeholder="1080"></div>
+                <div class="ca-field"><label for="fHeight" locale="editor/height">Height</label><input class="ca-input" type="number" id="fHeight" min="100" max="10000" placeholder="640"></div>
             </div>
         </div>
     </div>
     <div class="ca-drawer-foot">
-        <button class="ca-btn danger hidden" id="deleteBtn"><i class="trash alternate outline icon"></i> Remove</button>
+        <button class="ca-btn danger hidden" id="deleteBtn"><i class="trash alternate outline icon"></i> <span locale="editor/remove">Remove</span></button>
         <div class="spacer"></div>
         <span class="ca-error" id="saveError"></span>
-        <button class="ca-btn" id="cancelBtn">Cancel</button>
-        <button class="ca-btn primary" id="saveBtn"><i class="check icon"></i> Save</button>
+        <button class="ca-btn" id="cancelBtn" locale="common/cancel">Cancel</button>
+        <button class="ca-btn primary" id="saveBtn"><i class="check icon"></i> <span locale="common/save">Save</span></button>
     </div>
 </div>
 
@@ -295,6 +296,14 @@
     var DEFAULT_ICON = "ContainerApps/img/app.svg";
     var state = {isAdmin: false, apps: [], endpoints: [], containers: [], groups: [], editing: null, slugTouched: false, mode: "path"};
 
+    //Localized string (English fallback) with {name} placeholders filled from vars
+    function T(key, fallback, vars){
+        var s = (typeof applocale !== "undefined" && applocale) ? applocale.getString(key, fallback) : fallback;
+        if (vars){
+            Object.keys(vars).forEach(function(k){ s = s.split("{" + k + "}").join(vars[k]); });
+        }
+        return s;
+    }
     function esc(s){
         return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
@@ -352,13 +361,13 @@
         var grid = $("#appGrid").empty();
         $("#appEmpty").toggleClass("hidden", state.apps.length > 0);
         $("#appEmptyText").text(state.isAdmin
-            ? "No container apps have been published yet. Use Publish app, or the Manage tab to publish a running container."
-            : "No container apps have been published for you yet.");
+            ? T("apps/emptyAdmin", "No container apps have been published yet. Use Publish app, or the Manage tab to publish a running container.")
+            : T("apps/emptyUser", "No container apps have been published for you yet."));
         state.apps.forEach(function(app){
             var tile = $('<div class="ca-tile" tabindex="0"></div>');
             tile.append($('<img alt="">').attr("src", iconSrc(app.Icon)).on("error", function(){ this.src = iconSrc(DEFAULT_ICON); }));
             tile.append($('<div class="name"></div>').text(app.Name));
-            var pin = $('<button class="ca-btn sm pin" title="Add to desktop"><i class="thumbtack icon"></i></button>');
+            var pin = $('<button class="ca-btn sm pin"><i class="thumbtack icon"></i></button>').attr("title", T("apps/pin", "Add to desktop"));
             pin.on("click", function(e){ e.stopPropagation(); pinApp(app); });
             tile.append(pin);
             tile.on("click", function(){ openApp(app); });
@@ -384,16 +393,16 @@
             sdest: "user:/Desktop/"
         }, function(data){
             if (data.error !== undefined){
-                toast("Unable to add to desktop: " + data.error, false);
+                toast(T("apps/pinFailedErr", "Unable to add to desktop: {error}", {error: data.error}), false);
                 return;
             }
-            toast(app.Name + " added to your desktop", true);
+            toast(T("apps/pinned", "{name} added to your desktop", {name: app.Name}), true);
             try {
                 if (ao_module_virtualDesktop && typeof parent.refresh === "function"){
                     parent.refresh();
                 }
             } catch (e) {}
-        }).fail(function(){ toast("Unable to add to desktop", false); });
+        }).fail(function(){ toast(T("apps/pinFailed", "Unable to add to desktop"), false); });
     }
 
     /* ---------------- Administrators ---------------- */
@@ -412,7 +421,7 @@
     function loadManage(done){
         var pending = 2;
         function finish(){ if (--pending === 0 && done){ done(); } }
-        $("#endpointBody").html('<tr><td colspan="4" class="ca-empty" style="padding:20px;">Loading...</td></tr>');
+        $("#endpointBody").html('<tr><td colspan="4" class="ca-empty" style="padding:20px;">' + T("common/loading", "Loading...") + '</td></tr>');
         $.get(API + "admin/list", function(list){
             state.endpoints = Array.isArray(list) ? list : [];
             renderEndpoints();
@@ -430,15 +439,15 @@
         }else{
             h += '<span class="pill blue"><i class="folder outline icon"></i>/app/' + esc(ep.Slug) + '/</span>';
             if (ep.RewriteRoot){
-                h += '<span class="pill">rewrite</span>';
+                h += '<span class="pill">' + T("manage/rewrite", "rewrite") + '</span>';
             }
         }
         if (!ep.RequireLogin){
-            h += '<span class="pill warn">public</span>';
+            h += '<span class="pill warn">' + T("manage/public", "public") + '</span>';
         }else if (ep.AllowedGroups && ep.AllowedGroups.length){
             h += '<span class="pill">' + esc(ep.AllowedGroups.join(", ")) + '</span>';
         }else{
-            h += '<span class="pill green">all users</span>';
+            h += '<span class="pill green">' + T("manage/allUsers", "all users") + '</span>';
         }
         return h;
     }
@@ -446,24 +455,24 @@
     function renderEndpoints(){
         var body = $("#endpointBody").empty();
         if (state.endpoints.length === 0){
-            body.html('<tr><td colspan="4" class="ca-empty" style="padding:24px;">Nothing published yet.</td></tr>');
+            body.html('<tr><td colspan="4" class="ca-empty" style="padding:24px;">' + T("manage/nothing", "Nothing published yet.") + '</td></tr>');
             return;
         }
         state.endpoints.forEach(function(ep){
             var s = ep.Stats || {};
-            var traffic = '<div>' + (s.Requests || 0) + ' requests</div>';
+            var traffic = '<div>' + T("manage/requests", "{n} requests", {n: s.Requests || 0}) + '</div>';
             if (ep.Mode === "path" && s.Leaks > 0){
-                var tip = "Recent: " + (s.LastLeaks || []).join(", ");
-                traffic += '<div class="ca-hint" title="' + esc(tip) + '"><i class="exclamation triangle icon"></i>' + s.Leaks + ' root requests caught' +
-                    (ep.RewriteRoot ? '' : ', consider rewriting') + '</div>';
+                var tip = T("manage/recent", "Recent: {list}", {list: (s.LastLeaks || []).join(", ")});
+                traffic += '<div class="ca-hint" title="' + esc(tip) + '"><i class="exclamation triangle icon"></i>' + T("manage/leaks", "{n} root requests caught", {n: s.Leaks}) +
+                    (ep.RewriteRoot ? '' : T("manage/considerRewrite", ", consider rewriting")) + '</div>';
             }
             var row = $('<tr>' +
                 '<td><div class="ca-appcell"><img alt=""><div style="min-width:0;"><div><b></b></div><div class="sub ca-mono"></div></div></div></td>' +
                 '<td>' + accessPills(ep) + '</td>' +
                 '<td>' + traffic + '</td>' +
                 '<td><div class="ca-actions">' +
-                    '<button class="ca-btn sm" data-act="open" title="Open"><i class="external alternate icon"></i></button>' +
-                    '<button class="ca-btn sm" data-act="edit" title="Edit"><i class="edit outline icon"></i></button>' +
+                    '<button class="ca-btn sm" data-act="open" title="' + esc(T("manage/open", "Open")) + '"><i class="external alternate icon"></i></button>' +
+                    '<button class="ca-btn sm" data-act="edit" title="' + esc(T("manage/edit", "Edit")) + '"><i class="edit outline icon"></i></button>' +
                 '</div></td></tr>');
             row.find("img").attr("src", iconSrc(ep.Icon)).on("error", function(){ this.src = iconSrc(DEFAULT_ICON); });
             row.find("b").text(ep.Name);
@@ -479,14 +488,14 @@
         var withPorts = state.containers.filter(function(c){ return c.Targets && c.Targets.length > 0; });
         if (withPorts.length === 0){
             body.html('<tr><td colspan="3" class="ca-empty" style="padding:24px;">' +
-                (state.containers.length === 0 ? "Docker is not available, or there are no containers." : "No container publishes a port on this host.") + '</td></tr>');
+                (state.containers.length === 0 ? T("manage/noDocker", "Docker is not available, or there are no containers.") : T("manage/noPorts", "No container publishes a port on this host.")) + '</td></tr>');
             return;
         }
         withPorts.forEach(function(c){
             var ports = c.Ports.map(function(p){
-                return '<span class="pill ca-mono" title="container port ' + p.ContainerPort + '">' + esc(c.Targets[c.Ports.indexOf(p)]) + '</span>';
+                return '<span class="pill ca-mono" title="' + esc(T("manage/containerPort", "container port {port}", {port: p.ContainerPort})) + '">' + esc(c.Targets[c.Ports.indexOf(p)]) + '</span>';
             }).join("");
-            var published = (c.Published || []).length ? '<div class="ca-hint">Published as ' + esc(c.Published.join(", ")) + '</div>' : "";
+            var published = (c.Published || []).length ? '<div class="ca-hint">' + esc(T("manage/publishedAs", "Published as {list}", {list: c.Published.join(", ")})) + '</div>' : "";
             var running = String(c.State).toLowerCase() === "running";
             var row = $('<tr>' +
                 '<td><div class="ca-mono"><b></b></div><div class="ca-hint ca-mono img"></div></td>' +
@@ -496,7 +505,7 @@
             row.find(".img").text(c.Image + (running ? "" : "  (" + c.State + ")"));
             var actions = row.find(".ca-actions");
             c.Targets.forEach(function(target, i){
-                var label = c.Targets.length > 1 ? "Publish :" + c.Ports[i].HostPort : "Publish";
+                var label = c.Targets.length > 1 ? T("manage/publishPort", "Publish :{port}", {port: c.Ports[i].HostPort}) : T("manage/publish", "Publish");
                 var btn = $('<button class="ca-btn sm primary"><i class="plus icon"></i> </button>');
                 btn.append(document.createTextNode(label));
                 btn.on("click", function(){ publishContainer(c, target); });
@@ -519,7 +528,7 @@
 
     /* ---------------- Editor ---------------- */
     function loadGroups(selected){
-        var list = $("#groupList").html('<span class="ca-hint">Loading...</span>');
+        var list = $("#groupList").html('<span class="ca-hint">' + T("common/loading", "Loading...") + '</span>');
         $.get("../system/permission/listgroup", function(groups){
             state.groups = Array.isArray(groups) ? groups : [];
             list.empty();
@@ -529,7 +538,7 @@
                 lbl.find("span").text(g);
                 list.append(lbl);
             });
-        }).fail(function(){ list.html('<span class="ca-hint">Unable to load groups</span>'); });
+        }).fail(function(){ list.html('<span class="ca-hint">' + T("editor/groupsFailed", "Unable to load groups") + '</span>'); });
     }
 
     function setMode(mode){
@@ -558,8 +567,8 @@
 
     function updateSlugHint(){
         var slug = $("#fSlug").val().trim();
-        $("#slugHint").html(slug ? 'Opens at <span class="ca-mono">' + esc(location.origin) + '/app/' + esc(slug) + '/</span>' : "");
-        $("#modePathDesc").html('On this address: <span class="ca-mono">/app/' + esc(slug || "<name>") + '/</span>. Nothing to set up.');
+        $("#slugHint").html(slug ? T("editor/opensAt", "Opens at {url}", {url: '<span class="ca-mono">' + esc(location.origin) + '/app/' + esc(slug) + '/</span>'}) : "");
+        $("#modePathDesc").html(T("editor/pathDesc", "On this address: {path}. Nothing to set up.", {path: '<span class="ca-mono">/app/' + esc(slug || T("editor/namePlaceholder", "<name>")) + '/</span>'}));
     }
 
     function openEditor(ep, prefill){
@@ -573,7 +582,7 @@
         state.prefill = d;
         state.slugTouched = !!ep;
 
-        $("#editorTitle").text(ep ? "Edit " + ep.Name : "Publish app");
+        $("#editorTitle").text(ep ? T("editor/editTitle", "Edit {name}", {name: ep.Name}) : T("editor/publish", "Publish app"));
         $("#fTarget").val(d.Target);
         $("#fTargetTLS").prop("checked", d.TargetTLS);
         $("#fSkipVerify").prop("checked", d.SkipTLSVerify);
@@ -637,7 +646,7 @@
     function saveEditor(){
         var ep = collectForm();
         if (ep.Mode === "path" && !ep.Trusted){
-            $("#saveError").text("Tick \"I trust this container\" or use subdomain mode.");
+            $("#saveError").text(T("editor/needTrust", "Tick \"I trust this container\" or use subdomain mode."));
             return;
         }
         var btn = $("#saveBtn").prop("disabled", true);
@@ -647,17 +656,17 @@
                 $("#saveError").text(res.error);
                 return;
             }
-            toast(state.editing ? "Saved" : res.Name + " published", true);
+            toast(state.editing ? T("editor/saved", "Saved") : T("editor/published", "{name} published", {name: res.Name}), true);
             closeEditor();
             loadManage();
         }).fail(function(){
-            $("#saveError").text("Unable to reach the server");
+            $("#saveError").text(T("editor/unreachable", "Unable to reach the server"));
         }).always(function(){ btn.prop("disabled", false); });
     }
 
     function deleteEndpoint(){
         var ep = state.editing;
-        if (!ep || !confirm("Remove " + ep.Name + "? Desktop shortcuts to it will stop working.")){
+        if (!ep || !confirm(T("editor/confirmRemove", "Remove {name}? Desktop shortcuts to it will stop working.", {name: ep.Name}))){
             return;
         }
         $.post(API + "admin/delete", {slug: ep.Slug}, function(res){
@@ -665,24 +674,27 @@
                 $("#saveError").text(res.error);
                 return;
             }
-            toast(ep.Name + " removed", true);
+            toast(T("editor/removed", "{name} removed", {name: ep.Name}), true);
             closeEditor();
             loadManage();
         });
     }
 
-    var VERDICT_TEXT = {
-        "path": "Works under a path as is",
-        "path-rewrite": "Works under a path with root path rewriting",
-        "subdomain": "Subdomain mode recommended"
-    };
+    function verdictText(verdict){
+        switch (verdict){
+            case "path": return T("probe/path", "Works under a path as is");
+            case "path-rewrite": return T("probe/pathRewrite", "Works under a path with root path rewriting");
+            case "subdomain": return T("probe/subdomain", "Subdomain mode recommended");
+        }
+        return T("probe/unknown", "Unknown");
+    }
 
     function runProbe(){
         var target = $("#fTarget").val().trim();
         if (target === ""){
             return;
         }
-        var box = $("#probeResult").removeClass("hidden").html('<div class="ca-note">Analyzing the app...</div>');
+        var box = $("#probeResult").removeClass("hidden").html('<div class="ca-note">' + T("probe/analyzing", "Analyzing the app...") + '</div>');
         var base = state.editing || state.prefill || {};
         $.get(API + "admin/probe", {
             target: target,
@@ -697,13 +709,13 @@
             }
             var cls = res.Reachable ? "info" : "warn";
             var head = res.Reachable
-                ? '<div class="ca-verdict">' + esc(VERDICT_TEXT[res.Verdict] || "Unknown") + '</div>'
-                : '<div class="ca-verdict">The app did not answer' + (res.Error ? ": " + esc(res.Error) : "") + '</div>';
+                ? '<div class="ca-verdict">' + esc(verdictText(res.Verdict)) + '</div>'
+                : '<div class="ca-verdict">' + T("probe/noAnswer", "The app did not answer") + (res.Error ? ": " + esc(res.Error) : "") + '</div>';
             if (res.KnownApp){
-                head += '<div>Recognised as ' + esc(res.KnownApp) + '</div>';
+                head += '<div>' + esc(T("probe/recognised", "Recognised as {name}", {name: res.KnownApp})) + '</div>';
             }
             var reasons = (res.Reasons || []).map(function(r){ return "<li>" + esc(r) + "</li>"; }).join("");
-            var apply = res.Verdict && !state.editing ? '<div style="margin-top:8px;"><button class="ca-btn sm" id="applyVerdict">Use this recommendation</button></div>' : "";
+            var apply = res.Verdict && !state.editing ? '<div style="margin-top:8px;"><button class="ca-btn sm" id="applyVerdict">' + T("probe/apply", "Use this recommendation") + '</button></div>' : "";
             box.html('<div class="ca-note ' + cls + '">' + head + (reasons ? "<ul>" + reasons + "</ul>" : "") + apply + '</div>');
             if (res.Title && $("#fName").val().trim() === ""){
                 $("#fName").val(res.Title).trigger("input");
@@ -713,7 +725,7 @@
             if (!state.editing && res.Verdict){
                 applyVerdict(res);
             }
-        }).fail(function(){ box.html('<div class="ca-note warn">Unable to analyze the app.</div>'); });
+        }).fail(function(){ box.html('<div class="ca-note warn">' + T("probe/failed", "Unable to analyze the app.") + '</div>'); });
     }
 
     function applyVerdict(res){
@@ -741,11 +753,11 @@
         loadManage(function(){
             var c = state.containers.filter(function(x){ return x.Name === name; })[0];
             if (!c){
-                toast("Container " + name + " not found", false);
+                toast(T("hash/notFound", "Container {name} not found", {name: name}), false);
                 return;
             }
             if (!c.Targets || c.Targets.length === 0){
-                toast(name + " does not publish a port on this host. Add a port mapping first, or enter the address by hand.", false);
+                toast(T("hash/noPort", "{name} does not publish a port on this host. Add a port mapping first, or enter the address by hand.", {name: name}), false);
                 openEditor(null, {Name: name, Slug: normalizeSlug(name), Container: name, Image: c.Image});
                 return;
             }
@@ -776,7 +788,15 @@
     window.addEventListener("hashchange", function(){ if (state.isAdmin){ handleHash(); } });
 
     applyTheme();
-    loadApps();
+    //Translate the page before the first render, or start in English without a locale file
+    if (typeof applocale !== "undefined" && applocale){
+        applocale.init("locale/containerapps.json", function(){
+            applocale.translate();
+            loadApps();
+        }, loadApps);
+    }else{
+        loadApps();
+    }
 })();
 </script>
 </body>

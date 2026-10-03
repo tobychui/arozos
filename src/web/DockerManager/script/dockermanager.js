@@ -2,7 +2,8 @@
     dockermanager.js
 
     Shared helpers for the Docker Manager web app: API base, fetch wrappers,
-    websocket URL resolution (proxy-path safe), HTML escaping, theme and toast.
+    websocket URL resolution (proxy-path safe), HTML escaping, theme, toast and
+    localization (strings live in ../locale/*.json next to the app).
     All paths are relative so the app keeps working when ArozOS is reverse
     proxied under a sub-path.
 */
@@ -47,6 +48,23 @@ var DM = (function () {
                     });
                 }
             } catch (e) {}
+        },
+
+        // Localized string from the page's locale file (English fallback),
+        // with {name} placeholders filled in from vars.
+        t: function (key, fallback, vars) {
+            var s = (typeof applocale !== "undefined" && applocale) ? applocale.getString(key, fallback) : fallback;
+            if (vars) {
+                Object.keys(vars).forEach(function (k) { s = s.split("{" + k + "}").join(vars[k]); });
+            }
+            return s;
+        },
+
+        // Load the locale file, translate the static markup, then start the page.
+        // The page still starts (in English) when the locale file is unavailable.
+        initLocale: function (file, start) {
+            if (typeof applocale === "undefined" || !applocale) { start(); return; }
+            applocale.init(file, function () { applocale.translate(); start(); }, start);
         },
 
         toast: function (msg, ok) {
