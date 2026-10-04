@@ -360,6 +360,11 @@ func (cv *odtConverter) frameImage(frame *onode, sb *strings.Builder) {
 	if ext == "jpg" {
 		ext = "jpeg"
 	}
+	if ext == "wmf" || ext == "emf" {
+		if raw, ext, ok = browserPicture(raw, ext); !ok {
+			return
+		}
+	}
 	if ext != "png" && ext != "jpeg" && ext != "gif" {
 		return
 	}

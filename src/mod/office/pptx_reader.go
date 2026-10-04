@@ -1519,6 +1519,9 @@ func (sc *slideCtx) parsePic(node *xnode, cm coordMap) *Object {
 		return nil
 	}
 	ext := strings.TrimPrefix(strings.ToLower(path.Ext(mediaPath)), ".")
+	// a Windows metafile (old decks store scans as .wmf) is rendered to a
+	// bitmap the browser can show
+	data, ext, _ = browserPicture(data, ext)
 
 	props := Props{Src: encodeDataURL(data, ext), Fit: "fill"}
 	// srcRect crops the source before it is stretched into the frame

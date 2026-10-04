@@ -594,7 +594,23 @@ var OfficeApp = (function () {
             setStatus("Failed to load " + fn, "error");
         });
     }
+    /*
+        A host that keeps each document in a window of its own (the desktop
+        shell: OfficePlatform.prefersNewWindows) opens another document
+        beside this one once this window holds something - a file, or
+        unsaved work - the way a desktop app does. An empty untitled window
+        is simply reused. Elsewhere the document replaces this one.
+    */
+    function holdsDocument() { return !!filepath || dirty; }
+    function openElsewhere(fp, fn) {
+        if (!OfficePlatform.prefersNewWindows() || !holdsDocument()) return false;
+        return OfficePlatform.openDocument(fp, fn, { appIcon: cfg.appIcon });
+    }
     function newDocument() {
+        if (OfficePlatform.prefersNewWindows() && holdsDocument() &&
+            OfficePlatform.openNewWindow()) {
+            return;
+        }
         var go = function () {
             filepath = null;
             filename = null;
@@ -620,10 +636,12 @@ var OfficeApp = (function () {
                 filter.push(e.substring(1));
             });
             OfficePlatform.pickOpen({ filter: filter, memoryKey: "document" }, function (files) {
+                if (openElsewhere(files[0].filepath, files[0].filename)) return;
                 openPath(files[0].filepath, files[0].filename);
             });
         };
-        if (dirty) {
+        // nothing is discarded when the document goes to a window of its own
+        if (dirty && !OfficePlatform.prefersNewWindows()) {
             confirmDialog("Discard unsaved changes?",
                 "The current document has unsaved changes that will be lost.",
                 "Discard", "Cancel", function (yes) { if (yes) go(); });
@@ -1265,6 +1283,7 @@ var OfficeApp = (function () {
                         return getRecents().map(function (r) {
                             return {
                                 label: r.fn, action: function () {
+                                    if (openElsewhere(r.fp, r.fn)) return;
                                     if (dirty) {
                                         confirmDialog("Discard unsaved changes?",
                                             "The current document has unsaved changes.",
@@ -1360,8 +1379,11 @@ var OfficeApp = (function () {
         closeAllMenus();
         if (cfg.onBeforePrint) { try { cfg.onBeforePrint(); } catch (e) { } }
         setTimeout(function () {
-            window.print();
-            if (cfg.onAfterPrint) { try { cfg.onAfterPrint(); } catch (e) { } }
+            // the print layout stays up until the dialog is done with it -
+            // at once in a browser, later behind a native print panel
+            OfficePlatform.print(function () {
+                if (cfg.onAfterPrint) { try { cfg.onAfterPrint(); } catch (e) { } }
+            });
         }, 60);
     }
 
@@ -1392,9 +1414,14 @@ var OfficeApp = (function () {
             $dl.append($act);
         }
         $ov.append($dl);
-        $ov.on("mousedown", function (e) { if (e.target === $ov[0] && opt.dismissable !== false) close(); });
+        // dismissed without a button: opt.onDismiss hears about it
+        var dismiss = function () {
+            close();
+            if (opt.onDismiss) opt.onDismiss();
+        };
+        $ov.on("mousedown", function (e) { if (e.target === $ov[0] && opt.dismissable !== false) dismiss(); });
         $(document).on("keydown.ofdialog", function (e) {
-            if (e.key === "Escape" && opt.dismissable !== false) close();
+            if (e.key === "Escape" && opt.dismissable !== false) dismiss();
         });
         $("body").append($ov);
         return { close: close, body: $body };
@@ -1666,9 +1693,10 @@ var OfficeApp = (function () {
 
         updateTitle();
 
-        // the standalone build has no storage behind it - say so once, so
-        // "Save downloads a copy" is not a surprise the first time
-        if (OfficePlatform.isStandalone() && (!inputs || !inputs.length)) {
+        // the web edition has no storage behind it - say so once, so "Save
+        // downloads a copy" is not a surprise the first time (a desktop
+        // shell saves to real files and needs no such warning)
+        if (OfficePlatform.mode() === "standalone" && (!inputs || !inputs.length)) {
             setStatus("Web edition - open a " + cfg.extension +
                 " from this device, and Save downloads it back", "info", 9000);
         }
@@ -1716,6 +1744,42 @@ var OfficeApp = (function () {
         }, true);
     }
 
+    /*
+        Ask before a window holding unsaved changes goes away. done() once
+        it may close - nothing to lose, saved, or the changes thrown away;
+        cancelled() when the person keeps it open. The ArozOS desktop asks
+        through ao_module_close (below), a desktop shell through
+        OfficeNative.requestClose.
+    */
+    function requestClose(done, cancelled) {
+        cancelled = cancelled || function () { };
+        if (!dirty) { done(); return; }
+        dialog({
+            title: "Unsaved changes",
+            body: "<b>" + escapeHtml(filename || (cfg.defaultFileName + cfg.extension)) +
+                "</b> has unsaved changes. Close it anyway?",
+            dismissable: true,
+            onDismiss: cancelled,
+            buttons: [
+                { label: "Cancel", action: function (close) { close(); cancelled(); } },
+                {
+                    label: "Close without saving", danger: true,
+                    action: function (close) {
+                        close();
+                        markClean();   // never re-prompt while the window tears down
+                        done();
+                    }
+                },
+                {
+                    label: "Save & close", primary: true,
+                    // save() only calls back on success, so a failed or
+                    // cancelled save leaves the window open
+                    action: function (close) { close(); save(done); }
+                }
+            ]
+        });
+    }
+
     /* The desktop routes a floatWindow's X button through the iframe's
        ao_module_close() (see ao_module.js + desktop.html: it calls
        contentWindow.ao_module_close() when defined). beforeunload does NOT
@@ -1732,28 +1796,7 @@ var OfficeApp = (function () {
                 ao_module_closeHandler();
             }
         };
-        window.ao_module_close = function () {
-            if (!dirty) { reallyClose(); return; }
-            dialog({
-                title: "Unsaved changes",
-                body: "<b>" + escapeHtml(filename || (cfg.defaultFileName + cfg.extension)) +
-                    "</b> has unsaved changes. Close it anyway?",
-                dismissable: true,
-                buttons: [
-                    { label: "Cancel" },
-                    {
-                        label: "Close without saving", danger: true,
-                        action: function (close) { close(); reallyClose(); }
-                    },
-                    {
-                        label: "Save & close", primary: true,
-                        // save() only calls back on success, so a failed or
-                        // cancelled save leaves the window open
-                        action: function (close) { close(); save(reallyClose); }
-                    }
-                ]
-            });
-        };
+        window.ao_module_close = function () { requestClose(reallyClose); };
     }
 
     /* ---------- public API ---------- */
@@ -1765,6 +1808,9 @@ var OfficeApp = (function () {
         openPath: openPath,
         save: save,
         saveAs: saveAs,
+        print: printDoc,
+        // ask before the window closes: done() = it may, cancelled() = kept
+        requestClose: requestClose,
         markDirty: markDirty,
         isDirty: function () { return dirty; },
         getFilePath: function () { return filepath; },

@@ -159,7 +159,10 @@ Menus re-render every time they open, so `checked`/`enabled`/`sub` are re-evalua
 ## OfficeApp API
 
 Lifecycle: `newDocument() open() openPath(fp,fn) save(cb) saveAs(cb)
-markDirty() isDirty() getFilePath() getFileName() getMeta() wasImported()`
+print() requestClose(done, cancelled) markDirty() isDirty() getFilePath()
+getFileName() getMeta() wasImported()` (`requestClose` asks about unsaved
+changes before a window goes away: `done()` = it may close, `cancelled()` =
+the person kept it)
 — **call `OfficeApp.markDirty()` after every user edit**; it drives the title
 asterisk, autosave and crash drafts.
 
@@ -220,16 +223,19 @@ your hooks, Ctrl+/ (shortcuts help). Register everything else yourself.
 
 ## OfficePlatform (common/platform.js) — the host abstraction
 
-The suite runs in two hosts from one code base, and this is the seam:
+The suite runs in three hosts from one code base, and this is the seam:
 
 | host | where | file dialogs | documents | open / save / conversions |
 |---|---|---|---|---|
 | `arozos` | the ArozOS desktop | `ao_module_openFileSelector` | ArozOS virtual file system | the AGI backends → `mod/office` |
 | `standalone` | any static web server ("ArozOS Office Web") | `<input type=file>` / drag and drop / `?open=<relative path>` | the visitor's device; `Save` downloads the file back | the same `mod/office` code compiled to WebAssembly (always shipped) |
+| `native` | the standalone build inside a desktop shell ("ArozOS Office for macOS", `apps/ArozOS Office Mac`) | the system Open / Save dialogs (`OfficeNative`, `common/native.js`) | real files, as `native:/<handle>/<name>`; Save writes back in place | the same WebAssembly module |
 
 The mode is one line in `common/mode.js` (`window.OFFICE_STANDALONE`, plus
 `window.OFFICE_WASM`), which `apps/arozos_office/generate.go` rewrites in
-its output tree. Never test those flags — ask `OfficePlatform`.
+its output tree; the native host is the standalone build when a shell
+answers (`OfficeNative.available()`). Never test those flags — ask
+`OfficePlatform`.
 
 ### Two capability questions, deliberately separate
 
@@ -247,12 +253,19 @@ They are not the same question and must not be conflated: the standalone
 build can write a .docx but still cannot render a server PDF.
 
 ```js
-OfficePlatform.mode()               // "arozos" | "standalone"
+OfficePlatform.mode()               // "arozos" | "standalone" | "native"
 OfficePlatform.isStandalone()       // !hasBackend()
 OfficePlatform.requireBackend(what) // guards: toast + return false when the
 OfficePlatform.requireConvert(what) // capability is missing
 OfficePlatform.tracksRecents()      // false in standalone (paths do not outlive the page)
 OfficePlatform.autosavesToFile()    // false in standalone (autosave would download)
+OfficePlatform.prefersNewWindows()  // true in native: another document opens
+                                    // beside this one, not in its place
+OfficePlatform.openNewWindow()      // a new blank document in another window;
+                                    // false = this host has none (start in place)
+OfficePlatform.print(done)          // print the page; done() once the print
+                                    // dialog is finished with it (at once in a
+                                    // browser, later behind a native panel)
 
 // dialogs - cb gets [{filepath, filename}] / {filepath, filename}
 OfficePlatform.pickOpen({filter:["docx","txt"], multiple, memoryKey}, cb)
@@ -532,7 +545,9 @@ dialog's **Discard** button deletes the snapshot (document.agi
 `session-delete`) so it stops prompting; **Start fresh** keeps it for a
 later launch. The framework also intercepts the floatWindow close button
 (overriding `ao_module_close`) to confirm before discarding unsaved
-changes (Cancel / Close without saving / Save & close).
+changes (Cancel / Close without saving / Save & close); a desktop shell asks
+the same question through `OfficeApp.requestClose` when its window's close
+button, Cmd+W or Quit is used.
 
 ## OfficeClipboard (common/clipboard.js) — cross-app copy/paste
 

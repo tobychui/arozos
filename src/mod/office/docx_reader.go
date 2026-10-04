@@ -1616,7 +1616,10 @@ func (cv *docxConv) mediaBytes(part *docxPartCtx, rid string) ([]byte, string, b
 	switch ext {
 	case "jpg":
 		ext = "jpeg"
-	case "emf", "wmf", "tif", "tiff":
+	case "emf", "wmf":
+		// a Windows metafile is rendered to a bitmap the browser can show
+		return browserPicture(data, ext)
+	case "tif", "tiff":
 		// browsers cannot show these - keep the space, lose the picture
 		return nil, "", false
 	}

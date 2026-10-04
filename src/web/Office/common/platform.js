@@ -17,7 +17,14 @@
                     WebAssembly (common/wasm.js), and saving hands the file
                     back as a download.
 
-    Documents are .docx / .xlsx / .pptx in both hosts: documentLoad turns
+      "native"      the standalone build inside a desktop shell (ArozOS
+                    Office for macOS, apps/ArozOS Office Mac) that answers
+                    OfficeNative (common/native.js). The same WebAssembly
+                    converters, but files are real files: system Open and
+                    Save dialogs, Save writes back in place, and autosave
+                    and the recent list work as they do in ArozOS.
+
+    Documents are .docx / .xlsx / .pptx in every host: documentLoad turns
     the file into the editor envelope and documentSave writes the envelope
     back as the file (mod/office native.go - the OOXML plus the editor's own
     copy embedded in the package).
@@ -36,10 +43,12 @@
     and the wasm converter, and pick the right one.
 
     The mode comes from common/mode.js (window.OFFICE_STANDALONE), which the
-    web-viewer generator rewrites in its output tree. Nothing else in the
-    suite should test that flag: ask OfficePlatform instead.
+    web-viewer generator rewrites in its output tree, and the native host is
+    the standalone build when a shell is answering (OfficeNative.available).
+    Nothing else in the suite should test either: ask OfficePlatform instead.
 
-    Load order: mode.js, recents.js, wasm.js, platform.js, office.js.
+    Load order: mode.js, native.js, recents.js, wasm.js, platform.js,
+    office.js.
 
     Path shapes in standalone mode
     ------------------------------
@@ -51,6 +60,12 @@
       anything else     a relative URL served next to the page (read only),
                         which is how ?open= and ?template= work (a template
                         is a plain envelope JSON file, templates/*.json)
+
+    and in native mode, besides those:
+      "native:/<handle>/<name>"  a file on disk the person picked, opened
+                        from Finder or dropped on the window. The shell
+                        keeps the handle across relaunches, so ?open= with
+                        one reopens the file itself
 
     Query parameters the home page uses (see home/home.js):
       ?open=<relative path>      open that document
@@ -1019,9 +1034,178 @@ var OfficePlatform = (function () {
     };
 
     /* ================================================================
+       Native host (the standalone build inside a desktop shell)
+       ================================================================ */
+    /*
+        Everything the web edition does still holds here - the converters
+        are the same WebAssembly module, templates are fetched next to the
+        page, the crash snapshot stays in localStorage - except that files
+        are real files: the pickers are the system's own dialogs, and a
+        "native:/<handle>/<name>" path survives a reload and a relaunch, so
+        Save writes back in place and autosave and recents come back.
+
+        The shell keeps its own recent list (the home page and the system's
+        Open Recent menu read it): it notes a document whenever one is read
+        or written, so nothing here has to.
+    */
+    function isNativePath(p) {
+        return !!(window.OfficeNative && OfficeNative.isNativePath(p));
+    }
+    function nativeFail(errcb) {
+        return function (e) { if (errcb) errcb((e && e.message) || String(e)); };
+    }
+    function nativeReadBytes(path, cb, errcb) {
+        if (!isNativePath(path)) { standalone.readBytes(path, cb, errcb); return; }
+        OfficeNative.read(path).then(cb, nativeFail(errcb));
+    }
+    /* Write to a file the person chose. A path that is no file on disk (a
+       template, a shared link, a dropped file the shell could not place)
+       has nowhere to be written back to, so the Save dialog asks where -
+       what the web edition's download stands in for. A cancelled dialog is
+       reported as a failure: the caller is waiting for one or the other. */
+    function nativeWrite(path, data, cb, errcb) {
+        var fail = nativeFail(errcb);
+        var put = function (target) {
+            OfficeNative.write(target, data).then(function () { if (cb) cb(); }, fail);
+        };
+        if (isNativePath(path)) { put(path); return; }
+        var name = saveName(path);
+        OfficeNative.pickSave({ name: name, ext: extOf(name) }).then(function (f) {
+            if (f) put(f.path);
+            else fail(new Error("cancelled"));
+        }, fail);
+    }
+    // what the shell shows for this window: the dot in the close button and
+    // the file behind the title's proxy icon
+    function nativeWindowState() {
+        var app = window.OfficeApp;
+        return {
+            edited: !!(app && app.isDirty && app.isDirty()),
+            path: (app && app.getFilePath && app.getFilePath()) || ""
+        };
+    }
+
+    var nativeShell = {
+        name: "native",
+        hasBackend: false,
+        tracksRecents: true,
+        autosavesToFile: true,
+        // a desktop app opens another document in a window of its own
+        prefersNewWindows: true,
+
+        canConvert: standalone.canConvert,
+        convertIn: function (spec, srcRef, cb, errcb) {
+            if (!spec.wasm) { errcb(NO_CONVERTER); return; }
+            nativeReadBytes(srcRef, function (bytesIn) {
+                OfficeWasm.runImport(spec.wasm, bytesIn, cb, errcb);
+            }, function (msg) { errcb("could not read the file: " + msg); });
+        },
+        convertOut: function (spec, destRef, bodyJson, cb, errcb) {
+            if (!spec.wasm) { errcb(NO_CONVERTER); return; }
+            OfficeWasm.runExport(spec.wasm, bodyJson, function (res) {
+                nativeWrite(destRef, res.data, function () { cb({ mediaZip: null }); }, errcb);
+            }, errcb);
+        },
+
+        prepareWorkdir: standalone.prepareWorkdir,
+        releaseWorkdir: standalone.releaseWorkdir,
+        agirun: standalone.agirun,
+        agirunLarge: standalone.agirunLarge,
+
+        pickOpen: function (opts, cb) {
+            OfficeNative.pickOpen({ exts: opts.filter, multiple: !!opts.multiple }).then(function (files) {
+                if (!files.length) return;
+                cb(files.map(function (f) { return { filepath: f.path, filename: f.name }; }));
+            }, function (e) { toast("Could not show the Open dialog: " + e.message, "error"); });
+        },
+        pickSave: function (opts, cb) {
+            OfficeNative.pickSave({
+                name: opts.defaultName || "document",
+                ext: opts.ext || "",
+                near: nativeWindowState().path
+            }).then(function (f) {
+                if (f) cb({ filepath: f.path, filename: f.name });
+            }, function (e) { toast("Could not show the Save dialog: " + e.message, "error"); });
+        },
+
+        readText: function (path, cb, errcb) {
+            errcb = errcb || function () { };
+            if (!isNativePath(path)) { standalone.readText(path, cb, errcb); return; }
+            nativeReadBytes(path, function (bytes) {
+                cb(new TextDecoder("utf-8").decode(bytes));
+            }, errcb);
+        },
+        readBytes: function (path, cb, errcb) {
+            nativeReadBytes(path, cb, errcb || function () { });
+        },
+        writeText: function (path, content, cb, errcb) {
+            nativeWrite(path, String(content), cb, errcb);
+        },
+        writeBytes: function (path, bytes, cb, errcb) {
+            nativeWrite(path, bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), cb, errcb);
+        },
+
+        documentLoad: function (path, cb, errcb) {
+            var nat = nativeOf(saveName(path));
+            if (!nat) { errcb("not a .docx, .xlsx or .pptx file"); return; }
+            if (!nativeShell.canConvert()) { errcb(NO_WASM); return; }
+            nativeReadBytes(path, function (bytes) {
+                OfficeWasm.runImport(nat.wasm, bytes, cb, errcb);
+            }, function (msg) { errcb("could not read the file: " + msg); });
+        },
+        documentSave: function (path, envelopeJson, cb, errcb) {
+            var nat = nativeOf(saveName(path));
+            if (!nat) { errcb("documents are saved as .docx, .xlsx or .pptx"); return; }
+            if (!nativeShell.canConvert()) { errcb(NO_WASM); return; }
+            OfficeWasm.runExport(nat.wasm, envelopeJson, function (res) {
+                nativeWrite(path, res.data, cb, errcb);
+            }, errcb);
+        },
+
+        sessionSave: standalone.sessionSave,
+        sessionLoad: standalone.sessionLoad,
+        sessionDelete: standalone.sessionDelete,
+
+        // pictures stay inline, as in the web edition: there is no server
+        // to link them to, and the file on disk carries them anyway
+        mediaUrl: standalone.mediaUrl,
+        blobToSrc: standalone.blobToSrc,
+        cacheBlob: standalone.cacheBlob,
+        adoptSrc: standalone.adoptSrc,
+        isForeignWorkingCopy: standalone.isForeignWorkingCopy,
+
+        loadInputFiles: entryPointFiles,
+        openDocument: function (filepath) {
+            if (!isNativePath(filepath)) return false;
+            OfficeNative.openWindow({ path: filepath });
+            return true;
+        },
+        // a new, empty document of this app in a window of its own
+        openNewWindow: function () {
+            OfficeNative.openWindow({ url: window.location.pathname });
+            return true;
+        },
+        // the system print panel is asynchronous: done once it is finished
+        // with the page, so the app keeps its print layout up until then
+        print: function (done) {
+            OfficeNative.print().then(done, done);
+        },
+        setWindowTitle: function (t) {
+            // the shell shows "edited" as the dot in the close button
+            document.title = String(t).replace(" •", "");
+            OfficeNative.windowInfo(nativeWindowState());
+        },
+        setWindowTheme: function (dark) { OfficeNative.setTheme(dark); },
+        // the shell opens dropped documents itself (with their real path);
+        // a File that still reaches the page is held like the web edition's
+        adoptDroppedFile: standalone.adoptDroppedFile
+    };
+
+    /* ================================================================
        Chosen host
        ================================================================ */
-    var host = STANDALONE ? standalone : arozos;
+    var host = !STANDALONE ? arozos :
+        (window.OfficeNative && OfficeNative.available()) ? nativeShell : standalone;
 
     // Uniform "this needs a server" guard for the apps' menu entries: they
     // gate on hasBackend() so the item is absent rather than failing late.
@@ -1101,6 +1285,20 @@ var OfficePlatform = (function () {
         // open a document in a second window of this app; false = this host
         // has nowhere to open it from (the standalone build saves by download)
         openDocument: function (fp, fn, o) { return !!host.openDocument(fp, fn, o || {}); },
+        // true where another document belongs in a window of its own rather
+        // than in place of this one (a desktop app, not a browser tab)
+        prefersNewWindows: function () { return !!host.prefersNewWindows; },
+        // a new, empty document of this app in another window; false = this
+        // host has no such thing, so the caller starts one in place
+        openNewWindow: function () { return !!(host.openNewWindow && host.openNewWindow()); },
+        // print the page; done() once the print dialog is finished with it,
+        // which the browser's window.print() already is when it returns
+        print: function (done) {
+            done = done || function () { };
+            if (host.print) { host.print(done); return; }
+            window.print();
+            done();
+        },
         adoptDroppedFile: function (f, cb) {
             if (host.adoptDroppedFile) host.adoptDroppedFile(f, cb);
         },

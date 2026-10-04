@@ -561,6 +561,11 @@ func (cv *odpConverter) frame(n *onode, slide *Slide, ox, oy, kx, ky float64) {
 		if ext == "jpg" {
 			ext = "jpeg"
 		}
+		if ext == "wmf" || ext == "emf" {
+			if raw, ext, ok = browserPicture(raw, ext); !ok {
+				return
+			}
+		}
 		if ext != "png" && ext != "jpeg" && ext != "gif" {
 			return
 		}

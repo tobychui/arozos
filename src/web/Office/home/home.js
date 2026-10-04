@@ -16,6 +16,12 @@
     OfficePlatform resolves back to those bytes. That is the same path the
     "Recently opened" list uses, so there is one mechanism rather than two.
 
+    Inside a desktop shell (OfficeNative, common/native.js - ArozOS Office
+    for macOS) none of that hand-off is needed: files are real files there.
+    The recent list is the shell's own, "Open" is the system dialog, and a
+    document is opened by its path (?open=native:/<handle>/<name>), so Save
+    in the editor writes back to it.
+
     ?request=<share link> (standalone build) uses the same hand-off: the page
     downloads the document from the ArozOS share's preview endpoint, reads
     which app it belongs to from the parts its zip holds (word/, xl/, ppt/),
@@ -117,6 +123,12 @@
     }
     function go(url) { window.location.href = url; }
 
+    // running inside a desktop shell that keeps real files (see the top)
+    var NATIVE = !!(window.OfficeNative && OfficeNative.available());
+    function nativeOpenUrl(entry) {
+        return appUrl(entry.app, "?open=" + encodeURIComponent(entry.path));
+    }
+
     function ago(ts) {
         if (!ts) return "";
         var diff = new Date().getTime() - ts;
@@ -139,6 +151,8 @@
         try { t = localStorage.getItem("office_theme"); } catch (e) { }
         if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
         else if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+        // the window's title bar follows along (null: the system setting)
+        if (NATIVE) OfficeNative.setTheme(t === "dark" ? true : (t === "light" ? false : null));
     }
 
     /* ================= state ================= */
@@ -148,7 +162,8 @@
         recentsAll: false,
         tplPage: 0,
         tplAll: false,
-        templates: []
+        templates: [],
+        nativeRecents: []  // the shell's recent files, when NATIVE
     };
     var TPL_PER_PAGE = 6;
     var RECENT_SHOWN = 5;
@@ -187,7 +202,8 @@
             menu.appendChild(b);
         });
         menu.appendChild(el("div", "hm-menu-sep"));
-        var open = el("button", "", svgIcon("#i-folder") + "<span>Open from device</span>");
+        var open = el("button", "", svgIcon("#i-folder") + "<span>" +
+            (NATIVE ? "Open a file" : "Open from device") + "</span>");
         open.type = "button";
         open.addEventListener("click", function () { closeMenus(); pickFile(); });
         menu.appendChild(open);
@@ -199,9 +215,12 @@
     }
 
     /* ================= recently opened ================= */
+    function recentsAvailable() {
+        return NATIVE || !!(window.OfficeRecents && OfficeRecents.supported());
+    }
     function recentEntries() {
-        if (!window.OfficeRecents || !OfficeRecents.supported()) return [];
-        var list = OfficeRecents.index();
+        if (!recentsAvailable()) return [];
+        var list = NATIVE ? state.nativeRecents : OfficeRecents.index();
         if (state.filter) {
             list = list.filter(function (e) { return e.app === state.filter; });
         }
@@ -228,9 +247,29 @@
         shown.forEach(function (entry) { host.appendChild(recentRow(entry)); });
     }
 
+    /* The shell's list is asked for, not read: it changes whenever any
+       window opens or saves a document, so it is fetched again each time
+       this window comes back to the front. Entries take the shape of
+       OfficeRecents' ones, with the native path as the id. */
+    function loadNativeRecents() {
+        OfficeNative.recents().then(function (items) {
+            state.nativeRecents = items.map(function (e) {
+                return {
+                    id: e.path, path: e.path, name: e.name, app: e.app,
+                    ext: e.ext, at: e.at, folder: e.folder || ""
+                };
+            });
+            renderRecents();
+        }, function () { /* keep what is shown */ });
+    }
+
     function emptyRecents() {
         var why;
-        if (!window.OfficeRecents || !OfficeRecents.supported()) {
+        if (NATIVE) {
+            why = state.query
+                ? "No recent document matches &ldquo;" + esc(state.query) + "&rdquo;."
+                : "Documents you open or save will show up here.";
+        } else if (!window.OfficeRecents || !OfficeRecents.supported()) {
             why = "This browser will not let the page store documents, so recent " +
                 "files are unavailable. Opening and editing still work.";
         } else if (state.query) {
@@ -255,7 +294,8 @@
             '<span class="hm-row-ic">' + svgIcon(app.icon) + "</span>" +
             '<span class="hm-row-body">' +
             '<div class="hm-row-name">' + esc(entry.name) + "</div>" +
-            '<div class="hm-row-sub">' + esc(app.label) + "</div></span>" +
+            '<div class="hm-row-sub">' + esc(app.label) +
+            (entry.folder ? " &middot; " + esc(entry.folder) : "") + "</div></span>" +
             '<span class="hm-row-time">' + esc(ago(entry.at)) + "</span>";
         var more = el("button", "hm-row-more", svgIcon("#i-more"));
         more.type = "button";
@@ -271,6 +311,10 @@
 
     function openRecent(entry) {
         var app = APPS[entry.app] ? entry.app : appForExt(entry.ext) || "document";
+        if (NATIVE) {
+            go(nativeOpenUrl({ app: app, path: entry.path }));
+            return;
+        }
         go(appUrl(app, "?recent=" + encodeURIComponent(entry.id)));
     }
 
@@ -288,11 +332,19 @@
             menu.appendChild(b);
         };
         add("#i-open", "Open", function () { openRecent(entry); });
-        add("#i-download", "Download a copy", function () { downloadRecent(entry); });
-        menu.appendChild(el("div", "hm-menu-sep"));
-        add("#i-trash", "Remove from list", function () {
-            OfficeRecents.forget(entry.id, renderRecents);
-        });
+        if (NATIVE) {
+            add("#i-folder", "Show in Finder", function () { OfficeNative.reveal(entry.path); });
+            menu.appendChild(el("div", "hm-menu-sep"));
+            add("#i-trash", "Remove from list", function () {
+                OfficeNative.forgetRecent(entry.path).then(loadNativeRecents, loadNativeRecents);
+            });
+        } else {
+            add("#i-download", "Download a copy", function () { downloadRecent(entry); });
+            menu.appendChild(el("div", "hm-menu-sep"));
+            add("#i-trash", "Remove from list", function () {
+                OfficeRecents.forget(entry.id, renderRecents);
+            });
+        }
 
         // positioned against the page, not the row, so a scrolling card
         // cannot clip it
@@ -567,6 +619,7 @@
 
     /* ================= opening a file from the device ================= */
     function pickFile() {
+        if (NATIVE) { pickNativeFiles(); return; }
         var input = $("#hmFile");
         input.value = "";
         input.accept = Object.keys(openableExts()).join(",");
@@ -597,6 +650,24 @@
         };
         reader.onerror = function () { window.alert("Could not read that file."); };
         reader.readAsArrayBuffer(file);
+    }
+
+    /* The system Open dialog: the first document opens in this window, any
+       others in windows of their own. */
+    function pickNativeFiles() {
+        OfficeNative.pickOpen({ exts: Object.keys(openableExts()), multiple: true }).then(function (files) {
+            var first = true;
+            files.forEach(function (f) {
+                var app = appForExt(extOf(f.name));
+                if (!app) return;
+                if (first) {
+                    first = false;
+                    go(nativeOpenUrl({ app: app, path: f.path }));
+                } else {
+                    OfficeNative.openWindow({ path: f.path });
+                }
+            });
+        }, function (e) { window.alert("Could not show the Open dialog: " + e.message); });
     }
 
     /* ================= ?request=<ArozOS share link> ================= */
@@ -677,6 +748,30 @@
         return true;
     }
 
+    /* The page's words are the web edition's. In a desktop shell this is a
+       Mac app working on the Mac's own files, so it says that instead. */
+    function nativeWording() {
+        var set = function (sel, text) {
+            var e = document.querySelector(sel);
+            if (e) e.textContent = text;
+        };
+        set(".hm-brand-text span", "for Mac");
+        set(".hm-privacy-head b", "Files stay on this Mac");
+        set(".hm-privacy p", "Documents open and save in place. No account required.");
+        set(".hm-version div", "ArozOS Office for Mac");
+        set(".hm-hero-text p", "Create and edit documents, spreadsheets and presentations " +
+            "\u2014 the .docx, .xlsx and .pptx files on this Mac.");
+        // "device" means nothing in a desktop app: these open a file
+        var buttons = document.querySelectorAll('[data-action="open-device"]');
+        for (var i = 0; i < buttons.length; i++) {
+            var b = buttons[i];
+            var span = b.querySelector("span");
+            if (span) { span.textContent = "Open a file"; continue; }
+            var last = b.lastChild;
+            if (last && last.nodeType === 3) last.textContent = " Open a file";
+        }
+    }
+
     /* ================= filters ================= */
     function setFilter(f) {
         state.filter = f;
@@ -698,6 +793,11 @@
         buildCreateMenu();
         renderRecents();
         loadTemplates();
+        if (NATIVE) {
+            nativeWording();
+            loadNativeRecents();
+            window.addEventListener("focus", loadNativeRecents);
+        }
 
         // formats line in the tip, so it never claims more than the build does
         var tip = $(".hm-tip-formats");
