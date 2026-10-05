@@ -3,11 +3,8 @@ package metadata
 import (
 	"errors"
 	"image"
-	"image/jpeg"
 	"path/filepath"
 
-	"github.com/nfnt/resize"
-	"github.com/oliamb/cutter"
 	_ "github.com/oov/psd"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/utils"
@@ -30,45 +27,17 @@ func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder stri
 		return "", err
 	}
 
-	//Decode the image content with PSD decoder
+	//Decode the merged (composite) image with the PSD decoder
 	img, _, err := image.Decode(f)
-	if err != nil {
-		return "", err
-	}
-
 	f.Close()
-
-	//Check boundary to decide resize mode
-	b := img.Bounds()
-	imgWidth := b.Max.X
-	imgHeight := b.Max.Y
-
-	var m image.Image
-	if imgWidth > imgHeight {
-		m = resize.Resize(0, 480, img, resize.Lanczos3)
-	} else {
-		m = resize.Resize(480, 0, img, resize.Lanczos3)
-	}
-
-	//Crop out the center
-	croppedImg, err := cutter.Crop(m, cutter.Config{
-		Width:  480,
-		Height: 480,
-		Mode:   cutter.Centered,
-	})
-
-	outf, err := fshAbs.Create(outputFile)
 	if err != nil {
 		return "", err
 	}
-	opt := jpeg.Options{
-		Quality: 90,
-	}
-	err = jpeg.Encode(outf, croppedImg, &opt)
-	if err != nil {
+
+	//Scale, crop the centre and flatten transparency onto white
+	if err := writeCroppedThumbnail(fsh, img, outputFile); err != nil {
 		return "", err
 	}
-	outf.Close()
 
 	if !generateOnly && fshAbs.FileExists(outputFile) {
 		//return the image as well

@@ -27,6 +27,14 @@
                 <input type="color" id="fg-input">
                 <input type="color" id="bg-input">
             </div>
+            <div id="toolbar-modes">
+                <button id="quickmask-btn" type="button" title="Edit in Quick Mask Mode (Q)">
+                    <svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="1"/><circle cx="12" cy="12" r="3.6" class="qm-dot"/></svg>
+                </button>
+                <button id="screenmode-btn" type="button" title="Standard Screen Mode (F)">
+                    <svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="1"/><rect x="6.5" y="8.5" width="11" height="7"/></svg>
+                </button>
+            </div>
         </div>
 
         <!-- Center workspace -->
@@ -45,20 +53,11 @@
             <div id="ruler-corner"></div>
         </div>
 
-        <!-- Right panels -->
-        <div id="sidebar">
-            <div class="panel" id="panel-color">
-                <div class="panel-title">Color</div>
-                <div class="panel-body" id="panel-color-body"></div>
-            </div>
-            <div class="panel" id="panel-history">
-                <div class="panel-title">History</div>
-                <div class="panel-body" id="panel-history-body"></div>
-            </div>
-            <div class="panel grow" id="panel-layers">
-                <div class="panel-title">Layers</div>
-                <div class="panel-body" id="panel-layers-body"></div>
-            </div>
+        <!-- Right panel dock (workspace.js builds the panel groups) -->
+        <div id="dock">
+            <div id="dock-resizer" title="Drag to resize the panels"></div>
+            <div id="dock-icons"></div>
+            <div id="dock-main"></div>
         </div>
     </div>
 
@@ -68,6 +67,7 @@
         <span id="status-pos"></span>
         <span id="status-hint"></span>
         <span class="spacer"></span>
+        <span id="status-save"></span>
         <select id="status-zoom">
             <option value="0.125">12.5%</option>
             <option value="0.25">25%</option>
@@ -84,16 +84,34 @@
     <div id="toast-host"></div>
 
     <script src="js/editor.js"></script>
+    <script src="js/cursors.js"></script>
+    <script src="js/workspace.js"></script>
+    <script src="js/model.js"></script>
+    <script src="js/compositor.js"></script>
+    <script src="js/transform.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/adjust.js"></script>
+    <script src="js/vector.js"></script>
+    <script src="js/properties.js"></script>
+    <script src="js/layerstyle.js"></script>
     <script src="js/colorpicker.js"></script>
     <script src="js/history.js"></script>
     <script src="js/layers.js"></script>
     <script src="js/selection.js"></script>
     <script src="js/guides.js"></script>
     <script src="js/tools.js"></script>
+    <script src="js/brushes.js"></script>
+    <script src="js/measure.js"></script>
     <script src="js/gradient.js"></script>
     <script src="js/text.js"></script>
+    <script src="js/typetools.js"></script>
     <script src="js/filters.js"></script>
+    <script src="js/retouch.js"></script>
+    <script src="js/docio.js"></script>
+    <script src="js/savemanager.js"></script>
     <script src="js/fileio.js"></script>
+    <script src="js/commands.js"></script>
+    <script src="js/panels.js"></script>
     <script src="js/menu.js"></script>
     <script src="js/hotkeys.js"></script>
     <script src="js/main.js"></script>

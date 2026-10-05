@@ -6,7 +6,8 @@
 "use strict";
 
 window.PS = {
-    doc: null,              // current document
+    VERSION: "2.1.0",
+    doc: null,              // current document (see PS.makeDocument)
     zoom: 1,
     fg: "#1a1a1a",
     bg: "#ffffff",
@@ -15,7 +16,7 @@ window.PS = {
     toolOrder: [],          // toolbar display order
     toolOpts: {},           // per-tool option state (persisted)
     clipboard: null,        // {canvas, bounds} internal clipboard
-    strokePreview: null,    // {layer, canvas, opacity, erase} live brush stroke
+    strokePreview: null,    // {layer, canvas, opacity, erase, mode} live brush stroke
     layerOverride: null,    // {layer, canvas} preview replacement (move/filters)
     fonts: [],              // available fonts [{name, css, builtin}]
     prefs: {},
@@ -87,23 +88,37 @@ PS.inArozOS = function () {
 
 /* ---------- document ---------- */
 
-PS.newDocument = function (opts) {
+// Fresh document model. Layers live in a tree (see model.js).
+PS.makeDocument = function (w, h, opts) {
     opts = opts || {};
-    var w = PS.clamp(Math.round(opts.width || 1000), 1, 8192);
-    var h = PS.clamp(Math.round(opts.height || 700), 1, 8192);
-
-    PS.doc = {
+    return {
         width: w,
         height: h,
-        layers: [],
-        activeLayer: 0,
+        root: { kind: "root", children: [] },
+        active: null,
+        editMask: false,        // painting goes to the active layer's mask
         selection: null,
         filePath: opts.filePath || "",
         fileName: opts.name || "Untitled",
-        format: opts.format || "pxs",
+        format: opts.format || "psd",
         guides: { h: [], v: [] },
+        notes: [],              // pinned notes (Note tool), saved as PSD annotations
+        ruler: null,            // the Ruler tool's measurement (not saved)
+        globalAngle: 120,
+        globalAltitude: 30,
+        psd: null,              // PSD document data kept for saving back
+        importNotes: [],        // what had to be converted when it was opened
+        revision: 0,
         dirty: false
     };
+};
+
+PS.newDocument = function (opts) {
+    opts = opts || {};
+    var w = PS.clamp(Math.round(opts.width || 1000), 1, PS.MAX_DOC_SIZE);
+    var h = PS.clamp(Math.round(opts.height || 700), 1, PS.MAX_DOC_SIZE);
+
+    PS.doc = PS.makeDocument(w, h, opts);
 
     var bgLayer = PS.makeLayer("Background", w, h);
     if (opts.background !== "transparent") {
@@ -111,24 +126,28 @@ PS.newDocument = function (opts) {
         ctx.fillStyle = (opts.background === "bgcolor") ? PS.bg : "#ffffff";
         ctx.fillRect(0, 0, w, h);
     }
-    PS.doc.layers.push(bgLayer);
+    PS.doc.root.children.push(bgLayer);
+    PS.doc.active = bgLayer;
 
+    PS.startDocument(opts.historyLabel || "New Document");
+};
+
+// Shared tail of every way a document comes to life (new / open / recover)
+PS.startDocument = function (historyLabel) {
     PS.history.stack = [];
     PS.history.index = -1;
-    PS.pushHistory(opts.historyLabel || "New Document", null, null);
-
+    PS.pushHistory(historyLabel || "Open", null, null);
     PS.strokePreview = null;
     PS.layerOverride = null;
+    if (PS.clearLayerSelection) { PS.clearLayerSelection(); }
     PS.updateCanvasSize();
     PS.zoomFit();
     PS.refreshUI();
     PS.requestRender();
+    if (PS.saveManager) { PS.saveManager.documentOpened(); }
 };
 
-PS.activeLayer = function () {
-    if (!PS.doc) { return null; }
-    return PS.doc.layers[PS.doc.activeLayer] || null;
-};
+PS.MAX_DOC_SIZE = 8192;
 
 PS.markDirty = function () {
     if (PS.doc && !PS.doc.dirty) {
@@ -164,38 +183,12 @@ PS.requestRender = function () {
     });
 };
 
-// Draw the full layer stack onto ctx (size = doc size).
-// skipPreviews=true gives the committed document only (export, flatten).
-PS.drawComposite = function (ctx, skipPreviews) {
-    var d = PS.doc;
-    ctx.clearRect(0, 0, d.width, d.height);
-
-    for (var i = 0; i < d.layers.length; i++) {
-        var layer = d.layers[i];
-        if (!layer.visible) { continue; }
-
-        var src = layer.canvas;
-
-        if (!skipPreviews && PS.layerOverride && PS.layerOverride.layer === layer) {
-            src = PS.layerOverride.canvas;
-        }
-
-        if (!skipPreviews && PS.strokePreview && PS.strokePreview.layer === layer) {
-            src = PS._bakeStrokePreview(layer);
-        }
-
-        ctx.globalAlpha = layer.opacity;
-        ctx.globalCompositeOperation = layer.blend;
-        ctx.drawImage(src, 0, 0);
-    }
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
-};
-
 // Compose layer + in-progress stroke (respecting selection mask) into a scratch canvas
 PS._bakeStrokePreview = function (layer) {
     var d = PS.doc;
     var sp = PS.strokePreview;
+    // retouching tools (clone, heal, dodge, ...) produce the pixels themselves
+    if (sp.bake) { return sp.bake(); }
 
     if (!PS._previewTmp || PS._previewTmp.width !== d.width || PS._previewTmp.height !== d.height) {
         PS._previewTmp = PS.createCanvas(d.width, d.height);
@@ -215,26 +208,21 @@ PS._bakeStrokePreview = function (layer) {
     var t = PS._previewTmp.getContext("2d");
     t.clearRect(0, 0, d.width, d.height);
     t.drawImage(layer.canvas, 0, 0);
-    t.globalAlpha = sp.opacity;
-    t.globalCompositeOperation = sp.erase ? "destination-out" : "source-over";
-    t.drawImage(PS._previewTmp2, 0, 0);
-    t.globalAlpha = 1;
-    t.globalCompositeOperation = "source-over";
+    PS.compositeStroke(t, layer.canvas, PS._previewTmp2, sp.opacity, sp.erase ? "erase" : (sp.mode || "normal"),
+        !!(layer.locks && layer.locks.transparency));
     return PS._previewTmp;
 };
 
 PS.renderNow = function () {
     if (!PS.doc) { return; }
-    var canvas = PS.el("doc-canvas");
-    PS.drawComposite(canvas.getContext("2d"), false);
+    PS.renderer.renderDoc();
     PS.updateLayerThumbsThrottled();
+    if (PS.refreshViewPanels) { PS.refreshViewPanels(); }
 };
 
 // Committed flat image (for export / copy merged / flatten)
 PS.compositeToCanvas = function () {
-    var c = PS.createCanvas(PS.doc.width, PS.doc.height);
-    PS.drawComposite(c.getContext("2d"), true);
-    return c;
+    return PS.renderer.compositeCanvas();
 };
 
 /* ---------- viewport: zoom & coordinates ---------- */
@@ -276,6 +264,7 @@ PS.setZoom = function (z, focusDocPt) {
 
     PS.zoom = z;
     PS.applyZoomCss();
+    if (PS.refreshViewPanels) { PS.refreshViewPanels(); }
 
     if (focusDocPt && anchor) {
         var rect2 = PS.el("canvas-positioner").getBoundingClientRect();
@@ -347,17 +336,23 @@ PS.startOverlayLoop = function () {
         ctx.clearRect(0, 0, overlay.width, overlay.height);
 
         if (PS.doc) {
-            // guides sit beneath the interactive overlays
+            // Quick Mask tint, then the grid and guides beneath the
+            // interactive overlays
+            if (PS.drawQuickMask) { PS.drawQuickMask(ctx); }
+            if (PS.drawGrid) { PS.drawGrid(ctx); }
             PS.drawGuides(ctx);
+            if (PS.drawNotes) { PS.drawNotes(ctx); }
             // selection marching ants
             if (PS.doc.selection) {
                 PS.drawSelectionOverlay(ctx, t);
             }
             // selection transform handles (visible when a selection tool is active)
             PS.selTransform.drawOverlay(ctx);
+            // Free Transform box
+            if (PS.transform) { PS.transform.drawOverlay(ctx); }
             // active text edit's selection highlight (kept in sync with the
             // real canvas-rendered glyphs; see PS.drawTextEditSelection)
-            if (PS.textEdit) { PS.drawTextEditSelection(ctx); }
+            if (PS.textEdit) { PS.drawTextEditSelection(ctx, t); }
             // active tool overlay (shape previews, lasso paths, brush cursor...)
             var tool = PS.tools[PS.tool];
             if (tool && tool.overlay) {
@@ -409,6 +404,7 @@ PS.updateTitle = function () {
 
 PS.refreshUI = function () {
     PS.renderLayersPanel();
+    if (PS.renderPropertiesPanel) { PS.renderPropertiesPanel(); }
     PS.renderHistoryPanel();
     PS.updateStatusBar();
     PS.updateTitle();
@@ -428,6 +424,108 @@ PS.toast = function (msg, isError) {
         setTimeout(function () { t.remove(); }, 320);
     }, 2400);
 };
+
+/* ---------- movable, resizable windows ---------- */
+
+// Where each dialog / floating window was left (and its size), so it
+// reopens there
+PS._winState = (function () {
+    try { return JSON.parse(localStorage.getItem("pixelstudio_windows") || "{}") || {}; }
+    catch (e) { return {}; }
+})();
+
+PS.saveWinState = function () {
+    try { localStorage.setItem("pixelstudio_windows", JSON.stringify(PS._winState)); }
+    catch (e) { /* storage may be unavailable */ }
+};
+
+// Drag box by handle, resize it by a corner grip (opts.resizable), and
+// remember both under key
+PS.makeMovable = function (box, handle, key, opts) {
+    opts = opts || {};
+    function place(x, y) {
+        // the whole window stays on screen
+        var r = box.getBoundingClientRect();
+        x = PS.clamp(x, 0, Math.max(0, window.innerWidth - r.width));
+        y = PS.clamp(y, 0, Math.max(0, window.innerHeight - r.height));
+        box.style.position = "fixed";
+        box.style.left = Math.round(x) + "px";
+        box.style.top = Math.round(y) + "px";
+        box.style.margin = "0";
+    }
+    function remember() {
+        if (!key) { return; }
+        var r = box.getBoundingClientRect();
+        PS._winState[key] = {
+            x: Math.round(r.left), y: Math.round(r.top),
+            w: box.style.width ? Math.round(r.width) : undefined,
+            h: box.style.height ? Math.round(r.height) : undefined
+        };
+        PS.saveWinState();
+    }
+    var saved = key && PS._winState[key];
+    if (saved) {
+        if (opts.resizable && saved.w) { box.style.width = Math.min(saved.w, window.innerWidth - 20) + "px"; box.style.maxWidth = "none"; }
+        if (opts.resizable && saved.h) { box.style.height = Math.min(saved.h, window.innerHeight - 20) + "px"; box.style.maxHeight = "none"; }
+        if (saved.x !== undefined) { place(saved.x, saved.y); }
+    }
+
+    var drag = null;
+    handle.addEventListener("pointerdown", function (e) {
+        if (e.button !== 0 || (e.target.closest && e.target.closest("button, input, select, textarea"))) { return; }
+        var r = box.getBoundingClientRect();
+        drag = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top };
+        handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    });
+    handle.addEventListener("pointermove", function (e) {
+        if (drag) { place(drag.ox + e.clientX - drag.sx, drag.oy + e.clientY - drag.sy); }
+    });
+    function endDrag() { if (drag) { drag = null; remember(); } }
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+
+    if (opts.resizable) {
+        var grip = document.createElement("div");
+        grip.className = "win-grip";
+        grip.title = "Drag to resize";
+        box.appendChild(grip);
+        var rs = null;
+        grip.addEventListener("pointerdown", function (e) {
+            var r = box.getBoundingClientRect();
+            rs = { sx: e.clientX, sy: e.clientY, w: r.width, h: r.height };
+            place(r.left, r.top);
+            grip.setPointerCapture(e.pointerId);
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        grip.addEventListener("pointermove", function (e) {
+            if (!rs) { return; }
+            box.style.maxWidth = "none";
+            box.style.maxHeight = "none";
+            box.style.width = Math.max(opts.minW || 220, rs.w + e.clientX - rs.sx) + "px";
+            box.style.height = Math.max(opts.minH || 120, rs.h + e.clientY - rs.sy) + "px";
+        });
+        function endResize() { if (rs) { rs = null; remember(); } }
+        grip.addEventListener("pointerup", endResize);
+        grip.addEventListener("pointercancel", endResize);
+    }
+};
+
+// Windows that were moved keep inside the app when it gets smaller
+PS.keepWindowsInView = function () {
+    Array.prototype.forEach.call(document.querySelectorAll(".float-panel, .dialog"), function (box) {
+        if (box.style.position !== "fixed" && !box.classList.contains("float-panel")) { return; }
+        var r = box.getBoundingClientRect();
+        var x = PS.clamp(r.left, 0, Math.max(0, window.innerWidth - r.width));
+        var y = PS.clamp(r.top, 0, Math.max(0, window.innerHeight - r.height));
+        if (x !== r.left || y !== r.top) {
+            box.style.left = Math.round(x) + "px";
+            box.style.top = Math.round(y) + "px";
+        }
+    });
+};
+window.addEventListener("resize", function () { PS.keepWindowsInView(); });
 
 // PS.dialog({title, build(bodyEl, dlg), buttons:[{label, primary, action(dlg)->false to keep open}]})
 PS.dialog = function (opts) {
@@ -489,6 +587,7 @@ PS.dialog = function (opts) {
 
     overlay.appendChild(box);
     host.appendChild(overlay);
+    PS.makeMovable(box, title, "dlg:" + (opts.title || ""), { resizable: opts.resizable !== false });
 
     var firstInput = body.querySelector("input, select");
     if (firstInput) { firstInput.focus(); if (firstInput.select) { firstInput.select(); } }
@@ -554,6 +653,9 @@ PS.floatingPanel = function (opts) {
     }
 
     document.body.appendChild(box);
+    // the clicked window comes to the front of the other windows
+    PS.raiseWindow(box);
+    box.addEventListener("pointerdown", function () { PS.raiseWindow(box); });
 
     // initial position (default: upper-left of the workspace, clear of center)
     var rect = box.getBoundingClientRect();
@@ -564,28 +666,23 @@ PS.floatingPanel = function (opts) {
     box.style.left = px + "px";
     box.style.top = py + "px";
 
-    // drag by the title bar
-    var drag = null;
-    title.addEventListener("pointerdown", function (e) {
-        if (e.target === closeBtn ||
-            (e.target.closest && e.target.closest(".float-panel-close"))) { return; }
-        var r = box.getBoundingClientRect();
-        drag = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top };
-        title.setPointerCapture(e.pointerId);
-        e.preventDefault();
-    });
-    title.addEventListener("pointermove", function (e) {
-        if (!drag) { return; }
-        var nx = PS.clamp(drag.ox + (e.clientX - drag.sx), 0, window.innerWidth - 40);
-        var ny = PS.clamp(drag.oy + (e.clientY - drag.sy), 0, window.innerHeight - 30);
-        box.style.left = nx + "px";
-        box.style.top = ny + "px";
-    });
-    function endDrag() { drag = null; }
-    title.addEventListener("pointerup", endDrag);
-    title.addEventListener("pointercancel", endDrag);
+    // drag by the title bar, resize by the corner; both are remembered
+    PS.makeMovable(box, title, "win:" + (opts.title || ""), { resizable: opts.resizable !== false, minW: 240, minH: 100 });
 
     return panel;
+};
+
+// Non-modal windows stack between 1000 and 1099 (above panels and fly-outs,
+// below the menu bar's menus and modal dialogs)
+PS._winZ = 1000;
+PS.raiseWindow = function (el) {
+    if (PS._winZ >= 1095) {
+        var els = Array.prototype.slice.call(document.querySelectorAll(".float-panel"));
+        els.sort(function (a, b) { return (parseInt(a.style.zIndex, 10) || 0) - (parseInt(b.style.zIndex, 10) || 0); });
+        PS._winZ = 1000;
+        els.forEach(function (e) { if (e !== el) { e.style.zIndex = String(++PS._winZ); } });
+    }
+    el.style.zIndex = String(++PS._winZ);
 };
 
 // form-row helper for dialogs: returns the input element
@@ -689,30 +786,12 @@ PS.ui = {
         if (unit) { PS.ui.label(g, unit); }
         return inp;
     },
-    // Slider *and* numeric field, kept in sync. Used for opacity, where dragging
-    // a rough value and setting an exact one are both wanted.
+    // Opacity / flow / strength style values. The options bar carries no drag
+    // bars: this is the same number box as PS.ui.numeric (type a value, use
+    // the spinner or scroll the mouse wheel over it); kept as its own name so
+    // callers say what the value is.
     slider: function (host, labelText, value, min, max, step, onchange, unit) {
-        var g = PS.ui.group(host);
-        if (labelText) { PS.ui.label(g, labelText); }
-        step = step || 1;
-        var range = document.createElement("input");
-        range.type = "range";
-        range.min = min; range.max = max; range.step = step;
-        range.value = value;
-        var num = PS.ui.numberField(value, min, max, step, function (v) {
-            range.value = v;
-            onchange(v);
-        });
-        function fromRange(v) {
-            num.value = v;
-            onchange(v);
-        }
-        range.addEventListener("input", function () { fromRange(parseFloat(range.value)); });
-        PS.ui.wheelStep(range, min, max, step, fromRange);
-        g.appendChild(range);
-        g.appendChild(num);
-        if (unit) { PS.ui.label(g, unit); }
-        return range;
+        return PS.ui.numeric(host, labelText, value, min, max, step, onchange, unit);
     },
     number: function (host, labelText, value, min, max, onchange) {
         return PS.ui.numeric(host, labelText, value, min, max, 1, onchange);
@@ -761,8 +840,7 @@ PS.setFg = function (hex, skipRecent) {
     PS.el("fg-well").style.background = hex;
     var ni = PS.el("fg-input");
     if (ni && /^#[0-9a-f]{6}$/i.test(hex)) { ni.value = hex; }
-    var hexInp = document.querySelector("#panel-color-body .color-hex");
-    if (hexInp) { hexInp.value = hex; }
+    if (PS.renderColorSliders) { PS.renderColorSliders(); }
     if (!skipRecent) { PS.pushRecentColor(hex); }
     if (PS.textEdit) { PS.applyTextColorFromSelection(hex); }
     PS.savePrefsDebounced();
@@ -773,6 +851,7 @@ PS.setBg = function (hex) {
     PS.el("bg-well").style.background = hex;
     var ni = PS.el("bg-input");
     if (ni && /^#[0-9a-f]{6}$/i.test(hex)) { ni.value = hex; }
+    if (PS.renderColorSliders) { PS.renderColorSliders(); }
     PS.savePrefsDebounced();
 };
 
@@ -849,29 +928,16 @@ PS.removeCustomColor = function (hex) {
     PS.savePrefsDebounced();
 };
 
+// Color + Swatches panels (whichever are showing)
 PS.renderColorPanel = function () {
-    var body = PS.el("panel-color-body");
+    if (PS.renderColorSliders) { PS.renderColorSliders(); }
+    PS.renderSwatchesPanel();
+};
+
+PS.renderSwatchesPanel = function () {
+    var body = PS.el("panel-swatches-body");
+    if (!body) { return; }
     body.innerHTML = "";
-
-    var row = document.createElement("div");
-    row.className = "color-row";
-
-    var hexInp = document.createElement("input");
-    hexInp.className = "color-hex";
-    hexInp.value = PS.fg;
-    hexInp.addEventListener("change", function () {
-        var rgb = PS.hexToRgb(hexInp.value);
-        if (rgb) { PS.setFg(PS.rgbToHex(rgb.r, rgb.g, rgb.b, rgb.a)); }
-        else { hexInp.value = PS.fg; }
-    });
-    row.appendChild(hexInp);
-
-    var pick = document.createElement("button");
-    pick.textContent = "Pick...";
-    pick.className = "color-pick-btn";
-    pick.addEventListener("click", function () { PS.openColorPicker("fg"); });
-    row.appendChild(pick);
-    body.appendChild(row);
 
     var swatchHint = document.createElement("div");
     swatchHint.className = "swatch-hint";
@@ -966,7 +1032,8 @@ PS.savePrefsDebounced = function () {
 
 PS.savePrefsNow = function () {
     PS._prefsTimer = null;
-    var data = {
+    // settings kept in PS.prefs (presets, grid, ...) travel along
+    var data = Object.assign({}, PS.prefs || {}, {
         fg: PS.fg,
         bg: PS.bg,
         tool: PS.tool,
@@ -975,8 +1042,10 @@ PS.savePrefsNow = function () {
         customColors: PS.customColors,
         activePalette: PS.activePalette,
         rulersOn: PS.rulersOn,
-        snapToGuides: PS.snapToGuides
-    };
+        snapToGuides: PS.snapToGuides,
+        autosave: !(PS.prefs && PS.prefs.autosave === false),
+        autosaveMinutes: (PS.prefs && PS.prefs.autosaveMinutes) || 2
+    });
     try {
         localStorage.setItem("pixelstudio_prefs", JSON.stringify(data));
     } catch (e) { /* storage may be unavailable */ }

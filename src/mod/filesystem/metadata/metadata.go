@@ -185,7 +185,7 @@ func ThumbnailSupported(filename string) bool {
 			return true
 		}
 	}
-	return IsRawImageFile(filename) || ext == ".psd" || ext == ".svg"
+	return IsRawImageFile(filename) || ext == ".psd" || ext == ".psb" || ext == ".ora" || ext == ".svg"
 }
 
 // ThumbnailFeature names the host tool a thumbnail of this file needs, or ""
@@ -225,9 +225,12 @@ func renderThumbnail(fsh *filesystem.FileSystemHandler, cacheFolder string, rpat
 		return generateThumbnailForModel(fsh, cacheFolder, rpath, generateOnly)
 	case utils.StringInArray(gcodeThumbnailFormats, ext):
 		return generateThumbnailForGcode(fsh, cacheFolder, rpath, generateOnly)
-	case ext == ".psd":
-		//Photoshop file
+	case ext == ".psd" || ext == ".psb":
+		//Photoshop file (and its large document format)
 		return generateThumbnailForPSD(fsh, cacheFolder, rpath, generateOnly)
+	case ext == ".ora":
+		//OpenRaster layered image (Pixel Studio, Krita, GIMP, MyPaint)
+		return generateThumbnailForORA(fsh, cacheFolder, rpath, generateOnly)
 	case ext == ".svg":
 		return generateThumbnailForSVG(fsh, cacheFolder, rpath, generateOnly)
 	}

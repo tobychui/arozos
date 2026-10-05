@@ -1,5 +1,5 @@
 /*
-    lut.js — Adobe/IRIDAS .cube LUT parser for the Raw Editor.
+    lut.js — .cube LUT parser for the Raw Editor.
 
     Parses both 1D and 3D .cube LUTs into a flat RGB Float32Array laid out for
     upload into a WebGL2 3D texture (R fastest, then G, then B — the .cube spec

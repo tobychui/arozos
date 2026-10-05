@@ -68,24 +68,36 @@ PS.addGuide = function (orient, pos) {
 
 /* ---------- snapping ---------- */
 
-// Snap a document point to nearby guides (within SNAP_PX screen pixels).
+// Snap a document point to nearby guides and, while the grid shows, grid
+// lines (within SNAP_PX screen pixels).
 PS.snapDocPoint = function (pt) {
-    if (!PS.snapToGuides || !PS.doc || !PS.doc.guides) { return pt; }
-    var g = PS.doc.guides;
+    if (!PS.snapToGuides || !PS.doc) { return pt; }
+    var g = PS.doc.guides || { h: [], v: [] };
+    var guidesOn = PS.guidesVisible !== false;
     var thr = PS.SNAP_PX / PS.zoom;
     var x = pt.x, y = pt.y, best, bd, i;
+    var grid = PS.gridOn && PS.extrasVisible !== false && PS.gridSettings ? PS.gridSettings() : null;
+    var gstep = grid ? grid.every / grid.sub : 0;
 
     best = null; bd = thr;
-    for (i = 0; i < g.v.length; i++) {
+    for (i = 0; guidesOn && i < g.v.length; i++) {
         var dv = Math.abs(pt.x - g.v[i]);
         if (dv <= bd) { bd = dv; best = g.v[i]; }
+    }
+    if (gstep) {
+        var gx = Math.round(pt.x / gstep) * gstep;
+        if (Math.abs(pt.x - gx) <= bd) { bd = Math.abs(pt.x - gx); best = gx; }
     }
     if (best !== null) { x = best; }
 
     best = null; bd = thr;
-    for (i = 0; i < g.h.length; i++) {
+    for (i = 0; guidesOn && i < g.h.length; i++) {
         var dh = Math.abs(pt.y - g.h[i]);
         if (dh <= bd) { bd = dh; best = g.h[i]; }
+    }
+    if (gstep) {
+        var gy = Math.round(pt.y / gstep) * gstep;
+        if (Math.abs(pt.y - gy) <= bd) { bd = Math.abs(pt.y - gy); best = gy; }
     }
     if (best !== null) { y = best; }
 
@@ -274,6 +286,7 @@ function drawAxis(ctx, w, h, axis, origin, z) {
 
 PS.drawGuides = function (ctx) {
     if (!PS.doc) { return; }
+    if ((PS.guidesVisible === false || PS.extrasVisible === false) && !PS._guideDrag) { return; }
     PS.ensureGuides();
     var g = PS.doc.guides;
     var o = PS.docToOverlay(0, 0);

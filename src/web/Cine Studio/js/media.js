@@ -14,21 +14,21 @@ CS.media = {
 
     /* ---------- source resolution ---------- */
 
-    //URL of the raw file (the .pxs / .asproj document itself for project imports)
+    //URL of the raw file (the layered image / .asproj document itself for project imports)
     rawURL: function (media) {
         if (media.vpath) { return "../media?file=" + encodeURIComponent(media.vpath); }
         return media.blobUrl || "";
     },
 
-    //URL of the playable pixels / samples. Project imports (.pxs / .asproj)
-    //are composited on import into media.compositeUrl.
+    //URL of the playable pixels / samples. Layered images (.psd / .psb / .ora)
+    //and .asproj projects are flattened on import into media.compositeUrl.
     mediaURL: function (media) {
         if (media.compositeUrl) { return media.compositeUrl; }
         return CS.media.rawURL(media);
     },
 
     typeFromExt: function (ext) {
-        if (ext === "pxs") { return "image"; }     //Pixel Studio project
+        if (CS.media.LAYERED_EXTS.indexOf(ext) >= 0) { return "image"; }   //Pixel Studio / Photoshop
         if (ext === "asproj") { return "audio"; }  //Audio Studio project
         if (CS.VIDEO_EXTS.indexOf(ext) >= 0) { return "video"; }
         if (CS.AUDIO_EXTS.indexOf(ext) >= 0) { return "audio"; }
@@ -37,12 +37,16 @@ CS.media = {
     },
 
     srcKindFromExt: function (ext) {
-        if (ext === "pxs" || ext === "asproj") { return ext; }
+        if (CS.media.LAYERED_EXTS.indexOf(ext) >= 0) { return "layered"; }
+        if (ext === "asproj") { return ext; }
         return "";
     },
 
+    //Layered image documents Pixel Studio writes (imported as their flattened image)
+    LAYERED_EXTS: ["psd", "psb", "ora"],
+
     acceptedExts: function () {
-        return CS.VIDEO_EXTS.concat(CS.AUDIO_EXTS).concat(CS.IMAGE_EXTS).concat(["pxs", "asproj"]);
+        return CS.VIDEO_EXTS.concat(CS.AUDIO_EXTS).concat(CS.IMAGE_EXTS).concat(CS.media.LAYERED_EXTS).concat(["asproj"]);
     },
 
     /* ---------- import entry points ---------- */
@@ -172,29 +176,56 @@ CS.media = {
     /* ---------- probing ---------- */
 
     probe: function (media) {
-        if (media.srcKind === "pxs") { CS.media.probePxs(media); }
+        if (media.srcKind === "layered") { CS.media.probeLayered(media); }
         else if (media.srcKind === "asproj") { CS.media.probeAsproj(media); }
         else if (media.type === "video") { CS.media.probeVideo(media); }
         else if (media.type === "audio") { CS.media.probeAudio(media); }
         else { CS.media.probeImage(media); }
     },
 
-    /* ---------- Pixel Studio (.pxs) import ---------- */
+    /* ---------- layered images (.psd / .psb / .ora) ---------- */
 
-    //Flatten a Pixel Studio project into a PNG and treat it as image media
-    probePxs: function (media) {
+    //Pixel Studio's document worker reads just the flattened image a
+    //Photoshop or OpenRaster file carries (no layer decoding)
+    layeredWorker: null,
+    layeredSeq: 0,
+    layeredPending: {},
+
+    readLayeredComposite: function (buffer, format) {
+        var m = CS.media;
+        if (!m.layeredWorker) {
+            m.layeredWorker = new Worker("../Pixel Studio/js/docio.worker.js");
+            m.layeredWorker.onmessage = function (e) {
+                var msg = e.data;
+                var p = m.layeredPending[msg.id];
+                if (!p || msg.ok === undefined) { return; }
+                delete m.layeredPending[msg.id];
+                if (msg.ok) { p.resolve(msg.result); } else { p.reject(new Error(msg.error)); }
+            };
+        }
+        return new Promise(function (resolve, reject) {
+            var id = ++m.layeredSeq;
+            m.layeredPending[id] = { resolve: resolve, reject: reject };
+            m.layeredWorker.postMessage({ id: id, op: "readComposite", format: format, buffer: buffer }, [buffer]);
+        });
+    },
+
+    //Flatten a layered image and treat it as image media
+    probeLayered: function (media) {
+        var ext = String(media.name || media.vpath || "").split(".").pop().toLowerCase();
         fetch(CS.media.rawURL(media))
             .then(function (r) {
                 if (!r.ok) { throw new Error("HTTP " + r.status); }
-                return r.json();
+                return r.arrayBuffer();
             })
-            .then(function (doc) {
-                if (!doc || doc.app !== "PixelStudio" || !Array.isArray(doc.layers)) {
-                    throw new Error("not a Pixel Studio project");
-                }
-                return CS.media.compositePxs(doc);
+            .then(function (buf) {
+                return CS.media.readLayeredComposite(buf, ext === "ora" ? "ora" : "psd");
             })
-            .then(function (canvas) {
+            .then(function (img) {
+                var canvas = document.createElement("canvas");
+                canvas.width = img.width;
+                canvas.height = img.height;
+                canvas.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(img.data.buffer), img.width, img.height), 0, 0);
                 return new Promise(function (resolve, reject) {
                     canvas.toBlob(function (blob) {
                         if (!blob) { reject(new Error("compositing failed")); return; }
@@ -210,59 +241,6 @@ CS.media = {
                 CS.toast("Cannot import " + media.name + ": " + err.message, true);
                 CS.media.markOffline(media);
             });
-    },
-
-    //Draw every visible layer bottom-up with its opacity and blend mode;
-    //raster layers are base64 PNGs, text layers re-render like Pixel Studio
-    compositePxs: function (doc) {
-        var w = Math.max(1, parseInt(doc.width, 10) || 1);
-        var h = Math.max(1, parseInt(doc.height, 10) || 1);
-        var canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        var ctx = canvas.getContext("2d");
-
-        var loaders = doc.layers.map(function (layer) {
-            return new Promise(function (resolve) {
-                if (layer.type === "text" && layer.text) {
-                    resolve({ layer: layer, img: null });
-                } else if (layer.data) {
-                    var img = new Image();
-                    img.onload = function () { resolve({ layer: layer, img: img }); };
-                    img.onerror = function () { resolve({ layer: layer, img: null }); };
-                    img.src = layer.data;
-                } else {
-                    resolve({ layer: layer, img: null });
-                }
-            });
-        });
-
-        return Promise.all(loaders).then(function (entries) {
-            entries.forEach(function (e) {
-                if (e.layer.visible === false) { return; }
-                ctx.save();
-                ctx.globalAlpha = (e.layer.opacity === undefined) ? 1 : e.layer.opacity;
-                ctx.globalCompositeOperation = e.layer.blend || "source-over";
-                if (e.img) {
-                    ctx.drawImage(e.img, 0, 0);
-                } else if (e.layer.type === "text" && e.layer.text) {
-                    CS.media.drawPxsText(ctx, e.layer.text);
-                }
-                ctx.restore();
-            });
-            return canvas;
-        });
-    },
-
-    drawPxsText: function (ctx, t) {
-        ctx.font = (t.italic ? "italic " : "") + (t.bold ? "bold " : "") +
-            (t.size || 24) + 'px "' + (t.font || "Arial") + '"';
-        ctx.textBaseline = "top";
-        ctx.fillStyle = t.color || "#000000";
-        var lineHeight = Math.round((t.size || 24) * 1.25);
-        (t.content || "").split("\n").forEach(function (line, i) {
-            ctx.fillText(line, t.x || 0, (t.y || 0) + i * lineHeight);
-        });
     },
 
     /* ---------- Audio Studio (.asproj) import ---------- */

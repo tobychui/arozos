@@ -172,6 +172,7 @@ PS.renderGradientBar = function (canvas, stops) {
     PS.registerTool("gradient", {
         name: "Gradient",
         key: "g",
+        hint: "Drag on the canvas to apply; Shift constrains the angle",
         cursor: "crosshair",
         icon: '<svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 19 20 5"/></svg>',
         options: function (host) {
@@ -201,8 +202,6 @@ PS.renderGradientBar = function (canvas, stops) {
             PS.ui.checkbox(host, "Reverse", o.reverse, function (v) {
                 o.reverse = v; PS.savePrefsDebounced();
             });
-
-            PS.ui.label(host, "Drag on the canvas to apply. Shift constrains the angle.");
         },
         onDown: function (pt, e) {
             if (!PS.requirePaintableLayer()) { return; }
@@ -247,10 +246,13 @@ PS.renderGradientBar = function (canvas, stops) {
 
 /* ---------- windowed gradient editor ---------- */
 
-PS.openGradientEditor = function () {
+// opts (optional): {stops, title, onChange(stops)} edits a gradient for a
+// caller (fill layers, gradient maps, layer styles) instead of the tool's
+PS.openGradientEditor = function (opts) {
     var g = PS.toolOpts.gradient;
     // working copy of the current stops (sorted)
-    var stops = PS.activeGradientStops().map(function (s) { return { pos: s.pos, color: s.color }; });
+    var stops = ((opts && opts.stops) ? opts.stops : PS.activeGradientStops())
+        .map(function (s) { return { pos: s.pos, color: s.color }; });
     var selected = 0;
     var bar, track, ctrls, presetHost;
 
@@ -259,6 +261,10 @@ PS.openGradientEditor = function () {
     }
 
     function markCustom() {
+        if (opts) {
+            opts.onChange(stops.map(function (s) { return { pos: s.pos, color: s.color }; }));
+            return;
+        }
         g.preset = "custom";
         g.stops = stops.map(function (s) { return { pos: s.pos, color: s.color }; });
         PS.savePrefsDebounced();
@@ -269,6 +275,7 @@ PS.openGradientEditor = function () {
         stops = presetStops(p);
         sortStops();
         selected = 0;
+        if (opts) { markCustom(); refresh(); return; }
         g.preset = p.id;
         g.stops = stops.map(function (s) { return { pos: s.pos, color: s.color }; });
         PS.savePrefsDebounced();
@@ -353,14 +360,14 @@ PS.openGradientEditor = function () {
     }
 
     function highlightPreset() {
-        if (!presetHost) { return; }
+        if (!presetHost || opts) { return; }
         Array.prototype.forEach.call(presetHost.children, function (t) {
             t.classList.toggle("active", t.dataset.id === g.preset);
         });
     }
 
     PS.floatingPanel({
-        title: "Gradient Editor",
+        title: (opts && opts.title) || "Gradient Editor",
         x: Math.round(window.innerWidth / 2 - 170),
         y: 96,
         build: function (body) {

@@ -69,6 +69,8 @@ PS.setSelection = function (mask, mode, label) {
 
     var after = combined ? PS.buildSelectionObject(combined) : null;
     d.selection = after;
+    // Select > Reselect brings back what Deselect dropped
+    if (before && !after) { d.lastSelection = before; }
 
     PS.pushHistory(label || "Select",
         function () { PS.doc.selection = before; },
@@ -247,6 +249,10 @@ PS.loopsToPath = function (loops) {
 PS.drawSelectionOverlay = function (ctx, t) {
     var sel = PS.doc.selection;
     if (!sel || !sel.antPath) { return; }
+    // a Free Transform hides the ants (Transform Selection draws its own),
+    // and so does View > Extras
+    if (PS.transform && PS.transform.active) { return; }
+    if (PS.extrasVisible === false) { return; }
     var origin = PS.docToOverlay(0, 0);
     var z = PS.zoom;
 
@@ -278,7 +284,8 @@ PS.magicWandMask = function (x, y, opts) {
     x = Math.floor(x); y = Math.floor(y);
     if (x < 0 || y < 0 || x >= w || y >= h) { return null; }
 
-    var src = PS.compositeToCanvas().getContext("2d").getImageData(0, 0, w, h);
+    // opts.source: sample one canvas (a layer) instead of the composite
+    var src = (opts.source || PS.compositeToCanvas()).getContext("2d").getImageData(0, 0, w, h);
     var px = src.data;
 
     // Sobel gradient magnitude as edge barrier for smart mode
@@ -435,323 +442,121 @@ PS.clearSelectedOnLayer = function (layer) {
 
 PS.selTransform = (function () {
     var HANDLE_PX = 8;    // handle square size, screen pixels
-    var PAD_PX    = 6;    // gap between selection bounds and box edge, screen pixels
+    var ROTATE_PX = 24;   // reach of the rotate zone outside the handles, screen pixels
 
     var SEL_TOOLS = ["marquee-rect", "marquee-ellipse", "lasso", "lasso-poly", "wand"];
-
-    var CURSOR = {
-        nw: "nwse-resize", n: "ns-resize",   ne: "nesw-resize",
-        e:  "ew-resize",   se: "nwse-resize", s:  "ns-resize",
-        sw: "nesw-resize", w: "ew-resize"
-    };
-
-    // Ordered list for iteration
-    var HANDLE_IDS = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
-
-    var state = null;
-    // state: {
-    //   handle, origBounds, origMask, origSelection, startPt, lastBounds, lastMask,
-    //   // content-transform fields (null when the active layer can't be transformed):
-    //   layer, before, base, float, preview
-    // }
 
     function isSelTool() {
         return SEL_TOOLS.indexOf(PS.tool) >= 0;
     }
 
-    // True when the active layer's selected pixels can be scaled along with
-    // the selection (raster + visible). Text/hidden layers fall back to a
-    // selection-only resize.
-    function canTransformContent(layer) {
-        return !!layer && layer.type === "raster" && layer.visible;
+    function active() {
+        return isSelTool() && PS.doc && PS.doc.selection && !(PS.transform && PS.transform.active) &&
+            PS.extrasVisible !== false &&
+            !(PS.tools[PS.tool].isBusy && PS.tools[PS.tool].isBusy());
     }
 
-    // Returns 8 handle positions in doc coords for a given bounds object
+    // True when the active layer's selected pixels can be transformed along
+    // with the selection (paintable + visible); otherwise only the selection
+    // outline is transformed
+    function canTransformContent(layer) {
+        return !!layer && PS.isPaintable(layer) && layer.visible !== false &&
+            !(layer.locks && (layer.locks.pixels || layer.locks.position));
+    }
+
     function handlePositions(b) {
-        var z = PS.zoom;
-        var pad = PAD_PX / z;
-        var x = b.x - pad, y = b.y - pad;
-        var r = b.x + b.w + pad, bot = b.y + b.h + pad;
+        var x = b.x, y = b.y, r = b.x + b.w, bot = b.y + b.h;
         var mx = (x + r) / 2, my = (y + bot) / 2;
         return {
-            nw: { x: x,  y: y   }, n: { x: mx, y: y   }, ne: { x: r,  y: y   },
-            e:  { x: r,  y: my  },                         se: { x: r,  y: bot },
-            s:  { x: mx, y: bot }, sw: { x: x,  y: bot }, w:  { x: x,  y: my  }
+            tl: { x: x, y: y }, t: { x: mx, y: y }, tr: { x: r, y: y },
+            r: { x: r, y: my }, br: { x: r, y: bot }, b: { x: mx, y: bot },
+            bl: { x: x, y: bot }, l: { x: x, y: my }
         };
     }
 
-    // Returns the handle id under pt (doc coords), or null
     function hitHandle(pt) {
-        if (!isSelTool() || !PS.doc || !PS.doc.selection) { return null; }
+        if (!active()) { return null; }
         var positions = handlePositions(PS.doc.selection.bounds);
         var hitR = (HANDLE_PX / 2 + 3) / PS.zoom;
-        for (var i = 0; i < HANDLE_IDS.length; i++) {
-            var id = HANDLE_IDS[i];
-            var h = positions[id];
-            if (Math.abs(pt.x - h.x) <= hitR && Math.abs(pt.y - h.y) <= hitR) {
-                return id;
-            }
+        var ids = Object.keys(positions);
+        for (var i = 0; i < ids.length; i++) {
+            var h = positions[ids[i]];
+            if (Math.abs(pt.x - h.x) <= hitR && Math.abs(pt.y - h.y) <= hitR) { return ids[i]; }
         }
         return null;
     }
 
-    // Compute new bounds from a handle drag delta
-    function computeBounds(handle, orig, delta) {
-        var x = orig.x, y = orig.y, r = x + orig.w, bot = y + orig.h;
-        var dx = delta.x, dy = delta.y;
-
-        if (handle === "nw") { x += dx; y += dy; }
-        else if (handle === "n")  { y += dy; }
-        else if (handle === "ne") { r += dx; y += dy; }
-        else if (handle === "e")  { r += dx; }
-        else if (handle === "se") { r += dx; bot += dy; }
-        else if (handle === "s")  { bot += dy; }
-        else if (handle === "sw") { x += dx; bot += dy; }
-        else if (handle === "w")  { x += dx; }
-
-        var MIN = 2;
-        if (r - x < MIN) {
-            if (handle.indexOf("e") >= 0) { r = x + MIN; } else { x = r - MIN; }
-        }
-        if (bot - y < MIN) {
-            if (handle.indexOf("s") >= 0) { bot = y + MIN; } else { y = bot - MIN; }
-        }
-
-        return { x: Math.round(x), y: Math.round(y),
-                 w: Math.round(r - x), h: Math.round(bot - y) };
+    // just outside a handle: drag to rotate the selected pixels
+    function inRotateZone(pt) {
+        if (!active()) { return false; }
+        var b = PS.doc.selection.bounds;
+        var reach = ROTATE_PX / PS.zoom;
+        var inside = pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h;
+        if (inside) { return false; }
+        var hp = handlePositions(b);
+        return Object.keys(hp).some(function (k) { return Math.hypot(pt.x - hp[k].x, pt.y - hp[k].y) <= reach; });
     }
 
-    // Re-shape freely-computed bounds so they keep the original aspect ratio
-    // (Shift held). Corner handles anchor the opposite corner; edge handles
-    // derive the other dimension and stay centered on the untouched axis.
-    function constrainAspect(handle, orig, nb) {
-        var MIN = 2;
-        var ratio = orig.w / (orig.h || 1);
-        var w2, h2, x, y;
-
-        if (handle.length === 2) {
-            // corner: uniform scale driven by the dominant axis
-            var s = Math.max(nb.w / orig.w, nb.h / orig.h);
-            w2 = Math.max(MIN, Math.round(orig.w * s));
-            h2 = Math.max(MIN, Math.round(orig.h * s));
-            x = (handle.indexOf("w") >= 0) ? orig.x + orig.w - w2 : orig.x;
-            y = (handle.indexOf("n") >= 0) ? orig.y + orig.h - h2 : orig.y;
-        } else if (handle === "e" || handle === "w") {
-            w2 = Math.max(MIN, nb.w);
-            h2 = Math.max(MIN, Math.round(w2 / ratio));
-            x = nb.x;
-            y = Math.round(orig.y + orig.h / 2 - h2 / 2);
-        } else {
-            h2 = Math.max(MIN, nb.h);
-            w2 = Math.max(MIN, Math.round(h2 * ratio));
-            y = nb.y;
-            x = Math.round(orig.x + orig.w / 2 - w2 / 2);
-        }
-        return { x: x, y: y, w: w2, h: h2 };
-    }
-
-    // Scale origMask (doc-sized) from origBounds region to newBounds
-    function scaleMask(origMask, origBounds, newBounds) {
-        var mask = PS.makeMaskCanvas();
-        if (newBounds.w <= 0 || newBounds.h <= 0) { return mask; }
-        var ctx = mask.getContext("2d");
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(origMask,
-            origBounds.x, origBounds.y, origBounds.w, origBounds.h,
-            newBounds.x,  newBounds.y,  newBounds.w,  newBounds.h);
-        return mask;
+    function centre() {
+        var b = PS.doc.selection.bounds;
+        return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
     }
 
     return {
-        get dragging() { return !!state; },
+        get dragging() { return false; },
 
-        // Returns CSS cursor string for the handle under pt, or null
         getCursor: function (pt) {
             if (!pt) { return null; }
-            var h = hitHandle(pt);
-            return h ? CURSOR[h] : null;
+            var h = hitHandle(pt), c;
+            if (h) {
+                c = centre();
+                var hp = handlePositions(PS.doc.selection.bounds)[h];
+                return PS.cursors.resize(Math.atan2(hp.y - c.y, hp.x - c.x));
+            }
+            if (inRotateZone(pt)) {
+                c = centre();
+                return PS.cursors.rotate(Math.atan2(pt.y - c.y, pt.x - c.x));
+            }
+            return null;
         },
 
-        // Call on pointerdown; returns true if a handle was grabbed.
-        // forceHandle lets a caller (the Move tool's content-box corners) grab
-        // a specific handle without relying on sub-pixel hit-testing.
+        // Pointer down on a handle (scale) or just outside a corner (rotate):
+        // open a Free Transform of the selection - its pixels when the target
+        // can be painted, the outline otherwise - and hand it the drag
         onDown: function (pt, e, forceHandle) {
-            if (!isSelTool() || !PS.doc || !PS.doc.selection) { return false; }
+            if (!active()) { return false; }
             var h = forceHandle || hitHandle(pt);
-            if (!h) { return false; }
-            var sel = PS.doc.selection;
-            var layer = PS.activeLayer();
-
-            state = {
-                handle:        h,
-                origBounds:    sel.bounds,
-                origMask:      PS.cloneCanvas(sel.mask),
-                origSelection: sel,
-                startPt:       pt,
-                lastBounds:    null,
-                lastMask:      null,
-                layer:         null,
-                before:        null,
-                base:          null,
-                float:         null,
-                preview:       null
-            };
-
-            if (canTransformContent(layer)) {
-                state.layer = layer;
-                state.before = PS.snapshotLayer(layer);
-
-                // base = the layer with the selected region erased
-                var base = PS.cloneCanvas(layer.canvas);
-                var bctx = base.getContext("2d");
-                bctx.globalCompositeOperation = "destination-out";
-                bctx.drawImage(state.origMask, 0, 0);
-                bctx.globalCompositeOperation = "source-over";
-                state.base = base;
-
-                // float = the selected pixels cropped to the selection bounds
-                var ob = state.origBounds;
-                var selPx = PS.getSelectedPixels(layer.canvas).canvas;
-                var fl = PS.createCanvas(ob.w, ob.h);
-                fl.getContext("2d").drawImage(selPx, -ob.x, -ob.y);
-                state.float = fl;
-
-                state.preview = PS.createCanvas(PS.doc.width, PS.doc.height);
-            }
+            var rot = !h && inRotateZone(pt);
+            if (!h && !rot) { return false; }
+            var target = PS.activeLayer() ? PS.paintTarget() : null;
+            var kind = canTransformContent(target) ? "pixels" : "selection";
+            if (!PS.transform.begin({ kind: kind })) { return false; }
+            PS.transform.pointerDown(pt, e, h || "rotate");
             return true;
         },
 
-        // Call on pointermove while dragging; updates live selection +
-        // (when possible) a live preview of the scaled content. Holding
-        // Shift keeps the selection's original aspect ratio while it is
-        // held, releasing it mid-drag returns to free scaling.
-        onMove: function (pt, e) {
-            if (!state) { return; }
-            var delta = { x: pt.x - state.startPt.x, y: pt.y - state.startPt.y };
-            var nb = computeBounds(state.handle, state.origBounds, delta);
-            if (e && e.shiftKey) {
-                nb = constrainAspect(state.handle, state.origBounds, nb);
-            }
-            state.lastBounds = nb;
-            var mask = scaleMask(state.origMask, state.origBounds, nb);
-            state.lastMask = mask;
-            // Live selection preview (no history)
-            PS.doc.selection = PS.buildSelectionObject(mask);
+        onMove: function () { },
+        onUp: function () { return false; },
 
-            if (state.layer) {
-                var pctx = state.preview.getContext("2d");
-                pctx.clearRect(0, 0, state.preview.width, state.preview.height);
-                pctx.drawImage(state.base, 0, 0);
-                if (nb.w > 0 && nb.h > 0) {
-                    pctx.imageSmoothingEnabled = true;
-                    pctx.imageSmoothingQuality = "high";
-                    pctx.drawImage(state.float, nb.x, nb.y, nb.w, nb.h);
-                }
-                PS.layerOverride = { layer: state.layer, canvas: state.preview };
-            }
-            PS.requestRender();
-        },
-
-        // Call on pointerup; bakes the scaled content + selection to history
-        onUp: function () {
-            if (!state) { return false; }
-            var s = state;
-            state = null;
-
-            if (!s.lastMask) {
-                // No movement — restore cleanly without a history entry
-                PS.doc.selection = s.origSelection;
-                if (s.layer) { PS.layerOverride = null; }
-                PS.requestRender();
-                return true;
-            }
-
-            if (s.layer) {
-                // Bake base + scaled content into the layer, then record one
-                // history entry restoring both the pixels and the selection.
-                PS.layerOverride = null;
-                var nb = s.lastBounds;
-                var lctx = s.layer.canvas.getContext("2d");
-                lctx.clearRect(0, 0, s.layer.canvas.width, s.layer.canvas.height);
-                lctx.drawImage(s.base, 0, 0);
-                if (nb.w > 0 && nb.h > 0) {
-                    lctx.imageSmoothingEnabled = true;
-                    lctx.imageSmoothingQuality = "high";
-                    lctx.drawImage(s.float, nb.x, nb.y, nb.w, nb.h);
-                }
-
-                var layer = s.layer;
-                var beforeCanvas = s.before;
-                var afterCanvas = PS.cloneCanvas(layer.canvas);
-                var beforeSel = s.origSelection;
-                var afterSel = PS.buildSelectionObject(s.lastMask);
-                PS.doc.selection = afterSel;
-                PS.pushHistory("Scale Selection",
-                    function () {
-                        PS.restoreLayerCanvas(layer, beforeCanvas);
-                        PS.doc.selection = beforeSel;
-                    },
-                    function () {
-                        PS.restoreLayerCanvas(layer, afterCanvas);
-                        PS.doc.selection = afterSel;
-                    });
-                PS.requestRender();
-            } else {
-                // Selection-only resize (text/hidden layer)
-                PS.doc.selection = s.origSelection;
-                PS.setSelection(s.lastMask, "replace", "Scale Selection");
-            }
-            return true;
-        },
-
-        // Draw the bounding box + 8 white handles on the overlay canvas
+        // the selection's bounding box with its 8 handles
         drawOverlay: function (ctx) {
-            if (!isSelTool() || !PS.doc || !PS.doc.selection) { return; }
+            if (!active()) { return; }
             var b = PS.doc.selection.bounds;
-            var z = PS.zoom;
-            var origin = PS.docToOverlay(0, 0);
-            var pad = PAD_PX;
-
-            // Bounding box in screen coords
-            var sx = origin.x + b.x * z - pad;
-            var sy = origin.y + b.y * z - pad;
-            var sw = b.w * z + 2 * pad;
-            var sh = b.h * z + 2 * pad;
-
-            // Blue dashed bounding box
+            var p0 = PS.docToOverlay(b.x, b.y), p1 = PS.docToOverlay(b.x + b.w, b.y + b.h);
             ctx.save();
             ctx.strokeStyle = "rgba(100,160,255,0.85)";
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 3]);
-            ctx.strokeRect(Math.round(sx) + 0.5, Math.round(sy) + 0.5,
-                           Math.round(sw), Math.round(sh));
+            ctx.strokeRect(Math.round(p0.x) + 0.5, Math.round(p0.y) + 0.5, Math.round(p1.x - p0.x), Math.round(p1.y - p0.y));
             ctx.setLineDash([]);
-            ctx.restore();
-
-            // White handle squares at 8 positions
-            var hs = HANDLE_PX, hh = hs / 2;
-            var pts = [
-                { x: sx,          y: sy          },
-                { x: sx + sw / 2, y: sy          },
-                { x: sx + sw,     y: sy          },
-                { x: sx + sw,     y: sy + sh / 2 },
-                { x: sx + sw,     y: sy + sh     },
-                { x: sx + sw / 2, y: sy + sh     },
-                { x: sx,          y: sy + sh     },
-                { x: sx,          y: sy + sh / 2 }
-            ];
-
-            ctx.save();
-            for (var i = 0; i < pts.length; i++) {
-                var hp = pts[i];
-                var hx = Math.round(hp.x), hy = Math.round(hp.y);
-                // Dark border
-                ctx.fillStyle = "rgba(30,30,30,0.75)";
-                ctx.fillRect(hx - hh - 1, hy - hh - 1, hs + 2, hs + 2);
-                // White fill
+            var positions = handlePositions(b);
+            Object.keys(positions).forEach(function (k) {
+                var p = PS.docToOverlay(positions[k].x, positions[k].y);
+                ctx.fillStyle = "rgba(30,30,30,0.8)";
+                ctx.fillRect(Math.round(p.x) - 5, Math.round(p.y) - 5, 10, 10);
                 ctx.fillStyle = "#ffffff";
-                ctx.fillRect(hx - hh, hy - hh, hs, hs);
-            }
+                ctx.fillRect(Math.round(p.x) - 4, Math.round(p.y) - 4, 8, 8);
+            });
             ctx.restore();
         }
     };

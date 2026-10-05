@@ -7,6 +7,9 @@
 	Parameters:
 	  action = "get"            - return the stored preference JSON
 	  action = "set", data=JSON - store the given preference JSON
+	  action = "getbrushes"     - return the stored custom brush tips JSON
+	  action = "setbrushes", data=JSON - store the custom brush tips (images
+	                              of brushes the user defined or loaded)
 
 	The "Pixel Studio" DB table is created by init.agi on system startup.
 */
@@ -23,6 +26,10 @@ function main() {
 	newDBTableIfNotExists("Pixel Studio");
 
 	var key = "prefs/" + USERNAME;
+	if (action == "getbrushes" || action == "setbrushes") {
+		key = "brushes/" + USERNAME;
+		action = action == "getbrushes" ? "get" : "set";
+	}
 
 	if (action == "get") {
 		var stored = readDBItem("Pixel Studio", key);

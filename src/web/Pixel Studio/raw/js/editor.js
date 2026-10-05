@@ -1,7 +1,7 @@
 /*
     editor.js — UI controller for the Raw Editor WebApp.
 
-    Wires the Camera-Raw style controls to the WebGL develop pipeline, handles
+    Wires the develop controls to the WebGL develop pipeline, handles
     file loading (ArozOS input files, file picker, drag & drop), the live
     histogram, LUT loading, auto white-balance / auto tone, and saving the
     developed image back to the user's storage as a JPEG.

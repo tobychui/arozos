@@ -318,7 +318,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 	// registerExtensionIcon(ext, iconPath) — lets init.agi scripts publish a
 	// per-extension fallback icon shown by the file manager when no thumbnail
-	// can be generated (e.g. for proprietary formats like ".pxs").
+	// can be generated (e.g. for application specific project formats).
 	// iconPath may be relative to the module directory (e.g. "./img/file.png").
 	vm.Set("registerExtensionIcon", func(call otto.FunctionCall) otto.Value {
 		ext, err := call.Argument(0).ToString()

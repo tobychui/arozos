@@ -1,5 +1,5 @@
 /*
-    Pixel Studio - Photoshop-style keyboard shortcuts
+    Pixel Studio - keyboard shortcuts
 */
 "use strict";
 
@@ -42,13 +42,17 @@ PS._toolGroups = {
     m: ["marquee-rect", "marquee-ellipse"],
     l: ["lasso", "lasso-poly"],
     b: ["brush", "pencil"],
-    g: ["fill", "gradient"]
+    g: ["gradient", "fill"],
+    j: ["spotheal", "heal"],
+    e: ["eraser", "magic-eraser"],
+    o: ["dodge", "burn", "sponge"],
+    i: ["eyedropper", "ruler", "note"]
 };
 
 PS._toolKeys = {
-    v: "move", m: "marquee-rect", l: "lasso", w: "wand", b: "brush",
-    e: "eraser", g: "fill", i: "eyedropper", t: "text", u: "shape",
-    h: "hand", z: "zoom"
+    v: "move", m: "marquee-rect", l: "lasso", w: "wand", c: "crop", b: "brush",
+    j: "spotheal", s: "clone", e: "eraser", g: "gradient", o: "dodge", i: "eyedropper",
+    t: "text", u: "shape", h: "hand", z: "zoom"
 };
 
 PS.isTypingTarget = function (e) {
@@ -61,8 +65,7 @@ PS.isTypingTarget = function (e) {
 PS.handleKeyUp = function (e) {
     if (e.key === " " || e.code === "Space") {
         PS.spacePan = false;
-        var def = PS.tools[PS.tool];
-        PS.el("workspace").style.cursor = (def && def.cursor) || "crosshair";
+        PS.el("workspace").style.cursor = PS.toolCursor();
     }
 };
 
@@ -75,6 +78,28 @@ PS.handleKeyDown = function (e) {
 
     var ctrl = e.ctrlKey || e.metaKey;
     var key = e.key.toLowerCase();
+    // layout independent names for keys that Shift / Alt change
+    var code = e.code || "";
+    if (code === "BracketRight") { key = "]"; }
+    else if (code === "BracketLeft") { key = "["; }
+    else if (code === "Semicolon") { key = ";"; }
+    else if (code === "Quote") { key = "'"; }
+    else if (ctrl && e.altKey && /^Key[A-Z]$/.test(code)) { key = code.charAt(3).toLowerCase(); }
+
+    // an open Free Transform: Enter commits, Esc / Ctrl+Z cancel
+    if (PS.transform && PS.transform.active) {
+        if (e.key === "Enter") { PS.transform.commit(); e.preventDefault(); return; }
+        if (e.key === "Escape" || (ctrl && key === "z")) { PS.transform.cancel(); e.preventDefault(); return; }
+        if (e.key.indexOf("Arrow") === 0) {
+            // nudge the box
+            var nd = e.shiftKey ? 10 : 1;
+            var tdx = e.key === "ArrowLeft" ? -nd : (e.key === "ArrowRight" ? nd : 0);
+            var tdy = e.key === "ArrowUp" ? -nd : (e.key === "ArrowDown" ? nd : 0);
+            PS.transform.nudge(tdx, tdy);
+            e.preventDefault();
+            return;
+        }
+    }
 
     // give the active tool first dibs (poly lasso Enter/Esc...)
     var def = PS.tools[PS.tool];
@@ -86,17 +111,54 @@ PS.handleKeyDown = function (e) {
     /* ---- Ctrl/Cmd shortcuts ---- */
     if (ctrl) {
         var handled = true;
-        if (key === "z" && !e.shiftKey) { PS.undo(); }
-        else if ((key === "z" && e.shiftKey) || key === "y") { PS.redo(); }
+        if (key === "z" && e.altKey && !e.shiftKey) { PS.stepBackward(); }
+        else if (key === "z" && !e.shiftKey) { PS.toggleUndo(); }
+        else if ((key === "z" && e.shiftKey) || key === "y") { PS.stepForward(); }
         else if (key === "s") { if (e.shiftKey) { PS.fileSaveAs(); } else { PS.fileSave(); } }
         else if (key === "o") { PS.fileOpenDialog(); }
         else if (key === "n" && e.shiftKey) { PS.addLayer(); }
         else if (key === "n") { PS.fileNewDialog(); }
+        else if (key === "a" && e.altKey) { PS.selectAllLayers(); }
         else if (key === "a") { PS.selectAll(); }
+        else if (key === "d" && e.shiftKey) { PS.reselect(); }
         else if (key === "d") { PS.deselect(); }
         else if (key === "i" && e.shiftKey) { PS.invertSelection(); }
-        else if (key === "j") { PS.duplicateLayer(); }
-        else if (key === "e" && e.shiftKey) { PS.flattenImage(); }
+        else if (key === "j" && e.shiftKey) { PS.layerViaCopy(true); }
+        else if (key === "j") { if (PS.doc.selection) { PS.layerViaCopy(false); } else { PS.duplicateLayer(); } }
+        else if (key === "i" && e.altKey) { PS.resizeImageDialog(); }
+        else if (key === "c" && e.altKey) { PS.resizeCanvasDialog(); }
+        else if (key === "l" && e.shiftKey && e.altKey) { PS.autoAdjust("contrast"); }
+        else if (key === "l" && e.shiftKey) { PS.autoAdjust("tone"); }
+        else if (key === "b" && e.shiftKey && e.altKey) { PS.imageAdjustment("black & white"); }
+        else if (key === "b" && e.shiftKey) { PS.autoAdjust("color"); }
+        else if (key === "e" && e.shiftKey && e.altKey) { PS.stampVisible(); }
+        else if (key === "f" && e.altKey) { PS.repeatLastFilter(true); }
+        else if (key === "f") { PS.repeatLastFilter(false); }
+        else if (key === ";" && e.shiftKey) { PS.toggleSnap(); PS.toast(PS.snapToGuides ? "Snap on" : "Snap off"); }
+        else if (key === "t" && e.shiftKey && e.altKey) { PS.transform.again(true); }
+        else if (key === "t" && e.shiftKey) { PS.transform.again(); }
+        else if (key === "t") { PS.transform.begin({ kind: "auto" }); }
+        else if (key === "]" && e.shiftKey) { PS.arrangeLayer("front"); }
+        else if (key === "[" && e.shiftKey) { PS.arrangeLayer("back"); }
+        else if (key === "]") { PS.moveLayer(1); }
+        else if (key === "[") { PS.moveLayer(-1); }
+        else if (key === "'") { PS.toggleGrid(); }
+        else if (key === ";") { PS.toggleGuidesVisible(); }
+        else if (key === "h") { PS.toggleExtras(); }
+        else if (key === "2") { PS.setViewChannel(null); }
+        else if (key === "3") { PS.setViewChannel("r"); }
+        else if (key === "4") { PS.setViewChannel("g"); }
+        else if (key === "5") { PS.setViewChannel("b"); }
+        else if (key === "i" && !e.shiftKey) { PS.invertPixels(); }
+        else if (key === "u" && e.shiftKey) { PS.desaturatePixels(); }
+        else if (key === "u") { PS.imageAdjustment("hue/saturation"); }
+        else if (key === "l") { PS.imageAdjustment("levels"); }
+        else if (key === "m") { PS.imageAdjustment("curves"); }
+        else if (key === "b") { PS.imageAdjustment("color balance"); }
+        else if (key === "g" && e.altKey) { PS.toggleClipping(); }
+        else if (key === "g" && e.shiftKey) { PS.ungroupLayers(); }
+        else if (key === "g") { PS.groupSelectedLayers(); }
+        else if (key === "e" && e.shiftKey) { PS.mergeVisible(); }
         else if (key === "e") { PS.mergeSelectedOrDown(); }
         else if (key === "c" && e.shiftKey) { PS.copySelection(false, true); }
         else if (key === "c") { PS.copySelection(false, false); }
@@ -120,9 +182,31 @@ PS.handleKeyDown = function (e) {
         if (key === "backspace") {
             PS.fillWithColor(PS.fg, "Fill Foreground");
             e.preventDefault();
+        } else if (key === "]" || key === "[") {
+            // select the layer above / below (Shift adds it)
+            PS.selectAdjacentLayer(key === "]" ? 1 : -1, e.shiftKey);
+            e.preventDefault();
         }
         return;
     }
+    if (e.key === "F5" && e.shiftKey) { PS.fillDialog(); e.preventDefault(); return; }
+    if (e.key === "F6" && e.shiftKey) { PS.featherDialog(); e.preventDefault(); return; }
+    if (e.key === "F7" && e.shiftKey) { PS.invertSelection(); e.preventDefault(); return; }
+
+    /* ---- number keys: layer opacity (Shift: fill), tool opacity on paint tools ---- */
+    var digit = /^(Digit|Numpad)[0-9]$/.test(code) ? parseInt(code.slice(-1), 10) : (/^[0-9]$/.test(e.key) ? parseInt(e.key, 10) : -1);
+    if (digit >= 0) {
+        PS.numberKeyOpacity(digit, e.shiftKey);
+        e.preventDefault();
+        return;
+    }
+    if (e.key === "F5") { PS.toggleBrushPanel(); e.preventDefault(); return; }
+    if (e.key === "F6") { PS.ws.showPanel("color"); e.preventDefault(); return; }
+    if (e.key === "F7") { PS.ws.showPanel("layers"); e.preventDefault(); return; }
+    if (e.key === "F8") { PS.ws.showPanel("info"); e.preventDefault(); return; }
+    if (key === "q" && !e.shiftKey) { PS.toggleQuickMask(); e.preventDefault(); return; }
+    if (key === "f" && !e.shiftKey) { PS.cycleScreenMode(); e.preventDefault(); return; }
+    if (e.key === "Tab") { PS.toggleUiPanels(e.shiftKey); e.preventDefault(); return; }
 
     /* ---- plain keys ---- */
     if (e.key === " " || e.code === "Space") {
@@ -151,16 +235,29 @@ PS.handleKeyDown = function (e) {
         return;
     }
 
-    // brush size with [ and ]
+    // brush size with [ and ], hardness with Shift+[ and ]
     if (key === "[" || key === "]") {
-        var paintTools = { brush: 1, pencil: 1, eraser: 1 };
-        if (paintTools[PS.tool]) {
+        if ((PS.BRUSH_SIZE_TOOLS || ["brush", "pencil", "eraser"]).indexOf(PS.tool) >= 0) {
             var o = PS.toolOpts[PS.tool];
-            var step = o.size < 10 ? 1 : (o.size < 50 ? 5 : 10);
-            o.size = PS.clamp(o.size + (key === "]" ? step : -step), 1, 300);
+            if (e.shiftKey) {
+                if (o.hardness !== undefined) {
+                    o.hardness = PS.clamp(Math.round((o.hardness + (key === "]" ? 0.25 : -0.25)) * 4) / 4, 0, 1);
+                }
+            } else {
+                var step = o.size < 10 ? 1 : (o.size < 50 ? 5 : (o.size < 200 ? 10 : 25));
+                o.size = PS.clamp(o.size + (key === "]" ? step : -step), 1, 2500);
+            }
             PS.renderOptionsBar();
+            if (PS.ws) { PS.ws.refresh(); }
             PS.savePrefsDebounced();
         }
+        e.preventDefault();
+        return;
+    }
+
+    // , and . step through the brush presets
+    if ((e.key === "," || e.key === ".") && PS.BRUSH_TOOLS && PS.BRUSH_TOOLS.indexOf(PS.tool) >= 0) {
+        PS.stepBrushPreset(e.key === "." ? 1 : -1);
         e.preventDefault();
         return;
     }

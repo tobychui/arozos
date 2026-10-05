@@ -2,7 +2,7 @@
     glrender.js — WebGL2 develop pipeline for the Raw Editor.
 
     Uploads the decoded linear-light image into a half-float texture and renders
-    it through a fragment shader that implements the Camera-Raw style controls
+    it through a fragment shader that implements the develop controls
     (white balance, exposure, contrast, highlights/shadows/whites/blacks,
     clarity, dehaze, vibrance, saturation) followed by an optional 3D LUT grade.
 
@@ -97,7 +97,7 @@ const GLRender = (function () {
         return log2(1.0 + x * k) / LOG_STOPS;
     }
 
-    // True sRGB OETF — matches how LUTs (and Photoshop) expect their input, and
+    // True sRGB OETF — matches how LUTs expect their input, and
     // exactly inverts the sRGB decode applied to 8-bit source images on load.
     vec3 toDisplay(vec3 c){
         c = max(c, vec3(0.0));
@@ -111,8 +111,8 @@ const GLRender = (function () {
         return texture(uLUT, (idx + 0.5) / uLutSize).rgb;
     }
 
-    // Tetrahedral interpolation of the 3D LUT — the same method Photoshop /
-    // Resolve use. Avoids the cyan/green cast that GPU trilinear introduces on
+    // Tetrahedral interpolation of the 3D LUT — the method colour
+    // grading tools use. Avoids the cyan/green cast that GPU trilinear introduces on
     // film-style LUTs.
     vec3 lutTetra(vec3 rgb){
         vec3 pos = clamp(rgb, 0.0, 1.0) * (uLutSize - 1.0);
@@ -420,7 +420,7 @@ const GLRender = (function () {
             return (Math.log(t) - Math.log(baseTemp)) / (Math.log(50000) - Math.log(2000));
         }
         const wr = warmth(temp);
-        // Warmer (higher K in ACR) -> boost red, cut blue.
+        // Warmer (higher K) -> boost red, cut blue.
         let r = 1.0 + wr * 0.9;
         let b = 1.0 - wr * 0.9;
         // Tint: positive -> magenta (reduce green), negative -> green.

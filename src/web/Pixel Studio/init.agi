@@ -7,7 +7,7 @@
 	    Raw Editor   - the camera RAW developer sub-app (Pixel Studio/raw/)
 
 	Raw Editor decodes camera RAW files (ARW, DNG, NEF, CR2, ORF, RAF ...),
-	demosaics them into a viewable image and provides Camera-Raw style develop
+	demosaics them into a viewable image and provides RAW develop
 	controls plus 3D LUT (.cube) colour grading, entirely inside the browser
 	sandbox. Pixel Studio forwards any RAW file opened with it to Raw Editor
 	(see js/fileio.js), and Raw Editor hands the developed image back.
@@ -21,18 +21,19 @@ newDBTableIfNotExists("Pixel Studio");
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
 	Name: "Pixel Studio",
-	Desc: "Photoshop-like layered image editor",
+	Desc: "Layered image editor (PSD / OpenRaster)",
 	Group: "Media",
 	IconPath: "Pixel Studio/img/module_icon.png",
-	Version: "1.0",
+	Version: "2.1",
 	StartDir: "Pixel Studio/index.html",
 	SupportFW: true,
 	LaunchFWDir: "Pixel Studio/index.html",
 	SupportEmb: false,
 	InitFWSize: [1280, 820],
+	//Its own documents are .psd / .psb and OpenRaster .ora files.
 	//RAW extensions are listed here as well so "Open with Pixel Studio" works on
 	//them; fileio.js detects the RAW format and hands the file to Raw Editor.
-	SupportedExt: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pxs",
+	SupportedExt: [".psd", ".psb", ".ora", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
 		".arw", ".dng", ".nef", ".cr2", ".cr3", ".orf", ".raf", ".rw2", ".pef", ".srw", ".tiff", ".tif"]
 }
 
@@ -42,7 +43,7 @@ registerModule(JSON.stringify(moduleLaunchInfo));
 //Raw Editor - camera RAW developer sub-app of Pixel Studio
 registerModule(JSON.stringify({
 	Name: "Raw Editor",
-	Desc: "Develop camera RAW files with Camera-Raw style controls and LUT grading",
+	Desc: "Develop camera RAW files with exposure, tone and colour controls and LUT grading",
 	Group: "Media",
 	IconPath: "Pixel Studio/raw/img/module_icon.svg",
 	Version: "1.0",
@@ -56,5 +57,8 @@ registerModule(JSON.stringify({
 	SupportedExt: [".arw", ".dng", ".nef", ".cr2", ".cr3", ".orf", ".raf", ".rw2", ".pef", ".srw", ".tiff", ".tif", ".jpg", ".jpeg", ".png", ".webp"]
 }));
 
-//Register a custom icon for .pxs files so the file manager shows it instead of a generic icon
-registerExtensionIcon(".pxs", "img/file_icon.png");
+//Fallback icons for layered documents, shown when the file manager cannot
+//render a thumbnail of the file itself
+registerExtensionIcon(".psd", "img/file_icon.png");
+registerExtensionIcon(".psb", "img/file_icon.png");
+registerExtensionIcon(".ora", "img/file_icon.png");
