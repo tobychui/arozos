@@ -19,6 +19,9 @@
                                 al: "l"|"c"|"r",
                                 bg: "#hex", fc: "#hex",
                                 fs: 13,          // font size px
+                                ff: "Georgia",   // font family ("" = default)
+                                st: bool,        // strikethrough
+                                va: "t"|"m"|"b", // vertical alignment
                                 fmt: "general"|"number"|"percent"|
                                      "currency"|"date"|"text",
                                 dec: 2,          // decimals for number fmts
@@ -620,7 +623,9 @@ var SheetsApp = (function () {
         if (s.b) cls += " b";
         if (s.i) cls += " i";
         if (s.u) cls += " u";
+        if (s.st) cls += " st";
         if (s.wrap) cls += " wrap";
+        if (s.va) cls += " va-" + s.va;
         if (s.al === "c") cls += " ctr";
         else if (s.al === "r") cls += " rgt";
         else if (s.al === "l") cls += " lft";
@@ -632,6 +637,7 @@ var SheetsApp = (function () {
         if (s.bg) css += "background-color:" + esc(s.bg) + ";";
         if (s.fc) css += "color:" + esc(s.fc) + ";";
         css += "font-size:" + Math.round((s.fs || 13) * zoomF) + "px;";
+        if (s.ff) css += "font-family:" + esc(OfficeFonts.stack(s.ff)) + ";";
         if (s.bd) css += "border:1px solid var(--of-fg-soft);";
         return css;
     }
@@ -654,7 +660,10 @@ var SheetsApp = (function () {
             s = withHint;
         }
         var text, fmtd;
-        if ((s.fmt || "general") === "text") {
+        if (showFormulas && String(rawAt(c, r)).charAt(0) === "=") {
+            text = String(rawAt(c, r));
+            fmtd = { num: false };
+        } else if ((s.fmt || "general") === "text") {
             text = String(rawAt(c, r) || "");
             fmtd = { num: false };
         } else {
@@ -1129,6 +1138,7 @@ var SheetsApp = (function () {
         inputEl.style.width = Math.max(rect.w, 60) + "px";
         inputEl.style.height = Math.max(rect.h, 22) + "px";
         inputEl.style.fontSize = Math.round((s.fs || 13) * zoomF) + "px";
+        inputEl.style.fontFamily = s.ff ? OfficeFonts.stack(s.ff) : "";
         var val = (initial !== undefined && initial !== null) ? initial : rawAt(c, r);
         inputEl.value = val;
         $("#shFxInput").val(val);
@@ -1225,6 +1235,14 @@ var SheetsApp = (function () {
         else setActive(c, r);
         scrollIntoView(c, r);
     }
+    // Ctrl+A and Edit > Select all: the cells in use
+    function selectUsedRange() {
+        var ur = usedRange();
+        anchor = { c: ur.c1, r: ur.r1 };
+        head = { c: ur.c2, r: ur.r2 };
+        selCols = selRows = null;
+        afterSelChange();
+    }
     function onKeyDown(e) {
         // grid range picking for a hidden dialog: Escape cancels it
         if (rangePickCb && e.key === "Escape") {
@@ -1252,11 +1270,7 @@ var SheetsApp = (function () {
 
         if (ctrl && k.toLowerCase() === "a") {
             e.preventDefault();
-            var ur = usedRange();
-            anchor = { c: ur.c1, r: ur.r1 };
-            head = { c: ur.c2, r: ur.r2 };
-            selCols = selRows = null;
-            afterSelChange();
+            selectUsedRange();
             return;
         }
         if (ctrl && k === "Home") { e.preventDefault(); setActive(0, 0); scrollIntoView(0, 0); return; }
@@ -2861,189 +2875,647 @@ var SheetsApp = (function () {
         }
     }
 
-    /* ================= toolbar ================= */
-    function tbtn(icon, title, fn, id) {
-        var $b = $('<button type="button" class="of-tbtn"' + (id ? ' id="' + id + '"' : "") +
-            ' title="' + esc(title) + '"><i class="' + icon + ' icon"></i></button>');
-        $b.on("mousedown", function (e) { e.preventDefault(); });
-        $b.on("click", fn);
-        return $b;
-    }
+    /* ================= ribbon ================= */
+    /* The ribbon (common/ribbon.js), Excel's tabs: Home, Insert, Formulas,
+       Data, Review and View. File stays a menu (office.js). Sizes are shown
+       in points, as Excel does; the model keeps pixels (s.fs). */
+    var PT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
+    var NUM_FORMATS = [
+        ["general", "General"], ["number", "Number"], ["currency", "Currency"],
+        ["percent", "Percentage"], ["date", "Date"], ["text", "Text"]
+    ];
+    var showFormulas = false;
+    function fsPt(s) { return Math.round((s.fs || 13) * 0.75); }
     function buildToolbar() {
-        var $tb = $("#toolbar").empty();
-        $tb.append(tbtn("undo", "Undo (Ctrl+Z)", doUndo));
-        $tb.append(tbtn("redo", "Redo (Ctrl+Y)", doRedo));
-        $tb.append('<div class="of-tsep"></div>');
-        $tb.append(tbtn("dollar sign", "Format as currency", function () { setNumFmt("currency"); }, "shBtnCurrency"));
-        $tb.append(tbtn("percent", "Format as percent", function () { setNumFmt("percent"); }, "shBtnPercent"));
-        var $dm = $('<button type="button" class="of-tbtn" title="Decrease decimal places">.0</button>');
-        $dm.on("mousedown", function (e) { e.preventDefault(); });
-        $dm.on("click", function () { bumpDecimals(-1); });
-        var $dp = $('<button type="button" class="of-tbtn" title="Increase decimal places">.00</button>');
-        $dp.on("mousedown", function (e) { e.preventDefault(); });
-        $dp.on("click", function () { bumpDecimals(1); });
-        $tb.append($dm).append($dp);
-        $tb.append('<div class="of-tsep"></div>');
-        $tb.append(tbtn("bold", "Bold (Ctrl+B)", function () { toggleStyleFlag("b"); }, "shBtnBold"));
-        $tb.append(tbtn("italic", "Italic (Ctrl+I)", function () { toggleStyleFlag("i"); }, "shBtnItalic"));
-        $tb.append(tbtn("underline", "Underline (Ctrl+U)", function () { toggleStyleFlag("u"); }, "shBtnUnderline"));
-        var $tc = OfficeColorPicker.swatchInput({
-            id: "shTextColor", title: "Text color", value: "#202124"
+        var R = OfficeRibbon;
+        var B = R.button, D = R.dropdown;
+        var styleBtn = function (icon, title, key, flag, id, svg) {
+            return B({ icon: svg ? null : icon, svg: svg, title: title, key: key, id: id, onClick: function () { toggleStyleFlag(flag); } });
+        };
+
+        /* ---------- Home ---------- */
+        var home = R.tab("home", "Home");
+        var $font = $('<select class="of-tselect sh-fontsel" id="shFontFamily" title="Font"></select>');
+        $font.append('<option value="">Default</option>');
+        OfficeFonts.MENU.forEach(function (f) {
+            $font.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
-        $tc.on("change", function () {
-            var v = $tc.val();
-            applyStyle(function (st) { st.fc = v; });
+        $font.on("change", function () {
+            var v = $font.val();
+            applyStyle(function (st) { if (v) st.ff = v; else delete st.ff; });
+            gridEl.focus();
         });
-        $tb.append($tc);
-        var $fc = OfficeColorPicker.swatchInput({
-            id: "shFillColor", title: "Fill color", value: "#ffff88",
-            allowNone: true, noneLabel: "No fill"
+        var $size = $('<select class="of-tselect sh-sizesel" id="shFontSize" title="Font size (pt)"></select>');
+        PT_SIZES.forEach(function (p) { $size.append($("<option></option>").attr("value", p).text(p)); });
+        $size.on("change", function () { setFontPt(parseInt($size.val(), 10)); gridEl.focus(); });
+        var font = home.group({ id: "font", label: "Font", icon: "font", priority: 9 });
+        font.row([$font, $size,
+            B({ svg: "growFont", title: "Increase font size", onClick: function () { stepFont(1); } }),
+            B({ svg: "shrinkFont", title: "Decrease font size", onClick: function () { stepFont(-1); } }),
+            B({
+                svg: "formatPainter", title: "Format painter - click, then select the cells to format (double-click to keep it on)", id: "shPainter",
+                active: function () { return !!painter; },
+                onClick: function () { startPainter(false); }
+            }).on("dblclick", function () { startPainter(true); })
+        ]);
+        font.row([
+            styleBtn("bold", "Bold", "Ctrl+B", "b", "shBtnBold"),
+            styleBtn("italic", "Italic", "Ctrl+I", "i", "shBtnItalic"),
+            styleBtn("underline", "Underline", "Ctrl+U", "u", "shBtnUnderline"),
+            styleBtn("strikethrough", "Strikethrough", "Ctrl+5", "st", "shBtnStrike"),
+            "|",
+            R.colorButton({
+                id: "shTextColor", svg: "fontColor", title: "Font color", value: "#d0342c",
+                onPick: function (v) { if (v) applyStyle(function (st) { st.fc = v; }); }
+            }),
+            R.colorButton({
+                id: "shFillColor", svg: "fill", title: "Fill color", value: "#ffff88",
+                allowNone: true, noneLabel: "No fill",
+                onPick: function (v) { applyStyle(function (st) { if (v) st.bg = v; else delete st.bg; }); }
+            }),
+            D({ svg: "borderAll", title: "Borders", id: "shBtnBorders", menu: borderItems }),
+            B({ svg: "clearFormat", title: "Clear formats", mobile: false, onClick: clearFormats })
+        ]);
+
+        var align = home.group({ id: "alignment", label: "Alignment", svg: "alignMiddle", priority: 7 });
+        align.row([
+            B({ svg: "alignTop", title: "Top align", id: "shVaT", onClick: function () { setVAlign("t"); } }),
+            B({ svg: "alignMiddle", title: "Middle align", id: "shVaM", onClick: function () { setVAlign("m"); } }),
+            B({ svg: "alignBottom", title: "Bottom align", id: "shVaB", onClick: function () { setVAlign("b"); } }),
+            "|",
+            B({ svg: "wrapText", title: "Wrap text", id: "shBtnWrap", onClick: function () { toggleStyleFlag("wrap"); } })
+        ]);
+        align.row([
+            B({ icon: "align left", title: "Align left", id: "shAlL", onClick: function () { setHAlign("l"); } }),
+            B({ icon: "align center", title: "Center", id: "shAlC", onClick: function () { setHAlign("c"); } }),
+            B({ icon: "align right", title: "Align right", id: "shAlR", onClick: function () { setHAlign("r"); } }),
+            "|",
+            R.split({ svg: "merge", label: "Merge", showLabel: true, title: "Merge and center", menuTitle: "Merge options", onClick: mergeAndCenter, menu: mergeItems })
+        ]);
+
+        var $fmt = $('<select class="of-tselect sh-numfmt" id="shNumFmt" title="Number format"></select>');
+        NUM_FORMATS.forEach(function (f) { $fmt.append($("<option></option>").attr("value", f[0]).text(f[1])); });
+        $fmt.on("change", function () {
+            var v = $fmt.val();
+            applyStyle(function (st) {
+                if (v === "general") { delete st.fmt; delete st.dec; }
+                else st.fmt = v;
+            });
+            gridEl.focus();
         });
-        $fc.on("change", function () {
-            var v = $fc.val();
-            applyStyle(function (st) { if (v) st.bg = v; else delete st.bg; });
-        });
-        $tb.append($fc);
-        $tb.append(tbtn("th", "Toggle borders", function () {
-            var cur = !!styleAt(anchor.c, anchor.r).bd;
-            applyStyle(function (st) { if (cur) delete st.bd; else st.bd = 1; });
-        }));
-        $tb.append('<div class="of-tsep"></div>');
-        $tb.append(tbtn("compress", "Merge cells", function () {
-            var rg = selRange();
-            if (rg.c1 === rg.c2 && rg.r1 === rg.r2) unmergeSelection();
-            else if (mergeAnchor[key(rg.c1, rg.r1)]) unmergeSelection();
-            else mergeSelection();
-        }));
-        [["align left", "l"], ["align center", "c"], ["align right", "r"]].forEach(function (a) {
-            $tb.append(tbtn(a[0], "Align " + a[1], function () {
-                applyStyle(function (st) {
-                    if (st.al === a[1]) delete st.al; else st.al = a[1];
-                });
+        var num = home.group({ id: "number", label: "Number", icon: "hashtag", priority: 6 });
+        num.row([$fmt]);
+        num.row([
+            B({ icon: "dollar sign", title: "Currency format", id: "shBtnCurrency", onClick: function () { setNumFmt("currency"); } }),
+            B({ icon: "percent", title: "Percent style", id: "shBtnPercent", onClick: function () { setNumFmt("percent"); } }),
+            B({ text: ",", title: "Comma style (thousands separator)", id: "shBtnComma", onClick: function () { setNumFmt("number"); } }),
+            "|",
+            B({ text: ".0+", title: "Increase decimal places", onClick: function () { bumpDecimals(1); } }),
+            B({ text: ".0−", title: "Decrease decimal places", onClick: function () { bumpDecimals(-1); } })
+        ]);
+
+        home.group({ id: "styles", label: "Styles", svg: "cellStyles", priority: 4, mobile: false }).stack([
+            B({ svg: "condFormat", label: "Conditional formatting", showLabel: true, id: "shBtnCondFmt", onClick: function () { if (window.SheetsCF) SheetsCF.open(); } }),
+            D({ svg: "formatTable", label: "Format as table", showLabel: true, menu: formatTableItems }),
+            D({ svg: "cellStyles", label: "Cell styles", showLabel: true, menu: cellStyleItems })
+        ]);
+        home.group({ id: "cells", label: "Cells", svg: "insertCells", priority: 3, mobile: false })
+            .add(R.big({ svg: "insertCells", label: "Insert", menu: insertCellItems }))
+            .add(R.big({ svg: "deleteCells", label: "Delete", menu: deleteCellItems }))
+            .add(R.big({ icon: "columns", label: "Format", menu: formatCellItems }));
+        home.group({ id: "editing", label: "Editing", svg: "autosum", priority: 2 })
+            .add(R.big({ svg: "autosum", label: "AutoSum", onClick: function () { autoSum("SUM"); }, menu: autoSumItems }))
+            .add(R.big({ icon: "filter", label: "Sort & filter", id: "shBtnFilter", menu: sortFilterItems }))
+            .add(R.big({ svg: "clearAll", label: "Clear", menu: clearItems }));
+
+        /* ---------- Insert ---------- */
+        var ins = R.tab("insert", "Insert");
+        ins.group({ id: "tables", label: "Tables", svg: "pivot" })
+            .add(R.big({ svg: "pivot", label: "Pivot table", onClick: function () { if (window.SheetsIO) SheetsIO.pivotDialog(); } }))
+            .add(R.big({ svg: "formatTable", label: "Table", title: "Format the selection as a table", menu: formatTableItems }));
+        ins.group({ id: "charts", label: "Charts", svg: "chart" })
+            .add(R.big({ svg: "chart", label: "Chart", title: "Insert a chart of the selection", onClick: function () { if (window.SheetsIO) SheetsIO.chartDialog(null); } }));
+        ins.group({ id: "cells", label: "Cells", svg: "insertCells" })
+            .add(R.big({ svg: "insertCells", label: "Rows & columns", menu: insertCellItems }))
+            .add(R.big({ svg: "sheet", label: "New sheet", onClick: addSheet }));
+        ins.group({ id: "notes", label: "Notes", svg: "note" })
+            .add(R.big({ svg: "note", label: "Note", key: "Shift+F2", onClick: function () { noteDialog(anchor.c, anchor.r); } }));
+        ins.group({ id: "function", label: "Function", svg: "fx" })
+            .add(R.big({ svg: "fx", label: "Function", onClick: insertFunction }));
+
+        /* ---------- Formulas ---------- */
+        var fx = R.tab("formulas", "Formulas");
+        fx.group({ id: "library", label: "Function Library", svg: "fx", priority: 5 })
+            .add(R.big({ svg: "fx", label: "Insert function", onClick: insertFunction }))
+            .add(R.big({ svg: "autosum", label: "AutoSum", onClick: function () { autoSum("SUM"); }, menu: autoSumItems }))
+            .stack([
+                D({ icon: "dollar sign", label: "Financial", showLabel: true, menu: function () { return fnCatItems(["Financial"]); } }),
+                D({ icon: "question circle outline", label: "Logical", showLabel: true, menu: function () { return fnCatItems(["Logical"]); } }),
+                D({ icon: "font", label: "Text", showLabel: true, menu: function () { return fnCatItems(["Text"]); } })
+            ])
+            .stack([
+                D({ icon: "calendar alternate outline", label: "Date & time", showLabel: true, menu: function () { return fnCatItems(["Date"]); } }),
+                D({ icon: "search", label: "Lookup & reference", showLabel: true, menu: function () { return fnCatItems(["Lookup", "Filter", "Array"]); } }),
+                D({ icon: "calculator", label: "Math & trig", showLabel: true, menu: function () { return fnCatItems(["Math"]); } })
+            ])
+            .stack([
+                D({ icon: "chart bar", label: "Statistical", showLabel: true, menu: function () { return fnCatItems(["Statistical"]); } }),
+                D({ icon: "ellipsis horizontal", label: "More functions", showLabel: true, menu: moreFnItems })
+            ]);
+        fx.group({ id: "names", label: "Defined Names", icon: "tag" })
+            .add(R.big({ icon: "tag", label: "Name manager", onClick: nameManagerDialog }));
+        fx.group({ id: "calc", label: "Calculation", svg: "recalc" })
+            .add(R.big({ svg: "showFormulas", label: "Show formulas", key: "Ctrl+`", active: function () { return showFormulas; }, onClick: toggleShowFormulas }))
+            .add(R.big({ svg: "recalc", label: "Calculate now", key: "F9", onClick: recalcNow }));
+
+        /* ---------- Data ---------- */
+        var data = R.tab("data", "Data");
+        data.group({ id: "sort", label: "Sort & Filter", icon: "filter" })
+            .add(R.big({ icon: "sort alphabet down", label: "Sort A to Z", onClick: function () { sortSelection(true); } }))
+            .add(R.big({ icon: "sort alphabet up", label: "Sort Z to A", onClick: function () { sortSelection(false); } }))
+            .add(R.big({
+                icon: "filter", label: "Filter", active: function () { return !!sheet().filter; },
+                onClick: function () { if (window.SheetsIO) SheetsIO.toggleFilter(); OfficeRibbon.refresh(); }
             }));
-        });
-        $tb.append(tbtn("text width", "Wrap text", function () { toggleStyleFlag("wrap"); }));
-        $tb.append('<div class="of-tsep"></div>');
-        $tb.append(tbtn("chart bar", "Insert chart from selection", function () {
-            if (window.SheetsIO) SheetsIO.chartDialog(null);
-        }));
-        $tb.append(tbtn("filter", "Create / remove filter on selection", function () {
-            if (window.SheetsIO) SheetsIO.toggleFilter();
-        }, "shBtnFilter"));
-        $tb.append(tbtn("paint brush", "Conditional formatting", function () {
-            if (window.SheetsCF) SheetsCF.open();
-        }, "shBtnCondFmt"));
+        data.group({ id: "tools", label: "Data Tools", svg: "pivot" })
+            .add(R.big({ svg: "pivot", label: "Pivot table", onClick: function () { if (window.SheetsIO) SheetsIO.pivotDialog(); } }))
+            .add(R.big({
+                svg: "recalc", label: "Refresh pivot", enabled: function () { return !!sheet().pivot; },
+                onClick: function () { if (window.SheetsIO) SheetsIO.refreshPivot(); }
+            }))
+            .add(R.big({ icon: "tag", label: "Named ranges", onClick: nameManagerDialog }));
+        data.group({ id: "outline", label: "Rows", svg: "freeze" })
+            .add(R.big({ icon: "eye slash outline", label: "Hide rows", key: "Ctrl+Alt+9", onClick: function () { var rg = selRange(); hideRows(rg.r1, rg.r2); } }))
+            .add(R.big({ icon: "eye", label: "Unhide rows", key: "Ctrl+Shift+9", onClick: unhideAroundSelection }));
+
+        /* ---------- Review ---------- */
+        var rev = R.tab("review", "Review");
+        rev.group({ id: "notes", label: "Notes", svg: "note" })
+            .add(R.big({ svg: "note", label: "New note", key: "Shift+F2", onClick: function () { noteDialog(anchor.c, anchor.r); } }))
+            .add(R.big({
+                icon: "sticky note", label: "Delete note", enabled: function () { return noteAt(anchor.c, anchor.r) !== ""; },
+                onClick: function () { setNote(anchor.c, anchor.r, ""); OfficeRibbon.refresh(); }
+            }))
+            .add(R.big({ icon: "angle left", label: "Previous", title: "Previous note", onClick: function () { jumpNote(-1); } }))
+            .add(R.big({ icon: "angle right", label: "Next", title: "Next note", onClick: function () { jumpNote(1); } }));
+        rev.group({ id: "proof", label: "Proofing", svg: "wordCount" })
+            .add(R.big({ svg: "wordCount", label: "Statistics", title: "Count, sum and average of the selection", onClick: selectionStatsDialog }));
+
+        /* ---------- View ---------- */
+        var view = R.tab("view", "View");
+        view.group({ id: "freeze", label: "Window", svg: "freeze" })
+            .add(R.big({ svg: "freeze", label: "Freeze panes", menu: freezeItems }));
+        view.group({ id: "show", label: "Show", svg: "gridlines" })
+            .add(R.big({ svg: "gridlines", label: "Gridlines", active: function () { return !document.body.classList.contains("sh-nogrid"); }, onClick: toggleGridlines }))
+            .add(R.big({ svg: "formulaBar", label: "Formula bar", active: function () { return $("#shFxBar").css("display") !== "none"; }, onClick: toggleFormulaBar }))
+            .add(R.big({ svg: "showFormulas", label: "Formulas", title: "Show formulas instead of their results", active: function () { return showFormulas; }, onClick: toggleShowFormulas }));
+        view.group({ id: "zoom", label: "Zoom", svg: "zoomIn" })
+            .add(R.big({ svg: "zoomOut", label: "Zoom out", key: "Ctrl+-", onClick: function () { OfficeApp.zoomOut(); } }))
+            .add(R.big({ svg: "zoom100", label: "100%", key: "Ctrl+0", onClick: function () { OfficeApp.setZoom(100); } }))
+            .add(R.big({ svg: "zoomIn", label: "Zoom in", key: "Ctrl+=", onClick: function () { OfficeApp.zoomIn(); } }));
+        view.group({ id: "appearance", label: "Appearance", svg: "darkTheme" })
+            .add(R.big({ svg: "darkTheme", label: "Dark theme", active: function () { return OfficeApp.isDark(); }, onClick: function () { OfficeApp.toggleTheme(); OfficeRibbon.refresh(); } }));
     }
     function syncToolbarFromSel() {
         var s = styleAt(anchor.c, anchor.r);
         $("#shBtnBold").toggleClass("active", !!s.b);
         $("#shBtnItalic").toggleClass("active", !!s.i);
         $("#shBtnUnderline").toggleClass("active", !!s.u);
+        $("#shBtnStrike").toggleClass("active", !!s.st);
+        $("#shBtnWrap").toggleClass("active", !!s.wrap);
         $("#shBtnFilter").toggleClass("active", !!sheet().filter);
         // lit when the cell under the cursor carries a rule of its own
         var ac = sheet().cells[key(anchor.c, anchor.r)];
         $("#shBtnCondFmt").toggleClass("active", !!(ac && ac.cf && ac.cf.length));
         $("#shBtnCurrency").toggleClass("active", s.fmt === "currency");
         $("#shBtnPercent").toggleClass("active", s.fmt === "percent");
+        $("#shBtnComma").toggleClass("active", s.fmt === "number");
+        $("#shVaT").toggleClass("active", s.va === "t");
+        $("#shVaM").toggleClass("active", s.va === "m");
+        $("#shVaB").toggleClass("active", s.va === "b");
+        $("#shAlL").toggleClass("active", s.al === "l");
+        $("#shAlC").toggleClass("active", s.al === "c");
+        $("#shAlR").toggleClass("active", s.al === "r");
+        $("#shFontFamily").val(s.ff && $("#shFontFamily option[value='" + String(s.ff).replace(/'/g, "") + "']").length ? s.ff : "");
+        var pt = fsPt(s);
+        var $sz = $("#shFontSize");
+        if (!$sz.find('option[value="' + pt + '"]').length) {
+            // a size off the list (an imported workbook) still shows
+            $sz.find("option.sh-custom").remove();
+            $sz.append($('<option class="sh-custom"></option>').attr("value", pt).text(pt));
+        }
+        $sz.val(String(pt));
+        $("#shNumFmt").val(s.fmt || "general");
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
     }
 
-    /* ================= menus ================= */
-    function insertMenuItems() {
+    /* ---------- Home: font ---------- */
+    function setFontPt(pt) {
+        if (!(pt > 0)) return;
+        var px = Math.round(pt * 96 / 72 * 100) / 100;
+        applyStyle(function (st) {
+            if (Math.abs(px - 13) < 0.01) delete st.fs; else st.fs = px;
+        });
+    }
+    function stepFont(dir) {
+        var cur = fsPt(styleAt(anchor.c, anchor.r)), next = cur;
+        var i;
+        if (dir > 0) {
+            next = cur + 8;
+            for (i = 0; i < PT_SIZES.length; i++) if (PT_SIZES[i] > cur) { next = PT_SIZES[i]; break; }
+        } else {
+            next = Math.max(6, cur - 1);
+            for (i = PT_SIZES.length - 1; i >= 0; i--) if (PT_SIZES[i] < cur) { next = PT_SIZES[i]; break; }
+        }
+        setFontPt(next);
+    }
+    function clearFormats() {
+        applyStyle(function (st) { Object.keys(st).forEach(function (k) { delete st[k]; }); });
+    }
+    function borderItems() {
+        return [
+            { label: "All borders", html: OfficeIcons.get("borderAll") + "<span>All borders</span>", action: function () { applyStyle(function (st) { st.bd = 1; }); } },
+            { label: "No border", html: OfficeIcons.get("borderNone") + "<span>No border</span>", action: function () { applyStyle(function (st) { delete st.bd; }); } }
+        ];
+    }
+
+    /* ---------- Home: alignment ---------- */
+    function setVAlign(v) {
+        var cur = styleAt(anchor.c, anchor.r).va;
+        applyStyle(function (st) { if (cur === v) delete st.va; else st.va = v; });
+    }
+    function setHAlign(a) {
+        var cur = styleAt(anchor.c, anchor.r).al;
+        applyStyle(function (st) { if (cur === a) delete st.al; else st.al = a; });
+    }
+    function mergeAndCenter() {
+        var rg = selRange();
+        if (mergeAnchor[key(rg.c1, rg.r1)]) { unmergeSelection(); return; }
+        if (rg.c1 === rg.c2 && rg.r1 === rg.r2) return;
+        mergeSelection();
+        anchor = { c: rg.c1, r: rg.r1 };
+        head = { c: rg.c1, r: rg.r1 };
+        applyStyle(function (st) { st.al = "c"; });
+        anchor = { c: rg.c1, r: rg.r1 };
+        head = { c: rg.c2, r: rg.r2 };
+        afterSelChange();
+    }
+    function mergeItems() {
+        return [
+            { label: "Merge and center", icon: "compress", action: mergeAndCenter },
+            { label: "Merge cells", icon: "compress", action: mergeSelection },
+            { label: "Unmerge cells", icon: "expand", action: unmergeSelection }
+        ];
+    }
+
+    /* ---------- Home: styles ----------
+       Cell styles and table styles are presets of the formatting a cell
+       already has (fill, font colour, bold, size, borders): a document
+       made with them opens anywhere the suite's own formatting does. */
+    var CELL_STYLES = [
+        { label: "Normal", s: {} },
+        { label: "Good", s: { bg: "#c6efce", fc: "#006100" } },
+        { label: "Bad", s: { bg: "#ffc7ce", fc: "#9c0006" } },
+        { label: "Neutral", s: { bg: "#ffeb9c", fc: "#9c5700" } },
+        { label: "Title", s: { b: true, fs: 24, fc: "#1f3864" } },
+        { label: "Heading 1", s: { b: true, fs: 20, fc: "#1f3864" } },
+        { label: "Heading 2", s: { b: true, fs: 17.33, fc: "#1f3864" } },
+        { label: "Total", s: { b: true, bd: 1 } },
+        { label: "Input", s: { bg: "#ffcc99", fc: "#3f3f76", bd: 1 } },
+        { label: "Calculation", s: { bg: "#f2f2f2", fc: "#fa7d00", b: true, bd: 1 } },
+        { label: "Note", s: { bg: "#ffffcc", bd: 1 } },
+        { label: "Accent 1", s: { bg: "#4472c4", fc: "#ffffff" } },
+        { label: "Accent 2", s: { bg: "#ed7d31", fc: "#ffffff" } },
+        { label: "Accent 3", s: { bg: "#70ad47", fc: "#ffffff" } }
+    ];
+    function cellStyleItems() {
+        return CELL_STYLES.map(function (cs) {
+            var st = cs.s;
+            var css = "background:" + (st.bg || "transparent") + ";color:" + (st.fc || "inherit") + ";" +
+                (st.b ? "font-weight:700;" : "") + (st.bd ? "outline:1px solid #888;" : "");
+            return {
+                label: cs.label,
+                html: '<span class="sh-cs-chip" style="' + esc(css) + '">' + esc(cs.label) + "</span>",
+                action: function () {
+                    applyStyle(function (s) {
+                        // a style replaces the look, not the number format
+                        ["b", "i", "u", "st", "bg", "fc", "fs", "bd", "ff"].forEach(function (k) { delete s[k]; });
+                        Object.keys(st).forEach(function (k) { s[k] = st[k]; });
+                    });
+                }
+            };
+        });
+    }
+    var TABLE_STYLES = [
+        { label: "Blue", head: "#4472c4", band: "#d9e1f2" },
+        { label: "Orange", head: "#ed7d31", band: "#fce4d6" },
+        { label: "Green", head: "#70ad47", band: "#e2efda" },
+        { label: "Gold", head: "#bf8f00", band: "#fff2cc" },
+        { label: "Gray", head: "#595959", band: "#ededed" },
+        { label: "Teal", head: "#00838f", band: "#d6eef0" }
+    ];
+    function formatTableItems() {
+        return TABLE_STYLES.map(function (t) {
+            return {
+                label: t.label,
+                html: '<span class="sh-ts-chip"><span style="background:' + t.head + '"></span><span style="background:' + t.band +
+                    '"></span><span></span><span style="background:' + t.band + '"></span></span><span>' + esc(t.label) + "</span>",
+                action: function () { formatAsTable(t); }
+            };
+        });
+    }
+    // a header row in the style's colour, banded rows under it, thin
+    // borders, and a filter on the range - Excel's "Format as Table" made of
+    // ordinary formatting
+    function formatAsTable(t) {
+        var rg = selRange();
+        if (rg.r1 === rg.r2) {
+            OfficeApp.setStatus("Select the table, header row included", "info", 3000);
+            return;
+        }
+        for (var r = rg.r1; r <= rg.r2; r++) {
+            for (var c = rg.c1; c <= rg.c2; c++) {
+                if (mergeCover[key(c, r)]) continue;
+                var cell = cellObj(c, r, true);
+                if (!cell.s) cell.s = {};
+                cell.s.bd = 1;
+                if (r === rg.r1) {
+                    cell.s.bg = t.head;
+                    cell.s.fc = "#ffffff";
+                    cell.s.b = true;
+                } else if ((r - rg.r1) % 2 === 1) {
+                    cell.s.bg = t.band;
+                } else {
+                    delete cell.s.bg;
+                }
+            }
+        }
+        commit();
+        if (window.SheetsIO && !sheet().filter) SheetsIO.toggleFilter();
+        syncToolbarFromSel();
+    }
+
+    /* ---------- Home: cells ---------- */
+    function insertCellItems() {
         var rg = selRange();
         return [
-            { label: "Row above", icon: "plus", action: function () { insertDeleteFixed("row", rg.r1, 1); } },
-            { label: "Row below", icon: "plus", action: function () { insertDeleteFixed("row", rg.r2 + 1, 1); } },
-            { label: "Column left", icon: "plus", action: function () { insertDeleteFixed("col", rg.c1, 1); } },
-            { label: "Column right", icon: "plus", action: function () { insertDeleteFixed("col", rg.c2 + 1, 1); } },
+            { label: "Insert row above", icon: "plus", action: function () { insertDeleteFixed("row", rg.r1, 1); } },
+            { label: "Insert row below", icon: "plus", action: function () { insertDeleteFixed("row", rg.r2 + 1, 1); } },
+            { label: "Insert column left", icon: "plus", action: function () { insertDeleteFixed("col", rg.c1, 1); } },
+            { label: "Insert column right", icon: "plus", action: function () { insertDeleteFixed("col", rg.c2 + 1, 1); } },
             { sep: true },
-            {
-                label: "Chart...", icon: "chart bar",
-                action: function () { if (window.SheetsIO) SheetsIO.chartDialog(null); }
-            },
-            { label: "New sheet", icon: "plus square outline", action: addSheet }
+            { label: "Insert sheet", icon: "plus square outline", action: addSheet }
         ];
     }
-    function formatMenuItems() {
-        var fmts = [
-            ["general", "Automatic"], ["number", "Number (1,234.56)"],
-            ["percent", "Percent (12.34%)"], ["currency", "Currency ($1,234.00)"],
-            ["date", "Date (2026-07-10)"], ["text", "Plain text"]
-        ];
+    function deleteCellItems() {
+        var rg = selRange();
         return [
-            {
-                label: "Number format", icon: "hashtag", sub: fmts.map(function (f) {
-                    return {
-                        label: f[1],
-                        checked: function () { return (styleAt(anchor.c, anchor.r).fmt || "general") === f[0]; },
-                        action: function () { setNumFmt(f[0]); }
-                    };
-                })
-            },
-            { label: "Increase decimals", action: function () { bumpDecimals(1); } },
-            { label: "Decrease decimals", action: function () { bumpDecimals(-1); } },
+            { label: "Delete row(s)", icon: "minus", action: function () { insertDeleteFixed("row", rg.r1, -(rg.r2 - rg.r1 + 1)); } },
+            { label: "Delete column(s)", icon: "minus", action: function () { insertDeleteFixed("col", rg.c1, -(rg.c2 - rg.c1 + 1)); } }
+        ];
+    }
+    function formatCellItems() {
+        var rg = selRange();
+        return [
+            { label: "Hide row(s)", icon: "eye slash outline", key: "Ctrl+Alt+9", action: function () { hideRows(rg.r1, rg.r2); } },
+            { label: "Unhide rows", icon: "eye", key: "Ctrl+Shift+9", action: unhideAroundSelection },
             { sep: true },
-            { label: "Bold", icon: "bold", key: "Ctrl+B", action: function () { toggleStyleFlag("b"); } },
-            { label: "Italic", icon: "italic", key: "Ctrl+I", action: function () { toggleStyleFlag("i"); } },
-            { label: "Underline", icon: "underline", key: "Ctrl+U", action: function () { toggleStyleFlag("u"); } },
             { label: "Wrap text", checked: function () { return !!styleAt(anchor.c, anchor.r).wrap; }, action: function () { toggleStyleFlag("wrap"); } },
             { sep: true },
-            {
-                label: "Conditional formatting...", icon: "paint brush",
-                action: function () { if (window.SheetsCF) SheetsCF.open(); }
-            },
-            {
-                label: "Clear conditional formatting", icon: "eraser",
-                enabled: function () {
-                    return !!(window.SheetsCF && SheetsCF.selectionHasRules());
-                },
-                action: function () { if (window.SheetsCF) SheetsCF.clearForSelection(); }
-            },
-            { sep: true },
-            { label: "Merge cells", icon: "compress", action: mergeSelection },
-            { label: "Unmerge", icon: "expand", action: unmergeSelection },
-            { sep: true },
-            { label: "Clear formatting", icon: "eraser", action: function () { applyStyle(function (st) { Object.keys(st).forEach(function (k) { delete st[k]; }); }); } }
+            { label: "Clear formats", icon: "eraser", action: clearFormats }
         ];
     }
-    function dataMenuItems() {
-        var fz = sheet().freeze;
+
+    /* ---------- Home: editing ---------- */
+    function autoSumItems() {
+        return [["SUM", "Sum"], ["AVERAGE", "Average"], ["COUNT", "Count numbers"], ["MAX", "Max"], ["MIN", "Min"]].map(function (f) {
+            return { label: f[1], action: function () { autoSum(f[0]); } };
+        });
+    }
+    function isNumCell(c, r) {
+        if (c < 0 || r < 0) return false;
+        var v = valueAt(c, r);
+        return typeof v === "number" && rawAt(c, r) !== "";
+    }
+    /* AutoSum, as Excel does it: one cell gets FN() of the run of numbers
+       above it (or else to its left); a range gets one under each of its
+       columns. */
+    function autoSum(fn) {
+        if (editing) commitEdit(false);
+        var rg = selRange();
+        var name = function (c, r) { return key(c, r); };
+        if (rg.c1 === rg.c2 && rg.r1 === rg.r2) {
+            var c = rg.c1, r = rg.r1, ref = "";
+            var r0 = r - 1;
+            while (isNumCell(c, r0)) r0--;
+            if (r0 < r - 1) ref = name(c, r0 + 1) + ":" + name(c, r - 1);
+            else {
+                var c0 = c - 1;
+                while (isNumCell(c0, r)) c0--;
+                if (c0 < c - 1) ref = name(c0 + 1, r) + ":" + name(c - 1, r);
+            }
+            if (!ref) {
+                // nothing obvious to add up: start the formula and let the
+                // person point at the range
+                startEdit("=" + fn + "(");
+                return;
+            }
+            setRaw(c, r, "=" + fn + "(" + ref + ")");
+            commit();
+            afterSelChange();
+            return;
+        }
+        var row = rg.r2 + 1;
+        growTo(rg.c2 + 1, row + 1);
+        for (var cc = rg.c1; cc <= rg.c2; cc++) {
+            if (rawAt(cc, row) !== "") continue;
+            setRaw(cc, row, "=" + fn + "(" + name(cc, rg.r1) + ":" + name(cc, rg.r2) + ")");
+        }
+        commit();
+        anchor = { c: rg.c1, r: row };
+        head = { c: rg.c2, r: row };
+        selCols = selRows = null;
+        afterSelChange();
+    }
+    function sortFilterItems() {
         return [
-            { label: "Sort range A → Z", icon: "sort amount down", action: function () { sortSelection(true); } },
-            { label: "Sort range Z → A", icon: "sort amount up", action: function () { sortSelection(false); } },
+            { label: "Sort A to Z", icon: "sort alphabet down", action: function () { sortSelection(true); } },
+            { label: "Sort Z to A", icon: "sort alphabet up", action: function () { sortSelection(false); } },
             { sep: true },
             {
-                label: sheet().filter ? "Remove filter" : "Create filter", icon: "filter",
+                label: sheet().filter ? "Remove filter" : "Filter", icon: "filter",
                 action: function () { if (window.SheetsIO) SheetsIO.toggleFilter(); }
-            },
-            { sep: true },
-            {
-                label: "Named ranges...", icon: "tag",
-                action: nameManagerDialog
-            },
-            { sep: true },
-            {
-                label: "Pivot table...", icon: "table",
-                action: function () { if (window.SheetsIO) SheetsIO.pivotDialog(); }
-            },
-            {
-                label: "Refresh pivot table", icon: "sync alternate",
-                enabled: function () { return !!sheet().pivot; },
-                action: function () { if (window.SheetsIO) SheetsIO.refreshPivot(); }
-            },
-            { sep: true },
-            {
-                label: "Freeze up to row " + (head.r + 1),
-                action: function () { freezeTo(head.r + 1, fz.c); }
-            },
-            {
-                label: "Freeze up to column " + F.colToName(head.c),
-                action: function () { freezeTo(fz.r, head.c + 1); }
-            },
-            {
-                label: "Unfreeze", enabled: function () { return fz.r > 0 || fz.c > 0; },
-                action: function () { freezeTo(0, 0); }
             }
         ];
+    }
+    function clearItems() {
+        return [
+            { label: "Clear all", icon: "trash alternate outline", action: function () { clearSelection(true); } },
+            { label: "Clear formats", icon: "eraser", action: clearFormats },
+            { label: "Clear contents", icon: "eraser", key: "Del", action: function () { clearSelection(false); } },
+            {
+                label: "Clear notes", icon: "sticky note outline",
+                action: function () { eachSel(function (c, r) { if (noteAt(c, r)) setNote(c, r, ""); }); }
+            },
+            {
+                label: "Clear conditional formatting", icon: "paint brush",
+                enabled: function () { return !!(window.SheetsCF && SheetsCF.selectionHasRules()); },
+                action: function () { if (window.SheetsCF) SheetsCF.clearForSelection(); }
+            }
+        ];
+    }
+
+    /* ---------- Home: format painter ----------
+       Copies the active cell's formatting (not its value, notes or rules)
+       onto the cells selected next; double-click keeps it on. */
+    var painter = null;
+    function startPainter(sticky) {
+        if (painter && !sticky) { stopPainter(); return; }
+        painter = { s: deep(styleAt(anchor.c, anchor.r)), sticky: !!sticky };
+        document.body.classList.add("sh-painting");
+        OfficeApp.setStatus(sticky ? "Format painter on - select cells to format, Esc to stop" :
+            "Select the cells to format", "info", 4000);
+        OfficeRibbon.refresh();
+    }
+    function stopPainter() {
+        painter = null;
+        document.body.classList.remove("sh-painting");
+        OfficeRibbon.refresh();
+    }
+    function applyPainter() {
+        if (!painter) return;
+        var src = painter.s;
+        applyStyle(function (st) {
+            Object.keys(st).forEach(function (k) { delete st[k]; });
+            Object.keys(src).forEach(function (k) { st[k] = deep(src[k]); });
+        });
+        if (!painter.sticky) stopPainter();
+    }
+
+    /* ---------- Formulas ---------- */
+    function insertFunction() {
+        if (editing) return;
+        startEdit("=");
+        OfficeApp.setStatus("Type a function name - suggestions appear as you type", "info", 4000);
+    }
+    function startFormulaWith(name) {
+        if (editing) {
+            // add it where the person is typing
+            var el = editing.viaFx ? document.getElementById("shFxInput") : inputEl;
+            var at = el.selectionStart || el.value.length;
+            el.value = el.value.substring(0, at) + name + "(" + el.value.substring(el.selectionEnd || at);
+            el.focus();
+            el.setSelectionRange(at + name.length + 1, at + name.length + 1);
+            if (editing.viaFx) inputEl.value = el.value; else $("#shFxInput").val(el.value);
+            return;
+        }
+        startEdit("=" + name + "(");
+    }
+    function fnCatItems(cats) {
+        var help = window.SheetFormulaHelp || {};
+        return F.functionNames().filter(function (n) {
+            var sp = F.lookupFunction(n);
+            return sp && cats.indexOf(sp.cat) >= 0 && sp.name === n;
+        }).map(function (n) {
+            var h = help[n];
+            return {
+                label: n, html: '<span class="sh-fn-name">' + esc(n) + '</span><span class="sh-fn-desc">' + esc(h ? h[0] : "") + "</span>",
+                action: function () { startFormulaWith(n); }
+            };
+        });
+    }
+    function moreFnItems() {
+        var groups = [["Engineering", ["Engineering"]], ["Information", ["Info"]], ["Database", ["Database"]],
+            ["Web", ["Web"]], ["Operators", ["Operator"]], ["Other", ["Google", "Parser"]]];
+        return groups.map(function (g) {
+            return { label: g[0], sub: function () { return fnCatItems(g[1]); } };
+        });
+    }
+    function toggleShowFormulas() {
+        showFormulas = !showFormulas;
+        renderGrid();
+        OfficeRibbon.refresh();
+    }
+    function recalcNow() {
+        rebuildCalc();
+        renderAll();
+        OfficeApp.setStatus("Recalculated");
+    }
+
+    /* ---------- Review ---------- */
+    function jumpNote(dir) {
+        var s = sheet();
+        var list = Object.keys(s.cells).filter(function (k) { return s.cells[k] && s.cells[k].n; }).map(function (k) {
+            var p = parseRange(k);
+            return p ? { c: p.c1, r: p.r1 } : null;
+        }).filter(Boolean).sort(function (a, b) { return a.r - b.r || a.c - b.c; });
+        if (!list.length) { OfficeApp.setStatus("This sheet has no notes", "info", 3000); return; }
+        var curIdx = -1;
+        list.forEach(function (p, i) { if (p.r < anchor.r || (p.r === anchor.r && p.c < anchor.c)) curIdx = i; });
+        var at = list.findIndex(function (p) { return p.r === anchor.r && p.c === anchor.c; });
+        var next = at >= 0 ? at + dir : (dir > 0 ? curIdx + 1 : curIdx);
+        next = (next + list.length) % list.length;
+        var p = list[next];
+        anchor = { c: p.c, r: p.r };
+        head = { c: p.c, r: p.r };
+        selCols = selRows = null;
+        afterSelChange();
+        scrollIntoView(p.c, p.r);
+        OfficeApp.setStatus(noteAt(p.c, p.r), "info", 5000);
+    }
+    function selectionStatsDialog() {
+        var n = 0, nums = 0, sum = 0, min = null, max = null, filled = 0;
+        eachSel(function (c, r) {
+            n++;
+            if (rawAt(c, r) !== "") filled++;
+            var v = valueAt(c, r);
+            if (typeof v === "number" && rawAt(c, r) !== "") {
+                nums++;
+                sum += v;
+                min = min === null ? v : Math.min(min, v);
+                max = max === null ? v : Math.max(max, v);
+            }
+        });
+        var fmt = function (v) { return v === null ? "-" : String(Math.round(v * 1e6) / 1e6); };
+        var rows = [["Cells", n], ["Non-empty", filled], ["Numbers", nums], ["Sum", fmt(sum)],
+            ["Average", nums ? fmt(sum / nums) : "-"], ["Min", fmt(min)], ["Max", fmt(max)]];
+        OfficeApp.dialog({
+            title: "Selection statistics (" + rangeStr(selRange()) + ")",
+            body: '<table class="sh-stats">' + rows.map(function (r) {
+                return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(String(r[1])) + "</td></tr>";
+            }).join("") + "</table>",
+            buttons: [{ label: "Close", primary: true }]
+        });
+    }
+
+    /* ---------- View ---------- */
+    function freezeItems() {
+        var fz = sheet().freeze;
+        return [
+            { label: "Freeze panes (above and left of " + key(head.c, head.r) + ")", action: function () { freezeTo(head.r, head.c); } },
+            { label: "Freeze top row", action: function () { freezeTo(1, 0); } },
+            { label: "Freeze first column", action: function () { freezeTo(0, 1); } },
+            { sep: true },
+            { label: "Freeze up to row " + (head.r + 1), action: function () { freezeTo(head.r + 1, fz.c); } },
+            { label: "Freeze up to column " + F.colToName(head.c), action: function () { freezeTo(fz.r, head.c + 1); } },
+            { sep: true },
+            { label: "Unfreeze panes", enabled: function () { return fz.r > 0 || fz.c > 0; }, action: function () { freezeTo(0, 0); } }
+        ];
+    }
+    function toggleGridlines() {
+        var off = !document.body.classList.contains("sh-nogrid");
+        document.body.classList.toggle("sh-nogrid", off);
+        OfficeApp.setSetting("noGridlines", off);
+        OfficeRibbon.refresh();
+    }
+    function toggleFormulaBar() {
+        var $fx = $("#shFxBar");
+        var show = $fx.css("display") === "none";
+        $fx.toggle(show);
+        OfficeApp.setSetting("hideFxBar", !show);
+        rebuildGeometry();
+        renderGrid();
+        OfficeRibbon.refresh();
     }
 
     /* ================= init ================= */
@@ -3214,12 +3686,18 @@ var SheetsApp = (function () {
             onCut: function () { execClipboard("cut"); },
             onCopy: function () { execClipboard("copy"); },
             onPaste: function () { execClipboard("paste"); },
-            editMenuExtras: [{ label: "Paste special", icon: "clipboard outline", sub: pasteSpecialItems() }],
-
-            menus: [
-                { title: "Insert", items: insertMenuItems },
-                { title: "Format", items: formatMenuItems },
-                { title: "Data", items: dataMenuItems }
+            // the ribbon (buildToolbar) carries Insert, Format, Data and
+            // View; File and Edit stay menus
+            ribbon: true,
+            editMenuExtras: [
+                { label: "Paste special", icon: "clipboard outline", sub: pasteSpecialItems },
+                { sep: true },
+                { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectUsedRange },
+                { label: "Delete", icon: "eraser", key: "Del", action: function () { clearSelection(false); } },
+                {
+                    label: "Format painter", icon: "paint brush",
+                    action: function () { startPainter(false); }
+                }
             ],
             /*
                 .ods needs the Office converters - the AGI backend in ArozOS,
@@ -3279,6 +3757,24 @@ var SheetsApp = (function () {
         OfficeApp.registerShortcut("Ctrl+Shift+(", unhide, { group: "Rows", allowInInput: false, inDialogs: false });
 
         buildToolbar();
+        // the document was loaded before the ribbon existed
+        syncToolbarFromSel();
+        if (OfficeApp.getSetting("noGridlines", false)) document.body.classList.add("sh-nogrid");
+        if (OfficeApp.getSetting("hideFxBar", false)) $("#shFxBar").hide();
+        // the format painter formats the cells a drag ends on
+        gridEl.addEventListener("pointerup", function () {
+            if (painter) setTimeout(applyPainter, 0);
+        });
+        OfficeApp.registerShortcut("Ctrl+5", function () {
+            if (editing) return false;
+            toggleStyleFlag("st");
+        }, { description: "Strikethrough", group: "Format", allowInInput: false, inDialogs: false });
+        OfficeApp.registerShortcut("Ctrl+`", function () { toggleShowFormulas(); },
+            { description: "Show formulas", group: "View", allowInInput: false, inDialogs: false });
+        OfficeApp.registerShortcut("F9", function () { recalcNow(); },
+            { description: "Calculate now", group: "Formulas", allowInInput: false, inDialogs: false });
+        OfficeHotkeys.register("Escape", function () { stopPainter(); },
+            { id: "sheets.painteresc", allowInInput: true, when: function () { return !!painter; } });
         OfficeApp.addStatusItem("stats", "");
         zoomF = OfficeApp.getZoom() / 100;
         rebuildGeometry();

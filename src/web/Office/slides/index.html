@@ -27,9 +27,12 @@
     <script src="../common/platform.js"></script>
     <script src="../common/fonts.js"></script>
     <script src="../common/hotkeys.js"></script>
+    <script src="../common/icons.js"></script>
+    <script src="../common/ribbon.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
     <script src="../common/clipboard.js"></script>
+    <script src="../common/sketch.js"></script>
     <script src="../common/textedit.js"></script>
     <script src="../common/charts.js"></script>
     <script src="../common/lib/html2canvas.min.js"></script>
@@ -56,6 +59,8 @@
                 <textarea id="slNotesText" placeholder="Click to add speaker notes"></textarea>
             </div>
         </div>
+        <!-- View > Slide overview: the deck as a grid (slides.js renderOverview) -->
+        <div id="slOverview" class="of-noprint"></div>
     </div>
     <div id="slPrintArea"></div>
     <input type="file" id="slDeviceImage" accept="image/*" multiple style="display:none;">

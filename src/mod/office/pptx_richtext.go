@@ -35,6 +35,7 @@ type htmlRun struct {
 	Strike    bool
 	Color     string // "#rrggbb"
 	Highlight string
+	Baseline  int // a:rPr baseline, 1/1000 %: 30000 superscript, -25000 subscript
 }
 
 // htmlPara is one paragraph with its block-level formatting
@@ -67,6 +68,7 @@ type inlineStyle struct {
 	strike     bool
 	color      string
 	highlight  string
+	baseline   int     // 30000 = superscript, -25000 = subscript (a:rPr)
 	bulletSpan bool    // this subtree is a bullet marker, not body text
 	bulletLeft float64 // the marker's offset from the paragraph box, px
 }
@@ -144,8 +146,10 @@ func parseStorageHTML(html string, base inlineStyle) []htmlPara {
 				st.underline = true
 			case "s", "strike", "del":
 				st.strike = true
-			case "sup", "sub":
-				// baseline shifts are not modelled on the run
+			case "sup":
+				st.baseline = pptxSuperBaseline
+			case "sub":
+				st.baseline = pptxSubBaseline
 			}
 			applyInlineAttrs(&st, t)
 			if st.bulletSpan && cur.Bullet == "" {
@@ -222,6 +226,7 @@ func styledRun(st inlineStyle, text string) htmlRun {
 		Text: text, SizePx: st.sizePx, Font: st.font,
 		Bold: bold, Italic: st.italic, Underline: st.underline,
 		Strike: st.strike, Color: st.color, Highlight: st.highlight,
+		Baseline: st.baseline,
 	}
 }
 
@@ -250,6 +255,15 @@ func applyBlockAttrs(p *htmlPara, el xml.StartElement) {
 		}
 	}
 }
+
+// the a:rPr baselines PowerPoint gives superscript and subscript
+const (
+	pptxSuperBaseline = 30000
+	pptxSubBaseline   = -25000
+	// the reader draws a raised or lowered run at this share of its size
+	// (pptx_text.go); a run that states both is read back at full size
+	pptxBaselineScale = 0.65
+)
 
 // applyInlineAttrs reads run-level CSS and the legacy <font> attributes
 func applyInlineAttrs(st *inlineStyle, el xml.StartElement) {
@@ -292,6 +306,15 @@ func applyInlineAttrs(st *inlineStyle, el xml.StartElement) {
 			st.strike = strings.Contains(val, "line-through")
 		case "color":
 			st.color = val
+		case "vertical-align":
+			switch val {
+			case "super":
+				st.baseline = pptxSuperBaseline
+			case "sub":
+				st.baseline = pptxSubBaseline
+			case "baseline":
+				st.baseline = 0
+			}
 		case "background-color", "background":
 			st.highlight = val
 		case "position":
@@ -301,6 +324,12 @@ func applyInlineAttrs(st *inlineStyle, el xml.StartElement) {
 		case "left":
 			st.bulletLeft = parseNum(val)
 		}
+	}
+	// the reader writes a raised run as vertical-align plus a smaller
+	// size; PowerPoint shrinks a raised run itself, so the run goes back
+	// at the size it had
+	if st.baseline != 0 && decls["vertical-align"] != "" && decls["font-size"] != "" && st.sizePx > 0 {
+		st.sizePx = st.sizePx / pptxBaselineScale
 	}
 }
 

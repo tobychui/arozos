@@ -228,6 +228,16 @@ body.dark {
 .sh-cell.b { font-weight: 700; }
 .sh-cell.i { font-style: italic; }
 .sh-cell.u { text-decoration: underline; }
+.sh-cell.st { text-decoration: line-through; }
+.sh-cell.u.st { text-decoration: underline line-through; }
+/* vertical alignment the cell states (s.va); after .wrap so it wins */
+.sh-cell.va-t { align-items: flex-start; }
+.sh-cell.va-m { align-items: center; }
+.sh-cell.va-b { align-items: flex-end; }
+/* View > Gridlines off: the cells' own borders (s.bd) stay */
+body.sh-nogrid .sh-cell { border-right-color: transparent; border-bottom-color: transparent; }
+/* Home > Format painter armed */
+body.sh-painting #shGrid { cursor: copy; }
 
 /* The selection overlays sit in the scrolling content just under the frozen
    panes (12-14), so a selection scrolled up/left slides behind them instead of
@@ -678,3 +688,41 @@ body.dark {
 .sh-paste-chip:hover { background: var(--of-hover); border-color: var(--of-accent); }
 .sh-paste-chip i.icon { margin: 0 !important; height: auto; font-size: 12px; }
 .sh-paste-chip i.caret.icon { width: 10px; font-size: 10px; color: var(--of-fg-soft); }
+
+/* ============ ribbon (buildToolbar) ============ */
+.of-tselect.sh-fontsel { width: 132px; }
+.of-tselect.sh-sizesel { width: 58px; }
+.of-tselect.sh-numfmt { width: 132px; }
+/* Cell styles / Format as table menus: each entry pictures its look */
+.sh-cs-chip {
+    display: inline-block;
+    min-width: 110px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12.5px;
+}
+.sh-ts-chip {
+    display: inline-grid;
+    grid-template-rows: repeat(4, 5px);
+    width: 30px;
+    gap: 1px;
+    border: 1px solid var(--of-border);
+    background: var(--of-border);
+}
+.sh-ts-chip span { background: var(--of-paper); }
+/* Formulas: the function lists show what each function does */
+.of-menu-item .sh-fn-name { font-weight: 600; min-width: 120px; }
+.of-menu-item .sh-fn-desc {
+    color: var(--of-fg-soft);
+    font-size: 12px;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sh-stats { width: 100%; border-collapse: collapse; }
+.sh-stats td { padding: 5px 4px; border-bottom: 1px solid var(--of-border); }
+.sh-stats td:last-child { text-align: right; font-weight: 600; }
+
+/* phone width: a narrower name box, and room to tap the sheet tabs */
+body.of-narrow #shNameBox { width: 64px; }
+body.of-narrow #shTabs { min-height: 34px; }

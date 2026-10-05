@@ -1029,6 +1029,10 @@ var SlidesApp = (function () {
     function renderThumb(i) {
         var $mini = $("#slThumbs .sl-thumb").eq(i).find(".sl-thumb-mini");
         if ($mini.length && body.slides[i]) renderSlideContent($mini[0], body.slides[i]);
+        if (overview) {
+            var $ov = $("#slOverview .sl-ov-card").eq(i).find(".sl-ov-mini");
+            if ($ov.length && body.slides[i]) renderSlideContent($ov[0], body.slides[i]);
+        }
     }
     function renderThumbSoon(i) {
         clearTimeout(thumbTimer);
@@ -1102,11 +1106,20 @@ var SlidesApp = (function () {
         });
         fitThumbs();
         if (refocus) $("#slThumbs .sl-thumb").eq(cur).focus();
+        if (overview) {
+            renderOverview();
+            focusOverview();
+        }
     }
     function updateRailActive() {
         $("#slThumbs .sl-thumb").each(function (i) {
             $(this).toggleClass("active", i === cur);
         });
+        if (overview) {
+            $("#slOverview .sl-ov-card").each(function (i) {
+                $(this).toggleClass("active", i === cur);
+            });
+        }
     }
 
     /* ================= layout / zoom ================= */
@@ -1746,6 +1759,7 @@ var SlidesApp = (function () {
     function syncDrawButtons() {
         $("#slBtnLine").toggleClass("active", pendingDraw === "line");
         $("#slBtnArrow").toggleClass("active", pendingDraw === "arrow");
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
     }
 
     function placeImage(src) {
@@ -2331,8 +2345,10 @@ var SlidesApp = (function () {
         setTimeout(function () {
             if (!id || editingId !== id) return;
             var el = objEl(id);
-            // focus moving into the floating format bar is still "editing"
+            // focus moving into the floating format bar is still "editing",
+            // and so is the ribbon's font list or size box
             if (window.OfficeTextEditBar && OfficeTextEditBar.contains(document.activeElement)) return;
+            if ($(document.activeElement).closest(".of-ribbon, .of-rb-popup").length) return;
             // a dialog opened over the editor (e.g. the Insert-link prompt)
             // must not tear down the edit - otherwise the box re-renders and
             // the command applies to a dead selection
@@ -3262,203 +3278,990 @@ var SlidesApp = (function () {
     }
 
     /* ================= toolbar ================= */
-    function tbtn(icon, title, fn, id) {
-        var $b = $('<button type="button" class="of-tbtn"' + (id ? ' id="' + id + '"' : "") +
-            ' title="' + esc(title) + '"><i class="' + icon + ' icon"></i></button>');
-        $b.on("click", fn);
-        return $b;
+    /* ================= ribbon ================= */
+    /* The ribbon (common/ribbon.js), as PowerPoint lays it out: Home,
+       Insert, Draw, Design, Transitions, Animations, Slide Show and View,
+       plus Shape Format and Picture Format, which only show while such an
+       object is selected. File stays a menu (office.js); the Slideshow
+       button sits in the title bar. */
+    var FONT_STEPS = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 54, 60, 66, 72, 80, 88, 96];
+    function textObjs() {
+        return selObjs().filter(function (o) { return o.type === "text" || o.type === "shape" || o.type === "table"; });
+    }
+    function hasShapeSel() {
+        return selObjs().some(function (o) { return o.type === "shape" || o.type === "line" || o.type === "text"; });
     }
     function buildToolbar() {
-        var $tb = $("#toolbar").empty();
+        var R = OfficeRibbon;
+        var B = R.button, D = R.dropdown;
 
-        $tb.append(tbtn("undo", "Undo (Ctrl+Z)", function () { doUndo(); }));
-        $tb.append(tbtn("redo", "Redo (Ctrl+Y)", function () { doRedo(); }));
-        $tb.append('<div class="of-tsep"></div>');
-        // New slide is a split control: the button adds one, the caret
-        // beside it picks the layout to start from
-        $tb.append(tbtn("plus square outline", "New slide (Ctrl+M)", function () { addSlideAfter(cur); }));
-        $tb.append(tbtn("caret down", "New slide with layout", function (e) {
-            var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.closeAllMenus();
-            showLayoutPicker(r.left - 60, r.bottom + 4);
-        }, "slBtnLayout"));
-        $tb.append('<div class="of-tsep"></div>');
-
-        $tb.append(tbtn("font", "Insert text box", insertText));
-        var $imgBtn = tbtn("image outline", "Insert image", function (e) {
-            var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, [
-                storageSourceItem(imageFromStorage),
-                { label: "From this device...", icon: "upload", action: imageFromDevice },
-                { label: "From URL...", icon: "linkify", action: imageFromUrl }
+        /* ---------- Home ---------- */
+        var home = R.tab("home", "Home");
+        home.group({ id: "slides", label: "Slides", svg: "newSlide", priority: 3 })
+            .add(R.big({
+                svg: "newSlide", label: "New slide", key: "Ctrl+M",
+                onClick: function () { addSlideAfter(cur); },
+                menuTitle: "New slide with layout",
+                onOpen: function (el, r) {
+                    OfficeApp.closeAllMenus();
+                    showLayoutPicker(r.left, r.bottom + 4);
+                },
+                menu: true
+            }))
+            .stack([
+                B({ icon: "clone outline", label: "Duplicate", showLabel: true, key: "Ctrl+D", onClick: function () { duplicateSlide(cur); } }),
+                B({ icon: "trash alternate outline", label: "Delete", showLabel: true, onClick: function () { deleteSlide(cur); } }),
+                B({ svg: "background", label: "Background", showLabel: true, onClick: function () { bgDialog(cur); } })
             ]);
+        var $font = $('<select class="of-tselect sl-fontsel" id="slFontFamily" title="Font"></select>');
+        OfficeFonts.MENU.forEach(function (f) {
+            $font.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
-        $tb.append($imgBtn);
-        var $shpBtn = tbtn("object group", "Insert shape", function (e) {
-            var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.closeAllMenus();
-            showShapePicker(r.left, r.bottom + 4);
-        });
-        $tb.append($shpBtn);
-        $tb.append(tbtn("minus", "Draw line", function () {
-            if (pendingDraw === "line") disarmDraw(); else armDraw("line");
-        }, "slBtnLine"));
-        $tb.append(tbtn("long arrow alternate right", "Draw arrow", function () {
-            if (pendingDraw === "arrow") disarmDraw(); else armDraw("arrow");
-        }, "slBtnArrow"));
-        $tb.append(tbtn("table", "Insert table", tableDialog));
-        $tb.append(tbtn("chart bar", "Insert chart", function () { chartDialog(null); }));
-        // picture tools: only meaningful with an image selected, so they
-        // are hidden until there is one (syncToolbarFromSel). Crop and the
-        // crop shapes are one split control - the button crops, the caret
-        // beside it picks the outline to crop to.
-        $tb.append(tbtn("crop", "Crop image", function () {
-            var io = selectedImage();
-            if (io) { if (cropId === io.id) endCrop(true); else startCrop(io.id); }
-        }, "slBtnCrop"));
-        $tb.append(tbtn("caret down", "Crop to shape", function (e) {
-            if (selectedImage() && window.SlidesImageTools) {
-                SlidesImageTools.showShapeMenu(e.currentTarget);
-            }
-        }, "slBtnCropShape"));
-        $tb.append(tbtn("history", "Reset image", function () {
-            var io = selectedImage();
-            if (io) resetImage(io);
-        }, "slBtnResetImg"));
-        $tb.append(tbtn("sliders horizontal", "Image format options", function () {
-            if (window.SlidesImageTools) SlidesImageTools.togglePanel();
-        }, "slBtnImgFmt"));
-        $tb.append('<div class="of-tsep"></div>');
-
-        var $fs = $('<input type="number" class="of-tinput sl-num" id="slFontSize" min="6" max="200" step="1" title="Font size" value="24">');
+        $font.on("change", function () { applyFontFamily($font.val()); });
+        var $fs = $('<input type="number" class="of-tinput sl-num" id="slFontSize" min="6" max="400" step="1" title="Font size" value="24">');
         $fs.on("change", function () {
-            var v = clamp(parseInt($fs.val(), 10) || 24, 6, 200);
+            var v = clamp(parseFloat($fs.val()) || 24, 6, 400);
             $fs.val(v);
-            applyToSel(function (o) {
-                if (o.type === "text" || o.type === "shape" || o.type === "table") {
-                    o.props.fontSize = v;
-                    return true;
-                }
-                return false;
-            });
+            applyFontSizeAll(v);
         });
-        $tb.append($fs);
-
-        function fmtBtn(icon, title, prop, cmd, id) {
-            var $b = tbtn(icon, title, function () {
-                if (editingId) {
-                    // editing text, a shape label or a table cell: format the
-                    // live selection (cells persist it as sanitized HTML)
-                    try { document.execCommand(cmd); } catch (e) { }
-                    return;
+        var font = home.group({ id: "font", label: "Font", icon: "font", priority: 9 });
+        font.row([$font, $fs,
+            B({ svg: "growFont", title: "Increase font size", key: "Ctrl+]", onClick: function () { stepFontSize(1); } }),
+            B({ svg: "shrinkFont", title: "Decrease font size", key: "Ctrl+[", onClick: function () { stepFontSize(-1); } }),
+            B({ svg: "clearFormat", title: "Clear formatting", onClick: clearTextFormatting }),
+            B({
+                svg: "formatPainter", title: "Format painter - click, then click the object to format (double-click to keep it on)", id: "slPainter",
+                active: function () { return !!painter; },
+                onClick: function () { startPainter(false); }
+            }).on("dblclick", function () { startPainter(true); })
+        ]);
+        var fmt = function (icon, title, key, prop, cmd, id, svg) {
+            return B({
+                icon: svg ? null : icon, svg: svg, title: title, key: key, id: id,
+                onClick: function () {
+                    if (prop) toggleTextProp(prop, cmd);
+                    else inlineCommand(cmd);
                 }
-                applyToSel(function (o) {
-                    if (o.type === "text" || o.type === "shape") {
-                        o.props[prop] = !o.props[prop];
-                        return true;
-                    }
-                    return false;
-                });
-            }, id);
-            $b.on("mousedown", function (e) { e.preventDefault(); }); // keep text caret
-            return $b;
-        }
-        $tb.append(fmtBtn("bold", "Bold", "bold", "bold", "slBtnBold"));
-        $tb.append(fmtBtn("italic", "Italic", "italic", "italic", "slBtnItalic"));
-        $tb.append(fmtBtn("underline", "Underline", "underline", "underline", "slBtnUnderline"));
-        $tb.append('<div class="of-tsep"></div>');
+            });
+        };
+        font.row([
+            fmt("bold", "Bold", "Ctrl+B", "bold", "bold", "slBtnBold"),
+            fmt("italic", "Italic", "Ctrl+I", "italic", "italic", "slBtnItalic"),
+            fmt("underline", "Underline", "Ctrl+U", "underline", "underline", "slBtnUnderline"),
+            fmt("strikethrough", "Strikethrough", null, null, "strikeThrough", "slBtnStrike"),
+            fmt(null, "Superscript", null, null, "superscript", "slBtnSup", "superscript"),
+            fmt(null, "Subscript", null, null, "subscript", "slBtnSub", "subscript"),
+            "|",
+            R.colorButton({ id: "slTextColor", svg: "fontColor", title: "Font color", value: "#d0342c", onPick: applyTextColor })
+        ]);
 
-        function listBtn(icon, title, cmd, id) {
-            var $b = tbtn(icon, title, function () { toggleList(cmd); }, id);
-            $b.on("mousedown", function (e) { e.preventDefault(); }); // keep text caret
-            return $b;
-        }
-        $tb.append(listBtn("list ul", "Bulleted list (Ctrl+Shift+8)", "insertUnorderedList", "slBtnUL"));
-        $tb.append(listBtn("list ol", "Numbered list (Ctrl+Shift+7)", "insertOrderedList", "slBtnOL"));
-        $tb.append('<div class="of-tsep"></div>');
+        var para = home.group({ id: "paragraph", label: "Paragraph", icon: "paragraph", priority: 7 });
+        para.row([
+            B({ icon: "list ul", title: "Bulleted list", key: "Ctrl+Shift+8", id: "slBtnUL", onClick: function () { toggleList("insertUnorderedList"); } }),
+            B({ icon: "list ol", title: "Numbered list", key: "Ctrl+Shift+7", id: "slBtnOL", onClick: function () { toggleList("insertOrderedList"); } }),
+            "|",
+            D({ svg: "lineSpacing", title: "Line spacing", menu: lineSpacingItems }),
+            D({ svg: "alignMiddle", title: "Align text vertically", menu: valignItems })
+        ]);
+        para.row(["left", "center", "right", "justify"].map(function (a) {
+            return B({
+                icon: "align " + a, title: a === "justify" ? "Justify" : "Align " + a, id: "slAlign_" + a,
+                onClick: function () { setTextAlign(a); }
+            });
+        }));
 
-        [["align left", "left"], ["align center", "center"], ["align right", "right"]].forEach(function (a) {
-            $tb.append(tbtn(a[0], "Align text " + a[1], function () {
-                applyToSel(function (o) {
-                    if (o.type === "text") { o.props.align = a[1]; return true; }
-                    return false;
-                });
+        home.group({ id: "drawing", label: "Drawing", svg: "shapes", priority: 5 })
+            .add(R.big({ svg: "shapes", label: "Shapes", onOpen: openShapePicker, menu: true }))
+            .add(R.big({ svg: "arrange", label: "Arrange", menu: arrangeItems }))
+            .stack([
+                R.colorButton({ id: "slFillColor", svg: "fill", title: "Shape fill", value: "#e07b1f", allowNone: true, noneLabel: "No fill", onPick: applyFill }),
+                R.colorButton({ id: "slStrokeColor", svg: "outline", title: "Shape outline", value: "#333333", allowNone: true, noneLabel: "No outline", onPick: applyStroke }),
+                D({ svg: "lineWeight", title: "Outline weight and dash", menu: function () {
+                    return [
+                        { label: "Weight", icon: "minus", sub: weightItems },
+                        { label: "Dash", icon: "ellipsis horizontal", sub: dashItems }
+                    ];
+                } })
+            ]);
+        home.group({ id: "pane", label: "Format pane", svg: "formatPane", priority: 2 })
+            .add(R.big({
+                svg: "formatPane", label: "Format pane", title: "Picture format options",
+                enabled: function () { return !!selectedImage(); },
+                active: function () { return !!(window.SlidesImageTools && SlidesImageTools.panelOpen()); },
+                onClick: function () { if (window.SlidesImageTools && selectedImage()) SlidesImageTools.togglePanel(); OfficeRibbon.refresh(); }
+            }))
+            .add(R.big({ svg: "alignObjects", label: "Align", menu: alignSub, enabled: function () { return sel.length > 0; } }))
+            .add(R.big({ svg: "findReplace", label: "Find / Replace", key: "Ctrl+H", onClick: findReplaceDialog }));
+
+        /* ---------- Insert ---------- */
+        var ins = R.tab("insert", "Insert");
+        ins.group({ id: "slides", label: "Slides", svg: "newSlide" })
+            .add(R.big({
+                svg: "newSlide", label: "New slide", key: "Ctrl+M", onClick: function () { addSlideAfter(cur); },
+                onOpen: function (el, r) { OfficeApp.closeAllMenus(); showLayoutPicker(r.left, r.bottom + 4); }, menu: true
+            }));
+        ins.group({ id: "tables", label: "Tables", svg: "table" })
+            .add(R.big({ svg: "table", label: "Table", onClick: tableDialog }));
+        ins.group({ id: "images", label: "Images", svg: "picture" })
+            .add(R.big({ svg: "picture", label: "Pictures", menu: imageMenu }))
+            .add(R.big({ svg: "drawing", label: "Drawing", onClick: function () { drawingDialog(); } }));
+        ins.group({ id: "illustrations", label: "Illustrations", svg: "shapes" })
+            .add(R.big({ svg: "shapes", label: "Shapes", onOpen: openShapePicker, menu: true }))
+            .add(R.big({ svg: "chart", label: "Chart", onClick: function () { chartDialog(null); } }))
+            .stack([
+                B({ icon: "minus", label: "Line", showLabel: true, id: "slBtnLine", active: function () { return pendingDraw === "line"; }, onClick: function () { if (pendingDraw === "line") disarmDraw(); else armDraw("line"); } }),
+                B({ icon: "long arrow alternate right", label: "Arrow", showLabel: true, id: "slBtnArrow", active: function () { return pendingDraw === "arrow"; }, onClick: function () { if (pendingDraw === "arrow") disarmDraw(); else armDraw("arrow"); } })
+            ]);
+        ins.group({ id: "text", label: "Text", svg: "textBox" })
+            .add(R.big({ svg: "textBox", label: "Text box", onClick: insertText }))
+            .add(R.big({ svg: "link", label: "Link", enabled: function () { return sel.length === 1; }, onClick: linkDialog }));
+        ins.group({ id: "media", label: "Media", svg: "video" })
+            .add(R.big({ svg: "video", label: "Video", menu: function () { return mediaMenu("video"); } }))
+            .add(R.big({ svg: "audio", label: "Audio", menu: function () { return mediaMenu("audio"); } }));
+
+        /* ---------- Draw ---------- */
+        var draw = R.tab("draw", "Draw");
+        draw.group({ id: "tools", label: "Tools", svg: "pen" })
+            .add(R.big({ icon: "mouse pointer", label: "Select", active: function () { return !pendingDraw; }, onClick: function () { if (pendingDraw) disarmDraw(); OfficeRibbon.refresh(); } }))
+            .add(R.big({ icon: "minus", label: "Line", active: function () { return pendingDraw === "line"; }, onClick: function () { armDraw("line"); OfficeRibbon.refresh(); } }))
+            .add(R.big({ icon: "long arrow alternate right", label: "Arrow", active: function () { return pendingDraw === "arrow"; }, onClick: function () { armDraw("arrow"); OfficeRibbon.refresh(); } }))
+            .add(R.big({ svg: "shapes", label: "Shapes", onOpen: openShapePicker, menu: true }));
+        var pens = draw.group({ id: "pens", label: "Pens", svg: "pen" });
+        OfficeSketch.PENS.forEach(function (p) {
+            pens.add(R.big({
+                iconHtml: OfficeSketch.penIcon(p), label: p.label,
+                title: "Draw with the " + p.label.toLowerCase(),
+                onClick: function () { drawingDialog(p.id); }
             }));
         });
-        $tb.append('<div class="of-tsep"></div>');
+        draw.group({ id: "canvas", label: "Canvas", svg: "drawing" })
+            .add(R.big({ svg: "drawing", label: "Drawing canvas", onClick: function () { drawingDialog(); } }));
 
-        function colorInput(id, title, def) {
-            return OfficeColorPicker.swatchInput({ id: id, title: title, value: def });
-        }
-        $tb.append('<span class="sl-tlabel">Text</span>');
-        var $tc = colorInput("slTextColor", "Text color", "#202124");
-        $tc.on("change", function () {
-            var v = $tc.val();
-            if (editingId) {
-                // color only the selected text / cell content
-                try { document.execCommand("foreColor", false, v); } catch (e) { }
-                return;
-            }
-            applyToSel(function (o) {
-                if (o.type === "text" || o.type === "table") { o.props.color = v; return true; }
-                if (o.type === "shape") { o.props.textColor = v; return true; }
-                return false;
-            });
-        });
-        $tb.append($tc);
-        $tb.append('<span class="sl-tlabel">Fill</span>');
-        var $fc = colorInput("slFillColor", "Shape fill color", "#e07b1f");
-        $fc.on("change", function () {
-            var v = $fc.val();
-            applyToSel(function (o) {
-                if (o.type === "shape") { o.props.fill = v; return true; }
-                return false;
-            });
-        });
-        $tb.append($fc);
-        $tb.append('<span class="sl-tlabel">Line</span>');
-        var $sc = colorInput("slStrokeColor", "Line / border color", "#333333");
-        $sc.on("change", function () {
-            var v = $sc.val();
-            applyToSel(function (o) {
-                if (o.type === "shape" || o.type === "line") { o.props.stroke = v; return true; }
-                // a picture's frame: only one it already has
-                if (o.type === "image" && Number(o.props.strokeW) > 0) { o.props.stroke = v; return true; }
-                return false;
-            });
-        });
-        $tb.append($sc);
-        // the line menus, as Google Slides has them: weight and dash for
-        // anything with a line, the two ends for a line
-        $tb.append(lineMenuButton("weight", "Line weight", "slBtnLineWeight", weightItems));
-        $tb.append(lineMenuButton("dash", "Line dash", "slBtnLineDash", dashItems));
-        $tb.append(lineMenuButton("start", "Line start", "slBtnLineStart", function () { return headItems(false); }));
-        $tb.append(lineMenuButton("end", "Line end", "slBtnLineEnd", function () { return headItems(true); }));
-        $tb.append('<div class="of-tsep"></div>');
+        /* ---------- Design ---------- */
+        var design = R.tab("design", "Design");
+        design.group({ id: "themes", label: "Themes", svg: "theme", priority: 5 })
+            .add(R.gallery({
+                id: "slThemes", cls: "sl-themes", tileW: 96, visible: 6, moreTitle: "All themes",
+                items: Object.keys(THEMES).map(function (k) {
+                    var t = THEMES[k];
+                    return {
+                        key: k, label: t.label,
+                        build: function ($t) {
+                            var $p = $('<span class="sl-themeprev"></span>').css({ background: t.bg, color: t.text });
+                            $p.append('<span class="sl-themeprev-aa">Aa</span>')
+                                .append($('<span class="sl-themeprev-bar"></span>').css("background", t.accent));
+                            $t.append($p).append($('<span class="sl-themeprev-name"></span>').text(t.label));
+                        },
+                        active: function () { return body.theme === k; },
+                        onClick: function () { setTheme(k); }
+                    };
+                }),
+                extra: [{ label: "Browse themes...", icon: "paint brush", action: themeDialog }]
+            }));
+        design.group({ id: "customize", label: "Customize", svg: "background" })
+            .add(R.big({ svg: "background", label: "Background", title: "Format the slide background", onClick: function () { bgDialog(cur); } }))
+            .add(R.big({ svg: "theme", label: "Browse themes", onClick: themeDialog }));
 
-        var $snap = tbtn("magnet", "Snap to grid (10 px)", function () {
-            snapGrid = !snapGrid;
-            OfficeApp.setSetting("snapGrid", snapGrid);
-            $snap.toggleClass("active", snapGrid);
-        }, "slBtnSnap");
-        $snap.toggleClass("active", snapGrid);
-        $tb.append($snap);
+        /* ---------- Transitions ---------- */
+        var tr = R.tab("transitions", "Transitions");
+        tr.group({ id: "transition", label: "Transition to this slide", svg: "transition", priority: 5 })
+            .add(R.gallery({
+                id: "slTransitions", cls: "sl-effects", tileW: 74, visible: 6,
+                items: TRANSITIONS.map(function (t) {
+                    return {
+                        key: t.key, label: t.label,
+                        html: effectIcon("tr-" + t.key) + '<span class="sl-effect-name">' + esc(t.label) + "</span>",
+                        active: function () { return (curSlide().transition || "none") === t.key; },
+                        onClick: function () { curSlide().transition = t.key; commit(); }
+                    };
+                })
+            }));
+        tr.group({ id: "timing", label: "Timing", svg: "transition" })
+            .add(R.big({
+                svg: "transition", label: "Apply to all",
+                onClick: function () {
+                    var t = curSlide().transition || "none";
+                    body.slides.forEach(function (s) { s.transition = t; });
+                    commit();
+                    OfficeApp.setStatus("Transition applied to every slide");
+                }
+            }))
+            .add(R.big({ svg: "present", label: "Preview", title: "Play this slide from here", onClick: function () { startPresent(cur); } }));
 
-        $tb.append('<div class="sl-spacer"></div>');
-        var $present = $('<button type="button" class="of-tbtn sl-present-btn" title="Present (F5)">' +
-            '<i class="play icon"></i>&nbsp;Present&nbsp;<i class="caret down icon"></i></button>');
-        $present.on("click", function (e) {
-            var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, [
-                { label: "Present", icon: "play", key: "F5", action: function () { startPresent(cur); } },
-                {
-                    label: "Present with presenter view", icon: "desktop",
-                    action: function () { startPresent(cur, { presenter: true }); }
+        /* ---------- Animations ---------- */
+        var an = R.tab("animations", "Animations");
+        an.group({ id: "animation", label: "Animation", svg: "animation", priority: 5 })
+            .add(R.gallery({
+                id: "slAnims", cls: "sl-effects", tileW: 74, visible: 6,
+                items: ANIMS.map(function (a) {
+                    return {
+                        key: a.key, label: a.label,
+                        html: effectIcon("an-" + (a.key || "none")) + '<span class="sl-effect-name">' + esc(a.label) + "</span>",
+                        active: function () {
+                            var so = selObjs();
+                            return so.length > 0 && (so[0].props.anim || "") === a.key;
+                        },
+                        onClick: function () {
+                            if (!sel.length) { OfficeApp.setStatus("Select an object to animate first", "info", 3000); return; }
+                            setAnimation(a.key);
+                        }
+                    };
+                })
+            }));
+        an.group({ id: "interaction", label: "Interaction", svg: "link" })
+            .add(R.big({ svg: "link", label: "Click link", title: "Link the object to a slide or a web page", enabled: function () { return sel.length === 1; }, onClick: linkDialog }))
+            .add(R.big({ svg: "present", label: "Preview", onClick: function () { startPresent(cur); } }));
+
+        /* ---------- Slide Show ---------- */
+        var show = R.tab("slideshow", "Slide Show");
+        show.group({ id: "start", label: "Start Slide Show", svg: "present" })
+            .add(R.big({ svg: "fromStart", label: "From beginning", key: "Shift+F5", onClick: function () { startPresent(0); } }))
+            .add(R.big({ svg: "present", label: "From current slide", key: "F5", onClick: function () { startPresent(cur); } }))
+            .add(R.big({ svg: "presenter", label: "Presenter view", onClick: function () { startPresent(cur, { presenter: true }); } }));
+        show.group({ id: "setup", label: "Set Up", svg: "notes" })
+            .add(R.big({ svg: "notes", label: "Speaker notes", active: notesShown, onClick: function () { toggleNotes(); OfficeRibbon.refresh(); } }));
+
+        /* ---------- View ---------- */
+        var view = R.tab("view", "View");
+        view.group({ id: "views", label: "Presentation Views", svg: "normalView" })
+            .add(R.big({ svg: "normalView", label: "Normal", active: function () { return !overview; }, onClick: function () { setOverview(false); } }))
+            .add(R.big({ svg: "overview", label: "Slide overview", key: "Ctrl+Alt+1", active: function () { return overview; }, onClick: function () { setOverview(true); } }));
+        view.group({ id: "show", label: "Show", svg: "notes" })
+            .add(R.big({ svg: "notes", label: "Notes", active: notesShown, onClick: function () { toggleNotes(); OfficeRibbon.refresh(); } }))
+            .add(R.big({ svg: "snap", label: "Snap to grid", active: function () { return snapGrid; }, onClick: toggleSnap }));
+        view.group({ id: "zoom", label: "Zoom", svg: "zoomIn" })
+            .add(R.big({ svg: "zoomOut", label: "Zoom out", key: "Ctrl+-", onClick: function () { OfficeApp.zoomOut(); } }))
+            .add(R.big({ svg: "zoom100", label: "Fit", title: "Fit the slide to the window", key: "Ctrl+0", onClick: function () { OfficeApp.setZoom(100); } }))
+            .add(R.big({ svg: "zoomIn", label: "Zoom in", key: "Ctrl+=", onClick: function () { OfficeApp.zoomIn(); } }));
+        view.group({ id: "appearance", label: "Appearance", svg: "darkTheme" })
+            .add(R.big({ svg: "darkTheme", label: "Dark theme", active: function () { return OfficeApp.isDark(); }, onClick: function () { OfficeApp.toggleTheme(); OfficeRibbon.refresh(); } }));
+
+        /* ---------- Shape Format (contextual) ---------- */
+        var sf = R.tab("shapeformat", "Shape Format", { contextual: true, when: function () { return !overview && strokedObjs().some(function (o) { return o.type !== "image"; }); } });
+        sf.group({ id: "styles", label: "Shape Styles", svg: "fill" }).stack([
+            R.colorButton({ id: "slFillColor2", svg: "fill", title: "Shape fill", value: "#e07b1f", allowNone: true, noneLabel: "No fill", onPick: applyFill }),
+            R.colorButton({ id: "slStrokeColor2", svg: "outline", title: "Shape outline", value: "#333333", allowNone: true, noneLabel: "No outline", onPick: applyStroke })
+        ]);
+        sf.group({ id: "lines", label: "Lines", svg: "lineWeight" })
+            .add(R.big({ svg: "lineWeight", label: "Weight", menu: weightItems }))
+            .add(R.big({ svg: "lineDash", label: "Dash", menu: dashItems }))
+            .add(R.big({ iconHtml: SlidesLines.toolIcon("start"), label: "Line start", visible: function () { return lineObjs().length > 0; }, menu: function () { return headItems(false); } }))
+            .add(R.big({ iconHtml: SlidesLines.toolIcon("end"), label: "Line end", visible: function () { return lineObjs().length > 0; }, menu: function () { return headItems(true); } }));
+        arrangeGroup(sf);
+
+        /* ---------- Picture Format (contextual) ---------- */
+        var pf = R.tab("pictureformat", "Picture Format", { contextual: true, when: function () { return !overview && !!selectedImage(); } });
+        pf.group({ id: "adjust", label: "Adjust", svg: "resetPicture" })
+            .add(R.big({
+                svg: "crop", label: "Crop", active: function () { return !!cropId; },
+                onClick: function () {
+                    var io = selectedImage();
+                    if (io) { if (cropId === io.id) endCrop(true); else startCrop(io.id); }
+                    OfficeRibbon.refresh();
                 },
-                { label: "Present from beginning", icon: "play circle outline", action: function () { startPresent(0); } }
+                onOpen: function (el) { if (selectedImage() && window.SlidesImageTools) SlidesImageTools.showShapeMenu(el); },
+                menu: true, menuTitle: "Crop to shape"
+            }))
+            .add(R.big({ svg: "resetPicture", label: "Reset picture", onClick: function () { var io = selectedImage(); if (io) resetImage(io); } }))
+            .add(R.big({
+                svg: "formatPane", label: "Format pane",
+                active: function () { return !!(window.SlidesImageTools && SlidesImageTools.panelOpen()); },
+                onClick: function () { if (window.SlidesImageTools) SlidesImageTools.togglePanel(); OfficeRibbon.refresh(); }
+            }));
+        pf.group({ id: "border", label: "Picture Border", svg: "outline" })
+            .add(R.colorButton({ id: "slImgStroke", svg: "outline", title: "Picture border", value: "#333333", allowNone: true, noneLabel: "No border", onPick: applyPictureBorder }))
+            .add(R.big({ svg: "lineWeight", label: "Weight", menu: weightItems }))
+            .add(R.big({ svg: "lineDash", label: "Dash", menu: dashItems }));
+        arrangeGroup(pf);
+
+        /* ---------- the title bar: Slideshow ---------- */
+        var $present = $('<button type="button" class="sl-present-btn" title="Start the slide show (F5)">' +
+            '<i class="play icon"></i><span>Slideshow</span></button>');
+        var $presentMore = $('<button type="button" class="sl-present-more" title="More ways to present"><i class="caret down icon"></i></button>');
+        $present.on("click", function () { startPresent(cur); });
+        $presentMore.on("click", function (e) {
+            var r = e.currentTarget.getBoundingClientRect();
+            OfficeApp.showContextMenu(r.right - 240, r.bottom + 4, [
+                { label: "Present from current slide", icon: "play", key: "F5", action: function () { startPresent(cur); } },
+                { label: "Present from beginning", icon: "play circle outline", key: "Shift+F5", action: function () { startPresent(0); } },
+                { label: "Present with presenter view", icon: "desktop", action: function () { startPresent(cur, { presenter: true }); } }
             ]);
         });
-        $tb.append($present);
+        OfficeApp.titleBarSlot().append($('<span class="sl-present-split"></span>').append($present).append($presentMore));
+
+        /* ---------- the status bar: Normal / Overview ---------- */
+        OfficeApp.addStatusItem("views",
+            '<span class="sl-viewbtns"><button type="button" class="sl-viewbtn" data-view="normal" title="Normal">' +
+            OfficeIcons.get("normalView") + '</button><button type="button" class="sl-viewbtn" data-view="overview" title="Slide overview (Ctrl+Alt+1)">' +
+            OfficeIcons.get("overview") + "</button></span>");
+        $(document).on("click", ".sl-viewbtn", function () { setOverview($(this).attr("data-view") === "overview"); });
+        syncViewButtons();
+    }
+    function arrangeGroup(tab) {
+        var R = OfficeRibbon;
+        tab.group({ id: "arrange", label: "Arrange", svg: "arrange" })
+            .add(R.big({ svg: "bringFront", label: "Bring forward", onClick: function () { reorderSelection("forward"); }, menu: orderSub }))
+            .add(R.big({ svg: "sendBack", label: "Send backward", onClick: function () { reorderSelection("backward"); }, menu: orderSub }))
+            .add(R.big({ svg: "alignObjects", label: "Align", menu: alignSub }))
+            .add(R.big({ svg: "group", label: "Group", menu: arrangeGroupItems }));
+    }
+    function arrangeGroupItems() {
+        return [
+            { label: "Group", icon: "object group outline", key: "Ctrl+G", enabled: function () { return sel.length >= 2; }, action: groupSelection },
+            { label: "Ungroup", key: "Ctrl+Shift+G", enabled: selectionHasGroup, action: ungroupSelection }
+        ];
+    }
+    function arrangeItems() {
+        var items = [{ label: "Order", icon: "bars", sub: orderSub }, { label: "Align", icon: "align center", sub: alignSub }, { sep: true }];
+        return items.concat(arrangeGroupItems()).concat([
+            { sep: true },
+            { label: "Duplicate", icon: "clone outline", key: "Ctrl+D", enabled: function () { return sel.length > 0; }, action: duplicateSelection },
+            { label: "Delete", icon: "trash alternate outline", key: "Del", enabled: function () { return sel.length > 0; }, action: deleteSelection }
+        ]);
+    }
+    function imageMenu() {
+        return [
+            storageSourceItem(imageFromStorage),
+            { label: "From this device...", icon: "upload", action: imageFromDevice },
+            { label: "From URL...", icon: "linkify", action: imageFromUrl }
+        ].filter(Boolean);
+    }
+    function mediaMenu(kind) {
+        return [
+            storageSourceItem(function () { mediaFromStorage(kind); }),
+            { label: "From this device...", icon: "upload", action: function () { mediaFromDevice(kind); } }
+        ].filter(Boolean);
+    }
+    function openShapePicker(el, r) {
+        OfficeApp.closeAllMenus();
+        showShapePicker(r.left, r.bottom + 4);
+    }
+    function notesShown() { return !$("#slNotes").hasClass("collapsed"); }
+    function toggleSnap() {
+        snapGrid = !snapGrid;
+        OfficeApp.setSetting("snapGrid", snapGrid);
+        OfficeRibbon.refresh();
+    }
+    // the small pictures on the Transitions and Animations galleries
+    function effectIcon(kind) {
+        var a = '<rect x="3" y="5" width="18" height="14" rx="1.5"/>';
+        var body = {
+            "tr-none": a,
+            "tr-fade": '<rect x="3" y="5" width="18" height="14" rx="1.5" opacity=".35"/><rect class="accs" x="6" y="8" width="12" height="8" rx="1"/>',
+            "tr-slide": '<rect x="2" y="5" width="12" height="14" rx="1.5" opacity=".4"/><rect class="accs" x="10" y="5" width="12" height="14" rx="1.5"/><path d="M13 12h5M16 10l2 2-2 2"/>',
+            "tr-zoom": '<rect x="2" y="4" width="20" height="16" rx="1.5" opacity=".35"/><rect class="accs" x="7" y="8" width="10" height="8" rx="1"/><path d="M4 6l3 2M20 6l-3 2M4 18l3-2M20 18l-3-2"/>',
+            "an-none": '<circle cx="12" cy="12" r="7" opacity=".5"/><path d="M7 17 17 7"/>',
+            "an-fade": '<path class="acc" d="M12 4l2 4.5 5 .6-3.7 3.4 1 4.9L12 15l-4.3 2.4 1-4.9L5 9.1l5-.6z" opacity=".55"/>',
+            "an-slide": '<path class="acc" d="M15 5l1.6 3.6 3.9.4-2.9 2.6.8 3.9-3.4-2-3.4 2 .8-3.9-2.9-2.6 3.9-.4z"/><path d="M2 9h5M3 13h5M2 17h6"/>',
+            "an-zoom": '<path class="acc" d="M12 7l1.2 2.7 2.9.3-2.2 2 .6 2.9-2.5-1.5-2.5 1.5.6-2.9-2.2-2 2.9-.3z"/><path d="M4 4l3 3M20 4l-3 3M4 20l3-3M20 20l-3-3"/>'
+        }[kind] || a;
+        return '<svg class="of-ic sl-effect-ic" viewBox="0 0 24 24" aria-hidden="true">' + body + "</svg>";
+    }
+
+    /* ---------- Home: text formatting ----------
+       With a text box being edited the commands act on the selected text
+       (execCommand, or the floating text bar's font code); otherwise on
+       every selected object as a whole. */
+    function applyFontFamily(name) {
+        if (editingId && window.OfficeTextEditBar && OfficeTextEditBar.hasTextSelection && OfficeTextEditBar.hasTextSelection()) {
+            OfficeTextEditBar.applyFontFamily(name);
+            syncEditingIntoModel();
+            OfficeApp.markDirty();
+            return;
+        }
+        applyToSel(function (o) {
+            if (o.type !== "text" && o.type !== "shape" && o.type !== "table") return false;
+            o.props.fontFamily = name;
+            return true;
+        });
+    }
+    function applyFontSizeAll(v) {
+        if (editingId && window.OfficeTextEditBar && OfficeTextEditBar.hasTextSelection && OfficeTextEditBar.hasTextSelection()) {
+            OfficeTextEditBar.applyFontSizePx(v);
+            syncEditingIntoModel();
+            OfficeApp.markDirty();
+            return;
+        }
+        applyToSel(function (o) {
+            if (o.type === "text" || o.type === "shape" || o.type === "table") {
+                o.props.fontSize = v;
+                return true;
+            }
+            return false;
+        });
+    }
+    function stepFontSize(dir) {
+        var so = textObjs();
+        if (!so.length) return;
+        var curSize = Number(so[0].props.fontSize) || (so[0].type === "table" ? 16 : 24);
+        var next = curSize;
+        var i;
+        if (dir > 0) {
+            next = curSize + 8;
+            for (i = 0; i < FONT_STEPS.length; i++) if (FONT_STEPS[i] > curSize) { next = FONT_STEPS[i]; break; }
+        } else {
+            next = Math.max(6, curSize - 1);
+            for (i = FONT_STEPS.length - 1; i >= 0; i--) if (FONT_STEPS[i] < curSize) { next = FONT_STEPS[i]; break; }
+        }
+        // editing: the selected text grows; otherwise the whole object
+        if (editingId) { applyFontSizeAll(next); if (!OfficeTextEditBar.hasTextSelection()) return; }
+        applyToSel(function (o) {
+            if (o.type !== "text" && o.type !== "shape" && o.type !== "table") return false;
+            var s = Number(o.props.fontSize) || (o.type === "table" ? 16 : 24);
+            o.props.fontSize = dir > 0 ? Math.max(next, s) : Math.min(next, s);
+            if (s === curSize) o.props.fontSize = next;
+            return true;
+        });
+        $("#slFontSize").val(next);
+    }
+    function toggleTextProp(prop, cmd) {
+        if (editingId) {
+            try { document.execCommand(cmd); } catch (e) { }
+            return;
+        }
+        applyToSel(function (o) {
+            if (o.type === "text" || o.type === "shape") {
+                o.props[prop] = !o.props[prop];
+                return true;
+            }
+            return false;
+        });
+    }
+    /* strike, superscript and subscript live on the text runs: on a whole
+       text box they are applied as an edit over all of its text */
+    function inlineCommand(cmd) {
+        if (editingId) {
+            try { document.execCommand(cmd); } catch (e) { }
+            return;
+        }
+        var ids = selObjs().filter(function (o) { return o.type === "text"; }).map(function (o) { return o.id; });
+        if (!ids.length) {
+            OfficeApp.setStatus("Select a text box, or some text in one", "info", 3000);
+            return;
+        }
+        var keep = sel.slice();
+        ids.forEach(function (id) {
+            startEdit(id);
+            try { document.execCommand(cmd); } catch (e) { }
+            endEdit(true);
+        });
+        setSel(keep);
+    }
+    function clearTextFormatting() {
+        if (editingId) {
+            try { document.execCommand("removeFormat"); } catch (e) { }
+            return;
+        }
+        var th = themeOf();
+        applyToSel(function (o) {
+            if (o.type !== "text" && o.type !== "shape") return false;
+            delete o.props.bold;
+            delete o.props.italic;
+            delete o.props.underline;
+            delete o.props.fontFamily;
+            if (o.type === "text") {
+                o.props.color = th.text;
+                if (o.props.html) o.props.html = stripRunFormatting(o.props.html);
+            } else {
+                delete o.props.textColor;
+            }
+            return true;
+        });
+    }
+    // drop the run-level styling of stored text, keeping the paragraphs,
+    // lists, alignment and links
+    function stripRunFormatting(html) {
+        var d = document.createElement("div");
+        d.innerHTML = html;
+        var inl = d.querySelectorAll("b, strong, i, em, u, s, strike, del, sup, sub, font");
+        for (var i = inl.length - 1; i >= 0; i--) {
+            var el = inl[i];
+            while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+            el.parentNode.removeChild(el);
+        }
+        var spans = d.querySelectorAll("span[style]");
+        for (i = 0; i < spans.length; i++) {
+            ["font-family", "font-size", "font-weight", "font-style", "color", "background-color",
+                "text-decoration", "text-decoration-line", "vertical-align"].forEach(function (k) {
+                spans[i].style.removeProperty(k);
+            });
+            if (!spans[i].getAttribute("style")) spans[i].removeAttribute("style");
+        }
+        return d.innerHTML;
+    }
+    function applyTextColor(v) {
+        if (!v) return;
+        if (editingId) {
+            try { document.execCommand("foreColor", false, v); } catch (e) { }
+            return;
+        }
+        applyToSel(function (o) {
+            if (o.type === "text" || o.type === "table") { o.props.color = v; return true; }
+            if (o.type === "shape") { o.props.textColor = v; return true; }
+            return false;
+        });
+    }
+    function setTextAlign(a) {
+        applyToSel(function (o) {
+            if (o.type === "text" || o.type === "shape") {
+                o.props.align = a;
+                // the paragraphs of rich text state their own alignment
+                if (o.props.html) {
+                    var d = document.createElement("div");
+                    d.innerHTML = o.props.html;
+                    var blocks = d.querySelectorAll("div, p, li");
+                    for (var i = 0; i < blocks.length; i++) blocks[i].style.removeProperty("text-align");
+                    o.props.html = d.innerHTML;
+                }
+                return true;
+            }
+            return false;
+        });
+    }
+    var LINE_SPACINGS = [1, 1.15, 1.3, 1.5, 2, 2.5];
+    function lineSpacingItems() {
+        var so = textObjs();
+        var cur0 = so.length ? (Number(so[0].props.lineHeight) || 0) : 0;
+        return LINE_SPACINGS.map(function (v) {
+            return {
+                label: String(v), checked: Math.abs(cur0 - v) < 0.01,
+                action: function () {
+                    applyToSel(function (o) {
+                        if (o.type !== "text" && o.type !== "shape") return false;
+                        o.props.lineHeight = v;
+                        return true;
+                    });
+                }
+            };
+        });
+    }
+    function valignItems() {
+        var so = textObjs();
+        var curV = so.length ? (so[0].props.valign || "top") : "";
+        return [["top", "Top", "alignTop"], ["middle", "Middle", "alignMiddle"], ["bottom", "Bottom", "alignBottom"]].map(function (v) {
+            return {
+                label: v[1], checked: curV === v[0],
+                action: function () {
+                    applyToSel(function (o) {
+                        if (o.type !== "text" && o.type !== "shape") return false;
+                        o.props.valign = v[0];
+                        return true;
+                    });
+                }
+            };
+        });
+    }
+
+    /* ---------- Home: drawing colours ---------- */
+    function applyFill(v) {
+        applyToSel(function (o) {
+            if (o.type !== "shape") return false;
+            o.props.fill = v || "none";
+            return true;
+        });
+        OfficeRibbon.setColor("#slFillColor", v);
+        OfficeRibbon.setColor("#slFillColor2", v);
+    }
+    function applyStroke(v) {
+        applyToSel(function (o) {
+            if (o.type === "shape" || o.type === "line") { o.props.stroke = v || "none"; return true; }
+            return false;
+        });
+        OfficeRibbon.setColor("#slStrokeColor", v);
+        OfficeRibbon.setColor("#slStrokeColor2", v);
+    }
+    function applyPictureBorder(v) {
+        applyToSel(function (o) {
+            if (o.type !== "image") return false;
+            o.props.stroke = v || "none";
+            if (v && !(Number(o.props.strokeW) > 0)) o.props.strokeW = 2;
+            if (!v) o.props.strokeW = 0;
+            return true;
+        });
+    }
+
+    /* ---------- Home: format painter ----------
+       Copies the look of the selected object - its text style, fill and
+       outline - onto the next object clicked. Double-click keeps it on. */
+    var PAINT_KEYS = {
+        text: ["fontSize", "color", "bold", "italic", "underline", "fontFamily", "align", "lineHeight", "valign"],
+        shape: ["fill", "stroke", "strokeW", "dashStyle", "dash", "textColor", "fontSize", "bold", "italic", "underline", "fontFamily", "align", "valign"],
+        line: ["stroke", "strokeW", "dashStyle", "dash", "startHead", "endHead", "arrowEnd", "arrowStart"],
+        image: ["stroke", "strokeW", "radius", "opacity", "recolor", "bright", "contrast"],
+        table: ["fontSize", "color", "fontFamily"]
+    };
+    var painter = null;
+    function startPainter(sticky) {
+        if (painter && !sticky) { stopPainter(); return; }
+        var so = selObjs();
+        if (so.length !== 1) {
+            OfficeApp.setStatus("Select the object whose format to copy", "info", 3000);
+            return;
+        }
+        var src = so[0];
+        var props = {};
+        (PAINT_KEYS[src.type] || []).forEach(function (k) { if (src.props[k] !== undefined) props[k] = deep(src.props[k]); });
+        painter = { fromId: src.id, type: src.type, props: props, sticky: !!sticky };
+        canvasEl.classList.add("sl-painting");
+        OfficeApp.setStatus(sticky ? "Format painter on - click objects to format, Esc to stop" :
+            "Click the object to format", "info", 4000);
+        OfficeRibbon.refresh();
+    }
+    function stopPainter() {
+        painter = null;
+        if (canvasEl) canvasEl.classList.remove("sl-painting");
+        OfficeRibbon.refresh();
+    }
+    function applyPainterToSel() {
+        if (!painter) return;
+        var targets = selObjs().filter(function (o) { return o.id !== painter.fromId; });
+        if (!targets.length) return;
+        var p = painter;
+        targets.forEach(function (o) {
+            (PAINT_KEYS[o.type] || []).forEach(function (k) {
+                // text style crosses between text boxes and shape labels
+                var srcKey = k;
+                if (o.type === "shape" && k === "textColor" && p.type === "text") srcKey = "color";
+                if (o.type === "text" && k === "color" && p.type === "shape") srcKey = "textColor";
+                if (p.props[srcKey] !== undefined) o.props[k] = deep(p.props[srcKey]);
+            });
+        });
+        commit();
+        if (!p.sticky) stopPainter();
+    }
+
+    /* ---------- Insert / Draw: drawings ---------- */
+    function drawingDialog(penId) {
+        endEdit(true);
+        OfficeSketch.open({
+            title: "Drawing", pen: penId, aspect: SLIDE_H / SLIDE_W,
+            onInsert: function (blob, w, h) {
+                OfficeApp.blobToSrc(blob, "drawing.png", function (src) {
+                    // drawn on a slide-shaped canvas: keep its place and size
+                    // relative to the slide it was drawn for
+                    var sc = Math.min(1, (SLIDE_W - 40) / w, (SLIDE_H - 40) / h);
+                    var pw = Math.max(8, Math.round(w * sc)), ph = Math.max(8, Math.round(h * sc));
+                    addObj("image", { src: src, fit: "contain" },
+                        { x: Math.round((SLIDE_W - pw) / 2), y: Math.round((SLIDE_H - ph) / 2), w: pw, h: ph });
+                }, function (msg) { OfficeApp.toast(msg, "error"); });
+            }
+        });
+    }
+
+    /* ---------- Home: find and replace ----------
+       Searches the text of every text box, shape label and table cell, in
+       slide order from the current slide, and replaces in the text nodes
+       only, so formatting runs stay as they are. */
+    function textHolders(o) {
+        // [{get, set}] for each piece of HTML the object carries
+        var out = [];
+        if (o.type === "text") {
+            out.push({ get: function () { return o.props.html || ""; }, set: function (h) { o.props.html = h; } });
+        } else if (o.type === "shape") {
+            if (o.props.html) out.push({ get: function () { return o.props.html; }, set: function (h) { o.props.html = h; } });
+            else out.push({ get: function () { return esc(o.props.text || ""); }, set: function (h) {
+                var d = document.createElement("div");
+                d.innerHTML = h;
+                o.props.text = d.textContent;
+            } });
+        } else if (o.type === "table") {
+            (o.props.rows || []).forEach(function (row, r) {
+                row.forEach(function (cell, c) {
+                    out.push({ get: function () { return o.props.rows[r][c] || ""; }, set: function (h) { o.props.rows[r][c] = h; } });
+                });
+            });
+        }
+        return out;
+    }
+    function plainOf(html) {
+        var d = document.createElement("div");
+        d.innerHTML = html;
+        return d.textContent || "";
+    }
+    function replaceInHtml(html, needle, repl, all, matchCase) {
+        var d = document.createElement("div");
+        d.innerHTML = html;
+        var count = 0;
+        var flags = matchCase ? "g" : "gi";
+        var rx = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
+        var walker = document.createTreeWalker(d, NodeFilter.SHOW_TEXT, null);
+        var nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        for (var i = 0; i < nodes.length; i++) {
+            var t = nodes[i].nodeValue;
+            var changed = t.replace(rx, function (m) {
+                if (!all && count > 0) return m;
+                count++;
+                return repl;
+            });
+            if (changed !== t) nodes[i].nodeValue = changed;
+            if (!all && count > 0) break;
+        }
+        return { html: d.innerHTML, count: count };
+    }
+    var findPos = { s: 0, o: -1 };
+    function findReplaceDialog() {
+        endEdit(true);
+        var $b = $('<div class="sl-findrep"></div>');
+        $b.append("<label>Find what</label>");
+        var $f = $('<input type="text" class="fr-find">');
+        $b.append($f);
+        $b.append("<label>Replace with</label>");
+        var $r = $('<input type="text" class="fr-repl">');
+        $b.append($r);
+        var $mc = $('<label class="ps-check"><input type="checkbox" class="fr-case"> Match case</label>');
+        $b.append($mc);
+        var $msg = $('<div class="of-dim fr-msg">&nbsp;</div>');
+        $b.append($msg);
+        var matches = function (o, needle, mc) {
+            return textHolders(o).some(function (h) {
+                var t = plainOf(h.get());
+                return mc ? t.indexOf(needle) >= 0 : t.toLowerCase().indexOf(needle.toLowerCase()) >= 0;
+            });
+        };
+        var findNext = function () {
+            var needle = $f.val();
+            if (!needle) return null;
+            var mc = $b.find(".fr-case").prop("checked");
+            var n = body.slides.length;
+            var startS = findPos.s < n ? findPos.s : cur;
+            for (var step = 0; step <= n; step++) {
+                var si = (startS + step) % n;
+                var objs = body.slides[si].objects;
+                var from = (step === 0) ? findPos.o + 1 : 0;
+                for (var oi = from; oi < objs.length; oi++) {
+                    if (matches(objs[oi], needle, mc)) {
+                        findPos = { s: si, o: oi };
+                        if (si !== cur) selectSlide(si);
+                        setSel([objs[oi].id]);
+                        $msg.text("Found on slide " + (si + 1));
+                        return objs[oi];
+                    }
+                }
+            }
+            findPos = { s: cur, o: -1 };
+            $msg.text("No matches");
+            return null;
+        };
+        var replaceIn = function (o, all) {
+            var needle = $f.val(), mc = $b.find(".fr-case").prop("checked");
+            var total = 0;
+            textHolders(o).forEach(function (h) {
+                if (!all && total > 0) return;
+                var res = replaceInHtml(h.get(), needle, $r.val(), all, mc);
+                if (res.count) { h.set(res.html); total += res.count; }
+            });
+            return total;
+        };
+        findPos = { s: cur, o: -1 };
+        OfficeApp.dialog({
+            title: "Find and replace",
+            body: $b,
+            buttons: [
+                { label: "Close" },
+                {
+                    label: "Replace all", action: function () {
+                        var needle = $f.val();
+                        if (!needle) return;
+                        var total = 0;
+                        body.slides.forEach(function (s) {
+                            s.objects.forEach(function (o) { total += replaceIn(o, true); });
+                        });
+                        if (total) { renderAll(); OfficeApp.markDirty(); undo.push(snap()); }
+                        $msg.text(total ? "Replaced " + total + " occurrence" + (total === 1 ? "" : "s") : "No matches");
+                    }
+                },
+                {
+                    label: "Replace", action: function () {
+                        var o = sel.length === 1 ? objById(sel[0]) : null;
+                        if (o && $f.val() && matches(o, $f.val(), $b.find(".fr-case").prop("checked"))) {
+                            if (replaceIn(o, false)) commit();
+                        }
+                        findNext();
+                    }
+                },
+                { label: "Find next", primary: true, action: function () { findNext(); } }
+            ]
+        });
+        $f.on("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); findNext(); } });
+        setTimeout(function () { $f.focus(); }, 30);
+    }
+
+    /* ================= slide overview ================= */
+    /* The whole deck as a grid of slides, Google Slides' grid view and
+       PowerPoint's Slide Sorter: click selects, double-click (or Enter)
+       opens the slide, drag reorders, right-click has the slide menu, and
+       Delete / Ctrl+D / Ctrl+M work on the slide in hand. The previews are
+       the same renderSlideContent() the rail uses. */
+    var overview = false;
+    var OV_SIZES = [140, 180, 220, 280, 340, 420];
+    function overviewSize() {
+        var i = OfficeApp.getSetting("overviewSize", 2);
+        return OV_SIZES[clamp(i, 0, OV_SIZES.length - 1)];
+    }
+    function setOverview(on) {
+        on = !!on;
+        if (on === overview) { if (on) focusOverview(); return; }
+        endCrop(true);
+        endEdit(true);
+        if (pendingDraw) disarmDraw();
+        overview = on;
+        document.body.classList.toggle("sl-overview-on", on);
+        if (on) {
+            setSel([]);
+            renderOverview();
+            focusOverview();
+        } else {
+            $("#slOverview").empty();
+            renderRail();
+            layoutCanvas();
+            fitThumbs();
+        }
+        syncViewButtons();
+        OfficeApp.updateMenus();
+    }
+    function syncViewButtons() {
+        $(".sl-viewbtn[data-view=normal]").toggleClass("active", !overview);
+        $(".sl-viewbtn[data-view=overview]").toggleClass("active", overview);
+    }
+    function focusOverview() {
+        var $c = $("#slOverview .sl-ov-card").eq(cur);
+        if ($c.length) {
+            $c[0].focus({ preventScroll: true });
+            $c[0].scrollIntoView({ block: "nearest" });
+        }
+    }
+    var ovDrag = -1;
+    function renderOverview() {
+        var $ov = $("#slOverview");
+        if (!$ov.length) return;
+        var size = overviewSize();
+        var keepScroll = $ov.find(".sl-ov-grid").scrollTop() || 0;
+        $ov.empty();
+        var $grid = $('<div class="sl-ov-grid"></div>').css("--sl-ov-w", size + "px")
+            .css("--sl-ov-scale", size / SLIDE_W);
+        body.slides.forEach(function (s, i) {
+            var $c = $('<div class="sl-ov-card" tabindex="0" draggable="true"></div>').attr("data-i", i);
+            if (i === cur) $c.addClass("active");
+            var $v = $('<div class="sl-ov-view"><div class="sl-ov-mini sl-slidebase"></div></div>');
+            $c.append($v);
+            var $meta = $('<div class="sl-ov-meta"></div>').append('<span class="sl-ov-num">' + (i + 1) + "</span>");
+            if (s.transition && s.transition !== "none") {
+                $meta.append('<span class="sl-ov-flag" title="Transition: ' + esc(s.transition) + '">' + OfficeIcons.get("transition") + "</span>");
+            }
+            if (s.notes) $meta.append('<span class="sl-ov-flag" title="Has speaker notes">' + OfficeIcons.get("notes") + "</span>");
+            $c.append($meta);
+            renderSlideContent($v.find(".sl-ov-mini")[0], s);
+            $c.on("click", function () { overviewSelect(i); });
+            $c.on("dblclick", function () { cur = i; setOverview(false); selectSlide(i); });
+            $c.on("contextmenu", function (e) {
+                e.preventDefault();
+                overviewSelect(i);
+                showSlideContextMenu(e.clientX, e.clientY, i);
+            });
+            $c.on("dragstart", function (e) {
+                ovDrag = i;
+                $c.addClass("dragging");
+                try {
+                    e.originalEvent.dataTransfer.setData("text/plain", String(i));
+                    e.originalEvent.dataTransfer.effectAllowed = "move";
+                } catch (err) { }
+            });
+            $c.on("dragover", function (e) {
+                if (ovDrag < 0) return;
+                e.preventDefault();
+                var r = $c[0].getBoundingClientRect();
+                var before = (e.originalEvent.clientX - r.left) < r.width / 2;
+                $c.toggleClass("drop-before", before).toggleClass("drop-after", !before);
+            });
+            $c.on("dragleave", function () { $c.removeClass("drop-before drop-after"); });
+            $c.on("drop", function (e) {
+                e.preventDefault();
+                var before = $c.hasClass("drop-before");
+                $c.removeClass("drop-before drop-after");
+                if (ovDrag < 0 || ovDrag === i) return;
+                moveSlideTo(ovDrag, i + (before ? 0 : 1));
+            });
+            $c.on("dragend", function () {
+                ovDrag = -1;
+                $("#slOverview .sl-ov-card").removeClass("dragging drop-before drop-after");
+            });
+            $grid.append($c);
+        });
+        // a new slide at the end, as the last card
+        var $add = $('<button type="button" class="sl-ov-add" title="New slide (Ctrl+M)"><i class="plus icon"></i></button>');
+        $add.on("click", function () { addSlideAfter(body.slides.length - 1); });
+        $grid.append($add);
+        $ov.append($grid);
+        $grid.scrollTop(keepScroll);
+        // the size control, Google Slides' grid view has it at the bottom
+        var $zoom = $('<div class="sl-ov-zoom"></div>');
+        var $minus = $('<button type="button" title="Smaller slides"><i class="minus icon"></i></button>');
+        var $mid = $('<span class="sl-ov-zoomic" title="Slide size">' + OfficeIcons.get("overview") + "</span>");
+        var $plus = $('<button type="button" title="Larger slides"><i class="plus icon"></i></button>');
+        var step = function (d) {
+            var i = clamp(OfficeApp.getSetting("overviewSize", 2) + d, 0, OV_SIZES.length - 1);
+            OfficeApp.setSetting("overviewSize", i);
+            renderOverview();
+            focusOverview();
+        };
+        $minus.on("click", function () { step(-1); });
+        $plus.on("click", function () { step(1); });
+        $zoom.append($minus).append($mid).append($plus);
+        $ov.append($zoom);
+    }
+    function overviewSelect(i) {
+        if (i < 0 || i >= body.slides.length) return;
+        cur = i;
+        $("#slOverview .sl-ov-card").each(function (k) { $(this).toggleClass("active", k === i); });
+        var $c = $("#slOverview .sl-ov-card").eq(i);
+        if ($c.length && document.activeElement !== $c[0]) {
+            $c[0].focus({ preventScroll: true });
+        }
+        if ($c.length) $c[0].scrollIntoView({ block: "nearest" });
+        // the editor behind follows, so leaving the overview lands here
+        renderEditorSlide();
+        syncNotes();
+        updateStatus();
+    }
+    function overviewColumns() {
+        var cards = document.querySelectorAll("#slOverview .sl-ov-card");
+        if (cards.length < 2) return 1;
+        var top = cards[0].offsetTop, n = 0;
+        for (var i = 0; i < cards.length; i++) {
+            if (cards[i].offsetTop !== top) break;
+            n++;
+        }
+        return Math.max(1, n);
+    }
+    function registerOverviewKeys() {
+        var HK = OfficeHotkeys;
+        var on = function () { return overview && !presActive(); };
+        var G = "Slide overview";
+        HK.register("Ctrl+]", function () { stepFontSize(1); },
+            { id: "sl.grow", description: "Increase font size", group: "Text editing", allowInInput: true, when: function () { return !presActive(); } });
+        HK.register("Ctrl+[", function () { stepFontSize(-1); },
+            { id: "sl.shrink", description: "Decrease font size", group: "Text editing", allowInInput: true, when: function () { return !presActive(); } });
+        HK.register("Ctrl+H", function () { findReplaceDialog(); },
+            { id: "sl.findrep", description: "Find and replace", group: "Slides", when: function () { return !presActive(); } });
+        HK.register("Escape", function () { stopPainter(); },
+            { id: "sl.painteresc", allowInInput: true, when: function () { return !!painter; } });
+        HK.register("Ctrl+Alt+1", function () { setOverview(!overview); },
+            { id: "sl.overview", description: "Slide overview on / off", group: "Slides", allowInInput: true, when: function () { return !presActive(); } });
+        HK.register("Escape", function () { setOverview(false); }, { id: "sl.ov.esc", description: "Back to the slide", group: G, allowInInput: true, when: on });
+        HK.register("Enter", function () { var i = cur; setOverview(false); selectSlide(i); }, { id: "sl.ov.enter", description: "Open the slide", group: G, when: on });
+        HK.register("Delete", function () { deleteSlide(cur); }, { id: "sl.ov.del", description: "Delete slide", group: G, when: on });
+        HK.register("Backspace", function () { deleteSlide(cur); }, { id: "sl.ov.bs", when: on });
+        HK.register("Home", function () { overviewSelect(0); }, { id: "sl.ov.home", when: on });
+        HK.register("End", function () { overviewSelect(body.slides.length - 1); }, { id: "sl.ov.end", when: on });
+        HK.register("Ctrl+A", function () { }, { id: "sl.ov.ctrla", when: on });
+        HK.register("Tab", function () { return false; }, { id: "sl.ov.tab", when: on });
+        [["ArrowLeft", -1, 0], ["ArrowRight", 1, 0], ["ArrowUp", 0, -1], ["ArrowDown", 0, 1]].forEach(function (k) {
+            HK.register(k[0], function () {
+                var step = k[1] + k[2] * overviewColumns();
+                overviewSelect(clamp(cur + step, 0, body.slides.length - 1));
+            }, { id: "sl.ov." + k[0], description: k[0] === "ArrowLeft" ? "Move between slides" : "", group: G, when: on });
+        });
     }
 
     /* ---- line menus (weight, dash, start, end) ---- */
@@ -3471,22 +4274,11 @@ var SlidesApp = (function () {
     function lineObjs() {
         return selObjs().filter(function (o) { return o.type === "line"; });
     }
-    function lineMenuButton(icon, title, id, items) {
-        // hidden until the selection has a line to style (syncToolbarFromSel)
-        var $b = $('<button type="button" class="of-tbtn sl-linebtn" id="' + id + '" title="' + esc(title) +
-            '" style="display:none;">' +
-            SlidesLines.toolIcon(icon) + "</button>");
-        $b.on("click", function (e) {
-            var r = e.currentTarget.getBoundingClientRect();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, items());
-        });
-        return $b;
-    }
     // a frame with no colour of its own takes the line colour on the
     // toolbar, or setting its weight would show nothing
     function ensureStroke(o) {
         if (!o.props.stroke || o.props.stroke === "none") {
-            o.props.stroke = $("#slStrokeColor").val() || "#333333";
+            o.props.stroke = OfficeRibbon.colorOf("#slStrokeColor") || "#333333";
         }
     }
     function weightItems() {
@@ -3549,34 +4341,28 @@ var SlidesApp = (function () {
         return (so.length === 1 && so[0].type === "image") ? so[0] : null;
     }
 
+    /* The ribbon follows the selection: font and size, the toggles, and
+       the contextual Shape / Picture Format tabs (OfficeRibbon.refresh).
+       The colour buttons keep the colour last used, as in Office. */
     function syncToolbarFromSel() {
         var so = selObjs();
         var o = so.length ? so[0] : null;
-        var isImg = !!selectedImage();
-        $("#slBtnCrop, #slBtnCropShape, #slBtnResetImg, #slBtnImgFmt").toggle(isImg);
-        $("#slBtnCrop").toggleClass("active", !!cropId);
-        if (window.SlidesImageTools) {
-            $("#slBtnImgFmt").toggleClass("active", SlidesImageTools.panelOpen());
-            SlidesImageTools.sync();
-        }
-        // the line menus only where there is a line to style
-        $("#slBtnLineWeight, #slBtnLineDash").toggle(strokedObjs().length > 0);
-        $("#slBtnLineStart, #slBtnLineEnd").toggle(lineObjs().length > 0);
-        if (!o) return;
-        var p = o.props;
-        if (o.type === "text" || o.type === "shape" || o.type === "table") {
+        if (window.SlidesImageTools) SlidesImageTools.sync();
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
+        var p = o ? o.props : {};
+        if (o && (o.type === "text" || o.type === "shape" || o.type === "table")) {
             $("#slFontSize").val(Number(p.fontSize) || (o.type === "table" ? 16 : 24));
-        }
-        var tcol = o.type === "shape" ? p.textColor : p.color;
-        // trigger of-cp-refresh so the swatch buttons repaint their chip
-        if (tcol && /^#[0-9a-fA-F]{6}$/.test(tcol)) $("#slTextColor").val(tcol).trigger("of-cp-refresh");
-        if (o.type === "shape" && p.fill && /^#[0-9a-fA-F]{6}$/.test(p.fill)) $("#slFillColor").val(p.fill).trigger("of-cp-refresh");
-        if ((o.type === "shape" || o.type === "line" || o.type === "image") && p.stroke && /^#[0-9a-fA-F]{6}$/.test(p.stroke)) {
-            $("#slStrokeColor").val(p.stroke).trigger("of-cp-refresh");
+            var fam = String(p.fontFamily || "Arial").replace(/['"]/g, "").split(",")[0].trim();
+            var $ff = $("#slFontFamily");
+            if ($ff.find('option[value="' + fam + '"]').length) $ff.val(fam);
         }
         $("#slBtnBold").toggleClass("active", !!p.bold);
         $("#slBtnItalic").toggleClass("active", !!p.italic);
         $("#slBtnUnderline").toggleClass("active", !!p.underline);
+        var al = o && (o.type === "text" || o.type === "shape") ? (p.align || "left") : "";
+        ["left", "center", "right", "justify"].forEach(function (a) {
+            $("#slAlign_" + a).toggleClass("active", al === a);
+        });
     }
 
     /* ================= notes panel ================= */
@@ -3586,7 +4372,8 @@ var SlidesApp = (function () {
         layoutCanvas();
     }
     function initNotes() {
-        if (OfficeApp.getSetting("notesCollapsed", false)) $("#slNotes").addClass("collapsed");
+        // a phone starts with the notes folded away (not saved as a choice)
+        if (OfficeApp.getSetting("notesCollapsed", false) || OfficeRibbon.isNarrow()) $("#slNotes").addClass("collapsed");
         $("#slNotesHead").on("click", toggleNotes);
         $("#slNotesText").on("input", function () {
             curSlide().notes = this.value;
@@ -3954,46 +4741,6 @@ var SlidesApp = (function () {
         }
     ];
 
-    /* ================= menus ================= */
-    function insertMenuItems() {
-        return [
-            { label: "Text box", icon: "font", action: insertText },
-            {
-                label: "Image", icon: "image outline", sub: [
-                    storageSourceItem(imageFromStorage),
-                    { label: "From this device...", icon: "upload", action: imageFromDevice },
-                    { label: "From URL...", icon: "linkify", action: imageFromUrl }
-                ]
-            },
-            {
-                label: "Shape...", icon: "object group",
-                action: function (e) {
-                    var r = document.getElementById("toolbar").getBoundingClientRect();
-                    showShapePicker(r.left + 120, r.bottom + 4);
-                }
-            },
-            { label: "Line", icon: "minus", action: function () { armDraw("line"); } },
-            { label: "Arrow", icon: "long arrow alternate right", action: function () { armDraw("arrow"); } },
-            { label: "Table...", icon: "table", action: tableDialog },
-            { label: "Chart...", icon: "chart bar", action: function () { chartDialog(null); } },
-            { sep: true },
-            {
-                label: "Video", icon: "film", sub: [
-                    storageSourceItem(function () { mediaFromStorage("video"); }),
-                    { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("video"); } }
-                ]
-            },
-            {
-                label: "Audio", icon: "music", sub: [
-                    storageSourceItem(function () { mediaFromStorage("audio"); }),
-                    { label: "From this device...", icon: "upload", action: function () { mediaFromDevice("audio"); } }
-                ]
-            },
-            { sep: true },
-            { label: "New slide", icon: "plus", key: "Ctrl+M", action: function () { addSlideAfter(cur); } },
-            { label: "New slide from layout", icon: "th large", sub: layoutMenuItems }
-        ];
-    }
     /* The layouts a new slide can start from, in the order the picker
        shows them. They are skeletons of real objects, not a placeholder
        system - so what the preview draws is what the slide will be. */
@@ -4010,12 +4757,6 @@ var SlidesApp = (function () {
         { key: "bignumber", label: "Big number" },
         { key: "blank", label: "Blank" }
     ];
-    function layoutMenuItems() {
-        return LAYOUTS.map(function (l) {
-            return { label: l.label, action: function () { addSlideAfter(cur, l.key); } };
-        });
-    }
-
     /* showLayoutPicker is the caret beside New slide: every layout as a
        preview of itself. The previews are built by the same newSlide() and
        renderSlideContent() the document uses, at the scale the rail uses,
@@ -4053,122 +4794,6 @@ var SlidesApp = (function () {
             });
         }, 0);
     }
-    function slideMenuItems() {
-        return [
-            { label: "New slide", icon: "plus", key: "Ctrl+M", action: function () { addSlideAfter(cur); } },
-            { label: "Duplicate slide", icon: "clone outline", key: "Ctrl+D", action: function () { duplicateSlide(cur); } },
-            { label: "Delete slide", icon: "trash alternate outline", action: function () { deleteSlide(cur); } },
-            { sep: true },
-            {
-                label: "Move slide up", icon: "angle up",
-                enabled: function () { return cur > 0; },
-                action: function () { moveSlide(cur, -1); }
-            },
-            {
-                label: "Move slide down", icon: "angle down",
-                enabled: function () { return cur < body.slides.length - 1; },
-                action: function () { moveSlide(cur, 1); }
-            },
-            { sep: true },
-            {
-                label: "Transition", icon: "exchange", sub: function () {
-                    var items = TRANSITIONS.map(function (t) {
-                        return {
-                            label: t.label,
-                            checked: function () { return (curSlide().transition || "none") === t.key; },
-                            action: function () {
-                                curSlide().transition = t.key;
-                                commit();
-                            }
-                        };
-                    });
-                    items.push({ sep: true });
-                    items.push({
-                        label: "Apply to all slides",
-                        action: function () {
-                            var t = curSlide().transition || "none";
-                            body.slides.forEach(function (s) { s.transition = t; });
-                            commit();
-                            OfficeApp.setStatus("Transition applied to every slide");
-                        }
-                    });
-                    return items;
-                }
-            },
-            { sep: true },
-            { label: "Background...", icon: "paint brush", action: function () { bgDialog(cur); } }
-        ];
-    }
-    function formatMenuItems() {
-        var hasSel = function () { return sel.length > 0; };
-        var inTextEdit = function () { return editingId && editingKind === "text"; };
-        var listState = function (cmd) {
-            if (!inTextEdit()) return false;
-            try { return document.queryCommandState(cmd); } catch (e) { return false; }
-        };
-        return [
-            {
-                label: "Bulleted list", icon: "list ul", key: "Ctrl+Shift+8",
-                checked: function () { return listState("insertUnorderedList"); },
-                action: function () { toggleList("insertUnorderedList"); }
-            },
-            {
-                label: "Numbered list", icon: "list ol", key: "Ctrl+Shift+7",
-                checked: function () { return listState("insertOrderedList"); },
-                action: function () { toggleList("insertOrderedList"); }
-            },
-            { sep: true },
-            { label: "Align to slide", icon: "align center", enabled: hasSel, sub: alignSub },
-            { label: "Order", icon: "bars", enabled: hasSel, sub: orderSub },
-            { sep: true },
-            {
-                label: "Group", icon: "object group outline", key: "Ctrl+G",
-                enabled: function () { return sel.length >= 2; },
-                action: groupSelection
-            },
-            {
-                label: "Ungroup", key: "Ctrl+Shift+G",
-                enabled: selectionHasGroup,
-                action: ungroupSelection
-            },
-            { sep: true },
-            {
-                label: "Animate (entrance)", icon: "magic", enabled: hasSel,
-                sub: function () {
-                    var so = selObjs();
-                    var current = so.length ? (so[0].props.anim || "") : "";
-                    return ANIMS.map(function (a) {
-                        return {
-                            label: a.label,
-                            checked: current === a.key,
-                            action: function () { setAnimation(a.key); }
-                        };
-                    });
-                }
-            },
-            {
-                label: "Link...", icon: "linkify",
-                enabled: function () { return sel.length === 1; },
-                action: linkDialog
-            },
-            { sep: true },
-            { label: "Duplicate object", icon: "clone outline", key: "Ctrl+D", enabled: hasSel, action: duplicateSelection },
-            { label: "Delete object", icon: "trash alternate outline", key: "Del", enabled: hasSel, action: deleteSelection }
-        ];
-    }
-    function designMenuItems() {
-        var items = Object.keys(THEMES).map(function (k) {
-            return {
-                label: THEMES[k].label,
-                checked: function () { return body.theme === k; },
-                action: function () { setTheme(k); }
-            };
-        });
-        items.push({ sep: true });
-        items.push({ label: "Browse themes...", icon: "paint brush", action: themeDialog });
-        return items;
-    }
-
     /* ================= init ================= */
     function initDomRefs() {
         canvasEl = document.getElementById("slCanvas");
@@ -4352,11 +4977,19 @@ var SlidesApp = (function () {
                 } else { fallback(); }
             },
 
-            menus: [
-                { title: "Insert", items: insertMenuItems },
-                { title: "Slide", items: slideMenuItems },
-                { title: "Format", items: formatMenuItems },
-                { title: "Design", items: designMenuItems }
+            // the ribbon (buildToolbar) carries Insert, Slide, Format,
+            // Design and View; File and Edit stay menus
+            ribbon: true,
+            editMenuExtras: [
+                { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAllObjects },
+                { label: "Delete", icon: "trash alternate outline", key: "Del", enabled: function () { return sel.length > 0; }, action: deleteSelection },
+                { label: "Duplicate", icon: "clone outline", key: "Ctrl+D", enabled: function () { return sel.length > 0; }, action: duplicateSelection },
+                {
+                    label: "Format painter", icon: "paint brush",
+                    action: function () { startPainter(false); }
+                },
+                { sep: true },
+                { label: "Find and replace...", icon: "exchange", key: "Ctrl+H", action: findReplaceDialog }
             ],
             binaryImporters: {
                 ".odp": importOdp
@@ -4398,30 +5031,6 @@ var SlidesApp = (function () {
                     }
                 }
             ],
-            viewMenuExtras: [
-                { label: "Present", icon: "play", key: "F5", action: function () { startPresent(cur); } },
-                {
-                    label: "Present with presenter view", icon: "desktop",
-                    action: function () { startPresent(cur, { presenter: true }); }
-                },
-                { label: "Present from beginning", icon: "play circle outline", action: function () { startPresent(0); } },
-                { sep: true },
-                {
-                    label: "Speaker notes",
-                    checked: function () { return !$("#slNotes").hasClass("collapsed"); },
-                    action: toggleNotes
-                },
-                {
-                    label: "Snap to grid",
-                    checked: function () { return snapGrid; },
-                    action: function () {
-                        snapGrid = !snapGrid;
-                        OfficeApp.setSetting("snapGrid", snapGrid);
-                        $("#slBtnSnap").toggleClass("active", snapGrid);
-                    }
-                }
-            ],
-
             onZoomChanged: function (pct) {
                 zoomPct = pct;
                 layoutCanvas();
@@ -4432,6 +5041,14 @@ var SlidesApp = (function () {
 
         snapGrid = !!OfficeApp.getSetting("snapGrid", false);
         buildToolbar();
+        $("#slFontFamily").val("Arial");
+        // the document was loaded before the ribbon existed
+        syncToolbarFromSel();
+        registerOverviewKeys();
+        // the format painter lays its look on the object the click selected
+        canvasEl.addEventListener("pointerup", function () {
+            if (painter) setTimeout(applyPainterToSel, 0);
+        });
         initNotes();
         initClipboardAndDnd();
 

@@ -242,6 +242,449 @@ body.of-app {
     cursor: pointer;
 }
 
+/* ============ Title bar (office.js buildMenubar) ============ */
+/* Quick access buttons, the File menu and the ribbon's tabs on one line,
+   as in Office. It keeps .of-menubar, which the menu code keys off. */
+.of-titlebar {
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 6px 0 10px;
+    gap: 4px;
+    border-bottom: none;
+}
+.of-titlebar .of-appicon { margin-right: 4px; }
+.of-qat { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+.of-qbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.of-qbtn:hover { background: var(--of-hover); color: var(--of-fg); }
+.of-qbtn:disabled { opacity: 0.35; pointer-events: none; }
+.of-qbtn i.icon { margin: 0 !important; font-size: 14px !important; line-height: 1 !important; }
+.of-qatsep { height: 22px; margin: 0 6px 0 4px; }
+/* the tabs never shrink - ribbon.js fitStrip() tightens them or swaps
+   them for the picker instead - and the document name gives way first */
+.of-tabstrip {
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    flex: 0 0 auto;
+}
+.of-titlebar .of-docname { flex: 0 1 auto; min-width: 0; }
+body.of-tb-tight .of-titlebar .of-rb-tab,
+body.of-tb-tight .of-titlebar .of-menu { padding: 0 7px; }
+body.of-tb-tight .of-autosave .of-rb-swlbl { display: none; }
+body.of-tb-pick .of-titlebar .of-rb-tab { display: none !important; }
+body.of-tb-pick .of-rb-tabpick { display: inline-flex; }
+.of-titlebar .of-menu,
+.of-rb-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    margin: 5px 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font: inherit;
+    font-size: 14px;
+    white-space: nowrap;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.of-rb-tab:hover { background: var(--of-hover); }
+.of-rb-tab.active { color: var(--of-accent); font-weight: 600; }
+.of-rb-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -5px;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: var(--of-accent);
+}
+/* a contextual tab (Picture Format, Table, ...) wears the accent */
+.of-rb-tab.of-rb-ctx { color: var(--of-accent); }
+.of-rb-tab.of-rb-ctx::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: -5px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--of-accent-soft);
+}
+.of-rb-tabpick {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    margin: 5px 0;
+    padding: 0 10px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg2);
+    color: var(--of-fg);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.of-rb-tabpick i.icon { margin: 0 !important; font-size: 11px !important; color: var(--of-fg-soft); }
+.of-titleextras { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.of-titleextras:empty { display: none; }
+.of-rb-mintoggle i.icon { font-size: 12px !important; }
+
+/* the AutoSave switch (and any ribbon on/off option) */
+.of-rb-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+.of-rb-switch:hover { background: var(--of-hover); color: var(--of-fg); }
+.of-rb-sw {
+    position: relative;
+    width: 30px;
+    height: 16px;
+    border-radius: 8px;
+    background: var(--of-scrollbar);
+    transition: background 0.15s ease;
+    flex: 0 0 auto;
+}
+.of-rb-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: left 0.15s ease;
+}
+.of-rb-switch.on .of-rb-sw { background: var(--of-accent); }
+.of-rb-switch.on .of-rb-knob { left: 16px; }
+
+/* ============ Ribbon (common/ribbon.js) ============ */
+.of-toolbar.of-ribbon {
+    display: block;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--of-border);
+    box-shadow: inset 0 1px 0 var(--of-border);
+}
+.of-rb-panel {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    min-height: 64px;
+}
+.of-rb-group {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    flex: 0 0 auto;
+    padding: 0 7px;
+}
+.of-rb-group:first-child { padding-left: 2px; }
+.of-rb-group + .of-rb-group::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background: var(--of-border);
+}
+.of-rb-gbody { display: flex; align-items: center; gap: 4px; }
+.of-rb-rows {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+}
+.of-rb-row { display: flex; align-items: center; gap: 2px; }
+.of-rb-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+}
+.of-rb-stack .of-rb-btn { justify-content: flex-start; height: 21px; }
+.of-rb-vsep {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--of-border);
+    flex: 0 0 auto;
+}
+.of-ribbon .of-tselect, .of-ribbon .of-tinput, .of-rb-popup .of-tselect, .of-rb-popup .of-tinput { height: 27px; }
+.of-rb-btn.of-rb-withlabel { gap: 6px; padding: 0 7px; }
+.of-rb-lbl { font-size: 12.5px; white-space: nowrap; }
+.of-rb-txt { font-size: 12px; font-weight: 600; letter-spacing: -0.02em; }
+.of-rb-btn:disabled, .of-rb-big:disabled { opacity: 0.38; pointer-events: none; }
+.of-rb-dd { gap: 1px; padding: 0 3px 0 5px; }
+.of-tbtn .of-rb-caret, .of-rb-caretbtn i.icon {
+    font-size: 9px !important;
+    width: auto !important;
+    opacity: 0.65;
+}
+.of-rb-split { display: inline-flex; align-items: stretch; flex: 0 0 auto; }
+.of-rb-split > .of-rb-btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.of-rb-caretbtn {
+    min-width: 15px;
+    width: 15px;
+    padding: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+.of-rb-split:hover > .of-rb-btn { background: var(--of-hover); }
+.of-rb-split:hover > .of-rb-btn:hover { background: var(--of-active); }
+/* colour button: the tool icon over a bar of the current colour */
+.of-rb-cface { flex-direction: column; gap: 1px; padding-top: 2px; }
+.of-rb-cface i.icon { font-size: 13px !important; height: auto; }
+.of-rb-cbar {
+    width: 16px;
+    height: 4px;
+    border-radius: 1px;
+    pointer-events: none;
+}
+.of-rb-cbar.none {
+    background: linear-gradient(to top left, transparent 42%, #d0342c 45%, #d0342c 55%, transparent 58%),
+        var(--of-chrome-bg2) !important;
+    outline: 1px solid var(--of-border);
+}
+/* big button: icon over label */
+.of-rb-big, .of-rb-gbtn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    min-width: 50px;
+    height: 62px;
+    padding: 7px 6px 2px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg);
+    font: inherit;
+    cursor: pointer;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+}
+.of-rb-big:hover, .of-rb-gbtn:hover, .of-rb-gbtn.open { background: var(--of-hover); }
+.of-rb-big.active { background: var(--of-accent-soft); color: var(--of-accent); }
+.of-rb-bigicon { display: flex; align-items: center; justify-content: center; height: 26px; }
+.of-rb-bigicon i.icon, .of-rb-gbtn > i.icon {
+    margin: 0 !important;
+    font-size: 21px !important;
+    line-height: 1 !important;
+    height: auto;
+    color: var(--of-fg);
+}
+.of-rb-big.active .of-rb-bigicon i.icon { color: var(--of-accent); }
+.of-rb-bigicon svg { width: 24px; height: 24px; }
+.of-rb-biglbl, .of-rb-gbtnlbl {
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--of-fg);
+}
+.of-rb-biglbl i.icon, .of-rb-gbtnlbl i.icon { margin: 0 !important; font-size: 9px !important; opacity: 0.65; }
+/* a big split button: the icon half runs the command, the label half
+   opens the menu - two buttons that light up separately */
+.of-rb-bigsplit {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    height: 62px;
+    min-width: 50px;
+    border-radius: 4px;
+    flex: 0 0 auto;
+}
+.of-rb-bigtop, .of-rb-bigbot {
+    display: flex;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--of-fg);
+    font: inherit;
+    cursor: pointer;
+    padding: 0 6px;
+}
+.of-rb-bigtop { flex: 0 0 37px; align-items: center; padding-top: 5px; border-radius: 4px 4px 0 0; }
+.of-rb-bigbot {
+    flex: 1 1 auto;
+    align-items: flex-start;
+    gap: 2px;
+    padding-top: 2px;
+    border-radius: 0 0 4px 4px;
+}
+.of-rb-bigbot i.icon { margin: 0 !important; font-size: 9px !important; opacity: 0.65; line-height: 15px; }
+.of-rb-bigsplit:hover { box-shadow: inset 0 0 0 1px var(--of-border); }
+.of-rb-bigtop:hover, .of-rb-bigbot:hover { background: var(--of-hover); }
+.of-rb-bigsplit.active .of-rb-bigtop { background: var(--of-accent-soft); color: var(--of-accent); }
+.of-rb-bigsplit.active .of-rb-bigicon i.icon { color: var(--of-accent); }
+.of-rb-bigtop:disabled, .of-rb-bigbot:disabled { opacity: 0.38; pointer-events: none; }
+/* a group folded into a button of its own when room is short */
+.of-rb-gbtn { display: none; }
+.of-rb-collapsed > .of-rb-gbody { display: none; }
+.of-rb-collapsed > .of-rb-gbtn { display: inline-flex; }
+.of-rb-popup {
+    position: fixed;
+    z-index: 1450;
+    padding: 6px 8px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px var(--of-shadow);
+    user-select: none;
+}
+/* gallery: a row of previews and a button with every choice */
+.of-rb-gallery {
+    display: flex;
+    align-items: stretch;
+    align-self: center;
+    height: 58px;
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    background: var(--of-chrome-bg2);
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+.of-rb-gitems { display: flex; gap: 4px; padding: 3px; }
+.of-rb-gtile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 50px;
+    padding: 2px 4px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    background: var(--of-chrome-bg);
+    color: var(--of-fg);
+    font: inherit;
+    font-size: 11.5px;
+    overflow: hidden;
+    cursor: pointer;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+}
+.of-rb-gtile:hover { border-color: var(--of-fg-soft); }
+.of-rb-gtile.active {
+    border-color: var(--of-accent);
+    box-shadow: 0 0 0 1px var(--of-accent);
+    background: var(--of-accent-soft);
+}
+.of-rb-gmore {
+    width: 20px;
+    padding: 0;
+    border: none;
+    border-left: 1px solid var(--of-border);
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+}
+.of-rb-gmore:hover { background: var(--of-hover); color: var(--of-fg); }
+.of-rb-gmore i.icon { margin: 0 !important; font-size: 10px !important; }
+.of-rb-gpop {
+    position: fixed;
+    z-index: 1460;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: min(600px, 94vw);
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--of-chrome-bg);
+    border: 1px solid var(--of-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px var(--of-shadow);
+    user-select: none;
+}
+.of-rb-gextra {
+    flex: 1 0 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: none;
+    border-top: 1px solid var(--of-border);
+    border-radius: 0;
+    background: transparent;
+    color: var(--of-fg);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.of-rb-gextra:hover { background: var(--of-hover); }
+.of-rb-gextra i.icon { margin: 0; color: var(--of-fg-soft); }
+/* drawn icons (common/icons.js): strokes in the text colour, accents in
+   the app's colour */
+.of-ic {
+    display: block;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    overflow: visible;
+    flex: 0 0 auto;
+}
+.of-ic text { fill: currentColor; stroke: none; font-family: Arial, "Liberation Sans", sans-serif; }
+.of-ic .acc { fill: var(--of-accent); stroke: none; }
+.of-ic .accs { stroke: var(--of-accent); }
+.of-ic .acct { fill: var(--of-accent); }
+.of-ic .fillc { fill: currentColor; stroke: none; }
+.of-rb-bigicon .of-ic, .of-rb-gbtn > .of-ic { width: 26px; height: 26px; stroke-width: 1.4; }
+.of-qbtn .of-ic { width: 15px; height: 15px; }
+.of-menu-item .of-ic { width: 15px; height: 15px; color: var(--of-fg-soft); }
+/* the "desktop only" / "phone only" switches on controls */
+[data-desktop="hide"] { display: none !important; }
+
+/* a minimized ribbon: tabs only; clicking one shows it over the document */
+body.of-rb-min .of-ribbon { display: none; }
+body.of-rb-min.of-rb-peek .of-ribbon {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 40px;
+    z-index: 880;
+    box-shadow: 0 6px 16px var(--of-shadow);
+}
+
 /* ============ Foreign-format banner ============ */
 /* Sits between the toolbar and the workspace while the open document lives
    in a format that is not the app's own container (.docx, .pptx, .csv, ...).
@@ -765,6 +1208,35 @@ body.of-app {
         var(--of-chrome-bg2);
 }
 
+/* ============ Drawing canvas (sketch.js) ============ */
+.of-sketch-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 8px;
+}
+.of-sketch-pens { display: flex; gap: 1px; }
+.of-sketch-bar .of-tbtn.active { background: var(--of-accent-soft); color: var(--of-accent); }
+.of-sketch-bar .of-tbtn:disabled { opacity: 0.35; }
+.of-dialog-body .of-sketch-bar .of-tselect { width: auto; height: 28px; padding: 0 6px; }
+.of-sketch-paper {
+    position: relative;
+    max-width: 100%;
+    margin-bottom: 6px;
+    border: 1px solid var(--of-border);
+    border-radius: 4px;
+    /* paper: drawings are made for white pages */
+    background: #ffffff;
+    background-image: radial-gradient(circle, rgba(60, 64, 67, 0.16) 1px, transparent 1.2px);
+    background-size: 20px 20px;
+    cursor: crosshair;
+    touch-action: none;
+    overflow: hidden;
+}
+.of-sketch-paper.erasing { cursor: cell; }
+.of-sketch-paper canvas { display: block; touch-action: none; }
+
 /* ============ Busy overlay ============ */
 /* OfficeApp.beginDrag: invisible, catches every pointer event of a drag */
 .of-drag-overlay {
@@ -849,9 +1321,72 @@ body.of-app {
     .of-docname { display: none; }
     .of-toolbar { overflow-x: auto; flex-wrap: nowrap; }
     .of-menu { padding: 6px 8px; }
+    .of-statusbar { gap: 8px; padding: 2px 6px; }
+    .of-status-msg { max-width: 45%; }
+    .of-status-items { gap: 8px; }
+    .of-fmtbanner { flex-wrap: wrap; font-size: 12.5px; }
+    .of-dialog { min-width: 0; width: 94vw; }
 }
+/* Phone width (ribbon.js sets body.of-narrow): the simplified layout -
+   one picker for the tabs, and the active tab as a single line of icons
+   that scrolls sideways. Galleries and controls marked mobile:false are
+   left out; desktop:false controls stand in for them. */
+body.of-narrow .of-titlebar { padding: 0 4px 0 6px; gap: 2px; }
+body.of-narrow .of-titlebar .of-rb-tab,
+body.of-narrow .of-autosave,
+body.of-narrow .of-qatsep,
+body.of-narrow .of-rb-mintoggle,
+body.of-narrow .of-docname { display: none !important; }
+body.of-narrow .of-rb-tabpick { display: inline-flex; }
+body.of-narrow .of-titlebar .of-menu { padding: 0 9px; }
+body.of-narrow .of-titleextras { margin-left: auto; }
+body.of-narrow .of-tabstrip { flex: 0 1 auto; }
+body.of-narrow.of-rb-min .of-ribbon { display: block; }
+body.of-narrow .of-toolbar.of-ribbon { padding: 3px 4px; }
+body.of-narrow .of-rb-panel {
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+body.of-narrow .of-rb-panel::-webkit-scrollbar { display: none; }
+body.of-narrow .of-rb-gbody,
+body.of-narrow .of-rb-rows,
+body.of-narrow .of-rb-stack { flex-direction: row; align-items: center; gap: 2px; }
+body.of-narrow .of-rb-group { padding: 0 5px; }
+body.of-narrow .of-rb-group + .of-rb-group::before { top: 8px; bottom: 8px; }
+body.of-narrow .of-rb-stack .of-rb-btn { height: 34px; }
+body.of-narrow .of-rb-withlabel .of-rb-lbl { display: none; }
+body.of-narrow .of-rb-btn.of-rb-withlabel { padding: 0 5px; }
+body.of-narrow .of-rb-big {
+    flex-direction: row;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 6px;
+    gap: 2px;
+}
+body.of-narrow .of-rb-bigicon { height: auto; }
+body.of-narrow .of-rb-bigicon i.icon { font-size: 15px !important; }
+body.of-narrow .of-rb-bigicon svg { width: 18px; height: 18px; }
+body.of-narrow .of-rb-biglbl { font-size: 0; }
+body.of-narrow .of-rb-biglbl i.icon { font-size: 9px !important; }
+body.of-narrow .of-rb-bigsplit { flex-direction: row; height: 34px; min-width: 0; }
+body.of-narrow .of-rb-bigtop { flex: 0 0 auto; padding: 0 5px; }
+body.of-narrow .of-rb-bigbot { flex: 0 0 auto; align-items: center; padding: 0 4px; }
+body.of-narrow .of-rb-bigbot .of-rb-biglbl { display: none; }
+body.of-narrow .of-rb-collapsed > .of-rb-gbody { display: flex; }
+body.of-narrow .of-rb-collapsed > .of-rb-gbtn { display: none; }
+body.of-narrow [data-mobile="hide"] { display: none !important; }
+body.of-narrow [data-desktop="hide"] { display: inline-flex !important; }
+body.of-narrow select[data-desktop="hide"] { display: inline-block !important; }
+body.of-narrow .of-tbtn { min-width: 32px; height: 34px; }
+body.of-narrow .of-rb-caretbtn { min-width: 16px; width: 16px; }
+body.of-narrow .of-ribbon .of-tselect { height: 32px; max-width: 120px; }
 @media (pointer: coarse) {
     .of-tbtn { min-width: 34px; height: 34px; }
     .of-menu-item { padding: 9px 10px; }
     .of-status-zoom button { width: 28px; height: 26px; }
+    .of-rb-caretbtn { min-width: 18px; width: 18px; }
+    .of-qbtn { width: 34px; height: 34px; }
 }

@@ -85,6 +85,9 @@ type CellStyle struct {
 	Dec  *int    `json:"dec,omitempty"` // decimals
 	Wrap bool    `json:"wrap,omitempty"`
 	Bd   int     `json:"bd,omitempty"` // 1 = thin borders
+	Ff   string  `json:"ff,omitempty"` // font family ("" = the workbook's default)
+	St   bool    `json:"st,omitempty"` // strikethrough
+	Va   string  `json:"va,omitempty"` // vertical alignment "t" | "m" | "b"
 }
 
 // FreezePane holds frozen row/column counts

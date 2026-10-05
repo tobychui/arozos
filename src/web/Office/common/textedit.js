@@ -476,6 +476,10 @@ var OfficeTextEditBar = (function () {
         reposition: reposition,
         contains: contains,
         isVisible: isVisible,
-        setTableOps: setTableOps
+        setTableOps: setTableOps,
+        // for a host's own font controls (the Slides ribbon) while editing
+        hasTextSelection: hasTextSelection,
+        applyFontFamily: applyFontFamily,
+        applyFontSizePx: applyFontSizePx
     };
 })();

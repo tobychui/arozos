@@ -417,22 +417,196 @@ body.dark .sl-h.sl-h-adj { background: #fbbc04; }
     z-index: 620;
 }
 
-/* ============ Toolbar extras ============ */
-#toolbar .of-tinput.sl-num { width: 46px; text-align: center; }
-#toolbar .sl-tlabel {
-    font-size: 11px;
-    color: var(--of-fg-soft);
-    margin: 0 2px 0 6px;
-    user-select: none;
-}
-#toolbar .sl-spacer { flex: 1 1 auto; }
-#toolbar .sl-present-btn {
+/* ============ Ribbon extras ============ */
+.of-tinput.sl-num { width: 52px; text-align: center; }
+.of-tselect.sl-fontsel { width: 136px; }
+/* Slideshow, in the title bar: a split button in the app's colour */
+.sl-present-split { display: inline-flex; align-items: stretch; height: 30px; }
+.sl-present-btn, .sl-present-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
     background: var(--of-accent);
     color: #fff;
-    border-radius: 4px;
-    padding: 0 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
 }
-#toolbar .sl-present-btn:hover { filter: brightness(1.08); background: var(--of-accent); color: #fff; }
+.sl-present-btn { padding: 0 12px 0 10px; border-radius: 15px 0 0 15px; }
+.sl-present-more { padding: 0 9px 0 7px; border-radius: 0 15px 15px 0; border-left: 1px solid rgba(255, 255, 255, 0.35); }
+.sl-present-btn:hover, .sl-present-more:hover { filter: brightness(1.08); }
+.sl-present-btn i.icon, .sl-present-more i.icon { margin: 0 !important; font-size: 12px !important; }
+body.of-narrow .sl-present-btn span { display: none; }
+body.of-narrow .sl-present-btn { padding: 0 9px; }
+
+/* Design > Themes: a small slide in the theme's colours */
+.sl-themes .of-rb-gtile { padding: 3px; gap: 2px; }
+.sl-themeprev {
+    position: relative;
+    display: block;
+    width: 100%;
+    flex: 1 1 auto;
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.sl-themeprev-aa { position: absolute; left: 6px; top: 3px; font-size: 14px; font-weight: 600; line-height: 1.1; }
+.sl-themeprev-bar { position: absolute; left: 6px; bottom: 5px; width: 34%; height: 3px; border-radius: 2px; }
+.sl-themeprev-name { font-size: 10.5px; color: var(--of-fg-soft); white-space: nowrap; line-height: 1.1; }
+.of-rb-gpop .sl-themeprev { height: 44px; }
+.of-rb-gpop.sl-themes .of-rb-gtile { height: 64px; }
+/* Transitions / Animations: the effect pictured */
+.sl-effects .of-rb-gtile { gap: 3px; }
+.sl-effect-ic { width: 22px !important; height: 22px !important; }
+.sl-effect-name { font-size: 11px; white-space: nowrap; }
+
+/* status bar: Normal / Slide overview */
+.of-status-item[data-sid="views"] { margin-left: auto; }
+.sl-viewbtns { display: inline-flex; gap: 2px; }
+.sl-viewbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    cursor: pointer;
+}
+.sl-viewbtn:hover { background: var(--of-hover); color: var(--of-fg); }
+.sl-viewbtn.active { background: var(--of-accent-soft); color: var(--of-accent); }
+.sl-viewbtn .of-ic { width: 15px; height: 15px; }
+
+/* the format painter is armed */
+#slCanvas.sl-painting, #slCanvas.sl-painting .sl-obj { cursor: copy !important; }
+
+/* Find and replace */
+.sl-findrep .ps-check { display: flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--of-fg); }
+.sl-findrep .fr-msg { margin-top: 8px; min-height: 1.3em; }
+
+/* ============ Slide overview (View > Slide overview) ============ */
+#slOverview { display: none; }
+body.sl-overview-on #slRail,
+body.sl-overview-on #slMain,
+body.sl-overview-on #slFormatPanel { display: none !important; }
+body.sl-overview-on #slOverview {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    background: var(--of-bg);
+}
+.sl-ov-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--sl-ov-w, 220px));
+    grid-auto-rows: max-content;
+    gap: 26px 30px;
+    align-content: start;
+    padding: 28px 36px 90px;
+}
+.sl-ov-card {
+    position: relative;
+    width: var(--sl-ov-w, 220px);
+    outline: none;
+    cursor: pointer;
+    user-select: none;
+}
+.sl-ov-view {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 960 / 540;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--of-border), 0 1px 3px var(--of-paper-shadow);
+    transition: box-shadow 0.12s ease;
+}
+.sl-ov-card:hover .sl-ov-view { box-shadow: 0 0 0 1px var(--of-fg-soft), 0 2px 8px var(--of-paper-shadow); }
+.sl-ov-card.active .sl-ov-view { box-shadow: 0 0 0 3px var(--of-accent), 0 2px 8px var(--of-paper-shadow); }
+.sl-ov-card:focus-visible .sl-ov-view { box-shadow: 0 0 0 3px var(--of-accent), 0 0 0 6px var(--of-accent-soft); }
+.sl-ov-mini {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 960px;
+    height: 540px;
+    transform: scale(var(--sl-ov-scale, 0.229));
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+.sl-ov-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    color: var(--of-fg-soft);
+    font-size: 12px;
+}
+.sl-ov-card.active .sl-ov-num { color: var(--of-accent); font-weight: 600; }
+.sl-ov-flag { display: inline-flex; opacity: 0.75; }
+.sl-ov-flag .of-ic { width: 13px; height: 13px; }
+.sl-ov-card.dragging { opacity: 0.4; }
+.sl-ov-card.drop-before::before,
+.sl-ov-card.drop-after::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 4px;
+    height: calc(var(--sl-ov-w, 220px) * 0.5625);
+    border-radius: 2px;
+    background: var(--of-accent);
+}
+.sl-ov-card.drop-before::before { left: -17px; }
+.sl-ov-card.drop-after::after { right: -17px; }
+.sl-ov-add {
+    width: var(--sl-ov-w, 220px);
+    aspect-ratio: 960 / 540;
+    border: 2px dashed var(--of-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--of-fg-soft);
+    font-size: 20px;
+    cursor: pointer;
+}
+.sl-ov-add:hover { border-color: var(--of-accent); color: var(--of-accent); }
+.sl-ov-add i.icon { margin: 0; }
+/* the size control floats at the bottom, as in Google Slides */
+.sl-ov-zoom {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 20px;
+    background: var(--of-chrome-bg);
+    box-shadow: 0 2px 10px var(--of-shadow);
+}
+.sl-ov-zoom button {
+    width: 32px;
+    height: 30px;
+    border: none;
+    border-radius: 15px;
+    background: transparent;
+    color: var(--of-fg);
+    cursor: pointer;
+}
+.sl-ov-zoom button:hover { background: var(--of-hover); }
+.sl-ov-zoom button i.icon { margin: 0; font-size: 12px; }
+.sl-ov-zoomic { display: inline-flex; padding: 0 4px; color: var(--of-fg-soft); }
+.sl-ov-zoomic .of-ic { width: 16px; height: 16px; }
 
 /* ============ Dialog helpers ============ */
 .sl-grid-table { border-collapse: collapse; }
@@ -629,6 +803,44 @@ body.dark .sl-h.sl-h-adj { background: #fbbc04; }
 @media (max-width: 700px) {
     #slRail { flex: 0 0 120px; width: 120px; }
 }
+/* Phone width: the slide on top and fitted to the width, the slides as a
+   filmstrip underneath it, and the notes folded away until asked for. */
+body.of-narrow #workspace { flex-direction: column; }
+body.of-narrow #slMain { order: 1; flex: 1 1 auto; min-height: 0; }
+body.of-narrow #slRail {
+    order: 2;
+    flex: 0 0 auto;
+    width: auto;
+    height: 86px;
+    border-right: none;
+    border-top: 1px solid var(--of-border);
+}
+body.of-narrow #slThumbs {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 8px 6px;
+}
+body.of-narrow .sl-thumb { flex: 0 0 auto; width: 116px; margin: 0; }
+body.of-narrow .sl-thumb-num { display: none; }
+body.of-narrow #slCanvasWrap { padding: 10px; }
+body.of-narrow #slNotesText { height: 64px; }
+body.of-narrow #slFormatPanel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 60vh;
+    z-index: 900;
+}
+body.of-narrow .sl-ov-grid {
+    gap: 16px 14px;
+    padding: 14px 12px 80px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+body.of-narrow .sl-ov-card, body.of-narrow .sl-ov-add { width: 100%; }
 
 /* ============ Picture tools (slides_image.js) ============ */
 

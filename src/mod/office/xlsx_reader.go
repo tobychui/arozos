@@ -201,9 +201,10 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 	}
 
 	type fontInfo struct {
-		b, i, u bool
-		color   string
-		sizePx  float64
+		b, i, u, strike bool
+		color           string
+		sizePx          float64
+		name            string
 	}
 	var fonts []fontInfo
 	if fs := tree.first("fonts"); fs != nil {
@@ -217,6 +218,12 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 			}
 			if f.first("u") != nil {
 				fi.u = true
+			}
+			if s := f.first("strike"); s != nil && s.attr("val") != "0" && s.attr("val") != "false" {
+				fi.strike = true
+			}
+			if n := f.first("name"); n != nil {
+				fi.name = n.attr("val")
 			}
 			if c := f.first("color"); c != nil {
 				if rgb := c.attr("rgb"); len(rgb) == 8 {
@@ -247,6 +254,13 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 		}
 	}
 
+	// a cell states its font only when it is not the workbook's own
+	// (font 0), so an ordinary workbook does not carry its default
+	// typeface on every styled cell
+	defaultFont := ""
+	if len(fonts) > 0 {
+		defaultFont = fonts[0].name
+	}
 	var out []xlsxXfInfo
 	if cx := tree.first("cellXfs"); cx != nil {
 		for _, xf := range cx.all("xf") {
@@ -264,6 +278,14 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 				}
 				if fi.u {
 					st.U = true
+					any = true
+				}
+				if fi.strike {
+					st.St = true
+					any = true
+				}
+				if fi.name != "" && !strings.EqualFold(fi.name, defaultFont) {
+					st.Ff = fi.name
 					any = true
 				}
 				if fi.color != "" && fi.color != "#000000" {
@@ -299,6 +321,17 @@ func parseXlsxStyles(data []byte) []xlsxXfInfo {
 				}
 				if al.attr("wrapText") == "1" || al.attr("wrapText") == "true" {
 					st.Wrap = true
+					any = true
+				}
+				switch al.attr("vertical") {
+				case "top":
+					st.Va = "t"
+					any = true
+				case "center":
+					st.Va = "m"
+					any = true
+				case "bottom":
+					st.Va = "b"
 					any = true
 				}
 			}

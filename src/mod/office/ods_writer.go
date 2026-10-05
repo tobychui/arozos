@@ -95,7 +95,7 @@ func BuildOds(wb *Workbook) ([]byte, error) {
 		if s == nil {
 			return ""
 		}
-		sig := fmt.Sprintf("%v|%v|%v|%s|%s|%s|%v|%v", s.B, s.I, s.U, s.Al, s.Bg, s.Fc, s.Fs, s.Bd)
+		sig := fmt.Sprintf("%v|%v|%v|%s|%s|%s|%v|%v|%s|%v|%s|%v", s.B, s.I, s.U, s.Al, s.Bg, s.Fc, s.Fs, s.Bd, s.Ff, s.St, s.Va, s.Wrap)
 		if n, ok := cellStyleCache[sig]; ok {
 			return n
 		}
@@ -109,6 +109,12 @@ func BuildOds(wb *Workbook) ([]byte, error) {
 		if s.U {
 			tp += ` style:text-underline-style="solid"`
 		}
+		if s.St {
+			tp += ` style:text-line-through-style="solid"`
+		}
+		if s.Ff != "" {
+			tp += ` fo:font-family="` + xmlEscape(s.Ff) + `"`
+		}
 		if s.Fc != "" {
 			tp += ` fo:color="#` + hexColor(s.Fc, "000000") + `"`
 		}
@@ -121,6 +127,17 @@ func BuildOds(wb *Workbook) ([]byte, error) {
 		}
 		if s.Bd != 0 {
 			cp += ` fo:border="0.5pt solid #666666"`
+		}
+		if s.Wrap {
+			cp += ` fo:wrap-option="wrap"`
+		}
+		switch s.Va {
+		case "t":
+			cp += ` style:vertical-align="top"`
+		case "m":
+			cp += ` style:vertical-align="middle"`
+		case "b":
+			cp += ` style:vertical-align="bottom"`
 		}
 		pp := ""
 		switch s.Al {

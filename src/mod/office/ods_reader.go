@@ -64,6 +64,14 @@ func ParseOds(data []byte) (*Workbook, error) {
 						cs.U = true
 						any = true
 					}
+					if v := tp.attr("text-line-through-style"); v != "" && v != "none" {
+						cs.St = true
+						any = true
+					}
+					if v := strings.Trim(tp.attr("font-family"), `'"`); v != "" {
+						cs.Ff = v
+						any = true
+					}
 					if c := tp.attr("color"); strings.HasPrefix(c, "#") && strings.ToLower(c) != "#000000" {
 						cs.Fc = strings.ToLower(c)
 						any = true
@@ -82,6 +90,21 @@ func ParseOds(data []byte) (*Workbook, error) {
 					}
 					if bd := cp.attr("border"); bd != "" && bd != "none" {
 						cs.Bd = 1
+						any = true
+					}
+					if cp.attr("wrap-option") == "wrap" {
+						cs.Wrap = true
+						any = true
+					}
+					switch cp.attr("vertical-align") {
+					case "top":
+						cs.Va = "t"
+						any = true
+					case "middle":
+						cs.Va = "m"
+						any = true
+					case "bottom":
+						cs.Va = "b"
 						any = true
 					}
 				}

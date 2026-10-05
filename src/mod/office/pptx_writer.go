@@ -716,6 +716,9 @@ func runProps(tag string, r htmlRun, base inlineStyle) string {
 	if r.Strike {
 		sb.WriteString(` strike="sngStrike"`)
 	}
+	if r.Baseline != 0 {
+		sb.WriteString(fmt.Sprintf(` baseline="%d"`, r.Baseline))
+	}
 	sb.WriteString(` dirty="0">`)
 	color := r.Color
 	if color == "" {

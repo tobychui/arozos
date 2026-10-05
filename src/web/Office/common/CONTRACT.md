@@ -54,10 +54,14 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
     <script src="../common/platform.js"></script>
     <script src="../common/fonts.js"></script>
     <script src="../common/hotkeys.js"></script>
+    <!-- the ribbon and its drawn icons (before office.js, which builds the
+         title bar the ribbon's tabs sit in) -->
+    <script src="../common/icons.js"></script>
+    <script src="../common/ribbon.js"></script>
     <script src="../common/office.js"></script>
     <script src="../common/colorpicker.js"></script>
     <script src="../common/clipboard.js"></script>
-    <!-- optional: ../common/charts.js, ../common/textedit.js,
+    <!-- optional: ../common/sketch.js (Draw tab), ../common/charts.js, ../common/textedit.js,
          ../common/lib/marked.min.js, ../common/lib/pdf-lib.min.js +
          ../common/pdfcore.js,
          ../common/lib/html2canvas.min.js -->
@@ -65,8 +69,8 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
          document faces; an app that lets the user pick a font needs it -->
 </head>
 <body data-officeapp="docs">   <!-- docs | sheets | slides -->
-    <!-- app builds its own toolbar + workspace; framework injects
-         menubar (prepend) and statusbar (append) around them -->
+    <!-- app builds its own ribbon (OfficeRibbon) or toolbar + workspace;
+         framework injects the title bar (prepend) and statusbar (append) -->
     <div class="of-toolbar of-noprint" id="toolbar">…</div>
     <div class="of-workspace" id="workspace">…</div>
     <script src="app.js"></script>
@@ -74,7 +78,7 @@ Apps are registered in `Office/init.agi` (already done — do not edit it).
 </html>
 ```
 
-Body becomes a column flexbox (`.of-app`): menubar / your content / statusbar.
+Body becomes a column flexbox (`.of-app`): title bar / your content / statusbar.
 Toolbar helpers: `.of-tbtn`, `.of-tsep`, `.of-tselect`, `.of-tinput`,
 `.of-tcolor` (see office.css). Theme via CSS variables `--of-*`; dark mode =
 `body.dark` (framework toggles it — style your app for both).
@@ -128,7 +132,12 @@ OfficeApp.init({
     // --- clipboard (optional; default = execCommand / navigator.clipboard) ---
     onCut: fn, onCopy: fn, onPaste: fn, onPasteText: function(text){…},
 
-    // --- menus ---
+    // --- ribbon (all three apps): the title bar shows File as a menu and
+    //     the ribbon's tabs; the app builds the tabs with OfficeRibbon
+    //     (see below) and the four entries after this one are ignored ---
+    ribbon: true,
+
+    // --- menus (an app without a ribbon) ---
     menus: [ { title: "Insert", items: [ …items… ] }, … ],  // placed between Edit and View
     // a menu may carry when: fn -> bool (contextual, e.g. Docs' Table menu);
     // it starts hidden - call OfficeApp.updateMenus() (e.g. on selection
@@ -188,7 +197,11 @@ the element is re-rendered mid-drag (which silently drops a capture held by
 the element itself). Removed on release, pointercancel or window blur.
 
 Features: `registerShortcut("Ctrl+B", fn)` (Cmd normalized to Ctrl),
-`print()`, `setZoom(pct) getZoom() zoomIn() zoomOut()`, `toggleTheme() isDark()`.
+`print()`, `setZoom(pct, {transient})` (a transient zoom - a phone fitting the
+page - is not saved as the next session's) `getZoom() zoomIn() zoomOut()`,
+`toggleTheme() isDark()`, `clipboard("cut"|"copy"|"paste")` (the Edit
+commands for a ribbon's Clipboard group), `autosaveEnabled()` /
+`setAutosave(on)`, `titleBarSlot()`.
 
 Storage: `getSetting(key, def)` / `setSetting(key, val)` (per-app localStorage),
 `getRecents()`.
@@ -356,6 +369,90 @@ loaded straight into the editor - no conversion - which is what lets
 or saved — never on page load, since the module is several MB. Only
 `platform.js` calls it; the suite goes through `documentLoad` /
 `documentSave` and `convertIn` / `convertOut`.
+
+## OfficeRibbon (common/ribbon.js) — the ribbon
+
+All three apps use an Office-style ribbon instead of a menubar and a flat
+toolbar. The title bar (built by `office.js`) holds the app icon, the
+AutoSave switch, the **File** and **Edit** menus (dropdowns, Google Docs
+style) and the ribbon's **tabs**; the app's `#toolbar` element becomes the
+ribbon panel under it. An app opts in with `ribbon: true` in
+`OfficeApp.init` — the framework then shows File and Edit (Undo, Redo, Cut,
+Copy, Paste + the app's `editMenuExtras`) as menus and ignores `menus` /
+`viewMenuExtras`, so every other command must be reachable from a ribbon tab
+(or a right-click menu). Save / Undo / Redo / clipboard buttons do not go on
+the ribbon. A tab click closes an open menu.
+
+```js
+var R = OfficeRibbon;
+var home = R.tab("home", "Home");                 // first tab without when() is selected
+var g = home.group({ id: "font", label: "Font", icon: "font",   // or svg: "<OfficeIcons name>"
+                     priority: 9 });              // higher = folds later
+g.row([$fontSelect, R.button({ svg: "growFont", title: "Increase font size",
+                               key: "Ctrl+]", onClick: fn })]);
+g.row([R.button({ icon: "bold", title: "Bold", key: "Ctrl+B", cmd: "bold", onClick: fn }), "|",
+       R.colorButton({ id: "x", svg: "fontColor", title: "Font color", value: "#d0342c",
+                       allowNone, noneLabel, onPick: function (hex) { … } })]);
+home.group({ id: "clip", label: "Clipboard", svg: "paste", priority: 1 })
+    .add(R.big({ svg: "paste", label: "Paste", onClick: fn, menu: itemsFn }))   // big = icon over label
+    .stack([R.button({ icon: "cut", label: "Cut", showLabel: true, onClick: fn }), …]);
+R.tab("pictureformat", "Picture Format", { contextual: true, when: fn });     // shown while when() holds
+```
+
+- **Group layouts**: `row(items)` adds a line of small controls (consecutive
+  rows stack into one column - two rows is the usual group), `stack(items)`
+  up to three labelled small buttons, `add(el)` anything as a column of its
+  own (a big button, a gallery, a select). `"|"` in a row is a separator.
+- **Controls**: `button`, `dropdown` (opens `menu` items, or calls
+  `onOpen(anchorEl, rect)` for a picker of the app's own), `split` (face runs
+  `onClick`, caret opens the menu), `big` (with both `onClick` and `menu` it
+  is two buttons: the icon runs the command, the label + caret under it
+  opens the menu), `toggle` (a switch), `colorButton` (the face
+  applies the last colour, the caret picks; `colorOf(sel)` / `setColor(sel,
+  hex)`), `gallery` (`items: [{key, label, html | build($tile), active,
+  onClick}]`, `extra` entries under the full list). Every control takes `id`,
+  `cmd` (`data-cmd`), `title`, `key` (shown in the tooltip only - bind it with
+  `registerShortcut`), `cls`, `mobile: false` (left out on a phone),
+  `desktop: false` (only on a phone) and the state functions below. Icons:
+  `icon` (Semantic UI name), `svg` (an `OfficeIcons` name), `iconHtml`, or
+  `text`.
+- **State**: `active()`, `enabled()`, `visible()` on a control and `when()`
+  on a tab are re-read by `OfficeRibbon.refresh()`; `OfficeApp.updateMenus()`
+  calls it, and so should the app's selection-change handler. Toggling
+  `.active` on an id by hand still works. Look buttons up by id or by
+  `.of-rb-btn[data-cmd=…]`, **not** under `#toolbar`: a folded group's
+  controls are moved into a popup outside it while it is open.
+- **Widths** (`fit()`, on every resize): wide - everything shows; narrower -
+  galleries give up tiles, then groups fold into a big button of their own
+  (lowest `priority` first, then from the right) that opens the group's real
+  controls in a popup; the title bar first closes its tabs up, then turns
+  them into one "Home ▾" picker (`fitStrip`). **Phone** (`body.of-narrow`,
+  ≤ 600px): the tab picker, and the active tab as one line of icons that
+  scrolls sideways; galleries and `mobile: false` controls are left out.
+- Buttons swallow `mousedown` (`keepFocus`), so a command never takes the
+  caret out of the document; a `<select>` or input in the ribbon does take
+  focus, so an app that keeps an edit open across it must treat focus inside
+  `.of-ribbon, .of-rb-popup` as still editing (Slides' `onEditFocusOut`).
+- `OfficeRibbon.setMinimized(on)` (the chevron at the right of the title bar,
+  or a double-click on a tab) collapses the panel; a tab click then shows it
+  over the document until the next click elsewhere.
+
+`OfficeApp.titleBarSlot()` is the right-hand corner of the title bar, for an
+app's own buttons (Slides puts Slideshow there).
+
+## OfficeIcons (common/icons.js) and OfficeSketch (common/sketch.js)
+
+`OfficeIcons.get(name)` returns an inline SVG for the Office glyphs Semantic
+UI does not have (grow / shrink font, borders, format painter, vertical
+alignment, AutoSum, slide sorter, …), drawn on a 24px grid: strokes take the
+text colour, `.acc` / `.accs` parts the app's accent, so they suit every app
+and both themes. Add new glyphs there - never an emoji.
+
+`OfficeSketch.open({title, pen, aspect, onInsert(blob, w, h)})` is the Draw
+tab's drawing canvas (Docs and Slides): pens, highlighters, a stroke eraser,
+undo / redo; Insert hands back a transparent PNG trimmed to the drawing and
+rendered at twice its size (`w`/`h` are the CSS size to show it at).
+`OfficeSketch.PENS` and `penIcon(pen)` are the presets the ribbon shows.
 
 ## OfficeHotkeys (common/hotkeys.js) — shared keyboard registry
 
@@ -618,6 +715,9 @@ OfficeTextEditBar.hide();
 OfficeTextEditBar.contains(node);  // host focusout check: focus inside the
                                    // bar still counts as "editing"
 OfficeTextEditBar.isVisible();
+// a host's own font controls while editing (the Slides ribbon):
+OfficeTextEditBar.hasTextSelection();
+OfficeTextEditBar.applyFontFamily(name); OfficeTextEditBar.applyFontSizePx(px);
 ```
 
 Menu note: submenus (`sub:` items) render as body-level floating panels, so

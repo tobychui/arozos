@@ -277,7 +277,7 @@ var OfficeApp = (function () {
 
     /* ---------- title / status ---------- */
     function updateTitle() {
-        var name = filename || (cfg.defaultFileName + cfg.extension);
+        var name = openingName || filename || (cfg.defaultFileName + cfg.extension);
         var t = name + (dirty ? " •" : "") + " - " + cfg.appName;
         OfficePlatform.setWindowTitle(t);
         var $dn = $(".of-docname");
@@ -422,12 +422,14 @@ var OfficeApp = (function () {
         if (!dirty) { dirty = true; updateTitle(); }
         clearTimeout(draftTimer);
         draftTimer = setTimeout(saveDraft, 2500);
+        if (cfg) refreshQat();
     }
     function markClean() {
         dirty = false;
         clearTimeout(draftTimer);
         clearDraft();
         updateTitle();
+        if (cfg) refreshQat();
     }
 
     /* ---------- recent documents ---------- */
@@ -464,6 +466,7 @@ var OfficeApp = (function () {
         }
         meta = env.meta || {};
         loadedFromImport = false;
+        openingName = null;
         /*
             A template is a starting point, not a file the person is editing:
             the content loads but the document stays unattached, so Ctrl+S
@@ -503,6 +506,7 @@ var OfficeApp = (function () {
     */
     function adoptImportedPath(fp, fn) {
         loadedFromImport = true;
+        openingName = null;
         if (saveFormatFor(extOf(fn))) {
             filepath = fp;
             filename = fn;
@@ -527,9 +531,22 @@ var OfficeApp = (function () {
         setStatus(importedStatus(fn));
         documentLoaded();
     }
+    var openingName = null;   // the file being opened, until it is in
+    /* The window is titled after the file from the moment it starts to
+       open - a large document can take a while, and "New Document" in the
+       title meanwhile says the wrong thing. A failed open goes back. */
+    function showOpening(fn, opts) {
+        openingName = (opts && opts.asTemplate) ? titleCase(stripExt(fn)) + cfg.extension : fn;
+        updateTitle();
+    }
+    function openFailed() {
+        openingName = null;
+        updateTitle();
+    }
     function openPath(fp, fn, opts) {
         fn = fn || basename(fp);
         var ext = extOf(fn);
+        showOpening(fn, opts);
         // a template (templates/*.json) is a plain envelope, not an Office
         // file: it is read as text in both hosts and needs no conversion
         if (opts && opts.asTemplate && ext === ".json") {
@@ -539,10 +556,12 @@ var OfficeApp = (function () {
                     try {
                         loadNativeText(text, fp, fn, opts);
                     } catch (err) {
+                        openFailed();
                         setStatus("Cannot open " + fn + ": " + err.message, "error");
                     }
                 });
             }, function () {
+                openFailed();
                 setStatus("Failed to load " + fn, "error");
             });
             return;
@@ -574,10 +593,12 @@ var OfficeApp = (function () {
                     try {
                         loadNativeEnvelope(env, fp, fn, opts);
                     } catch (err) {
+                        openFailed();
                         setStatus("Cannot open " + fn + ": " + err.message, "error");
                     }
                 });
             }, function (msg) {
+                openFailed();
                 setStatus("Failed to open " + fn + ": " + (msg || "unknown error"), "error");
             });
             return;
@@ -587,10 +608,12 @@ var OfficeApp = (function () {
                 try {
                     loadImportText(text, fp, fn);
                 } catch (err) {
+                    openFailed();
                     setStatus("Cannot open " + fn + ": " + err.message, "error");
                 }
             });
         }, function () {
+            openFailed();
             setStatus("Failed to load " + fn, "error");
         });
     }
@@ -1001,17 +1024,19 @@ var OfficeApp = (function () {
 
     /* ---------- zoom ---------- */
     var ZOOM_LEVELS = [50, 65, 75, 90, 100, 110, 125, 150, 175, 200];
-    function applyZoom() {
+    function applyZoom(transient) {
         if (cfg.zoomTarget) {
             $(cfg.zoomTarget).css("zoom", zoom / 100);
         }
         $(".of-zoom-val").text(zoom + "%");
-        setSetting("zoom", zoom);
+        // a transient zoom (a phone fitting the page to its width) is not
+        // the person's choice and must not become the next session's zoom
+        if (!transient) setSetting("zoom", zoom);
         if (cfg.onZoomChanged) { try { cfg.onZoomChanged(zoom); } catch (e) { } }
     }
-    function setZoom(z) {
+    function setZoom(z, opts) {
         zoom = Math.max(25, Math.min(400, Math.round(z)));
-        applyZoom();
+        applyZoom(!!(opts && opts.transient));
     }
     /*
         Ctrl/Cmd + wheel zooms the document, not the whole ArozOS desktop.
@@ -1118,6 +1143,7 @@ var OfficeApp = (function () {
     function closeAllMenus() {
         $(".of-menu").removeClass("open");
         closeFloatMenus(0);
+        if (window.OfficeRibbon) OfficeRibbon.closePopups();
     }
     function positionFloatMenu($m, x, y) {
         var w = $m.outerWidth(), h = $m.outerHeight();
@@ -1219,10 +1245,38 @@ var OfficeApp = (function () {
             $drop.append($it);
         });
     }
+    /*
+        The title bar, Office style: app icon, the quick access buttons
+        (Save, Undo, Redo, the AutoSave switch), then the File menu and the
+        ribbon's tabs (common/ribbon.js) - or, for an app that declares no
+        ribbon, its classic menus - and the document name on the right.
+        It keeps the .of-menubar class: the menu code keys off it.
+    */
+    function refreshQat() {
+        $(".of-qat .of-rb-switch").each(function () {
+            var s = $(this).data("sync");
+            if (s) s();
+        });
+    }
     function buildMenubar(menus) {
-        var $bar = $('<div class="of-menubar of-noprint"></div>');
+        var $bar = $('<div class="of-menubar of-titlebar of-noprint"></div>');
         $bar.append('<img class="of-appicon" src="' + escapeHtml(cfg.appIcon || "../img/docs.svg") + '" alt="">');
-        var $menus = $('<div style="display:flex;"></div>');
+        // Save, Undo and Redo live in the File and Edit menus (and on
+        // their shortcuts); the title bar keeps only the AutoSave switch
+        var $qat = $('<div class="of-qat"></div>');
+        if (window.OfficeRibbon) {
+            $qat.append(OfficeRibbon.toggle({
+                label: "AutoSave", cls: "of-autosave",
+                title: OfficePlatform.autosavesToFile() ?
+                    "AutoSave: write changes to the file as you work" :
+                    "AutoSave: keep a recovery copy as you work",
+                get: autosaveEnabled,
+                set: function (on) { setSetting("autosave", !!on); }
+            }));
+        }
+        $bar.append($qat);
+        $bar.append('<div class="of-tsep of-qatsep"></div>');
+        var $menus = $('<div class="of-tabstrip"></div>');
         menus.forEach(function (m) {
             var $m = $('<div class="of-menu" tabindex="-1">' + escapeHtml(m.title) + "</div>");
             var $drop = $('<div class="of-menu-drop"></div>');
@@ -1252,17 +1306,27 @@ var OfficeApp = (function () {
             $menus.append($m);
         });
         $bar.append($menus);
+        if (cfg.ribbon && window.OfficeRibbon) OfficeRibbon.attachStrip($menus);
         $bar.append('<div class="of-docname"></div>');
+        // room for an app's own title-bar buttons (Slides' Slideshow)
+        $bar.append('<div class="of-titleextras"></div>');
+        if (cfg.ribbon && window.OfficeRibbon) {
+            var $min = $('<button type="button" class="of-qbtn of-rb-mintoggle" title="Collapse the ribbon"><i class="chevron up icon"></i></button>');
+            $min.on("click", function () { OfficeRibbon.setMinimized(!OfficeRibbon.isMinimized()); });
+            $bar.append($min);
+        }
         // one global closer for menubar drops, context menus and submenus
         $(document).on("mousedown.ofmenu", function (ev) {
-            if (!$(ev.target).closest(".of-menubar, .of-context-menu").length) closeAllMenus();
+            // the ribbon's popups (a folded group, a gallery) close themselves
+            if (!$(ev.target).closest(".of-menubar, .of-context-menu, .of-rb-popup, .of-rb-gpop").length) closeAllMenus();
         });
         return $bar;
     }
     function refreshMenuChecks() {
         // menus re-render on open; nothing to do live
     }
-    // show/hide conditional menubar menus (menu defs carrying when: fn)
+    // show/hide conditional menubar menus (menu defs carrying when: fn),
+    // and re-read the ribbon's contextual tabs and control states
     function updateMenus() {
         $(".of-menubar .of-menu").each(function () {
             var w = $(this).data("when");
@@ -1272,6 +1336,8 @@ var OfficeApp = (function () {
             if (!on && $(this).hasClass("open")) closeAllMenus();
             $(this).toggle(on);
         });
+        if (cfg && cfg.ribbon && window.OfficeRibbon) OfficeRibbon.refresh();
+        if (cfg) refreshQat();
     }
     function standardMenus() {
         var fileItems = function () {
@@ -1345,10 +1411,10 @@ var OfficeApp = (function () {
             }
             return items;
         };
-        var menus = [
-            { title: "File", items: fileItems },
-            { title: "Edit", items: editItems }
-        ];
+        // a ribbon app keeps File and Edit as menus, Google Docs style, and
+        // carries the rest (its own menus, View) as ribbon tabs
+        var menus = [{ title: "File", items: fileItems }, { title: "Edit", items: editItems }];
+        if (cfg.ribbon) return menus;
         (cfg.menus || []).forEach(function (m) { menus.push(m); });
         menus.push({ title: "View", items: viewItems });
         return menus;
@@ -1617,9 +1683,15 @@ var OfficeApp = (function () {
         $("body").addClass("of-app");
 
         // chrome
+        if (cfg.ribbon && window.OfficeRibbon) OfficeRibbon.host();
         var $menubar = buildMenubar(standardMenus());
         $("body").prepend($menubar);
         $("body").append(buildStatusbar());
+        if (cfg.ribbon && window.OfficeRibbon && getSetting("ribbonMin", false)) {
+            OfficeRibbon.setMinimized(true);
+        }
+        // the title bar is in the page now: fit its tabs and the panel
+        if (cfg.ribbon && window.OfficeRibbon) OfficeRibbon.scheduleFit();
         // the foreign-format banner sits under the whole toolbar strip, so
         // it reads as a note about the document rather than part of the
         // chrome; apps with no toolbar get it straight under the menubar
@@ -1837,6 +1909,12 @@ var OfficeApp = (function () {
         // features
         registerShortcut: registerShortcut,
         print: printDoc,
+        // the Edit commands, for an app's own ribbon (op: cut | copy | paste)
+        clipboard: clipboardAction,
+        autosaveEnabled: autosaveEnabled,
+        setAutosave: function (on) { setSetting("autosave", !!on); refreshQat(); },
+        // the title bar's slot for an app's own buttons (right-hand side)
+        titleBarSlot: function () { return $(".of-titleextras"); },
         setZoom: setZoom,
         getZoom: function () { return zoom; },
         zoomIn: function () { zoomStep(1); },

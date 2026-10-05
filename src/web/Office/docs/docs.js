@@ -425,7 +425,7 @@
        them to carry the full stack from OfficeFonts, so the shipped faces
        are behind every choice the user makes. */
     var FONT_MARK = "__ofdocfont__";
-    function applyFontFamily(name) {
+    function applyFontFamily(name, noCommit) {
         if (inHeaderFooter()) return;
         restoreSel();
         var stack = OfficeFonts.stack(name);
@@ -452,9 +452,9 @@
                 if (!inner[j].getAttribute("style")) inner[j].removeAttribute("style");
             }
         }
-        afterEdit(true);
+        if (!noCommit) afterEdit(true);
     }
-    function applyFontSize(pt) {
+    function applyFontSize(pt, noCommit) {
         if (inHeaderFooter()) return;
         restoreSel();
         try {
@@ -477,7 +477,7 @@
                 spans[i].style.fontSize = pt + "pt";
             }
         }
-        afterEdit(true);
+        if (!noCommit) afterEdit(true);
     }
     function applyParagraphStyle(v) {
         if (inHeaderFooter()) return;
@@ -564,32 +564,22 @@
         savedRange = r.cloneRange();
     }
 
-    /* ================= toolbar ================= */
+    /* ================= ribbon ================= */
+    /* The ribbon (common/ribbon.js) holds every command the editor has, in
+       the tabs Word puts them in: Home, Insert, Draw, Layout, References,
+       Review and View. File stays a menu (office.js). Buttons keep the
+       editor's selection (mousedown is swallowed), and each command puts
+       the saved range back before it runs (restoreSel). */
+    var STYLE_TILES = PARA_STYLES.concat([
+        { v: "blockquote", label: "Quote" },
+        { v: "pre", label: "Code" }
+    ]);
+    var currentStyle = "p";
     function buildToolbar() {
-        var $t = $("#toolbar");
-        function btn(icon, title, fn, cmdId) {
-            var $b = $('<button type="button" class="of-tbtn"></button>')
-                .attr("title", title)
-                .append('<i class="' + icon + ' icon"></i>');
-            if (cmdId) $b.attr("data-cmd", cmdId);
-            $b.on("mousedown", function (e) { e.preventDefault(); });  // keep editor selection
-            $b.on("click", fn);
-            $t.append($b);
-            return $b;
-        }
-        function sep() { $t.append('<div class="of-tsep"></div>'); }
+        var R = OfficeRibbon;
+        var B = R.button, D = R.dropdown;
 
-        btn("undo", "Undo (Ctrl+Z)", doUndo);
-        btn("redo", "Redo (Ctrl+Y)", doRedo);
-        sep();
-
-        // paragraph style / font family / font size
-        $styleSel = $('<select class="of-tselect tb-style" title="Paragraph style"></select>');
-        PARA_STYLES.forEach(function (s) {
-            $styleSel.append($("<option></option>").attr("value", s.v).text(s.label));
-        });
-        $styleSel.on("change", function () { applyParagraphStyle(this.value); });
-        // hidden file input for Insert > Image > From this device
+        // hidden file input for Insert > Pictures > From this device
         $("#deviceImageInput").on("change", function () {
             var files = this.files;
             for (var i = 0; i < files.length; i++) {
@@ -603,14 +593,20 @@
             }
             this.value = "";
         });
-        $t.append($styleSel);
 
-        $fontSel = $('<select class="of-tselect tb-font" title="Font family"></select>');
+        // paragraph style: the styles gallery on a desktop, this select on
+        // a phone (where galleries are left out)
+        $styleSel = $('<select class="of-tselect tb-style" title="Paragraph style" data-desktop="hide"></select>');
+        STYLE_TILES.forEach(function (s) {
+            $styleSel.append($("<option></option>").attr("value", s.v).text(s.label));
+        });
+        $styleSel.on("change", function () { applyParagraphStyle(this.value); });
+
+        $fontSel = $('<select class="of-tselect tb-font" title="Font"></select>');
         FONTS.forEach(function (f) {
             $fontSel.append($("<option></option>").attr("value", f).text(f).css("font-family", OfficeFonts.stack(f)));
         });
         $fontSel.on("change", function () { applyFontFamily(this.value); });
-        $t.append($fontSel);
 
         $sizeSel = $('<select class="of-tselect tb-size" title="Font size (pt)"></select>');
         FONT_SIZES.forEach(function (s) {
@@ -618,91 +614,715 @@
         });
         $sizeSel.val("11");
         $sizeSel.on("change", function () { applyFontSize(parseInt(this.value, 10)); });
-        $t.append($sizeSel);
-        sep();
 
-        btn("bold", "Bold (Ctrl+B)", function () { exec("bold"); }, "bold");
-        btn("italic", "Italic (Ctrl+I)", function () { exec("italic"); }, "italic");
-        btn("underline", "Underline (Ctrl+U)", function () { exec("underline"); }, "underline");
-        btn("strikethrough", "Strikethrough (Ctrl+Shift+X)", function () { exec("strikeThrough"); }, "strikeThrough");
-
-        // text color + highlight color (shared OfficeColorPicker popup)
-        function colorControl(icon, title, defVal, cpOpts, applyFn) {
-            var $w = $('<button type="button" class="of-tbtn of-te-cbtn"></button>').attr("title", title);
-            $w.append('<i class="' + icon + ' icon"></i><span class="of-te-cbar"></span>');
-            $w.find(".of-te-cbar").css("background", defVal);
-            // selection is tracked globally (trackSelection); just keep it
-            $w.on("mousedown", function (e) { e.preventDefault(); });
-            $w.on("click", function () {
-                OfficeColorPicker.open({
-                    anchor: $w[0],
-                    value: $w.data("cur") || defVal,
-                    allowNone: !!cpOpts.allowNone,
-                    noneLabel: cpOpts.noneLabel,
-                    onPick: function (hex) {
-                        if (inHeaderFooter()) return;
-                        $w.data("cur", hex);
-                        $w.find(".of-te-cbar").css("background", hex || "transparent");
-                        restoreSel();
-                        applyFn(hex);
-                        OfficeApp.markDirty();
-                        afterEdit(true);
-                    }
-                });
+        var cmdBtn = function (icon, title, key, cmd, svg) {
+            return B({
+                icon: svg ? null : icon, svg: svg, title: title, key: key, cmd: cmd,
+                onClick: function () { exec(cmd); }
             });
-            $t.append($w);
-        }
-        colorControl("font", "Text color", "#000000", {}, function (v) {
-            if (!v) return;
-            try { document.execCommand("foreColor", false, v); } catch (e) { }
-        });
-        colorControl("paint brush", "Highlight color", "#ffff00",
-            { allowNone: true, noneLabel: "No highlight" }, function (v) {
-                try {
-                    if (!document.execCommand("hiliteColor", false, v || "transparent")) {
-                        document.execCommand("backColor", false, v || "transparent");
-                    }
-                } catch (e) {
-                    try { document.execCommand("backColor", false, v || "transparent"); } catch (e2) { }
-                }
-            });
-        sep();
+        };
 
-        btn("align left", "Align left", function () { exec("justifyLeft"); }, "justifyLeft");
-        btn("align center", "Align center", function () { exec("justifyCenter"); }, "justifyCenter");
-        btn("align right", "Align right", function () { exec("justifyRight"); }, "justifyRight");
-        btn("align justify", "Justify", function () { exec("justifyFull"); }, "justifyFull");
+        /* ---------- Home ---------- */
+        var home = R.tab("home", "Home");
+        var font = home.group({ id: "font", label: "Font", icon: "font", priority: 9 });
+        font.row([$fontSel, $sizeSel,
+            B({ svg: "growFont", title: "Increase font size", key: "Ctrl+]", onClick: function () { stepFontSize(1); } }),
+            B({ svg: "shrinkFont", title: "Decrease font size", key: "Ctrl+[", onClick: function () { stepFontSize(-1); } }),
+            D({ svg: "changeCase", title: "Change case", mobile: false, menu: caseMenuItems }),
+            B({ svg: "clearFormat", title: "Clear formatting", onClick: clearFormatting }),
+            B({
+                svg: "formatPainter", title: "Format painter - click, then select the text to format (double-click to keep it on)", id: "docPainter",
+                active: function () { return !!painter; },
+                onClick: function () { startPainter(false); }
+            }).on("dblclick", function () { startPainter(true); })
+        ]);
+        font.row([
+            cmdBtn("bold", "Bold", "Ctrl+B", "bold"),
+            cmdBtn("italic", "Italic", "Ctrl+I", "italic"),
+            cmdBtn("underline", "Underline", "Ctrl+U", "underline"),
+            cmdBtn("strikethrough", "Strikethrough", "Ctrl+Shift+X", "strikeThrough"),
+            cmdBtn(null, "Subscript", "Ctrl+,", "subscript", "subscript"),
+            cmdBtn(null, "Superscript", "Ctrl+.", "superscript", "superscript"),
+            "|",
+            R.colorButton({
+                id: "docHilite", svg: "highlighter", title: "Text highlight color", value: "#ffff00",
+                allowNone: true, noneLabel: "No highlight", onPick: applyHighlight
+            }),
+            R.colorButton({
+                id: "docFontColor", svg: "fontColor", title: "Font color", value: "#d0342c",
+                onPick: applyFontColor
+            })
+        ]);
 
-        var $ls = btn("text height", "Line spacing", function () {
-            var r = $ls[0].getBoundingClientRect();
-            var cur = currentLineSpacing();
-            OfficeApp.showContextMenu(r.left, r.bottom + 4, LINE_SPACINGS.map(function (v) {
-                return {
-                    label: v === "1" ? "Single (1)" : v,
-                    checked: cur === v,
-                    action: function () { setLineSpacing(v); }
-                };
+        var para = home.group({ id: "paragraph", label: "Paragraph", icon: "paragraph", priority: 8 });
+        para.row([
+            cmdBtn("list ul", "Bulleted list", "Ctrl+Shift+8", "insertUnorderedList"),
+            cmdBtn("list ol", "Numbered list", "Ctrl+Shift+7", "insertOrderedList"),
+            B({ icon: "check square outline", title: "Checklist", cmd: "checklist", onClick: toggleChecklist }),
+            "|",
+            B({ icon: "outdent", title: "Decrease indent", onClick: function () { exec("outdent"); } }),
+            B({ icon: "indent", title: "Increase indent", key: "Tab", onClick: function () { exec("indent"); } }),
+            "|",
+            B({ svg: "sortAZ", title: "Sort the selected paragraphs A to Z", mobile: false, onClick: sortParagraphs }),
+            B({ svg: "marks", title: "Show formatting marks", mobile: false, active: marksOn, onClick: toggleMarks })
+        ]);
+        para.row([
+            cmdBtn("align left", "Align left", null, "justifyLeft"),
+            cmdBtn("align center", "Center", null, "justifyCenter"),
+            cmdBtn("align right", "Align right", null, "justifyRight"),
+            cmdBtn("align justify", "Justify", null, "justifyFull"),
+            "|",
+            D({ svg: "lineSpacing", title: "Line and paragraph spacing", menu: lineSpacingItems }),
+            R.colorButton({
+                id: "docShading", svg: "fill", title: "Shading", value: "#fff2cc",
+                allowNone: true, noneLabel: "No colour", mobile: false, onPick: applyShading
+            }),
+            D({ svg: "borderBottom", title: "Borders", mobile: false, menu: borderItems })
+        ]);
+
+        home.group({ id: "styles", label: "Styles", icon: "paragraph", priority: 4 })
+            .add(R.gallery({
+                id: "docStyles", cls: "doc-styles", tileW: 80, visible: 6, minVisible: 2,
+                moreTitle: "All styles",
+                items: STYLE_TILES.map(function (s) {
+                    return {
+                        key: s.v, label: s.label,
+                        html: '<span class="doc-gs-prev doc-gs-' + s.v + '">AaBbCc</span>' +
+                            '<span class="doc-gs-name">' + esc(s.label) + "</span>",
+                        active: function () { return currentStyle === s.v; },
+                        onClick: function () { applyParagraphStyle(s.v); }
+                    };
+                })
+            }))
+            .add($styleSel);
+
+        home.group({ id: "editing", label: "Editing", icon: "search", priority: 2 }).stack([
+            B({ icon: "search", label: "Find", showLabel: true, key: "Ctrl+F", onClick: function () { openFind(false); } }),
+            B({ icon: "exchange", label: "Replace", showLabel: true, key: "Ctrl+H", onClick: function () { openFind(true); } }),
+            B({ icon: "i cursor", label: "Select all", showLabel: true, key: "Ctrl+A", onClick: selectAll })
+        ]);
+
+        /* ---------- Insert ---------- */
+        var ins = R.tab("insert", "Insert");
+        ins.group({ id: "pages", label: "Pages", svg: "pageBreak" })
+            .add(R.big({ svg: "pageBreak", label: "Page break", key: "Ctrl+Enter", onClick: insertPageBreak }));
+        ins.group({ id: "tables", label: "Tables", svg: "table" })
+            .add(R.big({ svg: "table", label: "Table", onClick: insertTableDialog }));
+        ins.group({ id: "illustrations", label: "Illustrations", svg: "picture" })
+            .add(R.big({ svg: "picture", label: "Pictures", menu: imageMenuItems }))
+            .add(R.big({ svg: "drawing", label: "Drawing", onClick: function () { drawingDialog(); } }));
+        ins.group({ id: "links", label: "Links", svg: "link" })
+            .add(R.big({ svg: "link", label: "Link", key: "Ctrl+K", onClick: linkDialog }))
+            .add(R.big({ svg: "newComment", label: "Comment", key: "Ctrl+Alt+M", onClick: function () { commentDialog(null); } }));
+        ins.group({ id: "hf", label: "Header & Footer", svg: "headerFooter" })
+            .add(R.big({ svg: "headerFooter", label: "Header & footer", menu: hfMenuItems }))
+            .add(R.big({ svg: "pageNumbers", label: "Page numbers", active: function () { return !!pageConf.pageNumbers; }, onClick: togglePageNumbers }));
+        ins.group({ id: "text", label: "Text", icon: "font" }).stack([
+            B({ svg: "hrule", label: "Horizontal line", showLabel: true, onClick: function () { exec("insertHorizontalRule"); } }),
+            B({ icon: "quote left", label: "Quote", showLabel: true, onClick: function () { applyParagraphStyle("blockquote"); } }),
+            B({ icon: "code", label: "Code block", showLabel: true, onClick: function () { applyParagraphStyle("pre"); } })
+        ]);
+        ins.group({ id: "symbols", label: "Symbols", svg: "symbol" })
+            .add(R.big({ svg: "symbol", label: "Symbol", title: "Special characters", onClick: specialCharsDialog }))
+            .add(R.big({ svg: "footnote", label: "Footnote", key: "Ctrl+Alt+F", onClick: insertFootnote }));
+
+        /* ---------- Draw ---------- */
+        var draw = R.tab("draw", "Draw");
+        var pens = draw.group({ id: "pens", label: "Pens", svg: "pen" });
+        OfficeSketch.PENS.forEach(function (p) {
+            pens.add(R.big({
+                iconHtml: OfficeSketch.penIcon(p), label: p.label,
+                title: "Draw with the " + p.label.toLowerCase(),
+                onClick: function () { drawingDialog(p.id); }
             }));
         });
-        btn("outdent", "Decrease indent", function () { exec("outdent"); });
-        btn("indent", "Increase indent (Tab)", function () { exec("indent"); });
-        sep();
+        draw.group({ id: "canvas", label: "Canvas", svg: "drawing" })
+            .add(R.big({ svg: "drawing", label: "Drawing canvas", onClick: function () { drawingDialog(); } }));
 
-        btn("list ul", "Bulleted list (Ctrl+Shift+8)", function () { exec("insertUnorderedList"); }, "insertUnorderedList");
-        btn("list ol", "Numbered list (Ctrl+Shift+7)", function () { exec("insertOrderedList"); }, "insertOrderedList");
-        btn("check square outline", "Checklist", toggleChecklist, "checklist");
-        sep();
+        /* ---------- Layout ---------- */
+        var lay = R.tab("layout", "Layout");
+        lay.group({ id: "setup", label: "Page Setup", svg: "margins", priority: 5 })
+            .add(R.big({ svg: "margins", label: "Margins", menu: marginItems }))
+            .add(R.big({ svg: "orientation", label: "Orientation", menu: orientationItems }))
+            .add(R.big({ svg: "pageSize", label: "Size", menu: sizeItems }))
+            .add(R.big({ svg: "columns", label: "Columns", menu: layoutMenuItems }))
+            .add(R.big({
+                svg: "pageBreak", label: "Breaks", menu: function () {
+                    return [{ label: "Page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak }];
+                }
+            }));
+        lay.group({ id: "hf", label: "Header & Footer", svg: "headerFooter" })
+            .add(R.big({ svg: "headerFooter", label: "Header & footer", menu: hfMenuItems }))
+            .add(R.big({ svg: "pageNumbers", label: "Page numbers", active: function () { return !!pageConf.pageNumbers; }, onClick: togglePageNumbers }));
+        lay.group({ id: "paragraph", label: "Paragraph", svg: "lineSpacing" }).stack([
+            D({ svg: "lineSpacing", label: "Line spacing", showLabel: true, menu: lineSpacingItems }),
+            B({ icon: "indent", label: "Increase indent", showLabel: true, onClick: function () { exec("indent"); } }),
+            B({ icon: "outdent", label: "Decrease indent", showLabel: true, onClick: function () { exec("outdent"); } })
+        ]);
+        lay.group({ id: "dialog", label: "Page setup", svg: "pageSetup" })
+            .add(R.big({ svg: "pageSetup", label: "Page setup", onClick: pageSetupDialog }));
 
-        btn("linkify", "Insert link (Ctrl+K)", linkDialog);
-        btn("image outline", "Insert image", function () {
-            var b = this.getBoundingClientRect ? this.getBoundingClientRect() : { left: 200, bottom: 80 };
-            OfficeApp.showContextMenu(b.left, b.bottom + 4, imageMenuItems());
+        /* ---------- References ---------- */
+        var refs = R.tab("references", "References");
+        refs.group({ id: "toc", label: "Table of Contents", svg: "toc" })
+            .add(R.big({ svg: "toc", label: "Table of contents", title: "Insert a table of contents built from the headings", onClick: insertToc }))
+            .add(R.big({ svg: "tocUpdate", label: "Update table", enabled: hasToc, onClick: updateToc }));
+        refs.group({ id: "footnotes", label: "Footnotes", svg: "footnote" })
+            .add(R.big({ svg: "footnote", label: "Insert footnote", key: "Ctrl+Alt+F", onClick: insertFootnote }));
+
+        /* ---------- Review ---------- */
+        var rev = R.tab("review", "Review");
+        rev.group({ id: "proofing", label: "Proofing", svg: "spelling" })
+            .add(R.big({ svg: "spelling", label: "Spelling", title: "Check spelling as you type", active: function () { return editor.spellcheck; }, onClick: toggleSpellcheck }))
+            .add(R.big({ svg: "wordCount", label: "Word count", onClick: wordCountDialog }));
+        rev.group({ id: "comments", label: "Comments", svg: "comments" })
+            .add(R.big({ svg: "newComment", label: "New comment", key: "Ctrl+Alt+M", onClick: function () { commentDialog(null); } }))
+            .add(R.big({
+                svg: "comments", label: "Show comments", active: commentsPanelVisible,
+                onClick: function () { showCommentsPanel(!commentsPanelVisible()); OfficeRibbon.refresh(); }
+            }));
+        rev.group({ id: "tracking", label: "Tracking", svg: "trackChanges" })
+            .add(R.big({
+                svg: "trackChanges", label: "Suggest edits", title: "Track changes as suggestions",
+                active: function () { return suggesting; },
+                onClick: function () { setSuggesting(!suggesting); OfficeRibbon.refresh(); }
+            }));
+        rev.group({ id: "changes", label: "Changes", svg: "accept" })
+            .add(R.big({
+                svg: "accept", label: "Accept all", enabled: function () { return allSuggestions().length > 0; },
+                onClick: function () { resolveAllSuggestions(true); OfficeRibbon.refresh(); }
+            }))
+            .add(R.big({
+                svg: "reject", label: "Reject all", enabled: function () { return allSuggestions().length > 0; },
+                onClick: function () { resolveAllSuggestions(false); OfficeRibbon.refresh(); }
+            }));
+
+        /* ---------- View ---------- */
+        var view = R.tab("view", "View");
+        view.group({ id: "show", label: "Show", svg: "marks" })
+            .add(R.big({ svg: "marks", label: "Formatting marks", active: marksOn, onClick: toggleMarks }))
+            .add(R.big({
+                svg: "layoutBoxes", label: "Layout boxes",
+                active: function () { return document.body.classList.contains("doc-show-boxes"); },
+                onClick: function () { toggleLayoutBoxes(); OfficeRibbon.refresh(); }
+            }))
+            .add(R.big({
+                svg: "comments", label: "Comments", active: commentsPanelVisible,
+                onClick: function () { showCommentsPanel(!commentsPanelVisible()); OfficeRibbon.refresh(); }
+            }));
+        view.group({ id: "zoom", label: "Zoom", svg: "zoomIn" })
+            .add(R.big({ svg: "zoomOut", label: "Zoom out", key: "Ctrl+-", onClick: function () { OfficeApp.zoomOut(); } }))
+            .add(R.big({ svg: "zoom100", label: "100%", key: "Ctrl+0", onClick: function () { OfficeApp.setZoom(100); } }))
+            .add(R.big({ svg: "zoomIn", label: "Zoom in", key: "Ctrl+=", onClick: function () { OfficeApp.zoomIn(); } }))
+            .add(R.big({ svg: "pageWidth", label: "Page width", onClick: function () { fitPageWidth(false); } }));
+        view.group({ id: "appearance", label: "Appearance", svg: "darkTheme" })
+            .add(R.big({
+                svg: "darkTheme", label: "Dark theme", active: function () { return OfficeApp.isDark(); },
+                onClick: function () { OfficeApp.toggleTheme(); OfficeRibbon.refresh(); }
+            }));
+    }
+
+    /* ---------- Home: font ---------- */
+    function currentFontPt() {
+        var v = parseInt($sizeSel.val(), 10);
+        var n = savedRange ? savedRange.startContainer : null;
+        if (n && n.nodeType === 3) n = n.parentNode;
+        if (n && n.nodeType === 1 && editor.contains(n)) {
+            var px = parseFloat(window.getComputedStyle(n).fontSize);
+            if (px > 0) v = Math.round(px * 72 / 96);
+        }
+        return v || 11;
+    }
+    // the next size on the list up or down, as Word's grow / shrink do
+    function stepFontSize(dir) {
+        var cur = currentFontPt(), next = cur;
+        var i;
+        if (dir > 0) {
+            next = cur + 10;
+            for (i = 0; i < FONT_SIZES.length; i++) if (FONT_SIZES[i] > cur) { next = FONT_SIZES[i]; break; }
+            next = Math.min(400, next);
+        } else {
+            next = Math.max(1, cur - 1);
+            for (i = FONT_SIZES.length - 1; i >= 0; i--) if (FONT_SIZES[i] < cur) { next = FONT_SIZES[i]; break; }
+        }
+        if (next === cur) return;
+        applyFontSize(next);
+        if ($sizeSel.find('option[value="' + next + '"]').length) $sizeSel.val(String(next));
+    }
+    var CASES = [
+        { key: "sentence", label: "Sentence case." },
+        { key: "lower", label: "lowercase" },
+        { key: "upper", label: "UPPERCASE" },
+        { key: "title", label: "Capitalize Each Word" },
+        { key: "toggle", label: "tOGGLE cASE" }
+    ];
+    function caseMenuItems() {
+        return CASES.map(function (c) {
+            return { label: c.label, action: function () { changeCase(c.key); } };
         });
-        btn("table", "Insert table", insertTableDialog);
-        btn("smile outline", "Special characters", specialCharsDialog);
-        sep();
+    }
+    /* Change case rewrites the characters of the selected text nodes in
+       place, one for one, so the formatting runs, the selection and the
+       undo snapshot all stay where they were. A character whose other
+       case is longer (German sharp s) is left as it is. */
+    function changeCase(mode) {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        var range = sel.getRangeAt(0);
+        if (!editor.contains(range.commonAncestorContainer)) return;
+        if (range.collapsed) {
+            OfficeApp.setStatus("Select the text to change first", "info", 3000);
+            return;
+        }
+        var rootEl = range.commonAncestorContainer.nodeType === 3 ?
+            range.commonAncestorContainer.parentNode : range.commonAncestorContainer;
+        var walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+        var nodes = [];
+        while (walker.nextNode()) {
+            if (range.intersectsNode(walker.currentNode)) nodes.push(walker.currentNode);
+        }
+        var one = function (c, f) {
+            var r = f(c);
+            return r.length === 1 ? r : c;
+        };
+        var up = function (c) { return one(c, function (x) { return x.toUpperCase(); }); };
+        var low = function (c) { return one(c, function (x) { return x.toLowerCase(); }); };
+        var isLetter = function (c) { return c.toUpperCase() !== c.toLowerCase(); };
+        var wordStart = true, sentenceStart = true;
+        nodes.forEach(function (tn) {
+            var t = tn.nodeValue;
+            var a = tn === range.startContainer ? range.startOffset : 0;
+            var b = tn === range.endContainer ? range.endOffset : t.length;
+            var out = "";
+            for (var i = a; i < b; i++) {
+                var c = t.charAt(i), r = c;
+                if (mode === "lower") r = low(c);
+                else if (mode === "upper") r = up(c);
+                else if (mode === "toggle") r = (c === up(c)) ? low(c) : up(c);
+                else if (mode === "title") r = wordStart ? up(c) : low(c);
+                else if (mode === "sentence") r = (sentenceStart && isLetter(c)) ? up(c) : low(c);
+                if (isLetter(c)) { wordStart = false; sentenceStart = false; }
+                else if (/\s/.test(c)) wordStart = true;
+                if (/[.!?]/.test(c)) sentenceStart = true;
+                out += r;
+            }
+            if (out !== t.substring(a, b)) tn.nodeValue = t.substring(0, a) + out + t.substring(b);
+        });
+        try {
+            sel.removeAllRanges();
+            sel.addRange(range);
+            savedRange = range.cloneRange();
+        } catch (e) { }
+        afterEdit(true);
+    }
+    function applyHighlight(v) {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        try {
+            if (!document.execCommand("hiliteColor", false, v || "transparent")) {
+                document.execCommand("backColor", false, v || "transparent");
+            }
+        } catch (e) {
+            try { document.execCommand("backColor", false, v || "transparent"); } catch (e2) { }
+        }
+        afterEdit(true);
+    }
+    function applyFontColor(v) {
+        if (inHeaderFooter() || !v) return;
+        restoreSel();
+        try { document.execCommand("foreColor", false, v); } catch (e) { }
+        afterEdit(true);
+    }
 
-        btn("eraser", "Clear formatting", clearFormatting);
+    /* ---------- Home: paragraph ---------- */
+    function lineSpacingItems() {
+        var cur = currentLineSpacing();
+        return LINE_SPACINGS.map(function (v) {
+            return {
+                label: v === "1" ? "Single (1.0)" : v,
+                checked: cur === v,
+                action: function () { setLineSpacing(v); }
+            };
+        });
+    }
+    // paragraph shading: the block's background, which the .docx writer
+    // turns into the paragraph's w:shd
+    function applyShading(v) {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        var blocks = getSelectedBlocks();
+        if (!blocks.length) return;
+        blocks.forEach(function (b) {
+            b.style.backgroundColor = v || "";
+            if (!b.getAttribute("style")) b.removeAttribute("style");
+        });
+        afterEdit(true);
+        updatePageGuides();
+    }
+    /* Paragraph borders as Word draws them: a 0.75pt rule a point away from
+       the text (border-* + padding-*, which the .docx writer turns into
+       w:pBdr with that w:space). */
+    var BORDER_RULE = "0.75pt solid #000000";
+    function setBlockBorders(sides) {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        var blocks = getSelectedBlocks();
+        if (!blocks.length) return;
+        var all = ["top", "right", "bottom", "left"];
+        blocks.forEach(function (b, i) {
+            all.forEach(function (s) {
+                // a box around several paragraphs: no rules between them
+                var on = sides.indexOf(s) >= 0;
+                if (sides.join() === "top,right,bottom,left" && blocks.length > 1) {
+                    if (s === "top" && i > 0) on = false;
+                    if (s === "bottom" && i < blocks.length - 1) on = false;
+                }
+                b.style["border" + s.charAt(0).toUpperCase() + s.substring(1)] = on ? BORDER_RULE : "";
+                b.style["padding" + s.charAt(0).toUpperCase() + s.substring(1)] = on ? "1pt" : "";
+            });
+            if (!b.getAttribute("style")) b.removeAttribute("style");
+        });
+        afterEdit(true);
+        updatePageGuides();
+    }
+    function borderItems() {
+        return [
+            { label: "Bottom border", html: OfficeIcons.get("borderBottom") + "<span>Bottom border</span>", action: function () { setBlockBorders(["bottom"]); } },
+            { label: "Top border", html: OfficeIcons.get("borderTop") + "<span>Top border</span>", action: function () { setBlockBorders(["top"]); } },
+            { label: "Outside borders", html: OfficeIcons.get("borderOutside") + "<span>Outside borders</span>", action: function () { setBlockBorders(["top", "right", "bottom", "left"]); } },
+            { label: "No border", html: OfficeIcons.get("borderNone") + "<span>No border</span>", action: function () { setBlockBorders([]); } }
+        ];
+    }
+    function sortParagraphs() {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        var blocks = getSelectedBlocks().filter(function (b) {
+            return !b.classList.contains("doc-pagebreak") && b.tagName !== "TABLE";
+        });
+        if (blocks.length < 2) {
+            OfficeApp.setStatus("Select two or more paragraphs to sort", "info", 3000);
+            return;
+        }
+        var parent = blocks[0].parentNode;
+        if (!blocks.every(function (b) { return b.parentNode === parent; })) {
+            OfficeApp.setStatus("Sort works on paragraphs next to each other", "error", 4000);
+            return;
+        }
+        var anchor = blocks[blocks.length - 1].nextSibling;
+        var sorted = blocks.slice().sort(function (a, b) {
+            return (a.textContent || "").trim().localeCompare((b.textContent || "").trim(), undefined,
+                { numeric: true, sensitivity: "base" });
+        });
+        sorted.forEach(function (b) { parent.insertBefore(b, anchor); });
+        afterEdit(true);
+        updatePageGuides();
+    }
+    function marksOn() { return document.body.classList.contains("doc-show-marks"); }
+    function toggleMarks() {
+        var on = !marksOn();
+        document.body.classList.toggle("doc-show-marks", on);
+        OfficeApp.setSetting("marks", on);
+        OfficeRibbon.refresh();
+    }
+
+    /* ---------- Home: format painter ----------
+       Picks up the look of the text at the caret (font, size, colour,
+       highlight, bold / italic / underline / strike) and lays it on the
+       next selection made in the document. A double-click keeps it on
+       until Escape or another click on the button. */
+    var painter = null;
+    function readCaretFormat() {
+        var n = savedRange ? savedRange.startContainer : null;
+        if (n && n.nodeType === 3) n = n.parentNode;
+        if (!n || n.nodeType !== 1 || !editor.contains(n)) return null;
+        var cs = window.getComputedStyle(n);
+        var deco = "";
+        for (var e = n; e && e !== editor; e = e.parentNode) {
+            if (e.nodeType === 1) deco += " " + (window.getComputedStyle(e).textDecorationLine || "");
+        }
+        var bg = "";
+        for (var h = n; h && h !== editor; h = h.parentNode) {
+            if (h.nodeType !== 1 || /^(P|H[1-6]|LI|DIV|BLOCKQUOTE|PRE|TD|TH)$/.test(h.tagName)) break;
+            var c = window.getComputedStyle(h).backgroundColor;
+            if (c && c !== "transparent" && !/rgba\(0, 0, 0, 0\)/.test(c)) { bg = c; break; }
+        }
+        var fam = String(cs.fontFamily || "").replace(/['"]/g, "").split(",")[0].trim();
+        return {
+            family: fam,
+            pt: Math.round(parseFloat(cs.fontSize) * 72 / 96),
+            bold: (parseInt(cs.fontWeight, 10) || 400) >= 600,
+            italic: cs.fontStyle === "italic",
+            underline: deco.indexOf("underline") >= 0,
+            strike: deco.indexOf("line-through") >= 0,
+            color: cs.color,
+            highlight: bg
+        };
+    }
+    function startPainter(sticky) {
+        if (painter && !sticky) { stopPainter(); return; }
+        var f = readCaretFormat();
+        if (!f) {
+            OfficeApp.setStatus("Put the cursor in the text whose format to copy", "info", 3000);
+            return;
+        }
+        painter = { fmt: f, sticky: !!sticky };
+        document.body.classList.add("doc-painting");
+        OfficeApp.setStatus(sticky ? "Format painter on - select text to format, Esc to stop" :
+            "Select the text to format", "info", 4000);
+        OfficeRibbon.refresh();
+    }
+    function stopPainter() {
+        painter = null;
+        document.body.classList.remove("doc-painting");
+        OfficeRibbon.refresh();
+    }
+    function applyPainter() {
+        if (!painter) return;
+        var sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount || !editor.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+        savedRange = sel.getRangeAt(0).cloneRange();
+        var f = painter.fmt;
+        try {
+            document.execCommand("removeFormat");
+            if (f.bold) document.execCommand("bold");
+            if (f.italic) document.execCommand("italic");
+            if (f.underline) document.execCommand("underline");
+            if (f.strike) document.execCommand("strikeThrough");
+            if (f.color) document.execCommand("foreColor", false, f.color);
+            if (f.highlight) document.execCommand("hiliteColor", false, f.highlight);
+        } catch (e) { }
+        savedRange = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : savedRange;
+        if (f.family && FONTS.indexOf(f.family) >= 0) applyFontFamily(f.family, true);
+        if (f.pt) applyFontSize(f.pt, true);
+        afterEdit(true);
+        if (!painter.sticky) stopPainter();
+    }
+
+    /* ---------- Insert / Layout: page ---------- */
+    function togglePageNumbers() {
+        pageConf.pageNumbers = !pageConf.pageNumbers;
+        applyPageSetup();
+        afterEdit(true);
+        OfficeRibbon.refresh();
+    }
+    function hfMenuItems() {
+        return [
+            { label: "Same on all pages", checked: pageConf.hfMode === "all", action: function () { setHfMode("all"); } },
+            { label: "All pages except the first", checked: pageConf.hfMode === "except-first", action: function () { setHfMode("except-first"); } },
+            { label: "None", checked: pageConf.hfMode === "none", action: function () { setHfMode("none"); } }
+        ];
+    }
+    // Word's margin presets, in millimetres
+    var MARGIN_PRESETS = [
+        { label: "Normal", sub: "2.54 cm all round", m: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 } },
+        { label: "Narrow", sub: "1.27 cm all round", m: { top: 12.7, right: 12.7, bottom: 12.7, left: 12.7 } },
+        { label: "Moderate", sub: "2.54 cm top and bottom, 1.91 cm sides", m: { top: 25.4, right: 19.05, bottom: 25.4, left: 19.05 } },
+        { label: "Wide", sub: "2.54 cm top and bottom, 5.08 cm sides", m: { top: 25.4, right: 50.8, bottom: 25.4, left: 50.8 } },
+        { label: "Compact", sub: "2 cm all round", m: { top: 20, right: 20, bottom: 20, left: 20 } }
+    ];
+    function marginItems() {
+        var m = pageConf.margins;
+        var items = MARGIN_PRESETS.map(function (p) {
+            var same = Math.abs(m.top - p.m.top) < 0.1 && Math.abs(m.right - p.m.right) < 0.1 &&
+                Math.abs(m.bottom - p.m.bottom) < 0.1 && Math.abs(m.left - p.m.left) < 0.1;
+            return {
+                label: p.label + "  (" + p.sub + ")", checked: same,
+                action: function () {
+                    pageConf.margins = { top: p.m.top, right: p.m.right, bottom: p.m.bottom, left: p.m.left };
+                    applyPageSetup();
+                    afterEdit(true);
+                }
+            };
+        });
+        items.push({ sep: true });
+        items.push({ label: "Custom margins...", icon: "sliders horizontal", action: pageSetupDialog });
+        return items;
+    }
+    function orientationItems() {
+        return [["portrait", "Portrait"], ["landscape", "Landscape"]].map(function (o) {
+            return {
+                label: o[1], checked: pageConf.orientation === o[0],
+                action: function () { pageConf.orientation = o[0]; applyPageSetup(); afterEdit(true); }
+            };
+        });
+    }
+    function sizeItems() {
+        return Object.keys(PAGE_SIZES).map(function (k) {
+            var d = PAGE_SIZES[k];
+            return {
+                label: k + "  (" + d.w + " x " + d.h + " mm)", checked: pageConf.size === k,
+                action: function () { pageConf.size = k; applyPageSetup(); afterEdit(true); }
+            };
+        });
+    }
+
+    /* ---------- References ---------- */
+    // a footnote: the reference in the text, its note under a rule at the
+    // foot of the page (renderFootnoteAreas), where it is typed
+    function insertFootnote() {
+        if (inHeaderFooter()) return;
+        restoreSel();
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !editor.contains(sel.getRangeAt(0).startContainer)) return;
+        var id = "fn" + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+        footnotes[id] = "<p><br></p>";
+        // placed with a Range, not insertHTML: Chrome lifts a non-editable
+        // element out of the paragraph it is inserted into
+        var range = sel.getRangeAt(0);
+        range.deleteContents();
+        var ref = document.createElement("sup");
+        ref.className = "doc-fnref";
+        ref.setAttribute("data-fn", id);
+        ref.setAttribute("contenteditable", "false");
+        ref.textContent = "*";
+        range.insertNode(ref);
+        range.setStartAfter(ref);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        savedRange = range.cloneRange();
+        afterEdit(true);
+        // lay the pages out now rather than on the counter's timer, which
+        // would redraw the note areas - and drop the caret - after it is
+        // put in the new note
+        clearTimeout(countTimer);
+        updateCounts();
+        var fn = pageEl.querySelector('.doc-fn-area .doc-fn[data-fn="' + id + '"]');
+        if (!fn) return;
+        fn.focus();
+        try {
+            var r = document.createRange();
+            r.selectNodeContents(fn.querySelector("p") || fn);
+            r.collapse(false);
+            var s = window.getSelection();
+            s.removeAllRanges();
+            s.addRange(r);
+        } catch (err) { }
+        fn.scrollIntoView({ block: "nearest" });
+    }
+    /* A table of contents is ordinary paragraphs: each heading's text, a
+       right tab with a dot leader at the margin, and the page it is on as
+       the layout has it now. That is what Word stores once a TOC field is
+       updated, so it round-trips as plain text with real tab stops. The
+       .doc-toc class marks the lines Update table replaces. */
+    function hasToc() { return !!editor.querySelector("p.doc-toc"); }
+    function tocHtml() {
+        var heads = editor.querySelectorAll("h1, h2, h3");
+        var geo = pageGeometry();
+        var tabPt = Math.round(geo.contentW * 0.75 * 10) / 10;
+        var html = "";
+        for (var i = 0; i < heads.length; i++) {
+            var h = heads[i];
+            if (h.closest(".doc-fn-area") || h.classList.contains("doc-split-tail")) continue;
+            var text = (h.textContent || "").replace(/\s+/g, " ").trim();
+            if (!text) continue;
+            var level = h.classList.contains("doc-title") ? 1 : parseInt(h.tagName.substring(1), 10);
+            var page = pageIndexAt(offsetTopInPage(h)) + 1;
+            var indent = (level - 1) * 14;
+            html += '<p class="doc-toc" data-tabs="right:' + tabPt + ':dot" style="margin-left:' + indent + 'pt;margin-bottom:3pt;">' +
+                esc(text) + '<span class="doc-tab"></span>' + page + "</p>";
+        }
+        return html;
+    }
+    function insertToc() {
+        if (inHeaderFooter()) return;
+        if (hasToc()) { updateToc(); return; }
+        var body = tocHtml();
+        if (!body) {
+            OfficeApp.setStatus("Add some headings first (Heading 1-3) - the table lists them", "info", 5000);
+            return;
+        }
+        restoreSel();
+        try {
+            document.execCommand("insertHTML", false,
+                '<p class="doc-toc doc-toc-title" style="font-size:16pt;margin-bottom:6pt;">Contents</p>' + body + "<p><br></p>");
+        } catch (e) { return; }
+        afterEdit(true);
+        updatePageGuides();
+        // the table itself moved the headings: number it again
+        setTimeout(updateTocQuiet, 80);
+    }
+    function updateTocQuiet() { updateToc(true); }
+    function updateToc(quiet) {
+        var lines = editor.querySelectorAll("p.doc-toc:not(.doc-toc-title)");
+        if (!lines.length) return;
+        var html = tocHtml();
+        var holder = document.createElement("div");
+        holder.innerHTML = html;
+        var first = lines[0];
+        var parent = first.parentNode;
+        while (holder.firstChild) parent.insertBefore(holder.firstChild, first);
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].parentNode) lines[i].parentNode.removeChild(lines[i]);
+        }
+        afterEdit(true);
+        updatePageGuides();
+        if (quiet !== true) OfficeApp.setStatus("Table of contents updated");
+    }
+
+    /* ---------- Review / View ---------- */
+    function toggleSpellcheck() {
+        editor.spellcheck = !editor.spellcheck;
+        OfficeApp.setSetting("spellcheck", editor.spellcheck);
+        editor.focus();
+        OfficeRibbon.refresh();
+    }
+    function wordCountDialog() {
+        var text = editor.innerText || "";
+        var sel = window.getSelection();
+        var selText = (sel && !sel.isCollapsed && sel.rangeCount && editor.contains(sel.getRangeAt(0).commonAncestorContainer)) ?
+            sel.toString() : "";
+        var count = function (t) {
+            return {
+                words: (t.match(/\S+/g) || []).length,
+                chars: t.replace(/\n/g, "").length,
+                charsNoSp: t.replace(/\s/g, "").length,
+                paras: (t.split(/\n+/).filter(function (x) { return x.trim(); })).length
+            };
+        };
+        var all = count(text);
+        var rows = [
+            ["Pages", String(lastPages.length || 1)],
+            ["Words", all.words],
+            ["Characters (no spaces)", all.charsNoSp],
+            ["Characters (with spaces)", all.chars],
+            ["Paragraphs", all.paras]
+        ];
+        if (selText) {
+            var s = count(selText);
+            rows.push(["Words in the selection", s.words]);
+        }
+        var html = '<table class="doc-wc">' + rows.map(function (r) {
+            return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(String(r[1])) + "</td></tr>";
+        }).join("") + "</table>";
+        OfficeApp.dialog({ title: "Word count", body: html, buttons: [{ label: "Close", primary: true }] });
+    }
+    // fit the page to the window's width; transient = not the person's
+    // chosen zoom (a phone does this by itself)
+    function fitPageWidth(transient) {
+        var avail = workspaceEl.clientWidth - 28;
+        var w = pageEl.offsetWidth;
+        if (!(avail > 0 && w > 0)) return;
+        var z = Math.floor(avail / w * 100);
+        OfficeApp.setZoom(Math.max(25, Math.min(transient ? 100 : 400, z)), { transient: !!transient });
+    }
+
+    /* ---------- Insert / Draw: drawings ---------- */
+    function drawingDialog(penId) {
+        if (inHeaderFooter()) return;
+        OfficeSketch.open({
+            title: "Drawing", pen: penId,
+            onInsert: function (blob, w, h) {
+                OfficeApp.blobToSrc(blob, "drawing.png", function (src) {
+                    // shown at the size it was drawn, never wider than the text
+                    var geo = pageGeometry();
+                    var scale = Math.min(1, geo.contentW / w);
+                    insertImage(src, w * scale, h * scale);
+                }, function (msg) { OfficeApp.toast(msg, "error"); });
+            }
+        });
     }
 
     function scheduleToolbarState() {
@@ -710,13 +1330,15 @@
         stateTimer = setTimeout(updateToolbarState, 90);
     }
     function updateToolbarState() {
-        var states = ["bold", "italic", "underline", "strikeThrough",
+        var states = ["bold", "italic", "underline", "strikeThrough", "subscript", "superscript",
             "justifyLeft", "justifyCenter", "justifyRight", "justifyFull",
             "insertUnorderedList", "insertOrderedList"];
+        // by class rather than under #toolbar: a folded ribbon group shows
+        // its buttons in a popup outside it
         states.forEach(function (c) {
             var on = false;
             try { on = document.queryCommandState(c); } catch (e) { }
-            $('#toolbar [data-cmd="' + c + '"]').toggleClass("active", !!on);
+            $('.of-rb-btn[data-cmd="' + c + '"]').toggleClass("active", !!on);
         });
         // font family
         var fn = "";
@@ -738,13 +1360,19 @@
                 if (b.classList.contains("doc-title")) v = "title";
                 else if (/^H[1-4]$/.test(b.tagName)) v = b.tagName.toLowerCase();
             }
+            if (b && editor.contains(b)) {
+                if (b.tagName === "BLOCKQUOTE" || b.closest("blockquote")) v = v === "p" ? "blockquote" : v;
+                if (b.tagName === "PRE") v = "pre";
+            }
             $styleSel.val(v);
+            currentStyle = v;
             // checklist button state
             var li = n.closest ? n.closest("li") : null;
             var inCheck = !!(li && li.parentElement && li.parentElement.classList.contains("of-checklist"));
-            $('#toolbar [data-cmd="checklist"]').toggleClass("active", inCheck);
-            if (inCheck) $('#toolbar [data-cmd="insertUnorderedList"]').removeClass("active");
+            $('.of-rb-btn[data-cmd="checklist"]').toggleClass("active", inCheck);
+            if (inCheck) $('.of-rb-btn[data-cmd="insertUnorderedList"]').removeClass("active");
         }
+        if (window.OfficeRibbon) OfficeRibbon.refresh();
     }
 
     /* ================= links ================= */
@@ -817,12 +1445,15 @@
         items.push({ label: "From URL...", icon: "world", action: insertImageFromUrl });
         return items;
     }
-    function insertImage(src) {
+    function insertImage(src, w, h) {
         if (!src) return;
         restoreSel();
+        // the document states picture sizes in points
+        var size = (w > 0 && h > 0) ?
+            "width:" + Math.round(w * 0.75 * 10) / 10 + "pt;height:" + Math.round(h * 0.75 * 10) / 10 + "pt;" : "";
         try {
             document.execCommand("insertHTML", false,
-                '<img src="' + esc(src) + '" style="max-width:100%;">');
+                '<img src="' + esc(src) + '" style="' + size + 'max-width:100%;">');
         } catch (e) { }
         afterEdit(true);
     }
@@ -3689,6 +4320,16 @@
         OfficeApp.registerShortcut("Ctrl+Enter", insertPageBreak,
             { description: "Insert page break", group: "Text" });
         OfficeApp.registerShortcut("Ctrl+F", function () { openFind(false); }, { description: "Find" });
+        OfficeApp.registerShortcut("Ctrl+]", function () { stepFontSize(1); }, { description: "Increase font size", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+[", function () { stepFontSize(-1); }, { description: "Decrease font size", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+,", function () { exec("subscript"); }, { description: "Subscript", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+.", function () { exec("superscript"); }, { description: "Superscript", group: "Text" });
+        OfficeApp.registerShortcut("Ctrl+Alt+F", insertFootnote, { description: "Insert footnote", group: "Text" });
+        // Escape puts the format painter down (and falls through)
+        OfficeHotkeys.register("Escape", function () {
+            if (painter) stopPainter();
+            return false;
+        }, { id: "docs.painteresc", allowInInput: true });
         OfficeApp.registerShortcut("Ctrl+H", function () { openFind(true); }, { description: "Find and replace" });
         // lists - register both the digit and the shifted symbol (layout dependent)
         OfficeApp.registerShortcut("Ctrl+Shift+7", function () { exec("insertOrderedList"); });
@@ -3767,95 +4408,25 @@
 
             // Edit menubar clipboard shares the context-menu implementations
             // (image-aware copy, async rich paste)
+            // the ribbon (buildToolbar) carries Insert, Format and View; File
+            // and Edit stay menus
+            ribbon: true,
+            editMenuExtras: [
+                { label: "Paste without formatting", icon: "file alternate outline", key: "Ctrl+Shift+V", action: function () { pasteFromMenu(true); } },
+                { sep: true },
+                { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll },
+                {
+                    label: "Format painter", icon: "paint brush",
+                    action: function () { startPainter(false); }
+                },
+                { sep: true },
+                { label: "Find...", icon: "search", key: "Ctrl+F", action: function () { openFind(false); } },
+                { label: "Find and replace...", icon: "exchange", key: "Ctrl+H", action: function () { openFind(true); } }
+            ],
             onCut: function () { menuCutCopy(true); },
             onCopy: function () { menuCutCopy(false); },
             onPaste: function () { pasteFromMenu(false); },
 
-            menus: [
-                {
-                    title: "Insert",
-                    items: function () {
-                        return [
-                            { label: "Image", icon: "image outline", sub: imageMenuItems() },
-                            { label: "Table...", icon: "table", action: insertTableDialog },
-                            { label: "Link...", icon: "linkify", key: "Ctrl+K", action: linkDialog },
-                            { label: "Comment...", icon: "comment outline", key: "Ctrl+Alt+M", action: function () { commentDialog(null); } },
-                            { sep: true },
-                            { label: "Page break", icon: "file outline", key: "Ctrl+Enter", action: insertPageBreak },
-                            { label: "Horizontal rule", icon: "minus", action: function () { exec("insertHorizontalRule"); } },
-                            { label: "Code block", icon: "code", action: function () { applyParagraphStyle("pre"); } },
-                            { label: "Block quote", icon: "quote left", action: function () { applyParagraphStyle("blockquote"); } },
-                            { sep: true },
-                            { label: "Special characters...", icon: "smile outline", action: specialCharsDialog }
-                        ];
-                    }
-                },
-                {
-                    title: "Format",
-                    items: function () {
-                        return [
-                            { label: "Page layout", icon: "columns", sub: layoutMenuItems },
-                            { sep: true },
-                            {
-                                label: "Paragraph style", icon: "paragraph",
-                                sub: PARA_STYLES.map(function (s) {
-                                    return { label: s.label, action: function () { applyParagraphStyle(s.v); } };
-                                })
-                            },
-                            {
-                                label: "Align", icon: "align left",
-                                sub: [
-                                    { label: "Left", icon: "align left", action: function () { exec("justifyLeft"); } },
-                                    { label: "Center", icon: "align center", action: function () { exec("justifyCenter"); } },
-                                    { label: "Right", icon: "align right", action: function () { exec("justifyRight"); } },
-                                    { label: "Justify", icon: "align justify", action: function () { exec("justifyFull"); } }
-                                ]
-                            },
-                            {
-                                label: "Line spacing", icon: "text height",
-                                sub: function () {
-                                    var cur = currentLineSpacing();
-                                    return LINE_SPACINGS.map(function (v) {
-                                        return {
-                                            label: v === "1" ? "Single (1)" : v,
-                                            checked: cur === v,
-                                            action: function () { setLineSpacing(v); }
-                                        };
-                                    });
-                                }
-                            },
-                            {
-                                label: "Header & footer", icon: "window minimize outline",
-                                sub: function () {
-                                    return [
-                                        {
-                                            label: "Same on all pages",
-                                            checked: pageConf.hfMode === "all",
-                                            action: function () { setHfMode("all"); }
-                                        },
-                                        {
-                                            label: "All pages except the first",
-                                            checked: pageConf.hfMode === "except-first",
-                                            action: function () { setHfMode("except-first"); }
-                                        },
-                                        {
-                                            label: "None",
-                                            checked: pageConf.hfMode === "none",
-                                            action: function () { setHfMode("none"); }
-                                        }
-                                    ];
-                                }
-                            },
-                            { sep: true },
-                            { label: "Bulleted list", icon: "list ul", key: "Ctrl+Shift+8", action: function () { exec("insertUnorderedList"); } },
-                            { label: "Numbered list", icon: "list ol", key: "Ctrl+Shift+7", action: function () { exec("insertOrderedList"); } },
-                            { label: "Checklist", icon: "check square outline", action: toggleChecklist },
-                            { sep: true },
-                            { label: "Clear formatting", icon: "eraser", action: clearFormatting }
-                        ];
-                    }
-                }
-            ],
             /*
                 .odt needs the Office converters - the AGI backend in ArozOS,
                 the WebAssembly module in the web edition. .docx is the
@@ -3880,51 +4451,6 @@
                     }
                 }
             ],
-            editMenuExtras: [
-                { label: "Find...", icon: "search", key: "Ctrl+F", action: function () { openFind(false); } },
-                { label: "Find and replace...", icon: "exchange", key: "Ctrl+H", action: function () { openFind(true); } },
-                { sep: true },
-                { label: "Select all", icon: "i cursor", key: "Ctrl+A", action: selectAll },
-                { sep: true },
-                {
-                    label: "Suggest edits", icon: "pencil alternate",
-                    checked: function () { return suggesting; },
-                    action: function () { setSuggesting(!suggesting); }
-                },
-                {
-                    label: "Accept all suggestions", icon: "check circle outline",
-                    enabled: function () { return allSuggestions().length > 0; },
-                    action: function () { resolveAllSuggestions(true); }
-                },
-                {
-                    label: "Reject all suggestions", icon: "times circle outline",
-                    enabled: function () { return allSuggestions().length > 0; },
-                    action: function () { resolveAllSuggestions(false); }
-                }
-            ],
-
-            viewMenuExtras: [
-                {
-                    label: "Layout boxes",
-                    checked: function () { return document.body.classList.contains("doc-show-boxes"); },
-                    action: toggleLayoutBoxes
-                },
-                {
-                    label: "Comments panel",
-                    checked: function () { return commentsPanelVisible(); },
-                    action: function () { showCommentsPanel(!commentsPanelVisible()); }
-                },
-                {
-                    label: "Spell check",
-                    checked: function () { return editor.spellcheck; },
-                    action: function () {
-                        editor.spellcheck = !editor.spellcheck;
-                        OfficeApp.setSetting("spellcheck", editor.spellcheck);
-                        editor.focus();
-                    }
-                }
-            ],
-
             zoomTarget: "#page",
             onZoomChanged: function () { positionImgHandle(); },
             onBeforePrint: function () {
@@ -3955,6 +4481,21 @@
         if (OfficeApp.getSetting("layoutBoxes", false)) {
             document.body.classList.add("doc-show-boxes");
         }
+        if (OfficeApp.getSetting("marks", false)) document.body.classList.add("doc-show-marks");
+        // the format painter lays its format on the selection a drag ends
+        editor.addEventListener("mouseup", function () {
+            if (painter) setTimeout(applyPainter, 0);
+        });
+        // a phone shows the page fitted to its width (not saved as the zoom)
+        var fitNarrow = function () {
+            if (OfficeRibbon.isNarrow()) fitPageWidth(true);
+        };
+        setTimeout(fitNarrow, 60);
+        var fitTimer = null;
+        $(window).on("resize", function () {
+            clearTimeout(fitTimer);
+            fitTimer = setTimeout(fitNarrow, 150);
+        });
         editor.spellcheck = OfficeApp.getSetting("spellcheck", true);
         updateCounts();
         editor.focus();

@@ -120,8 +120,8 @@ func (t *xlsxStyleTable) xfFor(s *CellStyle) int {
 	if s == nil {
 		return 0
 	}
-	sig := fmt.Sprintf("%v|%v|%v|%s|%s|%s|%v|%s|%v|%v|%d",
-		s.B, s.I, s.U, s.Al, s.Bg, s.Fc, s.Fs, s.Fmt, s.Dec != nil, s.Wrap, s.Bd)
+	sig := fmt.Sprintf("%v|%v|%v|%s|%s|%s|%v|%s|%v|%v|%d|%s|%v|%s",
+		s.B, s.I, s.U, s.Al, s.Bg, s.Fc, s.Fs, s.Fmt, s.Dec != nil, s.Wrap, s.Bd, s.Ff, s.St, s.Va)
 	if s.Dec != nil {
 		sig += "|" + strconv.Itoa(*s.Dec)
 	}
@@ -140,6 +140,9 @@ func (t *xlsxStyleTable) xfFor(s *CellStyle) int {
 	if s.U {
 		fx += "<u/>"
 	}
+	if s.St {
+		fx += "<strike/>"
+	}
 	sz := 11.0
 	if s.Fs > 0 {
 		sz = s.Fs * 72.0 / 96.0 // px -> pt
@@ -148,7 +151,11 @@ func (t *xlsxStyleTable) xfFor(s *CellStyle) int {
 	if s.Fc != "" {
 		fx += `<color rgb="FF` + hexColor(s.Fc, "000000") + `"/>`
 	}
-	fx += `<name val="Calibri"/></font>`
+	fontName := "Calibri"
+	if s.Ff != "" {
+		fontName = s.Ff
+	}
+	fx += `<name val="` + xmlEscape(fontName) + `"/></font>`
 	fontID := t.font(fx)
 
 	// fill
@@ -180,11 +187,15 @@ func (t *xlsxStyleTable) xfFor(s *CellStyle) int {
 		applies += ` applyBorder="1"`
 	}
 	align := ""
-	if s.Al != "" || s.Wrap {
+	if s.Al != "" || s.Wrap || s.Va != "" {
 		h := map[string]string{"l": "left", "c": "center", "r": "right"}[s.Al]
+		v := map[string]string{"t": "top", "m": "center", "b": "bottom"}[s.Va]
 		align = "<alignment"
 		if h != "" {
 			align += ` horizontal="` + h + `"`
+		}
+		if v != "" {
+			align += ` vertical="` + v + `"`
 		}
 		if s.Wrap {
 			align += ` wrapText="1"`

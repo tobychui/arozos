@@ -511,10 +511,69 @@ body.doc-show-boxes #editor > .col-span-all::after {
 }
 
 /* ============ Toolbar tweaks ============ */
-#toolbar .of-tselect { max-width: 132px; }
-#toolbar select.tb-style { width: 96px; }
-#toolbar select.tb-font { width: 118px; }
-#toolbar select.tb-size { width: 58px; }
+.of-tselect.tb-style { width: 110px; }
+.of-tselect.tb-font { width: 136px; }
+.of-tselect.tb-size { width: 56px; }
+
+/* ---- the styles gallery (Home > Styles): each tile previews its style ---- */
+.doc-styles .of-rb-gtile { gap: 3px; padding: 3px 4px 2px; }
+.doc-gs-prev {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    line-height: 1.15;
+    font-family: Arial, "Noto Sans", sans-serif;
+    font-size: 14px;
+    color: var(--of-fg);
+}
+.doc-gs-title { font-size: 19px; font-weight: 400; }
+.doc-gs-h1 { font-size: 17px; font-weight: 600; color: var(--of-accent); }
+.doc-gs-h2 { font-size: 15px; font-weight: 600; color: var(--of-accent); }
+.doc-gs-h3 { font-size: 14px; font-weight: 600; }
+.doc-gs-h4 { font-size: 13px; font-weight: 600; font-style: italic; }
+.doc-gs-blockquote { font-style: italic; color: var(--of-fg-soft); border-left: 2px solid var(--of-border); padding-left: 4px; }
+.doc-gs-pre { font-family: Consolas, "Courier New", monospace; font-size: 12.5px; }
+.doc-gs-name { font-size: 11px; color: var(--of-fg-soft); white-space: nowrap; }
+.of-rb-gtile.active .doc-gs-name { color: var(--of-accent); }
+
+/* ---- formatting marks (Home > Paragraph, View): a pilcrow at the end of
+   every paragraph. Absolutely positioned at its static place, so it takes
+   no room and cannot move a line or a page break. An empty paragraph's
+   mark would land under its <br>: lift it back onto the line. ---- */
+body.doc-show-marks #editor :is(p, h1, h2, h3, h4, h5, h6, li, pre)::after {
+    content: "\00B6";
+    position: absolute;
+    color: #6f9fd8;
+    font-weight: 400;
+    font-style: normal;
+    text-decoration: none;
+    pointer-events: none;
+}
+body.doc-show-marks #editor :is(p, h1, h2, h3, h4, h5, h6, li, pre):has(> br:last-child)::after {
+    transform: translateY(-100%);
+}
+body.doc-show-marks #editor .doc-tab::before {
+    content: "\2192";
+    position: absolute;
+    color: #6f9fd8;
+    pointer-events: none;
+}
+/* the PDF export reads the page as drawn: no marks in it */
+body.doc-exporting.doc-show-marks #editor :is(p, h1, h2, h3, h4, h5, h6, li, pre)::after,
+body.doc-exporting.doc-show-marks #editor .doc-tab::before { content: none; }
+@media print {
+    body.doc-show-marks #editor :is(p, h1, h2, h3, h4, h5, h6, li, pre)::after,
+    body.doc-show-marks #editor .doc-tab::before { content: none; }
+}
+
+/* format painter armed */
+body.doc-painting #editor { cursor: copy; }
+
+/* Review > Word count */
+.doc-wc { width: 100%; border-collapse: collapse; }
+.doc-wc td { padding: 5px 4px; border-bottom: 1px solid var(--of-border); }
+.doc-wc td:last-child { text-align: right; font-weight: 600; }
 .tb-color-wrap {
     display: inline-flex;
     flex-direction: column;

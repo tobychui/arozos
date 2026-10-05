@@ -113,6 +113,72 @@ menus, file open/save, busy/toast/status, print), the widget libraries
 (no emoji in source, no cross-webapp imports, ES5-ish style, must work
 both in a FloatWindow and a plain tab).
 
+## The ribbon, the views and small screens
+
+The three apps share one chrome, built in [`common/ribbon.js`](common/ribbon.js)
+and [`common/office.js`](common/office.js) (API in `CONTRACT.md`): a title
+bar with the AutoSave switch, the File and Edit menus and the ribbon's
+tabs, and under it a ribbon of two-row groups, big buttons and galleries -
+Microsoft Office's layout with Google Docs' File / Edit menus and flat look.
+Save, Undo, Redo and the clipboard commands live in those two menus (and on
+their shortcuts), not on the ribbon; Format painter is in each Home > Font
+group and in Edit. The window title names the file from the moment it
+starts opening (`showOpening` in `office.js`). The tabs are Word's, Excel's and PowerPoint's:
+
+| App | Tabs |
+|---|---|
+| Docs | Home, Insert, Draw, Layout, References, Review, View |
+| Sheets | Home, Insert, Formulas, Data, Review, View |
+| Slides | Home, Insert, Draw, Design, Transitions, Animations, Slide Show, View, + Shape Format / Picture Format while such an object is selected |
+
+There is no Design tab in Docs (the document has no theme model to put in
+one) and no Page Layout tab in Sheets (no print setup to put in one); add
+them when those exist rather than as empty tabs.
+
+**Widths.** The ribbon fits itself on every resize: galleries give up tiles,
+then whole groups fold into a dropdown button that opens their real controls
+in a popup (lowest priority first), and the title bar closes its tabs up and
+then turns them into one tab picker. At phone width (`body.of-narrow`,
+600px and under) the ribbon is one sideways-scrolling line of icons under
+the picker; Docs fits the page to the screen (a transient zoom, not saved),
+Slides puts the slide strip under the slide and folds the notes away, and
+Sheets narrows its name box. All of it is CSS on the same DOM - there is no
+second mobile UI to keep in step.
+
+**Commands added with the ribbon** (each is ordinary document content, so
+every format keeps it):
+
+- Docs: grow / shrink font (Ctrl+] / Ctrl+[), change case, subscript /
+  superscript (Ctrl+, / Ctrl+.), paragraph shading and borders (the .docx
+  writer's `w:shd` / `w:pBdr`), sort paragraphs, formatting marks (an
+  absolutely positioned pilcrow, so it cannot move a line), format painter,
+  footnotes (Ctrl+Alt+F), a table of contents (heading text, a right tab with
+  a dot leader and the page number as laid out now - Update table redoes
+  it), margin / orientation / size presets, word count, page-width zoom.
+- Sheets: font family, size in points, strikethrough (Ctrl+5) and vertical
+  alignment (`s.ff`, `s.st`, `s.va` - written to and read from .xlsx and
+  .ods), merge and center, the number-format box and comma style, cell
+  styles and Format as Table (presets of ordinary formatting, plus a filter
+  on the range), AutoSum, the function library by category (`spec.cat`),
+  Show formulas (Ctrl+`), Calculate now (F9), gridlines and formula bar on
+  or off, freeze presets, note navigation, selection statistics.
+- Slides: font family and grow / shrink, strikethrough and super /
+  subscript as text runs (the .pptx writer now writes `a:rPr baseline`),
+  vertical text alignment, line spacing, find and replace across the deck
+  (Ctrl+H), format painter, theme / transition / animation galleries.
+- Docs and Slides: the Draw tab's drawing canvas
+  ([`common/sketch.js`](common/sketch.js)), inserted as a trimmed PNG.
+
+**Slide overview** (View > Slide overview, the status bar's grid button, or
+Ctrl+Alt+1): the deck as a grid, like Google Slides' grid view or
+PowerPoint's Slide Sorter (`renderOverview` in `slides.js`). Click selects,
+double-click or Enter opens the slide, drag reorders, right-click has the
+slide menu, Delete / Ctrl+D / Ctrl+M act on the slide in hand, arrows move
+by card and by row, Escape goes back. The previews are the same
+`renderSlideContent()` the rail uses, and `renderThumb` / `renderRail` keep
+the grid in step with every edit; the floating control at the bottom sets
+the card size (`overviewSize`, saved).
+
 ## Document body schemas (the JSON each app edits)
 
 Go structs are the source of truth — they mirror the JS exactly:
@@ -223,7 +289,7 @@ keeps for the suite:
 | | Word / Excel / PowerPoint see | kept only in the embedded copy |
 |---|---|---|
 | Docs | text, styles, lists, tables, pictures, footnotes, headers/footers, **comments** (resolved state included) and **suggestions as tracked changes** ([`docx_review.go`](../../mod/office/docx_review.go)), "Suggest edits" as `trackRevisions` | - |
-| Sheets | cells, formulas, styles, merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx_cf.go`](../../mod/office/xlsx_cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
+| Sheets | cells, formulas, styles (font, size, colours, bold / italic / underline / strikethrough, horizontal and vertical alignment, wrap), merges, freeze panes, hidden rows, charts, notes, defined names, **conditional formats** (every editor condition, [`xlsx_cf.go`](../../mod/office/xlsx_cf.go)), **tab colours**, the **filter range** | pivot settings, the filter's hidden values |
 | Slides | every object, **transitions** (fade / push / zoom), **click links** (to a slide or a URL), **line dashes and ends** (a square end as a diamond, an open end as the filled one - PowerPoint has neither), **picture frames**, **callout tips**, charts as pictures, videos as their poster frame | groups, entrance animations, live charts, the video/audio files, the exact line end |
 
 The reverse holds too: comments, tracked changes, conditional formats, tab
@@ -453,8 +519,8 @@ carrying on editing cannot change the file that comes out.
 
 ### Slides: starting a slide
 
-New slide is a split control on the toolbar: the button adds one, the caret
-beside it opens `showLayoutPicker()` — every layout in `LAYOUTS` as a
+New slide is a split button on the ribbon (Home and Insert): its icon adds
+one, the label under it (a separate button) opens `showLayoutPicker()` — every layout in `LAYOUTS` as a
 preview of itself. The previews are built by the same `newSlide()` and
 `renderSlideContent()` the document uses, at the scale the rail uses, so a
 preview cannot come to disagree with the slide choosing it makes. The
@@ -474,7 +540,8 @@ selected objects. Both are registered with `HK` and guarded by
 ### Slides: line styles and shape adjustments
 
 **Lines look the way Google Slides lets you make them.** When a line, a
-shape or a picture is selected the toolbar shows *Line weight* (1-24px) and
+shape or a picture is selected the Shape Format / Picture Format ribbon tab
+(and Home > Drawing) offers *Line weight* (1-24px) and
 *Line dash* (solid, dot, dash, dash-dot, long dash, long dash-dot); for a line
 also *Line start* and *Line end* (none, arrow, filled arrow / circle / square /
 diamond and open versions of the last four). Each menu pictures its choices.
@@ -562,8 +629,8 @@ The tools live in [`slides/slides_image.js`](slides/slides_image.js)
 (`SlidesImageTools`) and reach the document only through a host object of
 callbacks, so `slides.js` stays about the document and the canvas. They are
 reachable three ways: a **floating picture bar** under the selected image
-(the text-edit bar's chrome, so the two feel like one family), the toolbar,
-and the picture's context menu.
+(the text-edit bar's chrome, so the two feel like one family), the Picture
+Format ribbon tab, and the picture's context menu.
 
 - **Crop image** (also a double-click) opens the tool: the object itself is
   hidden and the overlay draws the whole picture ghosted with the kept part
@@ -690,7 +757,7 @@ is: `SUM({1,2,3})`, `VLOOKUP(2,{1,"a";2,"b"},2,FALSE)`.
 index a sheet-local name belongs to). The calculator resolves a name once per
 recalculation, in the scope of the sheet that defines it, and usually to a
 reference - so `SUM(Sales)` works like `SUM(Data!B2:B99)`. Data > Named
-ranges manages them, renaming a sheet rewrites them, and they round-trip
+ranges (and Formulas > Name manager) manages them, renaming a sheet rewrites them, and they round-trip
 through xlsx `<definedNames>` (Excel's own `_xlnm.*` entries are skipped:
 print areas and filter ranges belong to features modelled elsewhere).
 
@@ -1141,7 +1208,9 @@ sh ../scripts/check-conventions.sh --diff origin/master
 - **Front-end smoke test without a full server**: the repo's
   `.claude/launch.json` has a `webroot-static` config that serves
   `src/web/` on `:8123`; the apps load standalone (AGI calls fail
-  gracefully). Menus/toolbars/editing are all testable this way.
+  gracefully). The ribbon, menus and editing are all testable this way;
+  a phone layout needs a real narrow viewport (the ribbon switches on
+  `window.innerWidth`), e.g. headless Chrome with device-metrics emulation.
 - **Checking a Slides PDF export properly** means rendering it and looking
   at it beside the editor's own render of the same slide — the exporter's
   whole claim is that the two are the same picture. `PDF Viewer/js/pdf.js`
