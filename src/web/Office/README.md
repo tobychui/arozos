@@ -607,6 +607,12 @@ document did not give it one), `evenOdd` (the path has holes in it), and
 `detail` (markings such as the divider bars of a predefined process, drawn
 over the outline rather than filled).
 
+Picking a shape arms the canvas (`insertShape` -> `pendingDraw = "shape"`), as
+PowerPoint does: drag out its box (Shift keeps the catalogue's proportions,
+`defaultSize`), or click to drop it at that size. Lines, likewise, are hit by
+their stroke only - the line's box lets clicks through (`slides.css`,
+`.sl-type-line`), so a click beside a diagonal reaches what is under it.
+
 The picker itself is `showShapePicker()`: the categories down the left, the
 shapes of the one in hand as icons on the right. The icons come from
 `SlidesShapes.icon()` — the same geometry again — so a picker entry cannot

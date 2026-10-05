@@ -160,11 +160,6 @@ var SlidesImageTools = (function () {
         var $row = $('<div class="of-te-row"></div>');
         $bar.append($row);
 
-        $row.append($('<span class="sl-imagebar-label"></span>')
-            .append('<i class="image outline icon"></i>')
-            .append(document.createTextNode("Edit image")));
-        $row.append('<div class="of-te-sep"></div>');
-
         // crop and the crop shapes are one control: the button crops, the
         // caret beside it picks the shape to crop to
         var $crop = barBtn("crop", "Crop image", function () {

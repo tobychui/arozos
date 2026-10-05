@@ -66,6 +66,8 @@
 /* focusing a thumbnail selects it, so the active border is already the
    focus indicator - the browser's own outline would only double it up */
 .sl-thumb:focus { outline: none; }
+/* keyboard walking scrolls the rail (updateRailActive): leave a gap */
+.sl-thumb { scroll-margin: 12px 0; }
 .sl-thumb.active .sl-thumb-view {
     border-color: var(--of-accent);
     box-shadow: 0 0 0 1px var(--of-accent);
@@ -200,6 +202,12 @@
 }
 
 .sl-obj { position: absolute; box-sizing: border-box; }
+/* A line is hit by its stroke only: the box around it lets clicks through,
+   and lineSvg's wide transparent polyline (the svg's first child) is the
+   target - so a click beside a diagonal line reaches what is under it. */
+#slSlideLayer .sl-obj.sl-type-line,
+#slSlideLayer .sl-obj.sl-type-line svg * { pointer-events: none; }
+#slSlideLayer .sl-obj.sl-type-line svg > polyline:first-child { pointer-events: stroke; }
 .sl-obj > svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .sl-obj img { display: block; width: 100%; height: 100%; pointer-events: none; }
 
@@ -437,7 +445,16 @@ body.dark .sl-h.sl-h-adj { background: #fbbc04; }
 .sl-present-btn { padding: 0 12px 0 10px; border-radius: 15px 0 0 15px; }
 .sl-present-more { padding: 0 9px 0 7px; border-radius: 0 15px 15px 0; border-left: 1px solid rgba(255, 255, 255, 0.35); }
 .sl-present-btn:hover, .sl-present-more:hover { filter: brightness(1.08); }
-.sl-present-btn i.icon, .sl-present-more i.icon { margin: 0 !important; font-size: 12px !important; }
+.sl-present-btn i.icon, .sl-present-more i.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    margin: 0 !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+}
 body.of-narrow .sl-present-btn span { display: none; }
 body.of-narrow .sl-present-btn { padding: 0 9px; }
 
@@ -845,17 +862,7 @@ body.of-narrow .sl-ov-card, body.of-narrow .sl-ov-add { width: 100%; }
 /* ============ Picture tools (slides_image.js) ============ */
 
 /* the floating picture bar reuses the text bar's chrome so the two feel
-   like one family; only the label and the split crop control differ */
-.sl-imagebar-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0 6px 0 2px;
-    font-size: 12px;
-    color: var(--of-fg-soft);
-    white-space: nowrap;
-}
-.sl-imagebar-label i.icon { margin: 0 !important; font-size: 12px !important; }
+   like one family; only the split crop control differs */
 .sl-imagebar .of-te-btn.active { background: var(--of-accent-soft); color: var(--of-accent); }
 /* crop + caret read as one split button */
 .sl-imagebar-crop { border-radius: 4px 0 0 4px !important; }

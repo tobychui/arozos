@@ -1115,6 +1115,9 @@ var SlidesApp = (function () {
         $("#slThumbs .sl-thumb").each(function (i) {
             $(this).toggleClass("active", i === cur);
         });
+        // walking the deck with the keys: the rail scrolls with it
+        var act = $("#slThumbs .sl-thumb").eq(cur)[0];
+        if (act) act.scrollIntoView({ block: "nearest", inline: "nearest" });
         if (overview) {
             $("#slOverview .sl-ov-card").each(function (i) {
                 $(this).toggleClass("active", i === cur);
@@ -1728,11 +1731,13 @@ var SlidesApp = (function () {
         }, 0);
     }
 
-    function insertShape(kind) {
+    // a brace or a bracket only reads as itself tall and narrow, so the
+    // catalogue gets to say what box its shapes want
+    function shapeDefaultSize(kind) {
+        return SlidesShapes.defaultSize(kind) || [200, 160];
+    }
+    function shapeProps(kind) {
         var th = themeOf();
-        // a brace or a bracket only reads as itself tall and narrow, so the
-        // catalogue gets to say what box its shapes want
-        var size = SlidesShapes.defaultSize(kind) || [200, 160];
         var props = {
             kind: kind, fill: /^#[0-9a-fA-F]{6}$/.test(th.accent) ? th.accent : "#e07b1f",
             stroke: "#333333", strokeW: 0, text: "", fontSize: 18
@@ -1740,11 +1745,22 @@ var SlidesApp = (function () {
         // a speech bubble starts with its tip where PowerPoint puts one,
         // and a yellow handle to move it
         if (SlidesShapes.adjustable(kind) === "tip") props.adj = SlidesShapes.tipDefaults(kind);
-        addObj("shape", props, { x: 480 - size[0] / 2, y: 270 - size[1] / 2, w: size[0], h: size[1] });
+        return props;
+    }
+    /* Picking a shape arms the canvas, as PowerPoint does: drag out the box
+       it should fill (Shift keeps the shape's own proportions), or click to
+       drop one at its default size there. */
+    var pendingShape = null;
+    function insertShape(kind) {
+        armDraw("shape");
+        pendingShape = kind;
+        OfficeApp.setStatus("Drag on the slide to draw the " + SlidesShapes.label(kind).toLowerCase() +
+            " (Shift keeps its proportions), or click to place it - Esc to cancel", "info", 0);
     }
     function armDraw(kind) {
         endEdit(true);
         pendingDraw = kind;
+        pendingShape = null;
         canvasEl.classList.add("sl-drawmode");
         OfficeApp.setStatus("Drag on the slide to draw a " + (kind === "arrow" ? "arrow" : "line") +
             " - Esc to cancel", "info", 0);
@@ -1752,6 +1768,7 @@ var SlidesApp = (function () {
     }
     function disarmDraw() {
         pendingDraw = null;
+        pendingShape = null;
         canvasEl.classList.remove("sl-drawmode");
         OfficeApp.setStatus("");
         syncDrawButtons();
@@ -2495,6 +2512,19 @@ var SlidesApp = (function () {
             endEdit(true);
         }
 
+        // armed shape: drag out its box
+        if (pendingDraw === "shape" && pendingShape) {
+            var sslide = curSlide();
+            var sobj = {
+                id: genId(), type: "shape", x: pt.x, y: pt.y, w: 0, h: 0, rot: 0,
+                z: sslide.objects.length + 1, props: shapeProps(pendingShape)
+            };
+            sslide.objects.push(sobj);
+            renderEditorSlide();
+            drag = { mode: "drawshape", id: sobj.id, start: pt, moved: false, kind: pendingShape };
+            try { canvasEl.setPointerCapture(e.pointerId); } catch (err) { }
+            return;
+        }
         // armed line/arrow drawing
         if (pendingDraw) {
             var th = themeOf();
@@ -2755,6 +2785,27 @@ var SlidesApp = (function () {
                 renderOverlay();
                 break;
             }
+            case "drawshape": {
+                o = objById(drag.id);
+                if (!o) return;
+                var sx0 = drag.start.x, sy0 = drag.start.y, ex = pt.x, ey = pt.y;
+                if (snapGrid) {
+                    ex = Math.round(ex / GRID) * GRID;
+                    ey = Math.round(ey / GRID) * GRID;
+                }
+                var bw = Math.abs(ex - sx0), bh = Math.abs(ey - sy0);
+                if (e.shiftKey && bw > 0 && bh > 0) {
+                    var ds = shapeDefaultSize(drag.kind);
+                    var ar = ds[0] / ds[1];
+                    if (bw / bh > ar) bw = bh * ar; else bh = bw / ar;
+                }
+                o.x = ex < sx0 ? sx0 - bw : sx0;
+                o.y = ey < sy0 ? sy0 - bh : sy0;
+                o.w = bw;
+                o.h = bh;
+                updateObjEl(o);
+                break;
+            }
             case "draw": {
                 o = objById(drag.id);
                 if (!o) return;
@@ -2824,6 +2875,25 @@ var SlidesApp = (function () {
 
         if (d.mode === "marquee") {
             marqueeEl.style.display = "none";
+            return;
+        }
+        if (d.mode === "drawshape") {
+            var so2 = objById(d.id);
+            disarmDraw();
+            if (!so2) return;
+            if (so2.w < 6 && so2.h < 6) {
+                // a click: the shape's own size, centred where it was clicked
+                var dsz = shapeDefaultSize(d.kind);
+                so2.w = dsz[0];
+                so2.h = dsz[1];
+                so2.x = clamp(d.start.x - dsz[0] / 2, 0, SLIDE_W - dsz[0]);
+                so2.y = clamp(d.start.y - dsz[1] / 2, 0, SLIDE_H - dsz[1]);
+            } else {
+                so2.w = Math.max(6, so2.w);
+                so2.h = Math.max(6, so2.h);
+            }
+            setSel([so2.id]);
+            commit();
             return;
         }
         if (d.mode === "draw") {
