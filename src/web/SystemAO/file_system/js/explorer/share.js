@@ -5,110 +5,50 @@
 
     Part of the ArozOS File Manager. Loaded as a plain script from
     file_explorer.html - see the <script> block at the end of that file.
+
+    Opening the dialog does not create a share: file_share.html reads the
+    share state of the file and only creates or changes shares when the user
+    asks it to. It reports every change back through onShareStateChanged().
 */
 
 function handleShareFilebuttonClick(event, object){
-    event.preventDefault(); 
+    event.preventDefault();
     event.stopImmediatePropagation();
     $(".fileObject.selected").removeClass("selected");
     $(object).closest(".fileObject").addClass("selected");
-    
+
     shareFile();
 }
 
-/*
-    Sized against the viewport, not against #shareFile.
-
-    The dialog is content-height now, so its height is whatever this iframe
-    reports - measuring the dialog here would feed that back into the iframe and
-    shave another 126px off on every resize until it collapsed.
-*/
-function resizeShareIframe(){
-    let available = window.innerHeight - 200;
-    let height = Math.max(260, Math.min(available, 560));
-    $("#shareFileEmbedded").css("height", height + "px");
-}
-
 function shareFile(){
-    var selectedFiles = [];
     var selectedFileObjects = [];
     $(".fileObject.selected").each(function(){
-        var thisFilepath = $(this).attr("filepath");
-        var thisFilename = $(this).attr("filename");
-        selectedFiles.push(thisFilepath);
-        selectedFileObjects.push({"filepath": thisFilepath, "filename": thisFilename});
+        selectedFileObjects.push({
+            "filepath": $(this).attr("filepath"),
+            "filename": $(this).attr("filename")
+        });
     });
 
-    if (selectedFiles.length == 0){
+    if (selectedFileObjects.length == 0){
         msgbox("question", applocale.getString("message/No file selected", "No file selected"));
-        console.log("No file is selected for sharing");
         return;
-    }else if (selectedFiles.length > 1){
+    }else if (selectedFileObjects.length > 1){
         //Try to share more than 1 files, which is not supported
         msgbox("yellow exclamation", applocale.getString("message/Multiple files share is currently not supported", "Multiple files share is currently not supported"));
-        console.log("Multi share is current not supported");
         return
     }
 
-    //OK! Continue to generate link
-    var selectedFile = selectedFiles[0];
-    var selectedFileObject = selectedFileObjects[0];
-    shareEditingObject = selectedFile;
-    $.ajax({
-        url: "../../system/file_system/share/new",
-        data: {path: selectedFile},
-        success: function(data){
-            if (data.error !== undefined){
-                msgbox("red remove",applocale.getString("message/" + data.error,data.error), 5000);
-            }else{
-                //Build the predicted share endpoint
-                selectedFileObject["QRCode"] = true;
-                selectedFileObject["ActionButtons"] = false;
-                var payload = encodeURIComponent(JSON.stringify([selectedFileObject]));
-                var requestURL = "file_share.html#" + payload;
-                $("#shareFileEmbedded").attr("src", requestURL);
-                resizeShareIframe();
-
-                //Show the share file interface
-                hideAllPopupWindows();
-                showPopupWrapper();
-                $("#shareFile").transition('slide left');
-
-                //Reload the list
-                listDirectory(currentPath);
-            }
-            
-        }
-    });
-    
-}
-
-function removeSharing(){
-    if (shareEditingObject == ""){
-        return
-    }
-
-    //The target file to remove
-    var selectedFile = shareEditingObject;
-    $("#shareFileEmbedded").attr("src", "");
-    $.ajax({
-        url: "../../system/file_system/share/delete",
-        data: {vpath: selectedFile},
-        success: function(data){
-            $("#qrcode").html(`<img src="img/private.png">`);
-            $(".shareoption").parent().addClass("disabled");
-            $("#sharelink").text("(Sharing Removed)");
-            $("#sharelink").removeAttr("href");
-            //Reload the current filelist and hide the share interface
-            listDirectory(currentPath);
-
-            //Reset sharing file settings
-            shareEditingObject = ""
-        }
-    });
-
+    //Close whatever is open first: hideAllPopupWindows() blanks the share
+    //iframe if the share dialog was the one showing
     hideAllPopupWindows();
-    msgbox("checkmark", applocale.getString("message/share/removed", "File share removed"))
+
+    var selectedFileObject = selectedFileObjects[0];
+    selectedFileObject["Embedded"] = true;
+    var payload = encodeURIComponent(JSON.stringify([selectedFileObject]));
+    $("#shareFileEmbedded").attr("src", "file_share.html#" + payload);
+
+    showPopupWrapper();
+    $("#shareFile").transition('fade in');
 }
 
 function hideShare(){
@@ -117,18 +57,59 @@ function hideShare(){
 }
 
 /*
-    Cross frame hooks called by the embedded file_share.html iframe.
+    Remove every share of the selected file. The dialog has its own per-link
+    controls; this is kept for callers that want a one shot "stop sharing".
+*/
+function removeSharing(){
+    var selected = $(".fileObject.selected").first();
+    if (selected.length == 0){
+        return;
+    }
+    $.ajax({
+        url: "../../system/file_system/share/delete",
+        method: "POST",
+        data: {vpath: selected.attr("filepath")},
+        success: function(data){
+            if (data.error !== undefined){
+                msgbox("red remove", applocale.getString("message/" + data.error, data.error), 5000);
+                return;
+            }
+            onShareStateChanged(selected.attr("filepath"), false);
+            msgbox("checkmark", applocale.getString("message/share/removed", "File share removed"));
+        }
+    });
+}
 
-    file_share.html calls parent.setFileShareIndicator(filename) after a
-    share is created and parent.removeFileShareIndicator(filename) after
-    one is revoked. When that page runs as a float window its parent is
-    desktop.html, which defines both. When the File Manager embeds it in
-    #shareFileEmbedded the parent is this document instead, so without
-    these the call threw and the share flow broke for anything under
-    user:/Desktop.
+/*
+    Called by the embedded file_share.html whenever it learns the share state
+    of its file (on load and after every change). Re-list only when the badge
+    in our listing is out of date, and keep the desktop icon in step.
+*/
+let shareRelistTimer = null;
+function onShareStateChanged(filepath, isShared){
+    var fileObject = $(".fileObject").filter(function(){
+        return $(this).attr("filepath") == filepath;
+    });
+    var badgeShown = fileObject.find(".sharebtn").length > 0;
+    if (fileObject.length > 0 && badgeShown != isShared){
+        clearTimeout(shareRelistTimer);
+        shareRelistTimer = setTimeout(function(){
+            listDirectory(currentPath);
+        }, 300);
+    }
 
-    Here we update our own listing's share badge and forward to the
-    desktop so its icon stays in step too.
+    var parts = filepath.split("/");
+    var filename = parts.pop();
+    if (parts.join("/") == "user:/Desktop"){
+        forwardShareIndicatorToDesktop(isShared ? "setFileShareIndicator" : "removeFileShareIndicator", filename);
+    }
+}
+
+/*
+    Cross frame hooks kept for pages that still call parent.setFileShareIndicator
+    / parent.removeFileShareIndicator directly. When the File Manager runs inside
+    the desktop, the desktop draws the share badge on its own icons, so forward
+    the call there.
 */
 function setFileShareIndicator(filename){
     forwardShareIndicatorToDesktop("setFileShareIndicator", filename);
@@ -138,12 +119,6 @@ function removeFileShareIndicator(filename){
     forwardShareIndicatorToDesktop("removeFileShareIndicator", filename);
 }
 
-/*
-    The share badge in our own listing comes from the IsShared flag on
-    each listDir entry, and both shareFile() and removeSharing() already
-    re-list the directory afterwards, so there is nothing to repaint here.
-    Only the desktop needs telling.
-*/
 function forwardShareIndicatorToDesktop(fname, filename){
     if (!ao_module_virtualDesktop){
         return;
@@ -165,8 +140,9 @@ function forwardShareIndicatorToDesktop(fname, filename){
     of these means updating those call sites too.
 */
 window.handleShareFilebuttonClick = handleShareFilebuttonClick;
-window.hideShare = hideShare;
-window.removeFileShareIndicator = removeFileShareIndicator;   // the embedded file_share.html iframe calls parent.*
+window.hideShare = hideShare;                       // file_share.html calls parent.hideShare() to close
+window.onShareStateChanged = onShareStateChanged;   // file_share.html reports share changes here
+window.removeFileShareIndicator = removeFileShareIndicator;
 window.removeSharing = removeSharing;
-window.setFileShareIndicator = setFileShareIndicator;   // the embedded file_share.html iframe calls parent.*
+window.setFileShareIndicator = setFileShareIndicator;
 window.shareFile = shareFile;

@@ -45,9 +45,11 @@ func NotificationSettingInit() {
 		RequireAdmin: false,
 	})
 
-	//Router for endpoints available to any logged-in user.
+	//Router for endpoints available to any logged-in user. They only touch
+	//the caller's own notifications and preferences, so no module permission
+	//is required (users without System Setting must still get notified).
 	userRouter := prout.NewModuleRouter(prout.RouterOption{
-		ModuleName:  "System Setting",
+		ModuleName:  "",
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {

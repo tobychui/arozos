@@ -56,9 +56,6 @@ function applyResponsiveLayout(){
         toggleSidebar(false);
     }
 
-    //Resize the share iframe
-    resizeShareIframe()
-
     //Resize the path display content
     if (!pathInputMode){
         updatePathDisplay(currentPath);

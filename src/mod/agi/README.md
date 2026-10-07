@@ -537,7 +537,10 @@ requirelib("share");
 ```
 
 ### `share.shareFile(vpath, timeoutSec)`
-`timeoutSec=0` means no auto-expire.
+`timeoutSec=0` returns the file's existing share link (creating an "anyone with
+the link" share if there is none). `timeoutSec>0` always creates a separate share
+that expires after that many seconds; the expiry survives restarts and the share
+is cleaned up by the nightly maintenance task.
 
 ```javascript
 var uuid = share.shareFile("user:/report.pdf", 3600);

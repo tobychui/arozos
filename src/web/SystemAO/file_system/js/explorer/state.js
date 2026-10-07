@@ -158,9 +158,6 @@ let responsiveLayoutTimer = null;
 //Module-registered extension icons (ext without dot → web-root-relative path)
 var extIconRegistry = {};
 
-//File Sharing related
-let shareEditingObject = "";
-
 //System Information
 
 //Browser detection

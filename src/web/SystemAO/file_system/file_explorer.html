@@ -371,28 +371,21 @@
             </div>
         </div>
 
-        <!-- Share File Dialog-->
-        <div id="shareFile" class="popup" style="display:none;">
+        <!--
+            Share File Dialog
+
+            A centred dialog rather than the docked card the other operations use:
+            the share settings (file_share.html, shared with the desktop) need the
+            room. The page inside draws everything below the title bar.
+        -->
+        <div id="shareFile" class="popup shareDialog" style="display:none;">
             <div class="popupheader">
-                <i class="external icon"></i> <span locale="opr/share/title">Share File</span>
+                <i class="share alternate icon"></i> <span locale="opr/share/title">Share File</span>
                 <div class="popupcloser" onclick="hideShare();">
                     <i class="remove icon"></i>
                 </div>
             </div>
-            <div>
-                <iframe id="shareFileEmbedded" style="border: 0px solid transparent; width: 100%; height: 70vh;" allowtransparency="true">
-
-                </iframe>
-            </div>
-            <div style="padding:12px;">
-                <div class="ui divider"></div>
-                <div id="sharingRemoveBtn" class="popupbuttons negative allowHover" onclick="removeSharing()">
-                    <i class="remove icon"></i> <span locale="opr/share/remove">Remove Sharing</span>
-                </div> 
-                <div class="popupbuttons allowHover" onclick="hideShare();">
-                    <i class="checkmark icon"></i> <span locale="opr/share/ok">OK</span>
-                </div> 
-            </div>
+            <iframe id="shareFileEmbedded" class="shareFrame" title="Share File" allowtransparency="true"></iframe>
         </div>
 
         <!-- Open With Dialog-->

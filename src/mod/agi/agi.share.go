@@ -8,6 +8,7 @@ import (
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/share/shareEntry"
 )
 
 func (g *Gateway) ShareLibRegister() {
@@ -41,18 +42,18 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 
 		//Create a share object for this request
 		vpathSourceFsh := u.GetRootFSHFromVpathInUserScope(vpath)
-		shareID, err := g.Option.ShareManager.CreateNewShare(u, vpathSourceFsh, vpath)
+		var shareID *shareEntry.ShareOption
+		if timeout > 0 {
+			//A share with a lifetime is its own share, so expiring it never
+			//removes a share the user created by hand
+			expireAt := time.Now().Unix() + timeout
+			shareID, err = g.Option.ShareManager.CreateShare(u, vpath, shareEntry.ShareSettings{ExpireAt: &expireAt})
+		} else {
+			shareID, err = g.Option.ShareManager.CreateNewShare(u, vpathSourceFsh, vpath)
+		}
 		if err != nil {
 			logger.PrintAndLog("Agi", "[AGI] Create Share Failed: "+err.Error(), nil)
 			return otto.New().MakeCustomError("Share failed", err.Error())
-		}
-
-		if timeout > 0 {
-			go func(timeout int) {
-				time.Sleep(time.Duration(timeout) * time.Second)
-				g.Option.ShareManager.RemoveShareByUUID(u, shareID.UUID)
-				logger.PrintAndLog("Agi", "[AGI] Share auto-removed: "+shareID.UUID, nil)
-			}(int(timeout))
 		}
 
 		r, _ := otto.ToValue(shareID.UUID)

@@ -1227,6 +1227,32 @@ body.fmResizing *{
 }
 
 /*
+    Share dialog: centred and fixed size, since the settings page inside it has
+    tabs whose height should not jump. Centred with inset + auto margins instead
+    of a transform, which the Semantic UI show/hide transitions overwrite.
+*/
+.popup.shareDialog{
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    width: 760px;
+    height: 640px;
+    max-width: calc(100% - 24px);
+    max-height: calc(100% - 24px);
+    border-radius: 14px;
+}
+
+.popup.shareDialog .shareFrame{
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    border: 0;
+    background: transparent;
+}
+
+/*
     The header carries the card's own surface now. It used to be a dark bar with
     an accent underline, which read as a separate title bar sitting on top of
     the panel rather than part of one card.

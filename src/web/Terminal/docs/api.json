@@ -434,7 +434,7 @@
         {
           "name": "share.shareFile",
           "sig": "share.shareFile(vpath, timeoutSec)",
-          "desc": "Create a public share link. timeoutSec=0 means no expiry. Returns the share UUID.",
+          "desc": "Create a public share link. timeoutSec=0 returns the file's existing share (or creates one) with no expiry; timeoutSec>0 always creates a separate share that expires after that many seconds. Returns the share UUID.",
           "ret": "string (uuid)",
           "example": "requirelib(\"share\");\nvar uuid = share.shareFile(\"user:/report.pdf\", 3600);"
         },

@@ -6193,10 +6193,8 @@
                 let targetURL = "SystemAO/file_system/file_share.html#" + encodeURIComponent(JSON.stringify([afd]));
                 newFloatWindow({
                     url: targetURL,
-                    width: 330,
-                    height: 480,
-                    left: left,
-                    top: top,
+                    width: 760,
+                    height: 600,
                     appicon: "SystemAO/file_system/img/share.svg",
                     title: "Share File"
                 });
@@ -6210,28 +6208,27 @@
 
 
             //Calculate the window spawn position
+            var shareWindowWidth = 760;
+            var shareWindowHeight = 600;
             var basePosition = $(selectedFileObjects).offset();
             var left = basePosition.left + 100;
-            if (left + 320 > window.innerWidth){
-                left = basePosition.left - 350;
+            if (left + shareWindowWidth > window.innerWidth){
+                left = Math.max(0, window.innerWidth - shareWindowWidth - 20);
             }
 
             var top = basePosition.top;
-            if (top + 480 > window.innerHeight){
-                top = window.innerHeight - 480;
+            if (top + shareWindowHeight > window.innerHeight){
+                top = Math.max(0, window.innerHeight - shareWindowHeight);
             }
 
             newFloatWindow({
                 url: targetURL,
-                width: 330,
-                height: 480,
+                width: shareWindowWidth,
+                height: shareWindowHeight,
                 left: left,
                 top: top,
                 appicon: "SystemAO/file_system/img/share.svg",
                 title: "Share File"
-            }, function(windowUUID){
-                //Set the window to fixed window
-                setFloatWindowResizePolicy(windowUUID, false);
             });
 
             hideAllContextMenus();
@@ -7184,6 +7181,12 @@
             } catch (e) { /* ignore push errors */ }
         }
 
+        function escapeNotificationText(text){
+            return String(text)
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
+
         function renderServerNotification(item){
             if (!item) return;
             if (item.id && arozNotificationSeenIds[item.id]) return;
@@ -7194,8 +7197,23 @@
             if (item.sender){
                 message = message + (message ? " " : "") + "(" + item.sender + ")";
             }
-            //Always add it to the persistent notification list.
-            sendNotification(title, message, arozNotificationIcon(item.priority), null);
+
+            //An optional payload carries the float window to open when the
+            //notification is clicked (e.g. the share link of a file shared
+            //with this user). sendNotification takes it double encoded.
+            var clickTarget = null;
+            if (item.payload){
+                try {
+                    var openOption = JSON.parse(item.payload);
+                    if (openOption && typeof openOption.url === "string"){
+                        clickTarget = JSON.stringify(JSON.stringify(openOption));
+                    }
+                } catch (e) { /* not a window option, ignore */ }
+            }
+
+            //Always add it to the persistent notification list. Server text is
+            //plain text (it can carry file names), so escape it for the list.
+            sendNotification(escapeNotificationText(title), escapeNotificationText(message), arozNotificationIcon(item.priority), clickTarget);
 
             //Surface it: the in-page toast is shown whether or not the desktop
             //is focused, so the notification is never silently swallowed; a

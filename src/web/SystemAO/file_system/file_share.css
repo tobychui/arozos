@@ -1,0 +1,1008 @@
+/*
+    file_share.css
+
+    Styles of the File Share dialog (file_share.html). Colours come from the
+    shared file system tokens in shared/fs-theme.css, so the dialog follows the
+    File Manager's light and dark themes (body.darkTheme).
+*/
+
+:root {
+    --sh-success: #1e8e3e;
+    --sh-success-soft: #e6f4ea;
+    --sh-danger: #d93025;
+    --sh-danger-soft: #fce8e6;
+    --sh-panel: #f7f9fc;
+    --sh-radius: 10px;
+}
+
+body.darkTheme {
+    --sh-success: #5bd17e;
+    --sh-success-soft: #173326;
+    --sh-danger: #ff7b72;
+    --sh-danger-soft: #3a1d1d;
+    --sh-panel: #1a1f27;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--fs-surface);
+    color: var(--fs-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft JhengHei", sans-serif;
+    font-size: 13px;
+    overflow: hidden;
+}
+
+i.icon {
+    margin: 0;
+}
+
+/* ---------- Layout ---------- */
+.shareApp {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.fileCard {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 22px 12px 22px;
+}
+
+.fileIcon {
+    flex: 0 0 auto;
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    background: var(--fs-fill);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.fileIcon .fsBigIcon,
+.fileIcon svg {
+    width: 42px;
+    height: 42px;
+}
+
+.fileIcon .fsBigIcon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.fileMeta {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.fileName {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.filePath,
+.fileStat {
+    font-size: 12px;
+    color: var(--fs-text-dim);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+    flex: 0 0 auto;
+    display: flex;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--fs-line);
+}
+
+.tab {
+    flex: 1 1 0;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 10px 6px;
+    color: var(--fs-text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    font-family: inherit;
+}
+
+.tab:hover {
+    color: var(--fs-text);
+}
+
+.tab.active {
+    color: var(--fs-accent);
+    border-bottom-color: var(--fs-accent);
+    font-weight: 600;
+}
+
+.tab:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.tabBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 22px;
+    scrollbar-width: thin;
+}
+
+.statePane {
+    height: 100%;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--fs-text-dim);
+    text-align: center;
+    font-size: 14px;
+}
+
+.statePane i.icon {
+    font-size: 22px;
+}
+
+/* ---------- Footer ---------- */
+.dialogFooter {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 22px 16px 22px;
+    border-top: 1px solid var(--fs-line-soft);
+}
+
+.footLeft {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.footRight {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.footPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 8px;
+    background: var(--sh-panel);
+    color: var(--fs-text-dim);
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+}
+
+.footPill:hover {
+    color: var(--fs-text);
+    background: var(--fs-fill);
+}
+
+.footTip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 8px;
+    background: var(--sh-panel);
+    color: var(--fs-text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 76px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn.primary {
+    background: var(--fs-accent);
+    color: var(--fs-primary-fg);
+}
+
+.btn.primary:hover {
+    background: var(--fs-primary-hover);
+}
+
+.btn.soft {
+    background: var(--fs-surface);
+    border-color: var(--fs-line);
+    color: var(--fs-text);
+}
+
+.btn.soft:hover {
+    background: var(--fs-fill);
+}
+
+.btn.danger {
+    background: var(--sh-danger);
+    color: #ffffff;
+}
+
+.btn.small {
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.btn.soft.small {
+    color: var(--fs-accent);
+    background: var(--fs-accent-soft);
+    border-color: transparent;
+}
+
+.iconBtn {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    color: var(--fs-icon);
+    cursor: pointer;
+}
+
+.iconBtn:hover {
+    background: var(--fs-fill-hover);
+    color: var(--fs-text);
+}
+
+/* ---------- Quick share panel ---------- */
+.panel {
+    background: var(--sh-panel);
+    border-radius: 12px;
+    padding: 4px 16px;
+}
+
+.panelRow,
+.settingRow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+}
+
+.settingRow {
+    padding: 4px 0 0 0;
+}
+
+.rowIcon {
+    flex: 0 0 auto;
+    width: 20px;
+    font-size: 17px !important;
+    color: var(--fs-icon);
+    text-align: center;
+}
+
+.rowText {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rowTitle {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.rowDesc {
+    font-size: 12px;
+    color: var(--fs-text-dim);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.linkRow {
+    display: flex;
+    gap: 10px;
+    padding: 0 0 14px 34px;
+}
+
+.linkField {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+}
+
+.linkField input {
+    width: 100%;
+    padding: 8px 38px 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--fs-line);
+    background: var(--fs-surface);
+    color: var(--fs-accent);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    text-overflow: ellipsis;
+}
+
+.linkField input::placeholder {
+    color: var(--fs-text-faint);
+}
+
+#advPasswordField input {
+    color: var(--fs-text);
+    letter-spacing: 1px;
+}
+
+.linkField input:focus {
+    border-color: var(--fs-selected-line);
+}
+
+.inlineBtn {
+    position: absolute;
+    right: 4px;
+    width: 30px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: var(--fs-icon);
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.inlineBtn:hover {
+    background: var(--fs-fill-hover);
+}
+
+.panelDivider,
+.advDivider {
+    height: 1px;
+    background: var(--fs-line);
+}
+
+/* ---------- Switch ---------- */
+.switch {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    margin-left: auto;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch span {
+    position: absolute;
+    inset: 0;
+    border-radius: 22px;
+    background: var(--fs-fill-active);
+    cursor: pointer;
+    transition: background 0.18s;
+}
+
+.switch span::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.18s;
+}
+
+.switch input:checked + span {
+    background: var(--fs-accent);
+}
+
+.switch input:checked + span::before {
+    transform: translateX(16px);
+}
+
+.switch input:disabled + span {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.switch input:focus-visible + span {
+    outline: 2px solid var(--fs-selected-line);
+    outline-offset: 2px;
+}
+
+/* ---------- Share list ---------- */
+.listHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.listTitle {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.shareList {
+    border: 1px solid var(--fs-line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.shareRow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.shareRow + .shareRow {
+    border-top: 1px solid var(--fs-line-soft);
+}
+
+.shareRow:hover {
+    background: var(--fs-row-hover);
+}
+
+.shareRow .rowIcon {
+    font-size: 18px !important;
+}
+
+.shareRow .rowDesc {
+    color: var(--fs-text-faint);
+    white-space: nowrap;
+}
+
+.statusPill {
+    flex: 0 0 auto;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--sh-success-soft);
+    color: var(--sh-success);
+}
+
+.statusPill.expired {
+    background: var(--sh-danger-soft);
+    color: var(--sh-danger);
+}
+
+.expiryText {
+    flex: 0 0 82px;
+    font-size: 12px;
+    color: var(--fs-text-dim);
+}
+
+.emptyRow {
+    padding: 18px 14px;
+    text-align: center;
+    color: var(--fs-text-faint);
+    font-size: 12px;
+}
+
+/* ---------- Advanced settings ---------- */
+.editContext {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--fs-text-dim);
+}
+
+.editContext .chip {
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: var(--fs-accent-soft);
+    color: var(--fs-accent-strong);
+    font-weight: 600;
+}
+
+.editContext a {
+    color: var(--fs-accent);
+    cursor: pointer;
+}
+
+.advGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--fs-line);
+    border-radius: 12px;
+}
+
+.advCol {
+    padding: 4px 18px;
+    min-width: 0;
+}
+
+.advCol + .advCol {
+    border-left: 1px solid var(--fs-line);
+}
+
+.advSection {
+    padding: 12px 0;
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.sectionTitle i.icon {
+    width: 18px;
+    font-size: 15px;
+    color: var(--fs-icon);
+}
+
+.sectionTitle.withSwitch {
+    margin-bottom: 10px;
+}
+
+.radioRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    padding-left: 28px;
+    cursor: pointer;
+}
+
+.radioRow input[type="radio"] {
+    margin: 0;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--fs-accent);
+}
+
+.radioLabel {
+    flex: 0 0 auto;
+    min-width: 86px;
+}
+
+.field {
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--fs-line);
+    background: var(--fs-surface);
+    color: var(--fs-text);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.field:focus {
+    border-color: var(--fs-selected-line);
+}
+
+.field:disabled {
+    opacity: 0.55;
+}
+
+.field.small {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+}
+
+.field.narrow {
+    flex: 0 0 110px;
+    width: 110px;
+}
+
+body.darkTheme .field {
+    color-scheme: dark;
+}
+
+.fieldWithUnit {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.unit {
+    color: var(--fs-text-dim);
+    font-size: 12px;
+}
+
+.fieldHint {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--fs-text-dim);
+}
+
+#advPasswordField {
+    padding-left: 28px;
+}
+
+.advSection > select.field,
+.advSection > .fieldHint {
+    margin-left: 28px;
+    width: calc(100% - 28px);
+}
+
+.advSection .settingRow {
+    padding-left: 28px;
+}
+
+/* ---------- Permission management ---------- */
+.peopleGrid {
+    display: grid;
+    grid-template-columns: 214px 1fr;
+    gap: 14px;
+    min-height: 100%;
+}
+
+.peopleNav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 14px;
+    border-right: 1px solid var(--fs-line);
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.navItem i.icon {
+    width: 18px;
+    font-size: 16px;
+    color: var(--fs-icon);
+}
+
+.navItem:hover {
+    background: var(--fs-row-hover);
+}
+
+.navItem .rowDesc {
+    white-space: nowrap;
+}
+
+.navItem.active {
+    background: var(--fs-accent-soft);
+}
+
+.navItem.active .rowTitle,
+.navItem.active i.icon {
+    color: var(--fs-accent);
+}
+
+.peoplePanel {
+    min-width: 0;
+}
+
+.peopleSection + .peopleSection {
+    margin-top: 18px;
+}
+
+.peopleTable {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.peopleHead,
+.peopleRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 104px 82px 30px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+}
+
+.peopleHead {
+    background: var(--sh-panel);
+    color: var(--fs-text-dim);
+    font-size: 11px;
+    border-radius: 8px;
+}
+
+.peopleRow + .peopleRow {
+    border-top: 1px solid var(--fs-line-soft);
+}
+
+.personCell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.avatar {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.avatar.group {
+    border-radius: 8px;
+}
+
+.peopleRow .field {
+    padding: 5px 8px;
+}
+
+.peopleRow .expiryText {
+    cursor: pointer;
+}
+
+.peopleRow .expiryText:hover {
+    color: var(--fs-accent);
+}
+
+.inviteRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--sh-panel);
+}
+
+.shareList.compact .shareRow {
+    padding: 10px 12px;
+}
+
+/* ---------- Menu, overlays, toast ---------- */
+.popMenu {
+    position: fixed;
+    z-index: 50;
+    min-width: 170px;
+    padding: 6px;
+    border-radius: 10px;
+    background: var(--fs-surface);
+    border: 1px solid var(--fs-line);
+    box-shadow: 0 8px 24px var(--fs-shadow);
+}
+
+.popMenu .menuItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--fs-text);
+}
+
+.popMenu .menuItem i.icon {
+    width: 16px;
+    color: var(--fs-icon);
+}
+
+.popMenu .menuItem:hover {
+    background: var(--fs-fill-hover);
+}
+
+.popMenu .menuItem.danger,
+.popMenu .menuItem.danger i.icon {
+    color: var(--sh-danger);
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--fs-overlay);
+}
+
+.overlayCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100% - 40px);
+    padding: 20px 22px;
+    border-radius: 14px;
+    background: var(--fs-surface);
+    border: 1px solid var(--fs-line);
+    box-shadow: 0 8px 28px var(--fs-shadow);
+}
+
+#qrCode {
+    padding: 10px;
+    background: #ffffff;
+    border-radius: 8px;
+}
+
+#qrCode img,
+#qrCode canvas {
+    width: 180px;
+    height: 180px;
+}
+
+.qrLink {
+    max-width: 260px;
+    font-size: 11px;
+    color: var(--fs-text-dim);
+    word-break: break-all;
+    text-align: center;
+}
+
+.confirmText {
+    max-width: 320px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.confirmButtons {
+    display: flex;
+    gap: 10px;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 76px;
+    z-index: 70;
+    transform: translate(-50%, 12px);
+    padding: 9px 16px;
+    border-radius: 8px;
+    background: var(--fs-toast-bg);
+    color: var(--fs-toast-fg);
+    font-size: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: calc(100% - 40px);
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.toast.error {
+    background: var(--fs-toast-error-bg);
+    color: var(--fs-toast-error-fg);
+}
+
+/* ---------- Narrow windows ---------- */
+@media (max-width: 620px) {
+    .fileCard,
+    .tabs,
+    .tabBody,
+    .dialogFooter {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .advGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .advCol + .advCol {
+        border-left: none;
+        border-top: 1px solid var(--fs-line);
+    }
+
+    .peopleGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .peopleNav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-right: 0;
+        padding-bottom: 8px;
+        border-right: none;
+        border-bottom: 1px solid var(--fs-line);
+    }
+
+    .navItem {
+        flex: 0 0 auto;
+    }
+
+    .navItem .rowDesc {
+        display: none;
+    }
+
+    .linkRow {
+        padding-left: 0;
+        flex-wrap: wrap;
+    }
+
+    .linkRow .btn {
+        width: 100%;
+    }
+
+    .expiryText {
+        display: none;
+    }
+
+    .peopleHead,
+    .peopleRow {
+        grid-template-columns: minmax(0, 1fr) 96px 30px;
+    }
+
+    .peopleHead .expiryText,
+    .peopleRow .expiryText {
+        display: none;
+    }
+}

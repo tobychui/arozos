@@ -3,7 +3,6 @@ package shareEntry
 import (
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	db "imuslab.com/arozos/mod/database"
@@ -29,8 +28,9 @@ func newTestTable(t *testing.T) *ShareEntryTable {
 // insertShareOption injects a ShareOption directly into the maps (bypassing
 // filesystem checks) so we can test lookup/deletion logic in isolation.
 func insertShareOption(table *ShareEntryTable, opt *ShareOption) {
-	table.FileToUrlMap.Store(opt.PathHash, opt)
-	table.UrlToFileMap.Store(opt.UUID, opt)
+	table.mu.Lock()
+	table.index(opt)
+	table.mu.Unlock()
 }
 
 func makeShareOption(uuid, pathHash, owner string) *ShareOption {
@@ -53,8 +53,8 @@ func TestNewShareEntryTable(t *testing.T) {
 	if table == nil {
 		t.Fatal("NewShareEntryTable returned nil")
 	}
-	if table.FileToUrlMap == nil || table.UrlToFileMap == nil {
-		t.Error("sync.Maps should be initialised")
+	if table.byUUID == nil || table.byPath == nil {
+		t.Error("share indexes should be initialised")
 	}
 	if table.Database == nil {
 		t.Error("Database reference should not be nil")
@@ -195,7 +195,7 @@ func TestRemoveShareByUUID(t *testing.T) {
 		t.Fatalf("RemoveShareByUUID error: %v", err)
 	}
 	if table.GetShareObjectFromUUID("uuid-rm") != nil {
-		t.Error("entry should be removed from UrlToFileMap")
+		t.Error("entry should be removed from the uuid index")
 	}
 }
 
@@ -345,7 +345,7 @@ func TestNewShareEntryTable_LoadsExistingEntries(t *testing.T) {
 
 	got := table.GetShareObjectFromUUID("uuid-preload")
 	if got == nil {
-		t.Fatal("expected preloaded entry to be present in UrlToFileMap")
+		t.Fatal("expected preloaded entry to be present in the uuid index")
 	}
 	if got.PathHash != "hash-preload" {
 		t.Errorf("expected PathHash 'hash-preload', got %q", got.PathHash)
@@ -500,6 +500,3 @@ func TestCreateNewShare_FileNotFound(t *testing.T) {
 		t.Error("expected error for non-existent file, got nil")
 	}
 }
-
-// Compile-time check that sync is imported
-var _ sync.Map

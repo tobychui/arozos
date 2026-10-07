@@ -258,14 +258,12 @@ func FileSystemInit() {
 		UserHandler:     userHandler,
 		HostName:        *host_name,
 		TmpFolder:       *tmp_directory,
+		//Resolved per call, so it works although notificationInit runs later
+		NotificationSender: sendUserNotification,
 	})
 
-	//Share related functions
-	router.HandleFunc("/system/file_system/share/new", shareManager.HandleCreateNewShare)
-	router.HandleFunc("/system/file_system/share/delete", shareManager.HandleDeleteShare)
-	router.HandleFunc("/system/file_system/share/edit", shareManager.HandleEditShare)
-	router.HandleFunc("/system/file_system/share/checkShared", shareManager.HandleShareCheck)
-	router.HandleFunc("/system/file_system/share/list", shareManager.HandleListAllShares)
+	//Share management API (/system/file_system/share/*), behind the File Manager permission
+	shareManager.RegisterAPIEndpoints(router)
 
 	//Handle the main share function
 	//Share function is now routed by the main router
@@ -297,7 +295,7 @@ func FileSystemInit() {
 	//Clear tmp folder if files is placed here too long
 	nightlyManager.RegisterNightlyTask(system_fs_clearOldTmpFiles)
 
-	//Clear shares that its parent file no longer exists in the system
+	//Clear shares that have expired or whose parent file no longer exists in the system
 	shareManager.ValidateAndClearShares()
 	nightlyManager.RegisterNightlyTask(shareManager.ValidateAndClearShares)
 

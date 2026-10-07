@@ -406,6 +406,7 @@
       <div class="card-footer">
         <span class="card-footer-item">ID: <strong>{{reqid}}</strong></span>
         <span class="card-footer-item">Timestamp: <strong>{{reqtime}}</strong></span>
+        <span class="card-footer-item" id="expiryNote" style="display:none;">Available until: <strong id="expiryDate"></strong></span>
       </div>
     </div>
   </main>
@@ -415,6 +416,9 @@
   </footer>
 
   <script>
+    // Share options set by the owner (download allowed, expiry ...)
+    var SHARE_SETTINGS = {{sharesettings}};
+
     var ICONS = {
       moon: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>',
       sun: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"></line><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"></line><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"></line></svg>',
@@ -470,6 +474,18 @@
                mime.includes("gzip") || mime.includes("7z"))   icon = ICONS.archive;
       else if (mime.includes("text/") || ext.includes(".txt")) icon = ICONS.text;
       document.getElementById("fileIcon").innerHTML = icon;
+    })();
+
+    // Apply the owner's share options
+    (function() {
+      if (!SHARE_SETTINGS.allowDownload) {
+        var dl = document.getElementById('downloadBtn');
+        if (dl) dl.remove();
+      }
+      if (SHARE_SETTINGS.expireAt > 0) {
+        document.getElementById('expiryDate').textContent = new Date(SHARE_SETTINGS.expireAt * 1000).toLocaleString();
+        document.getElementById('expiryNote').style.display = '';
+      }
     })();
 
     // Show preview section only if previewer has content

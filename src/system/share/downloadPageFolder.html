@@ -285,6 +285,24 @@
       line-height: 1.5;
     }
 
+    .layout.single { grid-template-columns: minmax(0, 420px); justify-content: center; }
+
+    .upload-status {
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding: 0 26px 18px;
+      line-height: 1.5;
+      display: none;
+    }
+    .upload-status.error { color: #d64545; }
+    .upload-bar-wrap {
+      height: 4px; border-radius: 4px; background: var(--border);
+      overflow: hidden; margin-top: 6px;
+    }
+    .upload-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.2s; }
+
+    .browser-card.drop-target { outline: 2px dashed var(--accent); outline-offset: -6px; }
+
     .info-footer {
       padding: 12px 26px;
       background: var(--surface2);
@@ -766,6 +784,11 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span>Download All</span>
           </button>
+          <button class="btn btn-secondary" id="uploadBtn" style="display:none;" onclick="document.getElementById('uploadInput').click()">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span>Upload Files</span>
+          </button>
+          <input type="file" id="uploadInput" multiple style="display:none;" onchange="uploadFiles(this.files); this.value='';">
           <button class="btn btn-secondary" id="sharebtn" onclick="doShare()">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             <span>Share Link</span>
@@ -781,9 +804,15 @@
           Media files (video, audio, images) are already compressed, so this option can speed up zipping.
         </div>
 
+        <div class="upload-status" id="uploadStatus">
+          <span id="uploadStatusText"></span>
+          <div class="upload-bar-wrap"><div class="upload-bar" id="uploadBar"></div></div>
+        </div>
+
         <div class="info-footer">
           <span class="info-footer-item">ID: <strong>{{reqid}}</strong></span>
           <span class="info-footer-item">Timestamp: <strong>{{reqtime}}</strong></span>
+          <span class="info-footer-item" id="expiryNote" style="display:none;">Available until: <strong id="expiryDate"></strong></span>
         </div>
       </div>
 
@@ -991,6 +1020,8 @@
 
     var treeFileList = {{treelist}};
     var downloadUUID = '{{downloaduuid}}';
+    // Share options set by the owner (download allowed, folder content shown, upload ...)
+    var SHARE_SETTINGS = {{sharesettings}};
     var currentPath = '.';
     var pathStack = [];
 
@@ -1007,10 +1038,12 @@
       return IMAGE_EXTS.has(ext) || VIDEO_PREVIEW_EXTS.has(ext) || AUDIO_PREVIEW_EXTS.has(ext) || ext === 'pdf' || TEXT_PREVIEW_EXTS.has(ext);
     }
 
-    function openPreview(filename, url, ext) {
+    function openPreview(filename, url, ext, downloadUrl) {
       document.getElementById('preview-title').textContent = filename;
       url = url.replace("//", "/"); // Workaround for url containing double slash
-      document.getElementById('preview-dl-link').href = url;
+      var dlLink = document.getElementById('preview-dl-link');
+      dlLink.style.display = SHARE_SETTINGS.allowDownload ? '' : 'none';
+      dlLink.href = (downloadUrl || url).replace("//", "/");
       var body = document.getElementById('preview-body');
       body.innerHTML = '';
       body.removeAttribute('style');
@@ -1056,12 +1089,12 @@
       document.body.style.overflow = 'hidden';
     }
 
-    function previewOrDownload(file, url) {
+    function previewOrDownload(file, viewUrl, downloadUrl) {
       var ext = file.Filename.split('.').pop().toLowerCase();
       if (isPreviewable(ext)) {
-        openPreview(file.Filename, url, ext);
-      } else {
-        window.open(url, '_blank');
+        openPreview(file.Filename, viewUrl, ext, downloadUrl);
+      } else if (SHARE_SETTINGS.allowDownload) {
+        window.open(downloadUrl, '_blank');
       }
     }
 
@@ -1128,8 +1161,9 @@
 
         var icon = iconSvg(file.Filename, file.IsDir);
         var dlUrl = '../../share/download/' + downloadUUID + '/' + file.RelPath;
+        var viewUrl = '../../share/preview/' + downloadUUID + '/' + file.RelPath;
         var nameCell = '<div class="file-name">' + icon + '<span class="file-name-text">' + escHtml(file.Filename) + '</span></div>';
-        var dlCell = file.IsDir
+        var dlCell = (file.IsDir || !SHARE_SETTINGS.allowDownload)
           ? '<div></div>'
           : '<a class="dl-btn" href="' + dlUrl + '" target="_blank" onclick="event.stopPropagation()" title="Download ' + escHtml(file.Filename) + '">' + ICONS.download + '</a>';
 
@@ -1146,7 +1180,7 @@
           if (!file.IsDir) {
             clearTimeout(singleClickTimer);
             singleClickTimer = setTimeout(function() {
-              previewOrDownload(file, dlUrl);
+              previewOrDownload(file, viewUrl, dlUrl);
             }, 220);
           }
         });
@@ -1156,13 +1190,15 @@
           clearTimeout(singleClickTimer);
           if (file.IsDir) {
             navigateTo(file.RelPath);
-          } else {
+          } else if (SHARE_SETTINGS.allowDownload) {
             window.open(dlUrl, '_blank');
+          } else {
+            previewOrDownload(file, viewUrl, dlUrl);
           }
         });
 
         if (IMAGE_EXTS.has(file.Filename.split('.').pop().toLowerCase())) {
-          var thumbUrl = '../../share/download/' + downloadUUID + '/' + file.RelPath;
+          var thumbUrl = viewUrl;
           row.addEventListener('mouseenter', function(e) {
             document.getElementById('thumb-img').src = thumbUrl;
             var popup = document.getElementById('thumb-popup');
@@ -1259,8 +1295,9 @@
         });
       });
 
-      if (totalSize > 0 && compressedSize / totalSize >= 0.5) {
-        document.getElementById('uncompressedCheck').checked = true;
+      var check = document.getElementById('uncompressedCheck');
+      if (check && totalSize > 0 && compressedSize / totalSize >= 0.5) {
+        check.checked = true;
       }
     })();
 
@@ -1270,6 +1307,104 @@
       if (!m) return 0;
       var units = { B:1, KB:1024, MB:1048576, GB:1073741824, TB:1099511627776 };
       return parseFloat(m[1]) * (units[m[2]] || 1);
+    }
+
+    // Apply the owner's share options
+    (function applyShareSettings() {
+      if (!SHARE_SETTINGS.allowDownload) {
+        ['downloadAllBtn'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.remove();
+        });
+        document.querySelectorAll('.compress-row, .compress-hint').forEach(function(el) { el.remove(); });
+      }
+      if (!SHARE_SETTINGS.showFileList) {
+        document.querySelector('.browser-card').style.display = 'none';
+        document.querySelector('.layout').classList.add('single');
+      }
+      if (SHARE_SETTINGS.canUpload) {
+        document.getElementById('uploadBtn').style.display = '';
+        enableDropUpload();
+      }
+      if (SHARE_SETTINGS.expireAt > 0) {
+        document.getElementById('expiryDate').textContent = new Date(SHARE_SETTINGS.expireAt * 1000).toLocaleString();
+        document.getElementById('expiryNote').style.display = '';
+      }
+    })();
+
+    // --- Upload (shares with edit access) ---
+    function currentUploadUrl() {
+      var url = '../../share/upload/' + encodeURIComponent(downloadUUID);
+      if (SHARE_SETTINGS.showFileList && currentPath !== '.') {
+        currentPath.split('/').forEach(function(seg) {
+          if (seg) url += '/' + encodeURIComponent(seg);
+        });
+      }
+      return url;
+    }
+
+    function setUploadStatus(text, progress, isError) {
+      var box = document.getElementById('uploadStatus');
+      box.style.display = 'block';
+      box.classList.toggle('error', !!isError);
+      document.getElementById('uploadStatusText').textContent = text;
+      document.getElementById('uploadBar').style.width = (progress || 0) + '%';
+    }
+
+    function uploadFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+      var form = new FormData();
+      for (var i = 0; i < fileList.length; i++) {
+        form.append('file', fileList[i], fileList[i].name);
+      }
+
+      var btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      setUploadStatus('Uploading ' + fileList.length + ' file(s)...', 0, false);
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', currentUploadUrl());
+      xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+          setUploadStatus('Uploading ' + fileList.length + ' file(s)... ' + Math.round(e.loaded / e.total * 100) + '%', e.loaded / e.total * 100, false);
+        }
+      };
+      xhr.onload = function() {
+        btn.disabled = false;
+        var resp = null;
+        try { resp = JSON.parse(xhr.responseText); } catch (e) {}
+        if (xhr.status >= 200 && xhr.status < 300 && resp && !resp.error) {
+          setUploadStatus('Uploaded ' + resp.length + ' file(s). Refreshing...', 100, false);
+          setTimeout(function() { window.location.reload(); }, 700);
+        } else {
+          setUploadStatus((resp && resp.error) ? resp.error : ('Upload failed (HTTP ' + xhr.status + ')'), 0, true);
+        }
+      };
+      xhr.onerror = function() {
+        btn.disabled = false;
+        setUploadStatus('Network error, please try again.', 0, true);
+      };
+      xhr.send(form);
+    }
+
+    function enableDropUpload() {
+      var target = document.querySelector('.browser-card');
+      if (!target || !SHARE_SETTINGS.showFileList) return;
+      ['dragenter', 'dragover'].forEach(function(evt) {
+        target.addEventListener(evt, function(e) {
+          if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) {
+            e.preventDefault();
+            target.classList.add('drop-target');
+          }
+        });
+      });
+      ['dragleave', 'drop'].forEach(function(evt) {
+        target.addEventListener(evt, function() { target.classList.remove('drop-target'); });
+      });
+      target.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+      });
     }
 
     updateBreadcrumb('.');
