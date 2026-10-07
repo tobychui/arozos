@@ -482,8 +482,8 @@ body.doc-show-boxes #editor > .col-span-all::after {
 /* ============ Find panel ============ */
 .of-find-panel {
     position: fixed;
-    top: 92px;
-    right: 26px;
+    top: 92px;   /* placeFindPanel() moves it to the ribbon's bottom edge */
+    right: 4px;
     z-index: 1000;
     background: var(--of-chrome-bg);
     border: 1px solid var(--of-border);
@@ -697,8 +697,8 @@ body.dark #editor span.doc-cmt { background: rgba(255, 213, 79, 0.22); }
 
 #docCmtPanel {
     position: fixed;
-    top: 92px;
-    right: 12px;
+    top: 92px;   /* placeFindPanel() moves it to the ribbon's bottom edge */
+    right: 4px;
     bottom: 40px;
     width: 270px;
     z-index: 850;

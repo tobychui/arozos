@@ -2044,8 +2044,18 @@
     }
 
     /* ================= find and replace ================= */
+    // the panel hangs from the bottom edge of the ribbon, whose height
+    // changes as it is collapsed, expanded or wraps
+    function placeFindPanel() {
+        var bar = document.getElementById("toolbar");
+        if (!bar) return;
+        document.getElementById("findPanel").style.top = Math.round(bar.getBoundingClientRect().bottom) + 4 + "px";
+    }
+    if (window.ResizeObserver) new ResizeObserver(placeFindPanel).observe(document.getElementById("toolbar"));
+    window.addEventListener("resize", placeFindPanel);
     function openFind(withReplace) {
         $("#findPanel").show();
+        placeFindPanel();
         if (withReplace) $("#replaceRow").show();
         var selTxt = savedRange ? savedRange.toString() : "";
         if (selTxt && selTxt.length <= 80 && selTxt.indexOf("\n") < 0) {
@@ -2460,6 +2470,33 @@
         fnMeasureEl.innerHTML = "";
         return h;
     }
+    // a note with nothing typed in it but its number
+    function footnoteIsEmpty(fn) {
+        var clone = fn.cloneNode(true);
+        var marks = clone.querySelectorAll(".doc-fnnum");
+        for (var m = 0; m < marks.length; m++) marks[m].parentNode.removeChild(marks[m]);
+        return !clone.textContent.replace(/[\s​]/g, "") &&
+            !clone.querySelector("img,svg,table,hr,video,iframe");
+    }
+    // Backspace in an empty note deletes it: its references leave the
+    // text and the caret goes back to where the first one was
+    function removeFootnote(id) {
+        var refs = editor.querySelectorAll('sup.doc-fnref[data-fn="' + id + '"]');
+        if (!refs.length) return;
+        var range = document.createRange();
+        range.setStartBefore(refs[0]);
+        range.collapse(true);
+        for (var i = 0; i < refs.length; i++) refs[i].parentNode.removeChild(refs[i]);
+        delete footnotes[id];
+        editor.focus();
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        savedRange = range.cloneRange();
+        afterEdit(true);
+        clearTimeout(countTimer);
+        updateCounts();
+    }
     function renderFootnoteAreas(pages, geo) {
         var old = pageEl.querySelectorAll(".doc-fn-area");
         for (var i = 0; i < old.length; i++) {
@@ -2480,6 +2517,12 @@
                     footnotes[fn.getAttribute("data-fn")] = clone.innerHTML;
                     OfficeApp.markDirty();
                     undo.pushDebounced(snapshot, 600);
+                });
+                fn.addEventListener("keydown", function (e) {
+                    if (e.key !== "Backspace" || e.ctrlKey || e.metaKey || e.altKey) return;
+                    if (!footnoteIsEmpty(fn)) return;
+                    e.preventDefault();
+                    removeFootnote(fn.getAttribute("data-fn"));
                 });
             });
             pageEl.appendChild(area);
